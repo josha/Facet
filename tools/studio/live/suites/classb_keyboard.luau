@@ -318,10 +318,11 @@ add("slider-selection-ring-on-track", { "apps-166" }, function(t)
 	if not (track and thumb) then
 		return
 	end
-	t.check("the track is the selection stop", track.Selectable == true)
+	local slider = t.find(stage, "Vol")
+	t.check("the slider is the selection stop", slider.Selectable == true)
 	local extra = {}
-	for _, node in t.find(stage, "Vol"):GetDescendants() do
-		if node:IsA("GuiObject") and node.Selectable and node ~= track then
+	for _, node in slider:GetDescendants() do
+		if node:IsA("GuiObject") and node.Selectable then
 			table.insert(extra, node.Name)
 		end
 	end
@@ -341,9 +342,9 @@ add("slider-selection-ring-on-track", { "apps-166" }, function(t)
 	)
 	GuiService.SelectedObject = before
 	t.settle(2)
-	GuiService.SelectedObject = track
+	GuiService.SelectedObject = slider
 	t.settle(4)
-	t.check("the selection lands on the track", GuiService.SelectedObject == track, selectedName())
+	t.check("the selection lands on the slider", GuiService.SelectedObject == slider, selectedName())
 	local tr, th = t.rect(track), t.rect(thumb)
 	t.check(
 		"the ring around the track encloses the thumb vertically",
@@ -351,10 +352,10 @@ add("slider-selection-ring-on-track", { "apps-166" }, function(t)
 		{ thumb = { th.y, th.b }, track = { tr.y, tr.b } }
 	)
 	t.check("the track is a full 44 px target", track.AbsoluteSize.Y >= 43.5, track.AbsoluteSize)
-	t.check("the thumb is visible while the track holds the selection", t.visible(thumb))
+	t.check("the thumb is visible while the slider holds the selection", t.visible(thumb))
 	GuiService.SelectedObject = before
 	t.settle(2)
-	t.check("the selection leaves the track", GuiService.SelectedObject == before, selectedName())
+	t.check("the selection leaves the slider", GuiService.SelectedObject == before, selectedName())
 	GuiService.SelectedObject = nil
 end)
 

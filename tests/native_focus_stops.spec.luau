@@ -107,4 +107,38 @@ t.describe("focus ring part", function()
 	end)
 end)
 
+t.describe("the Slider is one stop", function()
+	for _, variant in
+		{
+			{ label = "Boost" },
+			{ label = "Boost", thumb = "auto" },
+			{ row = { title = "Boost" } },
+			{ axis = "y", label = "Rear" },
+		}
+	do
+		t.it(
+			`one stop for {variant.axis or "horizontal"} {if variant.row then "row" else variant.thumb or "always"}`,
+			function()
+				local value = Compose.cell(30)
+				local spec: { [string]: any } = { value = value, min = 0, max = 100, step = 5 }
+				for key, field in variant do
+					spec[key] = field
+				end
+				local w = setup(function(UI, Host)
+					return Host.Frame({ UI.Slider("S")(spec) })
+				end)
+				local slider = w.find("S")
+				t.expect(slider.Selectable).toBe(true)
+				t.expect(selectableInside(slider)).toEqual({})
+				local part = slider:GetAttribute("FacetFocusPart")
+				t.expect(type(part)).toBe("string")
+				w.gui.SelectedObject = slider
+				w.press(if variant.axis == "y" then "DPadUp" else "DPadRight")
+				t.expect(value:peek()).toBe(35)
+				w.stop()
+			end
+		)
+	end
+end)
+
 return nil

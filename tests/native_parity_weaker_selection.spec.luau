@@ -243,7 +243,7 @@ t.describe("native parity weaker selection", function()
 			activate.Pressed.fire()
 		end
 		t.expect(activated).toBe(0)
-		local panel, track = find(world.screen, "Panel"), find(find(world.screen, "Volume"), "ThumbStop")
+		local panel, track = find(world.screen, "Panel"), find(world.screen, "Volume")
 		panel.Interactable = true
 		select(world, track)
 		press(world, "DPadRight")

@@ -1499,10 +1499,12 @@ Button and Toggle rows.
 Slider also supports `onCommit(value)`, `tapToPosition` (default true),
 `thumbImage`, `trackImage` and `row`. Dragging uses native drag detection.
 Keyboard and gamepad adjustment use the input actions of the control.
-The thumb is the selection stop: a 44 by 44 `ThumbStop` frame around the
-painted `Thumb`, so the engine focus look lands on the thumb and follows it.
-With `thumb = "auto"`, `thumb = "none"` or a `thumbContent` knob, the track is
-the stop. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds
+The whole Slider (its label, track and value) is one selection stop, so the
+engine measures moves from the whole control. Its track and thumb are not
+selectable. The focus look is drawn on the 44 by 44 `ThumbStop` frame around
+the painted `Thumb` through `FacetFocusPart`, and follows it. With
+`thumb = "auto"`, `thumb = "none"` or a `thumbContent` knob, the look is drawn
+on the track. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds
 (a Stepper's `repeatDelay` and `repeatInterval` set both its held arrow keys
 and its held step buttons, with one repeat policy). The
 repeat stops when the engine gives the held input to a higher-priority input
@@ -3673,9 +3675,9 @@ app that observes the selection, with or without `focusRing`; it reads
 `UserInputService:GetLastInputType()`, so a mouse or touch selection does not
 scroll.
 
-A control whose value has its own part makes that part the selected object,
-so the engine draws the look there: the Slider thumb and each range handle,
-each segment of a segmented Picker. A game control that needs its own look
+A value control is one stop; its look is drawn on its value part through
+`FacetFocusPart` (a Slider's thumb or track, a range Slider's adjusted
+handle). Each segment of a segmented Picker is its own selected object. A game control that needs its own look
 sets `SelectionImageObject` on that control; the engine then draws that
 object for it.
 

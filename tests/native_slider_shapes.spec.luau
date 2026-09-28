@@ -168,7 +168,7 @@ t.describe("native Slider axis", function()
 
 	t.it("Up and Down adjust a vertical track and Left and Right do not", function()
 		local w = world({ axis = "y", step = 10 })
-		w.gui.SelectedObject = find(w.track, "ThumbStop")
+		w.gui.SelectedObject = w.node
 		expect(bindings(w, "IncreaseArrow")).toBe("DPadUp Up")
 		expect(bindings(w, "DecreaseArrow")).toBe("DPadDown Down")
 		press(w, "IncreaseArrow")
@@ -177,7 +177,7 @@ t.describe("native Slider axis", function()
 		expect(w.value:peek()).toBe(50)
 		w.stop()
 		local x = world({ step = 10 })
-		x.gui.SelectedObject = find(x.track, "ThumbStop")
+		x.gui.SelectedObject = x.node
 		expect(bindings(x, "IncreaseArrow")).toBe("DPadRight Right")
 		x.stop()
 	end)
@@ -186,7 +186,7 @@ t.describe("native Slider axis", function()
 		for _, key in { "Up", "DPadUp" } do
 			local w = world({ axis = "y", step = 10 })
 			w.held[key] = true
-			w.gui.SelectedObject = find(w.track, "ThumbStop")
+			w.gui.SelectedObject = w.node
 			local increase = action(w, "IncreaseArrow")
 			increase.Pressed.fire()
 			expect(`{key} landed {w.value:peek()}`).toBe(`{key} landed 50`)
@@ -198,7 +198,7 @@ t.describe("native Slider axis", function()
 			w.stop()
 		end
 		local tabbed = world({ axis = "y", step = 10 })
-		tabbed.gui.SelectedObject = find(tabbed.track, "ThumbStop")
+		tabbed.gui.SelectedObject = tabbed.node
 		press(tabbed, "IncreaseArrow")
 		expect(tabbed.value:peek()).toBe(60)
 		tabbed.stop()
@@ -447,7 +447,7 @@ t.describe("native Slider thumb modes and custom art", function()
 		expect(find(w.node, "Value").Text).toBe("50")
 		drag(w, w.track, v(w, 200, 22))
 		expect(w.value:peek()).toBe(100)
-		w.gui.SelectedObject = w.track
+		w.gui.SelectedObject = w.node
 		press(w, "Decrease")
 		press(w, "DecreaseArrow")
 		expect(w.value:peek()).toBe(80)
@@ -458,7 +458,7 @@ t.describe("native Slider thumb modes and custom art", function()
 		local w = world({ thumb = "auto" })
 		local thumb = find(w.track, "Thumb")
 		expect(thumb.Visible).toBe(false)
-		w.gui.SelectedObject = w.track
+		w.gui.SelectedObject = w.node
 		expect(thumb.Visible).toBe(true)
 		w.gui.SelectedObject = nil
 		expect(thumb.Visible).toBe(false)

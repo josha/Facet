@@ -343,7 +343,7 @@ t.describe("native selection parity with the main focus graph", function()
 				UI.Button("Next")({ label = "Next" }),
 			})
 		end)
-		local track = find(find(world.screen, "Volume"), "ThumbStop")
+		local track = find(world.screen, "Volume")
 		world.gui.SelectedObject = track
 		t.expect(track.NextSelectionRight).toBe(track)
 		t.expect(track.NextSelectionLeft).toBe(track)
