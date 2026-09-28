@@ -505,9 +505,10 @@ return function(
 					end
 				end)
 				local frozenCenter = Compose.cell(centerTarget:peek())
+				local centerSpring = ctx.motionSpring("quick")
 				local movingCenter = runtime.spring(function(use: ComposeTypes.Use)
 					return use(centerTarget)
-				end, { period = 0.18, damping = 1 })
+				end, { period = centerSpring.period, damping = centerSpring.damping })
 				local following = Compose.cell(false)
 				local center = Compose.formula(function(use: ComposeTypes.Use)
 					if use(interacting) and follow ~= "always" then
@@ -724,19 +725,22 @@ return function(
 					end
 					return nil
 				end
-				local entry = runtime.timeline({ duration = 0.2 })
+				local entry = runtime.timeline({ duration = ctx.metric("motion.radial.enter") })
 				Compose.watch(function(use: ComposeTypes.Use)
 					use(centerTarget)
 					if entry.completed:peek() then
 						following:set(true)
 					end
 				end)
+				local spreadFrom = ctx.metric("motion.materialize.radialSpread")
 				local function spread(use: ComposeTypes.Use): number
-					return if reduced(use) then 1 else 0.2 + 0.8 * Compose.easing.outCubic(use(entry.progress))
+					return if reduced(use)
+						then 1
+						else spreadFrom + (1 - spreadFrom) * ctx.motionEase("present", use)(use(entry.progress))
 				end
 				local fading = runtime.tween(function(use: ComposeTypes.Use)
 					return if phase and use(phase.exiting) then 1 else 0
-				end, { seconds = 0.12 })
+				end, { seconds = ctx.metric("motion.radial.exit") })
 				local function transparency(use: ComposeTypes.Use): number
 					if reduced(use) then
 						return 0
@@ -876,10 +880,10 @@ return function(
 									local entered = Compose.cell(false)
 									local opacity = runtime.tween(function(use: ComposeTypes.Use)
 										return if use(entered) and not use(branchPhase.exiting) then 1 else 0
-									end, { seconds = 0.12 })
+									end, { seconds = ctx.metric("motion.radial.exit") })
 									local arrival = runtime.tween(function(use: ComposeTypes.Use)
 										return if use(entered) then 1 else 0
-									end, { seconds = 0.16 })
+									end, { seconds = ctx.metric("motion.radial.slot") })
 									local sector = assert(currentSector())
 									local from = branchOrigin
 									local branch = if from and from.path == table.concat(sector.path, "/")
@@ -891,7 +895,7 @@ return function(
 										shape: Radial.SectorShape
 									): Radial.SectorShape
 										local parent = assert(branch)
-										local p = Compose.easing.outCubic(use(arrival))
+										local p = ctx.motionEase("present", use)(use(arrival))
 										local start = ctx.metric("motion.unfoldStart", use)
 										local factor = start + (1 - start) * p
 										local middle = (parent.inner + parent.outer) / 2
@@ -920,7 +924,7 @@ return function(
 											local shown = unfold(use, live)
 											return shown.x - live.x, shown.y - live.y
 										end
-										local amount = 0.3 * (1 - use(arrival))
+										local amount = ctx.metric("motion.materialize.branch", use) * (1 - use(arrival))
 										return -live.x * amount, -live.y * amount
 									end
 									local function chosen(use: ComposeTypes.Use): boolean
@@ -1187,7 +1191,7 @@ return function(
 									exit = function(): ComposeTypes.Exiting
 										return if reduced()
 											then { completed = Compose.cell(true) }
-											else runtime.timeline({ duration = 0.12 })
+											else runtime.timeline({ duration = ctx.metric("motion.radial.exit") })
 									end,
 								}),
 							})
@@ -1803,7 +1807,7 @@ return function(
 						if reduced() or spec.transition == false then
 							return { completed = Compose.cell(true) }
 						end
-						return runtime.timeline({ duration = 0.12 })
+						return runtime.timeline({ duration = ctx.metric("motion.radial.exit") })
 					end,
 				},
 			}),

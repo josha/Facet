@@ -47,8 +47,6 @@ local SEVERITIES: { [string]: string } = freeze({
 	error = "status.error",
 })
 
-local REVEAL: { enter: number, exit: number } = freeze({ enter = 0.25, exit = 0.2 })
-
 local ICON_TAGS: { [string]: string } = freeze({
 	info = "facet-icon-info",
 	success = "facet-icon-success",
@@ -110,15 +108,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local actions: { Overlay.Action } = spec.actions or {}
 		parts.checkActions(ctx, where, spec.actions, 2, { "Link", "Close" })
 		local reduce = reducedMotion(ctx)
+		local reveal = ctx.motionTiming("reveal")
 		local present = Compose.cell(false)
 		local leaving = Compose.cell(false)
 		local travel = runtime.tween(function(use: ComposeTypes.Use): number
 			return if use(present) then 1 else 0
 		end, {
 			seconds = function(_: ComposeTypes.Use): number
-				return if present:peek() then REVEAL.enter else REVEAL.exit
+				return if present:peek() then reveal.enter else reveal.exit
 			end,
-			ease = Compose.easing.outCubic,
+			ease = ctx.motionEase("present"),
 		})
 		local function progress(use: ComposeTypes.Use?): number
 			if reduce(use) then

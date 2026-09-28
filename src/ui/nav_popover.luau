@@ -6,8 +6,6 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
-local freeze = require("./freeze")
-local reducedMotion = require("./motion")
 
 type Controls = { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
 
@@ -30,8 +28,6 @@ local KEYS = {
 	"modal",
 	"cancelPolicy",
 }
-local POPOVER: { enter: number, exit: number } = freeze({ enter = 0.15, exit = 0.1 })
-local SHEET_EXIT = 0.2
 local MARGIN = 8
 local PADDING = 8
 
@@ -237,9 +233,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local kind = if preferred then use(preferred) else nil
 			return if kind == E.PreferredInput.Touch and width > 0 and width < 600 then "sheet" else "popover"
 		end)
-		local motion: Nav.MotionTiming = { enter = POPOVER.enter, exit = POPOVER.exit }
+		local popoverTiming = ctx.motionTiming("popover")
+		local sheetExit = ctx.metric("motion.durations.popoverSheetExit")
+		local motion: Nav.MotionTiming = { enter = popoverTiming.enter, exit = popoverTiming.exit }
 		Compose.watch(function(use: ComposeTypes.Use)
-			motion.exit = if use(route) == "sheet" then SHEET_EXIT else POPOVER.exit
+			motion.exit = if use(route) == "sheet" then sheetExit else popoverTiming.exit
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if read(spec.isPresented, use) ~= true then
@@ -257,7 +255,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local function anchored(phase: Nav.PresencePhase?): Frame
 			local settled = Compose.cell(false)
-			local amount = surfaces.appearance(phase, POPOVER, settled)
+			local amount = surfaces.appearance(phase, popoverTiming, settled)
 			local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
 			local extent = ctx.observe.AbsoluteSize(layer)
 			local origin = ctx.observe.AbsolutePosition(layer)
@@ -316,8 +314,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Selectable = false,
 			}
 			table.insert(bodyProps, limit)
-			local reduce = reducedMotion(ctx)
-			local body, _, _, extent, rested = parts.scroller(
+			local body, _, _, extent, bodyRested = parts.scroller(
 				ctx,
 				bodyProps,
 				{ list, proposed, content },
@@ -325,10 +322,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local height = use(extent)
-				if not use(rested) or amount(use) >= 1 then
+				if not use(bodyRested) or amount(use) >= 1 then
 					laidOut:set(height)
 				end
-				settled:set(use(rested) or reduce(use))
 			end)
 			local panel = ctx.styled(
 				ctx.fade {
@@ -350,7 +346,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ctx.styled(panel, "panel")
 			ctx.styled(panel, "floating")
 			surfaces.skin(panel, "panel")
-			local measured = ctx.observe.AbsoluteSize(panel)
+			local sizes, rested = surfaces.atRest(amount, settled, { panel })
+			local measured = sizes[1]
 			local tailed = rect == nil and spec.tail ~= false
 			local solved = Compose.formula(function(use: ComposeTypes.Use): placement.Placement
 				local offset = use(origin)
@@ -376,9 +373,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					tailInset = 8,
 				})
 			end)
-			surfaces.popover(panel, function(use: ComposeTypes.Use?): number
-				return if read(settled, use) then amount(use) else 1
-			end, function(use: ComposeTypes.Use): (Vector2, Vector2)
+			surfaces.popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
 				local at = use(solved)
 				local size = use(measured)
 				local origin = if at.edge == "bottom"
@@ -387,7 +382,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					elseif at.edge == "right" then V2.new(0, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 					else V2.new(size.X, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 				return V2.new(at.x, at.y), origin
-			end, nil, true)
+			end, { pinned = true, rested = rested, size = measured })
 			local children: { Types.Child } = { panel }
 			if tailed then
 				local tail = parts.tail(

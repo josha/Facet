@@ -47,7 +47,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		if service and not (options and options.animated == false) and not reduced() then
 			local playback = service:Create(
 				frame,
-				types.TweenInfo.new(0.25, E.EasingStyle.Quad, E.EasingDirection.Out),
+				types.TweenInfo.new(
+					ctx.metric("motion.durations.scrollReveal"),
+					ctx.motionStyle("scroll"),
+					E.EasingDirection.Out
+				),
 				{ CanvasPosition = goal }
 			)
 			running[frame] = playback

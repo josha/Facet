@@ -49,9 +49,6 @@ return function(
 		end
 	end
 	local readSource = ctx.readSource
-	local POPOVER: Nav.MotionTiming = { enter = 0.15, exit = 0.1 }
-	local SLIDE = 32
-	local MATERIALIZE = 0.96
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Types.Value<T>
 		for index = 1, select("#", ...) do
@@ -313,22 +310,40 @@ return function(
 		close: () -> (),
 		anchor: GuiObject,
 		nonmodal: boolean?,
-		phase: Nav.PresencePhase?
+		phase: Nav.PresencePhase?,
+		motion: Nav.MotionTiming?
 	): Frame
-		local appearance = if phase then surfaces.appearance(phase, POPOVER) else nil
+		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
+		local timing: Nav.MotionTiming = motion or { enter = popoverTiming.enter, exit = popoverTiming.exit }
+		local present = ctx.motionEase("present")
+		local slide = ctx.metric("motion.distances.menuSlide")
+		local materialize = ctx.metric("motion.materialize.menu")
+		local entered = Compose.cell(false)
+		local appearance = if phase then surfaces.appearance(phase, timing, entered) else nil
 		local hitFloor = ctx.hitFloor()
 		local path = Compose.cell({} :: { string })
+		local branchYs = Compose.cell({} :: { number })
+		local rowNodes: { [string]: GuiObject } = {}
+		local enter: (string, GuiObject?, { string }?) -> ()
 		local pendingFocus: string?
 		local sheeted = Compose.cell(false)
 		local reduce = reducedMotion(ctx)
-		local levelClock = runtime.timeline({ duration = POPOVER.enter, autoplay = false })
+		local levelClock = runtime.timeline({ duration = popoverTiming.enter, autoplay = false })
 		local levelDirection = Compose.cell(0)
+		local levelReady = Compose.cell(true)
+		local pendingLevel = false
 		local depthSeen = 0
 		Compose.watch(function(use: ComposeTypes.Use)
 			local depth = #use(path)
 			if depth ~= depthSeen then
 				levelDirection:set(if depth > depthSeen then 1 else -1)
 				depthSeen = depth
+				pendingLevel = true
+			end
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if use(levelReady) and pendingLevel then
+				pendingLevel = false
 				levelClock:restart()
 			end
 		end)
@@ -337,7 +352,10 @@ return function(
 			if direction == 0 or reduce(use) then
 				return 1
 			end
-			return Compose.easing.outCubic(readSource(levelClock.progress, use))
+			if not read(levelReady, use) then
+				return 0
+			end
+			return present(readSource(levelClock.progress, use))
 		end
 		local shown: Nav.Appearance? = if appearance
 			then function(use: ComposeTypes.Use?): number
@@ -493,7 +511,8 @@ return function(
 						)
 					end
 					local rowKey = tostring(item.id or index:peek())
-					local row = UI.Button({
+					local row: GuiObject
+					row = UI.Button({
 						Name = rowKey,
 						LayoutOrder = index,
 						Size = function(use: ComposeTypes.Use)
@@ -527,10 +546,7 @@ return function(
 								return
 							end
 							if live.children then
-								local nextPath = table.clone(path:peek())
-								table.insert(nextPath, assert(live.id))
-								pendingFocus = nil
-								path:set(nextPath)
+								enter(assert(live.id), row)
 							elseif
 								commitItem(live)
 								and (
@@ -543,6 +559,12 @@ return function(
 						end,
 					})
 					row:AddTag("facet-menu-item")
+					rowNodes[rowKey] = row
+					Compose.cleanup(function()
+						if rowNodes[rowKey] == row then
+							rowNodes[rowKey] = nil
+						end
+					end)
 					fillTitle(row)
 					surfaces.attach(row, {
 						ctx.styled(
@@ -707,7 +729,6 @@ return function(
 				end,
 			}) :: Types.Child,
 		}
-		local rowSize = ctx.observe.AbsoluteSize(rows)
 		local room = Compose.cell(0)
 		local function panelWidth(use: ComposeTypes.Use): number
 			local widest = 0
@@ -729,7 +750,7 @@ return function(
 				if not use(sheeted) or direction == 0 or reduce(use) then
 					return D2.fromOffset(0, 0)
 				end
-				return D2.fromOffset(direction * SLIDE * (1 - level(use)), 0)
+				return D2.fromOffset(direction * slide * (1 - level(use)), 0)
 			end,
 		})
 		local scroller = Host.ScrollingFrame "MenuScroll" {
@@ -744,6 +765,18 @@ return function(
 			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 			rows,
 		}
+		local levelFade = ctx.fade {
+			Name = "MenuLevel",
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 1),
+			scroller,
+		}
+		ctx.fadeTo(levelFade, function(use: ComposeTypes.Use): number
+			if not use(sheeted) then
+				return 0
+			end
+			return 1 - level(use)
+		end)
 		local panel = Host.Frame "MenuPanel" {
 			Size = D2.fromOffset(280, 0),
 			BorderSizePixel = 0,
@@ -756,11 +789,11 @@ return function(
 						GroupTransparency = function(use: ComposeTypes.Use)
 							return 1 - shown(use)
 						end,
-						scroller,
+						levelFade,
 					},
 					"menu-group"
 				)
-				else scroller,
+				else levelFade,
 		}
 		if shown then
 			surfaces.attach(panel, {
@@ -773,6 +806,31 @@ return function(
 		end
 		ctx.styled(panel, "menu")
 		surfaces.skin(panel)
+		local restKey = ""
+		local sizes, rested = surfaces.atRest(shown or function(): number
+			return 1
+		end, entered, { panel, rows }, function(use: ComposeTypes.Use): string
+			local key = table.concat(use(path), "/")
+			if phase and use(phase.exiting) then
+				return restKey
+			end
+			restKey = key
+			return key
+		end)
+		local measured, rowSize = sizes[1], sizes[2]
+		enter = function(id: string, node: GuiObject?, prefix: { string }?)
+			local nextPath = table.clone(prefix or path:peek())
+			table.insert(nextPath, id)
+			local row = node or rowNodes[id]
+			local ys = table.clone(branchYs:peek())
+			ys[#nextPath] = if row then row.AbsolutePosition.Y - panel.AbsolutePosition.Y else 0
+			branchYs:set(ys)
+			pendingFocus = nil
+			path:set(nextPath)
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			levelReady:set(use(rested))
+		end)
 		local position = ctx.observe.AbsolutePosition(anchor)
 		local size = ctx.observe.AbsoluteSize(anchor)
 		local modal = if nonmodal
@@ -802,7 +860,6 @@ return function(
 		end
 		local extent = ctx.observe.AbsoluteSize(modal)
 		local origin = ctx.observe.AbsolutePosition(modal)
-		local measured = ctx.observe.AbsoluteSize(panel)
 		local input = surfaces.service("UserInputService")
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
@@ -817,7 +874,10 @@ return function(
 				or use(preferred) == E.PreferredInput.Gamepad
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
-			sheeted:set(use(asSheet))
+			local sheet = use(asSheet)
+			sheeted:set(sheet)
+			timing.enter = if sheet then sheetTiming.enter else popoverTiming.enter
+			timing.exit = if sheet then sheetTiming.exit else popoverTiming.exit
 		end)
 		local guiService = surfaces.service("GuiService")
 		local layerOf = ctx.observe.Parent(modal)
@@ -859,7 +919,7 @@ return function(
 				V2.new(insetLeft + 8, insetTop + 8), V2.new(offer.X - insetRight - 8, offer.Y - insetBottom - 8)
 			if use(asSheet) then
 				return V2.new(12 + insetLeft, math.max(12 + insetTop, offer.Y - insetBottom - panelSize.Y - 12)),
-					V2.new(panelSize.X / 2, panelSize.Y)
+					V2.zero
 			end
 			local x, y = at.X - offset.X, at.Y - offset.Y
 			local depth = #use(path)
@@ -907,7 +967,12 @@ return function(
 			end
 			top = math.max(low.Y, top)
 			local pivot: Vector2
-			if vertical then
+			local leaving = if phase then use(phase.exiting) else false
+			if vertical and (depth > 0 or use(levelDirection) < 0) and not (leaving and depth == 0) then
+				local back = use(levelDirection) < 0
+				local y = use(branchYs)[if back then depth + 1 else depth] or 0
+				pivot = V2.new(if back then panelSize.X else 0, math.clamp(y, 0, panelSize.Y))
+			elseif vertical then
 				local reach = if depth > 0 or align == "start"
 					then x + depth * 288
 					elseif align == "end" then x + bounds.X
@@ -938,7 +1003,17 @@ return function(
 			end,
 		})
 		if shown then
-			surfaces.popover(panel, shown, place, MATERIALIZE)
+			surfaces.popover(panel, shown, place, {
+				from = materialize,
+				rested = rested,
+				rise = function(use: ComposeTypes.Use): number?
+					if not use(asSheet) then
+						return nil
+					end
+					local _, _, _, insetBottom = insets(use)
+					return use(measured).Y + 12 + insetBottom
+				end,
+			})
 		else
 			runtime.decorate(panel, {
 				Position = function(use: ComposeTypes.Use)
@@ -969,9 +1044,7 @@ return function(
 		end, function()
 			local item = selectedBranch()
 			if item then
-				local nextPath = table.clone(path:peek())
-				table.insert(nextPath, assert(item.id))
-				path:set(nextPath)
+				enter(assert(item.id))
 			end
 		end, { priority = 2100, capture = true })
 		ctx.action(modal, "MenuLeft", { E.KeyCode.Left, E.KeyCode.DPadLeft }, function(use: ComposeTypes.Use)
@@ -1190,7 +1263,8 @@ return function(
 											"divider"
 										)
 									end
-									local button = UI.Button({
+									local button: GuiObject
+									button = UI.Button({
 										Name = item.id,
 										label = item.label,
 										enabled = item.enabled,
@@ -1222,9 +1296,7 @@ return function(
 											else nil,
 										onActivate = function()
 											if item.children then
-												local next = table.clone(source:peek().prefix)
-												table.insert(next, assert(item.id))
-												path:set(next)
+												enter(assert(item.id), button, source:peek().prefix)
 											elseif
 												commitItem(item)
 												and (
@@ -1494,10 +1566,11 @@ return function(
 				return surfaces.within(use(selected), root)
 			end, open, { priority = 1200 })
 		end
+		local motion = ctx.motionTiming("popover")
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Nav.PresencePhase?)
-				return menuPanel(spec, close, trigger, nil, phase)
-			end, { motion = POPOVER }),
+				return menuPanel(spec, close, trigger, nil, phase, motion)
+			end, { motion = motion }),
 		})
 		return root
 	end
@@ -1569,9 +1642,10 @@ return function(
 		indicator: Types.Value<string>?
 	): ()
 		local reduced = reducedMotion(ctx)
+		local spring = ctx.motionSpring("control")
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
 			return use(currentOrder)
-		end, { period = 0.25, damping = 1, tolerance = 1e-3, reducedMotion = reduced })
+		end, { period = spring.period, damping = spring.damping, tolerance = 1e-3, reducedMotion = reduced })
 		local _, slot = runtime.mount(function()
 			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
 		end, picker)

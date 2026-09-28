@@ -280,7 +280,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		if spec.textAlign ~= nil then
 			defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
 				local align = read(spec.textAlign, use) or "start"
-				return assert(ALIGN[align], "Facet Text textAlign must be start, center or end")
+				return (assert(ALIGN[align], "Facet Text textAlign must be start, center or end"))
 			end
 		end
 		if cut then
@@ -570,9 +570,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					not live or (mode ~= "tile" and mode ~= "slice"),
 					"Facet UI.Image: a bound scaleMode cannot be tile or slice, which need static geometry"
 				)
-				return assert(
-					modes[mode or "stretch"],
-					"Facet UI.Image: scaleMode must be fit, fill, crop, stretch, tile or slice"
+				return (
+					assert(
+						modes[mode or "stretch"],
+						"Facet UI.Image: scaleMode must be fit, fill, crop, stretch, tile or slice"
+					)
 				)
 			end
 		end
@@ -993,10 +995,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			type(count) == "number" and count >= 1 and count < math.huge and count % 1 == 0,
 			"Facet ProgressView segments must be a positive integer"
 		)
-		local delay: number, duration: number = 0.3, 0.35
+		local delay: number, duration: number =
+			ctx.metric("motion.durations.trailDelay"), ctx.metric("motion.durations.trailSettle")
 		if spec.trail then
 			assert(type(spec.trail) == "table", "Facet ProgressView trail must be a table")
-			delay, duration = spec.trail.delay or 0.3, spec.trail.duration or 0.35
+			delay, duration = spec.trail.delay or delay, spec.trail.duration or duration
 			assert(
 				type(delay) == "number"
 					and delay >= 0
@@ -1008,7 +1011,9 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			)
 		end
 		local indeterminate = spec.value == nil
-		local timeline = if indeterminate then runtime.timeline({ duration = 1, repeats = math.huge }) else nil
+		local timeline = if indeterminate
+			then runtime.timeline({ duration = ctx.metric("motion.durations.progressLoop"), repeats = math.huge })
+			else nil
 		local progress = Compose.formula(function(use: ComposeTypes.Use)
 			if timeline then
 				local phase = use(timeline.progress)
@@ -1466,7 +1471,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 	end)
 
 	local skeletonClock = Compose.createSharedResource(function(): (Types.Playback, (() -> ())?)
-		local clock = runtime.timeline({ duration = 1.4, repeats = math.huge })
+		local clock = runtime.timeline({ duration = ctx.metric("motion.durations.spinnerLoop"), repeats = math.huge })
 		local motionReduced = reducedMotion(ctx)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if motionReduced(use) then

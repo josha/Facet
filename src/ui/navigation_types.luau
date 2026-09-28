@@ -326,6 +326,13 @@ export type PageViewSpec = Types.FrameProps & {
 export type PresencePhase = { exiting: ComposeTypes.Readable<boolean> }
 export type MotionTiming = { enter: number, exit: number }
 export type Appearance = (ComposeTypes.Use?) -> number
+export type PopoverOptions = {
+	from: number?,
+	pinned: boolean?,
+	rested: ComposeTypes.Readable<boolean>?,
+	size: ComposeTypes.Readable<Vector2>?,
+	rise: ((ComposeTypes.Use) -> number?)?,
+}
 export type ModalOptions = {
 	exiting: ComposeTypes.Readable<boolean>?,
 	appearance: Appearance?,
@@ -364,7 +371,13 @@ export type Surfaces = {
 	modal: (() -> GuiObject, (string?) -> (), ModalOptions?) -> Frame,
 	overlay: (GuiObject, Types.ValueBoolean, (PresencePhase?) -> Instance, OverlayOptions?) -> Types.Child,
 	appearance: (PresencePhase?, MotionTiming, ComposeTypes.Readable<boolean>?) -> Appearance,
-	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2), number?, boolean?) -> (),
+	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2), PopoverOptions?) -> (),
+	atRest: (
+		Appearance,
+		ComposeTypes.Cell<boolean>,
+		{ GuiObject },
+		((ComposeTypes.Use) -> string)?
+	) -> ({ ComposeTypes.Readable<Vector2> }, ComposeTypes.Readable<boolean>),
 	sheetModal: ((SheetSpec, SheetRequest, PresencePhase?) -> Frame)?,
 }
 export type PickerConstructor = (<V>(PickerSpec<V>) -> GuiObject) & ((string) -> <V>(PickerSpec<V>) -> GuiObject)

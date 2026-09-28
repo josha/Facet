@@ -149,7 +149,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						value.Name = "FocusPulse"
 						local playback = tweenService:Create(
 							value,
-							ctx.types.TweenInfo.new(1, E.EasingStyle.Sine, E.EasingDirection.InOut, -1, true),
+							ctx.types.TweenInfo.new(
+								ctx.metric("motion.durations.focusPulse"),
+								ctx.motionStyle("pulse"),
+								E.EasingDirection.InOut,
+								-1,
+								true
+							),
 							{ Value = 1 }
 						)
 						local stop = observation.observeProperty(value, "Value", function()

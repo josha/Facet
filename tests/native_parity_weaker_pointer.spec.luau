@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local transitionOf = require("./lib/transition")
 local fs = require("@lune/fs")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -1514,13 +1515,13 @@ t.describe("adaptive environment strength", function()
 		local scrim = scrimOf(sheet)
 		local authored = 0.55
 		t.expect(math.abs(scrim:GetProperties().BackgroundTransparency - authored * 0.5) < 1e-6).toBe(true)
-		t.expect(scrim:GetPropertyTransitions().BackgroundTransparency.Time).toBe(0)
+		t.expect(transitionOf(scrim, "BackgroundTransparency").Time).toBe(0)
 		gui.PreferredTransparency = 0
 		t.expect(scrim:GetProperties().BackgroundTransparency).toBe(0)
 		gui.PreferredTransparency = 1
 		t.expect(math.abs(scrim:GetProperties().BackgroundTransparency - authored) < 1e-6).toBe(true)
 		gui.ReducedMotionEnabled = false
-		t.expect(scrim:GetPropertyTransitions().BackgroundTransparency.Time > 0).toBe(true)
+		t.expect(transitionOf(scrim, "BackgroundTransparency").Time > 0).toBe(true)
 		t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(1)
 		t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(1)
 		stop()

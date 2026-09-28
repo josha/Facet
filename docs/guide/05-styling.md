@@ -56,7 +56,10 @@ native children. Icons are images, not substitute text glyphs.
 ## Theme transitions
 
 Changes to theme color and opacity animate through native StyleRule
-transitions. The duration is `metrics.motion.normal`. A palette change updates
+transitions. The duration is `metrics.motion.normal`, except that `:Press` rules
+use `metrics.motion.press` and `:Hover` rules use `metrics.motion.hover` (each no
+slower than `normal`). The easing style is `metrics.motion.styles.paint` (Quad
+Out in Facet Neutral). A palette change updates
 the existing rules. If a switch is interrupted, Roblox retargets it from the
 colors on screen. Layout and typography changes apply immediately.
 

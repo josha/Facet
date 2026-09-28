@@ -35,11 +35,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local tabDepth = 0
 	local CORNER_OVERLAP = 0.25
 	local navigationDepth = 0
-	local TAB_FADE: Nav.Transition = { seconds = 0.2, ease = Compose.easing.outQuad }
-	local PUSH_SPRING = { period = 0.3, damping = 1, tolerance = 1e-3 }
 	local FLING_SPEED = 1200
-	local PARALLAX = 0.3
-	local DIM = 0.1
 	local function content<P>(
 		builder: Instance | ((Nav.NavigationEntry<P>?) -> Instance),
 		entry: Nav.NavigationEntry<P>?
@@ -1013,7 +1009,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							built,
 						},
 						state,
-						if spec.transition == nil then TAB_FADE else spec.transition,
+						if spec.transition == nil
+							then { seconds = ctx.metric("motion.durations.tabFade"), ease = ctx.motionEase("fade") }
+							else spec.transition,
 						if spec.retention == "top"
 							then function()
 								if spec.selection:peek() == id then
@@ -1317,6 +1315,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	end)
 
 	local function navigationStack<P>(spec: Nav.NavigationStackSpec<P>): Frame
+		local pushSpring = ctx.motionSpring("move")
+		local parallax = ctx.metric("motion.distances.parallax")
+		local dim = ctx.metric("motion.distances.dim")
 		assert(
 			type(spec.path) == "table" and spec.path.set and spec.root and spec.destinations,
 			"NavigationStack requires path, root and destinations"
@@ -1443,9 +1444,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end
 					local travel: ComposeTypes.Readable<number> = if animated
 						then runtime.spring(target, {
-							period = PUSH_SPRING.period,
-							damping = PUSH_SPRING.damping,
-							tolerance = PUSH_SPRING.tolerance,
+							period = pushSpring.period,
+							damping = pushSpring.damping,
+							tolerance = 1e-3,
 							reducedMotion = function(use: ComposeTypes.Use): boolean
 								return reduce(use)
 							end,
@@ -1483,7 +1484,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end
 					local function reveal(use: ComposeTypes.Use): number
 						local place, moved = placement(use)
-						return if place == "beneath" then moved + PARALLAX * (1 - moved) else 1
+						return if place == "beneath" then moved + parallax * (1 - moved) else 1
 					end
 					local title = ctx.text({
 						Name = "Title",
@@ -1572,7 +1573,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								local place, moved = placement(use)
 								return if place == "front"
 									then D2.fromScale(moved, 0)
-									elseif place == "beneath" then D2.fromScale(-PARALLAX * (1 - moved), 0)
+									elseif place == "beneath" then D2.fromScale(-parallax * (1 - moved), 0)
 									else D2.fromScale(0, 0)
 							end,
 							ClipsDescendants = function(use: ComposeTypes.Use)
@@ -1602,7 +1603,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 									Interactable = false,
 									BackgroundTransparency = function(use: ComposeTypes.Use)
 										local _, moved = placement(use)
-										return 1 - DIM * (1 - moved)
+										return 1 - dim * (1 - moved)
 									end,
 								}
 							end) :: Types.Child,
@@ -1702,15 +1703,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local gui = surfaces.service("GuiService")
 		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
 		local fling = Compose.cell(false)
+		local flingStyle, pageStyle = ctx.motionStyle("fling"), ctx.motionStyle("page")
 		local layout = Host.UIPageLayout "PagesLayout" {
 			Animated = function(use: ComposeTypes.Use)
 				return read(ctx.config.reducedMotion, use) ~= true and not use(reduced)
 			end,
 			EasingStyle = function(use: ComposeTypes.Use)
-				return if use(fling) then E.EasingStyle.Back else E.EasingStyle.Cubic
+				return if use(fling) then flingStyle else pageStyle
 			end,
 			EasingDirection = E.EasingDirection.Out,
-			TweenTime = 0.3,
+			TweenTime = ctx.metric("motion.durations.pageTurn"),
 			Circular = false,
 			FillDirection = E.FillDirection.Horizontal,
 			SortOrder = E.SortOrder.LayoutOrder,

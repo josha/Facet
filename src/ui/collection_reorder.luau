@@ -448,10 +448,11 @@ return function<V, K>(
 		local function rightOf(use: ComposeTypes.Use): number
 			return if use(confirming) then 88 else use(trailing)
 		end
+		local edgeSpring = ctx.motionSpring("snappy")
 		local left = ctx.runtime.spring(function(use: ComposeTypes.Use)
 			return use(leading)
-		end, { period = 0.2, damping = 1 })
-		local right = ctx.runtime.spring(rightOf, { period = 0.2, damping = 1 })
+		end, { period = edgeSpring.period, damping = edgeSpring.damping })
+		local right = ctx.runtime.spring(rightOf, { period = edgeSpring.period, damping = edgeSpring.damping })
 		local function edges(use: ComposeTypes.Use): Vector2
 			if motionReduced(use) then
 				return V2.new(use(leading), rightOf(use))

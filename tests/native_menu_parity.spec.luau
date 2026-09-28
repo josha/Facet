@@ -453,14 +453,48 @@ t.describe("native menu parity with main", function()
 		world.stop()
 	end)
 
+	t.it("a 300-row sheet level cross-fades through a window-sized group, never one as tall as its rows", function()
+		local world = labelled({
+			items = { { id = "big", label = "Big", children = items(300) } },
+			presentation = "sheet",
+		}, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.find("big", panel).Activated.fire()
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local rows = panel:FindFirstChild("MenuRows", true)
+		local scroller = panel:FindFirstChild("MenuScroll", true)
+		local fading = 0
+		for _, node in panel:GetDescendants() do
+			if node:IsA("CanvasGroup") then
+				t.expect(node:IsDescendantOf(scroller)).toBe(false)
+				if rows:IsDescendantOf(node) then
+					t.expect(node.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
+					t.expect(node.Size).toBe(UDim2.fromScale(1, 1))
+					fading += 1
+				end
+			end
+		end
+		t.expect(fading >= 1).toBe(true)
+		world.stop()
+	end)
+
 	t.it("grows each level from 0.96 at the corner it hangs at, fades in and dips out faster", function()
 		local world = labelled({ edge = "top", align = "end", items = NESTED, presentation = "menu" }, {})
 		local panel = open(world)
 		lay(world, panel, Vector2.new(300, 300), Vector2.new(200, 40), Vector2.new(220, 200))
 		local scale = world.find("PresentationScale", panel)
 		local group = world.find("MenuGroup", panel)
-		t.expect(scale.Scale).toBe(0.96)
+		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(group)).toBe(1)
+		world.engine.heartbeat.fire(FRAME)
+		world.engine.heartbeat.fire(FRAME)
+		t.expect(scale.Scale >= 0.96 and scale.Scale < 1).toBe(true)
 		local shrink = 1 - scale.Scale
 		t.expect(panel.Position.X.Offset).toBeCloseTo(280 + 220 * shrink, 1)
 		t.expect(panel.Position.Y.Offset).toBeCloseTo(96 + 200 * shrink, 1)
@@ -475,8 +509,11 @@ t.describe("native menu parity with main", function()
 		t.expect(scale.Scale).toBe(1)
 		t.expect(panel.Position).toBe(UDim2.fromOffset(280, 96))
 		world.find("adjust", panel).Activated.fire()
-		t.expect(scale.Scale).toBe(0.96)
+		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(group)).toBe(1)
+		world.engine.heartbeat.fire(FRAME)
+		world.engine.heartbeat.fire(FRAME)
+		t.expect(scale.Scale >= 0.96 and scale.Scale < 1).toBe(true)
 		for _ = 1, 30 do
 			world.engine.heartbeat.fire(FRAME)
 		end
@@ -506,6 +543,8 @@ t.describe("native menu parity with main", function()
 			local world = labelled({ edge = case.edge, align = case.align, items = items(3) }, {})
 			local panel = open(world)
 			lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
+			world.engine.heartbeat.fire(FRAME)
+			world.engine.heartbeat.fire(FRAME)
 			local shrink = 1 - world.find("PresentationScale", panel).Scale
 			t.expect(shrink > 0).toBe(true)
 			t.expect(panel.Position.X.Offset).toBeCloseTo(case.at.X + case.pivot.X * shrink, 1)
@@ -561,6 +600,168 @@ t.describe("native menu parity with main", function()
 		plain.stop()
 	end)
 
+	t.it("a menu shown as a sheet slides up from below the layer and never scales", function()
+		local world = labelled({ items = items(3), presentation = "sheet" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local scale = world.find("PresentationScale", panel)
+		t.expect(scale.Scale).toBe(1)
+		local early = panel.Position.Y.Offset
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local rest = panel.Position.Y.Offset
+		t.expect(early > rest).toBe(true)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(rest).toBe(600 - 200 - 12)
+		world.stop()
+	end)
+
+	t.it("a sheet menu level change cross-fades its rows while they slide", function()
+		local world = labelled({ items = NESTED, presentation = "sheet" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.find("adjust", panel).Activated.fire()
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local rows = world.find("MenuLevel", panel)
+		t.expect(fadeKit.of(rows) > 0).toBe(true)
+		for _ = 1, 30 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		t.expect(fadeKit.of(rows)).toBe(0)
+		world.stop()
+	end)
+
+	t.it("a pointer submenu grows from the chosen row, and Back grows the parent from the child's side", function()
+		local world = labelled({ items = NESTED, presentation = "menu" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local adjust = world.find("adjust", panel)
+		adjust.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 44)
+		adjust.Activated.fire()
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local scale = world.find("PresentationScale", panel)
+		t.expect(scale.Scale < 1).toBe(true)
+		local shrink = 1 - scale.Scale
+		t.expect(panel.Position.X.Offset).toBeCloseTo(100 + 288, 1)
+		t.expect(panel.Position.Y.Offset).toBeCloseTo(144 + 44 * shrink, 1)
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.action("MenuLeft").Pressed.fire()
+		t.expect(world.find("adjust", panel) ~= nil).toBe(true)
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		t.expect(scale.Scale < 1).toBe(true)
+		shrink = 1 - scale.Scale
+		t.expect(panel.Position.X.Offset).toBeCloseTo(100 + 220 * shrink, 1)
+		t.expect(panel.Position.X.Offset > 101).toBe(true)
+		world.stop()
+	end)
+
+	t.it(
+		"each level remembers its own row, Back to the root uses the root's row, and a root exit faces the trigger",
+		function()
+			local function leaf(id: string): any
+				return { id = id, label = id, onSelect = function() end }
+			end
+			local deep = {
+				leaf("plain"),
+				{ divider = true },
+				{
+					id = "Divider",
+					label = "More",
+					children = { leaf("x"), leaf("y"), { id = "b", label = "B", children = { leaf("p"), leaf("q") } } },
+				},
+			}
+			local world = labelled({ items = deep, presentation = "menu" }, {})
+			local panel = open(world)
+			lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
+			local function settle()
+				for _ = 1, 40 do
+					world.engine.heartbeat.fire(FRAME)
+				end
+			end
+			settle()
+			local scale = world.find("PresentationScale", panel)
+			local more = world.find("Divider", panel)
+			for _, node in panel:GetDescendants() do
+				if node.Name == "Divider" and node:IsA("GuiButton") then
+					more = node
+				end
+			end
+			more.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 10)
+			more.Activated.fire()
+			settle()
+			local b = world.find("b", panel)
+			b.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 120)
+			b.Activated.fire()
+			settle()
+			world.action("MenuLeft").Pressed.fire()
+			for _ = 1, 2 do
+				world.engine.heartbeat.fire(FRAME)
+			end
+			local shrink = 1 - scale.Scale
+			t.expect(shrink > 0).toBe(true)
+			local top = panel.Position.Y.Offset
+			settle()
+			t.expect(math.abs(top - (panel.Position.Y.Offset + 120 * shrink)) < 1.5).toBe(true)
+			world.action("MenuLeft").Pressed.fire()
+			for _ = 1, 3 do
+				world.engine.heartbeat.fire(FRAME)
+			end
+			shrink = 1 - scale.Scale
+			t.expect(shrink > 0).toBe(true)
+			top = panel.Position.Y.Offset
+			settle()
+			t.expect(math.abs(top - (panel.Position.Y.Offset + 10 * shrink)) < 1.5).toBe(true)
+			local rest = panel.Position.X.Offset
+			world.find("DismissOutside", world.screen.Parent).Activated.fire()
+			world.engine.heartbeat.fire(FRAME)
+			world.engine.heartbeat.fire(FRAME)
+			t.expect(scale.Scale < 1).toBe(true)
+			t.expect(panel.Position.X.Offset).toBe(rest)
+			world.stop()
+		end
+	)
+
+	t.it("a level change during the exit does not re-measure: the panel keeps shrinking", function()
+		local list = Compose.cell(NESTED)
+		local world = labelled({ items = list, presentation = "menu" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.find("adjust", panel).Activated.fire()
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local scale = world.find("PresentationScale", panel)
+		world.find("DismissOutside", world.screen.Parent).Activated.fire()
+		world.engine.heartbeat.fire(FRAME)
+		local leaving = scale.Scale
+		t.expect(leaving < 1).toBe(true)
+		list:set({ NESTED[1], NESTED[3] })
+		world.engine.heartbeat.fire(FRAME)
+		t.expect(scale.Scale <= leaving).toBe(true)
+		world.stop()
+	end)
+
 	t.it("bounds a sheet by the inset at the bottom and the sides", function()
 		local world = labelled({ presentation = "sheet", items = items(3) })
 		world.screen.IgnoreGuiInset = true
@@ -578,12 +779,15 @@ t.describe("native menu parity with main", function()
 		t.it(`slides sheet submenus forward on entry and backward on Back; reduced={reduced}`, function()
 			local world = labelled({ presentation = "sheet", items = NESTED }, { reducedMotion = reduced })
 			local panel = open(world)
+			lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 			for _ = 1, 30 do
 				world.engine.heartbeat.fire(FRAME)
 			end
 			local rows = panel:FindFirstChild("MenuRows", true)
 			t.expect(rows.Position.X.Offset).toBe(0)
 			world.find("adjust", panel).Activated.fire()
+			world.engine.heartbeat.fire(FRAME)
+			world.engine.heartbeat.fire(FRAME)
 			local forward = rows.Position.X.Offset
 			t.expect(if reduced then forward == 0 else forward > 0).toBe(true)
 			world.engine.heartbeat.fire(FRAME)

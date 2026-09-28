@@ -26,7 +26,6 @@ local KEYS = {
 	"width",
 	"contentSelectable",
 }
-local DIALOG: { enter: number, exit: number } = freeze({ enter = 0.2, exit = 0.15 })
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
@@ -327,7 +326,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					bind("DialogBodyDown", 1, { E.KeyCode.Down, E.KeyCode.DPadDown })
 					bind("DialogBodyUp", -1, { E.KeyCode.Up, E.KeyCode.DPadUp })
 				end
-				local shown = surfaces.appearance(phase, DIALOG)
+				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"))
 				local panel = ctx.styled(
 					ctx.fade {
 						Name = "Panel",
@@ -349,7 +348,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						ctx.corner(),
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
-								return 0.94 + 0.06 * shown(use)
+								local rest = ctx.metric("motion.materialize.modal", use)
+								return rest + (1 - rest) * shown(use)
 							end,
 						} :: Instance,
 					},
@@ -402,7 +402,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					exiting = if phase then phase.exiting else nil,
 					appearance = shown,
 				})
-			end, { motion = DIALOG }),
+			end, { motion = ctx.motionTiming("dialog") }),
 		})
 		Compose.cleanup(function()
 			disposed = true

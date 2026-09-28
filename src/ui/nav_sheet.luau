@@ -6,6 +6,7 @@ local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local release = require("./sheet_release")
+local settle = require("./settle")
 local freeze = require("./freeze")
 
 type Controls = {
@@ -48,9 +49,8 @@ local KEYS = {
 local PLACEMENTS: { [string]: boolean } =
 	freeze({ automatic = true, adaptive = true, bottom = true, side = true, center = true })
 local HANDLE = 20
-local SHEET: { enter: number, exit: number } = freeze({ enter = 0.3, exit = 0.2 })
+local HELD_PULL = 0.2
 local SETTLE_LIMIT = 20
-local SETTLE_PERIOD = 0.4
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
@@ -268,16 +268,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local dragHeight: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
 		local ready = Compose.cell(frames == nil)
-		local motion = runtime.tween(function(use: ComposeTypes.Use)
-			return use(dragHeight) or heightOf(selected(use), use)
-		end, {
-			seconds = 0.2,
-			reducedMotion = function(use: ComposeTypes.Use): boolean
-				return not use(ready)
-			end,
-		})
-		local settling: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
-		local stopSettle: (() -> ())? = nil
+		local settleTo = settle(ctx, function(): number
+			return heightOf(selected())
+		end, ctx.motionSpring("sheet"))
+		local halt, launch = settleTo.halt, settleTo.launch
 		local function painted(use: ComposeTypes.Use?): number
 			local drag = readSource(dragHeight, use)
 			if drag then
@@ -286,47 +280,25 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if reduce(use) then
 				return heightOf(selected(use), use)
 			end
-			local settle = if use then use(settling) else settling:peek()
-			return if settle then settle else read(motion, use)
-		end
-		local function halt()
-			local stop = stopSettle
-			stopSettle = nil
-			if stop then
-				stop()
+			local settling = readSource(settleTo.value, use)
+			if settling then
+				return math.min(available(use), math.max(minimum(use), settling))
 			end
-			settling:set(nil)
+			return heightOf(selected(use), use)
 		end
-		local function launch(from: number, speed: number)
-			halt()
-			if frames == nil or reduce() then
+		local shownHeight = heightOf(selected())
+		Compose.watch(function(use: ComposeTypes.Use)
+			local drag = use(dragHeight)
+			local goal = heightOf(selected(use), use)
+			if drag then
+				shownHeight = drag
 				return
 			end
-			local position, velocity = from, speed
-			local stiffness, damping = (2 * math.pi / SETTLE_PERIOD) ^ 2, 4 * math.pi / SETTLE_PERIOD
-			settling:set(position)
-			stopSettle = frames.onFrame(function(delta: number)
-				local target = heightOf(selected())
-				local remaining = math.min(delta, 0.25)
-				while remaining > 0 do
-					local step = math.min(remaining, 1 / 120)
-					remaining -= step
-					velocity += (-stiffness * (position - target) - damping * velocity) * step
-					local nextPosition = position + velocity * step
-					if (nextPosition - target) * (position - target) <= 0 then
-						position, velocity = target, 0
-						break
-					end
-					position = nextPosition
-				end
-				if math.abs(position - target) < 0.5 and math.abs(velocity) < 5 then
-					halt()
-					return
-				end
-				settling:set(position)
-			end)
-		end
-		Compose.cleanup(halt)
+			if use(ready) and settleTo.value:peek() == nil and math.abs(goal - shownHeight) > 0.5 then
+				launch(shownHeight, 0)
+			end
+			shownHeight = goal
+		end)
 		local canDismiss = function(use: ComposeTypes.Use?): boolean
 			return read(spec.interactiveDismissDisabled, use) ~= true
 		end
@@ -512,14 +484,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local pull = Compose.cell(0)
 		local pulling: { origin: number, moved: boolean, samples: { { height: number, at: number } } }? = nil
 		local held = Compose.cell(false)
-		local pulled = runtime.tween(function(use: ComposeTypes.Use)
-			return use(pull)
-		end, {
-			seconds = 0.2,
-			reducedMotion = function(use: ComposeTypes.Use): boolean
-				return use(held) or reduce(use)
-			end,
-		})
+		local pullBack = settle(ctx, function(): number
+			return 0
+		end, ctx.motionSpring("sheet"))
+		local function pulled(use: ComposeTypes.Use?): number
+			if read(held, use) then
+				return readSource(pull, use)
+			end
+			return readSource(pullBack.value, use) or readSource(pull, use)
+		end
 		local function toward(): number
 			return if edge == "left" then -1 else 1
 		end
@@ -533,7 +506,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				current.moved = true
 			end
 			local amount = math.max(0, (x - current.origin) * toward())
-			pull:set(if canDismiss() then amount else amount * 0.2)
+			pull:set(if canDismiss() then amount else amount * HELD_PULL)
 			table.insert(current.samples, { height = pull:peek(), at = now() })
 		end
 		local function release()
@@ -544,14 +517,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			held:set(false)
 			if not current.moved then
+				pullBack.launch(pull:peek(), 0)
 				pull:set(0)
 				dragged = now()
 				tapped()
 				return
 			end
 			local amount = pull:peek()
+			local speed = velocity(current.samples)
 			local width = math.min(parts.width(ctx, spec.width), extent:peek().X)
-			if canDismiss() and (amount > width / 3 or velocity(current.samples) > 600) then
+			if canDismiss() and (amount > width / 3 or speed > 600) then
 				if request == nil then
 					spec.isPresented:set(false)
 					return
@@ -559,6 +534,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					return
 				end
 			end
+			pullBack.launch(amount, speed)
 			pull:set(0)
 		end
 		Compose.cleanup(function()
@@ -589,7 +565,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				DragStart = function(position: Vector2)
 					if sideways() then
 						if pulling == nil then
-							pulling = { origin = position.X, moved = false, samples = {} }
+							local from = pulled()
+							pullBack.halt()
+							local finger = if canDismiss() then from else from / HELD_PULL
+							pulling = { origin = position.X - finger * toward(), moved = false, samples = {} }
+							pull:set(from)
 							held:set(true)
 						end
 					else
@@ -962,15 +942,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return if placement == "side" then (if edge == "left" then 0 else 1) else 0.5,
 				if placement == "center" then 0.5 else 1
 		end
-		local shown = surfaces.appearance(phase, SHEET, ready)
+		local shown = surfaces.appearance(phase, ctx.motionTiming("sheet"), ready)
 		local function travel(use: ComposeTypes.Use): (number, number)
 			local rest = 1 - shown(use)
 			if rest <= 0 then
-				return if use(placed) == "side" then toward() * use(pulled) else 0, 0
+				return if use(placed) == "side" then toward() * pulled(use) else 0, 0
 			end
 			local placement = use(placed)
 			if placement == "side" then
-				local shift = use(pulled)
+				local shift = pulled(use)
 				return toward() * (shift + (use(panelWidth) - shift) * rest), 0
 			end
 			if placement == "center" then
@@ -1138,7 +1118,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			surfaces.overlay(root, spec.isPresented, function(phase)
 				return modalFor(spec, prepared, nil, phase)
 			end, {
-				motion = SHEET,
+				motion = ctx.motionTiming("sheet"),
 				failure = function(failure)
 					root:SetAttribute("FacetError", tostring(failure))
 					spec.isPresented:set(false)

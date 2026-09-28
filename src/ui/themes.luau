@@ -15,6 +15,19 @@ export type SkinOptions = ThemeTypes.SkinOptions
 export type Themes = ThemeTypes.Themes
 
 local themes = {}
+local EASING_STYLES: { [string]: boolean } = {
+	Linear = true,
+	Sine = true,
+	Back = true,
+	Quad = true,
+	Quart = true,
+	Quint = true,
+	Bounce = true,
+	Elastic = true,
+	Exponential = true,
+	Circular = true,
+	Cubic = true,
+}
 local function contrast(first: Color3, second: Color3): number
 	local function luminance(value: Color3): number
 		local function linear(channel: number): number
@@ -157,7 +170,60 @@ local neutral: ThemeTypes.ThemePackage = {
 			regular = { height = 44, paddingX = 12, iconSize = 20 },
 			large = { height = 56, paddingX = 16, iconSize = 24 },
 		},
-		motion = { fast = 0.12, normal = 0.2, revealFadeShare = 0.5, unfoldStart = 0.25, restLimit = 0.25 },
+		motion = {
+			fast = 0.12,
+			normal = 0.2,
+			press = 0.08,
+			hover = 0.15,
+			revealFadeShare = 0.5,
+			unfoldStart = 0.25,
+			restLimit = 0.25,
+			popover = { enter = 0.15, exit = 0.1 },
+			dialog = { enter = 0.2, exit = 0.15 },
+			reveal = { enter = 0.25, exit = 0.2 },
+			sheet = { enter = 0.3, exit = 0.2 },
+			toast = { enter = 0.2, exit = 0.2 },
+			radial = { enter = 0.2, exit = 0.12, slot = 0.16 },
+			durations = {
+				tabFade = 0.2,
+				pageTurn = 0.3,
+				popoverSheetExit = 0.2,
+				rowDeparture = 0.24,
+				cardFade = 0.15,
+				regionPop = 0.15,
+				fieldReject = 0.24,
+				buttonPop = 0.45,
+				scrollReveal = 0.25,
+				focusPulse = 1,
+				busyLoop = 1,
+				progressLoop = 1,
+				spinnerLoop = 1.4,
+				glide = 0.22,
+				trailDelay = 0.3,
+				trailSettle = 0.35,
+			},
+			springs = {
+				snappy = { period = 0.2, damping = 1 },
+				quick = { period = 0.18, damping = 1 },
+				control = { period = 0.25, damping = 1 },
+				move = { period = 0.3, damping = 1 },
+				sheet = { period = 0.4, damping = 1 },
+			},
+			materialize = {
+				anchored = 0.9,
+				menu = 0.96,
+				modal = 0.94,
+				branch = 0.3,
+				lift = 1.04,
+				radialSpread = 0.2,
+				popOvershoot = 0.25,
+				popDecay = 3,
+			},
+			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1 },
+			easing = { present = "outCubic", fade = "outQuad" },
+			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Back", pulse = "Sine" },
+			fling = { friction = 3, maxSpeed = 4000, projection = 0.08 },
+		},
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
 			progress = { trackHeight = 6, circularSize = 32, circularThickness = 3, spinnerDotSize = 4 },
@@ -353,6 +419,87 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 			field = "metrics.targetSizes.pointer",
 			message = "targetSizes.pointer must be from 24 to targetSizes.minimum",
 		})
+	end
+	local motion = (package.metrics :: { motion: unknown }).motion
+	if type(motion) ~= "table" then
+		table.insert(errors, { field = "metrics.motion", message = "Motion tokens must be a table" })
+	else
+		local function issue(path: string, message: string)
+			table.insert(errors, { field = "metrics.motion." .. path, message = message })
+		end
+		local function number(path: string, value: unknown, low: number, high: number, open: boolean?)
+			if
+				type(value) ~= "number"
+				or (value :: number) > high
+				or (value :: number) < low
+				or (open == true and value == low)
+			then
+				issue(path, `must be a number from {low} to {high}{if open then ", above " .. low else ""}`)
+			end
+		end
+		local tokens = motion :: { [string]: unknown }
+		local function each(group: string, check: (string, unknown) -> ())
+			local entries = tokens[group]
+			if entries == nil then
+				return
+			end
+			if type(entries) ~= "table" then
+				issue(group, "must be a table")
+				return
+			end
+			for key, value in entries :: { [unknown]: unknown } do
+				check(group .. "." .. tostring(key), value)
+			end
+		end
+		for _, key in { "fast", "normal", "press", "hover", "reducedFade" } do
+			if tokens[key] ~= nil then
+				number(key, tokens[key], 0, 10)
+			end
+		end
+		for _, key in { "revealFadeShare", "unfoldStart" } do
+			if tokens[key] ~= nil then
+				number(key, tokens[key], 0, 1)
+			end
+		end
+		if tokens.restLimit ~= nil then
+			number("restLimit", tokens.restLimit, 0, 1)
+		end
+		for _, role in { "popover", "dialog", "reveal", "sheet", "toast", "radial" } do
+			each(role, function(path: string, value: unknown)
+				number(path, value, 0, 10)
+			end)
+		end
+		each("durations", function(path: string, value: unknown)
+			number(path, value, 0, 10)
+		end)
+		each("springs", function(path: string, value: unknown)
+			if type(value) ~= "table" then
+				issue(path, "must be { period, damping }")
+				return
+			end
+			local spring = value :: { period: unknown, damping: unknown }
+			number(path .. ".period", spring.period, 0, 10, true)
+			number(path .. ".damping", spring.damping, 0, 10, true)
+		end)
+		each("materialize", function(path: string, value: unknown)
+			number(path, value, 0, 10, true)
+		end)
+		each("distances", function(path: string, value: unknown)
+			number(path, value, 0, 10000)
+		end)
+		each("fling", function(path: string, value: unknown)
+			number(path, value, 0, 100000, path ~= "fling.projection")
+		end)
+		each("easing", function(path: string, value: unknown)
+			if type(value) ~= "string" or (ComposeTypes :: any).easing[value] == nil then
+				issue(path, "must name a Compose.easing function")
+			end
+		end)
+		each("styles", function(path: string, value: unknown)
+			if type(value) ~= "string" or EASING_STYLES[value :: string] == nil then
+				issue(path, "must name an Enum.EasingStyle item")
+			end
+		end)
 	end
 	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
 	local shadows: { [string]: ThemeTypes.Shadow } = package.style.shadows or {}
@@ -1692,26 +1839,40 @@ local function createStyleSheet(
 		local value = read(preferredTransparency, use)
 		return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
 	end
-	local defaultTimings: { [number]: TweenInfo } = {}
-	local function timingFor(package: ThemeTypes.ThemePackage, use: ComposeTypes.Use): TweenInfo
+	local defaultTimings: { [string]: TweenInfo } = {}
+	type PaintState = "normal" | "press" | "hover"
+	local function timingFor(package: ThemeTypes.ThemePackage, role: PaintState, use: ComposeTypes.Use): TweenInfo
 		local explicit = read(settings.transition, use)
+		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
+		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
 		if read(reducedMotion, use) == true or explicit == false then
 			seconds = 0
 		elseif explicit ~= nil then
 			return explicit :: TweenInfo
+		elseif role == "normal" then
+			seconds = normal
 		else
-			seconds = ((package.metrics or {}) :: { motion: { [string]: number }? }).motion
-					and package.metrics.motion.normal
-				or 0.2
+			local authored = if motion then (motion :: any)[role] else nil
+			seconds = math.min(authored or (neutral.metrics.motion :: any)[role], normal)
 		end
-		local cached: TweenInfo? = defaultTimings[seconds]
+		local style = (motion and motion.styles and motion.styles.paint)
+			or (neutral.metrics.motion.styles :: { [string]: string }).paint
+		local key = `{seconds}|{style}`
+		local cached: TweenInfo? = defaultTimings[key]
 		if cached then
 			return cached
 		end
-		local timing = types.TweenInfo.new(seconds, types.Enum.EasingStyle.Quad, types.Enum.EasingDirection.Out)
-		defaultTimings[seconds] = timing
+		local timing =
+			types.TweenInfo.new(seconds, (types.Enum.EasingStyle :: any)[style], types.Enum.EasingDirection.Out)
+		defaultTimings[key] = timing
 		return timing
+	end
+	local function stateOf(selector: string): PaintState
+		return if string.find(selector, ":Press", 1, true)
+			then "press"
+			elseif string.find(selector, ":Hover", 1, true) then "hover"
+			else "normal"
 	end
 	local definitions: { [string]: NativeRule } = {}
 	type CompiledRules = {
@@ -1775,20 +1936,21 @@ local function createStyleSheet(
 		}
 	end
 	local ids = Compose.cell({} :: { string })
-	local currentTiming: TweenInfo? = nil
+	local TOKENS: { [PaintState]: string } =
+		{ normal = "FacetMotionNormal", press = "FacetMotionPress", hover = "FacetMotionHover" }
 	type MountedRule = {
 		node: StyleRule,
 		priority: number,
 		properties: ThemeTypes.RuleProperties?,
-		transitions: { [string]: TweenInfo }?,
-		timing: TweenInfo?,
+		transitions: { [string]: string }?,
+		timing: string?,
 	}
 	local mounted: { [string]: MountedRule } = {}
-	type ByTiming = { [TweenInfo]: { [string]: TweenInfo } }
+	type ByTiming = { [string]: { [string]: string } }
 	local transitionTables = (
 		setmetatable({} :: { [ThemeTypes.RuleProperties]: ByTiming }, { __mode = "k" }) :: unknown
 	) :: { [ThemeTypes.RuleProperties]: ByTiming }
-	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: TweenInfo): { [string]: TweenInfo }
+	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: string): { [string]: string }
 		local byTiming = transitionTables[properties]
 		if byTiming == nil then
 			local fresh = (setmetatable({} :: ByTiming, { __mode = "k" }) :: unknown) :: ByTiming
@@ -1797,16 +1959,16 @@ local function createStyleSheet(
 		end
 		local transitions = byTiming[timing]
 		if transitions == nil then
-			local built: { [string]: TweenInfo } = {}
+			local built: { [string]: string } = {}
 			for property, value in properties do
 				if typeof(value) == "Color3" or string.find(property, "Transparency$") then
-					built[property] = timing
+					built[property] = "$" .. timing
 				end
 			end
 			byTiming[timing] = built
 			transitions = built
 		end
-		return transitions :: { [string]: TweenInfo }
+		return transitions :: { [string]: string }
 	end
 	type Known = { [ThemeTypes.RuleProperties]: boolean }
 	local comparisons = (
@@ -1825,7 +1987,7 @@ local function createStyleSheet(
 		end
 		return same :: boolean
 	end
-	local function apply(record: MountedRule, definition: NativeRule, timing: TweenInfo)
+	local function apply(record: MountedRule, definition: NativeRule, timing: string)
 		if record.priority ~= definition.priority then
 			record.node.Priority = definition.priority
 			record.priority = definition.priority
@@ -1849,6 +2011,7 @@ local function createStyleSheet(
 		end
 		record.timing = timing
 	end
+	local written: { [string]: TweenInfo } = {}
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
 			from = ids,
@@ -1862,7 +2025,7 @@ local function createStyleSheet(
 				})
 				local record: MountedRule = { node = node, priority = initial.priority }
 				mounted[id] = record
-				apply(record, initial, currentTiming :: TweenInfo)
+				apply(record, initial, TOKENS[stateOf(initial.selector)])
 				Compose.cleanup(function()
 					if mounted[id] == record then
 						mounted[id] = nil
@@ -1885,8 +2048,11 @@ local function createStyleSheet(
 		if hovering == false then
 			current = withoutHover(current)
 		end
-		local timing = timingFor(package, use)
-		currentTiming = timing
+		for state, token in TOKENS do
+			local timing = timingFor(package, state :: PaintState, use)
+			written[token] = timing
+			sheet:SetAttribute(token, timing)
+		end
 		local preference = preferenceFor(use)
 		local previousIds = ids:peek()
 		local structureChanged = #previousIds ~= #current
@@ -1899,7 +2065,7 @@ local function createStyleSheet(
 			end
 			local record = mounted[definition.id]
 			if record then
-				apply(record, definition, timing)
+				apply(record, definition, TOKENS[stateOf(definition.selector)])
 			end
 		end
 		if structureChanged then
@@ -1910,6 +2076,17 @@ local function createStyleSheet(
 			ids:set(nextIds)
 		end
 	end)
+	for _, token in TOKENS do
+		local connection = sheet:GetAttributeChangedSignal(token):Connect(function()
+			local timing: unknown = written[token]
+			if timing ~= nil and sheet:GetAttribute(token) ~= timing then
+				sheet:SetAttribute(token, timing)
+			end
+		end)
+		Compose.cleanup(function()
+			connection:Disconnect()
+		end)
+	end
 	local warmed: { [ThemeTypes.ThemePackage]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 	Compose.watch(function(use: ComposeTypes.Use)
 		local package = read(packageOrReadable, use)

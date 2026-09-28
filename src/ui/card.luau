@@ -8,7 +8,6 @@ local values = require("./content_values")
 local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
 
-local LIFT = 1.04
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
 
@@ -171,17 +170,18 @@ return function(
 			return use(engaged)
 		end)
 		local liftTarget = Compose.formula(function(use: ComposeTypes.Use): number
-			return if use(lifting) then LIFT else 1
+			return if use(lifting) then ctx.metric("motion.materialize.lift", use) else 1
 		end)
+		local liftSpring = ctx.motionSpring("snappy")
 		local spring = runtime.spring(function(use: ComposeTypes.Use)
 			return use(liftTarget)
-		end, { period = 0.2, damping = 1 })
+		end, { period = liftSpring.period, damping = liftSpring.damping })
 		local scale = Compose.formula(function(use: ComposeTypes.Use): number
 			return if reduced(use) then 1 else use(spring)
 		end)
 		local fade = runtime.tween(function(use: ComposeTypes.Use)
 			return if use(revealed) then 1 else 0
-		end, { seconds = 0.15 })
+		end, { seconds = ctx.metric("motion.durations.cardFade") })
 		local function eligible(): GuiObject?
 			local card = root
 			if not enabled() or card == nil or card.Parent == nil then

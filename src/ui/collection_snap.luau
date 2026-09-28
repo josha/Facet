@@ -1,5 +1,6 @@
 --!strict
 local reducedMotion = require("./motion")
+local settling = require("./settle")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 type SnapOptions = { direction: ComposeTypes.OrderedCollectionDirection?, reducedMotion: Types.Value<boolean>? }
@@ -17,15 +18,20 @@ return function<K>(
 	local Compose, runtime, E = ctx.Compose, ctx.runtime, ctx.types.Enum
 	local frames = assert(runtime.host.frames)
 	local clock = frames.now
-	local motion = runtime.timeline({ duration = 0.18, autoplay = false })
+	local idle, target = 0, 0
+	local motionReduced = reducedMotion(ctx)
+	local function reduced(): boolean
+		return if spec.reducedMotion == nil then motionReduced() else ctx.read(spec.reducedMotion) == true
+	end
+	local glide = settling(ctx, function(): number
+		return target
+	end, ctx.motionSpring("control"), reduced)
 	local held, running, writing = false, false, false
 	local stopWait: ComposeTypes.Dispose? = nil
-	local idle, from, target = 0, 0, 0
 	local previous, previousTime, velocity, gestureStart = 0, clock(), 0, 0
-	local motionReduced = reducedMotion(ctx)
 	local function cancel()
 		running = false
-		motion:pause()
+		glide.halt()
 		if stopWait then
 			stopWait()
 			stopWait = nil
@@ -88,11 +94,10 @@ return function<K>(
 		if math.abs(desired - box.offset) < 0.5 then
 			return
 		end
-		if if spec.reducedMotion == nil then motionReduced() else ctx.read(spec.reducedMotion) == true then
+		target, running = desired, true
+		if not glide.launch(box.offset, 0) then
+			running = false
 			write(desired)
-		else
-			from, target, running = box.offset, desired, true
-			motion:restart()
 		end
 	end
 	local function waitForRest()
@@ -111,10 +116,10 @@ return function<K>(
 		end)
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local progress = use(motion.progress)
+		local value = use(glide.value)
 		if running then
-			write(from + (target - from) * (1 - (1 - progress) ^ 3))
-			if progress >= 1 then
+			write(value or target)
+			if value == nil then
 				running = false
 			end
 		end

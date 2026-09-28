@@ -107,14 +107,18 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return Compose.isReadable(value) or type(value) == "function"
 	end
 	local defaultMetrics = themes.neutralPackage().metrics
-	local function metricAt(value: unknown, path: string): number?
+	local function valueAt(value: unknown, path: string): unknown
 		for key in string.gmatch(path, "[^.]+") do
 			if type(value) ~= "table" then
 				return nil
 			end
 			value = (value :: { [string]: unknown })[key]
 		end
-		return if type(value) == "number" and value == value and math.abs(value) ~= math.huge then value else nil
+		return value
+	end
+	local function metricAt(value: unknown, path: string): number?
+		local found = valueAt(value, path)
+		return if type(found) == "number" and found == found and math.abs(found) ~= math.huge then found else nil
 	end
 	local distantMetrics = themes.forDistance(themes.neutralPackage(), "ten-foot").metrics
 	local distance: (ComposeTypes.Use?) -> boolean = function()
@@ -125,10 +129,39 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	function ctx.metric(path: string, use: ComposeTypes.Use?): number
 		local package = ctx.read(config.theme, use)
-		return assert(
+		local value = assert(
 			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
 			`Facet numeric metric {path} is missing`
 		)
+		return value
+	end
+	local function motionName(path: string, use: ComposeTypes.Use?): string
+		local package = ctx.read(config.theme, use)
+		local found = valueAt(if package then package.metrics else nil, path)
+		if type(found) ~= "string" then
+			found = valueAt(ctx.neutralMetrics(use), path)
+		end
+		local name = assert(if type(found) == "string" then found else nil, `Facet motion name {path} is missing`)
+		return name
+	end
+	function ctx.motionTiming(role: string, use: ComposeTypes.Use?): { enter: number, exit: number }
+		return { enter = ctx.metric(`motion.{role}.enter`, use), exit = ctx.metric(`motion.{role}.exit`, use) }
+	end
+	function ctx.motionSpring(role: string, use: ComposeTypes.Use?): { period: number, damping: number }
+		return {
+			period = ctx.metric(`motion.springs.{role}.period`, use),
+			damping = ctx.metric(`motion.springs.{role}.damping`, use),
+		}
+	end
+	function ctx.motionEase(role: string, use: ComposeTypes.Use?): (number) -> number
+		local name = motionName(`motion.easing.{role}`, use)
+		local ease = assert((Compose.easing :: any)[name], `Facet motion easing {name} is not a Compose easing`)
+		return ease
+	end
+	function ctx.motionStyle(role: string, use: ComposeTypes.Use?): Enum.EasingStyle
+		local name = motionName(`motion.styles.{role}`, use)
+		local style = assert((types.Enum.EasingStyle :: any)[name], `Facet motion style {name} is not an EasingStyle`)
+		return style
 	end
 	function ctx.controlSize(
 		source: Shared.Value<Shared.ControlSize>?,
@@ -194,12 +227,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				return use(engine)
 			end
 			if enumName and type(value) == "string" then
-				return assert(
+				local item = assert(
 					((Enum :: unknown) :: { [string]: { FromName: (unknown, string) -> EnumItem? } })[enumName]:FromName(
 						value
 					),
 					`Facet.controls: environment {entry.key} '{value}' is not a {enumName}`
 				)
+				return item
 			end
 			return value
 		end)

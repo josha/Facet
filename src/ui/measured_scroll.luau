@@ -1,6 +1,7 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
+local rest = require("./rest")
 local scrollLock = require("./scroll_lock")
 
 local MEASURE = 100000
@@ -50,31 +51,11 @@ return function(
 	Compose.watch(function(use: ComposeTypes.Use)
 		extent:set(math.ceil(use(laidOut).Y - 0.01))
 	end)
-	local rested = Compose.cell(false)
-	local frames = ctx.runtime.host.frames
-	if frames and options and options.rest then
-		local last: number? = nil
-		local waited = 0
-		local stop: (() -> ())? = nil
-		stop = frames.onFrame(function(delta: number)
+	local rested = if options and options.rest
+		then rest(ctx, function(): (string, boolean)
 			local now = extent:peek()
-			waited += delta
-			if (now == last and (now > 0 or size:peek().X > 0)) or waited > ctx.metric("motion.restLimit") then
-				rested:set(true)
-				if stop then
-					stop()
-					stop = nil
-				end
-			end
-			last = now
+			return tostring(now), now > 0 or size:peek().X > 0
 		end)
-		Compose.cleanup(function()
-			if stop then
-				stop()
-			end
-		end)
-	else
-		rested:set(true)
-	end
+		else Compose.cell(true)
 	return scroller, flow, size, extent, rested
 end

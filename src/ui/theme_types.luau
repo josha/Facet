@@ -9,6 +9,56 @@ export type Typography = { size: number, font: Font | FontSpec, lineHeight: numb
 export type TypographyPatch = { size: number?, font: Font | FontSpec?, lineHeight: number? }
 export type ControlSize = { height: number, paddingX: number, iconSize: number }
 export type ControlSizePatch = { height: number?, paddingX: number?, iconSize: number? }
+export type MotionTiming = { enter: number, exit: number }
+export type MotionTimingPatch = { enter: number?, exit: number? }
+export type SpringMetric = { period: number, damping: number }
+export type SpringMetricPatch = { period: number?, damping: number? }
+export type MotionMetrics = {
+	fast: number,
+	normal: number,
+	press: number?,
+	hover: number?,
+	reducedFade: number?,
+	revealFadeShare: number?,
+	unfoldStart: number?,
+	restLimit: number?,
+	popover: MotionTiming?,
+	dialog: MotionTiming?,
+	reveal: MotionTiming?,
+	sheet: MotionTiming?,
+	toast: MotionTiming?,
+	radial: { enter: number, exit: number, slot: number }?,
+	durations: { [string]: number }?,
+	springs: { [string]: SpringMetric }?,
+	materialize: { [string]: number }?,
+	distances: { [string]: number }?,
+	easing: { [string]: string }?,
+	styles: { [string]: string }?,
+	fling: { [string]: number }?,
+}
+export type MotionMetricsPatch = {
+	fast: number?,
+	normal: number?,
+	press: number?,
+	hover: number?,
+	reducedFade: number?,
+	revealFadeShare: number?,
+	unfoldStart: number?,
+	restLimit: number?,
+	popover: MotionTimingPatch?,
+	dialog: MotionTimingPatch?,
+	reveal: MotionTimingPatch?,
+	sheet: MotionTimingPatch?,
+	toast: MotionTimingPatch?,
+	radial: { enter: number?, exit: number?, slot: number? }?,
+	durations: { [string]: number }?,
+	springs: { [string]: SpringMetricPatch }?,
+	materialize: { [string]: number }?,
+	distances: { [string]: number }?,
+	easing: { [string]: string }?,
+	styles: { [string]: string }?,
+	fling: { [string]: number }?,
+}
 export type Metrics = {
 	typography: { [string]: Typography },
 	space: { [string]: number },
@@ -16,7 +66,7 @@ export type Metrics = {
 	strokes: { [string]: number },
 	targetSizes: { [string]: number },
 	controlSizes: { [string]: ControlSize },
-	motion: { [string]: number },
+	motion: MotionMetrics,
 	iconSizes: { [string]: number },
 	controls: { [string]: { [string]: number } },
 }
@@ -27,7 +77,7 @@ export type MetricsPatch = {
 	strokes: { [string]: number }?,
 	targetSizes: { [string]: number }?,
 	controlSizes: { [string]: ControlSizePatch }?,
-	motion: { [string]: number }?,
+	motion: MotionMetricsPatch?,
 	iconSizes: { [string]: number }?,
 	controls: { [string]: { [string]: number } }?,
 }

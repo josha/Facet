@@ -16,7 +16,6 @@ type Declared = {
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
 
-local POP = 0.15
 local EXPAND_EDGE = { "trailing", "bottom", "leading" }
 
 return function(ctx: Types.Context, UI: Layout.LayoutControls)
@@ -48,10 +47,13 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		local form: ComposeTypes.Cell<number> = spec.form or Compose.cell(1)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
-		local pop = runtime.timeline({ duration = POP, autoplay = false })
-		pop:seek(POP)
+		local popSeconds = ctx.metric("motion.durations.regionPop")
+		local present = ctx.motionEase("present")
+		local pop = runtime.timeline({ duration = popSeconds, autoplay = false })
+		pop:seek(popSeconds)
 		local scale = Compose.formula(function(use: ComposeTypes.Use): number
-			return if reduced(use) then 1 else 0.94 + 0.06 * (1 - (1 - use(pop.progress)) ^ 3)
+			local rest = ctx.metric("motion.materialize.modal", use)
+			return if reduced(use) then 1 else rest + (1 - rest) * present(use(pop.progress))
 		end)
 		local properties = (
 			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal" }, {
