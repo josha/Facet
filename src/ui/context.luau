@@ -1236,10 +1236,26 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return nil, nil
 		end
 		local probe = (input :: unknown) :: { GetFocusedTextBox: ((UserInputService) -> TextBox?)? }
+		local ending: { [string]: RBXScriptConnection } = {}
 		runtime.connect(input, "InputBegan", function(event: InputObject)
 			local name = if event.KeyCode then event.KeyCode.Name else nil
 			if name == nil or not RESERVED_KEYS[name] then
 				return
+			end
+			if ending[name] == nil then
+				local connection: RBXScriptConnection
+				connection = input.InputEnded:Connect(function(ended: InputObject)
+					if ended.KeyCode == event.KeyCode then
+						connection:Disconnect()
+						ending[name] = nil
+						for _, handler in table.clone(reserved) do
+							if handler.keys[name] then
+								handler.release()
+							end
+						end
+					end
+				end)
+				ending[name] = connection
 			end
 			local editing = probe.GetFocusedTextBox ~= nil and input:GetFocusedTextBox() ~= nil
 			local ordered = table.clone(reserved)
@@ -1258,16 +1274,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end
 			end
 		end)
-		runtime.connect(input, "InputEnded", function(event: InputObject)
-			local name = if event.KeyCode then event.KeyCode.Name else nil
-			if name == nil or not RESERVED_KEYS[name] then
-				return
+		Compose.cleanup(function()
+			for _, connection in ending do
+				connection:Disconnect()
 			end
-			for _, handler in table.clone(reserved) do
-				if handler.keys[name] then
-					handler.release()
-				end
-			end
+			table.clear(ending)
 		end)
 		return nil, nil
 	end)
