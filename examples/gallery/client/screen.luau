@@ -483,12 +483,29 @@ function screen.build(ctx: any)
 	local gamepad = function(use)
 		return use(environmentFacts.effectiveInput) == "Gamepad"
 	end
+	local function closePanel()
+		local gui = ctx.guiService
+		local card = gui and gui.SelectedObject and gui.SelectedObject:FindFirstAncestor("ShowcasePanel")
+		local trigger = card and card.Parent and card.Parent:FindFirstChild("Showcase", true)
+		panelOpen:set(false)
+		if trigger then
+			task.defer(function()
+				if trigger.Parent then
+					gui.SelectedObject = trigger
+				end
+			end)
+		end
+	end
 	local function request(want)
 		local open = panelOpen:peek()
 		if want == nil then
-			panelOpen:set(not open)
+			if open then
+				closePanel()
+			else
+				panelOpen:set(true)
+			end
 		elseif open and section:peek() == want then
-			panelOpen:set(false)
+			closePanel()
 		else
 			section:set(want)
 			panelOpen:set(true)
@@ -525,9 +542,7 @@ function screen.build(ctx: any)
 			Enabled = panelOpen,
 			Host.InputAction "Cancel" {
 				Type = Enum.InputActionType.Bool,
-				Pressed = function()
-					panelOpen:set(false)
-				end,
+				Pressed = closePanel,
 				Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonB }),
 				Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }),
 			},
@@ -554,7 +569,7 @@ function screen.build(ctx: any)
 					end,
 					onActivate = function()
 						selected:set(tab.id)
-						panelOpen:set(false)
+						closePanel()
 					end,
 				})
 			)
