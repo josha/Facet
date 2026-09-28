@@ -461,7 +461,8 @@ these rules:
   strip gives the selected tab. A container that has no controls passes the
   selection to the next control in the direction of travel.
 - Value controls. While a Slider, Stepper, Rating, table column grip or a
-  reorder move has the selection, Left and Right change the value at every
+  reorder move has the selection, Left and Right (the D-pad, the arrow keys
+  and the left stick) change the value at every
   value; a press at a limit does nothing. The control claims the axis only
   while it is the selected object itself, never while a part inside it is. A Menu row
   with a submenu opens it on Right, and Left returns to the parent row. Up and

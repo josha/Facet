@@ -70,6 +70,7 @@ local CONSTANTS: { [string]: string } = {
 	SLOP = "interaction threshold",
 	SPAN = "layout size",
 	STACK = "layout count",
+	STICK_PRESS = "interaction threshold",
 	TAP = "interaction threshold",
 	TRAVEL = "layout size",
 	VISIBLE_FRACTION = "layout share",

@@ -41,6 +41,7 @@ type ToggleButtonProps = InputTypes.ButtonProps & {
 }
 
 local REPEAT_DELAY, REPEAT_INTERVAL = 0.4, 0.1
+local STICK_PRESS = 0.5
 
 local function repeatHeld(
 	frames: { onFrame: ((number) -> ()) -> () -> () },
@@ -178,6 +179,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			return false
 		end
+		local function stickHeld(): boolean
+			local service = ctx.config.services.UserInputService
+			local probe = (service :: unknown) :: { GetGamepadState: ((any, Enum.UserInputType) -> { InputObject })? }
+			if service == nil or probe.GetGamepadState == nil then
+				return false
+			end
+			for _, state in (service :: any):GetGamepadState(E.UserInputType.Gamepad1) do
+				if state.KeyCode == E.KeyCode.Thumbstick1 and state.Position.Magnitude >= STICK_PRESS then
+					return true
+				end
+			end
+			return false
+		end
 		local guiService = ctx.config.services.GuiService
 		local target = guiService and guiService.SelectedObject
 		local selected = Compose.cell(target ~= nil and target == node)
@@ -309,6 +323,40 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 									else { E.KeyCode.Right, E.KeyCode.DPadRight })
 							bind(if direction < 0 then "DecreaseArrow" else "IncreaseArrow", keys, direction, true)
 						end
+						local leaning = 0
+						local settling = stickHeld()
+						ctx.action(node, "StickAdjust", { E.KeyCode.Thumbstick1 }, active, function() end, {
+							priority = 250,
+							sink = false,
+							direction2D = function(raw: Vector2)
+								if typeof(raw) ~= "Vector2" then
+									return
+								end
+								local along = if adjust.vertical then raw.Y else raw.X
+								local across = if adjust.vertical then raw.X else raw.Y
+								local direction = if math.abs(along) >= STICK_PRESS
+										and math.abs(along) > math.abs(across)
+									then (if along > 0 then 1 else -1)
+									else 0
+								if settling then
+									settling = direction ~= 0
+									return
+								end
+								if direction == leaning then
+									return
+								end
+								leaning = direction
+								if direction == 0 then
+									if held == "stick" then
+										stopRepeat()
+									end
+								else
+									start("stick", direction, function(): boolean
+										return leaning == direction
+									end)
+								end
+							end,
+						})
 					end
 					if adjust.extra then
 						adjust.extra(active)
