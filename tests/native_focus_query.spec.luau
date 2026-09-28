@@ -23,6 +23,12 @@ t.describe("the beam neighbour", function()
 		t.expect(FocusBeam.neighbor(from, { r(100, 0, 100, 44) }, "down")).toBe(nil)
 		t.expect(FocusBeam.neighbor(from, { r(120, 110, 20, 20) }, "down")).toBe(nil)
 	end)
+	t.it("breaks a gap tie by centre offset and accepts a one-unit overlap", function()
+		local from = r(100, 100, 100, 44)
+		t.expect(FocusBeam.neighbor(from, { r(180, 200, 100, 44), r(110, 200, 100, 44) }, "down")).toBe(2)
+		t.expect(FocusBeam.neighbor(from, { r(100, 143, 100, 44) }, "down")).toBe(1)
+		t.expect(FocusBeam.neighbor(from, { r(100, 142, 100, 44) }, "down")).toBe(nil)
+	end)
 	t.it("works on every axis", function()
 		local from = r(100, 100, 100, 100)
 		local candidates = { r(300, 120, 50, 50), r(-100, 120, 50, 50), r(120, 300, 50, 50), r(120, -100, 50, 50) }
@@ -123,6 +129,78 @@ t.describe("UI.focusQuery", function()
 		local up = w.UI.focusQuery(a).Up
 		t.expect(up.target).toBe(nil)
 		t.expect(up.rule).toBe("stop")
+		w.stop()
+	end)
+
+	t.it("reports capture on an adjustable's own axis before it is selected", function()
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("L")({ label = "L" }),
+				UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9 }),
+				UI.Slider("Rear")({ value = Facet.Compose.cell(3), min = 0, max = 9, axis = "y" }),
+				UI.Button("Below")({ label = "Below" }),
+			})
+		end)
+		w.place("L", 0, 100, 80, 44)
+		local volume = w.place("Volume", 100, 100, 200, 44)
+		local rear = w.place("Rear", 400, 50, 44, 200)
+		w.place("Below", 100, 300, 200, 44)
+		local moves = w.UI.focusQuery(volume)
+		t.expect(`{moves.Left.rule} {moves.Left.target and moves.Left.target.Name}`).toBe("capture Volume")
+		t.expect(moves.Right.rule).toBe("capture")
+		t.expect(moves.Down.target.Name).toBe("Below")
+		local vertical = w.UI.focusQuery(rear)
+		t.expect(vertical.Up.rule).toBe("capture")
+		t.expect(vertical.Left.rule).toBe("beam")
+		w.stop()
+	end)
+
+	t.it("searches nested SelectionGroups inside out and honours an outer Stop", function()
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("Out")({ label = "Out" }),
+				Host.Frame({
+					Name = "Outer",
+					SelectionGroup = true,
+					UI.Button("Sibling")({ label = "Sibling" }),
+					Host.Frame({ Name = "Inner", SelectionGroup = true, UI.Button("A")({ label = "A" }) }),
+				}),
+			})
+		end)
+		w.place("Out", 100, 0, 100, 44)
+		w.place("Sibling", 100, 100, 100, 44)
+		local a = w.place("A", 100, 300, 100, 44)
+		t.expect(w.UI.focusQuery(a).Up.target.Name).toBe("Sibling")
+		w.place("Sibling", 400, 400, 100, 44)
+		t.expect(w.UI.focusQuery(a).Up.target.Name).toBe("Out")
+		w.screen:FindFirstChild("Outer", true).SelectionBehaviorUp = w.engine.types.Enum.SelectionBehavior.Stop
+		local up = w.UI.focusQuery(a).Up
+		t.expect(`{up.rule} {up.target}`).toBe("stop nil")
+		w.stop()
+	end)
+
+	t.it("ignores a link to a hidden or unselectable target, zero-size and off-screen candidates", function()
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("From")({ label = "From" }),
+				UI.Button("Hidden")({ label = "Hidden" }),
+				UI.Button("Flat")({ label = "Flat" }),
+				UI.Button("Away")({ label = "Away" }),
+				UI.Button("Near")({ label = "Near" }),
+			})
+		end)
+		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1000, 800)
+		local from = w.place("From", 100, 100, 100, 44)
+		local hidden = w.place("Hidden", 400, 100, 100, 44)
+		w.place("Flat", 100, 200, 100, 0)
+		w.place("Away", 100, 900, 100, 44)
+		w.place("Near", 100, 400, 100, 44)
+		hidden.Visible = false
+		from.NextSelectionRight = hidden
+		t.expect(w.UI.focusQuery(from).Right.rule).toBe("none")
+		t.expect(w.UI.focusQuery(from).Down.target.Name).toBe("Near")
+		w.place("Near", 100, 950, 100, 44)
+		t.expect(w.UI.focusQuery(from).Down.rule).toBe("none")
 		w.stop()
 	end)
 

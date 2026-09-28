@@ -3727,12 +3727,16 @@ end)
 `UI.focusQuery(from?) -> FocusQuery` says what a D-pad or arrow move from
 `from` (default: the selected object) selects and why, without moving. Each of
 `Up`, `Down`, `Left`, `Right` is `{ target, rule }`. `rule` is `"capture"` (a
-value control keeps that axis), `"link"` (a `NextSelection*` link), `"beam"`
+value control keeps that axis, whether or not it is selected yet), `"link"` (a
+`NextSelection*` link to a shown, selectable object; a link to a hidden or
+unselectable one is ignored), `"beam"`
 (Facet's model of the engine's own choice: controls that overlap on the cross
 axis first, nearest edge first, then the nearest in that half of the screen),
 `"stop"` (a `SelectionGroup` with `SelectionBehavior` `Stop`) or `"none"`. The
-candidates are the ones Tab visits, minus scrolling frames and objects outside
-the screen; an enclosing `SelectionGroup` is searched first. The engine still
+candidates are the ones Tab visits, minus scrolling frames, zero-size objects
+and objects outside the screen; enclosing `SelectionGroup`s are searched from
+the innermost out, and the first one whose `SelectionBehavior` is `Stop` in
+that direction ends the search. The engine still
 performs every move; tests and tools use the query to check navigation without
 a device. The query does no per-frame work.
 

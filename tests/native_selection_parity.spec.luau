@@ -464,6 +464,33 @@ t.describe("native selection parity with the main focus graph", function()
 		world.stop()
 	end)
 
+	t.it("passes through an empty scroll container to the in-beam control with the nearest leading edge", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Button("Above")({ label = "Above" }),
+				Host.ScrollingFrame("Empty")({
+					Host.TextLabel({ Text = "Beginner tasks" }),
+				}),
+				UI.Button("Near")({ label = "Near" }),
+				UI.Button("Centred")({ label = "Centred" }),
+			})
+		end)
+		local V2 = world.engine.types.Vector2
+		local function place(name: string, x: number, y: number, height: number)
+			local node = find(world.screen, name)
+			node.AbsolutePosition = V2.new(x, y)
+			node.AbsoluteSize = V2.new(200, height)
+		end
+		place("Above", 0, 0, 40)
+		place("Empty", 0, 50, 300)
+		place("Near", 150, 360, 40)
+		place("Centred", 0, 420, 40)
+		world.gui.SelectedObject = find(world.screen, "Above")
+		world.gui.SelectedObject = find(world.screen, "Empty")
+		t.expect(selected(world)).toBe("Near")
+		world.stop()
+	end)
+
 	t.it("never stops on a scroll container and forwards to its nearest child", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({

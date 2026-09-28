@@ -177,15 +177,27 @@ return function(ctx: Shared.Context): Selection
 		return true
 	end
 
-	local function groupOf(node: GuiObject): GuiObject?
+	local function groupsOf(node: GuiObject): { GuiObject }
+		local found = {}
 		local at = node.Parent
 		while at and at:IsA("GuiObject") do
 			if (at :: GuiObject).SelectionGroup then
-				return at :: GuiObject
+				table.insert(found, at :: GuiObject)
 			end
 			at = at.Parent
 		end
-		return nil
+		return found
+	end
+
+	local function capturedAxis(origin: GuiObject, direction: string): boolean
+		if not origin:HasTag("facet-adjustable") or not origin.Selectable or not shown(origin) then
+			return false
+		end
+		local axis = origin:GetAttribute("axis")
+		if axis == "horizontal" then
+			return direction == "Left" or direction == "Right"
+		end
+		return axis == "vertical" and (direction == "Up" or direction == "Down")
 	end
 
 	local function query(from: GuiObject?): Env.FocusQuery
@@ -199,11 +211,18 @@ return function(ctx: Shared.Context): Selection
 		end
 		local pool: { GuiObject } = {}
 		for _, candidate in scopeOf(origin) do
-			if candidate ~= origin and not candidate:IsA("ScrollingFrame") and visibleOnScreen(candidate) then
+			local size = candidate.AbsoluteSize
+			if
+				candidate ~= origin
+				and not candidate:IsA("ScrollingFrame")
+				and size.X > 0
+				and size.Y > 0
+				and visibleOnScreen(candidate)
+			then
 				table.insert(pool, candidate)
 			end
 		end
-		local group = groupOf(origin)
+		local groups = groupsOf(origin)
 		local function pick(list: { GuiObject }, direction: string): GuiObject?
 			local rects = table.create(#list)
 			for index, node in list do
@@ -214,13 +233,17 @@ return function(ctx: Shared.Context): Selection
 		end
 		for _, direction in DIRECTIONS do
 			local link = (origin :: any)["NextSelection" .. direction] :: GuiObject?
-			if link then
-				result[direction] = table.freeze({ target = link, rule = if link == origin then "capture" else "link" })
+			if link == origin or capturedAxis(origin, direction) then
+				result[direction] = table.freeze({ target = origin, rule = "capture" })
+				continue
+			end
+			if link and link.Selectable and shown(link) then
+				result[direction] = table.freeze({ target = link, rule = "link" })
 				continue
 			end
 			local target: GuiObject? = nil
-			local rule = "beam"
-			if group then
+			local stopped = false
+			for _, group in groups do
 				local inside = {}
 				for _, node in pool do
 					if node:IsDescendantOf(group) then
@@ -228,17 +251,17 @@ return function(ctx: Shared.Context): Selection
 					end
 				end
 				target = pick(inside, direction)
-				if target == nil and (group :: any)["SelectionBehavior" .. direction] == E.SelectionBehavior.Stop then
-					rule = "stop"
-				elseif target == nil then
-					target = pick(pool, direction)
+				if target or (group :: any)["SelectionBehavior" .. direction] == E.SelectionBehavior.Stop then
+					stopped = target == nil
+					break
 				end
-			else
+			end
+			if target == nil and not stopped then
 				target = pick(pool, direction)
 			end
 			result[direction] = table.freeze({
 				target = target,
-				rule = if target then rule elseif rule == "stop" then "stop" else "none",
+				rule = if target then "beam" elseif stopped then "stop" else "none",
 			})
 		end
 		return table.freeze(result) :: any
