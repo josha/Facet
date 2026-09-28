@@ -70,6 +70,38 @@ local function actionButton(w: any, id: string): any
 	return overlay.find(w.find("Actions"), id)
 end
 
+t.describe("native Dialog: one Back press closes one modal", function()
+	t.it("the modal under a closing one ignores the Back press that closed it", function()
+		local outerOpen, outerLog, outerChange = caller()
+		local innerOpen, innerLog, innerChange = caller()
+		local held = true
+		local w = overlay.new(function(UI, Host, _, gui)
+			local opener = UI.Button "Opener" { label = "Open" }
+			gui.SelectedObject = opener
+			return Host.Frame({
+				opener,
+				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
+			})
+		end, { motionLevel = "none" })
+		w.input.IsGamepadButtonDown = function(_, _, key)
+			return held and key == w.Enum.KeyCode.ButtonB
+		end
+		w.advance(0.1)
+		w.action("ModalBack").Pressed.fire()
+		t.expect(innerOpen:peek()).toBe(false)
+		local under = w.action("ModalBack")
+		t.expect(under ~= nil).toBe(true)
+		under.Pressed.fire()
+		t.expect(outerOpen:peek()).toBe(true)
+		held = false
+		under.Released.fire()
+		under.Pressed.fire()
+		t.expect(outerOpen:peek()).toBe(false)
+		w.stop()
+	end)
+end)
+
 t.describe("native Dialog: the caller's fact decides", function()
 	t.it("a ten-foot screen or Larger text stacks the actions full width", function()
 		for _, case in { "near", "tv", "text" } do

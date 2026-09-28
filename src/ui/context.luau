@@ -1316,19 +1316,26 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		local gui = config.guiService
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
+		local stale = false
 		local p: Shared.InputActionNativeProps = {
 			Name = name,
 			Type = if settings.direction2D then Enum.InputActionType.Direction2D else Enum.InputActionType.Bool,
 			StateChanged = settings.direction2D :: ((unknown) -> ())?,
 			Pressed = function()
+				if stale then
+					return
+				end
 				if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 					onPressed()
 				end
 			end,
+			Released = function()
+				stale = false
+				if settings.onReleased then
+					settings.onReleased()
+				end
+			end,
 		}
-		if settings.onReleased then
-			p.Released = settings.onReleased
-		end
 		local function bind(binding: Shared.ActionBinding): Instance
 			return Host.InputBinding(if type(binding) == "table"
 				then binding
@@ -1359,6 +1366,41 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and use(available)
 				and ctx.read(enabledSource, use) ~= false
 				and ctx.available(node, use)
+		end
+		local keyInput = config.userInputService
+		if keyInput then
+			local probe = (keyInput :: unknown) :: {
+				IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)?,
+				IsGamepadButtonDown: ((UserInputService, Enum.UserInputType, Enum.KeyCode) -> boolean)?,
+			}
+			local function held(): boolean
+				for _, binding in keyCodes :: { Shared.ActionBinding } do
+					local code: unknown = if type(binding) == "string"
+						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
+						elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
+						else binding
+					if typeof(code) == "EnumItem" or type(code) == "table" then
+						local key = code :: Enum.KeyCode
+						if
+							probe.IsGamepadButtonDown and keyInput:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, key)
+						then
+							return true
+						end
+						if probe.IsKeyDown and keyInput:IsKeyDown(key) then
+							return true
+						end
+					end
+				end
+				return false
+			end
+			local wasOn = false
+			Compose.watch(function(use: ComposeTypes.Use)
+				local on = enabled(use)
+				if on and not wasOn then
+					stale = held()
+				end
+				wasOn = on
+			end)
 		end
 		local context: InputContext
 		if group then

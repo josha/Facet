@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- One B or Escape press closes one modal. Closing a menu opened from inside a modal (the date picker's month or year list) enabled the modal's Back action while the same press was still being delivered, so it closed the date picker too. An input action now ignores a press whose key was already down when the action became enabled, until that key is released.
 - Dismissing a Callout from inside its plate (Got it, an action, the close control, B or Escape) hands the selection to the callout's anchor at once. The plate's buttons stop being selectable as it leaves, and the engine had already moved the selection to another control on the page before the plate was gone.
 - A Sheet whose `hero.content` is an Instance presents again after it is dismissed. The dismissal destroyed that Instance with the hero, so the next presentation failed (`FacetError` on the Sheet) and closed at once; the Instance is now taken out of the hero before the hero goes.
 - A D-pad move with nothing in its direction no longer jumps to the first control of the page. The engine selected the scroll container around the selected control, and Facet passed the selection to the container's first control; it now keeps the selected control.
