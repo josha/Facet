@@ -129,22 +129,18 @@ delivered input in `notes.deliveredInput` and the selection after each press
 in `notes.pressedSelections`.
 
 - DPadUp cannot be sent through VirtualInput. The emulator maps it to the key
-  1, and VirtualInput refuses that key. Post the key to Studio's process
-  instead: `swift tools/studio/capture/pad_key.swift <pid> 18 0.12` (macOS key
-  code 18 is `1`; 19/20/21 are D-pad left/down/right, 13/0/1/2 are W/A/S/D).
-  Studio does not need to be in front. The engine moves the stick selection by
-  a different geometry than the D-pad, so `StickUp` can choose another
-  neighbour than D-pad Up.
-- Before any capture or posted input, run
-  `swift tools/studio/capture/session_locked.swift`. It must print
-  `locked: 0` or `locked: no-key`. A locked Mac drops posted input while
-  window captures keep working.
+  1, and VirtualInput refuses that key. Post the key to Studio's process with
+  the `pad_key` helper in `tools/studio/capture/`; its usage text lists the key
+  codes for the D-pad and the left stick. Studio does not need to be in front.
+  The engine moves the stick selection by a different geometry than the D-pad,
+  so `StickUp` can choose another neighbour than D-pad Up.
+- Before any capture or posted input, check the desktop session with the
+  `session_locked` helper there. It must print `locked: 0` or `locked: no-key`.
+  A locked session drops posted input while window captures keep working.
 - To click Studio's own UI (for example the Virtual Controller check box), take
-  the coordinates from a capture of the Studio window only:
-  `swift tools/studio/capture/window_id.swift <place>` gives the window id,
-  `screencapture -x -o -l <id> out.png` captures that window, and
-  `swift tools/studio/capture/pid_click.swift <pid> <x> <y>` posts the click to
-  Studio's process in screen points. Never capture the whole screen.
+  the coordinates from a capture of the Studio window only (the `window_id`
+  helper gives the window id), and post the click to Studio's process with the
+  `pid_click` helper, in screen points. Never capture the whole screen.
 - Do not send the keys U and Q. They are ButtonStart and ButtonSelect. They
   open the Roblox menu or take the keyboard focus, and after that VirtualInput
   refuses every key until the playtest restarts.

@@ -1236,8 +1236,8 @@ Some cases were added on `main` after the baseline. Each family records them her
 | post-pickers-107 | `value_controls` | 1 | a | `a press left of a coincident pair takes the lower thumb, and a press right takes the upper` |  |
 | post-pickers-108 | `value_controls` | 1 | a | `a drag keeps the thumb it started with, even dragged past the other one` |  |
 | post-pickers-109 | `value_controls` | 1 | a | `one commit per completed gesture, and it names the thumb that moved` |  |
-| post-pickers-110 | `value_controls` | 1 | a | `keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move` | Roblox has no Tab traversal; each handle is Selectable and the ring is set through GuiService.SelectedObject. |
-| post-pickers-111 | `value_controls` | 1 | a | `keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move` | Owner ruling 2026-09-27 (D3): the range Slider is one stop; A or Return switches the handle the arrows move, so no selection move between handles exists. |
+| post-pickers-110 | `value_controls` | 1 | a | `keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move` | Roblox has no Tab traversal; the range Slider is the one stop and the ring is drawn on the adjusted handle through FacetFocusPart. |
+| post-pickers-111 | `value_controls` | 1 | a | `keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move` | The range Slider is one stop; A or Return switches the handle the arrows move, so no selection move between handles exists. |
 | post-pickers-112 | `value_controls` | 1 | a | `losing the input class mid-drag restores both numbers, and the later move and release commit nothing` | The class loss is a PreferredInput change. |
 | post-pickers-113 | `value_controls` | 1 | a | `losing the input class mid-drag restores both numbers, and the later move and release commit nothing` |  |
 | post-pickers-114 | `value_controls` | 1 | a | `an authored pair the wrong way round is a spec error, not a silent swap` |  |

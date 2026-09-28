@@ -260,6 +260,9 @@ type Environment
 type ErrorBoundaryProps
 type Extent
 type Facet
+type FocusDirection
+type FocusMove
+type FocusQuery
 type GridProps
 type HapticKind
 type IdentityCollectionSpec

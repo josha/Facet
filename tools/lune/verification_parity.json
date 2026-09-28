@@ -45630,7 +45630,7 @@
         "native_slider_shapes::native Slider range::keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move"
       ],
       "family": "pickers",
-      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Roblox has no Tab traversal; each handle is Selectable and the ring is set through GuiService.SelectedObject."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Roblox has no Tab traversal; the range Slider is the one stop and the ring is drawn on the adjusted handle through FacetFocusPart."
     },
     {
       "id": "post-pickers-111",
@@ -45646,7 +45646,7 @@
         "native_slider_shapes::native Slider range::keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move"
       ],
       "family": "pickers",
-      "weaker": "Owner ruling 2026-09-27 (D3): the range Slider is one stop; A or Return switches the handle the arrows move, so no selection move between handles exists."
+      "weaker": "The range Slider is one stop; A or Return switches the handle the arrows move, so no selection move between handles exists."
     },
     {
       "id": "post-pickers-112",
