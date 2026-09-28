@@ -54,10 +54,19 @@ local function setup(build: (any, any) -> any, options: { [string]: any }?): any
 			UserInputType = engine.types.Enum.UserInputType.Gamepad1,
 		}, true)
 	end
-	function world.stick(x: number, y: number)
-		local context = world.find("FacetStickAdjust", parent)
-		assert(context and context.Enabled, "the stick adjust context is live")
-		context:FindFirstChild("StickAdjust").StateChanged.fire(engine.types.Vector2.new(x, y))
+	function world.stick(x: number, y: number, key: string?)
+		input.InputChanged.fire({
+			KeyCode = (engine.types.Enum.KeyCode :: any)[key or "Thumbstick1"],
+			UserInputType = engine.types.Enum.UserInputType.Gamepad1,
+			Position = engine.types.Vector3.new(x, y, 0),
+		}, true)
+	end
+	function world.stickEnded()
+		input.InputEnded.fire({
+			KeyCode = engine.types.Enum.KeyCode.Thumbstick1,
+			UserInputType = engine.types.Enum.UserInputType.Gamepad1,
+			Position = engine.types.Vector3.new(0, 0, 0),
+		}, true)
 	end
 	function world.action(name: string)
 		for _, node in parent:GetDescendants() do
@@ -236,12 +245,80 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		w.stop()
 	end)
 
-	t.it("the stick context does not sink, so the engine still moves on the other axis", function()
+	t.it(
+		"the stick is read from UserInputService: no input context, other sticks and unselected stops ignored",
+		function()
+			local value = Compose.cell(5)
+			local w = setup(function(UI, Host)
+				return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
+			end)
+			w.stick(-1, 0)
+			w.stickEnded()
+			t.expect(value:peek()).toBe(5)
+			w.gui.SelectedObject = w.find("Volume")
+			t.expect(w.find("FacetStickAdjust", w.parent)).toBe(nil)
+			w.stick(-1, 0, "Thumbstick2")
+			t.expect(value:peek()).toBe(5)
+			w.stick(-1, 0)
+			t.expect(value:peek()).toBe(4)
+			w.stickEnded()
+			t.expect(w.engine.heartbeat.count()).toBe(0)
+			w.stick(-1, 0)
+			t.expect(value:peek()).toBe(3)
+			w.stop()
+		end
+	)
+
+	t.it(
+		"every value control's stop listens for SelectionGained, so the engine's D-pad ranks it with buttons",
+		function()
+			local w = setup(function(UI, Host)
+				local dial = Host.Frame({ Name = "Dial" })
+				UI.adjustable(dial, { onAdjust = function() end })
+				return Host.Frame({
+					UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }),
+					UI.Slider("Two")({
+						value = Compose.cell({ lower = 2, upper = 8 }),
+						range = true,
+						min = 0,
+						max = 10,
+					}),
+					UI.Stepper("Three")({ value = Compose.cell(1), max = 5 }),
+					dial,
+				})
+			end)
+			local unwired = {}
+			for _, node in w.screen:GetDescendants() do
+				if node:HasTag("facet-adjustable") and node.SelectionGained.count() == 0 then
+					table.insert(unwired, node.Name)
+				end
+			end
+			t.expect(unwired).toEqual({})
+			w.stop()
+		end
+	)
+
+	t.it("slider drag detectors switch off while the gamepad is the preferred input", function()
 		local w = setup(function(UI, Host)
-			return Host.Frame({ UI.Stepper("Volume")({ value = Compose.cell(5), max = 10 }) })
+			return Host.Frame({
+				UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }),
+				UI.Slider("Two")({ value = Compose.cell({ lower = 2, upper = 8 }), range = true, min = 0, max = 10 }),
+			})
 		end)
-		w.gui.SelectedObject = w.find("Volume")
-		t.expect(w.find("FacetStickAdjust", w.parent).Sink).toBe(false)
+		local function detectors(): { boolean }
+			local states = {}
+			for _, node in w.screen:GetDescendants() do
+				if node:IsA("UIDragDetector") then
+					table.insert(states, node.Enabled)
+				end
+			end
+			return states
+		end
+		t.expect(detectors()).toEqual({ true, true, true, true })
+		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
+		t.expect(detectors()).toEqual({ false, false, false, false })
+		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+		t.expect(detectors()).toEqual({ true, true, true, true })
 		w.stop()
 	end)
 end)

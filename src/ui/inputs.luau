@@ -164,6 +164,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	): ()
 		local adjust: Adjust = options or {}
 		node:AddTag("facet-adjustable")
+		runtime.connect(node, "SelectionGained", function() end)
 		attributes(node, {
 			disabled = function(use: ComposeTypes.Use): boolean
 				return not stopEnabled(spec, use)
@@ -340,42 +341,48 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						end
 						local leaning = 0
 						local settling = stickHeld()
-						ctx.action(node, "StickAdjust", { E.KeyCode.Thumbstick1 }, active, function() end, {
-							priority = 250,
-							sink = false,
-							direction2D = function(raw: Vector2)
-								if typeof(raw) ~= "Vector2" then
-									return
+						local stickInput = ctx.config.services.UserInputService
+						local function lean(event: InputObject, ended: boolean)
+							if event.KeyCode ~= E.KeyCode.Thumbstick1 then
+								return
+							end
+							local x, y = if ended then 0 else event.Position.X, if ended then 0 else event.Position.Y
+							local along = if adjust.vertical then y else x
+							local across = math.abs(if adjust.vertical then x else y)
+							local reach = math.abs(along)
+							local sign = if along > 0 then 1 else -1
+							if settling then
+								settling = reach >= STICK_RELEASE and reach >= across
+								return
+							end
+							local direction = if leaning == sign
+									and reach >= STICK_RELEASE
+									and reach >= across
+								then sign
+								elseif reach >= STICK_PRESS and reach > across * STICK_DOMINANCE then sign
+								else 0
+							if direction == leaning then
+								return
+							end
+							leaning = direction
+							if direction == 0 then
+								if held == "stick" then
+									stopRepeat()
 								end
-								local along = if adjust.vertical then raw.Y else raw.X
-								local across = math.abs(if adjust.vertical then raw.X else raw.Y)
-								local reach = math.abs(along)
-								local sign = if along > 0 then 1 else -1
-								if settling then
-									settling = reach >= STICK_RELEASE and reach >= across
-									return
-								end
-								local direction = if leaning == sign
-										and reach >= STICK_RELEASE
-										and reach >= across
-									then sign
-									elseif reach >= STICK_PRESS and reach > across * STICK_DOMINANCE then sign
-									else 0
-								if direction == leaning then
-									return
-								end
-								leaning = direction
-								if direction == 0 then
-									if held == "stick" then
-										stopRepeat()
-									end
-								else
-									start("stick", direction, function(): boolean
-										return leaning == direction
-									end)
-								end
-							end,
-						})
+							else
+								start("stick", direction, function(): boolean
+									return leaning == direction
+								end)
+							end
+						end
+						if stickInput then
+							runtime.connect(stickInput, "InputChanged", function(event: InputObject)
+								lean(event, false)
+							end)
+							runtime.connect(stickInput, "InputEnded", function(event: InputObject)
+								lean(event, true)
+							end)
+						end
 					end
 					if adjust.extra then
 						adjust.extra(active)

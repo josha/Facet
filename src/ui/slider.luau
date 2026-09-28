@@ -317,6 +317,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local function pointerDrag(use: ComposeTypes.Use): boolean
+			return h.enabled(spec, use) and use(preferred) ~= E.PreferredInput.Gamepad
+		end
 		local degrees = function(use: ComposeTypes.Use?): number
 			local turn = read(spec.rotation, use)
 			assert(turn == nil or finite(turn), "Facet UI.Slider: rotation must be a finite number of degrees")
@@ -508,7 +511,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local detector = Host.UIDragDetector "Drag" {
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-			Enabled = enabledValue(spec),
+			Enabled = pointerDrag,
 			DragStart = function(position)
 				if not h.enabled(spec) then
 					return
@@ -626,9 +629,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return {
 						Host.UIDragDetector "Drag" {
 							ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-							Enabled = function(use: ComposeTypes.Use)
-								return h.enabled(spec, use)
-							end,
+							Enabled = pointerDrag,
 							DragStart = function()
 								if not h.enabled(spec) then
 									return

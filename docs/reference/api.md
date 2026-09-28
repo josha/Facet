@@ -468,6 +468,9 @@ these rules:
   it is. Its root has the tag `facet-adjustable`, the attribute `axis`
   (`horizontal` or `vertical`) and the attribute `disabled`. A disabled value
   control is not a selection stop; a busy one stays a stop and ignores presses.
+  The root listens for `SelectionGained` (the engine's D-pad ranks listened
+  objects first), and a Slider's drag detectors are off while the gamepad is
+  the preferred input.
   A range Slider's Return does nothing while a TextBox has the keyboard. A table column grip and a reorder move also
   take Left and Right (Up and Down for a vertical list) while they have the
   selection, from the D-pad and the arrow keys only. A Menu row with a submenu
