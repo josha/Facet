@@ -3671,7 +3671,10 @@ height, measured down from its top edge (a Card uses this to ring the whole
 card from its body). A selected object with a string attribute
 `FacetFocusPart` (a path of child names such as `"Track/Thumb"`) gets the look
 on that part instead, sized to it and shaped by its `UICorner`; a Slider uses
-this so the look stays on its thumb while the whole Slider is the stop.
+this so the look stays on its thumb while the whole Slider is the stop. The
+part's place and size are kept as shares of the selected object, so a parent
+`UIScale` moves and sizes the look with the part. A part that is itself rotated
+relative to the selected object gets an unrotated look around its unrotated box.
 
 At ten feet the look is larger: a ring is twice as thick, brackets, art
 outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,

@@ -206,31 +206,58 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 end)
 
 t.describe("focus ring part", function()
-	t.it("draws on FacetFocusPart and follows it", function()
+	local function ringWorld(scaled: boolean)
 		local w = setup(function(_, Host)
-			return Host.Frame({
+			local row = Host.Frame({
 				Name = "Row",
 				Selectable = true,
 				Host.Frame({ Name = "Track", Host.Frame({ Name = "Knob" }) }),
 			})
+			return if scaled then Host.Frame({ Host.UIScale({ Scale = 0.5 }), row }) else row
 		end)
 		local playerGui = w.engine.new("PlayerGui")
-		local ring
 		local stopRing = Facet.Roblox.createRuntime(w.engine).mount(function()
-			ring = w.UI.focusRing(playerGui)
-			return ring
+			return w.UI.focusRing(playerGui)
 		end, playerGui)
+		return w, playerGui, stopRing
+	end
+
+	t.it("draws on FacetFocusPart and follows it", function()
+		local w, playerGui, stopRing = ringWorld(false)
+		local V2 = w.engine.types.Vector2
 		local row, knob = w.find("Row"), w.find("Knob")
-		row.AbsolutePosition = w.engine.types.Vector2.new(100, 100)
-		knob.AbsolutePosition = w.engine.types.Vector2.new(300, 110)
-		knob.AbsoluteSize = w.engine.types.Vector2.new(44, 44)
+		row.AbsolutePosition = V2.new(100, 100)
+		row.AbsoluteSize = V2.new(600, 60)
+		knob.AbsolutePosition = V2.new(300, 110)
+		knob.AbsoluteSize = V2.new(44, 44)
 		row:SetAttribute("FacetFocusPart", "Track/Knob")
 		w.gui.SelectedObject = row
 		local image = playerGui.SelectionImageObject
-		t.expect(image.Position.X.Offset).toBe(198)
-		t.expect(image.Size.X.Offset).toBe(48)
-		knob.AbsolutePosition = w.engine.types.Vector2.new(320, 110)
-		t.expect(image.Position.X.Offset).toBe(218)
+		t.expect(image.Position.X.Scale * 600).toBeCloseTo(200)
+		t.expect(image.Position.X.Offset).toBe(-2)
+		t.expect(image.Size.X.Scale * 600).toBeCloseTo(44)
+		t.expect(image.Size.X.Offset).toBe(4)
+		knob.AbsolutePosition = V2.new(320, 110)
+		t.expect(image.Position.X.Scale * 600).toBeCloseTo(220)
+		stopRing()
+		w.stop()
+	end)
+
+	t.it("stays on the part under a parent UIScale because it is placed in the stop's own proportions", function()
+		local w, playerGui, stopRing = ringWorld(true)
+		local V2 = w.engine.types.Vector2
+		local row, knob = w.find("Row"), w.find("Knob")
+		row.AbsolutePosition = V2.new(50, 50)
+		row.AbsoluteSize = V2.new(300, 30)
+		knob.AbsolutePosition = V2.new(150, 55)
+		knob.AbsoluteSize = V2.new(22, 22)
+		row:SetAttribute("FacetFocusPart", "Track/Knob")
+		w.gui.SelectedObject = row
+		local image = playerGui.SelectionImageObject
+		t.expect(image.Size.X.Scale * row.AbsoluteSize.X).toBeCloseTo(knob.AbsoluteSize.X)
+		t.expect(image.Size.Y.Scale * row.AbsoluteSize.Y).toBeCloseTo(knob.AbsoluteSize.Y)
+		t.expect(image.Position.X.Scale * row.AbsoluteSize.X).toBeCloseTo(100)
+		t.expect(image.Position.Y.Scale * row.AbsoluteSize.Y).toBeCloseTo(5)
 		stopRing()
 		w.stop()
 	end)

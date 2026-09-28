@@ -122,6 +122,19 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return if at and at:IsA("GuiObject") then at :: GuiObject else nil
 		end
 		local partRevision = Compose.cell(0)
+		local function partShare(target: Instance?): (Vector2?, Vector2?)
+			local part = partOf(target)
+			if part == nil or target == nil or not target:IsA("GuiObject") then
+				return nil, nil
+			end
+			local whole = (target :: GuiObject).AbsoluteSize
+			if whole.X <= 0 or whole.Y <= 0 then
+				return nil, nil
+			end
+			local offset = part.AbsolutePosition - (target :: GuiObject).AbsolutePosition
+			return ctx.types.Vector2.new(offset.X / whole.X, offset.Y / whole.Y),
+				ctx.types.Vector2.new(part.AbsoluteSize.X / whole.X, part.AbsoluteSize.Y / whole.Y)
+		end
 		local observation = runtime.host.observation
 		local tracking: { () -> () } = {}
 		local function untrack()
@@ -231,9 +244,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local grow = lift(use)
 				use(reshaped)
 				local target = use(selected) :: Instance?
-				local part = partOf(target)
-				if part then
-					return D2.fromOffset(part.AbsoluteSize.X + 2 * grow, part.AbsoluteSize.Y + 2 * grow)
+				local _, share = partShare(target)
+				if share then
+					return D2.new(share.X, 2 * grow, share.Y, 2 * grow)
 				end
 				local height = if target then target:GetAttribute("FacetFocusHeight") else nil
 				return D2.new(1, 2 * grow, if type(height) == "number" then height else 1, 2 * grow)
@@ -242,10 +255,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local grow = lift(use)
 				use(reshaped)
 				local target = use(selected) :: Instance?
-				local part = partOf(target)
-				if part and target and target:IsA("GuiObject") then
-					local offset = part.AbsolutePosition - (target :: GuiObject).AbsolutePosition
-					return D2.fromOffset(offset.X - grow, offset.Y - grow)
+				local at = partShare(target)
+				if at then
+					return D2.new(at.X, -grow, at.Y, -grow)
 				end
 				return D2.fromOffset(-grow, -grow)
 			end,
