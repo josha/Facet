@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tab, Shift+Tab and Escape work from a real keyboard. The engine's own bindings take both keys ahead of every input action and ContextActionService binding (measured on main too), so Facet's traversal and its Escape actions never ran; Facet now also reads them from `UserInputService.InputBegan` and runs the one enabled Facet action with the highest priority, once per press. Escape still opens the Roblox menu as well (engine-reserved); Facet's top modal closes on the same press.
 - A ColorPicker's saturation and brightness plane listens for `SelectionGained`, so the engine's D-pad ranks it with buttons instead of after all of them.
 - Tab and Shift+Tab skip scroll containers, except one that is itself a selection stop: an overflowing Dialog body, a Collection or a Pagination root. A plain scroll container around the selected control swallowed the Tab and the walk stopped.
 - `UI.focusQuery` finds a `SelectionGroup` or a scroll container above the control when a Folder sits between them (the engine does).

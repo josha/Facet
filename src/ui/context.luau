@@ -1226,6 +1226,64 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		available: ComposeTypes.Cell<boolean>,
 	}
 	local selected: selection.Selection
+	local RESERVED_KEYS = table.freeze({ Tab = true, Escape = true })
+	local reserved: { Shared.ReservedKeyHandler } = {}
+	local reservedOrder: { [Shared.ReservedKeyHandler]: number } = {}
+	local reservedCount = 0
+	local listenReserved = Compose.createSharedResource(function(): (nil, (() -> ())?)
+		local input = config.userInputService
+		if input == nil then
+			return nil, nil
+		end
+		local probe = (input :: unknown) :: { GetFocusedTextBox: ((UserInputService) -> TextBox?)? }
+		runtime.connect(input, "InputBegan", function(event: InputObject)
+			local name = if event.KeyCode then event.KeyCode.Name else nil
+			if name == nil or not RESERVED_KEYS[name] then
+				return
+			end
+			local editing = probe.GetFocusedTextBox ~= nil and input:GetFocusedTextBox() ~= nil
+			local ordered = table.clone(reserved)
+			table.sort(ordered, function(a: Shared.ReservedKeyHandler, b: Shared.ReservedKeyHandler): boolean
+				if a.priority ~= b.priority then
+					return a.priority > b.priority
+				end
+				return reservedOrder[a] > reservedOrder[b]
+			end)
+			for _, handler in ordered do
+				if handler.keys[name] and (handler.editing or not editing) and handler.enabled() then
+					handler.press()
+					if handler.sink then
+						return
+					end
+				end
+			end
+		end)
+		runtime.connect(input, "InputEnded", function(event: InputObject)
+			local name = if event.KeyCode then event.KeyCode.Name else nil
+			if name == nil or not RESERVED_KEYS[name] then
+				return
+			end
+			for _, handler in table.clone(reserved) do
+				if handler.keys[name] then
+					handler.release()
+				end
+			end
+		end)
+		return nil, nil
+	end)
+	function ctx.reserveKeys(handler: Shared.ReservedKeyHandler): ()
+		listenReserved()
+		reservedCount += 1
+		reservedOrder[handler] = reservedCount
+		table.insert(reserved, handler)
+		Compose.cleanup(function()
+			local index = table.find(reserved, handler)
+			if index then
+				table.remove(reserved, index)
+			end
+			reservedOrder[handler] = nil
+		end)
+	end
 	function ctx.navigationGamepads(): { Enum.UserInputType }
 		local service = config.userInputService
 		local probe = (service :: unknown) :: { GetNavigationGamepads: ((any) -> { Enum.UserInputType })? }
@@ -1382,6 +1440,43 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and ctx.read(enabledSource, use) ~= false
 				and ctx.available(node, use)
 		end)
+		local reservedBound: { [string]: boolean } = {}
+		for _, binding in keyCodes :: { Shared.ActionBinding } do
+			local code: unknown = if type(binding) == "string"
+				then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
+				elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
+				else binding
+			local codeName = if code ~= nil then (code :: Enum.KeyCode).Name else nil
+			if codeName and RESERVED_KEYS[codeName] then
+				reservedBound[codeName] = true
+			end
+		end
+		if next(reservedBound) ~= nil and config.userInputService then
+			ctx.reserveKeys({
+				keys = reservedBound,
+				priority = settings.priority or 2000,
+				sink = settings.sink ~= false,
+				enabled = function(): boolean
+					return enabled:peek()
+				end,
+				press = function()
+					if viaAction then
+						return
+					end
+					viaInput = true
+					if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
+						onPressed()
+					end
+				end,
+				release = function()
+					local pressed = viaInput
+					viaAction, viaInput = false, false
+					if pressed and settings.onReleased then
+						settings.onReleased()
+					end
+				end,
+			})
+		end
 		local keyInput = config.userInputService
 		local held = function(): boolean
 			return false

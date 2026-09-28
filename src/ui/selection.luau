@@ -668,36 +668,65 @@ return function(ctx: Shared.Context): Selection
 					ctx.Host.InputBinding({ KeyCode = E.KeyCode.Thumbstick1 }),
 				}),
 			})
+			local traversable = Compose.formula(function(use: ComposeTypes.Use): boolean
+				if not keyboardNavigation or use(keyboard) ~= true then
+					return false
+				end
+				if use(selectedObject) ~= nil then
+					return true
+				end
+				local resting = false
+				for _, record in use(responders) do
+					if record.passive then
+						if use(record.engaged) then
+							return true
+						end
+						resting = true
+					end
+				end
+				return not resting
+			end)
+			local viaAction, viaInput = false, false
+			local function step()
+				local back = keys.IsKeyDown ~= nil
+					and (keys:IsKeyDown(E.KeyCode.LeftShift) or keys:IsKeyDown(E.KeyCode.RightShift))
+				traverse(if back then -1 else 1)
+			end
+			ctx.reserveKeys({
+				keys = { Tab = true },
+				priority = 1500,
+				sink = true,
+				editing = true,
+				enabled = function(): boolean
+					return traversable:peek()
+				end,
+				press = function()
+					if not viaAction then
+						viaInput = true
+						step()
+					end
+				end,
+				release = function()
+					viaAction, viaInput = false, false
+				end,
+			})
 			ctx.Host.InputContext({
 				Name = "FacetTraversal",
 				Parent = parent,
 				Priority = 1500,
 				Sink = true,
-				Enabled = function(use: ComposeTypes.Use): boolean
-					if not keyboardNavigation or use(keyboard) ~= true then
-						return false
-					end
-					if use(selectedObject) ~= nil then
-						return true
-					end
-					local resting = false
-					for _, record in use(responders) do
-						if record.passive then
-							if use(record.engaged) then
-								return true
-							end
-							resting = true
-						end
-					end
-					return not resting
-				end,
+				Enabled = traversable,
 				ctx.Host.InputAction({
 					Name = "Traverse",
 					Type = E.InputActionType.Bool,
 					Pressed = function()
-						local back = keys.IsKeyDown ~= nil
-							and (keys:IsKeyDown(E.KeyCode.LeftShift) or keys:IsKeyDown(E.KeyCode.RightShift))
-						traverse(if back then -1 else 1)
+						if not viaInput then
+							viaAction = true
+							step()
+						end
+					end,
+					Released = function()
+						viaAction, viaInput = false, false
 					end,
 					ctx.Host.InputBinding({ KeyCode = E.KeyCode.Tab }),
 				}),

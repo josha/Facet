@@ -455,7 +455,12 @@ these rules:
   model). The `FacetTraversal` input context is a child of `inputParent`, or
   of the local `PlayerGui` when you do not set `inputParent`. It is enabled
   only while `UserInputService.KeyboardEnabled` is true, so a phone binds
-  nothing. The factory option `keyboardNavigation = false` disables it for a
+  nothing. The engine keeps Tab and Escape from input actions, so Facet also
+  reads both keys from `UserInputService.InputBegan` and runs the one enabled
+  Facet action with the highest priority for each press (Tab: traversal;
+  Escape: the top modal's Back). A real Escape still opens the Roblox menu as
+  well; the engine reserves it. Escape does nothing in Facet while a TextBox
+  has the keyboard. The factory option `keyboardNavigation = false` disables it for a
   HUD over live gameplay, where Tab belongs to the game. A passive
   [responder](#responder) binds it only while it is engaged, and one with
   `traversalWrap = false` stops the walk at its ends.

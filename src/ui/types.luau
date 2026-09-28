@@ -174,6 +174,15 @@ export type ActionSettings = {
 	conditional: { binding: ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
 	direction2D: ((Vector2) -> ())?,
 }
+export type ReservedKeyHandler = {
+	keys: { [string]: boolean },
+	priority: number,
+	sink: boolean,
+	editing: boolean?,
+	enabled: () -> boolean,
+	press: () -> (),
+	release: () -> (),
+}
 export type ListRow = {
 	leading: { Child }?,
 	captions: { GuiObject },
@@ -245,6 +254,7 @@ export type Context = {
 	modalPortal: (Instance, Instance) -> (),
 	available: (Instance, Use?) -> boolean,
 	navigationGamepads: () -> { Enum.UserInputType },
+	reserveKeys: (ReservedKeyHandler) -> (),
 	action: (
 		Instance,
 		string,

@@ -102,6 +102,66 @@ t.describe("native Dialog: one Back press closes one modal", function()
 	end)
 end)
 
+t.describe("native Dialog: Tab and Escape arrive through UserInputService", function()
+	local function key(w: any, name: string, began: boolean)
+		local event = { KeyCode = (w.Enum.KeyCode :: any)[name], UserInputType = w.Enum.UserInputType.Keyboard }
+		if began then
+			w.input.InputBegan.fire(event, true)
+		else
+			w.input.InputEnded.fire(event, true)
+		end
+	end
+
+	t.it("a Tab the engine keeps from input actions still walks the dialog, one step per press", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true })
+		w.input.KeyboardEnabled = true
+		local first = w.gui.SelectedObject
+		t.expect(first ~= nil).toBe(true)
+		key(w, "Tab", true)
+		local second = w.gui.SelectedObject
+		t.expect(second ~= first).toBe(true)
+		local traverse
+		for _, node in w.screen.Parent:GetDescendants() do
+			if node:IsA("InputAction") and node.Name == "Traverse" then
+				traverse = node
+			end
+		end
+		traverse.Pressed.fire()
+		t.expect(w.gui.SelectedObject).toBe(second)
+		key(w, "Tab", false)
+		traverse.Released.fire()
+		traverse.Pressed.fire()
+		t.expect(w.gui.SelectedObject ~= second).toBe(true)
+		traverse.Released.fire()
+		w.stop()
+	end)
+
+	t.it("an Escape the engine keeps from input actions closes the dialog once, and not while typing", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true, motionLevel = "none" })
+		w.advance(0.1)
+		w.input.GetFocusedTextBox = function()
+			return w.engine.new("TextBox")
+		end
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(true)
+		w.input.GetFocusedTextBox = function()
+			return nil
+		end
+		key(w, "Escape", true)
+		local back = w.action("ModalBack")
+		if back then
+			back.Pressed.fire()
+		end
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(false)
+		t.expect(#log.changes).toBe(1)
+		w.stop()
+	end)
+end)
+
 t.describe("native Dialog: the caller's fact decides", function()
 	t.it("a ten-foot screen or Larger text stacks the actions full width", function()
 		for _, case in { "near", "tv", "text" } do
