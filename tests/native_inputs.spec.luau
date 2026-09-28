@@ -224,7 +224,7 @@ t.describe("native input controls", function()
 		local role, appearance, size, name =
 			Compose.cell("default"), Compose.cell("standard"), Compose.cell("regular"), Compose.cell("Ready")
 		local references, changes = 0, 0
-		local node, stop = world(function(UI)
+		local node, stop, engine = world(function(UI)
 			return UI.Toggle({
 				value = value,
 				enabled = enabled,
@@ -267,6 +267,9 @@ t.describe("native input controls", function()
 		t.expect(changes).toBe(1)
 		t.expect(node:GetAttribute("selected")).toBe(false)
 		t.expect(node:HasTag("facet-selected")).toBe(false)
+		for _ = 1, 60 do
+			engine.heartbeat.fire(1 / 60)
+		end
 		t.expect(find(node, "Mark").Position.X.Scale).toBeCloseTo(0.3)
 		enabled:set(false)
 		t.expect(node.Selectable).toBe(false)
@@ -1464,6 +1467,47 @@ t.describe("native input controls", function()
 			end)
 		end).toThrow()
 	end)
+	t.it(
+		"a switch knob glides between its ends, reverses mid-flight without a jump, and lands at once under none",
+		function()
+			local value = Compose.cell(false)
+			local node, stop, engine = world(function(UI)
+				return UI.Toggle({ label = "Music", value = value, presentation = "switch" })
+			end)
+			local mark = find(node, "Mark")
+			t.expect(mark.Position.X.Scale).toBeCloseTo(0.3, 1e-3)
+			value:set(true)
+			engine.heartbeat.fire(1 / 60)
+			local first = mark.Position.X.Scale
+			t.expect(first > 0.3 and first < 0.7).toBe(true)
+			engine.heartbeat.fire(1 / 60)
+			engine.heartbeat.fire(1 / 60)
+			local before = mark.Position.X.Scale
+			value:set(false)
+			engine.heartbeat.fire(1 / 60)
+			t.expect(math.abs(mark.Position.X.Scale - before) < 0.1).toBe(true)
+			for _ = 1, 60 do
+				engine.heartbeat.fire(1 / 60)
+			end
+			t.expect(mark.Position.X.Scale).toBeCloseTo(0.3, 1e-3)
+			value:set(true)
+			for _ = 1, 60 do
+				engine.heartbeat.fire(1 / 60)
+			end
+			t.expect(mark.Position.X.Scale).toBeCloseTo(0.7, 1e-3)
+			t.expect(engine.heartbeat.count()).toBe(0)
+			stop()
+			local snapped = Compose.cell(false)
+			local snapNode, stopSnap = world(function(UI)
+				return UI.Toggle({ label = "Music", value = snapped, presentation = "switch" })
+			end, function()
+				return { motionLevel = "none" }
+			end)
+			snapped:set(true)
+			t.expect(find(snapNode, "Mark").Position.X.Scale).toBeCloseTo(0.7, 1e-3)
+			stopSnap()
+		end
+	)
 	t.it("plays the application press haptic only for controls that change a state or a value", function()
 		local effect, own
 		local opted = Compose.cell(false)

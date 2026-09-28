@@ -969,6 +969,11 @@ options apply.
 pixels high, its width scales 38 by 24 to that height, and the knob is 6 pixels
 smaller than the track. Without `controlSize`, the switch is 38 by 24 pixels.
 
+A switch Toggle's knob glides between its ends on a critically damped spring
+(`motion.springs.control`, a 0.25 second period) while the track colour
+fades, and a change mid-flight turns it without a jump. Below motion level
+`"normal"` the knob lands at once.
+
 A switch or checkbox Toggle paints no plate and takes no `control` art from a
 theme package. A settings row (a Toggle with `row`, `hint` or `icon`) has the
 `facet-toggle-settings` tag. Its horizontal padding is the padding of a

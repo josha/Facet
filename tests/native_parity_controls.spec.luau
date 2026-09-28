@@ -598,6 +598,9 @@ t.describe("native parity controls", function()
 		t.expect(mark:HasTag("facet-skinned")).toBe(true)
 		local skinnedOff = geometry()
 		value:set(true)
+		for _ = 1, 60 do
+			engine.heartbeat.fire(1 / 60)
+		end
 		local skinnedOn = geometry()
 		t.expect(skinnedOn[1] ~= skinnedOff[1]).toBe(true)
 		theme:set(Facet.themes.neutralPackage())
@@ -606,6 +609,9 @@ t.describe("native parity controls", function()
 		t.expect(indicator:HasTag("facet-toggle-indicator")).toBe(true)
 		t.expect(geometry()).toEqual(skinnedOn)
 		value:set(false)
+		for _ = 1, 60 do
+			engine.heartbeat.fire(1 / 60)
+		end
 		t.expect(geometry()).toEqual(skinnedOff)
 		theme:set(skinned)
 		t.expect(indicator:HasTag("facet-skinned")).toBe(true)

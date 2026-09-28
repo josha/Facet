@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking: a switch Toggle's knob glides** with its track colour on `motion.springs.control` instead of teleporting between its ends; a change mid-flight turns it smoothly, and it lands at once below motion level `normal`.
 - **Breaking: a PageView fling decelerates without overshoot** (`metrics.motion.styles.fling` is `Quint`, was `Back`); the page still turns on the native `UIPageLayout`.
 - **Breaking: RadialMenu Back folds the submenu into its item and re-opens the parent ring around it**, the reverse of the unfold: the leaving slots sweep along the ring into the item they came from as they fade, and the parent slots start at that item and sweep to their places (they re-expanded from the centre). A ring that closes and opens again still blooms from the centre.
 - **Breaking: a Sheet's scrim lightens as you drag it toward dismissal, and a fast flick settles with a small overshoot.** While you drag a sheet (or pull a side sheet) that can be dismissed, the scrim's opacity follows the painted height over its detent height (or the pull over the panel width); a dismissal-disabled sheet keeps its scrim. A release faster than `metrics.motion.fling.bounceSpeed` (800 pixels per second) settles on `motion.springs.flick` (0.3 second period, damping 0.8) and passes its detent by under 2 percent before it comes back; slower releases and programmatic changes stay critically damped. `settle.launch` takes an optional spring.
