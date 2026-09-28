@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Sheet whose `hero.content` is an Instance presents again after it is dismissed. The dismissal destroyed that Instance with the hero, so the next presentation failed (`FacetError` on the Sheet) and closed at once; the Instance is now taken out of the hero before the hero goes.
 - A D-pad move with nothing in its direction no longer jumps to the first control of the page. The engine selected the scroll container around the selected control, and Facet passed the selection to the container's first control; it now keeps the selected control.
 - `UI.focusQuery` follows the engine on scroll containers: a control clipped out of its scroll container's window is not a target from outside that container (from inside it, it still is), and a selectable scroll container is a target only when no control lies in that direction (the engine ranks it after every control), reporting the control the container passes the selection to.
 - A D-pad move reaches a Slider, Stepper, Rating, LevelPicker or `UI.adjustable` again. The engine's D-pad search ranks every candidate that has a `SelectionGained`, `SelectionLost`, `Activated` or `MouseButton1Click` listener ahead of those without one, so from a Slider it jumped past the value controls to the nearest button in that direction (Up from the bottom Slider on a form landed on a toolbar button). Each value control's stop now listens for `SelectionGained`.

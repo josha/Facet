@@ -341,6 +341,26 @@ t.describe("native Sheet: parts", function()
 		w.stop()
 	end)
 
+	t.it("a hero given as an Instance survives a dismissal and shows again on the next presentation", function()
+		local banner
+		local w = mount({
+			header = false,
+			hero = built(function(_, Host)
+				banner = Host.TextLabel "Banner" { Text = "Lobby" }
+				return { height = 140, content = banner }
+			end),
+		}, { motionLevel = "none" })
+		t.expect(banner:IsDescendantOf(w.find("Hero"))).toBe(true)
+		w.shown:set(false)
+		w.advance(1 / 30, 60)
+		t.expect(banner.isDestroyed()).toBe(false)
+		w.shown:set(true)
+		w.advance(1 / 300, 2)
+		t.expect(w.shown:peek()).toBe(true)
+		t.expect(banner:IsDescendantOf(w.find("Hero"))).toBe(true)
+		w.stop()
+	end)
+
 	t.it("a non-sticky hero spans the panel width without the body inset", function()
 		local w = mount({ hero = { image = "rbxassetid://1", aspectRatio = 16 / 9 } })
 		local hero, body = w.find("Hero"), w.find("SheetFlow")

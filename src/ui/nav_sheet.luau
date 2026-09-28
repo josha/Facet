@@ -774,6 +774,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						table.unpack(children),
 					},
 				})
+				if type(content) ~= "function" then
+					frame.Destroying:Connect(function()
+						node.Parent = nil
+					end)
+				end
 			end
 			if overHero then
 				local close = closeControl()
