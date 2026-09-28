@@ -20,13 +20,13 @@ end
 
 local function shown(node: GuiObject): boolean
 	local at: Instance? = node
-	while at and at:IsA("GuiObject") do
-		if not at.Visible or not at.Interactable then
+	while at and not at:IsA("LayerCollector") do
+		if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
 			return false
 		end
 		at = at.Parent
 	end
-	return at ~= nil and at:IsA("LayerCollector") and at.Enabled
+	return at ~= nil and (at :: LayerCollector).Enabled
 end
 
 function focus.stops(root: Instance): { GuiObject }
@@ -160,8 +160,8 @@ function focus.atlas(
 	function chainOf(node: Instance): { any }
 		local chain = {}
 		local at: Instance? = node.Parent
-		while at and at:IsA("GuiObject") do
-			if (at :: GuiObject).SelectionGroup or at:IsA("ScrollingFrame") then
+		while at and not at:IsA("LayerCollector") do
+			if at:IsA("GuiObject") and ((at :: GuiObject).SelectionGroup or at:IsA("ScrollingFrame")) then
 				table.insert(chain, register(at :: GuiObject))
 			end
 			at = at.Parent
@@ -286,7 +286,7 @@ end
 function focus.opened(
 	root: Instance,
 	trigger: GuiObject,
-	keys: { open: string, close: string, moves: { string } }
+	keys: { open: string, close: string, moves: { string }, up: number?, closeFrom: string? }
 ): { [string]: any }
 	local before = {}
 	for _, node in focus.stops(root) do
@@ -294,14 +294,28 @@ function focus.opened(
 	end
 	GuiService.SelectedObject = trigger
 	settle(root)
-	live().press({ keys.open }, 20)
+	live().press({ keys.open }, 2)
+	local started = os.clock()
+	while GuiService.SelectedObject == trigger and os.clock() - started < 2 do
+		task.wait()
+	end
+	local entered = os.clock() - started
+	local inside, stable = {}, 0
+	while stable < 3 and os.clock() - started < 4 do
+		task.wait(0.15)
+		local now = {}
+		for _, node in focus.stops(root) do
+			if not before[node] then
+				table.insert(now, node)
+			end
+		end
+		stable = if #now == #inside then stable + 1 else 0
+		inside = now
+	end
 	settle(root)
 	local landed = GuiService.SelectedObject
-	local inside = {}
-	for _, node in focus.stops(root) do
-		if not before[node] then
-			table.insert(inside, node)
-		end
+	if landed and not before[landed] and not table.find(inside, landed) then
+		table.insert(inside, landed)
 	end
 	local paths = focus.paths(root, inside)
 	local members = {}
@@ -314,6 +328,7 @@ function focus.opened(
 		landedInside = landed ~= nil and paths[landed] ~= nil,
 		items = {},
 		escapes = {},
+		enteredAfter = entered,
 	}
 	for _, node in inside do
 		table.insert(report.items, paths[node])
@@ -322,19 +337,31 @@ function focus.opened(
 	for node in before do
 		behind[pathOf(node, root)] = true
 	end
-	local moves = focus.walk(root, inside, paths, keys.moves)
+	local walked = table.clone(inside)
+	if not report.landedInside then
+		table.insert(walked, trigger)
+		paths[trigger] = report.trigger
+	end
+	local moves = focus.walk(root, walked, paths, keys.moves)
+	if keys.up then
+		live().save("focus-upstream", '"on"')
+		local up = focus.walkUp(root, walked, paths, keys.up)
+		live().save("focus-upstream", '"off"')
+		for path, target in up do
+			moves[path] = moves[path] or {}
+			moves[path].DPadUp = target
+		end
+	end
 	for from, row in moves do
 		for key, target in row do
-			if target and behind[target] then
+			if target and behind[target] and from ~= report.trigger then
 				table.insert(report.escapes, `{from} {key} -> {target}`)
 			end
 		end
 	end
 	report.moves = moves
-	local reached, queue, head = {}, {}, 1
-	if report.landedInside then
-		reached[report.landed], queue[1] = true, report.landed
-	end
+	local start = if report.landedInside then report.landed else report.trigger
+	local reached, queue, head = { [start] = true }, { start }, 1
 	while queue[head] do
 		for _, target in moves[queue[head]] or {} do
 			if members[target] and not reached[target] then
@@ -350,19 +377,28 @@ function focus.opened(
 			table.insert(report.unreached, path)
 		end
 	end
-	if landed and landed.Parent then
-		GuiService.SelectedObject = landed
+	local closeFrom = if keys.closeFrom == "trigger" or not report.landedInside then trigger else landed
+	if closeFrom and closeFrom.Parent then
+		GuiService.SelectedObject = closeFrom
 		settle(root)
 	end
-	live().press({ keys.close }, 20)
-	settle(root)
-	local after = GuiService.SelectedObject
-	local still = 0
-	for _, node in inside do
-		if node:IsDescendantOf(root) and node.Selectable and shown(node) then
-			still += 1
+	local function open(): number
+		local count = 0
+		for _, node in inside do
+			if node:IsDescendantOf(root) and node.Selectable and shown(node) then
+				count += 1
+			end
 		end
+		return count
 	end
+	report.closePresses = 0
+	while open() > 0 and report.closePresses < 4 do
+		live().press({ keys.close }, 20)
+		settle(root)
+		report.closePresses += 1
+	end
+	local after = GuiService.SelectedObject
+	local still = open()
 	report.closed = still == 0
 	report.returned = after == trigger
 	report.after = if after then pathOf(after, root) else nil
