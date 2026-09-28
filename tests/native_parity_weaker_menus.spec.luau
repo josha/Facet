@@ -786,6 +786,48 @@ t.describe("native parity weaker menus", function()
 		world.stop()
 	end)
 
+	t.it("re-decides a segment's wrap when its own width or the engine's fit changes, and settles", function()
+		local writes, glyph = 0, 11
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "Error" }, { value = "b", label = "Voice" } },
+				},
+			})
+		end, {
+			engine = {
+				textFits = function(node: any): boolean?
+					if node.Text == "" or node.TextWrapped or node.AbsoluteSize.X == 0 then
+						return nil
+					end
+					return #node.Text * glyph <= node.AbsoluteSize.X
+				end,
+			},
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 300, 50)
+		local segment = find(picker, "a")
+		segment.AbsoluteSize = V2(world, 80, 44)
+		t.expect(segment.TextWrapped).toBe(false)
+		segment:GetPropertyChangedSignal("TextWrapped"):Connect(function()
+			writes += 1
+		end)
+		segment.AbsoluteSize = V2(world, 40, 44)
+		t.expect(segment.TextWrapped).toBe(true)
+		segment.AbsoluteSize = V2(world, 90, 44)
+		t.expect(segment.TextWrapped).toBe(false)
+		glyph = 20
+		segment.TextFits = not segment.TextFits
+		t.expect(segment.TextWrapped).toBe(true)
+		local settled = writes
+		segment.TextFits = not segment.TextFits
+		segment.TextFits = not segment.TextFits
+		t.expect(writes).toBe(settled)
+		world.stop()
+	end)
+
 	t.it("bounds a long segment label by the row width of a labelled segmented picker", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({

@@ -84,17 +84,26 @@ return function(
 		end)
 	end
 
-	local function wrapWhenLong(label: TextLabel | TextButton, room: (ComposeTypes.Use) -> unknown)
+	local function wrapWhenLong(label: TextLabel | TextButton, room: (ComposeTypes.Use) -> number, container: GuiObject)
+		local text = label :: TextLabel
 		local words, points, face =
 			ctx.observe.Text(label), ctx.observeStyled.TextSize(label), ctx.observeStyled.FontFace(label)
+		local fits, extent = ctx.observe.TextFits(label), ctx.observe.AbsoluteSize(container)
+		local wrappedFor, wrappedWidth = "", 0
 		Compose.watch(function(use: ComposeTypes.Use)
-			room(use)
-			use(words)
-			use(points)
-			use(face)
-			local text = label :: TextLabel
-			text.TextWrapped = false
-			text.TextWrapped = not text.TextFits
+			use(fits)
+			local width = use(extent).X
+			local inputs = `{room(use)}|{use(words)}|{use(points)}|{use(face)}`
+			if text.TextWrapped then
+				if inputs == wrappedFor and width <= wrappedWidth then
+					return
+				end
+				text.TextWrapped = false
+			end
+			if not text.TextFits then
+				text.TextWrapped = true
+				wrappedFor, wrappedWidth = inputs, width
+			end
 		end)
 	end
 
@@ -118,7 +127,9 @@ return function(
 			local caption = button:FindFirstChild(name, true)
 			if caption and caption:IsA("TextLabel") then
 				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
-				wrapWhenLong(caption, room)
+				wrapWhenLong(caption, function(use: ComposeTypes.Use): number
+					return room(use).X
+				end, button)
 			end
 		end
 	end
@@ -2902,9 +2913,9 @@ return function(
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
 							return use(room) - 2 * segmentMetrics.inset
 						end)
-						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use)
-							return use(room)
-						end)
+						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): number
+							return use(room) - 2 * segmentMetrics.inset
+						end, button)
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
