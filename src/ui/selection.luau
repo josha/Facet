@@ -334,8 +334,9 @@ return function(ctx: Shared.Context): Selection
 				return target
 			end
 			target = nearest(containers, direction)
-			if target and target:GetAttribute("FacetSelectionOwner") ~= true then
-				target = entryOf(target, origin)
+			while target and target:IsA("ScrollingFrame") and target:GetAttribute("FacetSelectionOwner") ~= true do
+				local inner = entryOf(target, origin)
+				target = if inner == target then nil else inner
 			end
 			return if target == origin then nil else target
 		end
