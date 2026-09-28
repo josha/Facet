@@ -944,7 +944,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local shown = surfaces.appearance(phase, ctx.motionTiming("sheet"), ready)
 		local function travel(use: ComposeTypes.Use): (number, number)
-			local rest = 1 - shown(use)
+			local rest = 1 - shown.travel(use)
 			if rest <= 0 then
 				return if use(placed) == "side" then toward() * pulled(use) else 0, 0
 			end
@@ -1026,7 +1026,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				interactive("outside")
 			end,
 			exiting = if phase then phase.exiting else nil,
-			appearance = shown,
+			appearance = shown.opacity,
 		})
 		local size = ctx.observe.AbsoluteSize(overlay)
 		local measured = Compose.cell(false)

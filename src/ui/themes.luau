@@ -176,6 +176,8 @@ local neutral: ThemeTypes.ThemePackage = {
 			press = 0.08,
 			hover = 0.15,
 			revealFadeShare = 0.5,
+			presentFadeIn = 0.6,
+			presentFadeOut = 0.5,
 			unfoldStart = 0.25,
 			restLimit = 0.25,
 			popover = { enter = 0.15, exit = 0.1 },
@@ -463,6 +465,11 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 		end
 		if tokens.restLimit ~= nil then
 			number("restLimit", tokens.restLimit, 0, 1)
+		end
+		for _, key in { "presentFadeIn", "presentFadeOut" } do
+			if tokens[key] ~= nil then
+				number(key, tokens[key], 0, 1, true)
+			end
 		end
 		for _, role in { "popover", "dialog", "reveal", "sheet", "toast", "radial" } do
 			each(role, function(path: string, value: unknown)

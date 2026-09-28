@@ -745,20 +745,21 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					else nil
 				Compose.watch(function(use: ComposeTypes.Use)
 					local height = use(messageExtent)
-					if not use(messageRested) or shown == nil or shown(use) >= 1 then
+					if not use(messageRested) or shown == nil or shown.travel(use) >= 1 then
 						contentHeight:set(height)
 					end
 					settled:set(use(messageRested) or #contents == 0)
 				end)
 				if shown then
+					local presence = shown
 					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
-						return 1 - shown(use)
+						return 1 - presence.opacity(use)
 					end)
 					surfaces.attach(panel, {
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
 								local rest = ctx.metric("motion.materialize.modal", use)
-								return if use(settled) then rest + (1 - rest) * shown(use) else 1
+								return if use(settled) then rest + (1 - rest) * presence.travel(use) else 1
 							end,
 						},
 					})
@@ -776,7 +777,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					initialFocus = initial,
 					outsideDismiss = false,
 					exiting = if phase then phase.exiting else nil,
-					appearance = shown,
+					appearance = if shown then shown.opacity else nil,
 				})
 				if transition then
 					local phase = assert(phase)
@@ -1105,7 +1106,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, {
 			surfaces.overlay(spec.anchor, visible, function(phase: Nav.PresencePhase?)
 				local settled = Compose.cell(false)
-				local amount = surfaces.appearance(phase, timing, settled)
+				local presence = surfaces.appearance(phase, timing, settled)
 				if spec.onShow then
 					local ok: boolean, failure: unknown = pcall(spec.onShow)
 					if not ok then
@@ -1230,7 +1231,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ctx.fade {
 						Name = "CalloutPanel",
 						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - amount(use)
+							return 1 - presence.opacity(use)
 						end,
 						Size = D2.fromOffset(280, 0),
 						AutomaticSize = E.AutomaticSize.Y,
@@ -1251,10 +1252,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					or assert(spec.anchor:FindFirstAncestorWhichIsA("LayerCollector"))
 				local extent = ctx.observe.AbsoluteSize(layer)
 				local origin = ctx.observe.AbsolutePosition(layer)
-				local sizes, rested = surfaces.atRest(amount, settled, { panel })
+				local sizes, rested = surfaces.atRest(presence.travel, settled, { panel })
 				local measured = sizes[1]
 				local function held(use: ComposeTypes.Use): Vector2?
-					return if use(rested) and amount(use) < 1 then use(measured) else nil
+					return if use(rested) and presence.travel(use) < 1 then use(measured) else nil
 				end
 				local tailed = spec.tail ~= false and spec.tail ~= "none"
 				local function lift(use: ComposeTypes.Use): number
@@ -1309,7 +1310,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						return above(use, 95)
 					end,
 				})
-				surfaces.popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+				surfaces.popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
 					local at, anchorAt, anchorSize, offset, box =
 						use(placement), use(position), use(size), use(origin), use(measured)
 					local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
@@ -1333,7 +1334,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return V2.new(place.left + x, if below then place.top else place.top + box.Y),
 								if below then "bottom" else "top"
 						end,
-						amount,
+						presence.opacity,
 						function(use: ComposeTypes.Use): number
 							return above(use, 95)
 						end,

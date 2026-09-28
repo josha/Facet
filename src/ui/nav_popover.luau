@@ -255,7 +255,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local function anchored(phase: Nav.PresencePhase?): Frame
 			local settled = Compose.cell(false)
-			local amount = surfaces.appearance(phase, popoverTiming, settled)
+			local presence = surfaces.appearance(phase, popoverTiming, settled)
 			local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
 			local extent = ctx.observe.AbsoluteSize(layer)
 			local origin = ctx.observe.AbsolutePosition(layer)
@@ -322,7 +322,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local height = use(extent)
-				if not use(bodyRested) or amount(use) >= 1 then
+				if not use(bodyRested) or presence.travel(use) >= 1 then
 					laidOut:set(height)
 				end
 			end)
@@ -330,7 +330,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				ctx.fade {
 					Name = "Panel",
 					GroupTransparency = function(use: ComposeTypes.Use)
-						return 1 - amount(use)
+						return 1 - presence.opacity(use)
 					end,
 					BackgroundTransparency = 0,
 					BorderSizePixel = 0,
@@ -346,7 +346,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ctx.styled(panel, "panel")
 			ctx.styled(panel, "floating")
 			surfaces.skin(panel, "panel")
-			local sizes, rested = surfaces.atRest(amount, settled, { panel })
+			local sizes, rested = surfaces.atRest(presence.travel, settled, { panel })
 			local measured = sizes[1]
 			local tailed = rect == nil and spec.tail ~= false
 			local solved = Compose.formula(function(use: ComposeTypes.Use): placement.Placement
@@ -373,7 +373,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					tailInset = 8,
 				})
 			end)
-			surfaces.popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+			surfaces.popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
 				local at = use(solved)
 				local size = use(measured)
 				local origin = if at.edge == "bottom"
@@ -395,7 +395,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 						return V2.new(at.tailX, at.tailY), at.edge
 					end,
-					amount,
+					presence.opacity,
 					function(): number
 						return 2
 					end,
@@ -438,7 +438,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					propose(false, "outside")
 				end,
 				exiting = if phase then phase.exiting else nil,
-				appearance = amount,
+				appearance = presence.opacity,
 				canDismiss = spec.cancelPolicy ~= "none",
 			})
 			modal:SetAttribute("FacetRoute", "popover")

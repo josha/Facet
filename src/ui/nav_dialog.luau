@@ -341,7 +341,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						BackgroundTransparency = 0,
 						BorderSizePixel = 0,
 						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - shown(use)
+							return 1 - shown.opacity(use)
 						end,
 						room.frame :: Instance,
 						ctx.padding(16, 16),
@@ -349,7 +349,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
 								local rest = ctx.metric("motion.materialize.modal", use)
-								return rest + (1 - rest) * shown(use)
+								return rest + (1 - rest) * shown.travel(use)
 							end,
 						} :: Instance,
 					},
@@ -400,7 +400,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						propose(false, "outside")
 					end,
 					exiting = if phase then phase.exiting else nil,
-					appearance = shown,
+					appearance = shown.opacity,
 				})
 			end, { motion = ctx.motionTiming("dialog") }),
 		})

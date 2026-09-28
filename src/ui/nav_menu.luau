@@ -357,10 +357,15 @@ return function(
 			end
 			return present(readSource(levelClock.progress, use))
 		end
-		local shown: Nav.Appearance? = if appearance
-			then function(use: ComposeTypes.Use?): number
-				return appearance(use) * (if read(sheeted, use) then 1 else level(use))
-			end
+		local shown: Nav.Presence? = if appearance
+			then {
+				opacity = function(use: ComposeTypes.Use?): number
+					return appearance.opacity(use) * (if read(sheeted, use) then 1 else level(use))
+				end,
+				travel = function(use: ComposeTypes.Use?): number
+					return appearance.travel(use) * (if read(sheeted, use) then 1 else level(use))
+				end,
+			}
 			else nil
 		local rootItems = Compose.formula(function(use: ComposeTypes.Use)
 			return menuItems(read(spec.items, use), use)
@@ -787,7 +792,7 @@ return function(
 						BackgroundTransparency = 1,
 						Size = D2.fromScale(1, 1),
 						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - shown(use)
+							return 1 - shown.opacity(use)
 						end,
 						levelFade,
 					},
@@ -799,7 +804,7 @@ return function(
 			surfaces.attach(panel, {
 				Host.UIGradient "PresentationFade" {
 					Transparency = function(use: ComposeTypes.Use)
-						return ctx.types.NumberSequence.new(1 - shown(use))
+						return ctx.types.NumberSequence.new(1 - (shown :: Nav.Presence).opacity(use))
 					end,
 				},
 			})
@@ -807,16 +812,23 @@ return function(
 		ctx.styled(panel, "menu")
 		surfaces.skin(panel)
 		local restKey = ""
-		local sizes, rested = surfaces.atRest(shown or function(): number
-			return 1
-		end, entered, { panel, rows }, function(use: ComposeTypes.Use): string
-			local key = table.concat(use(path), "/")
-			if phase and use(phase.exiting) then
-				return restKey
+		local sizes, rested = surfaces.atRest(
+			if shown
+				then shown.travel
+				else function(): number
+					return 1
+				end,
+			entered,
+			{ panel, rows },
+			function(use: ComposeTypes.Use): string
+				local key = table.concat(use(path), "/")
+				if phase and use(phase.exiting) then
+					return restKey
+				end
+				restKey = key
+				return key
 			end
-			restKey = key
-			return key
-		end)
+		)
 		local measured, rowSize = sizes[1], sizes[2]
 		enter = function(id: string, node: GuiObject?, prefix: { string }?)
 			local nextPath = table.clone(prefix or path:peek())
@@ -1003,7 +1015,7 @@ return function(
 			end,
 		})
 		if shown then
-			surfaces.popover(panel, shown, place, {
+			surfaces.popover(panel, shown.travel, place, {
 				from = materialize,
 				rested = rested,
 				rise = function(use: ComposeTypes.Use): number?

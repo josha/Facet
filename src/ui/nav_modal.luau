@@ -129,10 +129,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 		phase: Nav.PresencePhase?,
 		timing: Nav.MotionTiming,
 		ready: ComposeTypes.Readable<boolean>?
-	): Nav.Appearance
+	): Nav.Presence
 		local reduce = reducedMotion(ctx)
 		local exiting: ComposeTypes.Readable<boolean> = if phase then phase.exiting else Compose.cell(false)
 		local shown = Compose.cell(false)
+		local fadeIn, fadeOut = ctx.metric("motion.presentFadeIn"), ctx.metric("motion.presentFadeOut")
 		local progress = runtime.tween(function(use: ComposeTypes.Use): number
 			return if use(exiting) or not use(shown) or (ready ~= nil and not use(ready)) then 0 else 1
 		end, {
@@ -142,7 +143,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			ease = ctx.motionEase("present"),
 		})
 		shown:set(true)
-		return function(use: ComposeTypes.Use?): number
+		local function travel(use: ComposeTypes.Use?): number
 			if ready ~= nil and not ctx.read(ready, use) then
 				return 0
 			end
@@ -151,6 +152,16 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end
 			return ctx.read(progress, use)
 		end
+		local function opacity(use: ComposeTypes.Use?): number
+			local p = travel(use)
+			if reduce(use) then
+				return p
+			end
+			return if ctx.read(exiting, use)
+				then math.clamp((p - 1 + fadeOut) / fadeOut, 0, 1)
+				else math.clamp(p / fadeIn, 0, 1)
+		end
+		return { opacity = opacity, travel = travel }
 	end
 	local function atRest(
 		amount: Nav.Appearance,
@@ -840,7 +851,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
 				local settled = Compose.cell(false)
-				local amount = appearance(phase, timing, settled)
+				local presence = appearance(phase, timing, settled)
 				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
 					or assert(anchor:FindFirstAncestorWhichIsA("LayerCollector"))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
@@ -858,7 +869,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local panelProps: Types.CanvasGroupNativeProps = {
 					Name = plate and plate.name or "Help",
 					GroupTransparency = function(use: ComposeTypes.Use)
-						return 1 - amount(use)
+						return 1 - presence.opacity(use)
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
 						return if use(held) then E.AutomaticSize.None else E.AutomaticSize.XY
@@ -908,10 +919,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 					table.insert(panelProps, hint)
 				end
 				local panel = ctx.fade(panelProps)
-				local sizes, rested = atRest(amount, settled, { panel })
+				local sizes, rested = atRest(presence.travel, settled, { panel })
 				local measured = sizes[1]
 				Compose.watch(function(use: ComposeTypes.Use)
-					held:set(if use(rested) and amount(use) < 1 then use(measured) else nil)
+					held:set(if use(rested) and presence.travel(use) < 1 then use(measured) else nil)
 				end)
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"
@@ -935,7 +946,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						tailInset = 6,
 					})
 				end)
-				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+				popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
 					local anchorAt, anchorSize, offset, box = use(at), use(bounds), use(origin), use(measured)
 					local solved = use(solution)
 					local centerX = anchorAt.X - offset.X + anchorSize.X / 2 - solved.x
@@ -958,7 +969,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						end
 						return V2.new(solved.tailX, solved.tailY), solved.edge
 					end,
-					amount,
+					presence.opacity,
 					function()
 						return 96
 					end,

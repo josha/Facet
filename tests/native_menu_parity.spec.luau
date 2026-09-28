@@ -499,7 +499,7 @@ t.describe("native menu parity with main", function()
 		t.expect(panel.Position.X.Offset).toBeCloseTo(280 + 220 * shrink, 1)
 		t.expect(panel.Position.Y.Offset).toBeCloseTo(96 + 200 * shrink, 1)
 		local enter = 0
-		while fadeKit.of(group) > 0.05 and enter < 60 do
+		while scale.Scale < 1 and enter < 60 do
 			world.engine.heartbeat.fire(FRAME)
 			enter += 1
 		end
@@ -519,12 +519,16 @@ t.describe("native menu parity with main", function()
 		end
 		t.expect(scale.Scale).toBe(1)
 		world.find("DismissOutside", world.screen.Parent).Activated.fire()
-		local exit = 0
-		while not panel.isDestroyed() and fadeKit.of(group) < 0.95 and exit < 60 do
+		local exit, cleared = 0, 0
+		while not panel.isDestroyed() and exit < 60 do
 			world.engine.heartbeat.fire(FRAME)
 			exit += 1
+			if cleared == 0 and fadeKit.of(group) >= 0.95 then
+				cleared = exit
+			end
 		end
 		t.expect(exit > 0 and exit < enter).toBe(true)
+		t.expect(cleared > 0 and cleared < exit).toBe(true)
 		for _ = 1, 30 do
 			world.engine.heartbeat.fire(FRAME)
 		end
