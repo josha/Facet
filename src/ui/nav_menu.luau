@@ -84,25 +84,82 @@ return function(
 		end)
 	end
 
-	local function wrapWhenLong(label: TextLabel | TextButton, room: (ComposeTypes.Use) -> number, container: GuiObject)
+	local function wrapWhenLong(
+		label: TextLabel | TextButton,
+		space: (ComposeTypes.Use) -> string,
+		container: GuiObject
+	)
 		local text = label :: TextLabel
 		local words, points, face =
 			ctx.observe.Text(label), ctx.observeStyled.TextSize(label), ctx.observeStyled.FontFace(label)
 		local fits, extent = ctx.observe.TextFits(label), ctx.observe.AbsoluteSize(container)
-		local wrappedFor, wrappedWidth = "", 0
+		local _, measure = ctx.runtime.mount(function()
+			return ctx.Host.Folder "WordMeasure" {
+				ctx.Host.TextLabel "WidestWord" {
+					Size = D2.fromOffset(0, 0),
+					BackgroundTransparency = 1,
+					TextTransparency = 1,
+					Interactable = false,
+					Text = "",
+				},
+			}
+		end, container)
+		local probe = (measure :: Instance):FindFirstChild("WidestWord") :: TextLabel
+		local truncate = text.TextTruncate
+		local boundFor, boundWidth = "", 0
+		local pending: thread? = nil
+		local function breaksWord(): boolean
+			probe.FontFace, probe.TextSize = face:peek() :: Font, points:peek() :: number
+			probe.Text = string.gsub(text.Text, "%s+", "\n")
+			local widest = probe.TextBounds.X
+			probe.Text = ""
+			return text.TextWrapped and text.TextBounds.X < widest - 0.5
+		end
+		local function cancel()
+			if pending and coroutine.status(pending) == "suspended" then
+				task.cancel(pending)
+			end
+			pending = nil
+		end
+		local function checkWords(key: string)
+			if boundFor == key and breaksWord() then
+				text.TextWrapped = false
+				text.TextTruncate = E.TextTruncate.AtEnd
+			end
+		end
+		local function recheck(key: string)
+			cancel()
+			if not task then
+				return
+			end
+			pending = task.spawn(function()
+				for _ = 1, 10 do
+					task.wait()
+					if boundFor ~= key or not text.TextWrapped then
+						break
+					end
+					checkWords(key)
+				end
+				pending = nil
+			end)
+		end
+		Compose.cleanup(cancel)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(fits)
 			local width = use(extent).X
-			local inputs = `{room(use)}|{use(words)}|{use(points)}|{use(face)}`
-			if text.TextWrapped then
-				if inputs == wrappedFor and width <= wrappedWidth then
+			local inputs = `{space(use)}|{use(words)}|{use(points)}|{use(face)}`
+			if text.TextWrapped or text.TextTruncate ~= truncate then
+				if inputs == boundFor and width <= boundWidth then
+					checkWords(inputs)
 					return
 				end
 				text.TextWrapped = false
+				text.TextTruncate = truncate
 			end
 			if not text.TextFits then
 				text.TextWrapped = true
-				wrappedFor, wrappedWidth = inputs, width
+				boundFor, boundWidth = inputs, width
+				recheck(inputs)
 			end
 		end)
 	end
@@ -110,7 +167,8 @@ return function(
 	local function wrapCaptions(
 		button: GuiObject,
 		controlSize: Types.Value<Types.ControlSize>?,
-		across: (ComposeTypes.Use) -> number
+		across: (ComposeTypes.Use) -> number,
+		peers: ((ComposeTypes.Use) -> number)?
 	)
 		local glyph = button:FindFirstChild("LeadingIcon", true) ~= nil
 		local function room(use: ComposeTypes.Use): Vector2
@@ -127,8 +185,8 @@ return function(
 			local caption = button:FindFirstChild(name, true)
 			if caption and caption:IsA("TextLabel") then
 				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
-				wrapWhenLong(caption, function(use: ComposeTypes.Use): number
-					return room(use).X
+				wrapWhenLong(caption, function(use: ComposeTypes.Use): string
+					return `{room(use).X}|{if peers then peers(use) else 0}`
 				end, button)
 			end
 		end
@@ -2910,11 +2968,14 @@ return function(
 						end)
 					end
 					if style == "segmented" then
+						local function peers(use: ComposeTypes.Use): number
+							return #use(options)
+						end
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
 							return use(room) - 2 * segmentMetrics.inset
-						end)
-						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): number
-							return use(room) - 2 * segmentMetrics.inset
+						end, peers)
+						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
+							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button)
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)
