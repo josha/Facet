@@ -2313,4 +2313,54 @@ t.describe("performance lab motion flight", function()
 		t.expect(fill.Position.X.Offset).toBe(44)
 		w.close()
 	end)
+
+	t.it(
+		"the segmented selection fill keeps sliding through a scale-only change and a reflow that comes with the selection",
+		function()
+			local w = world({ motionLevel = "normal" })
+			local selected = Compose.cell("c")
+			local _, screen = w.mount(function(UI)
+				return UI.Picker "Mode" {
+					style = "segmented",
+					selected = selected,
+					options = {
+						{ value = "a", label = "A" },
+						{ value = "b", label = "B" },
+						{ value = "c", label = "C" },
+					},
+				}
+			end)
+			local V = w.engine.types.Vector2
+			local function lay(width: number, scale: number)
+				find(screen, "SlideUnit").AbsoluteSize = V.new(scale, scale)
+				find(screen, "Mode").AbsoluteSize = V.new((3 * width + 12) * scale, 44 * scale)
+				find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize =
+					V.new((3 * width + 12) * scale, 44 * scale)
+				for index, name in { "a", "b", "c" } do
+					find(screen, name).AbsoluteSize = V.new(width * scale, 44 * scale)
+					find(screen, name).AbsolutePosition = V.new((index - 1) * (width + 4) * scale, 0)
+				end
+			end
+			lay(100, 1)
+			local fill = find(screen, "SelectionFill")
+			w.step(0.1)
+			selected:set("a")
+			w.step(0.02)
+			lay(100, 0.98)
+			w.step(0.01)
+			t.expect(fill.Position.X.Offset > 100).toBe(true)
+			w.step(1)
+			t.expect(fill.Position.X.Offset).toBe(0)
+			w.runtime:batch(function()
+				selected:set("c")
+				lay(60, 0.98)
+			end)
+			w.step(0.02)
+			local sliding = fill.Position.X.Offset
+			t.expect(sliding > 0 and sliding < 128).toBe(true)
+			w.step(1)
+			t.expect(fill.Position.X.Offset).toBe(128)
+			w.close()
+		end
+	)
 end)
