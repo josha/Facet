@@ -1345,6 +1345,13 @@ t.describe("native parity controls", function()
 		fire("Radial-right")
 		fire("Radial-up")
 		t.expect(world.gui.SelectedObject.Name).toBe("N")
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		local E = world.engine.types.Enum
+		world.input.InputBegan.fire({ KeyCode = E.KeyCode.DPadLeft, UserInputType = E.UserInputType.Gamepad1 }, true)
+		fire("Radial-left")
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		world.input.InputEnded.fire({ KeyCode = E.KeyCode.DPadLeft, UserInputType = E.UserInputType.Gamepad1 }, true)
 		world.stop()
 		local arc, press = radial({
 			isPresented = Compose.cell(true),

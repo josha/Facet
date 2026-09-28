@@ -1317,20 +1317,23 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local gui = config.guiService
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local stale = false
+		local viaAction, viaInput = false, false
 		local p: Shared.InputActionNativeProps = {
 			Name = name,
 			Type = if settings.direction2D then Enum.InputActionType.Direction2D else Enum.InputActionType.Bool,
 			StateChanged = settings.direction2D :: ((unknown) -> ())?,
 			Pressed = function()
-				if stale then
+				if stale or viaInput then
 					return
 				end
+				viaAction = true
 				if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 					onPressed()
 				end
 			end,
 			Released = function()
 				stale = false
+				viaAction = false
 				if settings.onReleased then
 					settings.onReleased()
 				end
@@ -1507,20 +1510,22 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end)
 			Compose.cleanup(release)
 			runtime.connect(inputService, "InputBegan", function(event: InputObject)
-				if event.KeyCode and steering[event.KeyCode.Name] and steerable:peek() then
+				if event.KeyCode and steering[event.KeyCode.Name] and steerable:peek() and not viaAction then
+					viaInput = true
 					if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 						onPressed()
 					end
 				end
 			end)
-			if settings.onReleased then
-				local released = settings.onReleased
-				runtime.connect(inputService, "InputEnded", function(event: InputObject)
-					if event.KeyCode and steering[event.KeyCode.Name] then
+			local released = settings.onReleased
+			runtime.connect(inputService, "InputEnded", function(event: InputObject)
+				if event.KeyCode and steering[event.KeyCode.Name] then
+					viaInput = false
+					if released then
 						released()
 					end
-				end)
-			end
+				end
+			end)
 		end
 		return action, context
 	end

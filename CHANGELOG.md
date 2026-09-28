@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- One D-pad press takes one step in a RadialMenu. With engine navigation off while a ring is open, the press reached the ring's direction action twice (the input action and the selection fallback), so a corner ring skipped its middle item.
 - RadialMenu D-pad: a direction pointing back across the centre selects the centre control, and the next press the item on the other side; from the centre each direction selects the item nearest that direction; other directions move to the neighbouring item along the ring. A corner ring's middle item could not be reached with the D-pad.
 - One B or Escape press closes one modal. Closing a menu opened from inside a modal (the date picker's month or year list) enabled the modal's Back action while the same press was still being delivered, so it closed the date picker too. An input action now ignores a press whose key was already down when the action became enabled, until that key is released.
 - Dismissing a Callout from inside its plate (Got it, an action, the close control, B or Escape) hands the selection to the callout's anchor at once. The plate's buttons stop being selectable as it leaves, and the engine had already moved the selection to another control on the page before the plate was gone.
