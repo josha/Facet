@@ -323,6 +323,38 @@ t.describe("M1: the Stepper", function()
 end)
 
 t.describe("the range Slider is one stop", function()
+	t.it("Return switches the handle even beside a dialog's default button", function()
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Slider("Tilt")({
+					value = Compose.cell({ lower = 20, upper = 60 }),
+					range = true,
+					min = 0,
+					max = 100,
+				}),
+				UI.Button("Save")({ label = "Save", dialogAction = "default", onActivate = function() end }),
+			})
+		end)
+		w.gui.SelectedObject = w.find("Tilt")
+		local best, bestPriority = nil, -math.huge
+		for _, context in w.parent:GetDescendants() do
+			if context:IsA("InputContext") and context.Enabled then
+				for _, action in context:GetChildren() do
+					for _, binding in action:GetChildren() do
+						if
+							binding.KeyCode == w.engine.types.Enum.KeyCode.Return
+							and context.Priority > bestPriority
+						then
+							best, bestPriority = action.Name, context.Priority
+						end
+					end
+				end
+			end
+		end
+		t.expect(best).toBe("SwitchThumb")
+		w.stop()
+	end)
+
 	t.it("lands on the lower handle, A switches, arrows and stick move the adjusted handle", function()
 		local value = Compose.cell({ lower = 20, upper = 60 })
 		local w = setup(function(UI, Host)

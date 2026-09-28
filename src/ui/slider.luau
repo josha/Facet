@@ -896,7 +896,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					extra = function(active: (ComposeTypes.Use) -> boolean)
 						ctx.action(node, "SwitchThumb", { E.KeyCode.ButtonA, E.KeyCode.Return }, active, function()
 							adjusting:set(if adjusting:peek() == "lower" then "upper" else "lower")
-						end, { priority = 250 })
+						end, { priority = 5000 })
 					end,
 				}
 			)
