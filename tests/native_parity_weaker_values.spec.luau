@@ -818,45 +818,44 @@ t.describe("native parity weaker values", function()
 		end
 	end)
 
-	t.it("stepper step buttons take Return and Space activation and the Adjust keys step the value", function()
-		local value = Compose.cell(3)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }),
-				UI.Stepper("Qty")({ value = value, min = 0, max = 10, step = 1 }),
-			})
-		end)
-		local stepper = find(world.node, "Qty")
-		local decrease, increase = find(stepper, "Decrease"), find(stepper, "Increase")
-		t.expect(decrease.Selectable).toBe(true)
-		t.expect(increase.Selectable).toBe(true)
-		world.gui.SelectedObject = find(world.node, "Elsewhere")
-		t.expect(action(world.root, "Increase")).toBeNil()
-		world.gui.SelectedObject = decrease
-		local activate = action(world.root, "Activate")
-		t.expect(keys(activate).Space).toBe(true)
-		t.expect(keys(activate).Return).toBe(true)
-		activate.Pressed.fire()
-		t.expect(value:peek()).toBe(2)
-		world.gui.SelectedObject = increase
-		action(world.root, "Activate").Pressed.fire()
-		t.expect(value:peek()).toBe(3)
-		world.gui.SelectedObject = stepper
-		local adjust = action(world.root, "Increase")
-		t.expect(keys(adjust).Period and keys(adjust).ButtonR1).toBe(true)
-		adjust.Pressed.fire()
-		adjust.Released.fire()
-		t.expect(value:peek()).toBe(4)
-		local lower = action(world.root, "Decrease")
-		t.expect(keys(lower).Comma and keys(lower).ButtonL1).toBe(true)
-		lower.Pressed.fire()
-		lower.Released.fire()
-		t.expect(value:peek()).toBe(3)
-		world.gui.SelectedObject = stepper
-		action(world.root, "Increase").Pressed.fire()
-		t.expect(value:peek()).toBe(4)
-		world.stop()
-	end)
+	t.it(
+		"stepper step buttons are not stops; a click on them and the Adjust keys on the stepper step the value",
+		function()
+			local value = Compose.cell(3)
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }),
+					UI.Stepper("Qty")({ value = value, min = 0, max = 10, step = 1 }),
+				})
+			end)
+			local stepper = find(world.node, "Qty")
+			local decrease, increase = find(stepper, "Decrease"), find(stepper, "Increase")
+			t.expect(decrease.Selectable).toBe(false)
+			t.expect(increase.Selectable).toBe(false)
+			t.expect(stepper.Selectable).toBe(true)
+			world.gui.SelectedObject = find(world.node, "Elsewhere")
+			t.expect(action(world.root, "Increase")).toBeNil()
+			decrease.Activated.fire()
+			t.expect(value:peek()).toBe(2)
+			increase.Activated.fire()
+			t.expect(value:peek()).toBe(3)
+			world.gui.SelectedObject = stepper
+			local adjust = action(world.root, "Increase")
+			t.expect(keys(adjust).Period and keys(adjust).ButtonR1).toBe(true)
+			adjust.Pressed.fire()
+			adjust.Released.fire()
+			t.expect(value:peek()).toBe(4)
+			local lower = action(world.root, "Decrease")
+			t.expect(keys(lower).Comma and keys(lower).ButtonL1).toBe(true)
+			lower.Pressed.fire()
+			lower.Released.fire()
+			t.expect(value:peek()).toBe(3)
+			world.gui.SelectedObject = stepper
+			action(world.root, "Increase").Pressed.fire()
+			t.expect(value:peek()).toBe(4)
+			world.stop()
+		end
+	)
 
 	t.it("stepper value label follows the value and a custom format in place", function()
 		local value = Compose.cell(5)

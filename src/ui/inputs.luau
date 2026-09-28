@@ -1860,6 +1860,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				LayoutOrder = if direction < 0 then 1 else 3,
 				Size = D2.fromOffset(44, 44),
 				AutomaticSize = E.AutomaticSize.None,
+				Selectable = false,
 				enabled = allowed,
 				onActivate = function()
 					adjust(direction)

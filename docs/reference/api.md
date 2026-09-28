@@ -1492,6 +1492,11 @@ Both take a numeric `value`, `min` (default `0`), `max` (default `1`), `step`,
 minimum. A specified step must be positive. The Stepper step default is `1`.
 The Slider default is continuous values.
 
+A Stepper is one selection stop: the Stepper itself takes the selection, Left
+and Right change the value, and Up and Down leave it. Its `Decrease` and
+`Increase` buttons are not selectable; they still respond to touch and the
+mouse.
+
 By default, Slider shows an inline track and a value readout, with an optional
 label. Its default native `AutomaticSize.Y` keeps the authored width and fits
 the control height. `row` gives a stacked title, description and track. A

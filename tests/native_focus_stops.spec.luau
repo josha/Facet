@@ -219,4 +219,27 @@ t.describe("the Slider is one stop", function()
 	end
 end)
 
+t.describe("M1: the Stepper", function()
+	t.it("M1 is one stop: Left and the stick change it, the buttons are not stops, Up and Down leave", function()
+		local value = Compose.cell(6)
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
+		end)
+		local stepper = w.find("Volume")
+		t.expect(selectableInside(stepper)).toEqual({})
+		t.expect(stepper.Selectable).toBe(true)
+		w.gui.SelectedObject = stepper
+		w.press("DPadLeft")
+		t.expect(value:peek()).toBe(5)
+		w.stick(-1, 0)
+		w.stick(0, 0)
+		t.expect(value:peek()).toBe(4)
+		t.expect(stepper.NextSelectionUp).toBe(nil)
+		t.expect(stepper.NextSelectionDown).toBe(nil)
+		w.find("Increase", stepper).Activated.fire()
+		t.expect(value:peek()).toBe(5)
+		w.stop()
+	end)
+end)
+
 return nil
