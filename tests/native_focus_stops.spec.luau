@@ -428,6 +428,35 @@ t.describe("other adjustables are one stop", function()
 	end)
 end)
 
+t.describe("a disabled value control is not a stop, and the stop carries the name", function()
+	t.it("a disabled Stepper or UI.adjustable is not selectable and becomes a stop when enabled", function()
+		local on = Compose.cell(false)
+		local w = setup(function(UI, Host)
+			local dial = Host.Frame({ Name = "Dial" })
+			UI.adjustable(dial, { enabled = on, onAdjust = function() end })
+			return Host.Frame({ UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, enabled = on }), dial })
+		end)
+		t.expect(`{w.find("Volume").Selectable} {w.find("Dial").Selectable}`).toBe("false false")
+		on:set(true)
+		t.expect(`{w.find("Volume").Selectable} {w.find("Dial").Selectable}`).toBe("true true")
+		w.stop()
+	end)
+
+	t.it("the Slider and Stepper stops carry their accessible label", function()
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Slider("Boost")({ value = Compose.cell(3), min = 0, max = 9, label = "Boost" }),
+				UI.Slider("Row")({ value = Compose.cell(3), min = 0, max = 9, row = { title = "Music" } }),
+				UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, label = "Volume" }),
+			})
+		end)
+		t.expect(w.find("Boost"):GetAttribute("AccessibleLabel")).toBe("Boost")
+		t.expect(w.find("Row"):GetAttribute("AccessibleLabel")).toBe("Music")
+		t.expect(w.find("Volume"):GetAttribute("AccessibleLabel")).toBe("Volume")
+		w.stop()
+	end)
+end)
+
 local function controlsFor(ctx)
 	return Facet.controls(ctx.runtime, {
 		types = ctx.types,

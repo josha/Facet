@@ -1935,7 +1935,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			"repeatDelay",
 			"repeatInterval",
 		}, {
-			Selectable = true,
+			Selectable = function(use: ComposeTypes.Use): boolean
+				return enabled(spec, use)
+			end,
 			Size = if spec.label then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
 			AutomaticSize = if spec.label then E.AutomaticSize.Y else E.AutomaticSize.XY,
 			BackgroundTransparency = 1,
@@ -1954,6 +1956,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local node = ctx.styled(Host.Frame(p), "stepper")
 		ctx.skin(node, "stepperPlate")
 		valueAttributes(node, spec, model)
+		if spec.label ~= nil then
+			attributes(node, {
+				AccessibleLabel = function(use: ComposeTypes.Use): string
+					return read(spec.label, use) or ""
+				end,
+			})
+		end
 		adjustment(node, spec, adjust, nil, model.min, model.max)
 		return node
 	end)
@@ -2000,7 +2009,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		)
 		local canAdjust = options.canAdjust
 		local bound = if axis == "none" then nil else math.huge
-		runtime.decorate(node, { Selectable = true })
+		runtime.decorate(node, {
+			Selectable = function(use: ComposeTypes.Use): boolean
+				return enabled(options, use)
+			end,
+		})
 		adjustment(node, options :: any, options.onAdjust, nil, if bound then -bound else nil :: any, bound :: any, {
 			vertical = axis == "vertical",
 			once = options.repeats ~= true,

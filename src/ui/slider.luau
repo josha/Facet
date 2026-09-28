@@ -675,21 +675,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			hovered:set(use(state) == E.GuiState.Hover)
 		end)
 		local trackLabel = (if spec.row then spec.row.title else nil) or spec.label
-		if trackLabel ~= nil then
-			h.attributes(track, {
-				AccessibleLabel = (function(use: ComposeTypes.Use): string
-					return read(trackLabel, use) or ""
-				end) :: Shared.Value<Shared.AttributeValue?>,
-			})
-		end
-		if thumbStop then
-			h.attributes(track:FindFirstChild("ThumbStop") :: Instance, {
-				AccessibleLabel = (function(use: ComposeTypes.Use): string
-					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
-					return if named and named ~= "" then named else model.format(single(use))
-				end) :: Shared.Value<Shared.AttributeValue?>,
-			})
-		end
 		if input then
 			local first = true
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -838,6 +823,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			return table.concat(names, "/")
 		end
 		if not isRange then
+			h.attributes(node, {
+				AccessibleLabel = (function(use: ComposeTypes.Use): string
+					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
+					return if named and named ~= "" then named else model.format(single(use))
+				end) :: Shared.Value<Shared.AttributeValue?>,
+			})
 			node:SetAttribute(
 				"FacetFocusPart",
 				relative(if thumbStop then track:FindFirstChild("ThumbStop") :: Instance else track)
