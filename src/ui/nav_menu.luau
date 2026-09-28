@@ -84,6 +84,19 @@ return function(
 		end)
 	end
 
+	local function wrapWhenLong(label: TextLabel | TextButton, room: (ComposeTypes.Use) -> unknown)
+		local words, points, face =
+			ctx.observe.Text(label), ctx.observeStyled.TextSize(label), ctx.observeStyled.FontFace(label)
+		Compose.watch(function(use: ComposeTypes.Use)
+			room(use)
+			use(words)
+			use(points)
+			use(face)
+			label.TextWrapped = false
+			label.TextWrapped = not label.TextFits
+		end)
+	end
+
 	local function wrapCaptions(
 		button: GuiObject,
 		controlSize: Types.Value<Types.ControlSize>?,
@@ -103,8 +116,8 @@ return function(
 		for _, name in { "Title", "Description" } do
 			local caption = button:FindFirstChild(name, true)
 			if caption and caption:IsA("TextLabel") then
-				caption.TextWrapped = true
 				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
+				wrapWhenLong(caption, room)
 			end
 		end
 	end
@@ -2700,7 +2713,6 @@ return function(
 							else nil,
 						icon = liveIcon(source),
 						TextSize = spec.textSize,
-						TextWrapped = if style == "segmented" then true else nil,
 						TextXAlignment = if style == "segmented" then E.TextXAlignment.Center else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
 							then "checkmark"
@@ -2888,6 +2900,9 @@ return function(
 					if style == "segmented" then
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
 							return use(room) - 2 * segmentMetrics.inset
+						end)
+						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use)
+							return use(room)
 						end)
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)

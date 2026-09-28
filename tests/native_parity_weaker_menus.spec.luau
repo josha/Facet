@@ -17,7 +17,7 @@ type World = {
 }
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
-	local engine: any = engineLib.new()
+	local engine: any = engineLib.new(options and options.engine)
 	local now = 0
 	engine.clock = function()
 		return now
@@ -40,7 +40,9 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
-		config[key] = value
+		if key ~= "engine" then
+			config[key] = value
+		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
 	local Host = runtime.constructors
@@ -749,6 +751,39 @@ t.describe("native parity weaker menus", function()
 			t.expect(select(2, segmentLimits(picker))).toBe(994)
 			world.stop()
 		end
+	end)
+
+	t.it("wraps a hugging segment caption only when its one line does not fit its room", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Error" },
+						{ value = "b", label = LONG },
+						{ value = "c", label = "Voice", icon = "checkmark" },
+						{ value = "d", label = LONG, icon = "checkmark" },
+					},
+				},
+			})
+		end, {
+			engine = {
+				textFits = function(node: any): boolean?
+					if node.Text == "" or node.TextWrapped then
+						return nil
+					end
+					return #node.Text * 11 <= 294
+				end,
+			},
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 300, 50)
+		t.expect(find(picker, "a").TextWrapped).toBe(false)
+		t.expect(find(picker, "b").TextWrapped).toBe(true)
+		t.expect(find(find(picker, "c"), "Title").TextWrapped).toBe(false)
+		t.expect(find(find(picker, "d"), "Title").TextWrapped).toBe(true)
+		world.stop()
 	end)
 
 	t.it("bounds a long segment label by the row width of a labelled segmented picker", function()
