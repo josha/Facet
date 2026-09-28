@@ -2133,7 +2133,7 @@
   "key": "DPadLeft",
   "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
   "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
-  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+  "reason": "F18"
  },
  {
   "page": "ex02",
@@ -2197,7 +2197,7 @@
   "key": "DPadLeft",
   "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
   "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
-  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+  "reason": "F18"
  },
  {
   "page": "ex02",
