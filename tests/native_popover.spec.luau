@@ -445,7 +445,7 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		w.stop()
 	end)
 
-	t.it("shows at once under reduced motion instead of waiting for the content to rest", function()
+	t.it("under reduced motion shows whole, without a fade, once the panel has rested", function()
 		local w = mount(function(UI, Host)
 			return {
 				isPresented = Compose.cell(true),
@@ -459,7 +459,8 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		flow.AbsoluteSize = Vector2.new(180, 60)
 		w.advance(1 / 60)
 		flow.AbsoluteSize = Vector2.new(180, 96)
-		w.advance(1 / 60)
+		panel.AbsoluteSize = Vector2.new(200, 120)
+		w.advance(1 / 60, 3)
 		local fade = panel:FindFirstChild("FadePaint")
 		t.expect(fade == nil or fade.Transparency.Keypoints[1].Value == 0).toBe(true)
 		t.expect(panel:FindFirstChild("Fade")).toBe(nil)

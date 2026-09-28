@@ -4,8 +4,8 @@ local fadeKit = require("./lib/fade")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 
-local function dialog(shown: any, options: any?): any
-	return overlay.new(function(UI, Host)
+local function dialog(shown: any, options: any?, unsized: boolean?): any
+	local w = overlay.new(function(UI, Host)
 		return UI.Dialog "D" {
 			isPresented = shown,
 			onPresentedChange = function(value: boolean)
@@ -17,6 +17,11 @@ local function dialog(shown: any, options: any?): any
 			end,
 		}
 	end, options)
+	local panel = w.find("Panel")
+	if panel and not unsized then
+		panel.AbsoluteSize = w.Vector2.new(560, 441)
+	end
+	return w
 end
 
 t.describe("presence: opacity leads travel", function()
@@ -93,7 +98,7 @@ t.describe("presence: motion level limited cross-fades", function()
 		local scale = panel:FindFirstChildWhichIsA("UIScale", true)
 		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(panel) > 0).toBe(true)
-		w.advance(1 / 60)
+		w.advance(1 / 60, 3)
 		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1).toBe(true)
 		w.advance(0.2, 12)
@@ -108,10 +113,11 @@ t.describe("presence: motion level limited cross-fades", function()
 		w.stop()
 	end)
 
-	t.it("under none a dialog is whole on its first frame and leaves at once", function()
+	t.it("under none a dialog is whole once its size has held and leaves at once", function()
 		local shown = Compose.cell(true)
 		local w = dialog(shown, { motionLevel = "none" })
 		local panel = w.find("Panel")
+		w.advance(1 / 60, 2)
 		t.expect(panel:FindFirstChildWhichIsA("UIScale", true).Scale).toBe(1)
 		t.expect(fadeKit.of(panel)).toBe(0)
 		shown:set(false)
@@ -250,4 +256,36 @@ t.describe("presence: limited cross-fades the toast, tabs, stack and disclosure"
 		t.expect(frames >= 5 and frames <= 12).toBe(true)
 		w.stop()
 	end)
+end)
+
+t.describe("presence: a Dialog is measured at rest", function()
+	for _, level in { "normal", "none" } do
+		t.it(`a Dialog waits for its size to hold, then never grows after it shows ({level})`, function()
+			local shown = Compose.cell(true)
+			local w = dialog(shown, { motionLevel = level }, true)
+			local panel = w.find("Panel")
+			local scale = panel:FindFirstChildWhichIsA("UIScale", true)
+			panel.AbsoluteSize = w.Vector2.new(560, 420)
+			w.advance(1 / 60)
+			t.expect(fadeKit.of(panel)).toBe(1)
+			t.expect(scale.Scale).toBe(1)
+			panel.AbsoluteSize = w.Vector2.new(560, 441)
+			w.advance(1 / 60)
+			t.expect(fadeKit.of(panel)).toBe(1)
+			local seen = false
+			for _ = 1, 30 do
+				w.advance(1 / 60)
+				if fadeKit.of(panel) < 1 then
+					seen = true
+					if scale.Scale < 1 then
+						t.expect(panel.AutomaticSize).toBe(w.Enum.AutomaticSize.None)
+						t.expect(panel.Size.Y.Offset).toBe(441)
+					end
+				end
+			end
+			t.expect(seen).toBe(true)
+			t.expect(panel.AutomaticSize).toBe(w.Enum.AutomaticSize.Y)
+			w.stop()
+		end)
+	end
 end)

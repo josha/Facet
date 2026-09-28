@@ -308,12 +308,14 @@ easing, spring, scale and distance below is a token in the theme package's
   percent of its entrance time has run (`presentFadeIn`) and fully clear once
   half of its exit time has run (`presentFadeOut`); the scale, slide or rise
   runs its whole time. The scrim and a tail fade with the panel.
-- An Alert, a Popover, a Menu (and each Menu level), a Callout and a Button `help` plate measure themselves
-  at rest before the entrance: each waits, invisible and at scale 1, until its
-  size holds for one frame, at most the theme's `motion.restLimit` (0.25
-  seconds by default). The placement then reads that rested size for the whole
-  entrance and exit, so the scale never moves the plate or its tail. Reduced
-  motion skips the wait.
+- An Alert, a Dialog, a Popover, a Menu (and each Menu level), a Callout and
+  a Button `help` plate measure themselves at rest before the entrance: each
+  waits, invisible and at scale 1, until its size holds for one frame, at most
+  the theme's `motion.restLimit` (0.25 seconds by default). The placement then
+  reads that rested size for the whole entrance and exit, so the scale never
+  moves the plate or its tail, and a Dialog, Callout or help plate holds that
+  size as a fixed box while it scales. The wait applies at every motion level,
+  so a presentation never grows after it shows.
 - The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
   `"limited"`) changes this motion:
   - `"normal"`: the motion above.

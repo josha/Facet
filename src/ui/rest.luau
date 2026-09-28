@@ -1,7 +1,6 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
-local reducedMotion = require("./motion").reduced
 
 return function(
 	ctx: Types.Context,
@@ -10,7 +9,6 @@ return function(
 ): ComposeTypes.Readable<boolean>
 	local Compose = ctx.Compose
 	local frames = ctx.runtime.host.frames
-	local reduce = reducedMotion(ctx)
 	local limit = ctx.metric("motion.restLimit")
 	local rested = Compose.cell(false)
 	local stop: (() -> ())? = nil
@@ -23,7 +21,7 @@ return function(
 	end
 	local function track()
 		halt()
-		if frames == nil or reduce() then
+		if frames == nil then
 			rested:set(true)
 			return
 		end
@@ -37,7 +35,7 @@ return function(
 			end
 			waited += delta
 			local now, filled = sample()
-			if reduce() or (now == last and filled) or waited > limit then
+			if (now == last and filled) or waited > limit then
 				halt()
 				rested:set(true)
 			end
