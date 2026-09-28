@@ -6,7 +6,8 @@ local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local toastSchedule = require("./toast_schedule")
-local reducedMotion = require("./motion").reduced
+local motion = require("./motion")
+local reducedMotion = motion.reduced
 local reservations = require("./reservations")
 
 type Controls = {
@@ -313,12 +314,42 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return Host.Frame(props)
 	end
 
+	local function limitedSlide(
+		phase: Nav.PresencePhase?,
+		entered: ComposeTypes.Readable<boolean>,
+		level: (ComposeTypes.Use?) -> motion.Level
+	): (ComposeTypes.Readable<number>, (
+		ComposeTypes.Use,
+		(ComposeTypes.Use) -> number
+	) -> number)
+		local toastTiming = ctx.motionTiming("toast")
+		local present, fade = ctx.motionEase("present"), ctx.motionEase("fade")
+		local slide = runtime.tween(function(use: ComposeTypes.Use): number
+			return if phase and use(phase.exiting) then 0 elseif use(entered) then 1 else 0
+		end, {
+			seconds = function(_: ComposeTypes.Use): number
+				if level() == "limited" then
+					return ctx.metric("motion.reducedFade")
+				end
+				return if phase and phase.exiting:peek() then toastTiming.exit else toastTiming.enter
+			end,
+			ease = function(t: number): number
+				return if level() == "limited" then fade(t) else present(t)
+			end,
+		})
+		return slide,
+			function(use: ComposeTypes.Use, amount: (ComposeTypes.Use) -> number): number
+				return if level(use) == "limited" then use(slide) else amount(use)
+			end
+	end
+
 	local function passiveRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
 		local spec, layer = record.spec, stack.layer
 		local bottom = spec.position == "bottom"
 		local hug = spec.width == "hug"
 		local extent = ctx.layoutSize(layer)
 		local reduced = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		local body: Instance
 		if spec.content then
 			body = spec.content()
@@ -341,17 +372,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local toastTiming, present = ctx.motionTiming("toast"), ctx.motionEase("present")
 		local entered = Compose.cell(false)
-		local slide = runtime.tween(function(use: ComposeTypes.Use): number
-			return if phase and use(phase.exiting) then 0 elseif use(entered) then 1 else 0
-		end, {
-			seconds = function(_: ComposeTypes.Use): number
-				return if phase and phase.exiting:peek() then toastTiming.exit else toastTiming.enter
-			end,
-			ease = present,
-		})
+		local slide, opacity = limitedSlide(phase, entered, level)
 		local function amount(use: ComposeTypes.Use): number
 			if reduced(use) then
-				return if phase and use(phase.exiting) then 0 else 1
+				return if level(use) == "none" and phase and use(phase.exiting) then 0 else 1
 			end
 			return use(slide)
 		end
@@ -403,11 +427,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ctx.styled(row, "panel")
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
-		if spec.fade ~= false then
-			ctx.fadeTo(row, function(use: ComposeTypes.Use)
-				return 1 - amount(use)
-			end)
-		end
+		ctx.fadeTo(row, function(use: ComposeTypes.Use)
+			if spec.fade == false and level(use) == "normal" then
+				return 0
+			end
+			return 1 - opacity(use, amount)
+		end)
 		local measured = ctx.observe.AbsoluteSize(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			record.height:set(use(measured).Y)
@@ -561,24 +586,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
 		local reduced = reducedMotion(ctx)
-		local toastTiming, present = ctx.motionTiming("toast"), ctx.motionEase("present")
+		local level = motion.level(ctx)
 		local shown = Compose.cell(false)
-		local slide = runtime.tween(function(use: ComposeTypes.Use)
-			return if phase and use(phase.exiting) then 0 elseif use(shown) then 1 else 0
-		end, {
-			seconds = function(_: ComposeTypes.Use): number
-				return if phase and phase.exiting:peek() then toastTiming.exit else toastTiming.enter
-			end,
-			ease = present,
-		})
+		local slide, opacity = limitedSlide(phase, shown, level)
 		local function amount(use: ComposeTypes.Use): number
 			if reduced(use) then
-				return if phase and use(phase.exiting) then 0 else 1
+				return if level(use) == "none" and phase and use(phase.exiting) then 0 else 1
 			end
 			return use(slide)
 		end
 		ctx.fadeTo(row, function(use: ComposeTypes.Use)
-			return 1 - amount(use)
+			return 1 - opacity(use, amount)
 		end)
 		local measured = ctx.observe.AbsoluteSize(row)
 		runtime.decorate(row, {
@@ -677,7 +695,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	UI.Toast = ctx.construct("Toast", function(spec: Overlay.ToastSpec): Frame
 		validate(spec)
 		local interactive = spec.action ~= nil
-		local reduced = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		if interactive then
 			trackReturn()
 		end
@@ -741,10 +759,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end, {
 				presence = {
 					exit = function()
-						if reduced() then
+						local current = level()
+						if current == "none" then
 							return { completed = Compose.cell(true) }
 						end
-						return { completed = runtime.timeline({ duration = ctx.metric("motion.toast.exit") }).completed }
+						local seconds = if current == "limited"
+							then ctx.metric("motion.reducedFade")
+							else ctx.metric("motion.toast.exit")
+						return { completed = runtime.timeline({ duration = seconds }).completed }
 					end,
 				},
 			}),

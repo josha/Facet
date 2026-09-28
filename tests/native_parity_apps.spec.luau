@@ -5262,7 +5262,7 @@ t.describe("native parity reference applications", function()
 			end
 		end
 
-		t.it("fades a pushed page in over its transition and swaps immediately under reduced motion", function()
+		t.it("fades a pushed page in over its transition and still fades it under reduced motion", function()
 			local path = Compose.cell({})
 			local counts = { built = 0, disposed = 0 }
 			local w = world(function(UI, Host)
@@ -5305,6 +5305,8 @@ t.describe("native parity reference applications", function()
 			path:set({ path:peek()[1], { id = "more" } })
 			local more = fadeKit.layer(find(w.screen, "MoreBody").Parent)
 			t.expect(more.Name).toBe("more")
+			t.expect(fadeKit.of(more)).toBe(1)
+			w.engine.heartbeat.fire(0.21)
 			t.expect(fadeKit.of(more)).toBe(0)
 			t.expect(more.Visible).toBe(true)
 			t.expect(more.Interactable).toBe(true)

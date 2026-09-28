@@ -6,7 +6,8 @@ local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local Overlay = require("./overlay_types")
-local reducedMotion = require("./motion").reduced
+local motionLevels = require("./motion")
+local reducedMotion = motionLevels.reduced
 
 type Controls = {
 	DisclosureGroup: Types.Constructor<Nav.DisclosureGroupSpec, Frame>,
@@ -60,22 +61,27 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local function revealMotion(expanded: ComposeTypes.Cell<boolean>): ((ComposeTypes.Use?) -> number, ComposeTypes.Readable<boolean>, (
 		ComposeTypes.Use
 	) -> number)
-		local reduce = reducedMotion(ctx)
-		local reveal = ctx.motionTiming("reveal")
+		local level = motionLevels.level(ctx)
+		local reveal, fade = ctx.motionTiming("reveal"), ctx.motionEase("fade")
 		local function motion(
 			share: (ComposeTypes.Use) -> number,
-			ease: ComposeTypes.Easing?
+			ease: ComposeTypes.Easing?,
+			fades: boolean
 		): (ComposeTypes.Use?) -> number
 			local value = runtime.tween(function(use: ComposeTypes.Use): number
 				return if use(expanded) then 1 else 0
 			end, {
 				seconds = function(use: ComposeTypes.Use): number
+					if fades and level() == "limited" then
+						return ctx.metric("motion.reducedFade", use)
+					end
 					return share(use) * (if expanded:peek() then reveal.enter else reveal.exit)
 				end,
 				ease = ease,
 			})
 			return function(use: ComposeTypes.Use?): number
-				if reduce(use) then
+				local current = level(use)
+				if current == "none" or (current == "limited" and not fades) then
 					return if read(expanded, use) then 1 else 0
 				end
 				return read(value, use)
@@ -84,9 +90,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local progress, opacity =
 			motion(function()
 				return 1
-			end, ctx.motionEase("present")), motion(function(use: ComposeTypes.Use): number
+			end, ctx.motionEase("present"), false), motion(function(use: ComposeTypes.Use): number
 				return ctx.metric("motion.revealFadeShare", use)
-			end)
+			end, function(t: number): number
+				return if level() == "limited" then fade(t) else t
+			end, true)
 		return progress,
 			Compose.formula(function(use: ComposeTypes.Use): boolean
 				return progress(use) <= 0

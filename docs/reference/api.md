@@ -320,8 +320,13 @@ easing, spring, scale and distance below is a token in the theme package's
   - `"limited"`: no travel, scale or slide. An Alert, Dialog, Popover, Menu
     (pointer and sheet form), Callout, Button `help` plate and Sheet
     cross-fade in and out over `reducedFade` (0.15 seconds, `easing.fade`);
-    a Sheet's panel fades with its scrim. Paint transitions keep their
-    timing.
+    a Sheet's panel fades with its scrim. A Toast fades in place over
+    `reducedFade` (even with `fade = false`), a TabView page cross-fades
+    over `reducedFade`, a NavigationStack push fades the new page in over
+    `reducedFade` with no slide (a pop is immediate), and a DisclosureGroup
+    or CollapsibleView lands its height at once and fades its content over
+    `reducedFade`. A custom `transition` keeps its own timing. Paint
+    transitions keep their timing.
   - `"none"`: every presentation appears and leaves at once, and paint
     transitions are instant.
 - A presentation that has not drawn a frame, or whose anchor is no longer

@@ -112,3 +112,103 @@ t.describe("presence: motion level limited cross-fades", function()
 		w.stop()
 	end)
 end)
+
+t.describe("presence: limited cross-fades the toast, tabs, stack and disclosure", function()
+	local LIMITED = { motionLevel = "limited" }
+
+	local function fadesOver(w: any, node: any, from: number, to: number): number
+		local frames = 0
+		while fadeKit.of(node) ~= to and frames < 30 do
+			w.advance(1 / 60)
+			frames += 1
+			local value = fadeKit.of(node)
+			t.expect(if from > to then value <= from else value >= from).toBe(true)
+		end
+		t.expect(fadeKit.of(node)).toBe(to)
+		return frames
+	end
+
+	t.it("a toast row fades in over reducedFade and never moves", function()
+		local shown = Compose.cell(false)
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({
+				Name = "S",
+				Compose.show(function(use)
+					return use(shown)
+				end, function()
+					return UI.Toast "T" { message = "Saved" }
+				end),
+			})
+		end, LIMITED)
+		shown:set(true)
+		local row = w.find("ToastRow")
+		local at = row.Position
+		t.expect(fadeKit.of(row) > 0).toBe(true)
+		local frames = fadesOver(w, row, 1, 0)
+		t.expect(frames >= 6 and frames <= 12).toBe(true)
+		t.expect(row.Position).toBe(at)
+		w.stop()
+	end)
+
+	t.it("a TabView page fades in over reducedFade", function()
+		local selected = Compose.cell("one")
+		local w = overlay.new(function(UI, Host)
+			return UI.TabView {
+				selection = selected,
+				tabs = {
+					{ id = "one", label = "One", content = Host.Frame "PageOne" {} },
+					{ id = "two", label = "Two", content = Host.Frame "PageTwo" {} },
+				},
+			}
+		end, LIMITED)
+		w.advance(0.5, 30)
+		selected:set("two")
+		local page = w.find("PageTwo")
+		while page and page:FindFirstChild("FadePaint") == nil do
+			page = page.Parent
+		end
+		local frames = fadesOver(w, page, 1, 0)
+		t.expect(frames >= 6 and frames <= 12).toBe(true)
+		w.stop()
+	end)
+
+	t.it("a NavigationStack push has no travel and the new page fades in over reducedFade", function()
+		local path = Compose.cell({})
+		local w = overlay.new(function(UI, Host)
+			return UI.NavigationStack {
+				path = path,
+				root = { title = "Root", content = Host.Frame "RootBody" {} },
+				destinations = { detail = { title = "Detail", content = Host.Frame "DetailBody" {} } },
+			}
+		end, LIMITED)
+		w.advance(0.5, 30)
+		path:set({ { id = "detail" } })
+		local page = w.find("detail")
+		t.expect(page.Position.X.Scale).toBe(0)
+		local frames = fadesOver(w, page, 1, 0)
+		t.expect(frames >= 6 and frames <= 12).toBe(true)
+		t.expect(page.Position.X.Scale).toBe(0)
+		w.stop()
+	end)
+
+	t.it("a DisclosureGroup's height lands at once and its content fades over reducedFade", function()
+		local expanded = Compose.cell(false)
+		local w = overlay.new(function(UI)
+			return UI.DisclosureGroup "Settings" {
+				label = "Appearance",
+				expanded = expanded,
+				content = function()
+					return UI.Button "Palette" { label = "Palette" }
+				end,
+			}
+		end, LIMITED)
+		expanded:set(true)
+		local reveal, fade = w.find("Reveal"), w.find("RevealFade")
+		fade.AbsoluteSize = w.Vector2.new(300, 120)
+		w.advance(1 / 60)
+		t.expect(reveal.AutomaticSize).toBe(w.Enum.AutomaticSize.Y)
+		local frames = fadesOver(w, fade, 1, 0)
+		t.expect(frames >= 5 and frames <= 12).toBe(true)
+		w.stop()
+	end)
+end)
