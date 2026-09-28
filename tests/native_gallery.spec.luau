@@ -335,6 +335,20 @@ t.describe("native gallery", function()
 			end
 		end
 	end
+	t.it("selects a nested all-controls tab by path through the showcase API", function()
+		local ctx, _, target = nativeContext()
+		local built
+		local stop = ctx.runtime.mount(function()
+			built = load("fixture", "all_controls").build(ctx)
+			return built.screen()
+		end, target)
+		t.expect(built.select("actions")).toBe(true)
+		t.expect(built.select("actions/menus")).toBe(true)
+		t.expect(built.report().active).toBe("menus")
+		t.expect(built.select("actions/nope")).toBe(false)
+		stop()
+		ctx.runtime:dispose()
+	end)
 	t.it("reserves the measured shell toolbar height above the demos", function()
 		local ctx, _, target = nativeContext()
 		ctx.selection = Compose.cell("all-controls")

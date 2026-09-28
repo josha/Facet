@@ -116,18 +116,35 @@ source stamp.
 ### Send real gamepad input
 
 Turn on the Controller Emulator (the Virtual Controller check box of the
-device emulator bar). Then `live.press({ "DPadDown", "ButtonA" })` in the
-Client data model sends real `Gamepad1` input. It uses
-`UserInputService:CreateVirtualInput()` and the emulator key map: DPadDown,
-DPadLeft, DPadRight, ButtonA, ButtonB, ButtonX, ButtonY, ButtonL1, ButtonL2
-and `StickUp` (the left stick). Between the steps of an interactive case,
+device emulator bar). The emulator maps keys to the pad: W/A/S/D are the left
+stick up/left/down/right, and 1/2/3/4 are D-pad up/left/down/right. Then
+`live.press({ "DPadDown", "ButtonA" })` in the Client data model sends real
+`Gamepad1` input. It uses `UserInputService:CreateVirtualInput()` and the
+emulator key map: DPadDown, DPadLeft, DPadRight, ButtonA, ButtonB, ButtonX,
+ButtonY, ButtonL1, ButtonL2 and the left stick's `StickUp`, `StickLeft`,
+`StickDown` and `StickRight`. Arrow keys are sent by their key code names
+(`Up`, `Down`, `Left`, `Right`). Between the steps of an interactive case,
 call `live.press` in place of the Studio input tools. The result records the
 delivered input in `notes.deliveredInput` and the selection after each press
 in `notes.pressedSelections`.
 
-- DPadUp cannot be sent. The emulator maps it to the key 1, and VirtualInput
-  refuses that key. Use `StickUp`. The engine moves the stick selection by a
-  different geometry than the D-pad, so it can choose another neighbour.
+- DPadUp cannot be sent through VirtualInput. The emulator maps it to the key
+  1, and VirtualInput refuses that key. Post the key to Studio's process
+  instead: `swift tools/studio/capture/pad_key.swift <pid> 18 0.12` (macOS key
+  code 18 is `1`; 19/20/21 are D-pad left/down/right, 13/0/1/2 are W/A/S/D).
+  Studio does not need to be in front. The engine moves the stick selection by
+  a different geometry than the D-pad, so `StickUp` can choose another
+  neighbour than D-pad Up.
+- Before any capture or posted input, run
+  `swift tools/studio/capture/session_locked.swift`. It must print
+  `locked: 0` or `locked: no-key`. A locked Mac drops posted input while
+  window captures keep working.
+- To click Studio's own UI (for example the Virtual Controller check box), take
+  the coordinates from a capture of the Studio window only:
+  `swift tools/studio/capture/window_id.swift <place>` gives the window id,
+  `screencapture -x -o -l <id> out.png` captures that window, and
+  `swift tools/studio/capture/pid_click.swift <pid> <x> <y>` posts the click to
+  Studio's process in screen points. Never capture the whole screen.
 - Do not send the keys U and Q. They are ButtonStart and ButtonSelect. They
   open the Roblox menu or take the keyboard focus, and after that VirtualInput
   refuses every key until the playtest restarts.

@@ -217,6 +217,8 @@ function screen.dispatch(ctx, command, argument)
 		if ok then
 			ctx.requestPanel(argument)
 		end
+	elseif command == "tab" and ctx.currentSelect then
+		ok = ctx.currentSelect(argument) == true
 	elseif command == "report" then
 		ok = true
 	end
@@ -252,6 +254,7 @@ function screen.build(ctx: any)
 	for _, demo in (ctx.demos or catalogue.list()) do
 		branches[demo.id] = function()
 			ctx.currentReport = nil
+			ctx.currentSelect = nil
 			local ok, result = pcall(function()
 				local definition = ctx.load(demo.kind, demo.module)
 				local pageContext = table.clone(ctx)
@@ -264,6 +267,7 @@ function screen.build(ctx: any)
 					return built()
 				end
 				ctx.currentReport = built.report
+				ctx.currentSelect = built.select
 				if built.dispose then
 					Compose.cleanup(built.dispose)
 				end
@@ -276,6 +280,7 @@ function screen.build(ctx: any)
 			end
 			active:set(nil)
 			ctx.currentReport = nil
+			ctx.currentSelect = nil
 			errorMessage:set(tostring(result))
 			warn("[Facet Gallery] " .. demo.id .. ": " .. tostring(result))
 			return Host.TextLabel "DemoFailure" {

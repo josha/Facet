@@ -96,6 +96,25 @@ return function(ctx: any, id: string, groups: { any })
 				tabsFor("Categories", groups, true, ctx.pageVisible),
 			})
 		end,
+		select = function(path: string): boolean
+			local entries, key = groups, "Categories"
+			for part in string.gmatch(path, "[^/]+") do
+				local found
+				for _, entry in entries or {} do
+					if entry.id == part then
+						found = entry
+						break
+					end
+				end
+				local cell = selections[key]
+				if found == nil or cell == nil then
+					return false
+				end
+				cell:set(part)
+				key, entries = part, found.tabs
+			end
+			return true
+		end,
 		report = function()
 			local selected = {}
 			for key, value in selections do
