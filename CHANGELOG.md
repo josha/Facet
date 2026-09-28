@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A disabled Stepper or `UI.adjustable` node is no longer a selection stop; it becomes one again when enabled (a Slider already worked this way). The Slider's and the Stepper's accessible label is on the control itself, the object that takes the selection (a Slider without a label announces its value); `Track` and `ThumbStop` no longer carry it.
+- A disabled Stepper or `UI.adjustable` node is no longer a selection stop; it becomes one again when enabled (a Slider already worked this way). A busy `UI.adjustable` stays a stop and ignores presses until it is idle. Value control roots carry a `disabled` attribute. The Slider's and the Stepper's accessible label is on the control itself, the object that takes the selection (a Slider without a label announces its value); `Track` and `ThumbStop` no longer carry it.
 - A scroll container with no controls passes a directional move to the control whose leading edge is nearest among those in line with the move (the centre offset only breaks a tie); it used to weigh the gap and twice the centre offset together.
 - `UI.focusQuery(from?)` reports, for Up, Down, Left and Right, what a D-pad or arrow move from a control selects and the rule that decides it (`capture`, `link`, `beam`, `stop` or `none`), without moving the selection. New types `FocusQuery`, `FocusMove` and `FocusDirection`.
 - **Breaking: `UI.adjustable` makes its node the one selection stop** (it sets `Selectable = true` on the node) and adjusts only while the node itself is selected, not a descendant. Give the node no selectable descendants.

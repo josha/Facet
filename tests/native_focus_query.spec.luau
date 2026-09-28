@@ -155,6 +155,19 @@ t.describe("UI.focusQuery", function()
 		w.stop()
 	end)
 
+	t.it("does not report capture for a disabled value control", function()
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("L")({ label = "L" }),
+				UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9, enabled = false }),
+			})
+		end)
+		w.place("L", 0, 100, 80, 44)
+		local volume = w.place("Volume", 100, 100, 200, 44)
+		t.expect(w.UI.focusQuery(volume).Left.rule).toBe("beam")
+		w.stop()
+	end)
+
 	t.it("searches nested SelectionGroups inside out and honours an outer Stop", function()
 		local w = world(function(UI, Host)
 			return Host.Frame({

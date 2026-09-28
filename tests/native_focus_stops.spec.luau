@@ -195,6 +195,47 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		w.stop()
 	end)
 
+	t.it("a stick that arrived mostly across the axis adjusts once it rolls onto the axis, without centring", function()
+		local value = Compose.cell(5)
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
+		end)
+		local E = w.engine.types.Enum
+		w.input.GetGamepadState = function()
+			return { { KeyCode = E.KeyCode.Thumbstick1, Position = { Magnitude = 0.98 } } }
+		end
+		w.gui.SelectedObject = w.find("Volume")
+		for _, push in { { 0.4, 0.9 }, { 0.7, 0.6 }, { 0.95, 0.1 } } do
+			w.stick(push[1], push[2])
+		end
+		t.expect(value:peek()).toBe(6)
+		w.stop()
+	end)
+
+	t.it("a busy UI.adjustable keeps its stop and ignores presses until it is idle", function()
+		local steps, busy = {}, Compose.cell(false)
+		local w = setup(function(UI, Host)
+			local dial = Host.Frame({ Name = "Dial" })
+			UI.adjustable(dial, {
+				busy = busy,
+				onAdjust = function(direction)
+					table.insert(steps, direction)
+				end,
+			})
+			return dial
+		end)
+		local dial = w.find("Dial")
+		w.gui.SelectedObject = dial
+		busy:set(true)
+		t.expect(`{dial.Selectable} {dial:GetAttribute("disabled")}`).toBe("true false")
+		w.press("DPadRight")
+		t.expect(#steps).toBe(0)
+		busy:set(false)
+		w.press("DPadRight")
+		t.expect(steps).toEqual({ 1 })
+		w.stop()
+	end)
+
 	t.it("the stick context does not sink, so the engine still moves on the other axis", function()
 		local w = setup(function(UI, Host)
 			return Host.Frame({ UI.Stepper("Volume")({ value = Compose.cell(5), max = 10 }) })
@@ -323,6 +364,33 @@ t.describe("M1: the Stepper", function()
 end)
 
 t.describe("the range Slider is one stop", function()
+	t.it("Return does not switch the handle while a TextBox has the keyboard", function()
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Slider("Tilt")({
+					value = Compose.cell({ lower = 20, upper = 60 }),
+					range = true,
+					min = 0,
+					max = 100,
+				}),
+			})
+		end)
+		local slider = w.find("Tilt")
+		w.gui.SelectedObject = slider
+		local box = w.engine.new("TextBox")
+		w.input.GetFocusedTextBox = function()
+			return box
+		end
+		w.action("SwitchThumb")
+		t.expect(slider:GetAttribute("adjusting")).toBe("lower")
+		w.input.GetFocusedTextBox = function()
+			return nil
+		end
+		w.action("SwitchThumb")
+		t.expect(slider:GetAttribute("adjusting")).toBe("upper")
+		w.stop()
+	end)
+
 	t.it("Return switches the handle even beside a dialog's default button", function()
 		local w = setup(function(UI, Host)
 			return Host.Frame({
@@ -512,7 +580,7 @@ local function offenders(root: any): { string }
 				end
 			end
 		end
-		if node:HasTag("facet-adjustable") and node.Interactable ~= false then
+		if node:HasTag("facet-adjustable") and node.Interactable ~= false and node:GetAttribute("disabled") ~= true then
 			if not node.Selectable then
 				table.insert(bad, `{node:GetFullName()} is not a stop`)
 			end
@@ -525,6 +593,26 @@ local function offenders(root: any): { string }
 	end
 	return bad
 end
+
+t.describe("the stop lint and disabled value controls", function()
+	t.it("a disabled Slider, Stepper or UI.adjustable is correctly not a stop", function()
+		local w = setup(function(UI, Host)
+			local dial = Host.Frame({ Name = "Dial" })
+			UI.adjustable(dial, { enabled = false, onAdjust = function() end })
+			return Host.Frame({
+				UI.Slider("S")({ value = Compose.cell(3), min = 0, max = 9, enabled = false }),
+				UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, enabled = false }),
+				dial,
+			})
+		end)
+		for _, name in { "S", "Volume", "Dial" } do
+			t.expect(`{name} {w.find(name).Selectable} {w.find(name):GetAttribute("disabled")}`)
+				.toBe(`{name} false true`)
+		end
+		t.expect(offenders(w.screen)).toEqual({})
+		w.stop()
+	end)
+end)
 
 t.describe("every Showcase value control is one stop", function()
 	local function check(label: string, build: (any) -> any)

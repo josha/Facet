@@ -465,8 +465,10 @@ these rules:
   vertical control; the D-pad, the arrow keys and the left stick) change the
   value at every value; a press at a limit does nothing. The control claims the
   axis only while it is the selected object itself, never while a part inside
-  it is. Its root has the tag `facet-adjustable` and the attribute `axis`
-  (`horizontal` or `vertical`). A table column grip and a reorder move also
+  it is. Its root has the tag `facet-adjustable`, the attribute `axis`
+  (`horizontal` or `vertical`) and the attribute `disabled`. A disabled value
+  control is not a selection stop; a busy one stays a stop and ignores presses.
+  A range Slider's Return does nothing while a TextBox has the keyboard. A table column grip and a reorder move also
   take Left and Right (Up and Down for a vertical list) while they have the
   selection, from the D-pad and the arrow keys only. A Menu row with a submenu
   opens it on Right, and Left returns to the parent row. The other axis still

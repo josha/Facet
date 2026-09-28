@@ -95,6 +95,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local state = spec :: InputTypes.EnabledOptions
 		return read(state.enabled, use) ~= false and read(state.disabled, use) ~= true and read(state.busy, use) ~= true
 	end
+	local function stopEnabled(
+		spec: InputTypes.EnabledOptions | InputTypes.NumberInputOptions | InputTypes.LevelOptions | { value: Shared.Value<number>, onChange: ((number) -> ())? },
+		use: ComposeTypes.Use?
+	): boolean
+		local state = spec :: InputTypes.EnabledOptions
+		return read(state.enabled, use) ~= false and read(state.disabled, use) ~= true
+	end
 	local function writable(source: unknown): boolean
 		return type(source) == "table"
 			and Compose.isReadable(source)
@@ -157,6 +164,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	): ()
 		local adjust: Adjust = options or {}
 		node:AddTag("facet-adjustable")
+		attributes(node, {
+			disabled = function(use: ComposeTypes.Use): boolean
+				return not stopEnabled(spec, use)
+			end,
+		})
 		if minimum ~= nil and maximum ~= nil then
 			node:SetAttribute("axis", if adjust.vertical then "vertical" else "horizontal")
 		end
@@ -340,7 +352,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 								local reach = math.abs(along)
 								local sign = if along > 0 then 1 else -1
 								if settling then
-									settling = reach >= STICK_RELEASE
+									settling = reach >= STICK_RELEASE and reach >= across
 									return
 								end
 								local direction = if leaning == sign
@@ -1936,7 +1948,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			"repeatInterval",
 		}, {
 			Selectable = function(use: ComposeTypes.Use): boolean
-				return enabled(spec, use)
+				return stopEnabled(spec, use)
 			end,
 			Size = if spec.label then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
 			AutomaticSize = if spec.label then E.AutomaticSize.Y else E.AutomaticSize.XY,
@@ -2011,7 +2023,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local bound = if axis == "none" then nil else math.huge
 		runtime.decorate(node, {
 			Selectable = function(use: ComposeTypes.Use): boolean
-				return enabled(options, use)
+				return stopEnabled(options, use)
 			end,
 		})
 		adjustment(node, options :: any, options.onAdjust, nil, if bound then -bound else nil :: any, bound :: any, {
@@ -2025,6 +2037,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 
 	require("./slider")(ctx, UI, {
 		enabled = enabled,
+		stopEnabled = stopEnabled,
 		writable = writable,
 		attributes = attributes,
 		valueAttributes = valueAttributes,

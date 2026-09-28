@@ -17,6 +17,7 @@ export type Adjust = {
 }
 export type Helpers = {
 	enabled: (Spec | NumberSpec, ComposeTypes.Use?) -> boolean,
+	stopEnabled: (Spec | NumberSpec, ComposeTypes.Use?) -> boolean,
 	writable: (unknown) -> boolean,
 	attributes: (Instance, Shared.Attributes) -> Instance,
 	valueAttributes: (GuiObject, NumberSpec, valueModel.Model) -> (),
@@ -769,7 +770,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local native = ctx.props(spec, SLIDER_KEYS, {
 			BackgroundTransparency = 1,
-			Selectable = enabledValue(spec),
+			Selectable = function(use: ComposeTypes.Use): boolean
+				return h.stopEnabled(spec, use)
+			end,
 			Size = if vertical then D2.new(0, 0, 1, 0) else D2.new(1, 0, 0, 0),
 			AutomaticSize = if vertical then E.AutomaticSize.X else E.AutomaticSize.Y,
 		})
@@ -886,6 +889,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					end,
 					extra = function(active: (ComposeTypes.Use) -> boolean)
 						ctx.action(node, "SwitchThumb", { E.KeyCode.ButtonA, E.KeyCode.Return }, active, function()
+							local keyboard = ctx.config.services.UserInputService
+							if keyboard and keyboard.GetFocusedTextBox and keyboard:GetFocusedTextBox() then
+								return
+							end
 							adjusting:set(if adjusting:peek() == "lower" then "upper" else "lower")
 						end, { priority = 5000 })
 					end,

@@ -45,7 +45,12 @@ end
 function focus.lint(root: Instance): { string }
 	local bad = {}
 	for _, node in root:GetDescendants() do
-		if node:HasTag("facet-adjustable") and node:IsA("GuiObject") and node.Interactable then
+		if
+			node:HasTag("facet-adjustable")
+			and node:IsA("GuiObject")
+			and node.Interactable
+			and node:GetAttribute("disabled") ~= true
+		then
 			if not node.Selectable then
 				table.insert(bad, `{node:GetFullName()} is not a stop`)
 			end
