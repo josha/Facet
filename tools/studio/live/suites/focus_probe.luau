@@ -335,6 +335,191 @@ add("F12-out-of-beam-alignment", function(t)
 	GuiService.SelectedObject = nil
 end)
 
+add("F12-sweep", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "S", 100, 400, 100, 44),
+			box(Host, "A", 0, 0, 10, 10),
+			box(Host, "B", 0, 0, 10, 10),
+			box(Host, "C", 0, 0, 10, 10),
+		})
+	end, { size = Vector2.new(1400, 900) })
+	local source = t.find(world, "S")
+	local frames = { t.find(world, "A"), t.find(world, "B"), t.find(world, "C") }
+	for _, node in { source, table.unpack(frames) } do
+		node.SelectionGained:Connect(function() end)
+	end
+	local options = shared.FacetFocusSweep or {}
+	local view = options.view or "right"
+	local key = if view == "left" then "DPadLeft" elseif view == "down" then "DPadDown" else "DPadRight"
+	local function place(node: GuiObject, x: number, y: number, w: number, h: number)
+		if view == "left" then
+			x = 1400 - x - w
+		elseif view == "down" then
+			x, y, w, h = y * 0.65, x * 0.65, h * 0.65, w * 0.65
+		end
+		node.Position = UDim2.fromOffset(x, y)
+		node.Size = UDim2.fromOffset(w, h)
+	end
+	place(source, 100, 400, 100, 44)
+	local random = Random.new(options.seed or 12)
+	local trials = {}
+	local count = options.count or 90
+	local used = options.pairs and 2 or 3
+	frames[3].Visible = used == 3
+	for trial = 1, count do
+		local rects = {}
+		for index = 1, used do
+			local node = frames[index]
+			local w, h = random:NextInteger(30, 220), random:NextInteger(30, 140)
+			local x = random:NextInteger(210, 1300 - w)
+			local y
+			if trial % 3 == 0 and index == 1 then
+				y = random:NextInteger(400 - h + 1, 443)
+			else
+				repeat
+					y = random:NextInteger(10, 880 - h)
+				until y + h <= 400 or y >= 444
+			end
+			place(node, x, y, w, h)
+			rects[node.Name] = { x, y, w, h }
+		end
+		t.settle(2)
+		rects.pick = move(t, source, key)
+		table.insert(trials, rects)
+	end
+	local grid = options.grid
+	if grid then
+		table.clear(trials)
+		frames[3].Visible = false
+		place(frames[2], table.unpack(grid.b))
+		for y = grid.ys[1], grid.ys[2], grid.ys[3] do
+			for x = grid.xs[1], grid.xs[2], grid.xs[3] do
+				place(frames[1], x, y, grid.size[1], grid.size[2])
+				t.settle(2)
+				table.insert(
+					trials,
+					{ A = { x, y, grid.size[1], grid.size[2] }, B = grid.b, pick = move(t, source, key) }
+				)
+			end
+		end
+	end
+	t.note(`trials (S = 100,400,100,44; canonical Right; view {view})`, trials)
+	GuiService.SelectedObject = nil
+end)
+
+add("F14-scroll-strip-vs-its-tabs", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "Above", 200, 200, 100, 44),
+			box(Host, "Left", 0, 420, 100, 44),
+			box(Host, "Side", 0, 303, 100, 44),
+			Host.ScrollingFrame({
+				Name = "Strip",
+				Position = UDim2.fromOffset(150, 300),
+				Size = UDim2.fromOffset(500, 50),
+				CanvasSize = UDim2.fromOffset(500, 0),
+				Selectable = true,
+				box(Host, "T1", 10, 3, 80, 44),
+				box(Host, "T2", 100, 3, 80, 44),
+				box(Host, "T3", 190, 3, 80, 44),
+			}),
+		})
+	end, { size = Vector2.new(1000, 700) })
+	local strip = t.find(world, "Strip")
+	local seen = {}
+	local watch = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+		local now = GuiService.SelectedObject
+		table.insert(seen, if now then now.Name else "nil")
+	end)
+	local function run(label: string)
+		for _, spec in { { "Above", "DPadDown" }, { "Left", "DPadRight" }, { "Side", "DPadRight" } } do
+			table.clear(seen)
+			local landed = move(t, t.find(world, spec[1]), spec[2])
+			t.note(`{label}: {spec[2]} from {spec[1]}`, { landed = landed, sequence = table.clone(seen) })
+		end
+	end
+	run("strip unwired, tabs unwired, tabs inset 3")
+	for _, name in { "T1", "T2", "T3" } do
+		t.find(world, name).SelectionGained:Connect(function() end)
+	end
+	run("strip unwired, tabs wired, tabs inset 3")
+	for _, name in { "T1", "T2", "T3" } do
+		local tab = t.find(world, name)
+		tab.Position = UDim2.fromOffset(tab.Position.X.Offset, 0)
+		tab.Size = UDim2.fromOffset(80, 50)
+	end
+	run("strip unwired, tabs wired, tabs fill")
+	strip.SelectionGained:Connect(function() end)
+	run("strip wired, tabs wired, tabs fill")
+	watch:Disconnect()
+	GuiService.SelectedObject = nil
+end)
+
+add("F15-lane-is-span-or-centre-line", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "S", 100, 400, 100, 44),
+			box(Host, "EdgeOverlap", 400, 350, 60, 60),
+			box(Host, "CentreLine", 900, 380, 60, 60),
+			box(Host, "OutNear", 260, 330, 60, 40),
+		})
+	end, { size = Vector2.new(1200, 800) })
+	for _, name in { "S", "EdgeOverlap", "CentreLine", "OutNear" } do
+		t.find(world, name).SelectionGained:Connect(function() end)
+	end
+	local source = t.find(world, "S")
+	t.note("Right: EdgeOverlap (span only, near) vs CentreLine (far) vs OutNear", move(t, source, "DPadRight"))
+	t.find(world, "EdgeOverlap").Visible = false
+	t.settle(2)
+	t.note("Right without EdgeOverlap: CentreLine (far, in lane) vs OutNear", move(t, source, "DPadRight"))
+	GuiService.SelectedObject = nil
+end)
+
+add("F16-scroll-container-in-lane-vs-control-out-of-lane", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "Above", 100, 20, 300, 44),
+			box(Host, "Right", 600, 120, 100, 44),
+			Host.ScrollingFrame({
+				Name = "Scroller",
+				Position = UDim2.fromOffset(100, 100),
+				Size = UDim2.fromOffset(320, 200),
+				CanvasSize = UDim2.fromOffset(0, 800),
+				Selectable = true,
+				box(Host, "Clipped", 0, 250, 300, 44),
+				box(Host, "Shown", 0, 60, 300, 44),
+			}),
+		})
+	end, { size = Vector2.new(1000, 800) })
+	for _, name in { "Above", "Right", "Clipped", "Shown" } do
+		t.find(world, name).SelectionGained:Connect(function() end)
+	end
+	local seen = {}
+	local watch = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+		local now = GuiService.SelectedObject
+		table.insert(seen, if now then now.Name else "nil")
+	end)
+	local above = t.find(world, "Above")
+	local landed = move(t, above, "DPadDown")
+	t.note("Down from Above, scroller holds a visible child", { landed = landed, sequence = table.clone(seen) })
+	t.find(world, "Shown").Visible = false
+	t.settle(2)
+	table.clear(seen)
+	landed = move(t, above, "DPadDown")
+	t.note("Down from Above, scroller child only clipped", { landed = landed, sequence = table.clone(seen) })
+	watch:Disconnect()
+	GuiService.SelectedObject = nil
+end)
+
 add("F6b-clipped-scroll-child-from-outside", function(t)
 	local world = t.mount(function(_, Host)
 		return Host.Frame({
