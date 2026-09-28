@@ -236,20 +236,18 @@ return function(ctx: Shared.Context): Selection
 
 	local DIRECTIONS: { Env.FocusDirection } = { "Up", "Down", "Left", "Right" }
 
-	local function visibleOnScreen(node: GuiObject): boolean
+	local function onScreen(node: GuiObject, left: number, top: number, right: number, bottom: number): boolean
 		local collector = collectorOf(node)
 		local view = if collector and collector:IsA("GuiBase2d") then (collector :: GuiBase2d).AbsoluteSize else nil
-		local at, size = node.AbsolutePosition, node.AbsoluteSize
 		if view and view.X > 0 and view.Y > 0 then
-			if at.X + size.X <= 0 or at.Y + size.Y <= 0 or at.X >= view.X or at.Y >= view.Y then
-				return false
-			end
+			return right > 0 and bottom > 0 and left < view.X and top < view.Y
 		end
 		return true
 	end
 
 	local function inView(origin: GuiObject, candidate: GuiObject): boolean
 		local at, size = candidate.AbsolutePosition, candidate.AbsoluteSize
+		local left, top, right, bottom = at.X, at.Y, at.X + size.X, at.Y + size.Y
 		local parent = candidate.Parent
 		while parent and not parent:IsA("LayerCollector") do
 			if parent:IsA("ScrollingFrame") then
@@ -257,18 +255,15 @@ return function(ctx: Shared.Context): Selection
 					return true
 				end
 				local box, window = parent.AbsolutePosition, parent.AbsoluteSize
-				if
-					at.X + size.X <= box.X
-					or at.Y + size.Y <= box.Y
-					or at.X >= box.X + window.X
-					or at.Y >= box.Y + window.Y
-				then
+				left, top = math.max(left, box.X), math.max(top, box.Y)
+				right, bottom = math.min(right, box.X + window.X), math.min(bottom, box.Y + window.Y)
+				if right <= left or bottom <= top or not onScreen(candidate, left, top, right, bottom) then
 					return false
 				end
 			end
 			parent = parent.Parent
 		end
-		return visibleOnScreen(candidate)
+		return onScreen(candidate, left, top, right, bottom)
 	end
 
 	local function groupsOf(node: GuiObject): { GuiObject }
@@ -336,15 +331,7 @@ return function(ctx: Shared.Context): Selection
 			return if index then list[index] else nil
 		end
 		local function pick(list: { GuiObject }, direction: string): GuiObject?
-			local controls, containers = {}, {}
-			for _, node in list do
-				table.insert(if node:IsA("ScrollingFrame") then containers else controls, node)
-			end
-			local target = nearest(controls, direction)
-			if target then
-				return target
-			end
-			target = nearest(containers, direction)
+			local target = nearest(list, direction)
 			while target and target:IsA("ScrollingFrame") and target:GetAttribute("FacetSelectionOwner") ~= true do
 				local inner = entryOf(target, origin)
 				target = if inner == target then nil else inner

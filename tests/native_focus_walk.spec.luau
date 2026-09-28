@@ -86,8 +86,11 @@ local function replay(atlas: any): (any, { [string]: any }, (offsets: any) -> ()
 		end
 		return frame
 	end
-	for path in atlas.containers do
-		container(path)
+	for path, entry in atlas.containers do
+		local frame = container(path)
+		if entry.selectable then
+			byPath[path] = frame
+		end
 	end
 	for _, entry in atlas.stops do
 		local node = engine.new("Frame")
@@ -148,35 +151,44 @@ local function load(file: string): any
 	return atlas
 end
 
-local function overlaps(at: any, size: any, box: any, window: any): boolean
-	return at.X + size.X > box.X and at.Y + size.Y > box.Y and at.X < box.X + window.X and at.Y < box.Y + window.Y
-end
-
 local function visible(from: any, other: any): boolean
 	local at, size = other.AbsolutePosition, other.AbsoluteSize
+	local left, top, right, bottom = at.X, at.Y, at.X + size.X, at.Y + size.Y
+	local screen = other:FindFirstAncestorWhichIsA("ScreenGui").AbsoluteSize
 	local parent = other.Parent
 	while parent and parent:IsA("GuiObject") do
 		if parent:IsA("ScrollingFrame") then
 			if from:IsDescendantOf(parent) then
 				return true
 			end
-			if not overlaps(at, size, parent.AbsolutePosition, parent.AbsoluteSize) then
+			local box, window = parent.AbsolutePosition, parent.AbsoluteSize
+			left, top = math.max(left, box.X, 0), math.max(top, box.Y, 0)
+			right = math.min(right, box.X + window.X, screen.X)
+			bottom = math.min(bottom, box.Y + window.Y, screen.Y)
+			if right <= left or bottom <= top then
 				return false
 			end
 		end
 		parent = parent.Parent
 	end
-	local screen = other:FindFirstAncestorWhichIsA("ScreenGui")
-	return overlaps(at, size, { X = 0, Y = 0 }, screen.AbsoluteSize)
+	return right > 0 and bottom > 0 and left < screen.X and top < screen.Y
 end
 
 local function ahead(from: any, other: any, direction: string): boolean
 	local a, s = from.AbsolutePosition, from.AbsoluteSize
 	local b, z = other.AbsolutePosition, other.AbsoluteSize
-	return (direction == "Up" and b.Y + z.Y <= a.Y + 1)
-		or (direction == "Down" and b.Y >= a.Y + s.Y - 1)
-		or (direction == "Left" and b.X + z.X <= a.X + 1)
-		or (direction == "Right" and b.X >= a.X + s.X - 1)
+	if direction == "Up" or direction == "Down" then
+		local lane = b.X < a.X + s.X and a.X < b.X + z.X
+		if direction == "Up" then
+			return b.Y + z.Y < a.Y + s.Y / 2 and (lane or b.Y < a.Y)
+		end
+		return b.Y > a.Y + s.Y / 2 and (lane or b.Y + z.Y > a.Y + s.Y)
+	end
+	local lane = b.Y < a.Y + s.Y and a.Y < b.Y + z.Y
+	if direction == "Left" then
+		return b.X + z.X < a.X + s.X / 2 and (lane or b.X < a.X)
+	end
+	return b.X > a.X + s.X / 2 and (lane or b.X + z.X > a.X + s.X)
 end
 
 local function problemsOf(atlas: any): { string }
@@ -191,13 +203,22 @@ local function problemsOf(atlas: any): { string }
 		assert(byPath[path], `no stop {path}`)
 		for direction, move in UI.focusQuery(byPath[path]) do
 			local target = move.target
+			if target and atlas.containers[target.Name] then
+				for _, entry in atlas.stops do
+					if table.find(entry.chain, target.Name) then
+						target = byPath[entry.path]
+						break
+					end
+				end
+			end
 			if target and byPath[target.Name] and not seen[target.Name] then
 				seen[target.Name] = true
 				table.insert(queue, target.Name)
 			end
-			if move.rule == "none" then
+			if move.rule == "none" and not allowed(atlas.page, path, `dead {direction}`, nil, nil) then
 				local from = byPath[path]
-				for _, other in byPath do
+				for _, entry in atlas.stops do
+					local other = byPath[entry.path]
 					if other ~= from and ahead(from, other, direction) and visible(from, other) then
 						table.insert(problems, `dead end: {path} {direction}`)
 						break
@@ -219,7 +240,15 @@ local function problemsOf(atlas: any): { string }
 				local query = if predicted.target and predicted.target ~= byPath[from]
 					then predicted.target.Name
 					else nil
-				if engineTarget ~= query and not allowed(atlas.page, from, key, engineTarget, query) then
+				local entered = query ~= nil
+					and atlas.containers[query] ~= nil
+					and engineTarget ~= nil
+					and string.sub(engineTarget, 1, #query + 1) == query .. "/"
+				if
+					engineTarget ~= query
+					and not entered
+					and not allowed(atlas.page, from, key, engineTarget, query)
+				then
 					table.insert(
 						problems,
 						`disagree: {from} {key} engine={engineTarget or "none"} query={query or "none"}`

@@ -1061,7 +1061,8 @@ The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
 - `visibleLines`: a whole number of at least 1, for a multiline field only. The
   field shows that number of body lines in a native ScrollingFrame named
   `Viewport`. Longer text scrolls in the viewport, and the viewport keeps its
-  size. Without `visibleLines`, a multiline field grows to hold all its lines,
+  size. The viewport is selectable, so a D-pad move reaches the field while the
+  viewport is still off the screen, and the selection passes to the field. Without `visibleLines`, a multiline field grows to hold all its lines,
   including a final empty line.
 
 #### Field chrome
@@ -3749,11 +3750,19 @@ end)
 value control keeps that axis, whether or not it is selected yet), `"link"` (a
 `NextSelection*` link to a shown, selectable object; a link to a hidden or
 unselectable one is ignored), `"beam"`
-(Facet's model of the engine's own choice: controls that overlap on the cross
-axis first, nearest edge first, then the nearest in that half of the screen),
+(Facet's model of the engine's own choice, measured in Studio: a candidate is
+ahead when its near edge is past the control's centre and, unless it overlaps
+on the cross axis, it ends past the control's leading edge; candidates that
+overlap on the cross axis come first, nearest edge first; then candidates whose
+centre lies within 45 degrees of the move from the middle of the leading edge,
+by the smallest centre offset plus 0.028 times the distance along the move;
+then the rest, by centre offset over the distance along the move to the power
+0.15),
 `"stop"` (a `SelectionGroup` with `SelectionBehavior` `Stop`) or `"none"`. The
-candidates are the ones Tab visits, minus scrolling frames, zero-size objects
-and objects outside the screen; enclosing `SelectionGroup`s are searched from
+candidates are the ones Tab visits, minus zero-size objects, objects outside
+the screen, and children of a scroll container that does not hold `from` where
+its window is clipped or off the screen; a selectable scrolling frame ranks by its own rectangle like a
+control, and the query reports the control it passes the selection to; enclosing `SelectionGroup`s are searched from
 the innermost out, and the first one whose `SelectionBehavior` is `Stop` in
 that direction ends the search. The engine still
 performs every move; tests and tools use the query to check navigation without

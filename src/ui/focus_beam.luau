@@ -5,26 +5,40 @@ export type Direction = "up" | "down" | "left" | "right"
 local function neighbor(from: Rect, candidates: { Rect }, direction: Direction): number?
 	local vertical = direction == "up" or direction == "down"
 	local forward = direction == "down" or direction == "right"
-	local bestRank, bestPrimary, bestAcross, found = math.huge, math.huge, math.huge, nil
+	local bestTier, bestPrimary, bestAcross, found = math.huge, math.huge, math.huge, nil
 	for index, candidate in candidates do
-		local gap, across, overlap
+		local gap, along, across, overlap, extent, reach
 		if vertical then
-			gap = if forward then candidate.y - (from.y + from.height) else from.y - (candidate.y + candidate.height)
+			local edge = if forward then from.y + from.height else from.y
+			extent = from.height
+			reach = if forward then candidate.y + candidate.height - edge else edge - candidate.y
+			gap = if forward then candidate.y - edge else edge - (candidate.y + candidate.height)
+			along = (candidate.y + candidate.height / 2 - edge) * (if forward then 1 else -1)
 			across = math.abs(candidate.x + candidate.width / 2 - (from.x + from.width / 2))
 			overlap = candidate.x < from.x + from.width and from.x < candidate.x + candidate.width
 		else
-			gap = if forward then candidate.x - (from.x + from.width) else from.x - (candidate.x + candidate.width)
+			local edge = if forward then from.x + from.width else from.x
+			extent = from.width
+			reach = if forward then candidate.x + candidate.width - edge else edge - candidate.x
+			gap = if forward then candidate.x - edge else edge - (candidate.x + candidate.width)
+			along = (candidate.x + candidate.width / 2 - edge) * (if forward then 1 else -1)
 			across = math.abs(candidate.y + candidate.height / 2 - (from.y + from.height / 2))
 			overlap = candidate.y < from.y + from.height and from.y < candidate.y + candidate.height
 		end
-		if gap >= -1 then
-			local rank = if overlap then 0 else 1
-			local primary = if overlap then gap else gap + 2 * across
+		if gap > -extent / 2 and (overlap or reach > 0) then
+			local tier, primary
+			if overlap then
+				tier, primary = 0, gap
+			elseif across < along then
+				tier, primary = 1, across + along * 0.028
+			else
+				tier, primary = 2, across / math.max(along, 1) ^ 0.15
+			end
 			if
-				rank < bestRank
-				or (rank == bestRank and (primary < bestPrimary or (primary == bestPrimary and across < bestAcross)))
+				tier < bestTier
+				or (tier == bestTier and (primary < bestPrimary or (primary == bestPrimary and across < bestAcross)))
 			then
-				bestRank, bestPrimary, bestAcross, found = rank, primary, across, index
+				bestTier, bestPrimary, bestAcross, found = tier, primary, across, index
 			end
 		end
 	end
