@@ -282,7 +282,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			local settling = readSource(settleTo.value, use)
 			if settling then
-				return math.clamp(settling, minimum(use), available(use))
+				return math.min(available(use), math.max(minimum(use), settling))
 			end
 			return heightOf(selected(use), use)
 		end
