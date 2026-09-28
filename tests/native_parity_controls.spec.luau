@@ -1300,6 +1300,71 @@ t.describe("native parity controls", function()
 			world.stop()
 		end
 	)
+	t.it("the radial D-pad crosses through the centre and reaches every item of a corner arc", function()
+		local function radial(spec: { [string]: any }): (any, (string) -> ())
+			local world = setup(function(UI)
+				return UI.RadialMenu(spec)
+			end)
+			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+			return world,
+				function(name: string)
+					for _, node in world.root:GetDescendants() do
+						if node:IsA("InputContext") and node.Enabled and node:FindFirstChild(name) then
+							node:FindFirstChild(name).Pressed.fire()
+							return
+						end
+					end
+					error("no enabled " .. name)
+				end
+		end
+		local function items(ids: { string }, slots: boolean): { any }
+			local out = {}
+			for _, id in ids do
+				table.insert(out, {
+					id = id,
+					slot = if slots then id else nil,
+					label = id,
+					completion = "stay",
+					onSelect = function() end,
+				})
+			end
+			return out
+		end
+		local world, fire = radial({
+			isPresented = Compose.cell(true),
+			distribution = "compass",
+			center = "close",
+			items = items({ "N", "E", "S", "W" }, true),
+		})
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		fire("Radial-left")
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		fire("Radial-left")
+		t.expect(world.gui.SelectedObject.Name).toBe("W")
+		fire("Radial-right")
+		fire("Radial-up")
+		t.expect(world.gui.SelectedObject.Name).toBe("N")
+		world.stop()
+		local arc, press = radial({
+			isPresented = Compose.cell(true),
+			preset = "bottom-left",
+			items = items({ "look", "pack", "wave" }, false),
+		})
+		local reached = {}
+		for _ = 1, 3 do
+			for _, direction in { "Radial-right", "Radial-up", "Radial-up", "Radial-down", "Radial-left" } do
+				press(direction)
+				local now = arc.gui.SelectedObject
+				if now then
+					reached[now.Name] = true
+				end
+			end
+		end
+		t.expect(reached.look and reached.pack and reached.wave).toBe(true)
+		arc.stop()
+	end)
+
 	t.it("combines table row actions with reorder handles, editing, refresh and disposal", function()
 		local source, editing = Compose.cell(records(4)), Compose.cell(false)
 		local deleted, reorders = {}, {}

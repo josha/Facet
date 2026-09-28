@@ -2227,7 +2227,11 @@ input, the first item is selected, because the console needs a focused
 control. When a submenu replaces the level, the selection moves to the first
 item of the new level. While any ring is open, `GuiService.GuiNavigationEnabled`
 is false, because the engine's pad navigation otherwise takes the left stick
-from the ring; the ring binds its own D-pad, A and B. The value before the
+from the ring; the ring binds its own D-pad, A and B. On the ring, a D-pad
+direction pointing back across the centre goes to the centre control, and the
+next press on to the item on the other side; from the centre each direction
+goes to the item nearest that direction; any other direction moves to the
+neighbouring item along the ring, so every item can be reached. The value before the
 first ring opened comes back when the last one closes, unless the game turned
 it on at any point while a ring was open; then the game's current value stays.
 Setting it to false while it is already false is not a change the engine
