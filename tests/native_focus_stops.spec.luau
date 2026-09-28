@@ -429,6 +429,51 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		w.stop()
 	end)
 
+	t.it("a slider drag ends and commits when its detector switches off mid-drag", function()
+		local commits = {}
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Slider("One")({
+					value = Compose.cell(3),
+					min = 0,
+					max = 10,
+					onCommit = function(value)
+						table.insert(commits, value)
+					end,
+				}),
+			})
+		end)
+		local E = w.engine.types.Enum
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		local detector = w.screen:FindFirstChildWhichIsA("UIDragDetector", true)
+		detector.DragStart.fire(w.engine.types.Vector2.new(10, 10))
+		t.expect(#commits).toBe(0)
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		t.expect(#commits).toBe(1)
+		detector.DragEnd.fire()
+		t.expect(#commits).toBe(1)
+		w.stop()
+	end)
+
+	t.it("a row swipe ends without opening its tray when the detector switches off mid-drag", function()
+		local w = setup(function(UI, Host)
+			return UI.RowActions({
+				content = Host.TextLabel({ Text = "Row" }),
+				trailing = { { id = "Save", label = "Save", onActivate = function() end } },
+			})
+		end)
+		local E, V = w.engine.types.Enum, w.engine.types.Vector2
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		w.screen:GetChildren()[1].AbsoluteSize = V.new(400, 44)
+		local detector = w.screen:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(V.new(300, 10))
+		detector.DragContinue.fire(V.new(100, 10))
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		detector.DragEnd.fire()
+		t.expect(w.find("DismissTray").Visible).toBe(false)
+		w.stop()
+	end)
+
 	t.it("slider drag detectors switch off while the gamepad is the preferred input", function()
 		local w = setup(function(UI, Host)
 			return Host.Frame({

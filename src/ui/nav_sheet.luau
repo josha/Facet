@@ -566,6 +566,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					return if source == "grip" and from(use) ~= "bottom" then V2.new(1, 0) else V2.new(0, 1)
 				end,
 				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
+				Enabled = if source == "panel" and preferred
+					then function(use: ComposeTypes.Use): boolean
+						return use(preferred) ~= E.PreferredInput.Gamepad
+					end
+					else nil,
 				DragStart = function(position: Vector2)
 					if sideways() then
 						if pulling == nil then

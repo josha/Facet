@@ -763,6 +763,9 @@ t.describe("native Sheet: gestures", function()
 		panel.DragContinue.fire(touch.Vector2.new(400, 100))
 		t.expect(touch.find("SheetPanel").Size.Y.Offset).toBe(300 + 200 - 14)
 		panel.DragEnd.fire()
+		t.expect(panel.Enabled).toBe(true)
+		touch.input.PreferredInput = touch.Enum.PreferredInput.Gamepad
+		t.expect(panel.Enabled).toBe(false)
 		touch.stop()
 	end)
 
