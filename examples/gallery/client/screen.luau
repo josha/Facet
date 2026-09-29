@@ -217,6 +217,8 @@ function screen.dispatch(ctx, command, argument)
 		if ok then
 			ctx.requestPanel(argument)
 		end
+	elseif command == "tab" and ctx.currentSelect then
+		ok = ctx.currentSelect(argument) == true
 	elseif command == "report" then
 		ok = true
 	end
@@ -252,6 +254,7 @@ function screen.build(ctx: any)
 	for _, demo in (ctx.demos or catalogue.list()) do
 		branches[demo.id] = function()
 			ctx.currentReport = nil
+			ctx.currentSelect = nil
 			local ok, result = pcall(function()
 				local definition = ctx.load(demo.kind, demo.module)
 				local pageContext = table.clone(ctx)
@@ -264,6 +267,7 @@ function screen.build(ctx: any)
 					return built()
 				end
 				ctx.currentReport = built.report
+				ctx.currentSelect = built.select
 				if built.dispose then
 					Compose.cleanup(built.dispose)
 				end
@@ -276,6 +280,7 @@ function screen.build(ctx: any)
 			end
 			active:set(nil)
 			ctx.currentReport = nil
+			ctx.currentSelect = nil
 			errorMessage:set(tostring(result))
 			warn("[Facet Gallery] " .. demo.id .. ": " .. tostring(result))
 			return Host.TextLabel "DemoFailure" {
@@ -478,12 +483,29 @@ function screen.build(ctx: any)
 	local gamepad = function(use)
 		return use(environmentFacts.effectiveInput) == "Gamepad"
 	end
+	local function closePanel()
+		local gui = ctx.guiService
+		local card = gui and gui.SelectedObject and gui.SelectedObject:FindFirstAncestor("ShowcasePanel")
+		local trigger = card and card.Parent and card.Parent:FindFirstChild("Showcase", true)
+		panelOpen:set(false)
+		if trigger then
+			task.defer(function()
+				if trigger.Parent then
+					gui.SelectedObject = trigger
+				end
+			end)
+		end
+	end
 	local function request(want)
 		local open = panelOpen:peek()
 		if want == nil then
-			panelOpen:set(not open)
+			if open then
+				closePanel()
+			else
+				panelOpen:set(true)
+			end
 		elseif open and section:peek() == want then
-			panelOpen:set(false)
+			closePanel()
 		else
 			section:set(want)
 			panelOpen:set(true)
@@ -520,9 +542,7 @@ function screen.build(ctx: any)
 			Enabled = panelOpen,
 			Host.InputAction "Cancel" {
 				Type = Enum.InputActionType.Bool,
-				Pressed = function()
-					panelOpen:set(false)
-				end,
+				Pressed = closePanel,
 				Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonB }),
 				Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }),
 			},
@@ -549,7 +569,7 @@ function screen.build(ctx: any)
 					end,
 					onActivate = function()
 						selected:set(tab.id)
-						panelOpen:set(false)
+						closePanel()
 					end,
 				})
 			)

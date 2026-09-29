@@ -590,6 +590,9 @@ local PAD_KEYS: { [string]: Enum.KeyCode } = {
 	ButtonL1 = Enum.KeyCode.R,
 	ButtonL2 = Enum.KeyCode.E,
 	StickUp = Enum.KeyCode.W,
+	StickLeft = Enum.KeyCode.A,
+	StickDown = Enum.KeyCode.S,
+	StickRight = Enum.KeyCode.D,
 }
 
 function live.press(names: { string }, frames: number?): string

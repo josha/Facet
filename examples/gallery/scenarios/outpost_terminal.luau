@@ -226,7 +226,7 @@ return {
 					local phase = use(built.model.phase)
 					if phase == "engaged" and previousPhase ~= phase and ctx.guiService then
 						for _, node in gui:GetDescendants() do
-							if node:IsA("GuiButton") and node.Selectable then
+							if node:IsA("GuiObject") and node.Selectable and not node:IsA("ScrollingFrame") then
 								ctx.guiService.SelectedObject = node
 								break
 							end

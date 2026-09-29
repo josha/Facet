@@ -341,6 +341,52 @@ t.describe("native Sheet: parts", function()
 		w.stop()
 	end)
 
+	t.it("a hero given as an Instance survives a dismissal and shows again on the next presentation", function()
+		local banner
+		local w = mount({
+			header = false,
+			hero = built(function(_, Host)
+				banner = Host.TextLabel "Banner" { Text = "Lobby" }
+				return { height = 140, content = banner }
+			end),
+		}, { motionLevel = "none" })
+		t.expect(banner:IsDescendantOf(w.find("Hero"))).toBe(true)
+		w.shown:set(false)
+		w.advance(1 / 30, 60)
+		t.expect(banner.isDestroyed()).toBe(false)
+		w.shown:set(true)
+		w.advance(1 / 300, 2)
+		t.expect(w.shown:peek()).toBe(true)
+		t.expect(banner:IsDescendantOf(w.find("Hero"))).toBe(true)
+		w.stop()
+	end)
+
+	t.it("content and a header given as Instances survive a dismissal and show again", function()
+		local copy, head
+		local w = mount({
+			content = built(function(_, Host)
+				copy = Host.TextLabel "Body" { Text = "Body" }
+				return copy
+			end),
+			header = built(function(_, Host)
+				head = Host.TextLabel "Head" { Text = "Head" }
+				return head
+			end),
+		}, { motionLevel = "none" })
+		for _ = 1, 2 do
+			t.expect(copy:IsDescendantOf(w.find("SheetFlow"))).toBe(true)
+			t.expect(w.find("Head")).toBe(head)
+			w.shown:set(false)
+			w.advance(1 / 30, 60)
+			t.expect(copy.isDestroyed()).toBe(false)
+			t.expect(head.isDestroyed()).toBe(false)
+			w.shown:set(true)
+			w.advance(1 / 300, 2)
+			t.expect(w.shown:peek()).toBe(true)
+		end
+		w.stop()
+	end)
+
 	t.it("a non-sticky hero spans the panel width without the body inset", function()
 		local w = mount({ hero = { image = "rbxassetid://1", aspectRatio = 16 / 9 } })
 		local hero, body = w.find("Hero"), w.find("SheetFlow")
@@ -717,6 +763,9 @@ t.describe("native Sheet: gestures", function()
 		panel.DragContinue.fire(touch.Vector2.new(400, 100))
 		t.expect(touch.find("SheetPanel").Size.Y.Offset).toBe(300 + 200 - 14)
 		panel.DragEnd.fire()
+		t.expect(panel.Enabled).toBe(true)
+		touch.input.PreferredInput = touch.Enum.PreferredInput.Gamepad
+		t.expect(panel.Enabled).toBe(false)
 		touch.stop()
 	end)
 

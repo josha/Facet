@@ -698,7 +698,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					Name = "Viewport",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
-					Selectable = false,
+					Selectable = true,
 					ScrollingDirection = E.ScrollingDirection.Y,
 					Size = function(use: ComposeTypes.Use)
 						local size = ctx.metric("typography.body.size", use)

@@ -518,6 +518,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 				and read(spec.enabled, use) ~= false
 				and (#actions("leading", use) + #actions("trailing", use)) > 0
 		end
+		local function swipeDetector(use: ComposeTypes.Use): boolean
+			return swipeable(use)
+				and not touchFirst(use)
+				and not (preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Gamepad)
+		end
+		local detectorDrag = false
+		Compose.watch(function(use: ComposeTypes.Use)
+			if not swipeDetector(use) and detectorDrag then
+				detectorDrag = false
+				cancelDrag()
+			end
+		end)
 		local menuItems = Compose.formula(function(use: ComposeTypes.Use)
 			local result: { NavigationTypes.MenuItem<string> } = {}
 			local edges: { RowEdge } = { "leading" :: RowEdge, "trailing" :: RowEdge }
@@ -598,15 +610,25 @@ return function(ctx: Types.Context, UI: Controls): ()
 						end
 					end,
 					Host.UIDragDetector({
-						Enabled = function(use: ComposeTypes.Use)
-							return swipeable(use) and not touchFirst(use)
-						end,
+						Enabled = swipeDetector,
 						DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
 						DragAxis = V2.new(1, 0),
 						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-						DragStart = begin,
-						DragContinue = move,
-						DragEnd = release,
+						DragStart = function(position: Vector2)
+							detectorDrag = true
+							begin(position)
+						end,
+						DragContinue = function(position: Vector2)
+							if detectorDrag then
+								move(position)
+							end
+						end,
+						DragEnd = function()
+							if detectorDrag then
+								detectorDrag = false
+								release()
+							end
+						end,
 					}),
 				},
 				Host.TextButton "DismissTray" {

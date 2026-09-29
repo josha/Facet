@@ -110,6 +110,31 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local gui = config.guiService
 		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil)
 		local reshaped = Compose.cell(0)
+		local function partOf(target: Instance?): GuiObject?
+			local path = if target then target:GetAttribute("FacetFocusPart") else nil
+			if type(path) ~= "string" then
+				return nil
+			end
+			local at: Instance? = target
+			for name in string.gmatch(path, "[^/]+") do
+				at = if at then at:FindFirstChild(name) else nil
+			end
+			return if at and at:IsA("GuiObject") then at :: GuiObject else nil
+		end
+		local partRevision = Compose.cell(0)
+		local function partShare(target: Instance?): (Vector2?, Vector2?)
+			local part = partOf(target)
+			if part == nil or target == nil or not target:IsA("GuiObject") then
+				return nil, nil
+			end
+			local whole = (target :: GuiObject).AbsoluteSize
+			if whole.X <= 0 or whole.Y <= 0 then
+				return nil, nil
+			end
+			local offset = part.AbsolutePosition - (target :: GuiObject).AbsolutePosition
+			return ctx.types.Vector2.new(offset.X / whole.X, offset.Y / whole.Y),
+				ctx.types.Vector2.new(part.AbsoluteSize.X / whole.X, part.AbsoluteSize.Y / whole.Y)
+		end
 		local observation = runtime.host.observation
 		local tracking: { () -> () } = {}
 		local function untrack()
@@ -123,14 +148,26 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			local target = use(selected) :: Instance?
+			use(partRevision)
 			untrack()
 			if observation and target and target:IsA("GuiObject") then
 				table.insert(tracking, observation.observeProperty(target, "AbsoluteSize", bump))
 				local reach = target:GetAttributeChangedSignal("FacetFocusHeight"):Connect(bump)
+				local named = target:GetAttributeChangedSignal("FacetFocusPart"):Connect(function()
+					partRevision:set(partRevision:peek() + 1)
+					bump()
+				end)
 				table.insert(tracking, function()
 					reach:Disconnect()
+					named:Disconnect()
 				end)
-				local own = target:FindFirstChildWhichIsA("UICorner")
+				local part = partOf(target)
+				if part then
+					table.insert(tracking, observation.observeProperty(part, "AbsoluteSize", bump))
+					table.insert(tracking, observation.observeProperty(part, "AbsolutePosition", bump))
+					table.insert(tracking, observation.observeProperty(target, "AbsolutePosition", bump))
+				end
+				local own = (part or target):FindFirstChildWhichIsA("UICorner")
 				if own then
 					table.insert(tracking, observation.observeProperty(own, "CornerRadius", bump))
 				end
@@ -207,11 +244,21 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local grow = lift(use)
 				use(reshaped)
 				local target = use(selected) :: Instance?
+				local _, share = partShare(target)
+				if share then
+					return D2.new(share.X, 2 * grow, share.Y, 2 * grow)
+				end
 				local height = if target then target:GetAttribute("FacetFocusHeight") else nil
 				return D2.new(1, 2 * grow, if type(height) == "number" then height else 1, 2 * grow)
 			end,
 			Position = function(use: ComposeTypes.Use): UDim2
 				local grow = lift(use)
+				use(reshaped)
+				local target = use(selected) :: Instance?
+				local at = partShare(target)
+				if at then
+					return D2.new(at.X, -grow, at.Y, -grow)
+				end
 				return D2.fromOffset(-grow, -grow)
 			end,
 			ImageTransparency = function(use: ComposeTypes.Use): number
@@ -245,7 +292,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					local target = use(selected) :: Instance?
 					local radius = use(themeRadius) :: UDim
 					if target then
-						local own = target:FindFirstChildWhichIsA("UICorner")
+						local own = (partOf(target) or target):FindFirstChildWhichIsA("UICorner")
 						if own then
 							radius = own.CornerRadius
 						elseif target:HasTag("facet-shape-circle") then
@@ -275,7 +322,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						local focus = layer(use)
 						use(reshaped)
 						local target = use(selected) :: GuiObject?
-						local width = (if target then target.AbsoluteSize.X else 0) + 2 * lift(use)
+						local shape = partOf(target) or target
+						local width = (if shape then shape.AbsoluteSize.X else 0) + 2 * lift(use)
 						local arm = scaled(use, if type(focus.size) == "number" then focus.size else 12, 1.5)
 						local reach = if width > 0 then math.clamp(arm / width, 0.02, 0.45) else 0.2
 						local K = ctx.types.NumberSequenceKeypoint
@@ -540,6 +588,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	end
 
 	UI.responder = ctx.responder
+	UI.focusQuery = ctx.focusQuery
 	local SECTION_KEYS = { entry = true, preferred = true, focusOnAppear = true, returnFocus = true }
 	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")

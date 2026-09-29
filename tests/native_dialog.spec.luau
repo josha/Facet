@@ -3,6 +3,7 @@ local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local parts = require("../src/ui/overlay_parts")
+local controls = require("../src/ui")
 local Vector2 = require("@lune/roblox").Vector2
 
 type Log = { changes: { boolean }, dismissed: { string }, pressed: { string } }
@@ -69,6 +70,190 @@ end
 local function actionButton(w: any, id: string): any
 	return overlay.find(w.find("Actions"), id)
 end
+
+t.describe("native Dialog: one Back press closes one modal", function()
+	t.it("the modal under a closing one ignores the Back press that closed it", function()
+		local outerOpen, outerLog, outerChange = caller()
+		local innerOpen, innerLog, innerChange = caller()
+		local held = true
+		local w = overlay.new(function(UI, Host, _, gui)
+			local opener = UI.Button "Opener" { label = "Open" }
+			gui.SelectedObject = opener
+			return Host.Frame({
+				opener,
+				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
+			})
+		end, { motionLevel = "none" })
+		w.input.IsGamepadButtonDown = function(_, _, key)
+			return held and key == w.Enum.KeyCode.ButtonB
+		end
+		w.advance(0.1)
+		w.action("ModalBack").Pressed.fire()
+		t.expect(innerOpen:peek()).toBe(false)
+		local under = w.action("ModalBack")
+		t.expect(under ~= nil).toBe(true)
+		under.Pressed.fire()
+		t.expect(outerOpen:peek()).toBe(true)
+		held = false
+		under.Released.fire()
+		under.Pressed.fire()
+		t.expect(outerOpen:peek()).toBe(false)
+		w.stop()
+	end)
+end)
+
+t.describe("native Dialog: Tab and Escape arrive through UserInputService", function()
+	local function key(w: any, name: string, began: boolean)
+		local event = { KeyCode = (w.Enum.KeyCode :: any)[name], UserInputType = w.Enum.UserInputType.Keyboard }
+		if began then
+			w.input.InputBegan.fire(event, true)
+		else
+			w.input.InputEnded.fire(event, true)
+		end
+	end
+
+	t.it("a Tab the engine keeps from input actions still walks the dialog, one step per press", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true })
+		w.input.KeyboardEnabled = true
+		local first = w.gui.SelectedObject
+		t.expect(first ~= nil).toBe(true)
+		key(w, "Tab", true)
+		local second = w.gui.SelectedObject
+		t.expect(second ~= first).toBe(true)
+		local traverse
+		for _, node in w.screen.Parent:GetDescendants() do
+			if node:IsA("InputAction") and node.Name == "Traverse" then
+				traverse = node
+			end
+		end
+		traverse.Pressed.fire()
+		t.expect(w.gui.SelectedObject).toBe(second)
+		key(w, "Tab", false)
+		traverse.Released.fire()
+		traverse.Pressed.fire()
+		t.expect(w.gui.SelectedObject ~= second).toBe(true)
+		traverse.Released.fire()
+		w.stop()
+	end)
+
+	t.it("one Escape closes only the top of two stacked dialogs", function()
+		local outerOpen, outerLog, outerChange = caller()
+		local innerOpen, innerLog, innerChange = caller()
+		local w = overlay.new(function(UI, Host, _, gui)
+			local opener = UI.Button "Opener" { label = "Open" }
+			gui.SelectedObject = opener
+			return Host.Frame({
+				opener,
+				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
+			})
+		end, { inputs = true, motionLevel = "none" })
+		w.advance(0.1)
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(`{innerOpen:peek()} {outerOpen:peek()}`).toBe("false true")
+		w.stop()
+	end)
+
+	t.it("an Escape while the Roblox menu is open closes nothing", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true, motionLevel = "none" })
+		w.advance(0.1)
+		w.gui.MenuIsOpen = true
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(true)
+		w.gui.MenuIsOpen = false
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(false)
+		w.stop()
+	end)
+
+	t.it("with two Facet control sets, one Escape closes only the dialog that holds the selection", function()
+		local firstOpen, firstLog, firstChange = caller()
+		local secondOpen, secondLog, secondChange = caller()
+		local w = mount(standard(firstOpen, firstLog, firstChange), { inputs = true, motionLevel = "none" })
+		local target = w.engine.new("Folder")
+		local other = controls(Compose, w.runtime, {
+			types = w.engine.types,
+			inputParent = target,
+			services = { GuiService = w.gui, UserInputService = w.input },
+			motionLevel = "none",
+		})
+		local stop = w.runtime.mount(function()
+			return w.runtime.constructors.ScreenGui({
+				other.Dialog "Second"(standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors)),
+			})
+		end, target)
+		w.advance(0.1)
+		local panel = overlay.find(target, "Actions")
+		w.gui.SelectedObject = overlay.find(panel, "Stay")
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(`{firstOpen:peek()} {secondOpen:peek()}`).toBe("true false")
+		stop()
+		w.stop()
+	end)
+
+	t.it("Tab leaves only a Facet text field, and never with Ctrl, Alt or Meta held", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true })
+		w.input.KeyboardEnabled = true
+		local start = w.gui.SelectedObject
+		local foreign = w.engine.new("TextBox")
+		w.input.GetFocusedTextBox = function()
+			return foreign
+		end
+		key(w, "Tab", true)
+		key(w, "Tab", false)
+		t.expect(w.gui.SelectedObject).toBe(start)
+		w.input.GetFocusedTextBox = function()
+			return nil
+		end
+		local down = {}
+		w.input.IsKeyDown = function(_, code)
+			return down[code.Name] == true
+		end
+		for _, modifier in { "LeftControl", "RightAlt", "LeftMeta" } do
+			down[modifier] = true
+			key(w, "Tab", true)
+			key(w, "Tab", false)
+			t.expect(w.gui.SelectedObject).toBe(start)
+			down[modifier] = nil
+		end
+		key(w, "Tab", true)
+		key(w, "Tab", false)
+		t.expect(w.gui.SelectedObject ~= start).toBe(true)
+		w.stop()
+	end)
+
+	t.it("an Escape the engine keeps from input actions closes the dialog once, and not while typing", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true, motionLevel = "none" })
+		w.advance(0.1)
+		w.input.GetFocusedTextBox = function()
+			return w.engine.new("TextBox")
+		end
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(true)
+		w.input.GetFocusedTextBox = function()
+			return nil
+		end
+		key(w, "Escape", true)
+		local back = w.action("ModalBack")
+		if back then
+			back.Pressed.fire()
+		end
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(false)
+		t.expect(#log.changes).toBe(1)
+		w.stop()
+	end)
+end)
 
 t.describe("native Dialog: the caller's fact decides", function()
 	t.it("a ten-foot screen or Larger text stacks the actions full width", function()
@@ -625,6 +810,33 @@ t.describe("native Dialog: a plain overflowing body is one pad stop that scrolls
 		t.expect(body.CanvasPosition.Y).toBe(1100)
 		t.expect(w.action("DialogBodyDown")).toBe(nil)
 		t.expect(w.action("DialogBodyUp") ~= nil).toBe(true)
+		w.stop()
+	end)
+
+	t.it("Tab and Shift+Tab stop on the overflowing body", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true })
+		w.size(w.find("Header"), 400, 44)
+		w.size(w.find("Actions"), 400, 44)
+		local body = w.find("Body")
+		w.size(overlay.find(body, "Content"), 400, 1500)
+		body.AbsoluteWindowSize = Vector2.new(400, 400)
+		body.AbsoluteCanvasSize = Vector2.new(400, 1500)
+		w.input.KeyboardEnabled = true
+		local traverse
+		for _, node in w.screen.Parent:GetDescendants() do
+			if node:IsA("InputAction") and node.Name == "Traverse" then
+				traverse = node
+			end
+		end
+		t.expect(traverse ~= nil).toBe(true)
+		local visited = {}
+		for _ = 1, 8 do
+			traverse.Pressed.fire()
+			traverse.Released.fire()
+			visited[w.gui.SelectedObject] = true
+		end
+		t.expect(visited[body]).toBe(true)
 		w.stop()
 	end)
 

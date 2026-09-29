@@ -11,6 +11,9 @@ local function Screen(): Frame
 	local shown: boolean = UI.scrollToVisible(list, nil, options)
 	local ring: Frame = UI.focusRing(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
 	UI.focusSection(list)
+	local moves: Facet.FocusQuery = UI.focusQuery(list)
+	local down: Facet.FocusMove = moves.Down
+	print(down.target, down.rule)
 	local responder = UI.responder(list, { passive = true, gameplayGuard = false, traversalWrap = false })
 	responder.engage()
 	local drag: Facet.DraggableSpec = { payload = "card", armOnTap = true }

@@ -361,6 +361,7 @@ export type PanelSkin = {
 export type Surfaces = {
 	service: (("GuiService") -> GuiService?) & (("UserInputService") -> UserInputService?),
 	within: (Instance?, Instance) -> boolean,
+	keep: (...unknown) -> (),
 	firstSelectable: (Instance, string?) -> GuiObject?,
 	preference: () -> (ComposeTypes.Use) -> number,
 	selecting: () -> (ComposeTypes.Use) -> boolean,

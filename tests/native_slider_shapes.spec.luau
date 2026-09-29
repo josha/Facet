@@ -168,7 +168,7 @@ t.describe("native Slider axis", function()
 
 	t.it("Up and Down adjust a vertical track and Left and Right do not", function()
 		local w = world({ axis = "y", step = 10 })
-		w.gui.SelectedObject = find(w.track, "ThumbStop")
+		w.gui.SelectedObject = w.node
 		expect(bindings(w, "IncreaseArrow")).toBe("DPadUp Up")
 		expect(bindings(w, "DecreaseArrow")).toBe("DPadDown Down")
 		press(w, "IncreaseArrow")
@@ -177,7 +177,7 @@ t.describe("native Slider axis", function()
 		expect(w.value:peek()).toBe(50)
 		w.stop()
 		local x = world({ step = 10 })
-		x.gui.SelectedObject = find(x.track, "ThumbStop")
+		x.gui.SelectedObject = x.node
 		expect(bindings(x, "IncreaseArrow")).toBe("DPadRight Right")
 		x.stop()
 	end)
@@ -186,7 +186,7 @@ t.describe("native Slider axis", function()
 		for _, key in { "Up", "DPadUp" } do
 			local w = world({ axis = "y", step = 10 })
 			w.held[key] = true
-			w.gui.SelectedObject = find(w.track, "ThumbStop")
+			w.gui.SelectedObject = w.node
 			local increase = action(w, "IncreaseArrow")
 			increase.Pressed.fire()
 			expect(`{key} landed {w.value:peek()}`).toBe(`{key} landed 50`)
@@ -198,7 +198,7 @@ t.describe("native Slider axis", function()
 			w.stop()
 		end
 		local tabbed = world({ axis = "y", step = 10 })
-		tabbed.gui.SelectedObject = find(tabbed.track, "ThumbStop")
+		tabbed.gui.SelectedObject = tabbed.node
 		press(tabbed, "IncreaseArrow")
 		expect(tabbed.value:peek()).toBe(60)
 		tabbed.stop()
@@ -272,8 +272,9 @@ t.describe("native Slider range", function()
 		local lower, upper, fill = find(w.track, "HandleLower"), find(w.track, "HandleUpper"), find(w.track, "Fill")
 		expect(lower.Size.X.Offset >= 44 and lower.Size.Y.Offset >= 44).toBe(true)
 		expect(upper.Size.X.Offset >= 44 and upper.Size.Y.Offset >= 44).toBe(true)
-		expect(lower.Selectable and upper.Selectable).toBe(true)
+		expect(lower.Selectable or upper.Selectable).toBe(false)
 		expect(w.track.Selectable).toBe(false)
+		expect(w.node.Selectable).toBe(true)
 		expect(fill.Position.X.Scale).toBeCloseTo(0.2)
 		expect(fill.Size.X.Scale).toBeCloseTo(0.4)
 		expect(lower.Position.X.Scale).toBeCloseTo(0.2)
@@ -291,13 +292,14 @@ t.describe("native Slider range", function()
 
 	t.it("an arrow a thumb cannot use against its partner keeps the ring on that thumb", function()
 		local w = world({ range = true, minGap = 10, value = Compose.cell({ lower = 50, upper = 60 }) })
-		local lower = find(w.track, "HandleLower")
-		w.gui.SelectedObject = lower
+		w.gui.SelectedObject = w.node
 		local increase = action(w, "IncreaseArrow")
 		expect(increase ~= nil).toBe(true)
 		expect(increase.Parent.Sink).toBe(true)
 		increase.Pressed.fire()
-		expect(`{w.gui.SelectedObject == lower} {w.value:peek().lower}`).toBe("true 50")
+		expect(`{w.gui.SelectedObject == w.node} {w.node:GetAttribute("adjusting")} {w.value:peek().lower}`).toBe(
+			"true lower 50"
+		)
 		w.stop()
 	end)
 
@@ -338,43 +340,24 @@ t.describe("native Slider range", function()
 		w.stop()
 	end)
 
-	t.it("keyboard: each thumb is its own stop, and the arrows adjust the one holding the ring", function()
-		local w = world({ range = true, step = 5 })
-		local lower, upper = find(w.track, "HandleLower"), find(w.track, "HandleUpper")
-		w.gui.SelectedObject = lower
-		press(w, "IncreaseArrow")
-		expect(pair(w)).toBe("25/60")
-		w.gui.SelectedObject = upper
-		press(w, "IncreaseArrow")
-		expect(pair(w)).toBe("25/65")
-		expect(bindings(w, "IncreaseArrow")).toBe("DPadRight Right")
-		expect(action(w, "Engage")).toBeNil()
-		w.stop()
+	t.it("keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move", function()
+		for _, preferred in { false, engineLib.new().types.Enum.PreferredInput.Gamepad } :: { any } do
+			local w = world({ range = true, step = 5 }, if preferred then { preferred = preferred } else nil)
+			w.gui.SelectedObject = w.node
+			expect(press(w, "IncreaseArrow")).toBe(true)
+			expect(pair(w)).toBe("25/60")
+			expect(press(w, "SwitchThumb")).toBe(true)
+			expect(press(w, "IncreaseArrow")).toBe(true)
+			expect(pair(w)).toBe("25/65")
+			expect(bindings(w, "IncreaseArrow")).toBe("DPadRight Right")
+			expect(bindings(w, "SwitchThumb")).toBe("ButtonA Return")
+			w.stop()
+		end
 	end)
 
-	t.it("gamepad: the arrows navigate until Activate engages, and Cancel gives them back", function()
+	t.it("a range Slider has no pad Engage action", function()
 		local w = world({ range = true, step = 5 }, { preferred = engineLib.new().types.Enum.PreferredInput.Gamepad })
-		local lower, upper = find(w.track, "HandleLower"), find(w.track, "HandleUpper")
-		w.gui.SelectedObject = lower
-		expect(action(w, "IncreaseArrow")).toBeNil()
-		w.gui.SelectedObject = upper
-		expect(pair(w)).toBe("20/60")
-		local drag = upper:FindFirstChildWhichIsA("UIDragDetector")
-		drag.DragStart.fire(upper.AbsolutePosition)
-		expect(press(w, "IncreaseArrow")).toBe(true)
-		expect(pair(w)).toBe("20/65")
-		press(w, "Cancel")
-		expect(action(w, "IncreaseArrow")).toBeNil()
-		expect(pair(w)).toBe("20/65")
-		drag.DragStart.fire(upper.AbsolutePosition)
-		w.gui.SelectedObject = lower
-		expect(action(w, "IncreaseArrow")).toBeNil()
-		w.stop()
-	end)
-
-	t.it("a keyboard Return on a handle does not latch the pad adjust mode", function()
-		local w = world({ range = true, step = 5 })
-		w.gui.SelectedObject = find(w.track, "HandleLower")
+		w.gui.SelectedObject = w.node
 		expect(action(w, "Engage")).toBeNil()
 		w.stop()
 	end)
@@ -447,7 +430,7 @@ t.describe("native Slider thumb modes and custom art", function()
 		expect(find(w.node, "Value").Text).toBe("50")
 		drag(w, w.track, v(w, 200, 22))
 		expect(w.value:peek()).toBe(100)
-		w.gui.SelectedObject = w.track
+		w.gui.SelectedObject = w.node
 		press(w, "Decrease")
 		press(w, "DecreaseArrow")
 		expect(w.value:peek()).toBe(80)
@@ -458,7 +441,7 @@ t.describe("native Slider thumb modes and custom art", function()
 		local w = world({ thumb = "auto" })
 		local thumb = find(w.track, "Thumb")
 		expect(thumb.Visible).toBe(false)
-		w.gui.SelectedObject = w.track
+		w.gui.SelectedObject = w.node
 		expect(thumb.Visible).toBe(true)
 		w.gui.SelectedObject = nil
 		expect(thumb.Visible).toBe(false)

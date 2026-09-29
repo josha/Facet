@@ -398,6 +398,27 @@ t.describe("native navigation controls", function()
 		t.expect(disposed).toBe(2)
 	end)
 
+	t.it("a destination given as an Instance survives a pop and shows on the next push", function()
+		local path = Compose.cell({})
+		local page
+		local world = setup(function(UI, Host)
+			page = Host.Frame({ Name = "Shared" })
+			return UI.NavigationStack({
+				path = path,
+				root = { title = "Root", content = Host.Frame({ Name = "Root" }) },
+				destinations = { detail = { title = "Detail", content = page } },
+			})
+		end)
+		for _ = 1, 2 do
+			path:set({ { id = "detail" } })
+			t.expect(page.isDestroyed()).toBe(false)
+			t.expect(page.Parent ~= nil).toBe(true)
+			path:set({})
+		end
+		t.expect(page.isDestroyed()).toBe(false)
+		world.stop()
+	end)
+
 	t.it("uses native page layout for model navigation and engine swipes", function()
 		local selection = Compose.cell("one")
 		local world = setup(function(UI, Host)
@@ -935,6 +956,40 @@ t.describe("native navigation controls", function()
 		local reveal = find(world.screen, "Reveal")
 		t.expect(reveal.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.Y)
 		t.expect(find(world.screen, "Inside") ~= nil).toBe(true)
+		world.stop()
+	end)
+
+	t.it("a disclosure given an Instance as content shows it again after a collapse", function()
+		local expanded = Compose.cell(true)
+		local inside
+		local world = setup(function(UI, Host)
+			inside = Host.TextLabel "Inside" { Text = "Inside" }
+			return UI.DisclosureGroup({ expanded = expanded, label = "Details", content = inside })
+		end)
+		world.gui.ReducedMotionEnabled = true
+		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
+		expanded:set(false)
+		world.engine.heartbeat.fire(1)
+		t.expect(inside.isDestroyed()).toBe(false)
+		expanded:set(true)
+		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
+		world.stop()
+	end)
+
+	t.it("a collapsible view given an Instance as content shows it again after a collapse", function()
+		local expanded = Compose.cell(true)
+		local inside
+		local world = setup(function(UI, Host)
+			inside = Host.TextLabel "Inside" { Text = "Inside" }
+			return UI.CollapsibleView({ expanded = expanded, label = "Summary", content = inside })
+		end)
+		world.gui.ReducedMotionEnabled = true
+		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
+		expanded:set(false)
+		world.engine.heartbeat.fire(1)
+		t.expect(inside.isDestroyed()).toBe(false)
+		expanded:set(true)
+		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
 		world.stop()
 	end)
 

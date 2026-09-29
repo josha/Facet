@@ -416,6 +416,16 @@ theme package source. `Facet.app` does this for you.
 Ordinary Roblox consumers use the ambient services and datatypes. The runtime
 that you supply must use the Compose Roblox host.
 
+### Instances you hand to a presenter
+
+A Sheet (`content`, `header`, `hero.content`), DisclosureGroup, CollapsibleView,
+Callout and NavigationStack destination accept an Instance as well as a
+factory. The presenter parents that Instance while it is shown and detaches it
+(`Parent = nil`) before the surface is destroyed, also on the final unmount, so
+the same Instance can be shown again. The game owns it: destroy it, and
+disconnect what you connected to it, when you no longer need it. A factory
+builds a fresh Instance each time and needs nothing.
+
 ### Selection
 
 The controls use `GuiService.SelectedObject` for keyboard and gamepad focus.
@@ -428,17 +438,35 @@ these rules:
 - Presentation. A modal presented while a control is selected, or while a
   gamepad is the preferred input, selects its first control. It waits until
   the surface is shown, so it never selects a hidden control.
+- Leaving. A Facet presenter hands the selection back to its anchor or opener
+  as it starts to leave. A game's own panel is not a presenter: when its
+  buttons stop being selectable before it is gone, the engine moves the
+  selection to another control on the page. Set `SelectedObject` yourself
+  first, or present the panel through `UI.responder` or a modal.
 - Tab and Shift+Tab. Tab selects the next control in layout order. In a
   collection that is row order (each row's `LayoutOrder` is its index), even
   after scrolling has recycled the row containers.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
-  stays inside an open modal. It skips hidden, disabled and removed controls.
+  stays inside an open modal. It skips hidden, disabled and removed controls,
+  and scroll containers, except one that is itself a documented stop (an
+  overflowing Dialog body, a Collection or Pagination root).
   The native `SelectionOrder` of a control is its traversal tier: a lower
   value comes first, and within a tier layout order wins (the `tabindex`
   model). The `FacetTraversal` input context is a child of `inputParent`, or
   of the local `PlayerGui` when you do not set `inputParent`. It is enabled
   only while `UserInputService.KeyboardEnabled` is true, so a phone binds
-  nothing. The factory option `keyboardNavigation = false` disables it for a
+  nothing. The engine keeps Tab and Escape from input actions, so Facet also
+  reads both keys from `UserInputService.InputBegan` and runs the one enabled
+  Facet action with the highest priority for each press (Tab: traversal;
+  Escape: the top modal's Back). A real Escape still opens the Roblox menu as
+  well; the engine reserves it. Closing Facet's top modal on the same press is
+  deliberate, and an Escape while the Roblox menu is already open closes
+  nothing in Facet. Escape does nothing in Facet while a TextBox has the
+  keyboard, and Tab leaves only a Facet text field (a game's own box or the
+  chat keeps it). Tab with Ctrl, Alt or Meta held does nothing. With several
+  `Facet.controls` sets on one `UserInputService`, one press runs one action
+  across all of them: the highest priority, then the one whose control holds
+  the selection, then the newest. The factory option `keyboardNavigation = false` disables it for a
   HUD over live gameplay, where Tab belongs to the game. A passive
   [responder](#responder) binds it only while it is engaged, and one with
   `traversalWrap = false` stops the walk at its ends.
@@ -460,10 +488,28 @@ these rules:
   one, the selection moves to the child nearest to the entry edge. A TabView
   strip gives the selected tab. A container that has no controls passes the
   selection to the next control in the direction of travel.
-- Value controls. While a Slider, Stepper, Rating, table column grip or a
-  reorder move has the selection, Left and Right change the value. A Menu row
-  with a submenu opens it on Right, and Left returns to the parent row. Up and
-  Down still move the selection.
+- Value controls. While a Slider, Stepper, Rating, LevelPicker or
+  `UI.adjustable` node has the selection, Left and Right (Up and Down for a
+  vertical control; the D-pad, the arrow keys and the left stick) change the
+  value. A held or repeating press stops at the minimum or maximum; a new press
+  toward a limit the value is already at moves the selection to the next control
+  that way, if there is one (the control's own `NextSelection*` link in that
+  direction when it has one). L1, R1, Comma and Period also change the value
+  and never move the selection. Only a navigation gamepad's stick adjusts
+  (`UserInputService:GetNavigationGamepads`; restrict it with
+  `SetNavigationGamepad`). The control claims the
+  axis only while it is the selected object itself, never while a part inside
+  it is. Its root has the tag `facet-adjustable`, the attribute `axis`
+  (`horizontal` or `vertical`) and the attribute `disabled`. A disabled value
+  control is not a selection stop; a busy one stays a stop and ignores presses.
+  The root listens for `SelectionGained` (the engine's D-pad ranks listened
+  objects first), and a Slider's drag detectors are off while the gamepad is
+  the preferred input.
+  A range Slider's Return does nothing while a TextBox has the keyboard. A table column grip and a reorder move also
+  take Left and Right (Up and Down for a vertical list) while they have the
+  selection, from the D-pad and the arrow keys only. A Menu row with a submenu
+  opens it on Right, and Left returns to the parent row. The other axis still
+  moves the selection.
 
 A control that restores its own selection sets the `FacetSelectionOwner`
 attribute on its root. The removal and scroll-container rules do not change
@@ -1047,7 +1093,8 @@ The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
 - `visibleLines`: a whole number of at least 1, for a multiline field only. The
   field shows that number of body lines in a native ScrollingFrame named
   `Viewport`. Longer text scrolls in the viewport, and the viewport keeps its
-  size. Without `visibleLines`, a multiline field grows to hold all its lines,
+  size. The viewport is selectable, so a D-pad move reaches the field while the
+  viewport is still off the screen, and the selection passes to the field. Without `visibleLines`, a multiline field grows to hold all its lines,
   including a final empty line.
 
 #### Field chrome
@@ -1489,6 +1536,11 @@ Both take a numeric `value`, `min` (default `0`), `max` (default `1`), `step`,
 minimum. A specified step must be positive. The Stepper step default is `1`.
 The Slider default is continuous values.
 
+A Stepper is one selection stop: the Stepper itself takes the selection, Left
+and Right change the value, and Up and Down leave it. Its `Decrease` and
+`Increase` buttons are not selectable; they still respond to touch and the
+mouse.
+
 By default, Slider shows an inline track and a value readout, with an optional
 label. Its default native `AutomaticSize.Y` keeps the authored width and fits
 the control height. `row` gives a stacked title, description and track. A
@@ -1499,10 +1551,12 @@ Button and Toggle rows.
 Slider also supports `onCommit(value)`, `tapToPosition` (default true),
 `thumbImage`, `trackImage` and `row`. Dragging uses native drag detection.
 Keyboard and gamepad adjustment use the input actions of the control.
-The thumb is the selection stop: a 44 by 44 `ThumbStop` frame around the
-painted `Thumb`, so the engine focus look lands on the thumb and follows it.
-With `thumb = "auto"`, `thumb = "none"` or a `thumbContent` knob, the track is
-the stop. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds
+The whole Slider (its label, track and value) is one selection stop, so the
+engine measures moves from the whole control. Its track and thumb are not
+selectable. The focus look is drawn on the 44 by 44 `ThumbStop` frame around
+the painted `Thumb` through `FacetFocusPart`, and follows it. With
+`thumb = "auto"`, `thumb = "none"` or a `thumbContent` knob, the look is drawn
+on the track. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds
 (a Stepper's `repeatDelay` and `repeatInterval` set both its held arrow keys
 and its held step buttons, with one repeat policy). The
 repeat stops when the engine gives the held input to a higher-priority input
@@ -1522,13 +1576,16 @@ A readable value for one of them causes an error that names the option.
 - `range`: `value` holds `{ lower, upper }`. Each change calls
   `onChange(pair, { thumb = "lower" | "upper" })`, and each completed gesture
   calls `onCommit(pair, { thumb })` once. The two handles, `HandleLower` and
-  `HandleUpper`, are 44 by 44 selection stops, and the fill spans between
+  `HandleUpper`, are 44 by 44 touch targets, and the fill spans between
   them. The handles never cross. A drag keeps the handle that it started
   with. A press on the track moves the nearer handle. For coincident handles,
   a press below the pair moves the lower one and a press above moves the upper
-  one. The arrows move the selected handle and stay on it when `minGap` stops
-  the move. With gamepad input, the arrows move the selection between the
-  handles until ButtonA engages the handle. ButtonB releases it. A pair that
+  one. The range Slider is one selection stop. The selection always lands on
+  the lower handle; A (gamepad) or Return (keyboard) switches the handle that
+  the arrows and the left stick move, and the arrows stay on that handle when
+  `minGap` stops the move. The focus look is drawn on the handle being moved,
+  and the Slider's `adjusting` attribute (`lower` or `upper`) and accessible
+  label name it. A pair that
   is not legal at construction causes an error. A pair that becomes illegal
   later is not painted or written back: the control keeps the last legal pair
   and adds a line to the `diagnostics` attribute.
@@ -2203,7 +2260,11 @@ input, the first item is selected, because the console needs a focused
 control. When a submenu replaces the level, the selection moves to the first
 item of the new level. While any ring is open, `GuiService.GuiNavigationEnabled`
 is false, because the engine's pad navigation otherwise takes the left stick
-from the ring; the ring binds its own D-pad, A and B. The value before the
+from the ring; the ring binds its own D-pad, A and B. On the ring, a D-pad
+direction pointing back across the centre goes to the centre control, and the
+next press on to the item on the other side; from the centre each direction
+goes to the item nearest that direction; any other direction moves to the
+neighbouring item along the ring, so every item can be reached. The value before the
 first ring opened comes back when the last one closes, unless the game turned
 it on at any point while a ring was open; then the game's current value stays.
 Setting it to false while it is already false is not a change the engine
@@ -3653,7 +3714,16 @@ recipe with `corner = "square"` or `corner = "pill"` keeps that shape
 everywhere. The colour is the recipe `color`, or `accent`. A selected object
 with a number attribute `FacetFocusHeight` gets a look that many times its own
 height, measured down from its top edge (a Card uses this to ring the whole
-card from its body).
+card from its body). A selected object with a string attribute
+`FacetFocusPart` (a path of child names such as `"Track/Thumb"`) gets the look
+on that part instead, sized to it and shaped by its `UICorner`; a Slider uses
+this so the look stays on its thumb while the whole Slider is the stop. The
+part's place and size are kept as shares of the selected object, so a parent
+`UIScale` moves and sizes the look with the part. A part that is itself rotated
+relative to the selected object gets an unrotated look around its unrotated box.
+Known limit: when the selected object itself is rotated, the engine turns the
+look with it about the look's own centre, so a look on a part off the object's
+centre sits beside the part.
 
 At ten feet the look is larger: a ring is twice as thick, brackets, art
 outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,
@@ -3670,9 +3740,9 @@ app that observes the selection, with or without `focusRing`; it reads
 `UserInputService:GetLastInputType()`, so a mouse or touch selection does not
 scroll.
 
-A control whose value has its own part makes that part the selected object,
-so the engine draws the look there: the Slider thumb and each range handle,
-each segment of a segmented Picker. A game control that needs its own look
+A value control is one stop; its look is drawn on its value part through
+`FacetFocusPart` (a Slider's thumb or track, a range Slider's adjusted
+handle). Each segment of a segmented Picker is its own selected object. A game control that needs its own look
 sets `SelectionImageObject` on that control; the engine then draws that
 object for it.
 
@@ -3703,6 +3773,32 @@ Compose.show(open, function()
 	return detail
 end)
 ```
+
+### focusQuery
+
+`UI.focusQuery(from?) -> FocusQuery` says what a D-pad or arrow move from
+`from` (default: the selected object) selects and why, without moving. Each of
+`Up`, `Down`, `Left`, `Right` is `{ target, rule }`. `rule` is `"capture"` (a
+value control keeps that axis, whether or not it is selected yet), `"link"` (a
+`NextSelection*` link to a shown, selectable object; a link to a hidden or
+unselectable one is ignored), `"beam"`
+(Facet's model of the engine's own choice, measured in Studio: a candidate is
+ahead when its near edge is past the control's centre and, unless it overlaps
+on the cross axis, it ends past the control's leading edge; candidates that
+overlap on the cross axis come first, nearest edge first; then candidates whose
+centre lies within 45 degrees of the move from the middle of the leading edge,
+by the smallest centre offset plus 0.028 times the distance along the move;
+then the rest, by centre offset over the distance along the move to the power
+0.15),
+`"stop"` (a `SelectionGroup` with `SelectionBehavior` `Stop`) or `"none"`. The
+candidates are the ones Tab visits plus every selectable scroll container, minus zero-size objects, objects outside
+the screen, and children of a scroll container that does not hold `from` where
+its window is clipped or off the screen; a selectable scrolling frame ranks by its own rectangle like a
+control, and the query reports the control it passes the selection to; enclosing `SelectionGroup`s are searched from
+the innermost out, and the first one whose `SelectionBehavior` is `Stop` in
+that direction ends the search. The engine still
+performs every move; tests and tools use the query to check navigation without
+a device. The query does no per-frame work.
 
 ### responder
 
@@ -3735,18 +3831,19 @@ responder.engage()
 ### adjustable
 
 `UI.adjustable(node, options)` gives a game control the keyboard and gamepad
-adjustment of the Slider and the Stepper. While the selection is on `node` or
-inside it, Comma and Period and L1 and R1 call `onAdjust(-1)` and
-`onAdjust(1)`, and the arrows of `axis` do too. The other axis keeps moving
-the selection. Call it inside a component or a Compose owner; it stops when
-the owner ends. `node` or a descendant must be selectable.
+adjustment of the Slider and the Stepper. `UI.adjustable` makes `node` the
+selection stop; give it no selectable descendants. While the selection is on
+`node`, Comma and Period and L1 and R1 call `onAdjust(-1)` and `onAdjust(1)`,
+and the arrows and the left stick on `axis` do too. The other axis keeps
+moving the selection. Call it inside a component or a Compose owner; it stops
+when the owner ends.
 
 | Option | Effect |
 |---|---|
 | `onAdjust(direction)` | Required. `direction` is -1 or 1. |
 | `axis` | `"horizontal"` (the default) takes Left and Right, `"vertical"` takes Up and Down, `"none"` takes no arrows and leaves only the shoulders. |
 | `repeats` | `true`: a held key or button adjusts again after 0.4 seconds, then every 0.1 seconds, like the built-in value controls. The default is `false`: one step for each press. |
-| `canAdjust(direction, use?)` | Optional. `false` gives that arrow back to navigation, for example at a limit. |
+| `canAdjust(direction, use?)` | Optional. `false` makes a press of that arrow do nothing, for example at a limit; the arrow still belongs to the node while it is selected. |
 | `enabled`, `disabled`, `busy` | Values or readables. A disabled control takes no keys. |
 
 The actions have the priority of the built-in value controls, so a higher
