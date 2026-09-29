@@ -129,6 +129,12 @@ local function tour(world: any)
 	end
 	t.expect(find(chat, "Feedback") ~= nil).toBe(true)
 	t.expect(overlay.Visible).toBe(false)
+	press(world.Flap, "WakeMonitor")
+	press(world.Flap, "FlapAction")
+	model.step(0.1, true)
+	t.expect(model.flap.state:peek().phase).toBe("playing")
+	press(world.Flap, "FlapPause")
+	t.expect(model.flap.state:peek().phase).toBe("paused")
 	local desktop = world.Desktop
 	t.expect(find(desktop, "Apps") ~= nil).toBe(true)
 end
@@ -160,7 +166,7 @@ t.describe("native virtual monitors coverage", function()
 					theme = theme.create(tracked, name),
 				}
 			end
-			for _, name in { "Discover", "Avatar", "Chat" } do
+			for _, name in screens.APPS do
 				local views = screens.create(tracked, runtime, config(name, true))
 				local _, node = runtime.mount(views[name], target)
 				world[name] = node

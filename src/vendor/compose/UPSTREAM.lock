@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "a921f4350ddcc4966f75cf6a1ec9650b88b334fa",
+  "commit": "dbf518ac3d28846c81ab0cf8f74cbc76ad22b30a",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -21,9 +21,10 @@
     "core/collection/relevance.luau": "d621d7eca0a2073d573138047736f46a226a78494040bb49affdc2b60b226faf",
     "core/collection/retain.luau": "4868e6ec9b459908d8be4bc2f3c5f2c289263c2073a6e89bf6c73846418d54f2",
     "core/diagnostics.luau": "e3f772e0197515ae68bd78d64c3d0fe4ef04b4bbf20147e7bd6729cc12a66ab1",
+    "core/focus-neighbor.luau": "1350088f82ba244c20aa2e8b9c03ffb7c2547867ed6b7cda100e75c5083ada7f",
     "core/focus-scope.luau": "8c64aa1fc4fa124cb8af0fb997eaddc84f8f32149bffc6116215bd0e9b025a4d",
     "core/host.luau": "d8eb95a102c7658c3db90ae95cc683892f4a6d9bda0ece2ad625a79302645b35",
-    "core/init.luau": "6eef4c5aeae603a51a214a184219e6650cfb41778eeda1e727a420e8a29fbe90",
+    "core/init.luau": "7280061e4ea09cea3f13b594c27fb9364dcd3cb115c6acaeda6c95812b646c0f",
     "core/keyed-cache.luau": "ad5b005f6874e50fb3a984da394ff5e1da00e77df7ea59cc61a17dc0e64db84b",
     "core/ownership/active.luau": "a730a7725e386d2b6e10f9ce9d54571ed5f1558e7f5f9f35f23b6a4bba97d30a",
     "core/ownership/inspect.luau": "0796da033f7eb8b2ff3b0144e08892aa8f81c51757f32d2269dcc4145028dd33",
@@ -63,6 +64,7 @@
     "core/structure/spatial-collection.luau": "b3540f56b61571193f63a8e75626fbc146c45f322fdf2f283c354531cfea9d4d",
     "core/structure/support.luau": "a50df88d88c36bb9c9ab3ff30af9d15d6c7fd2cef88ab2b5059139b0ac973810",
     "core/structure/switch.luau": "4c3b9392615d68c47d4a63122a890c3445af256b0ca0df6b9492422f1565a36f",
+    "core/structure/tile-collection.luau": "665792b92e73776462c60141a18a95282e40d010fd25cc39ded90f87c8619360",
     "core/weak.luau": "d51be1312e56bf822ff4f025c83af99cd70d3ad7569f36ef7cd0e4428577bc2c",
     "roblox/cleanup.luau": "506fbbc882f9cccd6d82835ff54aaeac31ca4bee8c66240cb0fd34ea34e97366",
     "roblox/codecs.luau": "731d8031bc6f077b93e64600672b8a5c93253c00bd74ab42e69b03c1a6e74270",

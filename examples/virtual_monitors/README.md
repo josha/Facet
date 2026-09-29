@@ -1,6 +1,6 @@
 # Virtual monitors
 
-Three applications share one Compose Roblox runtime and one durable model. Facet
+Four applications share one Compose Roblox runtime and one durable model. Facet
 provides controls; Roblox provides the Instances, layouts, scrolling, input and
 styling. `Host` is the runtime's native constructor table.
 
@@ -30,6 +30,13 @@ styling. `Host` is the runtime's native constructor table.
   `UI.Notice` states that the responses are simulated. The draft field uses the
   field chrome, with Send as its trailing control. The Chat tab counts unread
   replies.
+
+- **Facet Flap:** tap the playfield, press Space or activate Play to fly through
+  an endless course. Pause, retry and a session best score are included. Leaving
+  the active monitor pauses the flight. `flap_model.luau` owns deterministic
+  movement and tile collision; Compose `TileCollection` owns only visible pipe
+  and ground tiles, retaining overlapping coordinates as the camera scrolls.
+  Native frames, clipping and an aspect constraint scale the playfield.
 
 Each app uses `UI.Screen`, `UI.NavBar`, stacks, `UI.ScrollView` and `UI.fill`
 for its layout. The header has the app title, the presentation, appearance and
@@ -64,7 +71,7 @@ palettes are `Clay Light`, `Clay Dark`, `Iris Light` and `Iris Dark`. An accent
 sets `accent` and `controlSelected`. The Avatar Accent picker and the Quick
 accent `UI.RadialMenu` set `model.palette`. Each StyleSheet reads
 `theme.paletteName(accent, dark)`, so an accent change or an appearance change
-uses the same native paint transition in the three apps. The accent also sets
+uses the same native paint transition in the four apps. The accent also sets
 the outfit colour of the explorer. The hat colour comes only from the hat
 `UI.ColorPicker`. `themes.define` rejects a palette if `onAccent` on `accent`
 or `onSelected` on `controlSelected` is below 4.5:1.
@@ -78,8 +85,8 @@ motion. Haptics play only for controls that change a value or a state.
 
 `model.luau`, `catalog.luau` and `chat_model.luau` contain application data and
 commands. They contain no UI objects or independent timers. `screens.luau`
-builds Discover and the shared shell. `avatar.luau` and `chat.luau` build the
-other two apps. `desktop.luau` supplies the tabs, and `scenes.luau` supplies the
+builds Discover and the shared shell. `avatar.luau`, `chat.luau` and `flap.luau` build the
+other apps. `desktop.luau` supplies the tabs, and `scenes.luau` supplies the
 procedural and R15 scene content.
 
 Build from the repository root:
@@ -107,9 +114,11 @@ the Avatar "Motion & turning" page), `Invoke("chat", text)` and
 `Invoke("moves")` (its result's `moves` names, for Up, Down, Left and Right, the
 control a D-pad move from the screen-mode selection reaches and the rule that
 decides it, through `UI.focusQuery`).
+Select `"Flap"` with tab or focus, then use `Invoke("flap")` to start/flap/retry
+or `Invoke("flapPause")` to pause.
 
 Automated behavior coverage lives in `tests/native_virtual_monitors.spec.luau`.
-`tests/native_virtual_monitors_coverage.spec.luau` mounts the three apps and the
+`tests/native_virtual_monitors_coverage.spec.luau` mounts the four apps and the
 screen mode, tours them, and fails with the names of each public Facet field,
 control and theme function that the showcase does not use.
 Studio evidence must exercise both presentations, Discover filtering, sorting,
