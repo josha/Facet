@@ -87,33 +87,42 @@ return function(
 	local function wrapWhenLong(
 		label: TextLabel | TextButton,
 		space: (ComposeTypes.Use) -> string,
-		container: GuiObject
+		container: GuiObject,
+		truncates: boolean
 	)
 		local text = label :: TextLabel
 		local words, points, face =
 			ctx.observe.Text(label), ctx.observeStyled.TextSize(label), ctx.observeStyled.FontFace(label)
 		local fits, extent = ctx.observe.TextFits(label), ctx.observe.AbsoluteSize(container)
-		local _, measure = ctx.runtime.mount(function()
-			return ctx.Host.Folder "WordMeasure" {
-				ctx.Host.TextLabel "WidestWord" {
-					Size = D2.fromOffset(0, 0),
-					BackgroundTransparency = 1,
-					TextTransparency = 1,
-					Interactable = false,
-					Text = "",
-				},
-			}
-		end, container)
-		local probe = (measure :: Instance):FindFirstChild("WidestWord") :: TextLabel
-		local truncate = text.TextTruncate
+		local owner = assert(Compose.currentOwner(), "Facet UI.Picker wraps captions inside a Compose owner")
+		local probe: TextLabel? = nil
+		local restore: Enum.TextTruncate? = nil
 		local boundFor, boundWidth = "", 0
 		local pending: thread? = nil
-		local function breaksWord(): boolean
-			probe.FontFace, probe.TextSize = face:peek() :: Font, points:peek() :: number
-			probe.Text = string.gsub(text.Text, "%s+", "\n")
-			local widest = probe.TextBounds.X
-			probe.Text = ""
-			return text.TextWrapped and text.TextBounds.X < widest - 0.5
+		local function widestWord(): number
+			if probe == nil then
+				Compose.withOwner(owner, function()
+					local _, measure = ctx.runtime.mount(function()
+						return ctx.Host.Folder "WordMeasure" {
+							ctx.Host.TextLabel "WidestWord" {
+								Size = D2.fromOffset(0, 0),
+								BackgroundTransparency = 1,
+								TextTransparency = 1,
+								Interactable = false,
+								AutoLocalize = false,
+								Text = "",
+							},
+						}
+					end, container)
+					probe = (measure :: Instance):FindFirstChild("WidestWord") :: TextLabel
+				end)
+			end
+			local measuring = probe :: TextLabel
+			measuring.FontFace, measuring.TextSize = face:peek() :: Font, points:peek() :: number
+			measuring.Text = string.gsub(text.Text, "%s+", "\n")
+			local widest = measuring.TextBounds.X
+			measuring.Text = ""
+			return widest
 		end
 		local function cancel()
 			if pending and coroutine.status(pending) == "suspended" then
@@ -122,7 +131,8 @@ return function(
 			pending = nil
 		end
 		local function checkWords(key: string)
-			if boundFor == key and breaksWord() then
+			if boundFor == key and text.TextWrapped and text.TextBounds.X < widestWord() - 0.5 then
+				restore = text.TextTruncate
 				text.TextWrapped = false
 				text.TextTruncate = E.TextTruncate.AtEnd
 			end
@@ -132,7 +142,8 @@ return function(
 			if not task then
 				return
 			end
-			pending = task.spawn(function()
+			local thread: thread
+			thread = task.spawn(function()
 				for _ = 1, 10 do
 					task.wait()
 					if boundFor ~= key or not text.TextWrapped then
@@ -140,26 +151,38 @@ return function(
 					end
 					checkWords(key)
 				end
-				pending = nil
+				if pending == thread then
+					pending = nil
+				end
 			end)
+			if coroutine.status(thread) ~= "dead" then
+				pending = thread
+			end
 		end
 		Compose.cleanup(cancel)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(fits)
 			local width = use(extent).X
 			local inputs = `{space(use)}|{use(words)}|{use(points)}|{use(face)}`
-			if text.TextWrapped or text.TextTruncate ~= truncate then
+			if text.TextWrapped or restore ~= nil then
 				if inputs == boundFor and width <= boundWidth then
-					checkWords(inputs)
+					if truncates then
+						checkWords(inputs)
+					end
 					return
 				end
 				text.TextWrapped = false
-				text.TextTruncate = truncate
+				if restore ~= nil then
+					text.TextTruncate = restore
+					restore = nil
+				end
 			end
 			if not text.TextFits then
 				text.TextWrapped = true
 				boundFor, boundWidth = inputs, width
-				recheck(inputs)
+				if truncates then
+					recheck(inputs)
+				end
 			end
 		end)
 	end
@@ -195,7 +218,7 @@ return function(
 				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
 				wrapWhenLong(caption, function(use: ComposeTypes.Use): string
 					return `{room(use).X}|{if peers then peers(use) else 0}`
-				end, button)
+				end, button, peers ~= nil)
 			end
 		end
 	end
@@ -3000,7 +3023,7 @@ return function(
 						end, peers)
 						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
-						end, button)
+						end, button, true)
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)

@@ -2,6 +2,7 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
+local navMenu = require("../src/ui/nav_menu")
 local Compose = Facet.Compose
 local themes = Facet.themes
 
@@ -802,6 +803,190 @@ t.describe("native parity weaker menus", function()
 			t.expect(select(2, segmentLimits(picker))).toBe(994)
 			world.stop()
 		end
+	end)
+
+	t.it("settles a segment whose word cannot fit on both axes, with no writes after it settles", function()
+		for _, axis in { "x", "y" } do
+			local writes = 0
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Status" {
+						style = "segmented",
+						axis = axis,
+						selected = Compose.cell("a"),
+						options = { { value = "a", label = "Supercalifragilistic" }, { value = "b", label = "Go" } },
+					},
+				})
+			end, {
+				engine = {
+					measureText = glyphText(function()
+						return 11
+					end).measureText,
+					textFits = function(node: any): boolean?
+						if node.Text == "" or node.AbsoluteSize.X == 0 then
+							return nil
+						end
+						if node.TextWrapped then
+							return true
+						end
+						return #node.Text * 11 <= node.AbsoluteSize.X
+					end,
+				},
+			})
+			local picker = find(world.root, "Status")
+			picker.AbsoluteSize = V2(world, 300, 200)
+			local segment = find(picker, "a")
+			segment.AbsoluteSize = V2(world, 60, 44)
+			settle(world, picker)
+			t.expect(`{axis}:{segmentState(segment)}`).toBe(`{axis}:false|AtEnd`)
+			segment:GetPropertyChangedSignal("TextWrapped"):Connect(function()
+				writes += 1
+			end)
+			for _ = 1, 5 do
+				settle(world, picker)
+			end
+			t.expect(`{axis}:{writes}`).toBe(`{axis}:0`)
+			t.expect(`{axis}:{segmentState(segment)}`).toBe(`{axis}:false|AtEnd`)
+			world.stop()
+		end
+	end)
+
+	t.it("wraps a radio caption in a script without spaces instead of ending it in an ellipsis", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Voice" {
+					style = "radioGroup",
+					selected = Compose.cell("a"),
+					options = {
+						{
+							value = "a",
+							label = "日本語",
+							description = "音声チャットは近くのプレイヤーにだけ聞こえます",
+						},
+					},
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Voice")
+		picker.AbsoluteSize = V2(world, 200, 200)
+		local description = find(find(picker, "a"), "Description")
+		description.AbsoluteSize = V2(world, 120, 20)
+		settle(world, picker)
+		t.expect(segmentState(description)).toBe("true|None")
+		t.expect(find(picker, "WidestWord")).toBeNil()
+		world.stop()
+	end)
+
+	t.it("mounts a word probe only for a segment that has to wrap", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Error" },
+						{ value = "b", label = "Voice" },
+						{ value = "c", label = "High contrast" },
+					},
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 400, 50)
+		for _, name in { "a", "b", "c" } do
+			find(picker, name).AbsoluteSize = V2(world, 150, 44)
+		end
+		settle(world, picker)
+		local function probes(): number
+			local count = 0
+			for _, node in picker:GetDescendants() do
+				if node.Name == "WidestWord" then
+					count += 1
+				end
+			end
+			return count
+		end
+		t.expect(probes()).toBe(0)
+		find(picker, "c").AbsoluteSize = V2(world, 60, 44)
+		settle(world, picker)
+		t.expect(probes()).toBe(1)
+		world.stop()
+	end)
+
+	t.it("re-checks a wrapped segment on the following frames until its broken word ends in an ellipsis", function()
+		local environment = getfenv(navMenu)
+		local originalTask = environment.task
+		local threads = {}
+		environment.task = {
+			spawn = function(callback)
+				local thread = coroutine.create(callback)
+				table.insert(threads, thread)
+				coroutine.resume(thread)
+				return thread
+			end,
+			wait = function()
+				return coroutine.yield()
+			end,
+			cancel = function(thread)
+				coroutine.close(thread)
+			end,
+		}
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "Error" }, { value = "b", label = "Go" } },
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 300, 50)
+		local segment = find(picker, "a")
+		segment.AbsoluteSize = V2(world, 40, 44)
+		t.expect(segmentState(segment)).toBe("true|None")
+		local function frame()
+			for _, thread in threads do
+				if coroutine.status(thread) == "suspended" then
+					coroutine.resume(thread)
+				end
+			end
+		end
+		frame()
+		t.expect(segmentState(segment)).toBe("false|AtEnd")
+		local function live(): number
+			local count = 0
+			for _, thread in threads do
+				if coroutine.status(thread) == "suspended" then
+					count += 1
+				end
+			end
+			return count
+		end
+		local before = live()
+		segment.AbsoluteSize = V2(world, 90, 44)
+		segment.AbsoluteSize = V2(world, 30, 44)
+		t.expect(live()).toBe(before)
+		segment.AbsoluteSize = V2(world, 90, 44)
+		segment.AbsoluteSize = V2(world, 30, 44)
+		t.expect(live()).toBe(before)
+		world.stop()
+		for _, thread in threads do
+			t.expect(coroutine.status(thread)).toBe("dead")
+		end
+		environment.task = originalTask
 	end)
 
 	t.it("floors a strip segment at a 44 pixel target including its padding, not 44 plus padding", function()
