@@ -33,11 +33,6 @@ local Host = runtime.constructors
 local lifetime = Compose.createRootOwner(function()
 	local model = modelModule.new(Compose)
 	Compose.cleanup(model.dispose)
-	if workspace:GetAttribute("FacetFlap") == true then
-		model.modeChosen = true
-		model.mode:set("Screen")
-		model.selectedTab:set("Flap")
-	end
 	local mode, dark = model.mode, model.dark
 	local entrance = Compose.cell(0)
 	local reducedMotion = Compose.cell(false)

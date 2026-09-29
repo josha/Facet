@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Check in the Virtual Monitors and Facet Flap place builds under `examples/places`. The standard example build refreshes both. The Facet Flap build starts in its game tab.
+- Check in the Virtual Monitors and Facet Farm place builds under `examples/places`. The standard example build refreshes both. Facet Flap remains part of Virtual Monitors. Retire the Glade, Cartwheel, Sipworks and Foyer standalone place builds; keep their source and regression fixtures.
 
 - Directional focus uses upstream `Compose.focusNeighbor`; the duplicate Facet algorithm is removed.
 - Filled top tabs use the theme's `metrics.radii.tab`. Neutral uses pills; the example themes set corners to match their artwork.

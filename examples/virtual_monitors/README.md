@@ -92,14 +92,13 @@ procedural and R15 scene content.
 Build from the repository root:
 
 ```sh
-bash examples/virtual_monitors/build.sh
+tools/build_places.sh
 open -a RobloxStudio examples/places/Facet-VirtualMonitors.rbxl
 ```
 
-The checked-in builds are [Virtual Monitors](../places/Facet-VirtualMonitors.rbxl)
-and [Facet Flap](../places/Facet-Flap.rbxl). Facet Flap opens the same example
-with the Flap app selected in screen mode. Both builds contain all four apps.
-`tools/build_places.sh` rebuilds both with the other examples.
+The checked-in [Virtual Monitors build](../places/Facet-VirtualMonitors.rbxl)
+contains all four apps, including Facet Flap. `tools/build_places.sh` rebuilds
+it with the other examples.
 
 Press Play in Studio. The showcase needs no character and stays local and
 unpublished. The project file sets `VoiceChatService.EnableDefaultVoice` to
