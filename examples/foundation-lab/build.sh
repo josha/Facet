@@ -20,6 +20,7 @@ project["tree"]["Workspace"]["$attributes"] = {"Facet_Build": sys.argv[1], "Face
 json.dump(project, open(".stamped.project.json", "w"), indent=2)
 PY
 trap 'rm -f .stamped.project.json' EXIT
+mkdir -p build
 rojo build .stamped.project.json -o "${OUT[0]}"
 rojo build theme-light.project.json -o "${OUT[1]}"
 rojo build theme-dark.project.json -o "${OUT[2]}"

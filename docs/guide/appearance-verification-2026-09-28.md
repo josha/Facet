@@ -63,3 +63,8 @@ The direct Rascal Rally consumer still reads the older `app.controls` Table
 API and its test harness requires a removed helper. An unmodified Studio probe
 fails at the Table lookup. No production game migration was included, so this
 work does not certify that consumer's integration or package publication.
+
+The isolated checkout at `8f48ef73` subsequently passed the complete unit
+suite: 3,477 passed, zero failed, one deferred. Architecture, coverage and
+replacement-case checks also passed. This suite-only rerun is not a full
+repository gate.
