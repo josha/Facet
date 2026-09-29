@@ -189,7 +189,7 @@ return function(ctx: Shared.Context): Chrome
 				Selectable = false,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				Size = D2.new(1, 0, 0, 44),
+				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				Interactable = function(use: ComposeTypes.Use)
 					return options.enabled(use)
@@ -207,8 +207,6 @@ return function(ctx: Shared.Context): Chrome
 						end,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
-						AnchorPoint = V2.new(0, 1),
-						Position = D2.fromScale(0, 1),
 						TextWrapped = true,
 					}),
 					"type-label"

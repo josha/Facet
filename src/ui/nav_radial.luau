@@ -81,8 +81,8 @@ return function(
 		local follow = choice(spec.follow, "idle", { "idle", "always", "fixed" }, "follow")
 		local gestureSelection =
 			choice(spec.gestureSelection, "bounded", { "bounded", "direction" }, "gestureSelection")
-		local contentFit: Radial.ContentFit = spec.contentFit or "both"
-		choice(contentFit, "both", { "both", "radial", "angular", "none" }, "contentFit")
+		local contentFit: Radial.ContentFit = spec.contentFit or "radial"
+		choice(contentFit, "radial", { "both", "radial", "angular", "none" }, "contentFit")
 		choice(spec.navigation, "replace", { "replace", "expand" }, "navigation")
 		choice(spec.expansion, "fan", { "fan", "ring" }, "expansion")
 		choice(spec.center, "back", { "back", "root", "close", "content", "empty" }, "center")

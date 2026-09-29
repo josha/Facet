@@ -74,7 +74,7 @@ end
 t.describe("native gallery", function()
 	t.it("switches the entire gallery catalogue through one native root", function()
 		local ctx, engine, target = nativeContext()
-		ctx.selection = Compose.cell("all-controls")
+		ctx.selection = Compose.cell("garage")
 		ctx.themeMode = Compose.cell("light")
 		ctx.theme = Compose.cell(Facet.themes.neutralPackage())
 		ctx.packages = { Neutral = ctx.theme:peek() }
@@ -112,8 +112,8 @@ t.describe("native gallery", function()
 			t.expect(ctx.active:peek()).toBe(demo.id)
 			t.expect(ctx.errorMessage:peek()).toBe(nil)
 		end
-		pick("all-controls")
-		t.expect(ctx.active:peek()).toBe("all-controls")
+		pick("garage")
+		t.expect(ctx.active:peek()).toBe("garage")
 		button.Activated.fire()
 		t.expect(find(gui, "Section") ~= nil).toBe(true)
 		t.expect(find(gui, "DemoList") ~= nil).toBe(true)
@@ -122,7 +122,7 @@ t.describe("native gallery", function()
 		t.expect(find(gui, "DemoList")).toBe(nil)
 		find(find(gui, "Section"), "demos").Activated.fire()
 		t.expect(#find(gui, "DemoList"):GetChildren() > #catalogue.list()).toBe(true)
-		t.expect(find(gui, "Demo-all-controls").Parent).toBe(find(gui, "DemoList"))
+		t.expect(find(gui, "Demo-garage").Parent).toBe(find(gui, "DemoList"))
 		t.expect(find(gui, "SectionTitle")).toBe(nil)
 		stop()
 		t.expect(#target:GetChildren()).toBe(0)
@@ -295,7 +295,23 @@ t.describe("native gallery", function()
 		ctx.runtime:dispose()
 	end)
 
-	for _, demo in catalogue.list() do
+	local maintained = catalogue.list()
+	for _, demo in
+		{
+			{ id = "all-controls", kind = "fixture", module = "all_controls" },
+			{ id = "collections", kind = "fixture", module = "collections" },
+			{ id = "motion-layout", kind = "fixture", module = "motion_layout" },
+			{ id = "hud", kind = "fixture", module = "hud" },
+			{ id = "radial-menu", kind = "fixture", module = "radial_menu" },
+			{ id = "ex03", kind = "example", module = "03_settings_sync" },
+			{ id = "ex05", kind = "example", module = "05_word_game" },
+			{ id = "ex06", kind = "example", module = "06_tile_game" },
+			{ id = "ex07", kind = "example", module = "07_match3" },
+		}
+	do
+		table.insert(maintained, demo)
+	end
+	for _, demo in maintained do
 		t.it("mounts " .. demo.id .. " with the native runtime", function()
 			local ctx, engine, target = nativeContext()
 			local stop, node = ctx.runtime.mount(function()
@@ -351,7 +367,7 @@ t.describe("native gallery", function()
 	end)
 	t.it("reserves the measured shell toolbar height above the demos", function()
 		local ctx, _, target = nativeContext()
-		ctx.selection = Compose.cell("all-controls")
+		ctx.selection = Compose.cell("garage")
 		ctx.themeMode = Compose.cell("light")
 		ctx.theme = Compose.cell(Facet.themes.neutralPackage())
 		ctx.packages = { Neutral = ctx.theme:peek() }

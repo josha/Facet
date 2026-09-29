@@ -377,6 +377,7 @@ local PAGE_DATA: { [string]: any } = {
 	},
 	RadialMenu = {
 		family = "actions",
+		matrix = false,
 		alias = "(Facet-only)",
 		purpose = "A ring of quick actions for gamepad sticks and touch; opens from a launcher or a world anchor.",
 		alternatives = "Menu for long or text-heavy lists.",
@@ -448,7 +449,7 @@ local PAGE_DATA: { [string]: any } = {
 			},
 			{ key = "center", values = { "back", "root", "close", "content", "empty" }, matrix = false },
 			{ key = "ringWidth", values = { DEFAULT, "narrow", "regular", "wide" }, matrix = false },
-			{ key = "contentFit", values = { "both", "radial", "angular", "none" }, matrix = false },
+			{ key = "contentFit", values = { "radial", "both", "angular", "none" }, matrix = false },
 			{ key = "buttonSurface", values = { DEFAULT, "native", "none" }, matrix = false },
 			{ key = "labelStyle", values = { DEFAULT, "text", "icon" }, matrix = false },
 			{ key = "navigation", values = { "replace", "expand" }, matrix = false },

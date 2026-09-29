@@ -1335,18 +1335,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end,
 				}
 				runtime.decorate(panel, panelGeometry)
-				surfaces.popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
-					local at, anchorAt, anchorSize, offset, box =
-						use(placement), use(position), use(size), use(origin), use(measured)
-					local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
-					local above = anchorAt.Y - offset.Y >= at.top + box.Y
-					return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
-				end, {
-					pinned = true,
-					rested = rested,
-					size = measured,
-					geometry = { Size = panelGeometry.Size, AutomaticSize = panelGeometry.AutomaticSize },
-				})
+				local scale = surfaces.popover(
+					panel,
+					presence.travel,
+					function(use: ComposeTypes.Use): (Vector2, Vector2)
+						local at, anchorAt, anchorSize, offset, box =
+							use(placement), use(position), use(size), use(origin), use(measured)
+						local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
+						local above = anchorAt.Y - offset.Y >= at.top + box.Y
+						return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
+					end,
+					{
+						pinned = true,
+						rested = rested,
+						size = measured,
+						geometry = { Size = panelGeometry.Size, AutomaticSize = panelGeometry.AutomaticSize },
+					}
+				)
 				local arrow: { Frame }? = if tailed
 					then parts.tail(
 						ctx,
@@ -1370,6 +1375,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end,
 						{
 							node = panel,
+							scale = scale,
 							corner = function(use: ComposeTypes.Use): Vector2
 								local place = use(placement)
 								return V2.new(place.left, place.top)
@@ -1461,7 +1467,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end, { priority = 2000 })
 				end
 				local overlayRoot = if arrow
-					then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] }
+					then Host.Folder "CalloutOverlay" { panel :: Instance, table.unpack(arrow) }
 					else panel :: Instance
 				surfaces.keep(spec.content)
 				return overlayRoot

@@ -45,8 +45,50 @@ host mounts them with the runtime pieces that `Facet.app` uses.
 
 ## Tests
 
-The gallery has ten main demos with nested control, collection and motion
-pages. `tests/native_gallery.spec.luau` mounts those pages. It exercises the
+The showcase has five main demos: Garage, Sipworks, Screen-anchored HUD,
+Playlist and Arcade. Arcade contains Word Game, Crossword,
+Match 3 and Outpost. The original control, collection and motion fixtures remain available
+for the lab and regression tests. `tests/native_gallery.spec.luau` mounts those pages. It exercises the
 games, the settings, the playlist and the standalone consumer. The reference
 applications and the virtual monitors have separate native tests and Studio
 evidence.
+
+## Showcase
+
+Build `examples/showcase.project.json` with Rojo and open the resulting place
+in Studio. Garage is the opening demo. The existing Demos / Settings panel
+keeps theme and palette switching, forced device and input previews,
+orientation and reduced-motion choices. The navigation button switches roomy
+layouts between sidebar and top tabs without resetting the current demo.
+
+| Demo | First thing to try | Source |
+|---|---|---|
+| Garage | Change the car, paint and wheels, then save and restore a preset | [Garage](gallery/examples/08_garage.luau) |
+| Sipworks | Open a recipe, check ingredients, follow a botanical to related blends, then go Back | [Sipworks](gallery/examples/14_sipworks.luau) |
+| Screen-anchored HUD | Resize the screen, reveal tucked-away zones, change equipment and open HUD actions | [HUD](gallery/scenarios/hud.luau) |
+| Playlist | Sort, rate and reorder tracks | [Playlist](gallery/examples/02_playlist_table.luau) |
+| Arcade | Choose Word Game, Crossword, Match 3 or the Outpost power puzzle | [Arcade](gallery/examples/13_arcade.luau) |
+
+Each main demo has a distinct role: Garage is a live 3D configurator with
+anchored preset naming and inline saved cars; Sipworks is a searchable recipe
+library with animated drill-down and checklists; Playlist demonstrates sortable,
+editable, reorderable data; Arcade contains playable games and Outpost's world
+terminal and radial actions; the HUD demonstrates screen anchoring and recovery
+of commands when space is limited. Sipworks and Arcade retain sidebar/top
+navigation. Sipworks uses NavigationStack at both widths and keeps its history
+and ingredient checks across layout changes.
+
+The Pack, Cartwheel and Glade experiments remain in source with their behavioral
+tests. They are outside the main picker: equipment browsing overlaps the library
+and playlist, Cartwheel's order service deserves a fuller management game, and
+Glade needs deeper simulation to justify its own stop. Their original reference
+applications remain available separately. Cartwheel's ring actions now reveal
+order contents inline. Pack's filter uses the search presentation.
+
+The demos use local state. Leaving a demo starts a fresh visit on return.
+Sipworks reuses its reference catalog and favorites. Outpost lives inside Arcade
+and retains its screen controls and native SurfaceGui terminal.
+
+[Showcase artwork](../assets/showcase/README.md) records the generated G-rated
+illustrations, their original files and Roblox asset IDs. No purchases or
+account sign-in are needed to try the showcase.

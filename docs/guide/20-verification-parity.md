@@ -1130,7 +1130,7 @@ Some cases were added on `main` after the baseline. Each family records them her
 | post-pickers-001 | `field_chrome` | 1 | a | `a field with no chrome keys keeps its native TextBox root` |  |
 | post-pickers-002 | `field_chrome` | 1 | a | `the label sits above its field, and a tap or a finger on it puts the caret in the field` | The fake engine computes no layout; the rectangle is a live item in needs-live/port-pickers.json. Live evidence after the recheck. |
 | post-pickers-003 | `field_chrome` | 1 | a | `a disabled field's label follows it: no press or hover affordance, live both ways` |  |
-| post-pickers-004 | `field_chrome` | 1 | a | `the label adds no focus stop and reserves the touch floor in its own box` | Selectable flags replace the focus-order traversal; the hit-rectangle overlap is live. |
+| post-pickers-004 | `field_chrome` | 1 | a | `the label fits its text and adds no focus stop` | Selectable flags replace the focus-order traversal; the hit-rectangle overlap is live. |
 | post-pickers-005 | `field_chrome` | 1 | a | `the required mark is part of the label's words, bound or static; optional paints no word` | The wrapped-title width check at 320 px is live. Live evidence after the recheck. |
 | post-pickers-006 | `field_chrome` | 1 | a | `an error replaces the hint, in the danger role, beside a mark, and the field holds still` |  |
 | post-pickers-007 | `field_chrome` | 1 | a | `the error mark is floored at the icon rung and painted the message's colour` | The mark height against its line is live; the colour is read from the compiled StyleSheet rules. Live evidence after the recheck. |

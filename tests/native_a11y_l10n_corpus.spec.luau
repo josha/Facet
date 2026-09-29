@@ -829,7 +829,7 @@ t.describe("native accessibility and localization corpus", function()
 
 	t.it("gives every selectable node of every gallery demo an accessible name", function()
 		local ctx, engine, target = galleryContext()
-		ctx.selection = Compose.cell("all-controls")
+		ctx.selection = Compose.cell("garage")
 		ctx.themeMode = Compose.cell("light")
 		ctx.theme = Compose.cell(Facet.themes.neutralPackage())
 		ctx.packages = { Neutral = ctx.theme:peek() }

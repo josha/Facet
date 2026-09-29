@@ -195,7 +195,7 @@ def check(args, solver):
     if public:
         files.append(str(WITNESS.relative_to(ROOT)))
         files.extend(str(path.relative_to(ROOT)) for path in sorted((ROOT / "tests/types").glob("*_witness.luau")) if path != WITNESS)
-        files.extend(str(path.relative_to(ROOT)) for path in sorted((ROOT / "examples/gallery/examples").glob("0*.luau")))
+        files.extend(str(path.relative_to(ROOT)) for path in sorted((ROOT / "examples/gallery/examples").glob("[0-9]*.luau")))
     missing = [path for path in files if not (ROOT / path).is_file()]
     if missing:
         raise RuntimeError("Missing type targets: " + ", ".join(missing))

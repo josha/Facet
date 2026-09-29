@@ -76,6 +76,31 @@ ALLOWLIST = (
         "match": "Color3.fromRGB(",
         "why": "illustration content: the cart, wheel and awning art of the cartwheel scene, not interface paint",
     },
+    {
+        "file": "examples/gallery/examples/08_garage.luau",
+        "match": "C3.fromRGB(",
+        "why": "vehicle body paint, wheels, headlights and the turntable are authored 3D artwork",
+    },
+    {
+        "file": "examples/gallery/examples/09_adventurers_pack.luau",
+        "match": "C3.fromRGB(",
+        "why": "equipment materials and the explorer are authored 3D artwork",
+    },
+    {
+        "file": "examples/gallery/examples/10_potion_shop.luau",
+        "match": "C3.fromRGB(",
+        "why": "potion liquids, corks and the counter are authored 3D artwork",
+    },
+    {
+        "file": "examples/gallery/examples/12_outpost.luau",
+        "match": "C3.fromRGB(",
+        "why": "outpost structures and power indicator lamps are authored 3D world content",
+    },
+    {
+        "file": "examples/gallery/examples/showcase_view.luau",
+        "match": "C3.fromRGB(",
+        "why": "the miniature scene backdrop and scene lighting are authored artwork; surrounding controls retain theme paint",
+    },
 )
 
 

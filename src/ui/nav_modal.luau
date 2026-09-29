@@ -249,7 +249,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		amount: Nav.Appearance,
 		place: (ComposeTypes.Use) -> (Vector2, Vector2),
 		options: Nav.PopoverOptions?
-	): ()
+	): (ComposeTypes.Use) -> number
 		local settings: Nav.PopoverOptions = options or {}
 		local rested = settings.rested
 		local rise = settings.rise
@@ -300,6 +300,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			local box = if settings.size then use(settings.size) else panel.AbsoluteSize
 			return V2.new(if box.X > 0 then point.X / box.X else 0.5, if box.Y > 0 then point.Y / box.Y else 0.5)
 		end)
+		return scale
 	end
 	local function attached(anchor: GuiObject): boolean
 		local at: Instance? = anchor
@@ -1002,7 +1003,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						tailInset = 6,
 					})
 				end)
-				popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
+				local scale = popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
 					local anchorAt, anchorSize, offset, box = use(at), use(bounds), use(origin), use(measured)
 					local solved = use(solution)
 					local centerX = anchorAt.X - offset.X + anchorSize.X / 2 - solved.x
@@ -1036,6 +1037,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					end,
 					{
 						node = panel,
+						scale = scale,
 						corner = function(use: ComposeTypes.Use): Vector2
 							local solved = use(solution)
 							return V2.new(solved.x, solved.y)
@@ -1047,7 +1049,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						role = "tooltip",
 					}
 				)
-				return Host.Folder "HelpOverlay" { panel :: Instance, tail[1] }
+				return Host.Folder "HelpOverlay" { panel :: Instance, table.unpack(tail) }
 			end, { motion = timing }),
 		})
 	end)

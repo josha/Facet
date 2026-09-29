@@ -374,7 +374,12 @@ export type Surfaces = {
 	modal: (() -> GuiObject, (string?) -> (), ModalOptions?) -> Frame,
 	overlay: (GuiObject, Types.ValueBoolean, (PresencePhase?) -> Instance, OverlayOptions?) -> Types.Child,
 	appearance: (PresencePhase?, MotionTiming, ComposeTypes.Readable<boolean>?) -> Presence,
-	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2), PopoverOptions?) -> (),
+	popover: (
+		GuiObject,
+		Appearance,
+		(ComposeTypes.Use) -> (Vector2, Vector2),
+		PopoverOptions?
+	) -> (ComposeTypes.Use) -> number,
 	atRest: (
 		Appearance,
 		ComposeTypes.Cell<boolean>,

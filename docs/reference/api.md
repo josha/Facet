@@ -320,7 +320,9 @@ easing, spring, scale and distance below is a token in the theme package's
   the theme's `motion.restLimit` (0.25 seconds by default). The placement then
   reads that rested size for the whole entrance and exit, so the scale never
   moves the anchor or its tail. The panel animates around content held at its
-  final layout size. Text is never scaled by this entrance, and fractional
+  final layout size. The content fade group keeps that size during the motion.
+  This prevents a new render texture allocation on each animation frame.
+  Text is never scaled by this entrance, and fractional
   text extents round up so a wrapped line is not clipped. The wait applies
   at every motion level.
 - The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
@@ -1108,8 +1110,8 @@ keeps the native TextBox as its root. Other fields return a Frame. The root
 Frame holds these children in order:
 
 1. `Label`: a TextButton that is not selectable. Its `Title` text is the label.
-   Activation focuses the TextBox. The label is 44 pixels tall or more, and
-   its words sit at the bottom. It follows `enabled`.
+   Activation focuses the TextBox. The label height fits its text, including
+   wrapped lines. It follows `enabled`. The input keeps its minimum touch size.
 2. `Input`: the plate. It holds `SearchIcon` or `Leading`, `Prefix`, the
    TextBox named `Field`, `Suffix`, `Clear`, `Decrement`, `Increment` and
    `Trailing`, in that order. A named `controlSize` puts the plate in an
@@ -2211,6 +2213,11 @@ icon when its `labelStyle` is `icon`, its `compactLabel.prefer` is set, or it
 is a `buttons` item with an `icon`. Otherwise it shows the label. The list
 fallback shows both.
 
+`contentFit` defaults to `"radial"`. It fits the ring thickness to the content
+and keeps the full angular span of each sector. Use `"both"` to fit both the
+thickness and angular span, `"angular"` to fit only the span, or `"none"` to
+keep the full sector shape.
+
 `ringWidth` is a number of pixels or a theme width: `narrow`, `regular` or
 `wide` (`controls.radial.narrow`, `.regular` and `.wide`). Each ring is at
 least that thick and grows until every item's label or icon box fits, with
@@ -2628,15 +2635,21 @@ removes the arrow.
 
 The tail of a Popover, a Callout and a Button `help` plate is one shape: a
 `space.m` square turned 45 degrees under the panel (`facet-tail`), with no
-stroke of its own. One closed native `Path2D` named `Outline` in the panel
-(`facet-outline`, `facet-outline-tooltip` on a help plate) draws the whole
-border: the panel's rounded corners and the tail's two outer sides as one
-line, so the edge stops exactly where the tail begins. Its colour is the
-theme hairline blended over the panel fill, because a `Path2D` has no
-transparency, and it fades with the panel. The panel's own `UIStroke` is off
-(`facet-outlined`). The tail stays clear of the panel's rounded corners. The panel stands the tail's reach off
-its source, so the tip stops at the gap. The panel's `AnchorPoint` is the tail
-point while it scales, so a moving scale never moves the tip. The tail keeps
+stroke of its own. One closed native `Path2D` named `Outline` draws the
+panel corners and the two outer sides of the tail as one border. It has the
+`facet-outline` tag. A help plate also uses `facet-outline-tooltip`.
+The border sits in a separate `OutlineBoundary` Frame beside the panel.
+Thus the content padding and the fade container cannot move or clip the border.
+A separate `OutlineFade` Frame contains the border bounds.
+During a fade, its CanvasGroup fades the border with the panel and tail.
+The group has space around the border so it cannot clip the pointer.
+Its size stays fixed while the border moves.
+The border uses the theme hairline color blended with the panel fill.
+The panel's own `UIStroke` is off (`facet-outlined`).
+The panel, border, and tail use the same scale for opening and closing.
+The point where the tail joins the panel stays fixed during this motion.
+At rest, the tip stops at the specified gap from its source.
+The tail stays clear of the panel corners. The tail keeps
 8 pixels from the panel's ends; a panel too short for that (a one-line panel
 beside its source) centres the tail on its side instead of dropping it. The
 tail is dropped only when it would no longer point at the source.
