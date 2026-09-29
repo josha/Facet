@@ -139,7 +139,7 @@
       ],
       "cases": [
         "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
-        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return",
+        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
         "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation",
         "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
         "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page"

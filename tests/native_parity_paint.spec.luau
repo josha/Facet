@@ -1612,6 +1612,7 @@ t.describe("native parity paint", function()
 			end
 		end
 		local hooks = {
+			["facet-adjustable"] = true,
 			["facet-alert"] = true,
 			["facet-callout"] = true,
 			["facet-collection"] = true,

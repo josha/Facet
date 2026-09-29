@@ -253,6 +253,7 @@ t.describe("public surface registration", function()
 			scrollToVisible = "ScrollOptions",
 			focusRing = "Environment",
 			focusSection = "Environment",
+			focusQuery = "FocusQuery",
 			responder = "Environment",
 			draggable = "DraggableSpec",
 			dropTarget = "DropTargetSpec",

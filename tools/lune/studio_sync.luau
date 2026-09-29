@@ -65,6 +65,7 @@ net.serve(PORT, function(request)
 			matrix = "artifacts/cross-platform-proof/rows/matrix",
 			perf = "artifacts/performance-stress-places/studio",
 			live = "artifacts/studio-live",
+			atlas = "tests/fixtures/focus_atlas",
 		}
 		local dir = DIRS[request.query.dir or "matrix"]
 		if dir == nil then

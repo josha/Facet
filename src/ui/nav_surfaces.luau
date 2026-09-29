@@ -241,6 +241,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 					Compose.cleanup(handBack)
+					surfaces.keep(spec.content)
 					return reveal
 				end, {
 					exit = function()
@@ -426,7 +427,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						chrome:set(outer - inner)
 					end
 				end)
-				return surfaces.modal(
+				local modal = surfaces.modal(
 					function()
 						return plate
 					end,
@@ -439,6 +440,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						appearance = progress,
 					}
 				)
+				surfaces.keep(spec.content)
+				return modal
 			end, {
 				presence = {
 					exit = function(): ComposeTypes.Exiting
@@ -1091,9 +1094,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"actions",
 			"closeButton",
 		}, "Callout")
+		local plate: Instance? = nil
 		local function retire(reason: Nav.CalloutRetirement): ()
 			if retired:peek() or calloutOwner.isDisposed() then
 				return
+			end
+			local gui = ctx.config.guiService
+			local current = if gui then gui.SelectedObject else nil
+			if
+				gui
+				and plate
+				and current
+				and current:IsDescendantOf(plate)
+				and spec.anchor.Selectable
+				and spec.anchor.Parent
+			then
+				gui.SelectedObject = spec.anchor
 			end
 			retired:set(true)
 			spec.onRetire(reason)
@@ -1381,6 +1397,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end)
 				end
 				local gui = ctx.config.guiService
+				plate = panel
 				if gui then
 					local anchor = spec.anchor
 					local selection = ctx.observe.SelectedObject(gui)
@@ -1433,7 +1450,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						retire("dismissed")
 					end, { priority = 2000 })
 				end
-				return if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] } else panel :: Instance
+				local overlayRoot = if arrow
+					then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] }
+					else panel :: Instance
+				surfaces.keep(spec.content)
+				return overlayRoot
 			end, { motion = timing }),
 		})
 		return root

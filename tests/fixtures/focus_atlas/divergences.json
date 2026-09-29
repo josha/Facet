@@ -1,0 +1,2554 @@
+[
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Confirm",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/TagsHeader/EditTags",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Alternatives",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Confirm",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Primary",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Alternatives",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Filters/Trigger",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Primary",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Alternatives",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Filters/Trigger",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizeLadder/RungCompact",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizeLadder/RungLarge",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/SettingsRows/Music",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/SettingsRows/Music/Content/Captions/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/TagsHeader/EditTags",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/SettingsRows/Music",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/SettingsRows/Music/Content/Captions/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/SettingsRows/Assist",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Shortcut",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Tokens/Row/Token#3",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/TagsHeader/EditTags",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Alternatives",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Primary",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizeLadder/RungLarge",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/Appearances/LookEmphasis",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipSnow",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipWet",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/Appearances/LookSoft",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipSnow",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/IconLabelled",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/IconLabelled",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipSnow",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipWet",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/OverMedia/OverMediaAction",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Confirm",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Sections/RaceSetup/Split/Split/Alternatives",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipWet",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipSnow",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/Appearances/LookSoft",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/buttons",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipWet",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/SizedChips/ChipSnow",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/buttons/ActionControls/Content/Frame/Vocabulary/Appearances/LookUtility",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/actions/menus",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/menus/MenuDemo/Page/Cards/CardBlocked/Blocked/Trigger",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/menus/MenuDemo/Page/IdiomBox/Idiom/Options/sheet",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/menus/MenuDemo/Page/IdiomBox/Idiom/Options/panel",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/menus",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/menus/MenuDemo/Page/IdiomBox/Idiom/Options/panel",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/menus/MenuDemo/Page/Cards/CardHold/Hold/Trigger",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/menus/MenuDemo/Page/Cards/CardChord/Chord/Trigger",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/Actions/Delete",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Custom Rules",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Time Trial",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Drift Event",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Elimination",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Time Trial",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/LoadFailed/Action",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/WrapChips/Mirror",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Custom Rules",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/NoResults/Action",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Sprint",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Elimination",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/NoResults/Action",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/WrapChips/Reverse",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Wet Weather",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/NoResults/Action",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/WrapChips/Rain",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Endurance",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Custom Rules",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Drift Event",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/Accordion/Rules/Header",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Elimination",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/indicators",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Endurance",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/actions",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Ghost Lap",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/Accordion/Rules/Header",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Night Race",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/Accordion/Rules/Header",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Reverse Grid",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Sprint",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/inputs",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/Accordion/Rules/Header",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Time Trial",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/Accordion/Rules/Header",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Wet Weather",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/EmptyCollection/Action",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/WrapChecks/weather",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Wet Weather",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Night Race",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/actions/recipes",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/WrapChips/Elimination",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/WrapChips/Mirror",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/actions/actions/Content/recipes/Recipes/Content/Page/RailChips/Row/Time Trial",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/indicators/feedback",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/Custom",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/feedback",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/feedback",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/PlayHaptics",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/feedback",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/feedback",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/PressRow/Press",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/feedback",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/feedback",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/ReleaseRow/Release",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/feedback",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/feedback",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/SelectionRow/Selection",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/feedback",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/feedback",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/Custom",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/feedback",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/StrengthRow/Strength/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/feedback/SensoryFeedback/SelectionRow/Selection",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/identity",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/feedback",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/identity/Identity/Content/AvatarRecipe/Picture/Presentation/Options/pending",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/indicators/levels",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/levels/LevelPickerDemo/Page/Difficulty/Pair/DifficultyGlyphs",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
+ },
+ {
+  "page": "all-controls/indicators/levels",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/levels/LevelPickerDemo/Page/Difficulty/Pair/DifficultyStep",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: no D-pad path in the phone preview"
+ },
+ {
+  "page": "all-controls/indicators/levels",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/levels/LevelPickerDemo/Page/Fidelity/Pair/FidelityBars",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/progress",
+  "query": "none",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "all-controls/indicators/levels",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/levels/LevelPickerDemo/Page/Fidelity/Pair/FidelityBars",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
+ },
+ {
+  "page": "all-controls/indicators/levels",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/levels/LevelPickerDemo/Page/Fidelity/Pair/FidelityStep",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: no D-pad path in the phone preview"
+ },
+ {
+  "page": "all-controls/indicators/levels",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/levels/LevelPickerDemo/Page/Tinted/Pair/TintedStep",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
+ },
+ {
+  "page": "all-controls/indicators/levels",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/levels/LevelPickerDemo/Page/Trophies/Pair/TrophyIcons",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
+ },
+ {
+  "page": "all-controls/indicators/progress",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/Sizes/Large",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/progress",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/toasts",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/progress",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/Sizes/Compact",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/progress",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/Sizes/Regular",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/progress/ProgressRing/Page/AdjustProgress",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/indicators/status",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/status/StatusPage/StatusFamily/Content/Reset",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/status/StatusPage/StatusFamily/Content/NoticeRecipe/Update/Body/Accessories/Link",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/status/StatusPage/StatusFamily/Content/NoticeRecipe/Update/Close",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/indicators/status",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Tabs/feedback",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/status/StatusPage/StatusFamily/Content/NoticeRecipe/Update/Body/Accessories/Link",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/indicators/toasts",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/toasts/ToastLab/Actions/Edge/Presentation/Value/Trigger",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/toasts/ToastLab/Actions/Commands/Priority",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/indicators/indicators/Content/toasts/ToastLab/Actions/Commands/Burst",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/Actions/Reset",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/Actions/Save",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Options/fidelity",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained; not E2: the stick agrees with the D-pad"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/Actions/Save",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/Actions/Reset",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Options/fidelity",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/Actions/Save",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Camera",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Options/balanced",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Hud/CompactRow/CmpText",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Options/fidelity",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/NavPill/more",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Hud/Toolbar/TbBack",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Outline/Reveal/RevealFade/OutlineRows/OutlineChip",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Outline/Reveal/RevealFade/OutlineRows/OutlineButton",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Brightness",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Brightness/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/LapWindow",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Brightness",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Brightness/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Volume",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/NavPill/more",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Outline/Reveal/RevealFade/OutlineRows/OutlineButton",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Outline/Reveal/RevealFade/OutlineRows/OutlineChip",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Hud/Toolbar/TbBack",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Outline/Reveal/RevealFade/OutlineRows/OutlineButton",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Outline/Reveal/RevealFade/OutlineRows/OutlineChip",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/Actions/Save",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Options/fidelity",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Hud/CompactRow/CmpNone",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Hud/CompactRow/CmpIcon",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Value/Trigger",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/NavPill/more",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/BalanceRow/Balance",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/BalanceRow/Balance/Track",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/BalanceRow/Balance",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/BalanceRow/Balance/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/TiltStage/Tilt",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Boost",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Boost/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Camera",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Boost",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Boost/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/BalanceRow/Balance",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Camera",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Camera/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Camera",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Camera/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Boost",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/LapWindow",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/LapWindow/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/TiltStage/Tilt",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/LapWindow",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/LapWindow/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Brightness",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Value/Trigger",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Steer/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Camera",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/TiltStage/Tilt",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/TiltStage/Tilt/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/Boost",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/basics",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/TiltStage/Tilt",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/TiltStage/Tilt/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes/LapWindow",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/leaves",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/leaves/LeafCapabilities/Content/Body/Actions/Freeze",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Tabs/writing",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/actions",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/leaves",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/leaves/LeafCapabilities/Content/Body/Actions/Width",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Tabs/basics",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/inputs",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/leaves",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/actions",
+  "key": "dead Up",
+  "engine": "none",
+  "query": "none",
+  "reason": "F13: the atlas has no offset for the inputs sub-tab strip, so the replay leaves it at canvas 0 with its tabs off the window; the query takes the strip (F14) and keeps the selection. Live the engine selected Tabs/writing"
+ },
+ {
+  "page": "all-controls/inputs/leaves",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/inputs",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Tabs/basics",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/actions",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Brightness",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Brightness/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/RaceDay/Field/Show",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Brightness",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Brightness/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Saturation",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Hue",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Hue/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Saturation",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Hue",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Hue/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Readout/Values/Fields/FieldG/Input/Field",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Saturation",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Saturation/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Brightness",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Saturation",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Saturation/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Hue",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Readout/Head/Format/hex",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Readout/Head/Format/hsv",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Brightness",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained; not E2: the stick agrees with the D-pad"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Inline/Accent/Panel/Body/Technique/ShowSpectrum/Spectrum/Hue",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Inline/Accent/Panel/Body/Technique/ShowSpectrum/Spectrum/Hue/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Body/Well",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Inline/Accent/Panel/Body/Technique/ShowSpectrum/Spectrum/Hue",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Inline/Accent/Panel/Body/Technique/ShowSpectrum/Spectrum/Hue/Track",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Inline/Accent/Panel/Body/Technique/ShowSpectrum/Spectrum/Plane/Surface",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/inputs/pickers",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Inline/Accent/Panel/Readout/Values/Fields/FieldB/Input/Field",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Readout/Head/Format/hex",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Readout/Head/Format/hsv",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/coast/Course/Choose",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/coast",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/forest/Course/Choose",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/coast",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/coast",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/forest/Course/Choose",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/coast/Course/Choose",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/coast",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/summit/Course/Choose",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/coast/Course/Choose",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/forest",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/forest",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/summit/Course/Choose",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/coast/Course/Choose",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/summit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/summit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/summit/Course/Choose",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/coast/Course/Choose",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/coast/Course/Choose",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/coast",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/forest/Course/Choose",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/forest/Course/Choose",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/coast",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/forest/Course/Choose",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Tabs/pages",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Tabs/disclosure",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/summit/Course/Choose",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/summit/Course/Choose",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Indicators/coast",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Pages/summit/Course/Choose",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Tabs/pages",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Tabs/disclosure",
+  "reason": "F12"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/actions",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/indicators",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/inputs",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/pages",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Tabs/navigation",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Previous",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/pages/PageView/Page/Courses/Footer/Frame/Next",
+  "reason": "F13"
+ },
+ {
+  "page": "all-controls/navigation/paging",
+  "from": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/paging/PagingScreen/Paging/Rtl/Row/Next",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/paging/PagingScreen/Paging/Results/Row/First",
+  "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/navigation/navigation/Content/paging/PagingScreen/Paging/Refuse",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/Rail/Items/c10/Content/Card_c10",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/Rail/Items/c11/Content/Card_c11",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c8/Content/Card_c8",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/Rail/Items/c4/Content/Card_c4",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/Rail/Items/c5/Content/Card_c5",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c2/Content/Card_c2",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/Rail/Items/c9/Content/Card_c9",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/Rail/Items/c10/Content/Card_c10",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c10/Content/Card_c10",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c11/Content/Card_c11",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c4/Content/Card_c4",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c5/Content/Card_c5",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/table",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c9/Content/Card_c9",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c10/Content/Card_c10",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c10/Content/Card_c10",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c11/Content/Card_c11",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c8/Content/Card_c8",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c4/Content/Card_c4",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c5/Content/Card_c5",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/RecommendedRail/Items/c2/Content/Card_c2",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/cards",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c9/Content/Card_c9",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/cards/CardRail/WeekendRail/Items/c10/Content/Card_c10",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/Card/Reveal/Row/More",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/RowHit",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/Card/Reveal/Row/Primary",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/vertical",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/games",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/Card/Reveal/Row/More",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g17/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/Card/Reveal/Row/More",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g17/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g17/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g17/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g17/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g17/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g17/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g18/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g14/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g19/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g15/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/Card/Reveal/Row/More",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/Card/Reveal/Row/Primary",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/vertical",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/vertical",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/Card/Reveal/Row/Primary",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/Card/Reveal/Row/More",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g20/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g16/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/Card/Reveal/Row/More",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/Card/Reveal/Row/Primary",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/vertical",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/table",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/More",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/grids",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/More",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/Primary",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/grids",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/Primary",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/vertical",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/More",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/games",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g1/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g6/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g2/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g11/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g7/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g3/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g12/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/Card/Reveal/Row/More",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g8/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g4/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g13/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/Card/Reveal/Row/More",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g10/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/games",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g9/Content/Card/Reveal/Row/Primary",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/games/Cards/Games/Items/g5/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/17/Content/Item_17",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/21/Content/Item_21",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/18/Content/Item_18",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/22/Content/Item_22",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/table",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/19/Content/Item_19",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/23/Content/Item_23",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/table",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/20/Content/Item_20",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/24/Content/Item_24",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Tabs/table",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/41/Content/Item_41",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/45/Content/Item_45",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/42/Content/Item_42",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/46/Content/Item_46",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/43/Content/Item_43",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/47/Content/Item_47",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/44/Content/Item_44",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/48/Content/Item_48",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/49/Content/Item_49",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/53/Content/Item_53",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/50/Content/Item_50",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/54/Content/Item_54",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/51/Content/Item_51",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/55/Content/Item_55",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/horizontal",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/52/Content/Item_52",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/horizontal/virtual_hgrid/Collection/Items/56/Content/Item_56",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/best/Sort",
+  "key": "DPadDown",
+  "engine": "Gallery/Toolbar/Column/Row/Showcase",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Body",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/best/Sort",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/team/Resize",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/team/Sort",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/best/Sort",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/ToolbarScroll/Toolbar/Actions/Reset",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Toolbar/Edit",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/team/Sort",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/entrant/Resize",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/entrant/Sort",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Toolbar/Edit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Body/Items/e378/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/best/Resize",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Toolbar/Edit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/best/Resize",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/table/table_virtualized/Collection/Header/team/Resize",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/grids",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: phone preview; the engine never reached this category tab"
+ },
+ {
+  "page": "collections/grids/table",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/rows",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: phone preview; the engine never reached this category tab"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/29/Content/Item_29",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/33/Content/Item_33",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/rows",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/30/Content/Item_30",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/34/Content/Item_34",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/grids",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/31/Content/Item_31",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/35/Content/Item_35",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/grids",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/32/Content/Item_32",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/36/Content/Item_36",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Tabs/grids",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/37/Content/Item_37",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/41/Content/Item_41",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/38/Content/Item_38",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/42/Content/Item_42",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/39/Content/Item_39",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/43/Content/Item_43",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/40/Content/Item_40",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/44/Content/Item_44",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/45/Content/Item_45",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/49/Content/Item_49",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/46/Content/Item_46",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/50/Content/Item_50",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/47/Content/Item_47",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/51/Content/Item_51",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/grids/vertical",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/48/Content/Item_48",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/grids/grids/Content/vertical/virtual_grid/Collection/Items/52/Content/Item_52",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/cool/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/warmup/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/notes/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/cool/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/name/Resize",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/notes/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/grid/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/notes/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/warmup/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/grid/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/main/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/lock/Resize",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/grid/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/main/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/name/Resize",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/main/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/grid/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/notes/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/main/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/lock/Resize",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/warmup/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/main/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/name/Resize",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/warmup/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/notes/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/warmup/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/cool/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/notes/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/cool/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/main/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/warmup/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/cool/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/main/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/warmup/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/notes/Content/RowHit",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Body/Items/grid/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/lock/Sort",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/name/Resize",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/name/Sort",
+  "reason": "F12"
+ },
+ {
+  "page": "collections/rows/permissions",
+  "from": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Toolbar/Edit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/lock/Sort",
+  "query": "Gallery/Demos/Content/collections/Collections/Categories/Content/rows/rows/Content/permissions/RowCapabilities/RunSheet/Header/lock/Resize",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Restore",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Restore",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Restore",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Restore",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Sort",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Sort",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Sort",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "reason": "E2: the D-pad ranks the wired Sort button first; the stick, which ignores wiring, takes Resize as the query does"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Sort",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Filter",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "key": "DPadLeft",
+  "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "reason": "F12"
+ },
+ {
+  "page": "ex05",
+  "from": "Gallery/Toolbar/Column/Row/Showcase",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/ex05/Wordle/page/kb/kbrow1/key_Y",
+  "query": "Gallery/Demos/Content/ex05/Wordle/page/kb/kbrow1/key_T",
+  "reason": "F12"
+ },
+ {
+  "page": "ex05",
+  "from": "Gallery/Toolbar/Column/Row/Showcase",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/ex05/Wordle/page/kb/kbrow1/key_U",
+  "query": "Gallery/Demos/Content/ex05/Wordle/page/kb/kbrow1/key_T",
+  "reason": "F12"
+ },
+ {
+  "page": "ex07",
+  "from": "Gallery/Demos/Content/ex07/Match3/Page/Art/Break",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/ex07/Match3/Page/board/tile12/hit",
+  "query": "Gallery/Demos/Content/ex07/Match3/Page/board/tile18/hit",
+  "reason": "F12"
+ },
+ {
+  "page": "motion-layout/layout/inheritance",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/After",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider/Track",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Tabs/markers",
+  "reason": "F13"
+ },
+ {
+  "page": "motion-layout/layout/inheritance",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider/Track",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/Panel/Inner/InnerGo",
+  "reason": "F13"
+ },
+ {
+  "page": "motion-layout/layout/inheritance",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider/Track",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/PowerToggle",
+  "reason": "F13"
+ },
+ {
+  "page": "motion-layout/layout/inheritance",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/Panel/Go",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider/Track",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Tabs/markers",
+  "reason": "F13"
+ },
+ {
+  "page": "motion-layout/layout/inheritance",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/Panel/Inner/InnerGo",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider/Track",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider",
+  "reason": "F13"
+ },
+ {
+  "page": "motion-layout/layout/inheritance",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/PowerToggle",
+  "key": "DPadDown",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider/Track",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/inheritance/InheritedSubtree/BlendSlider",
+  "reason": "F13"
+ },
+ {
+  "page": "motion-layout/layout/wrap",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/wrap/FlowWrap/Page/WrapToggle",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/wrap/FlowWrap/Page/Cloud/T5",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/layout/layout/Content/wrap/FlowWrap/Page/Cloud/T4",
+  "reason": "F12"
+ },
+ {
+  "page": "motion-layout/motion/automatic",
+  "from": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/motion/motion/Content/automatic/AutomaticMotion/Page/DetailsToggle",
+  "key": "DPadUp",
+  "engine": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/motion/motion/Content/automatic/AutomaticMotion/Page/Frame/Rows/Items/Items/grapple/Content/Card-grapple/Select",
+  "query": "Gallery/Demos/Content/motion-layout/MotionLayout/Categories/Content/motion/motion/Content/automatic/AutomaticMotion/Page/Frame/Rows/Items/Items/beacon/Content/Card-beacon/Select",
+  "reason": "F12"
+ },
+ {
+  "page": "radial-menu",
+  "from": "Gallery/Demos/Content/radial-menu/RadialMenu/Body/Scene/Zones/BottomLeft/LauncherCorner/Form1/Commands/Launcher",
+  "key": "DPadRight",
+  "engine": "Gallery/Demos/Content/radial-menu/RadialMenu/Body/Tabs/Presentation/world",
+  "query": "Gallery/Demos/Content/radial-menu/RadialMenu/Body/Tabs/Presentation/character",
+  "reason": "F12"
+ }
+]

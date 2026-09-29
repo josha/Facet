@@ -1707,14 +1707,86 @@ return function(
 						up = { "Up", "DPadUp" },
 						down = { "Down", "DPadDown" },
 					}
+					local toward: { [string]: Vector2 } = {
+						left = V2.new(-1, 0),
+						right = V2.new(1, 0),
+						up = V2.new(0, -1),
+						down = V2.new(0, 1),
+					}
+					local function ringStep(direction: string): (string?, boolean)
+						local d = toward[direction]
+						local entries = {}
+						for _, sector in sectors:peek() do
+							if read(sector.item.enabled) ~= false then
+								table.insert(entries, sector)
+							end
+						end
+						local function aligned(v: Vector2): number
+							return if v.Magnitude > 0 then v.Unit:Dot(d) else -1
+						end
+						local current: Radial.Sector<V>? = nil
+						for _, sector in entries do
+							if sector.key == candidate:peek() then
+								current = sector
+							end
+						end
+						if current == nil then
+							local best, bestKey = 0, nil
+							for _, sector in entries do
+								local score = aligned(V2.new(sector.x, sector.y))
+								if score > best then
+									best, bestKey = score, sector.key
+								end
+							end
+							return bestKey, false
+						end
+						local here = V2.new(current.x, current.y)
+						if read(showCenter) and aligned(-here) >= math.cos(math.rad(45)) then
+							return nil, true
+						end
+						table.sort(entries, function(a, b)
+							return math.atan2(a.x, -a.y) < math.atan2(b.x, -b.y)
+						end)
+						local at = table.find(entries, current) :: number
+						local best, bestKey = 0, nil
+						for _, step in { -1, 1 } do
+							local neighbour = entries[(at - 1 + step) % #entries + 1]
+							if neighbour ~= current then
+								local score = aligned(V2.new(neighbour.x, neighbour.y) - here)
+								if score > best then
+									best, bestKey = score, neighbour.key
+								end
+							end
+						end
+						return bestKey, false
+					end
 					for direction, keys in directionalKeys do
 						ctx.action(panel, "Radial-" .. direction, keys, opened, function()
 							analog = false
 							interacting:set(false)
-							local key = focus.move(direction :: ComposeTypes.FocusDirection)
+							if fallback:peek() then
+								local key = focus.move(direction :: ComposeTypes.FocusDirection)
+								candidate:set(key)
+								naming:set(true)
+								if gui and key and buttons[key] then
+									gui.SelectedObject = buttons[key]
+								end
+								return
+							end
+							local key, centre = ringStep(direction)
+							if centre then
+								candidate:set(nil)
+								if gui then
+									gui.SelectedObject = centerNode
+								end
+								return
+							end
+							if key == nil then
+								return
+							end
 							candidate:set(key)
 							naming:set(true)
-							if gui and key and buttons[key] then
+							if gui and buttons[key] then
 								gui.SelectedObject = buttons[key]
 							end
 						end, { priority = 2200, capture = true, group = "Radial" })

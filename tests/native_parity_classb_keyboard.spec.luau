@@ -201,14 +201,14 @@ t.describe("native parity classb keyboard", function()
 				UI.Button("B")({ label = "B" }),
 			})
 		end)
-		t.expect(ring(world, 10)).toEqual({ "A", "ThumbStop", "B" })
+		t.expect(ring(world, 10)).toEqual({ "A", "V", "B" })
 		world.gui.SelectedObject = find(world.screen, "A")
 		late:set(true)
 		tab(world)
 		t.expect(selected(world)).toBe("Late")
 		tab(world)
-		t.expect(selected(world)).toBe("ThumbStop")
-		t.expect(ring(world, 10)).toEqual({ "A", "Late", "ThumbStop", "B" })
+		t.expect(selected(world)).toBe("V")
+		t.expect(ring(world, 10)).toEqual({ "A", "Late", "V", "B" })
 		world.stop()
 	end)
 
@@ -229,7 +229,7 @@ t.describe("native parity classb keyboard", function()
 		world.stop()
 	end)
 
-	t.it("makes the slider thumb its one selection stop and leaves the engine selection ring in place", function()
+	t.it("makes the slider its one selection stop and leaves the engine selection ring in place", function()
 		local world = setup(function(UI)
 			return UI.Screen("S")({
 				UI.Button("Before")({ label = "Before" }),
@@ -246,10 +246,11 @@ t.describe("native parity classb keyboard", function()
 				t.expect(node.SelectionImageObject).toBeNil()
 			end
 		end
-		t.expect(stops).toEqual({ "ThumbStop" })
+		t.expect(stops).toEqual({})
+		t.expect(slider.Selectable).toBe(true)
 		t.expect(slider.SelectionImageObject).toBeNil()
 		t.expect(find(world.screen, "Before").SelectionImageObject).toBeNil()
-		t.expect(ring(world, 6)).toEqual({ "Before", "ThumbStop" })
+		t.expect(ring(world, 6)).toEqual({ "Before", "Vol" })
 		world.stop()
 	end)
 

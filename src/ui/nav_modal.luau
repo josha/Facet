@@ -44,6 +44,16 @@ return function(ctx: Types.Context): Nav.Surfaces
 			return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
 		end
 	end
+	local function keep(...: unknown): ()
+		for index = 1, select("#", ...) do
+			local content = select(index, ...)
+			if content and type(content) ~= "function" then
+				Compose.cleanup(function()
+					(content :: Instance).Parent = nil
+				end)
+			end
+		end
+	end
 	local function within(node: Instance?, ancestor: Instance): boolean
 		while node do
 			if node == ancestor then
@@ -1029,6 +1039,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		attach = attach,
 		service = service :: (("GuiService") -> GuiService?) & (("UserInputService") -> UserInputService?),
 		within = within,
+		keep = keep,
 		firstSelectable = firstSelectable,
 		preference = preference,
 		selecting = selecting,

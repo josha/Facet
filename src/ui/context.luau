@@ -5,6 +5,7 @@ local Shared = require("./types")
 local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local selection = require("./selection")
+local reservedKeys = require("./reserved_keys")
 local adaptive = require("./adaptive")
 local preferredInput = require("./preferred_input")
 local motion = require("./motion")
@@ -1225,6 +1226,32 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		parent: ComposeTypes.Cell<Instance?>,
 		available: ComposeTypes.Cell<boolean>,
 	}
+	local selected: selection.Selection
+	function ctx.reserveKeys(handler: Shared.ReservedKeyHandler): ()
+		local input = config.userInputService
+		if input == nil then
+			return
+		end
+		Compose.cleanup(reservedKeys.add(input, (Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }, handler))
+	end
+	function ctx.navigationGamepads(): { Enum.UserInputType }
+		local service = config.userInputService
+		local probe = (service :: unknown) :: {
+			GetNavigationGamepads: ((any) -> { Enum.UserInputType })?,
+			GetLastInputType: ((any) -> Enum.UserInputType)?,
+		}
+		if service and probe.GetNavigationGamepads then
+			local pads = (service :: any):GetNavigationGamepads()
+			if #pads > 0 then
+				return pads
+			end
+		end
+		local last = if service and probe.GetLastInputType then (service :: any):GetLastInputType() else nil
+		if last and string.find(last.Name, "^Gamepad") then
+			return { last }
+		end
+		return { Enum.UserInputType.Gamepad1 }
+	end
 	local actionGroups: { [ComposeTypes.Owner]: { [Instance]: { [string]: ActionGroup } } } = setmetatable(
 		{},
 		{ __mode = "k" }
@@ -1316,19 +1343,29 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		local gui = config.guiService
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
+		local stale = false
+		local viaAction, viaInput = false, false
 		local p: Shared.InputActionNativeProps = {
 			Name = name,
 			Type = if settings.direction2D then Enum.InputActionType.Direction2D else Enum.InputActionType.Bool,
 			StateChanged = settings.direction2D :: ((unknown) -> ())?,
 			Pressed = function()
+				if stale or viaInput then
+					return
+				end
+				viaAction = true
 				if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 					onPressed()
 				end
 			end,
+			Released = function()
+				stale = false
+				viaAction = false
+				if settings.onReleased then
+					settings.onReleased()
+				end
+			end,
 		}
-		if settings.onReleased then
-			p.Released = settings.onReleased
-		end
 		local function bind(binding: Shared.ActionBinding): Instance
 			return Host.InputBinding(if type(binding) == "table"
 				then binding
@@ -1351,7 +1388,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			)
 		end
 		local action = Host.InputAction(p)
-		local function enabled(use: ComposeTypes.Use): boolean
+		local enabled = Compose.formula(function(use: ComposeTypes.Use): boolean
 			if selection then
 				use(selection)
 			end
@@ -1359,6 +1396,85 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and use(available)
 				and ctx.read(enabledSource, use) ~= false
 				and ctx.available(node, use)
+		end)
+		local reservedBound: { [string]: boolean } = {}
+		for _, binding in keyCodes :: { Shared.ActionBinding } do
+			local code: unknown = if type(binding) == "string"
+				then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
+				elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
+				else binding
+			local codeName = if code ~= nil then (code :: Enum.KeyCode).Name else nil
+			if codeName and reservedKeys.KEYS[codeName] then
+				reservedBound[codeName] = true
+			end
+		end
+		if next(reservedBound) ~= nil and config.userInputService then
+			ctx.reserveKeys({
+				keys = reservedBound,
+				priority = settings.priority or 2000,
+				sink = settings.sink ~= false,
+				node = node,
+				gui = config.guiService,
+				enabled = function(): boolean
+					return enabled:peek()
+				end,
+				press = function()
+					if viaAction then
+						return
+					end
+					viaInput = true
+					if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
+						onPressed()
+					end
+				end,
+				release = function()
+					local pressed = viaInput
+					viaAction, viaInput = false, false
+					if pressed and settings.onReleased then
+						settings.onReleased()
+					end
+				end,
+			})
+		end
+		local keyInput = config.userInputService
+		local held = function(): boolean
+			return false
+		end
+		if keyInput then
+			local probe = (keyInput :: unknown) :: {
+				IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)?,
+				IsGamepadButtonDown: ((UserInputService, Enum.UserInputType, Enum.KeyCode) -> boolean)?,
+			}
+			function held(): boolean
+				for _, binding in keyCodes :: { Shared.ActionBinding } do
+					local code: unknown = if type(binding) == "string"
+						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
+						elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
+						else binding
+					if typeof(code) == "EnumItem" or type(code) == "table" then
+						local key = code :: Enum.KeyCode
+						if probe.IsGamepadButtonDown then
+							for _, pad in ctx.navigationGamepads() do
+								if keyInput:IsGamepadButtonDown(pad, key) then
+									return true
+								end
+							end
+						end
+						if probe.IsKeyDown and keyInput:IsKeyDown(key) then
+							return true
+						end
+					end
+				end
+				return false
+			end
+			local wasOn = false
+			Compose.watch(function(use: ComposeTypes.Use)
+				local on = use(enabled)
+				if on and not wasOn then
+					stale = held()
+				end
+				wasOn = on
+			end)
 		end
 		local context: InputContext
 		if group then
@@ -1412,7 +1528,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end
 			end
 			local steerable = Compose.formula(function(use: ComposeTypes.Use): boolean
-				return enabled(use) and use(selection) ~= nil
+				return use(enabled) and use(selection) ~= nil
 			end)
 			local function nextSelection(target: GuiObject, direction: string): GuiObject?
 				if direction == "Up" then
@@ -1444,6 +1560,10 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						if nextSelection(target, direction) == target then
 							setNextSelection(target, direction, previous[direction])
 						end
+						local authored = selected.pinned[target]
+						if authored and nextSelection(target, direction) ~= target then
+							authored[direction] = nil
+						end
 					end
 				end
 				pinned = nil
@@ -1454,31 +1574,41 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				if target == pinned then
 					return
 				end
+				if not held() then
+					viaAction, viaInput = false, false
+				end
 				release()
 				if target then
 					pinned = target
+					local authored = selected.pinned[target] or {}
+					selected.pinned[target] = authored
 					for _, direction in directions do
 						previous[direction] = nextSelection(target, direction)
+						if previous[direction] ~= target then
+							authored[direction] = previous[direction]
+						end
 						setNextSelection(target, direction, target)
 					end
 				end
 			end)
 			Compose.cleanup(release)
 			runtime.connect(inputService, "InputBegan", function(event: InputObject)
-				if event.KeyCode and steering[event.KeyCode.Name] and steerable:peek() then
+				if event.KeyCode and steering[event.KeyCode.Name] and steerable:peek() and not viaAction then
+					viaInput = true
 					if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 						onPressed()
 					end
 				end
 			end)
-			if settings.onReleased then
-				local released = settings.onReleased
-				runtime.connect(inputService, "InputEnded", function(event: InputObject)
-					if event.KeyCode and steering[event.KeyCode.Name] then
+			local released = settings.onReleased
+			runtime.connect(inputService, "InputEnded", function(event: InputObject)
+				if event.KeyCode and steering[event.KeyCode.Name] then
+					viaAction, viaInput = false, false
+					if released then
 						released()
 					end
-				end)
-			end
+				end
+			end)
 		end
 		return action, context
 	end
@@ -1540,12 +1670,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return dispose, art :: GuiObject?
 	end
 
-	local selected: selection.Selection
 	function ctx.responder(root: Instance, options: Shared.ResponderOptions?): Shared.Responder
 		return selected.responder(root, options)
 	end
 	function ctx.spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
 		return selected.spaceActivates(node)
+	end
+	function ctx.focusQuery(from: GuiObject?): Shared.FocusQuery
+		return selected.query(from)
+	end
+	function ctx.focusPast(origin: GuiObject, direction: Shared.FocusDirection): GuiObject?
+		return selected.past(origin, direction)
 	end
 	selected = selection(ctx)
 	track = selected.track

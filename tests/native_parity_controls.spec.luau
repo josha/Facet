@@ -236,7 +236,7 @@ t.describe("native parity controls", function()
 				})
 			end)
 			local control = find(world.node, "Control")
-			world.gui.SelectedObject = if name == "Slider" then find(control, "ThumbStop") else control
+			world.gui.SelectedObject = control
 			local increase = action(world.root, "Increase")
 			increase.Pressed.fire()
 			local held = value:peek()
@@ -248,7 +248,7 @@ t.describe("native parity controls", function()
 			t.expect(value:peek()).toBe(stopped)
 			t.expect(world.engine.heartbeat.count() <= 1).toBe(true)
 			presented:set(false)
-			world.gui.SelectedObject = if name == "Slider" then find(control, "Track") else control
+			world.gui.SelectedObject = control
 			world.engine.heartbeat.fire(1)
 			t.expect(value:peek()).toBe(stopped)
 			world.stop()
@@ -382,18 +382,18 @@ t.describe("native parity controls", function()
 		end
 		local track = find(world.node, "Track")
 		track.AbsoluteSize = V2(world, 200, 44)
-		t.expect(find(track, "ThumbStop").Selectable).toBe(false)
+		t.expect(find(world.node, "Slider").Selectable).toBe(false)
 		t.expect(find(track, "Drag").Enabled).toBe(false)
 		find(track, "Drag").DragStart.fire(V2(world, 180, 10))
 		find(track, "Drag").DragContinue.fire(V2(world, 190, 10))
-		world.gui.SelectedObject = track:FindFirstChild("ThumbStop")
+		world.gui.SelectedObject = find(world.node, "Slider")
 		t.expect(#contexts(world.root, "Increase")).toBe(0)
 		t.expect(level:peek()).toBe(2)
 		t.expect(stars:peek()).toBe(2)
 		t.expect(slide:peek()).toBe(0.5)
 		enabled:set(true)
-		t.expect(find(track, "ThumbStop").Selectable).toBe(true)
-		world.gui.SelectedObject = track:FindFirstChild("ThumbStop")
+		t.expect(find(world.node, "Slider").Selectable).toBe(true)
+		world.gui.SelectedObject = find(world.node, "Slider")
 		action(world.root, "Increase").Pressed.fire()
 		t.expect(slide:peek() > 0.5).toBe(true)
 		world.stop()
@@ -1300,6 +1300,119 @@ t.describe("native parity controls", function()
 			world.stop()
 		end
 	)
+	t.it("the radial D-pad crosses through the centre and reaches every item of a corner arc", function()
+		local function radial(spec: { [string]: any }): (any, (string) -> ())
+			local world = setup(function(UI)
+				return UI.RadialMenu(spec)
+			end)
+			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+			return world,
+				function(name: string)
+					for _, node in world.root:GetDescendants() do
+						if node:IsA("InputContext") and node.Enabled and node:FindFirstChild(name) then
+							node:FindFirstChild(name).Pressed.fire()
+							return
+						end
+					end
+					error("no enabled " .. name)
+				end
+		end
+		local function items(ids: { string }, slots: boolean): { any }
+			local out = {}
+			for _, id in ids do
+				table.insert(out, {
+					id = id,
+					slot = if slots then id else nil,
+					label = id,
+					completion = "stay",
+					onSelect = function() end,
+				})
+			end
+			return out
+		end
+		local world, fire = radial({
+			isPresented = Compose.cell(true),
+			distribution = "compass",
+			center = "close",
+			items = items({ "N", "E", "S", "W" }, true),
+		})
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		fire("Radial-left")
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		fire("Radial-left")
+		t.expect(world.gui.SelectedObject.Name).toBe("W")
+		fire("Radial-right")
+		fire("Radial-up")
+		t.expect(world.gui.SelectedObject.Name).toBe("N")
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		local E = world.engine.types.Enum
+		local down: { [string]: boolean } = {}
+		world.input.IsKeyDown = function(_, key)
+			return down[key.Name] == true
+		end
+		local function action(name: string): any
+			for _, node in world.root:GetDescendants() do
+				if node:IsA("InputContext") and node.Enabled and node:FindFirstChild(name) then
+					return node:FindFirstChild(name)
+				end
+			end
+			error("no enabled " .. name)
+		end
+		local function key(began: boolean)
+			down.DPadLeft = began or nil
+			local event = { KeyCode = E.KeyCode.DPadLeft, UserInputType = E.UserInputType.Gamepad1 }
+			if began then
+				world.input.InputBegan.fire(event, true)
+			else
+				world.input.InputEnded.fire(event, true)
+			end
+		end
+		local left = action("Radial-left")
+		key(true)
+		left.Pressed.fire()
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		key(false)
+		left.Released.fire()
+		fire("Radial-right")
+		action("Radial-right").Released.fire()
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		down.DPadLeft = true
+		left.Pressed.fire()
+		key(true)
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		left.Released.fire()
+		key(false)
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		left.Pressed.fire()
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		key(true)
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		key(false)
+		world.stop()
+		local arc, press = radial({
+			isPresented = Compose.cell(true),
+			preset = "bottom-left",
+			items = items({ "look", "pack", "wave" }, false),
+		})
+		local reached = {}
+		for _ = 1, 3 do
+			for _, direction in { "Radial-right", "Radial-up", "Radial-up", "Radial-down", "Radial-left" } do
+				press(direction)
+				local now = arc.gui.SelectedObject
+				if now then
+					reached[now.Name] = true
+				end
+			end
+		end
+		t.expect(reached.look and reached.pack and reached.wave).toBe(true)
+		arc.stop()
+	end)
+
 	t.it("combines table row actions with reorder handles, editing, refresh and disposal", function()
 		local source, editing = Compose.cell(records(4)), Compose.cell(false)
 		local deleted, reorders = {}, {}

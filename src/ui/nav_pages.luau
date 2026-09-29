@@ -1690,6 +1690,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 						previousTop = top
 					end)
+					surfaces.keep(destination.content)
 					return panel
 				end,
 			}),

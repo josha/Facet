@@ -17,6 +17,7 @@ export type Adjust = {
 }
 export type Helpers = {
 	enabled: (Spec | NumberSpec, ComposeTypes.Use?) -> boolean,
+	stopEnabled: (Spec | NumberSpec, ComposeTypes.Use?) -> boolean,
 	writable: (unknown) -> boolean,
 	attributes: (Instance, Shared.Attributes) -> Instance,
 	valueAttributes: (GuiObject, NumberSpec, valueModel.Model) -> (),
@@ -261,7 +262,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			return Host.Frame(native)
 		end
 		native.BackgroundTransparency = 1
-		native.Selectable = enabledValue(spec)
 		table.insert(native, mark)
 		table.insert(native, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
 		return Host.Frame(native)
@@ -317,6 +317,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local function pointerDrag(use: ComposeTypes.Use): boolean
+			return h.enabled(spec, use) and use(preferred) ~= E.PreferredInput.Gamepad
+		end
 		local degrees = function(use: ComposeTypes.Use?): number
 			local turn = read(spec.rotation, use)
 			assert(turn == nil or finite(turn), "Facet UI.Slider: rotation must be a finite number of degrees")
@@ -508,7 +511,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local detector = Host.UIDragDetector "Drag" {
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-			Enabled = enabledValue(spec),
+			Enabled = pointerDrag,
 			DragStart = function(position)
 				if not h.enabled(spec) then
 					return
@@ -601,8 +604,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local thumbStop = not isRange and (spec.thumb or "always") == "always" and spec.thumbContent == nil
 		local handles: { [Thumb]: Frame } = {}
-		local engagedOf: { [Thumb]: ComposeTypes.Cell<boolean> } =
-			{ lower = Compose.cell(false), upper = Compose.cell(false) }
 		if isRange then
 			for index = 1, 2 do
 				local thumb: Thumb = if index == 1 then "lower" else "upper"
@@ -628,20 +629,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return {
 						Host.UIDragDetector "Drag" {
 							ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-							Enabled = function(use: ComposeTypes.Use)
-								return h.enabled(spec, use)
-							end,
+							Enabled = pointerDrag,
 							DragStart = function()
 								if not h.enabled(spec) then
-									return
-								end
-								local selector = ctx.config.services.GuiService
-								if
-									read(preferred) == E.PreferredInput.Gamepad
-									and selector ~= nil
-									and selector.SelectedObject == handle
-								then
-									engagedOf[thumb]:set(true)
 									return
 								end
 								begin(thumb)
@@ -677,7 +667,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return degrees(use)
 				end
 				else nil,
-			Selectable = if isRange or thumbStop then false else enabledValue(spec),
 		}
 		for _, child in trackChildren do
 			table.insert(trackProps, child)
@@ -688,30 +677,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			hovered:set(use(state) == E.GuiState.Hover)
 		end)
 		local trackLabel = (if spec.row then spec.row.title else nil) or spec.label
-		if trackLabel ~= nil then
-			h.attributes(track, {
-				AccessibleLabel = (function(use: ComposeTypes.Use): string
-					return read(trackLabel, use) or ""
-				end) :: Shared.Value<Shared.AttributeValue?>,
-			})
-		end
-		if thumbStop then
-			h.attributes(track:FindFirstChild("ThumbStop") :: Instance, {
-				AccessibleLabel = (function(use: ComposeTypes.Use): string
-					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
-					return if named and named ~= "" then named else model.format(single(use))
-				end) :: Shared.Value<Shared.AttributeValue?>,
-			})
-		end
-		local gui = ctx.config.services.GuiService
-		local selection = if gui then ctx.observe.SelectedObject(gui) else nil
-		if selection then
-			local observed = selection
-			Compose.watch(function(use: ComposeTypes.Use)
-				local target = use(observed) :: Instance?
-				selectedInside:set(target ~= nil and (target == track or target:IsDescendantOf(track)))
-			end)
-		end
 		if input then
 			local first = true
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -728,73 +693,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					cancel()
 				end
 			end)
-		end
-		if isRange then
-			for index = 1, 2 do
-				local thumb: Thumb = if index == 1 then "lower" else "upper"
-				local handle = handles[thumb]
-				local engaged = engagedOf[thumb]
-				local proxy: NumberSpec = {
-					value = function(use: ComposeTypes.Use)
-						local current = pair(use)
-						return if thumb == "lower" then current.lower else current.upper
-					end,
-					onChange = function() end,
-				}
-				local function gamepad(use: ComposeTypes.Use?): boolean
-					return read(preferred, use) == E.PreferredInput.Gamepad
-				end
-				h.adjustment(
-					handle,
-					proxy,
-					function(direction)
-						local current = pair()
-						local base = if thumb == "lower" then current.lower else current.upper
-						if moveThumb(thumb, model.stepped(base, direction)) then
-							commit(thumb)
-						end
-					end,
-					function()
-						cancel()
-						engaged:set(false)
-					end,
-					model.min,
-					model.max,
-					{
-						vertical = vertical,
-						guard = true,
-						arrows = function(use: ComposeTypes.Use)
-							return not gamepad(use) or use(engaged)
-						end,
-					}
-				)
-				if selection then
-					local observed = selection
-					Compose.watch(function(use: ComposeTypes.Use)
-						if use(observed) ~= handle then
-							engaged:set(false)
-						end
-					end)
-				end
-				h.attributes(handle, {
-					AccessibleLabel = function(use: ComposeTypes.Use): string
-						local named = read(spec.label, use)
-						local side = if thumb == "lower" then "lower" else "upper"
-						return if named and named ~= "" then `{named} {side}` else `Range {side}`
-					end,
-					value = function(use: ComposeTypes.Use): number
-						return read(proxy.value, use)
-					end,
-					minimum = model.min,
-					maximum = model.max,
-				})
-			end
-		else
-			h.adjustment(track, (spec :: unknown) :: NumberSpec, function(direction)
-				if proposeSingle(model.stepped(single(), direction)) then
-					commit("value")
-				end
-			end, cancel, model.min, model.max, { vertical = vertical, guard = true })
 		end
 		local readout = ctx.text({
 			Name = "Value",
@@ -873,6 +771,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local native = ctx.props(spec, SLIDER_KEYS, {
 			BackgroundTransparency = 1,
+			Selectable = function(use: ComposeTypes.Use): boolean
+				return h.stopEnabled(spec, use)
+			end,
 			Size = if vertical then D2.new(0, 0, 1, 0) else D2.new(1, 0, 0, 0),
 			AutomaticSize = if vertical then E.AutomaticSize.X else E.AutomaticSize.Y,
 		})
@@ -907,6 +808,112 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			layout.HorizontalAlignment = E.HorizontalAlignment.Center
 		elseif not spec.row then
 			assert(node:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
+		end
+		local gui = ctx.config.services.GuiService
+		local selection = if gui then ctx.observe.SelectedObject(gui) else nil
+		if selection then
+			local observed = selection
+			Compose.watch(function(use: ComposeTypes.Use)
+				selectedInside:set(use(observed) == node)
+			end)
+		end
+		local function relative(part: Instance): string
+			local names = {}
+			local at: Instance? = part
+			while at and at ~= node do
+				table.insert(names, 1, at.Name)
+				at = at.Parent
+			end
+			return table.concat(names, "/")
+		end
+		if not isRange then
+			h.attributes(node, {
+				AccessibleLabel = (function(use: ComposeTypes.Use): string
+					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
+					return if named and named ~= "" then named else model.format(single(use))
+				end) :: Shared.Value<Shared.AttributeValue?>,
+			})
+			node:SetAttribute(
+				"FacetFocusPart",
+				relative(if thumbStop then track:FindFirstChild("ThumbStop") :: Instance else track)
+			)
+			h.adjustment(node, (spec :: unknown) :: NumberSpec, function(direction)
+				if proposeSingle(model.stepped(single(), direction)) then
+					commit("value")
+				end
+			end, cancel, model.min, model.max, { vertical = vertical, guard = true })
+		end
+		if isRange then
+			local adjusting: ComposeTypes.Cell<Thumb> = Compose.cell("lower" :: Thumb)
+			if selection then
+				local observed = selection
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(observed) ~= node then
+						adjusting:set("lower")
+					end
+				end)
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				local thumb: Thumb = if use(adjusting) == "upper" then "upper" else "lower"
+				node:SetAttribute("adjusting", thumb)
+				node:SetAttribute("FacetFocusPart", relative(handles[thumb]))
+			end)
+			h.attributes(node, {
+				AccessibleLabel = function(use: ComposeTypes.Use): string
+					local named = read(spec.label, use)
+					local side = use(adjusting) :: string
+					return if named and named ~= "" then `{named} {side}` else `Range {side}`
+				end,
+			})
+			h.adjustment(
+				node,
+				(spec :: unknown) :: NumberSpec,
+				function(direction)
+					local thumb: Thumb = adjusting:peek()
+					local current = pair()
+					local base = if thumb == "lower" then current.lower else current.upper
+					if moveThumb(thumb, model.stepped(base, direction)) then
+						commit(thumb)
+					end
+				end,
+				cancel,
+				model.min,
+				model.max,
+				{
+					vertical = vertical,
+					guard = true,
+					arrows = function(use: ComposeTypes.Use, direction: number): boolean
+						local current = pair(use)
+						local thumb: Thumb = if use(adjusting) == "upper" then "upper" else "lower"
+						local base = if thumb == "lower" then current.lower else current.upper
+						return if direction < 0 then base > model.min else base < model.max
+					end,
+					extra = function(active: (ComposeTypes.Use) -> boolean)
+						ctx.action(node, "SwitchThumb", { E.KeyCode.ButtonA, E.KeyCode.Return }, active, function()
+							local keyboard = ctx.config.services.UserInputService
+							if keyboard and keyboard.GetFocusedTextBox and keyboard:GetFocusedTextBox() then
+								return
+							end
+							adjusting:set(if adjusting:peek() == "lower" then "upper" else "lower")
+						end, { priority = 5000 })
+					end,
+				}
+			)
+			for index = 1, 2 do
+				local thumb: Thumb = if index == 1 then "lower" else "upper"
+				h.attributes(handles[thumb], {
+					AccessibleLabel = function(use: ComposeTypes.Use): string
+						local named = read(spec.label, use)
+						return if named and named ~= "" then `{named} {thumb}` else `Range {thumb}`
+					end,
+					value = function(use: ComposeTypes.Use): number
+						local current = pair(use)
+						return if thumb == "lower" then current.lower else current.upper
+					end,
+					minimum = model.min,
+					maximum = model.max,
+				})
+			end
 		end
 		if isRange then
 			h.attributes(node, {
