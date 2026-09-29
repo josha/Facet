@@ -617,6 +617,26 @@ t.describe("native radial interaction policies", function()
 		t.expect(stage.isDestroyed()).toBe(true)
 		runtime:dispose()
 	end)
+	t.it("a launcher tap leaves the menu open when its ring places an action under the finger", function()
+		local count = 0
+		local world = setup({
+			isPresented = Compose.cell(false),
+			distribution = "compass",
+			items = compass(function()
+				count += 1
+			end),
+		})
+		local launcher, touch = world.find("Launcher"), pointer(world, 320, 110)
+		launcher.InputBegan.fire(touch)
+		touch.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(touch)
+		launcher.Activated.fire(touch)
+		t.expect(count).toBe(0)
+		t.expect(world.opened:peek()).toBe(true)
+		world.find("N").Activated.fire(pointer(world, 320, 110))
+		t.expect(count).toBe(1)
+		world.stop()
+	end)
 	t.it("NRAD-14 launcher press slide releases directly into an action", function()
 		local count = 0
 		local world = setup({
@@ -1611,6 +1631,80 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(world.find("lantern"):FindFirstChild("LeadingIcon", true).Visible).toBe(true)
 		t.expect(title("stow").Text).toBe("")
 		t.expect(title("go").Text).toBe("Go")
+		world.stop()
+	end)
+end)
+
+t.describe("touch radial label placement", function()
+	t.it("keeps held labels above lower and side items, with the pointer layout unchanged", function()
+		for _, slot in { "E", "SE", "S", "SW", "W" } do
+			local world = setup({
+				distribution = "compass",
+				items = {
+					{
+						id = slot,
+						slot = slot,
+						label = "Workshop",
+						icon = "settings",
+						labelStyle = "icon",
+						onSelect = function() end,
+					},
+				},
+			})
+			local V2 = world.engine.types.Vector2
+			world.find("Modal").AbsoluteSize = V2.new(390, 760)
+			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+			local item, preview = world.find(slot), world.find("SelectionPreview")
+			local x, y = item.Position.X.Offset, item.Position.Y.Offset
+			local held = pointer(world, x, y)
+			world.find("RadialPanel").InputBegan.fire(held)
+			world.step(0.5)
+			t.expect(preview.Text).toBe("Workshop")
+			local bottom = preview.Position.Y.Offset + (1 - preview.AnchorPoint.Y) * preview.Size.Y.Offset
+			t.expect(bottom < y - 22).toBe(true)
+			local left = preview.Position.X.Offset - preview.AnchorPoint.X * preview.Size.X.Offset
+			t.expect(left >= 8 and left + preview.Size.X.Offset <= 382).toBe(true)
+			world.input.InputEnded.fire(held)
+			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+			world.input.GetLastInputType = function()
+				return world.engine.types.Enum.UserInputType.MouseMovement
+			end
+			item.MouseEnter.fire()
+			if slot == "S" then
+				t.expect(preview.Position.Y.Offset > y).toBe(true)
+			end
+			world.stop()
+		end
+	end)
+end)
+
+t.describe("touch radial label bounds", function()
+	t.it("falls back below a top-edge item when its label cannot fit above", function()
+		local world = setup({
+			anchor = { x = 195, y = 8 },
+			gestureSelection = "direction",
+			distribution = "compass",
+			items = {
+				{
+					id = "N",
+					slot = "N",
+					label = "Beacon",
+					icon = "flag",
+					labelStyle = "icon",
+					onSelect = function() end,
+				},
+			},
+		})
+		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
+		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+		local item, preview = world.find("N"), world.find("SelectionPreview")
+		local held = pointer(world, item.Position.X.Offset, item.Position.Y.Offset)
+		world.find("RadialPanel").InputBegan.fire(held)
+		world.step(0.5)
+		t.expect(preview.Text).toBe("Beacon")
+		local top = preview.Position.Y.Offset - preview.AnchorPoint.Y * preview.Size.Y.Offset
+		t.expect(top > item.Position.Y.Offset).toBe(true)
+		t.expect(top >= 8 and top + preview.Size.Y.Offset <= 752).toBe(true)
 		world.stop()
 	end)
 end)

@@ -1426,9 +1426,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Name = "NavigationStack",
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
-			ClipsDescendants = function(use: ComposeTypes.Use)
-				return frontOffset(use) > 0
-			end,
+			ClipsDescendants = moving,
 			Compose.LayerStack({
 				from = displayed,
 				retention = "all",

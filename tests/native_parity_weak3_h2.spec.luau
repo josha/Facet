@@ -100,9 +100,9 @@ end
 local compassSlots = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }
 
 t.describe("native parity weak3 h2: radial content fit", function()
-	t.it("defaults to both axes and matches an explicit both fit", function()
+	t.it("defaults to radial fitting and matches an explicit radial fit", function()
 		local results: { [string]: any } = {}
-		for _, mode in { "default", "both", "none" } do
+		for _, mode in { "default", "radial", "none" } do
 			local world = radialWorld({
 				distribution = "compass",
 				ringWidth = 180,
@@ -112,12 +112,12 @@ t.describe("native parity weak3 h2: radial content fit", function()
 			results[mode] = paintOf(world, "N")
 			world.stop()
 		end
-		local default, both, none = results.default, results.both, results.none
-		t.expect(default.thickness).toBe(both.thickness)
-		t.expect(default.w).toBe(both.w)
-		t.expect(default.h).toBe(both.h)
+		local default, radial, none = results.default, results.radial, results.none
+		t.expect(default.thickness).toBe(radial.thickness)
+		t.expect(default.w).toBe(radial.w)
+		t.expect(default.h).toBe(radial.h)
 		t.expect(default.thickness < none.thickness).toBe(true)
-		t.expect(default.extent < none.extent - 1).toBe(true)
+		t.expect(math.abs(default.extent - none.extent) < 1.5).toBe(true)
 	end)
 	t.it("offers independent radial and angular axes and an unchanged full-ring none mode", function()
 		local results: { [string]: any } = {}

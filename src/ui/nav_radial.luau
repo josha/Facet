@@ -2,6 +2,7 @@
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion").reduced
 local geometry = require("./nav_radial_geometry")
+local placement = require("./overlay_placement")
 local adaptive = require("./adaptive")
 local Types = require("./types")
 local Radial = require("./radial_types")
@@ -59,6 +60,8 @@ return function(
 	local build: Radial.RadialMenuBuilder = function<V>(spec: Radial.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
 
+		local input = surfaces.service("UserInputService")
+		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local distant = ctx.tenFoot()
 		local function painted(use: ComposeTypes.Use?): number
 			return if distant(use) then 32 * adaptive.TEN_FOOT_SCALE else 32
@@ -81,8 +84,8 @@ return function(
 		local follow = choice(spec.follow, "idle", { "idle", "always", "fixed" }, "follow")
 		local gestureSelection =
 			choice(spec.gestureSelection, "bounded", { "bounded", "direction" }, "gestureSelection")
-		local contentFit: Radial.ContentFit = spec.contentFit or "both"
-		choice(contentFit, "both", { "both", "radial", "angular", "none" }, "contentFit")
+		local contentFit: Radial.ContentFit = spec.contentFit or "radial"
+		choice(contentFit, "radial", { "both", "radial", "angular", "none" }, "contentFit")
 		choice(spec.navigation, "replace", { "replace", "expand" }, "navigation")
 		choice(spec.expansion, "fan", { "fan", "ring" }, "expansion")
 		choice(spec.center, "back", { "back", "root", "close", "content", "empty" }, "center")
@@ -160,6 +163,7 @@ return function(
 		local suppressedKey: string?
 		local suppressedSource: string?
 		local openedByLauncher = false
+		local launcherGesture = false
 		local aimPointer: ((Vector3, boolean?, boolean?) -> Radial.Sector<V>? | false)?
 		local aimAnalog: ((Vector2) -> ())?
 		local candidateSector: (() -> Radial.Sector<V>?)?
@@ -169,7 +173,7 @@ return function(
 			if inspectedUntil == math.huge then
 				inspectedUntil = os.clock() + 0.3
 			end
-			capture, analog = nil, false
+			capture, analog, launcherGesture = nil, false, false
 			interacting:set(false)
 			naming:set(false)
 			holding:pause()
@@ -319,13 +323,14 @@ return function(
 		local function isPointer(input: InputObject): boolean
 			return input.UserInputType == E.UserInputType.MouseButton1 or input.UserInputType == E.UserInputType.Touch
 		end
-		local function beginPointer(input: InputObject, onPanel: boolean?)
+		local function beginPointer(input: InputObject, onPanel: boolean?, fromLauncher: boolean?)
 			if not capture and opened:peek() and isPointer(input) and aimPointer then
 				suppressedInput, suppressedUntil, inspectedUntil = nil, nil, nil
 				if aimPointer(input.Position, false, true) == false then
 					return
 				end
 				capture, pressedAt, heldAt = input, if onPanel then input.Position else nil, input.Position
+				launcherGesture = fromLauncher == true
 				if input.UserInputType == E.UserInputType.Touch then
 					holding:restart()
 				end
@@ -425,7 +430,7 @@ return function(
 						if not opened:peek() and isPointer(input) then
 							open()
 							openedByLauncher = opened:peek()
-							beginPointer(input)
+							beginPointer(input, false, true)
 						end
 					end,
 					onActivate = function(input: InputObject?)
@@ -1401,6 +1406,26 @@ return function(
 								near = sector
 							end
 						end
+						if near and preferred and use(preferred) == E.PreferredInput.Touch then
+							local room = use(viewport)
+							local target = math.max(44, near.size)
+							local box = placement.solve({
+								source = {
+									x = at.X + near.x - target / 2,
+									y = at.Y + near.y - target / 2,
+									w = target,
+									h = target,
+								},
+								size = {
+									w = math.min(240, math.max(0, room.X - 16)),
+									h = ctx.metric("typography.caption.size", use) + 4,
+								},
+								safe = { x = 8, y = 8, w = math.max(0, room.X - 16), h = math.max(0, room.Y - 16) },
+								edge = "top",
+								gap = ctx.metric("space.s", use),
+							})
+							return D2.fromOffset(box.x + box.w / 2, box.y + box.h), V2.new(0.5, 1)
+						end
 						local angle = math.rad(if near then near.angle else geometry.arc(spec.preset or "donut") + 45)
 						local dx, dy = math.sin(angle), -math.cos(angle)
 						local reach = if near
@@ -1636,7 +1661,8 @@ return function(
 						end
 						local still = pressedAt and (input.Position - pressedAt).Magnitude < 8
 						local outside = still and beyond(pressedAt :: Vector3) and beyond(input.Position)
-						local sector = if outside then nil else assert(aimPointer)(input.Position, true)
+						local launcherTap = launcherGesture and heldAt and (input.Position - heldAt).Magnitude < 14
+						local sector = if outside or launcherTap then nil else assert(aimPointer)(input.Position, true)
 						cancel()
 						if outside then
 							close()

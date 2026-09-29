@@ -125,7 +125,13 @@ local function galleryWorld(options: any?): any
 		worldTarget = engine.new("Folder"),
 		guiService = gui,
 		runService = { Heartbeat = engine.heartbeat },
-		selection = Compose.cell(opts.initial or "all-controls"),
+		selection = Compose.cell(opts.initial or (if opts.fixtures then "all-controls" else "garage")),
+		demos = if opts.fixtures
+			then {
+				{ id = "all-controls", title = "All controls", kind = "fixture", module = "all_controls" },
+				{ id = "collections", title = "Collections", kind = "fixture", module = "collections" },
+			}
+			else nil,
 		theme = Compose.cell(neutral),
 		themeMode = Compose.cell(neutral.style.defaultTheme),
 		packages = { Neutral = neutral },
@@ -183,7 +189,13 @@ local function demoPanels(g: any): { string }
 	end
 	local names = {}
 	for _, node in g.root:GetDescendants() do
-		if ids[node.Name] and node:IsA("Frame") and node.Parent and node.Parent.Name == "Content" then
+		if
+			ids[node.Name]
+			and node:IsA("Frame")
+			and node.Parent
+			and node.Parent.Name == "Content"
+			and node.Parent.Parent.Name == "Demos"
+		then
 			table.insert(names, node.Name)
 		end
 	end
@@ -382,8 +394,8 @@ t.describe("native parity weaker gallery", function()
 		t.expect(ctx.theme:peek()).toBe(ctx.packages.Neutral)
 		t.expect(ctx.themeMode:peek()).toBe(ctx.packages.Neutral.style.defaultTheme)
 		t.expect(find(g.root, "StyleLink").StyleSheet).toBe(g.sheet)
-		t.expect(ctx.selection:peek()).toBe("all-controls")
-		t.expect(ctx.active:peek()).toBe("all-controls")
+		t.expect(ctx.selection:peek()).toBe("garage")
+		t.expect(ctx.active:peek()).toBe("garage")
 		t.expect(ctx.errorMessage:peek()).toBe(nil)
 		local picker = find(find(g.root, "Toolbar"), "Showcase")
 		local function shown(): string
@@ -397,8 +409,8 @@ t.describe("native parity weaker gallery", function()
 			end
 			return ""
 		end
-		t.expect(shown()).toBe("All controls")
-		t.expect(table.concat(demoPanels(g), ",")).toBe("all-controls")
+		t.expect(shown()).toBe("Garage")
+		t.expect(table.concat(demoPanels(g), ",")).toBe("garage")
 		local visited = {}
 		for _ = 1, #catalogue.list() do
 			local id = ctx.selection:peek()
@@ -415,23 +427,23 @@ t.describe("native parity weaker gallery", function()
 			table.insert(order, demo.id)
 		end
 		t.expect(table.concat(visited, ",")).toBe(table.concat(order, ","))
-		t.expect(ctx.selection:peek()).toBe("all-controls")
-		t.expect(shown()).toBe("All controls")
+		t.expect(ctx.selection:peek()).toBe("garage")
+		t.expect(shown()).toBe("Garage")
 		t.expect(ctx.themeName:peek()).toBe("Neutral")
 		g.stop()
 	end)
 
-	t.it("apps2-102 catalogue offers ten unique demos with real registered modules and one tab each", function()
+	t.it("apps2-102 catalogue offers five unique demos with real registered modules and one tab each", function()
 		local demos = catalogue.list()
-		t.expect(#demos).toBe(10)
-		t.expect(demos[1].id).toBe("all-controls")
-		t.expect(demos[1].module).toBe("all_controls")
+		t.expect(#demos).toBe(5)
+		t.expect(demos[1].id).toBe("garage")
+		t.expect(demos[1].module).toBe("08_garage")
 		local seen: { [string]: boolean } = {}
 		for _, demo in demos do
 			t.expect(seen[demo.id]).toBe(nil)
 			seen[demo.id] = true
 		end
-		for _, id in { "collections", "motion-layout", "radial-menu", "ex02", "ex03", "ex05", "ex06", "ex07" } do
+		for _, id in { "garage", "sipworks", "hud", "ex02", "arcade" } do
 			t.expect(seen[id]).toBe(true)
 		end
 		local registry = fs.readFile("examples/gallery/scenarios/init.luau")
@@ -456,7 +468,7 @@ t.describe("native parity weaker gallery", function()
 				table.insert(tabs, node.Name)
 			end
 		end
-		t.expect(#tabs).toBe(10)
+		t.expect(#tabs).toBe(5)
 		for _, id in tabs do
 			t.expect(seen[id]).toBe(true)
 		end
@@ -473,19 +485,19 @@ t.describe("native parity weaker gallery", function()
 			local answer = gallery.dispatch(ctx, "showNext", 1)
 			t.expect(answer.mounted).toBe(answer.current)
 		end
-		t.expect(ctx.selection:peek()).toBe("all-controls")
+		t.expect(ctx.selection:peek()).toBe("garage")
 		g.stop()
 		t.expect(#g.target:GetChildren()).toBe(0)
 		local broken = galleryWorld({
 			load = function(kind: string, name: string)
-				if name == "collections" then
+				if name == "14_sipworks" then
 					error("Unable to require: collections is not a valid member of FacetScenarios")
 				end
 				return load(kind, name)
 			end,
 		})
-		local answer = gallery.dispatch(broken.ctx, "show", "collections")
-		t.expect(answer.current).toBe("collections")
+		local answer = gallery.dispatch(broken.ctx, "show", "sipworks")
+		t.expect(answer.current).toBe("sipworks")
 		t.expect(answer.mounted).toBe(nil)
 		t.expect(broken.ctx.errorMessage:peek() ~= nil).toBe(true)
 		t.expect(find(broken.root, "DemoFailure") ~= nil).toBe(true)
@@ -496,7 +508,7 @@ t.describe("native parity weaker gallery", function()
 		broken.stop()
 	end)
 
-	t.it("apps-193 collections is the next peer tab after all controls in the one demo list", function()
+	t.it("apps-193 Sipworks is the next peer tab after garage in the one demo list", function()
 		local g = galleryWorld()
 		find(find(g.root, "Toolbar"), "Showcase").Activated.fire(input(g, "gamepad"))
 		local rows = {}
@@ -505,15 +517,15 @@ t.describe("native parity weaker gallery", function()
 				rows[string.sub(node.Name, 6)] = node
 			end
 		end
-		local first, collections = rows["all-controls"], rows.collections
+		local first, collections = rows["garage"], rows.sipworks
 		t.expect(collections.Parent).toBe(first.Parent)
 		t.expect(collections.LayoutOrder).toBe(first.LayoutOrder + 1)
 		t.expect(collections.Selectable).toBe(true)
 		t.expect(collections.Visible).toBe(true)
 		collections.Activated.fire(input(g, "gamepad"))
-		t.expect(g.ctx.selection:peek()).toBe("collections")
-		t.expect(g.ctx.active:peek()).toBe("collections")
-		t.expect(table.concat(demoPanels(g), ",")).toBe("collections")
+		t.expect(g.ctx.selection:peek()).toBe("sipworks")
+		t.expect(g.ctx.active:peek()).toBe("sipworks")
+		t.expect(table.concat(demoPanels(g), ",")).toBe("sipworks")
 		g.stop()
 	end)
 	t.it("apps2-195 leaving the world item disposes its scene at once and leaves no frame work behind", function()
@@ -690,7 +702,7 @@ t.describe("native parity weaker gallery", function()
 	)
 
 	t.it("collections-109 the gallery page context builds, ticks and disposes the mail rows", function()
-		local g = galleryWorld()
+		local g = galleryWorld({ fixtures = true })
 		gallery.dispatch(g.ctx, "show", "collections")
 		t.expect(g.ctx.active:peek()).toBe("collections")
 		t.expect(g.ctx.errorMessage:peek()).toBe(nil)
@@ -939,7 +951,7 @@ t.describe("native parity weaker gallery", function()
 
 	t.it("navigation-2-50 the menu scenario is inside All controls and also mounts standalone", function()
 		local menu = load("fixture", "menu")
-		t.expect(catalogue.list()[1].module).toBe("all_controls")
+		t.expect(load("fixture", "all_controls").groups[2].id).toBe("actions")
 		local embedded
 		for _, group in load("fixture", "all_controls").groups do
 			if group.id == "actions" then
@@ -957,7 +969,7 @@ t.describe("native parity weaker gallery", function()
 		t.expect(find(node, "MenuDemo") ~= nil).toBe(true)
 		stop()
 		w.runtime:dispose()
-		local g = galleryWorld()
+		local g = galleryWorld({ fixtures = true })
 		find(g.root, "actions", "TextButton").Activated.fire(input(g, "mouse"))
 		find(g.root, "menus", "TextButton").Activated.fire(input(g, "mouse"))
 		t.expect(g.ctx.currentReport().active).toBe("menus")
@@ -967,7 +979,7 @@ t.describe("native parity weaker gallery", function()
 	end)
 
 	t.it("navigation-3-32 showroom and race setup reflow across viewports and survive the distant preview", function()
-		local g = galleryWorld({ viewport = { width = 1440, height = 900 } })
+		local g = galleryWorld({ fixtures = true, viewport = { width = 1440, height = 900 } })
 		find(g.root, "actions", "TextButton").Activated.fire(input(g, "mouse"))
 		t.expect(g.ctx.currentReport().active).toBe("buttons")
 		local showroom, race = find(g.root, "Showroom"), find(g.root, "RaceSetup")
@@ -1035,7 +1047,7 @@ t.describe("native parity weaker gallery", function()
 	t.it("navigation-5-45 all controls nests page tabs inside the adaptable group navigation", function()
 		local groups = load("fixture", "all_controls").groups
 		t.expect(#groups > 1 and #groups[1].tabs > 1).toBe(true)
-		local g = galleryWorld()
+		local g = galleryWorld({ fixtures = true })
 		local outer = find(g.root, "Categories")
 		t.expect(outer ~= nil).toBe(true)
 		for _, group in groups do
@@ -1064,7 +1076,7 @@ t.describe("native parity weaker gallery", function()
 	end)
 
 	t.it("paint-47 progress mounts inside all controls and its rung and value controls drive the indicators", function()
-		local g = galleryWorld()
+		local g = galleryWorld({ fixtures = true })
 		find(g.root, "indicators", "TextButton").Activated.fire(input(g, "mouse"))
 		t.expect(g.ctx.currentReport().active).toBe("progress")
 		local page = find(g.root, "ProgressRing")
@@ -1108,7 +1120,7 @@ t.describe("native parity weaker gallery", function()
 	end)
 
 	t.it("paint-125 all controls opens on the basics fixture with its settings and actions mounted", function()
-		local g = galleryWorld()
+		local g = galleryWorld({ fixtures = true })
 		t.expect(g.ctx.active:peek()).toBe("all-controls")
 		t.expect(g.ctx.currentReport().active).toBe("basics")
 		local screen = find(g.root, "AdaptiveScreen")

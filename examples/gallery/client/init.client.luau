@@ -69,12 +69,16 @@ local owner = Compose.createRootOwner(function()
 		theme = theme,
 		themeMode = selectedTheme,
 		packages = packages,
-		load = function(kind, name)
+		load = function(kind, name, ...)
 			local folder = if kind == "example"
 				then storage.FacetExamples
 				elseif kind == "reference" then storage.FacetReference
 				else storage.FacetScenarios
-			return require(folder:WaitForChild(name))
+			local target = folder:WaitForChild(name)
+			for _, child in { ... } do
+				target = target:WaitForChild(child)
+			end
+			return require(target)
 		end,
 	}
 	gallery.configure(context)

@@ -1041,6 +1041,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.content == nil and spec.title == nil and spec.media == nil and steps == nil and actionCount == 0 then
 			error(`Facet {where}: nothing to show. Supply content, or a title, media, steps or actions`, 0)
 		end
+		local input = surfaces.service("UserInputService")
+		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local calloutOwner = assert(Compose.currentOwner())
 		local retired = Compose.cell(false)
 		local anchorAvailable = surfaces.available(spec.anchor)
@@ -1309,9 +1311,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						else x + (bounds.X - box.X) / 2
 					local roomAbove = y >= box.Y + 16
 					local roomBelow = y + bounds.Y + box.Y + 16 <= offer.Y
-					local above = if read(spec.edge, use) == "top"
-						then roomAbove or not roomBelow
-						else roomAbove and not roomBelow
+					local edge = read(spec.edge, use)
+						or (if preferred and use(preferred) == E.PreferredInput.Touch then "top" else "bottom")
+					local above = if edge == "top" then roomAbove or not roomBelow else roomAbove and not roomBelow
 					local top = if above then y - box.Y - lift(use) else y + bounds.Y + lift(use)
 					local gutter = ctx.metric("space.s", use)
 					return {
@@ -1335,18 +1337,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end,
 				}
 				runtime.decorate(panel, panelGeometry)
-				surfaces.popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
-					local at, anchorAt, anchorSize, offset, box =
-						use(placement), use(position), use(size), use(origin), use(measured)
-					local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
-					local above = anchorAt.Y - offset.Y >= at.top + box.Y
-					return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
-				end, {
-					pinned = true,
-					rested = rested,
-					size = measured,
-					geometry = { Size = panelGeometry.Size, AutomaticSize = panelGeometry.AutomaticSize },
-				})
+				local scale = surfaces.popover(
+					panel,
+					presence.travel,
+					function(use: ComposeTypes.Use): (Vector2, Vector2)
+						local at, anchorAt, anchorSize, offset, box =
+							use(placement), use(position), use(size), use(origin), use(measured)
+						local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
+						local above = anchorAt.Y - offset.Y >= at.top + box.Y
+						return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
+					end,
+					{
+						pinned = true,
+						rested = rested,
+						size = measured,
+						geometry = { Size = panelGeometry.Size, AutomaticSize = panelGeometry.AutomaticSize },
+					}
+				)
 				local arrow: { Frame }? = if tailed
 					then parts.tail(
 						ctx,
@@ -1370,6 +1377,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end,
 						{
 							node = panel,
+							scale = scale,
 							corner = function(use: ComposeTypes.Use): Vector2
 								local place = use(placement)
 								return V2.new(place.left, place.top)
@@ -1461,7 +1469,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end, { priority = 2000 })
 				end
 				local overlayRoot = if arrow
-					then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] }
+					then Host.Folder "CalloutOverlay" { panel :: Instance, table.unpack(arrow) }
 					else panel :: Instance
 				surfaces.keep(spec.content)
 				return overlayRoot

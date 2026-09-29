@@ -320,7 +320,9 @@ easing, spring, scale and distance below is a token in the theme package's
   the theme's `motion.restLimit` (0.25 seconds by default). The placement then
   reads that rested size for the whole entrance and exit, so the scale never
   moves the anchor or its tail. The panel animates around content held at its
-  final layout size. Text is never scaled by this entrance, and fractional
+  final layout size. The content fade group keeps that size during the motion.
+  This prevents a new render texture allocation on each animation frame.
+  Text is never scaled by this entrance, and fractional
   text extents round up so a wrapped line is not clipped. The wait applies
   at every motion level.
 - The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
@@ -553,6 +555,7 @@ return UI.Screen "Settings" {
 | `gap` | a spacing step or a number of pixels | `UIListLayout.Padding` |
 | `padding` | a spacing step, a number, or `{ top?, right?, bottom?, left? }` | a `UIPadding` child |
 | `width`, `height` | `"fill"`, `"hug"` or a number of pixels | `Size` and `AutomaticSize` |
+| `maxWidth` | a finite number of pixels, 0 or more | `UISizeConstraint.MaxSize.X` |
 | `align` | `start`, `center`, `end` or `stretch` | cross-axis alignment, `ItemLineAlignment` and the cross-axis flex |
 | `distribute` | `start`, `center`, `end`, `spaceBetween`, `spaceAround` or `spaceEvenly` | main-axis alignment and `HorizontalFlex` or `VerticalFlex` |
 
@@ -573,6 +576,24 @@ return UI.Screen "Settings" {
 - A container writes an alignment property only when you set `align` or
   `distribute`.
 - All options accept a value, a readable or a `function(use)` body.
+
+Use `width = "fill", maxWidth = 480` for a panel that fills the available
+width up to 480 pixels. This applies to Screen, VStack, HStack, ZStack,
+ScrollView, Grid, AdaptiveStack, ViewThatFits and ErrorBoundary. The maximum
+includes the container's padding. It does not change the height or the chosen
+`width` mode. A numeric `width` remains fixed unless a smaller `maxWidth` caps it.
+The constraint updates in place when a bound maximum changes. Omit `maxWidth`
+to leave the width uncapped. Use a native `UISizeConstraint` instead when you
+need minimum sizes or height limits; do not combine it with `maxWidth` on the
+same container.
+
+```lua
+UI.VStack {
+    width = "fill",
+    maxWidth = 480,
+    UI.Stepper { label = "Laps", value = laps, min = 1, max = 10 },
+}
+```
 
 ### Screen
 
@@ -1108,8 +1129,8 @@ keeps the native TextBox as its root. Other fields return a Frame. The root
 Frame holds these children in order:
 
 1. `Label`: a TextButton that is not selectable. Its `Title` text is the label.
-   Activation focuses the TextBox. The label is 44 pixels tall or more, and
-   its words sit at the bottom. It follows `enabled`.
+   Activation focuses the TextBox. The label height fits its text, including
+   wrapped lines. It follows `enabled`. The input keeps its minimum touch size.
 2. `Input`: the plate. It holds `SearchIcon` or `Leading`, `Prefix`, the
    TextBox named `Field`, `Suffix`, `Clear`, `Decrement`, `Increment` and
    `Trailing`, in that order. A named `controlSize` puts the plate in an
@@ -2211,6 +2232,11 @@ icon when its `labelStyle` is `icon`, its `compactLabel.prefer` is set, or it
 is a `buttons` item with an `icon`. Otherwise it shows the label. The list
 fallback shows both.
 
+`contentFit` defaults to `"radial"`. It fits the ring thickness to the content
+and keeps the full angular span of each sector. Use `"both"` to fit both the
+thickness and angular span, `"angular"` to fit only the span, or `"none"` to
+keep the full sector shape.
+
 `ringWidth` is a number of pixels or a theme width: `narrow`, `regular` or
 `wide` (`controls.radial.narrow`, `.regular` and `.wide`). Each ring is at
 least that thick and grows until every item's label or icon box fits, with
@@ -2250,14 +2276,15 @@ no plate and no theme control art. A transparent `CenterHit` target around it
 is one touch target (`targetSizes.minimum`) across and does the same thing. It
 shows a close, back or up-chevron (Home) icon. The word is its accessible name,
 and a `centerLabel` replaces that name; it is never shown as text. Cancel (the B button) and the
-Back/Close control do the same thing. The name of the highlighted item sits in
-the hole under the centre control, on one caption line, truncated to the
-hole's width. Without a centre control the name is centred in the hole. In
-the list fallback the name sits at the bottom left, in its own band under the
-scrolling list, never inside it.
+Back/Close control do the same thing. On touch, an icon item's temporary name
+prefers a position above that item, clear of the finger. If it cannot fit above,
+it uses the same edge fallback as other anchored panels and stays inside the
+safe area. Pointer and gamepad names sit outside the ring in the item's
+direction. In the list fallback, the path heads the list beside Back/Close.
 
-A corner ring names the highlighted item just outside the arc, on the arc's
-middle direction.
+A tap on the launcher opens the menu and keeps it open. The release does not
+pick an item, even if the ring moves an item under the finger to fit the screen.
+A press on the launcher that slides at least 14 pixels can pick an item on release.
 
 A finger held still on an item for 0.4 seconds names it and does not pick
 it: that release does nothing, and a second tap picks the item. A press that
@@ -2493,6 +2520,8 @@ callout is suspended. `seen`, `sessions`, `afterSessions`, `featureUsed` and
 priority set eligibility and queue order. Each fact can be a value, a readable
 or a function of `use`. Retirement is delivered once. A callout is contextual
 teaching attached to a control. It is not a second application presenter.
+Without an authored `edge`, a callout prefers above its anchor on touch and
+below for other input. The default follows live input changes.
 `edge = "top"` puts the callout above the anchor. If there is no room above
 and there is room below, the callout goes below the anchor. The callout
 scales and fades from the edge nearest to its anchor. See [Motion](#motion).
@@ -2620,7 +2649,10 @@ The popover waits for it and warns once. A `rect` source never draws a tail.
 
 Placement options: `edge` (`top`, `bottom`, `leading` or `trailing`), `align`
 (`start`, `center` or `end`), `gap` (pixels, default 8) and `crossOffset`
-(pixels along the alignment axis). The placement tries the preferred edge,
+(pixels along the alignment axis). Without an authored `edge`, an anchored
+popover prefers above its source on touch and below for other input. The
+default follows live input changes. The compact sheet route is unchanged.
+The placement tries the preferred edge,
 then the opposite edge. When neither side holds the panel, it hangs beside the
 source before any clamp. `maxWidth` and `maxHeight` bound the whole panel,
 chrome included, inside the live safe box. The body scrolls. `tail = false`
@@ -2628,15 +2660,21 @@ removes the arrow.
 
 The tail of a Popover, a Callout and a Button `help` plate is one shape: a
 `space.m` square turned 45 degrees under the panel (`facet-tail`), with no
-stroke of its own. One closed native `Path2D` named `Outline` in the panel
-(`facet-outline`, `facet-outline-tooltip` on a help plate) draws the whole
-border: the panel's rounded corners and the tail's two outer sides as one
-line, so the edge stops exactly where the tail begins. Its colour is the
-theme hairline blended over the panel fill, because a `Path2D` has no
-transparency, and it fades with the panel. The panel's own `UIStroke` is off
-(`facet-outlined`). The tail stays clear of the panel's rounded corners. The panel stands the tail's reach off
-its source, so the tip stops at the gap. The panel's `AnchorPoint` is the tail
-point while it scales, so a moving scale never moves the tip. The tail keeps
+stroke of its own. One closed native `Path2D` named `Outline` draws the
+panel corners and the two outer sides of the tail as one border. It has the
+`facet-outline` tag. A help plate also uses `facet-outline-tooltip`.
+The border sits in a separate `OutlineBoundary` Frame beside the panel.
+Thus the content padding and the fade container cannot move or clip the border.
+A separate `OutlineFade` Frame contains the border bounds.
+During a fade, its CanvasGroup fades the border with the panel and tail.
+The group has space around the border so it cannot clip the pointer.
+Its size stays fixed while the border moves.
+The border uses the theme hairline color blended with the panel fill.
+The panel's own `UIStroke` is off (`facet-outlined`).
+The panel, border, and tail use the same scale for opening and closing.
+The point where the tail joins the panel stays fixed during this motion.
+At rest, the tip stops at the specified gap from its source.
+The tail stays clear of the panel corners. The tail keeps
 8 pixels from the panel's ends; a panel too short for that (a one-line panel
 beside its source) centres the tail on its side instead of dropping it. The
 tail is dropped only when it would no longer point at the source.
@@ -3203,8 +3241,9 @@ that Button activates as if the player pressed it. The grip is
 not a selection stop, so keyboard and gamepad selection still stop on the
 content. With touch input, the grip turns its UIDragDetector off and uses the
 native `TouchPan` gesture. Thus a vertical pan scrolls the list, and a
-horizontal pan opens the tray. A touch tap reaches the content Button through
-the grip.
+horizontal pan opens the tray. The final native pan translation and velocity
+are included when deciding whether a full swipe runs the first action.
+A touch tap reaches the content Button through the grip.
 
 A tap or a click on the content of the open row closes the tray, and the
 content does not activate. While the tray is open, a transparent

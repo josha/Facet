@@ -365,7 +365,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					source = source,
 					size = { w = size.X, h = size.Y },
 					safe = safe(use),
-					edge = spec.edge,
+					edge = spec.edge or (if preferred and use(preferred) == E.PreferredInput.Touch then "top" else nil),
 					align = spec.align,
 					gap = (spec.gap or 8) + side * math.sqrt(2) / 2,
 					crossOffset = spec.crossOffset,
@@ -373,7 +373,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					tailInset = 8,
 				})
 			end)
-			surfaces.popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
+			local scale = surfaces.popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
 				local at = use(solved)
 				local size = use(measured)
 				local origin = if at.edge == "bottom"
@@ -406,6 +406,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end,
 					{
 						node = panel,
+						scale = scale,
 						corner = function(use: ComposeTypes.Use): Vector2
 							local at = use(solved)
 							return V2.new(at.x, at.y)
@@ -417,7 +418,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						role = "floating",
 					}
 				)
-				table.insert(children, tail[1])
+				for _, part in tail do
+					table.insert(children, part)
+				end
 			end
 			if chrome then
 				return Host.Frame "Popup" {

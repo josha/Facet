@@ -13,6 +13,26 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local UI: Layout.LayoutControls = controls or ({} :: Layout.LayoutControls)
 	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height" }
+	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
+		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
+		if maxWidth == nil then
+			return ctx.props(spec, keys) :: { [unknown]: unknown }
+		end
+		local omitted = table.clone(keys)
+		table.insert(omitted, "maxWidth")
+		local properties = ctx.props(spec, omitted) :: { [unknown]: unknown }
+		properties[#properties + 1] = Host.UISizeConstraint({
+			MaxSize = function(use: ComposeTypes.Use): Vector2
+				local value = read(maxWidth, use)
+				assert(
+					type(value) == "number" and value >= 0 and value < math.huge,
+					"Facet maxWidth must be a finite number of pixels, 0 or more"
+				)
+				return V2.new(value, math.huge)
+			end,
+		})
+		return properties
+	end
 	local function split(spec: unknown, keys: { string }): ({ [unknown]: unknown }, { ComposeTypes.Child })
 		local fields = spec :: { [unknown]: unknown }
 		local named: { [unknown]: unknown } = {}
@@ -25,7 +45,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		for index = 1, #fields do
 			children[index] = fields[index] :: ComposeTypes.Child
 		end
-		return ctx.props(named, keys), children
+		return containerProps(named, keys), children
 	end
 	local function stack(spec: Layout.StackProps, vertical: boolean): Frame
 		local properties, children = split(spec, flowKeys)
@@ -586,7 +606,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	UI.ErrorBoundary = ctx.construct("ErrorBoundary", function(spec: Layout.ErrorBoundaryProps): Frame
 		assert(type(spec.view) == "function", "Facet ErrorBoundary requires a view function")
 		assert(type(spec.fallback) == "function", "Facet ErrorBoundary requires a fallback function")
-		local properties = ctx.props(spec, { "view", "fallback", "onError", "width", "height" })
+		local properties = containerProps(spec, { "view", "fallback", "onError", "width", "height" })
 		local box: Types.Box = { width = spec.width, height = spec.height }
 		local size, automatic = kit.extent(box, "hug", "hug")
 		local failed: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)

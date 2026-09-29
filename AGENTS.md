@@ -57,6 +57,29 @@ contract.
 - A passing native `full` run is not equivalent to the historical coverage on
   main. Read the [verification scope](docs/guide/18-verification-scope.md).
 
+## Internal showcase review
+
+Before you add a demo, identify its player task and visible result.
+Compare its layout and interaction with the other demos.
+If it repeats an existing task, improve the existing demo.
+Keep the control catalog in the lab.
+Use the showcase to show controls in complete tasks.
+Do not add unrelated features only to include more controls.
+Keep these instructions in internal Facet development files.
+Public documents and the consumer skill explain UI use in games.
+
+Check these interactions:
+
+- Open each contextual menu. Check its text, position, and Close action.
+- Open child pages at wide and compact sizes. Check motion and Back.
+- Check that the root page has no Back command.
+- Enter filter text. Press Clear. Check the full collection and the empty result state.
+- For each Sheet, compare DisclosureGroup, Popover, and NavigationStack. Select the control that fits the task.
+- Keep theme, input, and device settings available during these checks.
+
+Use Simplified Technical English for new documentation.
+Keep API names unchanged. Use one term for each technical concept.
+
 ## Where to read next
 
 - [Maintainers](docs/MAINTAINERS.md)

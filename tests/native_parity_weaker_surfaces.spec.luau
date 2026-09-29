@@ -650,6 +650,13 @@ t.describe("presented surface strength", function()
 		for _, node in world.screen:GetDescendants() do
 			if node:IsA("GuiObject") and node ~= live and not within(node, live) then
 				local covers = node.Size.X.Scale >= 1 and node.Size.Y.Scale >= 1
+				local parent = node.Parent
+				while covers and parent and parent ~= world.screen do
+					if parent:IsA("GuiObject") then
+						covers = parent.Size.X.Scale >= 1 and parent.Size.Y.Scale >= 1
+					end
+					parent = parent.Parent
+				end
 				t.expect(covers).toBe(false)
 			end
 		end

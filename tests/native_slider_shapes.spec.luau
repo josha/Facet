@@ -220,6 +220,20 @@ t.describe("native Slider axis", function()
 end)
 
 t.describe("native Slider rotation", function()
+	t.it("keeps the rotating track outside the list layout for every slider shape", function()
+		for _, shape in { {}, { axis = "y" }, { row = { title = "Volume" } }, { range = true } } do
+			local options: any = table.clone(shape)
+			options.rotation = Compose.cell(0)
+			local w = world(options)
+			expect(w.track.Parent.Name).toBe("TrackSlot")
+			expect(w.track.Parent:FindFirstChildWhichIsA("UIListLayout")).toBe(nil)
+			expect(w.track.Parent:FindFirstChildWhichIsA("UISizeConstraint").MinSize).toBe(v(w, 44, 44))
+			options.rotation:set(90)
+			expect(w.track.Rotation).toBe(90)
+			w.stop()
+		end
+	end)
+
 	local function pressAt(w: any, degrees: number, f: number, offset: any?)
 		local size = w.track.AbsoluteSize
 		local at = w.track.AbsolutePosition

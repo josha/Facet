@@ -1578,6 +1578,56 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("commits a touch row action from the final pan distance or native release velocity", function()
+		for _, sample in
+			{
+				{ distance = -220, speed = 0, expected = 1 },
+				{ distance = -80, speed = -1400, expected = 1 },
+				{ distance = -80, speed = 0, expected = 0 },
+				{ distance = -80, speed = -1400, expected = 0, fullSwipe = false },
+				{ distance = -220, speed = 0, expected = 0, cancel = true },
+			}
+		do
+			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local E, V2 = engine.types.Enum, engine.types.Vector2
+			ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+			local open, invoked = Compose.cell(nil), 0
+			local stop, node = runtime.mount(function()
+				return UI.RowActions({
+					open = open,
+					fullSwipe = sample.fullSwipe,
+					content = UI.Button { label = "Track" },
+					trailing = {
+						{
+							id = "remove",
+							label = "Remove",
+							role = "destructive",
+							onActivate = function()
+								invoked += 1
+							end,
+						},
+					},
+				})
+			end, target)
+			node.AbsoluteSize = V2.new(300, 44)
+			local grip = node:FindFirstChild("SwipeGrip", true)
+			grip.TouchPan.fire({ V2.new(280, 20) }, V2.new(-20, 0), V2.zero, E.UserInputState.Begin)
+			grip.TouchPan.fire({ V2.new(220, 20) }, V2.new(-80, 0), V2.zero, E.UserInputState.Change)
+			grip.TouchPan.fire(
+				{},
+				V2.new(sample.distance, 0),
+				V2.new(sample.speed, 0),
+				if sample.cancel then E.UserInputState.Cancel else E.UserInputState.End
+			)
+			t.expect(invoked).toBe(sample.expected)
+			t.expect(open:peek()).toBe(if sample.expected == 1 or sample.cancel then nil else "trailing")
+			grip.TouchPan.fire({}, V2.new(sample.distance, 0), V2.new(sample.speed, 0), E.UserInputState.End)
+			t.expect(invoked).toBe(sample.expected)
+			stop()
+			runtime:dispose()
+		end
+	end)
+
 	t.it(
 		"a horizontal touch pan holds Facet's enclosing scrollers until release; a vertical one leaves them",
 		function()
