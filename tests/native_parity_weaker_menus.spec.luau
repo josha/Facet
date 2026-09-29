@@ -2,6 +2,7 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
+local navMenu = require("../src/ui/nav_menu")
 local Compose = Facet.Compose
 local themes = Facet.themes
 
@@ -17,7 +18,7 @@ type World = {
 }
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
-	local engine: any = engineLib.new()
+	local engine: any = engineLib.new(options and options.engine)
 	local now = 0
 	engine.clock = function()
 		return now
@@ -40,7 +41,9 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
-		config[key] = value
+		if key ~= "engine" then
+			config[key] = value
+		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
 	local Host = runtime.constructors
@@ -146,8 +149,59 @@ local function refuses(message: string, build: (any, any) -> any): boolean
 	return failure ~= nil and string.find(failure, message, 1, true) ~= nil
 end
 
+local function settle(world: World, root: any)
+	for _ = 1, 3 do
+		for _, node in root:GetDescendants() do
+			if node:IsA("TextLabel") or node:IsA("TextButton") then
+				local fits = node.TextFits
+				node.TextFits = not fits
+				node.TextFits = fits
+			end
+		end
+		world.step(0.25)
+	end
+end
+
+local function segmentState(segment: any): string
+	return `{segment.TextWrapped}|{string.match(tostring(segment.TextTruncate), "%w+$")}`
+end
+
+local function glyphText(glyph: () -> number): { [string]: any }
+	local Vector2 = require("@lune/roblox").Vector2
+	local function widest(text: string, pattern: string): number
+		local most = 0
+		for piece in string.gmatch(text, pattern) do
+			most = math.max(most, #piece * glyph())
+		end
+		return most
+	end
+	return {
+		measureText = function(node: any): any
+			local words = widest(node.Text or "", "%S+")
+			if node.TextWrapped then
+				local width = node.AbsoluteSize.X
+				return Vector2.new(
+					if words > width then width else math.max(words, math.min(#node.Text * glyph(), width)),
+					40
+				)
+			end
+			return Vector2.new(widest(node.Text or "", "[^\n]+"), 20)
+		end,
+		textFits = function(node: any): boolean?
+			if node.Text == "" or node.TextWrapped or node.AbsoluteSize.X == 0 then
+				return nil
+			end
+			return widest(node.Text, "[^\n]+") <= node.AbsoluteSize.X
+		end,
+	}
+end
+
 local function V2(world: World, x: number, y: number): any
 	return world.engine.types.Vector2.new(x, y)
+end
+
+local function offer(world: World, segment: any, width: number)
+	segment.AbsoluteSize = V2(world, width, 44)
 end
 
 local function title(row: any): string
@@ -749,6 +803,312 @@ t.describe("native parity weaker menus", function()
 			t.expect(select(2, segmentLimits(picker))).toBe(994)
 			world.stop()
 		end
+	end)
+
+	t.it("settles a segment whose word cannot fit on both axes, with no writes after it settles", function()
+		for _, axis in { "x", "y" } do
+			local writes = 0
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Status" {
+						style = "segmented",
+						axis = axis,
+						selected = Compose.cell("a"),
+						options = { { value = "a", label = "Supercalifragilistic" }, { value = "b", label = "Go" } },
+					},
+				})
+			end, {
+				engine = {
+					measureText = glyphText(function()
+						return 11
+					end).measureText,
+					textFits = function(node: any): boolean?
+						if node.Text == "" or node.AbsoluteSize.X == 0 then
+							return nil
+						end
+						if node.TextWrapped then
+							return true
+						end
+						return #node.Text * 11 <= node.AbsoluteSize.X
+					end,
+				},
+			})
+			local picker = find(world.root, "Status")
+			picker.AbsoluteSize = V2(world, 300, 200)
+			local segment = find(picker, "a")
+			segment.AbsoluteSize = V2(world, 60, 44)
+			settle(world, picker)
+			t.expect(`{axis}:{segmentState(segment)}`).toBe(`{axis}:false|AtEnd`)
+			segment:GetPropertyChangedSignal("TextWrapped"):Connect(function()
+				writes += 1
+			end)
+			for _ = 1, 5 do
+				settle(world, picker)
+			end
+			t.expect(`{axis}:{writes}`).toBe(`{axis}:0`)
+			t.expect(`{axis}:{segmentState(segment)}`).toBe(`{axis}:false|AtEnd`)
+			world.stop()
+		end
+	end)
+
+	t.it("wraps a radio caption in a script without spaces instead of ending it in an ellipsis", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Voice" {
+					style = "radioGroup",
+					selected = Compose.cell("a"),
+					options = {
+						{
+							value = "a",
+							label = "日本語",
+							description = "音声チャットは近くのプレイヤーにだけ聞こえます",
+						},
+					},
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Voice")
+		picker.AbsoluteSize = V2(world, 200, 200)
+		local description = find(find(picker, "a"), "Description")
+		description.AbsoluteSize = V2(world, 120, 20)
+		settle(world, picker)
+		t.expect(segmentState(description)).toBe("true|None")
+		t.expect(find(picker, "WidestWord")).toBeNil()
+		world.stop()
+	end)
+
+	t.it("mounts a word probe only for a segment that has to wrap", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Error" },
+						{ value = "b", label = "Voice" },
+						{ value = "c", label = "High contrast" },
+					},
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 400, 50)
+		for _, name in { "a", "b", "c" } do
+			find(picker, name).AbsoluteSize = V2(world, 150, 44)
+		end
+		settle(world, picker)
+		local function probes(): number
+			local count = 0
+			for _, node in picker:GetDescendants() do
+				if node.Name == "WidestWord" then
+					count += 1
+				end
+			end
+			return count
+		end
+		t.expect(probes()).toBe(0)
+		find(picker, "c").AbsoluteSize = V2(world, 60, 44)
+		settle(world, picker)
+		t.expect(probes()).toBe(1)
+		world.stop()
+	end)
+
+	t.it("re-checks a wrapped segment on the following frames until its broken word ends in an ellipsis", function()
+		local environment = getfenv(navMenu)
+		local originalTask = environment.task
+		local threads = {}
+		environment.task = {
+			spawn = function(callback)
+				local thread = coroutine.create(callback)
+				table.insert(threads, thread)
+				coroutine.resume(thread)
+				return thread
+			end,
+			wait = function()
+				return coroutine.yield()
+			end,
+			cancel = function(thread)
+				coroutine.close(thread)
+			end,
+		}
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "Error" }, { value = "b", label = "Go" } },
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 300, 50)
+		local segment = find(picker, "a")
+		segment.AbsoluteSize = V2(world, 40, 44)
+		t.expect(segmentState(segment)).toBe("true|None")
+		local function frame()
+			for _, thread in threads do
+				if coroutine.status(thread) == "suspended" then
+					coroutine.resume(thread)
+				end
+			end
+		end
+		frame()
+		t.expect(segmentState(segment)).toBe("false|AtEnd")
+		local function live(): number
+			local count = 0
+			for _, thread in threads do
+				if coroutine.status(thread) == "suspended" then
+					count += 1
+				end
+			end
+			return count
+		end
+		local before = live()
+		segment.AbsoluteSize = V2(world, 90, 44)
+		segment.AbsoluteSize = V2(world, 30, 44)
+		t.expect(live()).toBe(before)
+		segment.AbsoluteSize = V2(world, 90, 44)
+		segment.AbsoluteSize = V2(world, 30, 44)
+		t.expect(live()).toBe(before)
+		world.stop()
+		for _, thread in threads do
+			t.expect(coroutine.status(thread)).toBe("dead")
+		end
+		environment.task = originalTask
+	end)
+
+	t.it("floors a strip segment at a 44 pixel target including its padding, not 44 plus padding", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Strip" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "On" }, { value = "b", label = "Off" } },
+				},
+				UI.Picker "Column" {
+					style = "segmented",
+					axis = "y",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "On" }, { value = "b", label = "Off" } },
+				},
+			})
+		end)
+		local function floor(picker: string): number
+			for _, child in find(find(world.root, picker), "a"):GetChildren() do
+				if child.ClassName == "UISizeConstraint" then
+					return child.MinSize.X
+				end
+			end
+			return -1
+		end
+		t.expect(floor("Strip")).toBe(20)
+		t.expect(floor("Column")).toBe(44)
+		world.stop()
+	end)
+
+	t.it("keeps a segment word whole: it wraps between words and ends a word that cannot fit in an ellipsis", function()
+		local writes = 0
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Error" },
+						{ value = "b", label = "High contrast" },
+					},
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 300, 50)
+		local word, phrase = find(picker, "a"), find(picker, "b")
+		offer(world, word, 80)
+		offer(world, phrase, 200)
+		settle(world, picker)
+		t.expect(segmentState(word)).toBe("false|None")
+		t.expect(segmentState(phrase)).toBe("false|None")
+		offer(world, word, 40)
+		offer(world, phrase, 100)
+		settle(world, picker)
+		t.expect(segmentState(word)).toBe("false|AtEnd")
+		t.expect(segmentState(phrase)).toBe("true|None")
+		offer(world, phrase, 60)
+		settle(world, picker)
+		t.expect(segmentState(phrase)).toBe("false|AtEnd")
+		t.expect(phrase.Text).toBe("High contrast")
+		word:GetPropertyChangedSignal("TextWrapped"):Connect(function()
+			writes += 1
+		end)
+		word:GetPropertyChangedSignal("TextTruncate"):Connect(function()
+			writes += 1
+		end)
+		settle(world, picker)
+		settle(world, picker)
+		t.expect(writes).toBe(0)
+		offer(world, word, 90)
+		settle(world, picker)
+		t.expect(segmentState(word)).toBe("false|None")
+		world.stop()
+	end)
+
+	t.it("re-decides a truncated segment caption when the strip's room or its segment count changes", function()
+		local options = Compose.cell({
+			{ value = "a", label = "High contrast" },
+			{ value = "b", label = "Go" },
+			{ value = "c", label = "On" },
+		})
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Status" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = options,
+				},
+			})
+		end, {
+			engine = glyphText(function()
+				return 11
+			end),
+		})
+		local picker = find(world.root, "Status")
+		picker.AbsoluteSize = V2(world, 300, 50)
+		local segment = find(picker, "a")
+		local title = find(segment, "Title")
+		segment.AbsoluteSize = V2(world, 80, 44)
+		title.AbsoluteSize = V2(world, 60, 20)
+		settle(world, picker)
+		t.expect(segmentState(title)).toBe("false|AtEnd")
+		title.AbsoluteSize = V2(world, 200, 20)
+		settle(world, picker)
+		t.expect(segmentState(title)).toBe("false|AtEnd")
+		options:set({ { value = "a", label = "High contrast" }, { value = "b", label = "Go" } })
+		settle(world, picker)
+		t.expect(segmentState(title)).toBe("false|None")
+		title.AbsoluteSize = V2(world, 60, 20)
+		settle(world, picker)
+		t.expect(segmentState(title)).toBe("false|AtEnd")
+		title.AbsoluteSize = V2(world, 200, 20)
+		picker.AbsoluteSize = V2(world, 320, 50)
+		settle(world, picker)
+		t.expect(segmentState(title)).toBe("false|None")
+		world.stop()
 	end)
 
 	t.it("bounds a long segment label by the row width of a labelled segmented picker", function()

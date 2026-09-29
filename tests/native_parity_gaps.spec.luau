@@ -27,6 +27,7 @@ local helpers: { [string]: boolean } = {
 	adjustable = true,
 	feedback = true,
 	focusSection = true,
+	focusQuery = true,
 	responder = true,
 	draggable = true,
 	dropTarget = true,

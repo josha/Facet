@@ -1005,9 +1005,9 @@ interactive(
 		GuiService.SelectedObject = nil
 		t.settle(4)
 		t.check("the Boost handle is hidden at rest", not thumb.Visible, thumb.Visible)
-		GuiService.SelectedObject = track
+		GuiService.SelectedObject = t.find(stage, "Boost")
 		t.settle(4)
-		t.check("the Boost handle shows while its track is selected", thumb.Visible, thumb.Visible)
+		t.check("the Boost handle shows while the Boost slider is selected", thumb.Visible, thumb.Visible)
 		GuiService.SelectedObject = nil
 		t.settle(4)
 		t.check("the Boost handle hides again when the selection leaves", not thumb.Visible, thumb.Visible)

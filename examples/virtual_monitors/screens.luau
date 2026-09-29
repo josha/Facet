@@ -1300,7 +1300,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			return require("./chat")(ctx)
 		end)
 	end
-	return { Discover = Discover, Avatar = Avatar, Chat = Chat }
+	return { Discover = Discover, Avatar = Avatar, Chat = Chat, moves = UI.focusQuery }
 end
 
 return screens

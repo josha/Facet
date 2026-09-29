@@ -103,7 +103,10 @@ sheet), `Invoke("about", boolean)` and `Invoke("status", boolean)` (the About
 dialog and the presence popover of the selected app in the current mode),
 `Invoke("appearance", boolean)` and `Invoke("tips", boolean)` (the Avatar
 Appearance disclosure and Tips), `Invoke("motion", boolean)` (pushes or pops
-the Avatar "Motion & turning" page) and `Invoke("chat", text)`.
+the Avatar "Motion & turning" page), `Invoke("chat", text)` and
+`Invoke("moves")` (its result's `moves` names, for Up, Down, Left and Right, the
+control a D-pad move from the screen-mode selection reaches and the rule that
+decides it, through `UI.focusQuery`).
 
 Automated behavior coverage lives in `tests/native_virtual_monitors.spec.luau`.
 `tests/native_virtual_monitors_coverage.spec.luau` mounts the three apps and the

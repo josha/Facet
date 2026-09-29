@@ -58,8 +58,10 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		return nil
 	end
 	local runtime = Roblox.createRuntime(engine)
+	local target = engine.new("Folder")
 	local UI = controls(Compose, runtime, {
 		types = engine.types,
+		inputParent = if o.inputs then target else nil,
 		services = {
 			GuiService = gui,
 			UserInputService = input,
@@ -71,7 +73,6 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		controlSize = o.controlSize,
 		onError = o.onError,
 	})
-	local target = engine.new("Folder")
 	local V = engine.types.Vector2
 	local stop, screen = runtime.mount(function()
 		return runtime.constructors.ScreenGui({ build(UI, runtime.constructors, engine, gui, runtime) })

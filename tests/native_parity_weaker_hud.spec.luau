@@ -673,13 +673,13 @@ t.describe("native parity weaker hud-world", function()
 		t.expect(first ~= outside and first:IsDescendantOf(surface)).toBe(true)
 		local expected = nil
 		for _, node in surface:GetDescendants() do
-			if node:IsA("GuiButton") and node.Selectable then
+			if node:IsA("GuiObject") and node.Selectable and not node:IsA("ScrollingFrame") then
 				expected = node
 				break
 			end
 		end
 		t.expect(first).toBe(expected)
-		t.expect(first:IsDescendantOf(find(surface, "doorStep"))).toBe(true)
+		t.expect(first).toBe(find(surface, "doorStep"))
 		leave.Pressed.fire()
 		t.expect(built.report().lastExit).toBe("cancel")
 		t.expect(built.report().terminal.phase).toBe("exited")

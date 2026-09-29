@@ -227,7 +227,7 @@ t.describe("native parity navigation", function()
 				action(world.screen, "PreviousTab").Pressed.fire()
 				t.expect(selection:peek()).toBe("b")
 				selection:set("a")
-				world.gui.SelectedObject = find(find(world.screen, "Volume"), "ThumbStop")
+				world.gui.SelectedObject = find(world.screen, "Volume")
 				local increase = action(world.screen, "Increase")
 				t.expect(increase.Parent.Priority > action(world.screen, "NextTab").Parent.Priority).toBe(true)
 			end

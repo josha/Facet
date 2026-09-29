@@ -174,6 +174,17 @@ export type ActionSettings = {
 	conditional: { binding: ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
 	direction2D: ((Vector2) -> ())?,
 }
+export type ReservedKeyHandler = {
+	keys: { [string]: boolean },
+	priority: number,
+	sink: boolean,
+	editing: ((TextBox) -> boolean)?,
+	node: Instance?,
+	gui: GuiService?,
+	enabled: () -> boolean,
+	press: () -> (),
+	release: () -> (),
+}
 export type ListRow = {
 	leading: { Child }?,
 	captions: { GuiObject },
@@ -190,6 +201,9 @@ export type SkinStateOptions = {
 export type ResponderOptions = { passive: boolean?, gameplayGuard: boolean?, traversalWrap: boolean? }
 export type ResponderState = "passive" | "engaged"
 export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }
+export type FocusDirection = "Up" | "Down" | "Left" | "Right"
+export type FocusMove = { target: GuiObject?, rule: string }
+export type FocusQuery = { Up: FocusMove, Down: FocusMove, Left: FocusMove, Right: FocusMove }
 export type Context = {
 	runtime: Runtime,
 	Host: Host,
@@ -241,6 +255,8 @@ export type Context = {
 	modalPortals: Cell<{ ModalPortal }>,
 	modalPortal: (Instance, Instance) -> (),
 	available: (Instance, Use?) -> boolean,
+	navigationGamepads: () -> { Enum.UserInputType },
+	reserveKeys: (ReservedKeyHandler) -> (),
 	action: (
 		Instance,
 		string,
@@ -252,6 +268,8 @@ export type Context = {
 	skin: (GuiObject, string, SkinStateOptions?) -> (Dispose?, GuiObject?),
 	responder: (Instance, ResponderOptions?) -> Responder,
 	spaceActivates: (Instance) -> (Use) -> boolean,
+	focusQuery: (GuiObject?) -> FocusQuery,
+	focusPast: (GuiObject, FocusDirection) -> GuiObject?,
 	layoutKit: unknown?,
 	showHelp: unknown?,
 	reducedMotion: unknown?,

@@ -336,6 +336,7 @@ local lifetime = Compose.createRootOwner(function()
 			backdrop,
 		}
 	end, players.LocalPlayer:WaitForChild("PlayerGui"))
+	local flatViews = nil
 	local app = Facet.app({
 		runtime = runtime,
 		name = "VirtualMonitorsDesktop",
@@ -353,6 +354,7 @@ local lifetime = Compose.createRootOwner(function()
 	Compose.cleanup(app.dispose)
 	app.mount(function()
 		local views = screens.create(Facet, runtime, sceneActions(false, desktopPackage))
+		flatViews = views
 		return desktop.create(Facet, runtime, views, model, modeProgress, {
 			theme = desktopPackage,
 			motionLevel = motionLevel,
@@ -450,7 +452,15 @@ local lifetime = Compose.createRootOwner(function()
 				model.prompt(argument)
 				model.chat.send()
 			end
+			local moves = nil
+			if command == "moves" and flatViews then
+				moves = {}
+				for direction, move in flatViews.moves() do
+					moves[direction] = { target = if move.target then move.target.Name else nil, rule = move.rule }
+				end
+			end
 			return {
+				moves = moves,
 				mode = mode:peek(),
 				dark = dark:peek(),
 				accent = model.palette:peek(),

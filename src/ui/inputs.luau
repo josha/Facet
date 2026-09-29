@@ -41,6 +41,7 @@ type ToggleButtonProps = InputTypes.ButtonProps & {
 }
 
 local REPEAT_DELAY, REPEAT_INTERVAL = 0.4, 0.1
+local STICK_PRESS, STICK_RELEASE, STICK_DOMINANCE = 0.5, 0.35, 1.2
 
 local function repeatHeld(
 	frames: { onFrame: ((number) -> ()) -> () -> () },
@@ -93,6 +94,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	): boolean
 		local state = spec :: InputTypes.EnabledOptions
 		return read(state.enabled, use) ~= false and read(state.disabled, use) ~= true and read(state.busy, use) ~= true
+	end
+	local function stopEnabled(
+		spec: InputTypes.EnabledOptions | InputTypes.NumberInputOptions | InputTypes.LevelOptions | { value: Shared.Value<number>, onChange: ((number) -> ())? },
+		use: ComposeTypes.Use?
+	): boolean
+		local state = spec :: InputTypes.EnabledOptions
+		return read(state.enabled, use) ~= false and read(state.disabled, use) ~= true
 	end
 	local function writable(source: unknown): boolean
 		return type(source) == "table"
@@ -155,6 +163,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		options: Adjust?
 	): ()
 		local adjust: Adjust = options or {}
+		node:AddTag("facet-adjustable")
+		runtime.connect(node, "SelectionGained", function() end)
+		attributes(node, {
+			disabled = function(use: ComposeTypes.Use): boolean
+				return not stopEnabled(spec, use)
+			end,
+		})
+		if minimum ~= nil and maximum ~= nil then
+			node:SetAttribute("axis", if adjust.vertical then "vertical" else "horizontal")
+		end
 		local landing = false
 		local function arrowHeld(): boolean
 			local input = ctx.config.services.UserInputService
@@ -170,21 +188,40 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					return true
 				end
 			end
-			for _, key in { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight } do
-				if probe.IsGamepadButtonDown and input:IsGamepadButtonDown(E.UserInputType.Gamepad1, key) then
-					return true
+			if probe.IsGamepadButtonDown then
+				for _, pad in ctx.navigationGamepads() do
+					for _, key in { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight } do
+						if input:IsGamepadButtonDown(pad, key) then
+							return true
+						end
+					end
+				end
+			end
+			return false
+		end
+		local function stickHeld(): boolean
+			local service = ctx.config.services.UserInputService
+			local probe = (service :: unknown) :: { GetGamepadState: ((any, Enum.UserInputType) -> { InputObject })? }
+			if service == nil or probe.GetGamepadState == nil then
+				return false
+			end
+			for _, pad in ctx.navigationGamepads() do
+				for _, state in (service :: any):GetGamepadState(pad) do
+					if state.KeyCode == E.KeyCode.Thumbstick1 and state.Position.Magnitude >= STICK_PRESS then
+						return true
+					end
 				end
 			end
 			return false
 		end
 		local guiService = ctx.config.services.GuiService
 		local target = guiService and guiService.SelectedObject
-		local selected = Compose.cell(target ~= nil and (target == node or target:IsDescendantOf(node)))
+		local selected = Compose.cell(target ~= nil and target == node)
 		if guiService then
 			local nativeSelection = ctx.observe.SelectedObject(guiService)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local target = use(nativeSelection)
-				local inside = target ~= nil and (target == node or target:IsDescendantOf(node))
+				local inside = target ~= nil and target == node
 				if selected:peek() and not inside and cancel then
 					cancel()
 				end
@@ -210,11 +247,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		runtime.mountFragment(function()
 			return {
 				Compose.show(active, function()
-					local heldAction: InputAction?
-					local heldArrow = Compose.cell(0)
+					local held: unknown = nil
 					local stopFrame: (() -> ())?
 					local function stopRepeat()
-						heldAction = nil
+						held = nil
 						if stopFrame then
 							stopFrame()
 							stopFrame = nil
@@ -226,67 +262,93 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							stopRepeat()
 						end
 					end)
-					local function bind(
-						name: string,
-						keys: Shared.ActionBindings,
-						source: Shared.Value<boolean>,
+					local function peekUse(source: any): any
+						return read(source)
+					end
+					local function movable(direction: number): () -> boolean
+						return function(): boolean
+							if not active(peekUse :: any) then
+								return false
+							end
+							if adjust.arrows then
+								return adjust.arrows(peekUse :: any, direction)
+							end
+							if minimum == nil or maximum == nil then
+								return true
+							end
+							local value = read(spec.value)
+							return if direction < 0 then value > minimum else value < maximum
+						end
+					end
+					local function start(
+						token: unknown,
 						direction: number,
-						arrow: boolean?
+						holding: () -> boolean,
+						directional: boolean?
 					)
+						stopRepeat()
+						local can = movable(direction)
+						if not can() then
+							local gui = ctx.config.guiService
+							if directional and gui and minimum ~= nil and maximum ~= nil and active(peekUse :: any) then
+								local way: Shared.FocusDirection = if adjust.vertical
+									then (if direction < 0 then "Down" else "Up")
+									else (if direction < 0 then "Left" else "Right")
+								local target = ctx.focusPast(node, way)
+								if target then
+									gui.SelectedObject = target
+								end
+							end
+							return
+						end
+						apply(direction)
+						held = token
+						if runtime.host.frames and not adjust.once then
+							local timing = (spec :: unknown) :: { repeatDelay: number?, repeatInterval: number? }
+							stopFrame = repeatHeld(
+								runtime.host.frames,
+								timing.repeatDelay or REPEAT_DELAY,
+								timing.repeatInterval or REPEAT_INTERVAL,
+								function(): boolean
+									if held ~= token or not can() or not ctx.available(node) or not holding() then
+										stopRepeat()
+										return false
+									end
+									return true
+								end,
+								function()
+									apply(direction)
+								end
+							)
+						end
+					end
+					local function bind(name: string, keys: Shared.ActionBindings, direction: number, arrow: boolean?)
 						local action: InputAction
-						action = ctx.action(node, name, keys, source, function()
+						action = ctx.action(node, name, keys, active, function()
 							if arrow and landing then
 								return
 							end
-							stopRepeat()
-							if arrow then
-								heldArrow:set(direction)
-							end
-							apply(direction)
-							heldAction = action
 							local probe = (action :: unknown) :: { GetState: ((InputAction) -> unknown)? }
 							local state = probe.GetState
 							local engaged = state ~= nil and state(action) == true
-							if runtime.host.frames and not adjust.once then
-								local timing = (spec :: unknown) :: { repeatDelay: number?, repeatInterval: number? }
-								stopFrame = repeatHeld(
-									runtime.host.frames,
-									timing.repeatDelay or REPEAT_DELAY,
-									timing.repeatInterval or REPEAT_INTERVAL,
-									function(): boolean
-										if
-											not read(source)
-											or not ctx.available(node)
-											or (engaged and state and state(action) ~= true)
-										then
-											stopRepeat()
-											return false
-										end
-										return true
-									end,
-									function()
-										apply(direction)
-									end
-								)
-							end
+							start(action, direction, function(): boolean
+								return not engaged or (state :: (InputAction) -> unknown)(action) == true
+							end, arrow)
 						end, {
 							priority = 250,
 							capture = true,
 							onReleased = function()
 								if arrow then
 									landing = false
-									if heldArrow:peek() == direction then
-										heldArrow:set(0)
-									end
 								end
-								if heldAction == action then
+								if held == (action :: unknown) then
 									stopRepeat()
 								end
 							end,
 						})
 					end
-					bind("Decrease", { E.KeyCode.Comma, E.KeyCode.ButtonL1 }, active, -1)
-					bind("Increase", { E.KeyCode.Period, E.KeyCode.ButtonR1 }, active, 1)
+					bind("Decrease", { E.KeyCode.Comma, E.KeyCode.ButtonL1 }, -1)
+					bind("Increase", { E.KeyCode.Period, E.KeyCode.ButtonR1 }, 1)
 					if minimum ~= nil and maximum ~= nil then
 						for _, direction in { -1, 1 } do
 							local keys = if adjust.vertical
@@ -296,23 +358,54 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 								else (if direction < 0
 									then { E.KeyCode.Left, E.KeyCode.DPadLeft }
 									else { E.KeyCode.Right, E.KeyCode.DPadRight })
-							bind(
-								if direction < 0 then "DecreaseArrow" else "IncreaseArrow",
-								keys,
-								function(use: ComposeTypes.Use)
-									if use(heldArrow) == direction then
-										return active(use)
-									end
-									local arrows = adjust.arrows
-									if arrows then
-										return active(use) and arrows(use, direction)
-									end
-									local value = read(spec.value, use)
-									return active(use) and (if direction < 0 then value > minimum else value < maximum)
-								end,
-								direction,
-								true
-							)
+							bind(if direction < 0 then "DecreaseArrow" else "IncreaseArrow", keys, direction, true)
+						end
+						local leaning = 0
+						local settling = stickHeld()
+						local stickInput = ctx.config.services.UserInputService
+						local function lean(event: InputObject, ended: boolean)
+							if
+								event.KeyCode ~= E.KeyCode.Thumbstick1
+								or not table.find(ctx.navigationGamepads(), event.UserInputType)
+							then
+								return
+							end
+							local x, y = if ended then 0 else event.Position.X, if ended then 0 else event.Position.Y
+							local along = if adjust.vertical then y else x
+							local across = math.abs(if adjust.vertical then x else y)
+							local reach = math.abs(along)
+							local sign = if along > 0 then 1 else -1
+							if settling then
+								settling = reach >= STICK_RELEASE and reach >= across
+								return
+							end
+							local direction = if leaning == sign
+									and reach >= STICK_RELEASE
+									and reach >= across
+								then sign
+								elseif reach >= STICK_PRESS and reach > across * STICK_DOMINANCE then sign
+								else 0
+							if direction == leaning then
+								return
+							end
+							leaning = direction
+							if direction == 0 then
+								if held == "stick" then
+									stopRepeat()
+								end
+							elseif ctx.available(node) then
+								start("stick", direction, function(): boolean
+									return leaning == direction
+								end, true)
+							end
+						end
+						if stickInput then
+							runtime.connect(stickInput, "InputChanged", function(event: InputObject)
+								lean(event, false)
+							end)
+							runtime.connect(stickInput, "InputEnded", function(event: InputObject)
+								lean(event, true)
+							end)
 						end
 					end
 					if adjust.extra then
@@ -644,7 +737,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local sizing = spec.AutomaticSize
 			local function floored(use: ComposeTypes.Use?): UDim2
 				local size: UDim2 = read(given, use)
-				local automatic = read(sizing, use)
+				local automatic = if sizing == nil then E.AutomaticSize.Y else read(sizing, use)
 				local grows = automatic == E.AutomaticSize.Y or automatic == E.AutomaticSize.XY
 				if grows and size.Y.Scale == 0 and size.Y.Offset == 0 then
 					return D2.new(size.X.Scale, size.X.Offset, 0, ctx.controlSize(spec.controlSize, "height", use))
@@ -1817,6 +1910,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				LayoutOrder = if direction < 0 then 1 else 3,
 				Size = D2.fromOffset(44, 44),
 				AutomaticSize = E.AutomaticSize.None,
+				Selectable = false,
 				enabled = allowed,
 				onActivate = function()
 					adjust(direction)
@@ -1884,7 +1978,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			"repeatDelay",
 			"repeatInterval",
 		}, {
-			Selectable = true,
+			Selectable = function(use: ComposeTypes.Use): boolean
+				return stopEnabled(spec, use)
+			end,
 			Size = if spec.label then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
 			AutomaticSize = if spec.label then E.AutomaticSize.Y else E.AutomaticSize.XY,
 			BackgroundTransparency = 1,
@@ -1903,6 +1999,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local node = ctx.styled(Host.Frame(p), "stepper")
 		ctx.skin(node, "stepperPlate")
 		valueAttributes(node, spec, model)
+		if spec.label ~= nil then
+			attributes(node, {
+				AccessibleLabel = function(use: ComposeTypes.Use): string
+					return read(spec.label, use) or ""
+				end,
+			})
+		end
 		adjustment(node, spec, adjust, nil, model.min, model.max)
 		return node
 	end)
@@ -1949,6 +2052,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		)
 		local canAdjust = options.canAdjust
 		local bound = if axis == "none" then nil else math.huge
+		runtime.decorate(node, {
+			Selectable = function(use: ComposeTypes.Use): boolean
+				return stopEnabled(options, use)
+			end,
+		})
 		adjustment(node, options :: any, options.onAdjust, nil, if bound then -bound else nil :: any, bound :: any, {
 			vertical = axis == "vertical",
 			once = options.repeats ~= true,
@@ -1960,6 +2068,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 
 	require("./slider")(ctx, UI, {
 		enabled = enabled,
+		stopEnabled = stopEnabled,
 		writable = writable,
 		attributes = attributes,
 		valueAttributes = valueAttributes,
