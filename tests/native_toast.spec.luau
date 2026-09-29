@@ -501,6 +501,28 @@ describe("UI.Toast: presentation", function()
 		f.world.stop()
 	end)
 
+	it("fits the overlay that receives it and follows its resized width", function()
+		local presentation
+		local w = overlay.new(function(_, Host, engine, _, runtime)
+			presentation = Host.Frame "Presentation" {}
+			local UI = require("../src/ui")(Compose, runtime, {
+				types = engine.types,
+				overlayParent = presentation,
+				motionLevel = "none",
+			})
+			return Host.Frame { presentation, UI.Toast { message = "Ready" } }
+		end)
+		presentation.AbsoluteSize = Vector2.new(390, 720)
+		w.advance(0.1)
+		local row = w.find("ToastRow")
+		expect(row:IsDescendantOf(presentation)).toBe(true)
+		expect(row.Size.X.Offset).toBe(358)
+		presentation.AbsoluteSize = Vector2.new(280, 720)
+		w.advance(0.1)
+		expect(row.Size.X.Offset).toBe(248)
+		w.stop()
+	end)
+
 	it("fades in and out as it slides by default; fade = false only slides, keeping native text", function()
 		local plain = toasts(
 			{ { message = "a", duration = 1, readFloor = 0, fade = false } },

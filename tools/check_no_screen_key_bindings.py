@@ -36,6 +36,10 @@ READ_ONLY_PROBES = {
 BINDING_SITE = re.compile(r"\bInputBinding\s*[({]")
 
 PINS = {
+    "examples/foundation-lab/src/catalog.luau": (
+        1,
+        "the ShortcutHint variant describes one native F2 InputBinding on a detached InputAction; it does not capture screen input",
+    ),
     "examples/gallery/examples/05_word_game.luau": (
         3,
         "the word game declares letter, Submit and Backspace keys in its own sinking InputContext under ctx.inputTarget, the documented seam for game hotkeys",

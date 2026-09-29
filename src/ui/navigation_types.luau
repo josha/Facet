@@ -328,6 +328,7 @@ export type MotionTiming = { enter: number, exit: number }
 export type Appearance = (ComposeTypes.Use?) -> number
 export type Presence = { opacity: Appearance, travel: Appearance }
 export type PopoverOptions = {
+	geometry: { Size: Types.Value<UDim2>?, AutomaticSize: Types.Value<Enum.AutomaticSize>? }?,
 	from: number?,
 	pinned: boolean?,
 	rested: ComposeTypes.Readable<boolean>?,

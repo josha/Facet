@@ -3,6 +3,7 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
 local Inputs = require("./input_types")
+local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local freeze = require("./freeze")
@@ -329,41 +330,34 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local settled = Compose.cell(false)
 				local held: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
 				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
-				local panel = ctx.styled(
-					ctx.fade {
-						Name = "Panel",
-						AnchorPoint = V2.new(0.5, 0.5),
-						Position = function(use: ComposeTypes.Use)
-							return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
-						end,
-						Size = function(use: ComposeTypes.Use)
-							local box = use(held)
-							return D2.fromOffset(widthPx(use), if box then math.ceil(box.Y) else 0)
-						end,
-						AutomaticSize = function(use: ComposeTypes.Use)
-							return if use(held) then E.AutomaticSize.None else E.AutomaticSize.Y
-						end,
-						BackgroundTransparency = 0,
-						BorderSizePixel = 0,
-						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - shown.opacity(use)
-						end,
-						room.frame :: Instance,
-						ctx.padding(16, 16),
-						ctx.corner(),
-						Host.UIScale "PresentationScale" {
-							Scale = function(use: ComposeTypes.Use)
-								if not use(settled) then
-									return 1
-								end
-								local rest = ctx.metric("motion.materialize.modal", use)
-								return rest + (1 - rest) * shown.travel(use)
-							end,
-						} :: Instance,
-					},
-					"dialog"
-				)
+				local panelProps: Types.CanvasGroupNativeProps = {
+					Name = "Panel",
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = function(use: ComposeTypes.Use)
+						return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
+					end,
+					Size = function(use: ComposeTypes.Use)
+						local box = use(held)
+						return D2.fromOffset(widthPx(use), if box then math.ceil(box.Y) else 0)
+					end,
+					AutomaticSize = function(use: ComposeTypes.Use)
+						return if use(held) then E.AutomaticSize.None else E.AutomaticSize.Y
+					end,
+					BackgroundTransparency = 0,
+					BorderSizePixel = 0,
+					GroupTransparency = function(use: ComposeTypes.Use)
+						return 1 - shown.opacity(use)
+					end,
+					room.frame :: Instance,
+					ctx.padding(16, 16),
+					ctx.corner(),
+				}
+				local panel = ctx.styled(ctx.fade(panelProps), "dialog")
 				ctx.styled(panel, "panel")
+				materialize(ctx, panel, panelProps, function(use: ComposeTypes.Use)
+					local rest = ctx.metric("motion.materialize.modal", use)
+					return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
+				end)
 				local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
 				Compose.watch(function(use: ComposeTypes.Use)
 					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) else nil)

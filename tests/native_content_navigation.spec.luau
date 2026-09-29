@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local materialize = require("./lib/materialize")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local Compose = Facet.Compose
@@ -85,7 +86,7 @@ t.describe("native content navigation deltas", function()
 			local world = menuWorld({ label = "Options", edge = case.edge, align = case.align, items = items(3) })
 			local panel = openMenu(world)
 			place(world, panel, Vector2.new(case.ax or 100, case.at), Vector2.new(200, 40), Vector2.new(220, 200))
-			local at = panel.Position
+			local at = materialize.position(panel)
 			local where = `{case.edge or "default"}/{case.align or "default"}`
 			t.expect(`{where} {at.X.Offset},{at.Y.Offset}`).toBe(`{where} {math.max(8, case.x)},{math.max(8, case.y)}`)
 			world.stop()

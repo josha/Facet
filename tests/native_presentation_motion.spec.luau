@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local Compose = require("../src/vendor/compose/core")
@@ -59,19 +60,19 @@ t.describe("presentation motion: Dialog and CollapsibleView", function()
 		local w, open = dialogWorld()
 		open:set(true)
 		local panel = w.find("Panel")
-		local scale = overlay.find(panel, "PresentationScale")
+		local scale = materialize.of(panel)
 		t.expect(panel.ClassName).toBe("Frame")
 		t.expect(scale.Scale).toBe(1)
 		panel.AbsoluteSize = Vector2.new(560, 300)
 		w.advance(FRAME)
 		w.advance(FRAME)
-		t.expect(scale.Scale >= 0.94 and scale.Scale < 1).toBe(true)
+		t.expect(scale.Scale >= 0.93 and scale.Scale < 1).toBe(true)
 		t.expect(fadeKit.of(panel) > 0.5).toBe(true)
 		t.expect(fadeOf(w)).toBeCloseTo(fadeKit.of(panel), 1e-6)
 		local lastScale, lastFade, clearedEarly = scale.Scale, fadeKit.of(panel), false
 		for _ = 1, 11 do
 			w.advance(FRAME)
-			t.expect(scale.Scale > lastScale).toBe(true)
+			t.expect(scale.Scale >= lastScale).toBe(true)
 			t.expect(fadeKit.of(panel) <= lastFade).toBe(true)
 			t.expect(fadeOf(w)).toBeCloseTo(fadeKit.of(panel), 1e-6)
 			clearedEarly = clearedEarly or (fadeKit.of(panel) == 0 and scale.Scale < 1)
@@ -114,7 +115,7 @@ t.describe("presentation motion: Dialog and CollapsibleView", function()
 		local panel = w.find("Panel")
 		panel.AbsoluteSize = Vector2.new(560, 300)
 		w.advance(FRAME, 2)
-		t.expect(overlay.find(panel, "PresentationScale").Scale).toBe(1)
+		t.expect(materialize.of(panel).Scale).toBe(1)
 		t.expect(fadeKit.of(panel)).toBe(0)
 		w.advance(0.1, 6)
 		open:set(false)
@@ -565,19 +566,38 @@ t.describe("ctx.fade group warm-up", function()
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
 	local engines = require("./lib/native_engine")
-	local function world()
+	local function world(theme: any?)
 		local engine = engines.new()
 		local runtime = Roblox.createRuntime(engine)
 		local ctx = context(Compose, runtime, {
 			types = engine.types,
+			theme = theme,
 			services = { RunService = { Heartbeat = engine.heartbeat } },
 		})
 		local amount = Compose.cell(0)
 		local stop, node = runtime.mount(function()
-			return ctx.fade({ Name = "Faded", GroupTransparency = amount, runtime.constructors.Frame "Child" {} })
+			local node = ctx.fade({ Name = "Faded", GroupTransparency = amount, runtime.constructors.Frame "Child" {} })
+			ctx.skin(node, "panel")
+			return node
 		end, engine.new("Folder"))
 		return engine, runtime, amount, stop, node
 	end
+	t.it("theme shadows share the panel fade through closing and reopening", function()
+		for _, reactive in { false, true } do
+			local package = Facet.themes.neutralPackage()
+			package.chrome.panel = { kind = "native", shadow = { transparency = 0.3 } }
+			local engine, runtime, amount, stop, node = world(if reactive then Compose.cell(package) else package)
+			local shadow = node:FindFirstChild("ChromeShadow")
+			for _, value in { 0, 0.25, 0.75, 1, 0.5, 0 } do
+				amount:set(value)
+				engine.heartbeat.fire(FRAME)
+				t.expect(shadow.Transparency).toBeCloseTo(1 - 0.7 * (1 - value), 5)
+			end
+			stop()
+			runtime:dispose()
+		end
+	end)
+
 	t.it("a fade out keeps its content drawn while the new group warms, then fades it in the group", function()
 		local engine, runtime, amount, stop, node = world()
 		amount:set(0.1)

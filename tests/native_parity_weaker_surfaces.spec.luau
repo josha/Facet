@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local materialize = require("./lib/materialize")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local LIFT = 16 * math.sqrt(2) / 2
@@ -512,7 +513,7 @@ t.describe("presented surface strength", function()
 		anchor.AbsoluteSize = V.new(44, 44)
 		panel.AbsoluteSize = V.new(280, 96)
 		advance(world.engine, 1)
-		t.expect(find(panel, "PresentationScale").Scale).toBe(1)
+		t.expect(materialize.of(panel).Scale).toBe(1)
 		local left, top = corner(panel)
 		t.expect(near(top, 12 + 44 + 8 + LIFT)).toBe(true)
 		t.expect(left + 280 <= 390 - 8 + 0.5).toBe(true)
@@ -560,7 +561,7 @@ t.describe("presented surface strength", function()
 		anchor.AbsolutePosition = V.new(150, 300)
 		anchor.AbsoluteSize = V.new(60, 44)
 		advance(world.engine, 1)
-		t.expect(find(panel, "PresentationScale").Scale).toBe(1)
+		t.expect(materialize.of(panel).Scale).toBe(1)
 		for _, extent in { 390, 240, 120 } do
 			world.screen.AbsoluteSize = V.new(extent, 844)
 			local width = panel.Size.X.Offset

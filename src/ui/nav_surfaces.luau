@@ -3,6 +3,7 @@ local layoutKit = require("./layout_kit")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Inputs = require("./input_types")
+local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local Overlay = require("./overlay_types")
@@ -767,14 +768,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
 						return 1 - presence.opacity(use)
 					end)
-					surfaces.attach(panel, {
-						Host.UIScale "PresentationScale" {
-							Scale = function(use: ComposeTypes.Use)
-								local rest = ctx.metric("motion.materialize.modal", use)
-								return if use(settled) then rest + (1 - rest) * presence.travel(use) else 1
-							end,
-						},
-					})
+					materialize(ctx, panel, {
+						Size = if fullScreen then D2.fromScale(1, 1) else D2.new(1, -32, 0, 0),
+						AutomaticSize = if fullScreen then E.AutomaticSize.None else E.AutomaticSize.Y,
+					}, function(use: ComposeTypes.Use)
+						local rest = ctx.metric("motion.materialize.modal", use)
+						return if use(settled) then rest + (1 - rest) * presence.travel(use) else 1
+					end)
 				end
 				local modal = surfaces.modal(function()
 					return panel
@@ -943,18 +943,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return D2.fromOffset(x, y)
 							end,
 						})
-						surfaces.attach(panel, {
-							Host.UIScale "PresentationScale" {
-								Scale = function(use: ComposeTypes.Use)
-									if not source then
-										return 1
-									end
-									local t = amount(use)
-									local width = math.max(1, math.min(use(offer).X - 32, spec.maxWidth or 440))
-									return math.max(0.01, use(sourceSize).X / width) * (1 - t) + t
-								end,
-							},
-						})
+						materialize(ctx, panel, {
+							Size = D2.new(1, -32, 0, 0),
+							AutomaticSize = E.AutomaticSize.Y,
+						}, function(use: ComposeTypes.Use)
+							if not source then
+								return 1
+							end
+							local t = amount(use)
+							local width = math.max(1, math.min(use(offer).X - 32, spec.maxWidth or 440))
+							return math.max(0.01, use(sourceSize).X / width) * (1 - t) + t
+						end)
 					end
 					local parent = ctx.observe.Parent(modal)
 					local measured = ctx.observe.AbsoluteSize(modal)
@@ -1320,7 +1319,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						top = math.clamp(top, gutter, math.max(gutter, offer.Y - box.Y - gutter)),
 					}
 				end)
-				runtime.decorate(panel, {
+				local panelGeometry: Types.FrameNativeProps = {
 					AutomaticSize = function(use: ComposeTypes.Use)
 						return if held(use) then E.AutomaticSize.None else E.AutomaticSize.Y
 					end,
@@ -1334,14 +1333,20 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ZIndex = function(use: ComposeTypes.Use): number
 						return above(use, 95)
 					end,
-				})
+				}
+				runtime.decorate(panel, panelGeometry)
 				surfaces.popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
 					local at, anchorAt, anchorSize, offset, box =
 						use(placement), use(position), use(size), use(origin), use(measured)
 					local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
 					local above = anchorAt.Y - offset.Y >= at.top + box.Y
 					return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
-				end, { pinned = true, rested = rested, size = measured })
+				end, {
+					pinned = true,
+					rested = rested,
+					size = measured,
+					geometry = { Size = panelGeometry.Size, AutomaticSize = panelGeometry.AutomaticSize },
+				})
 				local arrow: { Frame }? = if tailed
 					then parts.tail(
 						ctx,

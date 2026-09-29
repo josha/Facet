@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Appearing Alert, Dialog, Menu, Popover, Callout and Help surfaces keep their text at its settled size while the surrounding panel grows. Native anchoring keeps that content in place through the final frame; scaling the text with the panel caused glyph, wrapping and scrollbar pops. Theme shadows now fade with the surface, including interrupted closing and reopening.
+- Toasts measure the overlay parent that receives them, so text wraps within an embedded phone preview or other bounded overlay instead of using the entire screen width.
+- Table headings cover the persistent scrollbar gutter. Heading measurement, column resizing and horizontal scrolling use logical layout units so enlarged text redraws at the resized width under display scaling.
+- The Foundation Lab and its optional Light and Dark theme models live in `examples/foundation-lab`. The control list uses larger text. Foundation remains an explicit installation choice outside the default Facet package.
+- Standard live verification now includes overlay continuity and table resizing. Continuity checks detect text-size pops, transient scrollbars, final-frame movement, toast overflow and shadows that outlast their closing surface.
+- A framed TextInput or Search (one with a label, hint, `controlSize`, `appearance` or `corners`) draws the focus look around the whole field, search icon included; it ringed only the inner text box. `FacetFocusPart` accepts `..` to name an ancestor.
+- A NavigationStack's bar title is inset by the control's horizontal padding on both sides. A root page's leading title sat flush against the stack's left edge.
 - A segmented Picker with `corners = "pill"` (or `"square"`) gives its selection highlight the same corners. The highlight carried its own `UICorner`, which beat the theme's corner rule, so it stayed at 8 pixels inside a pill strip.
 - DisclosureGroup content is inset on both sides by the control's horizontal padding (12 pixels in Neutral), in line with the header label. An `outline` group keeps no side inset, and `indent` still sets the left inset.
 - A RadialMenu folds back into its centre when it closes, the reverse of its opening; it only faded where it was.

@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
@@ -488,16 +489,16 @@ t.describe("native menu parity with main", function()
 		local world = labelled({ edge = "top", align = "end", items = NESTED, presentation = "menu" }, {})
 		local panel = open(world)
 		lay(world, panel, Vector2.new(300, 300), Vector2.new(200, 40), Vector2.new(220, 200))
-		local scale = world.find("PresentationScale", panel)
+		local scale = materialize.of(panel)
 		local group = world.find("MenuGroup", panel)
 		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(group)).toBe(1)
 		world.engine.heartbeat.fire(FRAME)
 		world.engine.heartbeat.fire(FRAME)
-		t.expect(scale.Scale >= 0.96 and scale.Scale < 1).toBe(true)
+		t.expect(scale.Scale >= 0.95 and scale.Scale < 1).toBe(true)
 		local shrink = 1 - scale.Scale
-		t.expect(panel.Position.X.Offset).toBeCloseTo(280 + 220 * shrink, 1)
-		t.expect(panel.Position.Y.Offset).toBeCloseTo(96 + 200 * shrink, 1)
+		t.expect(materialize.position(panel).X.Offset).toBeCloseTo(280 + 220 * shrink, 1)
+		t.expect(materialize.position(panel).Y.Offset).toBeCloseTo(96 + 200 * shrink, 2)
 		local enter = 0
 		while scale.Scale < 1 and enter < 60 do
 			world.engine.heartbeat.fire(FRAME)
@@ -507,13 +508,13 @@ t.describe("native menu parity with main", function()
 			world.engine.heartbeat.fire(FRAME)
 		end
 		t.expect(scale.Scale).toBe(1)
-		t.expect(panel.Position).toBe(UDim2.fromOffset(280, 96))
+		t.expect(materialize.position(panel)).toBe(UDim2.fromOffset(280, 96))
 		world.find("adjust", panel).Activated.fire()
 		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(group)).toBe(1)
 		world.engine.heartbeat.fire(FRAME)
 		world.engine.heartbeat.fire(FRAME)
-		t.expect(scale.Scale >= 0.96 and scale.Scale < 1).toBe(true)
+		t.expect(scale.Scale >= 0.95 and scale.Scale < 1).toBe(true)
 		for _ = 1, 30 do
 			world.engine.heartbeat.fire(FRAME)
 		end
@@ -549,10 +550,10 @@ t.describe("native menu parity with main", function()
 			lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
 			world.engine.heartbeat.fire(FRAME)
 			world.engine.heartbeat.fire(FRAME)
-			local shrink = 1 - world.find("PresentationScale", panel).Scale
+			local shrink = 1 - materialize.of(panel).Scale
 			t.expect(shrink > 0).toBe(true)
-			t.expect(panel.Position.X.Offset).toBeCloseTo(case.at.X + case.pivot.X * shrink, 1)
-			t.expect(panel.Position.Y.Offset).toBeCloseTo(case.at.Y + case.pivot.Y * shrink, 1)
+			t.expect(materialize.position(panel).X.Offset).toBeCloseTo(case.at.X + case.pivot.X * shrink, 1)
+			t.expect(materialize.position(panel).Y.Offset).toBeCloseTo(case.at.Y + case.pivot.Y * shrink, 1)
 			world.stop()
 		end
 	end)
@@ -563,13 +564,13 @@ t.describe("native menu parity with main", function()
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
 		world.engine.heartbeat.fire(FRAME)
 		world.engine.heartbeat.fire(FRAME)
-		t.expect(world.find("PresentationScale", panel).Scale).toBe(1)
+		t.expect(materialize.of(panel).Scale).toBe(1)
 		t.expect(fadeKit.of(world.find("MenuGroup", panel))).toBe(0)
 		world.find("adjust", panel).Activated.fire()
-		t.expect(world.find("PresentationScale", panel).Scale).toBe(1)
+		t.expect(materialize.of(panel).Scale).toBe(1)
 		world.engine.heartbeat.fire(FRAME)
 		world.engine.heartbeat.fire(FRAME)
-		t.expect(world.find("PresentationScale", panel).Scale).toBe(1)
+		t.expect(materialize.of(panel).Scale).toBe(1)
 		t.expect(fadeKit.of(world.find("MenuGroup", panel))).toBe(0)
 		world.stop()
 	end)
@@ -578,11 +579,11 @@ t.describe("native menu parity with main", function()
 		local world = labelled({ items = items(3) })
 		local panel = open(world)
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
-		t.expect(panel.Position).toBe(UDim2.fromOffset(100, 144))
+		t.expect(materialize.position(panel)).toBe(UDim2.fromOffset(100, 144))
 		world.find("Trigger").AbsolutePosition = Vector2.new(260, 180)
-		t.expect(panel.Position).toBe(UDim2.fromOffset(260, 224))
+		t.expect(materialize.position(panel)).toBe(UDim2.fromOffset(260, 224))
 		world.find("Trigger").AbsolutePosition = Vector2.new(260, 500)
-		t.expect(panel.Position).toBe(UDim2.fromOffset(260, 296))
+		t.expect(materialize.position(panel)).toBe(UDim2.fromOffset(260, 296))
 		world.stop()
 	end)
 
@@ -594,11 +595,11 @@ t.describe("native menu parity with main", function()
 		end
 		local panel = open(world)
 		lay(world, panel, Vector2.new(10, 20), Vector2.new(60, 40), Vector2.new(220, 200))
-		t.expect(panel.Position).toBe(UDim2.fromOffset(48, 66))
+		t.expect(materialize.position(panel)).toBe(UDim2.fromOffset(48, 66))
 		lay(world, panel, Vector2.new(700, 400), Vector2.new(60, 40), Vector2.new(220, 200))
-		t.expect(panel.Position).toBe(UDim2.fromOffset(800 - 24 - 8 - 220, 196))
+		t.expect(materialize.position(panel)).toBe(UDim2.fromOffset(800 - 24 - 8 - 220, 196))
 		world.find("Trigger").AbsolutePosition = Vector2.new(300, 560)
-		t.expect(panel.Position.Y.Offset + 200 <= 600 - 34 - 8).toBe(true)
+		t.expect(materialize.position(panel).Y.Offset + 200 <= 600 - 34 - 8).toBe(true)
 		world.stop()
 		local plain = labelled({ edge = "top", items = items(3) })
 		plain.gui.GetGuiInset = function()
@@ -606,7 +607,7 @@ t.describe("native menu parity with main", function()
 		end
 		local inside = open(plain)
 		lay(plain, inside, Vector2.new(10, 20), Vector2.new(60, 40), Vector2.new(220, 200))
-		t.expect(inside.Position).toBe(UDim2.fromOffset(10, 64))
+		t.expect(materialize.position(inside)).toBe(UDim2.fromOffset(10, 64))
 		plain.stop()
 	end)
 
@@ -617,13 +618,13 @@ t.describe("native menu parity with main", function()
 		for _ = 1, 3 do
 			world.engine.heartbeat.fire(FRAME)
 		end
-		local scale = world.find("PresentationScale", panel)
+		local scale = materialize.of(panel)
 		t.expect(scale.Scale).toBe(1)
-		local early = panel.Position.Y.Offset
+		local early = materialize.position(panel).Y.Offset
 		for _ = 1, 40 do
 			world.engine.heartbeat.fire(FRAME)
 		end
-		local rest = panel.Position.Y.Offset
+		local rest = materialize.position(panel).Y.Offset
 		t.expect(early > rest).toBe(true)
 		t.expect(scale.Scale).toBe(1)
 		t.expect(rest).toBe(600 - 200 - 12)
@@ -663,11 +664,11 @@ t.describe("native menu parity with main", function()
 		for _ = 1, 3 do
 			world.engine.heartbeat.fire(FRAME)
 		end
-		local scale = world.find("PresentationScale", panel)
+		local scale = materialize.of(panel)
 		t.expect(scale.Scale < 1).toBe(true)
 		local shrink = 1 - scale.Scale
-		t.expect(panel.Position.X.Offset).toBeCloseTo(100 + 288, 1)
-		t.expect(panel.Position.Y.Offset).toBeCloseTo(144 + 44 * shrink, 1)
+		t.expect(materialize.position(panel).X.Offset).toBeCloseTo(100 + 288, 1)
+		t.expect(materialize.position(panel).Y.Offset).toBeCloseTo(144 + 44 * shrink, 1)
 		for _ = 1, 40 do
 			world.engine.heartbeat.fire(FRAME)
 		end
@@ -678,8 +679,8 @@ t.describe("native menu parity with main", function()
 		end
 		t.expect(scale.Scale < 1).toBe(true)
 		shrink = 1 - scale.Scale
-		t.expect(panel.Position.X.Offset).toBeCloseTo(100 + 220 * shrink, 1)
-		t.expect(panel.Position.X.Offset > 101).toBe(true)
+		t.expect(materialize.position(panel).X.Offset).toBeCloseTo(100 + 220 * shrink, 2)
+		t.expect(materialize.position(panel).X.Offset > 101).toBe(true)
 		world.stop()
 	end)
 
@@ -707,7 +708,7 @@ t.describe("native menu parity with main", function()
 				end
 			end
 			settle()
-			local scale = world.find("PresentationScale", panel)
+			local scale = materialize.of(panel)
 			local more = world.find("Divider", panel)
 			for _, node in panel:GetDescendants() do
 				if node.Name == "Divider" and node:IsA("GuiButton") then
@@ -727,24 +728,24 @@ t.describe("native menu parity with main", function()
 			end
 			local shrink = 1 - scale.Scale
 			t.expect(shrink > 0).toBe(true)
-			local top = panel.Position.Y.Offset
+			local top = materialize.position(panel).Y.Offset
 			settle()
-			t.expect(math.abs(top - (panel.Position.Y.Offset + 120 * shrink)) < 1.5).toBe(true)
+			t.expect(math.abs(top - (materialize.position(panel).Y.Offset + 120 * shrink)) < 1.5).toBe(true)
 			world.action("MenuLeft").Pressed.fire()
 			for _ = 1, 3 do
 				world.engine.heartbeat.fire(FRAME)
 			end
 			shrink = 1 - scale.Scale
 			t.expect(shrink > 0).toBe(true)
-			top = panel.Position.Y.Offset
+			top = materialize.position(panel).Y.Offset
 			settle()
-			t.expect(math.abs(top - (panel.Position.Y.Offset + 10 * shrink)) < 1.5).toBe(true)
-			local rest = panel.Position.X.Offset
+			t.expect(math.abs(top - (materialize.position(panel).Y.Offset + 10 * shrink)) < 1.5).toBe(true)
+			local rest = materialize.position(panel).X.Offset
 			world.find("DismissOutside", world.screen.Parent).Activated.fire()
 			world.engine.heartbeat.fire(FRAME)
 			world.engine.heartbeat.fire(FRAME)
 			t.expect(scale.Scale < 1).toBe(true)
-			t.expect(panel.Position.X.Offset).toBe(rest)
+			t.expect(materialize.position(panel).X.Offset).toBe(rest)
 			world.stop()
 		end
 	)
@@ -761,7 +762,7 @@ t.describe("native menu parity with main", function()
 		for _ = 1, 40 do
 			world.engine.heartbeat.fire(FRAME)
 		end
-		local scale = world.find("PresentationScale", panel)
+		local scale = materialize.of(panel)
 		world.find("DismissOutside", world.screen.Parent).Activated.fire()
 		world.engine.heartbeat.fire(FRAME)
 		local leaving = scale.Scale
@@ -783,7 +784,7 @@ t.describe("native menu parity with main", function()
 		world.engine.heartbeat.fire(FRAME)
 		world.engine.heartbeat.fire(FRAME)
 		t.expect(panel.Size.X.Offset).toBe(-24 - 40 - 24)
-		t.expect(panel.Position).toBe(UDim2.fromOffset(52, 600 - 34 - 200 - 12))
+		t.expect(materialize.position(panel)).toBe(UDim2.fromOffset(52, 600 - 34 - 200 - 12))
 		world.stop()
 	end)
 

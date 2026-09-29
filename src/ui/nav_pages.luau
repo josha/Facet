@@ -1509,6 +1509,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return if use(state).index > 1 then E.TextXAlignment.Center else E.TextXAlignment.Left
 						end,
 					})
+					runtime.mount(function()
+						local function inset(use: ComposeTypes.Use): UDim
+							return ctx.types.UDim.new(0, ctx.controlSize(nil, "paddingX", use))
+						end
+						return Host.UIPadding({ PaddingLeft = inset, PaddingRight = inset })
+					end, title)
 					local navigationBar = Host.Frame "NavigationBar" {
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)

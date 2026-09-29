@@ -298,6 +298,7 @@ def producers_for(tier):
         producer("public-surface", ["lune", "run", "tools/lune/check_public_surface"], COMPLETE, replaces=["check_public_surface"]),
         producer("public-surface-selftest", ["lune", "run", "tools/lune/check_public_surface", "--selftest"], COMPLETE),
         producer("standalone-builds", ["bash", "tools/build_places.sh"], COMPLETE, replaces=["build_places"]),
+        producer("foundation-lab-build", ["bash", "examples/foundation-lab/build.sh"], COMPLETE),
         producer("reference-builds", ["bash", "tools/build_reference_places.sh"], COMPLETE, replaces=["build_reference_places"]),
         producer("consumer-build", ["rojo", "build", "examples/consumer/default.project.json", "-o", "artifacts/verify/native/consumer.rbxl"], COMPLETE),
         producer("theme-builds", ["bash", "tools/build_themes.sh"], COMPLETE, replaces=["build_themes"]),

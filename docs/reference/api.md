@@ -278,10 +278,10 @@ easing, spring, scale and distance below is a token in the theme package's
 | NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent (`distances.parallax`) to the leading edge and dims by 0.1 (`distances.dim`). Critically damped spring with a 0.3 second period (`springs.move`), visually complete in approximately 0.35 seconds. | Pop is the reverse. |
 | TabView page change | Crossfade, 0.2 seconds (`durations.tabFade`), Quad Out (`easing.fade`). | The same. |
 | Sheet | Slides up from the bottom, 0.3 seconds (`sheet.enter`), Cubic Out (`easing.present`). A side sheet slides in from its edge. The scrim fades in. A detent change, a released drag and a side sheet's released pull settle on one critically damped spring (`springs.sheet`, a 0.4 second period, visually complete in about 0.45 seconds) that starts from the finger's release velocity; a detent change retargeted mid-flight keeps its velocity. A release faster than 800 pixels per second (`fling.bounceSpeed`) settles on `springs.flick` (0.3 second period, damping 0.8), so it passes its detent by under 2 percent once and comes back. While you drag or pull a sheet that can be dismissed, the scrim lightens in proportion to how far the sheet has moved toward dismissal. | Slides down, or toward its edge, 0.2 seconds (`sheet.exit`). |
-| Alert, Dialog | Scales from 0.94 (`materialize.modal`) to 1 and fades in, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
-| Popover | Scales from 0.9 (`materialize.anchored`) to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
-| Callout | Scales from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
-| Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
+| Alert, Dialog | The panel grows from 0.94 (`materialize.modal`) to 1 and fades in, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
+| Popover | The panel grows from 0.9 (`materialize.anchored`) to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
+| Callout | The panel grows from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
+| Button `help` | The panel grows from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | The panel scales from 0.96 (`materialize.menu`) to 1 from the corner where it hangs; a pointer submenu grows from the chosen row (about that row's top edge, on the side facing the parent), and Back grows the parent from the side that faced the child; and fades in, 0.15 seconds (`popover.enter`), Cubic Out. As a sheet (touch, gamepad, narrow window), the panel slides up from the bottom edge and fades in with the Sheet timing (`sheet.enter` 0.3 seconds, `sheet.exit` 0.2 seconds) and never scales. A sheet level change slides the rows 32 pixels (`distances.menuSlide`) in from the trailing side (Back: from the leading side) and cross-fades them over `popover.enter`. | The reverse, 0.1 seconds (`popover.exit`); a sheet slides back down over `sheet.exit`. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Toast | Slides in from its edge, 0.2 seconds (`toast.enter`), Cubic Out, and fades in over the same time on the linear `easing.trail`, so the fade is still running once the row is in view. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds (`toast.exit`), the fade on `easing.trail`. |
@@ -319,9 +319,10 @@ easing, spring, scale and distance below is a token in the theme package's
   waits, invisible and at scale 1, until its size holds for one frame, at most
   the theme's `motion.restLimit` (0.25 seconds by default). The placement then
   reads that rested size for the whole entrance and exit, so the scale never
-  moves the plate or its tail, and a Dialog, Callout or help plate holds that
-  size as a fixed box while it scales. The wait applies at every motion level,
-  so a presentation never grows after it shows.
+  moves the anchor or its tail. The panel animates around content held at its
+  final layout size. Text is never scaled by this entrance, and fractional
+  text extents round up so a wrapped line is not clipped. The wait applies
+  at every motion level.
 - The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
   `"limited"`) changes this motion:
   - `"normal"`: the motion above.
@@ -2030,6 +2031,10 @@ is an array of `{ id, value }` entries. `root` and each `destinations[id]` are
 `backLabel` sets the text of the native Back chrome. Compose `LayerStack` owns
 the retained pages and their disposal.
 
+The navigation bar title is inset on both sides by the control's horizontal
+padding (`controlSizes.regular.paddingX`), so a root page's leading title
+lines up with the Back label of the pages above it.
+
 A push slides the new page in from the trailing edge. The covered page moves
 30 percent to the leading edge and dims. The covered page keeps its full
 width, so its controls do not change size. A pop plays the reverse. The popped
@@ -2709,6 +2714,7 @@ Without an action:
   Notice), read each frame while a toast shows.
 - `width`: `fill` (the default) spans the layer less 16 pixels on each side.
   `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
+  Width and placement use the configured overlay parent when one is supplied.
 - `fade`: by default the row fades in and out as it slides (the fade draws
   the row through a CanvasGroup only while it runs, so settled text keeps
   native glyph rendering). `false` only slides.
@@ -3027,7 +3033,9 @@ truncated values through the row's icon-only `more` (…) button, named
 "More actions". The cell
 state stays retained. The header band spans the whole row, edit controls
 included, and shows a hairline divider between headings; the headings sit over
-their columns.
+their columns. With a persistent vertical scrollbar, the header background
+continues over the scrollbar gutter to align the outside edges. Resize
+requests use layout pixels even when an ancestor scales the table.
 
 Editable cells. A column with `editor = "text"`, `"number"`, `"toggle"` or
 `"menu"` shows a TextInput, a NumberInput, a plain checkbox Toggle or a menu
@@ -3429,6 +3437,8 @@ weight. The derived role keeps the family, style, size and line height.
   `label` and is drawn only while `label` is not empty. It grows around the
   text by its `textInsets`, never below its own size, and stays centred on its
   edge. `onCaption(shown)` reports whether the plaque shows the label.
+  `shadowTransparency` blends the shadow toward transparent; fading controls
+  bind it to their paint so their glow cannot outlast their visible panel.
   A `target` that is a TextBox gets no art images, only the recipe shadow.
   Roblox draws children above their parent, so art in a TextBox would cover
   its text and placeholder.
@@ -3723,9 +3733,13 @@ everywhere. The colour is the recipe `color`, or `accent`. A selected object
 with a number attribute `FacetFocusHeight` gets a look that many times its own
 height, measured down from its top edge (a Card uses this to ring the whole
 card from its body). A selected object with a string attribute
-`FacetFocusPart` (a path of child names such as `"Track/Thumb"`) gets the look
-on that part instead, sized to it and shaped by its `UICorner`; a Slider uses
-this so the look stays on its thumb while the whole Slider is the stop. The
+`FacetFocusPart` (a path of child names such as `"Track/Thumb"`, where `..`
+steps to the parent) gets the look on that part instead, sized to it and shaped
+by its `UICorner`; a Slider uses this so the look stays on its thumb while the
+whole Slider is the stop, and a framed TextInput or Search points its text box
+at the whole field (`".."` up to the plate), so the look covers the search icon,
+prefix, suffix and Clear button too. A field with step buttons keeps the look
+on its text box, since each step button is its own stop. The
 part's place and size are kept as shares of the selected object, so a parent
 `UIScale` moves and sizes the look with the part. A part that is itself rotated
 relative to the selected object gets an unrotated look around its unrotated box.

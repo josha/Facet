@@ -117,7 +117,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			local at: Instance? = target
 			for name in string.gmatch(path, "[^/]+") do
-				at = if at then at:FindFirstChild(name) else nil
+				at = if at == nil then nil elseif name == ".." then at.Parent else at:FindFirstChild(name)
 			end
 			return if at and at:IsA("GuiObject") then at :: GuiObject else nil
 		end

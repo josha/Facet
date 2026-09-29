@@ -111,6 +111,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local coordinator: ComposeTypes.Cell<{}?> = Compose.cell(nil :: {}?)
 		local queries: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local body: ScrollingFrame
+		local unitScale = Compose.cell(1)
 		local rowMeasures: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
 		local headerMeasures: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local truncatedRows: ComposeTypes.Cell<{ [K]: { [string]: boolean } }> = Compose.cell({})
@@ -188,7 +189,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				else ctx.observe.TextBounds(node)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local bounds = use(observed)
-				local height = bounds.Y + extra
+				local height = bounds.Y / use(unitScale) + extra
 				if height > 0 and cell:peek()[id] ~= height then
 					local nextHeights = table.clone(cell:peek())
 					nextHeights[id] = height
@@ -429,6 +430,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				}
 				local button = ctx.styled(UI.Button(buttonProps), "TableHeading")
 				local frame: Frame
+				local resizeUnit: ComposeTypes.Readable<number>
 				local grip: TextButton?
 				if column.resizable ~= false then
 					local startingPosition, startingWidth = 0, 0
@@ -459,13 +461,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 							DragAxis = V2.new(1, 0),
 							ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 							DragStart = function(position)
-								startingPosition, startingWidth = position.X, frame.AbsoluteSize.X
+								startingPosition, startingWidth = position.X, frame.AbsoluteSize.X / resizeUnit:peek()
 							end,
 							DragContinue = function(position)
 								local value = current:peek()
 								local nextWidths = table.clone(readSource(widths))
 								nextWidths[value.id] = math.clamp(
-									startingWidth + position.X - startingPosition,
+									startingWidth + (position.X - startingPosition) / resizeUnit:peek(),
 									value.minWidth or 48,
 									value.maxWidth or 1000000
 								)
@@ -476,6 +478,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					grip = Host.TextButton(gripProps)
 				end
 				frame = ctx.styled(columnFrame(current, index, button, grip), "TableHeader")
+				resizeUnit = ctx.layoutUnit(frame)
 				Compose.cleanup((runtime.mount(function()
 					return ctx.styled(
 						Host.Frame({
@@ -506,7 +509,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 						local value = current:peek()
 						local nextWidths = table.clone(readSource(widths))
 						nextWidths[value.id] = math.clamp(
-							(nextWidths[value.id] or frame.AbsoluteSize.X) + delta,
+							(nextWidths[value.id] or frame.AbsoluteSize.X / resizeUnit:peek()) + delta,
 							value.minWidth or 48,
 							value.maxWidth or 1000000
 						)
@@ -604,7 +607,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			ScrollingDirection = E.ScrollingDirection.XY,
 			CanvasSize = function(use: ComposeTypes.Use)
 				return D2.fromOffset(
-					use(headerExtent).X + reorderGutter(use) + trailingGutter(use) + use(disclosureWidth),
+					use(headerExtent).X / use(unitScale)
+						+ reorderGutter(use)
+						+ trailingGutter(use)
+						+ use(disclosureWidth),
 					use(contentExtent)
 				)
 			end,
@@ -962,6 +968,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local unitSize = ctx.observe.AbsoluteSize(unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local scale = use(unitSize).X
+			unitScale:set(if scale > 0 then scale else 1)
 			local size = use(rendered)
 			window:set(if scale > 0 then size / scale else size)
 		end)
@@ -971,7 +978,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			coordinator:set(nil)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
-			scrolledX:set(use(position).X)
+			scrolledX:set(use(position).X / use(unitScale))
 		end)
 		runtime.decorate(header, {
 			Position = function(use: ComposeTypes.Use)
@@ -1007,10 +1014,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							return D2.fromOffset(0, use(toolbarHeight))
 						end,
 						Size = function(use: ComposeTypes.Use)
-							local width = use(window).X
-							return if width > 0
-								then D2.fromOffset(width, use(headerHeight))
-								else D2.new(1, 0, 0, use(headerHeight))
+							return D2.new(1, 0, 0, use(headerHeight))
 						end,
 					}),
 					"TableHead"
