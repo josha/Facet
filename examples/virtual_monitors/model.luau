@@ -1,12 +1,14 @@
 --!strict
 local catalogModule = require("./catalog")
 local chatModule = require("./chat_model")
+local flapModule = require("./flap_model")
 local model = {}
 
 function model.new(Compose: any)
 	local self: any = {
 		catalog = catalogModule.new(Compose),
 		chat = chatModule.new(Compose),
+		flap = flapModule.new(Compose),
 		mode = Compose.cell("Spatial"),
 		selectedTab = Compose.cell("Discover"),
 		focused = Compose.cell("Overview"),
@@ -57,6 +59,24 @@ function model.new(Compose: any)
 		modeChosen = false,
 	}
 	local serial = 0
+	self.flapActive = function(use)
+		local mode = use(self.mode)
+		local selected = if mode == "Screen" then use(self.selectedTab) else use(self.focused)
+		local presentation = self.presentations["Flap:" .. mode]
+		return selected == "Flap" and not (presentation and (use(presentation.about) or use(presentation.status)))
+	end
+	self.flapPress = function()
+		if self.flapActive(function(value)
+			return value:peek()
+		end) then
+			self.flap.flap()
+		end
+	end
+	Compose.watch(function(use)
+		if not self.flapActive(use) then
+			self.flap.pause()
+		end
+	end)
 	self.notify = function(app, message, undo)
 		serial += 1
 		self.toasts[app]:set({ serial = serial, message = message, undo = undo })
@@ -248,6 +268,13 @@ function model.new(Compose: any)
 		answered = completed
 	end)
 	self.step = function(dt, reducedMotion)
+		if self.flapActive(function(value)
+			return value:peek()
+		end) then
+			self.flap.step(dt)
+		else
+			self.flap.pause()
+		end
 		self.catalog.step()
 		self.chat.step(dt)
 		local launch = self.launch:peek()
@@ -267,6 +294,7 @@ function model.new(Compose: any)
 	self.dispose = function()
 		self.catalog.dispose()
 		self.chat.dispose()
+		self.flap.dispose()
 	end
 	return self
 end

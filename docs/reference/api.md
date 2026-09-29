@@ -26,6 +26,11 @@ and styling. This reference describes the `0.12.0` surface.
 
 ### Types
 
+The pinned Compose module includes `TileCollection`, which owns the nonempty cells
+in a world-space tile viewport, and `focusNeighbor`, a pure directional rectangle
+search. Their contracts live in the pinned Compose [API reference](../../skills/compose/references/api.md).
+Virtual Monitors uses `TileCollection` for the Facet Flap course.
+
 The exported Luau types include `Facet`, `ComposeModule`, `ComposeRobloxModule`,
 `Controls`, `ControlOptions`, `App`, `AppOptions`, `Component`, `ThemePackage`,
 `CivilDate`, `CivilRange`, `CivilLocale`, `CivilDateModule`,

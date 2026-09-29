@@ -1,5 +1,6 @@
 --!strict
 local screens = { CANVAS = { w = 920, h = 640 }, SHORT_HEIGHT = 500 }
+screens.APPS = table.freeze({ "Discover", "Avatar", "Chat", "Flap" })
 
 function screens.create(Facet: any, runtime: any, actions: any)
 	local Compose, Host, civil = Facet.Compose, runtime.constructors, Facet.civilDate
@@ -233,7 +234,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				gap = "s",
 				padding = { top = "s", right = "m", bottom = "m", left = "m" },
 				UI.NavBar "Header" {
-					title = if name == "Chat" then "Assistant" else name,
+					title = if name == "Chat" then "Assistant" elseif name == "Flap" then "Facet Flap" else name,
 					titleSize = "heading",
 					Visible = function(use)
 						return use(menuShown) or not (collapsed and use(collapsed))
@@ -394,7 +395,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						stage("AboutScene", actions.discoveryContent, { Size = D2.new(1, 0, 0, 150) }),
 						words(
 							"AboutMessage",
-							"Three complete apps, shared between a spatial desktop and a flat screen. Compose owns every scene and lifetime; Facet supplies controls; Roblox supplies layout and rendering."
+							"Four apps, shared between a spatial desktop and a flat screen. Compose owns every scene and lifetime; Facet supplies controls; Roblox supplies layout and rendering."
 						),
 						quiet(
 							"AboutVersion",
@@ -1300,7 +1301,12 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			return require("./chat")(ctx)
 		end)
 	end
-	return { Discover = Discover, Avatar = Avatar, Chat = Chat, moves = UI.focusQuery }
+	local function Flap()
+		return shell("Flap", function()
+			return require("./flap")(ctx)
+		end)
+	end
+	return { Discover = Discover, Avatar = Avatar, Chat = Chat, Flap = Flap, moves = UI.focusQuery }
 end
 
 return screens

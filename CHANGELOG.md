@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Upgrade the pinned Compose module to `dbf518ac3d28846c81ab0cf8f74cbc76ad22b30a`, adding `Compose.TileCollection` and `Compose.focusNeighbor`. Virtual Monitors adds Facet Flap as its fourth app, with a scrolling tile course, flight controls, scoring, retry and pause on leaving the active monitor.
+
 - Appearing Alert, Dialog, Menu, Popover, Callout and Help surfaces keep their text at its settled size while the surrounding panel grows. Native anchoring keeps that content in place through the final frame; scaling the text with the panel caused glyph, wrapping and scrollbar pops. Theme shadows now fade with the surface, including interrupted closing and reopening.
 - Toasts measure the overlay parent that receives them, so text wraps within an embedded phone preview or other bounded overlay instead of using the entire screen width.
 - Table headings cover the persistent scrollbar gutter. Heading measurement, column resizing and horizontal scrolling use logical layout units so enlarged text redraws at the resized width under display scaling.

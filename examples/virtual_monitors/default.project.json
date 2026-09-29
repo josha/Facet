@@ -49,6 +49,15 @@
         },
         "chat": {
           "$path": "chat.luau"
+        },
+        "flap": {
+          "$path": "flap.luau"
+        },
+        "flap_model": {
+          "$path": "flap_model.luau"
+        },
+        "spatial": {
+          "$path": "spatial.luau"
         }
       }
     },
