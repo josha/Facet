@@ -218,6 +218,8 @@ return {
 								{
 									id = "beacon",
 									label = "Beacon",
+									icon = "flag",
+									labelStyle = "icon",
 									onSelect = function()
 										draft.beacon:set(1)
 										notice:set("Beacon power staged. Apply when ready.")
@@ -226,6 +228,8 @@ return {
 								{
 									id = "door",
 									label = "Door",
+									icon = "chevron.trailing",
+									labelStyle = "icon",
 									onSelect = function()
 										draft.door:set(2)
 										notice:set("Door power staged. Apply when ready.")
@@ -234,6 +238,8 @@ return {
 								{
 									id = "workshop",
 									label = "Workshop",
+									icon = "settings",
+									labelStyle = "icon",
 									onSelect = function()
 										draft.workshop:set(2)
 										notice:set("Workshop power staged. Apply when ready.")

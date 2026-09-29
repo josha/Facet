@@ -160,6 +160,7 @@ return function(
 		local suppressedKey: string?
 		local suppressedSource: string?
 		local openedByLauncher = false
+		local launcherGesture = false
 		local aimPointer: ((Vector3, boolean?, boolean?) -> Radial.Sector<V>? | false)?
 		local aimAnalog: ((Vector2) -> ())?
 		local candidateSector: (() -> Radial.Sector<V>?)?
@@ -169,7 +170,7 @@ return function(
 			if inspectedUntil == math.huge then
 				inspectedUntil = os.clock() + 0.3
 			end
-			capture, analog = nil, false
+			capture, analog, launcherGesture = nil, false, false
 			interacting:set(false)
 			naming:set(false)
 			holding:pause()
@@ -319,13 +320,14 @@ return function(
 		local function isPointer(input: InputObject): boolean
 			return input.UserInputType == E.UserInputType.MouseButton1 or input.UserInputType == E.UserInputType.Touch
 		end
-		local function beginPointer(input: InputObject, onPanel: boolean?)
+		local function beginPointer(input: InputObject, onPanel: boolean?, fromLauncher: boolean?)
 			if not capture and opened:peek() and isPointer(input) and aimPointer then
 				suppressedInput, suppressedUntil, inspectedUntil = nil, nil, nil
 				if aimPointer(input.Position, false, true) == false then
 					return
 				end
 				capture, pressedAt, heldAt = input, if onPanel then input.Position else nil, input.Position
+				launcherGesture = fromLauncher == true
 				if input.UserInputType == E.UserInputType.Touch then
 					holding:restart()
 				end
@@ -425,7 +427,7 @@ return function(
 						if not opened:peek() and isPointer(input) then
 							open()
 							openedByLauncher = opened:peek()
-							beginPointer(input)
+							beginPointer(input, false, true)
 						end
 					end,
 					onActivate = function(input: InputObject?)
@@ -1636,7 +1638,8 @@ return function(
 						end
 						local still = pressedAt and (input.Position - pressedAt).Magnitude < 8
 						local outside = still and beyond(pressedAt :: Vector3) and beyond(input.Position)
-						local sector = if outside then nil else assert(aimPointer)(input.Position, true)
+						local launcherTap = launcherGesture and heldAt and (input.Position - heldAt).Magnitude < 14
+						local sector = if outside or launcherTap then nil else assert(aimPointer)(input.Position, true)
 						cancel()
 						if outside then
 							close()

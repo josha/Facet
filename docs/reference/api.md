@@ -2266,6 +2266,10 @@ scrolling list, never inside it.
 A corner ring names the highlighted item just outside the arc, on the arc's
 middle direction.
 
+A tap on the launcher opens the menu and keeps it open. The release does not
+pick an item, even if the ring moves an item under the finger to fit the screen.
+A press on the launcher that slides at least 14 pixels can pick an item on release.
+
 A finger held still on an item for 0.4 seconds names it and does not pick
 it: that release does nothing, and a second tap picks the item. A press that
 slides more than 14 pixels is a gesture, and its release picks the item under
@@ -3216,8 +3220,9 @@ that Button activates as if the player pressed it. The grip is
 not a selection stop, so keyboard and gamepad selection still stop on the
 content. With touch input, the grip turns its UIDragDetector off and uses the
 native `TouchPan` gesture. Thus a vertical pan scrolls the list, and a
-horizontal pan opens the tray. A touch tap reaches the content Button through
-the grip.
+horizontal pan opens the tray. The final native pan translation and velocity
+are included when deciding whether a full swipe runs the first action.
+A touch tap reaches the content Button through the grip.
 
 A tap or a click on the content of the open row closes the tray, and the
 content does not activate. While the tray is open, a transparent

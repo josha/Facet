@@ -617,6 +617,26 @@ t.describe("native radial interaction policies", function()
 		t.expect(stage.isDestroyed()).toBe(true)
 		runtime:dispose()
 	end)
+	t.it("a launcher tap leaves the menu open when its ring places an action under the finger", function()
+		local count = 0
+		local world = setup({
+			isPresented = Compose.cell(false),
+			distribution = "compass",
+			items = compass(function()
+				count += 1
+			end),
+		})
+		local launcher, touch = world.find("Launcher"), pointer(world, 320, 110)
+		launcher.InputBegan.fire(touch)
+		touch.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(touch)
+		launcher.Activated.fire(touch)
+		t.expect(count).toBe(0)
+		t.expect(world.opened:peek()).toBe(true)
+		world.find("N").Activated.fire(pointer(world, 320, 110))
+		t.expect(count).toBe(1)
+		world.stop()
+	end)
 	t.it("NRAD-14 launcher press slide releases directly into an action", function()
 		local count = 0
 		local world = setup({

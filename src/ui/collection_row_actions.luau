@@ -489,24 +489,32 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		Compose.cleanup(freeScrollers)
-		local function pan(positions: { Vector2 }, translation: Vector2, _: Vector2, state: Enum.UserInputState): ()
-			local position: Vector2? = positions[1]
-			if position == nil then
-				return
-			end
-			if state == E.UserInputState.Begin or state == E.UserInputState.Change then
-				if state == E.UserInputState.Begin then
-					panned = true
-					begin(position - translation)
+		local function pan(
+			positions: { Vector2 },
+			translation: Vector2,
+			panVelocity: Vector2,
+			state: Enum.UserInputState
+		): ()
+			if state == E.UserInputState.Begin then
+				local position: Vector2? = positions[1]
+				if position == nil then
+					return
 				end
-				move(position)
-				if axis == "horizontal" then
+				panned = true
+				begin(position - translation)
+			end
+			if state == E.UserInputState.Begin or state == E.UserInputState.Change or state == E.UserInputState.End then
+				if start then
+					move(start + translation)
+					velocity, previousTime = panVelocity.X, now()
+				end
+				if state == E.UserInputState.End then
+					freeScrollers()
+					finish()
+					settlePan()
+				elseif axis == "horizontal" then
 					holdScrollers()
 				end
-			elseif state == E.UserInputState.End then
-				freeScrollers()
-				finish()
-				settlePan()
 			else
 				freeScrollers()
 				cancelDrag()
