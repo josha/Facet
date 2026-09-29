@@ -357,7 +357,7 @@ local lifetime = Compose.createRootOwner(function()
 		flatViews = views
 		return desktop.create(Facet, runtime, views, model, modeProgress, {
 			theme = desktopPackage,
-			reducedMotion = reducedMotion,
+			motionLevel = motionLevel,
 			pressHaptic = pressHaptic,
 			player = players.LocalPlayer,
 		})()
