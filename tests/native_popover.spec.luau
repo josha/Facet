@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local materialize = require("./lib/materialize")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local placement = require("../src/ui/overlay_placement")
@@ -424,7 +425,7 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 			}
 		end)
 		local body, flow, panel = w.find("Body"), w.find("Flow"), w.find("Panel")
-		local scale = panel:FindFirstChild("PresentationScale")
+		local scale = materialize.of(panel)
 		t.expect(scale.Scale).toBe(1)
 		flow.AbsoluteSize = Vector2.new(180, 60)
 		panel.AbsoluteSize = Vector2.new(196, 76)

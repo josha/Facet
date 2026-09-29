@@ -278,6 +278,7 @@ export type ThemeOptions = {
 }
 export type SkinOptions = {
 	types: Engine.RobloxTypes?,
+	shadowTransparency: Engine.ValueNumber?,
 	target: GuiObject?,
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,

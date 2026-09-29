@@ -2212,6 +2212,10 @@ local function skin(
 	options: ThemeTypes.SkinOptions?
 ): Frame
 	local settings: ThemeTypes.SkinOptions = options or {}
+	local function shadowTransparency(base: number, use: ComposeTypes.Use): number
+		local fade = math.clamp(read(settings.shadowTransparency, use) or 0, 0, 1)
+		return if fade == 0 then base else 1 - (1 - base) * (1 - fade)
+	end
 	local types, Host = typesFor(settings), (runtime.constructors :: unknown) :: Engine.Host
 	local D2, V2 = types.UDim2, types.Vector2
 	if not Compose.isReadable(packageOrReadable) and type(packageOrReadable) ~= "function" then
@@ -2248,7 +2252,11 @@ local function skin(
 				runtime.mount(function()
 					return Host.UIShadow "ChromeShadow" {
 						Color = color(types, shadow.color or { r = 0, g = 0, b = 0 }),
-						Transparency = shadow.transparency or 0.5,
+						Transparency = if settings.shadowTransparency == nil
+							then shadow.transparency or 0.5
+							else function(use: ComposeTypes.Use)
+								return shadowTransparency(shadow.transparency or 0.5, use)
+							end,
 						ZIndex = shadow.zIndex or -1,
 						Enabled = shadow.enabled ~= false,
 						BlurRadius = types.UDim.new(axis(shadow.blurRadius)),
@@ -2693,7 +2701,7 @@ local function skin(
 							) :: Color3
 					end,
 					Transparency = function(use: ComposeTypes.Use)
-						return (use(retainedShadow) :: ThemeTypes.Shadow).transparency or 0.5
+						return shadowTransparency((use(retainedShadow) :: ThemeTypes.Shadow).transparency or 0.5, use)
 					end,
 					ZIndex = function(use: ComposeTypes.Use)
 						return (use(retainedShadow) :: ThemeTypes.Shadow).zIndex or -1

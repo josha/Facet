@@ -1,0 +1,8 @@
+{
+  "name": "Foundation-light",
+  "tree": {
+    "$className": "Folder",
+    "foundation": { "$path": "themes/foundation.luau" },
+    "foundation_light": { "$path": "themes/foundation_light.luau" }
+  }
+}

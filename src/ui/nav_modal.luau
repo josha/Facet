@@ -1,6 +1,7 @@
 --!strict
 local Types = require("./types")
 local Nav = require("./navigation_types")
+local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local help = require("./help")
 local Inputs = require("./input_types")
@@ -217,6 +218,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 			for index, size in live do
 				local value = size:peek()
 				parts[index] = `{value.X},{value.Y}`
+				local node = nodes[index]
+				if node:IsA("TextLabel") or node:IsA("TextButton") then
+					parts[index] ..= `:{node.TextBounds}`
+				end
 				filled = filled or (value.X > 0 and value.Y > 0)
 			end
 			return table.concat(parts, ";"), filled
@@ -259,6 +264,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 			local size = settings.size or ctx.observe.AbsoluteSize(panel)
 			runtime.decorate(panel, {
 				AnchorPoint = function(use: ComposeTypes.Use)
+					if rise and rise(use) ~= nil then
+						return V2.zero
+					end
 					local _, origin = place(use)
 					local box = use(size)
 					return V2.new(
@@ -268,7 +276,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 				end,
 				Position = function(use: ComposeTypes.Use)
 					local at, origin = place(use)
-					return D2.fromOffset(at.X + origin.X, at.Y + origin.Y)
+					local distance = if rise then rise(use) else nil
+					return if distance
+						then D2.fromOffset(at.X, at.Y + distance * (1 - amount(use)))
+						else D2.fromOffset(at.X + origin.X, at.Y + origin.Y)
 				end,
 			})
 		else
@@ -284,7 +295,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 				end,
 			})
 		end
-		attach(panel, { Host.UIScale "PresentationScale" { Scale = scale } })
+		materialize(ctx, panel, assert(settings.geometry), scale, function(use: ComposeTypes.Use)
+			local _, point = place(use)
+			local box = if settings.size then use(settings.size) else panel.AbsoluteSize
+			return V2.new(if box.X > 0 then point.X / box.X else 0.5, if box.Y > 0 then point.Y / box.Y else 0.5)
+		end)
 	end
 	local function attached(anchor: GuiObject): boolean
 		local at: Instance? = anchor
@@ -960,7 +975,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					table.insert(panelProps, hint)
 				end
 				local panel = ctx.fade(panelProps)
-				local sizes, rested = atRest(presence.travel, settled, { panel })
+				local sizes, rested = atRest(presence.travel, settled, { panel, label })
 				local measured = sizes[1]
 				Compose.watch(function(use: ComposeTypes.Use)
 					held:set(if use(rested) and presence.travel(use) < 1 then use(measured) else nil)
@@ -998,7 +1013,12 @@ return function(ctx: Types.Context): Nav.Surfaces
 						elseif solved.edge == "right" then V2.new(0, math.clamp(centerY, 0, box.Y))
 						else V2.new(box.X, math.clamp(centerY, 0, box.Y))
 					return V2.new(solved.x, solved.y), origin
-				end, { pinned = true, rested = rested, size = measured })
+				end, {
+					pinned = true,
+					rested = rested,
+					size = measured,
+					geometry = { Size = panelProps.Size, AutomaticSize = panelProps.AutomaticSize },
+				})
 				ctx.styled(panel, "tooltip")
 				local tail = parts.tail(
 					ctx,

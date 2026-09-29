@@ -1,0 +1,98 @@
+{
+  "name": "Facet-FoundationLab",
+  "emitLegacyScripts": false,
+  "globIgnorePaths": [
+    "**/*.spec.luau"
+  ],
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$properties": {
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      },
+      "Baseplate": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Locked": true,
+          "Size": [
+            512,
+            20,
+            512
+          ],
+          "Position": [
+            0,
+            -10,
+            0
+          ],
+          "TopSurface": "Smooth",
+          "BottomSurface": "Smooth"
+        }
+      },
+      "SpawnLocation": {
+        "$className": "SpawnLocation",
+        "$properties": {
+          "Anchored": true,
+          "Size": [
+            12,
+            1,
+            12
+          ],
+          "Position": [
+            0,
+            0.5,
+            0
+          ],
+          "Duration": 0,
+          "Neutral": true
+        }
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+    "StarterGui": {
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
+    },
+    "ReplicatedStorage": {
+      "Facet": {
+        "$path": "../../src"
+      },
+      "FacetThemes": {
+        "$path": "../themes"
+      },
+      "FacetScenarios": {
+        "$path": "../gallery/scenarios"
+      },
+      "FacetExamples": {
+        "$path": "../gallery/examples"
+      },
+      "FacetShowcase": {
+        "$className": "Folder",
+        "screen": {
+          "$path": "../gallery/client/screen.luau"
+        },
+        "demo_picker": {
+          "$path": "../gallery/client/demo_picker.luau"
+        }
+      },
+      "LabThemes": {
+        "$className": "Folder",
+        "foundation": {
+          "$path": "themes/foundation.luau"
+        }
+      },
+      "Lab": {
+        "$path": "src"
+      },
+      "FacetLive": {
+        "$path": "../../tools/studio/live"
+      }
+    }
+  }
+}

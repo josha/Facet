@@ -811,24 +811,30 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
 		return assert(layout.insets(sides))
 	end
-	local fades: { [Instance]: ComposeTypes.Cell<{ Shared.Value<number> }> } = setmetatable({}, { __mode = "k" }) :: any
+	local fades: { [Instance]: { source: ComposeTypes.Cell<{ Shared.Value<number> }>, transparency: (ComposeTypes.Use) -> number } } = setmetatable(
+		{},
+		{ __mode = "k" }
+	) :: any
 	function ctx.fadeTo(node: Instance, value: Shared.Value<number>): ()
-		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade"):set({ value })
+		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade").source:set({ value })
 	end
 	function ctx.fade(properties: Shared.CanvasGroupNativeProps): Frame
 		local fields = (properties :: unknown) :: { [unknown]: unknown }
 		local source = Compose.cell({ (fields.GroupTransparency or 0) :: Shared.Value<number> })
 		fields.GroupTransparency = nil
 		local node = Host.Frame((properties :: unknown) :: Shared.FrameNativeProps)
-		fades[node] = source
 		local function amount(use: ComposeTypes.Use): number
 			return read(use(source)[1] :: Shared.Value<number>, use) or 0
 		end
 		local shown = ctx.observe.Visible(node)
 		local warming = Compose.cell(false)
 		local frames = services.RunService
+		local function transparency(use: ComposeTypes.Use): number
+			return if use(warming) then 1 else amount(use)
+		end
+		fades[node] = { source = source, transparency = transparency }
 		local function paint(use: ComposeTypes.Use): NumberSequence
-			return types.NumberSequence.new(if use(warming) then 1 else amount(use))
+			return types.NumberSequence.new(transparency(use))
 		end
 		local latched = Compose.cell(true)
 		local stop = runtime.mountFragment(function()
@@ -847,9 +853,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				Compose.show(function(use: ComposeTypes.Use)
 					return use(shown) and amount(use) > 0
 				end, function()
-					local automatic = node.AutomaticSize
-					local freeX = automatic == Enum.AutomaticSize.X or automatic == Enum.AutomaticSize.XY
-					local freeY = automatic == Enum.AutomaticSize.Y or automatic == Enum.AutomaticSize.XY
+					local automatic = ctx.observe.AutomaticSize(node)
 					local leaving = frames ~= nil and (read(source:peek()[1] :: Shared.Value<number>) or 0) < 0.5
 					local gather: (() -> ())? = nil
 					if frames then
@@ -874,7 +878,12 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					end
 					local group = Host.CanvasGroup "Fade" {
 						BackgroundTransparency = 1,
-						Size = types.UDim2.fromScale(if freeX then 0 else 1, if freeY then 0 else 1),
+						Size = function(use: ComposeTypes.Use)
+							local mode = use(automatic)
+							local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
+							local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
+							return types.UDim2.fromScale(if freeX then 0 else 1, if freeY then 0 else 1)
+						end,
 						AutomaticSize = automatic,
 						GroupTransparency = function(use: ComposeTypes.Use)
 							return if use(warming) then 0.99 else amount(use)
@@ -1634,6 +1643,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
+				shadowTransparency = if fades[node] then fades[node].transparency else nil,
 				label = if stateOptions.label ~= nil
 					then stateOptions.label
 					elseif node:IsA("TextButton") or node:IsA("TextLabel") then ctx.observe.Text(node)

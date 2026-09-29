@@ -192,6 +192,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 				viewport = viewport,
 				theme = theme,
 				motionLevel = config.motionLevel or "none",
+				environment = config.environment,
 				overlayParent = overlay,
 			})
 			local sheet = Facet.themes.createStyleSheet(runtime, theme, { theme = palette, transition = false })
@@ -659,7 +660,7 @@ end
 
 function live.record(tag: string, suites: { string }?): string
 	local lines = {}
-	for _, suite in suites or { "layout_geometry", "gallery", "needs_live" } do
+	for _, suite in suites or { "layout_geometry", "gallery", "needs_live", "motion_continuity", "table_resize" } do
 		local json = live.run(suite, { keepGallery = suite ~= "layout_geometry" })
 		live.save(`{suite}-{tag}`, json)
 		table.insert(lines, live.summary(json))

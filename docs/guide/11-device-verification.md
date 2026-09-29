@@ -52,7 +52,7 @@ function. An interactive case has `setup(t)` and named `steps` in place of
 
 - `t.mount(build, options)` mounts a fixture with its own runtime, controls
   and StyleSheet. The options are `theme`, `size` (a Vector2 or a readable)
-  and `frames`.
+  `frames`, `motionLevel` and `environment`.
 - `t.check`, `t.near`, `t.inside` and `t.fits` record assertions.
 - `t.note` records a measurement that is not an assertion.
 - `t.themes` lists every theme package that builds.
@@ -68,6 +68,40 @@ of that size, and `overlayParent` is a frame of that size. Thus alerts,
 callouts, menus and adaptive rules use the fixture and not the camera. Give
 `emulate = false` to keep the camera viewport.
 
+### Appearance continuity
+
+`motion_continuity` samples rendered frames during entrance, including the
+first visible frame and the settled result. It exercises Alert, Dialog, Menu,
+Popover, Callout, Help, Sheet, CollapsibleView and Toast with normal, limited
+and no motion, wide and narrow viewports, gamepad input and large-display
+layout. It includes long copy, larger explicit text and a Largest environment
+preview. The preview does not change the engine's native text preference;
+repeat the suite with that preference set in Studio for native accessibility
+evidence.
+
+Visible text must exist throughout the sample and keep its final text bounds
+and box size within one pixel. Text positions must stay within half a
+pixel, relative to the panel for deliberately sliding surfaces. The negative
+control includes a one-pixel translation with unchanged text bounds.
+A vertical scrollbar that disappears at rest
+fails the case. Toasts must also stay within their presentation width and
+fit their text. Closing checks require theme shadows to fade with the panel,
+including the final frames after its paint becomes transparent. The suite must sample text, so an empty or missing panel cannot
+pass. Add appearing controls and new wrapping or scrolling fixtures here when
+changing presentation code. A final screenshot alone cannot catch these bugs.
+
+Panels keep their content at its settled layout size while their outer box
+animates. Animating a text ancestor's `UIScale` can round glyph sizes during
+the transition. Native `AutomaticSize` and Compose bindings still own layout;
+the shared presentation helper holds only the measured box during motion.
+
+These checks catch layout changes and scrollbar flashes, not every paint or
+rasterization defect. Keep a visual pass for theme paint and device rendering.
+
+`table_resize` compares resized large headings with freshly created native
+text, including shrinking and widening columns under display scaling. It also
+checks that the header band reaches the outer scrollbar edge.
+
 ### Run the suites
 
 1. In the worktree, run `lune run tools/lune/studio_sync.luau`. It serves the
@@ -78,7 +112,8 @@ callouts, menus and adaptive rules use the fixture and not the camera. Give
 4. In the Client data model, run
    `require(game.ReplicatedStorage.FacetLive).record("<tag>")`.
 
-`record` runs the `layout_geometry`, `gallery` and `needs_live` suites. It
+`record` runs `layout_geometry`, `gallery`, `needs_live` and
+`motion_continuity` and `table_resize`. It
 saves each result as `artifacts/studio-live/<suite>-<tag>.json` and returns a
 summary. Use a tag that names the viewport and the text size, for example
 `portrait-largest`. `run(suite, options)` runs one suite and returns the JSON.

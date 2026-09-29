@@ -382,7 +382,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					elseif at.edge == "right" then V2.new(0, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 					else V2.new(size.X, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 				return V2.new(at.x, at.y), origin
-			end, { pinned = true, rested = rested, size = measured })
+			end, {
+				pinned = true,
+				rested = rested,
+				size = measured,
+				geometry = { Size = D2.fromOffset(0, 0), AutomaticSize = E.AutomaticSize.XY },
+			})
 			local children: { Types.Child } = { panel }
 			if tailed then
 				local tail = parts.tail(

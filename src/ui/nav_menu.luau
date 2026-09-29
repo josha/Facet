@@ -1110,7 +1110,7 @@ return function(
 			end
 			return V2.new(left, top), pivot
 		end
-		runtime.decorate(panel, {
+		local panelGeometry: Types.FrameNativeProps = {
 			Size = function(use: ComposeTypes.Use)
 				local function carve(side: string): number
 					return surfaces.inset(0, side, nil, use)
@@ -1127,11 +1127,15 @@ return function(
 				end
 				return D2.fromOffset(panelWidth(use) + carve("left") + carve("right"), height)
 			end,
-		})
+		}
+		runtime.decorate(panel, panelGeometry)
 		if shown then
 			surfaces.popover(panel, shown.travel, place, {
+				pinned = true,
 				from = materialize,
 				rested = rested,
+				size = measured,
+				geometry = { Size = panelGeometry.Size, AutomaticSize = panelGeometry.AutomaticSize },
 				rise = function(use: ComposeTypes.Use): number?
 					if not use(asSheet) then
 						return nil

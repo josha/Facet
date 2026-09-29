@@ -68,3 +68,5 @@ id_rsa*
 # run outputs regenerate under artifacts/; the tracked exceptions stay tracked
 artifacts/
 
+
+examples/foundation-lab/evidence/

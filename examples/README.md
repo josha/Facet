@@ -20,6 +20,7 @@ host mounts them with the runtime pieces that `Facet.app` uses.
 
 | Task | Example |
 |---|---|
+| Interactive control catalog and device previews | [Foundation Lab](foundation-lab/README.md) |
 | Small complete client | [Standalone consumer](consumer/src/screen.luau) |
 | Editable local state | [Temperature converter](gallery/examples/01_temperature_converter.luau) |
 | Shared model and table commands | [Playlist](gallery/examples/02_playlist_table.luau) |

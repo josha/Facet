@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -29,7 +30,7 @@ t.describe("presence: opacity leads travel", function()
 		local shown = Compose.cell(true)
 		local w = dialog(shown)
 		local panel = w.find("Panel")
-		local scale = panel:FindFirstChildWhichIsA("UIScale", true)
+		local scale = materialize.of(panel)
 		local sawOpaqueEarly = false
 		for _ = 1, 30 do
 			w.advance(1 / 60)
@@ -56,7 +57,7 @@ t.describe("presence: the fades take their share of the time, not of the eased t
 		local shown = Compose.cell(true)
 		local w = dialog(shown)
 		local panel = w.find("Panel")
-		local scale = panel:FindFirstChildWhichIsA("UIScale", true)
+		local scale = materialize.of(panel)
 		local partial, elapsed = 0, 0
 		while fadeKit.of(panel) > 0 and elapsed < 1 do
 			w.advance(1 / 120)
@@ -95,7 +96,7 @@ t.describe("presence: motion level limited cross-fades", function()
 		local shown = Compose.cell(true)
 		local w = dialog(shown, { motionLevel = "limited" })
 		local panel = w.find("Panel")
-		local scale = panel:FindFirstChildWhichIsA("UIScale", true)
+		local scale = materialize.of(panel)
 		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(panel) > 0).toBe(true)
 		w.advance(1 / 60, 3)
@@ -118,7 +119,7 @@ t.describe("presence: motion level limited cross-fades", function()
 		local w = dialog(shown, { motionLevel = "none" })
 		local panel = w.find("Panel")
 		w.advance(1 / 60, 2)
-		t.expect(panel:FindFirstChildWhichIsA("UIScale", true).Scale).toBe(1)
+		t.expect(materialize.of(panel).Scale).toBe(1)
 		t.expect(fadeKit.of(panel)).toBe(0)
 		shown:set(false)
 		w.advance(1 / 60)
@@ -264,7 +265,7 @@ t.describe("presence: a Dialog is measured at rest", function()
 			local shown = Compose.cell(true)
 			local w = dialog(shown, { motionLevel = level }, true)
 			local panel = w.find("Panel")
-			local scale = panel:FindFirstChildWhichIsA("UIScale", true)
+			local scale = materialize.of(panel)
 			panel.AbsoluteSize = w.Vector2.new(560, 420)
 			w.advance(1 / 60)
 			t.expect(fadeKit.of(panel)).toBe(1)
@@ -279,7 +280,7 @@ t.describe("presence: a Dialog is measured at rest", function()
 					seen = true
 					if scale.Scale < 1 then
 						t.expect(panel.AutomaticSize).toBe(w.Enum.AutomaticSize.None)
-						t.expect(panel.Size.Y.Offset).toBe(441)
+						t.expect(panel.Size.Y.Offset).toBeCloseTo(441 * scale.Scale, 1)
 					end
 				end
 			end
