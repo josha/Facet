@@ -303,7 +303,7 @@ def producers_for(tier):
         producer("consumer-build", ["rojo", "build", "examples/consumer/default.project.json", "-o", "artifacts/verify/native/consumer.rbxl"], COMPLETE),
         producer("theme-builds", ["bash", "tools/build_themes.sh"], COMPLETE, replaces=["build_themes"]),
         producer("gallery-build", ["rojo", "build", "examples/showcase.project.json", "-o", "artifacts/verify/native/gallery.rbxl"], COMPLETE),
-        producer("monitors-build", ["rojo", "build", "examples/virtual_monitors/default.project.json", "-o", "artifacts/verify/native/virtual-monitors.rbxl"], COMPLETE),
+        producer("monitors-build", ["bash", "examples/virtual_monitors/build.sh"], COMPLETE),
         producer("performance-build", ["rojo", "build", "examples/performance.project.json", "-o", "artifacts/verify/native/performance.rbxl"], COMPLETE),
         producer("model-build", ["bash", "tools/build_model.sh"], COMPLETE, "package", replaces=["build_model"]),
         producer("package-build", ["bash", "tools/package.sh", "build"], COMPLETE, "package"),

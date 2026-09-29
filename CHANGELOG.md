@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Check in the Virtual Monitors and Facet Flap place builds under `examples/places`. The standard example build refreshes both. The Facet Flap build starts in its game tab.
+
 - Directional focus uses upstream `Compose.focusNeighbor`; the duplicate Facet algorithm is removed.
 - Filled top tabs use the theme's `metrics.radii.tab`. Neutral uses pills; the example themes set corners to match their artwork.
 - Upgrade the pinned Compose module to `dbf518ac3d28846c81ab0cf8f74cbc76ad22b30a`, adding `Compose.TileCollection` and `Compose.focusNeighbor`. Virtual Monitors adds Facet Flap as its fourth app, with a scrolling tile course, flight controls, scoring, retry and pause on leaving the active monitor.

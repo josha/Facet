@@ -223,4 +223,6 @@ echo "built examples/places/Facet-PerformanceLab.rbxl (Facet-PerformanceLab — 
 
 lune run tools/lune/check_place_bootstrap.luau examples/places/0*.rbxl examples/places/Facet-Showcase.rbxl
 
+bash examples/virtual_monitors/build.sh
+
 echo "done: $(ls examples/places/*.rbxl | wc -l | tr -d ' ') place files in examples/places/"
