@@ -8,6 +8,8 @@ and takes its look from a theme you can replace without touching a screen.
 Facet builds on the Roblox engine. Controls are ordinary Instances, and the
 engine does layout, text, scrolling, selection and styling.
 
+See all controls/layouts/options [live here](https://www.roblox.com/games/120259284556766/Facet-Lab) and this [showcase with examples in context](https://www.roblox.com/games/77767184583039/Facet-Showcase). 
+
 ## A working screen
 
 1. Set `Workspace.PlayerScriptsUseInputActionSystem` to true in the place.
