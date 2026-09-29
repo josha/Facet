@@ -14,6 +14,7 @@ export type Axis = "x" | "y" | "xy"
 export type StackProps = Engine.FrameProps & {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 	gap: Types.Value<Space>?,
 	align: Types.Value<Align>?,
@@ -24,6 +25,7 @@ export type ScreenProps = Engine.FrameProps & {
 	chrome: ("device" | "band" | "edge")?,
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 	gap: Types.Value<Space>?,
 	align: Types.Value<Align>?,
@@ -32,6 +34,7 @@ export type ScreenProps = Engine.FrameProps & {
 export type ZStackProps = Engine.FrameProps & {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 	alignH: Types.Value<Edge>?,
 	alignV: Types.Value<Edge>?,
@@ -39,6 +42,7 @@ export type ZStackProps = Engine.FrameProps & {
 export type ScrollViewProps = Engine.ScrollingFrameProps & {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 	axis: Axis?,
 	gap: Types.Value<Space>?,
@@ -48,6 +52,7 @@ export type ScrollViewProps = Engine.ScrollingFrameProps & {
 export type GridProps = Engine.FrameProps & {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 	columns: Types.ValueNumber,
 	flow: ("row" | "column")?,
@@ -60,6 +65,7 @@ export type GridProps = Engine.FrameProps & {
 export type AdaptiveStackProps = Engine.FrameProps & {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 	gap: Types.Value<Space>?,
 	align: Types.Value<Align>?,
@@ -68,6 +74,7 @@ export type AdaptiveStackProps = Engine.FrameProps & {
 }
 export type ViewThatFitsProps = Engine.FrameProps & {
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 }
 export type ErrorBoundaryProps = Engine.FrameProps & {
@@ -75,6 +82,7 @@ export type ErrorBoundaryProps = Engine.FrameProps & {
 	fallback: (failure: unknown, retry: () -> ()) -> Types.Child,
 	onError: ((failure: unknown) -> ())?,
 	width: Types.Value<Extent>?,
+	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 }
 export type DividerProps = Engine.FrameProps & {

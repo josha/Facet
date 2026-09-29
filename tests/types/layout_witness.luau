@@ -6,8 +6,11 @@ local UI = Facet.controls(runtime)
 local gap = Compose.cell("s" :: Facet.Space)
 local width: Facet.Cell<Facet.Extent> = Compose.cell("fill" :: Facet.Extent)
 local visible = Compose.cell(true)
-local stackProps: Facet.StackProps = { gap = "m", padding = { left = "xs", top = 4 }, align = "center" :: "center" }
+local maximum = Compose.cell(480)
+local stackProps: Facet.StackProps =
+	{ maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" :: "center" }
 local screen: Frame = UI.Screen({
+	maxWidth = 640,
 	gap = gap,
 	padding = "l",
 	distribute = "spaceBetween" :: "spaceBetween",
@@ -17,6 +20,7 @@ local named: Frame = UI.Screen("Home")({ padding = 0 })
 local column: Frame = UI.VStack({
 	gap = "s",
 	width = width,
+	maxWidth = maximum,
 	height = 120,
 	wrap = true,
 	BackgroundTransparency = 0.5,
@@ -24,20 +28,32 @@ local column: Frame = UI.VStack({
 	UI.Button({ label = "Save" }),
 })
 local row: Frame = UI.HStack("Toolbar")(stackProps)
-local adaptiveProps: Facet.AdaptiveStackProps = { gap = "s", axis = "x" :: "x" }
+local adaptiveProps: Facet.AdaptiveStackProps = { maxWidth = maximum, gap = "s", axis = "x" :: "x" }
 local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
-local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
-local layers: Frame = UI.ZStack({ alignH = "center" :: "center", alignV = "end" :: "end", padding = "s" })
+local fits: Frame = UI.ViewThatFits({ maxWidth = 480, UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
+local layers: Frame =
+	UI.ZStack({ maxWidth = maximum, alignH = "center" :: "center", alignV = "end" :: "end", padding = "s" })
 local page: ScrollingFrame = UI.ScrollView({
+	maxWidth = 640,
 	axis = "y" :: "y",
 	gap = "s",
 	align = "stretch" :: "stretch",
 	ScrollBarThickness = 6,
 })
 local sideways: ScrollingFrame = UI.ScrollView("Rail")({ axis = "x" :: "x" })
-local grid: Frame =
-	UI.Grid({ columns = 3, gap = "s", rowGap = 4, cellHeight = 60, aspectRatio = 1, align = "center" :: "center" })
+local grid: Frame = UI.Grid({
+	maxWidth = 640,
+	columns = 3,
+	gap = "s",
+	rowGap = 4,
+	cellHeight = 60,
+	aspectRatio = 1,
+	align = "center" :: "center",
+})
 local guarded: Frame = UI.ErrorBoundary("Region")({
+	maxWidth = function(use: Facet.Use): number
+		return use(maximum)
+	end,
 	view = function()
 		return runtime.constructors.Frame({})
 	end,

@@ -74,6 +74,94 @@ local function mentions(message: string?, fragment: string): boolean
 	return message ~= nil and string.find(message, fragment, 1, true) ~= nil
 end
 
+t.describe("native maximum layout width", function()
+	t.it("caps every sized container with one reactive native constraint", function()
+		for _, name in
+			{
+				"Screen",
+				"VStack",
+				"HStack",
+				"ZStack",
+				"ScrollView",
+				"Grid",
+				"AdaptiveStack",
+				"ViewThatFits",
+				"ErrorBoundary",
+			}
+		do
+			local maximum = Compose.cell(480)
+			local root, engine, stop = build(nil, function(UI, Host)
+				local spec = {
+					width = "fill",
+					height = 120,
+					maxWidth = function(use)
+						return use(maximum)
+					end,
+				}
+				if name == "Grid" then
+					spec.columns = 2
+				end
+				if name == "ViewThatFits" then
+					spec[1] = Host.Frame({})
+				end
+				if name == "ErrorBoundary" then
+					spec.view = function()
+						return Host.Frame({})
+					end
+					spec.fallback = function()
+						return Host.Frame({})
+					end
+				end
+				return UI[name](spec)
+			end)
+			local cap = child(root, "UISizeConstraint")
+			t.expect(cap ~= nil).toBe(true)
+			t.expect(root.Size).toBe(engine.types.UDim2.new(1, 0, 0, 120))
+			t.expect(cap.MaxSize).toBe(engine.types.Vector2.new(480, math.huge))
+			maximum:set(300)
+			t.expect(child(root, "UISizeConstraint")).toBe(cap)
+			t.expect(cap.MaxSize.X).toBe(300)
+			stop()
+		end
+	end)
+
+	t.it("keeps fixed width semantics and does not add a cap unless requested", function()
+		local maximum = Compose.cell(480)
+		local root, engine, stop = build(nil, function(UI)
+			return UI.VStack {
+				width = 600,
+				UI.HStack { width = 600, maxWidth = maximum },
+				UI.ZStack { width = "fill", maxWidth = 0 },
+			}
+		end)
+		t.expect(root.Size.X.Offset).toBe(600)
+		t.expect(child(root, "UISizeConstraint")).toBeNil()
+		local rows = {}
+		for _, node in root:GetChildren() do
+			if node:IsA("GuiObject") then
+				rows[node.LayoutOrder] = node
+			end
+		end
+		t.expect(rows[1].Size.X.Offset).toBe(600)
+		maximum:set(320)
+		t.expect(child(rows[1], "UISizeConstraint").MaxSize.X).toBe(320)
+		t.expect(rows[1].Size.X.Offset).toBe(600)
+		t.expect(child(rows[2], "UISizeConstraint").MaxSize.X).toBe(0)
+		stop()
+	end)
+
+	t.it("rejects invalid maximum widths before passing them to Roblox", function()
+		for _, maximum in { -1, math.huge, 0 / 0, "fill", false } do
+			t.expect(mentions(
+				refusal(function(UI)
+					return UI.VStack { maxWidth = maximum }
+				end),
+				"maxWidth must be a finite number"
+			)).toBe(true)
+		end
+	end)
+end)
+
 t.describe("native layout primitives", function()
 	t.describe("VStack and HStack", function()
 		t.it("build a plain Frame with a list layout and number the children in declaration order", function()

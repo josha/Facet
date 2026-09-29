@@ -463,7 +463,8 @@ function browser.mount(opts: MountOpts): any
 		local liveControl = UI.VStack({
 			Name = "Live",
 
-			width = if data.fills then "fill" elseif data.cellWidth then data.cellWidth * 2 else "hug",
+			width = if data.fills or data.cellWidth then "fill" else "hug",
+			maxWidth = if data.cellWidth and not data.fills then data.cellWidth * 2 else nil,
 			height = cellHeight,
 			padding = { top = "l", bottom = "l", left = "m", right = "m" },
 			Compose.keyed({

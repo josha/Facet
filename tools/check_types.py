@@ -119,6 +119,7 @@ def negative_probes():
         ("VStack padding side name", 'UI.VStack({ padding = { start = 4 } })'),
         ("HStack align", 'UI.HStack({ align = "middle" })'),
         ("VStack distribute", 'UI.VStack({ distribute = "around" })'),
+        ("VStack maximum width", 'UI.VStack({ maxWidth = "fill" })'),
         ("VStack width", 'UI.VStack({ width = "stretch" })'),
         ("VStack native size", 'UI.VStack({ Size = 42 })'),
         ("Screen gap", 'UI.Screen({ gap = false })'),

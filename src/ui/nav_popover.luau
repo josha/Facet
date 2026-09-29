@@ -365,7 +365,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					source = source,
 					size = { w = size.X, h = size.Y },
 					safe = safe(use),
-					edge = spec.edge,
+					edge = spec.edge or (if preferred and use(preferred) == E.PreferredInput.Touch then "top" else nil),
 					align = spec.align,
 					gap = (spec.gap or 8) + side * math.sqrt(2) / 2,
 					crossOffset = spec.crossOffset,
