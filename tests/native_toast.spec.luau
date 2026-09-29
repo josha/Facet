@@ -542,6 +542,16 @@ describe("UI.Toast: presentation", function()
 		faded.world.stop()
 	end)
 
+	it("fades on screen: halfway through its entrance the row is still half see-through", function()
+		local f = toasts({ { message = "a", duration = 1, readFloor = 0 } }, { motionLevel = "normal" })
+		f.world.advance(0.1, 6)
+		local group = rows(f.world)[1]:FindFirstChild("Fade")
+		expect(group ~= nil and group.GroupTransparency >= 0.45).toBe(true)
+		f.world.advance(0.2, 12)
+		expect(rows(f.world)[1]:FindFirstChild("Fade")).toBeNil()
+		f.world.stop()
+	end)
+
 	it("refuses a malformed toast by name", function()
 		for index, bad in
 			{

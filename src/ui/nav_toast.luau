@@ -323,23 +323,30 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		(ComposeTypes.Use) -> number
 	) -> number)
 		local toastTiming = ctx.motionTiming("toast")
-		local present, fade = ctx.motionEase("present"), ctx.motionEase("fade")
-		local slide = runtime.tween(function(use: ComposeTypes.Use): number
+		local present, fade, trail = ctx.motionEase("present"), ctx.motionEase("fade"), ctx.motionEase("trail")
+		local function shown(use: ComposeTypes.Use): number
 			return if phase and use(phase.exiting) then 0 elseif use(entered) then 1 else 0
-		end, {
-			seconds = function(_: ComposeTypes.Use): number
-				if level() == "limited" then
-					return ctx.metric("motion.reducedFade")
-				end
-				return if phase and phase.exiting:peek() then toastTiming.exit else toastTiming.enter
-			end,
+		end
+		local function seconds(_: ComposeTypes.Use): number
+			if level() == "limited" then
+				return ctx.metric("motion.reducedFade")
+			end
+			return if phase and phase.exiting:peek() then toastTiming.exit else toastTiming.enter
+		end
+		local slide = runtime.tween(shown, {
+			seconds = seconds,
 			ease = function(t: number): number
 				return if level() == "limited" then fade(t) else present(t)
 			end,
 		})
+		local trailing = runtime.tween(shown, { seconds = seconds, ease = trail })
 		return slide,
 			function(use: ComposeTypes.Use, amount: (ComposeTypes.Use) -> number): number
-				return if level(use) == "limited" then use(slide) else amount(use)
+				local current = level(use)
+				return if current == "limited"
+					then use(slide)
+					elseif current == "normal" then use(trailing)
+					else amount(use)
 			end
 	end
 

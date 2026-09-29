@@ -2364,3 +2364,70 @@ t.describe("performance lab motion flight", function()
 		end
 	)
 end)
+
+t.describe("radial presentation geometry", function()
+	local function reach(screen: any, id: string): number
+		local center, button = find(screen, "Center"), find(find(screen, "Sector-" .. id), id)
+		local dx = button.Position.X.Offset - center.Position.X.Offset
+		local dy = button.Position.Y.Offset - center.Position.Y.Offset
+		return math.sqrt(dx * dx + dy * dy)
+	end
+
+	t.it("closing folds the ring back into its centre as it fades", function()
+		local w = world({ motionLevel = "normal" })
+		local opened = Compose.cell(true)
+		local stop, screen = w.mount(function(UI)
+			return UI.RadialMenu({ isPresented = opened, items = compassItems(function() end) })
+		end)
+		w.step(0.3)
+		local rest = reach(screen, "N")
+		opened:set(false)
+		w.step(0.06)
+		local folding = reach(screen, "N")
+		t.expect(folding < rest * 0.9).toBe(true)
+		t.expect(fadeKit.of(find(screen, "Sector-N")) > 0).toBe(true)
+		w.step(0.4)
+		t.expect(find(screen, "RadialPanel")).toBe(nil)
+		stop()
+		w.close()
+	end)
+
+	t.it("a replacing level keeps the ring it replaced", function()
+		local w = world({ motionLevel = "normal" })
+		local opened = Compose.cell(true)
+		local stop, screen = w.mount(function(UI)
+			return UI.RadialMenu({
+				isPresented = opened,
+				preset = "bottom-left",
+				appearance = "buttons",
+				items = {
+					{ id = "look", label = "Look", icon = "close", onSelect = function() end },
+					{
+						id = "pack",
+						label = "Pack",
+						icon = "menu",
+						navigation = "replace",
+						children = {
+							{ id = "map", label = "Map", compactLabel = { icon = "flag" }, onSelect = function() end },
+							{
+								id = "snack",
+								label = "Snack",
+								compactLabel = { icon = "checkmark" },
+								onSelect = function() end,
+							},
+						},
+					},
+					{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end },
+				},
+			})
+		end)
+		w.step(0.5)
+		local root = reach(screen, "look")
+		find(find(screen, "Sector-pack"), "pack").Activated.fire()
+		w.step(0.5)
+		t.expect(reach(screen, "map") >= root - 1).toBe(true)
+		t.expect(reach(screen, "snack") >= root - 1).toBe(true)
+		stop()
+		w.close()
+	end)
+end)

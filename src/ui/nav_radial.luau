@@ -573,6 +573,7 @@ return function(
 					end
 					local navigation, expansion = spec.navigation or "replace", spec.expansion or "fan"
 					local currentStart, currentSweep = start, sweep
+					local replaced = 0
 					local function append(): { Radial.Sector<V> }
 						local shown: { Radial.RadialItem<V> } = {}
 						local seen: { [string]: boolean } = {}
@@ -649,7 +650,7 @@ return function(
 								target = math.max(target, 2 * (minimum / chord - ri))
 							end
 							local wanted = 2 * math.ceil(math.max(extent, target) / 2)
-							levelBand = math.clamp(wanted, floor, band)
+							levelBand = math.clamp(math.max(wanted, replaced), floor, band)
 						end
 						ring = ri + levelBand + 4
 						local sectors =
@@ -678,6 +679,7 @@ return function(
 						expansion = parent.item.expansion or expansion
 						table.insert(prefix, id)
 						items = read(parent.item.children, use)
+						replaced = if navigation == "replace" then parent.outer - parent.inner else 0
 						if navigation == "replace" then
 							levels, ring = {}, inner
 							currentStart, currentSweep = start, sweep
@@ -748,14 +750,17 @@ return function(
 					end
 				end)
 				local spreadFrom = ctx.metric("motion.materialize.radialSpread")
-				local function spread(use: ComposeTypes.Use): number
-					return if reduced(use)
-						then 1
-						else spreadFrom + (1 - spreadFrom) * ctx.motionEase("present", use)(use(entry.progress))
-				end
 				local fading = runtime.tween(function(use: ComposeTypes.Use)
 					return if phase and use(phase.exiting) then 1 else 0
 				end, { seconds = ctx.metric("motion.radial.exit") })
+				local function spread(use: ComposeTypes.Use): number
+					if reduced(use) then
+						return 1
+					end
+					local present = ctx.motionEase("present", use)
+					local shown = present(use(entry.progress)) * (1 - present(use(fading)))
+					return spreadFrom + (1 - spreadFrom) * shown
+				end
 				local function transparency(use: ComposeTypes.Use): number
 					if reduced(use) then
 						return 0

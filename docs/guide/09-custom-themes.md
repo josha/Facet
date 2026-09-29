@@ -130,7 +130,7 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 | `springs` (`period`, `damping`) | `snappy` 0.2/1, `quick` 0.18/1, `control` 0.25/1, `move` 0.3/1, `sheet` 0.4/1 |
 | `materialize` (scales) | `anchored` 0.9, `menu` 0.96, `modal` 0.94, `branch` 0.3, `lift` 1.04, `radialSpread` 0.2, `popOvershoot` 0.25, `popDecay` 3 |
 | `distances` | `menuSlide` 32 pixels, `parallax` 0.3, `dim` 0.1 |
-| `easing` (Compose easing names) | `present` `outCubic`, `fade` `outQuad` |
+| `easing` (Compose easing names) | `present` `outCubic`, `fade` `outQuad`, `trail` `linear` (a fade that trails its travel) |
 | `styles` (EasingStyle names) | `paint` `Quad`, `scroll` `Quad`, `page` `Cubic`, `fling` `Back`, `pulse` `Sine` |
 | Other | `fling.friction` 3, `fling.maxSpeed` 4000 pixels per second (a release velocity is clamped to it before it seeds a settle), `fling.projection` 0.08 seconds (how far a row swipe projects its release), `revealFadeShare` 0.5, `unfoldStart` 0.25, `restLimit` 0.25 |
 
