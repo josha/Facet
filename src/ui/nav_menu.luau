@@ -1847,7 +1847,6 @@ return function(
 						local box = use(rect)
 						return if box then D2.fromOffset(box[2].X, box[2].Y) else D2.new()
 					end,
-					Host.UICorner({}),
 				},
 				"segment-fill"
 			)

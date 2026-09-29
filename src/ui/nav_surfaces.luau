@@ -191,21 +191,26 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							node,
 						})
 					end
+					local outline = spec.appearance == "outline"
+					local function side(use: ComposeTypes.Use): number
+						return if outline then 0 else ctx.controlSize(nil, "paddingX", use)
+					end
 					local inset = Host.UIPadding({
 						PaddingTop = ctx.types.UDim.new(0, 8),
 						PaddingBottom = ctx.types.UDim.new(0, 8),
-						PaddingLeft = if indent == nil
-							then nil
-							else function(use: ComposeTypes.Use)
-								local step = indent
-								return ctx.types.UDim.new(
-									0,
-									if type(step) == "number"
-										then step
-										elseif step then ctx.metric("space." .. step, use)
-										else 0
-								)
-							end,
+						PaddingRight = function(use: ComposeTypes.Use)
+							return ctx.types.UDim.new(0, side(use))
+						end,
+						PaddingLeft = function(use: ComposeTypes.Use)
+							local step = indent
+							return ctx.types.UDim.new(
+								0,
+								if type(step) == "number"
+									then step
+									elseif step then ctx.metric("space." .. step, use)
+									else side(use)
+							)
+						end,
 					})
 					local fade = ctx.fade {
 						Name = "RevealFade",
