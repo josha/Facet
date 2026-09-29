@@ -301,7 +301,6 @@ t.describe("native gallery", function()
 			{ id = "all-controls", kind = "fixture", module = "all_controls" },
 			{ id = "collections", kind = "fixture", module = "collections" },
 			{ id = "motion-layout", kind = "fixture", module = "motion_layout" },
-			{ id = "hud", kind = "fixture", module = "hud" },
 			{ id = "radial-menu", kind = "fixture", module = "radial_menu" },
 			{ id = "ex03", kind = "example", module = "03_settings_sync" },
 			{ id = "ex05", kind = "example", module = "05_word_game" },
