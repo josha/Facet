@@ -937,13 +937,13 @@ function browser.mount(opts: MountOpts): any
 			label = label,
 
 			appearance = "utility",
-			controlSize = "regular",
-			textSize = 22,
+			controlSize = "compact",
+			textSize = "body",
 			selected = isSelected,
 			onActivate = pick,
 			Size = function(use)
 				local package = use(ctx.theme)
-				local dense = math.max(40, package.metrics.targetSizes.pointer or 44)
+				local dense = math.max(32, package.metrics.targetSizes.pointer or 44)
 				return UDim2.new(1, 0, 0, if use(env.interactionClasses).primary == "pointer" then dense else 44)
 			end,
 			AutomaticSize = Enum.AutomaticSize.None,
@@ -966,7 +966,7 @@ function browser.mount(opts: MountOpts): any
 				Name = `G_{id}`,
 				label = label,
 				appearance = "outline",
-				textSize = 22,
+				textSize = "body",
 				indent = "m",
 				expanded = state.expanded[id],
 				Size = UDim2.fromScale(1, 0),
