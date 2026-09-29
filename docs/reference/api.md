@@ -1855,11 +1855,13 @@ measured width and the native PreferredInput:
   larger sets.
 
 A `label` shows on the leading edge of a horizontal segmented row, with the
-control at its natural width on the trailing edge. A horizontal segmented strip
-that does not fit in the width of the row stays one line: with `sizing = "fill"`
-(the default) its segments share the width and their labels wrap, and with
-`hug` it keeps their natural widths. A segment is never wider than the strip,
-or than the row of a labelled strip. A radio group or card label that does not
+control at its natural width on the trailing edge. With `sizing = "fill"` (the
+default) each segment starts at its label's width, at least a 44 pixel target,
+and the segments share the space that is left. A strip that does not fit in the
+width of the row stays one line: its segments shrink in proportion, a label
+wraps between words, and a word that cannot fit its line ends in "…". With
+`hug` the segments keep their natural widths. A segment is never wider than the
+strip, or than the row of a labelled strip. A radio group or card label that does not
 fit wraps inside its row. A segmented picker
 takes no `query` and causes an error: a strip shows every option at once, so
 use `navigationLink` or `menu` for a searchable list. The label shows above a vertical

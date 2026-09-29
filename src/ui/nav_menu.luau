@@ -84,27 +84,141 @@ return function(
 		end)
 	end
 
+	local function wrapWhenLong(
+		label: TextLabel | TextButton,
+		space: (ComposeTypes.Use) -> string,
+		container: GuiObject,
+		truncates: boolean
+	)
+		local text = label :: TextLabel
+		local words, points, face =
+			ctx.observe.Text(label), ctx.observeStyled.TextSize(label), ctx.observeStyled.FontFace(label)
+		local fits, extent = ctx.observe.TextFits(label), ctx.observe.AbsoluteSize(container)
+		local owner = assert(Compose.currentOwner(), "Facet UI.Picker wraps captions inside a Compose owner")
+		local probe: TextLabel? = nil
+		local restore: Enum.TextTruncate? = nil
+		local boundFor, boundWidth = "", 0
+		local pending: thread? = nil
+		local function widestWord(): number
+			if probe == nil then
+				Compose.withOwner(owner, function()
+					local _, measure = ctx.runtime.mount(function()
+						return ctx.Host.Folder "WordMeasure" {
+							ctx.Host.TextLabel "WidestWord" {
+								Size = D2.fromOffset(0, 0),
+								BackgroundTransparency = 1,
+								TextTransparency = 1,
+								Interactable = false,
+								AutoLocalize = false,
+								Text = "",
+							},
+						}
+					end, container)
+					probe = (measure :: Instance):FindFirstChild("WidestWord") :: TextLabel
+				end)
+			end
+			local measuring = probe :: TextLabel
+			measuring.FontFace, measuring.TextSize = face:peek() :: Font, points:peek() :: number
+			measuring.Text = string.gsub(text.Text, "%s+", "\n")
+			local widest = measuring.TextBounds.X
+			measuring.Text = ""
+			return widest
+		end
+		local function cancel()
+			if pending and coroutine.status(pending) == "suspended" then
+				task.cancel(pending)
+			end
+			pending = nil
+		end
+		local function checkWords(key: string)
+			if boundFor == key and text.TextWrapped and text.TextBounds.X < widestWord() - 0.5 then
+				restore = text.TextTruncate
+				text.TextWrapped = false
+				text.TextTruncate = E.TextTruncate.AtEnd
+			end
+		end
+		local function recheck(key: string)
+			cancel()
+			if not task then
+				return
+			end
+			local thread: thread
+			thread = task.spawn(function()
+				for _ = 1, 10 do
+					task.wait()
+					if boundFor ~= key or not text.TextWrapped then
+						break
+					end
+					checkWords(key)
+				end
+				if pending == thread then
+					pending = nil
+				end
+			end)
+			if coroutine.status(thread) ~= "dead" then
+				pending = thread
+			end
+		end
+		Compose.cleanup(cancel)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(fits)
+			local width = use(extent).X
+			local inputs = `{space(use)}|{use(words)}|{use(points)}|{use(face)}`
+			if text.TextWrapped or restore ~= nil then
+				if inputs == boundFor and width <= boundWidth then
+					if truncates then
+						checkWords(inputs)
+					end
+					return
+				end
+				text.TextWrapped = false
+				if restore ~= nil then
+					text.TextTruncate = restore
+					restore = nil
+				end
+			end
+			if not text.TextFits then
+				text.TextWrapped = true
+				boundFor, boundWidth = inputs, width
+				if truncates then
+					recheck(inputs)
+				end
+			end
+		end)
+	end
+
+	local function sideChrome(
+		controlSize: Types.Value<Types.ControlSize>?,
+		use: ComposeTypes.Use?,
+		glyph: boolean?
+	): number
+		local package = ctx.read(ctx.config.theme, use)
+		local recipe = if package and package.chrome then package.chrome.control else nil
+		local insets = if recipe then recipe.contentInsets else nil
+		local side = if glyph then 0 else ctx.controlSize(controlSize, "paddingX", use)
+		return math.max(side, if insets then insets.left or 0 else 0)
+			+ math.max(side, if insets then insets.right or 0 else 0)
+	end
+
 	local function wrapCaptions(
 		button: GuiObject,
 		controlSize: Types.Value<Types.ControlSize>?,
-		across: (ComposeTypes.Use) -> number
+		across: (ComposeTypes.Use) -> number,
+		peers: ((ComposeTypes.Use) -> number)?
 	)
 		local glyph = button:FindFirstChild("LeadingIcon", true) ~= nil
 		local function room(use: ComposeTypes.Use): Vector2
-			local package = ctx.read(ctx.config.theme, use)
-			local recipe = if package and package.chrome then package.chrome.control else nil
-			local insets = if recipe then recipe.contentInsets else nil
-			local side = ctx.controlSize(controlSize, "paddingX", use)
-			local chrome = math.max(side, if insets then insets.left or 0 else 0)
-				+ math.max(side, if insets then insets.right or 0 else 0)
+			local chrome = sideChrome(controlSize, use)
 				+ if glyph then ctx.controlSize(controlSize, "iconSize", use) + 8 else 0
 			return V2.new(math.max(0, across(use) - chrome), math.huge)
 		end
 		for _, name in { "Title", "Description" } do
 			local caption = button:FindFirstChild(name, true)
 			if caption and caption:IsA("TextLabel") then
-				caption.TextWrapped = true
 				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
+				wrapWhenLong(caption, function(use: ComposeTypes.Use): string
+					return `{room(use).X}|{if peers then peers(use) else 0}`
+				end, button, peers ~= nil)
 			end
 		end
 	end
@@ -2700,7 +2814,6 @@ return function(
 							else nil,
 						icon = liveIcon(source),
 						TextSize = spec.textSize,
-						TextWrapped = if style == "segmented" then true else nil,
 						TextXAlignment = if style == "segmented" then E.TextXAlignment.Center else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
 							then "checkmark"
@@ -2846,9 +2959,25 @@ return function(
 						or spec.indicator == "underline"
 					surfaces.attach(button, {
 						Host.UISizeConstraint({
-							MinSize = derive(function(use: ComposeTypes.Use?)
-								return V2.new(44, if spec.controlSize ~= nil or across(use) then 0 else 44)
-							end, spec.axis),
+							MinSize = derive(
+								function(use: ComposeTypes.Use?)
+									local strip = across(use)
+									return V2.new(
+										if strip
+											then math.max(
+												0,
+												44 - sideChrome(spec.controlSize, use, sealed and labelOf(use) == "")
+											)
+											else 44,
+										if spec.controlSize ~= nil or strip then 0 else 44
+									)
+								end,
+								spec.axis,
+								spec.controlSize,
+								ctx.config.theme,
+								spec.iconOnly,
+								if fixed then nil else source
+							),
 							MaxSize = if style == "segmented"
 								then function(use: ComposeTypes.Use): Vector2
 									return V2.new(math.max(44, use(room) - 2 * segmentMetrics.inset), math.huge)
@@ -2886,9 +3015,15 @@ return function(
 						end)
 					end
 					if style == "segmented" then
+						local function peers(use: ComposeTypes.Use): number
+							return #use(options)
+						end
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
 							return use(room) - 2 * segmentMetrics.inset
-						end)
+						end, peers)
+						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
+							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
+						end, button, true)
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
