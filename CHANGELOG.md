@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A framed TextInput or Search (one with a label, hint, `controlSize`, `appearance` or `corners`) draws the focus look around the whole field, search icon included; it ringed only the inner text box. `FacetFocusPart` accepts `..` to name an ancestor.
+- A NavigationStack's bar title is inset by the control's horizontal padding on both sides. A root page's leading title sat flush against the stack's left edge.
 - A segmented Picker with `corners = "pill"` (or `"square"`) gives its selection highlight the same corners. The highlight carried its own `UICorner`, which beat the theme's corner rule, so it stayed at 8 pixels inside a pill strip.
 - DisclosureGroup content is inset on both sides by the control's horizontal padding (12 pixels in Neutral), in line with the header label. An `outline` group keeps no side inset, and `indent` still sets the left inset.
 - A RadialMenu folds back into its centre when it closes, the reverse of its opening; it only faded where it was.

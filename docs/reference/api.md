@@ -2030,6 +2030,10 @@ is an array of `{ id, value }` entries. `root` and each `destinations[id]` are
 `backLabel` sets the text of the native Back chrome. Compose `LayerStack` owns
 the retained pages and their disposal.
 
+The navigation bar title is inset on both sides by the control's horizontal
+padding (`controlSizes.regular.paddingX`), so a root page's leading title
+lines up with the Back label of the pages above it.
+
 A push slides the new page in from the trailing edge. The covered page moves
 30 percent to the leading edge and dims. The covered page keeps its full
 width, so its controls do not change size. A pop plays the reverse. The popped
@@ -3723,9 +3727,13 @@ everywhere. The colour is the recipe `color`, or `accent`. A selected object
 with a number attribute `FacetFocusHeight` gets a look that many times its own
 height, measured down from its top edge (a Card uses this to ring the whole
 card from its body). A selected object with a string attribute
-`FacetFocusPart` (a path of child names such as `"Track/Thumb"`) gets the look
-on that part instead, sized to it and shaped by its `UICorner`; a Slider uses
-this so the look stays on its thumb while the whole Slider is the stop. The
+`FacetFocusPart` (a path of child names such as `"Track/Thumb"`, where `..`
+steps to the parent) gets the look on that part instead, sized to it and shaped
+by its `UICorner`; a Slider uses this so the look stays on its thumb while the
+whole Slider is the stop, and a framed TextInput or Search points its text box
+at the whole field (`".."` up to the plate), so the look covers the search icon,
+prefix, suffix and Clear button too. A field with step buttons keeps the look
+on its text box, since each step button is its own stop. The
 part's place and size are kept as shares of the selected object, so a parent
 `UIScale` moves and sizes the look with the part. A part that is itself rotated
 relative to the selected object gets an unrotated look around its unrotated box.

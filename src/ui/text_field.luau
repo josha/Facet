@@ -803,6 +803,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					return not enabled(use)
 				end,
 			})
+			if not spec.stepButtons then
+				local up: { string } = {}
+				local at: Instance? = node.Parent
+				while at and at ~= plate do
+					table.insert(up, "..")
+					at = at.Parent
+				end
+				table.insert(up, "..")
+				node:SetAttribute("FacetFocusPart", table.concat(up, "/"))
+			end
 			root = chrome.wrap({
 				control = control,
 				spec = spec,

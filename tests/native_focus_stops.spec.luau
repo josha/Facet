@@ -548,6 +548,47 @@ t.describe("focus ring part", function()
 		w.stop()
 	end)
 
+	t.it("draws on an ancestor named with .. and covers it", function()
+		local w, playerGui, stopRing = ringWorld(false)
+		local V2 = w.engine.types.Vector2
+		local row, knob = w.find("Row"), w.find("Knob")
+		row.AbsolutePosition = V2.new(100, 100)
+		row.AbsoluteSize = V2.new(600, 60)
+		knob.AbsolutePosition = V2.new(300, 110)
+		knob.AbsoluteSize = V2.new(44, 44)
+		knob.Selectable = true
+		knob:SetAttribute("FacetFocusPart", "../..")
+		w.gui.SelectedObject = knob
+		local image = playerGui.SelectionImageObject
+		t.expect(image.Position.X.Scale * 44).toBeCloseTo(-200)
+		t.expect(image.Size.X.Scale * 44).toBeCloseTo(600)
+		t.expect(image.Size.Y.Scale * 44).toBeCloseTo(60)
+		stopRing()
+		w.stop()
+	end)
+
+	t.it("a framed field's text box rings its whole plate, icon and all", function()
+		local w = setup(function(UI)
+			return UI.TextInput({
+				value = Compose.cell(""),
+				presentation = "search",
+				controlSize = "compact",
+				clearButton = true,
+			})
+		end)
+		local input = w.find("Input")
+		local box = input:FindFirstChildWhichIsA("TextBox", true)
+		local path = box:GetAttribute("FacetFocusPart")
+		t.expect(type(path)).toBe("string")
+		local at = box
+		for name in string.gmatch(path, "[^/]+") do
+			at = if name == ".." then at.Parent else at:FindFirstChild(name)
+		end
+		t.expect(at).toBe(input)
+		t.expect(input:FindFirstChild("SearchIcon", true) ~= nil).toBe(true)
+		w.stop()
+	end)
+
 	t.it("stays on the part under a parent UIScale because it is placed in the stop's own proportions", function()
 		local w, playerGui, stopRing = ringWorld(true)
 		local V2 = w.engine.types.Vector2
