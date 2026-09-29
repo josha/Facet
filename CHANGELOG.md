@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A Button given only a width (`Size.Y` of 0) and no `AutomaticSize` is floored at the control height (44, or 66 at ten feet), as it already was with `AutomaticSize = Y`. It hugged its text instead, well below the tap target.
+- A Button with any authored `Size` whose height is 0 and no `AutomaticSize` is floored at the control height (44, or 66 at ten feet), as it already was with `AutomaticSize = Y`; it hugged its text instead, well below the tap target. This covers a width-only Size (`UDim2.new(1, 0, 0, 0)`), a zero `Size` that relies on hugging (it now hugs its width and floors its height), and a label-less Picker whose `Size` has zero height (its trigger inherits the Size).
 - At motion level `limited` a Notice lands its height at once and fades its content in over `reducedFade`, and a close fades it out before `onDismiss` runs (it cut in and out). A presentation reversed mid-entrance or mid-exit continues its fade from its current opacity instead of stepping for a frame.
 - **Breaking: a Dialog is measured at rest like an Alert**, and the rest wait now runs at every motion level (it was skipped under reduced motion). A Dialog waits invisible at scale 1 until its size holds for one frame (normally two frames, at most `motion.restLimit`), then scales in from that size and holds it as a fixed box until it lands, so it no longer grows 4 pixels (or 21 at motion level `none`) after it shows. At `limited` and `none` every rest-gated presentation now appears up to two frames later, whole.
 - **Breaking: a switch Toggle's knob glides** with its track colour on `motion.springs.control` instead of teleporting between its ends; a change mid-flight turns it smoothly, and it lands at once below motion level `normal`.
