@@ -57,6 +57,26 @@ local function palettes(package: any): { any }
 end
 
 t.describe("themed edges, plates and gutters", function()
+	t.it("keeps top tab shapes owned by the theme", function()
+		local expected = {
+			["Facet Neutral"] = 999,
+			compact_pointer = 4,
+			pixel_quest = 0,
+			fantasy_parchment = 0,
+		}
+		for _, entry in packages() do
+			local radius = expected[entry.label]
+			if radius ~= nil then
+				local sheet, stop = sheetOf(entry.package)
+				local tab = assert(style(sheet, ".facet-top-tabs > #Tabs >> .facet-tab-item::UICorner"))
+				local plate = assert(style(sheet, ".facet-top-tabs > .facet-tab-plate::UICorner"))
+				t.expect(tab.CornerRadius.Offset).toBe(radius)
+				t.expect(plate.CornerRadius.Offset).toBe(if radius > 0 then radius + 2 else 0)
+				stop()
+			end
+		end
+	end)
+
 	t.it("draws the tab plate's hairline at the theme's hairline strength, not an opaque ring", function()
 		for _, entry in packages() do
 			for _, palette in palettes(entry.package) do

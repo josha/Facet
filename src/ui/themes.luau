@@ -163,7 +163,7 @@ local neutral: ThemeTypes.ThemePackage = {
 	metrics = {
 		typography = {},
 		space = { xs = 4, s = 8, m = 16, l = 24, xl = 40, tight = 6, gutter = 8 },
-		radii = { control = 8, panel = 12, pill = 999 },
+		radii = { control = 8, panel = 12, pill = 999, tab = 999 },
 		strokes = { hairline = 1 },
 		targetSizes = { minimum = 44 },
 		controlSizes = {
@@ -1407,6 +1407,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
 
 	rule(".facet-tab-plate", { BackgroundColor3 = c("surfaceStrong") })
+	local tabRadius = package.metrics.radii.tab or package.metrics.radii.control
+	rule(".facet-top-tabs > .facet-tab-plate::UICorner", {
+		CornerRadius = types.UDim.new(0, if tabRadius > 0 then tabRadius + 2 else 0),
+	})
+	rule(".facet-top-tabs > #Tabs >> .facet-tab-item::UICorner", { CornerRadius = types.UDim.new(0, tabRadius) })
 	rule(".facet-tab-plate::UIStroke", {
 		Color = c("hairline"),
 		Transparency = extra.hairlineOpacity,

@@ -172,7 +172,7 @@ function glossy_touch.definition(themes: any): any
 				large = { height = 56, paddingX = 22, iconSize = 28 },
 			},
 			iconSizes = { small = 20, medium = 28, large = 40 },
-			radii = { control = 10, panel = 14, pill = 999, selection = 10 },
+			radii = { tab = 10, control = 10, panel = 14, pill = 999, selection = 10 },
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.16, normal = 0.28 },

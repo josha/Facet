@@ -98,6 +98,10 @@ them only when the screen needs that override.
 Keep native sizing in the layout of the screen. `controlSizes` and typography
 feed the control measurements and paint.
 
+`metrics.radii.tab` sets the corner radius of filled top tabs and their track.
+Facet Neutral uses 999 for pills. Use 0 for square tabs or a smaller pixel
+radius to match rounded artwork. It does not change sidebar or bottom tabs.
+
 A fourth, smaller size step is optional. `controlSizes.xsmall` (`height`,
 `paddingX` and `iconSize`) is the step that a dense toolbar or tag row asks for
 with `controlSize = "xsmall"`. Without it, the step is one step below

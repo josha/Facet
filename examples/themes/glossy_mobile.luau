@@ -100,7 +100,7 @@ function glossy_mobile.definition(themes: any): any
 
 				["demo:gauge"] = { height = 28, paddingX = 12, iconSize = 18 },
 			},
-			radii = { control = 16, panel = 24, pill = 999 },
+			radii = { tab = 16, control = 16, panel = 24, pill = 999 },
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 48 },
 			motion = { fast = 0.16, normal = 0.28 },

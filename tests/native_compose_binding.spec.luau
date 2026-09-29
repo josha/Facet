@@ -308,12 +308,14 @@ t.describe("Facet on the consumer's Compose instance", function()
 	end)
 
 	t.it("rejects a Compose module that lacks a function Facet uses", function()
-		local partial = table.clone(Core) :: any
-		partial.presence = nil
-		local message = failure(function()
-			Facet.bind(partial, Roblox)
-		end)
-		t.expect(string.find(message, "presence", 1, true) ~= nil).toBe(true)
-		t.expect(string.find(message, string.sub(Facet.COMPOSE_COMMIT, 1, 7), 1, true) ~= nil).toBe(true)
+		for _, name in { "presence", "focusNeighbor" } do
+			local partial = table.clone(Core) :: any
+			partial[name] = nil
+			local message = failure(function()
+				Facet.bind(partial, Roblox)
+			end)
+			t.expect(string.find(message, name, 1, true) ~= nil).toBe(true)
+			t.expect(string.find(message, string.sub(Facet.COMPOSE_COMMIT, 1, 7), 1, true) ~= nil).toBe(true)
+		end
 	end)
 end)

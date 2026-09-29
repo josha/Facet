@@ -1,8 +1,16 @@
 --!strict
-export type Rect = { x: number, y: number, width: number, height: number }
-export type Direction = "up" | "down" | "left" | "right"
 
-local function neighbor(from: Rect, candidates: { Rect }, direction: Direction): number?
+local FocusScope = require "./focus-scope"
+local Diagnostics = require "./diagnostics"
+
+export type FocusRect = { x: number, y: number, width: number, height: number }
+
+local function focusNeighbor(from: FocusRect, candidates: { FocusRect }, direction: FocusScope.Direction): number?
+	if direction ~= "left" and direction ~= "right" and direction ~= "up" and direction ~= "down" then
+		Diagnostics.raise("focus-neighbor/unknown-direction", "focusNeighbor needs a known direction", {
+			expected = '"left", "right", "up", or "down"',
+		})
+	end
 	local vertical = direction == "up" or direction == "down"
 	local forward = direction == "down" or direction == "right"
 	local bestTier, bestPrimary, bestAcross, found = math.huge, math.huge, math.huge, nil
@@ -45,4 +53,4 @@ local function neighbor(from: Rect, candidates: { Rect }, direction: Direction):
 	return found
 end
 
-return table.freeze({ neighbor = neighbor })
+return focusNeighbor

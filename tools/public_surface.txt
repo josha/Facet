@@ -5,6 +5,7 @@ Compose : table
   Compose.MountBudget : function
   Compose.OrderedCollection : function
   Compose.SpatialCollection : function
+  Compose.TileCollection : function
   Compose.__resetForTests : function
   Compose.accumulator : function
   Compose.bindOwner : function
@@ -23,6 +24,7 @@ Compose : table
   Compose.custodyOf : function
   Compose.easing : table(frozen)
   Compose.event : function
+  Compose.focusNeighbor : function
   Compose.formatDiagnostic : function
   Compose.formula : function
   Compose.fragment : function

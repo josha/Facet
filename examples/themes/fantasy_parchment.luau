@@ -253,6 +253,7 @@ local GENERATED: any = {
 			control = 6,
 			panel = 10,
 			pill = 999,
+			tab = 0,
 		},
 		space = {
 			l = 26,

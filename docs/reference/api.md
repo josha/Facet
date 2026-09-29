@@ -24,6 +24,12 @@ and styling. This reference describes the `0.12.0` surface.
 | `recipes` | Opt-in helpers. `recipes.arithmetic.parse` is a bounded arithmetic parser for a number field. See [Recipes](#recipes). |
 | `bind(Compose, Roblox)` | Returns a Facet table whose `controls` and `themes` use the Compose core module and the Compose Roblox module that you give. See [Your own Compose](#your-own-compose). |
 
+The pinned Compose includes `Compose.focusNeighbor` for directional selection over
+rectangles and `Compose.TileCollection` for camera-windowed tile scenes. Facet
+uses `focusNeighbor` for its directional focus queries. See the
+[upstream Compose API](https://github.com/voidmeld/compose/blob/dbf518ac3d28846c81ab0cf8f74cbc76ad22b30a/docs/api.md)
+for these Compose contracts.
+
 ### Types
 
 The exported Luau types include `Facet`, `ComposeModule`, `ComposeRobloxModule`,
@@ -3620,6 +3626,9 @@ tinted blue.
 
 The metrics also have optional entries:
 
+- `radii.tab`: the corner radius for filled top tabs. Their track adds 2 pixels
+  to a positive radius. A value of 0 makes both square. Facet Neutral uses 999
+  for pills. Sidebar and bottom tabs keep their usual corners.
 - `controlSizes.xsmall = { height, paddingX, iconSize }`. Without it, each
   field is `2 * compact - regular`, and not less than 0. `define` refuses an
   `xsmall` entry that does not have all three numbers.
