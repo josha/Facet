@@ -1889,7 +1889,7 @@ Picker is a field. These options apply:
   `automatic` takes all five words and maps them onto the style on screen.
   `inline`, `radioGroup` and `cards` refuse `appearance`. A readable word that
   is not in the family causes an error, and the last correct paint stays.
-- `corners`: `pill` or `square`, on the menu trigger or the segmented strip.
+- `corners`: `pill` or `square`, on the menu trigger or the segmented strip. A segmented strip's segments and its selection highlight take the same corners.
 - `maxHeight`: for `menu`, `navigationLink` and `automatic`, a finite number of
   pixels above zero. It caps the open panel. The panel always shows one row.
 - `valueAlignment`: `end` (the default) or `start`, for a labelled `menu`.
@@ -2473,8 +2473,11 @@ or `outline`. The root has the `facet-disclosure-<appearance>` tag. `outline`
 is a tree row: the header starts its chevron and label at the leading edge, it
 does not get the `facet-selected` tag while the group is expanded, and it keeps
 focus and activation. `textSize` is a type role or a
-number of pixels for the header label, as on Button. `indent` is a spacing step
-(`xs`, `s`, `m`, `l` or `xl`) or a number of pixels. It adds a left UIPadding to
+number of pixels for the header label, as on Button. The content sits 8 pixels
+below the header and is inset on both sides by the control's horizontal padding
+(`controlSizes.regular.paddingX`, 12 in Neutral), so it lines up with the header
+label; an `outline` group has no side inset. `indent` is a spacing step (`xs`,
+`s`, `m`, `l` or `xl`) or a number of pixels. It replaces the left inset of
 `RevealFade`, so nested groups read as an outline.
 
 ### Callout

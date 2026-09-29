@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A segmented Picker with `corners = "pill"` (or `"square"`) gives its selection highlight the same corners. The highlight carried its own `UICorner`, which beat the theme's corner rule, so it stayed at 8 pixels inside a pill strip.
+- DisclosureGroup content is inset on both sides by the control's horizontal padding (12 pixels in Neutral), in line with the header label. An `outline` group keeps no side inset, and `indent` still sets the left inset.
 - A RadialMenu folds back into its centre when it closes, the reverse of its opening; it only faded where it was.
 - A RadialMenu level that replaces its parent (`navigation = "replace"`) keeps the parent ring's band, so its items sit as far from the centre as the ones they replaced. A corner menu's two-item submenu sat about a third closer to the corner, because a level with fewer items needs a thinner band.
 - A Toast's fade runs on the theme's new `motion.easing.trail` (`linear` in Neutral) while its slide keeps Cubic Out. The fade followed the slide's curve, so it was 80 percent done before the row was in view and read as a plain slide.
