@@ -833,3 +833,43 @@ t.describe("native Callout: the plate and its tail arrive together", function()
 		end
 	)
 end)
+
+t.describe("touch contextual text placement", function()
+	t.it("prefers above for default callouts, falls back and honors an explicit edge", function()
+		for _, edge in { "default", "bottom" } do
+			local w = mount(function(_, Host)
+				return { content = tip(Host), edge = if edge == "default" then nil else edge }
+			end, { motionLevel = "none" })
+			local anchor, panel = w.find("Plus"), w.find("CalloutPanel")
+			anchor.AbsolutePosition = Vector2.new(300, 250)
+			anchor.AbsoluteSize = Vector2.new(80, 44)
+			panel.AbsoluteSize = Vector2.new(280, 100)
+			w.input.PreferredInput = w.Enum.PreferredInput.Touch
+			local _, y = corner(panel)
+			t.expect(if edge == "default" then y + 100 < 250 else y > 294).toBe(true)
+			anchor.AbsolutePosition = Vector2.new(300, 8)
+			t.expect(select(2, corner(panel)) > 52).toBe(true)
+			anchor.AbsolutePosition = Vector2.new(300, 250)
+			w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
+			t.expect(select(2, corner(panel)) > 294).toBe(true)
+			w.stop()
+		end
+	end)
+
+	t.it("keeps long-press help above and flips it when the top has no room", function()
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame { UI.Button "HelpAnchor" { label = "Help", help = "Full action name" } }
+		end, { motionLevel = "none" })
+		local anchor = w.find("HelpAnchor")
+		anchor.AbsolutePosition = Vector2.new(300, 200)
+		anchor.AbsoluteSize = Vector2.new(80, 44)
+		w.input.PreferredInput = w.Enum.PreferredInput.Touch
+		anchor.TouchLongPress.fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin)
+		local panel = w.find("Help")
+		panel.AbsoluteSize = Vector2.new(160, 32)
+		t.expect(select(2, corner(panel)) + 32 < 200).toBe(true)
+		anchor.AbsolutePosition = Vector2.new(300, 8)
+		t.expect(select(2, corner(panel)) > 52).toBe(true)
+		w.stop()
+	end)
+end)

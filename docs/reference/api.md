@@ -555,6 +555,7 @@ return UI.Screen "Settings" {
 | `gap` | a spacing step or a number of pixels | `UIListLayout.Padding` |
 | `padding` | a spacing step, a number, or `{ top?, right?, bottom?, left? }` | a `UIPadding` child |
 | `width`, `height` | `"fill"`, `"hug"` or a number of pixels | `Size` and `AutomaticSize` |
+| `maxWidth` | a finite number of pixels, 0 or more | `UISizeConstraint.MaxSize.X` |
 | `align` | `start`, `center`, `end` or `stretch` | cross-axis alignment, `ItemLineAlignment` and the cross-axis flex |
 | `distribute` | `start`, `center`, `end`, `spaceBetween`, `spaceAround` or `spaceEvenly` | main-axis alignment and `HorizontalFlex` or `VerticalFlex` |
 
@@ -575,6 +576,24 @@ return UI.Screen "Settings" {
 - A container writes an alignment property only when you set `align` or
   `distribute`.
 - All options accept a value, a readable or a `function(use)` body.
+
+Use `width = "fill", maxWidth = 480` for a panel that fills the available
+width up to 480 pixels. This applies to Screen, VStack, HStack, ZStack,
+ScrollView, Grid, AdaptiveStack, ViewThatFits and ErrorBoundary. The maximum
+includes the container's padding. It does not change the height or the chosen
+`width` mode. A numeric `width` remains fixed unless a smaller `maxWidth` caps it.
+The constraint updates in place when a bound maximum changes. Omit `maxWidth`
+to leave the width uncapped. Use a native `UISizeConstraint` instead when you
+need minimum sizes or height limits; do not combine it with `maxWidth` on the
+same container.
+
+```lua
+UI.VStack {
+    width = "fill",
+    maxWidth = 480,
+    UI.Stepper { label = "Laps", value = laps, min = 1, max = 10 },
+}
+```
 
 ### Screen
 
@@ -2257,14 +2276,11 @@ no plate and no theme control art. A transparent `CenterHit` target around it
 is one touch target (`targetSizes.minimum`) across and does the same thing. It
 shows a close, back or up-chevron (Home) icon. The word is its accessible name,
 and a `centerLabel` replaces that name; it is never shown as text. Cancel (the B button) and the
-Back/Close control do the same thing. The name of the highlighted item sits in
-the hole under the centre control, on one caption line, truncated to the
-hole's width. Without a centre control the name is centred in the hole. In
-the list fallback the name sits at the bottom left, in its own band under the
-scrolling list, never inside it.
-
-A corner ring names the highlighted item just outside the arc, on the arc's
-middle direction.
+Back/Close control do the same thing. On touch, an icon item's temporary name
+prefers a position above that item, clear of the finger. If it cannot fit above,
+it uses the same edge fallback as other anchored panels and stays inside the
+safe area. Pointer and gamepad names sit outside the ring in the item's
+direction. In the list fallback, the path heads the list beside Back/Close.
 
 A tap on the launcher opens the menu and keeps it open. The release does not
 pick an item, even if the ring moves an item under the finger to fit the screen.
@@ -2504,6 +2520,8 @@ callout is suspended. `seen`, `sessions`, `afterSessions`, `featureUsed` and
 priority set eligibility and queue order. Each fact can be a value, a readable
 or a function of `use`. Retirement is delivered once. A callout is contextual
 teaching attached to a control. It is not a second application presenter.
+Without an authored `edge`, a callout prefers above its anchor on touch and
+below for other input. The default follows live input changes.
 `edge = "top"` puts the callout above the anchor. If there is no room above
 and there is room below, the callout goes below the anchor. The callout
 scales and fades from the edge nearest to its anchor. See [Motion](#motion).
@@ -2631,7 +2649,10 @@ The popover waits for it and warns once. A `rect` source never draws a tail.
 
 Placement options: `edge` (`top`, `bottom`, `leading` or `trailing`), `align`
 (`start`, `center` or `end`), `gap` (pixels, default 8) and `crossOffset`
-(pixels along the alignment axis). The placement tries the preferred edge,
+(pixels along the alignment axis). Without an authored `edge`, an anchored
+popover prefers above its source on touch and below for other input. The
+default follows live input changes. The compact sheet route is unchanged.
+The placement tries the preferred edge,
 then the opposite edge. When neither side holds the panel, it hangs beside the
 source before any clamp. `maxWidth` and `maxHeight` bound the whole panel,
 chrome included, inside the live safe box. The body scrolls. `tail = false`

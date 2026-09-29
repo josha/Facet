@@ -4226,7 +4226,8 @@ local PAGE_DATA: { [string]: any } = {
 					})
 				end,
 				onError = c.log("onError"),
-				width = 260,
+				width = p.width or 260,
+				maxWidth = p.maxWidth,
 			})
 		end,
 		demonstrates = { "view", "fallback", "onError", "width", "height" },
@@ -5159,6 +5160,15 @@ local PAGE_DATA: { [string]: any } = {
 		end,
 	},
 }
+
+for _, name in
+	{ "Screen", "VStack", "HStack", "ZStack", "ScrollView", "Grid", "AdaptiveStack", "ViewThatFits", "ErrorBoundary" }
+do
+	table.insert(PAGE_DATA[name].states, {
+		name = "width 480 capped at 280",
+		props = { width = 480, maxWidth = 280, Size = NONE },
+	})
+end
 
 local function kindOf(id: string, data: any, UI: any): string
 	if UI[id] ~= nil then

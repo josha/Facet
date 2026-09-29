@@ -878,6 +878,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					end
 					local group = Host.CanvasGroup "Fade" {
 						BackgroundTransparency = 1,
+						Visible = false,
 						Size = function(use: ComposeTypes.Use)
 							local mode = use(automatic)
 							local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
@@ -915,6 +916,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 									(child :: Instance).Parent = group
 								end
 							end
+							group.Visible = true
 						end)
 					end
 					if not leaving then

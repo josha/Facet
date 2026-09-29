@@ -2,6 +2,7 @@
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion").reduced
 local geometry = require("./nav_radial_geometry")
+local placement = require("./overlay_placement")
 local adaptive = require("./adaptive")
 local Types = require("./types")
 local Radial = require("./radial_types")
@@ -59,6 +60,8 @@ return function(
 	local build: Radial.RadialMenuBuilder = function<V>(spec: Radial.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
 
+		local input = surfaces.service("UserInputService")
+		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local distant = ctx.tenFoot()
 		local function painted(use: ComposeTypes.Use?): number
 			return if distant(use) then 32 * adaptive.TEN_FOOT_SCALE else 32
@@ -1402,6 +1405,26 @@ return function(
 							if sector.key == key then
 								near = sector
 							end
+						end
+						if near and preferred and use(preferred) == E.PreferredInput.Touch then
+							local room = use(viewport)
+							local target = math.max(44, near.size)
+							local box = placement.solve({
+								source = {
+									x = at.X + near.x - target / 2,
+									y = at.Y + near.y - target / 2,
+									w = target,
+									h = target,
+								},
+								size = {
+									w = math.min(240, math.max(0, room.X - 16)),
+									h = ctx.metric("typography.caption.size", use) + 4,
+								},
+								safe = { x = 8, y = 8, w = math.max(0, room.X - 16), h = math.max(0, room.Y - 16) },
+								edge = "top",
+								gap = ctx.metric("space.s", use),
+							})
+							return D2.fromOffset(box.x + box.w / 2, box.y + box.h), V2.new(0.5, 1)
 						end
 						local angle = math.rad(if near then near.angle else geometry.arc(spec.preset or "donut") + 45)
 						local dx, dy = math.sin(angle), -math.cos(angle)

@@ -63,7 +63,7 @@ local function mount(list: { Entry }, options: any?): any
 				return Host.Frame({ Name = "Holder", table.unpack(nodes) })
 			end),
 		})
-	end, { size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none" })
+	end, { size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none", runService = o.runService })
 	w.gate = gate
 	w.rows = function(): number
 		return #w.findAll("Snack")
@@ -82,6 +82,28 @@ local function frames(w: any, seconds: number)
 end
 
 t.describe("native Toast with an action: presentation", function()
+	t.it("exit fading never adds an empty full-width sibling to the live row layout", function()
+		local c = caller()
+		c.shown:set(true)
+		local w = mount({ { c = c } }, { motionLevel = "normal", runService = true })
+		frames(w, 1)
+		local row = w.find("Snack")
+		local introduced, empty = 0, false
+		local connection = row.ChildAdded:Connect(function(child)
+			if child:IsA("CanvasGroup") then
+				introduced += 1
+				empty = empty or (child.Visible and child:FindFirstChild("Body") == nil)
+			end
+		end)
+		c.shown:set(false)
+		frames(w, 0.1)
+		t.expect(introduced).toBe(1)
+		t.expect(empty).toBe(false)
+		t.expect(row:FindFirstChild("Fade").Visible).toBe(true)
+		connection:Disconnect()
+		w.stop()
+	end)
+
 	t.it("a registration presents nothing and reserves nothing while its fact is false", function()
 		local c = caller()
 		local w = mount({ { c = c, spec = { closeButton = false, onPresentedChange = noop } } })
