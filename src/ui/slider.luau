@@ -672,6 +672,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			table.insert(trackProps, child)
 		end
 		track = ctx.styled(Host.Frame(trackProps), "slider-track")
+		local trackSlot = track
+		if spec.rotation ~= nil then
+			runtime.decorate(track, { Size = D2.fromScale(1, 1) })
+			trackSlot = Host.Frame "TrackSlot" {
+				Size = trackProps.Size,
+				BackgroundTransparency = 1,
+				Host.UISizeConstraint({ MinSize = V2.new(44, 44) }),
+				track,
+			}
+		end
 		local state = ctx.observe.GuiState(track)
 		Compose.watch(function(use: ComposeTypes.Use)
 			hovered:set(use(state) == E.GuiState.Hover)
@@ -746,7 +756,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					})
 				)
 			end
-			table.insert(captions, track)
+			table.insert(captions, trackSlot)
 		else
 			if spec.label then
 				table.insert(
@@ -761,12 +771,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				)
 			end
 			if not vertical then
-				runtime.decorate(track, { Size = D2.fromOffset(0, 44) })
+				runtime.decorate(trackSlot, { Size = D2.fromOffset(0, 44) })
 			end
 			runtime.mount(function()
 				return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
-			end, track)
-			table.insert(parts, track)
+			end, trackSlot)
+			table.insert(parts, trackSlot)
 			table.insert(parts, readout)
 		end
 		local native = ctx.props(spec, SLIDER_KEYS, {

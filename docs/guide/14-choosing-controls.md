@@ -13,6 +13,8 @@ surface only when the existing surface cannot express the task clearly.
 | Select an independent boolean | Toggle. |
 | Choose one value from a set | Picker; ComboBox when custom values are valid. |
 | Edit text or a number | TextInput. |
+| Filter a collection | TextInput with `presentation = "search"`; it includes a clear action. |
+| Check off completed items | Toggle with `presentation = "checkbox"`. |
 | Adjust a bounded value | Slider; Stepper for exact increments. |
 | Select a rating or a level | Rating or LevelPicker. |
 | Vote up or down on an item | Vote. |
@@ -65,6 +67,29 @@ under an outer page: in its content factory, or later in a `Compose.show` or
 `Compose.keyed` branch of that page. The inner TabView is then nested and uses a
 top band.
 
+If a detail pane has child pages, put a NavigationStack in that pane.
+Use the same path in wide and compact layouts.
+Let NavigationStack control the page history, motion, and Back command.
+Do not replace it with keyed content and a separate Back button.
+Do not show a disabled Back command on the root page.
+
+## Small tasks and secondary content
+
+Keep related information near its control.
+Use DisclosureGroup for an ingredient checklist or a list of saved cars.
+Use Popover for a short form that names a saved item.
+Connect the Popover to the Save button.
+Use CollapsibleView to expand a compact power display.
+Use Sheet for a larger temporary task, such as equipment management.
+Use NavigationStack to move between related recipes or field guide pages.
+
+For a search field, set `presentation = "search"`.
+This presentation supplies the Clear action.
+Enter filter text. Then press Clear and check that all items return.
+Use checkbox Toggles for a checklist.
+Use button Toggles for saved items.
+Use Picker to select one vehicle or one nectar type.
+
 ## Radial actions
 
 Choose a RadialMenu when all these conditions are true:
@@ -84,6 +109,33 @@ policy:
 - close after a final command,
 - stay open for repeated toggles,
 - return to the parent or the root to continue in a category.
+
+For a continuous action ring over a busy page, use these options.
+Supply the game functions `inspect` and `openInventory`:
+
+```luau
+UI.RadialMenu {
+    label = "Quick actions",
+    preset = "donut",
+    contentFit = "radial",
+    ringWidth = "wide",
+    center = "empty",
+    scrim = "dark",
+    items = {
+        { id = "inspect", label = "Inspect", onSelect = inspect },
+        { id = "inventory", label = "Inventory", onSelect = openInventory },
+    },
+}
+```
+
+`contentFit = "radial"` keeps the full sectors of the ring.
+The default value, `"both"`, can decrease each sector to a separate wedge.
+`ringWidth = "wide"` gives text labels more space near the screen edges.
+`center = "empty"` puts Close on the ring.
+The dark scrim separates the labels from the page below the ring.
+Check the open menu at compact and wide sizes.
+Include long labels and disabled actions in the check.
+If the ring cannot fit, use its linear list presentation.
 
 Keep a clear Back path and a cancellation gesture.
 

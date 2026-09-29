@@ -377,6 +377,7 @@ local PAGE_DATA: { [string]: any } = {
 	},
 	RadialMenu = {
 		family = "actions",
+		matrix = false,
 		alias = "(Facet-only)",
 		purpose = "A ring of quick actions for gamepad sticks and touch; opens from a launcher or a world anchor.",
 		alternatives = "Menu for long or text-heavy lists.",
@@ -448,7 +449,7 @@ local PAGE_DATA: { [string]: any } = {
 			},
 			{ key = "center", values = { "back", "root", "close", "content", "empty" }, matrix = false },
 			{ key = "ringWidth", values = { DEFAULT, "narrow", "regular", "wide" }, matrix = false },
-			{ key = "contentFit", values = { "both", "radial", "angular", "none" }, matrix = false },
+			{ key = "contentFit", values = { "radial", "both", "angular", "none" }, matrix = false },
 			{ key = "buttonSurface", values = { DEFAULT, "native", "none" }, matrix = false },
 			{ key = "labelStyle", values = { DEFAULT, "text", "icon" }, matrix = false },
 			{ key = "navigation", values = { "replace", "expand" }, matrix = false },
@@ -747,6 +748,26 @@ local PAGE_DATA: { [string]: any } = {
 		base = function(c)
 			return { label = "Volume", value = c.cell("value", 40), min = 0, max = 100, Size = UDim2.fromScale(1, 0) }
 		end,
+		make = function(UI, p, c)
+			if (p.rotation or 0) % 180 == 0 then
+				return UI.Slider(p)
+			end
+			p.AnchorPoint = Vector2.new(0.5, 0.5)
+			p.Position = UDim2.fromScale(0.5, 0.5)
+			local stage = c.Host.Frame({
+				Name = "RotationStage",
+				Size = UDim2.fromScale(1, 0),
+				BackgroundTransparency = 1,
+				UI.Slider(p),
+			})
+			local area = UI.environment(stage)
+			c.app.runtime.decorate(stage, {
+				Size = function(use)
+					return UDim2.new(1, 0, 0, math.max(use(area.viewportSize).X, 240) + 64)
+				end,
+			})
+			return stage
+		end,
 		axes = {
 			SIZES,
 			{ key = "thumb", values = { "always", "auto", "none" } },
@@ -817,7 +838,7 @@ local PAGE_DATA: { [string]: any } = {
 					return { range = true, value = c.cell("range", { lower = 20, upper = 70 }) }
 				end,
 			},
-			{ name = "vertical", props = { axis = "y", Size = UDim2.fromOffset(80, 200) }, cellHeight = 240 },
+			{ name = "vertical", props = { axis = "y", Size = UDim2.fromOffset(80, 200) } },
 		},
 		valid = function(p)
 			return not (p.thumbContent and p.thumbImage)

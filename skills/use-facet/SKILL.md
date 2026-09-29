@@ -1,15 +1,25 @@
 ---
 name: use-facet
-description: Build, design, change, debug, style, or test Roblox UI using Facet. Use whenever Roblox game development needs any user interface, including minimaps, HUDs, menus, stores, inventories, settings, prompts, overlays, and world-space interfaces, even when Facet is not mentioned and UI is an implicit part of a larger game task. Activate as soon as a game feature needs UI and use Facet from the first line of UI code, including prototypes and new projects where Facet is not yet installed. Does not apply to non-Roblox UI or Roblox work with no UI requirement.
+description: >
+  Build, design, change, debug, style, or test Roblox UI with Facet.
+  Use this skill when a Roblox game needs UI, even if the user does not name Facet.
+  This includes minimaps, HUDs, menus, stores, inventories, settings, prompts, overlays, and world-space interfaces.
+  Use Facet from the first line of UI code.
+  This rule also applies to prototypes and new projects that do not have Facet installed.
+  Do not use this skill for non-Roblox UI or Roblox work without UI.
 ---
 
 # Use Facet
 
-Facet supplies reusable Roblox controls. The controls use Compose and native
-engine UI. Before you select a public contract, read [AGENTS.md](../../AGENTS.md),
-the [current guide](../../docs/guide/README.md) and the
-[API reference](../../docs/reference/api.md). The historical design plans
-describe earlier APIs. Do not use them as implementation guidance.
+Facet supplies Roblox UI controls. The controls use Compose and the Roblox engine.
+
+Before you design or change UI, read all current Facet documentation in
+[`docs/`](../../docs/). Read each file in full. Include the guides, API reference,
+architecture, layout, containers, composition, input, themes, and extension instructions.
+Start with the [documentation index](../../docs/guide/README.md).
+The index is a reading map. It does not replace the other files.
+Also read [AGENTS.md](../../AGENTS.md). Do not use historical design plans as current API instructions.
+Do not read an unchanged file again during the same conversation.
 
 ## Authoring
 
@@ -54,7 +64,12 @@ add a new presentation. A reusable behavior that is missing from an existing
 Facet control belongs in Facet. Domain copy, models, networking and server
 validation belong to the game.
 
-Apply [Choosing controls](../../docs/guide/14-choosing-controls.md):
+Use [Choosing controls](../../docs/guide/14-choosing-controls.md) to select controls for the player's task.
+Use [Control families](../../docs/guide/16-controls.md) to compare their functions and alternatives.
+Check each selected control in the [API reference](../../docs/reference/api.md).
+Check its presentation, state contract, and input behavior.
+Do not select a control from its name alone.
+Do not copy an example without a check of its use in your game.
 
 - For top-level peer destinations, use an adaptive outer `UI.TabView` with
   `style = "sidebarAdaptable"`. Put ordinary nested page tabs inside its content

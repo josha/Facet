@@ -125,6 +125,105 @@ t.describe("present at rest: callout", function()
 end)
 
 t.describe("present at rest: anchored popover", function()
+	for _, edge in { "top", "bottom", "leading", "trailing" } do
+		t.it(`keeps the {edge} pointer and border attached through entry and exit`, function()
+			local open = Compose.cell(true)
+			local w = overlay.new(function(UI, Host)
+				local anchor = UI.Button "Anchor" { label = "Save" }
+				return Host.Frame {
+					anchor,
+					UI.Popover "Pop" {
+						isPresented = open,
+						source = { node = anchor },
+						edge = edge,
+						content = function()
+							return UI.Button "Save" {
+								label = "Save",
+								onActivate = function()
+									open:set(false)
+								end,
+							}
+						end,
+					},
+				}
+			end, { runService = true })
+			w.at(w.find("Anchor"), 350, 250)
+			w.size(w.find("Anchor"), 40, 40)
+			local panel, border, tail = w.find("Panel"), w.find("OutlineBoundary"), w.find("Tail")
+			local borderFade = w.find("OutlineFade")
+			local outline = w.find("Outline")
+			w.size(panel, 200, 100)
+			w.size(w.find("Flow"), 184, 84)
+			local function check()
+				t.expect(outline.Parent).toBe(border)
+				t.expect(borderFade.Parent).toBe(panel.Parent)
+				t.expect(border:IsDescendantOf(borderFade)).toBe(true)
+				t.expect(outline:IsDescendantOf(panel)).toBe(false)
+				t.expect(border.AnchorPoint).toBe(panel.AnchorPoint)
+				t.expect(border.Position.X.Offset + borderFade.Position.X.Offset)
+					.toBeCloseTo(panel.Position.X.Offset, 1)
+				t.expect(border.Position.Y.Offset + borderFade.Position.Y.Offset)
+					.toBeCloseTo(panel.Position.Y.Offset, 1)
+				local scale = materialize.of(panel).Scale
+				t.expect(border.Size.X.Offset).toBeCloseTo(200 * scale, 1)
+				t.expect(border.Size.Y.Offset).toBeCloseTo(100 * scale, 1)
+				local points = outline:GetControlPoints()
+				local tip
+				for _, point in points do
+					local v = point.Position
+					if v.X.Scale < 0 or v.X.Scale > 1 or v.Y.Scale < 0 or v.Y.Scale > 1 then
+						tip = v
+					end
+				end
+				t.expect(tip ~= nil).toBe(true)
+				local x = borderFade.Position.X.Offset
+					+ border.Position.X.Offset
+					- border.AnchorPoint.X * border.Size.X.Offset
+				local y = borderFade.Position.Y.Offset
+					+ border.Position.Y.Offset
+					- border.AnchorPoint.Y * border.Size.Y.Offset
+				local half = tail.Size.X.Offset * math.sqrt(2) / 2
+				local tipX = tail.Position.X.Offset
+					+ (if edge == "leading" then half elseif edge == "trailing" then -half else 0)
+				local tipY = tail.Position.Y.Offset
+					+ (if edge == "top" then half elseif edge == "bottom" then -half else 0)
+				t.expect(tipX).toBeCloseTo(x + tip.X.Scale * border.Size.X.Offset, 1.5)
+				t.expect(tipY).toBeCloseTo(y + tip.Y.Scale * border.Size.Y.Offset, 1.5)
+				t.expect(fadeKit.of(borderFade)).toBe(fadeKit.of(panel))
+				local group = panel:FindFirstChild("Fade")
+				if scale < 1 and group then
+					t.expect(group.Size).toBe(w.engine.types.UDim2.fromOffset(184, 84))
+					t.expect(group.AutomaticSize).toBe(w.Enum.AutomaticSize.None)
+					t.expect(panel.ClipsDescendants).toBe(true)
+					local borderGroup = borderFade:FindFirstChild("Fade")
+					t.expect(outline:IsDescendantOf(borderGroup))
+						.toBe(panel:FindFirstChild("PresentationContent", true):IsDescendantOf(group))
+				end
+			end
+			t.expect(fadeKit.of(borderFade)).toBe(1)
+			t.expect(outline:IsDescendantOf(borderFade:FindFirstChild("Fade"))).toBe(true)
+			w.advance(FRAME, 3)
+			check()
+			t.expect(materialize.of(panel).Scale < 1).toBe(true)
+			for _ = 1, 12 do
+				w.advance(FRAME)
+				check()
+			end
+			t.expect(materialize.of(panel).Scale).toBe(1)
+			w.find("Save").Activated.fire()
+			check()
+			w.advance(FRAME)
+			check()
+			t.expect(materialize.of(panel).Scale < 1).toBe(true)
+			t.expect(panel.isDestroyed()).toBe(false)
+			t.expect(fadeKit.of(borderFade) > 0).toBe(true)
+			w.advance(0.2, 12)
+			t.expect(panel.isDestroyed()).toBe(true)
+			t.expect(border.isDestroyed()).toBe(true)
+			t.expect(tail.isDestroyed()).toBe(true)
+			w.stop()
+		end)
+	end
 	t.it("placement reads the rested size while the panel scales in", function()
 		local w = overlay.new(function(UI, Host)
 			return UI.Popover "Pop" {

@@ -184,6 +184,7 @@ cat >"$project" <<'JSON'
       "Gallery": { "$path": "gallery/client" },
       "Facet": { "$path": "../src" },
       "FacetExamples": { "$path": "gallery/examples" },
+      "FacetReference": { "$path": "reference" },
       "FacetScenarios": { "$path": "gallery/scenarios" },
       "FacetThemes": { "$path": "themes" }
     },

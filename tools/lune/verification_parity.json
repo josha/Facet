@@ -3843,7 +3843,7 @@
       "candidateCases": [
         "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
         "(native_gallery 'mounts <demo.id> with the native runtime' for every catalogue entry)",
-        "native_parity_weaker_gallery::native parity weaker gallery::apps2-102 catalogue offers ten unique demos with real registered modules and one tab each"
+        "native_parity_weaker_gallery::native parity weaker gallery::apps2-102 catalogue offers seven unique demos with real registered modules and one tab each"
       ]
     },
     {
@@ -5403,7 +5403,7 @@
       "candidateCases": [
         "radial_geometry::radial geometry::content-fitted paint encloses upright icons at every compass direction",
         "radial_geometry::radial geometry::short arc outlines close both end caps with straight tangents",
-        "native_parity_weak3_h2::native parity weak3 h2: radial content fit::defaults to both axes and matches an explicit both fit",
+        "native_parity_weak3_h2::native parity weak3 h2: radial content fit::defaults to radial fitting and matches an explicit radial fit",
         "native_parity_weak3_h2::native parity weak3 h2: radial content fit::offers independent radial and angular axes and an unchanged full-ring none mode",
         "native_parity_weak3_h2::native parity weak3 h2: radial content fit::gives every sector of a radial-fit ring one pair of radii for unequal content",
         "native_parity_weak3_h2::native parity weak3 h2: radial content fit::encloses icon and compact icon content inside its fitted paint at every compass direction",
@@ -10013,7 +10013,7 @@
       "class": "a",
       "candidateCases": [
         "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
-        "native_parity_weaker_gallery::native parity weaker gallery::apps-193 collections is the next peer tab after all controls in the one demo list"
+        "native_parity_weaker_gallery::native parity weaker gallery::apps-193 the pack is the next peer tab after garage in the one demo list"
       ],
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Controller Emulator (Virtual Controller) on; real Gamepad1 input sent through UserInputService:CreateVirtualInput() and the emulator key map by live.press (DPadDown 3, DPadLeft 2, DPadRight 4, ButtonA 9, ButtonB 0, ButtonX 8, ButtonY 7, left stick up W); each artifact records the delivered Gamepad1 InputObjects in notes.deliveredInput; Medium text",
@@ -43694,18 +43694,18 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_fields::native field chrome::the label adds no focus stop and reserves the touch floor in its own box"
+        "native_fields::native field chrome::the label fits its text and adds no focus stop"
       ],
       "family": "pickers",
       "liveEvidence": {
-        "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
+        "host": "Roblox Studio desktop playtest; Neutral and fantasy_ornate themes",
         "artifacts": [
-          "artifacts/studio-live/ports_pickers-fix3-recheck.json"
+          "artifacts/field-label-layout/live-evidence.json"
         ],
         "cases": [
-          "ports_pickers/fields-label-above"
+          "fields-label-layout"
         ],
-        "observed": "At 1280x720 and 320 px every field label is at least 44 px tall and sits wholly above its Input, so the label box never reaches the editor."
+        "observed": "The label fits its text and stays above the input. A pointer click on the label focuses the editor. A 180 px field with 28 px wrapped label text grows to fit the text. The Neutral input stays 44 px tall."
       }
     },
     {

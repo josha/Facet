@@ -163,6 +163,14 @@ function order_service.new(opts: any): any
 			brew.startedAt = now
 			brew.endsAt = now + BREW_SECONDS
 		end)
+		clock.after(BREW_SECONDS, function()
+			local brew = self.byId(id)
+			if brew and brew.status == "brewing" and brew.endsAt == now + BREW_SECONDS then
+				replace(id, function(current)
+					current.status = "ready"
+				end)
+			end
+		end)
 	end
 
 	function self.applyFinish(id: number)

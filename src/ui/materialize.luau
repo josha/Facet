@@ -12,6 +12,7 @@ return function(
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local measured = ctx.layoutSize(panel)
+	local clips = panel.ClipsDescendants
 	local natural = Compose.cell(V2.zero)
 	local function moving(use: ComposeTypes.Use): boolean
 		return scale(use) ~= 1 and use(natural).X > 0 and use(natural).Y > 0
@@ -26,6 +27,9 @@ return function(
 		return if pivot then pivot(use) else V2.new(0.5, 0.5)
 	end
 	runtime.decorate(panel, {
+		ClipsDescendants = function(use: ComposeTypes.Use)
+			return clips or moving(use)
+		end,
 		Size = function(use: ComposeTypes.Use)
 			local size = use(natural) * scale(use)
 			return if moving(use) then D2.fromOffset(size.X, size.Y) else ctx.read(geometry.Size, use)
@@ -78,6 +82,31 @@ return function(
 					}
 				end, parent)
 				local content = made :: Frame
+				local function freeze(group: Instance)
+					if not group:IsA("CanvasGroup") then
+						return
+					end
+					local size, automatic = group.Size, group.AutomaticSize
+					runtime.decorate(group, {
+						Size = function(use: ComposeTypes.Use)
+							return if moving(use) then content.Size else size
+						end,
+						AutomaticSize = function(use: ComposeTypes.Use)
+							return if moving(use) then E.AutomaticSize.None else automatic
+						end,
+						AnchorPoint = origin,
+						Position = function(use: ComposeTypes.Use)
+							local at = origin(use)
+							return D2.fromScale(at.X, at.Y)
+						end,
+					})
+				end
+				freeze(parent)
+				runtime.connect(panel, "ChildAdded", function(child: Instance)
+					if child.Name == "Fade" then
+						freeze(child)
+					end
+				end)
 				keepSelection(function()
 					for _, child in children do
 						if

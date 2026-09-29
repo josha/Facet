@@ -11,10 +11,16 @@ Example components return native Instances. The caller mounts them. Read the
 
 ## Gallery
 
-The gallery is the browser for controls and composition. It has examples of
-input, selection, menus, navigation, modal content, collections, themes, media
-and ownership. Start with the action and text controls. Then examine the
-collection behavior. Then examine the presented and retained content.
+The showcase is a collection of five interactive demos: Garage, Sipworks,
+Screen-anchored HUD, Playlist and Arcade. Arcade contains the
+three existing games and the Outpost power puzzle. Each demo gives the player a small task with a visible
+result. The Foundation Lab is the control-by-control browser.
+
+The showcase retains its theme, device, input and motion settings. Its larger
+Sipworks and Arcade use adaptive sidebar or top-bar navigation. Sipworks
+also preserves its recipe history between wide and compact
+navigation stacks. See the [demo map](../../examples/README.md#showcase) for the source and
+a short interaction to try in each one.
 
 Examine the native tree together with the visual result. Parentage and sizes
 are engine properties. They are not a dump from a Facet solver.

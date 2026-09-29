@@ -283,7 +283,8 @@ t.describe("native parity weaker pickers", function()
 				end
 			end
 			t.expect(label.Selectable).toBe(false)
-			t.expect(label.Size.Y.Offset >= 44).toBe(true)
+			t.expect(label.Size.Y.Offset).toBe(0)
+			t.expect(label.AutomaticSize).toBe(world.E.AutomaticSize.Y)
 			local field = find(plate, "Field")
 			t.expect(field:IsFocused()).toBe(false)
 			press(world, label, input)

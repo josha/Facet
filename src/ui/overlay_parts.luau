@@ -575,6 +575,7 @@ end
 
 export type TailPanel = {
 	node: GuiObject,
+	scale: (ComposeTypes.Use) -> number,
 	corner: (ComposeTypes.Use) -> Vector2,
 	size: ComposeTypes.Readable<Vector2>,
 	radius: (ComposeTypes.Use) -> number,
@@ -628,6 +629,7 @@ function parts.tail(
 	panel: TailPanel
 ): { Frame }
 	local Compose, Host, D2, V2 = ctx.Compose, ctx.Host, ctx.types.UDim2, ctx.types.Vector2
+	local anchor = ctx.observe.AnchorPoint(panel.node)
 	local function geometry(use: ComposeTypes.Use): (Vector2?, string, number, number, number)
 		local box = use(panel.size) :: Vector2
 		local point, edge = at(use)
@@ -650,7 +652,7 @@ function parts.tail(
 		Host.Frame(name)({
 			Size = function(use: ComposeTypes.Use)
 				local point, _, _, d = geometry(use)
-				local side = if point then d * math.sqrt(2) else 0
+				local side = if point then d * math.sqrt(2) * panel.scale(use) else 0
 				return D2.fromOffset(side, side)
 			end,
 			AnchorPoint = V2.new(0.5, 0.5),
@@ -661,7 +663,12 @@ function parts.tail(
 			end,
 			Position = function(use: ComposeTypes.Use): UDim2
 				local point = geometry(use) or V2.zero
-				return D2.fromOffset(point.X, point.Y)
+				local corner = panel.corner(use)
+				local box = use(panel.size)
+				local at = use(anchor)
+				local pivot = corner + V2.new(box.X * at.X, box.Y * at.Y)
+				local placed = pivot + (point - pivot) * panel.scale(use)
+				return D2.fromOffset(placed.X, placed.Y)
 			end,
 			Host.UIGradient "PresentationFade" {
 				Transparency = function(use: ComposeTypes.Use)
@@ -672,7 +679,7 @@ function parts.tail(
 		"tail"
 	)
 	panel.node:AddTag("facet-outlined")
-	local outline = ctx.styled(Host.Path2D "Outline" { Closed = true }, "outline")
+	local outline = ctx.styled(Host.Path2D "Outline" { Closed = true, ZIndex = z }, "outline")
 	if panel.role == "tooltip" then
 		outline:AddTag("facet-outline-tooltip")
 	end
@@ -695,8 +702,43 @@ function parts.tail(
 		end
 		outline:SetControlPoints(native)
 	end)
-	outline.Parent = panel.node:FindFirstChild("Fade") or panel.node
-	return { wedge }
+	local function inset(use: ComposeTypes.Use): number
+		return math.ceil(parts.tailSize(ctx, use) * math.sqrt(2))
+	end
+	local border = Host.Frame "OutlineBoundary" {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = z,
+		AnchorPoint = anchor,
+		Position = function(use: ComposeTypes.Use)
+			local box, pivot, pad = use(panel.size), use(anchor), inset(use)
+			return D2.fromOffset(pad + box.X * pivot.X, pad + box.Y * pivot.Y)
+		end,
+		Size = function(use: ComposeTypes.Use)
+			local box = use(panel.size) * panel.scale(use)
+			return D2.fromOffset(box.X, box.Y)
+		end,
+		outline,
+	}
+	local fade = ctx.fade {
+		Name = "OutlineFade",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = z,
+		Position = function(use: ComposeTypes.Use)
+			local corner, pad = panel.corner(use), inset(use)
+			return D2.fromOffset(corner.X - pad, corner.Y - pad)
+		end,
+		Size = function(use: ComposeTypes.Use)
+			local box, pad = use(panel.size), inset(use)
+			return D2.fromOffset(box.X + pad * 2, box.Y + pad * 2)
+		end,
+		GroupTransparency = function(use: ComposeTypes.Use)
+			return 1 - amount(use)
+		end,
+		border,
+	}
+	return { wedge, fade }
 end
 
 parts.scroller = measuredScroll
