@@ -644,7 +644,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local sizing = spec.AutomaticSize
 			local function floored(use: ComposeTypes.Use?): UDim2
 				local size: UDim2 = read(given, use)
-				local automatic = read(sizing, use)
+				local automatic = if sizing == nil then E.AutomaticSize.Y else read(sizing, use)
 				local grows = automatic == E.AutomaticSize.Y or automatic == E.AutomaticSize.XY
 				if grows and size.Y.Scale == 0 and size.Y.Offset == 0 then
 					return D2.new(size.X.Scale, size.X.Offset, 0, ctx.controlSize(spec.controlSize, "height", use))

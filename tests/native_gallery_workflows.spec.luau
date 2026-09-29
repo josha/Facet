@@ -5,7 +5,7 @@ local engineLib = require("./lib/native_engine")
 local catalogue = require("../examples/gallery/client/demo_picker")
 local Compose = Facet.Compose
 
-local function nativeContext()
+local function nativeContext(environment)
 	local engine = engineLib.new()
 	local runtime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
@@ -29,6 +29,7 @@ local function nativeContext()
 			services = { GuiService = guiService },
 			inputParent = target,
 			motionLevel = "none",
+			environment = environment,
 		}),
 	}
 	return ctx, engine, target
@@ -51,8 +52,8 @@ local function find(root, name)
 	return nil
 end
 
-local function mount(name, kind)
-	local ctx, engine, target = nativeContext()
+local function mount(name, kind, environment)
+	local ctx, engine, target = nativeContext(environment)
 	local built
 	local stop, node = ctx.runtime.mount(function()
 		built = load(kind or "fixture", name).build(ctx)
@@ -162,6 +163,27 @@ t.describe("native gallery workflows", function()
 		find(node, "Reset").Activated.fire()
 		t.expect(built.report().volume).toBe(6)
 		stop()
+	end)
+	t.it("sizes the Basics action row from its buttons, not a fixed band (owner M6: TV clipped them)", function()
+		for _, distance in { "near", "ten-foot" } do
+			local _, node, stop, ctx = mount("adaptive_controls", nil, { viewingDistance = distance })
+			local Enum = ctx.types.Enum
+			local footer = find(node, "Actions")
+			local cap = footer:FindFirstChildWhichIsA("UISizeConstraint")
+			t.expect(footer.AutomaticSize).toBe(Enum.AutomaticSize.Y)
+			t.expect(footer:FindFirstChildWhichIsA("UIGridLayout")).toBe(nil)
+			local floor = if distance == "ten-foot" then 66 else 44
+			for _, name in { "Save", "Reset", "Delete" } do
+				local button = find(footer, name)
+				local height = button.Size.Y.Offset
+				local room = math.max(footer.Size.Y.Offset, if cap then cap.MaxSize.Y else math.huge)
+				t.expect(`{distance} {name} {height} fits {room >= height}`).toBe(`{distance} {name} {floor} fits true`)
+			end
+			local body = find(node, "BodyScroll")
+			t.expect(body.Size.Y.Offset).toBe(0)
+			t.expect(body:FindFirstChildWhichIsA("UIFlexItem") ~= nil).toBe(true)
+			stop()
+		end
 	end)
 	t.it("paints the adaptive chips, count tiles and layout bars with the theme's control plate", function()
 		local ctx, _, target = nativeContext()
