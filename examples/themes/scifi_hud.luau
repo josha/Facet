@@ -108,7 +108,7 @@ function scifi_hud.definition(themes: any): any
 				large = { height = 52, paddingX = 20, iconSize = 24 },
 			},
 
-			radii = { control = 0, panel = 0, pill = 0 },
+			radii = { tab = 0, control = 0, panel = 0, pill = 0 },
 			strokes = { hairline = 2 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.09, normal = 0.18 },

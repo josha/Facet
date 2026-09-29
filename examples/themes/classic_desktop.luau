@@ -108,7 +108,7 @@ function classic_desktop.definition(themes: any): any
 				large = { height = 32, paddingX = 10, iconSize = 16 },
 			},
 
-			radii = { control = 2, panel = 0, pill = 4 },
+			radii = { tab = 2, control = 2, panel = 0, pill = 4 },
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 

@@ -2,7 +2,6 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Env = require("./environment_types")
-local FocusBeam = require("./focus_beam")
 
 type Level = { child: Instance, parent: Instance, siblings: { Instance } }
 type Snapshot = { node: GuiObject, levels: { Level }, modal: boolean }
@@ -133,7 +132,7 @@ return function(ctx: Shared.Context): Selection
 		return list
 	end
 
-	local function rectOf(node: GuiObject): FocusBeam.Rect
+	local function rectOf(node: GuiObject): ComposeTypes.FocusRect
 		local at, size = node.AbsolutePosition, node.AbsoluteSize
 		return { x = at.X, y = at.Y, width = size.X, height = size.Y }
 	end
@@ -174,7 +173,7 @@ return function(ctx: Shared.Context): Selection
 		local dx = (cp.X + cs.X / 2) - (fp.X + fs.X / 2)
 		local dy = (cp.Y + cs.Y / 2) - (fp.Y + fs.Y / 2)
 		local vertical = cp.Y >= fp.Y + fs.Y or cp.Y + cs.Y <= fp.Y or math.abs(dy) >= math.abs(dx)
-		local direction: FocusBeam.Direction = if vertical
+		local direction: ComposeTypes.FocusDirection = if vertical
 			then (if dy >= 0 then "down" else "up")
 			else (if dx >= 0 then "right" else "left")
 		local pool, rects = {}, {}
@@ -189,7 +188,7 @@ return function(ctx: Shared.Context): Selection
 				table.insert(rects, rectOf(candidate))
 			end
 		end
-		local index = FocusBeam.neighbor(rectOf(from), rects, direction)
+		local index = Compose.focusNeighbor(rectOf(from), rects, direction)
 		return if index then pool[index] else nil
 	end
 
@@ -331,7 +330,8 @@ return function(ctx: Shared.Context): Selection
 			for index, node in list do
 				rects[index] = rectOf(node)
 			end
-			local index = FocusBeam.neighbor(rectOf(origin), rects, string.lower(direction) :: FocusBeam.Direction)
+			local index =
+				Compose.focusNeighbor(rectOf(origin), rects, string.lower(direction) :: ComposeTypes.FocusDirection)
 			return if index then list[index] else nil
 		end
 		local function pick(list: { GuiObject }, direction: string): GuiObject?

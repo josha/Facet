@@ -32,3 +32,13 @@ files.
 
 To read from a local checkout instead of the network, add
 `--source /path/to/compose` to either command.
+
+## Current upstream provenance
+
+The snapshot comes from official `voidmeld/compose` main at
+`dbf518ac3d28846c81ab0cf8f74cbc76ad22b30a`. The sync tool read that commit
+from a Git fetch of the official repository. Both file inventories match the
+archive; there are no local patches. This commit includes the rectangle focus
+policy contributed in [Compose PR 2](https://github.com/voidmeld/compose/pull/2),
+applied upstream as `333c7fa997a6e0a73b8311187f65b0143e55051a`. Facet calls
+`Compose.focusNeighbor` and no longer carries its own copy of that policy.

@@ -66,6 +66,10 @@ regression work. Verify these behaviors:
 
 ## Reference applications
 
+These applications remain as source and regression fixtures. Their standalone
+place downloads are retired. Use the maintained Showcase, Virtual Monitors
+and Facet Farm places in `examples/places`.
+
 - **Glade:** care for a glade, select and consume nectar, watch the supply and
   visitor state, browse wisps and flora, buy provisions, edit the keeper
   profile and reset the world.

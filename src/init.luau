@@ -175,6 +175,7 @@ local USED = {
 	"createPool",
 	"createSharedResource",
 	"currentOwner",
+	"focusNeighbor",
 	"formula",
 	"fragment",
 	"isReadable",

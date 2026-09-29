@@ -159,7 +159,7 @@ function compact_pointer.definition(themes: any): any
 				large = { height = 30, paddingX = 12, iconSize = 18 },
 			},
 			iconSizes = { small = 12, medium = 16, large = 24 },
-			radii = { control = 4, panel = 6, pill = 999 },
+			radii = { tab = 4, control = 4, panel = 6, pill = 999 },
 
 			strokes = { hairline = 1 },
 

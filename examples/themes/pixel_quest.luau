@@ -210,7 +210,7 @@ function pixel_quest.definition(themes: any): any
 			},
 
 			iconSizes = { small = 16, medium = 32, large = 48 },
-			radii = { control = 0, panel = 0, pill = 0, selection = 0, ["gauge:ring"] = 0 },
+			radii = { tab = 0, control = 0, panel = 0, pill = 0, selection = 0, ["gauge:ring"] = 0 },
 			strokes = { hairline = 4 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.08, normal = 0.14 },

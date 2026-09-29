@@ -223,4 +223,8 @@ echo "built examples/places/Facet-PerformanceLab.rbxl (Facet-PerformanceLab — 
 
 lune run tools/lune/check_place_bootstrap.luau examples/places/0*.rbxl examples/places/Facet-Showcase.rbxl
 
+rojo build examples/virtual_monitors/default.project.json -o examples/places/Facet-VirtualMonitors.rbxl
+rojo build examples/facet_farm/default.project.json -o examples/places/Facet-Farm.rbxl
+lune run tools/lune/check_app_places.luau
+
 echo "done: $(ls examples/places/*.rbxl | wc -l | tr -d ' ') place files in examples/places/"

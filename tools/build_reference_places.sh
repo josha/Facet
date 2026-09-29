@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 
 
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-mkdir -p examples/places
+mkdir -p artifacts/verify/reference-places
 
 
 
@@ -93,7 +93,7 @@ for entry in "${PROOFS[@]}"; do
   }
 }
 JSON
-  rojo build "$project" -o "examples/places/$name.rbxl"
+  rojo build "$project" -o "artifacts/verify/reference-places/$name.rbxl"
   rm "$project"
-  echo "built examples/places/$name.rbxl ($scenario)"
+  echo "built artifacts/verify/reference-places/$name.rbxl ($scenario)"
 done

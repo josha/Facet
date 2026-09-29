@@ -110,7 +110,7 @@ function fantasy_parchment_stub.definition(themes: any): any
 				regular = { height = 46, paddingX = 18, iconSize = 22 },
 				large = { height = 58, paddingX = 22, iconSize = 26 },
 			},
-			radii = { control = 6, panel = 10, pill = 999 },
+			radii = { tab = 0, control = 6, panel = 10, pill = 999 },
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.14, normal = 0.24 },

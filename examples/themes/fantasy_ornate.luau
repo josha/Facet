@@ -324,7 +324,7 @@ function fantasy_ornate.definition(themes: any): any
 
 			iconSizes = { small = 20, medium = 32, large = 48 },
 
-			radii = { control = 6, panel = 10, pill = 999, selection = 0, ["gauge:ring"] = 8 },
+			radii = { tab = 0, control = 6, panel = 10, pill = 999, selection = 0, ["gauge:ring"] = 8 },
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.14, normal = 0.24 },

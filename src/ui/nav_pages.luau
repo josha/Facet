@@ -871,6 +871,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			bar:SetAttribute("FacetEntry", use(spec.selection))
+			if segmentedTop(use) then
+				root:AddTag("facet-top-tabs")
+			else
+				root:RemoveTag("facet-top-tabs")
+			end
 		end)
 		local ancestry, barAt, barSize =
 			Compose.cell(0), ctx.observe.AbsolutePosition(bar), ctx.observe.AbsoluteSize(bar)

@@ -32,6 +32,12 @@ host mounts them with the runtime pieces that `Facet.app` uses.
 | Toast reflow, edge and width choices | [Toasts](gallery/scenarios/sponsor_toast.luau) |
 | A shared model on a world surface | [Outpost terminal](gallery/examples/outpost_terminal/init.luau) |
 | A complete multi-surface showcase | [Virtual monitors](virtual_monitors/README.md) |
+| A farming game with crop growth, tools and a seed market | [Facet Farm](facet_farm/README.md) |
+
+The checked-in places are in `examples/places`. Run `tools/build_places.sh`
+to rebuild the maintained examples, including
+[Virtual Monitors](places/Facet-VirtualMonitors.rbxl) and
+[Facet Farm](places/Facet-Farm.rbxl). Facet Flap is part of Virtual Monitors.
 
 ## Patterns in the examples
 
@@ -81,8 +87,10 @@ and ingredient checks across layout changes.
 The Pack, Cartwheel and Glade experiments remain in source with their behavioral
 tests. They are outside the main picker: equipment browsing overlaps the library
 and playlist, Cartwheel's order service deserves a fuller management game, and
-Glade needs deeper simulation to justify its own stop. Their original reference
-applications remain available separately. Cartwheel's ring actions now reveal
+Glade needs deeper simulation to justify its own stop. The original reference
+applications remain in source for regression checks. Their standalone place
+builds are retired; `tools/build_reference_places.sh` writes temporary test
+places under `artifacts/verify/reference-places`. Cartwheel's ring actions now reveal
 order contents inline. Pack's filter uses the search presentation.
 
 The demos use local state. Leaving a demo starts a fresh visit on return.
