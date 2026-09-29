@@ -294,7 +294,7 @@ local lifetime = Compose.createRootOwner(function()
 				Brightness = function(use)
 					return if use(dark) then 1.3 else 1.1
 				end,
-				MaxDistance = 100,
+				MaxDistance = 0,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 				Enabled = function(use)
 					return use(modeProgress) < 1
