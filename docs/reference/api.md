@@ -284,11 +284,12 @@ easing, spring, scale and distance below is a token in the theme package's
 | Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | The panel scales from 0.96 (`materialize.menu`) to 1 from the corner where it hangs; a pointer submenu grows from the chosen row (about that row's top edge, on the side facing the parent), and Back grows the parent from the side that faced the child; and fades in, 0.15 seconds (`popover.enter`), Cubic Out. As a sheet (touch, gamepad, narrow window), the panel slides up from the bottom edge and fades in with the Sheet timing (`sheet.enter` 0.3 seconds, `sheet.exit` 0.2 seconds) and never scales. A sheet level change slides the rows 32 pixels (`distances.menuSlide`) in from the trailing side (Back: from the leading side) and cross-fades them over `popover.enter`. | The reverse, 0.1 seconds (`popover.exit`); a sheet slides back down over `sheet.exit`. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
-| Toast | Slides in from its edge and fades in, 0.2 seconds (`toast.enter`), Cubic Out. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds (`toast.exit`). |
-| Toast with an action | Slides up from below the layer and fades in, 0.2 seconds (`toast.enter`), Cubic Out. | Slides down and fades out, 0.2 seconds (`toast.exit`). |
+| Toast | Slides in from its edge, 0.2 seconds (`toast.enter`), Cubic Out, and fades in over the same time on the linear `easing.trail`, so the fade is still running once the row is in view. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds (`toast.exit`), the fade on `easing.trail`. |
+| Toast with an action | Slides up from below the layer, 0.2 seconds (`toast.enter`), Cubic Out, and fades in over the same time on `easing.trail`. | Slides down and fades out, 0.2 seconds (`toast.exit`), the fade on `easing.trail`. |
 | DisclosureGroup | The content height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 90 degrees with it. | The height closes in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
 | CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds (`reveal.enter`), Cubic Out (`easing.present`), and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
 | Notice | The height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds (`reveal.exit`). Then `onDismiss` runs. |
+| RadialMenu | The ring spreads out from its centre, starting at 20 percent of its radius (`materialize.radialSpread`), and fades in, 0.2 seconds (`radial.enter`), Cubic Out. | The reverse: the ring folds back into its centre as it fades out, 0.12 seconds (`radial.exit`). |
 | RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds (`radial.slot`). A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent (`materialize.branch`) of the distance toward the center to their positions. Back folds the level into its item and re-opens the parent around it: each parent slot starts at that item's angle and band and sweeps to its place. A ring that opens again starts from the centre. Reduced motion places the slot at once. | The slot fades out, 0.12 seconds (`radial.exit`). A submenu slot left by Back folds along the ring into the item it came from as it fades. |
 | NavBar | No motion. | No motion. |
 
@@ -2213,7 +2214,9 @@ metrics, not measured: the label is its character count times 0.6 of
 `typography.control.size` wide and one control line tall, and an icon is
 `iconSize` square. The ring is never thinner than `targetSizes.minimum`, is
 thick enough for each wedge to be one touch target wide, and is never wider
-than the room. The same items and theme always give the same ring.
+than the room. A level that replaces its parent (`navigation = "replace"`)
+is at least as thick as the ring it replaced, so its items sit at the same
+distance from the centre. The same items and theme always give the same ring.
 
 Where Back and Close sit depends on the preset, `center` and the room:
 

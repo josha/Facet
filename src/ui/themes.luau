@@ -225,7 +225,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				popDecay = 3,
 			},
 			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1 },
-			easing = { present = "outCubic", fade = "outQuad" },
+			easing = { present = "outCubic", fade = "outQuad", trail = "linear" },
 			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Quint", pulse = "Sine" },
 			fling = { friction = 3, maxSpeed = 4000, projection = 0.08, bounceSpeed = 800 },
 		},
