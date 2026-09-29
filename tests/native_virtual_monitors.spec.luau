@@ -103,7 +103,7 @@ local function withScreens(body, options)
 			views = views,
 			stops = {},
 		}
-		for _, name in { "Discover", "Avatar", "Chat" } do
+		for _, name in screens.APPS do
 			local stop, node = runtime.mount(views[name], target)
 			world[name] = node
 			world.stops[name] = stop
@@ -116,6 +116,36 @@ local function withScreens(body, options)
 end
 
 t.describe("native virtual monitors", function()
+	t.it("retains overlapping flight tiles and bounds an endless scrolling world", function()
+		withScreens(function(world)
+			world.model.mode:set("Screen")
+			world.model.selectedTab:set("Flap")
+			local tiles = find(world.Flap, "TileWorld")
+			t.expect(tiles ~= nil).toBe(true)
+			local retained = find(tiles, "Tile_1_12")
+			find(world.Flap, "FlapTouch").Activated.fire()
+			t.expect(world.model.flap.state:peek().phase).toBe("playing")
+			world.model.step(0.05, true)
+			t.expect(find(tiles, "Tile_1_12")).toBe(retained)
+			for column = 1, 1000 do
+				local state = table.clone(world.model.flap.state:peek())
+				state.x = column * 32
+				world.model.flap.state:set(state)
+				t.expect(#tiles:GetChildren() <= 130).toBe(true)
+			end
+			t.expect(retained.Parent == nil).toBe(true)
+			world.model.selectedTab:set("Chat")
+			t.expect(world.model.flap.state:peek().phase).toBe("paused")
+			local paused = world.model.flap.state:peek()
+			world.model.flapPress()
+			world.model.step(0.05, false)
+			t.expect(world.model.flap.state:peek()).toBe(paused)
+			world.model.selectedTab:set("Flap")
+			world.model.flapPress()
+			t.expect(world.model.flap.state:peek().phase).toBe("playing")
+		end)
+	end)
+
 	t.it("rejects nonnative Path2D paint properties in the engine fixture", function()
 		local engine = engineModule.new()
 		local path = engine.new("Path2D")
@@ -138,7 +168,7 @@ t.describe("native virtual monitors", function()
 		local effect = engineModule.new().new("HapticEffect")
 		withScreens(function(world)
 			local buzzing, quiet = 0, 0
-			for _, name in { "Discover", "Avatar", "Chat" } do
+			for _, name in screens.APPS do
 				for _, node in world[name]:GetDescendants() do
 					if node:HasTag("facet-button") then
 						local changesValue = node:HasTag("facet-toggle")
@@ -1447,7 +1477,7 @@ t.describe("native virtual monitors", function()
 			local model = modelModule.new(Compose)
 			Compose.cleanup(model.dispose)
 			local views = {}
-			for _, name in { "Discover", "Avatar", "Chat" } do
+			for _, name in screens.APPS do
 				views[name] = function()
 					mounted[name] = (mounted[name] or 0) + 1
 					Compose.cleanup(function()

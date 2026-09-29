@@ -1,5 +1,6 @@
 --!strict
 local desktop = {}
+local screens = require("./screens")
 function desktop.create(Facet: any, runtime: any, views: any, model: any, progress: any, options: any?)
 	local Host, Compose = runtime.constructors, Facet.Compose
 	options = options or {}
@@ -12,11 +13,11 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 		local env = UI.environment()
 		local you = UI.worldAnchor({ target = Compose.cell(options.player), offscreen = "retain" })
 		local tabs = {}
-		local icons = { Discover = "facet:search", Avatar = "person", Chat = "edit" }
-		for _, name in { "Discover", "Avatar", "Chat" } do
+		local icons = { Discover = "facet:search", Avatar = "person", Chat = "edit", Flap = "chevron.up" }
+		for _, name in screens.APPS do
 			table.insert(tabs, {
 				id = name,
-				label = name,
+				label = if name == "Flap" then "Facet Flap" else name,
 				icon = icons[name],
 				content = views[name],
 				badge = if name == "Chat"

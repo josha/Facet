@@ -24,6 +24,7 @@ Facet = Facet.bind(Facet.Compose, Facet.Roblox)
 local Compose = Facet.Compose
 local screens = require(storage.VirtualMonitors.screens)
 local scenes = require(storage.VirtualMonitors.scenes)
+local spatial = require(storage.VirtualMonitors.spatial)
 local theme = require(storage.VirtualMonitors.theme)
 local desktop = require(storage.VirtualMonitors.desktop)
 local modelModule = require(storage.VirtualMonitors.model)
@@ -96,10 +97,9 @@ local lifetime = Compose.createRootOwner(function()
 			end
 		end
 		local children: any = { Name = "VirtualMonitors" }
-		for index, name in { "Discover", "Avatar", "Chat" } do
-			local x = (2 - index) * 10.9
-			local frame = CFrame.new(x, 7, if index == 2 then 0.7 else -1.5)
-				* CFrame.Angles(0, math.rad((2 - index) * 22), 0)
+		for index, name in screens.APPS do
+			local x, z, yaw = spatial.pose(index, #screens.APPS)
+			local frame = CFrame.new(x, spatial.HEIGHT, z) * CFrame.Angles(0, yaw, 0)
 			local panel = Host.Part({
 				Name = name,
 				Anchored = true,
@@ -273,7 +273,7 @@ local lifetime = Compose.createRootOwner(function()
 	if Facet.gamepadContention.legacyStackActive() then
 		warn(Facet.gamepadContention.describeContention())
 	end
-	for _, name in { "Discover", "Avatar", "Chat" } do
+	for _, name in screens.APPS do
 		runtime.mount(function()
 			local package = Facet.themes.forDistance(theme.create(Facet, name), "near")
 			local sheet = Facet.themes.createStyleSheet(runtime, package, {
@@ -294,7 +294,7 @@ local lifetime = Compose.createRootOwner(function()
 				Brightness = function(use)
 					return if use(dark) then 1.3 else 1.1
 				end,
-				MaxDistance = 100,
+				MaxDistance = 0,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 				Enabled = function(use)
 					return use(modeProgress) < 1
@@ -373,14 +373,17 @@ local lifetime = Compose.createRootOwner(function()
 		local size = camera.ViewportSize
 		local aspect = math.max(0.1, size.X / math.max(1, size.Y))
 		local tangent = math.tan(math.rad(camera.FieldOfView / 2))
-		local distance = math.max(34 / (2 * tangent * aspect), 10 / (2 * tangent)) * 1.08 + 5
+		local distance = math.max(
+			-spatial.CENTER_Z,
+			math.max((#screens.APPS * 10.9 + 2) / (2 * tangent * aspect), 10 / (2 * tangent)) * 1.08 + 5
+		)
 		local selected = parts[model.focused:peek()]
 		local focusDistance = if selected
 			then math.max(selected.Size.X / (2 * tangent * aspect), selected.Size.Y / (2 * tangent)) * 1.12
 			else 0
 		local goal = if selected
 			then CFrame.lookAt(selected.CFrame:PointToWorldSpace(Vector3.new(0, 0, -focusDistance)), selected.Position)
-			else CFrame.lookAt(Vector3.new(0, 7.6, -distance), Vector3.new(0, 7, 0))
+			else CFrame.lookAt(Vector3.new(0, spatial.HEIGHT, -distance), Vector3.new(0, spatial.HEIGHT, 0))
 		cameraGoal:set(goal)
 		local displayed = if reducedMotion:peek() then goal else cameraMotion:peek()
 		if selected then
@@ -409,6 +412,20 @@ local lifetime = Compose.createRootOwner(function()
 				mode:set(if mode:peek() == "Screen" then "Spatial" else "Screen")
 			end,
 			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonSelect }),
+		},
+	}
+	Host.InputContext "FacetFlapInput" {
+		Parent = players.LocalPlayer:WaitForChild("PlayerGui"),
+		Priority = Facet.inputPriority.belowControls,
+		Sink = true,
+		Enabled = model.flapActive,
+		Host.InputAction "Flap" {
+			Pressed = function()
+				if game:GetService("UserInputService"):GetFocusedTextBox() == nil then
+					model.flapPress()
+				end
+			end,
+			Host.InputBinding { KeyCode = Enum.KeyCode.Space },
 		},
 	}
 	Host.BindableFunction "VirtualMonitorsAPI" {
@@ -451,6 +468,10 @@ local lifetime = Compose.createRootOwner(function()
 			elseif command == "chat" then
 				model.prompt(argument)
 				model.chat.send()
+			elseif command == "flap" then
+				model.flapPress()
+			elseif command == "flapPause" then
+				model.flap.pause()
 			end
 			local moves = nil
 			if command == "moves" and flatViews then
@@ -465,6 +486,8 @@ local lifetime = Compose.createRootOwner(function()
 				dark = dark:peek(),
 				accent = model.palette:peek(),
 				focused = model.focused:peek(),
+				flap = model.flap.state:peek(),
+				flapBest = model.flap.best:peek(),
 			}
 		end),
 	}
