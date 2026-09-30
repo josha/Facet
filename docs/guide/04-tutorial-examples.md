@@ -64,30 +64,6 @@ regression work. Verify these behaviors:
 - keyboard and gamepad access,
 - teardown.
 
-## Reference applications
-
-These applications remain as source and regression fixtures. Their standalone
-place downloads are retired. Use the maintained Showcase, Virtual Monitors
-and Facet Farm places in `examples/places`.
-
-- **Glade:** care for a glade, select and consume nectar, watch the supply and
-  visitor state, browse wisps and flora, buy provisions, edit the keeper
-  profile and reset the world.
-- **Cartwheel:** examine and complete brews, keep potion drafts, review
-  popularity and history, unlock expanded history and chatter, examine market
-  conditions and join the guild.
-- **Sipworks:** search blends and botanicals, save favorites, order with
-  pending and rejection states, earn and redeem stamps, examine measured
-  recipes and unlock the Blend Book.
-- **Foyer:** search and refresh world catalogs, examine details, keep the visit
-  history, browse friends and notifications, and show unavailable destinations
-  honestly.
-
-These applications keep their original content and deterministic domain
-services. Native controls own the UI mechanisms. The scripted services model
-successful and rejected operations. They are examples. They are not production
-payment or authority services.
-
 ## What to copy
 
 Copy the state flow and the native composition of a component. Keep the keys

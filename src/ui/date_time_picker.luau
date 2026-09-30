@@ -1793,7 +1793,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end)
 			surfaces.attach(root, {
 				surfaces.overlay(plate, presented, function()
-					local layer = plate:FindFirstAncestorWhichIsA("LayerCollector")
+					local layer = surfaces.parent(plate)
 					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local position = ctx.observe.AbsolutePosition(plate)
@@ -1906,6 +1906,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							end
 							if offer.X > 0 then
 								left = math.clamp(left, 8, math.max(8, offer.X - box.X - 8))
+							end
+							if offer.Y > 0 then
+								top = math.clamp(top, 8, math.max(8, offer.Y - box.Y - 8))
 							end
 							return D2.fromOffset(left, math.max(8, top))
 						end,

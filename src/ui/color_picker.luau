@@ -1694,6 +1694,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local offer = use(extent)
 			local corner = use(at) - use(origin)
 			local size = use(bounds)
+			if offer.X > 0 and offer.Y > 0 then
+				corner = V2.new(
+					math.clamp(corner.X, 0, math.max(0, offer.X - size.X)),
+					math.clamp(corner.Y, 0, math.max(0, offer.Y - size.Y))
+				)
+			end
 			local natural = view.chrome(use) + view.tech(use)
 			local wide = GRID_WIDTH + surfaces.inset(PAD, "left", nil, use) + surfaces.inset(PAD, "right", nil, use)
 			if sheet(use) then
@@ -1859,7 +1865,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end)
 			surfaces.attach(root, {
 				surfaces.overlay(well, presented, function()
-					local layer = well:FindFirstAncestorWhichIsA("LayerCollector")
+					local layer = surfaces.parent(well)
 					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local at, bounds = ctx.observe.AbsolutePosition(well), ctx.observe.AbsoluteSize(well)

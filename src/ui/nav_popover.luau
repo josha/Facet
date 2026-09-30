@@ -214,7 +214,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local child = owner.createChild()
 			layerOwner = child
 			Compose.withOwner(child, function()
-				local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
+				local layer = surfaces.parent(root)
 				if layer then
 					local size = ctx.observe.AbsoluteSize(layer)
 					Compose.watch(function(use: ComposeTypes.Use)
@@ -256,7 +256,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function anchored(phase: Nav.PresencePhase?): Frame
 			local settled = Compose.cell(false)
 			local presence = surfaces.appearance(phase, popoverTiming, settled)
-			local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
+			local layer = assert(surfaces.parent(root))
 			local extent = ctx.observe.AbsoluteSize(layer)
 			local origin = ctx.observe.AbsolutePosition(layer)
 			local sourceAt: ComposeTypes.Readable<Vector2>, sourceSize: ComposeTypes.Readable<Vector2>

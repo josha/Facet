@@ -73,6 +73,7 @@ local owner = Compose.createRootOwner(function()
 	ctx.themeMode = Compose.cell(packages.foundation.style.defaultTheme)
 	ctx.themeName = Compose.cell("foundation")
 	local settings = lab_settings.new(ctx, UserInputService)
+	ctx.preview = showcase.preview
 
 	local app = Facet.app({
 		runtime = runtime,
@@ -81,6 +82,7 @@ local owner = Compose.createRootOwner(function()
 		motionLevel = ctx.motionPreference,
 
 		environment = settings.environment,
+		overlayParent = ctx.overlayParent,
 		sheet = {
 			theme = ctx.themeMode,
 			preferredTransparency = settings.transparency,

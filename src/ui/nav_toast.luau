@@ -729,7 +729,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local function locate()
 			local collector = root:FindFirstAncestorWhichIsA("LayerCollector")
-			local layer = if collector then ctx.config.overlayParent or collector else nil
+			local layer = if collector then surfaces.parent(root) else nil
 			if record.stack == nil and layer then
 				record.stack = stackFor(layer :: GuiBase2d, if interactive then "action" else spec.position or "top")
 				sync()

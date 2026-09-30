@@ -66,9 +66,3 @@ An optimistic edit needs a defined rejection path:
 3. Reconcile the model from the server response.
 
 Do not grant inventory or currency because a button animation completed.
-
-## Reference applications
-
-The reference applications show deterministic command state machines, seeded
-catalogs and rejection fixtures. Their clocks and mock services stay in the
-examples. They are not Facet infrastructure.

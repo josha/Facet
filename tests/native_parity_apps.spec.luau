@@ -5385,19 +5385,31 @@ t.describe("native parity reference applications", function()
 			local chrome, action = find(w.screen, "Chrome"), find(w.screen, "RootAction")
 			w.gui.SelectedObject = action
 			path:set({ { id = "detail" } })
+			for _ = 1, 90 do
+				w.engine.heartbeat.fire(1 / 60)
+			end
 			t.expect(w.gui.SelectedObject.Name).toBe("Back")
 			w.gui.SelectedObject = chrome
 			path:set({})
+			for _ = 1, 90 do
+				w.engine.heartbeat.fire(1 / 60)
+			end
 			t.expect(w.gui.SelectedObject).toBe(action)
 			w.gui.SelectedObject = chrome
 			path:set({ { id = "detail" } })
 			path:set({})
 			path:set({ { id = "detail" } })
 			path:set({})
+			for _ = 1, 90 do
+				w.engine.heartbeat.fire(1 / 60)
+			end
 			t.expect(w.gui.SelectedObject).toBe(action)
 			w.gui.SelectedObject = nil
 			path:set({ { id = "detail" } })
 			path:set({})
+			for _ = 1, 90 do
+				w.engine.heartbeat.fire(1 / 60)
+			end
 			t.expect(w.gui.SelectedObject).toBeNil()
 			w.stop()
 		end)
@@ -5429,13 +5441,22 @@ t.describe("native parity reference applications", function()
 				local remember = find(w.screen, "Remember")
 				w.gui.SelectedObject = remember
 				path:set({ { id = "detail" } })
+				for _ = 1, 90 do
+					w.engine.heartbeat.fire(1 / 60)
+				end
 				t.expect(w.gui.SelectedObject.Name).toBe("Back")
 				path:set({})
+				for _ = 1, 90 do
+					w.engine.heartbeat.fire(1 / 60)
+				end
 				t.expect(w.gui.SelectedObject).toBe(remember)
 				path:set({ { id = "detail" } })
 				enabled:set(false)
 				t.expect(remember.Interactable).toBe(false)
 				path:set({})
+				for _ = 1, 90 do
+					w.engine.heartbeat.fire(1 / 60)
+				end
 				t.expect(w.gui.SelectedObject.Name).toBe("First")
 				t.expect(w.gui.SelectedObject ~= remember).toBe(true)
 				w.stop()

@@ -586,6 +586,45 @@ t.describe("native layout primitives", function()
 			runtime:dispose()
 		end)
 
+		t.it("clears only the remaining overscan at each edge, including nested screens", function()
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local T = engine.types
+			local margins = Compose.cell(nil)
+			local distance = Compose.cell("ten-foot")
+			local UI = Facet.controls(runtime, {
+				types = T,
+				environment = { viewingDistance = distance, overscanInsets = margins },
+			})
+			local layer = engine.new("ScreenGui")
+			layer.AbsoluteSize = T.Vector2.new(1920, 1080)
+			local nested
+			local stop, root = runtime.mount(function()
+				nested = UI.Screen { padding = 0 }
+				return UI.Screen { padding = 0, nested }
+			end, layer)
+			root.AbsoluteSize = layer.AbsoluteSize
+			nested.AbsoluteSize = T.Vector2.new(1700, 900)
+			nested.AbsolutePosition = T.Vector2.new(100, 100)
+			local outer, inner = child(root, "UIPadding"), child(nested, "UIPadding")
+			t.expect(outer.PaddingTop).toBe(T.UDim.new(0, 60))
+			t.expect(outer.PaddingLeft).toBe(T.UDim.new(0, 90))
+			t.expect(inner.PaddingTop).toBe(T.UDim.new(0, 0))
+			t.expect(inner.PaddingLeft).toBe(T.UDim.new(0, 0))
+			nested.AbsolutePosition = T.Vector2.new(30, 20)
+			t.expect(inner.PaddingTop).toBe(T.UDim.new(0, 40))
+			t.expect(inner.PaddingLeft).toBe(T.UDim.new(0, 60))
+			margins:set({ top = 30, left = 40, bottom = 30, right = 40 })
+			t.expect(inner.PaddingTop).toBe(T.UDim.new(0, 10))
+			t.expect(inner.PaddingLeft).toBe(T.UDim.new(0, 10))
+			margins:set(nil)
+			distance:set("near")
+			t.expect(outer.PaddingTop).toBe(T.UDim.new(0, 0))
+			t.expect(inner.PaddingLeft).toBe(T.UDim.new(0, 0))
+			stop()
+			runtime:dispose()
+		end)
+
 		t.it("ignores the top bar on a SurfaceGui", function()
 			local engine: any = engineLib.new()
 			local runtime = Facet.Roblox.createRuntime(engine)

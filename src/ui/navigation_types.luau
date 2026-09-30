@@ -360,6 +360,7 @@ export type PanelSkin = {
 	onCaption: ((boolean) -> ())?,
 }
 export type Surfaces = {
+	parent: (Instance) -> GuiBase2d?,
 	service: (("GuiService") -> GuiService?) & (("UserInputService") -> UserInputService?),
 	within: (Instance?, Instance) -> boolean,
 	keep: (...unknown) -> (),

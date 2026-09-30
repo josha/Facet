@@ -177,7 +177,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local input = surfaces.service("UserInputService")
 		surfaces.attach(root, {
 			surfaces.overlay(root, condition, function(phase: Nav.PresencePhase?)
-				local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
+				local layer = assert(surfaces.parent(root))
 				local extent = ctx.observe.AbsoluteSize(layer)
 				local keyboard = keyboardHeight(input)
 				local function margin(use: ComposeTypes.Use?): number

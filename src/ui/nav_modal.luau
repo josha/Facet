@@ -78,7 +78,13 @@ return function(ctx: Types.Context): Nav.Surfaces
 		if node:IsA("GuiObject") and (not node.Visible or not node.Interactable) then
 			return nil
 		end
-		if node:IsA("GuiObject") and node.Visible and node.Selectable and node.Interactable then
+		if
+			node:IsA("GuiObject")
+			and node.Visible
+			and node.Selectable
+			and node.Interactable
+			and (not node:IsA("ScrollingFrame") or node:GetAttribute("FacetSelectionOwner") == true)
+		then
 			if preferred == nil or node.Name == preferred then
 				return node
 			end
@@ -89,7 +95,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 				return found
 			end
 		end
-		return nil
+		return if node:IsA("ScrollingFrame")
+				and node.Selectable
+				and (preferred == nil or node.Name == preferred)
+			then node
+			else nil
 	end
 	local function attach<N>(node: N & Instance, children: { Types.Child }): N & Instance
 		local stop = runtime.mountFragment(function()
@@ -746,6 +756,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 		end)
 		return node
 	end
+	local function parent(anchor: Instance): GuiBase2d?
+		return (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
+	end
 	local function overlay(
 		anchor: GuiObject,
 		presented: Types.Value<boolean>,
@@ -766,15 +779,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			if ctx.config.overlayParent then
 				return
 			end
-			local ancestor = anchor.Parent
-			while ancestor do
-				if ancestor:IsA("LayerCollector") then
-					destination:set(ancestor)
-					return
-				end
-				ancestor = ancestor.Parent
-			end
-			destination:set(nil)
+			destination:set(parent(anchor))
 		end
 		runtime.connect(anchor, "AncestryChanged", locate)
 		locate()
@@ -909,8 +914,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
 				local settled = Compose.cell(false)
 				local presence = appearance(phase, timing, settled)
-				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
-					or assert(anchor:FindFirstAncestorWhichIsA("LayerCollector"))
+				local layer = assert(parent(anchor))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
 				local label = ctx.text({
@@ -1066,6 +1070,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		preference = preference,
 		selecting = selecting,
 		overlay = overlay,
+		parent = parent,
 		available = available,
 		appearance = appearance,
 		atRest = atRest,

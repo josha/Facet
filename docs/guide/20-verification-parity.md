@@ -19,8 +19,7 @@ where.
   no longer makes its promise. 3 cases remain. Only a live check with a
   real drag can close them. See [Gap list](#gap-list).
 - 76 contracts still have a `weaker` field in the ledger. Each
-  one needs a live Studio check; none needs a product decision. The owner
-  decisions in [Retirements](21-retirements.md) close the rest.
+  one needs a live Studio check; none needs a product decision.
 - 408 of the 3,908 covered cases have a weaker
   candidate assertion. Usually one candidate case replaces several main
   edge cases.
@@ -958,7 +957,7 @@ when its behavior was broken in `src` or in the example.
 
 34 contracts (115 main cases) stay open: `apps2-43`, `apps2-45`, `apps2-48`, `apps2-52`, `apps2-10`, `apps2-68`, `apps2-94`, `apps2-142`, `apps2-169`, `apps-123`, `mech1-65`, `inputs-82`, `inputs-94`, `inputs-100`, `inputs-124`, `inputs-134`, `inputs-137`, `inputs-181`, `apps2-183`, `apps2-188`, `apps2-211`, `apps-192`, `paint-102`, `apps2-229`, `apps2-268`, `apps2-275`, `apps2-277`, `apps2-280`, `apps2-281`, `apps-24`, `apps-90`, `apps-102`, `navigation-1-37`, `paint-51`. Some of them have a partial live case. The work stopped before they were complete.
 
-The owner retired 5 contracts that were candidates for retirement (class c, `retiredBy` is `parity/classb`): `navigation-4-43`, `post-overlays-131`, `paint-73`, `themes-P1-121`, `themes-P5-43`. [Retired promises](21-retirements.md) gives the reasons. The owner asked for `navigation-1-37` (a centred Alert title) and `paint-51` (a smaller icon in a small button) to be implemented. They stay open in class b.
+The owner retired 5 contracts that were candidates for retirement (class c, `retiredBy` is `parity/classb`): `navigation-4-43`, `post-overlays-131`, `paint-73`, `themes-P1-121`, `themes-P5-43`. The owner asked for `navigation-1-37` (a centred Alert title) and `paint-51` (a smaller icon in a small button) to be implemented. They stay open in class b.
 
 ## Proposed tests for the largest gaps
 

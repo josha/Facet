@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Lab automatic input follows the selected device. Lab and showcase overlays use the preview frame's live bounds. Color and date pickers stay within those bounds after rotation, including when the field moves offscreen.
+- NavigationStack restores focus after page motion settles. Initial focus prefers a control inside a scroll container over the container itself.
+- Nested Screens add only the console overscan margin that their bounds still overlap.
+- The combined showcase menu has one gamepad shortcut and hint, LB. It keeps the last selected section when it opens again.
+
 - Check in the Virtual Monitors and Facet Farm place builds under `examples/places`. The standard example build refreshes both. Facet Flap remains part of Virtual Monitors. Retire the Glade, Cartwheel, Sipworks and Foyer standalone place builds; keep their source and regression fixtures.
 
 - Directional focus uses upstream `Compose.focusNeighbor`; the duplicate Facet algorithm is removed.

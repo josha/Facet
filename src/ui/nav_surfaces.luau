@@ -335,8 +335,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local rootBox, rootAt = ctx.observe.AbsoluteSize(root), ctx.observe.AbsolutePosition(root)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.expanded, function(phase: Nav.PresencePhase?)
-				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
-					or assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
+				local layer = assert(surfaces.parent(root))
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
 				local column = ctx.column({
 					body(spec.content),
@@ -1274,8 +1273,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				ctx.styled(panel, "panel")
 				ctx.styled(panel, "floating")
 				surfaces.skin(panel)
-				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
-					or assert(spec.anchor:FindFirstAncestorWhichIsA("LayerCollector"))
+				local layer = assert(surfaces.parent(spec.anchor))
 				local extent = ctx.observe.AbsoluteSize(layer)
 				local origin = ctx.observe.AbsolutePosition(layer)
 				local sizes, rested = surfaces.atRest(presence.travel, settled, { panel })

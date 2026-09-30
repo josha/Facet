@@ -42,11 +42,13 @@ local INPUT = {
 		gamepadEnabled = true,
 	},
 }
+local DEVICE_INPUT = { phone = "touch", tablet = "touch", desktop = "pointer", tv = "gamepad" }
 local DISPLAY = { phone = "Small", tablet = "Medium", desktop = "Medium", tv = "Large" }
 local TRANSPARENCY = { default = 1, reduced = 0.5, opaque = 0 }
 
 function lab_settings.new(ctx: any, input: UserInputService): any
 	local Compose = ctx.Compose
+	local Enum = ctx.types.Enum
 	local gui = ctx.guiService
 	local cells: { [string]: any } = {
 		platform = Compose.cell("automatic"),
@@ -73,6 +75,10 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 	local realInput = live(input, "PreferredInput")
 	local realText = live(gui, "PreferredTextSize")
 
+	local function effectiveInput(use: any): string
+		local choice = use(cells.input)
+		return if choice == "automatic" then DEVICE_INPUT[use(cells.platform)] or "automatic" else choice
+	end
 	local self: any = { cells = cells, CHOICES = lab_settings.CHOICES }
 	self.transparency = Compose.formula(function(use)
 		local choice = use(cells.transparency)
@@ -84,7 +90,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 			return choice == "on"
 		end
 
-		local forced = use(cells.input)
+		local forced = effectiveInput(use)
 		return if forced ~= "automatic" then forced ~= "touch" else use(realInput) ~= Enum.PreferredInput.Touch
 	end)
 
@@ -94,7 +100,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 
 	local function forced(field: string)
 		return function(use: any): any
-			local class = INPUT[use(cells.input)]
+			local class = INPUT[effectiveInput(use)]
 			return if class then class[field] else nil
 		end
 	end
@@ -157,9 +163,11 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 	end
 
 	function self.reset()
-		for key in cells do
-			self.set(key, "automatic")
-		end
+		ctx.runtime:batch(function()
+			for key in cells do
+				self.set(key, "automatic")
+			end
+		end)
 	end
 
 	self.lines = Compose.formula(function(use)
@@ -172,7 +180,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 			out,
 			if platform == "automatic"
 				then "Screen: this window (real)"
-				else `Screen: {platform} {use(cells.orientation)} — simulated frame and viewport; overlays still lay out on the real window`
+				else `Screen: {platform} {use(cells.orientation)} — simulated frame and viewport, including overlays`
 		)
 		table.insert(
 			out,
@@ -180,7 +188,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 				then "Viewing distance: near (real)"
 				else `Viewing distance: {use(cells.distance)} — simulated scale {use(self.scale)}×`
 		)
-		local input = use(cells.input)
+		local input = effectiveInput(use)
 		table.insert(
 			out,
 			if input == "automatic"

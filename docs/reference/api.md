@@ -273,14 +273,18 @@ document their own write-then-notify behavior below.
   activates. Use `false` for an app whose keys belong to the game (see
   [Selection](#selection) and [responder](#responder)).
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
-- `inputParent` and `overlayParent`: placement targets. A callout and a help
-  plate place themselves inside `overlayParent` when you set it.
+- `inputParent` and `overlayParent`: placement targets. Presented controls
+  mount inside `overlayParent` when you set it. They measure its live bounds
+  for placement and size, including color and date pickers, menus, dialogs,
+  sheets, popovers, callouts and help plates.
 
 ### Motion
 
 The controls animate navigation and presentation by default. All motion uses
-the Compose runtime. Motion does not block input or focus. An exiting element
-cannot be interacted with, and the selection never stays on it. Every time,
+the Compose runtime. An exiting element cannot be interacted with, and the
+selection never stays on it. NavigationStack restores selection when the
+destination page stops moving, so the selection image does not cross the
+screen or select a scrolling container during the transition. Every time,
 easing, spring, scale and distance below is a token in the theme package's
 `metrics.motion` (named in brackets). The values are Facet Neutral's.
 
@@ -616,8 +620,11 @@ bar: when the screen reaches into the `GuiService.TopbarInset` band, the covered
 height is added to the top padding. This holds with `IgnoreGuiInset` on or off.
 The band covers the full width, as `CoreUISafeInsets` does. The background of
 the screen still fills its parent. A Screen in a SurfaceGui takes no top bar
-padding. At ten feet the Screen also adds the environment's `overscanInsets`
-(see [environment](#environment)). Options: `gap`, `padding`, `align`,
+padding. At ten feet the Screen also clears the environment's `overscanInsets`
+(see [environment](#environment)). It adds only the part of each margin that
+its native bounds still overlap. Nested screens do not add the same margin
+again. A configured `overlayParent` supplies the preview viewport bounds.
+Options: `gap`, `padding`, `align`,
 `distribute`, `width`, `height` and `chrome`.
 
 `chrome` is the platform-chrome policy. `"device"` (the default) clears the
