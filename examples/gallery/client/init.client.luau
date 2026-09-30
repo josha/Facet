@@ -87,6 +87,7 @@ local owner = Compose.createRootOwner(function()
 		theme = theme,
 		motionLevel = context.motionPreference,
 		environment = context.environment,
+		overlayParent = context.overlayParent,
 	})
 	local sheet = Facet.themes.createStyleSheet(runtime, theme, {
 		theme = selectedTheme,

@@ -26,7 +26,13 @@ for its playground, options, states, variants and usage examples. Settings
 contains the device, input, text, motion and theme previews. Compact layouts
 open the control list through Browse and Back.
 
-The previews use Facet's environment options. A simulated text preference
+The previews use Facet's environment options. Automatic input follows the
+selected device: touch for phone and tablet, gamepad for console, and pointer
+for desktop. An explicit input choice takes precedence. Open controls update
+when these settings change. Overlays use the device frame's live bounds,
+including after rotation.
+
+A simulated text preference
 changes Facet's layout decisions; the engine's text preference must still be
 set in Studio to test native accessibility rendering.
 

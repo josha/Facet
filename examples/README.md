@@ -55,9 +55,9 @@ The showcase has five main demos: Garage, Sipworks, Screen-anchored HUD,
 Playlist and Arcade. Arcade contains Word Game, Crossword,
 Match 3 and Outpost. The original control, collection and motion fixtures remain available
 for the lab and regression tests. `tests/native_gallery.spec.luau` mounts those pages. It exercises the
-games, the settings, the playlist and the standalone consumer. The reference
-applications and the virtual monitors have separate native tests and Studio
-evidence.
+games, the settings, the playlist and the standalone consumer. Additional
+regression fixtures and the virtual monitors have separate native tests and
+Studio evidence.
 
 ## Showcase
 
@@ -84,18 +84,9 @@ of commands when space is limited. Sipworks and Arcade retain sidebar/top
 navigation. Sipworks uses NavigationStack at both widths and keeps its history
 and ingredient checks across layout changes.
 
-The Pack, Cartwheel and Glade experiments remain in source with their behavioral
-tests. They are outside the main picker: equipment browsing overlaps the library
-and playlist, Cartwheel's order service deserves a fuller management game, and
-Glade needs deeper simulation to justify its own stop. The original reference
-applications remain in source for regression checks. Their standalone place
-builds are retired; `tools/build_reference_places.sh` writes temporary test
-places under `artifacts/verify/reference-places`. Cartwheel's ring actions now reveal
-order contents inline. Pack's filter uses the search presentation.
-
 The demos use local state. Leaving a demo starts a fresh visit on return.
-Sipworks reuses its reference catalog and favorites. Outpost lives inside Arcade
-and retains its screen controls and native SurfaceGui terminal.
+Outpost lives inside Arcade and retains its screen controls and native
+SurfaceGui terminal.
 
 [Showcase artwork](../assets/showcase/README.md) records the generated G-rated
 illustrations, their original files and Roblox asset IDs. No purchases or

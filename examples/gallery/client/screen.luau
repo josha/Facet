@@ -13,6 +13,11 @@ screen.boot = catalogue.boot
 
 function screen.configure(ctx)
 	local Compose = ctx.Compose
+	ctx.overlayParent = ctx.Host.Frame "PreviewOverlays" {
+		BackgroundTransparency = 1,
+		Size = ctx.types.UDim2.fromOffset(0, 0),
+		ZIndex = 100,
+	}
 	ctx.themeName = ctx.themeName or Compose.cell("Neutral")
 	ctx.viewingDistance = Compose.cell("automatic")
 	ctx.categoryPlacement = Compose.cell("automatic")
@@ -128,6 +133,29 @@ function screen.configure(ctx)
 	Compose.watch(function(use)
 		ctx.motionMode:set(use(ctx.motionPreference) or "device")
 	end)
+end
+
+function screen.preview(ctx, content, bounds)
+	local root = ctx.Host.Frame "PreviewRoot" {
+		Size = ctx.types.UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		content,
+		ctx.overlayParent,
+	}
+	local function measure()
+		local size = bounds.AbsoluteSize
+		local at = bounds.AbsolutePosition - root.AbsolutePosition
+		ctx.overlayParent.Size = ctx.types.UDim2.fromOffset(size.X, size.Y)
+		ctx.overlayParent.Position = ctx.types.UDim2.fromOffset(at.X, at.Y)
+	end
+	for _, entry in { { bounds, "AbsoluteSize" }, { bounds, "AbsolutePosition" }, { root, "AbsolutePosition" } } do
+		local connection = entry[1]:GetPropertyChangedSignal(entry[2]):Connect(measure)
+		ctx.Compose.cleanup(function()
+			connection:Disconnect()
+		end)
+	end
+	measure()
+	return root
 end
 
 function screen.themePackages(themes, modules, load)
@@ -528,12 +556,11 @@ function screen.build(ctx: any)
 			Sink = true,
 			action("Activate", Enum.KeyCode.Backquote, nil),
 		}
-		Host.InputContext "ShowcaseChromeShoulders" {
+		Host.InputContext "ShowcaseChromeGamepad" {
 			Parent = ctx.inputTarget,
 			Priority = ctx.Facet.inputPriority.belowControls,
 			Sink = true,
-			action("ActivateDemos", Enum.KeyCode.ButtonL1, "demos"),
-			action("ActivateSettings", Enum.KeyCode.ButtonR1, "settings"),
+			action("Activate", Enum.KeyCode.ButtonL1, nil),
 		}
 		Host.InputContext "ShowcasePanelCancel" {
 			Parent = ctx.inputTarget,
@@ -639,7 +666,7 @@ function screen.build(ctx: any)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Top,
 		}),
-		hint("DemosHint", "LB"),
+		hint("MenuHint", "LB"),
 		UI.Button "Showcase" {
 			label = function(use)
 				return if use(panelOpen) then "Close" else titles[use(selected)] or "Demos"
@@ -648,7 +675,6 @@ function screen.build(ctx: any)
 				request(nil)
 			end,
 		},
-		hint("SettingsHint", "RB"),
 		Compose.show(function(use)
 			local layout = use(ctx.categoryLayout)
 			return layout ~= nil and use(layout.available)
@@ -758,6 +784,6 @@ function screen.build(ctx: any)
 			root:RemoveTag("facet-floating")
 		end
 	end)
-	return root
+	return screen.preview(ctx, root, root)
 end
 return screen

@@ -1194,7 +1194,7 @@ function browser.mount(opts: MountOpts): any
 		Compose.watch(function(use)
 			roomSize:set(use(room.viewportSize))
 		end)
-		return stage
+		return ctx.preview(ctx, stage, frame)
 	end)
 
 	return {

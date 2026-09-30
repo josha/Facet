@@ -70,8 +70,13 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		)
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
+		local clearance: ComposeTypes.Cell<{ [string]: number }?> = Compose.cell(nil :: { [string]: number }?)
 		local distant = ctx.tenFoot()
 		local authored = ctx.config.environment and ctx.config.environment.overscanInsets
+		local needsInsets = Compose.formula(function(use: ComposeTypes.Use): boolean
+			local margins = read(authored, use)
+			return chrome ~= "edge" and (type(margins) == "table" or (margins == nil and distant(use)))
+		end)
 		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		local flow: Types.Flow = {
 			gap = spec.gap,
@@ -85,6 +90,10 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				local margins = read(authored, use)
 				local function side(name: "top" | "right" | "bottom" | "left", extra: number): UDim
 					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use) + extra
+					local available = use(clearance)
+					if available and chrome ~= "edge" then
+						return ctx.types.UDim.new(0, pixels + available[name])
+					end
 					if type(margins) == "table" and chrome ~= "edge" then
 						return ctx.types.UDim.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
 					end
@@ -106,6 +115,53 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local frame =
 			kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
 		kit.underTopbar(frame, under)
+		local owner = assert(Compose.currentOwner())
+		local observing: ComposeTypes.Owner? = nil
+		local function locate()
+			if observing then
+				observing.dispose()
+				observing = nil
+			end
+			local layer = (ctx.config.overlayParent or frame:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
+			if layer == nil or not needsInsets:peek() then
+				clearance:set(nil)
+				return
+			end
+			local child = owner.createChild()
+			observing = child
+			Compose.withOwner(child, function()
+				local position, size = ctx.observe.AbsolutePosition(frame), ctx.observe.AbsoluteSize(frame)
+				local origin, extent = ctx.observe.AbsolutePosition(layer), ctx.observe.AbsoluteSize(layer)
+				local unit = ctx.layoutUnit(frame)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local at, box, start, bounds = use(position), use(size), use(origin), use(extent)
+					if box.X <= 0 or box.Y <= 0 or bounds.X <= 0 or bounds.Y <= 0 then
+						clearance:set(nil)
+						return
+					end
+					local scale = use(unit)
+					local margins = read(authored, use)
+					local function remaining(name: string, span: number, gap: number): number
+						local inset = if type(margins) == "table"
+							then ((margins :: { [string]: number })[name] or 0) * scale
+							elseif margins == nil and distant(use) then span * FRACTION[name]
+							else 0
+						return if inset > 0 then math.max(0, inset - gap) / scale else 0
+					end
+					clearance:set({
+						top = remaining("top", bounds.Y, at.Y - start.Y),
+						left = remaining("left", bounds.X, at.X - start.X),
+						bottom = remaining("bottom", bounds.Y, start.Y + bounds.Y - at.Y - box.Y),
+						right = remaining("right", bounds.X, start.X + bounds.X - at.X - box.X),
+					})
+				end)
+			end)
+		end
+		runtime.connect(frame, "AncestryChanged", locate)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(needsInsets)
+			locate()
+		end)
 		return frame
 	end)
 

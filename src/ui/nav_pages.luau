@@ -1637,14 +1637,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						})
 					end
 					Compose.watch(function(use: ComposeTypes.Use)
-						if use(role) ~= "exiting" then
+						if not use(moving) then
 							return
 						end
 						if gui and surfaces.within(gui.SelectedObject, panel) then
 							handoff = true
 							gui.SelectedObject = nil
 						end
-						if offset(use) >= 1 and leaving:peek() == entry then
+						if use(role) == "exiting" and offset(use) >= 1 and leaving:peek() == entry then
 							leaving:set(nil)
 						end
 					end)
@@ -1677,6 +1677,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
+						if top and use(moving) then
+							return
+						end
 						if not use(parent) then
 							return
 						end
@@ -1693,6 +1696,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							local back = recall()
 							gui.SelectedObject = if back
 									and back.Visible
+									and back.Selectable
 									and back.Interactable
 								then back
 								else surfaces.firstSelectable(panel)

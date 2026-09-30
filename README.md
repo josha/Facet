@@ -139,8 +139,6 @@ covers this route.
   `rojo build examples/gallery.project.json -o build/Facet-Gallery.rbxl`.
 - **`examples/gallery/examples/`**: the tutorial programs the guide teaches,
   smallest first.
-- **`examples/reference/`**: complete reference applications built from the
-  public surface only.
 
 ## Documentation
 
