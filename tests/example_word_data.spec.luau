@@ -33,7 +33,7 @@ describe("example word data: provenance is recorded, not asserted", function()
 	it("writes down the policy that produced the two sets", function()
 		local policy = words.provenance.policy
 		expect(policy.acceptedMaxTier > policy.solutionMaxTier).toBe(true)
-		expect(policy.solutionLength).toBe(5)
+		expect(policy.solutionLength).toBe(6)
 		expect(#policy.droppedFromSolutions > 0).toBe(true)
 	end)
 end)
@@ -112,11 +112,11 @@ describe("example word data: the banks are searchable", function()
 end)
 
 describe("example word data: it accepts what a player would type", function()
-	it("is broad — thousands of five-letter guesses, and a smaller reviewed answer set", function()
-		expect(words.bankCount(5) > 3000).toBe(true)
+	it("is broad — thousands of six-letter guesses, and a smaller reviewed answer set", function()
+		expect(words.bankCount(6) > 3000).toBe(true)
 		expect(words.solutionCount > 1000).toBe(true)
 
-		expect(words.solutionCount < words.bankCount(5)).toBe(true)
+		expect(words.solutionCount < words.bankCount(6)).toBe(true)
 	end)
 
 	it("accepts an ordinary word starting with every letter of the alphabet", function()
@@ -171,8 +171,8 @@ describe("example word data: it accepts what a player would type", function()
 			error(`a dialect spelling is still refused: {table.concat(refused, ", ")}`, 2)
 		end
 
-		expect(words.isSolution("color")).toBe(true)
-		expect(words.isSolution("colour")).toBe(false)
+		expect(words.isSolution("center")).toBe(true)
+		expect(words.isSolution("centre")).toBe(false)
 		expect(words.provenance.policy.solutionDialects ~= nil).toBe(true)
 		expect(#words.provenance.policy.acceptDialects > #words.provenance.policy.solutionDialects).toBe(true)
 	end)
@@ -231,11 +231,14 @@ describe("example word data: a seed is a puzzle, and always the same puzzle", fu
 	it("every answer is reachable, and the mapping wraps rather than erroring", function()
 		local seen: { [string]: boolean } = {}
 		local distinct = 0
-		for seed = 1, 20000 do
+		for seed = 1, 1048576 do
 			local word = words.solutionForSeed(seed)
 			if not seen[word] then
 				seen[word] = true
 				distinct += 1
+				if distinct == words.solutionCount then
+					break
+				end
 			end
 		end
 		expect(distinct).toBe(words.solutionCount)

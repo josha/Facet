@@ -1478,7 +1478,7 @@ t.describe("native parity paint", function()
 		local word: any = (require :: any)("../examples/gallery/examples/05_word_game")
 		local seed
 		for candidate = 1, 100000 do
-			if word.rules.solutionForSeed(candidate) == "REACT" then
+			if word.rules.solutionForSeed(candidate) == "READER" then
 				seed = candidate
 				break
 			end
@@ -1507,7 +1507,7 @@ t.describe("native parity paint", function()
 		t.expect(game.mark(1, 1)).toBe("_")
 		game.press("R")
 		t.expect(outlined(1)).toBe(true)
-		for _, letter in { "U", "L", "E", "S" } do
+		for _, letter in { "U", "L", "E", "R", "S" } do
 			game.press(letter)
 		end
 		t.expect(outlined(1)).toBe(false)
@@ -1526,7 +1526,7 @@ t.describe("native parity paint", function()
 		t.expect(game.activeRow()).toBe(2)
 		t.expect(outlined(1)).toBe(false)
 		t.expect(outlined(2)).toBe(true)
-		for _, letter in { "R", "E", "A", "C", "T" } do
+		for _, letter in { "R", "E", "A", "D", "E", "R" } do
 			game.press(letter)
 		end
 		game.press("Return")

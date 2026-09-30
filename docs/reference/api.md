@@ -1358,7 +1358,10 @@ track shows the colour over a checker. If the preferred input changes during
 a drag of the plane, the colour returns to the start of the drag.
 
 On a touch screen, a bubble of the colour shows above the finger during a
-drag of the plane or a strip. On a gamepad, the right stick moves the plane
+drag of the plane or a strip. The plane bubble uses the overlay layer, so it
+stays above the finger at the top of the spectrum and can overlap other
+controls. It moves beside the finger only when it cannot fit above it within
+the screen. On a gamepad, the right stick moves the plane
 while `Surface` has the selection. The stick input action sinks the stick, so
 a camera does not turn. The D-pad still moves the selection. `StickHint`
 shows while the plane has the selection.
@@ -1889,8 +1892,7 @@ measured width and the native PreferredInput:
 
 - If you supply `query`, it uses the navigation-link presentation.
 - It uses `segmented` for four options or fewer when no option has a
-  description, the picker is at least 360 pixels wide and the measured
-  labels fit in the width.
+  description and the measured labels and segment spacing fit in the width.
 - Otherwise, for keyboard and mouse, and for touch, it uses a menu.
 - For other input, it uses `inline` for six options or fewer, and a menu for
   larger sets.

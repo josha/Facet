@@ -1650,6 +1650,8 @@ t.describe("native parity navigation", function()
 		t.expect(presentation():HasTag("facet-segmented")).toBe(true)
 		local first = presentation()
 		container.AbsoluteSize = V2(world, 300, 44)
+		t.expect(presentation():HasTag("facet-segmented")).toBe(true)
+		container.AbsoluteSize = V2(world, 50, 44)
 		world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
 		t.expect(find(presentation(), "Trigger") ~= nil).toBe(true)
 		world.input.PreferredInput = Enum.PreferredInput.Gamepad

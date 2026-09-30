@@ -1902,7 +1902,8 @@ t.describe("native navigation controls", function()
 		t.expect(segments:FindFirstChildWhichIsA("UIListLayout").FillDirection)
 			.toBe(world.engine.types.Enum.FillDirection.Vertical)
 
-		find(world.screen, "Auto").AbsoluteSize = world.engine.types.Vector2.new(240, 44)
+		find(automatic, "LabelMeasure").TextBounds = world.engine.types.Vector2.new(100, 18)
+		automatic.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
 		t.expect(find(find(world.screen, "Auto"), "Trigger") ~= nil).toBe(true)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad

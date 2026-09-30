@@ -26,7 +26,7 @@ host mounts them with the runtime pieces that `Facet.app` uses.
 | Shared model and table commands | [Playlist](gallery/examples/02_playlist_table.luau) |
 | Server validation and optimistic state | [Settings sync](gallery/examples/03_settings_sync.luau) |
 | Bound modal presentation | [Confirmation](gallery/examples/04_confirm_dialog.luau) |
-| A game model with mounted views | [Word game](gallery/examples/05_word_game.luau), [crossword](gallery/examples/06_tile_game.luau) |
+| A game model with mounted views | [Word Guess](gallery/examples/05_word_game.luau), [crossword](gallery/examples/06_tile_game.luau) |
 | Keyed rows and automatic coordinated motion | [Match 3](gallery/examples/07_match3.luau), [automatic motion](gallery/scenarios/component_motion.luau) |
 | Motion values and activity indicators | [Progress](gallery/scenarios/progress_ring.luau) |
 | Toast reflow, edge and width choices | [Toasts](gallery/scenarios/sponsor_toast.luau) |
@@ -52,7 +52,7 @@ to rebuild the maintained examples, including
 ## Tests
 
 The showcase has five main demos: Garage, Sipworks, Screen-anchored HUD,
-Playlist and Arcade. Arcade contains Word Game, Crossword,
+Playlist and Arcade. Arcade contains Word Guess, Crossword,
 Match 3 and Outpost. The original control, collection and motion fixtures remain available
 for the lab and regression tests. `tests/native_gallery.spec.luau` mounts those pages. It exercises the
 games, the settings, the playlist and the standalone consumer. Additional
@@ -73,7 +73,7 @@ layouts between sidebar and top tabs without resetting the current demo.
 | Sipworks | Open a recipe, check ingredients, follow a botanical to related blends, then go Back | [Sipworks](gallery/examples/14_sipworks.luau) |
 | Screen-anchored HUD | Resize the screen, reveal tucked-away zones, change equipment and open HUD actions | [HUD](gallery/scenarios/hud.luau) |
 | Playlist | Sort, rate and reorder tracks | [Playlist](gallery/examples/02_playlist_table.luau) |
-| Arcade | Choose Word Game, Crossword, Match 3 or the Outpost power puzzle | [Arcade](gallery/examples/13_arcade.luau) |
+| Arcade | Choose Word Guess, Crossword, Match 3 or the Outpost power puzzle | [Arcade](gallery/examples/13_arcade.luau) |
 
 Each main demo has a distinct role: Garage is a live 3D configurator with
 anchored preset naming and inline saved cars; Sipworks is a searchable recipe
@@ -91,3 +91,14 @@ SurfaceGui terminal.
 [Showcase artwork](../assets/showcase/README.md) records the generated G-rated
 illustrations, their original files and Roblox asset IDs. No purchases or
 account sign-in are needed to try the showcase.
+
+## Word Guess
+
+Guess a six-letter word in seven attempts. Blue with `v` means the letter is in
+the exact spot. Purple with `~` means it belongs in a different spot. Neutral
+with `x` means it is absent. The example uses Facet controls and its own code,
+copy and presentation. The vocabulary comes from licensed SCOWL data; see
+[the source and required notices](gallery/examples/words/PROVENANCE.md).
+
+Inspired by Wordle, created by Josh Wardle. This independent Facet UI example
+is not affiliated with or endorsed by Wordle or The New York Times.

@@ -111,7 +111,7 @@ ACCEPT_MIN_LEN = 2
 ACCEPT_MAX_LEN = 7
 
 SOLUTION_MAX_TIER = 35
-SOLUTION_LEN = 5
+SOLUTION_LEN = 6
 
 
 
@@ -227,14 +227,14 @@ def build_sets(by_tier, solution_by_tier):
     for w in accepted:
         by_len.setdefault(len(w), set()).add(w)
 
-    four = by_len.get(4, set())
-    three = by_len.get(3, set())
+    stem = by_len.get(SOLUTION_LEN - 1, set())
+    short_stem = by_len.get(SOLUTION_LEN - 2, set())
 
     def is_simple_plural(w: str) -> bool:
-        return w.endswith("s") and w[:-1] in four
+        return w.endswith("s") and w[:-1] in stem
 
     def is_simple_past(w: str) -> bool:
-        return w.endswith("ed") and (w[:-1] in four or w[:-2] in three)
+        return w.endswith("ed") and (w[:-1] in stem or w[:-2] in short_stem)
 
     familiar = cumulative(solution_by_tier, SOLUTION_MAX_TIER)
     solutions = {
@@ -268,7 +268,7 @@ def check_sets(by_len, solutions):
         )
 
 
-LUAU_HEADER = '--!strict\n--!nolint LocalShadow\n\n\n\n\n\n-- Source: {source}\n--   {url}\n--   SHA-256 {sha}\n-- Licence and required notices: examples/gallery/examples/words/PROVENANCE.md\n\n\n\n\n'
+LUAU_HEADER = '--!strict\n--!nolint LocalShadow\n\n\n-- Source: {source}\n--   {url}\n--   SHA-256 {sha}\n-- Licence and required notices: examples/gallery/examples/words/PROVENANCE.md\n'
 
 
 def luau_packed_module(what: str, length: int, words) -> str:
@@ -295,7 +295,7 @@ def luau_packed_module(what: str, length: int, words) -> str:
         + "\tpacked = table.concat(CHUNKS),\n"
         + "})\n"
     )
-    text = header + body
+    text = re.sub(r"\n{3,}", "\n\n", header + body)
     if len(text) > SOURCE_CHAR_CAP:
 
         raise SystemExit(
@@ -344,7 +344,7 @@ def generate(offline: bool) -> int:
     sol_path = os.path.join(OUT_DIR, f"solutions.luau")
     sol_text = luau_packed_module(
         f"The answers the word game may choose: SCOWL sizes 10 through {SOLUTION_MAX_TIER}, "
-        f"five letters, minus simple plurals and past tenses. Every entry is also an accepted guess.",
+        f"{SOLUTION_LEN} letters, minus simple plurals and past tenses. Every entry is also an accepted guess.",
         SOLUTION_LEN,
         solutions,
     )
@@ -415,7 +415,7 @@ def manifest_module(manifest: dict) -> str:
         return f'"{escaped}"'
 
     return (
-        '--!strict\n\n\n\n\n\n\n\n\nreturn table.freeze(' + lua(manifest) + ")\n"
+        '--!strict\n\nreturn table.freeze(' + lua(manifest) + ")\n"
     )
 
 
@@ -427,7 +427,7 @@ def provenance_markdown(copyright_text: str, version, by_len, solutions) -> str:
     )
     return f"""# Where these words come from
 
-The two example games — the five-letter word game and the crossword tile game —
+The two example games — the six-letter word game and the crossword tile game —
 share one generated English word set. Nothing here is typed by hand, and nothing
 is fetched while a game is running.
 
@@ -455,7 +455,7 @@ Two jobs want two different cuts.
 SCOWL ships** — {accept_dialects} — restricted to the `-words` classes, which is what
 excludes proper names, abbreviations and contractions without a second guess-filter.
 Lengths {ACCEPT_MIN_LEN} through {ACCEPT_MAX_LEN} are kept, because the crossword needs
-short words and the word game needs five-letter ones.
+short words and the word game needs six-letter ones.
 
 *Every* dialect, and that is deliberate. With American and pan-English alone, `axe`,
 `grey`, `colour`, `theatre`, `centre`, `favour`, `litre`, `cheque`, `kerb`, `tyre` and
@@ -468,13 +468,13 @@ game, and is right to.
 Accepting a guess is deliberately generous: a player who types a real word and is
 told it is not one blames the game, and is right to.
 
-**Answers** use sizes 10 through {SOLUTION_MAX_TIER} at five letters, from
-{solution_dialects} only, minus simple plurals (a word ending in *s* whose four-letter
+**Answers** use sizes 10 through {SOLUTION_MAX_TIER} at {SOLUTION_LEN} letters, from
+{solution_dialects} only, minus simple plurals (a word ending in *s* whose {SOLUTION_LEN - 1}-letter
 stem is also a word) and simple past tenses. The answer set stays on one spelling
 convention on purpose: a puzzle whose answer is `colour` is unfair to half its players
 and `color` to the other half, so guesses accept both and answers pick one. That leaves **{len(solutions):,}** familiar words. Choosing an
 answer is deliberately conservative: an answer nobody knows is not a puzzle, and
-*asked* and *cakes* are real words but poor ones.
+*walked* and *chairs* are real words but poor ones.
 
 Every answer is also an accepted guess. The generator refuses to write the files
 if that is ever untrue, because a puzzle whose answer the game would reject

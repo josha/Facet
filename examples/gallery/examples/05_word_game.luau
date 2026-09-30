@@ -5,10 +5,10 @@ local words = require("./words")
 type Use = (any) -> any
 
 local example = {}
-example.title = "Word Game (Wordle-style)"
+example.title = "Word Guess"
 
-local ROWS = 6
-local COLS = 5
+local ROWS = 7
+local COLS = 6
 
 local rules = {}
 rules.ROWS = ROWS
@@ -157,6 +157,31 @@ end
 function example.build(ctx: any)
 	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
+
+	local theme = Compose.formula(function(use)
+		local source = if Compose.isReadable(ctx.theme) then use(ctx.theme) else ctx.theme
+		source = source or ctx.Facet.themes.neutralPackage()
+		local package = table.clone(source)
+		package.style = table.clone(package.style)
+		package.style.themes = {}
+		for _, palette in source.style.themes do
+			local nextPalette = table.clone(palette)
+			nextPalette.colors = table.clone(palette.colors)
+			nextPalette.colors.success = { r = 35 / 255, g = 87 / 255, b = 166 / 255 }
+			nextPalette.colors.warning = { r = 109 / 255, g = 59 / 255, b = 160 / 255 }
+			nextPalette.colors.onSuccess = { r = 1, g = 1, b = 1 }
+			nextPalette.colors.onWarning = { r = 1, g = 1, b = 1 }
+			table.insert(package.style.themes, nextPalette)
+		end
+		return package
+	end)
+	UI = ctx.Facet.controls(ctx.runtime, {
+		types = ctx.types,
+		theme = theme,
+		viewport = ctx.viewport,
+		motionLevel = ctx.motionPreference,
+		environment = ctx.environment,
+	})
 
 	local rowsSig = Compose.cell(emptyRows())
 	local activeSig = Compose.cell(1)
@@ -309,6 +334,12 @@ function example.build(ctx: any)
 	end
 
 	local function WordGame()
+		local sheet = ctx.Facet.themes.createStyleSheet(ctx.runtime, theme, {
+			name = "WordGuessColors",
+			types = if ctx.types.Font then ctx.types else nil,
+			theme = ctx.themeMode,
+			motionLevel = ctx.motionPreference,
+		})
 		local letterProbe, letterBounds = measure("LetterMeasure", "W", 24)
 		local markProbe, markBounds = measure("MarkMeasure", "~", 12)
 		local markHeight = Compose.formula(function(use: Use): number
@@ -423,7 +454,7 @@ function example.build(ctx: any)
 				}
 				statusTag(button, state)
 				table.insert(row, button)
-				keyPathByLetter[key] = `/Wordle/page/kb/kbrow{ri}/key_{key}`
+				keyPathByLetter[key] = `/WordGuess/page/kb/kbrow{ri}/key_{key}`
 			end
 			table.insert(keyboard, UI.HStack("kbrow" .. ri)(row))
 		end
@@ -432,12 +463,14 @@ function example.build(ctx: any)
 			if notice ~= "" then
 				return notice
 			end
-			return `Guess the five-letter word — row {math.min(use(activeSig), ROWS)} of {ROWS}.`
+			return `Guess the six-letter word — row {math.min(use(activeSig), ROWS)} of {ROWS}.`
 		end)
 		return UI.ScrollView "page" {
 			gap = "s",
 			align = "center",
-			UI.Text "Title" { text = "Facet Wordle", textRole = "title" },
+			sheet,
+			Host.StyleLink { StyleSheet = Compose.static(sheet) },
+			UI.Text "Title" { text = "Word Guess", textRole = "title" },
 			UI.Text "Status" {
 				text = statusSig,
 				Size = UDim2.fromScale(1, 0),
@@ -448,7 +481,7 @@ function example.build(ctx: any)
 			UI.Grid "board"(board),
 			letterProbe,
 			markProbe,
-			UI.Text "Legend" { text = "v correct   ~ present   x absent", textRole = "caption" },
+			UI.Text "Legend" { text = "v exact spot   ~ different spot   x absent", textRole = "caption" },
 			UI.VStack "kb"(keyboard),
 			UI.Button "Restart" {
 				label = "New game",
@@ -500,9 +533,9 @@ function example.build(ctx: any)
 	return {
 		title = example.title,
 		screen = function()
-			return UI.Screen "Wordle" {
+			return UI.Screen "WordGuess" {
 				WordGame(),
-				UI.Alert "WordleResult" {
+				UI.Alert "WordGuessResult" {
 					isPresented = resultOpen,
 					title = resultTitle,
 					message = resultMessage,
@@ -564,7 +597,7 @@ function example.build(ctx: any)
 			return keyPathByLetter[letter]
 		end,
 		tilePath = function(r: number, c: number): string
-			return `/Wordle/page/board/tile{r}_{c}`
+			return `/WordGuess/page/board/tile{r}_{c}`
 		end,
 		dispose = function()
 			closeResults()

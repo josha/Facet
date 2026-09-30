@@ -16,7 +16,7 @@ return table.freeze({
 			7,
 		},
 		["solutionMaxTier"] = 35,
-		["solutionLength"] = 5,
+		["solutionLength"] = 6,
 		["acceptDialects"] = {
 			"english",
 			"american",
@@ -45,7 +45,7 @@ return table.freeze({
 		["6"] = 11249,
 		["7"] = 16018,
 	},
-	["solutionCount"] = 2095,
+	["solutionCount"] = 3258,
 	["files"] = {
 		["len2.luau"] = "e9422b21dd41957734edde588a31552db31d5b81f0edcaf73cc845b08c73386b",
 		["len3.luau"] = "15053f7578af2a144c266829ef02d3e74d7c4ec195921ff6d4363ad1f12523cb",
@@ -53,6 +53,6 @@ return table.freeze({
 		["len5.luau"] = "295c7558f167cb85ee1446e152b3489dc1ec36dd0a0cdee936da3000ca3a53c9",
 		["len6.luau"] = "2f20608ab7d00128af82877942a346f76c79720e1c2d787c6cddabcc0f3e1f8a",
 		["len7.luau"] = "264c7d3216391f9d86ddcf63f2edb6ef4168f01fe5baaf40acaece6a958546c6",
-		["solutions.luau"] = "77ac85fe390a391d118a61a0ade7546296854f8719ffb0e51e8cde322fc86f02",
+		["solutions.luau"] = "d35dc0f711d6f3c6c63271fdd408cbce8ef0849fd994bd43a9faa8a25cd7c6a5",
 	},
 })
