@@ -13,6 +13,8 @@ export type Editor<V, K> = {
 	leading: ComposeTypes.Readable<number>,
 	trailing: ComposeTypes.Readable<number>,
 	press: (K, InputObject) -> (),
+	mouseDown: (Vector2) -> (),
+	finish: (InputObject) -> (),
 	busy: () -> boolean,
 	deleteSelected: () -> (),
 	canDeleteSelected: (ComposeTypes.Use?) -> boolean,
@@ -264,6 +266,25 @@ return function<V, K>(
 	local selectedObject: ComposeTypes.Readable<unknown>? = if ctx.config.guiService
 		then ctx.observe.SelectedObject(ctx.config.guiService)
 		else nil
+	local pressed: K? = nil
+	local pressOrigin: Vector2? = nil
+	local pluginGui = ctx.config.inputParent
+	if pluginGui and not pluginGui:IsA("PluginGui") then
+		pluginGui = nil
+	end
+	local nativeOrigin: Vector2? = nil
+	local pointerOffset = V2.new()
+	local function mouseDown(position: Vector2)
+		if pluginGui then
+			nativeOrigin = position
+			if pendingInput then
+				pressOrigin = position
+				pointerOffset = position - V2.new(pendingInput.Position.X, pendingInput.Position.Y)
+			end
+		end
+	end
+	local moveMouse: (Vector2) -> () = function() end
+	local finishMouse: (InputObject) -> () = function() end
 	local pressRow: (K, InputObject) -> () = function() end
 	local function wrap(row: GuiObject, current: ComposeTypes.Readable<V>, key: K, painted: boolean?): Frame
 		rowKeys[row] = key
@@ -497,19 +518,32 @@ return function<V, K>(
 			ctx.runtime.connect(row, "InputBegan", function(value: InputObject)
 				pressRow(key, value)
 			end)
+			if pluginGui then
+				ctx.runtime.connect(row, "MouseButton1Down", function(x: number, y: number)
+					mouseDown(V2.new(x, y))
+				end)
+				ctx.runtime.connect(row, "InputEnded", function(value: InputObject)
+					finishMouse(value)
+				end)
+			end
 		end
 		rowKeys[frame] = key
 		return frame
 	end
-	local pressed: K? = nil
-	local pressOrigin: Vector2? = nil
 	local function press(key: K, value: InputObject): ()
 		local at: Vector3? = value.Position
 		if not reorderable or at == nil or moving:peek() ~= nil then
 			return
 		end
 		if value.UserInputType == E.UserInputType.MouseButton1 then
+			if pluginGui then
+				activation.release(value)
+			end
 			pressed, pressOrigin, pendingInput = key, V2.new(at.X, at.Y), value
+			if pluginGui and nativeOrigin then
+				pressOrigin = nativeOrigin
+				pointerOffset = nativeOrigin - V2.new(at.X, at.Y)
+			end
 		elseif value.UserInputType == E.UserInputType.Touch and (editing == nil or editing == false) then
 			disarm()
 			touchKey, touchOrigin, pendingInput = key, V2.new(at.X, at.Y), value
@@ -535,6 +569,38 @@ return function<V, K>(
 		end
 	end
 	pressRow = press
+	moveMouse = function(position: Vector2)
+		if pressed ~= nil and pressOrigin ~= nil and captured == nil then
+			if math.abs(axis(position) - axis(pressOrigin)) >= 6 then
+				local key = pressed
+				pressed, pressOrigin = nil, nil
+				begin(key, position)
+				activation.consume(pendingInput)
+			end
+		end
+		local move = moving:peek()
+		if move and move.pointer and not move.keyboard then
+			movePointer(position)
+		end
+	end
+	finishMouse = function(value: InputObject)
+		if value.UserInputType ~= E.UserInputType.MouseButton1 then
+			return
+		end
+		if pluginGui and value == pendingInput and value.UserInputState ~= E.UserInputState.Cancel then
+			moveMouse(V2.new(value.Position.X, value.Position.Y) + pointerOffset)
+		end
+		pressed, pressOrigin, nativeOrigin = nil, nil, nil
+		pointerOffset = V2.new()
+		local move = moving:peek()
+		if move and move.pointer and not move.keyboard then
+			if value.UserInputState == E.UserInputState.Cancel then
+				cancel()
+			else
+				commit()
+			end
+		end
+	end
 	local function chosen(use: ComposeTypes.Use?, selectedOnly: boolean?): { K }
 		local keys, selected = {}, read(selection, use)
 		for index, item in read(source, use) do
@@ -678,6 +744,15 @@ return function<V, K>(
 				end
 			end
 			return image
+		end
+		if pluginGui then
+			ctx.runtime.connect(body, "MouseMoved", function(x: number, y: number)
+				moveMouse(V2.new(x, y))
+			end)
+			ctx.runtime.connect(pluginGui, "WindowFocusReleased", function()
+				pressed, pressOrigin = nil, nil
+				cancel()
+			end)
 		end
 		if input then
 			ctx.runtime.connect(input, "InputBegan", activation.release)
@@ -937,6 +1012,8 @@ return function<V, K>(
 		leading = leading,
 		trailing = trailing,
 		press = press,
+		mouseDown = mouseDown,
+		finish = finishMouse,
 		busy = function(): boolean
 			return moving:peek() ~= nil
 		end,

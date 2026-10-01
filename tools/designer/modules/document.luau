@@ -267,4 +267,28 @@ function document.move(value: Document, selected: string, destination: string, b
 	return document.validate(nextValue)
 end
 
+function document.reorder(value: Document, selected: string, insertionSlot: number): Document
+	local node, parent, index = document.find(value.root, selected)
+	assert(node and parent and index, "The root Screen cannot be moved")
+	local remaining = {}
+	for _, row in document.rows(value.root) do
+		if row.id ~= selected then
+			table.insert(remaining, row)
+		end
+	end
+	local anchor = remaining[insertionSlot + 1]
+	if not anchor then
+		return document.move(value, selected, parent.id)
+	end
+	if document.find(node, anchor.id) then
+		return value
+	end
+	local _, destination, before = document.find(value.root, anchor.id)
+	assert(destination and before, "Drop a layer below the root Screen")
+	if destination.id == parent.id and index < before then
+		before -= 1
+	end
+	return document.move(value, selected, destination.id, before)
+end
+
 return document

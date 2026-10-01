@@ -62,7 +62,6 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 	local automaticZoom = true
 	local actions: any = {}
 	local menuCallback: any
-	local dragged, hovered: string?
 	local disposed = false
 	local function jsonEncode(value)
 		return game:GetService("HttpService"):JSONEncode(value)
@@ -416,10 +415,14 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 		end)
 	end
 	actions.duplicate = function()
-		commit(document.duplicate)
+		if model:peek().selected and model:peek().canEditLayer then
+			commit(document.duplicate)
+		end
 	end
 	actions.delete = function()
-		commit(document.remove)
+		if model:peek().selected and model:peek().canEditLayer then
+			commit(document.remove)
+		end
 	end
 	local function navigate(forward: boolean)
 		attempt(function()
@@ -448,13 +451,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 	actions.redo = function()
 		navigate(true)
 	end
-	actions.reorder = function(direction)
-		commit(function(value, id)
-			local _, owner, index = document.find(value.root, id)
-			assert(owner and index, "Select a child layer to reorder")
-			return document.move(value, id, owner.id, index + direction)
-		end)
-	end
+
 	actions.moveMenu = function()
 		local value, id = stack.current()
 		local source = assert(document.find(value.root, id))
@@ -470,44 +467,15 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			end)
 		end)
 	end
-	actions.hover = function(id)
-		hovered = id
+	actions.reorderLayers = function(keys, slot)
+		commit(function(value)
+			return document.reorder(value, keys[1], slot), keys[1]
+		end)
 	end
-	actions.dragStart = function(id)
-		dragged = id
-		hovered = nil
-	end
-	actions.drop = function(position: Vector2?)
-		if position and view then
-			for _, row in model:peek().rows do
-				local instance = view.root:FindFirstChild("LayerRow_" .. row.id, true)
-				if instance then
-					local p: Vector2, size: Vector2 = instance.AbsolutePosition, instance.AbsoluteSize
-					if
-						position.X >= p.X
-						and position.X <= p.X + size.X
-						and position.Y >= p.Y
-						and position.Y <= p.Y + size.Y
-					then
-						hovered = row.id
-						break
-					end
-				end
-			end
-		end
-		local source, target = dragged, hovered
-		dragged = nil
-		if source and target and source ~= target then
-			commit(function(value)
-				local node, owner, index = document.find(value.root, target)
-				assert(node)
-				if library.definitions[node.kind].container then
-					return document.move(value, source, target), source
-				end
-				assert(owner)
-				return document.move(value, source, owner.id, index), source
-			end)
-		end
+	actions.renameLayer = function(id, name)
+		return commit(function(value)
+			return document.change(value, id, "name", name), id
+		end)
 	end
 	local function load(value)
 		if dependencies.disconnectSource then

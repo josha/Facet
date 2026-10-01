@@ -1052,7 +1052,7 @@ t.describe("lifetime parity strength", function()
 			find(node, "RowHit").Activated.fire({
 				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
 				KeyCode = w.engine.types.Enum.KeyCode.Unknown,
-			}, 1)
+			}, 0)
 			t.expect(next(selection:peek()) ~= nil).toBe(true)
 			editing:set(true)
 			local field = find(node, "Filter")

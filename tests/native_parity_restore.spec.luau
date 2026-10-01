@@ -451,7 +451,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 		for _, name in { ... } do
 			held[name] = true
 		end
-		hit(w, key).Activated.fire({ UserInputType = w.engine.types.Enum.UserInputType.MouseButton1 }, 1)
+		hit(w, key).Activated.fire({ UserInputType = w.engine.types.Enum.UserInputType.MouseButton1 }, 0)
 		table.clear(held)
 	end
 	local function tap(w: World, key: string)
