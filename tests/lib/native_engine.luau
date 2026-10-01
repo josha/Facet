@@ -85,6 +85,8 @@ local function new(options: any?)
 		DragEnd = true,
 		MouseEnter = true,
 		MouseLeave = true,
+		MouseMoved = true,
+		MouseButton1Down = true,
 		SelectionGained = true,
 		SelectionLost = true,
 	}

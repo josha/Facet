@@ -79,6 +79,90 @@ local function button(UI, current)
 end
 
 t.describe("Compose native collections", function()
+	t.it("selects on click zero and activates on click one for lists and grids", function()
+		for _, kind in { "VirtualList", "VirtualGrid" } do
+			local engine, runtime, UI, target = setup()
+			local selected = Compose.cell({})
+			local activated = 0
+			local stop, list = runtime.mount(function()
+				return UI[kind] {
+					from = records(2),
+					key = key,
+					mode = "all",
+					selection = selected,
+					onActivate = function()
+						activated += 1
+					end,
+					render = function()
+						return runtime.constructors.Frame { Size = engine.types.UDim2.fromScale(1, 1) }
+					end,
+				}
+			end, target)
+			local hit = list:FindFirstChild("1", true):FindFirstChild("RowHit", true)
+			local mouse = { UserInputType = engine.types.Enum.UserInputType.MouseButton1 }
+			hit.Activated.fire(mouse, 0)
+			t.expect(selected:peek()[1]).toBe(true)
+			t.expect(activated).toBe(0)
+			hit.Activated.fire(mouse, 1)
+			t.expect(activated).toBe(1)
+			stop()
+		end
+	end)
+
+	t.it("uses native whole-row dragging in plugin windows without global mouse events", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V2 = engine.types.Enum, engine.types.Vector2
+		ctx.config.userInputService.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		local widget = engine.new("DockWidgetPluginGui")
+		ctx.config.inputParent = widget
+		local reorders = {}
+		local stop, list = runtime.mount(function()
+			return UI.VirtualList {
+				from = records(3),
+				key = key,
+				mode = "all",
+				itemSize = 40,
+				reorderable = true,
+				onReorder = function(keys, slot)
+					table.insert(reorders, { keys = keys, slot = slot })
+				end,
+				render = function(current)
+					return button(UI, current)
+				end,
+			}
+		end, target)
+		list.AbsoluteWindowSize = V2.new(200, 120)
+		local row = list:FindFirstChild("1", true):FindFirstChild("Action", true)
+		local V3 = engine.types.Vector3
+		local press = {
+			UserInputType = E.UserInputType.MouseButton1,
+			UserInputState = E.UserInputState.End,
+			Position = V3.new(35, 0, 0),
+		}
+		row.MouseButton1Down.fire(97, 20)
+		row.InputBegan.fire(press)
+		press.Position = V3.new(35, 2, 0)
+		row.InputEnded.fire(press)
+		t.expect(#reorders).toBe(0)
+		press.Position = V3.new(35, 0, 0)
+		row.MouseButton1Down.fire(97, 20)
+		row.InputBegan.fire(press)
+		press.Position = V3.new(35, 90, 0)
+		row.InputEnded.fire(press)
+		t.expect(reorders).toEqual({ { keys = { 1 }, slot = 2 } })
+		press.Position = V3.new(35, 0, 0)
+		press.UserInputState = E.UserInputState.Begin
+		row.MouseButton1Down.fire(97, 20)
+		row.InputBegan.fire(press)
+		list.MouseMoved.fire(97, 110)
+		widget.WindowFocusReleased.fire()
+		press.UserInputState = E.UserInputState.End
+		row.InputEnded.fire(press)
+		t.expect(#reorders).toBe(1)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("reuses row containers, replaces reactive items and anchors native scrolling", function()
 		local engine, runtime, UI, target = setup()
 		local rows = records(100)
@@ -3130,10 +3214,10 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			})
 		end
 		w.service.InputEnded.fire(press)
-		hit.Activated.fire(press, 1)
+		hit.Activated.fire(press, 0)
 		t.expect(w.selection:peek()).toEqual({ [1] = true, [2] = true })
 		w.service.InputBegan.fire(press)
-		hit.Activated.fire(press, 1)
+		hit.Activated.fire(press, 0)
 		t.expect(w.selection:peek()).toEqual({ [2] = true })
 		w.stop()
 	end)

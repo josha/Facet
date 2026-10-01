@@ -947,6 +947,9 @@ A Button keeps the height of its `controlSize` when its `Size` has no height
 and its `AutomaticSize` grows on the Y axis. For example,
 `Size = UDim2.new(1, 0, 0, 0)` gives a full-width button of the control height.
 
+`AutoButtonColor` defaults to `false`. The theme owns hover and press paint.
+Set it to `true` to use Roblox automatic button coloring.
+
 Presentation options:
 
 - `appearance`, `role`, `selected`, `name`, `hint` and `pop`. `appearance` is
@@ -1046,6 +1049,8 @@ authored `AutomaticSize`, wraps its label inside that width and grows in
 height. With an authored `TextTruncate` other than `None`, it keeps one line
 and truncates instead. An icon Button with an authored width (and no image,
 row, subtitle or hint) keeps that width, and its label truncates at the end.
+This also applies to a reactive `Size` with `AutomaticSize = None` or `Y`.
+Its content stays inside the padding, and the label shrinks before the icon.
 An authored width never leaves less than one `control` em for the label inside
 the padding and the theme carve: the Button grows to that minimum.
 Without an authored width, it hugs its label.

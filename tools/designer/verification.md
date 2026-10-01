@@ -120,3 +120,39 @@ native UI binding issue no longer blocks publication through this workflow.
 Cloud-save behavior on a published server and physical device input still need
 verification. Complete interaction coverage and product readiness on every platform remain
 separate checks.
+
+
+## Desktop outline and layout fixes, 2026-10-01
+
+The Layers pane uses Facet VirtualList for full-width rows. A native TextBox
+edits a layer name after a double-click. Native Studio input committed and
+canceled names, moved Season below Introduction, and restored the order with
+Undo. Selection moved between rows without retaining the prior highlight.
+The root Screen cannot move. Duplicate and Delete were disabled for the root
+and for an empty selection. Calling either action with no selection changed
+nothing. The drag-handle column and the up/down buttons are removed.
+
+The list has a native UISizeConstraint for its content height. Actions follow
+it with an 8-pixel gap, including in a 700 by 650 compact pane. Compact rows
+measured 673 by 44 pixels and the list measured 676 by 216 pixels. The list
+scrolls when its content is taller than the available space.
+
+Bounded Button captions shrink before their trailing icons. Facet owns hover
+and pressed paint by default through AutoButtonColor=false. Inspector headings
+and controls use native automatic height. Gallery previews, actions, and detail
+text use separate native layout rows. All six preview bounds stayed inside
+their thumbnails and their actions stayed below the preview.
+
+Roblox GuiButton.Activated starts its click count at zero. Collection activation
+and the playlist example now use that contract. Plugin row dragging uses
+GuiObject.MouseButton1Down, MouseMoved, and InputEnded. These events preserve
+button activation in a PluginGui. Studio did not send the required plugin mouse
+movement through UserInputService, and a UIDragDetector on the button suppressed
+its click activation. The collection still owns reorder thresholds, scrolling,
+and the insertion slot. Compose owns row state and resource cleanup.
+
+Final isolated full verification passed: 3,610 tests passed, none failed, and
+one was deferred. Of 74 producers, 72 passed; the performance gate and its
+evidence check reported host timing failures. A separate benchmark run passed.
+Library package build and status completed. The local Studio plugin and
+companion place were rebuilt. No library or experience was published.

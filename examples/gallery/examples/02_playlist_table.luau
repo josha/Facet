@@ -210,7 +210,7 @@ function example.build(ctx: any)
 			selectionMode = "multiple",
 			selection = Compose.cell({}),
 			onActivate = function(item: any, _key: string, input: InputObject?, clickCount: number?)
-				if input and input.UserInputType == Enum.UserInputType.MouseButton1 and (clickCount or 1) < 2 then
+				if input and input.UserInputType == Enum.UserInputType.MouseButton1 and (clickCount or 0) < 1 then
 					return
 				end
 				nowPlaying:set(plain(item).name)

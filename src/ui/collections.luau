@@ -225,7 +225,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return
 			end
 			local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
-			local double = pointer and (clicks or 1) >= 2
+			local double = pointer and (clicks or 0) >= 1
 			if not double then
 				selectRow(key, current:peek(), input)
 			end
@@ -421,6 +421,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 								activation.press(rendered, value)
 							end
 							runtime.connect(hit, "InputBegan", pressed)
+							if editor and ctx.config.inputParent and ctx.config.inputParent:IsA("PluginGui") then
+								runtime.connect(hit, "MouseButton1Down", function(x: number, y: number)
+									editor.mouseDown(V2.new(x, y))
+								end)
+								runtime.connect(hit, "InputEnded", editor.finish)
+							end
 							Compose.cleanup(activation.providePress(hit, pressed))
 							table.insert(children, 1, hit)
 						end

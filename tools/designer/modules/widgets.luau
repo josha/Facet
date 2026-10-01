@@ -48,7 +48,8 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 		width: number,
 		callback: () -> (),
 		primary: any?,
-		enabled: any?
+		enabled: any?,
+		selected: any?
 	): TextButton
 		local menu = table.find(
 			{ "Device", "Palette", "TextSize", "Compare", "Zoom", "Templates", "Saved", "MoveInto" },
@@ -62,6 +63,7 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 				end
 				else string.gsub(value, "%s*▾", ""),
 			trailingIcon = if menu then "chevron.down" else nil,
+			selected = selected,
 			appearance = if type(primary) == "function"
 				then function(use)
 					return if primary(use) then "soft" else "utility"
@@ -116,21 +118,17 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 		}
 	end
 
-	function kit.row(name: string, children: any, height: number?): Frame
+	function kit.row(name: string, children: any, height: number?, wrap: boolean?): Frame
 		for index, child in children do
 			runtime.decorate(child, { LayoutOrder = index })
 		end
-		return Host.Frame(name) {
-			Size = function(use)
-				return UDim2.new(1, 0, 0, if use(model).compact then math.max(44, height or 36) else height or 36)
-			end,
+		return UI.HStack(name) {
+			width = "fill",
+			Size = UDim2.new(1, 0, 0, height or 0),
+			gap = 6,
+			align = "center",
+			wrap = wrap,
 			BackgroundTransparency = 1,
-			Host.UIListLayout {
-				FillDirection = Enum.FillDirection.Horizontal,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, 6),
-				VerticalAlignment = Enum.VerticalAlignment.Center,
-			},
 			table.unpack(children),
 		}
 	end

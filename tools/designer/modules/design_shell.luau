@@ -2,6 +2,7 @@
 
 local widgets = require("./widgets")
 local gallery = require("./gallery")
+local layerOutline = require("./layer_outline")
 
 local shell = {}
 
@@ -14,7 +15,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 		kit = widgets.new(Facet, runtime, model, options)
 		local sheet = kit.sheet()
 		local function contentTop(use)
-			return if use(model).compact then 188 else 112
+			return if use(model).compact then 192 else 122
 		end
 		local function contentPosition(use)
 			return UDim2.fromOffset(if use(model).compact then 0 else 224, contentTop(use))
@@ -148,7 +149,6 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 						actions.property(field.key, nil)
 					end)
 					runtime.decorate(reset, {
-						Size = UDim2.fromOffset(54, 24),
 						Visible = function(use)
 							return field.key ~= "name" and use(current).explicit == true
 						end,
@@ -156,20 +156,14 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					local label = kit.text("FieldLabel", field.label, 11, 21)
 					runtime.decorate(label, { Size = UDim2.new(1, -60, 0, 24) })
 					local heading = kit.row("PropertyHeading", { label, reset }, 24)
-					runtime.decorate(heading, { Size = UDim2.new(1, 0, 0, 24), LayoutOrder = 1 })
+					runtime.decorate(heading, { LayoutOrder = 1 })
 					runtime.decorate(control, { LayoutOrder = 2 })
 					return Host.Frame "PropertyField" {
 						LayoutOrder = function(use)
 							return (use(index) :: number) + 1
 						end,
-						Size = function(use)
-							return UDim2.new(
-								1,
-								0,
-								0,
-								if field.kind == "padding" then 104 elseif use(model).compact then 84 else 72
-							)
-						end,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
 						Host.UIListLayout { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder },
 						heading,
@@ -178,7 +172,11 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				end,
 			}),
 		}
-		local sidebar = Host.Frame "DesignOutline" {
+		local sidebar = kit.UI.VStack "DesignOutline" {
+			width = "fill",
+			height = "fill",
+			padding = 12,
+			gap = 8,
 			Position = function(use)
 				return UDim2.fromOffset(0, contentTop(use))
 			end,
@@ -193,92 +191,18 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			Visible = paneVisible("Layers"),
 			BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 			BorderSizePixel = 0,
-			kit.padding(12),
-			Host.UIListLayout { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder },
 			kit.row("InsertControls", { kit.button("Insert", "+ Insert control", 198, actions.insertMenu, true) }),
 			kit.text("OutlineHeading", "LAYERS", 11, 22),
-			Host.ScrollingFrame "LayerTree" {
-				LayoutOrder = 3,
-				Size = UDim2.new(1, 0, 1, -194),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				CanvasSize = UDim2.new(),
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				ScrollBarThickness = 3,
-				Host.UIListLayout { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder },
-				Compose.keyed({
-					from = function(use)
-						return use(model).rows
-					end,
-					key = function(row)
-						return row.id
-					end,
-					render = function(current, index)
-						local id = current:peek().id
-						local button = kit.button(
-							"Layer_" .. id,
-							function(use)
-								return string.rep("  ", use(current).depth) .. use(current).name
-							end,
-							154,
-							function()
-								actions.select(id)
-							end
-						)
-						runtime.decorate(button, {
-							LayoutOrder = index,
-							BackgroundColor3 = function(use)
-								return if use(model).selected == id
-									then Color3.fromRGB(222, 234, 255)
-									else Color3.new(1, 1, 1)
-							end,
-							TextColor3 = function(use)
-								return if use(model).selected == id then kit.colors.blue else kit.colors.text
-							end,
-							TextXAlignment = Enum.TextXAlignment.Left,
-							[Compose.event("MouseEnter")] = function()
-								actions.hover(id)
-							end,
-						})
-						local drag = Host.UIDragDetector {
-							ResponseStyle = Enum.UIDragDetectorResponseStyle.CustomOffset,
-							[Compose.event("DragStart")] = function()
-								actions.dragStart(id)
-							end,
-							[Compose.event("DragEnd")] = function(position)
-								actions.drop(position)
-							end,
-						}
-						local handle = kit.button("DragHandle", "=", 20, function() end)
-						drag.Parent = handle
-						local row = kit.row("LayerRow_" .. id, { button, handle }, 32)
-						runtime.decorate(row, {
-							LayoutOrder = index,
-							[Compose.event("MouseEnter")] = function()
-								actions.hover(id)
-							end,
-						})
-						return row
-					end,
-				}),
-			},
+			layerOutline.mount(Facet, kit.UI, Host, model, actions),
 			kit.row("LayerActions", {
 				kit.button("Duplicate", "Duplicate", 92, actions.duplicate, false, function(use)
-					return use(model).canEditLayer
+					return use(model).selected ~= nil and use(model).canEditLayer
 				end),
 				kit.button("Delete", "Delete", 92, actions.delete, false, function(use)
-					return use(model).canEditLayer
+					return use(model).selected ~= nil and use(model).canEditLayer
 				end),
 			}),
-			kit.row("MoveActions", {
-				kit.button("MoveUp", "↑", 42, function()
-					actions.reorder(-1)
-				end),
-				kit.button("MoveDown", "↓", 42, function()
-					actions.reorder(1)
-				end),
-				kit.button("MoveInto", "Move into…", 94, actions.moveMenu),
-			}),
+			kit.row("MoveActions", { kit.button("MoveInto", "Move into…", 140, actions.moveMenu) }),
 		}
 		canvas = Host.Frame "CanvasHost" {
 			Position = contentPosition,
@@ -346,7 +270,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				return UDim2.fromOffset(0, if use(model).compact then 76 else 62)
 			end,
 			Size = function(use)
-				return UDim2.new(1, 0, 0, if use(model).compact then 56 else 50)
+				return UDim2.new(1, 0, 0, 60)
 			end,
 			CanvasSize = UDim2.new(),
 			AutomaticCanvasSize = Enum.AutomaticSize.X,
@@ -381,7 +305,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					function(use)
 						return "Text: " .. tostring(use(model).textSize) .. " ▾"
 					end,
-					120,
+					146,
 					function()
 						actions.settingMenu("textSize")
 					end
@@ -401,7 +325,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					function(use)
 						return "Zoom: " .. tostring(use(model).zoom) .. " ▾"
 					end,
-					108,
+					132,
 					function()
 						actions.settingMenu("zoom")
 					end
@@ -694,7 +618,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			Visible = function(use)
 				return use(model).compact == true
 			end,
-			Position = UDim2.fromOffset(0, 132),
+			Position = UDim2.fromOffset(0, 136),
 			Size = UDim2.new(1, 0, 0, 56),
 			BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 			BorderSizePixel = 0,

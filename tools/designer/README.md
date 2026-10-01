@@ -41,7 +41,8 @@ Start from one of six templates in the live visual gallery. Search the gallery t
 **Insert control** to add any of the 63 public control constructors. Edit its
 properties in Inspector. Structured properties, such as table rows, menu items,
 and navigation pages, have a data editor. Duplicate, delete, reorder, and move
-layers between containers. Drag a layer with its handle. Undo and Redo restore
+layers between containers. Drag the whole layer row to reorder it. Drop before a
+row to use that row's container. Double-click a layer name to rename it. Return commits the name; Escape cancels it. Undo and Redo restore
 both the design and its selection. Undo also restores the previous design after
 you load a template or a saved design. Use Reset to restore a property default.
 
