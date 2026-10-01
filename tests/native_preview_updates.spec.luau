@@ -3,7 +3,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local engines = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
-local labSettings = require("../examples/foundation-lab/src/lab_settings")
+local labSettings = require("../examples/facet-lab/src/lab_settings")
 local C = Facet.Compose
 
 local function fixture(build)

@@ -2,7 +2,7 @@ local HttpService = game:GetService("HttpService")
 local L = require(game.ReplicatedStorage.FacetLive)
 local focus = require(game.ReplicatedStorage.FacetLive.focus)
 local api = workspace:WaitForChild("FacetLabAPI")
-local root = game.Players.LocalPlayer.PlayerGui:WaitForChild("Facet_FoundationLab")
+local root = game.Players.LocalPlayer.PlayerGui:WaitForChild("Facet_Lab")
 local options = shared.LabFocusWalk or {}
 local summary = {}
 for _, id in HttpService:JSONDecode(api.pages:Invoke()) do
