@@ -636,16 +636,23 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			Text = if rich then "" else spec.label or "",
 			Size = if dynamic(ctx.config.theme) or dynamic(spec.controlSize) then controlSize else controlSize(),
 			AutomaticSize = E.AutomaticSize.XY,
+			AutoButtonColor = false,
 		}
 		local authored = spec.Size
-		local bounded = typeof(authored) == "UDim2"
-			and ((authored :: UDim2).X.Scale > 0 or (authored :: UDim2).X.Offset > 0)
-			and spec.AutomaticSize == nil
+		local bounded = (
+			spec.AutomaticSize == E.AutomaticSize.None
+			or spec.AutomaticSize == E.AutomaticSize.Y
+			or (
+				spec.AutomaticSize == nil
+				and typeof(authored) == "UDim2"
+				and ((authored :: UDim2).X.Scale > 0 or (authored :: UDim2).X.Offset > 0)
+			)
+		)
 			and spec.image == nil
 			and spec.row == nil
 			and spec.subtitle == nil
 			and spec.hint == nil
-		if bounded then
+		if bounded and spec.AutomaticSize == nil then
 			defaults.AutomaticSize = E.AutomaticSize.Y
 			if not rich then
 				defaults.TextWrapped = spec.disclose ~= true
@@ -657,7 +664,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			defaults.Interactable = enabledProperty
 		end
 		local p = props(spec, buttonKeys, defaults)
-		if bounded and spec.label ~= nil and spec.shape ~= "circle" then
+		local targetFloor = if spec.controlSize ~= nil and ctx.config.userInputService ~= nil
+			then ctx.touchFloor()
+			else nil
+		local constrainedCaption = bounded
+			and spec.label ~= nil
+			and spec.shape ~= "circle"
+			and (spec.AutomaticSize == nil or rich)
+		if constrainedCaption then
 			table.insert(
 				p,
 				Host.UISizeConstraint({
@@ -665,12 +679,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						local package = read(ctx.config.theme, use)
 						local skin = package and package.chrome and package.chrome.control
 						local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+						local minimum = if targetFloor then targetFloor(use) else 0
+						if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
+							minimum = 0
+						end
 						return V2.new(
-							2 * ctx.controlSize(spec.controlSize, "paddingX", use)
-								+ (carve.left or 0)
-								+ (carve.right or 0)
-								+ ctx.metric("typography.control.size", use),
-							0
+							math.max(
+								minimum,
+								2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+									+ (carve.left or 0)
+									+ (carve.right or 0)
+									+ ctx.metric("typography.control.size", use)
+							),
+							minimum
 						)
 					end,
 				})
@@ -1560,8 +1581,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				sink = spec.dialogAction ~= nil or modified,
 			})
 		end
-		if spec.controlSize ~= nil and ctx.config.userInputService ~= nil then
-			local floor = ctx.touchFloor()
+		if targetFloor and not constrainedCaption then
+			local floor = targetFloor
 			runtime.mount(function()
 				return Host.UISizeConstraint "TargetFloor" {
 					MinSize = function(use: ComposeTypes.Use): Vector2

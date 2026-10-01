@@ -26,7 +26,7 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 	local Host, Compose = runtime.constructors, Facet.Compose
 	local grid = Host.UIGridLayout {
 		CellSize = function(use)
-			return if use(model).compact then UDim2.new(1, -8, 0, 244) else UDim2.new(1 / 3, -12, 0, 244)
+			return if use(model).compact then UDim2.new(1, -8, 0, 264) else UDim2.new(1 / 3, -12, 0, 264)
 		end,
 		CellPadding = UDim2.fromOffset(12, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -51,8 +51,8 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 			render = function(current, index)
 				local entry = current:peek()
 				local previewHost = Host.Frame "Thumbnail" {
-					Position = UDim2.fromOffset(10, 10),
-					Size = UDim2.new(1, -20, 0, 164),
+					LayoutOrder = 1,
+					Size = UDim2.new(1, 0, 0, 164),
 					BackgroundColor3 = Color3.fromRGB(240, 244, 251),
 					BorderSizePixel = 0,
 					ClipsDescendants = true,
@@ -75,8 +75,13 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 				})
 				local scale = Host.UIScale { Scale = 0.4 }
 				scale.Parent = preview.root
+				runtime.decorate(preview.root, {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+				})
 				local function measure()
-					scale.Scale = math.max(0.1, previewHost.AbsoluteSize.X / 390)
+					scale.Scale =
+						math.max(0.01, math.min(previewHost.AbsoluteSize.X / 390, previewHost.AbsoluteSize.Y / 844))
 				end
 				local connection = previewHost:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
 				Compose.cleanup(function()
@@ -88,43 +93,43 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 				end, function()
 					return true
 				end)
-				runtime.decorate(
-					pick,
-					{ Position = UDim2.fromOffset(10, 178), Size = UDim2.new(1, -70, 0, 32), ZIndex = 2 }
-				)
+				runtime.decorate(pick, { Size = UDim2.new(0, 0, 0, 44) })
+				kit.UI.fill().Parent = pick
 				local manage = kit.button("ManageGalleryCard", "•••", 40, function()
 					actions.galleryManage(entry.id)
 				end)
 				runtime.decorate(manage, {
-					Position = UDim2.new(1, -50, 0, 178),
-					Size = UDim2.fromOffset(40, 32),
 					Visible = function(use)
 						return use(model).galleryTitle == "My designs"
 					end,
 				})
 				local detail = kit.text("GalleryDetail", entry.detail or "", 11, 20)
-				runtime.decorate(detail, { Position = UDim2.fromOffset(10, 216), Size = UDim2.new(1, -20, 0, 20) })
-				return Host.Frame("GalleryCard_" .. entry.id) {
+				runtime.decorate(detail, { LayoutOrder = 3 })
+				local controls = kit.row("GalleryCardActions", { pick, manage })
+				runtime.decorate(controls, { LayoutOrder = 2 })
+				local card = Host.Frame("GalleryCard_" .. entry.id) {
 					LayoutOrder = index,
 					BackgroundColor3 = Color3.new(1, 1, 1),
 					BorderSizePixel = 0,
 					kit.corner(10),
 					Host.UIStroke { Color = kit.colors.line, Thickness = 1 },
+					kit.padding(10),
+					Host.UIListLayout { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder },
 					previewHost,
-					Host.TextButton "ThumbnailSelect" {
-						Position = UDim2.fromOffset(10, 10),
-						Size = UDim2.new(1, -20, 0, 164),
-						Text = "",
-						BackgroundTransparency = 1,
-						ZIndex = 2001,
-						[Compose.event("Activated")] = function()
-							actions.galleryPick(entry.id)
-						end,
-					},
-					pick,
-					manage,
+					controls,
 					detail,
 				}
+				local select = Host.TextButton "ThumbnailSelect" {
+					Size = UDim2.fromScale(1, 1),
+					Text = "",
+					BackgroundTransparency = 1,
+					ZIndex = 2001,
+					[Compose.event("Activated")] = function()
+						actions.galleryPick(entry.id)
+					end,
+				}
+				select.Parent = previewHost
+				return card
 			end,
 		}),
 	}

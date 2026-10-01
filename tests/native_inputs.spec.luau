@@ -908,6 +908,32 @@ t.describe("native input controls", function()
 		end
 	)
 
+	t.it("bounds reactive fixed-width icon captions and leaves native automatic colors opt-in", function()
+		local width = Compose.cell(108)
+		local node, stop, engine = world(function(UI, engine, runtime)
+			return runtime.constructors.Frame({
+				UI.Button "Zoom" {
+					label = "Zoom: Width",
+					trailingIcon = "chevron.down",
+					Size = function(use)
+						return engine.types.UDim2.fromOffset(use(width), 44)
+					end,
+					AutomaticSize = engine.types.Enum.AutomaticSize.None,
+				},
+				UI.Button "NativeColors" { label = "Native", AutoButtonColor = true },
+			})
+		end)
+		local zoom = find(node, "Zoom")
+		t.expect(zoom.AutoButtonColor).toBe(false)
+		t.expect(find(node, "NativeColors").AutoButtonColor).toBe(true)
+		t.expect(find(zoom, "Content").AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
+		t.expect(find(zoom, "Title").TextTruncate).toBe(engine.types.Enum.TextTruncate.AtEnd)
+		width:set(84)
+		t.expect(zoom.Size.X.Offset).toBe(84)
+		t.expect(zoom.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
+		stop()
+	end)
+
 	t.it("sizes a Toggle label from a pixel textSize or a type role", function()
 		local node, stop = world(function(UI, engine, runtime)
 			return runtime.constructors.Frame({
@@ -989,6 +1015,39 @@ t.describe("native input controls", function()
 		t.expect(floor.MinSize).toBe(engine.types.Vector2.zero)
 		input.GamepadEnabled = true
 		t.expect(floor.MinSize).toBe(engine.types.Vector2.new(minimum, minimum))
+		stop()
+	end)
+
+	t.it("combines bounded caption and touch minimums in one native size constraint", function()
+		local input
+		local node, stop, engine = world(function(UI, engine)
+			return UI.Button {
+				label = "Zoom: Width",
+				trailingIcon = "chevron.down",
+				controlSize = "compact",
+				Size = engine.types.UDim2.fromOffset(108, 32),
+				AutomaticSize = engine.types.Enum.AutomaticSize.None,
+			}
+		end, function(engine)
+			input = engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			input.TouchEnabled = true
+			return { services = { UserInputService = input } }
+		end)
+		local constraints = {}
+		for _, child in node:GetChildren() do
+			if child:IsA("UISizeConstraint") then
+				table.insert(constraints, child)
+			end
+		end
+		t.expect(#constraints).toBe(1)
+		t.expect(constraints[1].MinSize.Y).toBe(44)
+		input.TouchEnabled = false
+		t.expect(constraints[1].MinSize.Y).toBe(0)
+		input.GamepadEnabled = true
+		t.expect(constraints[1].MinSize.Y).toBe(44)
 		stop()
 	end)
 
