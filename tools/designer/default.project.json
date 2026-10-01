@@ -1,0 +1,19 @@
+{
+  "name": "Facet Design",
+  "emitLegacyScripts": true,
+  "tree": {
+    "$className": "Folder",
+    "FacetDesign": {
+      "$path": "plugin.server.luau",
+      "Modules": {
+        "$path": "modules"
+      },
+      "Facet": {
+        "$path": "../../src"
+      },
+      "Examples": {
+        "$path": "examples"
+      }
+    }
+  }
+}

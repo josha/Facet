@@ -1,0 +1,41 @@
+{
+  "name": "Facet Design",
+  "emitLegacyScripts": true,
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Facet": {
+        "$path": "../../src"
+      },
+      "FacetDesignModules": {
+        "$path": "modules"
+      },
+      "FacetDesignExamples": {
+        "$path": "examples"
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "FacetDesign": {
+          "$path": "play.client.luau"
+        }
+      }
+    },
+    "ServerScriptService": {
+      "FacetDesignStorage": {
+        "$path": "storage.server.luau"
+      }
+    },
+    "StarterGui": {
+      "$className": "StarterGui",
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
+    }
+  }
+}
