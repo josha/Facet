@@ -848,15 +848,18 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local held = Compose.cell(false)
-		local function press(phase: Enum.UserInputState)
+		local touchOffset: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
+		local function press(points: { Vector2 }, phase: Enum.UserInputState)
 			if phase == E.UserInputState.Begin and ctx.read(gate) ~= false then
+				local point = points[1]
+				touchOffset:set(if point then point - anchor.AbsolutePosition else anchor.AbsoluteSize / 2)
 				held:set(true)
 				help.hold(anchor, true)
 			end
 		end
 		if anchor:IsA("GuiButton") then
-			runtime.connect(anchor, "TouchLongPress", function(_: { Vector2 }, phase: Enum.UserInputState)
-				press(phase)
+			runtime.connect(anchor, "TouchLongPress", function(points: { Vector2 }, phase: Enum.UserInputState)
+				press(points, phase)
 			end)
 		elseif input then
 			runtime.connect(input, "TouchLongPress", function(points: { Vector2 }, phase: Enum.UserInputState)
@@ -868,7 +871,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local offset = if layer.IgnoreGuiInset and gui then gui:GetGuiInset() else V2.zero
 				local at, size = anchor.AbsolutePosition - offset, anchor.AbsoluteSize
 				if point.X >= at.X and point.X <= at.X + size.X and point.Y >= at.Y and point.Y <= at.Y + size.Y then
-					press(phase)
+					press({ point + offset }, phase)
 				end
 			end)
 		end
@@ -879,6 +882,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			runtime.connect(input, "InputBegan", function(event: InputObject)
 				if held:peek() and event.UserInputType == E.UserInputType.Touch then
 					held:set(false)
+					touchOffset:set(nil)
 				end
 			end)
 		end
@@ -991,6 +995,16 @@ return function(ctx: Types.Context): Nav.Surfaces
 					local anchorAt, anchorSize, offer, offset, box =
 						use(at), use(bounds), use(extent), use(origin), use(measured)
 					local side = parts.tailSize(ctx, use)
+					local contact = use(touchOffset)
+					if contact then
+						local point = anchorAt + contact - offset
+						return placement.touch(
+							{ x = point.X, y = point.Y },
+							{ w = box.X, h = box.Y },
+							{ x = 8, y = 8, w = math.max(0, offer.X - 16), h = math.max(0, offer.Y - 16) },
+							ctx.metric("targetSizes.minimum", use) + ctx.metric("space.s", use)
+						)
+					end
 					return placement.solve({
 						source = {
 							x = anchorAt.X - offset.X,

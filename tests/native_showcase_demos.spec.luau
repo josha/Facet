@@ -5,7 +5,7 @@ local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
 local C = Facet.Compose
 
-local function mount(name, run)
+local function mount(name, run, prepare)
 	local engine = engineLib.new()
 	local runtime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
@@ -21,6 +21,9 @@ local function mount(name, run)
 		runService = { Heartbeat = engine.heartbeat },
 	}
 	ctx.UI = Facet.controls(runtime, { types = ctx.types, viewport = ctx.viewport })
+	if prepare then
+		prepare(ctx, engine)
+	end
 	local built
 	local stop, root = runtime.mount(function()
 		gallery.configure(ctx)
@@ -144,6 +147,67 @@ t.describe("showcase demos", function()
 			built.model.worldMode:set(false)
 			built.reset()
 			t.expect(built.report().running).toBe(1)
+		end)
+	end)
+	t.it("fits the world terminal to its native page bounds through rotation and restores the camera", function()
+		local camera, previous
+		mount("12_outpost", function(built, root, ctx, engine)
+			local V2, V3 = engine.types.Vector2, engine.types.Vector3
+			built.model.worldMode:set(true)
+			local bounds = root:FindFirstChild("WorldTerminalBounds", true)
+			local console = ctx.worldTarget:FindFirstChild("ShowcaseConsole")
+			local surface = ctx.inputTarget:FindFirstChild("OutpostSurface")
+			for _, size in { V2.new(390, 844), V2.new(844, 390), V2.new(1280, 720), V2.new(390, 844) } do
+				camera.ViewportSize = size
+				bounds.AbsolutePosition = V2.new(16, 180)
+				bounds.AbsoluteSize = V2.new(size.X - 32, size.Y - 250)
+				t.expect(surface.CanvasSize.X).toBe(math.min(720, bounds.AbsoluteSize.X))
+				t.expect(surface.CanvasSize.Y).toBe(math.min(520, bounds.AbsoluteSize.Y))
+				for _, x in { -1, 1 } do
+					for _, y in { -1, 1 } do
+						local point = console.CFrame.Position
+							+ V3.new(x * console.Size.X / 2, y * console.Size.Y / 2, -console.Size.Z / 2)
+						local localPoint = camera.CFrame:PointToObjectSpace(point)
+						local unit = size.Y / (-2 * localPoint.Z * math.tan(math.rad(camera.FieldOfView / 2)))
+						local projected = V2.new(size.X / 2 + localPoint.X * unit, size.Y / 2 - localPoint.Y * unit)
+						local relative = projected - V2.new(0, 58) - bounds.AbsolutePosition
+						t.expect(relative.X >= -0.001 and relative.X <= bounds.AbsoluteSize.X + 0.001).toBe(true)
+						t.expect(relative.Y >= -0.001 and relative.Y <= bounds.AbsoluteSize.Y + 0.001).toBe(true)
+					end
+				end
+				t.expect(surface:FindFirstChild("TerminalControls", true):IsA("ScrollingFrame")).toBe(true)
+			end
+			built.model.worldMode:set(false)
+			t.expect(camera.CFrame).toBe(previous.frame)
+			t.expect(camera.CameraType).toBe(previous.kind)
+			t.expect(camera.FieldOfView).toBe(previous.fov)
+			t.expect(camera.FieldOfViewMode).toBe(previous.mode)
+			t.expect(camera.Focus).toBe(previous.focus)
+			t.expect(#ctx.worldTarget:GetChildren()).toBe(1)
+			camera:Destroy()
+		end, function(ctx, engine)
+			ctx.worldTarget = engine.new("Workspace")
+			camera = engine.new("Camera")
+			camera.Parent = ctx.worldTarget
+			ctx.worldTarget.CurrentCamera = camera
+			camera.ViewportSize = engine.types.Vector2.new(1280, 720)
+			camera.ScreenPointToRay = function(self, x, y)
+				local size = self.ViewportSize
+				local tangent = math.tan(math.rad(self.FieldOfView / 2))
+				local direction = engine.types.Vector3.new(
+					(x - size.X / 2) * 2 * tangent / size.Y,
+					(size.Y / 2 - y - 58) * 2 * tangent / size.Y,
+					-1
+				)
+				return { Direction = self.CFrame:VectorToWorldSpace(direction.Unit) }
+			end
+			previous = {
+				frame = camera.CFrame,
+				kind = camera.CameraType,
+				fov = camera.FieldOfView,
+				mode = camera.FieldOfViewMode,
+				focus = camera.Focus,
+			}
 		end)
 	end)
 	t.it("opens every arcade game from the retained navigation", function()

@@ -118,11 +118,12 @@ return {
 		end
 		local function world()
 			local camera = ctx.worldTarget and ctx.worldTarget.CurrentCamera
-			local oldFrame, oldType, oldFov
+			local oldFrame, oldType, oldFov, oldFovMode, oldFocus
 			if camera then
-				oldFrame, oldType, oldFov = camera.CFrame, camera.CameraType, camera.FieldOfView
+				oldFrame, oldType, oldFov, oldFovMode, oldFocus =
+					camera.CFrame, camera.CameraType, camera.FieldOfView, camera.FieldOfViewMode, camera.Focus
 				camera.CameraType = E.CameraType.Scriptable
-				camera.CFrame = CF.lookAt(V3.new(0, 6005, -15), V3.new(0, 6003.2, 0))
+				camera.FieldOfViewMode = E.FieldOfViewMode.Vertical
 				camera.FieldOfView = 55
 			end
 			if ctx.sceneVisible then
@@ -133,6 +134,8 @@ return {
 					camera.CFrame = oldFrame
 					camera.CameraType = oldType
 					camera.FieldOfView = oldFov
+					camera.FieldOfViewMode = oldFovMode
+					camera.Focus = oldFocus
 				end
 				if ctx.sceneVisible then
 					ctx.sceneVisible:set(false)
@@ -142,8 +145,61 @@ return {
 				return model(6000)
 			end, ctx.worldTarget)
 			C.cleanup(stop)
+			local canvas = C.cell(V2.new(720, 520))
+			local bounds = C.cell({ at = V2.zero, size = V2.zero })
+			local terminalBounds = Host.Frame "WorldTerminalBounds" {
+				BackgroundTransparency = 1,
+				Size = D2.new(1, 0, 0, 0),
+				UI.fill(),
+			}
+			local function measure()
+				bounds:set({ at = terminalBounds.AbsolutePosition, size = terminalBounds.AbsoluteSize })
+			end
+			for _, property in { "AbsoluteSize", "AbsolutePosition" } do
+				local connection = terminalBounds:GetPropertyChangedSignal(property):Connect(measure)
+				C.cleanup(function()
+					connection:Disconnect()
+				end)
+			end
+			measure()
+			if camera then
+				local viewport = C.cell(camera.ViewportSize)
+				local connection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+					viewport:set(camera.ViewportSize)
+				end)
+				C.cleanup(function()
+					connection:Disconnect()
+				end)
+				C.watch(function(use: any)
+					local rectangle, screen = use(bounds), use(viewport)
+					local scale = if ctx.previewScale then use(ctx.previewScale) else 1
+					if rectangle.size.X <= 0 or rectangle.size.Y <= 0 or screen.Y <= 0 then
+						return
+					end
+					local size =
+						V2.new(math.min(720, rectangle.size.X / scale), math.min(520, rectangle.size.Y / scale))
+					canvas:set(size)
+					local layer = terminalBounds:FindFirstAncestorWhichIsA("ScreenGui")
+					local function slope(point)
+						local ray = if layer and layer.IgnoreGuiInset
+							then camera:ViewportPointToRay(point.X, point.Y)
+							else camera:ScreenPointToRay(point.X, point.Y)
+						local direction = camera.CFrame:VectorToObjectSpace(ray.Direction)
+						return V2.new(direction.X / -direction.Z, direction.Y / -direction.Z)
+					end
+					local first, last = slope(rectangle.at), slope(rectangle.at + rectangle.size)
+					local distance = math.max(size.X / (last.X - first.X), size.Y / (first.Y - last.Y)) * 1.02 / 100
+					local middle = slope(rectangle.at + rectangle.size / 2)
+					local from = V3.new(middle.X * distance, 6003 - middle.Y * distance, -1.175 - distance)
+					camera.CFrame = CF.new(from) * CF.Angles(0, math.pi, 0)
+					camera.Focus = CF.new(0, 6003, -1)
+				end)
+			end
 			local stopConsole, console = ctx.runtime.mount(function()
-				return view.part("ShowcaseConsole", V3.new(7.2, 5.2, 0.35), V3.new(0, 6003, -1), C3.fromRGB(28, 39, 54))
+				return view.part("ShowcaseConsole", function(use: any)
+					local size = use(canvas)
+					return V3.new(size.X / 100, size.Y / 100, 0.35)
+				end, V3.new(0, 6003, -1), C3.fromRGB(28, 39, 54))
 			end, ctx.worldTarget)
 			C.cleanup(stopConsole)
 			local stopSurface = ctx.runtime.mount(function()
@@ -157,7 +213,7 @@ return {
 					Adornee = C.static(console),
 					Face = E.NormalId.Front,
 					SizingMode = E.SurfaceGuiSizingMode.FixedSize,
-					CanvasSize = V2.new(720, 520),
+					CanvasSize = canvas,
 					Active = true,
 					AlwaysOnTop = false,
 					style,
@@ -165,25 +221,30 @@ return {
 					UI.Screen "TerminalScreen" {
 						gap = "m",
 						view.text("TerminalTitle", "OUTPOST 07 / POWER", "title"),
-						panel(),
+						UI.ScrollView "TerminalControls" { width = "fill", UI.fill(), panel() },
 					},
 				}
 			end, ctx.inputTarget)
 			C.cleanup(stopSurface)
-			return UI.VStack "WorldCommands" {
+			return UI.VStack "WorldView" {
 				width = "fill",
+				height = "fill",
 				padding = "m",
 				gap = "s",
-				view.actions({
-					view.button("LeaveWorld", "Back to overview", function()
-						worldMode:set(false)
-					end),
-					UI.CollapsibleView "WorldPowerControls" {
-						label = "Power controls",
-						expanded = controlsOpen,
-						content = panel,
-					},
-				}),
+				UI.VStack "WorldCommands" {
+					width = "fill",
+					view.actions({
+						view.button("LeaveWorld", "Back to overview", function()
+							worldMode:set(false)
+						end),
+						UI.CollapsibleView "WorldPowerControls" {
+							label = "Power controls",
+							expanded = controlsOpen,
+							content = panel,
+						},
+					}),
+				},
+				terminalBounds,
 			}
 		end
 		local function overview()

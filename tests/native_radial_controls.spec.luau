@@ -627,12 +627,29 @@ t.describe("native radial interaction policies", function()
 			end),
 		})
 		local launcher, touch = world.find("Launcher"), pointer(world, 320, 110)
+		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
 		launcher.InputBegan.fire(touch)
+		local function unselected()
+			for _, node in world.screen:GetDescendants() do
+				t.expect(node:HasTag("facet-radial-candidate")).toBe(false)
+			end
+			t.expect(world.find("SelectionPlate").Visible).toBe(false)
+		end
+		unselected()
+		touch.Position = world.engine.types.Vector3.new(321, 111, 0)
+		world.input.InputChanged.fire(touch)
+		world.step(0.6)
+		unselected()
+		touch.Position = world.engine.types.Vector3.new(322, 112, 0)
+		world.input.InputChanged.fire(touch)
+		unselected()
 		touch.UserInputState = world.engine.types.Enum.UserInputState.End
 		world.input.InputEnded.fire(touch)
 		launcher.Activated.fire(touch)
 		t.expect(count).toBe(0)
 		t.expect(world.opened:peek()).toBe(true)
+		world.find("N").MouseEnter.fire()
+		unselected()
 		world.find("N").Activated.fire(pointer(world, 320, 110))
 		t.expect(count).toBe(1)
 		world.stop()
@@ -1512,7 +1529,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		world.find("RadialPanel").InputBegan.fire(hold)
 		world.step(0.5)
 		t.expect(preview.Text).toBe("Lantern")
-		local width = preview.Size.X.Offset
+		local width = world.find("SelectionPlate").Size.X.Offset
 		local left = preview.Position.X.Offset - preview.AnchorPoint.X * width
 		t.expect(left >= 8 and left + width <= 382).toBe(true)
 		world.input.InputEnded.fire(hold)
@@ -1636,6 +1653,50 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 end)
 
 t.describe("touch radial label placement", function()
+	t.it("follows a captured touch outside the wedge, wraps its name in tooltip paint and clears on cancel", function()
+		local world = setup({
+			gestureSelection = "direction",
+			distribution = "compass",
+			items = {
+				{
+					id = "S",
+					slot = "S",
+					label = "Workshop",
+					description = "Restore power",
+					icon = "settings",
+					labelStyle = "icon",
+				},
+			},
+		})
+		local V2, V3, E = world.engine.types.Vector2, world.engine.types.Vector3, world.engine.types.Enum
+		local modal = world.find("Modal")
+		modal.AbsoluteSize = V2.new(390, 760)
+		modal.AbsolutePosition = V2.new(50, 80)
+		local item, preview, plate = world.find("S"), world.find("SelectionPreview"), world.find("SelectionPlate")
+		t.expect(plate.Visible).toBe(false)
+		local held = pointer(world, 50 + item.Position.X.Offset, 80 + item.Position.Y.Offset)
+		world.find("RadialPanel").InputBegan.fire(held)
+		world.step(0.5)
+		preview.AbsoluteSize = V2.new(236, 60)
+		t.expect(preview.Text).toBe("Workshop · Restore power")
+		t.expect(plate:HasTag("facet-tooltip") and plate.Visible).toBe(true)
+		t.expect(preview.TextWrapped).toBe(true)
+		t.expect(plate.Size).toBe(world.engine.types.UDim2.fromOffset(236, 60))
+		t.expect(preview.AutomaticSize).toBe(E.AutomaticSize.XY)
+		for _, y in { 680, 720 } do
+			held.Position = V3.new(245, y, 0)
+			world.input.InputChanged.fire(held)
+			local bottom = preview.Position.Y.Offset
+			t.expect(bottom <= y - 80 - 44).toBe(true)
+			t.expect(bottom >= world.find("SelectionPlate").Size.Y.Offset + 8).toBe(true)
+			t.expect(plate.Position).toBe(preview.Position)
+		end
+		held.UserInputState = E.UserInputState.Cancel
+		world.input.InputEnded.fire(held)
+		t.expect(plate.Visible).toBe(false)
+		world.stop()
+	end)
+
 	t.it("keeps held labels above lower and side items, with the pointer layout unchanged", function()
 		for _, slot in { "E", "SE", "S", "SW", "W" } do
 			local world = setup({
@@ -1660,10 +1721,11 @@ t.describe("touch radial label placement", function()
 			world.find("RadialPanel").InputBegan.fire(held)
 			world.step(0.5)
 			t.expect(preview.Text).toBe("Workshop")
-			local bottom = preview.Position.Y.Offset + (1 - preview.AnchorPoint.Y) * preview.Size.Y.Offset
+			local bottom = preview.Position.Y.Offset
+				+ (1 - preview.AnchorPoint.Y) * world.find("SelectionPlate").Size.Y.Offset
 			t.expect(bottom < y - 22).toBe(true)
-			local left = preview.Position.X.Offset - preview.AnchorPoint.X * preview.Size.X.Offset
-			t.expect(left >= 8 and left + preview.Size.X.Offset <= 382).toBe(true)
+			local left = preview.Position.X.Offset - preview.AnchorPoint.X * world.find("SelectionPlate").Size.X.Offset
+			t.expect(left >= 8 and left + world.find("SelectionPlate").Size.X.Offset <= 382).toBe(true)
 			world.input.InputEnded.fire(held)
 			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
 			world.input.GetLastInputType = function()
@@ -1702,9 +1764,9 @@ t.describe("touch radial label bounds", function()
 		world.find("RadialPanel").InputBegan.fire(held)
 		world.step(0.5)
 		t.expect(preview.Text).toBe("Beacon")
-		local top = preview.Position.Y.Offset - preview.AnchorPoint.Y * preview.Size.Y.Offset
+		local top = preview.Position.Y.Offset - preview.AnchorPoint.Y * world.find("SelectionPlate").Size.Y.Offset
 		t.expect(top > item.Position.Y.Offset).toBe(true)
-		t.expect(top >= 8 and top + preview.Size.Y.Offset <= 752).toBe(true)
+		t.expect(top >= 8 and top + world.find("SelectionPlate").Size.Y.Offset <= 752).toBe(true)
 		world.stop()
 	end)
 end)
