@@ -146,6 +146,7 @@ covers this route.
 |---|---|
 | [`docs/guide/README.md`](docs/guide/README.md) | **Start here.** The guide in reading order, with the capability catalog. |
 | [`docs/guide/14-choosing-a-ui-library.md`](docs/guide/14-choosing-a-ui-library.md) | A comparison of Facet with other Roblox UI libraries. |
+| [`tools/designer/README.md`](tools/designer/README.md) | Facet Design: visual editing, code sync, and human/agent design workflows. |
 | [`docs/reference/api.md`](docs/reference/api.md) | Every property, default, callback and return value. |
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository follows. |
 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | Where a change goes, and what proves it. |
