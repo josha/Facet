@@ -1016,7 +1016,9 @@ Presentation options:
 - `haptic`: a boolean or a readable. When it is true, the button plays the
   `pressHaptic` of the controls. The default is false. See [Haptics](#haptics).
 - `help`: one sentence that describes the action. It shows in a small panel
-  when a pointer rests on the button for 0.45 seconds, when a keyboard or a
+  when a pointer rests on the button for 0.45 seconds with no mouse button
+  held. Pointer movement, scrolling and mouse presses reset that delay. It also
+  shows when a keyboard or a
   gamepad selection rests on the button for 0.45 seconds, or at once when a
   touch player long-presses the button. The release of that long-press does
   not activate the button, and the next touch anywhere closes the panel. So

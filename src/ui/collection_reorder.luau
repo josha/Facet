@@ -47,6 +47,7 @@ return function<V, K>(
 	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
 	local TAP = 3
 	local STACK = 6
+	local FEEDBACK_Z = 1000
 	local HOLD = 0.35
 	local SLOP = 10
 	local reorderable = spec.reorderable == true
@@ -659,7 +660,7 @@ return function<V, K>(
 	local function overlay(insideBody: boolean?): Frame
 		local body = bodyOf()
 		local canvasAt, bodyAt = ctx.observe.CanvasPosition(body), ctx.observe.Position(body)
-		local function dragImage(dropY: (ComposeTypes.Use) -> number): Frame
+		local function dragImage(dropY: (ComposeTypes.Use) -> number): (Frame, number)
 			local move = assert(moving:peek())
 			local source = rowNodes[move.key]
 			local index = assert(controls.indexOfKey)(move.key)
@@ -671,7 +672,7 @@ return function<V, K>(
 			end
 			local imageProps: Types.FrameProps = {
 				Name = "DragImage",
-				ZIndex = 9,
+				ZIndex = FEEDBACK_Z + 1,
 				BackgroundTransparency = 1,
 				Interactable = false,
 				Size = if horizontal then D2.new(0, extent + stack, 1, 0) else D2.new(1, 0, 0, extent + stack),
@@ -691,7 +692,7 @@ return function<V, K>(
 				ctx.styled(
 					ctx.text({
 						Name = "DragLabel",
-						ZIndex = 4,
+						ZIndex = FEEDBACK_Z + 2,
 						BackgroundTransparency = 0,
 						AnchorPoint = V2.new(1, 0),
 						Position = D2.fromScale(1, 0),
@@ -714,6 +715,7 @@ return function<V, K>(
 				),
 			}
 			local image = Host.Frame(imageProps)
+			local top = FEEDBACK_Z + 1
 			for layer = layers, 1, -1 do
 				local copy = if source then source:Clone() else nil
 				if copy then
@@ -724,6 +726,7 @@ return function<V, K>(
 					end
 					local nodes = copy:GetDescendants()
 					table.insert(nodes, copy)
+					local base = top
 					for _, node in nodes do
 						local rest = node:GetAttribute("FacetDragRestX")
 						if type(rest) == "number" and node:IsA("GuiObject") then
@@ -732,6 +735,11 @@ return function<V, K>(
 						end
 						if node:IsA("GuiObject") then
 							node.Interactable, node.Active, node.Selectable = false, false, false
+							node.ZIndex += base
+							top = math.max(top, node.ZIndex)
+						elseif node:IsA("Path2D") then
+							node.ZIndex += base
+							top = math.max(top, node.ZIndex)
 						elseif node:IsA("UIDragDetector") or node:IsA("InputContext") then
 							(node :: any).Enabled = false
 						end
@@ -739,11 +747,12 @@ return function<V, K>(
 					copy.AnchorPoint = V2.zero
 					copy.Position = D2.fromOffset(STACK * (layer - 1), STACK * (layer - 1))
 					copy.Size = sized(stack)
-					copy.ZIndex = layers - layer + 1
+					copy.ZIndex = base + 1
 					copy.Parent = image
 				end
 			end
-			return image
+			(image:FindFirstChild("DragLabel") :: GuiObject).ZIndex = top + 1
+			return image, top + 2
 		end
 		if pluginGui then
 			ctx.runtime.connect(body, "MouseMoved", function(x: number, y: number)
@@ -890,6 +899,7 @@ return function<V, K>(
 		end)
 		local rootProps: Types.FrameProps = {
 			Name = "ReorderFeedback",
+			ZIndex = FEEDBACK_Z,
 			Position = function(use: ComposeTypes.Use)
 				return if insideBody then D2.fromOffset(use(canvasAt).X, use(canvasAt).Y) else D2.fromOffset(0, 0)
 			end,
@@ -911,12 +921,13 @@ return function<V, K>(
 						+ (if candidate then 0 else at.size)
 						- axis(use(canvasAt))
 				end
+				local image, targetZ = dragImage(dropY)
 				local keyboardTargetProps: InputTypes.ButtonProps = {
 					Name = "Drop",
 					label = "Drop",
 					Position = D2.new(1, -100, 0, 0),
 					Size = D2.fromOffset(100, 40),
-					ZIndex = 10,
+					ZIndex = targetZ,
 					Visible = function(use: ComposeTypes.Use)
 						local move = use(moving)
 						return move ~= nil and move.keyboard
@@ -926,6 +937,7 @@ return function<V, K>(
 				keyboardTarget = UI.Button(keyboardTargetProps)
 				local nativeProps: Types.FrameProps = {
 					Name = "DropFeedback",
+					ZIndex = FEEDBACK_Z,
 					keyboardTarget :: ComposeTypes.Child,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
@@ -933,14 +945,14 @@ return function<V, K>(
 						Host.Frame "DropLine" {
 							Size = if horizontal then D2.new(0, 2, 1, 0) else D2.new(1, 0, 0, 2),
 							BorderSizePixel = 0,
-							ZIndex = 8,
+							ZIndex = FEEDBACK_Z,
 							Position = function(use: ComposeTypes.Use)
 								return if horizontal then D2.fromOffset(dropY(use), 0) else D2.fromOffset(0, dropY(use))
 							end,
 						},
 						"divider"
 					),
-					dragImage(dropY),
+					image,
 				}
 				return Host.Frame(nativeProps)
 			end),

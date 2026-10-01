@@ -41,6 +41,7 @@ local CONSTANTS: { [string]: string } = {
 	COMPACT_HEIGHT = "layout size",
 	CORNER_OVERLAP = "layout share",
 	DISC = "layout size",
+	FEEDBACK_Z = "drawing order",
 	FLING_MINIMUM = "interaction threshold",
 	FLING_SPEED = "interaction threshold",
 	FLING_STOP = "interaction threshold",

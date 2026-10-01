@@ -794,18 +794,39 @@ return function(ctx: Types.Context): Nav.Surfaces
 					if phase then
 						age = runtime.timeline({ duration = 0.001 }).elapsed
 					end
+					local function themed(): Instance
+						local node = build(phase)
+						local scope: Instance? = anchor
+						local target = current:peek() :: Instance
+						while scope and scope ~= target do
+							local link = scope:FindFirstChildWhichIsA("StyleLink")
+							if link then
+								local observe = (
+									ctx.observe :: unknown
+								) :: { StyleSheet: (StyleLink) -> ComposeTypes.Cell<StyleSheet?> }
+								local sheet = observe.StyleSheet(link :: StyleLink)
+								local Links = (Host :: unknown) :: { StyleLink: ({ StyleSheet: unknown }) -> Instance }
+								runtime.mountFragment(function()
+									return { Links.StyleLink { StyleSheet = sheet } }
+								end, node)
+								break
+							end
+							scope = scope.Parent
+						end
+						return arrive(node)
+					end
 					return Host.Folder "OverlayPortal" {
 						Compose.portal(current:peek(), function()
 							if options and options.failure then
 								return {
 									Host.Folder({
 										Compose.boundary(function()
-											return arrive(build(phase))
+											return themed()
 										end, options.failure),
 									}),
 								}
 							end
-							return { arrive(build(phase)) }
+							return { themed() }
 						end),
 					}
 				end
@@ -838,6 +859,75 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end,
 		})
 	end
+	local helpPointer = Compose.createSharedResource(function()
+		local buttons: { [string]: boolean } = {}
+		local pressed = Compose.cell(false)
+		local activity = Compose.cell(0)
+		local focused = Compose.cell(true)
+		local function mouseButton(kind: Enum.UserInputType): boolean
+			return kind == E.UserInputType.MouseButton1
+				or kind == E.UserInputType.MouseButton2
+				or kind == E.UserInputType.MouseButton3
+		end
+		local function disturb()
+			activity:set(activity:peek() + 1)
+		end
+		local function begin(event: InputObject)
+			if mouseButton(event.UserInputType) then
+				buttons[event.UserInputType.Name] = true
+				pressed:set(true)
+				disturb()
+			end
+		end
+		local function finish(event: InputObject)
+			if mouseButton(event.UserInputType) then
+				buttons[event.UserInputType.Name] = nil
+				pressed:set(next(buttons) ~= nil)
+				disturb()
+			end
+		end
+		local function change(event: InputObject)
+			if
+				event.UserInputType == E.UserInputType.MouseMovement
+				or event.UserInputType == E.UserInputType.MouseWheel
+			then
+				disturb()
+			end
+		end
+		if input then
+			if input.GetMouseButtonsPressed then
+				for _, event in input:GetMouseButtonsPressed() do
+					begin(event)
+				end
+			end
+			runtime.connect(input, "InputBegan", begin)
+			runtime.connect(input, "InputEnded", finish)
+			runtime.connect(input, "InputChanged", change)
+		end
+		local window = ctx.config.inputParent
+		local focusSource = if window and window:IsA("PluginGui") then window else input
+		if focusSource then
+			runtime.connect(focusSource, "WindowFocusReleased", function()
+				focused:set(false)
+				table.clear(buttons)
+				pressed:set(false)
+				disturb()
+			end)
+			runtime.connect(focusSource, "WindowFocused", function()
+				focused:set(true)
+				disturb()
+			end)
+		end
+		return {
+			pressed = pressed,
+			activity = activity,
+			focused = focused,
+			begin = begin,
+			finish = finish,
+			change = change,
+			disturb = disturb,
+		}
+	end)
 	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help, plate: help.Plate?)
 		local structured: Inputs.HelpSpec? = if type(value) == "table" and not Compose.isReadable(value)
 			then value :: Inputs.HelpSpec
@@ -878,6 +968,17 @@ return function(ctx: Types.Context): Nav.Surfaces
 		runtime.connect(anchor, "InputBegan", function()
 			help.hold(anchor, false)
 		end)
+		local pointer = helpPointer()
+		runtime.connect(anchor, "InputBegan", pointer.begin)
+		runtime.connect(anchor, "InputEnded", pointer.finish)
+		runtime.connect(anchor, "InputChanged", pointer.change)
+		runtime.connect(anchor, "MouseMoved", pointer.disturb)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if use(pointer.pressed) or not use(pointer.focused) then
+				held:set(false)
+				touchOffset:set(nil)
+			end
+		end)
 		if input then
 			runtime.connect(input, "InputBegan", function(event: InputObject)
 				if held:peek() and event.UserInputType == E.UserInputType.Touch then
@@ -888,7 +989,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		end
 		local wanted = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local kind = if preferred then use(preferred) else nil
-			if kind == E.PreferredInput.Touch then
+			if kind == E.PreferredInput.Touch or use(pointer.pressed) or not use(pointer.focused) then
 				return false
 			end
 			local selected = if selection then use(selection) else nil
@@ -898,6 +999,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local rest = runtime.timeline({ duration = HELP_DWELL, autoplay = false })
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(wanted) then
+				use(pointer.activity)
 				rest:restart()
 			else
 				rest:pause()
