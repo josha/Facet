@@ -158,4 +158,20 @@ function placement.solve(request: Request): Placement
 	}
 end
 
+function placement.touch(
+	point: { x: number, y: number },
+	size: { w: number, h: number },
+	safe: Rect,
+	clearance: number
+): Placement
+	local above = point.y - clearance - size.h >= safe.y
+	local beside = point.x + clearance + size.w <= safe.x + safe.w or point.x - clearance - size.w >= safe.x
+	return placement.solve({
+		source = { x = point.x - clearance, y = point.y - clearance, w = 2 * clearance, h = 2 * clearance },
+		size = size,
+		safe = safe,
+		edge = if above or not beside then "top" else "trailing",
+	})
+end
+
 return placement

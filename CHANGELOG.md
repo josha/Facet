@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Outpost’s world terminal fits the live Showcase space on phones and after rotation; short views scroll the controls.
+- Held touch names and help clear the actual fingertip. Radial names wrap in themed tooltip plates, and opening a radial menu stays neutral until a deliberate drag.
+
 - Lab automatic input follows the selected device. Lab and showcase overlays use the preview frame's live bounds. Color and date pickers stay within those bounds after rotation, including when the field moves offscreen.
 - NavigationStack restores focus after page motion settles. Initial focus prefers a control inside a scroll container over the container itself.
 - Nested Screens add only the console overscan margin that their bounds still overlap.

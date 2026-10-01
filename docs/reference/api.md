@@ -2297,13 +2297,14 @@ is one touch target (`targetSizes.minimum`) across and does the same thing. It
 shows a close, back or up-chevron (Home) icon. The word is its accessible name,
 and a `centerLabel` replaces that name; it is never shown as text. Cancel (the B button) and the
 Back/Close control do the same thing. On touch, an icon item's temporary name
-prefers a position above that item, clear of the finger. If it cannot fit above,
-it uses the same edge fallback as other anchored panels and stays inside the
-safe area. Pointer and gamepad names sit outside the ring in the item's
-direction. In the list fallback, the path heads the list beside Back/Close.
+follows the held contact and prefers a position above the finger, with room
+for the fingertip. If it cannot fit above, it moves beside or below the
+contact within the safe area. The name wraps in an arrowless, tooltip-styled
+plate. Pointer and gamepad names sit outside the ring in the item's direction. In the list fallback, the path heads the list beside Back/Close.
 
 A tap on the launcher opens the menu and keeps it open. The release does not
 pick an item, even if the ring moves an item under the finger to fit the screen.
+The opening contact and small tap movements do not highlight an item.
 A press on the launcher that slides at least 14 pixels can pick an item on release.
 
 A finger held still on an item for 0.4 seconds names it and does not pick
@@ -3315,7 +3316,9 @@ or `textRole` instead.
   it, the whole value shows in a panel named `Disclosure` beside the label:
   after a pointer rests on the label for 0.45 seconds, after a keyboard or
   gamepad selection rests on the label or on the control that holds it, or at
-  once on a touch long-press on the label. The next touch anywhere closes it.
+  once on a touch long-press on the label. Touch panels prefer the space above
+  the held finger, with a side or lower fallback at the safe-area edges.
+  The next touch anywhere closes it.
   The panel takes no selection.
 - `reveal = "auto"` makes a one-line label that truncates at the end scroll its
   whole value. It rests in the engine's ellipsis for 1.2 seconds, then the

@@ -152,6 +152,7 @@ return function(
 		end)
 		local interacting = Compose.cell(false)
 		local naming = Compose.cell(false)
+		local touchPoint: ComposeTypes.Cell<Vector3?> = Compose.cell(nil :: Vector3?)
 		local holding = runtime.timeline({ duration = HOLD, autoplay = false })
 		local capture: InputObject?
 		local pressedAt: Vector3?
@@ -176,11 +177,17 @@ return function(
 			capture, analog, launcherGesture = nil, false, false
 			interacting:set(false)
 			naming:set(false)
+			touchPoint:set(nil)
 			holding:pause()
 			candidate:set(nil)
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			if use(holding.completed) and capture and capture.UserInputType == E.UserInputType.Touch then
+			if
+				use(holding.completed)
+				and capture
+				and not launcherGesture
+				and capture.UserInputType == E.UserInputType.Touch
+			then
 				naming:set(true)
 				inspectedUntil = math.huge
 			end
@@ -316,7 +323,9 @@ return function(
 		end
 		local function pointing(): boolean
 			local input = surfaces.service("UserInputService") :: any
-			return input ~= nil
+			return touchPoint:peek() == nil
+				and (preferred == nil or preferred:peek() ~= E.PreferredInput.Touch)
+				and input ~= nil
 				and type(input.GetLastInputType) == "function"
 				and input:GetLastInputType() == E.UserInputType.MouseMovement
 		end
@@ -326,12 +335,13 @@ return function(
 		local function beginPointer(input: InputObject, onPanel: boolean?, fromLauncher: boolean?)
 			if not capture and opened:peek() and isPointer(input) and aimPointer then
 				suppressedInput, suppressedUntil, inspectedUntil = nil, nil, nil
-				if aimPointer(input.Position, false, true) == false then
+				if not fromLauncher and aimPointer(input.Position, false, true) == false then
 					return
 				end
 				capture, pressedAt, heldAt = input, if onPanel then input.Position else nil, input.Position
 				launcherGesture = fromLauncher == true
 				if input.UserInputType == E.UserInputType.Touch then
+					touchPoint:set(input.Position)
 					holding:restart()
 				end
 				if freezeCenter then
@@ -991,7 +1001,11 @@ return function(
 										end,
 										InputBegan = beginPointer,
 										MouseEnter = function()
-											if not capture and not analog then
+											if
+												not capture
+												and not analog
+												and (preferred == nil or preferred:peek() ~= E.PreferredInput.Touch)
+											then
 												candidate:set(currentSector().key)
 												naming:set(pointing())
 											end
@@ -1392,6 +1406,18 @@ return function(
 					end
 					return reach
 				end
+				local previewBounds = Compose.cell(V2.zero)
+				local function previewSize(use: ComposeTypes.Use): Vector2
+					local bounds = use(previewBounds)
+					return V2.new(
+						math.min(
+							240,
+							math.max(0, use(viewport).X - 16),
+							if bounds.X > 0 then math.ceil(bounds.X) else 240
+						),
+						math.max(ctx.metric("typography.caption.size", use) + 12, math.ceil(bounds.Y))
+					)
+				end
 				local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
 					local ring = use(layout)
 					if ring.list then
@@ -1406,24 +1432,19 @@ return function(
 								near = sector
 							end
 						end
-						if near and preferred and use(preferred) == E.PreferredInput.Touch then
+						local point = use(touchPoint)
+						if near and (point or (preferred and use(preferred) == E.PreferredInput.Touch)) then
 							local room = use(viewport)
-							local target = math.max(44, near.size)
-							local box = placement.solve({
-								source = {
-									x = at.X + near.x - target / 2,
-									y = at.Y + near.y - target / 2,
-									w = target,
-									h = target,
-								},
-								size = {
-									w = math.min(240, math.max(0, room.X - 16)),
-									h = ctx.metric("typography.caption.size", use) + 4,
-								},
-								safe = { x = 8, y = 8, w = math.max(0, room.X - 16), h = math.max(0, room.Y - 16) },
-								edge = "top",
-								gap = ctx.metric("space.s", use),
-							})
+							local contact = if point
+								then V2.new(point.X, point.Y) - use(origin)
+								else at + V2.new(near.x, near.y)
+							local size = previewSize(use)
+							local box = placement.touch(
+								{ x = contact.X, y = contact.Y },
+								{ w = size.X, h = size.Y },
+								{ x = 8, y = 8, w = math.max(0, room.X - 16), h = math.max(0, room.Y - 16) },
+								ctx.metric("targetSizes.minimum", use) + ctx.metric("space.s", use)
+							)
 							return D2.fromOffset(box.x + box.w / 2, box.y + box.h), V2.new(0.5, 1)
 						end
 						local angle = math.rad(if near then near.angle else geometry.arc(spec.preset or "donut") + 45)
@@ -1441,6 +1462,9 @@ return function(
 					end
 				end
 				local function previewWidth(use: ComposeTypes.Use): number
+					if use(touchPoint) or preferred and use(preferred) == E.PreferredInput.Touch then
+						return math.min(240, math.max(0, use(viewport).X - 16))
+					end
 					local place, anchor = previewPlace(use)
 					local x, room = place.X.Offset, use(viewport).X
 					local fits = if anchor.X == 0
@@ -1455,10 +1479,10 @@ return function(
 						if use(layout).list then
 							return D2.new(1, -32 - 1.5 * painted(use), 0, 0)
 						end
-						return D2.fromOffset(previewWidth(use), ctx.metric("typography.caption.size", use) + 4)
+						return D2.fromOffset(0, 0)
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
-						return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
+						return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.XY
 					end,
 					Position = function(use: ComposeTypes.Use): UDim2
 						return (previewPlace(use))
@@ -1474,7 +1498,7 @@ return function(
 							elseif anchor.X == 0 then E.TextXAlignment.Left
 							else E.TextXAlignment.Right
 					end,
-					TextTruncate = E.TextTruncate.AtEnd,
+					TextWrapped = true,
 					Text = function(use: ComposeTypes.Use)
 						if not use(layout).list then
 							local key = if use(naming) then use(candidate) else nil
@@ -1512,7 +1536,43 @@ return function(
 							else read(spec.label, use) or "Quick actions"
 					end,
 					ZIndex = 106,
+					ctx.padding(8, 6),
 				})
+				preview:AddTag("facet-type-caption")
+				surfaces.attach(preview, {
+					Host.UISizeConstraint {
+						MaxSize = function(use: ComposeTypes.Use): Vector2
+							return V2.new(if use(layout).list then math.huge else previewWidth(use), math.huge)
+						end,
+					},
+				})
+				local textBounds = ctx.layoutSize(preview, layoutUnit)
+				Compose.watch(function(use: ComposeTypes.Use)
+					previewBounds:set(use(textBounds))
+				end)
+				local previewText = ctx.observe.Text(preview)
+				local function previewShown(use: ComposeTypes.Use): boolean
+					return use(layout).list or use(naming) and use(candidate) ~= nil and use(previewText) ~= ""
+				end
+				runtime.decorate(preview, { Visible = previewShown })
+				local previewPlate = ctx.styled(
+					Host.Frame "SelectionPlate" {
+						Position = function(use: ComposeTypes.Use): UDim2
+							return (previewPlace(use))
+						end,
+						AnchorPoint = function(use: ComposeTypes.Use): Vector2
+							return select(2, previewPlace(use))
+						end,
+						Size = function(use: ComposeTypes.Use): UDim2
+							return D2.fromOffset(previewSize(use).X, previewSize(use).Y)
+						end,
+						Visible = function(use: ComposeTypes.Use): boolean
+							return not use(layout).list and previewShown(use)
+						end,
+						ZIndex = 105,
+					},
+					"tooltip"
+				)
 				local function choose(sector: Radial.Sector<V>?): Radial.Sector<V>?
 					if sector and read(sector.item.enabled) == false then
 						sector = nil
@@ -1633,6 +1693,17 @@ return function(
 						if input.UserInputState == E.UserInputState.Cancel then
 							cancel()
 						else
+							if
+								launcherGesture
+								and not naming:peek()
+								and heldAt
+								and (input.Position - heldAt).Magnitude < 14
+							then
+								return
+							end
+							if capture.UserInputType == E.UserInputType.Touch then
+								touchPoint:set(input.Position)
+							end
 							if heldAt and (input.Position - heldAt).Magnitude > 14 then
 								holding:pause()
 								if inspectedUntil == math.huge then
@@ -1834,7 +1905,7 @@ return function(
 						end,
 					}
 				)
-				surfaces.attach(modal, { centerHit, centerNode, preview })
+				surfaces.attach(modal, { centerHit, centerNode, previewPlate, preview })
 				if hideLauncher then
 					hideLauncher()
 				end

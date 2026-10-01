@@ -5,6 +5,14 @@ local placement = require("../src/ui/overlay_placement")
 local SAFE = { x = 0, y = 0, w = 800, h = 600 }
 
 t.describe("anchored placement", function()
+	t.it("keeps a touch label outside the finger and prefers a side at the top edge", function()
+		for _, point in { { x = 200, y = 300 }, { x = 20, y = 20 }, { x = 370, y = 20 } } do
+			local box = placement.touch(point, { w = 120, h = 48 }, { x = 8, y = 8, w = 374, h = 744 }, 52)
+			t.expect(box.fits).toBe(true)
+			t.expect(box.y + box.h <= point.y - 52 or box.x >= point.x + 52 or box.x + box.w <= point.x - 52).toBe(true)
+		end
+	end)
+
 	t.it("every edge and align pair moves by exactly the signed offset, and absent equals 0", function()
 		local source = { x = 300, y = 250, w = 60, h = 40 }
 		for _, edge in { "top", "bottom", "leading", "trailing" } do
