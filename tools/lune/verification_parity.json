@@ -2348,7 +2348,7 @@
       "class": "a",
       "candidateCases": [
         "native_games::examples/05 word game — the pure scoring rules::scores a plain guess with no repeated letters",
-        "native_games::examples/05 word game — validation and the two generated sets::refuses a five-letter non-word",
+        "native_games::examples/05 word game — validation and the two generated sets::refuses a six-letter non-word",
         "native_games::examples/05 word game — the key ladder is monotonic::never downgrades on later, weaker evidence",
         "native_games::examples/05 word game — the deterministic seed::the same seed always yields the same word",
         "(all 22 identically named cases in native_games)"
@@ -2364,9 +2364,9 @@
       "mainCases": 19,
       "class": "a",
       "candidateCases": [
-        "native_games::examples/05 word game — the state machine::starts on a visible six-by-five board with a caret in the first cell",
+        "native_games::examples/05 word game — the state machine::starts on a visible seven-by-six board with a caret in the first cell",
         "native_games::examples/05 word game — the state machine::wins when the solution is submitted, and opens the results card",
-        "native_games::examples/05 word game — the state machine::loses after SIX accepted wrong guesses and reveals the word",
+        "native_games::examples/05 word game — the state machine::loses after SEVEN accepted wrong guesses and reveals the word",
         "native_games::examples/05 word game — the state machine::input is dead after the game ends, except restart",
         "native_games::examples/05 word game — the state machine::every tile paints a REAL tint — the plate is never invisible",
         "(19 identically named state-machine cases in native_games)",

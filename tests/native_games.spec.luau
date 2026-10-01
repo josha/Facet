@@ -74,18 +74,18 @@ end
 do
 	local wordGame = require("../examples/gallery/examples/05_word_game")
 	local rules = wordGame.rules
-	local REACT_SEED = (function(): number
+	local READER_SEED = (function(): number
 		for seed = 1, 100000 do
-			if rules.solutionForSeed(seed) == "REACT" then
+			if rules.solutionForSeed(seed) == "READER" then
 				return seed
 			end
 		end
-		error("example_word_game.spec: no seed in 1..100000 plays REACT — the answer set no longer holds it", 0)
+		error("example_word_game.spec: no seed in 1..100000 plays READER — the answer set no longer holds it", 0)
 	end)()
 
 	local function newGame(ctx)
 		local game = mountGame(ctx, wordGame)
-		game.restart(REACT_SEED)
+		game.restart(READER_SEED)
 		return game
 	end
 	local function typeWord(game: any, word: string)
@@ -122,56 +122,62 @@ do
 
 	describe("examples/05 word game — the pure scoring rules", function()
 		it("scores a plain guess with no repeated letters", function()
-			local s = rules.evaluate("RULES", "REACT")
+			local s = rules.evaluate("RULESX", "REACTX")
 			expect(s[1]).toBe("correct")
 			expect(s[2]).toBe("absent")
 			expect(s[3]).toBe("absent")
 			expect(s[4]).toBe("present")
+			expect(s[6]).toBe("correct")
 			expect(s[5]).toBe("absent")
 		end)
 
 		it("a guess with a DOUBLED letter against a solution holding ONE spends the budget once", function()
-			local s = rules.evaluate("ERROR", "CRANE")
+			local s = rules.evaluate("ERRORX", "CRANEX")
 			expect(s[1]).toBe("present")
 			expect(s[2]).toBe("correct")
 			expect(s[3]).toBe("absent")
 			expect(s[4]).toBe("absent")
+			expect(s[6]).toBe("correct")
 			expect(s[5]).toBe("absent")
 		end)
 
 		it("a SOLUTION with a doubled letter pays a misplaced guess letter from what the exact match left", function()
-			local s = rules.evaluate("LEVEL", "LLAMA")
+			local s = rules.evaluate("LEVELX", "LLAMAX")
 			expect(s[1]).toBe("correct")
 			expect(s[2]).toBe("absent")
 			expect(s[3]).toBe("absent")
 			expect(s[4]).toBe("absent")
+			expect(s[6]).toBe("correct")
 			expect(s[5]).toBe("present")
 		end)
 
 		it("BOTH doubled: two exact matches and one misplaced, all from a budget of two", function()
-			local s = rules.evaluate("HOBBY", "ABBEY")
+			local s = rules.evaluate("HOBBYX", "ABBEYX")
 			expect(s[1]).toBe("absent")
 			expect(s[2]).toBe("absent")
 			expect(s[3]).toBe("correct")
 			expect(s[4]).toBe("present")
+			expect(s[6]).toBe("correct")
 			expect(s[5]).toBe("correct")
 		end)
 
 		it("an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter", function()
-			local s = rules.evaluate("AWARE", "CRANE")
+			local s = rules.evaluate("AWAREX", "CRANEX")
 			expect(s[1]).toBe("absent")
 			expect(s[2]).toBe("absent")
 			expect(s[3]).toBe("correct")
 			expect(s[4]).toBe("present")
+			expect(s[6]).toBe("correct")
 			expect(s[5]).toBe("correct")
 		end)
 
 		it("three copies against two: the excess is absent", function()
-			local s = rules.evaluate("EERIE", "REACT")
+			local s = rules.evaluate("EERIEX", "REACTX")
 			expect(s[1]).toBe("absent")
 			expect(s[2]).toBe("correct")
 			expect(s[3]).toBe("present")
 			expect(s[4]).toBe("absent")
+			expect(s[6]).toBe("correct")
 			expect(s[5]).toBe("absent")
 		end)
 
@@ -187,15 +193,15 @@ do
 	end)
 
 	describe("examples/05 word game — validation and the two generated sets", function()
-		it("refuses a guess shorter than five letters", function()
+		it("refuses a guess shorter than six letters", function()
 			expect(rules.validate("")).toBe("short")
 			expect(rules.validate("REAC")).toBe("short")
 		end)
 
-		it("refuses a five-letter non-word", function()
-			expect(rules.validate("ZZZZZ")).toBe("unknown")
-			expect(rules.validate("QWERT")).toBe("unknown")
-			expect(rules.validate("PLZTK")).toBe("unknown")
+		it("refuses a six-letter non-word", function()
+			expect(rules.validate("ZZZZZZ")).toBe("unknown")
+			expect(rules.validate("QZXWTY")).toBe("unknown")
+			expect(rules.validate("PLZTKZ")).toBe("unknown")
 		end)
 
 		it("accepts every solution AND the wider guess list", function()
@@ -205,7 +211,7 @@ do
 				expect(rules.validate(answer)).toBe("ok")
 			end
 
-			for _, word in { "RULES", "TILES", "ADIEU", "FJORD", "MOCHA", "SUSHI" } do
+			for _, word in { "COLOUR", "CENTRE", "FAVOUR", "LITRES", "COCOAS", "GREYER" } do
 				expect(rules.validate(word)).toBe("ok")
 				expect(rules.isSolution(word)).toBe(false)
 			end
@@ -218,7 +224,7 @@ do
 		end)
 
 		it("accepts ordinary words the old hand-typed list refused", function()
-			for _, word in { "ADIEU", "FJORD", "MOCHA", "NINJA", "SUSHI", "WALTZ", "SALSA", "ZESTY" } do
+			for _, word in { "COLOUR", "CENTRE", "COCOAS", "FAVOUR", "GREYER", "WALNUT", "SALADS", "LITRES" } do
 				if rules.validate(word) ~= "ok" then
 					error(
 						`the game still refuses "{word}" — accepting it is the whole point of the shared word data`,
@@ -229,11 +235,11 @@ do
 		end)
 
 		it("takes a guess in whatever case it arrives in", function()
-			expect(rules.validate("CRANE")).toBe("ok")
-			expect(rules.isWord("crane")).toBe(true)
-			expect(rules.isWord("CrAnE")).toBe(true)
+			expect(rules.validate("CRANES")).toBe("ok")
+			expect(rules.isWord("cranes")).toBe(true)
+			expect(rules.isWord("CrAnEs")).toBe(true)
 
-			expect(rules.isWord("CRANES")).toBe(false)
+			expect(rules.isWord("CRANESS")).toBe(false)
 			expect(rules.isWord("CRAN")).toBe(false)
 		end)
 	end)
@@ -257,21 +263,21 @@ do
 		end)
 
 		it("mergeKeys returns a NEW table and keeps the strongest per letter", function()
-			local first = rules.mergeKeys({}, "RULES", rules.evaluate("RULES", "REACT"))
+			local first = rules.mergeKeys({}, "RULERS", rules.evaluate("RULERS", "READER"))
 			expect(first.R).toBe("correct")
 			expect(first.E).toBe("present")
 			expect(first.U).toBe("absent")
 
-			local second = rules.mergeKeys(first, "REACT", rules.evaluate("REACT", "REACT"))
+			local second = rules.mergeKeys(first, "READER", rules.evaluate("READER", "READER"))
 			expect(second.E).toBe("correct")
 			expect(second.R).toBe("correct")
 			expect(first.E).toBe("present")
 		end)
 
 		it("a later guess that re-tests a solved letter cannot downgrade it", function()
-			local keys = rules.mergeKeys({}, "REACT", rules.evaluate("REACT", "REACT"))
+			local keys = rules.mergeKeys({}, "READER", rules.evaluate("READER", "READER"))
 			expect(keys.R).toBe("correct")
-			local after = rules.mergeKeys(keys, "ERROR", rules.evaluate("ERROR", "REACT"))
+			local after = rules.mergeKeys(keys, "ERRORS", rules.evaluate("ERRORS", "READER"))
 			expect(after.R).toBe("correct")
 		end)
 	end)
@@ -292,22 +298,33 @@ do
 		end)
 
 		it("the game plays in UPPERCASE even though the data is lowercase", function()
-			for _, seed in { 1, 2, REACT_SEED, 4096 } do
+			for _, seed in { 1, 2, READER_SEED, 4096 } do
 				local word = rules.solutionForSeed(seed)
 				expect(word).toBe(string.upper(word))
 			end
 		end)
 
-		it("REACT is reachable, and it is the seed the rest of this file plays", function()
-			expect(rules.solutionForSeed(REACT_SEED)).toBe("REACT")
-			expect(rules.solutionForSeed(REACT_SEED)).toBe(rules.solutionForSeed(REACT_SEED))
+		it("READER is reachable, and it is the seed the rest of this file plays", function()
+			expect(rules.solutionForSeed(READER_SEED)).toBe("READER")
+			expect(rules.solutionForSeed(READER_SEED)).toBe(rules.solutionForSeed(READER_SEED))
 		end)
 	end)
 
 	describe("examples/05 word game — the state machine", function()
-		it("starts on a visible six-by-five board with a caret in the first cell", function()
+		it("starts on a visible seven-by-six board with a caret in the first cell", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
+			expect(rules.COLS).toBe(6)
+			expect(rules.ROWS).toBe(7)
+			expect(game.title).toBe("Word Guess")
+			local sheet = find(ctx.node, "WordGuessColors")
+			for _, rule in sheet:GetChildren() do
+				if rule.Selector == ".facet-status-success" then
+					expect(math.round(rule:GetProperties().BackgroundColor3.R * 255)).toBe(35)
+				elseif rule.Selector == ".facet-status-warning" then
+					expect(math.round(rule:GetProperties().BackgroundColor3.R * 255)).toBe(109)
+				end
+			end
 			for r = 1, rules.ROWS do
 				for c = 1, rules.COLS do
 					expect(findPath(ctx.node, game.tilePath(r, c)) ~= nil).toBe(true)
@@ -340,7 +357,7 @@ do
 		it("paints key and tile state through theme status tags and outlines the active row", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "RULES")
+			guess(game, "RULERS")
 			local function key(letter)
 				return findPath(ctx.node, game.keyPath(letter))
 			end
@@ -367,7 +384,7 @@ do
 			expect(outline(2, 1).Enabled).toBe(true)
 			expect(outline(2, 2).Enabled).toBe(false)
 			expect(outline(1, 1).Enabled).toBe(false)
-			guess(game, "ERROR")
+			guess(game, "ERRORS")
 			expect(outline(2, 1).Enabled).toBe(false)
 			expect(outline(3, 1).Enabled).toBe(true)
 			game.dispose()
@@ -376,16 +393,16 @@ do
 		it("letters land in the ACTIVE row only", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			typeWord(game, "RULES")
-			expect(game.row(1)).toBe("RULES")
+			typeWord(game, "RULERS")
+			expect(game.row(1)).toBe("RULERS")
 			expect(game.row(2)).toBe("")
 
 			game.press("X")
-			expect(game.row(1)).toBe("RULES")
+			expect(game.row(1)).toBe("RULERS")
 			game.press("Return")
 			expect(game.activeRow()).toBe(2)
 			typeWord(game, "AB")
-			expect(game.row(1)).toBe("RULES")
+			expect(game.row(1)).toBe("RULERS")
 			expect(game.row(2)).toBe("AB")
 			game.dispose()
 		end)
@@ -405,13 +422,13 @@ do
 		it("an INVALID guess is refused with a different message and does not consume a row", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			typeWord(game, "ZZZZZ")
+			typeWord(game, "ZZZZZZ")
 			game.press("Return")
 			expect(game.activeRow()).toBe(1)
-			expect(game.row(1)).toBe("ZZZZZ")
+			expect(game.row(1)).toBe("ZZZZZZ")
 
 			expect(string.find(game.status(), "this game doesn't know that word") ~= nil).toBe(true)
-			expect(string.find(game.status(), "ZZZZZ", 1, true) ~= nil).toBe(true)
+			expect(string.find(game.status(), "ZZZZZZ", 1, true) ~= nil).toBe(true)
 			expect(string.find(game.status(), "word list")).toBeNil()
 			expect(game.state(1, 3)).toBe("filled")
 
@@ -423,7 +440,7 @@ do
 		it("a rejected guess consumes NO row, and an ordinary word the old list refused plays on", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			typeWord(game, "PLZTK")
+			typeWord(game, "PLZTKZ")
 			game.press("Return")
 			expect(game.activeRow()).toBe(1)
 			expect(game.phase()).toBe("playing")
@@ -433,16 +450,16 @@ do
 			for _ = 1, rules.COLS do
 				game.press("Backspace")
 			end
-			guess(game, "MOCHA")
+			guess(game, "COCOAS")
 			expect(game.activeRow()).toBe(2)
-			expect(game.row(1)).toBe("MOCHA")
+			expect(game.row(1)).toBe("COCOAS")
 
-			expectStates(game, 1, { "absent", "absent", "present", "absent", "present" })
+			expectStates(game, 1, { "absent", "absent", "absent", "absent", "present", "absent" })
 			game.dispose()
 		end)
 
 		it("four words the old thirty-four-word list rejected now play end to end", function()
-			for _, word in { "ADIEU", "FJORD", "NINJA", "ZESTY" } do
+			for _, word in { "COLOUR", "CENTRE", "FAVOUR", "LITRES" } do
 				local ctx = makeWorld()
 				local game = newGame(ctx)
 				guess(game, word)
@@ -480,14 +497,14 @@ do
 		it("a scored row keeps its verdict AND its marks while the next row becomes active", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "RULES")
-			expectStates(game, 1, { "correct", "absent", "absent", "present", "absent" })
+			guess(game, "RULERS")
+			expectStates(game, 1, { "correct", "absent", "absent", "present", "present", "absent" })
 			expect(game.mark(1, 1)).toBe("v")
 			expect(game.mark(1, 4)).toBe("~")
 			expect(game.mark(1, 2)).toBe("x")
 			expect(game.activeRow()).toBe(2)
-			guess(game, "ERROR")
-			expectStates(game, 1, { "correct", "absent", "absent", "present", "absent" })
+			guess(game, "ERRORS")
+			expectStates(game, 1, { "correct", "absent", "absent", "present", "present", "absent" })
 			expect(game.activeRow()).toBe(3)
 			game.dispose()
 		end)
@@ -495,23 +512,23 @@ do
 		it("the duplicate-letter rule reaches the board, not just the scorer", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "ERROR")
-			expectStates(game, 1, { "present", "present", "absent", "absent", "absent" })
+			guess(game, "ERRORS")
+			expectStates(game, 1, { "present", "present", "present", "absent", "absent", "absent" })
 			game.dispose()
 		end)
 
 		it("key state accumulates monotonically and never downgrades", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "RULES")
+			guess(game, "RULERS")
 			expect(game.keyState("R")).toBe("correct")
 			expect(game.keyState("E")).toBe("present")
 			expect(game.keyState("U")).toBe("absent")
 			expect(game.keyState("Z")).toBeNil()
-			guess(game, "ERROR")
+			guess(game, "ERRORS")
 			expect(game.keyState("R")).toBe("correct")
 			expect(game.keyState("E")).toBe("present")
-			guess(game, "REACT")
+			guess(game, "READER")
 			expect(game.keyState("E")).toBe("correct")
 			expect(game.keyState("U")).toBe("absent")
 			game.dispose()
@@ -520,8 +537,8 @@ do
 		it("wins when the solution is submitted, and opens the results card", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "RULES")
-			guess(game, "REACT")
+			guess(game, "RULERS")
+			guess(game, "READER")
 			expect(game.phase()).toBe("won")
 			expect(game.won()).toBe(true)
 			expect(string.find(game.status(), "Solved in 2 guesses") ~= nil).toBe(true)
@@ -530,38 +547,38 @@ do
 			game.dispose()
 		end)
 
-		it("loses after SIX accepted wrong guesses and reveals the word", function()
+		it("loses after SEVEN accepted wrong guesses and reveals the word", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			local six = { "RULES", "ERROR", "AWARE", "LEVEL", "SOLVE", "TILES" }
-			for i, word in six do
+			local seven = { "RULERS", "ERRORS", "ALWAYS", "LEVELS", "SOLVED", "TILING", "WALNUT" }
+			for i, word in seven do
 				expect(game.phase()).toBe("playing")
 				guess(game, word)
 				expect(game.row(i)).toBe(word)
 			end
 			expect(game.phase()).toBe("lost")
 			expect(game.lost()).toBe(true)
-			expect(string.find(game.status(), "the word was REACT") ~= nil).toBe(true)
+			expect(string.find(game.status(), "the word was READER") ~= nil).toBe(true)
 			expect(game.resultsOpen()).toBe(true)
 
-			expectStates(game, 1, { "correct", "absent", "absent", "present", "absent" })
+			expectStates(game, 1, { "correct", "absent", "absent", "present", "present", "absent" })
 			game.dispose()
 		end)
 
-		it("a refused guess does NOT count toward the six", function()
+		it("a refused guess does NOT count toward the seven", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			for _, word in { "RULES", "ERROR", "AWARE", "LEVEL", "SOLVE" } do
+			for _, word in { "RULERS", "ERRORS", "ALWAYS", "LEVELS", "SOLVED", "WALNUT" } do
 				guess(game, word)
 			end
-			expect(game.activeRow()).toBe(6)
-			guess(game, "ZZZZZ")
-			expect(game.activeRow()).toBe(6)
+			expect(game.activeRow()).toBe(7)
+			guess(game, "ZZZZZZ")
+			expect(game.activeRow()).toBe(7)
 			expect(game.phase()).toBe("playing")
-			for _ = 1, 5 do
+			for _ = 1, rules.COLS do
 				game.press("Backspace")
 			end
-			guess(game, "TILES")
+			guess(game, "TILING")
 			expect(game.phase()).toBe("lost")
 			game.dispose()
 		end)
@@ -569,7 +586,7 @@ do
 		it("input is dead after the game ends, except restart", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "REACT")
+			guess(game, "READER")
 			expect(game.phase()).toBe("won")
 			local before = game.row(1)
 			game.press("Z")
@@ -581,9 +598,9 @@ do
 			expect(game.phase()).toBe("won")
 			expect(findPath(ctx.node, game.keyPath("Z")).Interactable).toBe(false)
 			expect(findPath(ctx.node, game.keyPath("Enter")).Interactable).toBe(false)
-			expect(findPath(ctx.node, "/Wordle/page/Restart").Interactable).toBe(true)
+			expect(findPath(ctx.node, "/WordGuess/page/Restart").Interactable).toBe(true)
 			tap(ctx, "/Close")
-			tap(ctx, "/Wordle/page/Restart")
+			tap(ctx, "/WordGuess/page/Restart")
 			expect(game.phase()).toBe("playing")
 			game.dispose()
 		end)
@@ -593,7 +610,7 @@ do
 			local game = mountGame(ctx, wordGame)
 			expect(game.seed()).toBe(1)
 			expect(game.solution()).toBe(rules.solutionForSeed(1))
-			guess(game, "RULES")
+			guess(game, "RULERS")
 			game.restart()
 			expect(game.seed()).toBe(2)
 			expect(game.solution()).toBe(rules.solutionForSeed(2))
@@ -607,7 +624,7 @@ do
 
 			game.restart(4)
 			local first = game.solution()
-			guess(game, "RULES")
+			guess(game, "RULERS")
 			game.restart(4)
 			expect(game.solution()).toBe(first)
 			expect(game.row(1)).toBe("")
@@ -617,18 +634,18 @@ do
 		it("restart after a loss closes the results card and re-enables the keyboard", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			for _, word in { "RULES", "ERROR", "AWARE", "LEVEL", "SOLVE", "TILES" } do
+			for _, word in { "RULERS", "ERRORS", "ALWAYS", "LEVELS", "SOLVED", "TILING", "WALNUT" } do
 				guess(game, word)
 			end
 			expect(game.resultsOpen()).toBe(true)
 			expect((if game.resultsOpen() then 2 else 1)).toBe(2)
 
-			tap(ctx, "/Wordle/page/Restart")
+			tap(ctx, "/WordGuess/page/Restart")
 			expect(game.resultsOpen()).toBe(true)
 			expect(game.phase()).toBe("lost")
 			tap(ctx, "/Close")
 			expect((if game.resultsOpen() then 2 else 1)).toBe(1)
-			tap(ctx, "/Wordle/page/Restart")
+			tap(ctx, "/WordGuess/page/Restart")
 			expect(game.resultsOpen()).toBe(false)
 			expect(game.phase()).toBe("playing")
 			expect(findPath(ctx.node, game.keyPath("Z")).Interactable).toBe(true)
@@ -640,7 +657,7 @@ do
 		it("the results card's Close button actually closes it", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "REACT")
+			guess(game, "READER")
 			expect((if game.resultsOpen() then 2 else 1)).toBe(2)
 			expect(find(ctx.node, "Close") ~= nil).toBe(true)
 			tap(ctx, "/Close")
@@ -655,13 +672,13 @@ do
 		it("the results card's New game button restarts from inside the card", function()
 			local ctx = makeWorld()
 			local game = newGame(ctx)
-			guess(game, "REACT")
+			guess(game, "READER")
 			tap(ctx, "/Again")
 			expect((if game.resultsOpen() then 2 else 1)).toBe(1)
 			expect(game.phase()).toBe("playing")
 
-			expect(game.seed()).toBe(REACT_SEED + 1)
-			expect(game.solution()).toBe(rules.solutionForSeed(REACT_SEED + 1))
+			expect(game.seed()).toBe(READER_SEED + 1)
+			expect(game.solution()).toBe(rules.solutionForSeed(READER_SEED + 1))
 			game.dispose()
 		end)
 
@@ -669,8 +686,8 @@ do
 			local ctx = makeWorld()
 			local baseline = #ctx.target:GetChildren()
 			local game = newGame(ctx)
-			guess(game, "RULES")
-			guess(game, "REACT")
+			guess(game, "RULERS")
+			guess(game, "READER")
 			game.dispose()
 			local after = #ctx.target:GetChildren()
 			expect(after).toBe(baseline)

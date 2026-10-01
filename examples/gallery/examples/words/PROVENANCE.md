@@ -1,6 +1,6 @@
 # Where these words come from
 
-The two example games — the five-letter word game and the crossword tile game —
+The two example games — the six-letter word game and the crossword tile game —
 share one generated English word set. Nothing here is typed by hand, and nothing
 is fetched while a game is running.
 
@@ -28,7 +28,7 @@ Two jobs want two different cuts.
 SCOWL ships** — `english`, `american`, `british`, `british_z`, `canadian`, `australian`, `variant_1`, `variant_2`, `variant_3` — restricted to the `-words` classes, which is what
 excludes proper names, abbreviations and contractions without a second guess-filter.
 Lengths 2 through 7 are kept, because the crossword needs
-short words and the word game needs five-letter ones.
+short words and the word game needs six-letter ones.
 
 *Every* dialect, and that is deliberate. With American and pan-English alone, `axe`,
 `grey`, `colour`, `theatre`, `centre`, `favour`, `litre`, `cheque`, `kerb`, `tyre` and
@@ -46,13 +46,13 @@ game, and is right to.
 Accepting a guess is deliberately generous: a player who types a real word and is
 told it is not one blames the game, and is right to.
 
-**Answers** use sizes 10 through 35 at five letters, from
-`english`, `american` only, minus simple plurals (a word ending in *s* whose four-letter
+**Answers** use sizes 10 through 35 at 6 letters, from
+`english`, `american` only, minus simple plurals (a word ending in *s* whose 5-letter
 stem is also a word) and simple past tenses. The answer set stays on one spelling
 convention on purpose: a puzzle whose answer is `colour` is unfair to half its players
-and `color` to the other half, so guesses accept both and answers pick one. That leaves **2,095** familiar words. Choosing an
+and `color` to the other half, so guesses accept both and answers pick one. That leaves **3,258** familiar words. Choosing an
 answer is deliberately conservative: an answer nobody knows is not a puzzle, and
-*asked* and *cakes* are real words but poor ones.
+*walked* and *chairs* are real words but poor ones.
 
 Every answer is also an accepted guess. The generator refuses to write the files
 if that is ever untrue, because a puzzle whose answer the game would reject

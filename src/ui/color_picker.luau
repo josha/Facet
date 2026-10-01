@@ -145,29 +145,32 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 	end
 
 	local function swatch(name: string, edge: Shared.Value<UDim2>, paint: (Use) -> Paint): Frame
-		local cells: { Shared.Child } = {}
-		for index, place in { { 0, 0 }, { 0.5, 0 }, { 0, 0.5 }, { 0.5, 0.5 } } do
-			table.insert(
-				cells,
-				Host.Frame(string.char(64 + index))({
-					Size = D2.fromScale(0.5, 0.5),
-					Position = D2.fromScale(place[1], place[2]),
-					BorderSizePixel = 0,
-					BackgroundColor3 = if index == 1 or index == 4 then LIGHT else DARK,
-				})
-			)
-		end
-		local checker: Shared.FrameNativeProps = {
-			Name = "Checker",
-			Size = D2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Visible = function(use: Use)
-				local p = paint(use)
-				return p.color ~= nil and p.alpha < 1
-			end,
-		}
-		for _, cell in cells do
-			table.insert(checker, cell)
+		local function checkerView(): Frame
+			local cells: { Shared.Child } = {}
+			for index, place in { { 0, 0 }, { 0.5, 0 }, { 0, 0.5 }, { 0.5, 0.5 } } do
+				table.insert(
+					cells,
+					Host.Frame(string.char(64 + index))({
+						Size = D2.fromScale(0.5, 0.5),
+						Position = D2.fromScale(place[1], place[2]),
+						BorderSizePixel = 0,
+						BackgroundColor3 = if index == 1 or index == 4 then LIGHT else DARK,
+					})
+				)
+			end
+			local checker: Shared.FrameNativeProps = {
+				Name = "Checker",
+				Size = D2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Visible = function(use: Use)
+					local p = paint(use)
+					return p.color ~= nil and p.alpha < 1
+				end,
+			}
+			for _, cell in cells do
+				table.insert(checker, cell)
+			end
+			return Host.Frame(checker)
 		end
 		return ctx.styled(
 			Host.Frame(name)({
@@ -175,19 +178,36 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				BackgroundTransparency = 1,
 				ctx.corner() :: Shared.Child,
 				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
-				Host.Frame(checker),
-				Host.Frame "Plate" {
-					Size = D2.fromScale(1, 1),
-					BorderSizePixel = 0,
-					BackgroundColor3 = function(use: Use)
-						return paint(use).color or WHITE
-					end,
-					BackgroundTransparency = function(use: Use)
+				Compose.keyed({
+					from = function(use: Use): { boolean }
 						local p = paint(use)
-						return if p.color == nil then 1 else 1 - p.alpha
+						return { p.color ~= nil and p.alpha < 1 }
 					end,
-					ctx.corner() :: Shared.Child,
-				},
+					render = function(current: ComposeTypes.Readable<boolean>): GuiObject
+						local translucent = current:peek()
+						local props: Shared.FrameNativeProps & Shared.CanvasGroupNativeProps = {
+							Name = "Paint",
+							Size = D2.fromScale(1, 1),
+							BorderSizePixel = 0,
+							BackgroundTransparency = 1,
+							ctx.corner() :: Shared.Child,
+							checkerView(),
+							Host.Frame "Plate" {
+								Size = D2.fromScale(1, 1),
+								BorderSizePixel = 0,
+								BackgroundColor3 = function(use: Use)
+									return paint(use).color or WHITE
+								end,
+								BackgroundTransparency = function(use: Use)
+									local p = paint(use)
+									return if p.color == nil then 1 else 1 - p.alpha
+								end,
+								if translucent then nil else ctx.corner() :: Shared.Child,
+							},
+						}
+						return if translucent then Host.CanvasGroup(props) else Host.Frame(props)
+					end,
+				}),
 				Host.Frame "Empty" {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
@@ -895,32 +915,52 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			})
 			surfaces.attach(plane, {
 				mark,
-				bubble(function(use: Use): Color3
-					return color.toColor(use(canon))
-				end, function(use: Use): boolean
-					return use(dragging)
-				end, {
-					AnchorPoint = V2.new(0.5, 1),
-					Position = function(use: Use)
-						local extent = use(planeSize)
-						if extent.X <= 0 then
-							local c = use(canon)
-							return D2.new(c.s, 0, 1 - c.v, -(RING / 2 + SPACE))
-						end
-						local x, y = spot(use, RING)
-						local above = y - RING / 2 - SPACE
-						local across = math.max(BUBBLE / 2, extent.X - BUBBLE / 2)
-						if above >= BUBBLE then
-							return D2.fromOffset(math.clamp(x, BUBBLE / 2, across), above)
-						end
-						local side = RING / 2 + SPACE + BUBBLE / 2
-						local beside = if x + side + BUBBLE / 2 <= extent.X then x + side else x - side
-						return D2.fromOffset(
-							math.clamp(beside, BUBBLE / 2, across),
-							math.clamp(y + BUBBLE / 2, BUBBLE, math.max(BUBBLE, extent.Y))
-						)
-					end,
-				}),
+				surfaces.overlay(plane, function(use: Use): boolean
+					return touch(use) and use(dragging)
+				end, function(): Frame
+					local layer = assert(surfaces.parent(plane))
+					local at, origin = ctx.observe.AbsolutePosition(plane), ctx.observe.AbsolutePosition(layer)
+					local bounds = ctx.observe.AbsoluteSize(layer)
+					local unit, layerUnit = ctx.layoutUnit(plane), ctx.layoutUnit(layer)
+					local preview = bubble(function(use: Use): Color3
+						return color.toColor(use(canon))
+					end, function(use: Use): boolean
+						return use(dragging)
+					end, {
+						AnchorPoint = V2.new(0.5, 1),
+						ZIndex = 102,
+						Position = function(use: Use)
+							local scale = use(unit)
+							local extent = use(planeSize)
+							local x, y = spot(use, RING * scale)
+							local half = BUBBLE / 2 * scale
+							local offset = use(at) - use(origin)
+							local above = offset.Y + y - (RING / 2 + SPACE) * scale
+							local screen = use(bounds)
+							if screen.Y > 0 and above < BUBBLE * scale then
+								local side = (RING / 2 + SPACE + BUBBLE / 2) * scale
+								local across = offset.X + x
+								local beside = if across + side + half <= screen.X then across + side else across - side
+								return D2.fromOffset(
+									math.clamp(beside, half, math.max(half, screen.X - half)) / use(layerUnit),
+									math.clamp(offset.Y + y + half, 2 * half, math.max(2 * half, screen.Y))
+										/ use(layerUnit)
+								)
+							end
+							return D2.fromOffset(
+								(offset.X + math.clamp(x, half, math.max(half, extent.X - half))) / use(layerUnit),
+								above / use(layerUnit)
+							)
+						end,
+					})
+					return surfaces.attach(preview, {
+						Host.UIScale({
+							Scale = function(use: Use): number
+								return use(unit) / use(layerUnit)
+							end,
+						}),
+					})
+				end),
 			})
 			local function planeSelected(use: Use?): boolean
 				return (read(selected, use) :: Instance?) == (surface :: Instance)

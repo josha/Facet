@@ -693,7 +693,7 @@ t.describe("native parity weaker menus", function()
 		end)).toBeNil()
 	end)
 
-	t.it("collapses four long labels off the segmented strip below 360 pixels with no environment wiring", function()
+	t.it("collapses four long labels off the segmented strip when their measured width does not fit", function()
 		local long = {
 			{ value = "a", label = "Screen-anchored heads-up display" },
 			{ value = "b", label = "Billboard following a world object" },
@@ -709,6 +709,8 @@ t.describe("native parity weaker menus", function()
 		local Enum = world.engine.types.Enum
 		world.input.PreferredInput = Enum.PreferredInput.Gamepad
 		local narrow, wide = find(world.root, "Narrow"), find(world.root, "Wide")
+		find(narrow, "LabelMeasure").TextBounds = V2(world, 960, 18)
+		find(wide, "LabelMeasure").TextBounds = V2(world, 960, 18)
 		narrow.AbsoluteSize = V2(world, 300, 44)
 		wide.AbsoluteSize = V2(world, 1400, 44)
 		local function presentation(node: any): any
@@ -721,7 +723,7 @@ t.describe("native parity weaker menus", function()
 		world.input.PreferredInput = Enum.PreferredInput.Touch
 		t.expect(find(presentation(narrow), "Trigger") ~= nil).toBe(true)
 		t.expect(presentation(wide):HasTag("facet-segmented")).toBe(true)
-		narrow.AbsoluteSize = V2(world, 360, 44)
+		narrow.AbsoluteSize = V2(world, 1200, 44)
 		t.expect(presentation(narrow):HasTag("facet-segmented")).toBe(true)
 		world.stop()
 	end)

@@ -686,6 +686,8 @@ t.describe("native ColorPicker well and panel", function()
 			expect(four.find("Modes/brick") ~= nil).toBe(true)
 			four.size(four.find("Modes"), 300, 44)
 			expect(four.find("Modes") ~= nil).toBe(true)
+			expect(four.find("Modes/brick") ~= nil).toBe(true)
+			four.find("Modes/LabelMeasure").TextBounds = V2(220, 18)
 			expect(four.find("Modes/brick")).toBeNil()
 			four.stop()
 			local tv = world(
@@ -836,38 +838,42 @@ t.describe("native ColorPicker spectrum plane", function()
 		local w, cell = spectrum({ preferred = E.PreferredInput.Touch })
 		expect(w.find("Readout").LayoutOrder < w.find("Body").LayoutOrder).toBe(true)
 		expect(w.find("Body"):IsA("ScrollingFrame") and w.find("Body").Size.X.Scale == 1).toBe(true)
-		local bubble = w.find("Plane/Bubble")
-		expect(bubble.Visible).toBe(false)
+		expect(w.screen:FindFirstChild("Bubble")).toBe(nil)
 		local drag = w.find("Plane/Surface"):FindFirstChildWhichIsA("UIDragDetector")
 		drag.DragStart.fire(V2(100, 88))
 		drag.DragContinue.fire(V2(120, 106))
+		local bubble = w.screen:FindFirstChild("Bubble")
 		expect(bubble.Visible).toBe(true)
+		expect(bubble.Parent).toBe(w.screen)
+		expect(bubble.ZIndex > w.find("Plane/Surface").ZIndex).toBe(true)
 		expect(bubble.AnchorPoint.Y).toBe(1)
 		expect(bubble.Position.Y.Offset < 106).toBe(true)
 		expect(`{bubble.Position.X.Offset},{bubble.Position.Y.Offset}`).toBe("120,88")
 		expect(hex(bubble.BackgroundColor3)).toBe(hex(cell:peek()))
 		drag.DragContinue.fire(V2(100, 20))
-		expect(bubble.Position.Y.Offset - 44 >= 0).toBe(true)
-		expect(bubble.Position.X.Offset - 22 > 100 or bubble.Position.X.Offset + 22 < 100).toBe(true)
+		expect(`{bubble.Position.X.Offset},{bubble.Position.Y.Offset}`).toBe("100,2")
+		expect(bubble.Position.Y.Offset - 44 < 0).toBe(true)
 		drag.DragEnd.fire()
-		expect(bubble.Visible).toBe(false)
+		expect(w.screen:FindFirstChild("Bubble")).toBe(nil)
 		drag.DragStart.fire(V2(5, 170))
-		expect(bubble.Visible).toBe(true)
+		expect(w.screen:FindFirstChild("Bubble").Visible).toBe(true)
 		drag.DragEnd.fire()
 		for _, point in { V2(0, 0), V2(40, 12), V2(100, 30), V2(160, 20), V2(200, 0), V2(200, 176), V2(0, 176) } do
 			drag.DragStart.fire(point)
+			bubble = w.screen:FindFirstChild("Bubble")
 			local left = bubble.Position.X.Offset - 22
 			local top = bubble.Position.Y.Offset - 44
-			local inside = left >= 0 and top >= 0 and left + 44 <= 200 and top + 44 <= 176
+			local inside = left >= 0 and left + 44 <= 200
 			local ring = w.find("Plane/Ring")
 			local rx, ry = ring.Position.X.Offset, ring.Position.Y.Offset
 			local covers = rx > left - 10 and rx < left + 54 and ry > top - 10 and ry < top + 54
 			expect(`{point} {inside} {covers}`).toBe(`{point} true false`)
+			expect(bubble.Position.Y.Offset + 8 <= ry - 10 + 1).toBe(true)
 			drag.DragEnd.fire()
 		end
 		drag.DragStart.fire(V2(5, 170))
 		w.input.PreferredInput = E.PreferredInput.Gamepad
-		expect(bubble.Visible).toBe(false)
+		expect(w.screen:FindFirstChild("Bubble")).toBe(nil)
 		w.stop()
 		local h = spectrum({ preferred = E.PreferredInput.Touch })
 		local hueSlider = h.find("Spectrum"):FindFirstChild("Hue")
@@ -887,11 +893,68 @@ t.describe("native ColorPicker spectrum plane", function()
 		local p = spectrum()
 		local pointerDrag = p.find("Plane/Surface"):FindFirstChildWhichIsA("UIDragDetector")
 		pointerDrag.DragStart.fire(V2(10, 10))
-		expect(p.find("Plane/Bubble").Visible).toBe(false)
+		expect(p.screen:FindFirstChild("Bubble")).toBe(nil)
 		expect(p.find("Readout").LayoutOrder > p.find("Technique").LayoutOrder).toBe(true)
 		pointerDrag.DragEnd.fire()
 		p.stop()
 	end)
+
+	t.it(
+		"the touch bubble follows screen geometry and scaling outside clipped ancestors, and leaves with its owner",
+		function()
+			local E = Roblox.Enum
+			local w = spectrum({ preferred = E.PreferredInput.Touch })
+			local plane = w.find("Plane")
+			w.find("Body").ClipsDescendants = true
+			w.find("Panel").ClipsDescendants = true
+			w.size(w.screen, 600, 600, 10, 20)
+			w.size(plane, 400, 352, 60, 120)
+			w.size(w.find("Plane/Surface"), 400, 352, 60, 120)
+			local drag = w.find("Plane/Surface"):FindFirstChildWhichIsA("UIDragDetector")
+			drag.DragStart.fire(V2(260, 180))
+			local bubble = w.screen:FindFirstChild("Bubble")
+			w.size(plane:FindFirstChild("LayoutUnit"), 200, 2)
+			w.size(w.screen:FindFirstChild("LayoutUnit"), 100, 1)
+			expect(bubble.Parent).toBe(w.screen)
+			expect(bubble:FindFirstChildWhichIsA("UIScale").Scale).toBe(2)
+			expect(`{bubble.Position.X.Offset},{bubble.Position.Y.Offset}`).toBe("250,124")
+			w.size(plane, 400, 352, 80, 90)
+			expect(`{bubble.Position.X.Offset},{bubble.Position.Y.Offset}`).toBe("270,94")
+			w.size(w.screen:FindFirstChild("LayoutUnit"), 50, 1)
+			expect(bubble:FindFirstChildWhichIsA("UIScale").Scale).toBe(4)
+			expect(`{bubble.Position.X.Offset},{bubble.Position.Y.Offset}`).toBe("540,188")
+			w.stop()
+			expect(bubble.Parent).toBe(nil)
+		end
+	)
+
+	t.it(
+		"the touch bubble goes beside the finger only when the screen has no room above, and stays within its edges",
+		function()
+			local w = spectrum({ preferred = Roblox.Enum.PreferredInput.Touch })
+			w.size(w.screen, 200, 300)
+			local plane = w.find("Plane")
+			local surface = w.find("Plane/Surface")
+			w.size(plane, 200, 176, 0, 100)
+			w.size(surface, 200, 176, 0, 100)
+			local drag = surface:FindFirstChildWhichIsA("UIDragDetector")
+			drag.DragStart.fire(V2(100, 100))
+			local bubble = w.screen:FindFirstChild("Bubble")
+			expect(`{bubble.Position.X.Offset},{bubble.Position.Y.Offset}`).toBe("100,92")
+			w.size(plane, 200, 176)
+			w.size(surface, 200, 176)
+			for _, point in { V2(0, 0), V2(100, 0), V2(200, 0) } do
+				drag.DragContinue.fire(point)
+				local left, top = bubble.Position.X.Offset - 22, bubble.Position.Y.Offset - 44
+				expect(left >= 0 and top >= 0 and left + 44 <= 200).toBe(true)
+				local ring = w.find("Plane/Ring")
+				expect(math.abs(bubble.Position.X.Offset - ring.Position.X.Offset) >= 40).toBe(true)
+			end
+			drag.DragEnd.fire()
+			expect(w.screen:FindFirstChild("Bubble")).toBe(nil)
+			w.stop()
+		end
+	)
 
 	t.it("the right stick steers the plane only while it holds focus, and a live hint says so", function()
 		local probe = world({ value = Compose.cell(Color3.new(1, 0, 0)), onChange = function() end })
@@ -1014,12 +1077,25 @@ t.describe("native ColorPicker alpha, empty, disabled and refusals", function()
 		expect(w.find("Well/Swatch/Checker").Visible).toBe(true)
 		expect(w.find("Well/Swatch/Plate").BackgroundTransparency).toBeCloseTo(0.5)
 		w.open()
+		for _, swatch in { w.find("Well/Swatch"), w.find("Readout/Head/Preview") } do
+			local paint = swatch:FindFirstChild("Paint")
+			expect(paint:IsA("CanvasGroup")).toBe(true)
+			expect(paint:FindFirstChildWhichIsA("UICorner") ~= nil).toBe(true)
+			expect(paint:FindFirstChild("Checker") ~= nil).toBe(true)
+			expect(paint:FindFirstChild("Plate") ~= nil).toBe(true)
+		end
 		local track = w.find("Opacity/Track")
 		expect(track:GetAttribute("AccessibleLabel")).toBe("Opacity")
 		w.gui.SelectedObject = w.find("Opacity")
 		w.press("IncreaseArrow", 60)
 		expect(a:peek()).toBe(1)
+		expect(w.find("Well/Swatch/Paint"):IsA("Frame")).toBe(true)
+		expect(w.find("Well/Swatch/Paint"):IsA("CanvasGroup")).toBe(false)
 		expect(w.find("Well/Swatch/Checker").Visible).toBe(false)
+		a:set(0.5)
+		expect(w.find("Well/Swatch/Paint"):IsA("CanvasGroup")).toBe(true)
+		expect(#w.find("Well/Swatch/Checker"):GetChildren()).toBe(4)
+		a:set(1)
 		expect(w.find("Well/Value").Text).toBe("#FF0000")
 		w.find("Format/hex").Activated.fire()
 		expect(w.find("FieldHex/Field").Text).toBe("#FF0000FF")
@@ -1323,6 +1399,30 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 						)
 					end
 				end
+			end
+		end
+		w.stop()
+	end)
+
+	t.it("the checker and color share one clipping edge at the preview's themed corner radius", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w =
+			world({ value = cell, onChange = change, style = "inline", alpha = 0.5, onAlphaChange = function() end })
+		local preview = w.find("Readout/Head/Preview")
+		local paint = preview:FindFirstChild("Paint")
+		local checker, plate = paint:FindFirstChild("Checker"), paint:FindFirstChild("Plate")
+		expect(paint:IsA("CanvasGroup")).toBe(true)
+		expect(checker.Visible).toBe(true)
+		expect(checker:FindFirstChildWhichIsA("UICorner")).toBeNil()
+		expect(plate:FindFirstChildWhichIsA("UICorner")).toBeNil()
+		for name, package in packages() do
+			local sheet = sheetFor(w, package)
+			for _, node in { paint, preview } do
+				local corner = node:FindFirstChildWhichIsA("UICorner")
+				local radius = styleRules.resolve(sheet, corner, "CornerRadius")
+				expect(`{name} {node.Name} {if radius then radius.Offset else "none"}`).toBe(
+					`{name} {node.Name} {package.metrics.radii.control}`
+				)
 			end
 		end
 		w.stop()

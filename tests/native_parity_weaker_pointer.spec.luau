@@ -1461,9 +1461,12 @@ t.describe("adaptive environment strength", function()
 			{ 2, false, 400, "KeyboardAndMouse", "segmented" },
 			{ 2, false, 400, "Touch", "segmented" },
 			{ 2, false, 400, "Gamepad", "segmented" },
-			{ 2, false, 240, "KeyboardAndMouse", "menu" },
-			{ 2, false, 240, "Touch", "menu" },
-			{ 2, false, 240, "Gamepad", "inline" },
+			{ 2, false, 240, "KeyboardAndMouse", "segmented" },
+			{ 2, false, 240, "Touch", "segmented" },
+			{ 2, false, 240, "Gamepad", "segmented" },
+			{ 2, false, 80, "KeyboardAndMouse", "menu" },
+			{ 2, false, 80, "Touch", "menu" },
+			{ 2, false, 80, "Gamepad", "inline" },
 			{ 5, false, 400, "KeyboardAndMouse", "menu" },
 			{ 5, false, 400, "Touch", "menu" },
 			{ 5, false, 400, "Gamepad", "inline" },
@@ -1476,6 +1479,7 @@ t.describe("adaptive environment strength", function()
 			local world = setup(function(UI)
 				return UI.Picker({ selected = selected, options = options(case[1], case[2]) })
 			end, { preferredInput = case[4] })
+			find(world.node, "LabelMeasure").TextBounds = V2(world, case[1] * 60, 18)
 			world.node.AbsoluteSize = V2(world, case[3], 44)
 			local presented = find(world.node, "Presentation")
 			local trigger = find(world.node, "Trigger")

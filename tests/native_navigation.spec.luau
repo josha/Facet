@@ -39,6 +39,7 @@ local function setup(build, options)
 		services = { GuiService = gui, UserInputService = input },
 		theme = options and options.theme,
 		pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
+		motionLevel = options and options.motionLevel,
 	})
 	local target = engine.new("Folder")
 	local stop, screen = runtime.mount(function()
@@ -1901,7 +1902,8 @@ t.describe("native navigation controls", function()
 		t.expect(segments:FindFirstChildWhichIsA("UIListLayout").FillDirection)
 			.toBe(world.engine.types.Enum.FillDirection.Vertical)
 
-		find(world.screen, "Auto").AbsoluteSize = world.engine.types.Vector2.new(240, 44)
+		find(automatic, "LabelMeasure").TextBounds = world.engine.types.Vector2.new(100, 18)
+		automatic.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
 		t.expect(find(find(world.screen, "Auto"), "Trigger") ~= nil).toBe(true)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
@@ -3093,6 +3095,83 @@ t.describe("native navigation controls", function()
 		t.expect(outer:peek()).toBe(false)
 		world.stop()
 	end)
+	t.it("keeps the navigation handoff out of neighbouring scroll panes", function()
+		for _, mode in { "normal", "limited", "none", "false", "custom" } do
+			local path = Compose.cell({})
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.ScrollView "Neighbour" { UI.Button "Outside" { label = "Outside" } },
+					UI.NavigationStack({
+						path = path,
+						transition = if mode == "false"
+							then false
+							elseif mode == "custom" then { seconds = 0.2 }
+							else nil,
+						root = {
+							content = function()
+								return UI.VStack {
+									UI.Button "RootAction" { label = "Root" },
+									UI.Button "RootNext" { label = "Next" },
+								}
+							end,
+						},
+						destinations = {
+							detail = {
+								content = function()
+									return UI.Button "DetailAction" { label = "Detail" }
+								end,
+							},
+						},
+					}),
+				})
+			end, { motionLevel = if mode == "none" then "none" else "normal" })
+			if mode == "limited" then
+				world.gui.ReducedMotionEnabled = true
+			end
+			local stack = find(world.screen, "NavigationStack")
+			local root = find(stack, "@root")
+			local original = find(root, "RootAction")
+			world.gui.SelectedObject = original
+			local outside, inactive = 0, 0
+			local selection = world.gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+				local selected = world.gui.SelectedObject
+				if selected and selected:IsDescendantOf(find(world.screen, "Neighbour")) then
+					outside += 1
+				end
+			end)
+			local function watch(panel)
+				return panel:GetPropertyChangedSignal("Interactable"):Connect(function()
+					local selected = world.gui.SelectedObject
+					if not panel.Interactable and selected and selected:IsDescendantOf(panel) then
+						inactive += 1
+					end
+				end)
+			end
+			local rootWatch = watch(root)
+			path:set({ { id = "detail" } })
+			world.settle()
+			local detail = find(stack, "detail")
+			t.expect(world.gui.SelectedObject:IsDescendantOf(detail)).toBe(true)
+			local detailWatch = watch(detail)
+			path:set({})
+			world.settle()
+			t.expect(world.gui.SelectedObject).toBe(original)
+			path:set({ { id = "detail" } })
+			world.engine.heartbeat.fire(1 / 60)
+			path:set({})
+			world.settle()
+			t.expect(world.gui.SelectedObject).toBe(original)
+			original.Visible = false
+			t.expect(world.gui.SelectedObject).toBe(find(root, "RootNext"))
+			t.expect(outside).toBe(0)
+			t.expect(inactive).toBe(0)
+			selection:Disconnect()
+			rootWatch:Disconnect()
+			detailWatch:Disconnect()
+			world.stop()
+		end
+	end)
+
 	t.it("slides pages with parallax and restores selection after push and pop settle", function()
 		local path = Compose.cell({})
 		local world = setup(function(UI)

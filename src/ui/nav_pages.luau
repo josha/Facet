@@ -1370,12 +1370,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return accepted
 		end)
 		local leaving: ComposeTypes.Cell<Nav.NavigationEntry<P>?> = Compose.cell(nil :: Nav.NavigationEntry<P>?)
+		local root: Frame
+		local handoff = false
 		local shownList = entries:peek()
 		Compose.watch(function(use: ComposeTypes.Use)
 			local list = use(entries)
 			local former = shownList
 			shownList = list
 			local top = former[#former]
+			if top ~= list[#list] and gui and root and surfaces.within(gui.SelectedObject, root) then
+				handoff = true
+				root:SetAttribute("FacetSelectionOwner", true)
+				gui.SelectedObject = nil
+			end
 			local departing = leaving:peek()
 			if table.find(list, top) == nil and animated and not reduce() then
 				leaving:set(top)
@@ -1395,7 +1402,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end)
 		local offsets: ComposeTypes.Cell<{ [Nav.NavigationEntry<P>]: (ComposeTypes.Use?) -> number }> = Compose.cell({})
 		local stackReady = false
-		local handoff = false
 		local function pop()
 			local path = table.clone(spec.path:peek())
 			if #path > 0 then
@@ -1408,7 +1414,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local measure = use(offsets)[list[#list]]
 			return if measure then measure(use) else 0
 		end
-		local root: Frame
 		local backdrop: ComposeTypes.Cell<Color3?> = Compose.cell(nil :: Color3?)
 		local moving = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return frontOffset(use) > 0 or use(leaving) ~= nil
@@ -1642,6 +1647,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 						if gui and surfaces.within(gui.SelectedObject, panel) then
 							handoff = true
+							root:SetAttribute("FacetSelectionOwner", true)
 							gui.SelectedObject = nil
 						end
 						if use(role) == "exiting" and offset(use) >= 1 and leaving:peek() == entry then
@@ -1649,6 +1655,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 					local visible, parent = ctx.observe.Visible(panel), ctx.observe.Parent(panel)
+					local interactable = ctx.observe.Interactable(panel)
 					local remembered: GuiObject?
 					local rememberedPath: { string } = {}
 					local previousTop: boolean?
@@ -1677,7 +1684,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
-						if top and use(moving) then
+						if top and (use(moving) or not use(visible) or not use(interactable)) then
 							return
 						end
 						if not use(parent) then
@@ -1700,6 +1707,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 									and back.Interactable
 								then back
 								else surfaces.firstSelectable(panel)
+							root:SetAttribute("FacetSelectionOwner", false)
 						end
 						previousTop = top
 					end)

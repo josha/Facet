@@ -30,7 +30,7 @@ local demos = {
 	{
 		id = "arcade",
 		title = "Arcade",
-		blurb = "Word Game, Crossword, Match 3 and the Outpost power puzzle",
+		blurb = "Word Guess, Crossword, Match 3 and the Outpost power puzzle",
 		kind = "example",
 		module = "13_arcade",
 	},
@@ -64,7 +64,7 @@ function catalogue.boot(demo, scenario, example)
 	end
 	local name = if type(example) == "number" then EXAMPLES[example] else nil
 	if name then
-		return name, { id = name, title = name, kind = "example", module = name }
+		return name, { id = name, title = if example == 5 then "Word Guess" else name, kind = "example", module = name }
 	end
 	return demo or "garage", nil
 end

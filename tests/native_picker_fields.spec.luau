@@ -274,6 +274,7 @@ t.describe("native Picker menu rows", function()
 				{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" },
 			},
 		})
+		find(w.screen, "LabelMeasure").TextBounds = w.engine.types.Vector2.new(190, 18)
 		find(w.screen, "P").AbsoluteSize = w.engine.types.Vector2.new(200, 44)
 		open(w)
 		expect(find(find(find(w.screen, "normal"), "Accessories"), "Count").Text).toBe("3")
@@ -311,6 +312,7 @@ t.describe("native Picker segmented vocabulary and the radio mark", function()
 
 	t.it("an automatic picker keeps its appearance intent across a live family switch", function()
 		local w = world({ appearance = "contrast" }, "KeyboardAndMouse")
+		find(w.screen, "LabelMeasure").TextBounds = w.engine.types.Vector2.new(190, 18)
 		find(w.screen, "P").AbsoluteSize = w.engine.types.Vector2.new(200, 44)
 		local presentation = find(w.screen, "Presentation")
 		local trigger = find(presentation, "Trigger")
@@ -320,6 +322,36 @@ t.describe("native Picker segmented vocabulary and the radio mark", function()
 		expect(strip:HasTag("facet-segmented-stroke")).toBe(true)
 		w.stop()
 	end)
+
+	t.it(
+		"automatic modes use segments on a phone when the measured labels fit and keep selection through fallback",
+		function()
+			local w = world({
+				options = {
+					{ value = "swatches", label = "Swatches" },
+					{ value = "spectrum", label = "Spectrum" },
+					{ value = "sliders", label = "Sliders" },
+					{ value = "brick", label = "Bricks" },
+				},
+				selected = Compose.cell("swatches"),
+			}, "Touch")
+			local picker, measure = find(w.screen, "P"), find(w.screen, "LabelMeasure")
+			measure.TextBounds = w.engine.types.Vector2.new(220, 18)
+			picker.AbsoluteSize = w.engine.types.Vector2.new(341, 44)
+			expect(find(w.screen, "Presentation"):HasTag("facet-segmented")).toBe(true)
+			find(w.screen, "spectrum").Activated.fire()
+			expect(w.selected:peek()).toBe("spectrum")
+			picker.AbsoluteSize = w.engine.types.Vector2.new(330, 44)
+			expect(find(w.screen, "Trigger").Text).toBe("Spectrum")
+			picker.AbsoluteSize = w.engine.types.Vector2.new(341, 44)
+			measure.TextBounds = w.engine.types.Vector2.new(300, 24)
+			expect(find(w.screen, "Trigger").Text).toBe("Spectrum")
+			measure.TextBounds = w.engine.types.Vector2.new(220, 18)
+			expect(find(w.screen, "Presentation"):HasTag("facet-segmented")).toBe(true)
+			expect(w.selected:peek()).toBe("spectrum")
+			w.stop()
+		end
+	)
 
 	t.it("corners reach the strip, and a rung shrinks the segments", function()
 		local pill = world({ style = "segmented", corners = "pill" })

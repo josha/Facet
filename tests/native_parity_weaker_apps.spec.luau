@@ -538,40 +538,40 @@ t.describe("Cartwheel", function()
 		w.stop()
 	end)
 
-	t.it(
-		"apps-51 resolves the unwired timeframe picker as a menu on touch and pointer and a strip on gamepad",
-		function()
-			local w = world(cartwheel)
-			local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
-			local picker = assert(within(pages(w), "dashboard", "Timeframe"))
-			t.expect(find(picker, "Trigger")).toBeNil()
-			t.expect(find(picker, "week") ~= nil).toBe(true)
-			picker.AbsoluteSize = V2.new(300, 44)
-			w.input.PreferredInput = E.PreferredInput.Touch
-			t.expect(find(picker, "Trigger") ~= nil).toBe(true)
-			t.expect(find(picker, "week")).toBeNil()
-			pick(w, picker, "month")
-			local top = statsLine(w, "month")
-			t.expect(texts(assert(within(pages(w), "dashboard", "TopFive")))[1]).toBe(top)
-			w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
-			t.expect(find(picker, "Trigger") ~= nil).toBe(true)
-			t.expect(find(picker, "Trigger").Text).toBe("Month")
-			w.input.PreferredInput = E.PreferredInput.Gamepad
-			t.expect(find(picker, "Trigger")).toBeNil()
-			local week = assert(find(picker, "week"))
-			t.expect(find(picker, "month") ~= nil).toBe(true)
-			t.expect(within(pages(w), "dashboard", "Timeframe")).toBe(picker)
-			t.expect(texts(assert(within(pages(w), "dashboard", "TopFive")))[1]).toBe(top)
-			week.Activated.fire()
-			t.expect(texts(assert(within(pages(w), "dashboard", "TopFive")))[1]).toBe(statsLine(w, "week"))
-			w.input.PreferredInput = E.PreferredInput.Touch
-			t.expect(find(picker, "Trigger").Text).toBe("Week")
-			picker.AbsoluteSize = V2.new(600, 44)
-			t.expect(find(picker, "Trigger")).toBeNil()
-			t.expect(find(picker, "week") ~= nil).toBe(true)
-			w.stop()
-		end
-	)
+	t.it("apps-51 uses fitting timeframe segments and falls back to a menu or rows without losing selection", function()
+		local w = world(cartwheel)
+		local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
+		local picker = assert(within(pages(w), "dashboard", "Timeframe"))
+		t.expect(find(picker, "Trigger")).toBeNil()
+		t.expect(find(picker, "week") ~= nil).toBe(true)
+		picker.AbsoluteSize = V2.new(300, 44)
+		w.input.PreferredInput = E.PreferredInput.Touch
+		t.expect(find(picker, "Presentation"):HasTag("facet-segmented")).toBe(true)
+		find(picker, "LabelMeasure").TextBounds = V2.new(120, 18)
+		picker.AbsoluteSize = V2.new(120, 44)
+		t.expect(find(picker, "Trigger") ~= nil).toBe(true)
+		t.expect(find(picker, "week")).toBeNil()
+		pick(w, picker, "month")
+		local top = statsLine(w, "month")
+		t.expect(texts(assert(within(pages(w), "dashboard", "TopFive")))[1]).toBe(top)
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(find(picker, "Trigger") ~= nil).toBe(true)
+		t.expect(find(picker, "Trigger").Text).toBe("Month")
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		t.expect(find(picker, "Trigger")).toBeNil()
+		local week = assert(find(picker, "week"))
+		t.expect(find(picker, "month") ~= nil).toBe(true)
+		t.expect(within(pages(w), "dashboard", "Timeframe")).toBe(picker)
+		t.expect(texts(assert(within(pages(w), "dashboard", "TopFive")))[1]).toBe(top)
+		week.Activated.fire()
+		t.expect(texts(assert(within(pages(w), "dashboard", "TopFive")))[1]).toBe(statsLine(w, "week"))
+		w.input.PreferredInput = E.PreferredInput.Touch
+		t.expect(find(picker, "Trigger").Text).toBe("Week")
+		picker.AbsoluteSize = V2.new(600, 44)
+		t.expect(find(picker, "Trigger")).toBeNil()
+		t.expect(find(picker, "week") ~= nil).toBe(true)
+		w.stop()
+	end)
 end)
 
 t.describe("Sipworks", function()

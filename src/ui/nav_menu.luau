@@ -2087,7 +2087,7 @@ return function(
 					end
 				end
 				local needed = use(labelBounds).X + count * 24 + math.max(0, count - 1) * 4 + 6
-				if count <= 4 and not described and (available == 0 or (available >= 360 and needed <= available)) then
+				if count <= 4 and not described and (available == 0 or needed <= available) then
 					return "segmented"
 				end
 				local kind = use(preferred)
