@@ -156,3 +156,47 @@ one was deferred. Of 74 producers, 72 passed; the performance gate and its
 evidence check reported host timing failures. A separate benchmark run passed.
 Library package build and status completed. The local Studio plugin and
 companion place were rebuilt. No library or experience was published.
+
+## Shared drag preview and help fixes, 2026-10-01
+
+Facet collection feedback now raises the entire cloned row above the list.
+The selection badge and keyboard Drop button stay above that preview. Native
+Studio rendering retained the Preferences row background, text, and 300 by 52
+pixel bounds under both Sibling and Global ZIndexBehavior. The preview's lowest
+child ZIndex was 1002; the feedback root was 1000 and Drop was 1004.
+
+Help waits for 0.45 seconds without pointer motion and without a held mouse
+button. Native GUI events and UserInputService events share the same state, so
+moving from one row to another during a plugin drag cannot start another help
+timer. Losing window focus hides help. Overlay portals carry the nearest
+StyleLink, preserving a theme scoped below the LayerCollector. A native Studio
+check rendered the rounded bubble and arrow with BorderSizePixel=0 and no
+outer rectangle. Changing the source StyleSheet updates its overlay link.
+
+Roblox Instance.Clone, GuiObject.ZIndex, Path2D.ZIndex, StyleLink, GuiObject input
+events, UserInputService, and PluginGui focus events provide the engine behavior.
+Compose portal, property observation, createSharedResource, and cleanup provide
+placement and lifetime ownership. Facet supplies the idle delay and collection
+feedback order; no new general runtime mechanism is needed.
+
+The focused checks passed: 89 collection cases, 34 callout/help cases, seven
+motion policy cases, and analysis of both changed source files. Native preview
+activation used the existing Facet activation callback. Desktop automation
+returned windowNotFoundAtPosition when attempting a physical drag; actual mouse
+drag verification of this revision remains open. The temporary Studio fixture
+was removed after the rendering checks.
+
+Final full verification ran against c870895b with these edits: 3,613 tests
+passed, none failed, and one was deferred. Of 74 producers, 66 passed. Five
+legacy brand/API scans failed on RascalRally files or cached logs outside this
+change. The capture check found six older performance captures with obsolete
+scenario versions. The performance gate and its evidence check reported three
+host timing violations. These broader failures leave the full command red.
+The separate benchmark passed. Package build, status, tree verification,
+canary, and purity checks passed. Empty legacy source directories were removed
+because Rojo included them as unwanted package folders.
+
+The designer plugin and companion place were rebuilt. The installed local
+Facet-Design-PR52.rbxm matches the new plugin build. Restart Studio to load it.
+The previous local plugin is backed up at
+/tmp/Facet-Design-PR52-before-drag-fix.rbxm. No package or experience was published.

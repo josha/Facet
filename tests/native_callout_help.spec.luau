@@ -874,3 +874,105 @@ t.describe("touch contextual text placement", function()
 		w.stop()
 	end)
 end)
+
+t.describe("help while using the pointer", function()
+	t.it("waits for idle movement and all mouse buttons to be released, even over another row", function()
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame {
+				UI.Button "First" { label = "First", help = "First help" },
+				UI.Button "Second" { label = "Second", help = "Second help" },
+			}
+		end, { motionLevel = "none" })
+		local E = w.Enum
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		w.find("First").GuiState = E.GuiState.Hover
+		w.advance(0.3)
+		for _ = 1, 4 do
+			w.input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement })
+			w.advance(0.3)
+			t.expect(w.find("Help")).toBeNil()
+		end
+		w.advance(0.2)
+		t.expect(w.find("HelpText").Text).toBe("First help")
+		w.input.InputChanged.fire({ UserInputType = E.UserInputType.MouseWheel })
+		t.expect(w.find("Help")).toBeNil()
+		w.input.InputBegan.fire({ UserInputType = E.UserInputType.MouseButton1 })
+		w.find("First").GuiState = E.GuiState.Idle
+		w.find("Second").GuiState = E.GuiState.Hover
+		w.advance(1)
+		t.expect(w.find("Help")).toBeNil()
+		w.input.InputBegan.fire({ UserInputType = E.UserInputType.MouseButton2 })
+		w.input.InputEnded.fire({ UserInputType = E.UserInputType.MouseButton1 })
+		w.advance(1)
+		t.expect(w.find("Help")).toBeNil()
+		w.input.InputEnded.fire({ UserInputType = E.UserInputType.MouseButton2 })
+		w.advance(0.3)
+		t.expect(w.find("Help")).toBeNil()
+		w.advance(0.2)
+		t.expect(w.find("HelpText").Text).toBe("Second help")
+		w.stop()
+		t.expect(w.input.InputChanged.count()).toBe(0)
+	end)
+
+	t.it("shares native GUI mouse activity when plugin input bypasses UserInputService", function()
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame {
+				UI.Button "First" { label = "First", help = "First help" },
+				UI.Button "Second" { label = "Second", help = "Second help" },
+			}
+		end, { motionLevel = "none" })
+		local first, second, E = w.find("First"), w.find("Second"), w.Enum
+		first.GuiState = E.GuiState.Hover
+		for _ = 1, 4 do
+			first.MouseMoved.fire(10, 10)
+			w.advance(0.3)
+			t.expect(w.find("Help")).toBeNil()
+		end
+		local button = { UserInputType = E.UserInputType.MouseButton1 }
+		first.InputBegan.fire(button)
+		first.GuiState = E.GuiState.Idle
+		second.GuiState = E.GuiState.Hover
+		w.advance(1)
+		t.expect(w.find("Help")).toBeNil()
+		first.InputEnded.fire(button)
+		w.advance(0.5)
+		t.expect(w.find("HelpText").Text).toBe("Second help")
+		w.input.WindowFocusReleased.fire()
+		w.advance(1)
+		t.expect(w.find("Help")).toBeNil()
+		w.input.WindowFocused.fire()
+		w.advance(0.3)
+		t.expect(w.find("Help")).toBeNil()
+		w.advance(0.2)
+		t.expect(w.find("HelpText").Text).toBe("Second help")
+		w.stop()
+		t.expect(w.input.InputChanged.count()).toBe(0)
+	end)
+
+	t.it("carries a nested stylesheet to its overlay without restyling sibling content", function()
+		local sheet, link
+		local w = overlay.new(function(UI, Host)
+			sheet = Host.StyleSheet {}
+			link = Host.StyleLink { StyleSheet = Compose.static(sheet) }
+			return Host.Frame {
+				sheet,
+				link,
+				UI.Button "Styled" { label = "Styled", help = "Styled help" },
+			}
+		end, { motionLevel = "none" })
+		w.gui.SelectedObject = w.find("Styled")
+		w.advance(0.5)
+		local panel = w.find("Help")
+		local inherited = panel.Parent:FindFirstChildWhichIsA("StyleLink")
+		t.expect(inherited ~= nil).toBe(true)
+		t.expect(inherited.StyleSheet).toBe(sheet)
+		t.expect(w.screen:FindFirstChildWhichIsA("StyleLink")).toBeNil()
+		local replacement = w.engine.new("StyleSheet")
+		link.StyleSheet = replacement
+		t.expect(inherited.StyleSheet).toBe(replacement)
+		w.gui.SelectedObject = nil
+		t.expect(inherited.isDestroyed()).toBe(true)
+		t.expect(sheet.isDestroyed()).toBe(false)
+		w.stop()
+	end)
+end)

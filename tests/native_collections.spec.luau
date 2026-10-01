@@ -2474,6 +2474,11 @@ t.describe("Compose native collections", function()
 		handle = body:FindFirstChild("1", true):FindFirstChild("Move", true)
 		handle.Activated.fire()
 		t.expect(gui.SelectedObject.Name).toBe("Drop")
+		for _, part in node:FindFirstChild("DragImage", true):GetDescendants() do
+			if part:IsA("GuiObject") or part:IsA("Path2D") then
+				t.expect(gui.SelectedObject.ZIndex > part.ZIndex).toBe(true)
+			end
+		end
 		local action = target:FindFirstChild("FacetReorderDown"):FindFirstChild("ReorderDown")
 		for _ = 1, 25 do
 			action.Pressed.fire()
@@ -3189,6 +3194,21 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 				Position = V2.new(10, 150),
 			})
 			t.expect(w.node:FindFirstChild("DropLine", true) ~= nil).toBe(true)
+			local image = w.node:FindFirstChild("DragImage", true)
+			local copy = image:FindFirstChild("Reorderable")
+			t.expect(copy ~= nil).toBe(true)
+			local original = w.row(2):FindFirstChild("Reorderable", true)
+			for _, part in copy:GetDescendants() do
+				if part:IsA("GuiObject") then
+					t.expect(part.ZIndex > original.ZIndex).toBe(true)
+					t.expect(part.Interactable or part.Active or part.Selectable).toBe(false)
+				end
+			end
+			t.expect(w.node:FindFirstChild("ReorderFeedback", true).ZIndex > w.row(2).ZIndex).toBe(true)
+			if list then
+				t.expect(copy:FindFirstChild("Action", true).Text).toBe("2")
+				t.expect(copy:FindFirstChild("Action", true):HasTag("facet-button")).toBe(true)
+			end
 			w.service.InputEnded.fire({
 				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
 				UserInputState = w.engine.types.Enum.UserInputState.End,
