@@ -1,5 +1,5 @@
 {
-  "name": "Facet-FoundationLab",
+  "name": "Facet-Lab",
   "emitLegacyScripts": false,
   "globIgnorePaths": [
     "**/*.spec.luau"

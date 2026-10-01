@@ -14,7 +14,7 @@ Example components return native Instances. The caller mounts them. Read the
 The showcase is a collection of five interactive demos: Garage, Sipworks,
 Screen-anchored HUD, Playlist and Arcade. Arcade contains the
 three existing games and the Outpost power puzzle. Each demo gives the player a small task with a visible
-result. The Foundation Lab is the control-by-control browser.
+result. The Facet Lab is the control-by-control browser.
 
 The showcase retains its theme, device, input and motion settings. Its larger
 Sipworks and Arcade use adaptive sidebar or top-bar navigation. Sipworks

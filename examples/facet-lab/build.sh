@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="$HOME/.rokit/bin:$PATH"
-OUT=(build/Facet-FoundationLab.rbxl build/Foundation-Light.rbxm build/Foundation-Dark.rbxm)
+OUT=(build/Facet-Lab.rbxl build/Foundation-Light.rbxm build/Foundation-Dark.rbxm)
 python3 tools/check_boundary.py "${OUT[@]}"
 lune run tools/coverage.luau check
 lune run tools/check_themes.luau

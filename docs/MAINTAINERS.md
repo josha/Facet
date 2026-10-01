@@ -79,7 +79,7 @@ directories that `.gitignore` excludes.
 |---|---|---|
 | `src/` | The library. See [Areas](#areas). | `tools/verify.sh full` |
 | `tests/` | The behavioral specs, the native engine double and the type witnesses. | `lune run tests/run_one <spec-name>` |
-| `examples/` | The gallery, the Foundation Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lune run tools/lune/check_scenario_requires_cli` |
+| `examples/` | The gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lune run tools/lune/check_scenario_requires_cli` |
 | `bench/` | The benchmark scenes, profiles and baselines. | `tools/bench.sh` |
 | `tools/` | The verification runner, the checkers, the build scripts and the Studio tools. | `python3 tools/strip_comments.py --check` |
 | `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `python3 tools/check_doc_style.py` |
