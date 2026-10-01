@@ -15,7 +15,7 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }): string
 	for _, id in ids do
 		lab.open(id)
 		task.wait(0.3)
-		local root = playerGui:FindFirstChild("Facet_FoundationLab")
+		local root = playerGui:FindFirstChild("Facet_Lab")
 		local page = root and root:FindFirstChild(`Page_{id}`, true)
 		if page == nil then
 			table.insert(out, `{id}: page did not mount`)

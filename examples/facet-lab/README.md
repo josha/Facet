@@ -1,4 +1,4 @@
-# Facet Foundation Lab
+# Facet Lab
 
 An interactive catalog for every Facet control, with device, input, motion,
 text-size and theme previews. The control list uses larger text and taller rows.
@@ -6,7 +6,7 @@ text-size and theme previews. The control list uses larger text and taller rows.
 ## Build and run
 
 From this directory, run `./build.sh`, then open
-`build/Facet-FoundationLab.rbxl` in Roblox Studio and start Play.
+`build/Facet-Lab.rbxl` in Roblox Studio and start Play.
 The build checks catalog coverage and keeps all generated outputs in `build/`.
 
 The build also creates `build/Foundation-Light.rbxm` and

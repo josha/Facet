@@ -36,7 +36,7 @@ READ_ONLY_PROBES = {
 BINDING_SITE = re.compile(r"\bInputBinding\s*[({]")
 
 PINS = {
-    "examples/foundation-lab/src/catalog.luau": (
+    "examples/facet-lab/src/catalog.luau": (
         1,
         "the ShortcutHint variant describes one native F2 InputBinding on a detached InputAction; it does not capture screen input",
     ),

@@ -77,7 +77,7 @@ local owner = Compose.createRootOwner(function()
 
 	local app = Facet.app({
 		runtime = runtime,
-		name = "Facet_FoundationLab",
+		name = "Facet_Lab",
 		theme = ctx.theme,
 		motionLevel = ctx.motionPreference,
 
@@ -93,7 +93,7 @@ local owner = Compose.createRootOwner(function()
 
 	local backdrop = Facet.app({
 		runtime = runtime,
-		name = "Facet_FoundationLabBackdrop",
+		name = "Facet_LabBackdrop",
 		theme = ctx.theme,
 		sheet = { theme = ctx.themeMode },
 		screen = { DisplayOrder = -1, IgnoreGuiInset = true, ScreenInsets = Enum.ScreenInsets.None },
@@ -246,7 +246,7 @@ end
 api.Parent = workspace
 workspace:SetAttribute("FacetLabReady", true)
 print(
-	`[FoundationLab] Facet {Facet.VERSION} — {#lab.pageIds()} pages, {#lab.themes().entries} theme packages, build {workspace:GetAttribute(
+	`[FacetLab] Facet {Facet.VERSION} — {#lab.pageIds()} pages, {#lab.themes().entries} theme packages, build {workspace:GetAttribute(
 		"Facet_Build"
 	)}`
 )

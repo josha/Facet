@@ -1,8 +1,8 @@
-# Overlay continuity, table geometry and Foundation Lab
+# Overlay continuity, table geometry and Facet Lab
 
 The fixes live in shared Facet controls and theme rendering. The Lab consumes
 them without local layout corrections. The Lab and optional Foundation Light
-and Dark themes now live in `examples/foundation-lab`; the default runtime
+and Dark themes now live in `examples/facet-lab`; the default runtime
 package still excludes them. The Lab control list uses 22-pixel text.
 
 ## Native mechanisms
@@ -44,7 +44,7 @@ pixels into the logical units used by the existing layout and drag paths.
 The required full verification, standalone benchmarks, package build and
 package status commands were run. Benchmarks passed, type checking reported
 109 targets with zero diagnostics and 174 negative probes passed. Core package,
-example places and the relocated Foundation Lab built successfully.
+example places and the relocated Facet Lab built successfully.
 
 The full gate is not green. Legacy consumer brand/API references still fail
 the drift checks and package tree inspection; six old performance capture
