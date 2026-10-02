@@ -1040,6 +1040,48 @@ for _, definition in definitions do
 	end
 end
 
+for _, kind in { "VirtualList", "VirtualGrid", "Table" } do
+	definitions[kind].container = true
+	table.insert(definitions[kind].fields, field("dataKey", "Live rows input", "string"))
+	table.insert(definitions[kind].fields, field("activationKey", "Row activation callback", "string"))
+end
+table.insert(definitions.Table.fields, field("rowActions", "Row actions", "json"))
+
+for _, kind in { "Table", "VirtualList", "VirtualGrid" } do
+	for _, descriptor in definitions[kind].fields do
+		if descriptor.key == "width" then
+			descriptor.kind = "nativeWidth"
+		end
+	end
+end
+local bindings: { [string]: { [string]: string } } = {
+	Text = { text = "string" },
+	Label = { title = "string", icon = "string" },
+	Badge = { label = "string" },
+	Image = { image = "string" },
+	Avatar = { name = "string", image = "string" },
+	StatusIndicator = { name = "string", count = "number" },
+	ProgressView = { value = "number", label = "string" },
+}
+for kind, targets in bindings do
+	local keys = {}
+	for key in targets do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	for _, key in keys do
+		local conversion = targets[key]
+		local descriptor = field(key .. "Field", "Bind " .. key .. " to row", "binding")
+		descriptor.target, descriptor.conversion = key, conversion
+		table.insert(definitions[kind].fields, descriptor)
+	end
+end
+
+for kind, definition in definitions do
+	if kind ~= "Screen" then
+		table.insert(definition.fields, field("columnId", "Table column", "column"))
+	end
+end
 local library = { definitions = definitions }
 
 function library.names(): { string }
@@ -1091,7 +1133,12 @@ function library.visible(kind: string, key: string, props: any): boolean
 end
 
 function library.parse(descriptor: any, value: any): any
-	if descriptor.kind == "padding" then
+	if descriptor.kind == "nativeWidth" then
+		return if value == "fill" then value else library.parse({ kind = "number" }, value)
+	elseif descriptor.kind == "binding" or descriptor.kind == "column" then
+		assert(type(value) == "string" and #value > 0 and #value <= 120, "Choose a row field")
+		return value
+	elseif descriptor.kind == "padding" then
 		if type(value) ~= "table" then
 			return library.parse({ kind = "spacing" :: "spacing", options = spacing }, value)
 		end
@@ -1104,6 +1151,38 @@ function library.parse(descriptor: any, value: any): any
 		end
 		return value
 	elseif descriptor.kind == "json" then
+		if descriptor.key == "rowActions" then
+			assert(type(value) == "table" and #value <= 12, "Use at most 12 row actions")
+			local seen = {}
+			for index, action in value do
+				assert(
+					type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #value,
+					"Use a dense row action array"
+				)
+				assert(
+					type(action) == "table" and type(action.id) == "string" and action.id ~= "" and not seen[action.id],
+					"Use unique row action IDs"
+				)
+				seen[action.id] = true
+				assert(type(action.label) == "string" and action.label ~= "", "A row action needs a label")
+				assert(
+					action.handler == nil or (type(action.handler) == "string" and action.handler ~= ""),
+					"Use a named row callback"
+				)
+				assert(
+					action.role == nil or table.find({ "default", "cancel", "destructive", "onIndicator" }, action.role),
+					"Choose a row action role"
+				)
+				assert(action.enabled == nil or type(action.enabled) == "boolean", "Use a boolean action state")
+				assert(action.icon == nil or type(action.icon) == "string", "Use an icon name")
+				for key in action do
+					assert(
+						table.find({ "id", "label", "handler", "role", "enabled", "icon" }, key),
+						"Unsupported row action property"
+					)
+				end
+			end
+		end
 		return values.validate(value)
 	elseif descriptor.kind == "color" then
 		values.color(value)

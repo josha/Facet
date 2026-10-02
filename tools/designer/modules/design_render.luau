@@ -14,24 +14,26 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 	local locals = {}
 	ctx.types = ctx.types or { UDim2 = UDim2, Color3 = Color3 }
 	local build
-	build = function(node: document.Node): GuiObject
+	build = function(node: document.Node, scope: any?): GuiObject
 		local definition = library.definitions[node.kind]
-		local props = adapter.evaluate(adapter.properties(node), ctx, locals)
+		local state = scope or locals
+		local props = adapter.evaluate(adapter.properties(node), ctx, state)
 		if
 			not definition.content
 			and node.kind ~= "ErrorBoundary"
 			and node.kind ~= "TabView"
 			and node.kind ~= "PageView"
 			and node.kind ~= "NavigationStack"
+			and not table.find({ "Table", "VirtualList", "VirtualGrid" }, node.kind)
 		then
 			for _, child in node.children do
-				table.insert(props, build(child))
+				table.insert(props, build(child, scope))
 			end
 		end
 		local instance = ctx.UI[node.kind](node.name)(props)
 		if definition.anchor then
 			instance =
-				ctx.UI.VStack("__FacetDesignHost_" .. node.id) { gap = "s", locals["anchor_" .. node.id], instance }
+				ctx.UI.VStack("__FacetDesignHost_" .. node.id) { gap = "s", state["anchor_" .. node.id], instance }
 		end
 		if editing then
 			instance:SetAttribute("FacetDesignNode", node.id)

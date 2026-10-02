@@ -117,6 +117,19 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 							)
 						end
 						control = kit.row("PaddingSides", sides, 66)
+					elseif field.kind == "binding" then
+						control = kit.button(
+							"Binding_" .. field.key,
+							function(use: Use)
+								return tostring(use(current).value or "Static value") .. "  ▾"
+							end,
+							-1,
+							function()
+								actions.bindProperty(field.key)
+							end
+						)
+					elseif field.kind == "command" then
+						control = kit.button("ColumnTemplates", "Design a cell", -1, actions.columnTemplates)
 					elseif field.kind == "json" then
 						control = kit.button("EditData_" .. field.key, "Edit " .. field.label, 238, function()
 							actions.editStructured(field.key)
@@ -133,7 +146,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 								actions.property(field.key, not current:peek().value)
 							end
 						)
-					elseif field.kind == "choice" then
+					elseif field.kind == "choice" or field.kind == "column" then
 						control = kit.button(
 							"ChoiceProperty_" .. field.key,
 							function(use: Use)

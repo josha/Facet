@@ -3003,12 +3003,24 @@ t.describe("native parity reference applications", function()
 		end
 
 		t.it("calls only Facet exports that exist from every shipped client entry point", function()
+			local publicTypes: { [string]: boolean } = {}
+			for name in string.gmatch(fs.readFile("src/init.luau"), "export type ([%a_][%w_]*)") do
+				publicTypes[name] = true
+			end
 			local function missing(source: string): { string }
-				local out = {}
-				for name in string.gmatch(source, "Facet%.([%a_][%w_]*)") do
-					if (Facet :: any)[name] == nil then
+				local out, cursor = {}, 1
+				while true do
+					local first, last, found = string.find(source, "Facet%.([%a_][%w_]*)", cursor)
+					if not first then
+						break
+					end
+					local name = assert(found)
+					local annotation = publicTypes[name]
+						and string.match(string.sub(source, 1, first - 1), ":%s*[%{%(%s]*$") ~= nil
+					if (Facet :: any)[name] == nil and not annotation then
 						table.insert(out, name)
 					end
+					cursor = assert(last) + 1
 				end
 				return out
 			end
@@ -3026,6 +3038,9 @@ t.describe("native parity reference applications", function()
 			t.expect(table.concat(missing("Facet.controls(runtime) Facet.nonexistentExport()"), ","))
 				.toBe("nonexistentExport")
 			t.expect(#missing("local x = game.ReplicatedStorage.Facet")).toBe(0)
+			t.expect(#missing("local x: Facet.Controls local y: { Facet.TableColumn<number,string> } = {} ")).toBe(0)
+			t.expect(table.concat(missing("Facet.Controls() local x: Facet.nonexistentExport"), ","))
+				.toBe("Controls,nonexistentExport")
 		end)
 
 		t.it("keeps every shipped document from claiming virtual-reality support", function()

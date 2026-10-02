@@ -3,8 +3,6 @@
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
-game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
-
 local storage = game:GetService("ReplicatedStorage")
 local Facet = require(storage.Facet)
 local designer = require(storage.FacetDesignModules.designer)
@@ -26,7 +24,8 @@ end, playerGui)
 local stop, screen = runtime.mount(function()
 	return Host.ScreenGui "FacetDesignPlay" {
 		ResetOnSpawn = false,
-		ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
+		ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets,
+		SafeAreaCompatibility = Enum.SafeAreaCompatibility.None,
 		DisplayOrder = 1,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	}
