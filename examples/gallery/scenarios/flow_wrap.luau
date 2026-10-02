@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local ALIGN_BOX_ROWS = 10
 
@@ -45,9 +47,9 @@ return {
 	tagCount = TAG_COUNT,
 	shortCount = SHORT_COUNT,
 	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -55,7 +57,7 @@ return {
 		local wrapping = Compose.cell(true)
 		local blockAlign = Compose.cell("start")
 
-		local status = Compose.formula(function(use)
+		local status = Compose.formula(function(use: Use)
 			return if use(wrapping) then COPY.fitting else COPY.overflowing
 		end)
 
@@ -92,11 +94,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.title,
-						textRole = "body",
+						textRole = "body" :: "body",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					}) :: unknown,
 					UI.Toggle({
 						LayoutOrder = 2,
 						Name = "WrapToggle",
@@ -111,7 +113,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = status,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -124,7 +126,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.cloudCaption,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -140,7 +142,7 @@ return {
 							FillDirection = Enum.FillDirection.Horizontal,
 							Padding = UDim.new(0, 8),
 							Wraps = wrapping,
-						}),
+						}) :: unknown,
 						table.unpack(tagRow({}, "T", "tag", TAG_COUNT)),
 					}),
 					UI.Text({
@@ -151,7 +153,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.alignCaption,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -160,11 +162,11 @@ return {
 						LayoutOrder = 7,
 						Name = "BlockAlign",
 						label = COPY.alignLabel,
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						options = {
-							{ value = "start", label = COPY.alignStart },
-							{ value = "center", label = COPY.alignCenter },
-							{ value = "end", label = COPY.alignEnd },
+							{ value = "start", label = COPY.alignStart } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "center", label = COPY.alignCenter } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "end", label = COPY.alignEnd } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 						},
 						selected = blockAlign,
 					}),
@@ -179,14 +181,14 @@ return {
 							FillDirection = Enum.FillDirection.Horizontal,
 							Padding = UDim.new(0, 8),
 							Wraps = true,
-							HorizontalAlignment = function(use)
+							HorizontalAlignment = function(use: Use)
 								local value = use(blockAlign)
 								return if value == "center"
 									then Enum.HorizontalAlignment.Center
 									elseif value == "end" then Enum.HorizontalAlignment.Right
 									else Enum.HorizontalAlignment.Left
 							end,
-						}),
+						}) :: unknown,
 						table.unpack(tagRow({}, "S", "short", SHORT_COUNT)),
 					}),
 				},

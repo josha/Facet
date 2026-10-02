@@ -1,8 +1,10 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local example = { title = "Confirmation Dialog" }
 function example.build(ctx: any)
-	local UI, Compose = ctx.UI, ctx.Compose
+	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 	local built: any = {
 		deletePath = "/DangerScreen/Page/Delete",
 		restorePath = "/DangerScreen/Page/Restore",
@@ -16,7 +18,7 @@ function example.build(ctx: any)
 	local result = Compose.cell("none")
 	local hasSave = Compose.cell(true)
 	local open = Compose.cell(false)
-	local outcome = Compose.formula(function(use)
+	local outcome = Compose.formula(function(use: Use)
 		if use(result) == "confirmed" then
 			return "Deleted. The slot is empty now."
 		end
@@ -48,18 +50,18 @@ function example.build(ctx: any)
 		return UI.Screen "DangerScreen" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch",
+				align = "stretch" :: "stretch",
 				UI.Text "Title" {
-					textRole = "title",
+					textRole = "title" :: "title",
 					TextWrapped = true,
-					text = function(use)
+					text = function(use: Use)
 						return if use(hasSave) then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
 					end,
-				},
+				} :: unknown,
 				UI.Text "Outcome" { text = outcome, TextWrapped = true },
 				UI.Button "Delete" { label = "Delete Save", enabled = hasSave, onActivate = openDialog },
 				UI.Button "Restore" { label = "Restore the save", onActivate = restore },
-			},
+			} :: unknown,
 			UI.Alert "ConfirmDialog" {
 				title = "Delete this save?",
 				severity = "critical",
@@ -70,7 +72,7 @@ function example.build(ctx: any)
 						id = "Confirm",
 						label = "Delete Save",
 						compactLabel = "Delete",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						onActivate = function()
 							ctx.runtime:batch(function()
 								result:set("confirmed")
@@ -81,7 +83,7 @@ function example.build(ctx: any)
 					{
 						id = "Cancel",
 						label = "Cancel",
-						role = "cancel",
+						role = "cancel" :: "cancel",
 						onActivate = function()
 							result:set("cancelled")
 						end,

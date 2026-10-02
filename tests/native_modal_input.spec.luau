@@ -10,7 +10,7 @@ local function dialog(UI: any, Host: any, name: string, open: any): any
 			open:set(value)
 		end,
 		title = name,
-		content = function()
+		content = function(): Instance
 			return Host.TextLabel "Line" { Text = name }
 		end,
 	})
@@ -32,9 +32,14 @@ end
 t.describe("native modal: the scrim sinks input", function()
 	t.it("the modal root and its full-screen scrim are Active", function()
 		local open = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({ dialog(UI, Host, "About", open) })
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({ dialog(UI, Host, "About", open) })
+			end
+		)
 		local modal = modalOf(w, "About")
 		t.expect(modal.Active).toBe(true)
 		t.expect(overlay.find(modal, "DismissOutside").Active).toBe(true)
@@ -44,17 +49,22 @@ t.describe("native modal: the scrim sinks input", function()
 	t.it("stacked modals hold every scroller outside the top one and restore each exact value", function()
 		local first, second = Compose.cell(false), Compose.cell(false)
 		local late = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
-				Host.ScrollingFrame "Frozen" { ScrollingEnabled = false },
-				Compose.show(late, function()
-					return Host.ScrollingFrame "Late" { ScrollingEnabled = true }
-				end),
-				dialog(UI, Host, "First", first),
-				dialog(UI, Host, "Second", second),
-			})
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Host.ScrollingFrame "Grid" { ScrollingEnabled = true } :: unknown,
+					Host.ScrollingFrame "Frozen" { ScrollingEnabled = false },
+					Compose.show(late, function()
+						return Host.ScrollingFrame "Late" { ScrollingEnabled = true }
+					end),
+					dialog(UI, Host, "First", first),
+					dialog(UI, Host, "Second", second),
+				})
+			end
+		)
 		local grid, frozen = w.find("Grid"), w.find("Frozen")
 		first:set(true)
 		local firstBody = bodyOf(w, "First")
@@ -82,16 +92,21 @@ t.describe("native modal: the scrim sinks input", function()
 	t.it("a scroller that leaves while held gets its value back, and closing out of order restores", function()
 		local first, second = Compose.cell(true), Compose.cell(false)
 		local kept = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Compose.show(kept, function()
-					return Host.ScrollingFrame "Feed" { ScrollingEnabled = true }
-				end),
-				Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
-				dialog(UI, Host, "First", first),
-				dialog(UI, Host, "Second", second),
-			})
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Compose.show(kept, function()
+						return Host.ScrollingFrame "Feed" { ScrollingEnabled = true }
+					end) :: unknown,
+					Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
+					dialog(UI, Host, "First", first),
+					dialog(UI, Host, "Second", second),
+				})
+			end
+		)
 		local feed, grid = w.find("Feed"), w.find("Grid")
 		t.expect(feed.ScrollingEnabled).toBe(false)
 		kept:set(false)
@@ -107,15 +122,22 @@ t.describe("native modal: the scrim sinks input", function()
 
 	t.it("an exiting modal gives scrolling back at once, and a second layer is never touched", function()
 		local open = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
-				dialog(UI, Host, "About", open),
-			})
-		end)
-		local other = overlay.new(function(_, Host)
-			return Host.ScrollingFrame "Elsewhere" { ScrollingEnabled = true }
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Host.ScrollingFrame "Grid" { ScrollingEnabled = true } :: unknown,
+					dialog(UI, Host, "About", open),
+				})
+			end
+		)
+		local other = overlay.new(
+			function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+				return Host.ScrollingFrame "Elsewhere" { ScrollingEnabled = true }
+			end
+		)
 		local grid = w.find("Grid")
 		open:set(true)
 		w.advance(0.3, 18)

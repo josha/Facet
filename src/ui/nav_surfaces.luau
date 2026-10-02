@@ -459,7 +459,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	end)
 
 	local function alert<P>(spec: Nav.AlertSpec<P>): Frame
-		local function words(value: (string | ((P) -> string))?, payload: P): string?
+		local function words(value: Nav.AlertText<P>?, payload: P): Types.ValueString?
 			return if type(value) == "function" then value(payload) else value
 		end
 		local function actionsFor(
@@ -658,7 +658,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							activate(action)
 						end,
 					})
-					table.insert(actionProps, button)
+					actionProps[#actionProps + 1] = button
 					table.insert(textBounds, ctx.observe.TextBounds(button))
 				end
 				Compose.watch(function(use: ComposeTypes.Use)
@@ -1212,32 +1212,26 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 					}
-					table.insert(
-						buttons,
-						Host.UIListLayout({
-							FillDirection = E.FillDirection.Horizontal,
-							HorizontalFlex = E.UIFlexAlignment.Fill,
-							SortOrder = E.SortOrder.LayoutOrder,
-							Padding = ctx.types.UDim.new(0, 8),
-						})
-					)
+					buttons[#buttons + 1] = Host.UIListLayout({
+						FillDirection = E.FillDirection.Horizontal,
+						HorizontalFlex = E.UIFlexAlignment.Fill,
+						SortOrder = E.SortOrder.LayoutOrder,
+						Padding = ctx.types.UDim.new(0, 8),
+					})
 					for index, action in actions do
-						table.insert(
-							buttons,
-							UI.Button({
-								Name = action.id,
-								label = action.label,
-								role = action.role,
-								enabled = action.enabled,
-								busy = action.busy,
-								LayoutOrder = index,
-								onActivate = function()
-									parts.call(action.onActivate, function()
-										retire("action")
-									end)
-								end,
-							})
-						)
+						buttons[#buttons + 1] = UI.Button({
+							Name = action.id,
+							label = action.label,
+							role = action.role,
+							enabled = action.enabled,
+							busy = action.busy,
+							LayoutOrder = index,
+							onActivate = function()
+								parts.call(action.onActivate, function()
+									retire("action")
+								end)
+							end,
+						})
 					end
 					table.insert(rows, Host.Frame(buttons))
 				else

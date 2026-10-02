@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local widgets = require("./widgets")
 local gallery = require("./gallery")
@@ -7,11 +9,14 @@ local layerOutline = require("./layer_outline")
 local shell = {}
 
 function shell.mount(Facet: any, parent: Instance, model: any, actions: any, options: any): any
-	local runtime = Facet.Roblox.createRuntime()
-	local Host, Compose = runtime.constructors, Facet.Compose
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime()
+	local Host, Compose: typeof(require("@repo/src/vendor/compose/core")) =
+		(runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Facet.Compose
 	local kit: any
-	local canvas, codeBox
-	local stop, root = runtime.mount(function()
+	local canvas: Frame?, codeBox: TextBox?
+	local stop, mounted = runtime.mount(function(): Frame
 		kit = widgets.new(Facet, runtime, model, options)
 		local sheet = kit.sheet()
 		local function contentTop(use)
@@ -24,17 +29,17 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			return UDim2.new(1, if use(model).compact then 0 else -496, 1, -contentTop(use) - 32)
 		end
 		local function paneVisible(name)
-			return function(use)
+			return function(use: Use)
 				local state = use(model)
 				return not state.compact or state.pane == name
 			end
 		end
 		local inspector = Host.ScrollingFrame "Inspector" {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = function(use)
+			Position = function(use: Use)
 				return UDim2.new(1, 0, 0, contentTop(use))
 			end,
-			Size = function(use)
+			Size = function(use: Use)
 				return UDim2.new(
 					if use(model).compact then 1 else 0,
 					if use(model).compact then 0 else 272,
@@ -48,13 +53,13 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			CanvasSize = UDim2.new(),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			ScrollBarThickness = 3,
-			kit.padding(16),
+			kit.padding(16) :: unknown,
 			Host.UIListLayout { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder },
-			kit.text("InspectorHeading", function(use)
+			kit.text("InspectorHeading", function(use: Use)
 				return tostring(use(model).selectedKind) .. "  /  PROPERTIES"
 			end, 11, 28),
 			Compose.keyed({
-				from = function(use)
+				from = function(use: Use)
 					return use(model).fields
 				end,
 				key = function(field)
@@ -65,7 +70,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					local control
 					if field.kind == "color" then
 						control = kit.UI.ColorPicker("Property_" .. field.key) {
-							value = function(use)
+							value = function(use: Use)
 								local value = use(current).value
 								return if value then Color3.fromHex(value) else nil
 							end,
@@ -82,7 +87,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 						local sides = {}
 						for index, side in { "top", "right", "bottom", "left" } do
 							local label = kit.text("SideLabel", string.upper(string.sub(side, 1, 1)), 11, 18)
-							local input = kit.input("Padding_" .. side, function(use)
+							local input = kit.input("Padding_" .. side, function(use: Use)
 								local value = use(current).value
 								return tostring(if type(value) == "table" then value[side] or 0 else value or 0)
 							end, function(text)
@@ -104,7 +109,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 									Size = UDim2.new(0.25, -5, 0, 66),
 									BackgroundTransparency = 1,
 									LayoutOrder = index,
-									Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
+									Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 									label,
 									input,
 								}
@@ -118,7 +123,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					elseif field.kind == "boolean" then
 						control = kit.button(
 							"Property_" .. field.key,
-							function(use)
+							function(use: Use)
 								local value = use(current).value
 								return if value == nil then "Default" elseif value == true then "On" else "Off"
 							end,
@@ -130,7 +135,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					elseif field.kind == "choice" then
 						control = kit.button(
 							"ChoiceProperty_" .. field.key,
-							function(use)
+							function(use: Use)
 								return tostring(use(current).value or "Default") .. "  ▾"
 							end,
 							-1,
@@ -139,7 +144,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 							end
 						)
 					else
-						control = kit.input("Property_" .. field.key, function(use)
+						control = kit.input("Property_" .. field.key, function(use: Use)
 							return tostring(use(current).value or "")
 						end, function(value)
 							actions.property(field.key, value)
@@ -149,7 +154,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 						actions.property(field.key, nil)
 					end)
 					runtime.decorate(reset, {
-						Visible = function(use)
+						Visible = function(use: Use)
 							return field.key ~= "name" and use(current).explicit == true
 						end,
 					})
@@ -159,13 +164,13 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					runtime.decorate(heading, { LayoutOrder = 1 })
 					runtime.decorate(control, { LayoutOrder = 2 })
 					return Host.Frame "PropertyField" {
-						LayoutOrder = function(use)
+						LayoutOrder = function(use: Use)
 							return (use(index) :: number) + 1
 						end,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder },
+						Host.UIListLayout { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 						heading,
 						control,
 					}
@@ -173,14 +178,14 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			}),
 		}
 		local sidebar = kit.UI.VStack "DesignOutline" {
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			padding = 12,
 			gap = 8,
-			Position = function(use)
+			Position = function(use: Use)
 				return UDim2.fromOffset(0, contentTop(use))
 			end,
-			Size = function(use)
+			Size = function(use: Use)
 				return UDim2.new(
 					if use(model).compact then 1 else 0,
 					if use(model).compact then 0 else 224,
@@ -195,10 +200,10 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			kit.text("OutlineHeading", "LAYERS", 11, 22),
 			layerOutline.mount(Facet, kit.UI, Host, model, actions),
 			kit.row("LayerActions", {
-				kit.button("Duplicate", "Duplicate", 92, actions.duplicate, false, function(use)
+				kit.button("Duplicate", "Duplicate", 92, actions.duplicate, false, function(use: Use)
 					return use(model).selected ~= nil and use(model).canEditLayer
 				end),
-				kit.button("Delete", "Delete", 92, actions.delete, false, function(use)
+				kit.button("Delete", "Delete", 92, actions.delete, false, function(use: Use)
 					return use(model).selected ~= nil and use(model).canEditLayer
 				end),
 			}),
@@ -210,11 +215,11 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			Visible = paneVisible("Canvas"),
 			BackgroundTransparency = 1,
 		}
-		local title = kit.input("DesignName", function(use)
+		local title = kit.input("DesignName", function(use: Use)
 			return use(model).name
 		end, actions.rename, UDim2.fromOffset(200, 32))
 		local header = Host.ScrollingFrame "DesignHeader" {
-			Visible = function(use)
+			Visible = function(use: Use)
 				return not use(model).compact
 			end,
 			Size = UDim2.new(1, 0, 0, 62),
@@ -223,14 +228,14 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			ScrollBarThickness = 0,
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderSizePixel = 0,
-			kit.padding(14),
+			kit.padding(14) :: unknown,
 			kit.row("Commands", {
 				kit.button("Brand", "FD", 38, actions.home, true),
 				title,
-				kit.button("Undo", "Undo", 54, actions.undo, false, function(use)
+				kit.button("Undo", "Undo", 54, actions.undo, false, function(use: Use)
 					return use(model).canUndo
 				end),
-				kit.button("Redo", "Redo", 54, actions.redo, false, function(use)
+				kit.button("Redo", "Redo", 54, actions.redo, false, function(use: Use)
 					return use(model).canRedo
 				end),
 				kit.button("Templates", "Templates ▾", 112, actions.templates),
@@ -242,23 +247,23 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				kit.button("Export", "Export Luau", 100, actions.export, true),
 			}),
 		}
-		local compactTitle = kit.input("CompactDesignName", function(use)
+		local compactTitle = kit.input("CompactDesignName", function(use: Use)
 			return use(model).name
 		end, actions.rename, UDim2.new(1, -182, 0, 44))
 		local compactHeader = Host.Frame "CompactHeader" {
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(model).compact
 			end,
 			Size = UDim2.new(1, 0, 0, 76),
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderSizePixel = 0,
-			kit.padding(12),
+			kit.padding(12) :: unknown,
 			kit.row("CompactCommands", {
 				compactTitle,
-				kit.button("CompactUndo", "Undo", 54, actions.undo, false, function(use)
+				kit.button("CompactUndo", "Undo", 54, actions.undo, false, function(use: Use)
 					return use(model).canUndo
 				end),
-				kit.button("CompactRedo", "Redo", 54, actions.redo, false, function(use)
+				kit.button("CompactRedo", "Redo", 54, actions.redo, false, function(use: Use)
 					return use(model).canRedo
 				end),
 				kit.button("DesignCommands", "•••", 44, actions.commands, true),
@@ -266,10 +271,10 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 		}
 
 		local settings = Host.ScrollingFrame "DesignSettings" {
-			Position = function(use)
+			Position = function(use: Use)
 				return UDim2.fromOffset(0, if use(model).compact then 76 else 62)
 			end,
-			Size = function(use)
+			Size = function(use: Use)
 				return UDim2.new(1, 0, 0, 60)
 			end,
 			CanvasSize = UDim2.new(),
@@ -277,11 +282,11 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			ScrollBarThickness = 0,
 			BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 			BorderSizePixel = 0,
-			kit.padding(8),
+			kit.padding(8) :: unknown,
 			kit.row("PreviewSettings", {
 				kit.button(
 					"Device",
-					function(use)
+					function(use: Use)
 						return tostring(use(model).device) .. " ▾"
 					end,
 					112,
@@ -292,7 +297,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				kit.button("Rotate", "Rotate", 60, actions.rotate),
 				kit.button(
 					"Palette",
-					function(use)
+					function(use: Use)
 						return tostring(use(model).palette) .. " ▾"
 					end,
 					82,
@@ -302,7 +307,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				),
 				kit.button(
 					"TextSize",
-					function(use)
+					function(use: Use)
 						return "Text: " .. tostring(use(model).textSize) .. " ▾"
 					end,
 					146,
@@ -312,7 +317,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				),
 				kit.button(
 					"Compare",
-					function(use)
+					function(use: Use)
 						return tostring(use(model).comparison) .. " ▾"
 					end,
 					100,
@@ -322,7 +327,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				),
 				kit.button(
 					"Zoom",
-					function(use)
+					function(use: Use)
 						return "Zoom: " .. tostring(use(model).zoom) .. " ▾"
 					end,
 					132,
@@ -330,13 +335,13 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 						actions.settingMenu("zoom")
 					end
 				),
-				kit.button("Interaction", function(use)
+				kit.button("Interaction", function(use: Use)
 					return if use(model).interactive then "Interact" else "Select"
 				end, 92, actions.interactive),
 			}),
 		}
 		codeBox = Host.TextBox "GeneratedCode" {
-			Text = function(use)
+			Text = function(use: Use)
 				return use(model).code
 			end,
 			Font = Enum.Font.Code,
@@ -354,11 +359,11 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			Position = UDim2.fromOffset(16, 52),
 		}
 		local applyCode = kit.button("ApplyCode", "Apply code to design", 182, function()
-			actions.applyCode(codeBox.Text)
+			actions.applyCode(assert(codeBox).Text)
 		end, true)
 		runtime.decorate(applyCode, { Position = UDim2.new(1, -202, 0, 8), ZIndex = 3001 })
 		local codePanel = Host.Frame "CodePanel" {
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(model).showCode
 			end,
 			Position = contentPosition,
@@ -366,7 +371,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			ZIndex = 3000,
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderSizePixel = 0,
-			applyCode,
+			applyCode :: unknown,
 			Host.ScrollingFrame "CodeScroll" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
@@ -374,32 +379,32 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				AutomaticCanvasSize = Enum.AutomaticSize.XY,
 				CanvasSize = UDim2.new(),
 				ScrollBarThickness = 6,
-				codeBox,
+				codeBox :: unknown,
 			},
 		}
 		local menu = Host.Frame "DesignMenu" {
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(model).menuTitle ~= ""
 			end,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = function(use)
+			Size = function(use: Use)
 				return if use(model).compact then UDim2.new(0.94, 0, 0.8, 0) else UDim2.fromOffset(420, 470)
 			end,
 			ZIndex = 4000,
 			BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 			BorderSizePixel = 0,
-			kit.corner(12),
+			kit.corner(12) :: unknown,
 			kit.padding(16),
 			Host.UIStroke { Color = kit.colors.line, Thickness = 1 },
 			Host.UIListLayout { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder },
 			kit.row(
 				"MenuTitle",
-				{ kit.text("MenuHeading", function(use)
+				{ kit.text("MenuHeading", function(use: Use)
 					return use(model).menuTitle
 				end, 15, 30) }
 			),
-			kit.search(function(use)
+			kit.search(function(use: Use)
 				return use(model).menuQuery
 			end, actions.menuSearch),
 			Host.ScrollingFrame "MenuChoices" {
@@ -410,19 +415,19 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				CanvasSize = UDim2.new(),
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				ScrollBarThickness = 3,
-				Host.UIListLayout { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder },
+				Host.UIListLayout { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 				Host.TextLabel "EmptyMenu" {
 					Size = UDim2.new(1, -10, 0, 72),
 					BackgroundTransparency = 1,
 					TextColor3 = kit.colors.muted,
 					TextSize = 14,
 					TextWrapped = true,
-					Text = function(use)
+					Text = function(use: Use)
 						return if use(model).menuQuery ~= ""
 							then "No matches. Clear search to see all items."
 							else "No items yet. Save a design to add it to your library."
 					end,
-					Visible = function(use)
+					Visible = function(use: Use)
 						local state = use(model)
 						for _, entry in state.menu do
 							if string.find(string.lower(entry.label), string.lower(state.menuQuery), 1, true) then
@@ -433,7 +438,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					end,
 				},
 				Compose.keyed({
-					from = function(use)
+					from = function(use: Use)
 						local state = use(model)
 						local entries = {}
 						for _, entry in state.menu do
@@ -452,7 +457,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 						end)
 						runtime.decorate(button, {
 							LayoutOrder = index,
-							Size = function(use)
+							Size = function(use: Use)
 								return UDim2.new(1, -10, 0, if use(model).compact then 44 else 32)
 							end,
 						})
@@ -468,10 +473,10 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			}),
 		}
 		local transferBox = Host.TextBox "DesignFileText" {
-			Text = function(use)
+			Text = function(use: Use)
 				return use(model).transferText
 			end,
-			TextEditable = function(use)
+			TextEditable = function(use: Use)
 				return use(model).transferEditable
 			end,
 			ClearTextOnFocus = false,
@@ -486,7 +491,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderSizePixel = 0,
 		}
-		local transferTitle = kit.text("FileHeading", function(use)
+		local transferTitle = kit.text("FileHeading", function(use: Use)
 			return use(model).transferTitle
 		end, 18, 42)
 		runtime.decorate(transferTitle, { Size = UDim2.new(1, -36, 0, 42), Position = UDim2.fromOffset(18, 12) })
@@ -499,7 +504,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					actions.transferApply(transferBox.Text)
 				end,
 				true,
-				function(use)
+				function(use: Use)
 					return use(model).transferEditable
 				end
 			),
@@ -507,7 +512,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 		})
 		runtime.decorate(transferActions, { Position = UDim2.new(0, 18, 1, -64), Size = UDim2.new(1, -36, 0, 44) })
 		local transferPanel = Host.Frame "DesignFilePanel" {
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(model).transferTitle ~= ""
 			end,
 			Size = UDim2.fromScale(0.94, 0.8),
@@ -516,7 +521,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 			BorderSizePixel = 0,
 			ZIndex = 5100,
-			kit.corner(12),
+			kit.corner(12) :: unknown,
 			transferTitle,
 			transferActions,
 			Host.ScrollingFrame "DesignFileScroll" {
@@ -527,25 +532,25 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				CanvasSize = UDim2.new(),
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				ScrollBarThickness = 4,
-				transferBox,
+				transferBox :: unknown,
 			},
 		}
 		local dataPanel = Host.Frame "DataEditor" {
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(model).dataTitle ~= ""
 			end,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = function(use)
+			Size = function(use: Use)
 				return UDim2.new(if use(model).compact then 0.94 else 0.6, 0, 0.8, 0)
 			end,
 			ZIndex = 4000,
 			BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 			BorderSizePixel = 0,
-			kit.corner(12),
+			kit.corner(12) :: unknown,
 			kit.padding(18),
 			Host.UIStroke { Color = kit.colors.line, Thickness = 1 },
-			kit.text("DataHeading", function(use)
+			kit.text("DataHeading", function(use: Use)
 				return "Edit " .. tostring(use(model).dataTitle)
 			end, 18, 30),
 			Host.ScrollingFrame "DataFields" {
@@ -556,9 +561,9 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				CanvasSize = UDim2.new(),
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				ScrollBarThickness = 4,
-				Host.UIListLayout { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder },
+				Host.UIListLayout { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 				Compose.keyed({
-					from = function(use)
+					from = function(use: Use)
 						return use(model).dataFields
 					end,
 					key = function(item)
@@ -570,7 +575,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 						if item.kind == "boolean" then
 							input = kit.button(
 								"DataValue",
-								function(use)
+								function(use: Use)
 									return if use(current).value then "On" else "Off"
 								end,
 								180,
@@ -579,7 +584,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 								end
 							)
 						else
-							input = kit.input("DataValue", function(use)
+							input = kit.input("DataValue", function(use: Use)
 								return tostring(use(current).value)
 							end, function(value)
 								actions.dataProperty(item.path, value, item.kind)
@@ -587,11 +592,11 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 						end
 						return Host.Frame "DataField" {
 							LayoutOrder = index,
-							Size = function(use)
+							Size = function(use: Use)
 								return UDim2.new(1, -10, 0, if use(model).compact then 76 else 60)
 							end,
 							BackgroundTransparency = 1,
-							Host.UIListLayout { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder },
+							Host.UIListLayout { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 							kit.text("DataLabel", item.label, 11, 22),
 							input,
 						}
@@ -615,28 +620,28 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			},
 		}
 		local paneBar = Host.Frame "PaneNavigation" {
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(model).compact == true
 			end,
 			Position = UDim2.fromOffset(0, 136),
 			Size = UDim2.new(1, 0, 0, 56),
 			BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 			BorderSizePixel = 0,
-			kit.padding(6),
+			kit.padding(6) :: unknown,
 			kit.row("Panes", {
 				kit.button("CanvasPane", "Canvas", 86, function()
 					actions.pane("Canvas")
-				end, function(use)
+				end, function(use: Use)
 					return use(model).pane == "Canvas"
 				end),
 				kit.button("LayersPane", "Layers", 86, function()
 					actions.pane("Layers")
-				end, function(use)
+				end, function(use: Use)
 					return use(model).pane == "Layers"
 				end),
 				kit.button("InspectorPane", "Inspector", 98, function()
 					actions.pane("Inspector")
-				end, function(use)
+				end, function(use: Use)
 					return use(model).pane == "Inspector"
 				end),
 				kit.button("QuickInsert", "+", 44, actions.insertMenu, true),
@@ -659,7 +664,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Color3.fromRGB(233, 237, 245),
 			BorderSizePixel = 0,
-			sheet,
+			sheet :: unknown,
 			Host.StyleLink { StyleSheet = Compose.static(sheet) },
 			header,
 			compactHeader,
@@ -676,7 +681,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				BorderSizePixel = 0,
 				Active = true,
 				ZIndex = 3900,
-				Visible = function(use)
+				Visible = function(use: Use)
 					return use(model).menuTitle ~= "" or use(model).dataTitle ~= "" or use(model).transferTitle ~= ""
 				end,
 			},
@@ -689,22 +694,23 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				Size = UDim2.new(1, 0, 0, 32),
 				BackgroundColor3 = Color3.new(1, 1, 1),
 				BorderSizePixel = 0,
-				kit.padding(7),
-				kit.text("DesignStatus", function(use)
+				kit.padding(7) :: unknown,
+				kit.text("DesignStatus", function(use: Use)
 					return use(model).status
 				end, 11, 18),
 			},
 		}
 	end, parent)
+	local root = mounted :: Frame
 	for _, name in { "DesignOutline", "DesignMenu" } do
 		local container = root:FindFirstChild(name)
 		local names: { string } = if name == "DesignOutline"
 			then { "InsertControls", "OutlineHeading", "LayerTree", "LayerActions", "MoveActions" }
 			else { "MenuTitle", "MenuSearch", "MenuChoices", "MenuFooter" }
 		for index, childName in names do
-			local child = container:FindFirstChild(childName)
+			local child = assert(container):FindFirstChild(childName)
 			if child then
-				child.LayoutOrder = index
+				(child :: GuiObject).LayoutOrder = index
 			end
 		end
 	end

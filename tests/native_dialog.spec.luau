@@ -30,29 +30,29 @@ local function standard(open: any, log: Log, change: any, extra: { [string]: any
 				table.insert(log.dismissed, reason)
 			end,
 			title = "Leave the race?",
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel "Line" { Text = "Your lap will not count." }
 			end,
 			actions = {
 				{
 					id = "Stay",
 					label = "Stay",
-					role = "cancel",
+					role = "cancel" :: "cancel",
 					onActivate = function()
 						table.insert(log.pressed, "Stay")
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 				{
 					id = "Leave",
 					label = "Leave",
-					role = "default",
+					role = "default" :: "default",
 					onActivate = function()
 						table.insert(log.pressed, "Leave")
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}
-		for key, value in extra or {} do
+		for key, value in (extra or {} :: { [string]: any }) do
 			spec[key] = value
 		end
 		return spec
@@ -60,11 +60,19 @@ local function standard(open: any, log: Log, change: any, extra: { [string]: any
 end
 
 local function mount(specOf: (any, any) -> any, options: any?): any
-	return overlay.new(function(UI, Host, _, gui)
-		local opener = UI.Button "Opener" { label = "Open" }
-		gui.SelectedObject = opener
-		return Host.Frame({ opener, UI.Dialog "Confirm"(specOf(UI, Host)) })
-	end, options)
+	return overlay.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			_,
+			gui
+		)
+			local opener = UI.Button "Opener" { label = "Open" }
+			gui.SelectedObject = opener
+			return Host.Frame({ opener :: unknown, UI.Dialog "Confirm"(specOf(UI, Host)) })
+		end,
+		options
+	)
 end
 
 local function actionButton(w: any, id: string): any
@@ -76,15 +84,23 @@ t.describe("native Dialog: one Back press closes one modal", function()
 		local outerOpen, outerLog, outerChange = caller()
 		local innerOpen, innerLog, innerChange = caller()
 		local held = true
-		local w = overlay.new(function(UI, Host, _, gui)
-			local opener = UI.Button "Opener" { label = "Open" }
-			gui.SelectedObject = opener
-			return Host.Frame({
-				opener,
-				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
-				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
-			})
-		end, { motionLevel = "none" })
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				_,
+				gui
+			)
+				local opener = UI.Button "Opener" { label = "Open" }
+				gui.SelectedObject = opener
+				return Host.Frame({
+					opener :: unknown,
+					UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+					UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
+				})
+			end,
+			{ motionLevel = "none" }
+		)
 		w.input.IsGamepadButtonDown = function(_, _, key)
 			return held and key == w.Enum.KeyCode.ButtonB
 		end
@@ -141,15 +157,23 @@ t.describe("native Dialog: Tab and Escape arrive through UserInputService", func
 	t.it("one Escape closes only the top of two stacked dialogs", function()
 		local outerOpen, outerLog, outerChange = caller()
 		local innerOpen, innerLog, innerChange = caller()
-		local w = overlay.new(function(UI, Host, _, gui)
-			local opener = UI.Button "Opener" { label = "Open" }
-			gui.SelectedObject = opener
-			return Host.Frame({
-				opener,
-				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
-				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
-			})
-		end, { inputs = true, motionLevel = "none" })
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				_,
+				gui
+			)
+				local opener = UI.Button "Opener" { label = "Open" }
+				gui.SelectedObject = opener
+				return Host.Frame({
+					opener :: unknown,
+					UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+					UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
+				})
+			end,
+			{ inputs = true, motionLevel = "none" }
+		)
 		w.advance(0.1)
 		key(w, "Escape", true)
 		key(w, "Escape", false)
@@ -184,7 +208,11 @@ t.describe("native Dialog: Tab and Escape arrive through UserInputService", func
 			motionLevel = "none",
 		})
 		local stop = w.runtime.mount(function()
-			return w.runtime.constructors.ScreenGui({
+			return (
+				(
+					w.runtime.constructors.ScreenGui :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+			)({
 				other.Dialog "Second"(standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors)),
 			})
 		end, target)
@@ -369,8 +397,14 @@ t.describe("native Dialog: the caller's fact decides", function()
 		local open2, log2, change2 = caller()
 		local w2 = mount(standard(open2, log2, change2, {
 			actions = {
-				{ id = "Stay", label = "Stay", role = "cancel", enabled = false, onActivate = function() end },
-				{ id = "Leave", label = "Leave", onActivate = function() end },
+				{
+					id = "Stay",
+					label = "Stay",
+					role = "cancel" :: "cancel",
+					enabled = false,
+					onActivate = function() end,
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
+				{ id = "Leave", label = "Leave", onActivate = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}))
 		w2.find("ModalBack").Pressed.fire()
@@ -386,11 +420,11 @@ t.describe("native Dialog: the caller's fact decides", function()
 				{
 					id = "Leave",
 					label = "Leave",
-					role = "default",
+					role = "default" :: "default",
 					onActivate = function()
 						open:set(false)
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}))
 		actionButton(w, "Leave").Activated.fire()
@@ -410,14 +444,14 @@ t.describe("native Dialog: the caller's fact decides", function()
 					onActivate = function()
 						table.insert(log.pressed, "Apply")
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 				{
 					id = "Leave",
 					label = "Leave",
 					onActivate = function()
 						table.insert(log.pressed, "Leave")
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}))
 		actionButton(w, "Apply").Activated.fire()
@@ -455,7 +489,7 @@ t.describe("native Dialog: the caller's fact decides", function()
 					onActivate = function()
 						error("caller bug")
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}))
 		local ok, failure = pcall(actionButton(w, "Boom").Activated.fire)
@@ -488,12 +522,12 @@ t.describe("native Dialog: the caller's fact decides", function()
 		t.expect(table.concat(log.dismissed, ",")).toBe("outside")
 		w.stop()
 		local fact = Compose.cell(true)
-		local w2 = mount(function(_, Host)
+		local w2 = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
 			return {
 				isPresented = fact,
 				closeButton = false,
 				title = "Read this",
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel "Line" { Text = "Body" }
 				end,
 			}
@@ -520,21 +554,21 @@ t.describe("native Dialog: the caller's fact decides", function()
 				{
 					id = "Go",
 					label = "Go",
-					role = "default",
+					role = "default" :: "default",
 					busy = true,
 					onActivate = function()
 						table.insert(log2.pressed, "Go")
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 				{
 					id = "Stop",
 					label = "Stop",
-					role = "cancel",
+					role = "cancel" :: "cancel",
 					busy = true,
 					onActivate = function()
 						table.insert(log2.pressed, "Stop")
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}))
 		t.expect(w2.action("Shortcut")).toBe(nil)
@@ -555,10 +589,14 @@ t.describe("native Dialog: composition, layout and the height budget", function(
 				{ content = true },
 				{ hero = { image = "rbxassetid://75342910516929", aspectRatio = 2 } },
 				{ actionLabel = "Pick one" },
-				{ actions = { { id = "Ok", label = "Ok", onActivate = function() end } } },
+				{
+					actions = {
+						{ id = "Ok", label = "Ok", onActivate = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
+					},
+				},
 			}
 		do
-			local w = mount(function(_, Host)
+			local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
 				local spec: any = { isPresented = Compose.cell(true), closeButton = false }
 				for key, value in extra do
 					spec[key] = if key == "content"
@@ -590,23 +628,23 @@ t.describe("native Dialog: composition, layout and the height budget", function(
 		refuses({ isPresented = fact, title = "T" }, "onPresentedChange")
 		refuses({ isPresented = fact, closeButton = false }, "nothing to show")
 		refuses({ isPresented = fact, closeButton = false, title = "T", widht = "wide" }, "widht")
-		refuses({ isPresented = fact, closeButton = false, title = "T", width = "huge" }, "width")
+		refuses({ isPresented = fact, closeButton = false, title = "T", width = "huge" :: "huge" }, "width")
 		refuses({ isPresented = fact, closeButton = false, title = "T", actionLayout = "grid" }, "actionLayout")
 		refuses({ isPresented = fact, closeButton = false, title = "T", hero = { image = "x" } }, "aspectRatio")
 		refuses({
 			isPresented = fact,
 			closeButton = false,
 			actions = {
-				{ id = "A", label = "A", role = "default", onActivate = function() end },
-				{ id = "B", label = "B", role = "default", onActivate = function() end },
+				{ id = "A", label = "A", role = "default" :: "default", onActivate = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
+				{ id = "B", label = "B", role = "default" :: "default", onActivate = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}, "role default")
 		refuses({
 			isPresented = fact,
 			closeButton = false,
 			actions = {
-				{ id = "A", label = "A", onActivate = function() end },
-				{ id = "A", label = "B", onActivate = function() end },
+				{ id = "A", label = "A", onActivate = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
+				{ id = "A", label = "B", onActivate = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").DialogAction(nil :: any)),
 			},
 		}, "unique")
 		refuses({ isPresented = fact, closeButton = false, content = "text" }, "content")
@@ -857,13 +895,18 @@ t.describe("native Dialog: a plain overflowing body is one pad stop that scrolls
 
 	t.it("interactive content keeps its own stops inside the body", function()
 		local open, log, change = caller()
-		local w = mount(function(UI, Host)
-			local spec = standard(open, log, change)(UI, Host)
-			spec.content = function()
-				return UI.Button "Inner" { label = "Inner", onActivate = function() end }
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local spec = standard(open, log, change)(UI, Host)
+				spec.content = function()
+					return UI.Button "Inner" { label = "Inner", onActivate = function() end }
+				end
+				return spec
 			end
-			return spec
-		end)
+		)
 		w.size(overlay.find(w.find("Body"), "Content"), 400, 3000)
 		local inner = w.find("Inner")
 		t.expect(inner.Selectable).toBe(true)
@@ -877,13 +920,18 @@ t.describe("native Dialog: lifetime", function()
 	t.it("owner disposal releases physically and reports cancel once; reopen cycles return to baseline", function()
 		local open, log, change = caller()
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Compose.show(shown, function()
-					return UI.Dialog "Confirm"(standard(open, log, change, { closeButton = true })(UI, Host))
-				end),
-			})
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Compose.show(shown, function()
+						return UI.Dialog "Confirm"(standard(open, log, change, { closeButton = true })(UI, Host))
+					end),
+				})
+			end
+		)
 		t.expect(w.find("Panel") ~= nil).toBe(true)
 		shown:set(false)
 		t.expect(w.find("Panel")).toBe(nil)

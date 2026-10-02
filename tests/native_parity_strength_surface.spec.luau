@@ -1,4 +1,8 @@
 --!strict
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local NavigationFixtures = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -7,7 +11,7 @@ local engineLib = require("./lib/native_engine")
 local Graph = require("../src/vendor/compose/core/reactive/graph")
 local gallery = require("../examples/gallery/client/screen")
 local themePackages = require("../tools/lune/theme_packages")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 local function find(root: any, name: string): any
@@ -25,7 +29,8 @@ end
 
 local function world(options: { [string]: any }?): (any, any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -120,7 +125,8 @@ end
 
 local function liveRegistration(): RegistrationInput
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local UI = Facet.controls(runtime, { types = engine.types })
 	local registered: { [string]: string } = {}
 	registrations("src/ui", registered)
@@ -326,7 +332,7 @@ t.describe("public surface registration", function()
 		local baseline = engine.census()
 		local label, taps, activated = Compose.cell("Ready"), Compose.cell(0), 0
 		local button, text
-		local stop, frame = runtime.mount(function()
+		local stop, frame: any = runtime.mount(function()
 			button = UI.Button "Go" {
 				label = label,
 				onActivate = function()
@@ -341,7 +347,11 @@ t.describe("public surface registration", function()
 					return `Taps {use(taps)}`
 				end,
 			}
-			return runtime.constructors.Frame({ button, text })
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({ button :: unknown, text })
 		end, root)
 		t.expect(frame.Parent).toBe(root)
 		t.expect(button.Parent).toBe(frame)
@@ -384,7 +394,11 @@ t.describe("component lifetime", function()
 			return node
 		end
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({ Counter() })
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({ Counter() })
 		end, root)
 		local made = #engine.made
 		t.expect(node.Text).toBe("Count 0")
@@ -406,9 +420,13 @@ t.describe("component lifetime", function()
 		local engine, runtime, UI = world()
 		local root = engine.new("ScreenGui")
 		local expanded, live = Compose.cell(false), 0
-		local stop, body = runtime.mount(function()
-			return runtime.constructors.Frame "Body" {
-				UI.Text "Title" { text = "Title" },
+		local stop, body: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			) "Body" {
+				UI.Text "Title" { text = "Title" } :: unknown,
 				Compose.show(expanded, function()
 					live += 1
 					Compose.cleanup(function()
@@ -451,8 +469,12 @@ t.describe("component lifetime", function()
 				end,
 			}
 		end
-		local stop, body = runtime.mount(function()
-			return runtime.constructors.Frame "Body" { Compose.show(shown, Counter) }
+		local stop, body: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			) "Body" { Compose.show(shown, Counter) }
 		end, root)
 		local first = find(body, "Bump")
 		t.expect(first.Text).toBe("n 0")
@@ -475,10 +497,14 @@ t.describe("component lifetime", function()
 		local root = engine.new("ScreenGui")
 		local shown, source = Compose.cell(true), Compose.cell("a")
 		local seen: { string } = {}
-		local stop, body = runtime.mount(function()
-			return runtime.constructors.Frame "Body" {
+		local stop, body: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			) "Body" {
 				Compose.show(shown, function()
-					Compose.watch(function(use)
+					Compose.watch(function(use: Use)
 						table.insert(seen, use(source))
 					end)
 					return UI.Text "Details" { text = "Details" }
@@ -504,7 +530,7 @@ t.describe("component lifetime", function()
 		local source, calls = Compose.cell(0), 0
 		local unwatch: () -> () = function() end
 		local stop = runtime.mount(function()
-			unwatch = Compose.watch(function(use)
+			unwatch = Compose.watch(function(use: Use)
 				use(source)
 				calls += 1
 			end)
@@ -532,14 +558,18 @@ t.describe("reactive recovery", function()
 		local a, runs = Compose.cell(1), 0
 		local unsubscribe: (() -> ())? = nil
 		local stop = runtime.mount(function()
-			unsubscribe = Compose.watch(function(use)
+			unsubscribe = Compose.watch(function(use: Use)
 				runs += 1
 				use(a)
 				if runs >= 2 and unsubscribe ~= nil then
 					unsubscribe()
 				end
 			end)
-			return runtime.constructors.Frame({})
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({})
 		end, engine.new("ScreenGui"))
 		t.expect(runs).toBe(1)
 		t.expect(Graph.subscriberCount(a :: any)).toBe(1)
@@ -558,15 +588,19 @@ t.describe("reactive recovery", function()
 		local a, runs, armed = Compose.cell(1), 0, false
 		local scope: any
 		local stop = runtime.mount(function()
-			scope = Compose.currentOwner().createChild()
-			scope.watch(function(use)
+			scope = assert(Compose.currentOwner()).createChild()
+			scope.watch(function(use: Use)
 				runs += 1
 				use(a)
 				if armed then
 					scope.dispose()
 				end
 			end)
-			return runtime.constructors.Frame({})
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({})
 		end, engine.new("ScreenGui"))
 		armed = true
 		a:set(2)
@@ -583,15 +617,19 @@ t.describe("reactive recovery", function()
 		local engine, runtime = world()
 		local left, right = Compose.cell(1), Compose.cell(10)
 		local chooseLeft, unrelated = Compose.cell(true), Compose.cell(0)
-		local selected = Compose.formula(function(use)
+		local selected = Compose.formula(function(use: Use)
 			return if use(chooseLeft) then use(left) else use(right)
 		end)
 		local effects: { number } = {}
 		local stop = runtime.mount(function()
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				table.insert(effects, use(selected))
 			end)
-			return runtime.constructors.Frame({})
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({})
 		end, engine.new("ScreenGui"))
 		runtime:batch(function()
 			left:set(2)
@@ -624,7 +662,11 @@ t.describe("reactive recovery", function()
 					return string.upper(use(title))
 				end,
 			}
-			return runtime.constructors.Frame({ bare, derived })
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({ bare :: unknown, derived })
 		end, engine.new("ScreenGui"))
 		t.expect(bare.Text).toBe("First")
 		t.expect(derived.Text).toBe("FIRST")
@@ -644,14 +686,14 @@ t.describe("reactive recovery", function()
 	t.it("a picker selection change keeps its options and makes no native node", function()
 		local engine, runtime, UI = world()
 		local selected = Compose.cell("one")
-		local stop, picker = runtime.mount(function()
+		local stop, picker: any = runtime.mount(function()
 			return UI.Picker "Segments" {
 				selected = selected,
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				options = {
-					{ value = "one", label = "One" },
-					{ value = "two", label = "Two" },
-					{ value = "three", label = "Three" },
+					{ value = "one", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "two", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "three", label = "Three" } :: FixtureNavigationTypes.PickerOption<any>,
 				},
 			}
 		end, engine.new("ScreenGui"))
@@ -678,11 +720,14 @@ t.describe("reactive recovery", function()
 	t.it("a menu picker keeps its trigger across selection and makes no trigger node", function()
 		local engine, runtime, UI = world()
 		local selected = Compose.cell("hud")
-		local stop, picker = runtime.mount(function()
+		local stop, picker: any = runtime.mount(function()
 			return UI.Picker "Bounded" {
-				style = "menu",
+				style = "menu" :: "menu",
 				selected = selected,
-				options = { { value = "hud", label = "HUD" }, { value = "other", label = "Other" } },
+				options = {
+					{ value = "hud", label = "HUD" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "other", label = "Other" } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			}
 		end, engine.new("ScreenGui"))
 		local trigger = find(picker, "Trigger")
@@ -722,217 +767,227 @@ t.describe("declaration refusals", function()
 		{
 			name = "unknown Button option",
 			message = "Facet UI.Button: unknown option 'bogusOption'",
-			build = function(UI)
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Button({ label = "x", bogusOption = 1 })
 			end,
 		},
 		{
 			name = "unknown Picker option",
 			message = "Facet UI.Picker: unknown option 'bogus'",
-			build = function(UI)
-				return UI.Picker({ selected = Compose.cell("a"), options = { { value = "a", label = "A" } }, bogus = 1 })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Picker({
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any> },
+					bogus = 1,
+				})
 			end,
 		},
 		{
 			name = "unknown Alert option",
 			message = "Facet UI.Alert: unknown option 'bogus'",
-			build = function(UI)
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Alert({ isPresented = Compose.cell(false), title = "t", bogus = 1 })
 			end,
 		},
 		{
 			name = "Picker without options",
 			message = "Facet UI.Picker: options must be an array of { value, label } entries",
-			build = function(UI)
-				return UI.Picker({ selected = Compose.cell("a") })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Picker({ selected = Compose.cell("a") } :: any)
 			end,
 		},
 		{
 			name = "read-only Picker selection",
 			message = "Picker.selected requires a writable Compose cell",
-			build = function(UI)
-				return UI.Picker({ selected = "a", options = { { value = "a", label = "A" } } })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Picker({ selected = "a", options = { { value = "a", label = "A" } } } :: any)
 			end,
 		},
 		{
 			name = "duplicate Picker values",
 			message = "",
-			build = function(UI)
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Picker({
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "A" }, { value = "a", label = "Again" } },
+					options = {
+						{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "a", label = "Again" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				})
 			end,
 		},
 		{
 			name = "unknown Picker style",
 			message = "Unknown Picker style",
-			build = function(UI)
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Picker({
 					selected = Compose.cell("a"),
 					options = { { value = "a", label = "A" } },
 					style = "nope",
-				})
+				} :: any)
 			end,
 		},
 		{
 			name = "read-only DisclosureGroup expansion",
 			message = "DisclosureGroup.expanded requires a writable Compose cell",
-			build = function(UI, Host)
+			build = function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
 				return UI.DisclosureGroup({
 					expanded = true,
 					label = "More",
-					content = function()
+					content = function(): Instance
 						return Host.Frame({})
 					end,
-				})
+				} :: any)
 			end,
 		},
 		{
 			name = "read-only TabView selection",
 			message = "TabView.selection requires a writable Compose cell",
-			build = function(UI)
-				return UI.TabView({ tabs = {}, selection = "a" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.TabView({ tabs = {}, selection = "a" } :: any)
 			end,
 		},
 		{
 			name = "NavigationStack without root and destinations",
 			message = "NavigationStack requires path, root and destinations",
-			build = function(UI)
-				return UI.NavigationStack({ path = Compose.cell({}) })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.NavigationStack({ path = Compose.cell({}) } :: any)
 			end,
 		},
 		{
 			name = "PageView without pages",
 			message = "PageView requires entries",
-			build = function(UI)
-				return UI.PageView({ selection = Compose.cell("a") })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.PageView({ selection = Compose.cell("a") } :: any)
 			end,
 		},
 		{
 			name = "RadialMenu without items",
 			message = "RadialMenu requires items",
-			build = function(UI)
-				return UI.RadialMenu({})
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.RadialMenu({} :: any)
 			end,
 		},
 		{
 			name = "Menu without items",
 			message = "Menu requires items",
-			build = function(UI)
-				return UI.Menu({})
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Menu({} :: any)
 			end,
 		},
 		{
 			name = "Sheet without a writable detent",
 			message = "Sheet.detent requires a writable Compose cell",
-			build = function(UI)
-				return UI.Sheet({ isPresented = Compose.cell(false) })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Sheet({ isPresented = Compose.cell(false) } :: any)
 			end,
 		},
 		{
 			name = "Sheet without a writable isPresented",
 			message = "Sheet.isPresented requires a writable Compose cell",
-			build = function(UI)
-				return UI.Sheet({ detent = Compose.cell("medium") })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Sheet({ detent = Compose.cell("medium") } :: any)
 			end,
 		},
 		{
 			name = "Callout without onRetire",
 			message = "Callout requires onRetire",
-			build = function(UI)
-				return UI.Callout({})
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Callout({} :: any)
 			end,
 		},
 		{
 			name = "Alert without presentation state",
 			message = "A presented control requires isPresented or item",
-			build = function(UI)
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Alert({ title = "t" })
 			end,
 		},
 		{
 			name = "closed Text textRole",
 			message = "Facet Text invalid textRole",
-			build = function(UI)
-				return UI.Text({ text = "x", textRole = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Text({ text = "x", textRole = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed status",
 			message = "Facet: invalid status",
-			build = function(UI)
-				return UI.StatusIndicator({ status = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.StatusIndicator({ status = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed Badge status",
 			message = "Facet: invalid status",
-			build = function(UI)
-				return UI.Badge({ label = "x", status = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Badge({ label = "x", status = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed ProgressView presentation",
 			message = "Facet ProgressView presentation must be bar, circular or spinner",
-			build = function(UI)
-				return UI.ProgressView({ value = 0, presentation = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.ProgressView({ value = 0, presentation = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed Toggle presentation",
 			message = "Facet.Toggle: invalid presentation",
-			build = function(UI)
-				return UI.Toggle({ value = Compose.cell(false), presentation = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Toggle({ value = Compose.cell(false), presentation = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed TextInput presentation",
 			message = "Facet.TextInput: invalid presentation",
-			build = function(UI)
-				return UI.TextInput({ value = Compose.cell(""), presentation = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.TextInput({ value = Compose.cell(""), presentation = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed Skeleton form",
 			message = "Facet Skeleton invalid form",
-			build = function(UI)
-				return UI.Skeleton({ form = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Skeleton({ form = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed Avatar presence",
 			message = "Facet Avatar invalid presence",
-			build = function(UI)
-				return UI.Avatar({ name = "x", presence = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Avatar({ name = "x", presence = "nope" } :: any)
 			end,
 		},
 		{
 			name = "closed controlSize",
 			message = "Facet controlSize must be xsmall, compact, regular or large",
-			build = function(UI)
-				return UI.Button({ label = "x", controlSize = "huge" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Button({ label = "x", controlSize = "huge" } :: any)
 			end,
 		},
 		{
 			name = "closed Button role",
 			message = "Facet.Button: invalid semantic role",
-			build = function(UI)
-				return UI.Button({ label = "x", role = "nope" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Button({ label = "x", role = "nope" } :: any)
 			end,
 		},
 		{
 			name = "wrong Slider bound type",
 			message = "finite min must be below max",
-			build = function(UI)
-				return UI.Slider({ value = Compose.cell(0), min = "a" })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Slider({ value = Compose.cell(0), min = "a" } :: any)
 			end,
 		},
 		{
 			name = "segments on a circular ProgressView",
 			message = "",
-			build = function(UI)
-				return UI.ProgressView({ value = 0.5, presentation = "circular", segments = 4 })
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.ProgressView({ value = 0.5, presentation = "circular" :: "circular", segments = 4 })
 			end,
 		},
 	}
@@ -940,7 +995,7 @@ t.describe("declaration refusals", function()
 		table.insert(CASES, {
 			name = `{name} without a value`,
 			message = `Facet.{name}:`,
-			build = function(UI)
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI[name]({})
 			end,
 		})
@@ -949,7 +1004,7 @@ t.describe("declaration refusals", function()
 		table.insert(CASES, {
 			name = `{name} without required options`,
 			message = "",
-			build = function(UI)
+			build = function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI[name]({})
 			end,
 		})
@@ -983,8 +1038,12 @@ t.describe("declaration refusals", function()
 		local role, status = Compose.cell("body"), Compose.cell("info")
 		local badge, presence = Compose.cell("info"), Compose.cell("online")
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Button({ label = "x", controlSize = controlSize }),
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({
+				UI.Button({ label = "x", controlSize = controlSize }) :: unknown,
 				UI.Button({ label = "y", corners = corners }),
 				UI.Text({ text = "z", textRole = role }),
 				UI.StatusIndicator({ status = status }),
@@ -1029,7 +1088,11 @@ t.describe("contained failures", function()
 		})
 		local root = engine.new("ScreenGui")
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({
 				UI.Alert "Decision" {
 					item = item,
 					title = function(value)
@@ -1038,11 +1101,15 @@ t.describe("contained failures", function()
 						end
 						return "Ready " .. value.id
 					end,
-					content = function()
+					content = function(): Instance
 						Compose.cleanup(function()
 							disposed += 1
 						end)
-						return runtime.constructors.Frame "Body" {}
+						return (
+							(
+								runtime.constructors.Frame :: unknown
+							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+						) "Body" {}
 					end,
 				},
 			})
@@ -1073,7 +1140,11 @@ t.describe("contained failures", function()
 		})
 		local root = engine.new("ScreenGui")
 		local ok, stop = pcall(runtime.mount, function()
-			return runtime.constructors.Frame({
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({
 				UI.Alert "Decision" {
 					isPresented = shown,
 					title = function()
@@ -1099,7 +1170,11 @@ t.describe("contained failures", function()
 		local engine, runtime, UI = world()
 		local root = engine.new("ScreenGui")
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({ UI.Alert({ isPresented = shown, error = problem }) })
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({ UI.Alert({ isPresented = shown, error = problem }) })
 		end, root)
 		t.expect(find(root, "Title").Text).toBe("Something went wrong")
 		t.expect(find(root, "Message").Text).toBe("Save failed")
@@ -1117,16 +1192,16 @@ t.describe("contained failures", function()
 		return UI.NavigationStack({
 			path = path,
 			root = {
-				content = function()
+				content = function(): Instance
 					return UI.Button "RootAction" { label = "Root" }
 				end,
-			},
+			} :: NavigationFixtures.NavigationDestination<any>,
 			destinations = {
 				good = {
-					content = function()
+					content = function(): Instance
 						return UI.Button "Good" { label = "Good" }
 					end,
-				},
+				} :: NavigationFixtures.NavigationDestination<any>,
 				bad = {
 					content = function()
 						Compose.cleanup(function()
@@ -1135,16 +1210,20 @@ t.describe("contained failures", function()
 						Host.Frame "Partial" {}
 						error("test destination failure")
 					end,
-				},
+				} :: NavigationFixtures.NavigationDestination<any>,
 			},
 		})
 	end
 
 	t.it("quarantines an invalid path, keeps the page and clears the error on the next valid path", function()
 		local engine, runtime, UI = world()
-		local path, released = Compose.cell({}), { 0 }
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({ stack(UI, runtime.constructors, path, released) })
+		local path, released = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> }), { 0 }
+		local stop, root: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({ stack(UI, runtime.constructors, path, released) })
 		end, engine.new("ScreenGui"))
 		local nav = find(root, "NavigationStack")
 		t.expect(nav:GetAttribute("FacetError")).toBeNil()
@@ -1165,9 +1244,13 @@ t.describe("contained failures", function()
 	t.it("a destination fault releases partial content, records the failure and keeps Back", function()
 		local engine, runtime, UI = world()
 		local root = engine.new("ScreenGui")
-		local path, released = Compose.cell({}), { 0 }
+		local path, released = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> }), { 0 }
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({ stack(UI, runtime.constructors, path, released) })
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({ stack(UI, runtime.constructors, path, released) })
 		end, root)
 		local nav = find(root, "NavigationStack")
 		local before = engine.census()
@@ -1191,7 +1274,8 @@ t.describe("contained failures", function()
 
 	t.it("warns once with the demo id when a gallery demo cannot build", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local target, gui = engine.new("Folder"), engine.new("GuiService")
 		local input = engine.new("UserInputService")
 		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -1199,14 +1283,16 @@ t.describe("contained failures", function()
 			return nil
 		end
 		local demos = {
-			{ id = "first", title = "First", kind = "fixture", module = "first" },
-			{ id = "second", title = "Second", kind = "fixture", module = "second" },
+			{ id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" },
+			{ id = "second", title = "Second", kind = "fixture" :: "fixture", module = "second" },
 		}
 		local ctx: { [string]: any } = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
@@ -1252,9 +1338,11 @@ t.describe("contained failures", function()
 						inputParent = target,
 						services = { GuiService = gui, UserInputService = input },
 						theme = ctx.theme,
-						motionLevel = Compose.formula(function(use)
+						motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end),
+						end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(
+							nil :: any
+						)),
 					} :: any
 				)
 				return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -1308,7 +1396,7 @@ t.describe("theme package boundaries", function()
 			t.expect(found).toBe(true)
 		end
 		local chrome: any = themes.neutralPackage()
-		chrome.chrome.control = { kind = "native", fallback = function() end }
+		chrome.chrome.control = { kind = "native" :: "native", fallback = function() end }
 		local package, report = themes.define(chrome)
 		t.expect(package).toBeNil()
 		t.expect(report.errors[1].field).toBe("package.chrome.control.fallback")

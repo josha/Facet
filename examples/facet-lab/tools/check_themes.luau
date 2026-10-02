@@ -1,3 +1,4 @@
+--!strict
 local serde = require("@lune/serde")
 local Facet = require("../../../src")
 local foundation = require("../themes/foundation")

@@ -1,9 +1,10 @@
 --!strict
+local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local window = require("../src/ui/pagination_window")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 local function controlled(initial: number, extra: { [string]: any }?): (any, any, { number })
 	local page = Compose.cell(initial)
@@ -15,21 +16,26 @@ local function controlled(initial: number, extra: { [string]: any }?): (any, any
 			page:set(nextPage)
 		end,
 	}
-	for key, value in extra or {} do
+	for key, value in (extra or {}) :: { [string]: any } do
 		spec[key] = value
 	end
 	return spec, page, asked
 end
 
-local function mount(spec: any, width: number?, digit: number?): any
-	local world = worlds.new(function(UI, Host)
-		return Host.Frame({
-			Name = "Page",
-			UI.Button({ Name = "Before", label = "Before" }),
-			UI.Pagination("P")(spec),
-			UI.Button({ Name = "After", label = "After" }),
-		})
-	end)
+local function mount(spec: any, width: number?, digit: number?): (any, any)
+	local world = worlds.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame({
+				Name = "Page",
+				UI.Button({ Name = "Before", label = "Before" }) :: unknown,
+				UI.Pagination("P")(spec),
+				UI.Button({ Name = "After", label = "After" }),
+			})
+		end
+	)
 	local root = world.find("P")
 	if digit then
 		world.bounds(root:FindFirstChild("DigitMeasure"), digit * 10)
@@ -73,7 +79,7 @@ end
 
 local function row(current: number, count: number): string
 	local out = {}
-	local previous = nil
+	local previous: number? = nil
 	for _, entry in window(current, count, 1, 1) do
 		if previous ~= nil and entry.page > previous + 1 then
 			table.insert(out, "…")
@@ -163,13 +169,13 @@ t.describe("native Pagination", function()
 	end)
 
 	t.it("shows an outside page clamped with a diagnostic and never writes it back", function()
-		local controls: { [string]: any } = {}
+		local controls: { diagnostics: (() -> { string })? } = {}
 		local spec, page, asked = controlled(40, { pageCount = 12, controls = controls })
 		local world, root = mount(spec)
 		t.expect(root:GetAttribute("FacetCurrent")).toBe(12)
 		t.expect(page:peek()).toBe(40)
 		t.expect(#asked).toBe(0)
-		t.expect(#controls.diagnostics() >= 1).toBe(true)
+		t.expect(#assert(controls.diagnostics)() >= 1).toBe(true)
 		world.stop()
 	end)
 
@@ -183,13 +189,13 @@ t.describe("native Pagination", function()
 			{ page = 1, onChange = print, pageCount = -1 },
 			{ page = 1, onChange = print, siblingCount = 21 },
 			{ page = 1, onChange = print, form = "dots" },
-			{ page = 1, onChange = print, direction = "up" },
+			{ page = 1, onChange = print, direction = "up" :: "up" },
 			{ page = 1, onChange = print, extra = true },
 			{ page = 1, onChange = print, AutomaticSize = Enum.AutomaticSize.X },
 		}
 		for _, spec in bad do
-			t.expect(worlds.mountError(function(UI)
-				return UI.Pagination(spec)
+			t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Pagination(spec :: any)
 			end) ~= nil).toBe(true)
 		end
 		local spec, page = controlled(3, { pageCount = 10 })
@@ -234,7 +240,7 @@ t.describe("native Pagination", function()
 	)
 
 	t.it("reverses the row once in rtl and keeps the meaning of previous and next", function()
-		local spec, _, asked = controlled(5, { pageCount = 10, direction = "rtl" })
+		local spec, _, asked = controlled(5, { pageCount = 10, direction = "rtl" :: "rtl" })
 		local world, root = mount(spec)
 		t.expect(text(root)).toBe("next 10 … 6 [5] 4 … 1 previous")
 		t.expect(world.find("Next").LayoutOrder < world.find("Previous").LayoutOrder).toBe(true)
@@ -349,12 +355,37 @@ t.describe("native Pagination", function()
 	end)
 
 	t.it("keeps the label reservation while the label gains a digit, ltr and rtl, known and unknown", function()
-		for _, case in
+		for
+			_,
+			case: {
+			extra: {
+				pageCount: number?,
+				form: "label"?,
+				direction: "rtl"?,
+				hasNext: boolean?,
+				hasPrevious: boolean?,
+			},
+			from: number,
+			to: number,
+		}
+		in
 			{
 				{ extra = { pageCount = 12, form = "label" }, from = 9, to = 10 },
-				{ extra = { pageCount = 12, form = "label", direction = "rtl" }, from = 9, to = 10 },
+				{ extra = { pageCount = 12, form = "label", direction = "rtl" :: "rtl" }, from = 9, to = 10 },
 				{ extra = { hasNext = true, hasPrevious = true }, from = 9, to = 10 },
-				{ extra = { hasNext = true, hasPrevious = true, direction = "rtl" }, from = 99, to = 100 },
+				{ extra = { hasNext = true, hasPrevious = true, direction = "rtl" :: "rtl" }, from = 99, to = 100 },
+			} :: {
+				{
+					extra: {
+						pageCount: number?,
+						form: "label"?,
+						direction: "rtl"?,
+						hasNext: boolean?,
+						hasPrevious: boolean?,
+					},
+					from: number,
+					to: number,
+				}
 			}
 		do
 			local spec, page = controlled(case.from, case.extra)
@@ -391,7 +422,7 @@ t.describe("native Pagination", function()
 		local count = Compose.cell(10)
 		local page = Compose.cell(2)
 		local asked = 0
-		local world = worlds.new(function(UI)
+		local world = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return Compose.show(show, function()
 				return UI.Pagination("P")({
 					page = page,
@@ -413,9 +444,15 @@ t.describe("native Pagination", function()
 
 	t.it("follows an accepted page in the Paging scenario context and changes nothing on a refusal", function()
 		local scenario = require("../examples/gallery/scenarios/paging") :: any
-		local world = worlds.new(function(UI, Host, engine)
-			return scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types }).screen()
-		end)
+		local world = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				return scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types }).screen()
+			end
+		)
 		local context = world.find("ResultsContext")
 		t.expect(context.Text).toBe("Showing results 81–100 of 4000")
 		local results = world.find("Results")

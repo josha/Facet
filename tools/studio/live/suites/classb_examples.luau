@@ -1,7 +1,15 @@
 --!strict
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -27,28 +35,44 @@ end
 
 local function example(t: any, name: string, size: Vector2, patch: ((any) -> ())?, theme: any?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
-		local ctx = t.context(UI, Host, Compose, env)
-		if patch then
-			patch(ctx)
-		end
-		local module = storage:WaitForChild("FacetExamples"):WaitForChild(name)
-		built = (require :: any)(module).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
-	end, { size = size, frames = 20, theme = theme })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			local ctx = t.context(UI, Host, Compose, env)
+			if patch then
+				patch(ctx)
+			end
+			local module = storage:WaitForChild("FacetExamples"):WaitForChild(name)
+			built = (require :: any)(module).build(ctx)
+			return if type(built) == "function" then built() else built.screen()
+		end,
+		{ size = size, frames = 20, theme = theme }
+	)
 	return stage, built
 end
 
 local function scenario(t: any, name: string, size: Vector2, patch: ((any) -> ())?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
-		local ctx = t.context(UI, Host, Compose, env)
-		if patch then
-			patch(ctx)
-		end
-		built = t.scenario(name).build(ctx)
-		return if type(built) == "function" then built() else built.screen()
-	end, { size = size, frames = 20 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			local ctx = t.context(UI, Host, Compose, env)
+			if patch then
+				patch(ctx)
+			end
+			built = t.scenario(name).build(ctx)
+			return if type(built) == "function" then built() else built.screen()
+		end,
+		{ size = size, frames = 20 }
+	)
 	return stage, built
 end
 
@@ -70,7 +94,7 @@ end
 add("consumer-blurb-grows-with-text-size", { "apps2-05" }, function(t)
 	local module = storage:WaitForChild("FacetConsumerScreen")
 	local screen = (require :: any)(module)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return screen.build(t.Facet, UI)
 	end, { size = Vector2.new(390, 844), frames = 20 })
 	local blurb, count = t.find(stage, "Blurb"), t.find(stage, "Count")
@@ -376,11 +400,19 @@ end)
 add("outpost-terminal-holds-canvas-every-text-size", { "apps2-131" }, function(t)
 	for _, offset in OFFSETS do
 		local built
-		local stage = t.mount(function(UI, Host, Compose, env)
-			local ctx = t.context(UI, Host, Compose, env)
-			built = ctx.load("example", "outpost_terminal").build(ctx)
-			return built.screen()
-		end, { size = Vector2.new(640, 480), frames = 20 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core")),
+				env
+			)
+				local ctx = t.context(UI, Host, Compose, env)
+				built = ctx.load("example", "outpost_terminal").build(ctx)
+				return built.screen()
+			end,
+			{ size = Vector2.new(640, 480), frames = 20 }
+		)
 		built.steps.engage(built.steps.snapshot().outpost)
 		built.steps.setValue("door", 3)
 		built.steps.setValue("beacon", 2)

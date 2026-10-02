@@ -226,11 +226,11 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 			else D2.fromScale(1, 0),
 	}
 	for _, child in children do
-		table.insert(props, child)
+		props[#props + 1] = child
 	end
 	local ratio = media.aspectRatio
 	if ratio and not height then
-		table.insert(props, Host.UIAspectRatioConstraint({ AspectRatio = ratio, DominantAxis = E.DominantAxis.Width }))
+		props[#props + 1] = Host.UIAspectRatioConstraint({ AspectRatio = ratio, DominantAxis = E.DominantAxis.Width })
 	end
 	return Host.Frame(props)
 end
@@ -313,7 +313,7 @@ function parts.actions(
 				press(action)
 			end,
 		})
-		table.insert(props, button)
+		props[#props + 1] = button
 		table.insert(widths, ctx.observe.TextBounds(button))
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
@@ -405,7 +405,7 @@ function parts.room(
 	}
 	for index, region in regions do
 		ctx.runtime.decorate(region, { LayoutOrder = index })
-		table.insert(props, region)
+		props[#props + 1] = region
 	end
 	props.Selectable = false
 	local frame = Host.ScrollingFrame(props)

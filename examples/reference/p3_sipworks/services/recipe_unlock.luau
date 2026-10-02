@@ -6,7 +6,7 @@ unlock.AVAILABLE_AFTER = 1.0
 unlock.RESOLVE_AFTER = 0.6
 
 function unlock.new(opts: any)
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 
 	local batch = opts.batch
 	local clock = opts.clock

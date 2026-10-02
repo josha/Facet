@@ -528,7 +528,8 @@ function check_maintainer_map.coverage(): { Coverage }
 	local ownership: Ownership = { files = {}, dirs = {} }
 	local ordered: { Coverage } = {}
 	local index: { [string]: Coverage } = {}
-	for _, cells in tableAfter(lines, AREA_MARKER) or {} do
+	local cellsRows: { { string } } = tableAfter(lines, AREA_MARKER) or {}
+	for _, cells in cellsRows do
 		if #cells < 2 then
 			continue
 		end

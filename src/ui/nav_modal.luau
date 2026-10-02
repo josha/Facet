@@ -1047,11 +1047,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 					end,
 					ZIndex = 96,
 				}
-				table.insert(panelProps, ctx.padding(8, 6))
-				table.insert(
-					panelProps,
+				panelProps[#panelProps + 1] = ctx.padding(8, 6)
+				panelProps[#panelProps + 1] =
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, 4) })
-				)
 				if structured and structured.title ~= nil then
 					local title = structured.title
 					local heading = ctx.text({
@@ -1062,7 +1060,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						end,
 					})
 					heading:AddTag("facet-type-heading")
-					table.insert(panelProps, heading)
+					panelProps[#panelProps + 1] = heading
 				end
 				runtime.decorate(label, {
 					LayoutOrder = 2,
@@ -1070,7 +1068,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						return (ctx.read(text, use) or "") ~= ""
 					end,
 				})
-				table.insert(panelProps, label)
+				panelProps[#panelProps + 1] = label
 				if structured and structured.shortcut then
 					local chords: { string } = {}
 					for _, chord in structured.shortcut do
@@ -1083,7 +1081,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					})
 					hint:AddTag("facet-type-caption")
 					hint:AddTag("facet-secondary")
-					table.insert(panelProps, hint)
+					panelProps[#panelProps + 1] = hint
 				end
 				local panel = ctx.fade(panelProps)
 				local sizes, rested = atRest(presence.travel, settled, { panel, label })

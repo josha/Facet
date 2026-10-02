@@ -8,8 +8,9 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
 local lab = require(ReplicatedStorage:WaitForChild("FacetScenarios"))
-local runtime = Facet.Roblox.createRuntime()
-local Host = runtime.constructors
+local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+	Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 local neutral = assert(Facet.themes.define(Facet.themes.neutralPackage()))
 local packages: { [string]: any } = { ["facet-neutral"] = neutral }
 local folder = ReplicatedStorage:FindFirstChild("FacetThemes")
@@ -57,7 +58,7 @@ local stop = runtime.mount(function()
 	return Host.ScreenGui "FacetPerformanceLab" {
 		ResetOnSpawn = false,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-		sheet,
+		sheet :: unknown,
 		Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }),
 		lab.screen.build({
 			Facet = Facet,

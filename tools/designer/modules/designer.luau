@@ -16,7 +16,7 @@ local galleryPages = require("./gallery")
 local designer = {}
 
 function designer.mount(Facet: any, parent: Instance, dependencies: any): any
-	local Compose = Facet.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 	local saved = dependencies.read and dependencies.read() or {}
 	local initial = templates[1]
 	if saved.draft and pcall(document.validate, saved.draft) then
@@ -51,7 +51,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 		dataFields = {},
 		dataArray = false,
 		galleryTitle = "",
-		galleryEntries = {},
+		galleryEntries = {} :: { { id: string, value: any } },
 		galleryQuery = "",
 		galleryPage = 1,
 		transferTitle = "",
@@ -81,7 +81,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			return nextValue
 		end)
 	end
-	local function attempt(callback: () -> ())
+	local function attempt<T...>(callback: () -> T...): boolean
 		local ok, err = pcall(function()
 			callback()
 			return true
@@ -100,8 +100,9 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 	local function sync(rebuild: boolean?)
 		local value, id = stack.current()
 		local node = assert(document.find(value.root, id))
-		local fields =
-			{ { id = id .. ".name", key = "name", label = "Layer name", kind = "string", value = node.name } }
+		local fields = {
+			{ id = id .. ".name", key = "name", label = "Layer name", kind = "string" :: "string", value = node.name },
+		}
 		for _, descriptor in library.definitions[node.kind].fields do
 			if not library.visible(node.kind, descriptor.key, node.props) then
 				continue
@@ -140,7 +141,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			attempt(persist)
 		end
 	end
-	local function commit(callback: any)
+	local function commit(callback: any): boolean
 		return attempt(function()
 			local value, id = stack.current()
 			local nextValue, nextId = callback(value, id)
@@ -336,7 +337,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 					target = target[at]
 				end
 			end
-			library.parse({ kind = "json" }, value)
+			library.parse({ kind = "json" :: "json" }, value)
 			structured.value = value
 			showStructured()
 		end)
@@ -582,7 +583,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			dependencies.flush()
 		end
 	end
-	actions.galleryManage = function(name)
+	actions.galleryManage = function(name: string)
 		if model:peek().galleryTitle ~= "My designs" then
 			return
 		end

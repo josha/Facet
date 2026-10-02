@@ -1,4 +1,5 @@
 --!strict
+local loadSupply = require :: (string) -> typeof(require("@repo/examples/reference/p1_glade/services/supply"))
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 local creatures = {
@@ -29,7 +30,7 @@ return {
 	build = function(ctx: any)
 		local supplyService = if script
 			then ctx.load("reference", "p1_glade", "services", "supply")
-			else require("../../reference/p1_glade/services/supply")
+			else loadSupply("../../reference/p1_glade/services/supply")
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 		local view = makeView(ctx)
@@ -99,13 +100,13 @@ return {
 			return Host.Frame "GladeScene" {
 				Size = D2.new(1, 0, 0, 300),
 				BackgroundTransparency = 1,
-				UI.Image "GardenPainting" { image = art.garden, scaleMode = "fit", Size = D2.fromScale(1, 1) },
+				UI.Image "GardenPainting" { image = art.garden, scaleMode = "fit" :: "fit", Size = D2.fromScale(1, 1) } :: unknown,
 				C.show(function(use: any)
 					return use(creature) ~= nil
 				end, function()
 					return UI.Image "VisitorSprite" {
 						image = art.wisps,
-						scaleMode = "fit",
+						scaleMode = "fit" :: "fit",
 						Size = D2.fromScale(0.23, 0.35),
 						Position = D2.fromScale(0.45, 0.3),
 						ImageRectSize = V2.new(341, 341),
@@ -120,7 +121,7 @@ return {
 		local function garden()
 			local island = scene(visitor)
 			ctx.runtime.decorate(island, { Size = D2.fromScale(1, 1) })
-			local function hotspot(name, label, x, y, action, enabled)
+			local function hotspot(name: string, label, x, y, action, enabled)
 				return UI.Button(name) {
 					label = label,
 					onActivate = action,
@@ -131,17 +132,17 @@ return {
 			end
 			return UI.ScrollView "Glade" {
 				padding = "l",
-				align = "center",
+				align = "center" :: "center",
 				UI.VStack "GardenContent" {
-					width = "fill",
+					width = "fill" :: "fill",
 					gap = "m",
-					Host.UISizeConstraint { MaxSize = V2.new(960, 100000) },
+					Host.UISizeConstraint { MaxSize = V2.new(960, 100000) } :: unknown,
 					view.text("GardenTitle", "A small place to care for", "title"),
 					view.text("GardenObjective", "Fill the pond, choose a nectar, and see who visits."),
 					Host.Frame "GardenLandscape" {
 						Size = D2.new(1, 0, 0, 640),
 						BackgroundTransparency = 1,
-						Host.UIAspectRatioConstraint { AspectRatio = 1.5, DominantAxis = E.DominantAxis.Width },
+						Host.UIAspectRatioConstraint { AspectRatio = 1.5, DominantAxis = E.DominantAxis.Width } :: unknown,
 						island,
 						hotspot("RefillDew", "Fill pond", 0.3, 0.7, refill),
 						hotspot("OpenFeeder", "Offer nectar", 0.79, 0.69, function()
@@ -186,7 +187,7 @@ return {
 						isPresented = feederOpen,
 						closeButton = true,
 						detent = C.cell("medium"),
-						content = function()
+						content = function(): Instance
 							local offerings = {
 								view.text(
 									"FeederHint",
@@ -205,7 +206,11 @@ return {
 								)
 							end
 							table.insert(offerings, view.text("FeederNotice", notice))
-							return UI.VStack { width = "fill", gap = "m", table.unpack(offerings) }
+							return UI.VStack {
+								width = "fill" :: "fill",
+								gap = "m",
+								table.unpack((offerings :: unknown) :: { unknown }),
+							}
 						end,
 					},
 				},
@@ -220,13 +225,13 @@ return {
 						return not use(favoriteOnly) or use(favorites)[creature.id] == true
 					end, function()
 						return UI.VStack {
-							width = "fill",
+							width = "fill" :: "fill",
 							gap = "s",
 							view.text(creature.id .. "Name", function(use: any)
 								return if use(seen)[creature.id]
 									then creature.name
 									else "Undiscovered · " .. creature.label .. " nectar"
-							end, "heading"),
+							end, "heading") :: unknown,
 							view.text(creature.id .. "Note", creature.note),
 							view.actions({
 								view.button("Inspect_" .. creature.id, "View visitor", function()
@@ -271,7 +276,7 @@ return {
 					key = function(item)
 						return item.id
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return view.text("Visit" .. current:peek().id, function(use: any)
 							local entry = use(current)
 							return `{entry.id}. {entry.text}`
@@ -287,11 +292,11 @@ return {
 				isPresented = presented,
 				detent = C.cell("large"),
 				closeButton = true,
-				content = function()
+				content = function(): Instance
 					return UI.VStack {
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "m",
-						scene(detail),
+						scene(detail) :: unknown,
 						view.text("VisitorName", function(use: any)
 							return use(detail).name
 						end, "title"),
@@ -307,7 +312,7 @@ return {
 				return Host.Frame "WispGarden" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					garden(),
+					garden() :: unknown,
 					visitorSheet(),
 					UI.Sheet "FieldGuide" {
 						title = "Field guide",

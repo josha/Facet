@@ -1,7 +1,17 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -34,13 +44,19 @@ local function paletteOf(package: any, name: string): any
 end
 
 add("skeleton-circle-round-sweep", { "themes-P1-87" }, function(t)
-	local stage = t.mount(function(UI, Host)
-		return Host.Frame "Holder" {
-			Size = UDim2.fromOffset(300, 300),
-			BackgroundTransparency = 1,
-			UI.Skeleton "Circle" { form = "circle" },
-		}
-	end, { size = Vector2.new(400, 400), motionLevel = "normal" })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame "Holder" {
+				Size = UDim2.fromOffset(300, 300),
+				BackgroundTransparency = 1,
+				UI.Skeleton "Circle" { form = "circle" :: "circle" },
+			}
+		end,
+		{ size = Vector2.new(400, 400), motionLevel = "normal" }
+	)
 	local plate = t.find(stage, "Circle"):FindFirstChild("Placeholder1")
 	local size = plate.AbsoluteSize
 	t.near("the circle placeholder is square", size.X, size.Y, 0.01)
@@ -58,19 +74,26 @@ end)
 
 add("skeleton-band-contained", { "themes-P1-88" }, function(t)
 	local width
-	local stage = t.mount(function(UI, Host, Compose)
-		width = Compose.cell(0.5)
-		return Host.Frame "Offer" {
-			Size = UDim2.fromOffset(500, 200),
-			BackgroundTransparency = 1,
-			UI.Skeleton "A" {
-				form = "box",
-				Size = function(use)
-					return UDim2.new(use(width), 0, 0, 0)
-				end,
-			},
-		}
-	end, { size = Vector2.new(600, 400), motionLevel = "normal" })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			width = Compose.cell(0.5)
+			return Host.Frame "Offer" {
+				Size = UDim2.fromOffset(500, 200),
+				BackgroundTransparency = 1,
+				UI.Skeleton "A" {
+					form = "box" :: "box",
+					Size = function(use: Use)
+						return UDim2.new(use(width), 0, 0, 0)
+					end,
+				},
+			}
+		end,
+		{ size = Vector2.new(600, 400), motionLevel = "normal" }
+	)
 	local offer = t.find(stage, "Offer")
 	local root = t.find(stage, "A")
 	local plate = root:FindFirstChild("Placeholder1")
@@ -101,12 +124,12 @@ end)
 
 add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
 	for _, align in { "center", "end", "start" } do
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VStack "Col" {
-				width = "fill",
-				align = align,
-				UI.Skeleton "One" { form = "line", Size = UDim2.fromOffset(120, 0) },
-				UI.Skeleton "Many" { form = "line", lines = 3, Size = UDim2.fromOffset(120, 0) },
+				width = "fill" :: "fill",
+				align = align :: "center" | "end" | "start" | "stretch",
+				UI.Skeleton "One" { form = "line" :: "line", Size = UDim2.fromOffset(120, 0) } :: unknown,
+				UI.Skeleton "Many" { form = "line" :: "line", lines = 3, Size = UDim2.fromOffset(120, 0) },
 			}
 		end, { size = Vector2.new(500, 400) })
 		local col = t.find(stage, "Col")
@@ -130,20 +153,26 @@ add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
 end)
 
 add("stage-not-selectable", { "themes-P1-105" }, function(t)
-	local stage = t.mount(function(UI, Host)
-		return Host.Frame "Form" {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
-			Host.Frame "OnlyStage" {
-				Size = UDim2.fromOffset(260, 200),
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame "Form" {
+				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				LayoutOrder = 1,
-				UI.Stage "Scene" {},
-			},
-			UI.Button "After" { label = "After", LayoutOrder = 2 },
-		}
-	end, { size = Vector2.new(600, 500) })
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+				Host.Frame "OnlyStage" {
+					Size = UDim2.fromOffset(260, 200),
+					BackgroundTransparency = 1,
+					LayoutOrder = 1,
+					UI.Stage "Scene" {},
+				},
+				UI.Button "After" { label = "After", LayoutOrder = 2 },
+			}
+		end,
+		{ size = Vector2.new(600, 500) }
+	)
 	local scene = t.find(stage, "Scene")
 	t.check("the stage is a ViewportFrame", scene:IsA("ViewportFrame"))
 	t.check("the stage is not selectable", scene.Selectable == false)
@@ -169,14 +198,14 @@ end)
 
 add("stage-panel-paint", { "themes-P1-107" }, function(t)
 	local env
-	local stage = t.mount(function(UI, _, _, e)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, _, e)
 		env = e
 		return UI.Stage "Scene" {}
 	end, { size = Vector2.new(400, 300) })
 	local scene = t.find(stage, "Scene")
 	local package = env.theme:peek()
 	t.check("the stage carries the panel style tag", scene:HasTag("facet-panel"))
-	local seen = {}
+	local seen: { Color3 } = {}
 	for _, entry in package.style.themes do
 		env.palette:set(entry.name)
 		t.settle(4)
@@ -194,19 +223,27 @@ add("explicit-gradient-wins-across-swap", { "themes-P3-11" }, function(t)
 	local env
 	local viewColor = ColorSequence.new(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255))
 	local viewAlpha = NumberSequence.new(0.1, 0.3)
-	local stage = t.mount(function(UI, Host, _, e)
-		env = e
-		return Host.Frame "Pair" {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
-			UI.Stage "Card" {
-				LayoutOrder = 1,
-				Host.UIGradient "ViewGradient" { Color = viewColor, Rotation = 45, Transparency = viewAlpha },
-			},
-			UI.Stage "Plain" { LayoutOrder = 2 },
-		}
-	end, { size = Vector2.new(600, 500), theme = glossy })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			_,
+			e
+		)
+			env = e
+			return Host.Frame "Pair" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+				UI.Stage "Card" {
+					LayoutOrder = 1,
+					Host.UIGradient "ViewGradient" { Color = viewColor, Rotation = 45, Transparency = viewAlpha },
+				},
+				UI.Stage "Plain" { LayoutOrder = 2 },
+			}
+		end,
+		{ size = Vector2.new(600, 500), theme = glossy }
+	)
 	local card = t.find(stage, "Card")
 	local gradient = card:FindFirstChild("ViewGradient")
 	local function verify(label: string)
@@ -249,7 +286,7 @@ end)
 
 add("skinned-selection-hugs-art", { "themes-P4-15" }, function(t)
 	local ornate = themeNamed(t, "fantasy_ornate")
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.VStack "Col" {
 			UI.Button "Skinned" { label = "Ornate" },
 		}
@@ -296,8 +333,10 @@ add("skinned-selection-hugs-art", { "themes-P4-15" }, function(t)
 		"selection does not move or resize the hit area",
 		after.x == rect.x and after.y == rect.y and after.w == rect.w and after.h == rect.h
 	)
-	local hits = game:GetService("Players").LocalPlayer.PlayerGui
-		:GetGuiObjectsAtPosition(rect.x + rect.w / 2, rect.y + rect.h / 2)
+	local hits = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):GetGuiObjectsAtPosition(
+		rect.x + rect.w / 2,
+		rect.y + rect.h / 2
+	)
 	local hitButton = false
 	for _, node in hits do
 		if node == button then
@@ -313,7 +352,7 @@ add("selection-corners-follow-control", { "themes-P5-43" }, function(t)
 	local env
 	local neutral = t.themes[1].package
 	local ornate = themeNamed(t, "fantasy_ornate")
-	local stage = t.mount(function(UI, _, _, e)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, _, e)
 		env = e
 		return UI.VStack "Col" {
 			UI.Button "Target" { label = "Target" },
@@ -336,17 +375,23 @@ add("status-count-authored-height", { "themes-P1-117" }, function(t)
 	for _, cutout in { false, true } do
 		for _, height in { UDim.new(0.5, 0), UDim.new(0, 20), UDim.new(0, 30) } do
 			local label = `{if cutout then "cutout" else "plain"} {height.Scale}+{height.Offset}`
-			local stage = t.mount(function(UI, Host)
-				return Host.Frame "Offer" {
-					Size = UDim2.fromOffset(100, 100),
-					BackgroundTransparency = 1,
-					UI.StatusIndicator "Mark" {
-						count = 7,
-						cutout = cutout,
-						Size = UDim2.new(UDim.new(0, 40), height),
-					},
-				}
-			end, { size = Vector2.new(300, 300) })
+			local stage = t.mount(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame "Offer" {
+						Size = UDim2.fromOffset(100, 100),
+						BackgroundTransparency = 1,
+						UI.StatusIndicator "Mark" {
+							count = 7,
+							cutout = cutout,
+							Size = UDim2.new(UDim.new(0, 40), height),
+						},
+					}
+				end,
+				{ size = Vector2.new(300, 300) }
+			)
 			local mark = t.find(stage, "Mark")
 			local want = if height.Scale > 0 then 50 else height.Offset
 			t.near(label .. " height is the authored height", mark.AbsoluteSize.Y, want, 0.01)
@@ -394,17 +439,27 @@ add("status-round-containment", { "themes-P1-120" }, function(t)
 	for _, cutout in { false, true } do
 		for _, offer in OFFERS do
 			local label = `{if cutout then "cutout" else "plain"} {offer[1]}x{offer[2]}`
-			local stage = t.mount(function(UI, Host)
-				return Host.Frame "Box" {
-					Size = UDim2.fromOffset(100, 100),
-					BackgroundTransparency = 1,
-					Host.Frame "Offer" {
-						Size = UDim2.fromScale(offer[1] / 100, offer[2] / 100),
+			local stage = t.mount(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame "Box" {
+						Size = UDim2.fromOffset(100, 100),
 						BackgroundTransparency = 1,
-						UI.StatusIndicator "Mark" { form = "ring", cutout = cutout, Size = UDim2.fromScale(1, 1) },
-					},
-				}
-			end, { size = Vector2.new(300, 300), frames = 6 })
+						Host.Frame "Offer" {
+							Size = UDim2.fromScale(offer[1] / 100, offer[2] / 100),
+							BackgroundTransparency = 1,
+							UI.StatusIndicator "Mark" {
+								form = "ring" :: "ring",
+								cutout = cutout,
+								Size = UDim2.fromScale(1, 1),
+							},
+						},
+					}
+				end,
+				{ size = Vector2.new(300, 300), frames = 6 }
+			)
 			local box, mark = t.find(stage, "Offer"), t.find(stage, "Mark")
 			local side = math.min(box.AbsoluteSize.X, box.AbsoluteSize.Y)
 			t.near(label .. " the mark is square", mark.AbsoluteSize.X, mark.AbsoluteSize.Y, 0.01)
@@ -416,21 +471,28 @@ add("status-round-containment", { "themes-P1-120" }, function(t)
 		end
 	end
 	local width, height
-	local stage = t.mount(function(UI, Host, Compose)
-		width, height = Compose.cell(200), Compose.cell(100)
-		return Host.Frame "Offer" {
-			Size = function(use)
-				return UDim2.fromOffset(use(width), use(height))
-			end,
-			BackgroundTransparency = 1,
-			UI.StatusIndicator "Dot" { form = "dot", Size = UDim2.fromScale(0.5, 0.5) },
-			UI.StatusIndicator "Dash" {
-				form = "dash",
-				Size = UDim2.fromScale(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-			},
-		}
-	end, { size = Vector2.new(400, 400) })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			width, height = Compose.cell(200), Compose.cell(100)
+			return Host.Frame "Offer" {
+				Size = function(use: Use)
+					return UDim2.fromOffset(use(width), use(height))
+				end,
+				BackgroundTransparency = 1,
+				UI.StatusIndicator "Dot" { form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) } :: unknown,
+				UI.StatusIndicator "Dash" {
+					form = "dash" :: "dash",
+					Size = UDim2.fromScale(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+				},
+			}
+		end,
+		{ size = Vector2.new(400, 400) }
+	)
 	for _, dims in { { 200, 100 }, { 60, 200 }, { 200, 100 } } do
 		width:set(dims[1])
 		height:set(dims[2])
@@ -453,18 +515,33 @@ add("status-cutout-hairline", { "themes-P1-121" }, function(t)
 	local pixel = themeNamed(t, "pixel_quest")
 	local env
 	for _, size in { 8, 10, 11, 13, 16, 40 } do
-		for _, form in { "dot", "ring", "square", "dash" } do
+		for _, form in { "dot", "ring", "square", "dash" } :: { "dash" | "dot" | "ring" | "square" } do
 			local label = `{form} {size}`
-			local stage = t.mount(function(UI, Host, _, e)
-				env = e
-				return Host.Frame "Offer" {
-					Size = UDim2.fromOffset(size * 3, size),
-					BackgroundTransparency = 1,
-					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal },
-					UI.StatusIndicator "Mark" { form = form, diameter = size, cutout = true },
-					UI.StatusIndicator "Bare" { form = form, diameter = size },
-				}
-			end, { size = Vector2.new(200, 200), theme = pixel, frames = 6 })
+			local stage = t.mount(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+					_,
+					e
+				)
+					env = e
+					return Host.Frame "Offer" {
+						Size = UDim2.fromOffset(size * 3, size),
+						BackgroundTransparency = 1,
+						Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal } :: unknown,
+						UI.StatusIndicator "Mark" {
+							form = form :: "dash" | "dot" | "ring" | "square",
+							diameter = size,
+							cutout = true,
+						},
+						UI.StatusIndicator "Bare" {
+							form = form :: "dash" | "dot" | "ring" | "square",
+							diameter = size,
+						},
+					}
+				end,
+				{ size = Vector2.new(200, 200), theme = pixel, frames = 6 }
+			)
 			local mark = t.find(stage, "Mark")
 			local bare = t.find(stage, "Bare")
 			local stroke = mark:FindFirstChild("Cutout")

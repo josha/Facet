@@ -2,7 +2,7 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 type Census = { live: number, connections: number, owners: number, holding: number, mounts: number }
 
@@ -49,7 +49,10 @@ end
 
 local function inspected(body: () -> ())
 	Compose.inspect.start({ maxOwners = 1000000, maxNodes = 1000000 })
-	local ok, failure = pcall(body)
+	local ok, failure = pcall(function(): boolean
+		body()
+		return true
+	end)
 	Compose.inspect.stop()
 	if not ok then
 		error(failure, 0)
@@ -71,14 +74,17 @@ t.describe("native parity weak3 rows: declared mount ramp ceiling", function()
 				workloads = require("../examples/performance/lab/workloads"),
 			}
 			local engine = engineLib.new({ cacheDefaults = true })
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local target = engine.new("Folder")
 			local probe
 			local world = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (
+						runtime.constructors :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 				UI = Facet.controls(runtime, { types = engine.types } :: any),
 				engine = engine,
 				target = target,
@@ -92,7 +98,7 @@ t.describe("native parity weak3 rows: declared mount ramp ceiling", function()
 						sourceStamp = "test",
 						placeName = "headless",
 						viewport = "800x600",
-						orientation = "landscape",
+						orientation = "landscape" :: "landscape",
 						graphicsQualityLevel = "n/a",
 						frameTarget = "n/a",
 						studioVersion = "n/a",

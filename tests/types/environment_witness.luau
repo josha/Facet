@@ -28,7 +28,7 @@ local function Screen(): Frame
 		onAdjust = function(direction: number)
 			print(direction)
 		end,
-		axis = "vertical",
+		axis = "vertical" :: "vertical",
 		repeats = true,
 	}
 	UI.adjustable(list, dial)

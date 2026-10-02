@@ -51,13 +51,13 @@ export type ImageProps = Engine.ImageLabelProps & {
 	shape: ("rect" | "circle")?,
 }
 export type BadgeProps = Types.TextLabelProps & {
-	label: Types.ValueString?,
+	label: Types.Value<string?>?,
 	name: string?,
 	icon: Types.ValueString?,
 	iconPosition: "leading" | "trailing"?,
 	status: Types.Value<Status>?,
 	appearance: Types.Value<"standard" | "status" | "utility">?,
-	controlSize: Types.Value<ControlSize>?,
+	controlSize: Types.Value<ControlSize?>?,
 	corners: Types.Value<number | "square" | "rounded" | "capsule">?,
 }
 export type StatusIndicatorProps = Types.TextLabelProps & {
@@ -66,7 +66,7 @@ export type StatusIndicatorProps = Types.TextLabelProps & {
 	count: Types.Value<number?>?,
 	max: number?,
 	diameter: Types.ValueNumber?,
-	controlSize: Types.Value<ControlSize>?,
+	controlSize: Types.Value<ControlSize?>?,
 	cutout: boolean?,
 	name: string?,
 }
@@ -94,12 +94,12 @@ export type ProgressViewProps = Engine.FrameProps & {
 	thickness: Types.ValueNumber?,
 	segments: number?,
 	trail: Trail?,
-	controlSize: Types.Value<ControlSize>?,
+	controlSize: Types.Value<ControlSize?>?,
 }
 export type SkeletonProps = Engine.FrameProps & {
 	form: "box" | "circle" | "line"?,
 	lines: number?,
-	controlSize: Types.Value<ControlSize>?,
+	controlSize: Types.Value<ControlSize?>?,
 	corners: Types.Value<Corners | "control" | "panel">?,
 }
 export type ImageState = "loading" | "ready" | "failed"
@@ -118,7 +118,7 @@ export type ImageStatusCallback = (state: ImageState, reason: unknown) -> ()
 export type AsyncImageProps = Engine.FrameProps & {
 	source: Types.Value<string?>?,
 	image: Types.Value<string?>?,
-	resource: ComposeTypes.AcquireSharedResource<ImageResource>?,
+	resource: (() -> ImageResource)?,
 	loader: ImageLoader?,
 	onStatus: ImageStatusCallback?,
 	failureLabel: Types.ValueString?,
@@ -131,14 +131,14 @@ export type AvatarProps = Types.TextButtonProps & {
 	name: Types.ValueString,
 	image: Types.Value<string?>?,
 	userId: Types.ValueNumber?,
-	resource: ComposeTypes.AcquireSharedResource<ImageResource>?,
+	resource: (() -> ImageResource)?,
 	loader: ImageLoader?,
 	onStatus: ImageStatusCallback?,
 	presence: Types.Value<Presence?>?,
 	presenceLabel: Types.ValueString?,
 	presenceMark: boolean?,
 	diameter: Types.ValueNumber?,
-	controlSize: Types.Value<ControlSize>?,
+	controlSize: Types.Value<ControlSize?>?,
 	form: "standard" | "icon"?,
 	backplate: boolean?,
 	icon: Types.Value<string?>?,
@@ -151,14 +151,14 @@ export type AvatarMember = {
 	image: string?,
 	userId: number?,
 	icon: string?,
-	resource: ComposeTypes.AcquireSharedResource<ImageResource>?,
+	resource: (() -> ImageResource)?,
 	presence: Presence?,
 }
 export type AvatarGroupProps = Engine.FrameProps & {
 	items: Types.Value<{ AvatarMember }>,
 	max: number?,
 	diameter: Types.ValueNumber?,
-	controlSize: Types.Value<ControlSize>?,
+	controlSize: Types.Value<ControlSize?>?,
 	form: "standard" | "icon"?,
 	layout: "stacked" | "spread"?,
 	overflow: "count" | "ellipsis"?,

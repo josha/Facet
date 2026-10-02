@@ -1,8 +1,18 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -64,7 +74,7 @@ end
 
 add("billboard-nameplate", { "mech3-08" }, function(t)
 	local Facet = t.Facet
-	local Compose = Facet.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 	local camera = workspace.CurrentCamera
 	local part = Instance.new("Part")
 	part.Name = "ClassbNameplateAnchor"
@@ -74,8 +84,11 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 	part.Size = Vector3.new(1, 1, 1)
 	part.CFrame = camera.CFrame * CFrame.new(0, 0, -12)
 	part.Parent = workspace
-	local runtime = Facet.Roblox.createRuntime()
-	local Host = runtime.constructors
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local UI = Facet.controls(runtime)
 	local health = Compose.cell("100")
 	local billboard
@@ -86,14 +99,14 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 			AlwaysOnTop = true,
 			Size = UDim2.fromOffset(300, 96),
 			ResetOnSpawn = false,
-			sheet,
+			sheet :: unknown,
 			Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 			UI.VStack "Plate" {
 				padding = 8,
 				gap = 4,
-				width = "fill",
-				height = "fill",
-				UI.Text "Name" { text = "Razz Raccoon", TextSize = 18 },
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
+				UI.Text "Name" { text = "Razz Raccoon", TextSize = 18 } :: unknown,
 				UI.Text "Health" { text = health, TextSize = 14 },
 			},
 		}
@@ -148,25 +161,32 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 	part:Destroy()
 end)
 
-local function strip(t: any, control: number, corners: string?): (any, any)
+local function strip(t: any, control: number, corners: ("pill" | "square")?): (any, any)
 	local Facet = t.Facet
 	local package = assert(Facet.themes.define({
 		identity = { id = `classb-radius-{control}` },
 		metrics = { radii = { control = control, panel = 12, pill = 999 } },
 	} :: any))
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.Picker "View" {
-			selected = Compose.cell("a"),
-			style = "segmented",
-			corners = corners,
-			Size = UDim2.fromOffset(360, 44),
-			options = {
-				{ value = "a", label = "One" },
-				{ value = "b", label = "Two" },
-				{ value = "c", label = "Tri" },
-			},
-		}
-	end, { size = Vector2.new(600, 300), theme = package, frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.Picker "View" {
+				selected = Compose.cell("a"),
+				style = "segmented" :: "segmented",
+				corners = corners,
+				Size = UDim2.fromOffset(360, 44),
+				options = {
+					{ value = "a", label = "One" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "b", label = "Two" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "c", label = "Tri" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				},
+			}
+		end,
+		{ size = Vector2.new(600, 300), theme = package, frames = 12 }
+	)
 	return stage, tagged(stage, "facet-segmented")[1]
 end
 
@@ -255,24 +275,31 @@ add("collapsible-safe-edges", { "navigation-2-06" }, function(t)
 	for _, size in { Vector2.new(320, 300), Vector2.new(390, 844), Vector2.new(1280, 720) } do
 		local where = `{size.X}x{size.Y}`
 		local expanded
-		local stage = t.mount(function(UI, _, Compose)
-			expanded = Compose.cell(false)
-			return UI.Screen "S" {
-				UI.CollapsibleView "View" {
-					label = "Settings",
-					expanded = expanded,
-					Size = UDim2.new(1, 0, 0, 44),
-					content = function()
-						return UI.Text {
-							text = string.rep("Course details ", 30),
-							TextWrapped = true,
-							Size = UDim2.new(1, 0, 0, 0),
-							AutomaticSize = Enum.AutomaticSize.Y,
-						}
-					end,
-				},
-			}
-		end, { size = size, frames = 10 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				expanded = Compose.cell(false)
+				return UI.Screen "S" {
+					UI.CollapsibleView "View" {
+						label = "Settings",
+						expanded = expanded,
+						Size = UDim2.new(1, 0, 0, 44),
+						content = function(): Instance
+							return UI.Text {
+								text = string.rep("Course details ", 30),
+								TextWrapped = true,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+							}
+						end,
+					},
+				}
+			end,
+			{ size = size, frames = 10 }
+		)
 		expanded:set(true)
 		t.settle(20)
 		local presentation = t.find(stage, "ExpandedPresentation")
@@ -301,28 +328,37 @@ end)
 
 interactive("navigation-back-pointer", { "navigation-3-19" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
-		value.path = Compose.cell({ { id = "step", value = 1 } })
-		return UI.NavigationStack "Nav" {
-			path = value.path,
-			root = {
-				title = "Start",
-				content = function()
-					return UI.Text { text = "Root" }
-				end,
-			},
-			destinations = {
-				step = {
-					title = "Step",
-					content = function()
-						return UI.Button "Other" { label = "Other" }
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			value.path = Compose.cell(
+				{ { id = "step", value = 1 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)) }
+			)
+			return UI.NavigationStack "Nav" {
+				path = value.path,
+				root = {
+					title = "Start",
+					content = function(): Instance
+						return UI.Text { text = "Root" }
 					end,
 				},
-			},
-			backLabel = "Back",
-			transition = false,
-		}
-	end, { size = Vector2.new(800, 600), frames = 20 })
+				destinations = {
+					step = {
+						title = "Step",
+						content = function(): Instance
+							return UI.Button "Other" { label = "Other" }
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)),
+				},
+				backLabel = "Back",
+				transition = false :: false,
+			}
+		end,
+		{ size = Vector2.new(800, 600), frames = 20 }
+	)
 	local back
 	for _, node in stage:GetDescendants() do
 		if node.Name == "Back" and node:IsA("GuiButton") and t.visible(node) then
@@ -353,20 +389,27 @@ end, {
 
 local function pager(t: any, size: any, reduced: boolean): (any, any)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
-		value.selection = Compose.cell("one")
-		local pages = {}
-		for _, id in { "one", "two", "three" } do
-			table.insert(pages, {
-				id = id,
-				title = id,
-				content = function()
-					return UI.Button "Play" { label = "Play " .. id }
-				end,
-			})
-		end
-		return UI.PageView "Pager" { selection = value.selection, pages = pages }
-	end, { size = size, motionLevel = if reduced then "none" else "normal", frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			value.selection = Compose.cell("one")
+			local pages = {}
+			for _, id in { "one", "two", "three" } do
+				table.insert(pages, {
+					id = id,
+					label = id,
+					content = function(): Instance
+						return UI.Button "Play" { label = "Play " .. id }
+					end,
+				})
+			end
+			return UI.PageView "Pager" { selection = value.selection, pages = pages }
+		end,
+		{ size = size, motionLevel = if reduced then "none" else "normal", frames = 12 }
+	)
 	return stage, value
 end
 
@@ -406,25 +449,32 @@ add("pageview-resize-during-travel", { "navigation-3-44" }, function(t)
 end)
 
 add("pageview-fixed-in-scroller", { "navigation-3-48" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.ScrollView "Outer" {
-			width = "fill",
-			height = "fill",
-			UI.PageView "Pager" {
-				selection = Compose.cell("one"),
-				Size = UDim2.new(1, 0, 0, 360),
-				pages = {
-					{
-						id = "one",
-						title = "One",
-						content = function()
-							return UI.Text { text = "Course details" }
-						end,
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.ScrollView "Outer" {
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
+				UI.PageView "Pager" {
+					selection = Compose.cell("one"),
+					Size = UDim2.new(1, 0, 0, 360),
+					pages = {
+						{
+							id = "one",
+							title = "One",
+							content = function(): Instance
+								return UI.Text { text = "Course details" }
+							end,
+						} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 					},
 				},
-			},
-		}
-	end, { size = Vector2.new(600, 400), frames = 12 })
+			}
+		end,
+		{ size = Vector2.new(600, 400), frames = 12 }
+	)
 	local outer = t.find(stage, "Outer")
 	local pagerNode = t.find(stage, "Pager")
 	local pages = t.find(pagerNode, "Pages")
@@ -446,14 +496,24 @@ end)
 
 add("segment-accent-plate-image-themes", { "navigation-3-51" }, function(t)
 	for _, entry in t.themes do
-		local stage = t.mount(function(UI, _, Compose)
-			return UI.Picker "Motion" {
-				selected = Compose.cell("full"),
-				style = "segmented",
-				Size = UDim2.fromOffset(360, 44),
-				options = { { value = "full", label = "Full" }, { value = "reduced", label = "Reduced" } },
-			}
-		end, { size = Vector2.new(600, 200), theme = entry.package, frames = 10 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Picker "Motion" {
+					selected = Compose.cell("full"),
+					style = "segmented" :: "segmented",
+					Size = UDim2.fromOffset(360, 44),
+					options = {
+						{ value = "full", label = "Full" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "reduced", label = "Reduced" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					},
+				}
+			end,
+			{ size = Vector2.new(600, 200), theme = entry.package, frames = 10 }
+		)
 		local current = tagged(stage, "facet-segment-current")
 		local plate = sheetRule(stage, ".facet-segment-current")
 		local ink = sheetRule(stage, ".facet-segment-current >> .facet-button-caption")
@@ -510,28 +570,38 @@ end)
 
 add("underline-follows-rehomed-strip", { "navigation-4-26" }, function(t)
 	local atTop, selected
-	local stage = t.mount(function(UI, _, Compose)
-		atTop = Compose.cell(true)
-		selected = Compose.cell("a")
-		local function strip()
-			return UI.Picker "Tabs" {
-				selected = selected,
-				style = "inline",
-				indicator = "underline",
-				axis = "x",
-				options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			atTop = Compose.cell(true)
+			selected = Compose.cell("a")
+			local function strip()
+				return UI.Picker "Tabs" {
+					selected = selected,
+					style = "inline" :: "inline",
+					indicator = "underline" :: "underline",
+					axis = "x" :: "x",
+					options = {
+						{ value = "a", label = "Alpha" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "b", label = "Beta" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					},
+				}
+			end
+			return UI.VStack "Page" {
+				gap = 0,
+				width = "fill" :: "fill",
+				Compose.show(atTop, strip) :: unknown,
+				UI.VStack "Body" { Size = UDim2.new(1, 0, 0, 100) },
+				Compose.show(function(use: Use)
+					return not use(atTop)
+				end, strip),
 			}
-		end
-		return UI.VStack "Page" {
-			gap = 0,
-			width = "fill",
-			Compose.show(atTop, strip),
-			UI.VStack "Body" { Size = UDim2.new(1, 0, 0, 100) },
-			Compose.show(function(use)
-				return not use(atTop)
-			end, strip),
-		}
-	end, { size = Vector2.new(600, 400), frames = 12 })
+		end,
+		{ size = Vector2.new(600, 400), frames = 12 }
+	)
 	local function bar(): any
 		for _, node in stage:GetDescendants() do
 			if node.Name == "SelectionIndicator" and t.visible(node) then
@@ -573,45 +643,52 @@ end)
 
 add("tab-reorder-keeps-page-geometry", { "navigation-4-58" }, function(t)
 	local order, builds = nil, 0
-	local stage = t.mount(function(UI, _, Compose)
-		order = Compose.cell({ "home", "feed", "me" })
-		return UI.TabView "Tabs" {
-			selection = Compose.cell("home"),
-			style = "sidebarAdaptable",
-			placement = "bottomBar",
-			customization = function(use)
-				return { order = use(order) }
-			end,
-			tabs = {
-				{
-					id = "home",
-					label = "Home",
-					content = function()
-						builds += 1
-						return UI.VStack "HomeBody" {
-							width = "fill",
-							UI.Button "First" { label = "First" },
-							UI.Button "Second" { label = "Second" },
-						}
-					end,
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			order = Compose.cell({ "home", "feed", "me" })
+			return UI.TabView "Tabs" {
+				selection = Compose.cell("home"),
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				placement = "bottomBar" :: "bottomBar",
+				customization = function(use: Use): { order: { string }?, hidden: { string }? }
+					return { order = use(order) }
+				end,
+				tabs = {
+					{
+						id = "home",
+						label = "Home",
+						content = function(): Instance
+							builds += 1
+							return UI.VStack "HomeBody" {
+								width = "fill" :: "fill",
+								UI.Button "First" { label = "First" } :: unknown,
+								UI.Button "Second" { label = "Second" },
+							}
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{
+						id = "feed",
+						label = "Feed",
+						content = function(): Instance
+							return UI.Text { text = "Feed" }
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{
+						id = "me",
+						label = "Me",
+						content = function(): Instance
+							return UI.Text { text = "Me" }
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 				},
-				{
-					id = "feed",
-					label = "Feed",
-					content = function()
-						return UI.Text { text = "Feed" }
-					end,
-				},
-				{
-					id = "me",
-					label = "Me",
-					content = function()
-						return UI.Text { text = "Me" }
-					end,
-				},
-			},
-		}
-	end, { size = Vector2.new(390, 700), frames = 15 })
+			}
+		end,
+		{ size = Vector2.new(390, 700), frames = 15 }
+	)
 	local strip = t.find(stage, "Tabs"):FindFirstChild("Tabs")
 	local body = t.find(stage, "HomeBody")
 	local content = t.find(stage, "Content")
@@ -666,31 +743,38 @@ end)
 add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
 	for _, size in { Vector2.new(390, 844), Vector2.new(1280, 720) } do
 		local where = `{size.X}x{size.Y}`
-		local stage = t.mount(function(UI, _, Compose)
-			return UI.TabView "Tabs" {
-				selection = Compose.cell("home"),
-				style = "sidebarAdaptable",
-				tabs = {
-					{
-						id = "home",
-						label = "Home",
-						content = function()
-							return UI.HStack "HomeBody" {
-								UI.Text { text = "a considerably wider body than a phone offers" },
-								UI.Text { text = "and a second one after it, for good measure" },
-							}
-						end,
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.TabView "Tabs" {
+					selection = Compose.cell("home"),
+					style = "sidebarAdaptable" :: "sidebarAdaptable",
+					tabs = {
+						{
+							id = "home",
+							label = "Home",
+							content = function(): Instance
+								return UI.HStack "HomeBody" {
+									UI.Text { text = "a considerably wider body than a phone offers" } :: unknown,
+									UI.Text { text = "and a second one after it, for good measure" },
+								}
+							end,
+						} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+						{
+							id = "feed",
+							label = "Feed",
+							content = function(): Instance
+								return UI.Text { text = "Feed" }
+							end,
+						} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 					},
-					{
-						id = "feed",
-						label = "Feed",
-						content = function()
-							return UI.Text { text = "Feed" }
-						end,
-					},
-				},
-			}
-		end, { size = size, frames = 15 })
+				}
+			end,
+			{ size = size, frames = 15 }
+		)
 		local root = t.find(stage, "Tabs")
 		local content = root:FindFirstChild("Content")
 		local layer = content and content:FindFirstChild("home")
@@ -726,14 +810,21 @@ add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
 end)
 
 add("progress-track-centring", { "paint-35" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.VStack "Column" {
-			width = "fill",
-			gap = 16,
-			UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true },
-			UI.Text "Cap" { text = "Save changes" },
-		}
-	end, { size = Vector2.new(400, 400), frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.VStack "Column" {
+				width = "fill" :: "fill",
+				gap = 16,
+				UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true } :: unknown,
+				UI.Text "Cap" { text = "Save changes" },
+			}
+		end,
+		{ size = Vector2.new(400, 400), frames = 12 }
+	)
 	local root = t.find(stage, "Down")
 	local track = tagged(root, "facet-track")[1]
 	local header = t.find(root, "Header")
@@ -766,7 +857,17 @@ end)
 add("progress-track-beside-trailing-copy", { "paint-43" }, function(t)
 	local package = themed(t, "fantasy_ornate") or t.themes[1].package
 	for _, width in { 280, 200 } do
-		for _, spec in
+		for
+			_,
+			spec: {
+			key: string,
+			value: number?,
+			segments: number?,
+			showValue: boolean?,
+			endLabel: string,
+			label: string?,
+		}
+		in
 			{
 				{ key = "segmented", value = 0.4, segments = 5, showValue = true, endLabel = "2 of 5" },
 				{ key = "ordinary", value = 0.4, showValue = true, endLabel = "Waiting for the next checkpoint" },
@@ -778,20 +879,38 @@ add("progress-track-beside-trailing-copy", { "paint-43" }, function(t)
 					showValue = true,
 					endLabel = "Waiting for the next checkpoint",
 				},
+			} :: {
+				{
+					key: string,
+					value: number?,
+					segments: number?,
+					showValue: boolean?,
+					endLabel: string,
+					label: string?,
+				}
 			}
 		do
 			if spec.key == "labelled" and width < 280 then
 				continue
 			end
 			local where = `{width} {spec.key}`
-			local stage = t.mount(function(UI, _, Compose)
-				local props = table.clone(spec)
-				props.key = nil
-				if props.value ~= nil then
-					props.value = Compose.cell(props.value)
-				end
-				return UI.VStack "Column" { width = "fill", UI.ProgressView "Progress"(props) }
-			end, { size = Vector2.new(width, 500), theme = package, frames = 12 })
+			local stage = t.mount(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					_,
+					Compose: typeof(require("@repo/src/vendor/compose/core"))
+				)
+					local props = {
+						value = if spec.value ~= nil then Compose.cell(spec.value) else nil,
+						label = spec.label,
+						segments = spec.segments,
+						showValue = spec.showValue,
+						endLabel = spec.endLabel,
+					}
+					return UI.VStack "Column" { width = "fill" :: "fill", UI.ProgressView "Progress"(props) }
+				end,
+				{ size = Vector2.new(width, 500), theme = package, frames = 12 }
+			)
 			local root = t.find(stage, "Progress")
 			local track = tagged(root, "facet-track")[1]
 			local fill = t.find(root, "Fill1")
@@ -841,15 +960,32 @@ end)
 
 add("icon-inside-content-box", { "paint-51" }, function(t)
 	for _, entry in t.themes do
-		for _, case in
+		for
+			_,
+			case: {
+			key: string,
+			size: typeof(UDim2.fromOffset(52, 44))
+				| typeof(UDim2.fromOffset(220, 60))
+				| typeof(UDim2.fromOffset(20, 20)),
+			label: string?,
+		}
+		in
 			{
 				{ key = "tight", size = UDim2.fromOffset(52, 44), label = "Go" },
 				{ key = "room", size = UDim2.fromOffset(220, 60), label = "Continue" },
 				{ key = "icon-only", size = UDim2.fromOffset(20, 20) },
+			} :: {
+				{
+					key: string,
+					size: typeof(UDim2.fromOffset(52, 44))
+						| typeof(UDim2.fromOffset(220, 60))
+						| typeof(UDim2.fromOffset(20, 20)),
+					label: string?,
+				}
 			}
 		do
 			local where = `{entry.name} {case.key}`
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Button "Back" {
 					icon = "chevron.leading",
 					label = case.label,
@@ -898,28 +1034,35 @@ end)
 
 interactive("path-clipped-in-scroll", { "paint-86" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
-		local rows = {}
-		for index = 1, 6 do
-			table.insert(
-				rows,
-				UI.HStack("Row" .. index) {
-					Size = UDim2.new(1, 0, 0, 60),
-					UI.ProgressView "Ring" {
-						presentation = "circular",
-						value = Compose.cell(0.75),
-						diameter = 56,
-						thickness = 8,
-					},
-				}
-			)
-		end
-		return UI.ScrollView "List" {
-			Size = UDim2.fromOffset(300, 150),
-			gap = 0,
-			table.unpack(rows),
-		}
-	end, { size = Vector2.new(600, 400), frames = 15 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			local rows = {}
+			for index = 1, 6 do
+				table.insert(
+					rows,
+					UI.HStack("Row" .. index) {
+						Size = UDim2.new(1, 0, 0, 60),
+						UI.ProgressView "Ring" {
+							presentation = "circular" :: "circular",
+							value = Compose.cell(0.75),
+							diameter = 56,
+							thickness = 8,
+						},
+					}
+				)
+			end
+			return UI.ScrollView "List" {
+				Size = UDim2.fromOffset(300, 150),
+				gap = 0,
+				table.unpack((rows :: unknown) :: { unknown }),
+			}
+		end,
+		{ size = Vector2.new(600, 400), frames = 15 }
+	)
 	value.list = t.find(stage, "List")
 	local function report(label: string)
 		local shown = {}

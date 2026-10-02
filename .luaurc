@@ -1,0 +1,7 @@
+{
+  "aliases": {
+    "lune": "artifacts/verify/types/lune",
+    "repo": "."
+  },
+  "languageMode": "strict"
+}

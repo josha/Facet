@@ -1,9 +1,11 @@
 --!strict
+local ThemeTypes = require("../src/ui/theme_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local themePackages = require("../tools/lune/theme_packages")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 local SHIPPED: { string } = themePackages.shippable()
@@ -18,7 +20,8 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -39,7 +42,9 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local stop = runtime.mount(function()
 		return Host.Frame "Surface" {
 			Size = engine.types.UDim2.fromScale(1, 1),
@@ -87,12 +92,13 @@ end
 
 local function sheetFor(package: any, options: { [string]: any }?): (any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local settings: { [string]: any } = { types = engine.types, preferredTransparency = 1, motionLevel = "none" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
-	local _, sheet = runtime.mount(function()
+	local _, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(runtime, package, settings :: any)
 	end, engine.new("Folder"))
 	return sheet, engine, function()
@@ -259,8 +265,8 @@ t.describe("native parity weaker paint", function()
 		"apps-200 the segmented track and its chosen segment follow radii.control concentrically in every package",
 		function()
 			local selected = Compose.cell("low")
-			local world = setup(function(UI)
-				return UI.Picker "View" { style = "segmented", selected = selected, options = THREE }
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Picker "View" { style = "segmented" :: "segmented", selected = selected, options = THREE }
 			end)
 			local strip = find(world.root, "View")
 			t.expect(strip:HasTag("facet-segmented")).toBe(true)
@@ -316,11 +322,11 @@ t.describe("native parity weaker paint", function()
 	)
 
 	t.it("apps-202 an authored square or pill strip corner outranks the theme radius in every package", function()
-		for _, corners in { "square", "pill" } do
-			local world = setup(function(UI)
+		for _, corners in { "square", "pill" } :: { "square" | "pill" } do
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Picker "View" {
-					style = "segmented",
-					corners = corners,
+					style = "segmented" :: "segmented",
+					corners = corners :: "pill" | "square",
 					selected = Compose.cell("normal"),
 					options = THREE,
 				}
@@ -346,12 +352,17 @@ t.describe("native parity weaker paint", function()
 
 	t.it("apps-205 a bar LevelPicker plates each level from the theme while a glyph picker plates nothing", function()
 		local value = Compose.cell(2)
-		local world = setup(function(UI, Host)
-			return Host.Frame {
-				UI.LevelPicker "Bars" { value = value, count = 4 },
-				UI.LevelPicker "Stars" { value = value, count = 5, segment = "glyph" },
-			}
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame {
+					UI.LevelPicker "Bars" { value = value, count = 4 } :: unknown,
+					UI.LevelPicker "Stars" { value = value, count = 5, segment = "glyph" :: "glyph" },
+				}
+			end
+		)
 		local bars, stars = find(world.root, "Bars"), find(world.root, "Stars")
 		for _, entry in packages() do
 			local sheet, _, stop = sheetFor(entry.package)
@@ -380,7 +391,7 @@ t.describe("native parity weaker paint", function()
 
 	t.it("inputs-110 filled and empty bar levels resolve to different theme colours in every palette", function()
 		local value = Compose.cell(3)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.LevelPicker "Quality" { value = value, count = 10 }
 		end)
 		local picker = find(world.root, "Quality")
@@ -409,7 +420,7 @@ t.describe("native parity weaker paint", function()
 	end)
 
 	t.it("inputs-132 the hover fill is its own theme role and differs from the rest fill in every palette", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Button "Go" { label = "Go" }
 		end)
 		local button = find(world.root, "Go")
@@ -438,13 +449,13 @@ t.describe("native parity weaker paint", function()
 
 	t.it("inputs-205 the checkbox keeps a theme-owned border outline in off, on, mixed and disabled states", function()
 		local value, mixed, enabled = Compose.cell(false), Compose.cell(false), Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Toggle "Music" {
 				label = "Music",
 				value = value,
 				mixed = mixed,
 				enabled = enabled,
-				presentation = "checkbox",
+				presentation = "checkbox" :: "checkbox",
 				row = { description = "Race music" },
 			}
 		end)
@@ -489,13 +500,13 @@ t.describe("native parity weaker paint", function()
 
 	t.it("navigation-1-37 an alert centres its title and message and centres the mark over the title", function()
 		for _, severity in { "none", "critical" } do
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Alert {
 					isPresented = Compose.cell(true),
 					title = "Replace this save?",
 					message = "Your selected driver is ready.",
-					severity = if severity == "critical" then "critical" else nil,
-					actions = { { id = "ok", label = "OK" } },
+					severity = if severity == "critical" then "critical" :: "critical" else nil,
+					actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
 				}
 			end)
 			local content = find(world.root, "AlertContent")
@@ -523,7 +534,8 @@ t.describe("native parity weaker paint", function()
 		"navigation-3-35 the tab bar keeps its paint order over the content through compact and distant resizes",
 		function()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -546,22 +558,22 @@ t.describe("native parity weaker paint", function()
 			local _, screen = app.mount(function()
 				return app.UI.TabView {
 					selection = Compose.cell("a"),
-					style = "sidebarAdaptable",
+					style = "sidebarAdaptable" :: "sidebarAdaptable",
 					tabs = {
 						{
 							id = "a",
 							label = "Garage",
-							content = function()
+							content = function(): Instance
 								return app.UI.Button "Play" { label = "Play" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "b",
 							label = "Store",
-							content = function()
+							content = function(): Instance
 								return app.UI.Button "Buy" { label = "Buy" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				}
 			end)
@@ -602,9 +614,9 @@ t.describe("native parity weaker paint", function()
 	)
 
 	t.it("navigation-3-83 the chosen menu row clears 4.5:1 on its selection fill in every shipped palette", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker "Quality" {
-				style = "menu",
+				style = "menu" :: "menu",
 				label = "Quality",
 				selected = Compose.cell("normal"),
 				isPresented = Compose.cell(false),
@@ -646,13 +658,20 @@ t.describe("native parity weaker paint", function()
 	t.it("paint-72 an explicit per-view colour is written on the instance and survives theme changes", function()
 		local red
 		local theme = Compose.cell(themes.neutralPackage())
-		local world = setup(function(UI, Host, engine)
-			red = engine.types.Color3.new(1, 0, 0)
-			return Host.Frame {
-				UI.Button "Custom" { label = "Custom", BackgroundColor3 = red },
-				UI.Button "Plain" { label = "Plain" },
-			}
-		end, { theme = theme })
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				red = engine.types.Color3.new(1, 0, 0)
+				return Host.Frame {
+					UI.Button "Custom" { label = "Custom", BackgroundColor3 = red } :: unknown,
+					UI.Button "Plain" { label = "Plain" },
+				}
+			end,
+			{ theme = theme }
+		)
 		local custom, plain = find(world.root, "Custom"), find(world.root, "Plain")
 		local blank = world.engine.new("TextButton").BackgroundColor3
 		t.expect(custom.BackgroundColor3).toBe(red)
@@ -672,20 +691,29 @@ t.describe("native parity weaker paint", function()
 			local value, changes = Compose.cell(true), 0
 			local theme = Compose.cell(themes.neutralPackage())
 			local sheet
-			local world = setup(function(UI, Host, engine, runtime)
-				sheet = themes.createStyleSheet(runtime, theme, { types = engine.types, motionLevel = "none" } :: any)
-				return Host.Frame {
-					sheet,
-					UI.Toggle "Music" {
-						label = "Music",
-						value = value,
-						onChange = function(next)
-							changes += 1
-							value:set(next)
-						end,
-					},
-				}
-			end, { theme = theme })
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+					engine,
+					runtime
+				)
+					sheet =
+						themes.createStyleSheet(runtime, theme, { types = engine.types, motionLevel = "none" } :: any)
+					return Host.Frame {
+						sheet :: unknown,
+						UI.Toggle "Music" {
+							label = "Music",
+							value = value,
+							onChange = function(next)
+								changes += 1
+								value:set(next)
+							end,
+						},
+					}
+				end,
+				{ theme = theme }
+			)
 			local indicator = find(find(world.root, "Music"), "Indicator")
 			local mark = find(indicator, "Mark")
 			local blank = world.engine.new("Frame").BackgroundColor3
@@ -710,8 +738,9 @@ t.describe("native parity weaker paint", function()
 			t.expect(same(off, last.package.style.themes[1].extra.control)).toBe(true)
 			world.stop()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
-			local _, bare = runtime.mount(function()
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
+			local _, bare: any = runtime.mount(function()
 				return themes.createStyleSheet(runtime, nil, { types = engine.types } :: any)
 			end, engine.new("Folder"))
 			local neutral, _, stop = sheetFor(themes.neutralPackage())
@@ -745,7 +774,12 @@ t.describe("native parity weaker paint", function()
 			stop()
 		end
 		local authored = themes.neutralPackage()
-		authored.rules = { { selector = ".game-glyphs::UIStroke", properties = { Thickness = 1 } } }
+		authored.rules = {
+			{
+				selector = ".game-glyphs::UIStroke",
+				properties = { Thickness = 1 } :: ThemeTypes.AuthoredRuleProperties,
+			},
+		}
 		local sheet, engine, stop = sheetFor(authored)
 		local rule = sheet:GetChildren()[#sheet:GetChildren()]
 		t.expect(rule.Selector).toBe(".game-glyphs::UIStroke")
@@ -774,7 +808,9 @@ t.describe("native parity weaker paint", function()
 					washed += 1
 					local ink = rgb(rule.BackgroundColor3)
 					local words = style(sheet, ".facet-secondary").TextColor3
-					for _, role in { "control", "surface", "surfaceStrong" } do
+					for _, role in
+						{ "control", "surface", "surfaceStrong" } :: { "control" | "surface" | "surfaceStrong" }
+					do
 						local ground = rgb(palette.colors[role] or extra[role])
 						local alpha = 1 - transparency
 						local seam = {
@@ -793,18 +829,22 @@ t.describe("native parity weaker paint", function()
 		end
 		t.expect(washed > #SHIPPED).toBe(true)
 		t.expect(table.concat(bold, ",")).toBe("pixel_quest/Quest")
-		local neutral = themes.neutralPackage().style.themes[1].extra.hairline
-		t.expect(`{neutral.r},{neutral.g},{neutral.b}`).toBe("1,1,1")
+		local neutral = assert(themes.neutralPackage().style.themes[1].extra).hairline
+		t.expect(`{assert(neutral).r},{assert(neutral).g},{assert(neutral).b}`).toBe("1,1,1")
 	end)
 	t.it("keeps skinned tabs, badges and stepper labels legible on their art", function()
 		for _, package in { themes.neutralPackage(), load("fantasy_ornate") } do
 			local sheet, _, stop = sheetFor(package)
 			local all = rules(sheet)
-			local plate = (package.chrome or {}).control
-			local layers = if plate == nil then {} elseif plate.kind == "layered" then plate.layers or {} else { plate }
+			local plate = (package.chrome or {} :: { [string]: ThemeTypes.SkinLayer }).control
+			local layers: { ThemeTypes.SkinLayer } = if plate == nil
+				then {}
+				elseif plate.kind == "layered" then plate.layers or {}
+				else { plate }
 			local selectedArt = false
 			for _, layer in layers do
-				selectedArt = selectedArt or (type(layer.asset) == "table" and layer.asset.selected ~= nil)
+				selectedArt = selectedArt
+					or (type(layer.asset) == "table" and (layer.asset :: ThemeTypes.AssetVariants).selected ~= nil)
 			end
 			t.expect(all[".facet-tab-filled.facet-skinned"].BackgroundTransparency).toBe(if selectedArt then nil else 0)
 			t.expect(all[".facet-tab-filled > #SkinBoundary"].Visible).toBe(if selectedArt then nil else false)
@@ -817,7 +857,8 @@ t.describe("native parity weaker paint", function()
 		local cases = packages()
 		local bare = themes.neutralPackage()
 		bare.chrome = bare.chrome or {}
-		bare.chrome.control = { kind = "native", contentInsets = { left = 0, right = 0, top = 0, bottom = 0 } }
+		assert(bare.chrome).control =
+			{ kind = "native" :: "native", contentInsets = { left = 0, right = 0, top = 0, bottom = 0 } }
 		table.insert(cases, { label = "zero-inset", package = bare })
 		for _, entry in cases do
 			local sheet, _, stop = sheetFor(entry.package)
@@ -891,7 +932,12 @@ t.describe("native parity weaker paint", function()
 	end)
 	t.it("resolves a palette role named in a package rule for each palette", function()
 		local package = themes.neutralPackage()
-		package.rules = { { selector = ".game-caption", properties = { TextColor3 = { role = "accent" } } } }
+		package.rules = {
+			{
+				selector = ".game-caption",
+				properties = { TextColor3 = { role = "accent" } :: { role: string } } :: ThemeTypes.AuthoredRuleProperties,
+			},
+		}
 		for _, palette in package.style.themes do
 			local sheet, _, stop = sheetFor(package, { theme = palette.name })
 			local all = rules(sheet)

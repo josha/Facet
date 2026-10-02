@@ -3,7 +3,7 @@
 local favorites = {}
 
 function favorites.new(opts: any)
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 	local seed = opts.seed or 1
 	local ids: { string } = opts.ids or {}
 
@@ -19,7 +19,7 @@ function favorites.new(opts: any)
 		return out
 	end
 
-	local set = Compose.cell(seeded())
+	local set = Compose.cell(seeded() :: { [string]: boolean? })
 
 	local self = {}
 	self.set = set

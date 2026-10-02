@@ -1,4 +1,7 @@
 --!strict
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local Facet = require("../src")
@@ -11,7 +14,7 @@ end
 local function near(actual: number, expected: number): boolean
 	return math.abs(actual - expected) <= 1
 end
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 type World = {
 	engine: any,
@@ -24,7 +27,8 @@ type World = {
 
 local function setup(build: (any, any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -42,8 +46,10 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui, runtime) })
 	end, engine.new("Folder"))
 	return {
@@ -118,7 +124,8 @@ end
 
 local function mountScenario(name: string, reduced: boolean?): (any, any, any, any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -128,7 +135,9 @@ local function mountScenario(name: string, reduced: boolean?): (any, any, any, a
 	local ctx: any = {
 		Facet = Facet,
 		Compose = Compose,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		runtime = runtime,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
@@ -147,13 +156,13 @@ local function mountScenario(name: string, reduced: boolean?): (any, any, any, a
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = input },
 			inputParent = target,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end),
+			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
 		} :: any
 	)
 	local built: any
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		built = (require :: any)("../examples/gallery/scenarios/" .. name).build(ctx)
 		if built.dispose then
 			Compose.cleanup(built.dispose)
@@ -199,7 +208,8 @@ local function withMonitors(body: (any) -> ())
 	local modelModule: any = require("../examples/virtual_monitors/model")
 	local screens: any = require("../examples/virtual_monitors/screens")
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -219,7 +229,7 @@ local function withMonitors(body: (any) -> ())
 		})
 		local world: any = { model = model, engine = engine, target = target, gui = gui, input = input }
 		for _, name in { "Discover", "Avatar" } do
-			local _, node = runtime.mount(views[name], target)
+			local _, node: any = runtime.mount(views[name], target)
 			world[name] = node
 		end
 		body(world)
@@ -232,15 +242,15 @@ end
 t.describe("presented surface strength", function()
 	t.it("centers a content-sized alert card under its width bound and leads the row with cancel", function()
 		for _, bound in { 440, 360 } do
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Delete this save?",
 					message = "This cannot be undone.",
 					maxWidth = if bound == 440 then nil else bound,
 					actions = {
-						{ id = "Delete", label = "Delete save", role = "destructive" },
-						{ id = "Cancel", label = "Cancel", role = "cancel" },
+						{ id = "Delete", label = "Delete save", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				})
 			end)
@@ -268,22 +278,29 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("stacks more than two alert actions with the likely action on top and cancel last", function()
-		local world = setup(function(UI, Host, _, gui)
-			local opener = UI.Button "Opener" { label = "Open" }
-			gui.SelectedObject = opener
-			return Host.Frame({
-				opener,
-				UI.Alert({
-					isPresented = Compose.cell(true),
-					title = "Leave the race?",
-					actions = {
-						{ id = "Cancel", label = "Stay", role = "cancel" },
-						{ id = "Save", label = "Save and leave" },
-						{ id = "Delete", label = "Leave without saving", role = "destructive" },
-					},
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				_,
+				gui
+			)
+				local opener = UI.Button "Opener" { label = "Open" }
+				gui.SelectedObject = opener
+				return Host.Frame({
+					opener :: unknown,
+					UI.Alert({
+						isPresented = Compose.cell(true),
+						title = "Leave the race?",
+						actions = {
+							{ id = "Cancel", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+							{ id = "Save", label = "Save and leave" } :: FixtureNavigationTypes.AlertAction<any>,
+							{ id = "Delete", label = "Leave without saving", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
+						},
+					}),
+				})
+			end
+		)
 		local Enum = world.engine.types.Enum
 		find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(1280, 800)
 		t.expect(find(world.screen, "Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
@@ -301,7 +318,7 @@ t.describe("presented surface strength", function()
 
 	t.it("binds alert presentation both ways without stacking or invoking action callbacks", function()
 		local shown, calls = Compose.cell(false), 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Alert({
 				title = "Continue?",
 				isPresented = shown,
@@ -309,11 +326,11 @@ t.describe("presented surface strength", function()
 					{
 						id = "cancel",
 						label = "Cancel",
-						role = "cancel",
+						role = "cancel" :: "cancel",
 						onActivate = function()
 							calls += 1
 						end,
-					},
+					} :: FixtureNavigationTypes.AlertAction<any>,
 				},
 			})
 		end)
@@ -338,11 +355,11 @@ t.describe("presented surface strength", function()
 	t.it("owns alert content through repeated presentation and dismisses on the default action shortcut", function()
 		local shown, text = Compose.cell(false), Compose.cell("Name")
 		local live, built, accepted = 0, 0, 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Alert "Edit" {
 				title = "Edit name",
 				isPresented = shown,
-				content = function()
+				content = function(): Instance
 					live += 1
 					built += 1
 					Compose.cleanup(function()
@@ -358,8 +375,8 @@ t.describe("presented surface strength", function()
 						onActivate = function()
 							accepted += 1
 						end,
-					},
-					{ id = "Cancel", label = "Cancel", role = "cancel" },
+					} :: FixtureNavigationTypes.AlertAction<any>,
+					{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 				},
 			}
 		end)
@@ -390,12 +407,12 @@ t.describe("presented surface strength", function()
 	t.it("rebuilds sheet content on each presentation and disposes it on close and owner stop", function()
 		local shown, detent = Compose.cell(false), Compose.cell("medium")
 		local live, visits = 0, 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet "Details" {
 				title = "Details",
 				isPresented = shown,
 				detent = detent,
-				content = function()
+				content = function(): Instance
 					live += 1
 					visits += 1
 					Compose.cleanup(function()
@@ -432,16 +449,21 @@ t.describe("presented surface strength", function()
 
 	t.it("resolves every sheet detent to a height inside the measured available height", function()
 		local detent = Compose.cell("medium")
-		local world = setup(function(UI, Host)
-			return UI.Sheet({
-				isPresented = Compose.cell(true),
-				detent = detent,
-				detents = { "medium", "large", { id = "tall", height = 2000 }, { id = "fixed", height = 300 } },
-				content = function()
-					return Host.Frame "Body" {}
-				end,
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return UI.Sheet({
+					isPresented = Compose.cell(true),
+					detent = detent,
+					detents = { "medium", "large", { id = "tall", height = 2000 }, { id = "fixed", height = 300 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					content = function(): Instance
+						return Host.Frame "Body" {}
+					end,
+				})
+			end
+		)
 		world.gui.ReducedMotionEnabled = true
 		local panel = find(world.screen, "SheetPanel")
 		local function height(id: string): number
@@ -465,14 +487,14 @@ t.describe("presented surface strength", function()
 
 	t.it("keeps a usable minimum panel and a reachable close for tiny sheet detents", function()
 		local shown, detent = Compose.cell(true), Compose.cell("peek")
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = shown,
 				detent = detent,
-				detents = { { id = "peek", height = 60 }, { id = "sliver", fraction = 0.05 } },
+				detents = { { id = "peek", height = 60 }, { id = "sliver", fraction = 0.05 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
 				title = "Peek",
-				dragIndicator = "hidden",
-				content = function()
+				dragIndicator = "hidden" :: "hidden",
+				content = function(): Instance
 					return UI.Button "Inside" { label = "Inside" }
 				end,
 			})
@@ -492,19 +514,24 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("hangs a callout below a top-right anchor with its arrow at the anchor and its body shifted left", function()
-		local world = setup(function(UI, Host)
-			local anchor = UI.Button "Plus" { label = "+" }
-			return Host.Frame({
-				anchor,
-				UI.Callout({
-					anchor = anchor,
-					onRetire = function() end,
-					content = function()
-						return Host.TextLabel "Tip" { Text = "Post avatars to the marketplace" }
-					end,
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local anchor = UI.Button "Plus" { label = "+" }
+				return Host.Frame({
+					anchor :: unknown,
+					UI.Callout({
+						anchor = anchor :: GuiObject,
+						onRetire = function() end,
+						content = function(): Instance
+							return Host.TextLabel "Tip" { Text = "Post avatars to the marketplace" }
+						end,
+					}),
+				})
+			end
+		)
 		local V = world.engine.types.Vector2
 		world.screen.AbsoluteSize = V.new(390, 844)
 		local anchor, panel, arrow =
@@ -527,29 +554,35 @@ t.describe("presented surface strength", function()
 
 	t.it("carries the given callout content tree and bounds long copy to the viewport width", function()
 		local long = string.rep("Pseudo-localized coaching copy that must wrap without clipping. ", 3)
-		local world = setup(function(UI, Host, engine)
-			local anchor = UI.Button "Anchor" { label = "Anchor" }
-			return Host.Frame({
-				anchor,
-				UI.Callout({
-					anchor = anchor,
-					onRetire = function() end,
-					content = function()
-						return Host.Frame "Content" {
-							Size = engine.types.UDim2.new(1, 0, 0, 0),
-							AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-							Host.TextLabel "Body" {
-								Text = long,
-								TextWrapped = true,
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				local anchor = UI.Button "Anchor" { label = "Anchor" }
+				return Host.Frame({
+					anchor :: unknown,
+					UI.Callout({
+						anchor = anchor :: GuiObject,
+						onRetire = function() end,
+						content = function(): Instance
+							return Host.Frame "Content" {
 								Size = engine.types.UDim2.new(1, 0, 0, 0),
 								AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-							},
-							Host.TextLabel "Sub" { Text = "Anyone can wear it" },
-						}
-					end,
-				}),
-			})
-		end)
+								Host.TextLabel "Body" {
+									Text = long,
+									TextWrapped = true,
+									Size = engine.types.UDim2.new(1, 0, 0, 0),
+									AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+								} :: unknown,
+								Host.TextLabel "Sub" { Text = "Anyone can wear it" },
+							}
+						end,
+					}),
+				})
+			end
+		)
 		local V = world.engine.types.Vector2
 		local panel = find(world.screen, "CalloutPanel")
 		local content = find(panel, "Content")
@@ -579,33 +612,38 @@ t.describe("presented surface strength", function()
 	t.it("keeps a retired callout retired and unbuilt when it is presented again", function()
 		local shown, used = Compose.cell(false), Compose.cell(false)
 		local live, built, retired = 0, 0, 0
-		local world = setup(function(UI, Host)
-			local anchor = UI.Button "Anchor" {
-				label = "Add",
-				onActivate = function()
-					used:set(true)
-				end,
-			}
-			return Host.Frame({
-				anchor,
-				UI.Callout "Tip" {
-					anchor = anchor,
-					isPresented = shown,
-					featureUsed = used,
-					onRetire = function()
-						retired += 1
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local anchor = UI.Button "Anchor" {
+					label = "Add",
+					onActivate = function()
+						used:set(true)
 					end,
-					content = function()
-						live += 1
-						built += 1
-						Compose.cleanup(function()
-							live -= 1
-						end)
-						return Host.TextLabel "TipText" { Text = "Add your first item" }
-					end,
-				},
-			})
-		end)
+				}
+				return Host.Frame({
+					anchor :: unknown,
+					UI.Callout "Tip" {
+						anchor = anchor :: GuiObject,
+						isPresented = shown,
+						featureUsed = used,
+						onRetire = function()
+							retired += 1
+						end,
+						content = function(): Instance
+							live += 1
+							built += 1
+							Compose.cleanup(function()
+								live -= 1
+							end)
+							return Host.TextLabel "TipText" { Text = "Add your first item" }
+						end,
+					},
+				})
+			end
+		)
 		t.expect(live).toBe(0)
 		shown:set(true)
 		t.expect(live).toBe(1)
@@ -624,27 +662,33 @@ t.describe("presented surface strength", function()
 
 	t.it("adds no full-viewport cover or modal scope while a nonmodal callout is showing", function()
 		local presses = 0
-		local world = setup(function(UI, Host, engine)
-			local anchor = UI.Button "Anchor" { label = "Anchor" }
-			return Host.Frame "Live" {
-				Size = engine.types.UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				anchor,
-				UI.Button "Elsewhere" {
-					label = "Elsewhere",
-					onActivate = function()
-						presses += 1
-					end,
-				},
-				UI.Callout({
-					anchor = anchor,
-					onRetire = function() end,
-					content = function()
-						return Host.TextLabel "TipText" { Text = "Tip" }
-					end,
-				}),
-			}
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				local anchor = UI.Button "Anchor" { label = "Anchor" }
+				return Host.Frame "Live" {
+					Size = engine.types.UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					anchor :: unknown,
+					UI.Button "Elsewhere" {
+						label = "Elsewhere",
+						onActivate = function()
+							presses += 1
+						end,
+					},
+					UI.Callout({
+						anchor = anchor :: GuiObject,
+						onRetire = function() end,
+						content = function(): Instance
+							return Host.TextLabel "TipText" { Text = "Tip" }
+						end,
+					}),
+				}
+			end
+		)
 		t.expect(find(world.screen, "CalloutPanel") ~= nil).toBe(true)
 		local live = find(world.screen, "Live")
 		for _, node in world.screen:GetDescendants() do
@@ -668,18 +712,26 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("makes the modal scrim the only full-viewport cover and keeps it translucent in every theme", function()
-		local world = setup(function(UI, Host, engine)
-			return Host.Frame "Live" {
-				Size = engine.types.UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				UI.Button "Trigger" { label = "Open" },
-				UI.Alert({
-					isPresented = Compose.cell(true),
-					title = "Leave race?",
-					actions = { { id = "stay", label = "Stay", role = "cancel" } },
-				}),
-			}
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				return Host.Frame "Live" {
+					Size = engine.types.UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					UI.Button "Trigger" { label = "Open" } :: unknown,
+					UI.Alert({
+						isPresented = Compose.cell(true),
+						title = "Leave race?",
+						actions = {
+							{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						},
+					}),
+				}
+			end
+		)
 		local live = find(world.screen, "Live")
 		local covers = {}
 		for _, node in world.screen:GetDescendants() do
@@ -722,7 +774,8 @@ t.describe("presented surface strength", function()
 		end
 		for _, package in packages do
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local stop, sheet: any = runtime.mount(function()
 				return themes.createStyleSheet(runtime, package, { types = engine.types })
 			end, engine.new("Folder"))
@@ -741,7 +794,7 @@ t.describe("presented surface strength", function()
 
 	t.it("closes every open menu level on a tap away from the automatic compact sheet", function()
 		local shown = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Menu({
 				isPresented = shown,
 				items = {
@@ -755,7 +808,7 @@ t.describe("presented surface strength", function()
 								children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
 							},
 						},
-					},
+					} :: FixtureNavigationTypes.MenuItem<any>,
 				},
 			})
 		end)
@@ -778,10 +831,12 @@ t.describe("presented surface strength", function()
 
 	t.it("dismisses through a fully transparent menu catcher", function()
 		local shown = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Menu({
 				isPresented = shown,
-				items = { { id = "Run", label = "Run", onSelect = function() end } },
+				items = {
+					{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+				},
 			})
 		end)
 		local catcher = find(world.screen, "DismissOutside")
@@ -798,11 +853,11 @@ t.describe("presented surface strength", function()
 
 	t.it("fits the expanded content inside the plate's themed inset and grows the plate by it", function()
 		local expanded = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.CollapsibleView "View" {
 				label = "Race settings",
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Button "One" { label = "Coastal circuit" }
 				end,
 			}
@@ -822,24 +877,31 @@ t.describe("presented surface strength", function()
 
 	t.it("updates the bound summary label on a choice and returns selection to the same trigger", function()
 		local expanded, label, chosen = Compose.cell(false), Compose.cell("Select course"), false
-		local world = setup(function(UI, Host, _, gui)
-			local view = UI.CollapsibleView "View" {
-				label = label,
-				expanded = expanded,
-				content = function()
-					return UI.Button "One" {
-						label = "Coastal circuit",
-						onActivate = function()
-							chosen = true
-							label:set("Coastal circuit")
-							expanded:set(false)
-						end,
-					}
-				end,
-			}
-			gui.SelectedObject = view
-			return Host.Frame({ view, UI.Button "Other" { label = "Unrelated" } })
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				_,
+				gui
+			)
+				local view = UI.CollapsibleView "View" {
+					label = label,
+					expanded = expanded,
+					content = function(): Instance
+						return UI.Button "One" {
+							label = "Coastal circuit",
+							onActivate = function()
+								chosen = true
+								label:set("Coastal circuit")
+								expanded:set(false)
+							end,
+						}
+					end,
+				}
+				gui.SelectedObject = view
+				return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Unrelated" } })
+			end
+		)
 		local trigger = find(world.screen, "View")
 		t.expect(trigger:GetAttribute("label")).toBe("Select course")
 		trigger.Activated.fire()
@@ -860,40 +922,48 @@ t.describe("presented surface strength", function()
 	t.it("pops one modal per outside tap, routes inside taps and never clicks through to the base", function()
 		local outer, inner, barrier = Compose.cell(true), Compose.cell(true), Compose.cell(false)
 		local baseHits, topHits = 0, 0
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button "Base" {
-					label = "Base",
-					onActivate = function()
-						baseHits += 1
-					end,
-				},
-				UI.Sheet({
-					isPresented = outer,
-					detent = Compose.cell("medium"),
-					content = function()
-						return UI.Button "OuterAction" { label = "Outer" }
-					end,
-				}),
-				UI.Sheet({
-					isPresented = inner,
-					detent = Compose.cell("medium"),
-					content = function()
-						return UI.Button "InnerAction" {
-							label = "Inner",
-							onActivate = function()
-								topHits += 1
-							end,
-						}
-					end,
-				}),
-				UI.Alert({
-					isPresented = barrier,
-					title = "Decide",
-					actions = { { id = "Keep", label = "Keep", role = "cancel" }, { id = "Go", label = "Go" } },
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button "Base" {
+						label = "Base",
+						onActivate = function()
+							baseHits += 1
+						end,
+					} :: unknown,
+					UI.Sheet({
+						isPresented = outer,
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return UI.Button "OuterAction" { label = "Outer" }
+						end,
+					}),
+					UI.Sheet({
+						isPresented = inner,
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return UI.Button "InnerAction" {
+								label = "Inner",
+								onActivate = function()
+									topHits += 1
+								end,
+							}
+						end,
+					}),
+					UI.Alert({
+						isPresented = barrier,
+						title = "Decide",
+						actions = {
+							{ id = "Keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+							{ id = "Go", label = "Go" } :: FixtureNavigationTypes.AlertAction<any>,
+						},
+					}),
+				})
+			end
+		)
 		local base = find(world.screen, "Base")
 		local catchers = all(world.screen, "DismissOutside")
 		t.expect(#catchers).toBe(2)
@@ -932,12 +1002,17 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("shows help for gamepad selection but never when a touch tap moves the selection", function()
-		local world = setup(function(UI, Host)
-			return Host.Frame "Screen" {
-				UI.Button "Plus" { label = "+", help = "Posts this avatar" },
-				UI.Button "Other" { label = "Other" },
-			}
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame "Screen" {
+					UI.Button "Plus" { label = "+", help = "Posts this avatar" } :: unknown,
+					UI.Button "Other" { label = "Other" },
+				}
+			end
+		)
 		local plus, other = find(world.screen, "Plus"), find(world.screen, "Other")
 		local Enum = world.engine.types.Enum
 		world.input.PreferredInput = Enum.PreferredInput.Touch
@@ -972,38 +1047,43 @@ t.describe("presented surface strength", function()
 
 	t.it("keeps the top modal active when the covered surface beneath it is dismissed", function()
 		local outer, inner, shortcuts, confirmed = Compose.cell(true), Compose.cell(false), 0, 0
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button "Background" {
-					label = "Background",
-					shortcut = { keyCode = "K" },
-					onActivate = function()
-						shortcuts += 1
-					end,
-				},
-				UI.Sheet({
-					isPresented = outer,
-					detent = Compose.cell("medium"),
-					content = function()
-						return UI.Button "Covered" { label = "Covered" }
-					end,
-				}),
-				UI.Alert({
-					isPresented = inner,
-					title = "Confirm",
-					actions = {
-						{
-							id = "Ok",
-							label = "Ok",
-							onActivate = function()
-								confirmed += 1
-							end,
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button "Background" {
+						label = "Background",
+						shortcut = { keyCode = "K" },
+						onActivate = function()
+							shortcuts += 1
+						end,
+					} :: unknown,
+					UI.Sheet({
+						isPresented = outer,
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return UI.Button "Covered" { label = "Covered" }
+						end,
+					}),
+					UI.Alert({
+						isPresented = inner,
+						title = "Confirm",
+						actions = {
+							{
+								id = "Ok",
+								label = "Ok",
+								onActivate = function()
+									confirmed += 1
+								end,
+							} :: FixtureNavigationTypes.AlertAction<any>,
+							{ id = "No", label = "No", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 						},
-						{ id = "No", label = "No", role = "cancel" },
-					},
-				}),
-			})
-		end)
+					}),
+				})
+			end
+		)
 		world.gui.SelectedObject = find(world.screen, "Covered")
 		inner:set(true)
 		local ok = find(world.screen, "Ok")
@@ -1016,7 +1096,7 @@ t.describe("presented surface strength", function()
 		t.expect(find(world.screen, "AlertPanel") ~= nil).toBe(true)
 		t.expect(world.gui.SelectedObject).toBe(ok)
 		local panel = find(world.screen, "AlertPanel")
-		for _, direction in { "Up", "Down", "Left", "Right" } do
+		for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 			t.expect(panel["SelectionBehavior" .. direction]).toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 		end
 		find(world.screen, "Shortcut").Pressed.fire()
@@ -1034,33 +1114,40 @@ t.describe("presented surface strength", function()
 
 	t.it("routes activation to the selected control of the top modal and survives a re-entrant dismiss", function()
 		local presented, music, yes = Compose.cell(false), 0, 0
-		local world = setup(function(UI, Host, _, gui)
-			local base = UI.Button "Music" {
-				label = "Music",
-				onActivate = function()
-					music += 1
-				end,
-			}
-			gui.SelectedObject = base
-			return Host.Frame({
-				base,
-				UI.Alert({
-					isPresented = presented,
-					title = "Apply?",
-					actions = {
-						{
-							id = "Yes",
-							label = "Yes",
-							onActivate = function()
-								yes += 1
-								presented:set(false)
-							end,
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				_,
+				gui
+			)
+				local base = UI.Button "Music" {
+					label = "Music",
+					onActivate = function()
+						music += 1
+					end,
+				}
+				gui.SelectedObject = base
+				return Host.Frame({
+					base :: unknown,
+					UI.Alert({
+						isPresented = presented,
+						title = "Apply?",
+						actions = {
+							{
+								id = "Yes",
+								label = "Yes",
+								onActivate = function()
+									yes += 1
+									presented:set(false)
+								end,
+							} :: FixtureNavigationTypes.AlertAction<any>,
+							{ id = "No", label = "No", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 						},
-						{ id = "No", label = "No", role = "cancel" },
-					},
-				}),
-			})
-		end)
+					}),
+				})
+			end
+		)
 		local base = find(world.screen, "Music")
 		presented:set(true)
 		local yesButton = find(world.screen, "Yes")
@@ -1085,16 +1172,24 @@ t.describe("presented surface strength", function()
 
 	t.it("traps and cancels the confirmation tutorial and restores the delete trigger", function()
 		local built: any
-		local world = setup(function(UI, Host, engine, _, runtime)
-			built = require("../examples/gallery/examples/04_confirm_dialog").build({
-				UI = UI,
-				Host = Host,
-				Compose = Compose,
-				types = engine.types,
-				runtime = runtime,
-			})
-			return built.screen()
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine,
+				_,
+				runtime
+			)
+				built = require("../examples/gallery/examples/04_confirm_dialog").build({
+					UI = UI,
+					Host = Host,
+					Compose = Compose,
+					types = engine.types,
+					runtime = runtime,
+				})
+				return built.screen()
+			end
+		)
 		local delete = find(world.screen, "Delete")
 		world.gui.SelectedObject = delete
 		for round = 1, 2 do
@@ -1103,7 +1198,7 @@ t.describe("presented surface strength", function()
 			open.Pressed.fire()
 			local panel = find(world.screen, "AlertPanel")
 			t.expect(panel ~= nil).toBe(true)
-			for _, direction in { "Up", "Down", "Left", "Right" } do
+			for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 				t.expect(panel["SelectionBehavior" .. direction]).toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 			end
 			find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(1280, 800)
@@ -1391,7 +1486,8 @@ t.describe("virtual monitors surface strength", function()
 			model.autoSpin:set(3)
 			t.expect(find(world.target, "SheetPanel")).toBe(nil)
 			find(avatar, "Summary").Activated.fire()
-			local expected = { Palette = "Clay", Hat = "Off", Rotation = "30°", AutoSpin = "Fast" }
+			local expected: { [string]: string } =
+				{ Palette = "Clay", Hat = "Off", Rotation = "30°", AutoSpin = "Fast" }
 			for id, value in expected do
 				t.expect(find(find(world.target, "Summary" .. id), "Value").Text).toBe(value)
 			end

@@ -40,7 +40,7 @@ end)
 
 describe("example word data: the files on disk are the files that were generated", function()
 	it("every generated file still hashes to what the manifest recorded", function()
-		local files = words.provenance.files
+		local files: { [string]: string } = words.provenance.files
 		local checked = 0
 		for name, recorded in files do
 			local path = DATA_DIR .. "/" .. name

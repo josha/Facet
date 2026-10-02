@@ -3,7 +3,15 @@ local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -14,7 +22,7 @@ local function api(command: string, argument: any): any
 end
 
 local function gallery(): ScreenGui
-	return Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery") :: ScreenGui
+	return (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery") :: ScreenGui
 end
 
 local function demos(): { string }
@@ -63,7 +71,7 @@ local function sweep(t: any, where: string)
 			then
 				GuiService.SelectedObject = node
 				t.settle(1)
-				local took = GuiService.SelectedObject == node
+				local took = GuiService.SelectedObject == (node :: GuiObject)
 				if blocked(node) then
 					totals.refused += if took then 0 else 1
 					t.check(`{where} {id} {node.Name} refuses selection under a blocked ancestor`, not took)
@@ -109,14 +117,19 @@ add("demo-sweep-phone", {}, function(t: any)
 end)
 
 add("disabled-subtree", {}, function(t: any)
-	local stage = t.mount(function(UI, Host)
-		return Host.Frame "Area" {
-			Size = UDim2.fromOffset(400, 300),
-			Interactable = false,
-			UI.Button "Inner" { label = "Inside" },
-			UI.Toggle "Check" { label = "Option", value = t.Facet.Compose.cell(false) },
-		}
-	end)
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame "Area" {
+				Size = UDim2.fromOffset(400, 300),
+				Interactable = false,
+				UI.Button "Inner" { label = "Inside" } :: unknown,
+				UI.Toggle "Check" { label = "Option", value = t.Facet.Compose.cell(false) },
+			}
+		end
+	)
 	t.settle(10)
 	for _, name in { "Inner", "Check" } do
 		local node = t.find(stage, name)
@@ -228,14 +241,14 @@ local function clicks(t: any, where: string)
 		return
 	end
 	local LogService = game:GetService("LogService")
-	local errors = {}
+	local errors: { string } = {}
 	local watch = LogService.MessageOut:Connect(function(message, kind)
 		if kind == Enum.MessageType.MessageError then
 			table.insert(errors, message)
 		end
 	end)
 	local inset = GuiService:GetGuiInset()
-	local playerGui = Players.LocalPlayer.PlayerGui
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	local layer = gallery()
 	local bounds = t.rect(layer)
 	local totals = { clicked = 0, typed = 0, covered = 0 }

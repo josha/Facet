@@ -1,9 +1,10 @@
 --!strict
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local build = require("./collection_demo")
 local TEAMS = { "Rustbucket", "Chrome Coyote", "Nine Volt", "Paper Lantern", "Bad Weather" }
 return {
 	title = "Virtualized table",
-	build = function(ctx)
+	build = function(ctx: ExampleContext)
 		local rows = {}
 		for index = 1, 2000 do
 			rows[index] = {
@@ -28,7 +29,7 @@ return {
 					value = function(item)
 						return `#{item.n}`
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
 				{
 					id = "team",
 					label = "Team",
@@ -44,7 +45,7 @@ return {
 					value = function(item)
 						return item.team
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
 				{
 					id = "best",
 					label = "Best lap",
@@ -52,7 +53,7 @@ return {
 					value = function(item)
 						return item.best
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
 			},
 		})
 	end,

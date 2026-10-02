@@ -303,7 +303,10 @@ local shadowPresets: { [string]: ThemeTypes.Shadow } = {
 	overlay = { blurRadius = { offset = 24 }, transparency = 0.45, offset = { y = { offset = 8 } } },
 }
 
-function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.ThemePackage?, ThemeTypes.ThemeReport)
+function themes.define(
+	inputDefinition: ThemeTypes.ThemeDefinition | ThemeTypes.ThemePackage
+): (ThemeTypes.ThemePackage?, ThemeTypes.ThemeReport)
+	local definition = (inputDefinition :: unknown) :: ThemeTypes.ThemeDefinition
 	local errors: { ThemeTypes.ThemeIssue } = {}
 	local seen: { [unknown]: boolean } = {}
 	local function validate(value: unknown, path: string)
@@ -1650,10 +1653,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	})
 	add(".facet-fading > .facet-fade-stroke", { Enabled = true })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
-		local properties = table.clone(definition.properties or definition.props or {})
-		for key, value in properties do
+		local properties: ThemeTypes.RuleProperties = {}
+		for key, value in (definition.properties or definition.props or {}) :: ThemeTypes.AuthoredRuleProperties do
 			if type(value) == "table" and type((value :: any).role) == "string" then
 				properties[key] = c((value :: any).role)
+			else
+				properties[key] = value :: ThemeTypes.StyleValue?
 			end
 		end
 		rule(definition.selector, properties, true)
@@ -2493,51 +2498,48 @@ local function skin(
 		if settings.label then
 			local current = Compose.cell(initial)
 			captionSource = current
-			table.insert(
-				properties,
-				Compose.show(function(use: ComposeTypes.Use)
-					return use(current).text == true and labelled(use)
-				end, function()
-					local padding: Engine.UIPaddingNativeProps = {
-						PaddingLeft = function(use: ComposeTypes.Use)
-							local inset: ThemeTypes.Insets = use(current).textInsets or {}
-							return types.UDim.new(0, inset.left or 0)
-						end,
-						PaddingRight = function(use: ComposeTypes.Use)
-							local inset: ThemeTypes.Insets = use(current).textInsets or {}
-							return types.UDim.new(0, inset.right or 0)
-						end,
-						PaddingTop = function(use: ComposeTypes.Use)
-							local inset: ThemeTypes.Insets = use(current).textInsets or {}
-							return types.UDim.new(0, inset.top or 0)
-						end,
-						PaddingBottom = function(use: ComposeTypes.Use)
-							local inset: ThemeTypes.Insets = use(current).textInsets or {}
-							return types.UDim.new(0, inset.bottom or 0)
-						end,
-					}
-					local label = Host.TextLabel "PlaqueCaption" {
-						Text = settings.label,
-						Size = D2.fromScale(1, 1),
-						BackgroundTransparency = 1,
-						ZIndex = 1,
-						TextXAlignment = types.Enum.TextXAlignment.Center,
-						Host.UIPadding(padding),
-					}
-					label:AddTag("facet-skin-caption-text")
-					local observation = runtime.host.observation
-					if observation then
-						Compose.cleanup(observation.observeProperty(label, "TextBounds", function()
-							fit:set(label.TextBounds)
-						end))
-					end
-					fit:set(label.TextBounds)
-					Compose.cleanup(function()
-						fit:set(V2.new(0, 0))
-					end)
-					return label
+			properties[#properties + 1] = Compose.show(function(use: ComposeTypes.Use)
+				return use(current).text == true and labelled(use)
+			end, function()
+				local padding: Engine.UIPaddingNativeProps = {
+					PaddingLeft = function(use: ComposeTypes.Use)
+						local inset: ThemeTypes.Insets = use(current).textInsets or {}
+						return types.UDim.new(0, inset.left or 0)
+					end,
+					PaddingRight = function(use: ComposeTypes.Use)
+						local inset: ThemeTypes.Insets = use(current).textInsets or {}
+						return types.UDim.new(0, inset.right or 0)
+					end,
+					PaddingTop = function(use: ComposeTypes.Use)
+						local inset: ThemeTypes.Insets = use(current).textInsets or {}
+						return types.UDim.new(0, inset.top or 0)
+					end,
+					PaddingBottom = function(use: ComposeTypes.Use)
+						local inset: ThemeTypes.Insets = use(current).textInsets or {}
+						return types.UDim.new(0, inset.bottom or 0)
+					end,
+				}
+				local label = Host.TextLabel "PlaqueCaption" {
+					Text = settings.label,
+					Size = D2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					ZIndex = 1,
+					TextXAlignment = types.Enum.TextXAlignment.Center,
+					Host.UIPadding(padding),
+				}
+				label:AddTag("facet-skin-caption-text")
+				local observation = runtime.host.observation
+				if observation then
+					Compose.cleanup(observation.observeProperty(label, "TextBounds", function()
+						fit:set(label.TextBounds)
+					end))
+				end
+				fit:set(label.TextBounds)
+				Compose.cleanup(function()
+					fit:set(V2.new(0, 0))
 				end)
-			)
+				return label
+			end)
 		end
 		local node = Host.ImageLabel(properties)
 		node:AddTag("facet-skin-art")

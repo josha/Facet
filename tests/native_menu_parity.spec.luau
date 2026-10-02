@@ -1,10 +1,11 @@
 --!strict
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local Roblox = require("../src/vendor/compose/roblox")
 local themes = require("../src/ui/themes")(Compose)
 local engineLib = require("./lib/native_engine")
@@ -30,7 +31,7 @@ local function items(count: number, log: { string }?): { any }
 end
 
 local NESTED = {
-	{ id = "plain", label = "Plain", onSelect = function() end },
+	{ id = "plain", label = "Plain", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 	{
 		id = "adjust",
 		label = "Adjust",
@@ -38,18 +39,24 @@ local NESTED = {
 			{ id = "head", label = "Head", onSelect = function() end },
 			{ id = "body", label = "Body", onSelect = function() end },
 		},
-	},
-	{ id = "skin", label = "Skin", onSelect = function() end },
+	} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+	{ id = "skin", label = "Skin", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 }
 
-local function labelled(spec: { [string]: any }, options: { [string]: any }?): any
+local function labelled(spec: { [any]: any }, options: { [string]: any }?): any
 	local fields = table.clone(spec)
 	if fields.trigger == nil and fields.label == nil then
 		fields.label = "Options"
 	end
-	return worlds.new(function(UI, Host)
-		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(fields) })
-	end, options or { motionLevel = "none" })
+	return worlds.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(fields) })
+		end,
+		options or { motionLevel = "none" }
+	)
 end
 
 local function panelOf(world: any): any
@@ -79,11 +86,16 @@ end
 
 local function sheetRules(): (any, any)
 	local engine = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local sheet
 	local stop = runtime.mount(function()
 		sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
-		return runtime.constructors.Frame({ sheet })
+		return (
+			(
+				runtime.constructors.Frame :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+		)({ sheet :: unknown })
 	end, engine.new("Folder"))
 	return sheet, function()
 		stop()
@@ -109,17 +121,23 @@ end
 
 t.describe("native menu parity with main", function()
 	t.it("attaches to the caller's trigger node and returns that same node without a wrapper", function()
-		local authored, returned
+		local authored: any, returned
 		local ran: { string } = {}
-		local world = worlds.new(function(UI, Host)
-			authored = UI.Button "Opener" { label = "More" }
-			returned = UI.Menu({
-				trigger = authored,
-				LayoutOrder = 3,
-				items = items(2, ran),
-			})
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), returned })
-		end, { motionLevel = "none" })
+		local world = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				authored = UI.Button "Opener" { label = "More" }
+				returned = UI.Menu({
+					trigger = authored,
+					LayoutOrder = 3,
+					items = items(2, ran),
+				})
+				return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), returned :: unknown })
+			end,
+			{ motionLevel = "none" }
+		)
 		t.expect(returned).toBe(authored)
 		t.expect(authored.Parent.Name).toBe("S")
 		t.expect(authored.Name).toBe("Opener")
@@ -130,34 +148,46 @@ t.describe("native menu parity with main", function()
 		world.find("row2", panel).Activated.fire()
 		t.expect(ran).toEqual({ "row2" })
 		world.stop()
-		local named = worlds.new(function(UI, Host)
-			return Host.Frame({
-				UI.Menu "Actions" { trigger = UI.Button "Opener" { label = "More" }, items = items(1) },
-			})
-		end, { motionLevel = "none" })
+		local named = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Menu "Actions" { trigger = UI.Button "Opener" { label = "More" }, items = items(1) },
+				})
+			end,
+			{ motionLevel = "none" }
+		)
 		t.expect(named.find("Actions").ClassName).toBe("TextButton")
 		t.expect(named.find("Opener")).toBeNil()
 		named.stop()
 	end)
 
 	t.it("fills each row title so a submenu chevron or check sits at the trailing edge", function()
-		local world = worlds.new(function(UI, Host)
-			return Host.Frame({
-				Name = "S",
-				Size = UDim2.fromOffset(800, 600),
-				UI.Menu {
-					trigger = UI.Button "Opener" { label = "More" },
-					items = {
-						{ id = "plain", label = "Plain", onSelect = function() end },
-						{
-							id = "deeper",
-							label = "Deeper",
-							children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
+		local world = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Name = "S",
+					Size = UDim2.fromOffset(800, 600),
+					UI.Menu {
+						trigger = UI.Button "Opener" { label = "More" },
+						items = {
+							{ id = "plain", label = "Plain", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+							{
+								id = "deeper",
+								label = "Deeper",
+								children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
+							} :: FixtureNavigationTypes.MenuItem<any>,
 						},
 					},
-				},
-			})
-		end, { motionLevel = "none" })
+				})
+			end,
+			{ motionLevel = "none" }
+		)
 		world.find("Opener").Activated.fire()
 		local panel = panelOf(world)
 		for _, id in { "plain", "deeper" } do
@@ -170,18 +200,26 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("dims the page behind a menu presented as a sheet and not behind a panel", function()
-		for _, case in { { "sheet", true }, { "menu", false } } do
-			local world = worlds.new(function(UI, Host)
-				return Host.Frame({
-					Name = "S",
-					Size = UDim2.fromOffset(800, 600),
-					UI.Menu {
-						trigger = UI.Button "Opener" { label = "More" },
-						presentation = case[1],
-						items = { { id = "one", label = "One", onSelect = function() end } },
-					},
-				})
-			end, { motionLevel = "none" })
+		for _, case in { { "sheet" :: unknown, true }, { "menu" :: unknown, false } } do
+			local world = worlds.new(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						Name = "S",
+						Size = UDim2.fromOffset(800, 600),
+						UI.Menu {
+							trigger = UI.Button "Opener" { label = "More" },
+							presentation = case[1] :: "sheet" | "menu",
+							items = {
+								{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+							},
+						},
+					})
+				end,
+				{ motionLevel = "none" }
+			)
 			world.find("Opener").Activated.fire()
 			local catcher = world.find("DismissOutside")
 			t.expect(`{case[1]}: {catcher.BackgroundTransparency < 1}`).toBe(`{case[1]}: {case[2]}`)
@@ -190,11 +228,16 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("refuses label and trigger together", function()
-		local message = worlds.mountError(function(UI, Host)
-			return Host.Frame({
-				UI.Menu({ label = "More", trigger = UI.Button "Opener" { label = "More" }, items = items(1) }),
-			})
-		end)
+		local message = worlds.mountError(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Menu({ label = "More", trigger = UI.Button "Opener" { label = "More" }, items = items(1) }),
+				})
+			end
+		)
 		t.expect(message ~= nil and string.find(message, "label or trigger, not both", 1, true) ~= nil).toBe(true)
 	end)
 
@@ -204,7 +247,7 @@ t.describe("native menu parity with main", function()
 		local world = labelled({
 			items = NESTED,
 			isPresented = presented,
-			presentation = "menu",
+			presentation = "menu" :: "menu",
 			onOpen = function()
 				table.insert(log, "open")
 			end,
@@ -234,7 +277,20 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("takes a dimension table, a UDim or pixels for width and refuses a malformed one by name", function()
-		for _, case in
+		for
+			_,
+			case: {
+			width: number | typeof(UDim.new(0.5, 10)) | typeof(UDim2.new(0.25, 0, 0, 0)) | {
+				type: string,
+				px: (number | string)?,
+				fraction: number?,
+				offset: typeof(-8)?,
+				min: number?,
+				max: number?,
+			},
+			expected: number,
+		}
+		in
 			{
 				{ width = 300, expected = 300 },
 				{ width = { type = "fixed", px = 300 }, expected = 300 },
@@ -245,6 +301,18 @@ t.describe("native menu parity with main", function()
 				{ width = { type = "hug", max = 200 }, expected = 200 },
 				{ width = { type = "fill" }, expected = 784 },
 				{ width = { type = "fixed", px = "targetSizes.minimum" }, expected = 44 },
+			} :: {
+				{
+					width: number | typeof(UDim.new(0.5, 10)) | typeof(UDim2.new(0.25, 0, 0, 0)) | {
+						type: string,
+						px: (number | string)?,
+						fraction: number?,
+						offset: typeof(-8)?,
+						min: number?,
+						max: number?,
+					},
+					expected: number,
+				}
 			}
 		do
 			local world = labelled({ width = case.width, items = items(3) })
@@ -253,17 +321,25 @@ t.describe("native menu parity with main", function()
 			t.expect(`{typeof(case.width)} {panel.Size.X.Offset}`).toBe(`{typeof(case.width)} {case.expected}`)
 			world.stop()
 		end
-		for _, case in
+		for
+			_,
+			case: { width: typeof(-4) | { type: string, ratio: number?, px: number?, weight: number? }, words: string }
+		in
 			{
 				{ width = { type = "aspect", ratio = 1 }, words = "width.type must be" },
 				{ width = { type = "fixed" }, words = "a fixed width requires px" },
 				{ width = { type = "fixed", px = 10, weight = 1 }, words = "does not take 'weight'" },
 				{ width = -4, words = "width must be a finite number" },
-			}
+			} :: { { width: typeof(-4) | { type: string, ratio: number?, px: number?, weight: number? }, words: string } }
 		do
-			local message = worlds.mountError(function(UI, Host)
-				return Host.Frame({ UI.Menu({ label = "More", width = case.width, items = items(1) }) })
-			end)
+			local message = worlds.mountError(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({ UI.Menu({ label = "More", width = case.width, items = items(1) } :: any) })
+				end
+			)
 			t.expect(message ~= nil and string.find(message, case.words, 1, true) ~= nil).toBe(true)
 		end
 	end)
@@ -271,13 +347,13 @@ t.describe("native menu parity with main", function()
 	t.it("draws the anchored panel as one card with one hairline between each pair of rows", function()
 		local checked = Compose.cell(true)
 		local world = labelled({
-			presentation = "menu",
+			presentation = "menu" :: "menu",
 			items = {
-				{ id = "a", label = "Alpha", onSelect = function() end },
-				{ id = "b", label = "Beta", checked = checked },
-				{ id = "c", label = "Gamma", onSelect = function() end },
-				{ divider = true },
-				{ id = "d", label = "Delta", onSelect = function() end },
+				{ id = "a", label = "Alpha", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "b", label = "Beta", checked = checked } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "c", label = "Gamma", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "d", label = "Delta", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 			},
 		})
 		local panel = open(world)
@@ -311,7 +387,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("keeps the sheet rows spaced and unruled, since the card is a presentation branch", function()
-		local world = labelled({ presentation = "sheet", items = items(3) })
+		local world = labelled({ presentation = "sheet" :: "sheet", items = items(3) })
 		local panel = open(world)
 		local rows = panel:FindFirstChild("MenuRows", true)
 		t.expect(rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(8)
@@ -322,8 +398,8 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("grows a Back row only in the sheet and shows the open path on the parent level", function()
-		for _, presentation in { "menu", "sheet" } do
-			local world = labelled({ presentation = presentation, items = NESTED })
+		for _, presentation in { "menu", "sheet" } :: { "menu" | "sheet" } do
+			local world = labelled({ presentation = presentation :: "menu" | "sheet", items = NESTED })
 			local panel = open(world)
 			world.find("adjust", panel).Activated.fire()
 			t.expect(`{presentation} {world.find("Back", panel) ~= nil}`)
@@ -346,7 +422,10 @@ t.describe("native menu parity with main", function()
 
 	t.it("insets an open ancestor level by the current theme's space.xs, following a theme swap", function()
 		local theme = Compose.cell(themes.neutralPackage())
-		local world = labelled({ presentation = "menu", items = NESTED }, { motionLevel = "none", theme = theme })
+		local world = labelled(
+			{ presentation = "menu" :: "menu", items = NESTED },
+			{ motionLevel = "none", theme = theme }
+		)
 		local panel = open(world)
 		world.find("adjust", panel).Activated.fire()
 		local parent = world.find("AncestorMenu", world.screen.Parent)
@@ -404,7 +483,7 @@ t.describe("native menu parity with main", function()
 			local package = (require :: any)("../examples/themes/" .. name).build(Facet.themes)
 			local carve = package.chrome.panel.contentInsets
 			for _, count in { 3, 30 } do
-				local world = labelled({ items = items(count), presentation = "menu" }, { theme = package })
+				local world = labelled({ items = items(count), presentation = "menu" :: "menu" }, { theme = package })
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
 				local rows = panel:FindFirstChild("MenuRows", true)
@@ -430,7 +509,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("a 300-row menu fades through a window-sized group, never one as tall as its rows", function()
-		local world = labelled({ items = items(300), presentation = "menu" }, {})
+		local world = labelled({ items = items(300), presentation = "menu" :: "menu" }, {})
 		local panel = open(world)
 		local rows = panel:FindFirstChild("MenuRows", true)
 		local groups = {}
@@ -457,7 +536,7 @@ t.describe("native menu parity with main", function()
 	t.it("a 300-row sheet level cross-fades through a window-sized group, never one as tall as its rows", function()
 		local world = labelled({
 			items = { { id = "big", label = "Big", children = items(300) } },
-			presentation = "sheet",
+			presentation = "sheet" :: "sheet",
 		}, {})
 		local panel = open(world)
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
@@ -486,7 +565,10 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("grows each level from 0.96 at the corner it hangs at, fades in and dips out faster", function()
-		local world = labelled({ edge = "top", align = "end", items = NESTED, presentation = "menu" }, {})
+		local world = labelled(
+			{ edge = "top" :: "top", align = "end" :: "end", items = NESTED, presentation = "menu" :: "menu" },
+			{}
+		)
 		local panel = open(world)
 		lay(world, panel, Vector2.new(300, 300), Vector2.new(200, 40), Vector2.new(220, 200))
 		local scale = materialize.of(panel)
@@ -538,11 +620,36 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("pivots a default panel at its top leading corner and a trailing panel at its leading side", function()
-		for _, case in
+		for
+			_,
+			case: {
+			edge: "trailing" | "bottom" | nil,
+			align: "start" | "center" | nil,
+			pivot: typeof(Vector2.new(0, 0)) | typeof(Vector2.new(110, 0)),
+			at: typeof(Vector2.new(100, 144)) | typeof(Vector2.new(304, 100)) | typeof(Vector2.new(90, 144)),
+		}
+		in
 			{
 				{ edge = nil, align = nil, pivot = Vector2.new(0, 0), at = Vector2.new(100, 144) },
-				{ edge = "trailing", align = "start", pivot = Vector2.new(0, 0), at = Vector2.new(304, 100) },
-				{ edge = "bottom", align = "center", pivot = Vector2.new(110, 0), at = Vector2.new(90, 144) },
+				{
+					edge = "trailing" :: "trailing",
+					align = "start" :: "start",
+					pivot = Vector2.new(0, 0),
+					at = Vector2.new(304, 100),
+				},
+				{
+					edge = "bottom" :: "bottom",
+					align = "center" :: "center",
+					pivot = Vector2.new(110, 0),
+					at = Vector2.new(90, 144),
+				},
+			} :: {
+				{
+					edge: "trailing" | "bottom" | nil,
+					align: "start" | "center" | nil,
+					pivot: typeof(Vector2.new(0, 0)) | typeof(Vector2.new(110, 0)),
+					at: typeof(Vector2.new(100, 144)) | typeof(Vector2.new(304, 100)) | typeof(Vector2.new(90, 144)),
+				}
 			}
 		do
 			local world = labelled({ edge = case.edge, align = case.align, items = items(3) }, {})
@@ -559,7 +666,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("removes the travel under reduced motion for the panel and each submenu level", function()
-		local world = labelled({ items = NESTED, presentation = "menu" })
+		local world = labelled({ items = NESTED, presentation = "menu" :: "menu" })
 		local panel = open(world)
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
 		world.engine.heartbeat.fire(FRAME)
@@ -588,7 +695,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("clamps the panel inside the GuiService inset when its screen ignores the inset", function()
-		local world = labelled({ edge = "top", items = items(3) })
+		local world = labelled({ edge = "top" :: "top", items = items(3) })
 		world.screen.IgnoreGuiInset = true
 		world.gui.GetGuiInset = function()
 			return Vector2.new(40, 58), Vector2.new(24, 34)
@@ -601,7 +708,7 @@ t.describe("native menu parity with main", function()
 		world.find("Trigger").AbsolutePosition = Vector2.new(300, 560)
 		t.expect(materialize.position(panel).Y.Offset + 200 <= 600 - 34 - 8).toBe(true)
 		world.stop()
-		local plain = labelled({ edge = "top", items = items(3) })
+		local plain = labelled({ edge = "top" :: "top", items = items(3) })
 		plain.gui.GetGuiInset = function()
 			return Vector2.new(40, 58), Vector2.new(24, 34)
 		end
@@ -612,7 +719,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("a menu shown as a sheet slides up from below the layer and never scales", function()
-		local world = labelled({ items = items(3), presentation = "sheet" }, {})
+		local world = labelled({ items = items(3), presentation = "sheet" :: "sheet" }, {})
 		local panel = open(world)
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 		for _ = 1, 3 do
@@ -632,7 +739,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("a sheet menu level change cross-fades its rows while they slide", function()
-		local world = labelled({ items = NESTED, presentation = "sheet" }, {})
+		local world = labelled({ items = NESTED, presentation = "sheet" :: "sheet" }, {})
 		local panel = open(world)
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 		for _ = 1, 40 do
@@ -652,7 +759,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("a pointer submenu grows from the chosen row, and Back grows the parent from the child's side", function()
-		local world = labelled({ items = NESTED, presentation = "menu" }, {})
+		local world = labelled({ items = NESTED, presentation = "menu" :: "menu" }, {})
 		local panel = open(world)
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
 		for _ = 1, 40 do
@@ -699,7 +806,7 @@ t.describe("native menu parity with main", function()
 					children = { leaf("x"), leaf("y"), { id = "b", label = "B", children = { leaf("p"), leaf("q") } } },
 				},
 			}
-			local world = labelled({ items = deep, presentation = "menu" }, {})
+			local world = labelled({ items = deep, presentation = "menu" :: "menu" }, {})
 			local panel = open(world)
 			lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
 			local function settle()
@@ -752,7 +859,7 @@ t.describe("native menu parity with main", function()
 
 	t.it("a level change during the exit does not re-measure: the panel keeps shrinking", function()
 		local list = Compose.cell(NESTED)
-		local world = labelled({ items = list, presentation = "menu" }, {})
+		local world = labelled({ items = list, presentation = "menu" :: "menu" }, {})
 		local panel = open(world)
 		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
 		for _ = 1, 40 do
@@ -774,7 +881,7 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("bounds a sheet by the inset at the bottom and the sides", function()
-		local world = labelled({ presentation = "sheet", items = items(3) })
+		local world = labelled({ presentation = "sheet" :: "sheet", items = items(3) })
 		world.screen.IgnoreGuiInset = true
 		world.gui.GetGuiInset = function()
 			return Vector2.new(40, 58), Vector2.new(24, 34)
@@ -791,7 +898,7 @@ t.describe("native menu parity with main", function()
 	for _, reduced in { false, true } do
 		t.it(`slides sheet submenus forward on entry and backward on Back; reduced={reduced}`, function()
 			local world = labelled(
-				{ presentation = "sheet", items = NESTED },
+				{ presentation = "sheet" :: "sheet", items = NESTED },
 				{ motionLevel = if reduced then "none" else "normal" }
 			)
 			local panel = open(world)

@@ -1,4 +1,5 @@
 --!strict
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local COPY = {
 	title = "Detent sheets",
 	intro = "Open a race briefing. Drag its header to resize, or focus Size and use Left / Right. On a distant screen the panel moves to the center.",
@@ -23,10 +24,10 @@ return {
 	title = "Detent sheets",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -75,11 +76,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = copy.title,
-						textRole = "title",
+						textRole = "title" :: "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					}) :: unknown,
 					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
@@ -125,14 +126,14 @@ return {
 							filtersShown:set(true)
 						end,
 					}),
-				},
+				} :: unknown,
 				UI.Sheet "Lobby" {
 					title = copy.lobby,
-					header = false,
+					header = false :: false,
 					isPresented = lobbyShown,
 					detent = lobbyDetent,
-					detents = { "hug", "large" },
-					scrollPolicy = "atLargestDetent",
+					detents = { "hug", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					scrollPolicy = "atLargestDetent" :: "atLargestDetent",
 					hero = {
 						height = 140,
 						background = Color3.fromRGB(44, 98, 210),
@@ -142,12 +143,12 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = copy.lobby,
-							textRole = "title",
+							textRole = "title" :: "title",
 							TextWrapped = true,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
+						}) :: Instance,
 					},
-					content = function()
+					content = function(): Instance
 						return UI.Text({
 							Name = "LobbyBody",
 							BackgroundTransparency = 1,
@@ -162,30 +163,30 @@ return {
 						{
 							id = "NotNow",
 							label = copy.notNow,
-							role = "cancel",
+							role = "cancel" :: "cancel",
 							onActivate = function()
 								lobbyShown:set(false)
 							end,
-						},
+						} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
 						{
 							id = "Join",
 							label = copy.joinLobby,
-							role = "default",
+							role = "default" :: "default",
 							onActivate = function()
 								status:set("Joined the harbor sprint.")
 								lobbyShown:set(false)
 							end,
-						},
+						} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
 					},
 				},
 				UI.Sheet "Filters" {
 					title = copy.filters,
-					placement = "side",
-					width = "narrow",
+					placement = "side" :: "side",
+					width = "narrow" :: "narrow",
 					isPresented = filtersShown,
 					detent = filtersDetent,
-					detents = { "medium", "large" },
-					content = function()
+					detents = { "medium", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					content = function(): Instance
 						return Host.Frame "FilterList" {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -194,7 +195,7 @@ return {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}),
+							}) :: unknown,
 							UI.Text({
 								LayoutOrder = 1,
 								BackgroundTransparency = 1,
@@ -233,8 +234,8 @@ return {
 					title = copy.briefing,
 					isPresented = presented,
 					detent = detent,
-					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" },
-					content = function()
+					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					content = function(): Instance
 						return Host.Frame "Details" {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -243,7 +244,7 @@ return {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}),
+							}) :: unknown,
 							UI.Text({
 								LayoutOrder = 1,
 								Name = "Description",
@@ -321,10 +322,10 @@ return {
 			},
 			states = function()
 				return {
-					{ id = "medium", kind = "dialog", open = open },
+					{ id = "medium", kind = "dialog" :: "dialog", open = open },
 					{
 						id = "large",
-						kind = "dialog",
+						kind = "dialog" :: "dialog",
 						open = function()
 							setDetent("large")
 							return open()

@@ -194,9 +194,12 @@ function pixel_quest.definition(themes: any): any
 		},
 		style = { defaultTheme = "Quest", themes = { { name = "Quest", colors = QUEST.colors, extra = QUEST.extra } } },
 		rules = {
-			{ selector = ".facet-tab-item", properties = { TextColor3 = { role = "content" } } },
-			{ selector = ".facet-tab-item.facet-selected", properties = { TextColor3 = { role = "onSelected" } } },
-			{ selector = ".facet-tab-filled", properties = { TextColor3 = { role = "onAccent" } } },
+			{ selector = ".facet-tab-item", properties = { TextColor3 = { role = "content" :: string } } },
+			{
+				selector = ".facet-tab-item.facet-selected",
+				properties = { TextColor3 = { role = "onSelected" :: string } },
+			},
+			{ selector = ".facet-tab-filled", properties = { TextColor3 = { role = "onAccent" :: string } } },
 		},
 		metrics = {
 			typography = typography(),
@@ -237,16 +240,16 @@ function pixel_quest.definition(themes: any): any
 			},
 		},
 		chrome = {
-			focus = { kind = "brackets", corner = "square", size = 12, thickness = 4, outset = 2 },
+			focus = { kind = "brackets" :: "brackets", corner = "square", size = 12, thickness = 4, outset = 2 },
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_panel",
 				fallback = "native",
 				contentInsets = { top = 24, right = 24, bottom = 24, left = 24 },
 			},
 
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "pixel_plate_default",
 					selected = { asset = "pixel_plate_default", rotation = 180, tint = PRESSED_TINT },
@@ -255,23 +258,23 @@ function pixel_quest.definition(themes: any): any
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_field",
 				fallback = "native",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 
 			selection = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				fallback = "native",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 				layers = {
 					{
-						kind = "fill",
+						kind = "fill" :: string,
 						asset = { default = "pixel_plate_default", selected = "pixel_plate_selected" },
 					},
 					{
-						kind = "corners",
+						kind = "corners" :: string,
 						asset = { default = "pixel_blank", selected = "pixel_plate_ornament" },
 						size = 8,
 					},
@@ -279,7 +282,7 @@ function pixel_quest.definition(themes: any): any
 			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "pixel_stepper_plate_default", pressed = "pixel_stepper_plate_pressed" },
 				sliced = true,
 				fallback = "native",
@@ -287,15 +290,20 @@ function pixel_quest.definition(themes: any): any
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			barTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_bar_track",
 				fallback = "native",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
-			barFill = { kind = "nineSlice", asset = "pixel_bar_fill", direction = "ltr", fallback = "native" },
+			barFill = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "pixel_bar_fill",
+				direction = "ltr" :: "ltr",
+				fallback = "native",
+			},
 
 			barCap = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_bar_cap_heart",
 				startAsset = "pixel_bar_cap_heart",
 				sliced = false,
@@ -303,14 +311,19 @@ function pixel_quest.definition(themes: any): any
 				fallback = "native",
 			},
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "pixel_toggle_track_off", selected = "pixel_toggle_track_on" },
 				fallback = "native",
 				contentInsets = { top = 12, right = 12, bottom = 12, left = 12 },
 			},
-			toggleKnob = { kind = "nineSlice", asset = "pixel_toggle_knob", sliced = false, fallback = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			toggleKnob = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "pixel_toggle_knob",
+				sliced = false,
+				fallback = "native",
+			},
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = {

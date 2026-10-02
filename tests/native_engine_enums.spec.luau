@@ -9,7 +9,7 @@ t.describe("native enum fixture", function()
 		local keyCodes = engine.types.Enum.KeyCode
 		t.expect(keyCodes:FromName("Space")).toBe(Roblox.Enum.KeyCode.Space)
 		t.expect(keyCodes:FromValue(Roblox.Enum.KeyCode.Space.Value)).toBe(Roblox.Enum.KeyCode.Space)
-		t.expect(keyCodes:FromValue(0)).toBe(Roblox.Enum.KeyCode.Unknown)
+		t.expect(keyCodes:FromValue(0)).toBe((Roblox.Enum.KeyCode :: any).Unknown)
 		t.expect(keyCodes:FromName("MissingKey")).toBe(nil)
 		t.expect(keyCodes:FromValue(-100)).toBe(nil)
 		t.expect(keyCodes.Space).toBe(Roblox.Enum.KeyCode.Space)

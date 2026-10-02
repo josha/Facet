@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Check every repository Luau file in strict mode with pinned Roblox and Lune types. The complete check rejects every type diagnostic and invalid API probe.
+- Export `RowActionsOptions` and `SheetDetent` for consumer annotations. Match public types to supported nullable bindings, theme overrides and image resource factories.
+
 - Outpost’s world terminal fits the live Showcase space on phones and after rotation; short views scroll the controls.
 - Held touch names and help clear the actual fingertip. Radial names wrap in themed tooltip plates, and opening a radial menu stays neutral until a deliberate drag.
 

@@ -1,10 +1,14 @@
 --!strict
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local FixtureRadialTypes = require("../src/ui/radial_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local navMenu = require("../src/ui/nav_menu")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -24,7 +28,8 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 	engine.clock = function()
 		return now
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -47,7 +52,9 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local stop = runtime.mount(function()
 		return Host.Frame "Surface" {
 			Size = engine.types.UDim2.fromScale(1, 1),
@@ -130,11 +137,14 @@ end
 
 local function mountError(build: (any, any) -> any): string?
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
-	local Host = runtime.constructors
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local ok, message = pcall(function()
 		local stop = runtime.mount(function()
 			return Host.ScreenGui({ build(UI, Host) })
@@ -247,7 +257,7 @@ local NESTED = {
 		id = "adjust",
 		label = "Adjust",
 		children = {
-			{ id = "head", label = "Head Adjustment", onSelect = function() end },
+			{ id = "head", label = "Head Adjustment", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 			{
 				id = "layer",
 				label = "Layering",
@@ -255,10 +265,10 @@ local NESTED = {
 					{ id = "clothing", label = "Clothing Layering", onSelect = function() end },
 					{ id = "makeup", label = "Makeup Layering", onSelect = function() end },
 				},
-			},
+			} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 		},
-	},
-	{ id = "skin", label = "Skin Color", onSelect = function() end },
+	} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+	{ id = "skin", label = "Skin Color", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 }
 
 local function place(world: World, trigger: any, x: number, y: number, width: number, height: number)
@@ -288,7 +298,8 @@ t.describe("native parity weaker menus", function()
 					engine.heartbeat.fire(1 / 60)
 				end
 			end
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -306,7 +317,7 @@ t.describe("native parity weaker menus", function()
 					motionLevel = "normal",
 				} :: any
 			)
-			local stop, screen = runtime.mount(function()
+			local stop, screen: any = runtime.mount(function()
 				return runtime.constructors.ScreenGui({
 					UI.RadialMenu "Actions" {
 						items = {
@@ -316,14 +327,14 @@ t.describe("native parity weaker menus", function()
 								onSelect = function()
 									fired += 1
 								end,
-							},
+							} :: FixtureRadialTypes.RadialItem<any>,
 							{
 								id = "point",
 								label = "Point",
 								onSelect = function()
 									fired += 10
 								end,
-							},
+							} :: FixtureRadialTypes.RadialItem<any>,
 						},
 					},
 				})
@@ -356,7 +367,8 @@ t.describe("native parity weaker menus", function()
 		local modelModule = require("../examples/virtual_monitors/model")
 		local screens = require("../examples/virtual_monitors/screens")
 		local engine: any = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -374,7 +386,7 @@ t.describe("native parity weaker menus", function()
 				services = { GuiService = gui, UserInputService = input },
 				motionLevel = "none",
 			})
-			local stop, avatar = runtime.mount(views.Avatar, target)
+			local stop, avatar: any = runtime.mount(views.Avatar, target)
 			avatar.AbsoluteSize = engine.types.Vector2.new(393, 852)
 			local quick = find(avatar, "QuickPalette")
 			local launcher = find(quick, "Launcher")
@@ -410,7 +422,7 @@ t.describe("native parity weaker menus", function()
 		local selected, opened, changes = Compose.cell("normal"), Compose.cell(false), 0
 		local world = setup(function(UI)
 			return UI.Picker "Difficulty" {
-				style = "menu",
+				style = "menu" :: "menu",
 				selected = selected,
 				isPresented = opened,
 				options = THREE,
@@ -455,7 +467,7 @@ t.describe("native parity weaker menus", function()
 		local selected, opened, changes = Compose.cell("normal"), Compose.cell(false), 0
 		local world = setup(function(UI)
 			return UI.Picker "Difficulty" {
-				style = "menu",
+				style = "menu" :: "menu",
 				selected = selected,
 				isPresented = opened,
 				options = THREE,
@@ -499,10 +511,12 @@ t.describe("native parity weaker menus", function()
 	end)
 
 	t.it("renders the icon-only glyph without a label and refuses an option without an icon", function()
-		local options = Compose.cell({ { value = "a", label = "Route", icon = "checkmark" } })
+		local options: FixtureComposeTypes.Cell<{ { value: string, label: string, icon: string? } }> = Compose.cell(
+			{ { value = "a", label = "Route", icon = "checkmark" } } :: { { value: string, label: string, icon: string? } }
+		)
 		local world = setup(function(UI)
 			return UI.Picker "Icons" {
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				iconOnly = true,
 				selected = Compose.cell("a"),
 				options = options,
@@ -517,12 +531,14 @@ t.describe("native parity weaker menus", function()
 		end)
 		t.expect(ok).toBe(false)
 		world.stop()
-		for _, style in { "segmented", "inline", "radioGroup", "menu" } do
+		for _, style in
+			{ "segmented", "inline", "radioGroup", "menu" } :: { "inline" | "menu" | "radioGroup" | "segmented" }
+		do
 			for _, live in { false, true } do
 				local list = { { value = "a", label = "Route" } }
 				t.expect(refuses("Picker.iconOnly requires an icon on each option", function(UI)
 					return UI.Picker({
-						style = style,
+						style = style :: "inline" | "menu" | "radioGroup" | "segmented",
 						iconOnly = true,
 						selected = Compose.cell("a"),
 						options = if live then Compose.cell(list) else list,
@@ -535,11 +551,11 @@ t.describe("native parity weaker menus", function()
 	t.it("keeps choice rows, their selection focus and missing selected values through live replacements", function()
 		local selected = Compose.cell("a")
 		local options = Compose.cell({
-			{ id = "one", value = "a", label = "Alpine", badge = 3 },
-			{ id = "two", value = "b", label = "Beach" },
+			{ id = "one", value = "a", label = "Alpine", badge = 3 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 		})
 		local world = setup(function(UI)
-			return UI.Picker "Routes" { style = "radioGroup", selected = selected, options = options }
+			return UI.Picker "Routes" { style = "radioGroup" :: "radioGroup", selected = selected, options = options }
 		end)
 		local picker = find(world.root, "Routes")
 		local row = find(picker, "one")
@@ -548,8 +564,8 @@ t.describe("native parity weaker menus", function()
 		t.expect(count(row)).toBe("3")
 		t.expect(find(row, "Description").Visible).toBe(false)
 		options:set({
-			{ id = "one", value = "a", label = "Alpine pass", description = "A mountain route", badge = 7 },
-			{ id = "two", value = "c", label = "Coast" },
+			{ id = "one", value = "a", label = "Alpine pass", description = "A mountain route", badge = 7 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ id = "two", value = "c", label = "Coast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 		})
 		t.expect(find(picker, "one")).toBe(row)
 		t.expect(world.gui.SelectedObject).toBe(row)
@@ -558,7 +574,10 @@ t.describe("native parity weaker menus", function()
 		t.expect(find(row, "Description").Text).toBe("A mountain route")
 		t.expect(find(row, "Description").Visible).toBe(true)
 		t.expect(selected:peek()).toBe("a")
-		options:set({ { id = "one", value = "a", label = "Alpine pass" }, { id = "two", value = "c", label = "Coast" } })
+		options:set({
+			{ id = "one", value = "a", label = "Alpine pass" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ id = "two", value = "c", label = "Coast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+		})
 		t.expect(find(picker, "one")).toBe(row)
 		t.expect(world.gui.SelectedObject).toBe(row)
 		t.expect(title(row)).toBe("Alpine pass")
@@ -578,14 +597,14 @@ t.describe("native parity weaker menus", function()
 		local selected, enabled, changes = Compose.cell("a"), Compose.cell(false), 0
 		local world = setup(function(UI)
 			return UI.Picker "Access" {
-				style = "radioGroup",
+				style = "radioGroup" :: "radioGroup",
 				selected = selected,
 				onChange = function()
 					changes += 1
 				end,
 				options = {
-					{ value = "a", label = "Open" },
-					{ value = "b", label = "Club", description = "Requires club membership", enabled = enabled },
+					{ value = "a", label = "Open" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Club", description = "Requires club membership", enabled = enabled } :: FixtureNavigationTypes.PickerOption<any>,
 				},
 			}
 		end)
@@ -639,12 +658,12 @@ t.describe("native parity weaker menus", function()
 			{ "Picker option icon must be an icon name", { { value = "a", label = "Alpha", icon = false } } },
 			{ "Unknown Picker option field misspelled", { { value = "a", label = "Alpha", misspelled = true } } },
 		}
-		for _, style in { "radioGroup", "menu", "segmented" } do
+		for _, style in { "radioGroup", "menu", "segmented" } :: { "menu" | "radioGroup" | "segmented" } do
 			for _, live in { false, true } do
 				for _, case in optionCases do
 					t.expect(refuses(case[1], function(UI)
 						return UI.Picker({
-							style = style,
+							style = style :: "menu" | "radioGroup" | "segmented",
 							selected = Compose.cell("a"),
 							options = if live then Compose.cell(case[2]) else case[2],
 						})
@@ -660,13 +679,15 @@ t.describe("native parity weaker menus", function()
 			{ "Picker.enabled must be a boolean", { enabled = Compose.cell("false") } },
 			{ "unknown option 'misspelled'", { misspelled = true } },
 		}
-		for _, style in { "radioGroup", "menu", "navigationLink", "automatic" } do
+		for _, style in
+			{ "radioGroup", "menu", "navigationLink", "automatic" } :: { "automatic" | "menu" | "navigationLink" | "radioGroup" }
+		do
 			for _, live in { false, true } do
 				for _, case in specCases do
 					t.expect(refuses(case[1], function(UI)
 						local list = { { value = "a", label = "Alpha" } }
 						local spec: { [string]: any } = {
-							style = style,
+							style = style :: "automatic" | "menu" | "navigationLink" | "radioGroup",
 							selected = Compose.cell("a"),
 							options = if live then Compose.cell(list) else list,
 						}
@@ -680,7 +701,7 @@ t.describe("native parity weaker menus", function()
 		end
 		t.expect(mountError(function(UI)
 			return UI.Picker({
-				style = "radioGroup",
+				style = "radioGroup" :: "radioGroup",
 				selected = Compose.cell("a"),
 				enabled = Compose.cell(true),
 				required = true,
@@ -688,7 +709,9 @@ t.describe("native parity weaker menus", function()
 				onChanging = function()
 					return true
 				end,
-				options = { { id = "x", value = "a", label = "Alpha", icon = "edit", badge = 2, enabled = true } },
+				options = {
+					{ id = "x", value = "a", label = "Alpha", icon = "edit", badge = 2, enabled = true } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			})
 		end)).toBeNil()
 	end)
@@ -702,7 +725,7 @@ t.describe("native parity weaker menus", function()
 		}
 		local world = setup(function(UI, Host)
 			return Host.Frame({
-				UI.Picker "Narrow" { selected = Compose.cell("a"), options = long },
+				UI.Picker "Narrow" { selected = Compose.cell("a"), options = long } :: unknown,
 				UI.Picker "Wide" { selected = Compose.cell("a"), options = long },
 			})
 		end)
@@ -732,10 +755,13 @@ t.describe("native parity weaker menus", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
 				UI.Picker "Laps" {
-					style = "segmented",
-					controlSize = "compact",
+					style = "segmented" :: "segmented",
+					controlSize = "compact" :: "compact",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "3" }, { value = "b", label = "5" } },
+					options = {
+						{ value = "a", label = "3" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "5" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				},
 			})
 		end)
@@ -788,7 +814,7 @@ t.describe("native parity weaker menus", function()
 			local world = setup(function(UI, Host)
 				return Host.Frame({
 					UI.Picker "Mode" {
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						selected = Compose.cell("a"),
 						options = if readable then Compose.cell(options) else options,
 					},
@@ -814,10 +840,13 @@ t.describe("native parity weaker menus", function()
 			local world = setup(function(UI, Host)
 				return Host.Frame({
 					UI.Picker "Status" {
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						axis = axis,
 						selected = Compose.cell("a"),
-						options = { { value = "a", label = "Supercalifragilistic" }, { value = "b", label = "Go" } },
+						options = {
+							{ value = "a", label = "Supercalifragilistic" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "b", label = "Go" } :: FixtureNavigationTypes.PickerOption<any>,
+						},
 					},
 				})
 			end, {
@@ -858,14 +887,14 @@ t.describe("native parity weaker menus", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
 				UI.Picker "Voice" {
-					style = "radioGroup",
+					style = "radioGroup" :: "radioGroup",
 					selected = Compose.cell("a"),
 					options = {
 						{
 							value = "a",
 							label = "日本語",
 							description = "音声チャットは近くのプレイヤーにだけ聞こえます",
-						},
+						} :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				},
 			})
@@ -888,12 +917,12 @@ t.describe("native parity weaker menus", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
 				UI.Picker "Status" {
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
 					options = {
-						{ value = "a", label = "Error" },
-						{ value = "b", label = "Voice" },
-						{ value = "c", label = "High contrast" },
+						{ value = "a", label = "Error" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Voice" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "c", label = "High contrast" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				},
 			})
@@ -945,9 +974,12 @@ t.describe("native parity weaker menus", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
 				UI.Picker "Status" {
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "Error" }, { value = "b", label = "Go" } },
+					options = {
+						{ value = "a", label = "Error" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Go" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				},
 			})
 		end, {
@@ -996,15 +1028,21 @@ t.describe("native parity weaker menus", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
 				UI.Picker "Strip" {
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "On" }, { value = "b", label = "Off" } },
-				},
+					options = {
+						{ value = "a", label = "On" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Off" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				} :: unknown,
 				UI.Picker "Column" {
-					style = "segmented",
-					axis = "y",
+					style = "segmented" :: "segmented",
+					axis = "y" :: "y",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "On" }, { value = "b", label = "Off" } },
+					options = {
+						{ value = "a", label = "On" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Off" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				},
 			})
 		end)
@@ -1026,11 +1064,11 @@ t.describe("native parity weaker menus", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
 				UI.Picker "Status" {
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
 					options = {
-						{ value = "a", label = "Error" },
-						{ value = "b", label = "High contrast" },
+						{ value = "a", label = "Error" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "High contrast" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				},
 			})
@@ -1080,7 +1118,7 @@ t.describe("native parity weaker menus", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
 				UI.Picker "Status" {
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
 					options = options,
 				},
@@ -1119,9 +1157,12 @@ t.describe("native parity weaker menus", function()
 			return Host.Frame({
 				UI.Picker "Mode" {
 					label = "Mode",
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = LONG }, { value = "b", label = "Drift" } },
+					options = {
+						{ value = "a", label = LONG } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Drift" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				},
 			})
 		end)
@@ -1141,10 +1182,13 @@ t.describe("native parity weaker menus", function()
 			local world = setup(function(UI, Host)
 				return Host.Frame({
 					UI.Picker "Mode" {
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						query = Compose.cell(""),
 						selected = Compose.cell("a"),
-						options = { { value = "a", label = "Road" }, { value = "b", label = "Rally" } },
+						options = {
+							{ value = "a", label = "Road" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "b", label = "Rally" } :: FixtureNavigationTypes.PickerOption<any>,
+						},
 					},
 				})
 			end)
@@ -1162,13 +1206,13 @@ t.describe("native parity weaker menus", function()
 				return Host.Frame({
 					UI.Picker "Handling" {
 						label = "Handling",
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						selected = Compose.cell("a"),
 						options = {
-							{ value = "a", label = "Arcade handling" },
-							{ value = "b", label = "Simulation handling" },
-							{ value = "c", label = "Drift assist" },
-							{ value = "d", label = "Rally gravel" },
+							{ value = "a", label = "Arcade handling" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "b", label = "Simulation handling" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "c", label = "Drift assist" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "d", label = "Rally gravel" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
 					},
 				})
@@ -1241,7 +1285,7 @@ t.describe("native parity weaker menus", function()
 							onActivate = function()
 								table.insert(fired, name .. ":archive")
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 					},
 					trailing = {
 						{
@@ -1250,20 +1294,20 @@ t.describe("native parity weaker menus", function()
 							onActivate = function()
 								table.insert(fired, name .. ":flag")
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 						{
 							id = "delete",
 							label = "Delete",
-							role = "destructive",
+							role = "destructive" :: "destructive",
 							onActivate = function()
 								table.insert(fired, name .. ":delete")
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 					},
 				})
 			end
 			local world = setup(function(UI, Host)
-				return Host.Frame({ row(UI, "A"), row(UI, "B") })
+				return Host.Frame({ row(UI, "A") :: unknown, row(UI, "B") })
 			end)
 			local bodyA = find(world.root, "ABody")
 			world.gui.SelectedObject = bodyA
@@ -1295,7 +1339,7 @@ t.describe("native parity weaker menus", function()
 				table.insert(names, node.Name)
 			end
 			t.expect(names).toEqual({ "leading:archive", "trailing:flag", "trailing:delete" })
-			for _, direction in { "Up", "Down", "Left", "Right" } do
+			for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 				t.expect(panel["SelectionBehavior" .. direction]).toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 			end
 			t.expect(action(world.root, "RowActionsDelete")).toBeNil()
@@ -1325,11 +1369,11 @@ t.describe("native parity weaker menus", function()
 					{
 						id = "delete",
 						label = "Delete",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			}
 		end, { motionLevel = "normal" })
@@ -1382,15 +1426,20 @@ t.describe("native parity weaker menus", function()
 		t.expect(find(world.root, "MenuPanel").Size.X.Scale).toBe(0)
 		t.expect(presented:peek()).toBe(true)
 		world.stop()
-		for _, case in { { "sheet", "KeyboardAndMouse", 1 }, { "menu", "Touch", 0 } } do
+		for _, case in
+			{
+				{ style = "sheet", input = "KeyboardAndMouse", sheets = 1 },
+				{ style = "menu", input = "Touch", sheets = 0 },
+			}
+		do
 			local forced = setup(function(UI)
-				return UI.Menu { isPresented = Compose.cell(true), presentation = case[1], items = NESTED }
+				return UI.Menu { isPresented = Compose.cell(true), presentation = case.style, items = NESTED }
 			end)
-			forced.input.PreferredInput = (Enum.PreferredInput :: any)[case[2]]
+			forced.input.PreferredInput = (Enum.PreferredInput :: any)[case.input]
 			extent(forced, 1280, 720)
 			find(forced.root, "adjust").Activated.fire()
-			t.expect(find(forced.root, "MenuPanel").Size.X.Scale).toBe(case[3])
-			t.expect(find(forced.root, "AncestorMenu") == nil).toBe(case[1] == "sheet")
+			t.expect(find(forced.root, "MenuPanel").Size.X.Scale).toBe(case.sheets)
+			t.expect(find(forced.root, "AncestorMenu") == nil).toBe(case.style == "sheet")
 			forced.stop()
 		end
 	end)
@@ -1407,7 +1456,7 @@ t.describe("native parity weaker menus", function()
 						onSelect = function()
 							runs += 1
 						end,
-					},
+					} :: FixtureNavigationTypes.MenuItem<any>,
 				},
 			}
 		end)
@@ -1508,11 +1557,11 @@ t.describe("native parity weaker menus", function()
 	end)
 
 	t.it("labels the sheet Back row with the literal Back unless backLabel replaces it", function()
-		for _, case in { { nil, "Back" }, { "Zurück", "Zurück" } } do
+		for _, case in { { nil, "Back" } :: { string? }, { "Zurück", "Zurück" } :: { string? } } do
 			local world = setup(function(UI)
 				return UI.Menu {
 					isPresented = Compose.cell(true),
-					presentation = "sheet",
+					presentation = "sheet" :: "sheet",
 					backLabel = case[1],
 					items = NESTED,
 				}
@@ -1532,7 +1581,8 @@ t.describe("native parity weaker menus", function()
 
 	t.it("switches the menu scenario idiom at depth and rebuilds the open chain in place", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local input = engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -1546,7 +1596,9 @@ t.describe("native parity weaker menus", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 			types = engine.types,
 			viewport = Compose.cell({ width = 1200, height = 900 }),
 			inputTarget = target,
@@ -1564,7 +1616,7 @@ t.describe("native parity weaker menus", function()
 		}
 		local scenario = require("../examples/gallery/scenarios/menu")
 		local built
-		local stop, screen = runtime.mount(function()
+		local stop, screen: any = runtime.mount(function()
 			built = scenario.build(ctx)
 			return ctx.Host.ScreenGui({ built.screen() })
 		end, target)
@@ -1615,7 +1667,7 @@ t.describe("native parity weaker menus", function()
 		local selected, changes = Compose.cell("normal"), {}
 		local world = setup(function(UI)
 			return UI.Picker "Difficulty" {
-				style = "menu",
+				style = "menu" :: "menu",
 				label = "Difficulty",
 				selected = selected,
 				options = THREE,
@@ -1662,9 +1714,13 @@ t.describe("native parity weaker menus", function()
 	end)
 
 	t.it("lists every option with its label and check after pointer and touch activation of the trigger", function()
-		for _, kind in { "MouseButton1", "Touch" } do
+		for _, kind in { "MouseButton1", "Touch" } :: { "MouseButton1" | "Touch" } do
 			local world = setup(function(UI)
-				return UI.Picker "Difficulty" { style = "menu", selected = Compose.cell("normal"), options = THREE }
+				return UI.Picker "Difficulty" {
+					style = "menu" :: "menu",
+					selected = Compose.cell("normal"),
+					options = THREE,
+				}
 			end)
 			local Enum = world.engine.types.Enum
 			find(world.root, "Trigger").Activated.fire({
@@ -1701,32 +1757,32 @@ t.describe("native parity weaker menus", function()
 			end
 			for _, case in
 				{
-					{ "Touch", 1280, THREE, 1 },
-					{ "Touch", 1280, seven, 1 },
-					{ "KeyboardAndMouse", 360, THREE, 1 },
-					{ "KeyboardAndMouse", 1280, THREE, 0 },
-					{ "Gamepad", 1280, seven, 1 },
+					{ input = "Touch", width = 1280, options = THREE, sheets = 1 },
+					{ input = "Touch", width = 1280, options = seven, sheets = 1 },
+					{ input = "KeyboardAndMouse", width = 360, options = THREE, sheets = 1 },
+					{ input = "KeyboardAndMouse", width = 1280, options = THREE, sheets = 0 },
+					{ input = "Gamepad", width = 1280, options = seven, sheets = 1 },
 				}
 			do
-				local selected = Compose.cell(case[3][1].value)
+				local selected = Compose.cell(case.options[1].value)
 				local world = setup(function(UI)
-					return UI.Picker "Choice" { style = "menu", selected = selected, options = case[3] }
+					return UI.Picker "Choice" { style = "menu" :: "menu", selected = selected, options = case.options }
 				end)
-				world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[case[1]]
+				world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[case.input]
 				local trigger = find(world.root, "Trigger")
 				place(world, trigger, 40, 40, 160, 44)
 				trigger.Activated.fire()
-				extent(world, case[2], 720)
+				extent(world, case.width, 720)
 				local panel = find(world.root, "MenuPanel")
-				t.expect(panel.Size.X.Scale).toBe(case[4])
-				if case[4] == 1 then
+				t.expect(panel.Size.X.Scale).toBe(case.sheets)
+				if case.sheets == 1 then
 					t.expect(panel.Size.X.Offset).toBe(-24)
 				else
 					t.expect(panel.Position.X.Offset).toBe(40)
 					t.expect(panel.Position.Y.Offset >= 84).toBe(true)
 				end
-				find(panel, case[3][2].value).Activated.fire()
-				t.expect(selected:peek()).toBe(case[3][2].value)
+				find(panel, case.options[2].value).Activated.fire()
+				t.expect(selected:peek()).toBe(case.options[2].value)
 				t.expect(find(world.root, "MenuPanel")).toBeNil()
 				world.stop()
 			end
@@ -1737,14 +1793,17 @@ t.describe("native parity weaker menus", function()
 		local selection, query, opened = Compose.cell("a"), Compose.cell(""), Compose.cell(false)
 		local world = setup(function(UI, _, engine)
 			return UI.Picker "Track" {
-				style = "navigationLink",
+				style = "navigationLink" :: "navigationLink",
 				label = "Track",
 				selected = selection,
 				query = query,
 				isPresented = opened,
 				Size = engine.types.UDim2.new(1, 0, 0, 44),
 				LayoutOrder = 4,
-				options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+				options = {
+					{ value = "a", label = "Alpha" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Beta" } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			}
 		end)
 		local trigger = find(world.root, "Track")
@@ -1780,7 +1839,11 @@ t.describe("native parity weaker menus", function()
 			t.expect(report.ok).toBe(true)
 			table.insert(packages, package)
 		end
-		local inputs = { { "Touch", 390 }, { "KeyboardAndMouse", 1280 }, { "Gamepad", 1920 } }
+		local inputs = {
+			{ input = "Touch", width = 390 },
+			{ input = "KeyboardAndMouse", width = 1280 },
+			{ input = "Gamepad", width = 1920 },
+		}
 		local styles = { "automatic", "menu", "segmented", "inline", "radioGroup", "navigationLink" }
 		for _, package in packages do
 			for _, device in inputs do
@@ -1797,9 +1860,9 @@ t.describe("native parity weaker menus", function()
 							end,
 						}
 					end, if package then { theme = package } else nil)
-					world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[device[1]]
+					world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[device.input]
 					local picker = find(world.root, "Choice")
-					picker.AbsoluteSize = V2(world, device[2], 44)
+					picker.AbsoluteSize = V2(world, device.width, 44)
 					local trigger = find(picker, "Trigger") or (if style == "navigationLink" then picker else nil)
 					if trigger then
 						world.gui.SelectedObject = trigger
@@ -1829,9 +1892,9 @@ t.describe("native parity weaker menus", function()
 
 	t.it("keeps a focused menu row while its live description appears, changes and disappears", function()
 		local options = Compose.cell({ { value = "a", label = "Alpine" }, { value = "b", label = "Beach" } })
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker "Route" {
-				style = "menu",
+				style = "menu" :: "menu",
 				selected = Compose.cell("a"),
 				isPresented = Compose.cell(false),
 				options = options,
@@ -1846,8 +1909,8 @@ t.describe("native parity weaker menus", function()
 		t.expect(find(row, "Description").Visible).toBe(false)
 		for _, description in { "Added", "", "Returned" } do
 			options:set({
-				{ value = "a", label = "Alpine", description = description },
-				{ value = "b", label = "Beach" },
+				{ value = "a", label = "Alpine", description = description } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 			})
 			t.expect(find(panel, "a")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
@@ -1864,13 +1927,13 @@ t.describe("native parity weaker menus", function()
 	end)
 
 	t.it("refuses to choose filtered or disabled menu rows and keeps multiple selection after disposal", function()
-		local selected, query, changes = Compose.cell({ a = true }), Compose.cell(""), 0
+		local selected, query, changes = Compose.cell({ a = true } :: { [string]: boolean }), Compose.cell(""), 0
 		local options =
 			Compose.cell({ { value = "a", label = "Alpine" }, { value = "b", label = "Beach", enabled = false } })
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker "Route" {
-				style = "menu",
-				multiple = true,
+				style = "menu" :: "menu",
+				multiple = true :: true,
 				selected = selected,
 				query = query,
 				options = options,
@@ -1908,20 +1971,20 @@ t.describe("native parity weaker menus", function()
 
 	t.it("keeps checked and radio menu items open by default with their marks while actions dismiss", function()
 		local presented, checked, selected, calls = Compose.cell(true), Compose.cell(false), Compose.cell("a"), 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Menu "Filters" {
 				isPresented = presented,
 				items = {
-					{ id = "check", label = "Favorites", checked = checked },
-					{ id = "a", label = "All", selected = selected, value = "a" },
-					{ id = "b", label = "Friends", selected = selected, value = "b" },
+					{ id = "check", label = "Favorites", checked = checked } :: FixtureNavigationTypes.MenuItem<any>,
+					{ id = "a", label = "All", selected = selected, value = "a" } :: FixtureNavigationTypes.MenuItem<any>,
+					{ id = "b", label = "Friends", selected = selected, value = "b" } :: FixtureNavigationTypes.MenuItem<any>,
 					{
 						id = "done",
 						label = "Done",
 						onSelect = function()
 							calls += 1
 						end,
-					},
+					} :: FixtureNavigationTypes.MenuItem<any>,
 				},
 			}
 		end)

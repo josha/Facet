@@ -5,7 +5,7 @@ local engineLib = require("./lib/native_engine")
 local hud = require("../examples/gallery/scenarios/hud")
 local measured = require("./lib/hud_measure")
 local selectionControls = require("../examples/gallery/scenarios/selection_controls")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 local SHIPPED = {
@@ -31,7 +31,8 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -51,8 +52,10 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, runtime) })
 	end, parent)
 	return {
@@ -124,8 +127,9 @@ end
 
 local function sheetFor(package: any): (any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
-	local stop, sheet = runtime.mount(function()
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
+	local stop, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
 	end, engine.new("Folder"))
 	return sheet, engine, function()
@@ -168,13 +172,16 @@ end
 
 t.describe("native parity classb keyboard", function()
 	t.it("walks Tab through a top strip, the content and a bottom strip in layout order and wraps", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen("Page")({
-				UI.HStack("Bar")({ UI.Button("Left")({ label = "Left" }), UI.Button("Right")({ label = "Right" }) }),
+				UI.HStack("Bar")({
+					UI.Button("Left")({ label = "Left" }) :: unknown,
+					UI.Button("Right")({ label = "Right" }),
+				}) :: unknown,
 				UI.Button("A")({ label = "Content A" }),
 				UI.Button("B")({ label = "Content B" }),
 				UI.HStack("Foot")({
-					UI.Button("FootLeft")({ label = "Left" }),
+					UI.Button("FootLeft")({ label = "Left" }) :: unknown,
 					UI.Button("FootRight")({ label = "Right" }),
 				}),
 			})
@@ -191,9 +198,9 @@ t.describe("native parity classb keyboard", function()
 
 	t.it("places a row mounted after the first press at its layout position on the next Tab", function()
 		local late = Compose.cell(false)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen("S")({
-				UI.Button("A")({ label = "A" }),
+				UI.Button("A")({ label = "A" }) :: unknown,
 				Compose.show(late, function()
 					return UI.Button("Late")({ label = "Late" })
 				end),
@@ -213,12 +220,14 @@ t.describe("native parity classb keyboard", function()
 	end)
 
 	t.it("tabs down a scroll view one row per press without control wiring", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			local rows = {}
 			for index = 1, 12 do
 				rows[index] = UI.Button("Btn" .. index)({ label = "Row " .. index })
 			end
-			return UI.Screen("S")({ UI.ScrollView("List")({ height = 160, table.unpack(rows) }) })
+			return UI.Screen("S")({
+				UI.ScrollView("List")({ height = 160, table.unpack((rows :: unknown) :: { unknown }) }),
+			})
 		end)
 		world.gui.SelectedObject = find(world.screen, "Btn1")
 		for press = 1, 8 do
@@ -230,9 +239,9 @@ t.describe("native parity classb keyboard", function()
 	end)
 
 	t.it("makes the slider its one selection stop and leaves the engine selection ring in place", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen("S")({
-				UI.Button("Before")({ label = "Before" }),
+				UI.Button("Before")({ label = "Before" }) :: unknown,
 				UI.Slider("Vol")({ label = "Volume", value = Compose.cell(0.5), step = 0.1 }),
 			})
 		end)
@@ -255,17 +264,24 @@ t.describe("native parity classb keyboard", function()
 	end)
 
 	t.it("reaches the checkbox and the Join button of the selection controls form by Tab", function()
-		local world = setup(function(UI, Host, engine, runtime)
-			local built = selectionControls.build({
-				Facet = Facet,
-				Compose = Compose,
-				runtime = runtime,
-				Host = Host,
-				UI = UI,
-				types = engine.types,
-			})
-			return built.screen()
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine,
+				runtime
+			)
+				local built = selectionControls.build({
+					Facet = Facet,
+					Compose = Compose,
+					runtime = runtime,
+					Host = Host,
+					UI = UI,
+					types = engine.types,
+				})
+				return built.screen()
+			end
+		)
 		local names = ring(world, 200)
 		local seen = { Checkbox = false, Join = false }
 		for _, name in names do
@@ -289,18 +305,26 @@ t.describe("native parity classb keyboard", function()
 		local function hudWorld(size: { width: number, height: number })
 			local viewport = Compose.cell(size)
 			local built
-			local world = setup(function(UI, Host, engine, runtime)
-				built = hud.build({
-					Facet = Facet,
-					Compose = Compose,
-					runtime = runtime,
-					Host = Host,
-					UI = UI,
-					types = engine.types,
-					viewport = viewport,
-				})
-				return built.screen()
-			end, { viewport = viewport })
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+					engine,
+					runtime
+				)
+					built = hud.build({
+						Facet = Facet,
+						Compose = Compose,
+						runtime = runtime,
+						Host = Host,
+						UI = UI,
+						types = engine.types,
+						viewport = viewport,
+					})
+					return built.screen()
+				end,
+				{ viewport = viewport }
+			)
 			return world, built, viewport
 		end
 		local landscape, portrait = { width = 844, height = 390 }, { width = 390, height = 844 }
@@ -354,12 +378,16 @@ t.describe("native parity classb keyboard", function()
 
 	t.it("rounds a circle Button with one real corner in every state and tags it for the sheet", function()
 		for _, entry in packages() do
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Screen("S")({
-					UI.Button("Plain")({ label = "x", shape = "circle" }),
-					UI.Button("Danger")({ label = "x", shape = "circle", role = "destructive" }),
-					UI.Button("Picked")({ label = "x", shape = "circle", selected = Compose.cell(true) }),
-					UI.Button("Soft")({ label = "x", shape = "circle", appearance = "soft" }),
+					UI.Button("Plain")({ label = "x", shape = "circle" :: "circle" }) :: unknown,
+					UI.Button("Danger")({
+						label = "x",
+						shape = "circle" :: "circle",
+						role = "destructive" :: "destructive",
+					}),
+					UI.Button("Picked")({ label = "x", shape = "circle" :: "circle", selected = Compose.cell(true) }),
+					UI.Button("Soft")({ label = "x", shape = "circle" :: "circle", appearance = "soft" }),
 					UI.Button("Rect")({ label = "Save" }),
 				})
 			end, { theme = entry.package })
@@ -411,7 +439,7 @@ t.describe("native parity classb keyboard", function()
 			end
 			stop()
 		end
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen("S")({ UI.ShortcutHint("Hint")({ keys = { { "K" } } }) })
 		end)
 		local hint = find(world.screen, "Hint")
@@ -425,11 +453,11 @@ t.describe("native parity classb keyboard", function()
 	end)
 
 	t.it("declares a 44 pixel strip for bar, glyph and star level pickers", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen("S")({
-				UI.LevelPicker("Bars")({ value = Compose.cell(3), count = 10 }),
-				UI.LevelPicker("Glyphs")({ value = Compose.cell(2), count = 5, segment = "glyph" }),
-				UI.LevelPicker("Large")({ value = Compose.cell(2), count = 3, segmentSize = "large" }),
+				UI.LevelPicker("Bars")({ value = Compose.cell(3), count = 10 }) :: unknown,
+				UI.LevelPicker("Glyphs")({ value = Compose.cell(2), count = 5, segment = "glyph" :: "glyph" }),
+				UI.LevelPicker("Large")({ value = Compose.cell(2), count = 3, segmentSize = "large" :: "large" }),
 				UI.Rating("Stars")({ value = Compose.cell(3) }),
 			})
 		end)
@@ -448,9 +476,9 @@ t.describe("native parity classb keyboard", function()
 	end)
 
 	t.it("reserves label clearance for the thumb and centres the stepper readout", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen("S")({
-				UI.Slider("Vol")({ label = "Vol", value = Compose.cell(50), min = 0, max = 100 }),
+				UI.Slider("Vol")({ label = "Vol", value = Compose.cell(50), min = 0, max = 100 }) :: unknown,
 				UI.Stepper("Qty")({ label = "Volume", value = Compose.cell(9), min = 0, max = 100 }),
 			})
 		end)

@@ -16,7 +16,7 @@ export type Submit = {
 }
 
 function commands.new(opts: any): any
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 	local clock = opts.clock
 	local feedback = opts.feedback
 	local S = opts.strings

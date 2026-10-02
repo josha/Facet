@@ -5,8 +5,9 @@ game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
 local storage = game:GetService("ReplicatedStorage")
 local Facet = require(storage.Facet)
 local designer = require(storage.FacetDesignModules.designer)
-local runtime = Facet.Roblox.createRuntime()
-local Host = runtime.constructors
+local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+	Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 local stopBackground = runtime.mount(function()
 	return Host.ScreenGui "FacetDesignBackground" {

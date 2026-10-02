@@ -1,12 +1,13 @@
 --!strict
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 
 return {
 	title = "Loading silhouettes",
 	ledgerRows = {},
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -44,7 +45,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text({
 					LayoutOrder = 1,
 					Name = "Title",
@@ -53,7 +54,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Loading silhouettes",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -81,7 +82,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.Button({
 						LayoutOrder = 1,
 						Name = "Load",
@@ -133,7 +134,7 @@ return {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}),
+							}) :: unknown,
 							Host.Frame({
 								LayoutOrder = 1,
 								Name = "First",
@@ -142,15 +143,15 @@ return {
 								AutomaticSize = Enum.AutomaticSize.Y,
 								Compose.show(first, function()
 									return UI.Skeleton "Card" {
-										form = "box",
-										corners = "panel",
+										form = "box" :: "box",
+										corners = "panel" :: "panel",
 									}
 								end),
 							}),
 							UI.Skeleton({
 								LayoutOrder = 2,
 								Name = "Face",
-								form = "circle",
+								form = "circle" :: "circle",
 								ref = function(record)
 									records.face = record
 								end,
@@ -158,7 +159,7 @@ return {
 							UI.Skeleton({
 								LayoutOrder = 3,
 								Name = "Copy",
-								form = "line",
+								form = "line" :: "line",
 								lines = 3,
 							}),
 						}

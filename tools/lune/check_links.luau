@@ -277,12 +277,12 @@ function check_links.check(opts: Opts?): { ok: boolean, problems: { string }, co
 		local consumed = 1
 
 		for start, labelText, inside in string.gmatch(prose, "()%[([^%[%]]*)%]%(%s*([^)]*)%)") do
-			local label = string.sub(raw :: string, start, start + #labelText - 1)
+			local label = string.sub(raw :: string, start, start + #(labelText :: string) - 1)
 			local _, breaks = string.gsub(string.sub(prose, consumed, start), "\n", "")
 			line += breaks
 			consumed = start
 
-			local found = string.match(inside, "^%S+")
+			local found = string.match(inside :: string, "^%S+")
 			if found == nil then
 				continue
 			end

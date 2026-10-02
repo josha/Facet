@@ -1,4 +1,22 @@
 --!strict
+type SkinLayer = {
+	kind: string,
+	asset: (string | { [string]: string | { asset: string, rotation: number? } })?,
+	tileSize: { w: number, h: number }?,
+	sides: { string }?,
+	thickness: number?,
+	margin: number?,
+	tile: number?,
+	size: (number | { w: number, h: number })?,
+	topLeft: string?,
+	topRight: string?,
+	bottomLeft: string?,
+	bottomRight: string?,
+	edge: string?,
+	overhang: number?,
+	text: boolean?,
+	textInsets: { top: number, right: number, bottom: number, left: number }?,
+}
 
 local fantasy_ornate = {}
 
@@ -255,13 +273,20 @@ local ASSETS = {
 }
 
 local PANEL_LAYERS = {
-	{ kind = "tile", asset = "ornate_velvet_tile", tileSize = { w = 64, h = 64 } },
-	{ kind = "fill", asset = "ornate_panel_fill" },
-	{ kind = "frame", asset = "ornate_panel_frame" },
+	{ kind = "tile" :: "tile", asset = "ornate_velvet_tile", tileSize = { w = 64, h = 64 } } :: SkinLayer,
+	{ kind = "fill" :: "fill", asset = "ornate_panel_fill" } :: SkinLayer,
+	{ kind = "frame" :: "frame", asset = "ornate_panel_frame" } :: SkinLayer,
 
-	{ kind = "edges", asset = "ornate_edge_rail", sides = { "top", "bottom" }, thickness = 12, margin = 44, tile = 64 },
 	{
-		kind = "corners",
+		kind = "edges" :: "edges",
+		asset = "ornate_edge_rail",
+		sides = { "top", "bottom" },
+		thickness = 12,
+		margin = 44,
+		tile = 64,
+	} :: SkinLayer,
+	{
+		kind = "corners" :: "corners",
 		asset = "ornate_corner_tl",
 		size = 30,
 
@@ -269,17 +294,17 @@ local PANEL_LAYERS = {
 		topRight = "ornate_corner_tr",
 		bottomLeft = "ornate_corner_bl",
 		bottomRight = "ornate_corner_br",
-	},
+	} :: SkinLayer,
 
 	{
-		kind = "plaque",
+		kind = "plaque" :: "plaque",
 		asset = "ornate_plaque",
 		size = { w = 176, h = 40 },
-		edge = "top",
+		edge = "top" :: "top",
 		overhang = 20,
 		text = true,
 		textInsets = { top = 13, right = 16, bottom = 15, left = 16 },
-	},
+	} :: SkinLayer,
 }
 
 local function copy(v: any): any
@@ -352,14 +377,14 @@ function fantasy_ornate.definition(themes: any): any
 		chrome = {
 
 			navigation = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_selection_default",
 				contentInsets = { top = 6, right = 12, bottom = 6, left = 12 },
 				fallback = "native",
 			},
 
 			panel = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 30, right = 30, bottom = 30, left = 30 },
 				fallback = "native",
 				layers = copy(PANEL_LAYERS),
@@ -368,12 +393,12 @@ function fantasy_ornate.definition(themes: any): any
 			},
 
 			control = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 10, right = 14, bottom = 10, left = 14 },
 				fallback = "native",
 				layers = {
-					{
-						kind = "fill",
+					({
+						kind = "fill" :: "fill",
 						asset = {
 							default = "ornate_button_default",
 							hover = "ornate_button_hover",
@@ -381,48 +406,54 @@ function fantasy_ornate.definition(themes: any): any
 							selected = { asset = "ornate_selection_selected", rotation = 180 },
 							error = "ornate_selection_selected",
 						},
-					},
+					} :: unknown) :: SkinLayer,
 
 					{
-						kind = "corners",
+						kind = "corners" :: "corners",
 						asset = "ornate_corner_tl",
 						size = 14,
 						topLeft = "ornate_corner_tl",
 						topRight = "ornate_corner_tr",
-					},
+					} :: SkinLayer,
 				},
 				shadow = "raised",
 			},
 
 			field = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
-				layers = { { kind = "fill", asset = "ornate_field" } },
+				layers = { { kind = "fill" :: "fill", asset = "ornate_field" } :: SkinLayer },
 			},
 
 			selection = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 6, right = 8, bottom = 6, left = 8 },
 				fallback = "native",
 				layers = {
-					{
-						kind = "fill",
+					({
+						kind = "fill" :: "fill",
 						asset = { default = "ornate_selection_default", selected = "ornate_selection_selected" },
-					},
+					} :: unknown) :: SkinLayer,
 				},
 			},
 
-			focus = { kind = "nineSlice", asset = "ornate_panel_frame", sliceScale = 0.3, outset = 6, pulse = true },
+			focus = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "ornate_panel_frame",
+				sliceScale = 0.3,
+				outset = 6,
+				pulse = true,
+			},
 
 			sliderTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			sliderThumb = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_toggle_knob_default",
 				sliced = false,
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
@@ -430,7 +461,7 @@ function fantasy_ornate.definition(themes: any): any
 			},
 
 			badge = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_center",
 				sliced = false,
 				contentInsets = { top = 5, right = 5, bottom = 5, left = 5 },
@@ -438,14 +469,19 @@ function fantasy_ornate.definition(themes: any): any
 			},
 
 			barTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
-			barFill = { kind = "nineSlice", asset = "ornate_bar_fill", direction = "ltr", fallback = "native" },
+			barFill = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "ornate_bar_fill",
+				direction = "ltr" :: "ltr",
+				fallback = "native",
+			},
 			barCap = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_cap_start",
 				startAsset = "ornate_bar_cap_start",
 				endAsset = "ornate_bar_cap_end",
@@ -453,33 +489,33 @@ function fantasy_ornate.definition(themes: any): any
 				fallback = "native",
 			},
 			barCenter = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_center",
 				size = { w = 36, h = 28 },
 				fallback = "native",
 			},
 
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "ornate_toggle_track_off", selected = "ornate_toggle_track_on" },
 				fallback = "native",
 			},
 			toggleKnob = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "ornate_toggle_knob_default", pressed = "ornate_toggle_knob_pressed" },
 				fallback = "native",
 			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "ornate_stepper_plate_default", pressed = "ornate_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 4, right = 4, bottom = 4, left = 4 },
 				fallback = "native",
 			},
 
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = {

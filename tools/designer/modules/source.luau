@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local document = require("./document")
 local library = require("./library")
@@ -64,19 +66,19 @@ local function tokenize(code: string): { any }
 				table.insert(pieces, current)
 			end
 			assert(closed, "Unclosed string in component source")
-			table.insert(tokens, { kind = "literal", value = table.concat(pieces) })
+			table.insert(tokens, { kind = "literal" :: "literal", value = table.concat(pieces) })
 		elseif string.match(char, "[%a_]") then
 			local value = assert(string.match(string.sub(code, index), "^[%a_][%w_]*"))
-			table.insert(tokens, { kind = "word", value = value })
+			table.insert(tokens, { kind = "word" :: "word", value = value })
 			index += #value
 		elseif
 			string.match(char, "%d") or (char == "-" and string.match(string.sub(code, index + 1, index + 1), "%d"))
 		then
 			local value = assert(string.match(string.sub(code, index), "^%-?%d+%.?%d*[eE]?[%+%-]?%d*"))
-			table.insert(tokens, { kind = "literal", value = assert(tonumber(value), "Invalid number") })
+			table.insert(tokens, { kind = "literal" :: "literal", value = assert(tonumber(value), "Invalid number") })
 			index += #value
 		else
-			table.insert(tokens, { kind = "symbol", value = char })
+			table.insert(tokens, { kind = "symbol" :: "symbol", value = char })
 			index += 1
 		end
 	end
@@ -166,7 +168,7 @@ function source.parse(code: string, name: string): document.Document
 		local allowed = matches("function() end")
 			or matches("function(value) return true, value end")
 			or matches(
-				'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, wrap = true } end'
+				'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
 			)
 		if
 			not allowed

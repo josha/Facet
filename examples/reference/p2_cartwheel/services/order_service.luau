@@ -14,7 +14,7 @@ local BREW_SECONDS = 60
 local NEWEST_PLACED = 16 * 60 + 2
 
 function order_service.new(opts: any): any
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 	local clock = opts.clock
 	local seed: number = opts.seed or 1
 	local random = rng.new(seed)

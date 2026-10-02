@@ -123,7 +123,7 @@ export type Options = {
 dataset.CONTENT_VARIANTS = { "normal", "locale", "identity" }
 
 function dataset.build(opts: Options?): { Item }
-	local o = opts or {}
+	local o: Options = opts or {}
 	local count = math.max(0, math.floor(o.count or 200))
 	local seed = math.floor(o.seed or 1)
 	local content = o.content or "normal"

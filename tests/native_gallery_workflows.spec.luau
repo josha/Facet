@@ -3,19 +3,22 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local catalogue = require("../examples/gallery/client/demo_picker")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 local function nativeContext(environment)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
-	local ctx = {
+	local ctx: typeof(require("@repo/examples/types")(nil :: any)) = {
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -36,10 +39,12 @@ local function nativeContext(environment)
 end
 
 local function load(kind, name)
-	return require("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
+	return (require :: (any) -> any)(
+		"../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name
+	)
 end
 
-local function find(root, name)
+local function find(root: any, name: string): any
 	if root.Name == name then
 		return root
 	end
@@ -52,7 +57,7 @@ local function find(root, name)
 	return nil
 end
 
-local function mount(name, kind, environment)
+local function mount(name: string, kind: string?, environment: { [string]: any }?)
 	local ctx, engine, target = nativeContext(environment)
 	local built
 	local stop, node = ctx.runtime.mount(function()
@@ -216,10 +221,10 @@ t.describe("native gallery workflows", function()
 		local actions = find(node, "Actions")
 		local save = find(actions, "Save")
 		actions.AbsoluteSize = ctx.types.Vector2.new(700, 44)
-		for name, width in { Cancel = 48, Save = 200, Delete = 80 } do
+		for name, width in { Cancel = 48, Save = 200, Delete = 80 } :: { [string]: number } do
 			find(find(actions, name), "NaturalWidth").TextBounds = ctx.types.Vector2.new(width, 20)
 		end
-		for _, form in { "column", "row", "column" } do
+		for _, form in { "column", "row", "column" } :: { "column" | "row" } do
 			if form == "column" then
 				built.steps.narrowActions()
 			else
@@ -418,7 +423,7 @@ t.describe("native gallery workflows", function()
 	end)
 	t.it("sorts filters reorders and restores playlist model and width bindings", function()
 		local built, node, stop = mount("02_playlist_table", "example")
-		built.sort:set({ column = "name", direction = "descending" })
+		built.sort:set({ column = "name", direction = "descending" :: "descending" })
 		local before = built.sortedRows:peek()[1].id
 		built.filterText:set("Drift")
 		t.expect(#built.from:peek()).toBe(1)

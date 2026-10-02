@@ -1,4 +1,7 @@
 --!strict
+local ThemeTypes = require("../src/ui/theme_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -30,8 +33,9 @@ end
 
 local function sheetOf(package: any, palette: string?): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
-	local _, sheet = runtime.mount(function()
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
+	local _, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(
 			runtime,
 			package,
@@ -83,7 +87,7 @@ t.describe("themed edges, plates and gutters", function()
 				local sheet, stop = sheetOf(entry.package, palette.name)
 				local stroke = assert(style(sheet, ".facet-tab-plate::UIStroke"))
 				local opacity = (palette.extra or {}).hairlineOpacity
-					or themes.neutralPackage().style.themes[1].extra.hairlineOpacity
+					or assert(themes.neutralPackage().style.themes[1].extra).hairlineOpacity
 				t.expect(`{entry.label}/{palette.name} {stroke.Transparency}`)
 					.toBe(`{entry.label}/{palette.name} {opacity}`)
 				t.expect(stroke.Thickness).toBe(entry.package.metrics.strokes.hairline or 1)
@@ -165,13 +169,19 @@ t.describe("themed edges, plates and gutters", function()
 		function()
 			local styleRules = require("./lib/style_rules")
 			local authored = themes.neutralPackage()
-			authored.rules = { { selector = ".facet-floating::UIStroke", properties = { Thickness = 3 } } }
+			authored.rules = {
+				{
+					selector = ".facet-floating::UIStroke",
+					properties = { Thickness = 3 } :: ThemeTypes.AuthoredRuleProperties,
+				},
+			}
 			for _, entry in
 				{ { label = "neutral", package = themes.neutralPackage() }, { label = "game", package = authored } }
 			do
 				local engine: any = engineLib.new()
-				local runtime = Facet.Roblox.createRuntime(engine)
-				local _, sheet = runtime.mount(function()
+				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+					Facet.Roblox.createRuntime(engine)
+				local _, sheet: any = runtime.mount(function()
 					return themes.createStyleSheet(runtime, entry.package, { types = engine.types } :: any)
 				end, engine.new("Folder"))
 				for _, tags in { { "facet-floating" }, { "facet-step-circle" }, { "facet-layout" } } do
@@ -208,7 +218,8 @@ t.describe("themed edges, plates and gutters", function()
 
 	t.it("preloads a theme's art once per applied package so a first panel does not open without it", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local requests: { { string } } = {}
 		local provider = {
 			PreloadAsync = function(_, content: { string })
@@ -260,7 +271,9 @@ t.describe("themed edges, plates and gutters", function()
 
 	t.it("leaves a game's own stroke rules at the engine's stroke position", function()
 		local authored = themes.neutralPackage()
-		authored.rules = { { selector = ".game-card::UIStroke", properties = { Thickness = 2 } } }
+		authored.rules = {
+			{ selector = ".game-card::UIStroke", properties = { Thickness = 2 } :: ThemeTypes.AuthoredRuleProperties },
+		}
 		local sheet, stop = sheetOf(authored)
 		local properties = assert(style(sheet, ".game-card::UIStroke"))
 		t.expect(properties.ApplyStrokeMode.Name).toBe("Border")
@@ -354,23 +367,29 @@ t.describe("themed edges, plates and gutters", function()
 
 	t.it("skins a table row with the theme's control art, selected art when selected", function()
 		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
-		local selection = Facet.Compose.cell({ a = true })
-		local world = worlds.new(function(UI, Host)
-			return UI.Table({
-				from = Facet.Compose.cell({ { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } }),
-				key = "id",
-				selection = selection,
-				columns = {
-					{
-						id = "label",
-						label = "Name",
-						render = function(current)
-							return Host.TextLabel({ Text = current:peek().label })
-						end,
+		local selection = Facet.Compose.cell({ a = true } :: { [string]: boolean })
+		local world = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return UI.Table({
+					from = Facet.Compose.cell({ { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } }),
+					key = "id",
+					selection = selection,
+					columns = {
+						{
+							id = "label",
+							label = "Name",
+							render = function(current): GuiObject
+								return Host.TextLabel({ Text = current:peek().label })
+							end,
+						} :: FixtureCollectionTypes.TableColumn<any, any>,
 					},
-				},
-			})
-		end, { motionLevel = "none", theme = parchment })
+				})
+			end,
+			{ motionLevel = "none", theme = parchment }
+		)
 		world.find("Body").AbsoluteWindowSize = world.V2(400, 300)
 		local rows = {}
 		for _, node in world.screen:GetDescendants() do
@@ -388,15 +407,21 @@ t.describe("themed edges, plates and gutters", function()
 
 	t.it("keeps a PageView dot a plain dot on a skinned theme, not a control plate", function()
 		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
-		local world = worlds.new(function(UI, Host)
-			return UI.PageView({
-				selection = Facet.Compose.cell("one"),
-				pages = {
-					{ id = "one", title = "One", content = Host.Frame({}) },
-					{ id = "two", title = "Two", content = Host.Frame({}) },
-				},
-			})
-		end, { motionLevel = "none", theme = parchment })
+		local world = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return UI.PageView({
+					selection = Facet.Compose.cell("one"),
+					pages = {
+						{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+						{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					},
+				})
+			end,
+			{ motionLevel = "none", theme = parchment }
+		)
 		local dots = world.find("Indicators")
 		for _, dot in dots:GetChildren() do
 			if dot:IsA("GuiButton") then
@@ -416,22 +441,27 @@ t.describe("themed edges, plates and gutters", function()
 	end)
 
 	t.it("keeps a horizontal rail free of the vertical gutter", function()
-		local world = worlds.new(function(UI, Host)
-			return Host.Frame {
-				UI.ScrollView "Chips" { axis = "x", UI.Text { text = "A" } },
-				UI.VirtualList "Rail" {
-					from = { { id = 1 }, { id = 2 } },
-					key = function(item)
-						return item.id
-					end,
-					direction = "horizontal",
-					itemSize = 80,
-					render = function()
-						return Host.Frame {}
-					end,
-				},
-			}
-		end)
+		local world = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame {
+					UI.ScrollView "Chips" { axis = "x" :: "x", UI.Text { text = "A" } } :: unknown,
+					UI.VirtualList "Rail" {
+						from = { { id = 1 }, { id = 2 } },
+						key = function(item)
+							return item.id
+						end,
+						direction = "horizontal" :: "horizontal",
+						itemSize = 80,
+						render = function(): GuiObject
+							return Host.Frame {}
+						end,
+					},
+				}
+			end
+		)
 		for _, name in { "Chips", "Rail" } do
 			local node = world.find(name)
 			local scroller = if node:IsA("ScrollingFrame")

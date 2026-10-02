@@ -63,7 +63,7 @@ seed.WISPS = {
 	{
 		id = "emberwisp",
 		scale = 0.83,
-		phase = "eve",
+		phase = "eve" :: string,
 		favourite = "bramble",
 		core = { 1.00, 0.86, 0.62 },
 		glow = { 0.96, 0.54, 0.24 },
@@ -71,7 +71,7 @@ seed.WISPS = {
 	{
 		id = "palewisp",
 		scale = 1.00,
-		phase = "dawn",
+		phase = "dawn" :: string,
 		favourite = "clover",
 		core = { 0.98, 0.98, 0.94 },
 		glow = { 0.78, 0.82, 0.92 },
@@ -79,7 +79,7 @@ seed.WISPS = {
 	{
 		id = "frostwisp",
 		scale = 0.71,
-		phase = "night",
+		phase = "night" :: string,
 		favourite = "moonpetal",
 		lumenOnly = true,
 		core = { 0.90, 0.98, 1.00 },
@@ -88,7 +88,7 @@ seed.WISPS = {
 	{
 		id = "duskwisp",
 		scale = 1.00,
-		phase = "dusk",
+		phase = "dusk" :: string,
 		favourite = "moonpetal",
 		core = { 0.92, 0.86, 1.00 },
 		glow = { 0.52, 0.38, 0.82 },
@@ -96,7 +96,7 @@ seed.WISPS = {
 	{
 		id = "sunwisp",
 		scale = 1.00,
-		phase = "day",
+		phase = "day" :: string,
 		favourite = "meadow",
 		core = { 1.00, 0.96, 0.74 },
 		glow = { 0.98, 0.80, 0.28 },
@@ -104,7 +104,7 @@ seed.WISPS = {
 	{
 		id = "tidewisp",
 		scale = 0.76,
-		phase = "eve",
+		phase = "eve" :: string,
 		favourite = "gilded",
 		hero = true,
 		core = { 0.86, 0.98, 0.96 },

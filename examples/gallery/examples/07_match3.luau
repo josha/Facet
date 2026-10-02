@@ -2,7 +2,8 @@
 
 local assets = require("./assets")
 
-type Use = (any) -> any
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local ROWS = 6
 local COLS = 6
@@ -89,7 +90,7 @@ local function hasLegalMoveIn(grid: { { string } }): boolean
 end
 
 local function build(ctx: any)
-	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local reducedMotion = ctx.reducedMotion
 	local seed = DEFAULT_SEED
@@ -237,7 +238,11 @@ local function build(ctx: any)
 	local moves = Compose.cell(0)
 	local message = Compose.cell("")
 	local resolving = Compose.cell(false)
-	local selected = Compose.cell(nil :: { number }?)
+	local selected = (function(
+		value: { number }?
+	): typeof(require("@repo/tools/typecheck/example_shapes").coordinatesCell(nil))
+		return Compose.cell(value)
+	end)(nil)
 	local kindHandle = {}
 	for _, kind in KINDS do
 		kindHandle[kind] = { state = Compose.cell("ready"), value = Compose.cell(assets.match3Tiles[kind].image) }
@@ -268,7 +273,7 @@ local function build(ctx: any)
 		kindHandle[KINDS[1]].state:set("failed")
 		message:set("One tile kind failed to load. Re-request artwork, then deliver artwork.")
 	end
-	local artStatus = Compose.formula(function(use)
+	local artStatus = Compose.formula(function(use: Use)
 		local pending, failed, ready = 0, 0, 0
 		for _, kind in KINDS do
 			local state = use(kindHandle[kind].state)
@@ -334,7 +339,7 @@ local function build(ctx: any)
 		Compose.cleanup(function()
 			tile.setKind, tile.setPosition, tile.setMarked, tile.setLeaving, tile.hit = nil, nil, nil, nil, nil
 		end)
-		local image = Compose.formula(function(use)
+		local image = Compose.formula(function(use: Use)
 			local handle = kindHandle[use(kind)]
 			if use(handle.state) ~= "ready" then
 				return PENDING
@@ -343,7 +348,7 @@ local function build(ctx: any)
 			return if resolved ~= nil then resolved else PENDING
 		end)
 
-		local fallbackLabel = Compose.formula(function(use)
+		local fallbackLabel = Compose.formula(function(use: Use)
 			local current = use(kind)
 			local ready = use(kindHandle[current].state) == "ready"
 			return if ready then "" else assets.match3Tiles[current].label
@@ -360,22 +365,22 @@ local function build(ctx: any)
 			local at = use(position)
 			return UDim2.fromOffset((at.col - 1) * 48, (at.row - 1) * 48)
 		end)
-		local targetTransparency = Compose.formula(function(use)
+		local targetTransparency = Compose.formula(function(use: Use)
 			return if use(isLeaving) then 1 else 0
 		end)
-		local movingPosition = ctx.runtime.spring(function(use)
+		local movingPosition = ctx.runtime.spring(function(use: Use)
 			return use(targetPosition)
 		end, { period = 0.18, damping = 1 })
-		local fading = ctx.runtime.tween(function(use)
+		local fading = ctx.runtime.tween(function(use: Use)
 			return use(targetTransparency)
 		end, { seconds = 0.16 })
 		local plate = Host.CanvasGroup({
 			Name = `tile{tile.id}`,
-			GroupTransparency = function(use)
+			GroupTransparency = function(use: Use)
 				return if use(reducedMotion) then use(targetTransparency) else use(fading)
 			end,
 			Size = UDim2.fromOffset(44, 44),
-			Position = function(use)
+			Position = function(use: Use)
 				return if use(reducedMotion) then use(targetPosition) else use(movingPosition)
 			end,
 			(function()
@@ -387,7 +392,7 @@ local function build(ctx: any)
 					Image = image,
 				}
 				local previous
-				Compose.watch(function(use)
+				Compose.watch(function(use: Use)
 					local tag = "facet-icon-" .. assets.match3Tints[use(kind)]
 					if previous then
 						art:RemoveTag(previous)
@@ -396,7 +401,7 @@ local function build(ctx: any)
 					previous = tag
 				end)
 				return art
-			end)(),
+			end)() :: unknown,
 			UI.Button "hit" {
 				ref = function(node)
 					tile.hit = node
@@ -406,7 +411,7 @@ local function build(ctx: any)
 				AutomaticSize = Enum.AutomaticSize.None,
 				Size = UDim2.fromScale(1, 1),
 				label = fallbackLabel,
-				name = function(use)
+				name = function(use: Use)
 					return assets.match3Tiles[use(kind)].name
 				end,
 				selected = picked,
@@ -415,10 +420,10 @@ local function build(ctx: any)
 					Thickness = 3,
 					Color = Color3.new(1, 1, 1),
 					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-					Transparency = function(use)
+					Transparency = function(use: Use)
 						return if use(picked) then 0 else 1
 					end,
-				},
+				} :: unknown,
 				onActivate = function(input)
 					if
 						input
@@ -433,7 +438,7 @@ local function build(ctx: any)
 				end,
 				Host.UIDragDetector "SwapDrag" {
 					ResponseStyle = Enum.UIDragDetectorResponseStyle.CustomOffset,
-					Enabled = function(use)
+					Enabled = function(use: Use)
 						return not use(resolving)
 					end,
 					DragStart = function(at: Vector2)
@@ -487,7 +492,7 @@ local function build(ctx: any)
 			height = ROWS * 48,
 			Compose.OrderedCollection({
 				from = items,
-				key = function(item)
+				key = function(item: { id: number })
 					return item.id
 				end,
 				render = TileView,
@@ -510,7 +515,7 @@ local function build(ctx: any)
 		publish()
 	end
 	dealBoard()
-	local phase = "idle"
+	local phase = "idle" :: "idle"
 	local elapsed = 0
 	local phaseLog: { string } = {}
 	local pendingSwap: { number }? = nil
@@ -740,7 +745,7 @@ local function build(ctx: any)
 	end
 	local function reset()
 		stopTicking()
-		phase = "idle"
+		phase = "idle" :: "idle"
 		elapsed = 0
 		pendingSwap = nil
 		clearedThisRun = 0
@@ -756,7 +761,7 @@ local function build(ctx: any)
 	end
 	local hint: any
 	local function Match3()
-		hint = Compose.formula(function(use)
+		hint = Compose.formula(function(use: Use)
 			local said = use(message)
 			if said ~= "" then
 				return said
@@ -769,22 +774,22 @@ local function build(ctx: any)
 			end
 			return "Now tap a tile next to it — or tap the same tile again to put it down."
 		end)
-		local scoreText = Compose.formula(function(use)
+		local scoreText = Compose.formula(function(use: Use)
 			return `Score {use(score)}`
 		end)
-		local movesText = Compose.formula(function(use)
+		local movesText = Compose.formula(function(use: Use)
 			return `{use(moves)} swaps`
 		end)
 		return UI.Screen "Match3" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch",
-				UI.Text "Title" { text = "Facet Match-3", textRole = "title", TextWrapped = true },
+				align = "stretch" :: "stretch",
+				UI.Text "Title" { text = "Facet Match-3", textRole = "title" :: "title", TextWrapped = true } :: unknown,
 				UI.Text "Hint" { text = hint, TextWrapped = true },
 				UI.HStack "Stats" {
 					gap = "m",
 					wrap = true,
-					UI.Text "Score" { text = scoreText },
+					UI.Text "Score" { text = scoreText } :: unknown,
 					UI.Text "Moves" { text = movesText },
 				},
 				boardView(),
@@ -792,7 +797,7 @@ local function build(ctx: any)
 				UI.HStack "Art" {
 					wrap = true,
 					gap = "s",
-					UI.Button "Reload" { label = "Re-request artwork", onActivate = reloadArt },
+					UI.Button "Reload" { label = "Re-request artwork", onActivate = reloadArt } :: unknown,
 					UI.Button "Deliver" {
 						label = "Deliver artwork",
 						onActivate = function()

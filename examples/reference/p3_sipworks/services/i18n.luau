@@ -43,9 +43,9 @@ local function pluralForm(entry: any, n: number?): string
 end
 
 function i18n.new(opts: any)
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 
-	local locale = Compose.cell(opts.locale or "en")
+	local locale = Compose.cell((opts.locale or "en") :: string)
 
 	local nameCache: { [string]: string } = {}
 

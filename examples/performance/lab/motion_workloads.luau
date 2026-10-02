@@ -1,8 +1,11 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local motion = {}
 
-function motion.create(ctx, name, _dataset)
-	local Compose, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
+function motion.create(ctx: { [string]: any }, name: string, _dataset)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")), runtime, Host, UI, types =
+		ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, E = types.UDim2, types.Enum
 	local state = {
 		n = 0,
@@ -11,8 +14,8 @@ function motion.create(ctx, name, _dataset)
 		nodes = {},
 		controls = {},
 		status = Compose.cell({
-			mode = "windowed",
-			direction = "vertical",
+			mode = "windowed" :: "windowed",
+			direction = "vertical" :: "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,
@@ -25,8 +28,12 @@ function motion.create(ctx, name, _dataset)
 			measured = 0,
 		}),
 		motionSteps = 0,
+		countWork = false,
+		motionTransactions = 0,
+		springsMoving = nil :: number?,
+		rows = nil :: any,
 	}
-	local function label(text, size, name)
+	local function label(text: unknown, size: number, name: string?)
 		return Host.TextLabel({
 			Name = name or "Text",
 			Text = text,
@@ -80,7 +87,7 @@ function motion.create(ctx, name, _dataset)
 			local chips = { Name = "Chips", Size = D2.new(1, 0, 0, 24), BackgroundTransparency = 1 }
 			for index = 1, 24 do
 				local target = Compose.cell(0)
-				local spring = runtime.spring(function(use)
+				local spring = runtime.spring(function(use: Use)
 					return use(target)
 				end, {
 					period = if index % 2 == 0 then 0.28 else 0.18,
@@ -90,7 +97,7 @@ function motion.create(ctx, name, _dataset)
 				local chip = Host.Frame({
 					Name = `Chip{index}`,
 					Size = D2.fromOffset(24, 24),
-					Position = function(use)
+					Position = function(use: Use)
 						return D2.new(0, (index - 1) * 28, use(spring) / 24, 0)
 					end,
 					BorderSizePixel = 0,
@@ -100,7 +107,7 @@ function motion.create(ctx, name, _dataset)
 			end
 			state.timeline = runtime.timeline({ duration = 0.3, autoplay = false })
 			state.beatIndex = -1
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				local elapsed = use(state.timeline.elapsed)
 				if state.beats == 0 then
 					return
@@ -129,8 +136,8 @@ function motion.create(ctx, name, _dataset)
 				status = state.status,
 				controls = state.controls,
 				Size = D2.new(1, 0, 0, height),
-				render = function(current)
-					return label(function(use)
+				render = function(current: Readable<{ id: string, name: string }>): GuiObject
+					return label(function(use: Use)
 						return use(current).name
 					end, 15, "Name")
 				end,
@@ -145,7 +152,7 @@ function motion.create(ctx, name, _dataset)
 			state.n += 1
 			local started = os.clock()
 			local nextRows = table.clone(state.rows:peek())
-			table.insert(nextRows, table.remove(nextRows, 1))
+			table.insert(nextRows, assert(table.remove(nextRows, 1)))
 			state.rows:set(nextRows)
 			for index, target in state.targets do
 				target:set(if (state.n + index) % 2 == 0 then 12 else -12)
@@ -210,7 +217,7 @@ function motion.create(ctx, name, _dataset)
 	function state.build()
 		state.entry = runtime.timeline({ duration = 29 * 0.02 + 0.2 })
 		local entered = state.items:peek()
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			local current = use(state.items)
 			if current ~= entered then
 				entered = current
@@ -231,20 +238,20 @@ function motion.create(ctx, name, _dataset)
 			onToggle = function(value)
 				state.expanded:set(value)
 			end,
-			content = function()
+			content = function(): Instance
 				return label("body", 14, "Body")
 			end,
 		}
 		local list = Host.Frame "List" {
 			Size = D2.new(1, 0, 0, 600),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 			Compose.keyed({
 				from = state.items,
 				key = function(item)
 					return item.id
 				end,
-				render = function(current)
+				render = function(current: Readable<{ id: string, index: number }>): GuiObject
 					local record = current:peek()
 					local hold = (record.index - 1) * 0.02
 					local group = Host.CanvasGroup({
@@ -252,7 +259,7 @@ function motion.create(ctx, name, _dataset)
 						Size = D2.new(1, 0, 0, 20),
 						LayoutOrder = record.index,
 						BackgroundTransparency = 1,
-						GroupTransparency = function(use)
+						GroupTransparency = function(use: Use)
 							return 1 - math.clamp((use(state.entry.elapsed) - hold) / 0.2, 0, 1)
 						end,
 						label(record.id, 14, "T"),

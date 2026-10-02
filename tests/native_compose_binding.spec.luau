@@ -1,4 +1,7 @@
 --!strict
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local fs = require("@lune/fs")
 local t = require("./lib/testkit")
 local Facet = require("../src")
@@ -21,7 +24,10 @@ local function find(node: any, name: string): any
 end
 
 local function failure(body: () -> ()): string
-	local ok, err = pcall(body)
+	local ok, err = pcall(function(): boolean
+		body()
+		return true
+	end)
 	assert(not ok, "expected an error")
 	return tostring(err)
 end
@@ -39,31 +45,34 @@ t.describe("Facet on the consumer's Compose instance", function()
 		t.expect(Bound.VERSION).toBe(Facet.VERSION)
 		t.expect(Facet.Compose ~= Core).toBe(true)
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
-		local Host = runtime.constructors
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
+		local Host = (
+			runtime.constructors :: unknown
+		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 		local UI = Bound.controls(runtime, { types = engine.types })
 		local root = engine.new("ScreenGui")
 		local baseline = engine.census()
 		local shown, checked, caption, amount = Core.cell(true), Core.cell(false), Core.cell("One"), Core.cell(2)
 		local total = Core.cell(1)
 		local cleanups = 0
-		local toggle, label, button, sheet
+		local toggle: any, label, button, sheet
 		local stop = runtime.mount(function()
 			Core.cleanup(function()
 				cleanups += 1
 			end)
-			local doubled = Core.formula(function(use)
+			local doubled = Core.formula(function(use: Use)
 				return use(total) * 2
 			end)
 			sheet = Bound.themes.createStyleSheet(runtime, nil, { types = engine.types })
 			return Host.Frame({
-				sheet,
+				sheet :: unknown,
 				Core.show(shown, function()
-					toggle = UI.Toggle({ value = checked, presentation = "checkbox", label = "Enabled" })
+					toggle = UI.Toggle({ value = checked, presentation = "checkbox" :: "checkbox", label = "Enabled" })
 					return toggle
 				end),
 				UI.Text({
-					text = function(use)
+					text = function(use: Use)
 						return `{use(caption)} {use(doubled)}`
 					end,
 					ref = function(node)
@@ -113,7 +122,8 @@ t.describe("Facet on the consumer's Compose instance", function()
 
 	t.it("names the control when a runtime from another Compose instance reaches default controls", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local message = failure(function()
 			runtime.mount(function()
@@ -127,7 +137,8 @@ t.describe("Facet on the consumer's Compose instance", function()
 
 	t.it("names the control and option when a readable comes from another Compose instance", function()
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local message = failure(function()
 			runtime.mount(function()
@@ -141,14 +152,16 @@ t.describe("Facet on the consumer's Compose instance", function()
 			runtime.mount(function()
 				return UI.Menu({
 					label = "Menu",
-					items = { { id = "a", label = "A", checked = Core.cell(false) } },
+					items = {
+						{ id = "a", label = "A", checked = Core.cell(false) } :: FixtureNavigationTypes.MenuItem<any>,
+					},
 				})
 			end, engine.new("ScreenGui"))
 		end)
 		t.expect(string.find(nested, "Facet UI.Menu", 1, true) ~= nil).toBe(true)
 		t.expect(string.find(nested, "'items.checked'", 1, true) ~= nil).toBe(true)
 		local native = Facet.Compose.cell("Native")
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Text({ text = native })
 		end, engine.new("ScreenGui"))
 		t.expect(node.Text).toBe("Native")
@@ -190,7 +203,8 @@ t.describe("Facet on the consumer's Compose instance", function()
 		end
 		for _, surface in { Facet, Facet.bind(Core, Roblox) } do
 			local engine = engineLib.new()
-			local runtime = surface.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				surface.Roblox.createRuntime(engine)
 			local package = assert(surface.themes.define({
 				identity = { id = "app-wide" },
 				metrics = { space = { xs = 6, s = 12, m = 20, l = 30, xl = 48 } },
@@ -208,10 +222,10 @@ t.describe("Facet on the consumer's Compose instance", function()
 				return UI.Screen "Counter" {
 					gap = "s",
 					UI.Text "Count" {
-						text = function(use)
+						text = function(use: Use)
 							return `Count {use(count)}`
 						end,
-					},
+					} :: unknown,
 					UI.Button "Add" {
 						label = "Add one",
 						onActivate = function()
@@ -227,7 +241,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 			t.expect(gui.Parent).toBe(playerGui)
 			t.expect(gui.ResetOnSpawn).toBe(false)
 			local sheet = gui:FindFirstChildWhichIsA("StyleSheet")
-			local link = gui:FindFirstChildWhichIsA("StyleLink")
+			local link: any = gui:FindFirstChildWhichIsA("StyleLink")
 			t.expect(sheet ~= nil and link ~= nil).toBe(true)
 			t.expect(link.StyleSheet).toBe(sheet)
 			local reference
@@ -255,7 +269,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 			app.dispose()
 			app.dispose()
 			t.expect(#secondParent:GetChildren()).toBe(0)
-			local stopLate, late = runtime.mount(function()
+			local stopLate, late: any = runtime.mount(function()
 				return UI.Text({ text = "Late" })
 			end, engine.new("Folder"))
 			t.expect(late.Text).toBe("Late")
@@ -271,13 +285,13 @@ t.describe("Facet on the consumer's Compose instance", function()
 				1,
 				true
 			) ~= nil).toBe(true)
-			local palette = surface.Compose.cell("Dark")
-			local styled = surface.app({
-				runtime = runtime,
+			local palette = ((surface.Compose.cell :: unknown) :: (string) -> Facet.Cell<string>)("Dark")
+			local styled = (surface.app :: (Facet.AppOptions) -> Facet.App)({
+				runtime = (runtime :: unknown) :: Facet.Runtime,
 				types = engine.types,
 				parent = playerGui,
 				theme = surface.themes.neutralPackage(),
-				sheet = { theme = palette, transition = false },
+				sheet = { theme = palette, transition = false :: false },
 				screen = { Name = "Desk", DisplayOrder = 7, ResetOnSpawn = true },
 			})
 			local stopStyled, desk = styled.mount(function()
@@ -291,7 +305,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 				referencePalette = surface.themes.createStyleSheet(
 					runtime,
 					surface.themes.neutralPackage(),
-					{ types = engine.types, theme = palette, transition = false }
+					{ types = engine.types, theme = palette, transition = false :: false }
 				)
 				return referencePalette
 			end, engine.new("Folder"))

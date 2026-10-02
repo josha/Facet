@@ -1,15 +1,19 @@
+--!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 return {
 	title = "World markers",
-	build = function(ctx)
-		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, V2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local shifted, crowded, hidden = Compose.cell(false), Compose.cell(false), Compose.cell(false)
 		local size = Compose.cell(V2.new(320, 360))
 		local selected = Compose.cell("Choose a marker")
-		local geometry = Compose.formula(function(use)
+		local geometry = Compose.formula(function(use: Use)
 			local box = use(size)
 			local width, height = math.max(96, box.X), math.max(240, box.Y)
-			local rows = {}
+			local rows: { { visible: boolean, x: number, y: number, [string]: any } } = {}
 			for index, name in { "Objective", "Ally", "Supplies" } do
 				local x = width * (if index == 1 and use(shifted) then 1.4 else if index == 3 then 0.62 else 0.6)
 				local y = height
@@ -46,11 +50,11 @@ return {
 						Name = name,
 						label = name,
 						Size = D2.fromOffset(64, 48),
-						Position = function(use)
+						Position = function(use: Use)
 							local row = use(geometry)[index]
 							return D2.fromOffset(row.x, row.y)
 						end,
-						Visible = function(use)
+						Visible = function(use: Use)
 							return use(geometry)[index].visible and (not ctx.pageVisible or use(ctx.pageVisible))
 						end,
 						onActivate = function()
@@ -62,7 +66,7 @@ return {
 							Position = D2.new(1, -18, 0.5, -8),
 							Image = "rbxasset://textures/ui/Controls/DropDownArrow.png",
 							Rotation = -90,
-							Visible = function(use)
+							Visible = function(use: Use)
 								return use(geometry)[index].edge
 							end,
 						},
@@ -81,7 +85,7 @@ return {
 						Size = D2.fromScale(1, 1),
 						TextWrapped = true,
 					}),
-				},
+				} :: unknown,
 				table.unpack(pins),
 			}
 			local function measure()
@@ -99,7 +103,7 @@ return {
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }),
+				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }) :: unknown,
 				map,
 				UI.Toggle "Move" { label = "Move objective offscreen", value = shifted },
 				UI.Toggle "Crowd" { label = "Bring markers together", value = crowded },

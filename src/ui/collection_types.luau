@@ -55,7 +55,10 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	overscan: number?,
 	measured: Types.Value<{ [K]: number }>?,
 	measure: boolean?,
-	status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>?,
+	status: (
+		ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
+		| ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus?>
+	)?,
 	controls: ComposeTypes.OrderedCollectionControls<K>?,
 	follow: Types.Value<Follow>?,
 	followThreshold: number?,
@@ -136,7 +139,10 @@ export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & {
 	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsOptions?)?,
 	headerHeight: Types.ValueNumber?,
 	header: boolean?,
-	status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>?,
+	status: (
+		ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
+		| ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus?>
+	)?,
 	controls: ComposeTypes.OrderedCollectionControls<K>?,
 	focus: FocusControls<K>?,
 	measure: boolean?,

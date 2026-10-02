@@ -1,4 +1,7 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type Workload = { [string]: any, build: () -> any, step: () -> (), ready: boolean?, counters: any?, n: number? }
 local lab = {}
 lab.VERSION = "native-performance-lab/1"
 lab.WORKLOADS = {
@@ -23,10 +26,19 @@ lab.WORKLOADS = {
 	{ id = "transient-surfaces", label = "Transient surfaces", scene = "alert-present-dismiss" },
 }
 
-function lab.build(ctx, modules)
-	local Compose, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
+type Modules = {
+	sensory: typeof(require("./sensory")),
+	dataset: typeof(require("./dataset")),
+	rows: typeof(require("./rows")),
+	capture: typeof(require("./capture")),
+	workloads: typeof(require("./workloads")),
+}
+function lab.build(ctx: { [string]: any }, modules: Modules)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, T =
+		ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
 	local selected, playing, rowCount = Compose.cell("dense-scroll"), Compose.cell(false), Compose.cell(2000)
-	local captures, readout, active = {}, Compose.cell("Ready"), nil
+	local captures, readout = {}, Compose.cell("Ready")
+	local active: Workload? = nil
 	local sequence = Compose.cell(0)
 	local byId, choices = {}, {}
 	for _, entry in lab.WORKLOADS do
@@ -45,7 +57,7 @@ function lab.build(ctx, modules)
 			return value + 1
 		end)
 	end
-	local function sample(dt)
+	local function sample(dt: number)
 		if not active or selected:peek() == "idle-baseline" or active.ready == false then
 			return
 		end
@@ -133,19 +145,19 @@ function lab.build(ctx, modules)
 	end
 	local toolbar = Host.Frame "Toolbar" {
 		LayoutOrder = 1,
-		Visible = function(use)
+		Visible = function(use: Use)
 			return not use(clean)
 		end,
 		Size = T.UDim2.new(1, 0, 0, 0),
 		AutomaticSize = T.Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
-		Host.UIListLayout({ FillDirection = T.Enum.FillDirection.Horizontal, Padding = T.UDim.new(0, 8), Wraps = true }),
+		Host.UIListLayout({ FillDirection = T.Enum.FillDirection.Horizontal, Padding = T.UDim.new(0, 8), Wraps = true }) :: unknown,
 		UI.Picker({
 			label = "Workload",
 			Size = T.UDim2.fromOffset(210, 40),
 			selected = selected,
 			options = choices,
-			style = "menu",
+			style = "menu" :: "menu",
 			onChange = function(value)
 				selected:set(value)
 				reset()
@@ -156,13 +168,13 @@ function lab.build(ctx, modules)
 			Size = T.UDim2.fromOffset(130, 40),
 			selected = rowCount,
 			options = {
-				{ value = 100, label = "100 rows" },
-				{ value = 500, label = "500 rows" },
-				{ value = 2000, label = "2000 rows" },
-				{ value = 10000, label = "10000 rows" },
-				{ value = 40000, label = "40000 rows" },
+				{ value = 100, label = "100 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = 500, label = "500 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = 2000, label = "2000 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = 10000, label = "10000 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = 40000, label = "40000 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 			},
-			style = "menu",
+			style = "menu" :: "menu",
 			onChange = function(value)
 				rowCount:set(value)
 				reset()
@@ -170,7 +182,7 @@ function lab.build(ctx, modules)
 		}),
 		UI.Button({
 			Size = T.UDim2.fromOffset(70, 40),
-			label = function(use)
+			label = function(use: Use)
 				return if use(playing) then "Pause" else "Run"
 			end,
 			onActivate = function()
@@ -193,16 +205,16 @@ function lab.build(ctx, modules)
 	local mount = Host.Frame "Workload" {
 		Size = T.UDim2.new(1, 0, 0, 0),
 		LayoutOrder = 3,
-		Host.UIFlexItem({ FlexMode = T.Enum.UIFlexMode.Fill }),
+		Host.UIFlexItem({ FlexMode = T.Enum.UIFlexMode.Fill }) :: unknown,
 		BackgroundTransparency = 1,
 		Compose.keyed({
-			from = function(use)
+			from = function(use: Use)
 				return { { id = `{use(selected)}:{use(sequence)}`, workload = use(selected), count = use(rowCount) } }
 			end,
 			key = function(item)
 				return item.id
 			end,
-			render = function(current)
+			render = function(current: Readable<{ id: string, workload: string, count: number }>): GuiObject
 				local item = current:peek()
 				local data = modules.dataset.build({ count = item.count, seed = 1 })
 				local context = table.clone(ctx)
@@ -210,26 +222,32 @@ function lab.build(ctx, modules)
 				context.rowBuilder = modules.rows.build
 				context.rowSize = modules.rows.estimate(context)
 				context.frame = nil
-				local workload = modules.workloads.create(context, byId[item.workload].scene, modules.dataset)
+				local workload: Workload = (
+					modules.workloads.create(context, byId[item.workload].scene, modules.dataset) :: unknown
+				) :: Workload
 				local node
 				if item.workload == "sensory-cascade" then
-					workload = modules.sensory(context)
+					workload = (modules.sensory(context) :: unknown) :: Workload
 					node = workload.build()
 				elseif item.workload == "dense-scroll-native" or item.workload == "mount-ramp" then
 					local progressive = item.workload == "dense-scroll-native" and ctx.heartbeat ~= nil
-					local rows = Compose.cell(if progressive then {} else data)
+					local rows = Compose.cell(
+						(if progressive then {} else data) :: { typeof(require("./dataset").build({ count = 1 })[1]) }
+					)
 					local function fullList()
 						return Host.ScrollingFrame({
 							Size = T.UDim2.fromScale(1, 1),
 							AutomaticCanvasSize = T.Enum.AutomaticSize.Y,
-							Host.UIListLayout({ Padding = T.UDim.new(0, 4) }),
+							Host.UIListLayout({ Padding = T.UDim.new(0, 4) }) :: unknown,
 							workload.disclosure(),
 							Compose.keyed({
 								from = rows,
 								key = function(row)
 									return row.id
 								end,
-								render = function(row)
+								render = function(
+									row: Readable<typeof(require("./dataset").build({ count = 1 })[1])>
+								): GuiObject
 									return modules.rows.build(context, row)
 								end,
 							}),
@@ -272,8 +290,8 @@ function lab.build(ctx, modules)
 						values[row.id] = Compose.cell(row.name)
 					end
 					local status = Compose.cell({
-						mode = "windowed",
-						direction = "vertical",
+						mode = "windowed" :: "windowed",
+						direction = "vertical" :: "vertical",
 						total = 0,
 						retained = 0,
 						first = 0,
@@ -293,7 +311,7 @@ function lab.build(ctx, modules)
 						itemSize = 56,
 						measured = extents,
 						status = status,
-						render = function(current)
+						render = function(current): GuiObject
 							if item.workload == "edit-locality" then
 								local value = values[current:peek().id]
 								return UI.TextInput({
@@ -305,27 +323,27 @@ function lab.build(ctx, modules)
 								})
 							end
 							return Host.Frame({
-								Size = function(use)
+								Size = function(use: Use)
 									return T.UDim2.new(1, 0, 0, use(extents)[use(current).id] or 56)
 								end,
 								modules.rows.build(context, current),
 							})
 						end,
 						Size = T.UDim2.fromScale(1, 1),
-						if item.workload == "variable-extents" then workload.disclosure() else nil,
+						if item.workload == "variable-extents" then workload.disclosure() else nil :: unknown,
 					})
 					if ctx.engine then
 						node.AbsoluteWindowSize = T.Vector2.new(800, 400)
 					end
 					workload.list, workload.status, workload.extents, workload.values = node, status, extents, values
 					workload.step = function()
-						workload.n += 1
+						workload.n = (workload.n or 0) + 1
 						local at = math.clamp(status:peek().first or 1, 1, #data)
 						if item.workload == "edit-locality" then
-							values[data[at].id]:set(`Edited {workload.n}`)
+							values[data[at].id]:set(`Edited {assert(workload.n)}`)
 						else
 							local changed = table.clone(extents:peek())
-							changed[data[at].id] = if workload.n % 2 == 0 then 56 else 112
+							changed[data[at].id] = if assert(workload.n) % 2 == 0 then 56 else 112
 							extents:set(changed)
 							node.CanvasPosition += T.Vector2.new(0, 61)
 						end
@@ -352,20 +370,20 @@ function lab.build(ctx, modules)
 					children.Size = T.UDim2.fromScale(1, 1)
 					node = Host.Frame(children)
 					workload.step = function()
-						workload.n += 1
-						node.Size = T.UDim2.new(1, if workload.n % 2 == 0 then 0 else -100, 1, 0)
+						workload.n = (workload.n or 0) + 1
+						node.Size = T.UDim2.new(1, if assert(workload.n) % 2 == 0 then 0 else -100, 1, 0)
 					end
 				else
 					node = workload.build()
 					if item.workload == "host-move" then
 						workload.step = function()
-							workload.n += 1
-							node.Position = T.UDim2.fromOffset(workload.n % 40, workload.n % 20)
+							workload.n = (workload.n or 0) + 1
+							node.Position = T.UDim2.fromOffset(assert(workload.n) % 40, assert(workload.n) % 20)
 						end
 					elseif item.workload == "resize-relayout" then
 						workload.step = function()
-							workload.n += 1
-							node.Size = T.UDim2.new(1, if workload.n % 2 == 0 then 0 else -180, 1, 0)
+							workload.n = (workload.n or 0) + 1
+							node.Size = T.UDim2.new(1, if assert(workload.n) % 2 == 0 then 0 else -180, 1, 0)
 						end
 					end
 				end
@@ -426,10 +444,13 @@ function lab.build(ctx, modules)
 		if playing:peek() then
 			if #queue > 0 then
 				local entry = table.remove(queue, 1)
-				selected:set(entry.id)
-				rowCount:set(entry.rows)
+				selected:set(assert(entry).id)
+				rowCount:set(assert(entry).rows)
 				reset()
-				local ok, err = pcall(sample, dt)
+				local ok, err = pcall(function(): boolean
+					sample(dt)
+					return true
+				end)
 				if ok then
 					capture()
 				else
@@ -453,7 +474,7 @@ function lab.build(ctx, modules)
 			PaddingBottom = T.UDim.new(0, 8),
 			PaddingLeft = T.UDim.new(0, 8),
 			PaddingRight = T.UDim.new(0, 8),
-		}),
+		}) :: unknown,
 		Host.UIListLayout({ SortOrder = T.Enum.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 8) }),
 		toolbar,
 		UI.Text({
@@ -461,7 +482,7 @@ function lab.build(ctx, modules)
 			LayoutOrder = 2,
 			Size = T.UDim2.new(1, 0, 0, 40),
 			TextWrapped = true,
-			Visible = function(use)
+			Visible = function(use: Use)
 				return not use(clean)
 			end,
 		}),

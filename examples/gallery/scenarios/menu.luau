@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local COPY = {
 	title = "Five ways into one list of verbs",
@@ -56,9 +58,9 @@ return {
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -69,7 +71,7 @@ return {
 		local countsLine = Compose.cell("")
 		local idiom = Compose.cell("auto")
 
-		local presentation = Compose.formula(function(use)
+		local presentation = Compose.formula(function(use: Use)
 			local mode = use(idiom)
 			return if mode == "panel" then "menu" elseif mode == "sheet" then "sheet" else "automatic"
 		end)
@@ -81,13 +83,13 @@ return {
 				end
 			end
 			return {
-				{ id = "accessory", label = COPY.accessory, icon = "edit", onSelect = run("accessory") },
+				{ id = "accessory", label = COPY.accessory, icon = "edit", onSelect = run("accessory") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 				{
 					id = "layering",
 					label = COPY.layering,
 					icon = "more",
 					children = {
-						{ id = "clothing", label = COPY.clothing, onSelect = run("clothing") },
+						{ id = "clothing", label = COPY.clothing, onSelect = run("clothing") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 						{
 							id = "makeup",
 							label = COPY.makeup,
@@ -95,19 +97,19 @@ return {
 								{ id = "lips", label = COPY.lips, onSelect = run("lips") },
 								{ id = "eyes", label = COPY.eyes, onSelect = run("eyes") },
 							},
-						},
+						} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 					},
-				},
-				{ id = "skin", label = COPY.skin, icon = "edit", onSelect = run("skin") },
-				{ divider = true },
-				{ id = "report", label = COPY.report, icon = "flag", onSelect = run("report") },
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "skin", label = COPY.skin, icon = "edit", onSelect = run("skin") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "report", label = COPY.report, icon = "flag", onSelect = run("report") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 				{
 					id = "reset",
 					label = COPY.reset,
 					icon = "trash",
-					role = "destructive",
+					role = "destructive" :: "destructive",
 					onSelect = run("reset"),
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 			}
 		end
 
@@ -120,7 +122,7 @@ return {
 					id = "delete",
 					label = COPY.deleteOutfit,
 					icon = "trash",
-					role = "destructive",
+					role = "destructive" :: "destructive",
 					enabled = false,
 					onSelect = function() end,
 				},
@@ -198,7 +200,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}),
+				}) :: unknown,
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
@@ -212,7 +214,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = entry.routes,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -230,7 +232,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}),
+				}) :: unknown,
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
@@ -245,7 +247,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = title,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -258,7 +260,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = body,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -268,7 +270,7 @@ return {
 
 		local function screen()
 			local conditions = {
-				sizeClass = Compose.formula(function(use)
+				sizeClass = Compose.formula(function(use: Use)
 					return if use(ctx.viewport).width < 600 then "compact" else "regular"
 				end),
 			}
@@ -291,18 +293,18 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.title,
-						textRole = "heading",
+						textRole = "heading" :: "heading",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					},
+					} :: unknown,
 					UI.Text "Intro" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.intro,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -315,7 +317,7 @@ return {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							FillDirection = Enum.FillDirection.Vertical,
 							Padding = UDim.new(0, 8),
-						}),
+						}) :: unknown,
 						table.unpack(cardRow),
 					},
 					Host.Frame "IdiomBox" {
@@ -326,7 +328,7 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}),
+						}) :: unknown,
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
@@ -337,11 +339,11 @@ return {
 							LayoutOrder = 1,
 							Name = "Idiom",
 							label = COPY.idiomTitle,
-							style = "segmented",
+							style = "segmented" :: "segmented",
 							options = {
-								{ value = "auto", label = COPY.idiomAuto },
-								{ value = "panel", label = COPY.idiomPanel },
-								{ value = "sheet", label = COPY.idiomSheet },
+								{ value = "auto", label = COPY.idiomAuto } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+								{ value = "panel", label = COPY.idiomPanel } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+								{ value = "sheet", label = COPY.idiomSheet } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 							},
 							selected = idiom,
 						}),
@@ -353,7 +355,7 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.idiomNote,
-							textRole = "caption",
+							textRole = "caption" :: "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -369,7 +371,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.depthNote,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,

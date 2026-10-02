@@ -1,4 +1,5 @@
 --!strict
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local COPY = {
 	title = "Pickers",
 	refuse = "Refuse changes",
@@ -26,9 +27,9 @@ return {
 	title = "Pickers",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Color3 = Color3, Enum = Enum }
+	build = function(ctx: ExampleContext)
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Color3, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Color3, nativeTypes.Enum
 		local civil = ctx.Facet.civilDate
 		local refuse = Compose.cell(false)
@@ -121,7 +122,11 @@ return {
 			end
 			team:set(list)
 		end
-		local function text(name: string, words: any, role: string)
+		local function text(
+			name: string,
+			words: any,
+			role: "body" | "caption" | "control" | "heading" | "label" | "numeral" | "strong" | "title"
+		)
 			return UI.Text({
 				Name = name,
 				BackgroundTransparency = 1,
@@ -143,7 +148,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				text("Title", COPY.title, "title"),
 				text("ColoursTitle", COPY.colours, "heading"),
 				UI.Toggle "Refuse" { label = COPY.refuse, value = refuse },
@@ -154,11 +159,11 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UISizeConstraint({ MaxSize = nativeTypes.Vector2.new(360, math.huge) }),
+					Host.UISizeConstraint({ MaxSize = nativeTypes.Vector2.new(360, math.huge) }) :: unknown,
 					UI.ColorPicker "Accent" {
 						label = COPY.accent,
-						style = "inline",
-						modes = { "spectrum" },
+						style = "inline" :: "inline",
+						modes = { "spectrum" } :: { "brick" | "sliders" | "spectrum" | "swatches" },
 						value = accent,
 						onChange = accept(accent),
 						onCommit = record,
@@ -172,7 +177,7 @@ return {
 					onCommit = record,
 					alpha = bodyAlpha,
 					onAlphaChange = accept(bodyAlpha),
-					modes = { "swatches", "spectrum", "sliders", "brick" },
+					modes = { "swatches", "spectrum", "sliders", "brick" } :: { "brick" | "sliders" | "spectrum" | "swatches" },
 				},
 				Host.Frame "Wells" {
 					BackgroundTransparency = 1,
@@ -183,7 +188,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Padding = UDim.new(0, 16),
-					}),
+					}) :: unknown,
 					UI.Text({
 						Name = "TrimLabel",
 						LayoutOrder = 1,
@@ -210,8 +215,8 @@ return {
 				},
 				UI.ColorPicker "Fog" {
 					label = COPY.fog,
-					style = "inline",
-					modes = { "sliders" },
+					style = "inline" :: "inline",
+					modes = { "sliders" } :: { "brick" | "sliders" | "spectrum" | "swatches" },
 					value = fog,
 					onChange = accept(fog),
 					onCommit = record,
@@ -242,7 +247,7 @@ return {
 				UI.DateTimePicker "Window" {
 					label = COPY.window,
 					placeholder = COPY.windowEmpty,
-					selection = "range",
+					selection = "range" :: "range",
 					range = window,
 					onRangeChange = accept(window),
 					onRangeCommit = recordRange,

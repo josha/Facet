@@ -119,12 +119,12 @@ function glossy_mobile.definition(themes: any): any
 		},
 		chrome = {
 
-			panel = { kind = "native", shadow = "raised" },
-			control = { kind = "native", shadow = "raised" },
-			field = { kind = "native" },
-			selection = { kind = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			panel = { kind = "native" :: "native", shadow = "raised" },
+			control = { kind = "native" :: "native", shadow = "raised" },
+			field = { kind = "native" :: "native" },
+			selection = { kind = "native" :: "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 		assets = {},
 		compatibility = { requiresSchema = themes.SCHEMA },

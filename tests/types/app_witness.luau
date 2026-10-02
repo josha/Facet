@@ -1,6 +1,6 @@
 --!strict
 local Facet = require("../../src")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local package: Facet.ThemePackage = Facet.themes.neutralPackage()
 local app: Facet.App = Facet.app({
 	theme = package,
@@ -17,7 +17,7 @@ local function Counter(): Frame
 			text = function(use: Facet.Use): string
 				return `Clicked {use(count)} times`
 			end,
-		}),
+		}) :: unknown,
 		UI.Button({
 			label = "Add one",
 			onActivate = function()

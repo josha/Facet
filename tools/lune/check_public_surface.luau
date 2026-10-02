@@ -37,7 +37,8 @@ local function surface(): { string }
 		end
 	end
 	local engine = engines.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local controls = Facet.controls(runtime, { types = engine.types })
 	for _, key in sortedKeys(controls) do
 		table.insert(lines, `controls(runtime).{key} : {kind(controls[key])}`)

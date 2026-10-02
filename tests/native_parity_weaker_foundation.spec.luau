@@ -1,8 +1,9 @@
 --!strict
+local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 local PACKAGES = {
@@ -35,7 +36,8 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -56,8 +58,10 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, node = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, runtime)
 	end, root)
 	return {
@@ -124,9 +128,9 @@ local INPUTS = { "pointer", "touch", "keyboard", "gamepad" }
 local function press(world: World, node: any, input: string)
 	local E = world.types.Enum
 	if input == "pointer" then
-		node.Activated.fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode.Unknown }, 1)
+		node.Activated.fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }, 1)
 	elseif input == "touch" then
-		node.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode.Unknown }, 1)
+		node.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
 	elseif input == "keyboard" then
 		world.gui.SelectedObject = node
 		local activate = assert(action(world.root, "Activate"), "Activate action is bound on the selected control")
@@ -176,8 +180,9 @@ end
 
 local function sheetOf(theme: any, preference: number?): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
-	local stop, sheet = runtime.mount(function()
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
+	local stop, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(
 			runtime,
 			theme,
@@ -306,28 +311,33 @@ t.describe("native parity weaker foundation", function()
 			local neutral = themes.neutralPackage()
 			local sheet, stopSheet = sheetOf(neutral)
 			local clicks, chosen = 0, Compose.cell(false)
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					Name = "Rows",
-					UI.Button("Tiny")({
-						label = "Go",
-						icon = "close",
-						trailingIcon = "close",
-						controlSize = "xsmall",
-						onActivate = function()
-							clicks += 1
-						end,
-					}),
-					UI.Chip("TinyChip")({
-						label = "Tag",
-						selected = chosen,
-						controlSize = "xsmall",
-						onToggle = function(next: boolean)
-							chosen:set(next)
-						end,
-					}),
-				})
-			end)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						Name = "Rows",
+						UI.Button("Tiny")({
+							label = "Go",
+							icon = "close",
+							trailingIcon = "close",
+							controlSize = "xsmall" :: "xsmall",
+							onActivate = function()
+								clicks += 1
+							end,
+						}) :: unknown,
+						UI.Chip("TinyChip")({
+							label = "Tag",
+							selected = chosen,
+							controlSize = "xsmall" :: "xsmall",
+							onToggle = function(next: boolean)
+								chosen:set(next)
+							end,
+						}),
+					})
+				end
+			)
 			for _, name in { "Tiny", "TinyChip" } do
 				local node = find(world.node, name)
 				t.expect(`{name} {node.Size.Y.Offset}`).toBe(`{name} 28`)
@@ -350,17 +360,22 @@ t.describe("native parity weaker foundation", function()
 			world.stop()
 			stopSheet()
 
-			local ladder = setup(function(UI, Host)
-				return Host.Frame({
-					Name = "Ladder",
-					UI.Button("xsmall")({ label = "A", icon = "close", controlSize = "xsmall" }),
-					UI.Button("compact")({ label = "A", icon = "close", controlSize = "compact" }),
-					UI.Button("regular")({ label = "A", icon = "close", controlSize = "regular" }),
-					UI.Button("large")({ label = "A", icon = "close", controlSize = "large" }),
-					UI.Button("plain")({ label = "A", icon = "close" }),
-				})
-			end)
-			for _, rung in { "compact", "regular", "large" } do
+			local ladder = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						Name = "Ladder",
+						UI.Button("xsmall")({ label = "A", icon = "close", controlSize = "xsmall" :: "xsmall" }) :: unknown,
+						UI.Button("compact")({ label = "A", icon = "close", controlSize = "compact" :: "compact" }),
+						UI.Button("regular")({ label = "A", icon = "close", controlSize = "regular" :: "regular" }),
+						UI.Button("large")({ label = "A", icon = "close", controlSize = "large" :: "large" }),
+						UI.Button("plain")({ label = "A", icon = "close" }),
+					})
+				end
+			)
+			for _, rung in { "compact", "regular", "large" } :: { "compact" | "large" | "regular" } do
 				local want = neutral.metrics.controlSizes[rung].iconSize
 				t.expect(`{rung} {find(find(ladder.node, rung), "LeadingIcon").Size.X.Offset}`).toBe(`{rung} {want}`)
 			end
@@ -369,10 +384,16 @@ t.describe("native parity weaker foundation", function()
 			t.expect(find(find(ladder.node, "xsmall"), "LeadingIcon").Size.X.Offset < regular).toBe(true)
 			ladder.stop()
 
-			local rung = Compose.cell("xsmall")
-			local live = setup(function(UI, Host)
-				return Host.Frame({ UI.Button("Live")({ label = "A", icon = "close", controlSize = rung }) })
-			end)
+			local rung: FixtureComposeTypes.Cell<"compact" | "large" | "regular" | "xsmall"> =
+				Compose.cell("xsmall" :: "compact" | "large" | "regular" | "xsmall")
+			local live = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({ UI.Button("Live")({ label = "A", icon = "close", controlSize = rung }) })
+				end
+			)
 			local icon = find(find(live.node, "Live"), "LeadingIcon")
 			t.expect(icon.Size.X.Offset).toBe(12)
 			rung:set("large")
@@ -381,9 +402,17 @@ t.describe("native parity weaker foundation", function()
 
 			local themed = withMetrics({ controlSizes = { xsmall = { height = 24, paddingX = 8, iconSize = 10 } } })
 			local themedSheet, stopThemed = sheetOf(themed)
-			local custom = setup(function(UI, Host)
-				return Host.Frame({ UI.Button("Tiny")({ label = "Go", icon = "close", controlSize = "xsmall" }) })
-			end, { theme = themed })
+			local custom = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button("Tiny")({ label = "Go", icon = "close", controlSize = "xsmall" :: "xsmall" }),
+					})
+				end,
+				{ theme = themed }
+			)
 			local button = find(custom.node, "Tiny")
 			t.expect(button.Size.Y.Offset).toBe(24)
 			t.expect(resolve(themedSheet, button, "PaddingLeft", "UIPadding").Offset).toBe(8)
@@ -551,12 +580,18 @@ t.describe("native parity weaker foundation", function()
 			t.expect(`{selector} {bare[selector]}`).toBe(`{selector} {thickness}`)
 		end
 		t.expect(count > 0).toBe(true)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Util")({ label = "Utility", appearance = "utility" }),
-				UI.Button("Plain")({ label = "Standard" }),
-			})
-		end, { theme = withMetrics({ strokes = { hairline = 1, utility = 2 } }) })
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Util")({ label = "Utility", appearance = "utility" }) :: unknown,
+					UI.Button("Plain")({ label = "Standard" }),
+				})
+			end,
+			{ theme = withMetrics({ strokes = { hairline = 1, utility = 2 } }) }
+		)
 		t.expect(find(world.node, "Util"):HasTag("facet-appearance-utility")).toBe(true)
 		t.expect(find(world.node, "Plain"):HasTag("facet-appearance-utility")).toBe(false)
 		world.stop()
@@ -566,25 +601,31 @@ t.describe("native parity weaker foundation", function()
 		"post-port27-006 post-port27-007: on both axes the Track owns a 44 px floor and the thumb runs inside it",
 		function()
 			for _, axis in { "x", "y" } do
-				for _, rung in { "none", "compact", "large" } do
+				for _, rung in { "none", "compact", "large" } :: { "compact" | "large" | "none" } do
 					local value = Compose.cell(50)
-					local world = setup(function(UI, Host, engine)
-						return Host.Frame({
-							Name = "Cell",
-							AutomaticSize = engine.types.Enum.AutomaticSize.XY,
-							UI.Slider("Vol")({
-								label = "Vol",
-								value = value,
-								min = 0,
-								max = 100,
-								axis = axis,
-								controlSize = if rung == "none" then nil else rung,
-								onChange = function(next: number)
-									value:set(next)
-								end,
-							}),
-						})
-					end)
+					local world = setup(
+						function(
+							UI: typeof(require("@repo/src").controls(nil :: any)),
+							Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+							engine
+						)
+							return Host.Frame({
+								Name = "Cell",
+								AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+								UI.Slider("Vol")({
+									label = "Vol",
+									value = value,
+									min = 0,
+									max = 100,
+									axis = axis :: "x" | "y",
+									controlSize = if rung == "none" then nil else rung :: "compact" | "large",
+									onChange = function(next: number)
+										value:set(next)
+									end,
+								}),
+							})
+						end
+					)
 					local track = find(world.node, "Track")
 					local floors = {}
 					for _, child in track:GetChildren() do
@@ -610,20 +651,25 @@ t.describe("native parity weaker foundation", function()
 	)
 
 	t.it("post-port27-010: a ring shows its value exactly once at every rung, in the gauge for large", function()
-		for _, rung in { "xsmall", "compact", "regular", "large" } do
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					UI.ProgressView("P")({
-						value = 0.65,
-						presentation = "circular",
-						showValue = true,
-						controlSize = rung,
-						format = function(value: number): string
-							return tostring(value)
-						end,
-					}),
-				})
-			end)
+		for _, rung in { "xsmall", "compact", "regular", "large" } :: { "compact" | "large" | "regular" | "xsmall" } do
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.ProgressView("P")({
+							value = 0.65,
+							presentation = "circular" :: "circular",
+							showValue = true,
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
+							format = function(value: number): string
+								return tostring(value)
+							end,
+						}),
+					})
+				end
+			)
 			local shown = findAll(world.node, "Value")
 			t.expect(`{rung} {#shown}`).toBe(`{rung} 1`)
 			t.expect(`{rung} {shown[1].Text}`).toBe(`{rung} 0.65`)
@@ -638,10 +684,24 @@ t.describe("native parity weaker foundation", function()
 		for _, name in { "neutral", "pixel_quest", "fantasy_ornate" } do
 			local theme = package(name)
 			local sheet, stop = sheetOf(theme)
-			for _, status in { "warning", "error", "accent", "neutral" } do
-				local world = setup(function(UI, Host)
-					return Host.Frame({ UI.Badge("B")({ label = "Ready", appearance = "status", status = status }) })
-				end, { theme = theme })
+			for _, status in
+				{ "warning", "error", "accent", "neutral" } :: { "accent" | "error" | "neutral" | "warning" }
+			do
+				local world = setup(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return Host.Frame({
+							UI.Badge("B")({
+								label = "Ready",
+								appearance = "status" :: "status",
+								status = status :: "accent" | "error" | "neutral" | "warning",
+							}),
+						})
+					end,
+					{ theme = theme }
+				)
 				local plate = find(world.node, "B")
 				local mark = find(plate, "Status")
 				t.expect(`{name} {status} {mark ~= nil and mark.Visible}`).toBe(`{name} {status} true`)
@@ -662,10 +722,23 @@ t.describe("native parity weaker foundation", function()
 	t.it(
 		"post-port27-016: an unplated utility badge draws no status mark for any status and keeps its words",
 		function()
-			for _, status in { "neutral", "info", "success", "warning", "error", "accent" } do
-				local world = setup(function(UI, Host)
-					return Host.Frame({ UI.Badge("B")({ label = "Ready", appearance = "utility", status = status }) })
-				end)
+			for _, status in
+				{ "neutral", "info", "success", "warning", "error", "accent" } :: { "accent" | "error" | "info" | "neutral" | "success" | "warning" }
+			do
+				local world = setup(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return Host.Frame({
+							UI.Badge("B")({
+								label = "Ready",
+								appearance = "utility" :: "utility",
+								status = status :: "accent" | "error" | "info" | "neutral" | "success" | "warning",
+							}),
+						})
+					end
+				)
 				local plate = find(world.node, "B")
 				t.expect(`{status} {find(plate, "Status") == nil}`).toBe(`{status} true`)
 				local words = false
@@ -687,18 +760,24 @@ t.describe("native parity weaker foundation", function()
 		for _, name in { "pixel_quest", "fantasy_ornate", "glossy_mobile" } do
 			local theme = package(name)
 			local carve = ((theme.chrome or {}).panel or {}).contentInsets or {}
-			for _, rung in { "xsmall", "compact", "regular", "large" } do
-				local world = setup(function(UI, Host)
-					return Host.Frame({
-						UI.Notice("Conn")({
-							title = "Update available",
-							message = "A new track pack is ready.",
-							controlSize = rung,
-							actions = { { id = "Install", label = "Install", onActivate = function() end } },
-							onDismiss = function() end,
-						}),
-					})
-				end, { theme = theme })
+			for _, rung in { "xsmall", "compact", "regular", "large" } :: { "compact" | "large" | "regular" | "xsmall" } do
+				local world = setup(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return Host.Frame({
+							UI.Notice("Conn")({
+								title = "Update available",
+								message = "A new track pack is ready.",
+								controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
+								actions = { { id = "Install", label = "Install", onActivate = function() end } },
+								onDismiss = function() end,
+							}),
+						})
+					end,
+					{ theme = theme }
+				)
 				local root = find(world.node, "Conn")
 				local padding = root:FindFirstChildWhichIsA("UIPadding")
 				local got =
@@ -721,18 +800,23 @@ t.describe("native parity weaker foundation", function()
 	t.it(
 		"post-card-12: a pointer or touch press held on an action keeps the reveal after the pointer leaves",
 		function()
-			for _, kind in { "MouseButton1", "Touch" } do
-				local world = setup(function(UI, Host)
-					return Host.Frame({
-						UI.Card("C")({
-							image = "rbxassetid://1",
-							title = "Nebula Racers",
-							onActivate = function() end,
-							primaryAction = { label = "Play", onActivate = function() end },
-							menu = { items = { { id = "hide", label = "Hide", onSelect = function() end } } },
-						}),
-					})
-				end)
+			for _, kind in { "MouseButton1", "Touch" } :: { "MouseButton1" | "Touch" } do
+				local world = setup(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return Host.Frame({
+							UI.Card("C")({
+								image = "rbxassetid://1",
+								title = "Nebula Racers",
+								onActivate = function() end,
+								primaryAction = { label = "Play", onActivate = function() end },
+								menu = { items = { { id = "hide", label = "Hide", onSelect = function() end } } },
+							}),
+						})
+					end
+				)
 				local E = world.types.Enum
 				local root = find(world.node, "C")
 				local primary = find(root, "Primary")
@@ -755,27 +839,32 @@ t.describe("native parity weaker foundation", function()
 		"post-card-22: only the card whose browse stop is selected reveals, and a session with no selection reveals none",
 		function()
 			local stops: { [string]: any } = {}
-			local world = setup(function(UI, Host)
-				local children: { any } = {}
-				for _, key in { "i1", "i2" } do
-					table.insert(
-						children,
-						Host.Frame({
-							Name = "Cell" .. key,
-							UI.Button("Stop" .. key)({ label = key, onActivate = function() end }),
-							UI.Card("Card" .. key)({
-								image = "rbxassetid://1",
-								title = key,
-								browseTarget = function()
-									return stops[key]
-								end,
-								primaryAction = { label = "Play", onActivate = function() end },
-							}),
-						})
-					)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					local children: { [number | typeof(Compose.event(""))]: FixtureComposeTypes.Child } = {}
+					for _, key in { "i1", "i2" } do
+						table.insert(
+							children :: { FixtureComposeTypes.Child },
+							Host.Frame({
+								Name = "Cell" .. key,
+								UI.Button("Stop" .. key)({ label = key, onActivate = function() end }) :: unknown,
+								UI.Card("Card" .. key)({
+									image = "rbxassetid://1",
+									title = key,
+									browseTarget = function()
+										return stops[key]
+									end,
+									primaryAction = { label = "Play", onActivate = function() end },
+								}),
+							})
+						)
+					end
+					return Host.Frame(children :: typeof(require("@repo/src/ui/engine_types").FrameProps))
 				end
-				return Host.Frame(children)
-			end)
+			)
 			for _, key in { "i1", "i2" } do
 				stops[key] = find(world.node, "Stop" .. key)
 			end
@@ -801,17 +890,22 @@ t.describe("native parity weaker foundation", function()
 		"post-pickers-080: a held removal does not repeat across an input change, inherited disabled refuses every input, and re-enabling restores it",
 		function()
 			local calls = 0
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					Name = "Owner",
-					UI.Chip("Token")({
-						label = "Rain",
-						onRemove = function()
-							calls += 1
-						end,
-					}),
-				})
-			end)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						Name = "Owner",
+						UI.Chip("Token")({
+							label = "Rain",
+							onRemove = function()
+								calls += 1
+							end,
+						}),
+					})
+				end
+			)
 			local E = world.types.Enum
 			local token = find(world.node, "Token")
 			world.gui.SelectedObject = token

@@ -1,4 +1,5 @@
 --!strict
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local build = require("./collection_demo")
 local SEED = {
 	{
@@ -52,8 +53,8 @@ local SEED = {
 }
 return {
 	title = "Mail row actions",
-	build = function(ctx)
-		local Compose, UI = ctx.Compose, ctx.UI
+	build = function(ctx: ExampleContext)
+		local Compose: typeof(require("@repo/src/vendor/compose/core")), UI = ctx.Compose, ctx.UI
 		local selected = Compose.cell("list")
 		local tabs, surfaces = {}, {}
 		for _, entry in { { "list", "List" }, { "table", "Table" }, { "virtual", "Virtual list" } } do
@@ -61,7 +62,7 @@ return {
 			table.insert(tabs, {
 				id = kind,
 				label = label,
-				content = function()
+				content = function(): Instance
 					local rows = table.clone(SEED)
 					local built = build(ctx, {
 						name = "Mail_" .. kind,

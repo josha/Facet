@@ -1,13 +1,15 @@
 --!strict
+local FixtureRadialTypes = require("../src/ui/radial_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 local function signal()
-	local handlers = {}
+	local handlers: { () -> () } = {}
 	return {
-		Connect = function(_, fn)
+		Connect = function(_: any, fn: () -> ())
 			table.insert(handlers, fn)
 			return {
 				Disconnect = function()
@@ -31,7 +33,8 @@ end
 
 local function world(build: (any) -> any)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local frames = { Heartbeat = signal() }
 	local UI = Facet.controls(
@@ -43,8 +46,12 @@ local function world(build: (any) -> any)
 			services = { GuiService = gui, RunService = frames },
 		} :: any
 	)
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ build(UI) })
+	local stop, screen: any = runtime.mount(function()
+		return (
+			(
+				runtime.constructors.ScreenGui :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+		)({ build(UI) })
 	end, engine.new("Folder"))
 	return screen, frames, function()
 		stop()
@@ -69,15 +76,15 @@ end
 
 t.describe("presented surfaces arrive styled", function()
 	t.it("holds a newly presented surface hidden until the next frame, when the theme styles apply", function()
-		for _, kind in { "Sheet", "Alert" } do
+		for _, kind in { "Sheet", "Alert" } :: { "Alert" | "Sheet" } do
 			local open = Compose.cell(false)
-			local screen, frames, stop = world(function(UI)
+			local screen, frames, stop = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				if kind == "Sheet" then
 					return UI.Sheet "Market" {
 						title = "Seeds",
 						isPresented = open,
 						detent = Compose.cell("medium"),
-						content = function()
+						content = function(): Instance
 							return UI.Text { text = "Wheat" }
 						end,
 					}
@@ -85,7 +92,7 @@ t.describe("presented surfaces arrive styled", function()
 				return UI.Alert "Confirm" {
 					title = "Sell the crop?",
 					isPresented = open,
-					actions = { { id = "ok", label = "Sell" } },
+					actions = { { id = "ok", label = "Sell" } :: FixtureNavigationTypes.AlertAction<any> },
 				}
 			end)
 			local inner = if kind == "Sheet" then "SheetPanel" else "ok"
@@ -100,11 +107,11 @@ t.describe("presented surfaces arrive styled", function()
 
 	t.it("releases its frame hook when the surface closes before the first frame", function()
 		local open = Compose.cell(false)
-		local _, frames, stop = world(function(UI)
+		local _, frames, stop = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Alert "Confirm" {
 				title = "Sell the crop?",
 				isPresented = open,
-				actions = { { id = "ok", label = "Sell" } },
+				actions = { { id = "ok", label = "Sell" } :: FixtureNavigationTypes.AlertAction<any> },
 			}
 		end)
 		open:set(true)
@@ -115,9 +122,10 @@ t.describe("presented surfaces arrive styled", function()
 	end)
 
 	t.it("selects a presented surface's first control only once it is shown, never the hidden or panel node", function()
-		for _, kind in { "RadialMenu", "Dialog" } do
+		for _, kind in { "RadialMenu", "Dialog" } :: { "Dialog" | "RadialMenu" } do
 			local engine = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local frames = { Heartbeat = signal() }
 			local UI = Facet.controls(
@@ -130,23 +138,29 @@ t.describe("presented surfaces arrive styled", function()
 				} :: any
 			)
 			local open = Compose.cell(false)
-			local stop, screen = runtime.mount(function()
-				return runtime.constructors.ScreenGui({
-					UI.Button "Opener" { label = "Open" },
+			local stop, screen: any = runtime.mount(function()
+				return (
+					(
+						runtime.constructors.ScreenGui :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+				)({
+					UI.Button "Opener" { label = "Open" } :: unknown,
 					if kind == "RadialMenu"
 						then UI.RadialMenu {
 							launcher = false,
 							isPresented = open,
-							items = { { id = "alpha", label = "Alpha", onSelect = function() end } },
+							items = {
+								{ id = "alpha", label = "Alpha", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
+							},
 						}
 						else UI.Dialog {
 							isPresented = open,
 							closeButton = false,
 							title = "Title",
-							content = function()
+							content = function(): Instance
 								return UI.Button "Inside" { label = "Inside" }
 							end,
-						},
+						} :: unknown,
 				})
 			end, engine.new("Folder"))
 			gui.SelectedObject = screen:FindFirstChild("Opener", true)

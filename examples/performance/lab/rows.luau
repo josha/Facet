@@ -1,10 +1,13 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local rows = { VERSION = "native-perf-rows/2", ITEM_SIZE = 56, COMPACT_ITEM_SIZE = 152 }
 function rows.estimate(ctx)
 	return if ctx.viewport and ctx.viewport.w < 720 then rows.COMPACT_ITEM_SIZE else rows.ITEM_SIZE
 end
-function rows.build(ctx, current, options)
-	local Compose, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
+function rows.build(ctx: { [string]: any }, current: Readable<any>, options: { [string]: any }?)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, T =
+		ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
 	local D2, E = T.UDim2, T.Enum
 	local full = not options or options.full ~= false
 	local item = current:peek()
@@ -21,7 +24,7 @@ function rows.build(ctx, current, options)
 		BackgroundTransparency = 1,
 	}
 	if full then
-		image.source = function(use)
+		image.source = function(use: Use)
 			return use(current).imageKey
 		end
 		if ctx.engine then
@@ -30,12 +33,12 @@ function rows.build(ctx, current, options)
 			end
 		end
 	else
-		image.Image = function(use)
+		image.Image = function(use: Use)
 			return use(current).imageKey
 		end
 	end
 	local children = {
-		Size = function(use)
+		Size = function(use: Use)
 			return D2.new(1, 0, 0, use(minimum))
 		end,
 		AutomaticSize = E.AutomaticSize.Y,
@@ -53,13 +56,13 @@ function rows.build(ctx, current, options)
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Host.UISizeConstraint({ MinSize = T.Vector2.new(120, 40) }),
+			Host.UISizeConstraint({ MinSize = T.Vector2.new(120, 40) }) :: unknown,
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 2) }),
 			UI.Text "Title" {
 				TextSize = if full then nil else 16,
 				LayoutOrder = 1,
-				text = function(use)
+				text = function(use: Use)
 					return use(current).name
 				end,
 				Size = D2.new(1, 0, 0, 0),
@@ -70,7 +73,7 @@ function rows.build(ctx, current, options)
 			UI.Text "Detail" {
 				TextSize = if full then nil else 13,
 				LayoutOrder = 2,
-				text = function(use)
+				text = function(use: Use)
 					return use(current).detail or "Lap 1"
 				end,
 				Size = D2.new(1, 0, 0, 0),
@@ -95,7 +98,7 @@ function rows.build(ctx, current, options)
 				min = 0,
 				max = 1,
 				step = 0.05,
-				format = function(next)
+				format = function(next: number)
 					return string.format("%d%%", math.floor(next * 100 + 0.5))
 				end,
 			}

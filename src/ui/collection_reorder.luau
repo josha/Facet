@@ -505,7 +505,7 @@ return function<V, K>(
 		}
 		for _, control in { handle, minus, confirm, mark } :: { GuiObject? } do
 			if control then
-				table.insert(nativeProps, control)
+				nativeProps[#nativeProps + 1] = control
 			end
 		end
 		local frame = Host.Frame(nativeProps)

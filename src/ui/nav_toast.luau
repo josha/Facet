@@ -417,18 +417,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 			body,
 		}
-		table.insert(props, ctx.padding(12, 8))
-		table.insert(props, ctx.corner())
+		props[#props + 1] = ctx.padding(12, 8)
+		props[#props + 1] = ctx.corner()
 		if hug then
-			table.insert(
-				props,
-				Host.UISizeConstraint({
-					Name = "WidthCap",
-					MaxSize = function(use: ComposeTypes.Use)
-						return V2.new(math.max(0, math.min(HUG_MAX, use(extent).X - 32)), math.huge)
-					end,
-				})
-			)
+			props[#props + 1] = Host.UISizeConstraint({
+				Name = "WidthCap",
+				MaxSize = function(use: ComposeTypes.Use)
+					return V2.new(math.max(0, math.min(HUG_MAX, use(extent).X - 32)), math.huge)
+				end,
+			})
 		end
 		local row = ctx.styled(ctx.fade(props), "snackbar")
 		ctx.styled(row, "panel")
@@ -571,22 +568,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Host.Frame(bodyProps),
 		}
 		if spec.icon then
-			table.insert(rowProps, ctx.icon(spec.icon, { Name = "Icon", LayoutOrder = 0 }))
+			rowProps[#rowProps + 1] = ctx.icon(spec.icon, { Name = "Icon", LayoutOrder = 0 })
 		end
 		if closable then
-			table.insert(
-				rowProps,
-				UI.Button "Close" {
-					name = "Close",
-					icon = "close",
-					LayoutOrder = 3,
-					Size = D2.fromOffset(44, 44),
-					AutomaticSize = E.AutomaticSize.None,
-					onActivate = function()
-						finish(record, "close")
-					end,
-				}
-			)
+			rowProps[#rowProps + 1] = UI.Button "Close" {
+				name = "Close",
+				icon = "close",
+				LayoutOrder = 3,
+				Size = D2.fromOffset(44, 44),
+				AutomaticSize = E.AutomaticSize.None,
+				onActivate = function()
+					finish(record, "close")
+				end,
+			}
 		end
 		local row = ctx.styled(ctx.fade(rowProps), "snackbar")
 		ctx.styled(row, "panel")

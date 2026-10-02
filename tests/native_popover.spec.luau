@@ -34,25 +34,36 @@ local function content(UI: any, Host: any): any
 	return Host.Frame({
 		Name = "Card",
 		BackgroundTransparency = 1,
-		Host.TextLabel "Line" { Text = "Popover body" },
+		Host.TextLabel "Line" { Text = "Popover body" } :: unknown,
 		UI.Button "Inner" { label = "Inner" },
 	})
 end
 
 local function mount(specOf: (any, any) -> any, options: any?): any
 	local o = options or {}
-	local w = overlay.new(function(UI, Host, engine, gui)
-		local children = { UI.Popover "Tip"(specOf(UI, Host)), UI.Button "Other" { label = "Other" } }
-		for _, extra in o.extra or {} do
-			table.insert(children, extra(UI, Host))
-		end
-		return Host.Frame({ Name = "S", table.unpack(children) })
-	end, o)
+	local w = overlay.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			engine,
+			gui
+		)
+			local children = { UI.Popover "Tip"(specOf(UI, Host)), UI.Button "Other" { label = "Other" } }
+			for _, extra in o.extra or {} do
+				table.insert(children, extra(UI, Host))
+			end
+			return Host.Frame({ Name = "S", table.unpack((children :: unknown) :: { unknown }) })
+		end,
+		o
+	)
 	return w
 end
 
 local function standard(open: any, log: Log, change: any, extra: { [string]: any }?): (any, any) -> any
-	return function(UI, Host)
+	return function(
+		UI: typeof(require("@repo/src").controls(nil :: any)),
+		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	)
 		local spec: any = {
 			isPresented = open,
 			onPresentedChange = change,
@@ -60,11 +71,11 @@ local function standard(open: any, log: Log, change: any, extra: { [string]: any
 				table.insert(log.dismissed, reason)
 			end,
 			trigger = UI.Button "Open" { label = "Open" },
-			content = function()
+			content = function(): Instance
 				return content(UI, Host)
 			end,
 		}
-		for key, value in extra or {} do
+		for key, value in (extra or {} :: { [string]: any }) do
 			spec[key] = value
 		end
 		return spec
@@ -153,15 +164,20 @@ t.describe("native Popover: the caller's fact decides, proposals ask", function(
 
 	t.it("without onPresentedChange nothing interactive opens or closes it; the fact still does", function()
 		local open = Compose.cell(false)
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = open,
-				trigger = UI.Button "Open" { label = "Open" },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = open,
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		w.find("Open").Activated.fire()
 		t.expect(w.find("Panel")).toBeNil()
 		open:set(true)
@@ -220,7 +236,10 @@ end)
 
 t.describe("native Popover: sources, anchor loss and bounds", function()
 	local function sourced(open: any, log: Log, change: any, target: any): (any, any) -> any
-		return function(UI, Host)
+		return function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
 			return {
 				isPresented = open,
 				onPresentedChange = change,
@@ -228,7 +247,7 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 					table.insert(log.dismissed, reason)
 				end,
 				source = { node = target },
-				content = function()
+				content = function(): Instance
 					return content(UI, Host)
 				end,
 			}
@@ -238,16 +257,22 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	t.it("a node source follows its node; removing it releases at once and reports anchorLost once", function()
 		local open, log, change = caller()
 		local target: any
-		local w = mount(function(UI, Host)
-			target = Host.Frame "Target" {}
-			return sourced(open, log, change, target)(UI, Host)
-		end, {
-			extra = {
-				function()
-					return target
-				end,
-			},
-		})
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				target = Host.Frame "Target" {}
+				return sourced(open, log, change, target)(UI, Host)
+			end,
+			{
+				extra = {
+					function()
+						return target
+					end,
+				},
+			}
+		)
 		open:set(true)
 		local panel = w.find("Panel")
 		t.expect(panel ~= nil).toBe(true)
@@ -270,16 +295,22 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	t.it("a caller who refuses the anchorLost proposal keeps its fact, and nothing reopens", function()
 		local open, log, change = caller(false)
 		local target: any
-		local w = mount(function(UI, Host)
-			target = Host.Frame "Target" {}
-			return sourced(open, log, change, target)(UI, Host)
-		end, {
-			extra = {
-				function()
-					return target
-				end,
-			},
-		})
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				target = Host.Frame "Target" {}
+				return sourced(open, log, change, target)(UI, Host)
+			end,
+			{
+				extra = {
+					function()
+						return target
+					end,
+				},
+			}
+		)
 		open:set(true)
 		local holder = target.Parent
 		target.Parent = nil
@@ -293,16 +324,21 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	t.it("a source that has not mounted yet waits instead of being lost", function()
 		local open = Compose.cell(true)
 		local target: any
-		local w = mount(function(UI, Host)
-			target = Host.Frame "Target" {}
-			return {
-				isPresented = open,
-				source = { node = target },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				target = Host.Frame "Target" {}
+				return {
+					isPresented = open,
+					source = { node = target },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		t.expect(w.find("Panel")).toBeNil()
 		target.Parent = w.find("S")
 		t.expect(w.find("Panel") ~= nil).toBe(true)
@@ -311,19 +347,24 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 
 	t.it("a rect source never draws a tail; crossOffset and edge reach the placement", function()
 		local open = Compose.cell(true)
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = open,
-				source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
-				edge = "trailing",
-				align = "start",
-				crossOffset = 10,
-				tail = true,
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = open,
+					source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
+					edge = "trailing" :: "trailing",
+					align = "start" :: "start",
+					crossOffset = 10,
+					tail = true,
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		local panel = w.find("Panel")
 		panel.AbsoluteSize = Vector2.new(120, 80)
 		t.expect(w.find("Tail")).toBeNil()
@@ -331,8 +372,8 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 			source = { x = 300, y = 200, w = 40, h = 40 },
 			size = { w = 120, h = 80 },
 			safe = { x = 8, y = 8, w = 800 - 16, h = 600 - 16 },
-			edge = "trailing",
-			align = "start",
+			edge = "trailing" :: "trailing",
+			align = "start" :: "start",
 			gap = 8,
 			crossOffset = 10,
 		})
@@ -340,15 +381,20 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		t.expect(panel.Position.X.Offset).toBe(expected.x)
 		t.expect(panel.Position.Y.Offset).toBe(210)
 		w.stop()
-		local tailed = mount(function(UI, Host)
-			return {
-				isPresented = Compose.cell(true),
-				trigger = UI.Button "Open" { label = "Open" },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local tailed = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = Compose.cell(true),
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		local trigger = tailed.find("Open")
 		trigger.AbsolutePosition = Vector2.new(300, 100)
 		trigger.AbsoluteSize = Vector2.new(100, 44)
@@ -362,17 +408,22 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	end)
 
 	t.it("maxWidth and maxHeight bound the whole panel inside the live safe box, and the body scrolls", function()
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = Compose.cell(true),
-				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
-				maxWidth = 220,
-				maxHeight = 180,
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = Compose.cell(true),
+					source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+					maxWidth = 220,
+					maxHeight = 180,
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		local body = w.find("Body")
 		t.expect(body.ClassName).toBe("ScrollingFrame")
 		t.expect(body.AutomaticCanvasSize).toBe(w.Enum.AutomaticSize.None)
@@ -396,15 +447,20 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	end)
 
 	t.it("the body is exactly as tall as its canvas while a presentation scale shrinks the panel", function()
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = Compose.cell(true),
-				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = Compose.cell(true),
+					source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		local body, flow = w.find("Body"), w.find("Flow")
 		overlay.find(body, "LayoutUnit").AbsoluteSize = Vector2.new(90, 0.9)
 		flow.AbsoluteSize = Vector2.new(180, 32.4)
@@ -415,15 +471,20 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	end)
 
 	t.it("measures the content at rest before the entrance and holds that height while the panel scales", function()
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = Compose.cell(true),
-				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = Compose.cell(true),
+					source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		local body, flow, panel = w.find("Body"), w.find("Flow"), w.find("Panel")
 		local scale = materialize.of(panel)
 		t.expect(scale.Scale).toBe(1)
@@ -447,15 +508,21 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	end)
 
 	t.it("under reduced motion shows whole, without a fade, once the panel has rested", function()
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = Compose.cell(true),
-				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end, { motionLevel = "none" })
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = Compose.cell(true),
+					source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end,
+			{ motionLevel = "none" }
+		)
 		local flow, panel = w.find("Flow"), w.find("Panel")
 		flow.AbsoluteSize = Vector2.new(180, 60)
 		w.advance(1 / 60)
@@ -469,15 +536,20 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 	end)
 
 	t.it("content that fills its width gets the standard popup width instead of collapsing", function()
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = Compose.cell(true),
-				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
-				content = function()
-					return Host.Frame({ Name = "Wide", Size = UDim2.new(1, 0, 0, 40) })
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = Compose.cell(true),
+					source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+					content = function(): Instance
+						return Host.Frame({ Name = "Wide", Size = UDim2.new(1, 0, 0, 40) })
+					end,
+				}
+			end
+		)
 		local floor
 		for _, node in w.find("Flow"):GetChildren() do
 			if node.ClassName == "UISizeConstraint" then
@@ -500,15 +572,20 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		end
 		local ok, err = pcall(function()
 			local open = Compose.cell(true)
-			local w = mount(function(UI, Host)
-				return {
-					isPresented = open,
-					source = { node = Host.Frame "Nowhere" {} },
-					content = function()
-						return content(UI, Host)
-					end,
-				}
-			end)
+			local w = mount(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return {
+						isPresented = open,
+						source = { node = Host.Frame "Nowhere" {} },
+						content = function(): Instance
+							return content(UI, Host)
+						end,
+					}
+				end
+			)
 			t.expect(w.find("Panel")).toBeNil()
 			open:set(false)
 			open:set(true)
@@ -581,18 +658,23 @@ t.describe("native Popover: the compact sheet and the live route switch", functi
 	t.it("a live class change switches the route silently, with one content owner", function()
 		local builds, live = 0, 0
 		local open, log, change = caller()
-		local w = mount(function(UI, Host)
-			local spec = standard(open, log, change)(UI, Host)
-			spec.content = function()
-				builds += 1
-				live += 1
-				Compose.cleanup(function()
-					live -= 1
-				end)
-				return content(UI, Host)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local spec = standard(open, log, change)(UI, Host)
+				spec.content = function()
+					builds += 1
+					live += 1
+					Compose.cleanup(function()
+						live -= 1
+					end)
+					return content(UI, Host)
+				end
+				return spec
 			end
-			return spec
-		end)
+		)
 		w.screen.AbsoluteSize = Vector2.new(390, 800)
 		open:set(true)
 		t.expect(w.find("Popup") ~= nil).toBe(true)
@@ -633,37 +715,47 @@ end)
 t.describe("native Popover: callbacks that throw or re-enter, and branch cycles", function()
 	t.it("a throwing onPresentedChange changes nothing, and a throwing onDismiss still closes once", function()
 		local open = Compose.cell(true)
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = open,
-				onPresentedChange = function()
-					error("proposal bug")
-				end,
-				trigger = UI.Button "Open" { label = "Open" },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = open,
+					onPresentedChange = function()
+						error("proposal bug")
+					end,
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		local ok, failure = pcall(w.find("ModalBack").Pressed.fire)
 		t.expect(ok).toBe(false)
 		t.expect(string.find(tostring(failure), "proposal bug", 1, true) ~= nil).toBe(true)
 		t.expect(w.find("Panel") ~= nil).toBe(true)
 		w.stop()
 		local fact, calls = Compose.cell(true), 0
-		local w2 = mount(function(UI, Host)
-			return {
-				isPresented = fact,
-				onDismiss = function()
-					calls += 1
-					error("dismiss bug")
-				end,
-				trigger = UI.Button "Open" { label = "Open" },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w2 = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = fact,
+					onDismiss = function()
+						calls += 1
+						error("dismiss bug")
+					end,
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		pcall(function()
 			fact:set(false)
 		end)
@@ -674,21 +766,26 @@ t.describe("native Popover: callbacks that throw or re-enter, and branch cycles"
 
 	t.it("a caller that re-opens inside its own close callback keeps one live surface", function()
 		local open = Compose.cell(true)
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = open,
-				onPresentedChange = function(nextValue: boolean)
-					open:set(nextValue)
-					if not nextValue then
-						open:set(true)
-					end
-				end,
-				trigger = UI.Button "Open" { label = "Open" },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return {
+					isPresented = open,
+					onPresentedChange = function(nextValue: boolean)
+						open:set(nextValue)
+						if not nextValue then
+							open:set(true)
+						end
+					end,
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function(): Instance
+						return content(UI, Host)
+					end,
+				}
+			end
+		)
 		w.find("ModalBack").Pressed.fire()
 		t.expect(#w.findAll("Panel")).toBe(1)
 		t.expect(open:peek()).toBe(true)
@@ -698,14 +795,19 @@ t.describe("native Popover: callbacks that throw or re-enter, and branch cycles"
 	t.it("open/close/branch cycles return the native tree to its baseline", function()
 		local open, log, change = caller()
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Name = "S",
-				Compose.show(shown, function()
-					return UI.Popover "Tip"(standard(open, log, change)(UI, Host))
-				end),
-			})
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Name = "S",
+					Compose.show(shown, function()
+						return UI.Popover "Tip"(standard(open, log, change)(UI, Host))
+					end),
+				})
+			end
+		)
 		local baseline = w.engine.census()
 		for _ = 1, 3 do
 			w.find("Open").Activated.fire()
@@ -725,14 +827,19 @@ t.describe("native Popover: lifetime and contract", function()
 	t.it("owner disposal releases physically and reports cancel once; two worlds stay apart", function()
 		local open, log, change = caller()
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Name = "S",
-				Compose.show(shown, function()
-					return UI.Popover "Tip"(standard(open, log, change)(UI, Host))
-				end),
-			})
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Name = "S",
+					Compose.show(shown, function()
+						return UI.Popover "Tip"(standard(open, log, change)(UI, Host))
+					end),
+				})
+			end
+		)
 		local open2, log2, change2 = caller()
 		local w2 = mount(standard(open2, log2, change2))
 		open:set(true)
@@ -759,7 +866,7 @@ t.describe("native Popover: lifetime and contract", function()
 			local spec: any = {
 				isPresented = Compose.cell(false),
 				trigger = UI.Button "Open" { label = "Open" },
-				content = function()
+				content = function(): Instance
 					return content(UI, Host)
 				end,
 			}
@@ -768,36 +875,96 @@ t.describe("native Popover: lifetime and contract", function()
 			end
 			return spec
 		end
-		refuses(function(UI, Host)
-			return base(UI, Host, { isPresented = "nil" })
-		end, "isPresented")
-		refuses(function(UI, Host)
-			return base(UI, Host, { content = "nil" })
-		end, "content")
-		refuses(function(UI, Host)
-			return base(UI, Host, { source = { rect = { x = 0, y = 0, w = 1, h = 1 } } })
-		end, "exactly one")
-		refuses(function(UI, Host)
-			return base(UI, Host, { trigger = "nil", source = { rect = { x = 0, y = 0, w = 1, h = math.huge } } })
-		end, "source.rect.h")
-		refuses(function(UI, Host)
-			return base(UI, Host, { edge = "overlap" })
-		end, "edge")
-		refuses(function(UI, Host)
-			return base(UI, Host, { align = "middle" })
-		end, "align")
-		refuses(function(UI, Host)
-			return base(UI, Host, { crossOffset = 0 / 0 })
-		end, "crossOffset")
-		refuses(function(UI, Host)
-			return base(UI, Host, { maxWidth = -4 })
-		end, "maxWidth")
-		refuses(function(UI, Host)
-			return base(UI, Host, { compact = "never" })
-		end, "compact")
-		refuses(function(UI, Host)
-			return base(UI, Host, { widht = 3 })
-		end, "widht")
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { isPresented = "nil" })
+			end,
+			"isPresented"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { content = "nil" })
+			end,
+			"content"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { source = { rect = { x = 0, y = 0, w = 1, h = 1 } } })
+			end,
+			"exactly one"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { trigger = "nil", source = { rect = { x = 0, y = 0, w = 1, h = math.huge } } })
+			end,
+			"source.rect.h"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { edge = "overlap" :: "overlap" })
+			end,
+			"edge"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { align = "middle" :: "middle" })
+			end,
+			"align"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { crossOffset = 0 / 0 })
+			end,
+			"crossOffset"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { maxWidth = -4 })
+			end,
+			"maxWidth"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { compact = "never" })
+			end,
+			"compact"
+		)
+		refuses(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return base(UI, Host, { widht = 3 })
+			end,
+			"widht"
+		)
 	end)
 end)
 
@@ -817,12 +984,17 @@ t.describe("native Popover: anchored chrome and the cancel policy (restored from
 
 	t.it("modal = false is chrome: no catcher, no Cancel, no selection taken", function()
 		local open, log, change = caller()
-		local w = mount(function(UI, Host)
-			local spec = standard(open, log, change, { modal = false })(UI, Host)
-			spec.trigger = nil
-			spec.source = { rect = { x = 100, y = 100, w = 40, h = 40 } }
-			return spec
-		end)
+		local w = mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local spec = standard(open, log, change, { modal = false })(UI, Host)
+				spec.trigger = nil
+				spec.source = { rect = { x = 100, y = 100, w = 40, h = 40 } }
+				return spec
+			end
+		)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		local other = w.find("Other")
 		w.gui.SelectedObject = other
@@ -838,7 +1010,9 @@ t.describe("native Popover: anchored chrome and the cancel policy (restored from
 	end)
 
 	t.it("refuses a malformed modal or cancelPolicy by name", function()
-		for _, extra in { { modal = "no" }, { cancelPolicy = "never" } } do
+		for _, extra: { modal: string?, cancelPolicy: string? } in
+			{ { modal = "no" }, { cancelPolicy = "never" } } :: { { modal: string?, cancelPolicy: string? } }
+		do
 			local open, log, change = caller()
 			local ok, failure = pcall(function()
 				mount(standard(open, log, change, extra)).stop()
@@ -855,7 +1029,8 @@ t.describe("app.presentAnchored", function()
 	local engineLib = require("./lib/native_engine")
 	local function app(): (any, any)
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
 			return nil
@@ -874,7 +1049,7 @@ t.describe("app.presentAnchored", function()
 	t.it("builds a panel beside a rect in its own layer and close releases it", function()
 		local a, target = app()
 		local dismissed = {}
-		local close, screen = a.presentAnchored(function(UI)
+		local close, screen = a.presentAnchored(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Text "Hint" { text = "Drag to steer" }
 		end, {
 			source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
@@ -895,7 +1070,7 @@ t.describe("app.presentAnchored", function()
 	t.it("an outside tap on a modal panel dismisses it and releases the layer", function()
 		local a = app()
 		local dismissed = {}
-		local _, screen = a.presentAnchored(function(UI)
+		local _, screen = a.presentAnchored(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Text "Hint" { text = "Tap outside" }
 		end, {
 			source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
@@ -912,7 +1087,7 @@ t.describe("app.presentAnchored", function()
 	t.it("requires a component function and a source", function()
 		local a = app()
 		t.expect(pcall(a.presentAnchored, "nope", { source = { rect = { x = 0, y = 0, w = 1, h = 1 } } })).toBe(false)
-		t.expect(pcall(a.presentAnchored, function(UI)
+		t.expect(pcall(a.presentAnchored, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Text { text = "x" }
 		end, {})).toBe(false)
 		a.dispose()
@@ -941,7 +1116,10 @@ t.describe("touch popup placement", function()
 
 	t.it("honors an explicit edge on touch", function()
 		local open, log, change = caller()
-		local w = mount(standard(open, log, change, { compact = "popover", edge = "bottom" }), { motionLevel = "none" })
+		local w = mount(
+			standard(open, log, change, { compact = "popover", edge = "bottom" :: "bottom" }),
+			{ motionLevel = "none" }
+		)
 		w.find("Open").AbsolutePosition = Vector2.new(300, 250)
 		w.find("Open").AbsoluteSize = Vector2.new(80, 44)
 		w.input.PreferredInput = w.Enum.PreferredInput.Touch

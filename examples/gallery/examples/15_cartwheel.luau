@@ -1,4 +1,6 @@
 --!strict
+local loadCartwheel = require :: (string) -> typeof(require("@repo/examples/reference/p2_cartwheel"))
+local loadCartwheelData = require :: (string) -> typeof(require("@repo/examples/reference/p2_cartwheel/content/data"))
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 return {
@@ -6,10 +8,10 @@ return {
 	build = function(ctx: any)
 		local original = if script
 			then ctx.load("reference", "p2_cartwheel")
-			else require("../../reference/p2_cartwheel")
+			else loadCartwheel("../../reference/p2_cartwheel")
 		local data = if script
 			then ctx.load("reference", "p2_cartwheel", "content", "data")
-			else require("../../reference/p2_cartwheel/content/data")
+			else loadCartwheelData("../../reference/p2_cartwheel/content/data")
 		local reference = original.build(ctx)
 		local model, steps = reference.model, reference.steps
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
@@ -44,18 +46,22 @@ return {
 				table.insert(contents, view.text("Potion", `{item.bottles} × {data.potionById(item.potion).name}`))
 			end
 			return UI.VStack("Order_" .. id) {
-				width = "fill",
+				width = "fill" :: "fill",
 				padding = "m",
 				gap = "s",
 				view.text("OrderNumber", function(use: any)
 					return `{if use(pinned) == id then "★ " else ""}Order {id}`
-				end, "heading"),
+				end, "heading") :: unknown,
 				view.text("BottleCount", `{current:peek().bottles} bottles`),
 				UI.DisclosureGroup "OrderContents" {
 					label = "What's in this order?",
 					expanded = expanded[id],
-					content = function()
-						return UI.VStack { width = "fill", gap = "s", table.unpack(contents) }
+					content = function(): Instance
+						return UI.VStack {
+							width = "fill" :: "fill",
+							gap = "s",
+							table.unpack((contents :: unknown) :: { unknown }),
+						}
 					end,
 				},
 				C.show(function(use: any)
@@ -85,9 +91,9 @@ return {
 					end),
 					UI.RadialMenu("Actions_" .. id) {
 						label = "Order actions",
-						contentFit = "radial",
-						ringWidth = "wide",
-						center = "empty",
+						contentFit = "radial" :: "radial",
+						ringWidth = "wide" :: "wide",
+						center = "empty" :: "empty",
 						scrim = "dark",
 						items = {
 							{
@@ -96,7 +102,7 @@ return {
 								onSelect = function()
 									inspect(id)
 								end,
-							},
+							} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
 							{
 								id = "pin",
 								label = "Prioritize",
@@ -104,7 +110,7 @@ return {
 									pinned:set(id)
 									notice:set(`Order {id} moved to the front of its queue.`)
 								end,
-							},
+							} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
 							{
 								id = "serve",
 								label = "Serve",
@@ -114,7 +120,7 @@ return {
 								onSelect = function()
 									command(id)
 								end,
-							},
+							} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
 						},
 					},
 				}),
@@ -146,11 +152,11 @@ return {
 				padding = "s",
 				view.text("LaneHeading", function(use: any)
 					return `{title} · {#use(rows)}`
-				end, "heading"),
+				end, "heading") :: unknown,
 				UI.ScrollView "Tickets" {
 					gap = "s",
 					padding = "s",
-					UI.fill(),
+					UI.fill() :: unknown,
 					C.keyed({
 						from = rows,
 						key = function(item)
@@ -174,9 +180,9 @@ return {
 		end
 		local function summary()
 			return UI.VStack {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "m",
-				view.text("SummaryTitle", "The day's takings", "heading"),
+				view.text("SummaryTitle", "The day's takings", "heading") :: unknown,
 				view.text("Collected", function(use: any)
 					use(model.stats.version)
 					return `{model.stats.collectedBottles()} bottles served`
@@ -194,7 +200,7 @@ return {
 					key = function(item)
 						return item.id
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return view.text("Seller", function(use: any)
 							local row = use(current)
 							return `{row.name} · {row.bottles} bottles`
@@ -209,10 +215,10 @@ return {
 					padding = "m",
 					gap = "m",
 					ref = view.observeWidth(width),
-					view.text("CartTitle", "Cartwheel · Market day", "title"),
+					view.text("CartTitle", "Cartwheel · Market day", "title") :: unknown,
 					UI.Image "CartIllustration" {
 						image = art.cart,
-						scaleMode = "crop",
+						scaleMode = "crop" :: "crop",
 						Size = function(use: any)
 							return D2.new(1, 0, 0, math.clamp(use(width) * 0.18, 80, 170))
 						end,
@@ -236,9 +242,9 @@ return {
 							label = "Orders",
 							selected = lane,
 							options = {
-								{ value = "new", label = "Waiting" },
-								{ value = "brewing", label = "Brewing" },
-								{ value = "ready", label = "Ready" },
+								{ value = "new", label = "Waiting" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+								{ value = "brewing", label = "Brewing" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+								{ value = "ready", label = "Ready" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 							},
 						}
 					end),
@@ -253,7 +259,7 @@ return {
 									Size = D2.fromScale(1 / 3, 1),
 									BackgroundTransparency = 1,
 									column("new", "Waiting"),
-								},
+								} :: unknown,
 								Host.Frame {
 									Position = D2.fromScale(1 / 3, 0),
 									Size = D2.fromScale(1 / 3, 1),
@@ -275,7 +281,7 @@ return {
 								key = function(id)
 									return id
 								end,
-								render = function(current)
+								render = function(current): GuiObject
 									local id = current:peek()
 									return column(
 										id,

@@ -41,29 +41,35 @@ local UNDO = { label = "Undo", onActivate = noop }
 local function mount(list: { Entry }, options: any?): any
 	local o = options or {}
 	local gate = Compose.cell(true)
-	local w = overlay.new(function(UI, Host)
-		return Host.Frame({
-			Name = "Page",
-			UI.Button "Content" { label = "Content" },
-			Compose.show(gate, function()
-				local nodes: { any } = {}
-				for index, entry in list do
-					local spec: any = {
-						isPresented = entry.c.shown,
-						message = entry.message or `Message {index}`,
-						onPresentedChange = entry.c.onPresentedChange,
-						onDismiss = entry.c.onDismiss,
-						action = UNDO,
-					}
-					for key, value in entry.spec or {} do
-						spec[key] = value
+	local w = overlay.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame({
+				Name = "Page",
+				UI.Button "Content" { label = "Content" } :: unknown,
+				Compose.show(gate, function()
+					local nodes: { any } = {}
+					for index, entry in list do
+						local spec: any = {
+							isPresented = entry.c.shown,
+							message = entry.message or `Message {index}`,
+							onPresentedChange = entry.c.onPresentedChange,
+							onDismiss = entry.c.onDismiss,
+							action = UNDO,
+						}
+						for key, value in (entry.spec or {} :: { [string]: any }) do
+							spec[key] = value
+						end
+						table.insert(nodes, UI.Toast(`S{index}`)(spec))
 					end
-					table.insert(nodes, UI.Toast(`S{index}`)(spec))
-				end
-				return Host.Frame({ Name = "Holder", table.unpack(nodes) })
-			end),
-		})
-	end, { size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none", runService = o.runService })
+					return Host.Frame({ Name = "Holder", table.unpack((nodes :: unknown) :: { unknown }) })
+				end),
+			})
+		end,
+		{ size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none", runService = o.runService }
+	)
 	w.gate = gate
 	w.rows = function(): number
 		return #w.findAll("Snack")
@@ -92,7 +98,7 @@ t.describe("native Toast with an action: presentation", function()
 		local connection = row.ChildAdded:Connect(function(child)
 			if child:IsA("CanvasGroup") then
 				introduced += 1
-				empty = empty or (child.Visible and child:FindFirstChild("Body") == nil)
+				empty = empty or (child.Visible == true and child:FindFirstChild("Body") == nil)
 			end
 		end)
 		c.shown:set(false)
@@ -237,24 +243,31 @@ t.describe("native Toast with an action: an art theme's panel carve", function()
 		local themes = require("../src/ui/themes")(Compose)
 		local package = themes.neutralPackage()
 		package.chrome = package.chrome or {}
-		package.chrome.panel = { kind = "native", contentInsets = { left = 20, right = 24, top = 12, bottom = 14 } }
+		assert(package.chrome).panel =
+			{ kind = "native" :: "native", contentInsets = { left = 20, right = 24, top = 12, bottom = 14 } }
 		local c = caller()
 		c.shown:set(true)
 		local gate = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Compose.show(gate, function()
-					return UI.Toast "S1" {
-						isPresented = c.shown,
-						message = "Offline",
-						icon = "status.warning",
-						action = UNDO,
-						closeButton = false,
-						onPresentedChange = c.onPresentedChange,
-					}
-				end),
-			})
-		end, { theme = package, motionLevel = "none" })
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Compose.show(gate, function()
+						return UI.Toast "S1" {
+							isPresented = c.shown,
+							message = "Offline",
+							icon = "status.warning",
+							action = UNDO,
+							closeButton = false,
+							onPresentedChange = c.onPresentedChange,
+						}
+					end),
+				})
+			end,
+			{ theme = package, motionLevel = "none" }
+		)
 		local row = w.find("Snack")
 		local padding = row:FindFirstChildWhichIsA("UIPadding")
 		t.expect(padding.PaddingLeft.Offset).toBe(20)
@@ -508,19 +521,29 @@ t.describe("native Toast with an action: admission and lifetime", function()
 		local a = caller()
 		a.shown:set(true)
 		local modal = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				UI.Toast "S1" {
-					isPresented = a.shown,
-					message = "Saved",
-					action = UNDO,
-					duration = 3,
-					onPresentedChange = a.onPresentedChange,
-					onDismiss = a.onDismiss,
-				},
-				UI.Alert { isPresented = modal, title = "Hold" },
-			})
-		end, { motionLevel = "none" })
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Toast "S1" {
+						isPresented = a.shown,
+						message = "Saved",
+						action = UNDO,
+						duration = 3,
+						onPresentedChange = a.onPresentedChange,
+						onDismiss = function(
+							reason: "timeout" | "supersede" | "preempt" | "capacity" | "manual" | "action" | "close" | "cancel"
+						)
+							a.onDismiss(reason)
+						end,
+					} :: unknown,
+					UI.Alert { isPresented = modal, title = "Hold" },
+				})
+			end,
+			{ motionLevel = "none" }
+		)
 		modal:set(true)
 		frames(w, 5)
 		t.expect(#a.changes).toBe(0)
@@ -556,7 +579,7 @@ t.describe("native Toast with an action: admission and lifetime", function()
 		do
 			local ok = pcall(function()
 				overlay
-					.new(function(UI)
+					.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 						return UI.Toast(bad)
 					end)
 					.stop()
@@ -582,7 +605,7 @@ t.describe("native Toast with an action: admission and lifetime", function()
 
 	t.it("a throwing caller callback is raised, and the row stays consistent", function()
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Toast "S1" {
 				isPresented = shown,
 				message = "Saved",
@@ -731,33 +754,43 @@ t.describe("native Toast with an action: without a binding", function()
 	t.it("the action runs and retires it; Close retires it; no duration never expires", function()
 		local runs, reasons = 0, {}
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Compose.show(shown, function()
-					return Host.Frame({
-						UI.Toast "A" {
-							message = "Kart sold",
-							action = {
-								label = "Undo",
-								onActivate = function()
-									runs += 1
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Compose.show(shown, function()
+						return Host.Frame({
+							UI.Toast "A" {
+								message = "Kart sold",
+								action = {
+									label = "Undo",
+									onActivate = function()
+										runs += 1
+									end,
+								},
+								onDismiss = function(
+									reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
+								)
+									table.insert(reasons, reason)
+								end,
+							} :: unknown,
+							UI.Toast "B" {
+								message = "Saved",
+								action = UNDO,
+								onDismiss = function(
+									reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
+								)
+									table.insert(reasons, reason)
 								end,
 							},
-							onDismiss = function(reason: string)
-								table.insert(reasons, reason)
-							end,
-						},
-						UI.Toast "B" {
-							message = "Saved",
-							action = UNDO,
-							onDismiss = function(reason: string)
-								table.insert(reasons, reason)
-							end,
-						},
-					})
-				end),
-			})
-		end, { motionLevel = "none" })
+						})
+					end),
+				})
+			end,
+			{ motionLevel = "none" }
+		)
 		frames(w, 30)
 		t.expect(w.find("A"):GetAttribute("ToastVisible")).toBe(true)
 		t.expect(w.find("B"):GetAttribute("ToastQueued")).toBe(true)
@@ -772,12 +805,14 @@ t.describe("native Toast with an action: without a binding", function()
 
 	t.it("a timed one still reads for the 2.5 s floor, then retires with timeout", function()
 		local reasons = {}
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Toast "A" {
 				message = "Kart sold",
 				action = UNDO,
 				duration = 1,
-				onDismiss = function(reason: string)
+				onDismiss = function(
+					reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
+				)
 					table.insert(reasons, reason)
 				end,
 			}

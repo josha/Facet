@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local model = {}
 
 export type CropId = "wheat" | "carrot" | "strawberry" | "pumpkin"
@@ -50,16 +52,16 @@ function model.progress(plot: Plot, now: number): number
 	if plot.state ~= "growing" and plot.state ~= "ready" then
 		return 0
 	end
-	local crop = model.crop(plot.crop :: string)
-	return math.clamp((now - (plot.planted :: number)) / crop.grow, 0, 1)
+	local crop = model.crop(assert(plot.crop))
+	return math.clamp((now - (assert(plot.planted))) / crop.grow, 0, 1)
 end
 
 function model.stateAt(plot: Plot, now: number): PlotState
 	if plot.state ~= "growing" and plot.state ~= "ready" then
 		return plot.state
 	end
-	local crop = model.crop(plot.crop :: string)
-	local age = now - (plot.planted :: number)
+	local crop = model.crop(assert(plot.crop))
+	local age = now - (assert(plot.planted))
 	if age >= crop.grow * model.WITHER_AFTER then
 		return "withered"
 	elseif age >= crop.grow then
@@ -82,6 +84,7 @@ function model.new(Compose: any, clock: (() -> number)?)
 		tool = Compose.cell("plow" :: Tool),
 		seed = Compose.cell("wheat" :: CropId),
 		marketOpen = Compose.cell(false),
+		blend = nil :: Readable<number>?,
 		view = Compose.cell("2d" :: "2d" | "3d"),
 		music = Compose.cell(true),
 		levelUp = Compose.cell(false),
@@ -99,7 +102,7 @@ function model.new(Compose: any, clock: (() -> number)?)
 		serial += 1
 		self.toast:set({ serial = serial, message = message })
 	end
-	self.level = Compose.formula(function(use): number
+	self.level = Compose.formula(function(use: Use): number
 		return model.levelOf(use(self.xp))
 	end)
 	function self.tick()
@@ -122,7 +125,7 @@ function model.new(Compose: any, clock: (() -> number)?)
 		local state = model.stateAt(plot, now)
 		local tool = self.tool:peek()
 		if state == "ready" or (tool == "harvest" and state == "ready") then
-			local crop = model.crop(plot.crop :: string)
+			local crop = model.crop(assert(plot.crop))
 			local before = self.level:peek()
 			self.coins:update(function(value: number): number
 				return value + crop.sell

@@ -1,8 +1,10 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local function world(count)
 	local engine = engineLib.new({ recordCreated = false })
 	local metrics = { writes = 0, creates = 0, destroys = 0, nodes = {} }
@@ -23,26 +25,22 @@ local function world(count)
 		metrics.destroys += 1
 		destroy(node)
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
-	local Host = runtime.constructors
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local UI = Facet.controls(runtime, { types = engine.types })
 	local D2, V2 = engine.types.UDim2, engine.types.Vector2
 	local target = engine.new("Folder")
-	local items, list, status =
-		{}, nil, Compose.cell({
-			mode = "windowed",
-			direction = "vertical",
-			total = 0,
-			retained = 0,
-			first = 0,
-			last = 0,
-			firstRow = 0,
-			lastRow = 0,
-			rowCount = 0,
-			extent = 0,
-			following = false,
-			measured = 0,
-		})
+	type Item = {
+		id: string,
+		value: typeof(require("@repo/src/vendor/compose/core").cell(0)),
+		ready: typeof(require("@repo/src/vendor/compose/core").cell(false)),
+	}
+	local items: { Item } = {}
+	local list
+	local status = require("./lib/cells").collectionStatus()
 	for index = 1, count do
 		items[index] = { id = tostring(index), value = Compose.cell(index), ready = Compose.cell(false) }
 	end
@@ -54,13 +52,13 @@ local function world(count)
 			end,
 			itemSize = 56,
 			status = status,
-			render = function(current)
+			render = function(current: Readable<Item>): GuiObject
 				local item = current:peek()
 				return Host.Frame({
 					Size = D2.new(1, 0, 0, 56),
-					Host.ImageLabel({ Image = "rbxassetid://0", Size = D2.fromOffset(40, 40) }),
+					Host.ImageLabel({ Image = "rbxassetid://0", Size = D2.fromOffset(40, 40) }) :: unknown,
 					Host.TextLabel({
-						Text = function(use)
+						Text = function(use: Use)
 							return tostring(use(item.value))
 						end,
 					}),
@@ -69,7 +67,7 @@ local function world(count)
 			end,
 			Size = D2.fromScale(1, 1),
 		})
-		return Host.ScreenGui({ list })
+		return Host.ScreenGui({ list :: unknown })
 	end, target)
 	list.AbsoluteSize = V2.new(480, 640)
 	list.AbsoluteWindowSize = V2.new(480, 640)

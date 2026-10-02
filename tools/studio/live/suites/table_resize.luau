@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 return {
 	{
 		id = "table-scrollbar-and-large-heading-resize",
@@ -10,63 +12,71 @@ return {
 				end
 				for _, scale in { 0.75, 1.5 } do
 					local widths, runtime, Host, container
-					local stage = t.mount(function(UI, constructors, Compose, env)
-						runtime, Host = env.runtime, constructors
-						widths = Compose.cell({ name = 140, laps = 72 })
-						local rows = {}
-						for index = 1, 30 do
-							table.insert(rows, { id = index, name = "Driver " .. index, laps = 3 })
-						end
-						container = Host.Frame {
-							Size = UDim2.fromOffset(460, 300),
-							Host.UIScale { Scale = scale },
-							UI.Table "Results" {
-								from = rows,
-								key = function(row)
-									return row.id
-								end,
-								widths = widths,
-								columns = {
-									{
-										id = "name",
-										label = "Driver",
-										render = function(row)
-											return UI.Text {
-												text = function(use)
-													return use(row).name
-												end,
-											}
-										end,
-									},
-									{
-										id = "laps",
-										label = "Laps completed",
-										render = function(row)
-											return UI.Text {
-												text = function(use)
-													return tostring(use(row).laps)
-												end,
-											}
-										end,
+					local stage = t.mount(
+						function(
+							UI: typeof(require("@repo/src").controls(nil :: any)),
+							constructors,
+							Compose: typeof(require("@repo/src/vendor/compose/core")),
+							env
+						)
+							runtime, Host = env.runtime, constructors
+							widths = Compose.cell({ name = 140, laps = 72 })
+							local rows = {}
+							for index = 1, 30 do
+								table.insert(rows, { id = index, name = "Driver " .. index, laps = 3 })
+							end
+							container = Host.Frame {
+								Size = UDim2.fromOffset(460, 300),
+								Host.UIScale { Scale = scale } :: unknown,
+								UI.Table "Results" {
+									from = rows,
+									key = function(row)
+										return row.id
+									end,
+									widths = widths,
+									columns = {
+										{
+											id = "name",
+											label = "Driver",
+											render = function(row)
+												return UI.Text {
+													text = function(use: Use)
+														return use(row).name
+													end,
+												}
+											end,
+										},
+										{
+											id = "laps",
+											label = "Laps completed",
+											render = function(row)
+												return UI.Text {
+													text = function(use: Use)
+														return tostring(use(row).laps)
+													end,
+												}
+											end,
+										},
 									},
 								},
+							}
+							return container
+						end,
+						{
+							theme = theme.package,
+							size = Vector2.new(960, 720),
+							environment = {
+								preferredInput = "Gamepad",
+								displaySize = "Large",
+								preferredTextSize = "Largest",
 							},
 						}
-						return container
-					end, {
-						theme = theme.package,
-						size = Vector2.new(960, 720),
-						environment = {
-							preferredInput = "Gamepad",
-							displaySize = "Large",
-							preferredTextSize = "Largest",
-						},
-					})
+					)
 					local tableNode = t.find(stage, "Results")
 					local body, header = tableNode.Body, tableNode.Header
 					body.VerticalScrollBarInset = Enum.ScrollBarInset.Always
 					body.ScrollBarThickness = 12
-					local heading = header.laps.Sort
+					local heading = header.laps.Sort :: TextButton
 					heading.TextSize = 48
 					for _, width in { 72, 230, 90, 520, 300 } do
 						widths:set({ name = 140, laps = width })
@@ -123,7 +133,7 @@ return {
 										PaddingTop = padding:GetStyled("PaddingTop"),
 										PaddingBottom = padding:GetStyled("PaddingBottom"),
 									}
-									else nil,
+									else nil :: unknown,
 							}
 						end, container)
 						t.settle(3)

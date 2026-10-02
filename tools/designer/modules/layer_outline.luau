@@ -1,13 +1,19 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local outline = {}
 
 function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any): ScrollingFrame
-	local Compose = Facet.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 	local selection = Compose.cell({})
-	local editing = Compose.cell(nil :: string?)
+	local editing = (function(
+		value: string?
+	): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+		return Compose.cell(value)
+	end)(nil)
 	local draft = Compose.cell("")
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		local id = use(model).selected
 		if use(editing) and use(editing) ~= id then
 			editing:set(nil)
@@ -15,14 +21,14 @@ function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any)
 		selection:set(if id then { [id] = true } else {})
 	end)
 	return UI.VirtualList "LayerTree" {
-		from = function(use)
+		from = function(use: Use)
 			return use(model).rows
 		end,
 		key = "id",
 		itemSize = 44,
 		gap = 4,
 		selection = selection,
-		selectionMode = "single",
+		selectionMode = "single" :: "single",
 		focus = {},
 		reorderable = true,
 		movable = function(row)
@@ -39,23 +45,23 @@ function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 3,
-		UI.fill(),
+		UI.fill() :: unknown,
 		Host.UISizeConstraint {
-			MaxSize = function(use)
+			MaxSize = function(use: Use)
 				return Vector2.new(math.huge, math.max(44, #use(model).rows * 48 - 4))
 			end,
 		},
 		render = function(current)
 			local id = current:peek().id
 			return UI.Button("Layer_" .. id) {
-				label = function(use)
+				label = function(use: Use)
 					local row = use(current)
 					return if use(editing) == id then "" else string.rep("  ", row.depth) .. row.name
 				end,
-				selected = function(use)
+				selected = function(use: Use)
 					return use(model).selected == id
 				end,
-				controlSize = "regular",
+				controlSize = "regular" :: "regular",
 				AutomaticSize = Enum.AutomaticSize.None,
 				Size = UDim2.fromScale(1, 1),
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -70,7 +76,7 @@ function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any)
 						editing:set(id)
 					end
 				end,
-				Compose.show(function(use)
+				Compose.show(function(use: Use)
 					return use(editing) == id
 				end, function()
 					local field = UI.TextInput("Rename_" .. id) {

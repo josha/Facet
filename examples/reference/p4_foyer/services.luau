@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local seed = require("./content/seed")
 
@@ -7,7 +9,7 @@ export type CommandStatus = "idle" | "pending" | "confirmed" | "rejected"
 local services = {}
 
 function services.new(deps: { Compose: any })
-	local Compose = deps.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = deps.Compose
 
 	local self = {} :: any
 
@@ -94,7 +96,7 @@ function services.new(deps: { Compose: any })
 	self.inviteCount = Compose.cell(seed.inviteCount)
 
 	function self.filterMemo(query: any)
-		return Compose.formula(function(use)
+		return Compose.formula(function(use: Use)
 			local q = string.lower(use(query))
 			if q == "" then
 				return {}

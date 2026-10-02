@@ -7,7 +7,7 @@ import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
-CLASSES = sorted(set('Camera CanvasGroup Folder Frame GuiObject GuiButton ImageButton ImageLabel InputAction InputBinding InputContext Path2D ScrollingFrame ScreenGui BillboardGui SurfaceGui StyleRule StyleSheet TextBox TextButton TextLabel UIAspectRatioConstraint UICorner UIDragDetector UIFlexItem UIGradient UIGridLayout UIListLayout UIPadding UIPageLayout UIScale UIShadow UISizeConstraint UIStroke UITextSizeConstraint ViewportFrame WorldModel'.split()))
+CLASSES = sorted(set('BindableFunction ClickDetector HapticEffect Part PointLight StyleLink WedgePart Weld Model Sound Camera CanvasGroup Folder Frame GuiObject GuiButton ImageButton ImageLabel InputAction InputBinding InputContext Path2D ScrollingFrame ScreenGui BillboardGui SurfaceGui StyleRule StyleSheet TextBox TextButton TextLabel UIAspectRatioConstraint UICorner UIDragDetector UIFlexItem UIGradient UIGridLayout UIListLayout UIPadding UIPageLayout UIScale UIShadow UISizeConstraint UIStroke UITextSizeConstraint ViewportFrame WorldModel'.split()))
 
 CLASSES_SET = set(CLASSES)
 
@@ -60,7 +60,7 @@ def generate(definitions, schema):
         ordered.append(name)
     for name in CLASSES:
         visit(name)
-    result = ['--!strict', 'local Compose = require("../vendor/compose/core")', '', 'export type Value<T> = T | Compose.Readable<T> | Compose.Formula<T> | Compose.Body<T>', 'export type StaticValue = typeof(Compose.static(nil))', 'export type Constructor<P, N> = ((P) -> N) & ((string) -> (P) -> N)', 'export type AttributeValue = string | boolean | number | UDim | UDim2 | BrickColor | Color3 | Vector2 | Vector3 | CFrame | NumberSequence | ColorSequence | NumberRange | Rect | Font', 'export type Attributes = { [string]: Value<AttributeValue?> }', '']
+    result = ['--!strict', 'local Compose = require("../vendor/compose/core")', '', 'export type Value<T> = T | Compose.Readable<T> | Compose.Formula<T> | Compose.Body<T>', 'export type StaticValue = typeof(Compose.static(nil))', 'export type EventKey = typeof(Compose.event(""))', 'export type Constructor<P, N> = ((P) -> N) & ((string) -> (P) -> N)', 'export type AttributeValue = string | boolean | number | UDim | UDim2 | BrickColor | Color3 | Vector2 | Vector3 | CFrame | NumberSequence | ColorSequence | NumberRange | Rect | Font', 'export type Attributes = { [string]: Value<AttributeValue?> }', '']
     aliases = {}
     def shared(native):
         if native not in aliases:
@@ -88,14 +88,18 @@ def generate(definitions, schema):
                     arguments = re.sub(r'\bany\b', 'unknown', arguments)
                 fields.append(f'\t{key}: (({arguments}) -> ())?,')
             elif key in schema[name]['writable']:
-                value = shared(native_type(native))
-                if any(is_instance(word) for word in re.findall(r'\b\w+\b', native)):
+                instance_property = any(is_instance(word) for word in re.findall(r'\b\w+\b', native))
+                property_type = native_type(native)
+                if instance_property and not property_type.endswith('?'):
+                    property_type += '?'
+                value = shared(property_type)
+                if instance_property:
                     value = '(' + value + ' | StaticValue)'
                 fields.append(f'\t{key}: {value}?,')
         own[name] = (own[parent] if parent else []) + fields
         if name not in CLASSES_SET:
             continue
-        result += [f'export type {name}NativeProps = {{', *own[name], '\t[number]: Compose.Child,', '}', f'export type {name}Props = {{', *own[name], '\t[number]: Compose.Child,', f'\tref: (({name}) -> ())?,', '}', '']
+        result += [f'export type {name}NativeProps = {{', *own[name], '\t[number | EventKey]: Compose.Child,', '}', f'export type {name}Props = {{', *own[name], '\t[number | EventKey]: Compose.Child,', f'\tref: (({name}) -> ())?,', '}', '']
     shared_lines = [f'export type {alias} = Value<{native}>' for native, alias in sorted(aliases.items(), key=lambda item: item[1])]
     insert_at = result.index('export type Attributes = { [string]: Value<AttributeValue?> }') + 1
     result[insert_at:insert_at] = shared_lines

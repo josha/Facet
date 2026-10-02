@@ -4,7 +4,7 @@ local spatial = require("../examples/virtual_monitors/spatial")
 
 t.describe("native monitor geometry", function()
 	t.it("faces one viewing point with equal distances and equal bezel gaps", function()
-		local previous, firstGap
+		local previous: { x: number, z: number }?, firstGap: number?
 		for index = 1, 4 do
 			local x, z, yaw = spatial.pose(index, 4)
 			local dx, dz = -x, spatial.CENTER_Z - z

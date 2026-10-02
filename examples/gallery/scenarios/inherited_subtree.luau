@@ -1,10 +1,14 @@
+--!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 return {
 	title = "Nested color and enabled controls",
-	build = function(ctx)
-		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local live, blend, engaged = Compose.cell(true), Compose.cell(35), Compose.cell(0)
-		local function palette(use, role)
+		local function palette(use: Use, role)
 			local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
 			local mode = if ctx.themeMode then use(ctx.themeMode) else package.style.defaultTheme
 			local chosen = package.style.themes[1]
@@ -16,7 +20,7 @@ return {
 			local rgb = chosen.colors[role] or (chosen.extra or {})[role] or chosen.colors.content
 			return C3.new(rgb.r, rgb.g, rgb.b)
 		end
-		local tint = Compose.formula(function(use)
+		local tint = Compose.formula(function(use: Use)
 			return palette(use, "contentSecondary"):Lerp(palette(use, "accent"), use(blend) / 100)
 		end)
 		local function label(name, text, color)
@@ -27,7 +31,7 @@ return {
 				TextWrapped = true,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				TextTransparency = function(use)
+				TextTransparency = function(use: Use)
 					return if use(live) then 0 else 0.5
 				end,
 			})
@@ -53,7 +57,7 @@ return {
 					engaged:set(engaged:peek() + 1)
 				end,
 			}
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				if not use(live) and ctx.guiService then
 					local focused = ctx.guiService.SelectedObject
 					if
@@ -70,19 +74,19 @@ return {
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "Nested color and control state", textRole = "title" }),
+				UI.Text({ text = "Nested color and control state", textRole = "title" :: "title" }) :: unknown,
 				UI.Toggle "PowerToggle" { label = "Panel power", value = live },
 				UI.Slider "BlendSlider" { label = "Tint", value = blend, min = 0, max = 100, step = 5 },
 				Host.Frame "Panel" {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
 					Host.Frame "Row" {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
 						label("HeroTitle", "The title and crest share this panel's live tint", tint),
 						Host.ImageLabel "Crest" {
 							Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
@@ -91,23 +95,23 @@ return {
 							BackgroundTransparency = 1,
 						},
 					},
-					label("Note", "This leaf keeps its own danger color", function(use)
+					label("Note", "This leaf keeps its own danger color", function(use: Use)
 						return palette(use, "danger")
 					end),
 					Host.Frame "Inner" {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
-						label("Sub", "The inner panel keeps its own secondary color", function(use)
+						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
+						label("Sub", "The inner panel keeps its own secondary color", function(use: Use)
 							return palette(use, "contentSecondary")
 						end),
 						innerGo,
 					},
 					go,
-					label("Count", function(use)
+					label("Count", function(use: Use)
 						return "Engaged " .. use(engaged) .. " times"
-					end, function(use)
+					end, function(use: Use)
 						return palette(use, "contentPrimary")
 					end),
 				},

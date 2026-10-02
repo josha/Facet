@@ -87,7 +87,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local recipe = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.SkinLayer
 			local current = use(package) :: ThemeTypes.ThemePackage?
 			local chrome = if current then current.chrome else nil
-			return (if chrome then chrome.focus else nil) or { kind = "ring" }
+			return (if chrome then chrome.focus else nil) or { kind = "ring" :: "ring" }
 		end)
 		local function layer(use: ComposeTypes.Use): ThemeTypes.SkinLayer
 			return use(recipe) :: ThemeTypes.SkinLayer
@@ -580,7 +580,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			reducedMotion = derived(function(use): boolean
 				return level(use) ~= "normal"
 			end),
-			motionLevel = (derived(function(use): Shared.MotionLevel
+			motionLevel = (derived(function(use): "normal" | "limited" | "none"
 				return level(use)
 			end) :: unknown) :: ComposeTypes.Readable<Shared.MotionLevel>,
 		})

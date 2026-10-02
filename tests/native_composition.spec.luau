@@ -2,11 +2,12 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 local function make(options: { [string]: any }?): (any, any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local T = engine.types
 	gui.GetGuiInset = function()
@@ -39,7 +40,7 @@ local function hud(UI: any, Host: any, forms: any, topbar: any?)
 		gap = 8,
 		padding = 0,
 		topbar = topbar,
-		region("Rounds", { zone = "topLeft", rank = 1, form(Host, "RoundsFull") }),
+		region("Rounds", { zone = "topLeft", rank = 1, form(Host, "RoundsFull") }) :: unknown,
 		region("Tasks", {
 			zone = "left",
 			rank = 7,
@@ -56,7 +57,7 @@ local function hud(UI: any, Host: any, forms: any, topbar: any?)
 	}
 end
 
-local SIZES = {
+local SIZES: { [string]: { number } } = {
 	RoundsFull = { 120, 44 },
 	TasksFull = { 240, 130 },
 	TasksChip = { 90, 44 },
@@ -109,7 +110,7 @@ end
 
 t.describe("Composition", function()
 	t.it("anchors each region's zone to its screen edge or corner, in declaration order", function()
-		local root, engine, _, _, stop = mount()
+		local root: any, engine, _, _, stop = mount()
 		local T = engine.types
 		local zones = root:FindFirstChild("Zones")
 		for name, anchor in
@@ -120,9 +121,9 @@ t.describe("Composition", function()
 				Top = { 0.5, 0 },
 				TopRight = { 1, 0 },
 				BottomRight = { 1, 1 },
-			}
+			} :: { [string]: { number } }
 		do
-			local zone = zones:FindFirstChild(name)
+			local zone: any = zones:FindFirstChild(name)
 			t.expect(zone.AnchorPoint).toBe(T.Vector2.new(anchor[1], anchor[2]))
 			t.expect(zone.Position).toBe(T.UDim2.fromScale(anchor[1], anchor[2]))
 			t.expect(zone.AutomaticSize).toBe(T.Enum.AutomaticSize.XY)
@@ -136,7 +137,7 @@ t.describe("Composition", function()
 	end)
 
 	t.it("shows every region in full while each lane fits its third of the screen", function()
-		local root, engine, forms, _, stop = mount()
+		local root: any, engine, forms, _, stop = mount()
 		sized(engine, root:FindFirstChild("Zones"), 844, 330)
 		t.expect(forms.peek())
 			.toEqual({ Rounds = 1, Tasks = 1, Health = 1, Clock = 1, Strip = 1, Rail = 1, Readout = 1, Actions = 1 })
@@ -147,7 +148,7 @@ t.describe("Composition", function()
 	end)
 
 	t.it("steps the least important region of the lane that runs out down first, then drops it", function()
-		local root, engine, forms, _, stop = mount()
+		local root: any, engine, forms, _, stop = mount()
 		local box = root:FindFirstChild("Zones")
 		sized(engine, box, 844, 300)
 		t.expect(forms.peek().Readout).toBe(0)
@@ -163,7 +164,7 @@ t.describe("Composition", function()
 	end)
 
 	t.it("keeps each lane to a third of the width, stepping only a region wider than its lane", function()
-		local root, engine, forms, _, stop = mount()
+		local root: any, engine, forms, _, stop = mount()
 		sized(engine, root:FindFirstChild("Zones"), 390, 780)
 		local chosen = forms.peek()
 		t.expect(chosen.Tasks).toBe(2)
@@ -176,7 +177,7 @@ t.describe("Composition", function()
 	end)
 
 	t.it("returns to the same forms as a fresh mount after rotations", function()
-		local root, engine, forms, _, stop = mount()
+		local root: any, engine, forms, _, stop = mount()
 		local box = root:FindFirstChild("Zones")
 		local expected = {}
 		for _, size in { { 844, 330 }, { 390, 780 }, { 844, 250 } } do
@@ -196,7 +197,7 @@ t.describe("Composition", function()
 
 	t.it("rides the free strip of the top bar in a TopbarSafeInsets ScreenGui, or leads the top zone", function()
 		local ride = Compose.cell(true)
-		local root, engine, forms, gui, stop = mount(nil, ride)
+		local root: any, engine, forms, gui, stop = mount(nil, ride)
 		local T = engine.types
 		local topbar = root:FindFirstChild("Topbar", true)
 		t.expect(topbar.Parent.Name).toBe("Top")
@@ -219,7 +220,7 @@ t.describe("Composition", function()
 
 	t.it("pops an arriving form unless motion is reduced, and holds its measurement while it pops", function()
 		for _, reduced in { false, true } do
-			local root, engine, forms, _, stop = mount({ motionLevel = if reduced then "none" else "normal" })
+			local root: any, engine, forms, _, stop = mount({ motionLevel = if reduced then "none" else "normal" })
 			local box = root:FindFirstChild("Zones")
 			sized(engine, box, 844, 330)
 			local rail = root:FindFirstChild("Rail", true)
@@ -237,25 +238,32 @@ t.describe("Composition", function()
 	t.it("discloses a stepped-down region's richest content in context, anchored at the region", function()
 		local overlay = require("./lib/overlay_world")
 		local form = Compose.cell(1)
-		local w = overlay.new(function(UI, Host)
-			return UI.Composition "Hud" {
-				gap = 8,
-				padding = 0,
-				topbar = false,
-				UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
-				UI.Region "Tasks" {
-					zone = "left",
-					rank = 2,
-					form = form,
-					expand = function()
-						return Host.TextLabel "TasksRich" { Text = "Win a round" }
-					end,
-					Host.Frame { Name = "TasksFull" },
-					Host.Frame { Name = "TasksChip" },
-				},
-			}
-		end)
-		for name, size in { RoundsFull = { 120, 44 }, TasksFull = { 240, 130 }, TasksChip = { 90, 30 } } do
+		local w: any = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Rounds" { zone = "topLeft" :: "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } } :: unknown,
+					UI.Region "Tasks" {
+						zone = "left" :: "left",
+						rank = 2,
+						form = form,
+						expand = function(): Instance
+							return Host.TextLabel "TasksRich" { Text = "Win a round" }
+						end,
+						Host.Frame { Name = "TasksFull" } :: unknown,
+						Host.Frame { Name = "TasksChip" },
+					},
+				}
+			end
+		)
+		for name, size in
+			{ RoundsFull = { 120, 44 }, TasksFull = { 240, 130 }, TasksChip = { 90, 30 } } :: { [string]: { number } }
+		do
 			w.size(w.find(name), size[1], size[2])
 		end
 		local zones = w.find("Zones")
@@ -281,25 +289,34 @@ t.describe("Composition", function()
 		local overlay = require("./lib/overlay_world")
 		for _, reveal in { true, false } do
 			local form = Compose.cell(1)
-			local w = overlay.new(function(UI, Host)
-				return UI.Composition "Hud" {
-					gap = 8,
-					padding = 0,
-					topbar = false,
-					UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
-					UI.Region "Feed" {
-						zone = "left",
-						rank = 2,
-						mayDrop = true,
-						reveal = if reveal then nil else false,
-						form = form,
-						expand = function()
-							return Host.TextLabel "FeedRich" { Text = "Ravi eliminated Mo" }
-						end,
-						Host.Frame { Name = "FeedFull" },
-					},
-				}
-			end)
+			local w: any = overlay.new(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region "Rounds" {
+							zone = "topLeft" :: "topLeft",
+							rank = 1,
+							Host.Frame { Name = "RoundsFull" },
+						} :: unknown,
+						UI.Region "Feed" {
+							zone = "left" :: "left",
+							rank = 2,
+							mayDrop = true,
+							reveal = if reveal then nil else false,
+							form = form,
+							expand = function(): Instance
+								return Host.TextLabel "FeedRich" { Text = "Ravi eliminated Mo" }
+							end,
+							Host.Frame { Name = "FeedFull" },
+						},
+					}
+				end
+			)
 			w.size(w.find("RoundsFull"), 120, 44)
 			w.size(w.find("FeedFull"), 240, 130)
 			local disc = w.find("Reveal")
@@ -329,21 +346,30 @@ t.describe("Composition", function()
 		function()
 			local overlay = require("./lib/overlay_world")
 			local form = Compose.cell(1)
-			local w = overlay.new(function(UI, Host)
-				return UI.Composition "Hud" {
-					gap = 8,
-					padding = 0,
-					topbar = false,
-					UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
-					UI.Region "Feed" {
-						zone = "left",
-						rank = 2,
-						mayDrop = true,
-						form = form,
-						Host.Frame { Name = "FeedFull" },
-					},
-				}
-			end)
+			local w: any = overlay.new(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region "Rounds" {
+							zone = "topLeft" :: "topLeft",
+							rank = 1,
+							Host.Frame { Name = "RoundsFull" },
+						} :: unknown,
+						UI.Region "Feed" {
+							zone = "left" :: "left",
+							rank = 2,
+							mayDrop = true,
+							form = form,
+							Host.Frame { Name = "FeedFull" },
+						},
+					}
+				end
+			)
 			local feed = w.find("FeedFull")
 			local home = feed.Parent
 			w.size(w.find("RoundsFull"), 120, 44)
@@ -372,22 +398,32 @@ t.describe("Composition", function()
 		local overlay = require("./lib/overlay_world")
 		for _, reveal in { true, false } do
 			local feedForm, stayForm = Compose.cell(1), Compose.cell(1)
-			local w = overlay.new(function(UI, Host)
-				return UI.Composition "Hud" {
-					gap = 8,
-					padding = 0,
-					topbar = false,
-					UI.Region "Stay" { zone = "left", rank = 1, form = stayForm, Host.Frame { Name = "StayFull" } },
-					UI.Region "Feed" {
-						zone = "left",
-						rank = 2,
-						mayDrop = true,
-						reveal = if reveal then nil else false,
-						form = feedForm,
-						Host.Frame { Name = "FeedFull" },
-					},
-				}
-			end)
+			local w: any = overlay.new(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region "Stay" {
+							zone = "left" :: "left",
+							rank = 1,
+							form = stayForm,
+							Host.Frame { Name = "StayFull" },
+						} :: unknown,
+						UI.Region "Feed" {
+							zone = "left" :: "left",
+							rank = 2,
+							mayDrop = true,
+							reveal = if reveal then nil else false,
+							form = feedForm,
+							Host.Frame { Name = "FeedFull" },
+						},
+					}
+				end
+			)
 			local feed = w.find("FeedFull")
 			local home = feed.Parent
 			w.size(w.find("StayFull"), 100, 60)
@@ -424,28 +460,33 @@ t.describe("Composition", function()
 	t.it("keeps the zone's hidden popover open while another region in the zone steps a visible form", function()
 		local overlay = require("./lib/overlay_world")
 		local feedForm, otherForm = Compose.cell(1), Compose.cell(1)
-		local w = overlay.new(function(UI, Host)
-			return UI.Composition "Hud" {
-				gap = 8,
-				padding = 0,
-				topbar = false,
-				UI.Region "Other" {
-					zone = "left",
-					rank = 1,
-					mayDrop = true,
-					form = otherForm,
-					Host.Frame { Name = "OtherFull" },
-					Host.Frame { Name = "OtherChip" },
-				},
-				UI.Region "Feed" {
-					zone = "left",
-					rank = 2,
-					mayDrop = true,
-					form = feedForm,
-					Host.Frame { Name = "FeedFull" },
-				},
-			}
-		end)
+		local w: any = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Other" {
+						zone = "left" :: "left",
+						rank = 1,
+						mayDrop = true,
+						form = otherForm,
+						Host.Frame { Name = "OtherFull" } :: unknown,
+						Host.Frame { Name = "OtherChip" },
+					} :: unknown,
+					UI.Region "Feed" {
+						zone = "left" :: "left",
+						rank = 2,
+						mayDrop = true,
+						form = feedForm,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end
+		)
 		w.size(w.find("OtherFull"), 100, 60)
 		w.size(w.find("OtherChip"), 40, 40)
 		w.size(w.find("FeedFull"), 120, 60)
@@ -478,39 +519,60 @@ t.describe("Composition", function()
 			runtime:dispose()
 			return if ok then "" else tostring(message)
 		end
+		t.expect(
+			string.find(
+				refusal(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return UI.Region { zone = "middle" :: any, rank = 1, Host.Frame {} }
+					end
+				),
+				"zone",
+				1,
+				true
+			) ~= nil
+		).toBe(true)
+		t.expect(
+			string.find(
+				refusal(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return UI.Region { zone = "top" :: "top", rank = 1.5, Host.Frame {} }
+					end
+				),
+				"rank",
+				1,
+				true
+			) ~= nil
+		).toBe(true)
+		t.expect(
+			string.find(
+				refusal(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return UI.Composition { Host.Frame {} }
+					end
+				),
+				"UI.Region",
+				1,
+				true
+			) ~= nil
+		).toBe(true)
 		t.expect(string.find(
-			refusal(function(UI, Host)
-				return UI.Region { zone = "middle", rank = 1, Host.Frame {} }
-			end),
-			"zone",
-			1,
-			true
-		) ~= nil).toBe(true)
-		t.expect(string.find(
-			refusal(function(UI, Host)
-				return UI.Region { zone = "top", rank = 1.5, Host.Frame {} }
-			end),
-			"rank",
-			1,
-			true
-		) ~= nil).toBe(true)
-		t.expect(string.find(
-			refusal(function(UI, Host)
-				return UI.Composition { Host.Frame {} }
-			end),
-			"UI.Region",
-			1,
-			true
-		) ~= nil).toBe(true)
-		t.expect(string.find(
-			refusal(function(UI)
-				return UI.Region { zone = "top", rank = 1 }
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Region { zone = "top" :: "top", rank = 1 }
 			end),
 			"form",
 			1,
 			true
 		) ~= nil).toBe(true)
-		t.expect(refusal(function(UI)
+		t.expect(refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Composition { UI.fill() }
 		end)).toBe("")
 	end)

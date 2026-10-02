@@ -45,6 +45,7 @@ export type DisclosureGroupSpec = NavigationTypes.DisclosureGroupSpec
 export type CollapsibleViewSpec = NavigationTypes.CollapsibleViewSpec
 export type AlertAction<P = unknown> = NavigationTypes.AlertAction<P>
 export type AlertSpec<P = unknown> = NavigationTypes.AlertSpec<P>
+export type SheetDetent = NavigationTypes.SheetDetent
 export type SheetSpec = NavigationTypes.SheetSpec
 export type CalloutSpec = NavigationTypes.CalloutSpec
 export type Tab = NavigationTypes.Tab
@@ -59,6 +60,7 @@ export type KeyedCollectionSpec<V, K> = CollectionTypes.KeyedCollectionSpec<V, K
 export type IdentityCollectionSpec<V> = CollectionTypes.IdentityCollectionSpec<V>
 export type CollectionSpec<V, K> = CollectionTypes.CollectionSpec<V, K>
 export type RowAction = CollectionTypes.RowAction
+export type RowActionsOptions = CollectionTypes.RowActionsOptions
 export type RowActionsSpec = CollectionTypes.RowActionsSpec
 export type TableColumn<V, K> = CollectionTypes.TableColumn<V, K>
 export type KeyedTableSpec<V, K> = CollectionTypes.KeyedTableSpec<V, K>

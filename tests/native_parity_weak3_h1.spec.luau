@@ -2,7 +2,7 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -17,7 +17,8 @@ type World = {
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -36,8 +37,10 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, root = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, root: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
 	return {
@@ -126,16 +129,20 @@ local function withSpacing(step: number): any
 end
 
 t.describe("native parity weak3 h1", function()
-	for _, style in { "radioGroup", "inline" } do
+	for _, style in { "radioGroup", "inline" } :: { "inline" | "radioGroup" } do
 		t.it(`repaints a live {style} option icon in place and keeps the row and its focus`, function()
 			local selected = Compose.cell("a")
 			local icon = Compose.cell("checkmark")
 			local options = Compose.cell({
-				{ id = "one", value = "a", label = "Alpha", icon = icon :: any, badge = 3 },
-				{ id = "two", value = "b", label = "Beach" },
+				{ id = "one", value = "a", label = "Alpha", icon = icon :: any, badge = 3 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 			})
-			local world = setup(function(UI)
-				return UI.Picker "Routes" { style = style, selected = selected, options = options }
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Picker "Routes" {
+					style = style :: "inline" | "radioGroup",
+					selected = selected,
+					options = options,
+				}
 			end)
 			local picker = find(world.root, "Routes")
 			local row = find(picker, "one")
@@ -152,13 +159,16 @@ t.describe("native parity weak3 h1", function()
 					description = "A mountain route",
 					icon = "edit",
 					badge = 7,
-				},
-				{ id = "two", value = "b", label = "Beach" },
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 			})
 			t.expect(find(picker, "one")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
 			t.expect(paintedIcon(row)).toBe(glyph("edit"))
-			options:set({ { id = "one", value = "a", label = "Alpine" }, { id = "two", value = "b", label = "Beach" } })
+			options:set({
+				{ id = "one", value = "a", label = "Alpine" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			})
 			t.expect(find(picker, "one")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
 			t.expect(paintedIcon(row)).toBeNil()
@@ -174,14 +184,20 @@ t.describe("native parity weak3 h1", function()
 		local rung = Compose.cell(nil :: string?)
 		local theme = Compose.cell(themes.neutralPackage() :: any)
 		local builds = 0
-		local world = setup(function(UI, Host)
-			builds += 1
-			return Host.Frame({
-				UI.Button "Other" { label = "Other" },
-				UI.Button "Live" { label = "Go", controlSize = rung },
-				UI.Chip "Tag" { label = "Tag", selected = Compose.cell(false), controlSize = rung },
-			})
-		end, { theme = theme })
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				builds += 1
+				return Host.Frame({
+					UI.Button "Other" { label = "Other" } :: unknown,
+					UI.Button "Live" { label = "Go", controlSize = rung },
+					UI.Chip "Tag" { label = "Tag", selected = Compose.cell(false), controlSize = rung },
+				})
+			end,
+			{ theme = theme }
+		)
 		local sheet = styleSheet(world, theme)
 		local live, chip = find(world.root, "Live"), find(world.root, "Tag")
 		world.gui.SelectedObject = live
@@ -191,7 +207,7 @@ t.describe("native parity weak3 h1", function()
 		end
 		local first = { xsmall = 4, compact = 8, regular = 12, large = 16 }
 		for _, name in { "xsmall", "compact", "regular", "large" } do
-			rung:set(name)
+			rung:set(name :: "compact" | "large" | "regular" | "xsmall")
 			for _, node in { live, chip } do
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingLeft")}`).toBe(`{name} {first[name]}`)
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingRight")}`).toBe(`{name} {first[name]}`)
@@ -200,7 +216,7 @@ t.describe("native parity weak3 h1", function()
 		local second = { xsmall = 6, compact = 14, regular = 18, large = 22 }
 		theme:set(withRungPadding(second))
 		for _, name in { "xsmall", "compact", "regular", "large" } do
-			rung:set(name)
+			rung:set(name :: "compact" | "large" | "regular" | "xsmall")
 			for _, node in { live, chip } do
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingLeft")}`).toBe(`{name} {second[name]}`)
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingRight")}`).toBe(`{name} {second[name]}`)
@@ -217,20 +233,26 @@ t.describe("native parity weak3 h1", function()
 
 	t.it("keeps the coach mark inside the theme spacing step at both lateral edges and inside the safe area", function()
 		local theme = Compose.cell(themes.neutralPackage() :: any)
-		local world = setup(function(UI, Host)
-			local anchor = UI.Button "Anchor" { label = "Anchor" }
-			return Host.Frame({
-				anchor,
-				UI.Callout({
-					anchor = anchor,
-					isPresented = Compose.cell(true),
-					onRetire = function() end,
-					content = function()
-						return UI.Button({ label = "Tip" })
-					end,
-				}),
-			})
-		end, { theme = theme })
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local anchor = UI.Button "Anchor" { label = "Anchor" }
+				return Host.Frame({
+					anchor :: unknown,
+					UI.Callout({
+						anchor = anchor :: GuiObject,
+						isPresented = Compose.cell(true),
+						onRetire = function() end,
+						content = function(): Instance
+							return UI.Button({ label = "Tip" })
+						end,
+					}),
+				})
+			end,
+			{ theme = theme }
+		)
 		local V = world.engine.types.Vector2
 		world.root.AbsolutePosition = V.new(0, 0)
 		world.root.AbsoluteSize = V.new(320, 400)

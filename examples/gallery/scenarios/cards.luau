@@ -1,4 +1,7 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local ITEM_COUNT = 60
 local CARD_LIFT = 1.04
 local SEED_EXTENT = 320
@@ -14,8 +17,8 @@ return {
 	title = "Cards (Card in a VirtualGrid)",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	build = function(ctx: ExampleContext)
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY
@@ -32,7 +35,7 @@ return {
 		local last = Compose.cell(copy.lastNone)
 		local controls: { [string]: any } = {}
 		local cards: { [string]: any } = {}
-		local columns = Compose.formula(function(use)
+		local columns = Compose.formula(function(use: Use)
 			return math.max(1, math.min(4, math.floor(use(viewport).width / 300)))
 		end)
 		local function gutter(extent: number): number
@@ -42,16 +45,16 @@ return {
 		local function record(text: string)
 			last:set(copy.lastPrefix .. text)
 		end
-		local function render(current, _placement, key)
+		local function render(current, _placement, key): GuiObject
 			local table_ = {}
 			controls[key] = table_
 			local card = UI.Card({
 				Name = "Card",
 				image = "rbxassetid://75342910516929",
-				title = function(use)
+				title = function(use: Use)
 					return use(current).title
 				end,
-				caption = function(use)
+				caption = function(use: Use)
 					return use(current).players
 				end,
 				controls = table_,
@@ -96,7 +99,7 @@ return {
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				Host.UIListLayout({
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
@@ -120,7 +123,7 @@ return {
 					columns = columns,
 					itemSize = SEED_EXTENT,
 					measure = true,
-					crossGap = function(use)
+					crossGap = function(use: Use)
 						return gutter(math.ceil(use(viewport).width / use(columns)))
 					end,
 					gap = gutter(SEED_EXTENT),

@@ -1,42 +1,48 @@
+--!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type NumberCell = typeof(require("@repo/tools/typecheck/example_shapes").numberCell(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 return {
 	title = "Time-based easing",
-	build = function(ctx)
-		local Host, UI, Compose, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")), runtime =
+			ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local reduced, race, gallery, panel = Compose.cell(false), Compose.cell(0), Compose.cell(0), Compose.cell(0)
 		local counts = { race = Compose.cell(0), gallery = Compose.cell(0), panel = Compose.cell(0) }
 		local stopwatch = runtime.timeline({ duration = 4, autoplay = false })
-		local cooldown = runtime.tween(function(use)
+		local cooldown = runtime.tween(function(use: Use)
 			return use(race)
 		end, { seconds = 0.5, ease = Compose.easing.linear })
-		local chasing = runtime.spring(function(use)
+		local chasing = runtime.spring(function(use: Use)
 			return use(race)
 		end, { period = 0.5, damping = 1 })
-		local panelFlight = runtime.tween(function(use)
+		local panelFlight = runtime.tween(function(use: Use)
 			return use(panel)
 		end, { seconds = 0.45, ease = Compose.easing.inOutQuint })
 		local lanes = {}
 		for _, definition in
 			{
-				{ "Linear", Compose.easing.linear },
-				{ "Quad", Compose.easing.outQuad },
-				{ "Back", Compose.easing.outBack },
-				{ "Bounce", Compose.easing.outBounce },
+				{ name = "Linear", ease = Compose.easing.linear },
+				{ name = "Quad", ease = Compose.easing.outQuad },
+				{ name = "Back", ease = Compose.easing.outBack },
+				{ name = "Bounce", ease = Compose.easing.outBounce },
 			}
 		do
 			table.insert(lanes, {
-				name = definition[1],
-				value = runtime.tween(function(use)
+				name = definition.name,
+				value = runtime.tween(function(use: Use)
 					return use(gallery)
-				end, { seconds = 0.4, ease = definition[2] }),
+				end, { seconds = 0.4, ease = definition.ease }),
 			})
 		end
-		local function decorative(source, destination, use)
+		local function decorative(source: Readable<number>, destination: Readable<number>, use: Use): number
 			return if use(reduced) or (ctx.reducedMotion and use(ctx.reducedMotion))
 				then use(destination)
 				else use(source)
 		end
-		local function toggle(cell, counter)
+		local function toggle(cell: NumberCell, counter: NumberCell)
 			cell:set(1 - cell:peek())
 			counter:set(counter:peek() + 1)
 		end
@@ -50,7 +56,7 @@ return {
 		local function fly()
 			toggle(panel, counts.panel)
 		end
-		local function label(name, text)
+		local function label(name: string, text: string | ((Use) -> string)): GuiObject
 			return UI.Text({
 				Name = name,
 				text = text,
@@ -75,7 +81,7 @@ return {
 					value = chasing,
 					showValue = true,
 				},
-				label("Stopwatch", function(use)
+				label("Stopwatch", function(use: Use)
 					return string.format(
 						"Elapsed %.2f s · cooldown %.0f%% · spring %.0f%%",
 						use(stopwatch.elapsed),
@@ -93,7 +99,7 @@ return {
 						Name = lane.name,
 						Size = D2.new(1, 0, 0, 68),
 						BackgroundTransparency = 1,
-						label("Caption", lane.name),
+						label("Caption", lane.name) :: unknown,
 						Host.Frame "Track" {
 							Position = D2.fromOffset(0, 32),
 							Size = D2.new(1, 0, 0, 32),
@@ -102,7 +108,7 @@ return {
 								Size = D2.fromOffset(28, 28),
 								BorderSizePixel = 0,
 								BackgroundColor3 = C3.fromRGB(64, 144, 255),
-								Position = function(use)
+								Position = function(use: Use)
 									local v = decorative(lane.value, gallery, use)
 									return D2.new(v, -28 * v, 0, 0)
 								end,
@@ -122,7 +128,7 @@ return {
 						Size = D2.fromOffset(32, 32),
 						BackgroundColor3 = C3.fromRGB(80, 180, 160),
 						BorderSizePixel = 0,
-						Position = function(use)
+						Position = function(use: Use)
 							local v = decorative(panelFlight, panel, use)
 							return D2.new(v, -32 * v, 0, 0)
 						end,
@@ -134,7 +140,7 @@ return {
 				Host.Frame "GrowingPanel" {
 					BackgroundColor3 = C3.fromRGB(80, 180, 160),
 					BorderSizePixel = 0,
-					Size = function(use)
+					Size = function(use: Use)
 						return D2.new(1, 0, 0, 64 + 64 * decorative(panelFlight, panel, use))
 					end,
 					label("PanelCaption", "The plate doubles its height on the same curve, in the same action."),
@@ -145,7 +151,7 @@ return {
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				table.unpack(children),
+				table.unpack((children :: unknown) :: { unknown }),
 			}
 		end
 		return {

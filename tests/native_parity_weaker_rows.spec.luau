@@ -1,8 +1,12 @@
 --!strict
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 type World = {
 	engine: any,
@@ -18,7 +22,8 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -40,8 +45,10 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[field] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, node = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, runtime)
 	end, root)
 	return {
@@ -150,7 +157,8 @@ end
 
 local function mountGallery(path: string): (any, any, World)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -165,7 +173,9 @@ local function mountGallery(path: string): (any, any, World)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		types = engine.types,
 		viewport = viewport,
 		guiService = gui,
@@ -183,7 +193,7 @@ local function mountGallery(path: string): (any, any, World)
 		),
 	}
 	local built
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		built = (require :: any)(path).build(ctx)
 		return built.screen()
 	end, target)
@@ -206,11 +216,12 @@ end
 
 t.describe("native parity weaker rows", function()
 	t.it("collections-53 passes through without actions, reveals only filled edges and tracks the tray", function()
-		local open, trailing = Compose.cell(nil :: string?), Compose.cell({} :: { any })
-		local world = setup(function(UI)
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, trailing =
+			Compose.cell(nil :: ("leading" | "trailing")?), Compose.cell({} :: { any })
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.RowActions({
 				open = open,
-				content = UI.Button("Action")({ label = "Row" }),
+				content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
 				trailing = trailing,
 			})
 		end)
@@ -276,13 +287,14 @@ t.describe("native parity weaker rows", function()
 
 	t.it("collections-53 animates a reveal over frames, snaps under reduced motion and leaks nothing", function()
 		for _, reduced in { false, true } do
-			local open = Compose.cell(nil :: string?)
-			local world = setup(function(UI)
+			local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+				Compose.cell(nil :: ("leading" | "trailing")?)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.RowActions({
 					open = open,
 					reducedMotion = reduced,
-					content = UI.Button("Action")({ label = "Row" }),
-					trailing = { { id = "Save", label = "Save" } },
+					content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
+					trailing = { { id = "Save", label = "Save" } :: FixtureCollectionTypes.RowAction },
 				})
 			end, { motionLevel = "normal" })
 			local row = world.node
@@ -328,11 +340,12 @@ t.describe("native parity weaker rows", function()
 	t.it("collections-57 runs a tray action once from touch, keyboard and gamepad and closes the tray", function()
 		local E = nil :: any
 		for _, route in { "touch", "keyboard", "gamepad", "mouse" } do
-			local open, invoked = Compose.cell("trailing" :: string?), {}
-			local world = setup(function(UI)
+			local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, invoked =
+				Compose.cell("trailing" :: ("leading" | "trailing")?), {}
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.RowActions({
 					open = open,
-					content = UI.Button("Action")({ label = "Row" }),
+					content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
 					trailing = { trailingAction(invoked, "Save"), trailingAction(invoked, "Flag") },
 				})
 			end)
@@ -364,42 +377,47 @@ t.describe("native parity weaker rows", function()
 	t.it("collections-61 shows the minus only while editing a destructive row and deletes once from it", function()
 		local invoked = {}
 		local editing = Compose.cell(false)
-		local open = Compose.cell(nil :: string?)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.RowActions("Unwired")({
-					content = UI.Button({ label = "Unwired" }),
-					trailing = { trailingAction(invoked, "Unwired", "destructive") },
-				}),
-				UI.RowActions("Plain")({
-					editing = editing,
-					content = UI.Button({ label = "Plain" }),
-					trailing = { trailingAction(invoked, "Archive") },
-				}),
-				UI.RowActions("Edited")({
-					editing = editing,
-					open = open,
-					fullSwipe = false,
-					content = UI.Button("Action")({ label = "Edited" }),
-					trailing = {
-						trailingAction(invoked, "Archive"),
-						{
-							id = "Erase",
-							label = "Erase this row",
-							role = "destructive",
-							onActivate = function()
-								table.insert(invoked, "Erase")
-							end,
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> = Compose.cell(nil :: ("leading" | "trailing")?)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.RowActions("Unwired")({
+						content = UI.Button({ label = "Unwired" }) :: GuiObject,
+						trailing = { trailingAction(invoked, "Unwired", "destructive") },
+					}) :: unknown,
+					UI.RowActions("Plain")({
+						editing = editing,
+						content = UI.Button({ label = "Plain" }) :: GuiObject,
+						trailing = { trailingAction(invoked, "Archive") },
+					}),
+					UI.RowActions("Edited")({
+						editing = editing,
+						open = open,
+						fullSwipe = false,
+						content = UI.Button("Action")({ label = "Edited" }) :: GuiObject,
+						trailing = {
+							trailingAction(invoked, "Archive"),
+							{
+								id = "Erase",
+								label = "Erase this row",
+								role = "destructive" :: "destructive",
+								onActivate = function()
+									table.insert(invoked, "Erase")
+								end,
+							} :: FixtureCollectionTypes.RowAction,
 						},
-					},
-				}),
-				UI.RowActions("LeadingOnly")({
-					editing = editing,
-					content = UI.Button({ label = "Leading" }),
-					leading = { trailingAction(invoked, "Drop", "destructive") },
-				}),
-			})
-		end)
+					}),
+					UI.RowActions("LeadingOnly")({
+						editing = editing,
+						content = UI.Button({ label = "Leading" }) :: GuiObject,
+						leading = { trailingAction(invoked, "Drop", "destructive") },
+					}),
+				})
+			end
+		)
 		local unwired, plain, edited, leadingOnly =
 			find(world.node, "Unwired"),
 			find(world.node, "Plain"),
@@ -447,21 +465,22 @@ t.describe("native parity weaker rows", function()
 	end)
 
 	t.it("collections-88 keeps an irrevocable commit running through close attempts and new gestures", function()
-		local invoked, open, coordinator = 0, Compose.cell("trailing" :: string?), Compose.cell(nil :: any)
-		local world = setup(function(UI)
+		local invoked, open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, coordinator =
+			0, Compose.cell("trailing" :: ("leading" | "trailing")?), Compose.cell(nil :: any)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.RowActions({
 				open = open,
 				coordinator = coordinator,
-				content = UI.Button("Action")({ label = "Row" }),
+				content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
 				trailing = {
 					{
 						id = "Delete",
 						label = "Delete",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, { motionLevel = "normal" })
@@ -501,20 +520,20 @@ t.describe("native parity weaker rows", function()
 	t.it("collections-76 lets one of two real list rows stay open and releases the claim on removal", function()
 		local coordinator = Compose.cell(nil :: any)
 		local source = Compose.cell(records(3))
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VirtualList({
 				from = source,
 				key = key,
 				itemSize = 44,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.RowActions({
 						coordinator = coordinator,
 						content = UI.Button("Action")({
-							label = function(use)
+							label = function(use: Use)
 								return use(current).label
 							end,
-						}),
-						trailing = { { id = "Save", label = "Save" } },
+						}) :: GuiObject,
+						trailing = { { id = "Save", label = "Save" } :: FixtureCollectionTypes.RowAction },
 					})
 				end,
 			})
@@ -556,13 +575,18 @@ t.describe("native parity weaker rows", function()
 
 	t.it("collections-65 slides, opens, commits, closes and coordinates swipes on real table rows", function()
 		local invoked = {}
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = records(4),
 				key = key,
 				itemSize = 44,
-				columns = { { id = "label", label = "Label", width = 100 } },
-				rowActions = function(_, rowKey)
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
+				rowActions = function(
+					_,
+					rowKey: number
+				): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))?
 					return {
 						leading = { trailingAction(invoked, "Pin" .. rowKey) },
 						trailing = {
@@ -629,27 +653,32 @@ t.describe("native parity weaker rows", function()
 
 	t.it("collections-67 table edit mode leaves hosted row actions alone; they stay independent of it", function()
 		local deleted, editing = {}, Compose.cell(false)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = records(3),
 				key = key,
 				itemSize = 44,
 				editing = editing,
-				columns = { { id = "label", label = "Label", width = 100 } },
-				rowActions = function(_, rowKey)
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
+				rowActions = function(
+					_,
+					rowKey: number
+				): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))?
 					if rowKey == 3 then
-						return { trailing = { { id = "Flag", label = "Flag" } } }
+						return { trailing = { { id = "Flag", label = "Flag" } :: FixtureCollectionTypes.RowAction } }
 					end
 					return {
 						trailing = {
 							{
 								id = "Remove",
 								label = "Remove row " .. rowKey,
-								role = "destructive",
+								role = "destructive" :: "destructive",
 								onActivate = function()
 									table.insert(deleted, rowKey)
 								end,
-							},
+							} :: FixtureCollectionTypes.RowAction,
 						},
 					}
 				end,
@@ -675,17 +704,22 @@ t.describe("native parity weaker rows", function()
 	end)
 
 	t.it("collections-168 wraps only table rows whose callback returns actions", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = records(4),
 				key = key,
 				itemSize = 44,
-				columns = { { id = "label", label = "Label", width = 100 } },
-				rowActions = function(_, rowKey)
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
+				rowActions = function(
+					_,
+					rowKey: number
+				): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))?
 					if rowKey % 2 == 0 then
 						return nil
 					end
-					return { trailing = { { id = "Save", label = "Save" } } }
+					return { trailing = { { id = "Save", label = "Save" } :: FixtureCollectionTypes.RowAction } }
 				end,
 			})
 		end)
@@ -711,38 +745,43 @@ t.describe("native parity weaker rows", function()
 
 	t.it("collections-11 reorders list rows by pointer both ways and leaves plain rows to native panning", function()
 		local requests = {}
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.VirtualList("Ordered")({
-					from = records(6),
-					key = key,
-					itemSize = 20,
-					reorderable = true,
-					onReorder = function(keys, slot)
-						table.insert(requests, { keys = keys, slot = slot })
-					end,
-					render = function(current)
-						return UI.Button("Action")({
-							label = function(use)
-								return use(current).label
-							end,
-						})
-					end,
-				}),
-				UI.VirtualList("Plain")({
-					from = records(6),
-					key = key,
-					itemSize = 20,
-					render = function(current)
-						return UI.Button("Action")({
-							label = function(use)
-								return use(current).label
-							end,
-						})
-					end,
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.VirtualList("Ordered")({
+						from = records(6),
+						key = key,
+						itemSize = 20,
+						reorderable = true,
+						onReorder = function(keys: { number }, slot: number)
+							table.insert(requests, { keys = keys, slot = slot })
+						end,
+						render = function(current): GuiObject
+							return UI.Button("Action")({
+								label = function(use: Use)
+									return use(current).label
+								end,
+							})
+						end,
+					}) :: unknown,
+					UI.VirtualList("Plain")({
+						from = records(6),
+						key = key,
+						itemSize = 20,
+						render = function(current): GuiObject
+							return UI.Button("Action")({
+								label = function(use: Use)
+									return use(current).label
+								end,
+							})
+						end,
+					}),
+				})
+			end
+		)
 		local ordered, plain = find(world.node, "Ordered"), find(world.node, "Plain")
 		ordered.AbsoluteWindowSize = V2(world, 200, 120)
 		plain.AbsoluteWindowSize = V2(world, 200, 120)
@@ -785,18 +824,20 @@ t.describe("native parity weaker rows", function()
 		function()
 			local requests = {}
 			local selected = Compose.cell({ [4] = true, [5] = true })
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Table({
 					from = records(5),
 					key = key,
 					itemSize = 20,
 					selection = selected,
-					selectionMode = "multiple",
+					selectionMode = "multiple" :: "multiple",
 					reorderable = true,
-					onReorder = function(keys, slot)
+					onReorder = function(keys: { number }, slot: number)
 						table.insert(requests, { keys = keys, slot = slot })
 					end,
-					columns = { { id = "label", label = "Label", width = 100 } },
+					columns = {
+						{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					},
 				})
 			end)
 			local body = find(world.node, "Body")
@@ -843,27 +884,36 @@ t.describe("native parity weaker rows", function()
 		"collections-145 cancels a table drag on focus loss or dismissal and gives non-reorderable tables no drag",
 		function()
 			local requests = {}
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					UI.Table("Ordered")({
-						from = records(5),
-						key = key,
-						itemSize = 20,
-						reorderable = true,
-						onReorder = function(keys, slot)
-							table.insert(requests, { keys = keys, slot = slot })
-						end,
-						columns = { { id = "label", label = "Label", width = 100 } },
-					}),
-					UI.Table("Fixed")({
-						from = records(5),
-						key = key,
-						itemSize = 20,
-						selection = Compose.cell({}),
-						columns = { { id = "label", label = "Label", width = 100 } },
-					}),
-				})
-			end)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Table("Ordered")({
+							from = records(5),
+							key = key,
+							itemSize = 20,
+							reorderable = true,
+							onReorder = function(keys: { number }, slot: number)
+								table.insert(requests, { keys = keys, slot = slot })
+							end,
+							columns = {
+								{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
+						}) :: unknown,
+						UI.Table("Fixed")({
+							from = records(5),
+							key = key,
+							itemSize = 20,
+							selection = Compose.cell({}),
+							columns = {
+								{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
+						}),
+					})
+				end
+			)
 			local body = find(find(world.node, "Ordered"), "Body")
 			body.AbsoluteWindowSize = V2(world, 200, 100)
 			local fixed = find(world.node, "Fixed")
@@ -874,7 +924,7 @@ t.describe("native parity weaker rows", function()
 				t.expect(node:IsA("UIDragDetector")).toBe(false)
 			end
 			local E = world.engine.types.Enum
-			local function begin(rowKey: number): any
+			local function begin(rowKey: number): (any, any)
 				local move = body:FindFirstChild(tostring(rowKey), true):FindFirstChild("Move", true)
 				local detector = move:FindFirstChildWhichIsA("UIDragDetector")
 				local pointer = {
@@ -912,40 +962,49 @@ t.describe("native parity weaker rows", function()
 		"collections-120 refuses unselectable rows in single mode, refuses pinned grabs and keeps absent predicates open",
 		function()
 			local single, requests = Compose.cell({}), {}
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					UI.Table("Guarded")({
-						from = records(4),
-						key = key,
-						itemSize = 20,
-						selection = single,
-						selectionMode = "single",
-						selectable = function(item)
-							return item.id ~= 2
-						end,
-						reorderable = true,
-						movable = function(item)
-							return item.id ~= 3
-						end,
-						onReorder = function(keys, slot)
-							table.insert(requests, { keys = keys, slot = slot })
-						end,
-						columns = { { id = "label", label = "Label", width = 100 } },
-					}),
-					UI.Table("Open")({
-						from = records(4),
-						key = key,
-						itemSize = 20,
-						selection = Compose.cell({}),
-						selectionMode = "multiple",
-						reorderable = true,
-						onReorder = function(keys, slot)
-							table.insert(requests, { keys = keys, slot = slot, open = true })
-						end,
-						columns = { { id = "label", label = "Label", width = 100 } },
-					}),
-				})
-			end)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Table("Guarded")({
+							from = records(4),
+							key = key,
+							itemSize = 20,
+							selection = single,
+							selectionMode = "single" :: "single",
+							selectable = function(item)
+								return item.id ~= 2
+							end,
+							reorderable = true,
+							movable = function(item)
+								return item.id ~= 3
+							end,
+							onReorder = function(keys: { number }, slot: number)
+								table.insert(requests, { keys = keys, slot = slot })
+							end,
+							columns = {
+								{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
+						}) :: unknown,
+						UI.Table("Open")({
+							from = records(4),
+							key = key,
+							itemSize = 20,
+							selection = Compose.cell({}),
+							selectionMode = "multiple" :: "multiple",
+							reorderable = true,
+							onReorder = function(keys: { number }, slot: number)
+								table.insert(requests, { keys = keys, slot = slot, open = true })
+							end,
+							columns = {
+								{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
+						}),
+					})
+				end
+			)
 			local guarded, openTable = find(find(world.node, "Guarded"), "Body"), find(find(world.node, "Open"), "Body")
 			guarded.AbsoluteWindowSize = V2(world, 200, 100)
 			openTable.AbsoluteWindowSize = V2(world, 200, 100)
@@ -994,32 +1053,34 @@ t.describe("native parity weaker rows", function()
 							{
 								id = "Delete",
 								label = "Delete",
-								role = "destructive",
-								enabled = function(use)
+								role = "destructive" :: "destructive",
+								enabled = function(use: Use)
 									return use(current).id ~= 2
 								end,
 								onActivate = function()
 									table.insert(deleted, rowKey)
 								end,
-							},
+							} :: FixtureCollectionTypes.RowAction,
 							{
 								id = "Flag",
 								label = "Flag",
 								onActivate = function()
 									table.insert(flagged, rowKey)
 								end,
-							},
+							} :: FixtureCollectionTypes.RowAction,
 						},
 					}
 				end
-				local world = setup(function(UI)
+				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					if host == "table" then
 						return UI.Table({
 							from = records(4),
 							key = key,
 							itemSize = 44,
 							editing = editing,
-							columns = { { id = "label", label = "Label", width = 100 } },
+							columns = {
+								{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
 							rowActions = actionsFor,
 						})
 					end
@@ -1028,7 +1089,7 @@ t.describe("native parity weaker rows", function()
 						key = key,
 						itemSize = 44,
 						selection = Compose.cell({}),
-						render = function(current, _, rowKey)
+						render = function(current, _, rowKey): GuiObject
 							local spec = actionsFor(current, rowKey)
 							spec.editing = editing
 							spec.content = UI.Button("Action")({ label = tostring(rowKey) })
@@ -1085,14 +1146,17 @@ t.describe("native parity weaker rows", function()
 
 	t.it("collections-116 refuses locked selection, pinned movement and protected deletion in the run sheet", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local target = engine.new("Folder")
 		local guiService = engine.new("GuiService")
 		local ctx = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 			types = engine.types,
 			guiService = guiService,
 			UI = Facet.controls(
@@ -1107,7 +1171,7 @@ t.describe("native parity weaker rows", function()
 			),
 		}
 		local built
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			built = require("../examples/gallery/scenarios/row_capabilities").build(ctx)
 			return built.screen()
 		end, target)
@@ -1174,16 +1238,16 @@ t.describe("native parity weaker rows", function()
 				{ id = 4, label = "4", armed = true },
 			})
 			local invoked = {}
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 44,
-					render = function(current, _, rowKey)
+					render = function(current, _, rowKey): GuiObject
 						return UI.RowActions({
 							coordinator = coordinator,
-							content = UI.Button("Action")({ label = tostring(rowKey) }),
-							trailing = function(use)
+							content = UI.Button("Action")({ label = tostring(rowKey) }) :: GuiObject,
+							trailing = function(use: Use)
 								if not use(current).armed then
 									return {}
 								end
@@ -1191,7 +1255,7 @@ t.describe("native parity weaker rows", function()
 									{
 										id = "Delete",
 										label = "Delete",
-										role = "destructive",
+										role = "destructive" :: "destructive",
 										onActivate = function()
 											table.insert(invoked, rowKey)
 										end,
@@ -1278,18 +1342,18 @@ t.describe("native parity weaker rows", function()
 
 	t.it("collections-281 keeps a model-owned open row slid when virtualization remounts it", function()
 		local opens: { [number]: any } = {}
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VirtualList({
 				from = records(30),
 				key = key,
 				itemSize = 44,
 				overscan = 0,
-				render = function(_, _, rowKey)
+				render = function(_, _, rowKey): GuiObject
 					opens[rowKey] = opens[rowKey] or Compose.cell(nil :: string?)
 					return UI.RowActions({
 						open = opens[rowKey],
-						content = UI.Button("Action")({ label = tostring(rowKey) }),
-						trailing = { { id = "Save", label = "Save" } },
+						content = UI.Button("Action")({ label = tostring(rowKey) }) :: GuiObject,
+						trailing = { { id = "Save", label = "Save" } :: FixtureCollectionTypes.RowAction },
 					})
 				end,
 			})
@@ -1321,20 +1385,20 @@ t.describe("native parity weaker rows", function()
 			local coordinator = Compose.cell(nil :: any)
 			local source = Compose.cell(records(3))
 			local invoked, keep = {}, true
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 44,
-					render = function(_, _, rowKey)
+					render = function(_, _, rowKey): GuiObject
 						return UI.RowActions({
 							coordinator = coordinator,
-							content = UI.Button("Action")({ label = tostring(rowKey) }),
+							content = UI.Button("Action")({ label = tostring(rowKey) }) :: GuiObject,
 							trailing = {
 								{
 									id = "Remove",
 									label = "Remove",
-									role = "destructive",
+									role = "destructive" :: "destructive",
 									onActivate = function()
 										table.insert(invoked, rowKey)
 										if not keep then
@@ -1347,7 +1411,7 @@ t.describe("native parity weaker rows", function()
 											source:set(rest)
 										end
 									end,
-								},
+								} :: FixtureCollectionTypes.RowAction,
 							},
 						})
 					end,
@@ -1426,7 +1490,7 @@ t.describe("native parity weaker rows", function()
 
 	t.it("inputs-58 removes a remove-only token once through every input, and never while disabled", function()
 		local calls, enabled = 0, Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Chip("Token")({
 				label = "Rain",
 				removeLabel = "Remove Rain",
@@ -1636,7 +1700,8 @@ t.describe("native parity weaker rows", function()
 
 	t.it("apps2-265 grows the streamed reply, swipes a message away and clears from the conversation menu", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -1654,7 +1719,7 @@ t.describe("native parity weaker rows", function()
 				services = { GuiService = gui, UserInputService = input },
 				motionLevel = "none",
 			})
-			local _, chat = runtime.mount(views.Chat, target)
+			local _, chat: any = runtime.mount(views.Chat, target)
 			local send = find(chat, "Send")
 			model.chat.draft:set("What game should I play with friends?")
 			send.Activated.fire()

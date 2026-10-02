@@ -10,11 +10,16 @@ local engineLib = require("./lib/native_engine")
 
 local function newContext(): (any, () -> ())
 	local engine = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local ctx: any
 	local stop = runtime.mount(function()
 		ctx = context(Compose, runtime, { types = engine.types, services = {} })
-		return runtime.constructors.Folder({})
+		return (
+			(
+				runtime.constructors.Folder :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Folder)
+		)({})
 	end, engine.new("Folder"))
 	return ctx, function()
 		stop()
@@ -106,8 +111,8 @@ local function scan(source: string, pattern: string, each: (number, ...string) -
 		if found[1] == nil then
 			return
 		end
-		each(found[1], table.unpack(found, 3))
-		init = found[2] + 1
+		each(assert(found[1]), table.unpack(found, 3) :: any)
+		init = assert(found[2]) + 1
 	end
 end
 

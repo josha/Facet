@@ -1,5 +1,5 @@
 --!strict
-local MEASURED = {
+local MEASURED: { [string]: { number } } = {
 	RoundsRow = { 148, 44 },
 	RoundsColumn = { 44, 148 },
 	TasksFull = { 225, 124 },

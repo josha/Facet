@@ -1,20 +1,25 @@
 --!strict
 
+export type Message = { id: number, role: "user" | "assistant", content: string }
 local chat = {}
 
-function chat.new(Compose: any)
-	local messages = Compose.cell({})
+function chat.new(Compose: typeof(require("@repo/src/vendor/compose/core")))
+	local messages = Compose.cell({} :: { Message })
 	local draft = Compose.cell("")
 	local streaming = Compose.cell(false)
-	local active = Compose.cell(nil)
-	local feedback = Compose.cell({})
+	local active = (function(
+		value: number?
+	): typeof(require("@repo/tools/typecheck/example_shapes").optionalNumber(nil :: any))
+		return Compose.cell(value)
+	end)(nil)
+	local feedback = Compose.cell({} :: { [number]: string? })
 	local completed = Compose.cell(0)
 
 	local streamedChars, totalChars = Compose.cell(0), Compose.cell(0)
 	local serial, elapsed, cursor = 0, 0, 0
-	local response, activeId = "", nil
+	local response, activeId = "", nil :: number | nil
 	local disposed = false
-	local function append(role, content)
+	local function append(role: "user" | "assistant", content: string)
 		serial += 1
 		local id = serial
 		messages:update(function(current)
@@ -24,7 +29,7 @@ function chat.new(Compose: any)
 		end)
 		return id
 	end
-	local function reply(prompt)
+	local function reply(prompt: string)
 		local lower = string.lower(prompt)
 		if string.find(lower, "build", 1, true) or string.find(lower, "code", 1, true) then
 			return "Try a small co-op world with one shared goal: restore an abandoned rooftop garden.\n\nPlayers can explore for seeds, build paths, and unlock new areas together. Start with one garden and three plants so the first session feels complete.\n\nWould you like to plan the world or the first few minutes of play?"
@@ -45,7 +50,7 @@ function chat.new(Compose: any)
 		streamedChars:set(0)
 		totalChars:set(0)
 	end
-	local function remove(id)
+	local function remove(id: number)
 		if id == activeId then
 			stop()
 		end
@@ -63,7 +68,7 @@ function chat.new(Compose: any)
 		end)
 		return removed, at
 	end
-	local function restore(message, index)
+	local function restore(message: Message, index: number)
 		messages:update(function(current)
 			for _, item in current do
 				if item.id == message.id then
@@ -83,7 +88,7 @@ function chat.new(Compose: any)
 		if disposed or streaming:peek() then
 			return false
 		end
-		local prompt = draft:peek():match("^%s*(.-)%s*$")
+		local prompt = assert(draft:peek():match("^%s*(.-)%s*$"))
 		if prompt == "" then
 			return false
 		end
@@ -100,7 +105,7 @@ function chat.new(Compose: any)
 		end
 		return true
 	end
-	local function retry(id)
+	local function retry(id: number)
 		if disposed then
 			return false
 		end
@@ -143,7 +148,7 @@ function chat.new(Compose: any)
 		streaming:set(true)
 		return true
 	end
-	local function edit(id)
+	local function edit(id: number)
 		local list = messages:peek()
 		for index, item in list do
 			if item.id == id and item.role == "user" then
@@ -155,14 +160,14 @@ function chat.new(Compose: any)
 		end
 		return false
 	end
-	local function rate(id, value)
+	local function rate(id: number, value: string)
 		feedback:update(function(current)
 			local nextFeedback = table.clone(current)
 			nextFeedback[id] = if value == "none" or nextFeedback[id] == value then nil else value
 			return nextFeedback
 		end)
 	end
-	local function step(dt)
+	local function step(dt: number)
 		if disposed or activeId == nil or dt <= 0 then
 			return
 		end

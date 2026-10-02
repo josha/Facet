@@ -1,11 +1,12 @@
 --!strict
+local requireDynamic = require :: (any) -> any
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local scaffold = require("../tools/lune/scaffold")
-local function registrations(path, found)
+local function registrations(path: string, found: { [string]: string })
 	for _, name in fs.readDir(path) do
 		local full = path .. "/" .. name
 		if fs.isDir(full) then
@@ -22,16 +23,17 @@ end
 t.describe("native registration and package contract", function()
 	t.it("registers every authored control and documents every public constructor", function()
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
-		local found = {}
+		local found: { [string]: string } = {}
 		registrations("src/ui", found)
 		local reference = fs.readFile("docs/reference/api.md")
 		for name in found do
 			t.expect(type(UI[name])).toBe("function")
-			t.expect(string.find(reference, name, 1, true) ~= nil).toBe(true)
+			t.expect(string.find(reference, tostring(name), 1, true) ~= nil).toBe(true)
 		end
-		for name, constructor in UI do
+		for name, constructor in (UI :: unknown) :: { [string]: unknown } do
 			t.expect(found[name] ~= nil).toBe(true)
 			t.expect(type(constructor)).toBe("function")
 		end
@@ -65,21 +67,22 @@ t.describe("native registration and package contract", function()
 				require = function(path)
 					return if path == "@self/proof_control"
 						then generated
-						else require("../src/ui/" .. string.sub(path, 7))
+						else requireDynamic("../src/ui/" .. string.sub(path, 7))
 				end,
 			},
 		})()
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local UI = createControls(Facet.Compose, runtime, { types = engine.types })
 		t.expect(table.isfrozen(UI)).toBe(true)
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.ProofControl "Proof" { Size = engine.types.UDim2.fromOffset(60, 40) }
 		end, engine.new("Folder"))
 		t.expect(node.ClassName).toBe("Frame")
 		t.expect(node.Name).toBe("Proof")
 		t.expect(node.Size.X.Offset).toBe(60)
-		local stopNamed, named = runtime.mount(function()
+		local stopNamed, named: any = runtime.mount(function()
 			return UI.ProofControl("Named")({ Size = engine.types.UDim2.fromOffset(20, 30) })
 		end, engine.new("Folder"))
 		t.expect(named.Name).toBe("Named")
@@ -87,7 +90,7 @@ t.describe("native registration and package contract", function()
 		stop()
 		t.expect(node.isDestroyed()).toBe(true)
 		runtime:dispose()
-		for _, kind in { "primitive", "target", "mode" } do
+		for _, kind in { "primitive", "target", "mode" } :: { "mode" | "primitive" | "target" } do
 			t.expect(pcall(scaffold.plan, kind, "proof")).toBe(false)
 		end
 	end)

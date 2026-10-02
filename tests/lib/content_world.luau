@@ -34,7 +34,8 @@ end
 
 local function new(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -52,8 +53,10 @@ local function new(build: (any, any, any) -> any, options: { [string]: any }?): 
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
 	local world: World
@@ -104,11 +107,14 @@ end
 
 local function mountError(build: (any, any) -> any): string?
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
-	local Host = runtime.constructors
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local ok, message = pcall(function()
 		local stop = runtime.mount(function()
 			return Host.ScreenGui({ build(UI, Host) })

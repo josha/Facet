@@ -35,8 +35,9 @@ t.describe("native documentation", function()
 				return
 			end
 			local engine = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
-			local Compose, Host = Facet.Compose, runtime.constructors
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
+			local Compose: typeof(require("@repo/src/vendor/compose/core")), Host = Facet.Compose, runtime.constructors
 			local UI = Facet.controls(runtime, { types = engine.types })
 			local facade = table.clone(Facet)
 			facade.Roblox = table.clone(Facet.Roblox)
@@ -46,7 +47,7 @@ t.describe("native documentation", function()
 			end
 			facade.controls = function(rt, opt)
 				opt = table.clone(opt or {})
-				opt.types = engine.types
+				assert(opt).types = engine.types
 				return Facet.controls(rt, opt)
 			end
 			facade.bind = function(core, roblox)
@@ -56,20 +57,20 @@ t.describe("native documentation", function()
 			local playerGui = engine.new("PlayerGui")
 			facade.app = function(opt)
 				opt = table.clone(opt or {})
-				opt.runtime = opt.runtime or runtime
-				opt.types = engine.types
-				opt.parent = opt.parent or playerGui
+				assert(opt).runtime = assert(opt).runtime or runtime
+				assert(opt).types = engine.types
+				assert(opt).parent = assert(opt).parent or playerGui
 				return Facet.app(opt)
 			end
 			local sheets = {}
 			facade.themes.createStyleSheet = function(rt, pkg, opt)
 				opt = table.clone(opt or {})
-				opt.types = engine.types
+				assert(opt).types = engine.types
 				local sheet = Facet.themes.createStyleSheet(rt, pkg, opt)
 				table.insert(sheets, sheet)
 				return sheet
 			end
-			local env = table.clone(engine.types)
+			local env: { [string]: any } = (table.clone(engine.types) :: unknown) :: { [string]: any }
 			for key, value in
 				{
 					Facet = facade,
@@ -86,7 +87,7 @@ t.describe("native documentation", function()
 					productId = "test",
 				}
 			do
-				env[key] = value
+				env[tostring(key)] = value
 			end
 			local noop = function() end
 			for _, key in

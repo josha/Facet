@@ -1,3 +1,4 @@
+--!strict
 local names = {
 	"action_controls",
 	"adaptive_controls",

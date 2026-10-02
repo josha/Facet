@@ -2,7 +2,15 @@
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -112,8 +120,8 @@ local function visitedNames(value: any): { string }
 end
 
 local function traversals(): { Instance }
-	local out = {}
-	for _, node in Players.LocalPlayer.PlayerGui:GetChildren() do
+	local out: { Instance } = {}
+	for _, node in (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):GetChildren() do
 		if node:IsA("InputContext") and node.Name == "FacetTraversal" then
 			table.insert(out, node)
 		end
@@ -197,11 +205,19 @@ end
 
 local function scenario(t: any, name: string, size: any, options: { [string]: any }?): (any, any)
 	local built
-	local config = options or {}
-	local stage = t.mount(function(UI, Host, Compose, env)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
-	end, { size = size, theme = config.theme, frames = config.frames or 20 })
+	local config: { [string]: any } = options or {}
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+			return if type(built) == "function" then built() else built.screen()
+		end,
+		{ size = size, theme = config.theme, frames = config.frames or 20 }
+	)
 	return stage, built
 end
 
@@ -211,13 +227,13 @@ end
 
 interactive("chrome-strips-dpad", { "apps-151" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.Screen "Page" {
 			gap = "m",
-			UI.HStack "Bar" { gap = "s", button(UI, "Left"), button(UI, "Right") },
+			UI.HStack "Bar" { gap = "s", button(UI, "Left") :: unknown, button(UI, "Right") } :: unknown,
 			button(UI, "A", "Content A"),
 			button(UI, "B", "Content B"),
-			UI.HStack "Foot" { gap = "s", button(UI, "FootLeft", "Left"), button(UI, "FootRight", "Right") },
+			UI.HStack "Foot" { gap = "s", button(UI, "FootLeft", "Left") :: unknown, button(UI, "FootRight", "Right") },
 		}
 	end, { size = Vector2.new(900, 600), frames = 12 })
 	value.stage = stage
@@ -256,7 +272,7 @@ end, {
 
 add("tab-scrolls-host-to-selection", { "apps-161" }, function(t)
 	local before = traversals()
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		local rows = {}
 		for index = 1, 12 do
 			rows[index] = UI.Button({
@@ -267,7 +283,7 @@ add("tab-scrolls-host-to-selection", { "apps-161" }, function(t)
 			})
 		end
 		return UI.Screen "S" {
-			UI.ScrollView "List" { height = 160, width = 300, table.unpack(rows) },
+			UI.ScrollView "List" { height = 160, width = 300, table.unpack((rows :: unknown) :: { unknown }) },
 		}
 	end, { size = Vector2.new(400, 300), frames = 12 })
 	local action = newTraversal(before)
@@ -300,19 +316,26 @@ add("tab-scrolls-host-to-selection", { "apps-161" }, function(t)
 end)
 
 add("slider-selection-ring-on-track", { "apps-166" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.Screen "S" {
-			UI.Button "Before" { label = "Before" },
-			UI.Slider "Vol" {
-				label = "Volume",
-				value = Compose.cell(0.5),
-				min = 0,
-				max = 1,
-				step = 0.1,
-				Size = UDim2.fromOffset(360, 0),
-			},
-		}
-	end, { size = Vector2.new(600, 300), frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.Screen "S" {
+				UI.Button "Before" { label = "Before" } :: unknown,
+				UI.Slider "Vol" {
+					label = "Volume",
+					value = Compose.cell(0.5),
+					min = 0,
+					max = 1,
+					step = 0.1,
+					Size = UDim2.fromOffset(360, 0),
+				},
+			}
+		end,
+		{ size = Vector2.new(600, 300), frames = 12 }
+	)
 	local track, thumb, before = t.find(stage, "Track"), t.find(stage, "Thumb"), t.find(stage, "Before")
 	t.check("the slider has a track and a thumb", track ~= nil and thumb ~= nil)
 	if not (track and thumb) then
@@ -330,7 +353,7 @@ add("slider-selection-ring-on-track", { "apps-166" }, function(t)
 	local custom = {}
 	local at: Instance? = track
 	while at do
-		if at:IsA("GuiObject") and at.SelectionImageObject ~= nil then
+		if at:IsA("GuiObject") and (at.SelectionImageObject :: GuiObject?) ~= nil then
 			table.insert(custom, at.Name)
 		end
 		at = at.Parent
@@ -387,19 +410,26 @@ end, {
 
 interactive("slider-between-controls-by-arrows", { "apps-192" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.Screen "S" {
-			UI.HStack "VolumeRow" { gap = "s", button(UI, "Volume"), button(UI, "Mute") },
-			UI.Slider "Brightness" {
-				label = "Brightness",
-				value = Compose.cell(40),
-				min = 0,
-				max = 100,
-				Size = UDim2.fromOffset(400, 0),
-			},
-			UI.HStack "QualityRow" { gap = "s", button(UI, "Quality"), button(UI, "Apply") },
-		}
-	end, { size = Vector2.new(700, 400), frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.Screen "S" {
+				UI.HStack "VolumeRow" { gap = "s", button(UI, "Volume") :: unknown, button(UI, "Mute") } :: unknown,
+				UI.Slider "Brightness" {
+					label = "Brightness",
+					value = Compose.cell(40),
+					min = 0,
+					max = 100,
+					Size = UDim2.fromOffset(400, 0),
+				},
+				UI.HStack "QualityRow" { gap = "s", button(UI, "Quality") :: unknown, button(UI, "Apply") },
+			}
+		end,
+		{ size = Vector2.new(700, 400), frames = 12 }
+	)
 	value.stage = stage
 	local track, volume = t.find(stage, "Track"), t.find(stage, "Volume")
 	t.note("track x range", { track.AbsolutePosition.X, track.AbsolutePosition.X + track.AbsoluteSize.X })
@@ -510,13 +540,13 @@ local function hudDpad(size: Vector2)
 end
 
 local hudSteps = {
-	afterWalk = function(t, value)
+	afterWalk = function(t: any, value: any)
 		local names = visitedNames(value)
 		t.note("arrow visits", names)
 		t.check("the arrows reach the HUD actions trigger", table.find(names, "HudActionsTrigger") ~= nil, names)
 		t.check("the trigger holds the selection", selectedName() == "HudActionsTrigger", selectedName())
 	end,
-	afterOpen = function(t, value)
+	afterOpen = function(t: any, value: any)
 		local selected = GuiService.SelectedObject
 		t.note("selected after Return", selectedName())
 		t.check(
@@ -526,7 +556,7 @@ local hudSteps = {
 			selectedName()
 		)
 	end,
-	afterPick = function(t, value)
+	afterPick = function(t: any, value: any)
 		value.connection:Disconnect()
 		t.check(
 			"Return on the first row takes damage",
@@ -547,7 +577,7 @@ local function formScreen(UI: any, Compose: any): any
 	return UI.Screen "S" {
 		UI.ScrollView "Form" {
 			gap = "s",
-			UI.Text "Heading" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
+			UI.Text "Heading" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) } :: unknown,
 			UI.TextInput "Name" { value = Compose.cell(""), placeholder = PSEUDO, Size = UDim2.new(1, 0, 0, 44) },
 			UI.Slider "Volume" { label = PSEUDO, value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 },
 			UI.TextInput "Email" {
@@ -571,8 +601,8 @@ local function formScreen(UI: any, Compose: any): any
 			UI.HStack "Actions" {
 				gap = "s",
 				wrap = true,
-				width = "fill",
-				UI.Button "Save" { label = PSEUDO_ACTION, TextWrapped = true },
+				width = "fill" :: "fill",
+				UI.Button "Save" { label = PSEUDO_ACTION, TextWrapped = true } :: unknown,
 				UI.Button "Later" { label = PSEUDO_SECONDARY, TextWrapped = true },
 			},
 		},
@@ -587,9 +617,16 @@ add("form-reflows-then-scrolls", { "apps-249" }, function(t)
 			local previous, window = 0, nil
 			for _, offset in OFFSETS do
 				local where = `{viewport.X}x{viewport.Y} {themeName} +{offset}`
-				local stage = t.mount(function(UI, _, Compose)
-					return formScreen(UI, Compose)
-				end, { size = viewport, theme = grown(t, base, offset), frames = 16 })
+				local stage = t.mount(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						_,
+						Compose: typeof(require("@repo/src/vendor/compose/core"))
+					)
+						return formScreen(UI, Compose)
+					end,
+					{ size = viewport, theme = grown(t, base, offset), frames = 16 }
+				)
 				local form = t.find(stage, "Form")
 				t.stable(t.find(stage, "Later"))
 				local found = t.offenders(stage, stage)
@@ -645,14 +682,21 @@ add("form-geometry-identical-under-reduced-motion", { "apps-249" }, function(t)
 			local package = grown(t, themeNamed(t, "Neutral"), offset)
 			local shapes = {}
 			for _, reduced in { false, true } do
-				local stage = t.mount(function(UI, _, Compose)
-					return formScreen(UI, Compose)
-				end, {
-					size = viewport,
-					theme = package,
-					motionLevel = if reduced then "none" else "normal",
-					frames = 16,
-				})
+				local stage = t.mount(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						_,
+						Compose: typeof(require("@repo/src/vendor/compose/core"))
+					)
+						return formScreen(UI, Compose)
+					end,
+					{
+						size = viewport,
+						theme = package,
+						motionLevel = if reduced then "none" else "normal",
+						frames = 16,
+					}
+				)
 				t.stable(t.find(stage, "Later"))
 				t.settle(30)
 				local lines = {}
@@ -690,7 +734,7 @@ add("action-label-wraps-before-truncating", { "apps-255" }, function(t)
 		local last = 0
 		for _, offset in OFFSETS do
 			local where = `{themeName} +{offset}`
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Screen "S" {
 					UI.Button "Go" {
 						label = PSEUDO_ACTION,
@@ -728,7 +772,7 @@ add("fixed-px-action-draws-compact-form", { "apps-255" }, function(t)
 	local clipped = {}
 	local once = false
 	for _, offset in OFFSETS do
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen "S" {
 				UI.Button "Save" {
 					label = PSEUDO_ACTION,
@@ -761,11 +805,11 @@ add("mixed-script-lines-grow-monotonically", { "apps-255" }, function(t)
 		local previous = {}
 		for _, offset in OFFSETS do
 			local where = `{themeName} +{offset}`
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				local function line(name: string, text: string): any
 					return UI.Text(name)({ text = text, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) })
 				end
-				return UI.Screen "S" { line("Cjk", CJK), line("Emoji", EMOJI), line("Mixed", MIXED) }
+				return UI.Screen "S" { line("Cjk", CJK) :: unknown, line("Emoji", EMOJI), line("Mixed", MIXED) }
 			end, { size = Vector2.new(390, 844), theme = grown(t, base, offset), frames = 12 })
 			t.settle(6)
 			local found = t.offenders(stage, stage)
@@ -798,7 +842,7 @@ add("mixed-script-lines-grow-monotonically", { "apps-255" }, function(t)
 	for _, themeName in { "Neutral", "fantasy_parchment" } do
 		local heights = {}
 		for _, offset in { 0, 14 } do
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Screen "S" {
 					UI.Text "Line" { text = MIXED, TextWrapped = true, Size = UDim2.fromOffset(300, 0) },
 				}
@@ -836,10 +880,10 @@ end
 
 add("role-fills-win-at-rest", { "inputs-31" }, function(t)
 	for _, entry in shipped(t) do
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Screen "S" {
-				UI.Button "Delete" { label = "Delete", role = "destructive" },
-				UI.Button "Cancel" { label = "Cancel", role = "cancel" },
+				UI.Button "Delete" { label = "Delete", role = "destructive" :: "destructive" } :: unknown,
+				UI.Button "Cancel" { label = "Cancel", role = "cancel" :: "cancel" },
 				UI.Button "Plain" { label = "Plain" },
 			}
 		end, { size = Vector2.new(400, 300), theme = entry.package, frames = 10 })
@@ -884,18 +928,29 @@ end)
 
 add("circle-corner-wins-in-every-package", { "inputs-46" }, function(t)
 	for _, entry in shipped(t) do
-		local stage = t.mount(function(UI, _, Compose)
-			return UI.Screen "S" {
-				gap = "s",
-				UI.Button "Plain" { label = "x", shape = "circle" },
-				UI.Button "Danger" { label = "x", shape = "circle", role = "destructive" },
-				UI.Button "Picked" { label = "x", shape = "circle", selected = Compose.cell(true) },
-				UI.Button "Soft" { label = "x", shape = "circle", appearance = "soft" },
-				UI.Button "Strong" { label = "x", shape = "circle", appearance = "emphasis" },
-				UI.Button "Icon" { label = "Close", icon = "close", shape = "circle" },
-				UI.Button "Rect" { label = "Save" },
-			}
-		end, { size = Vector2.new(400, 600), theme = entry.package, frames = 10 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Screen "S" {
+					gap = "s",
+					UI.Button "Plain" { label = "x", shape = "circle" :: "circle" } :: unknown,
+					UI.Button "Danger" {
+						label = "x",
+						shape = "circle" :: "circle",
+						role = "destructive" :: "destructive",
+					},
+					UI.Button "Picked" { label = "x", shape = "circle" :: "circle", selected = Compose.cell(true) },
+					UI.Button "Soft" { label = "x", shape = "circle" :: "circle", appearance = "soft" },
+					UI.Button "Strong" { label = "x", shape = "circle" :: "circle", appearance = "emphasis" },
+					UI.Button "Icon" { label = "Close", icon = "close", shape = "circle" :: "circle" },
+					UI.Button "Rect" { label = "Save" },
+				}
+			end,
+			{ size = Vector2.new(400, 600), theme = entry.package, frames = 10 }
+		)
 		for _, name in { "Plain", "Danger", "Picked", "Soft", "Strong", "Icon" } do
 			local node = t.find(stage, name)
 			local corners = {}
@@ -924,7 +979,7 @@ add("compact-label-ladder-every-package", { "inputs-69" }, function(t)
 	for _, entry in shipped(t) do
 		local heights = {}
 		for _, width in { 400, 44 } do
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Screen "S" {
 					UI.Button "Edit" {
 						label = "Edit item",
@@ -955,13 +1010,20 @@ end)
 
 add("level-picker-strip-target", { "inputs-116" }, function(t)
 	for _, entry in shipped(t) do
-		local stage = t.mount(function(UI, _, Compose)
-			return UI.Screen "S" {
-				UI.LevelPicker "Bars" { value = Compose.cell(3), count = 10 },
-				UI.LevelPicker "Glyphs" { value = Compose.cell(2), count = 5, segment = "glyph" },
-				UI.Rating "Stars" { value = Compose.cell(3) },
-			}
-		end, { size = Vector2.new(600, 400), theme = entry.package, frames = 10 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Screen "S" {
+					UI.LevelPicker "Bars" { value = Compose.cell(3), count = 10 } :: unknown,
+					UI.LevelPicker "Glyphs" { value = Compose.cell(2), count = 5, segment = "glyph" :: "glyph" },
+					UI.Rating "Stars" { value = Compose.cell(3) },
+				}
+			end,
+			{ size = Vector2.new(600, 400), theme = entry.package, frames = 10 }
+		)
 		for _, name in { "Bars", "Glyphs", "Stars" } do
 			local node = t.find(stage, name)
 			t.check(`{entry.name} {name} strip is at least 44 px tall`, node.AbsoluteSize.Y >= 43.5, node.AbsoluteSize)
@@ -1014,18 +1076,25 @@ add("level-picker-showcase-marks-have-area", { "inputs-121" }, function(t)
 		end
 		t.cleanup()
 	end
-	local stage = t.mount(function(UI, _, Compose)
-		local value = Compose.cell(2)
-		return UI.Screen "S" {
-			UI.HStack "Pair" {
-				gap = 8,
-				align = "center",
-				width = "fill",
-				UI.LevelPicker "Quality" { value = value, count = 10 },
-				UI.Stepper "QualityStep" { value = value, min = 0, max = 10 },
-			},
-		}
-	end, { size = Vector2.new(600, 300), frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			local value = Compose.cell(2)
+			return UI.Screen "S" {
+				UI.HStack "Pair" {
+					gap = 8,
+					align = "center" :: "center",
+					width = "fill" :: "fill",
+					UI.LevelPicker "Quality" { value = value, count = 10 } :: unknown,
+					UI.Stepper "QualityStep" { value = value, min = 0, max = 10 },
+				},
+			}
+		end,
+		{ size = Vector2.new(600, 300), frames = 12 }
+	)
 	for index = 1, 10 do
 		local mark = t.find(t.find(stage, "Quality"), "Level" .. index)
 		t.check(`beside a stepper Level{index} has area`, mark and mark.AbsoluteSize.X * mark.AbsoluteSize.Y > 0)
@@ -1034,20 +1103,27 @@ end)
 
 add("rating-fits-a-table-cell", { "inputs-159" }, function(t)
 	for _, entry in shipped(t) do
-		local stage = t.mount(function(UI, Host, Compose)
-			return UI.Screen "S" {
-				Host.Frame "Cell" {
-					Size = UDim2.fromOffset(132, 48),
-					BackgroundTransparency = 1,
-					UI.Rating "Fill" { value = Compose.cell(3), Size = UDim2.fromScale(1, 1) },
-				},
-				Host.Frame "Plain" {
-					Size = UDim2.fromOffset(132, 48),
-					BackgroundTransparency = 1,
-					UI.Rating "Hug" { value = Compose.cell(3) },
-				},
-			}
-		end, { size = Vector2.new(400, 300), theme = entry.package, frames = 10 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Screen "S" {
+					Host.Frame "Cell" {
+						Size = UDim2.fromOffset(132, 48),
+						BackgroundTransparency = 1,
+						UI.Rating "Fill" { value = Compose.cell(3), Size = UDim2.fromScale(1, 1) },
+					} :: unknown,
+					Host.Frame "Plain" {
+						Size = UDim2.fromOffset(132, 48),
+						BackgroundTransparency = 1,
+						UI.Rating "Hug" { value = Compose.cell(3) },
+					},
+				}
+			end,
+			{ size = Vector2.new(400, 300), theme = entry.package, frames = 10 }
+		)
 		local cell = t.rect(t.find(stage, "Cell"))
 		local fill = t.find(stage, "Fill")
 		local s1, s2, s5 =
@@ -1088,7 +1164,7 @@ add("shortcut-hint-key-cap-anatomy", { "inputs-175" }, function(t)
 	for _, entry in shipped(t) do
 		for _, offset in { 0, 14 } do
 			local where = `{entry.name} +{offset}`
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Screen "S" { UI.ShortcutHint "Hint" { keys = { { "K" } } } }
 			end, { size = Vector2.new(400, 300), theme = grown(t, entry.package, offset), frames = 10 })
 			local cap = t.find(stage, "Hint")
@@ -1124,16 +1200,23 @@ end)
 add("clear-button-trailing-and-centred", { "inputs-187" }, function(t)
 	for _, framed in { false, true } do
 		local where = if framed then "field chrome" else "bare field"
-		local stage = t.mount(function(UI, _, Compose)
-			return UI.Screen "S" {
-				UI.TextInput "Name" {
-					value = Compose.cell("typed"),
-					clearButton = true,
-					label = if framed then "Name" else nil,
-					Size = if framed then UDim2.fromOffset(300, 0) else UDim2.fromOffset(300, 44),
-				},
-			}
-		end, { size = Vector2.new(400, 300), frames = 12 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Screen "S" {
+					UI.TextInput "Name" {
+						value = Compose.cell("typed"),
+						clearButton = true,
+						label = if framed then "Name" else nil,
+						Size = if framed then UDim2.fromOffset(300, 0) else UDim2.fromOffset(300, 44),
+					},
+				}
+			end,
+			{ size = Vector2.new(400, 300), frames = 12 }
+		)
 		local clear = t.find(stage, "Clear")
 		local field = if framed then t.find(stage, "Input") else t.find(stage, "Name")
 		t.check(`{where} the clear button shows`, clear ~= nil and t.visible(clear))
@@ -1154,7 +1237,7 @@ end)
 add("slider-rest-idle-resize-clearance", { "inputs-220" }, function(t)
 	local width = t.Facet.Compose.cell(Vector2.new(360, 200))
 	local value = t.Facet.Compose.cell(50)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.Screen "S" {
 			padding = 0,
 			UI.Slider "Vol" { label = "Vol", value = value, min = 0, max = 100, Size = UDim2.fromScale(1, 0) },
@@ -1206,7 +1289,7 @@ add("slider-rest-idle-resize-clearance", { "inputs-220" }, function(t)
 	t.note("label to thumb gap at value 0", gap)
 	t.cleanup()
 	local steps = t.Facet.Compose.cell(9)
-	local stepperStage = t.mount(function(UI)
+	local stepperStage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.Screen "S" { UI.Stepper "Qty" { label = "Volume", value = steps, min = 0, max = 100, step = 1 } }
 	end, { size = Vector2.new(400, 200), frames = 12 })
 	local readout = t.find(t.find(stepperStage, "Qty"), "Value")

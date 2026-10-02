@@ -1,12 +1,16 @@
+--!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local STOPS = { 1, 0.7, 0.4, 0.15 }
 return {
 	title = "Canvas group: one fade, or three",
-	build = function(ctx)
-		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Vector2, Color3, Enum =
 			ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local opacity, showing = Compose.cell(0.4), Compose.cell(false)
-		local fade = ctx.runtime.tween(function(use)
+		local fade = ctx.runtime.tween(function(use: Use)
 			return if use(showing) then 0 else 1
 		end, { seconds = 0.2 })
 		local colors = { Color3.fromRGB(65, 130, 220), Color3.fromRGB(220, 75, 95), Color3.fromRGB(240, 235, 225) }
@@ -21,7 +25,7 @@ return {
 					BackgroundColor3 = colors[index],
 					BorderSizePixel = 0,
 					GroupTransparency = if individual
-						then function(use)
+						then function(use: Use)
 							return 1 - use(opacity)
 						end
 						else 0,
@@ -47,7 +51,7 @@ return {
 				gap = 12,
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ LayoutOrder = 1, text = "One fade, or three", TextSize = 24 }),
+				UI.Text({ LayoutOrder = 1, text = "One fade, or three", TextSize = 24 }) :: unknown,
 				UI.Text({
 					LayoutOrder = 2,
 					text = "The same plates and opacity. One CanvasGroup composites the image before fading it; separate groups reveal every overlap.",
@@ -61,7 +65,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						FillDirection = Enum.FillDirection.Horizontal,
 						Padding = UDim.new(0, 8),
-					}),
+					}) :: unknown,
 					table.unpack(choices),
 				}),
 				UI.Text({ LayoutOrder = 4, text = "One group" }),
@@ -70,7 +74,7 @@ return {
 					Name = "OneGroup",
 					Size = UDim2.fromOffset(180, 160),
 					BackgroundTransparency = 1,
-					GroupTransparency = function(use)
+					GroupTransparency = function(use: Use)
 						return 1 - use(opacity)
 					end,
 					plates(false),

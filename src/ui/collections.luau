@@ -123,23 +123,25 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local viewport: ComposeTypes.Cell<ComposeTypes.OrderedCollectionViewport> =
 			Compose.cell({ offset = 0, size = 0 })
 		local cross, mountedVersion = Compose.cell(0), Compose.cell(0)
-		local status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus> = spec.status
-			or Compose.cell((nil :: unknown) :: ComposeTypes.OrderedCollectionStatus)
+		local emptyStatus: ComposeTypes.OrderedCollectionStatus = {
+			mode = "windowed",
+			direction = "vertical",
+			total = 0,
+			retained = 0,
+			first = 0,
+			last = 0,
+			firstRow = 0,
+			lastRow = 0,
+			rowCount = 0,
+			extent = 0,
+			following = false,
+			measured = 0,
+		}
+		local status = (
+			spec.status or Compose.cell(emptyStatus)
+		) :: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
 		if status:peek() == nil then
-			status:set({
-				mode = "windowed",
-				direction = "vertical",
-				total = 0,
-				retained = 0,
-				first = 0,
-				last = 0,
-				firstRow = 0,
-				lastRow = 0,
-				rowCount = 0,
-				extent = 0,
-				following = false,
-				measured = 0,
-			} :: ComposeTypes.OrderedCollectionStatus)
+			status:set(emptyStatus)
 		end
 		local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
@@ -428,7 +430,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 								runtime.connect(hit, "InputEnded", editor.finish)
 							end
 							Compose.cleanup(activation.providePress(hit, pressed))
-							table.insert(children, 1, hit)
+							table.insert((children :: unknown) :: { unknown }, 1, hit)
 						end
 						return Host.Frame(children)
 					end, node)
@@ -508,41 +510,35 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return if horizontal then D2.fromOffset(extent, 0) else D2.fromOffset(0, extent)
 			end,
 		})
-		table.insert(
-			native,
-			Compose.show(function(use: ComposeTypes.Use)
-				return spec.mode == "all" or use(viewport).size > 0
-			end, function()
-				local nativeProps: Types.FrameProps = {
-					Name = "Items",
-					BackgroundTransparency = 1,
-					Size = D2.fromScale(1, 1),
+		native[#native + 1] = Compose.show(function(use: ComposeTypes.Use)
+			return spec.mode == "all" or use(viewport).size > 0
+		end, function()
+			local nativeProps: Types.FrameProps = {
+				Name = "Items",
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(1, 1),
 
-					Attributes = { FacetDocumentOrder = true } :: EngineTypes.Attributes,
-					directive,
-				}
-				if kind == "grid" then
-					table.insert(
-						nativeProps,
-						Host.UIPadding({
-							PaddingLeft = function(use: ComposeTypes.Use)
-								return ctx.types.UDim.new(0, if horizontal then mainEdge(use) else crossEdge(use))
-							end,
-							PaddingRight = function(use: ComposeTypes.Use)
-								return ctx.types.UDim.new(0, if horizontal then 0 else crossEdge(use))
-							end,
-							PaddingTop = function(use: ComposeTypes.Use)
-								return ctx.types.UDim.new(0, if horizontal then crossEdge(use) else mainEdge(use))
-							end,
-							PaddingBottom = function(use: ComposeTypes.Use)
-								return ctx.types.UDim.new(0, if horizontal then crossEdge(use) else 0)
-							end,
-						}) :: Types.Child
-					)
-				end
-				return Host.Frame(nativeProps)
-			end)
-		)
+				Attributes = { FacetDocumentOrder = true } :: EngineTypes.Attributes,
+				directive,
+			}
+			if kind == "grid" then
+				nativeProps[#nativeProps + 1] = Host.UIPadding({
+					PaddingLeft = function(use: ComposeTypes.Use)
+						return ctx.types.UDim.new(0, if horizontal then mainEdge(use) else crossEdge(use))
+					end,
+					PaddingRight = function(use: ComposeTypes.Use)
+						return ctx.types.UDim.new(0, if horizontal then 0 else crossEdge(use))
+					end,
+					PaddingTop = function(use: ComposeTypes.Use)
+						return ctx.types.UDim.new(0, if horizontal then crossEdge(use) else mainEdge(use))
+					end,
+					PaddingBottom = function(use: ComposeTypes.Use)
+						return ctx.types.UDim.new(0, if horizontal then crossEdge(use) else 0)
+					end,
+				}) :: Types.Child
+			end
+			return Host.Frame(nativeProps)
+		end)
 		local unit = Host.Frame({
 			Name = "LayoutUnit",
 			Size = D2.fromOffset(1, 1),

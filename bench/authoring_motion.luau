@@ -1,33 +1,25 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local nativeApp = require("./native_app")
 return function(automatic: boolean)
 	local world = nativeApp({ viewport = { w = 900, h = 900 } })
-	local Compose, Host = world.Compose, world.Host
+	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host = world.Compose, world.Host
 	local tall = Compose.cell(false)
 	local height = Compose.cell(4)
 	local observed
 	world.runtime.mount(function()
-		local children = { Host.UIListLayout({}) }
+		local children = { Host.UIListLayout({}) :: unknown }
 		for index = 1, 100 do
-			local source = if automatic
-				then function(use)
-					return if use(tall) then 6 else 4
-				end
-				else height
-			local animated = world.runtime.tween(
-				if automatic
-					then source
-					else function(use)
-						return use(source)
-					end,
-				{ seconds = 0.2 }
-			)
+			local animated = world.runtime.tween(function(use: Use): number
+				return if automatic then (if use(tall) then 6 else 4) else use(height)
+			end, { seconds = 0.2 })
 			observed = animated
 			table.insert(
 				children,
 				Host.Frame({
 					Name = `Row{index}`,
-					Size = function(use)
+					Size = function(use: Use)
 						return world.types.UDim2.new(1, 0, 0, use(animated))
 					end,
 				})

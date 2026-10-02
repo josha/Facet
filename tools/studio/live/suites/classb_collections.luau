@@ -3,7 +3,15 @@ local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -37,7 +45,7 @@ local function selectedName(): string
 end
 
 local function selectedRow(): string
-	local node = GuiService.SelectedObject
+	local node: Instance? = GuiService.SelectedObject
 	while node do
 		if node.Parent and node.Parent.Name == "Items" then
 			return node.Name
@@ -50,15 +58,15 @@ end
 local function watchSelection(value: any)
 	value.visited = {}
 	value.connection = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
-		local node = GuiService.SelectedObject
+		local node: Instance? = GuiService.SelectedObject
 		if node then
 			table.insert(value.visited, node)
 		end
 	end)
 end
 
-local function hitOrder(at: Vector2): { Instance }
-	return Players.LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(at.X, at.Y)
+local function hitOrder(at: Vector2): { GuiObject }
+	return (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):GetGuiObjectsAtPosition(at.X, at.Y)
 end
 
 local function theme(t: any, pattern: string): any
@@ -71,38 +79,44 @@ local function theme(t: any, pattern: string): any
 end
 
 add("cross-axis-fills-the-window", { "collections-29" }, function(t)
-	local stage = t.mount(function(UI, Host)
-		return Host.Frame "Panes" {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Host.Frame "Rail" {
-				Size = UDim2.fromOffset(600, 200),
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame "Panes" {
+				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.VirtualList "Horizontal" {
-					from = rows(40),
-					key = "id",
-					itemSize = 120,
-					direction = "horizontal",
-					render = function(current)
-						return UI.Text({ text = current:peek().name })
-					end,
+				Host.Frame "Rail" {
+					Size = UDim2.fromOffset(600, 200),
+					BackgroundTransparency = 1,
+					UI.VirtualList "Horizontal" {
+						from = rows(40),
+						key = "id",
+						itemSize = 120,
+						direction = "horizontal" :: "horizontal",
+						render = function(current)
+							return UI.Text({ text = current:peek().name })
+						end,
+					},
+				} :: unknown,
+				Host.Frame "Column" {
+					Position = UDim2.fromOffset(640, 0),
+					Size = UDim2.fromOffset(320, 400),
+					BackgroundTransparency = 1,
+					UI.VirtualList "Vertical" {
+						from = rows(40),
+						key = "id",
+						itemSize = 48,
+						render = function(current)
+							return UI.Text({ text = current:peek().name })
+						end,
+					},
 				},
-			},
-			Host.Frame "Column" {
-				Position = UDim2.fromOffset(640, 0),
-				Size = UDim2.fromOffset(320, 400),
-				BackgroundTransparency = 1,
-				UI.VirtualList "Vertical" {
-					from = rows(40),
-					key = "id",
-					itemSize = 48,
-					render = function(current)
-						return UI.Text({ text = current:peek().name })
-					end,
-				},
-			},
-		}
-	end, { size = Vector2.new(1000, 500), frames = 20 })
+			}
+		end,
+		{ size = Vector2.new(1000, 500), frames = 20 }
+	)
 	local horizontal = t.find(stage, "Horizontal")
 	local vertical = t.find(stage, "Vertical")
 	local card = rowOf(horizontal, "r2")
@@ -130,15 +144,22 @@ end)
 add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
 	local function mount(width: number, columns: { any }, widths: any?): any
 		t.cleanup()
-		return t.mount(function(UI, _, Compose)
-			return UI.Table "Racers" {
-				from = rows(6),
-				key = "id",
-				selectionMode = "single",
-				widths = widths or Compose.cell({}),
-				columns = columns,
-			}
-		end, { size = Vector2.new(width, 400), frames = 20 })
+		return t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Table "Racers" {
+					from = rows(6),
+					key = "id",
+					selectionMode = "single" :: "single",
+					widths = widths or Compose.cell({}),
+					columns = columns,
+				}
+			end,
+			{ size = Vector2.new(width, 400), frames = 20 }
+		)
 	end
 	local function width(stage: any, id: string): number
 		local header = t.find(stage, "Header")
@@ -184,19 +205,26 @@ add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
 	t.near("wide, the fills grow equally from their floors", width(wide, "name") - width(wide, "artist"), 20, 1)
 	t.check("wide, both fills are above their floors", width(wide, "artist") > 150, width(wide, "artist"))
 	local widths
-	local sorted = t.mount(function(UI, _, Compose)
-		widths = Compose.cell({})
-		return UI.Table "Hits" {
-			from = rows(6),
-			key = "id",
-			selectionMode = "single",
-			widths = widths,
-			columns = {
-				{ id = "name", label = "Name" },
-				{ id = "laps", label = "Laps", width = 96 },
-			},
-		}
-	end, { size = Vector2.new(600, 400), frames = 20 })
+	local sorted = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			widths = Compose.cell({})
+			return UI.Table "Hits" {
+				from = rows(6),
+				key = "id",
+				selectionMode = "single" :: "single",
+				widths = widths,
+				columns = {
+					{ id = "name", label = "Name" },
+					{ id = "laps", label = "Laps", width = 96 },
+				},
+			}
+		end,
+		{ size = Vector2.new(600, 400), frames = 20 }
+	)
 	widths:set({ name = 220 })
 	t.settle(8)
 	for _, key in { "r1", "r2", "r3" } do
@@ -220,7 +248,7 @@ add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
 end)
 
 add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.Table "Racers" {
 			from = rows(4),
 			key = "id",
@@ -290,27 +318,33 @@ add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
 end)
 
 add("page-scroll-moves-the-table-body", { "collections-182" }, function(t)
-	local stage = t.mount(function(UI, Host)
-		return Host.ScrollingFrame "Page" {
-			Size = UDim2.fromScale(1, 1),
-			CanvasSize = UDim2.fromOffset(0, 1600),
-			BackgroundTransparency = 1,
-			Host.Frame "Spacer" { Size = UDim2.fromOffset(10, 200), BackgroundTransparency = 1 },
-			Host.Frame "Holder" {
-				Position = UDim2.fromOffset(0, 200),
-				Size = UDim2.fromOffset(500, 600),
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.ScrollingFrame "Page" {
+				Size = UDim2.fromScale(1, 1),
+				CanvasSize = UDim2.fromOffset(0, 1600),
 				BackgroundTransparency = 1,
-				UI.Table "Racers" {
-					from = rows(12),
-					key = "id",
-					scrolls = false,
-					reorderable = true,
-					onReorder = function() end,
-					columns = { { id = "name", label = "Name" } },
+				Host.Frame "Spacer" { Size = UDim2.fromOffset(10, 200), BackgroundTransparency = 1 } :: unknown,
+				Host.Frame "Holder" {
+					Position = UDim2.fromOffset(0, 200),
+					Size = UDim2.fromOffset(500, 600),
+					BackgroundTransparency = 1,
+					UI.Table "Racers" {
+						from = rows(12),
+						key = "id",
+						scrolls = false,
+						reorderable = true,
+						onReorder = function() end,
+						columns = { { id = "name", label = "Name" } },
+					},
 				},
-			},
-		}
-	end, { size = Vector2.new(600, 500), frames = 20 })
+			}
+		end,
+		{ size = Vector2.new(600, 500), frames = 20 }
+	)
 	local page = t.find(stage, "Page")
 	local body = t.find(stage, "Body")
 	local handle = rowOf(body, "r1") and rowOf(body, "r1"):FindFirstChild("Move", true)
@@ -327,8 +361,8 @@ add("page-scroll-moves-the-table-body", { "collections-182" }, function(t)
 	t.near("the body kept its canvas offset", body.CanvasPosition.Y, 0, 0.01)
 end)
 
-local function clampCase(t: any, direction: string, kind: string)
-	local stage = t.mount(function(UI)
+local function clampCase(t: any, direction: "horizontal" | "vertical", kind: string)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		local spec = {
 			from = rows(200),
 			key = "id",
@@ -422,17 +456,24 @@ add("partial-lines-crop-and-offsets-clamp", { "collections-233", "collections-24
 end)
 
 add("tray-actions-meet-the-touch-floor", { "collections-60" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.RowActions "Row" {
-			open = Compose.cell("trailing"),
-			Size = UDim2.new(0, 400, 0, 44),
-			content = UI.Text({ text = "Row" }),
-			trailing = {
-				{ id = "flag", label = "Flag" },
-				{ id = "delete", label = "Delete", role = "destructive" },
-			},
-		}
-	end, { size = Vector2.new(600, 300), frames = 30 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.RowActions "Row" {
+				open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
+				Size = UDim2.new(0, 400, 0, 44),
+				content = UI.Text({ text = "Row" }),
+				trailing = {
+					{ id = "flag", label = "Flag" },
+					{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
+				},
+			}
+		end,
+		{ size = Vector2.new(600, 300), frames = 30 }
+	)
 	local row = t.find(stage, "Row")
 	local tray = row and row:FindFirstChild("trailing")
 	t.check("the tray is open", tray ~= nil and tray.Visible and tray.AbsoluteSize.X > 0)
@@ -471,51 +512,57 @@ end)
 
 local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	local fired = 0
-	local stage = t.mount(function(UI, Host)
-		local action = {
-			id = "delete",
-			label = "Delete",
-			role = "destructive",
-			onActivate = function()
-				fired += 1
-			end,
-		}
-		local list = {
-			Name = "Rows",
-			Size = UDim2.new(1, 0, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
-			Host.UIPadding({
-				PaddingLeft = UDim.new(0, 17),
-				PaddingRight = UDim.new(0, 17),
-				PaddingTop = UDim.new(0, 17),
-			}),
-			UI.RowActions "Row" {
-				LayoutOrder = 1,
-				Size = UDim2.new(1, 0, 0, 70),
-				leading = if edge == "leading" then { action } else nil,
-				trailing = if edge == "trailing" then { action } else nil,
-				content = UI.Button({ Name = "Body", label = "Body", Size = UDim2.fromScale(1, 1) }),
-			},
-			Host.Frame "Next" { LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 70), BackgroundTransparency = 1 },
-		}
-		local host = if scroll
-			then Host.ScrollingFrame "Scroll" {
-				Position = UDim2.fromOffset(16, 16),
-				Size = UDim2.new(1, -32, 0, 300),
-				CanvasSize = UDim2.fromOffset(0, 600),
-				BackgroundTransparency = 1,
-				Host.Frame(list),
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			local action = {
+				id = "delete",
+				label = "Delete",
+				role = "destructive" :: "destructive",
+				onActivate = function()
+					fired += 1
+				end,
 			}
-			else Host.Frame "Scroll" {
-				Position = UDim2.fromOffset(16, 16),
-				Size = UDim2.new(1, -32, 0, 300),
+			local list = {
+				Name = "Rows",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.Frame(list),
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIPadding({
+					PaddingLeft = UDim.new(0, 17),
+					PaddingRight = UDim.new(0, 17),
+					PaddingTop = UDim.new(0, 17),
+				}),
+				UI.RowActions "Row" {
+					LayoutOrder = 1,
+					Size = UDim2.new(1, 0, 0, 70),
+					leading = if edge == "leading" then { action } else nil,
+					trailing = if edge == "trailing" then { action } else nil,
+					content = UI.Button({ Name = "Body", label = "Body", Size = UDim2.fromScale(1, 1) }),
+				},
+				Host.Frame "Next" { LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 70), BackgroundTransparency = 1 },
 			}
-		return host
-	end, { size = Vector2.new(900, 400), theme = entry.package, motionLevel = "normal", frames = 30 })
+			local host = if scroll
+				then Host.ScrollingFrame "Scroll" {
+					Position = UDim2.fromOffset(16, 16),
+					Size = UDim2.new(1, -32, 0, 300),
+					CanvasSize = UDim2.fromOffset(0, 600),
+					BackgroundTransparency = 1,
+					Host.Frame(list),
+				}
+				else Host.Frame "Scroll" {
+					Position = UDim2.fromOffset(16, 16),
+					Size = UDim2.new(1, -32, 0, 300),
+					BackgroundTransparency = 1,
+					Host.Frame(list),
+				}
+			return host
+		end,
+		{ size = Vector2.new(900, 400), theme = entry.package, motionLevel = "normal", frames = 30 }
+	)
 	local where = `{entry.name} {edge} scroll={scroll}`
 	local row = t.find(stage, "Row")
 	local nextFrame = t.find(stage, "Next")
@@ -596,7 +643,7 @@ add("departure-clears-before-reflow", { "collections-98" }, function(t)
 	t.check("an ornate package is available", ornate ~= nil)
 	for _, entry in list do
 		for _, scroll in { true, false } do
-			for _, edge in { "leading", "trailing" } do
+			for _, edge in { "leading", "trailing" } :: { "leading" | "trailing" } do
 				departureCase(t, entry, edge, scroll)
 				t.cleanup()
 			end
@@ -612,18 +659,29 @@ add("plate-decoration-stays-inside-the-band", { "collections-98" }, function(t)
 	end
 	for _, entry in list do
 		local open
-		local stage = t.mount(function(UI, _, Compose)
-			open = Compose.cell(nil)
-			return UI.RowActions "Row" {
-				open = open,
-				Size = UDim2.new(0, 500, 0, 56),
-				content = UI.Button({ label = "Row", Size = UDim2.fromScale(1, 1) }),
-				trailing = {
-					{ id = "flag", label = "Flag" },
-					{ id = "delete", label = "Delete", role = "destructive" },
-				},
-			}
-		end, { size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				open = (function(
+					value: ("leading" | "trailing")?
+				): typeof(require("@repo/tools/typecheck/example_shapes").sideCell(nil))
+					return Compose.cell(value)
+				end)(nil)
+				return UI.RowActions "Row" {
+					open = open,
+					Size = UDim2.new(0, 500, 0, 56),
+					content = UI.Button({ label = "Row", Size = UDim2.fromScale(1, 1) }),
+					trailing = {
+						{ id = "flag", label = "Flag" },
+						{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
+					},
+				}
+			end,
+			{ size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 }
+		)
 		local row = t.find(stage, "Row")
 		local tray = row:FindFirstChild("trailing")
 		local worst, narrowest, sampled, overhang = 0, math.huge, 0, 0
@@ -681,30 +739,41 @@ end
 
 interactive("tray-keys-and-hover", { "collections-60" }, function(t)
 	local value = { fired = {} }
-	value.stage = t.mount(function(UI, _, Compose)
-		value.open = Compose.cell(nil)
-		return UI.RowActions "Row" {
-			open = value.open,
-			Size = UDim2.new(0, 500, 0, 56),
-			content = UI.Button({ Name = "Body", label = "Row body", Size = UDim2.fromScale(1, 1) }),
-			trailing = {
-				{
-					id = "flag",
-					label = "Flag",
-					onActivate = function()
-						table.insert(value.fired, "flag")
-					end,
+	value.stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			value.open = (function(
+				value: ("leading" | "trailing")?
+			): typeof(require("@repo/tools/typecheck/example_shapes").sideCell(nil))
+				return Compose.cell(value)
+			end)(nil)
+			return UI.RowActions "Row" {
+				open = value.open,
+				Size = UDim2.new(0, 500, 0, 56),
+				content = UI.Button({ Name = "Body", label = "Row body", Size = UDim2.fromScale(1, 1) }),
+				trailing = {
+					{
+						id = "flag",
+						label = "Flag",
+						onActivate = function()
+							table.insert(value.fired, "flag")
+						end,
+					},
+					{
+						id = "delete",
+						label = "Delete",
+						onActivate = function()
+							table.insert(value.fired, "delete")
+						end,
+					},
 				},
-				{
-					id = "delete",
-					label = "Delete",
-					onActivate = function()
-						table.insert(value.fired, "delete")
-					end,
-				},
-			},
-		}
-	end, { size = Vector2.new(700, 300), frames = 20 })
+			}
+		end,
+		{ size = Vector2.new(700, 300), frames = 20 }
+	)
 	local row = t.find(value.stage, "Row")
 	GuiService.SelectedObject = t.find(row, "Body")
 	t.settle(2)
@@ -746,19 +815,30 @@ end, {
 
 interactive("header-sort-keys", { "collections-174" }, function(t)
 	local value = {}
-	value.stage = t.mount(function(UI, _, Compose)
-		value.sort = Compose.cell(nil)
-		return UI.Table "Racers" {
-			from = rows(8),
-			key = "id",
-			sort = value.sort,
-			selectionMode = "single",
-			columns = {
-				{ id = "name", label = "Name", resizable = false },
-				{ id = "laps", label = "Laps", width = 140, resizable = false },
-			},
-		}
-	end, { size = Vector2.new(600, 500), frames = 20 })
+	value.stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			value.sort = (function(
+				value: { column: string, direction: "ascending" | "descending" }?
+			): typeof(require("@repo/tools/typecheck/example_shapes").sortCell(nil))
+				return Compose.cell(value)
+			end)(nil)
+			return UI.Table "Racers" {
+				from = rows(8),
+				key = "id",
+				sort = value.sort,
+				selectionMode = "single" :: "single",
+				columns = {
+					{ id = "name", label = "Name", resizable = false },
+					{ id = "laps", label = "Laps", width = 140, resizable = false },
+				},
+			}
+		end,
+		{ size = Vector2.new(600, 500), frames = 20 }
+	)
 	local header = t.find(value.stage, "Header")
 	value.nameSort = header.name.Sort
 	value.lapsSort = header.laps.Sort
@@ -811,29 +891,39 @@ end, {
 
 interactive("left-reaches-this-rows-minus", { "collections-189" }, function(t)
 	local value = { fired = {} }
-	value.stage = t.mount(function(UI, _, Compose)
-		return UI.Table "Racers" {
-			from = rows(6),
-			key = "id",
-			selectionMode = "single",
-			editing = Compose.cell(true),
-			columns = { { id = "name", label = "Name" }, { id = "laps", label = "Laps", width = 120 } },
-			rowActions = function(_, key)
-				return {
-					trailing = {
-						{
-							id = "delete",
-							label = "Delete",
-							role = "destructive",
-							onActivate = function()
-								table.insert(value.fired, "delete:" .. key)
-							end,
+	value.stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.Table "Racers" {
+				from = rows(6),
+				key = "id",
+				selectionMode = "single" :: "single",
+				editing = Compose.cell(true),
+				columns = { { id = "name", label = "Name" }, { id = "laps", label = "Laps", width = 120 } },
+				rowActions = function(
+					_,
+					key
+				): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))?
+					return {
+						trailing = {
+							{
+								id = "delete",
+								label = "Delete",
+								role = "destructive" :: "destructive",
+								onActivate = function()
+									table.insert(value.fired, "delete:" .. key)
+								end,
+							},
 						},
-					},
-				}
-			end,
-		}
-	end, { size = Vector2.new(700, 500), frames = 24 })
+					}
+				end,
+			}
+		end,
+		{ size = Vector2.new(700, 500), frames = 24 }
+	)
 	local hit = rowOf(value.stage, "r2"):FindFirstChild("RowHit", true)
 	GuiService.SelectedObject = hit
 	t.settle(2)
@@ -853,11 +943,11 @@ end, {
 
 interactive("collapsed-column-leaves-the-ring", { "collections-192" }, function(t)
 	local value = {}
-	value.stage = t.mount(function(UI)
+	value.stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
-			selectionMode = "single",
+			selectionMode = "single" :: "single",
 			columns = {
 				{ id = "name", label = "Name", minWidth = 200 },
 				{ id = "laps", label = "Laps", width = 120, minWidth = 120 },
@@ -907,17 +997,24 @@ end, {
 
 interactive("return-toggles-multi-selection", { "collections-197" }, function(t)
 	local value = {}
-	value.stage = t.mount(function(UI, _, Compose)
-		value.selection = Compose.cell({})
-		return UI.Table "Racers" {
-			from = rows(6),
-			key = "id",
-			selection = value.selection,
-			selectionMode = "multiple",
-			editing = Compose.cell(true),
-			columns = { { id = "name", label = "Name" } },
-		}
-	end, { size = Vector2.new(500, 400), frames = 20 })
+	value.stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			value.selection = Compose.cell({})
+			return UI.Table "Racers" {
+				from = rows(6),
+				key = "id",
+				selection = value.selection,
+				selectionMode = "multiple" :: "multiple",
+				editing = Compose.cell(true),
+				columns = { { id = "name", label = "Name" } },
+			}
+		end,
+		{ size = Vector2.new(500, 400), frames = 20 }
+	)
 	GuiService.SelectedObject = rowOf(value.stage, "r1"):FindFirstChild("RowHit", true)
 	t.settle(2)
 	return value
@@ -946,15 +1043,15 @@ end, {
 
 interactive("horizontal-list-keys", { "collections-254" }, function(t)
 	local value = { activations = {} }
-	value.stage = t.mount(function(UI)
+	value.stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.VirtualList "Strip" {
 			from = rows(40),
 			key = "id",
 			itemSize = 140,
-			direction = "horizontal",
+			direction = "horizontal" :: "horizontal",
 			Size = UDim2.fromOffset(600, 120),
-			onActivate = function(item, _, input)
-				table.insert(value.activations, { item.id, if input then input.KeyCode.Name else "nil" })
+			onActivate = function(item: any, _, input: InputObject?)
+				table.insert(value.activations, { item.id, if input then assert(input).KeyCode.Name else "nil" })
 			end,
 			render = function(current)
 				return UI.Text({ text = current:peek().name })
@@ -985,29 +1082,35 @@ end, {
 
 interactive("drag-across-rows-after-page-scroll", { "collections-154", "collections-182" }, function(t)
 	local value = { reorders = {} }
-	value.stage = t.mount(function(UI, Host)
-		return Host.ScrollingFrame "Page" {
-			Size = UDim2.fromScale(1, 1),
-			CanvasSize = UDim2.fromOffset(0, 1400),
-			BackgroundTransparency = 1,
-			Host.Frame "Holder" {
-				Position = UDim2.fromOffset(0, 200),
-				Size = UDim2.fromOffset(500, 700),
+	value.stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.ScrollingFrame "Page" {
+				Size = UDim2.fromScale(1, 1),
+				CanvasSize = UDim2.fromOffset(0, 1400),
 				BackgroundTransparency = 1,
-				UI.Table "Racers" {
-					from = rows(10),
-					key = "id",
-					scrolls = false,
-					header = false,
-					reorderable = true,
-					onReorder = function(keys, slot)
-						table.insert(value.reorders, { keys = keys, slot = slot })
-					end,
-					columns = { { id = "name", label = "Name" } },
+				Host.Frame "Holder" {
+					Position = UDim2.fromOffset(0, 200),
+					Size = UDim2.fromOffset(500, 700),
+					BackgroundTransparency = 1,
+					UI.Table "Racers" {
+						from = rows(10),
+						key = "id",
+						scrolls = false,
+						header = false,
+						reorderable = true,
+						onReorder = function(keys, slot)
+							table.insert(value.reorders, { keys = keys, slot = slot })
+						end,
+						columns = { { id = "name", label = "Name" } },
+					},
 				},
-			},
-		}
-	end, { size = Vector2.new(600, 600), frames = 20 })
+			}
+		end,
+		{ size = Vector2.new(600, 600), frames = 20 }
+	)
 	local page = t.find(value.stage, "Page")
 	page.CanvasPosition = Vector2.new(0, 120)
 	t.settle(4)

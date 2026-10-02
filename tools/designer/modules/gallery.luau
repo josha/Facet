@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local session = require("./session")
 local render = require("./design_render")
@@ -23,9 +25,11 @@ function gallery.page(entries: { any }, query: string, page: number): ({ any }, 
 end
 
 function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: any, options: any): Frame
-	local Host, Compose = runtime.constructors, Facet.Compose
+	local Host, Compose: typeof(require("@repo/src/vendor/compose/core")) =
+		(runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Facet.Compose
 	local grid = Host.UIGridLayout {
-		CellSize = function(use)
+		CellSize = function(use: Use)
 			return if use(model).compact then UDim2.new(1, -8, 0, 264) else UDim2.new(1 / 3, -12, 0, 264)
 		end,
 		CellPadding = UDim2.fromOffset(12, 12),
@@ -39,9 +43,9 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 		ScrollBarThickness = 4,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
-		grid,
+		grid :: unknown,
 		Compose.keyed({
-			from = function(use)
+			from = function(use: Use)
 				local state = use(model)
 				return gallery.page(state.galleryEntries, state.galleryQuery, state.galleryPage)
 			end,
@@ -99,7 +103,7 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 					actions.galleryManage(entry.id)
 				end)
 				runtime.decorate(manage, {
-					Visible = function(use)
+					Visible = function(use: Use)
 						return use(model).galleryTitle == "My designs"
 					end,
 				})
@@ -111,7 +115,7 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 					LayoutOrder = index,
 					BackgroundColor3 = Color3.new(1, 1, 1),
 					BorderSizePixel = 0,
-					kit.corner(10),
+					kit.corner(10) :: unknown,
 					Host.UIStroke { Color = kit.colors.line, Thickness = 1 },
 					kit.padding(10),
 					Host.UIListLayout { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder },
@@ -133,13 +137,13 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 			end,
 		}),
 	}
-	local title = kit.text("GalleryTitle", function(use)
+	local title = kit.text("GalleryTitle", function(use: Use)
 		return use(model).galleryTitle
 	end, 22, 38)
 	runtime.decorate(title, { Position = UDim2.fromOffset(18, 14), Size = UDim2.new(1, -110, 0, 38) })
 	local close = kit.button("CloseGallery", "Close", 76, actions.galleryClose)
 	runtime.decorate(close, { Position = UDim2.new(1, -94, 0, 14) })
-	local search = kit.search(function(use)
+	local search = kit.search(function(use: Use)
 		return use(model).galleryQuery
 	end, actions.gallerySearch)
 	runtime.decorate(search, { Position = UDim2.fromOffset(18, 62), Size = UDim2.new(1, -36, 0, 44) })
@@ -152,7 +156,7 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 				actions.galleryPage(-1)
 			end,
 			false,
-			function(use)
+			function(use: Use)
 				return use(model).galleryPage > 1
 			end
 		),
@@ -164,13 +168,13 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 				actions.galleryPage(1)
 			end,
 			false,
-			function(use)
+			function(use: Use)
 				local state = use(model)
 				local _, pages = gallery.page(state.galleryEntries, state.galleryQuery, state.galleryPage)
 				return state.galleryPage < pages
 			end
 		),
-		kit.text("GalleryPage", function(use)
+		kit.text("GalleryPage", function(use: Use)
 			local state = use(model)
 			local _, pages = gallery.page(state.galleryEntries, state.galleryQuery, state.galleryPage)
 			return tostring(state.galleryPage) .. " / " .. tostring(pages)
@@ -182,13 +186,13 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 		Position = UDim2.fromOffset(18, 120),
 		Size = UDim2.new(1, -36, 0, 80),
 		TextWrapped = true,
-		Visible = function(use)
+		Visible = function(use: Use)
 			local state = use(model)
 			return #gallery.page(state.galleryEntries, state.galleryQuery, state.galleryPage) == 0
 		end,
 	})
 	return Host.Frame "DesignGallery" {
-		Visible = function(use)
+		Visible = function(use: Use)
 			return use(model).galleryTitle ~= ""
 		end,
 		Position = UDim2.fromOffset(0, 0),
@@ -196,7 +200,7 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 		ZIndex = 5000,
 		BackgroundColor3 = Color3.fromRGB(248, 250, 254),
 		BorderSizePixel = 0,
-		title,
+		title :: unknown,
 		close,
 		search,
 		list,

@@ -8,14 +8,17 @@ local sipworks = require("../examples/reference/p3_sipworks")
 local foyer = require("../examples/reference/p4_foyer")
 local function world(module)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local built
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		built = module.build({
 			Facet = Facet,
 			Compose = Facet.Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 			UI = Facet.controls(runtime, { types = engine.types }),
 			types = engine.types,
 			viewport = Facet.Compose.cell({ width = 1000, height = 720 }),
@@ -27,7 +30,7 @@ local function world(module)
 		runtime:dispose()
 	end
 end
-local function find(node, name)
+local function find(node: any, name: string): any
 	if node.Name == name then
 		return node
 	end
@@ -37,6 +40,7 @@ local function find(node, name)
 			return found
 		end
 	end
+	return nil
 end
 t.describe("native reference applications", function()
 	t.it("keeps Glade care, inventory consumption and task completion", function()
@@ -126,7 +130,8 @@ t.describe("native reference applications", function()
 		stop()
 	end)
 	t.it("keeps each notice line inside the screen width with a fixed box", function()
-		for _, module in { glade, cartwheel, sipworks, foyer } do
+		local modules: { any } = { glade, cartwheel, sipworks, foyer }
+		for _, module in modules do
 			local _, root, stop = world(module)
 			local notice
 			for _, node in root:GetDescendants() do

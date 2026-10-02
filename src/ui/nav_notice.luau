@@ -294,21 +294,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Size = D2.new(0, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 		}
-		table.insert(bodyProps, Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }))
-		table.insert(
-			bodyProps,
-			Host.UIListLayout({
-				FillDirection = function(use: ComposeTypes.Use)
-					return if use(beside) then E.FillDirection.Horizontal else E.FillDirection.Vertical
-				end,
-				VerticalAlignment = E.VerticalAlignment.Center,
-				SortOrder = E.SortOrder.LayoutOrder,
-				Padding = UD.new(0, 8),
-			})
-		)
+		bodyProps[#bodyProps + 1] = Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+		bodyProps[#bodyProps + 1] = Host.UIListLayout({
+			FillDirection = function(use: ComposeTypes.Use)
+				return if use(beside) then E.FillDirection.Horizontal else E.FillDirection.Vertical
+			end,
+			VerticalAlignment = E.VerticalAlignment.Center,
+			SortOrder = E.SortOrder.LayoutOrder,
+			Padding = UD.new(0, 8),
+		})
 		for index, child in bodyChildren do
 			runtime.decorate(child :: Instance, { LayoutOrder = index })
-			table.insert(bodyProps, child)
+			bodyProps[#bodyProps + 1] = child
 		end
 		local rowChildren: { Types.Child } = {}
 		if spec.icon ~= false then
@@ -612,20 +609,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Size = D2.new(0, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 		}
-		table.insert(centerProps, Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }))
-		table.insert(
-			centerProps,
-			Host.UIListLayout({
-				FillDirection = E.FillDirection.Horizontal,
-				VerticalAlignment = E.VerticalAlignment.Center,
-				SortOrder = E.SortOrder.LayoutOrder,
-			})
-		)
+		centerProps[#centerProps + 1] = Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+		centerProps[#centerProps + 1] = Host.UIListLayout({
+			FillDirection = E.FillDirection.Horizontal,
+			VerticalAlignment = E.VerticalAlignment.Center,
+			SortOrder = E.SortOrder.LayoutOrder,
+		})
 		if center then
-			table.insert(centerProps, center)
+			centerProps[#centerProps + 1] = center
 		end
 		if titleMeasure then
-			table.insert(centerProps, titleMeasure)
+			centerProps[#centerProps + 1] = titleMeasure
 		end
 		local centerFrame = Host.Frame(centerProps)
 		table.insert(primary, centerFrame)

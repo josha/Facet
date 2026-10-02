@@ -5,9 +5,9 @@ local rules = require("../examples/gallery/examples/outpost_terminal/rules")
 
 local function everyAllocation(): { { [string]: number } }
 	local out: { { [string]: number } } = {}
-	for door = 0, rules.consumer("door").capacity do
-		for beacon = 0, rules.consumer("beacon").capacity do
-			for workshop = 0, rules.consumer("workshop").capacity do
+	for door = 0, assert(rules.consumer("door")).capacity do
+		for beacon = 0, assert(rules.consumer("beacon")).capacity do
+			for workshop = 0, assert(rules.consumer("workshop")).capacity do
 				table.insert(out, { door = door, beacon = beacon, workshop = workshop })
 			end
 		end
@@ -46,12 +46,12 @@ describe("outpost rules: the ranges, walked rather than sampled", function()
 	it("the three declared ranges are the design's, and the goal is reachable inside them", function()
 		expect(rules.TOTAL).toBe(6)
 		expect(#rules.CONSUMERS).toBe(3)
-		expect(rules.consumer("door").needs).toBe(2)
-		expect(rules.consumer("door").capacity).toBe(3)
-		expect(rules.consumer("beacon").needs).toBe(1)
-		expect(rules.consumer("beacon").capacity).toBe(2)
-		expect(rules.consumer("workshop").needs).toBe(2)
-		expect(rules.consumer("workshop").capacity).toBe(4)
+		expect(assert(rules.consumer("door")).needs).toBe(2)
+		expect(assert(rules.consumer("door")).capacity).toBe(3)
+		expect(assert(rules.consumer("beacon")).needs).toBe(1)
+		expect(assert(rules.consumer("beacon")).capacity).toBe(2)
+		expect(assert(rules.consumer("workshop")).needs).toBe(2)
+		expect(assert(rules.consumer("workshop")).capacity).toBe(4)
 
 		local answer = { door = 2, beacon = 1, workshop = 2 }
 		expect(rules.validate(answer).ok).toBe(true)
@@ -131,7 +131,7 @@ describe("outpost rules: the ranges, walked rather than sampled", function()
 		expect(rules.isRunning(rules.START, "door")).toBe(true)
 
 		expect(rules.START.door).toBe(3)
-		expect(rules.START.door).toBeGreaterThan(rules.consumer("door").needs)
+		expect(rules.START.door).toBeGreaterThan(assert(rules.consumer("door")).needs)
 	end)
 end)
 

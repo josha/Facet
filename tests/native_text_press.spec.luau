@@ -9,9 +9,9 @@ local Enum = {
 }
 
 local function signal(): any
-	local listeners = {}
+	local listeners: { { c: { connected: boolean, Disconnect: () -> () }, fn: (...any) -> () } } = {}
 	return {
-		Connect = function(_, callback)
+		Connect = function(_: any, callback: (...any) -> ())
 			local c = { connected = true }
 			function c.Disconnect()
 				c.connected = false
@@ -79,9 +79,9 @@ local function probe(text: string?, policy: string?, handlers: any?)
 		end
 		local chosen = h or handlers or {}
 		reset = textPress({
-			box = instance,
-			input = uis,
-			Enum = Enum,
+			box = instance :: any,
+			input = uis :: any,
+			Enum = Enum :: any,
 			policy = function()
 				return handle.selectOnFocus
 			end,

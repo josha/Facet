@@ -1,4 +1,6 @@
 --!strict
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local FixtureOverlayTypes = require("../src/ui/overlay_types")
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -18,46 +20,62 @@ local function copy(Host: any): any
 end
 
 local BUILDS: { [string]: (any, any) -> any } = {
-	Dialog = function(UI, Host)
+	Dialog = function(
+		UI: typeof(require("@repo/src").controls(nil :: any)),
+		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	)
 		return UI.Dialog "Long" {
 			isPresented = Compose.cell(true),
 			onPresentedChange = noop,
 			title = "Leave the race?",
-			content = function()
+			content = function(): Instance
 				return copy(Host)
 			end,
-			actions = { { id = "Stay", label = "Stay", role = "cancel", onActivate = noop } },
+			actions = {
+				{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = noop } :: FixtureOverlayTypes.DialogAction,
+			},
 		}
 	end,
-	Sheet = function(UI, Host)
+	Sheet = function(
+		UI: typeof(require("@repo/src").controls(nil :: any)),
+		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	)
 		return UI.Sheet "Long" {
 			isPresented = Compose.cell(true),
 			detent = Compose.cell("large"),
 			title = "Race details",
-			content = function()
+			content = function(): Instance
 				return copy(Host)
 			end,
 		}
 	end,
-	Popover = function(UI, Host)
+	Popover = function(
+		UI: typeof(require("@repo/src").controls(nil :: any)),
+		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	)
 		return UI.Popover "Long" {
 			isPresented = Compose.cell(true),
 			source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
 			maxWidth = 320,
 			maxHeight = 180,
-			content = function()
+			content = function(): Instance
 				return copy(Host)
 			end,
 		}
 	end,
-	Alert = function(UI, Host)
+	Alert = function(
+		UI: typeof(require("@repo/src").controls(nil :: any)),
+		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	)
 		return UI.Alert {
 			isPresented = Compose.cell(true),
 			title = "Confirm",
-			content = function()
+			content = function(): Instance
 				return copy(Host)
 			end,
-			actions = { { id = "Stay", label = "Stay", role = "cancel" } },
+			actions = {
+				{ id = "Stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+			},
 		}
 	end,
 }
@@ -82,9 +100,14 @@ t.describe("native overlay bodies: long wrapped text measures outside the scroll
 		t.it(
 			`{name}: the nearest fixed ancestor of the copy is taller than any text, and the canvas follows it`,
 			function()
-				local w = overlay.new(function(UI, Host)
-					return Host.Frame({ BUILDS[name](UI, Host) })
-				end)
+				local w = overlay.new(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return Host.Frame({ BUILDS[name](UI, Host) })
+					end
+				)
 				w.advance(1 / 60, 4)
 				local label = w.find("Copy")
 				t.expect(label ~= nil).toBe(true)

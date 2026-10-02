@@ -1,8 +1,9 @@
 --!strict
+local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 type World = {
 	engine: any,
@@ -15,7 +16,8 @@ type World = {
 
 local function world(build: (any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -34,8 +36,10 @@ local function world(build: (any, any) -> any, options: { [string]: any }?): Wor
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host) })
 	end, engine.new("Folder"))
 	return {
@@ -73,43 +77,49 @@ t.describe("weak3 RowActions outside tap", function()
 			content = { a = 0, b = 0 },
 			hud = 0,
 		}
-		local w = world(function(UI, Host)
-			local function row(name: string)
-				return UI.RowActions({
-					Name = name,
-					open = state.open[name],
-					coordinator = state.coordinator,
-					content = function()
-						return Host.TextButton "Body" {
-							Text = name,
-							Activated = function()
-								state.content[name] += 1
-							end,
-						}
-					end,
-					trailing = {
-						{
-							id = "Delete",
-							label = "Delete",
-							role = role,
-							onActivate = function()
-								table.insert(state.fired, name)
-							end,
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local function row(name: string)
+					return UI.RowActions({
+						Name = name,
+						open = state.open[name],
+						coordinator = state.coordinator,
+						content = function(): GuiObject
+							return Host.TextButton "Body" {
+								Text = name,
+								Activated = function()
+									state.content[name] += 1
+								end,
+							}
+						end,
+						trailing = {
+							{
+								id = "Delete",
+								label = "Delete",
+								role = role,
+								onActivate = function()
+									table.insert(state.fired, name)
+								end,
+							} :: FixtureCollectionTypes.RowAction,
 						},
+					})
+				end
+				return Host.Frame "Hud" {
+					row("a") :: unknown,
+					row("b"),
+					Host.TextButton "Boost" {
+						Text = "Boost",
+						Activated = function()
+							state.hud += 1
+						end,
 					},
-				})
-			end
-			return Host.Frame "Hud" {
-				row("a"),
-				row("b"),
-				Host.TextButton "Boost" {
-					Text = "Boost",
-					Activated = function()
-						state.hud += 1
-					end,
-				},
-			}
-		end, { motionLevel = if reducedMotion then "none" else "normal" })
+				}
+			end,
+			{ motionLevel = if reducedMotion then "none" else "normal" }
+		)
 		local V2 = w.engine.types.Vector2
 		local a, b, boost = find(w.screen, "a"), find(w.screen, "b"), find(w.screen, "Boost")
 		a.AbsolutePosition, a.AbsoluteSize = V2.new(0, 0), V2.new(300, 44)

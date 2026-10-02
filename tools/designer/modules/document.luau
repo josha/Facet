@@ -102,7 +102,7 @@ function document.new(name: string?): Document
 		schema = "facet-designer/1",
 		name = name or "Untitled design",
 		nextId = 2,
-		root = { id = "n1", name = "Screen", kind = "Screen", props = { gap = "m" }, children = {} },
+		root = { id = "n1", name = "Screen", kind = "Screen" :: "Screen", props = { gap = "m" }, children = {} },
 	}
 end
 
@@ -150,7 +150,7 @@ function document.change(value: Document, selected: string, key: string, propert
 	else
 		node.props[key] = library.parse(assert(library.descriptor(node.kind, key)), property)
 		if node.kind == "Toggle" and key == "mixed" then
-			node.props.presentation = "checkbox"
+			node.props.presentation = "checkbox" :: "checkbox"
 		elseif node.kind == "Toggle" and key == "presentation" and property ~= "checkbox" then
 			node.props.mixed = nil
 		end
@@ -172,9 +172,9 @@ function document.change(value: Document, selected: string, key: string, propert
 	end
 	if node.kind == "Image" then
 		if key == "tileSize" then
-			node.props.scaleMode = "tile"
+			node.props.scaleMode = "tile" :: "tile"
 		elseif key == "sliceCenter" or key == "sliceScale" then
-			node.props.scaleMode = "slice"
+			node.props.scaleMode = "slice" :: "slice"
 		end
 		local mode = node.props.scaleMode or library.definitions.Image.defaults.scaleMode
 		if mode == "tile" and node.props.tileSize == nil then
@@ -191,10 +191,10 @@ function document.change(value: Document, selected: string, key: string, propert
 		end
 	elseif node.kind == "Picker" then
 		if key == "indicatorPosition" and property ~= nil then
-			node.props.style = "radioGroup"
+			node.props.style = "radioGroup" :: "radioGroup"
 		end
 		if key == "maxHeight" and property ~= nil then
-			node.props.style = "menu"
+			node.props.style = "menu" :: "menu"
 		end
 		local style = node.props.style or library.definitions.Picker.defaults.style
 		if style ~= "radioGroup" then
@@ -212,7 +212,7 @@ function document.change(value: Document, selected: string, key: string, propert
 		end
 	elseif node.kind == "Sheet" then
 		if key == "edge" and property ~= nil and node.props.placement ~= "adaptive" then
-			node.props.placement = "side"
+			node.props.placement = "side" :: "side"
 		end
 		if not table.find({ "side", "adaptive" }, node.props.placement) then
 			node.props.edge = nil

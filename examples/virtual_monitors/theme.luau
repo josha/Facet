@@ -14,13 +14,13 @@ theme.ICONS = table.freeze({
 	"status.info",
 })
 theme.NEEDS = table.freeze({
-	{ name = "contentSecondary", kind = "color" },
-	{ name = "hairline", kind = "color" },
-	{ name = "controlSelected", kind = "color" },
-	{ name = "panel", section = "metrics.radii", kind = "number" },
-	{ name = "l", section = "metrics.space", kind = "number" },
+	{ name = "contentSecondary", kind = "color" :: string },
+	{ name = "hairline", kind = "color" :: string },
+	{ name = "controlSelected", kind = "color" :: string },
+	{ name = "panel", section = "metrics.radii", kind = "number" :: string },
+	{ name = "l", section = "metrics.space", kind = "number" :: string },
 })
-local function rgb(r, g, b)
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 theme.ACCENTS = table.freeze({
@@ -91,7 +91,7 @@ function theme.create(Facet: any, name: string)
 			space = { xs = 4, s = 8, m = 14, l = 22, xl = 32 },
 			radii = { control = 12, panel = 18, pill = 999 },
 		},
-		chrome = { monitorPanel = { kind = "native", shadow = "raised" } },
+		chrome = { monitorPanel = { kind = "native" :: "native", shadow = "raised" } },
 	})
 	assert(package, if report.errors[1] then report.errors[1].message else "Virtual Monitors theme is invalid")
 	local coverage = themes.checkCoverage(package, theme.NEEDS)
