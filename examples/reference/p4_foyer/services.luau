@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -9,7 +11,7 @@ export type CommandStatus = "idle" | "pending" | "confirmed" | "rejected"
 local services = {}
 
 function services.new(deps: { Compose: any })
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = deps.Compose
+	local Compose: ComposeModule = deps.Compose
 
 	local self = {} :: any
 

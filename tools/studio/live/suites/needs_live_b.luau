@@ -1,4 +1,10 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local Players = game:GetService("Players")
@@ -34,37 +40,22 @@ end
 
 local function scenario(t: any, name: string, size: Vector2?): (any, any)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-			return if type(built) == "function" then built() else built.screen()
-		end,
-		{ size = size, frames = 16 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+		return if type(built) == "function" then built() else built.screen()
+	end, { size = size, frames = 16 })
 	return stage, built
 end
 
 local function alertCase(t: any, where: string, size: Vector2, message: string, actions: { any }, theme: any?)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return UI.Alert({
-				isPresented = Compose.cell(true),
-				title = "Replace the save?",
-				message = message,
-				actions = actions,
-			})
-		end,
-		{ size = size, theme = theme, frames = 4 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		return UI.Alert({
+			isPresented = Compose.cell(true),
+			title = "Replace the save?",
+			message = message,
+			actions = actions,
+		})
+	end, { size = size, theme = theme, frames = 4 })
 	local panel = visibleNamed(t, stage, "AlertPanel")
 	if not panel then
 		t.check(where .. " alert shown", false)
@@ -145,42 +136,35 @@ end)
 
 add("disclosure-description-header", { "navigation-2-17" }, function(t)
 	local description
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			description = Compose.cell("Configure the current race")
-			return Host.Frame "Column" {
-				Size = UDim2.fromOffset(390, 400),
-				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-				UI.DisclosureGroup "With" {
-					LayoutOrder = 1,
-					label = "Details",
-					description = description,
-					chevronPosition = "trailing" :: "trailing",
-					appearance = "contained" :: "contained",
-					expanded = Compose.cell(false),
-					content = function(): Instance
-						return UI.Text({ text = "Body" })
-					end,
-				},
-				UI.DisclosureGroup "Without" {
-					LayoutOrder = 2,
-					label = "Details",
-					chevronPosition = "trailing" :: "trailing",
-					appearance = "contained" :: "contained",
-					expanded = Compose.cell(false),
-					content = function(): Instance
-						return UI.Text({ text = "Body" })
-					end,
-				},
-			}
-		end,
-		{ size = Vector2.new(390, 400) }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		description = Compose.cell("Configure the current race")
+		return Host.Frame "Column" {
+			Size = UDim2.fromOffset(390, 400),
+			BackgroundTransparency = 1,
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+			UI.DisclosureGroup "With" {
+				LayoutOrder = 1,
+				label = "Details",
+				description = description,
+				chevronPosition = "trailing" :: "trailing",
+				appearance = "contained" :: "contained",
+				expanded = Compose.cell(false),
+				content = function(): Instance
+					return UI.Text({ text = "Body" })
+				end,
+			},
+			UI.DisclosureGroup "Without" {
+				LayoutOrder = 2,
+				label = "Details",
+				chevronPosition = "trailing" :: "trailing",
+				appearance = "contained" :: "contained",
+				expanded = Compose.cell(false),
+				content = function(): Instance
+					return UI.Text({ text = "Body" })
+				end,
+			},
+		}
+	end, { size = Vector2.new(390, 400) })
 	local with, without = t.find(stage, "With"), t.find(stage, "Without")
 	local hw, hn = t.find(with, "Header"), t.find(without, "Header")
 	t.check("header with a description is taller", hw.AbsoluteSize.Y > hn.AbsoluteSize.Y, {
@@ -209,22 +193,15 @@ add("toggle-sizes-around-label", { "mech3-14" }, function(t)
 		for _, presentation in { "switch", "checkbox" } :: { "checkbox" | "switch" } do
 			for _, position in { "leading", "trailing" } :: { "leading" | "trailing" } do
 				local label
-				local stage = t.mount(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						_,
-						Compose: typeof(require("@repo/src/vendor/compose/core"))
-					)
-						label = Compose.cell("Rain")
-						return UI.Toggle "Toggle" {
-							label = label,
-							value = Compose.cell(true),
-							presentation = presentation :: "checkbox" | "switch",
-							indicatorPosition = position :: "leading" | "trailing",
-						}
-					end,
-					{ theme = theme.package, size = Vector2.new(600, 200) }
-				)
+				local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+					label = Compose.cell("Rain")
+					return UI.Toggle "Toggle" {
+						label = label,
+						value = Compose.cell(true),
+						presentation = presentation :: "checkbox" | "switch",
+						indicatorPosition = position :: "leading" | "trailing",
+					}
+				end, { theme = theme.package, size = Vector2.new(600, 200) })
 				local where = `{theme.name} {presentation} {position}`
 				local toggle = t.find(stage, "Toggle")
 				local indicator = t.find(toggle, "Indicator")
@@ -267,27 +244,20 @@ end)
 
 add("step-and-clear-targets", { "mech1-88" }, function(t)
 	for _, theme in t.themes do
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				return Host.Frame "Column" {
-					Size = UDim2.fromOffset(360, 300),
-					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-					UI.Stepper "Stepper" { value = Compose.cell(2), max = 5, LayoutOrder = 1 },
-					UI.TextInput "Search" {
-						value = Compose.cell("racers"),
-						clearButton = true,
-						clearButtonMode = "always" :: "always",
-						LayoutOrder = 2,
-					},
-				}
-			end,
-			{ theme = theme.package, size = Vector2.new(360, 300) }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			return Host.Frame "Column" {
+				Size = UDim2.fromOffset(360, 300),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+				UI.Stepper "Stepper" { value = Compose.cell(2), max = 5, LayoutOrder = 1 },
+				UI.TextInput "Search" {
+					value = Compose.cell("racers"),
+					clearButton = true,
+					clearButtonMode = "always" :: "always",
+					LayoutOrder = 2,
+				},
+			}
+		end, { theme = theme.package, size = Vector2.new(360, 300) })
 		for _, name in { "Decrease", "Increase", "Clear" } do
 			local node = visibleNamed(t, stage, name)
 			if node then
@@ -301,38 +271,30 @@ add("step-and-clear-targets", { "mech1-88" }, function(t)
 end)
 
 add("picker-long-labels", { "apps-237" }, function(t)
-	local sets: { [string]: { typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_string(nil :: any)) } } =
-		{
-			long = {
-				{ value = "a", label = "Automatic transmission mode" },
-				{ value = "b", label = "Manual transmission override" },
-				{ value = "c", label = "Sequential paddle shift gear" },
-				{ value = "d", label = "Assisted launch control mode" },
-			},
-			short = {
-				{ value = "a", label = "Auto" },
-				{ value = "b", label = "Manual" },
-				{ value = "c", label = "Paddle" },
-				{ value = "d", label = "Launch" },
-			},
-		}
+	local sets: { [string]: { StringPickerOption } } = {
+		long = {
+			{ value = "a", label = "Automatic transmission mode" },
+			{ value = "b", label = "Manual transmission override" },
+			{ value = "c", label = "Sequential paddle shift gear" },
+			{ value = "d", label = "Assisted launch control mode" },
+		},
+		short = {
+			{ value = "a", label = "Auto" },
+			{ value = "b", label = "Manual" },
+			{ value = "c", label = "Paddle" },
+			{ value = "d", label = "Launch" },
+		},
+	}
 	for name, options in sets do
 		for _, width in { 360, 380, 400 } do
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					_,
-					Compose: typeof(require("@repo/src/vendor/compose/core"))
-				)
-					return UI.Picker "Auto" {
-						selected = Compose.cell("a"),
-						Size = UDim2.fromOffset(width, 0),
-						AutomaticSize = Enum.AutomaticSize.Y,
-						options = options,
-					}
-				end,
-				{ size = Vector2.new(width, 300) }
-			)
+			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+				return UI.Picker "Auto" {
+					selected = Compose.cell("a"),
+					Size = UDim2.fromOffset(width, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					options = options,
+				}
+			end, { size = Vector2.new(width, 300) })
 			local picker = t.find(stage, "Auto")
 			t.stable(picker)
 			local presentation = picker:FindFirstChild("Presentation")
@@ -455,28 +417,21 @@ end)
 
 add("compact-label-single-line", { "inputs-63" }, function(t)
 	local width
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			width = Compose.cell(300)
-			return Host.Frame "Box" {
-				Size = function(use: Use)
-					return UDim2.fromOffset(use(width), 60)
-				end,
-				BackgroundTransparency = 1,
-				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
-				UI.Button "Go" {
-					label = "Continue to checkout",
-					compactLabel = "Continue",
-					Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
-				},
-			}
-		end,
-		{ size = Vector2.new(400, 200) }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		width = Compose.cell(300)
+		return Host.Frame "Box" {
+			Size = function(use: Use)
+				return UDim2.fromOffset(use(width), 60)
+			end,
+			BackgroundTransparency = 1,
+			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
+			UI.Button "Go" {
+				label = "Continue to checkout",
+				compactLabel = "Continue",
+				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
+			},
+		}
+	end, { size = Vector2.new(400, 200) })
 	local button = t.find(stage, "Go")
 	local lineHeight: number? = nil
 	local labels = {}
@@ -507,20 +462,14 @@ add("progress-skin-under-scale", { "themes-P5-38" }, function(t)
 	t.note("packages with barFill art", #packages)
 	for _, theme in packages do
 		for _, factor in { 2, 0.5 } do
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame "Scaled" {
-						Size = UDim2.fromOffset(200, 60),
-						BackgroundTransparency = 1,
-						Host.UIScale({ Scale = factor }) :: unknown,
-						UI.ProgressView "Bar" { value = 0.5, Size = UDim2.fromOffset(180, 12) },
-					}
-				end,
-				{ theme = theme.package, size = Vector2.new(500, 300) }
-			)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "Scaled" {
+					Size = UDim2.fromOffset(200, 60),
+					BackgroundTransparency = 1,
+					Host.UIScale({ Scale = factor }) :: unknown,
+					UI.ProgressView "Bar" { value = 0.5, Size = UDim2.fromOffset(180, 12) },
+				}
+			end, { theme = theme.package, size = Vector2.new(500, 300) })
 			local fill = t.find(stage, "Fill1")
 			local boundary = fill and t.find(fill, "SkinBoundary")
 			local where = `{theme.name} x{factor}`
@@ -566,32 +515,25 @@ add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
 			{ name = "plain", package = t.themes[1].package, hidden = false },
 		}
 	do
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				return Host.Frame {
-					Size = UDim2.fromOffset(400, 300),
-					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-					UI.Toggle "Box" {
-						value = Compose.cell(true),
-						label = "Box",
-						presentation = "checkbox" :: "checkbox",
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			return Host.Frame {
+				Size = UDim2.fromOffset(400, 300),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				UI.Toggle "Box" {
+					value = Compose.cell(true),
+					label = "Box",
+					presentation = "checkbox" :: "checkbox",
+				},
+				UI.Menu "Actions" {
+					label = "Actions",
+					isPresented = Compose.cell(true),
+					items = {
+						{ id = "a", label = "Archive", onSelect = function() end } :: MenuItem,
 					},
-					UI.Menu "Actions" {
-						label = "Actions",
-						isPresented = Compose.cell(true),
-						items = {
-							{ id = "a", label = "Archive", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-						},
-					},
-				}
-			end,
-			{ theme = entry.package, size = Vector2.new(400, 300), frames = 20 }
-		)
+				},
+			}
+		end, { theme = entry.package, size = Vector2.new(400, 300), frames = 20 })
 		local indicator = t.find(stage, "Indicator")
 		local found = rules(stage)
 		local base: StyleRule? = found[".facet-toggle-checkbox::UIStroke"]

@@ -1,4 +1,12 @@
 --!strict
+type Attributes = typeof(require("@repo/tools/typecheck/aliases").Attributes)
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type UIStrokeConstructor = typeof(require("@repo/tools/typecheck/aliases").UIStrokeConstructor)
+type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
+type UIPaddingConstructor = typeof(require("@repo/tools/typecheck/aliases").UIPaddingConstructor)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local requireDynamic = require :: (any) -> any
@@ -9,7 +17,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local Media = require("../src/ui/media_types")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local ComposeCore = require("../src/vendor/compose/core")
 type Status = ComposeCore.OrderedCollectionStatus
@@ -175,9 +183,7 @@ local function gallery(name: string): (any, any, () -> (), any)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		guiService = guiService,
@@ -478,11 +484,7 @@ t.describe("native parity weaker virtual", function()
 		local items = Compose.cell({ { id = "a", name = "Axe" }, { id = "b", name = "Bow" } })
 		local built, equipped = 0, nil
 		local stop, node: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			) "List" {
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "List" {
 				Compose.keyed({
 					from = items,
 					key = function(item)
@@ -1091,11 +1093,7 @@ t.describe("native parity weaker virtual", function()
 				measure = true,
 				status = state,
 				render = function(): GuiObject
-					return (
-						(
-							runtime.constructors.Frame :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-					) "Measured" {
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Measured" {
 						AutomaticSize = engine.types.Enum.AutomaticSize.X,
 						Size = engine.types.UDim2.new(0, 0, 1, 0),
 					}
@@ -1310,11 +1308,7 @@ t.describe("native parity weaker virtual", function()
 					render = function(current, _, rowKey: number): GuiObject
 						rendered += 1
 						local opened = Compose.cell(false)
-						return (
-							(
-								runtime.constructors.Frame :: unknown
-							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-						) "Row" {
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Row" {
 							Size = engine.types.UDim2.fromScale(1, 1),
 							label(UI, current) :: unknown,
 							UI.Toggle "Open" { value = opened, label = "Open" },
@@ -1429,11 +1423,7 @@ t.describe("native parity weaker virtual", function()
 								measured = known,
 								CanvasPosition = position,
 								render = function(current): GuiObject
-									return (
-										(
-											runtime.constructors.Frame :: unknown
-										) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-									) "Message" {
+									return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Message" {
 										AutomaticSize = engine.types.Enum.AutomaticSize.Y,
 										Size = engine.types.UDim2.fromScale(1, 0),
 										label(UI, current),
@@ -1550,11 +1540,9 @@ t.describe("native parity weaker virtual", function()
 			local frame
 			local controls: FixtureComposeTypes.OrderedCollectionControls<any>, rendered = {}, 0
 			local stop = runtime.mount(function()
-				frame = (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({ Size = engine.types.UDim2.fromScale(1, 1) })
+				frame = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+					Size = engine.types.UDim2.fromScale(1, 1),
+				})
 				local bounds = Compose.cell(frame.AbsoluteSize)
 				local connection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 					bounds:set(frame.AbsoluteSize)
@@ -1647,18 +1635,12 @@ t.describe("native parity weaker virtual", function()
 						status = state,
 						render = function(current, _, rowKey: number): GuiObject
 							if rowKey % 3 == 0 then
-								return (
-									(
-										runtime.constructors.Frame :: unknown
-									) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-								) "Wide" {
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Wide" {
 									Size = engine.types.UDim2.fromScale(1, 1),
 									label(UI, current) :: unknown,
-									(
-										(
-											runtime.constructors.UIStroke :: unknown
-										) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.UIStroke)
-									)({ Thickness = 2 }),
+									((runtime.constructors.UIStroke :: unknown) :: UIStrokeConstructor)({
+										Thickness = 2,
+									}),
 								}
 							end
 							return label(UI, current)
@@ -1745,36 +1727,24 @@ t.describe("native parity weaker virtual", function()
 					overscan = 0,
 					render = function(current, _, rowKey: number): GuiObject
 						if rowKey % 2 == 1 then
-							local odd = (
-								(
-									runtime.constructors.TextButton :: unknown
-								) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextButton)
-							) "Odd" {
+							local odd = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Odd" {
 								Text = function(use: Use)
 									return use(current).label
 								end,
 								Interactable = false,
 								Size = engine.types.UDim2.fromScale(1, 1),
-								Attributes = { Odd = true },
-								(
-										(
-											runtime.constructors.UIStroke :: unknown
-										) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.UIStroke)
-									)({ Thickness = 3 }) :: unknown,
-								(
-									(
-										runtime.constructors.UIPadding :: unknown
-									) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.UIPadding)
-								)({ PaddingLeft = engine.types.UDim.new(0, 12) }),
+								Attributes = { Odd = true } :: Attributes,
+								((runtime.constructors.UIStroke :: unknown) :: UIStrokeConstructor)({
+									Thickness = 3,
+								}) :: unknown,
+								((runtime.constructors.UIPadding :: unknown) :: UIPaddingConstructor)({
+									PaddingLeft = engine.types.UDim.new(0, 12),
+								}),
 							}
 							odd:AddTag("odd-row")
 							return odd
 						end
-						return (
-							(
-								runtime.constructors.TextButton :: unknown
-							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextButton)
-						) "Even" {
+						return ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Even" {
 							Text = function(use: Use)
 								return use(current).label
 							end,
@@ -1946,11 +1916,7 @@ t.describe("native parity weaker virtual", function()
 							id = "b",
 							label = "Other",
 							content = function(): Instance
-								return (
-									(
-										runtime.constructors.Frame :: unknown
-									) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-								)({})
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 							end,
 						} :: FixtureNavigationTypes.Tab,
 					},

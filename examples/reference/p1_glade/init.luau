@@ -1,7 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local seed = require("@self/content/seed")
 local strings = require("@self/content/strings")
 local supplyService = require("@self/services/supply")
@@ -10,8 +15,7 @@ local visitsService = require("@self/services/visits")
 local referenceView = require("./view")
 local Glade = { title = "Glade" }
 function Glade.build(ctx: ExampleContext)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, runtime =
-		ctx.Compose, ctx.Host, ctx.UI, ctx.runtime
+	local Compose: ComposeModule, Host, UI, runtime = ctx.Compose, ctx.Host, ctx.UI, ctx.runtime
 	local D2, V2, C3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local view = referenceView(ctx)
 	local owner = assert(Compose.currentOwner())
@@ -353,8 +357,8 @@ function Glade.build(ctx: ExampleContext)
 			UI.Picker "Locale" {
 				selected = locale,
 				options = {
-					{ value = "en", label = "English" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "xa", label = "Expanded" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "en", label = "English" } :: PickerOption,
+					{ value = "xa", label = "Expanded" } :: PickerOption,
 				},
 			}
 		)
@@ -369,9 +373,9 @@ function Glade.build(ctx: ExampleContext)
 				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -64),
 				tabs = {
-					{ id = "glades", label = "Glades", content = overview } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "favorites", label = "Favorites", content = overview } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "wisps", label = "Wisps", content = wisps } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "glades", label = "Glades", content = overview } :: Tab,
+					{ id = "favorites", label = "Favorites", content = overview } :: Tab,
+					{ id = "wisps", label = "Wisps", content = wisps } :: Tab,
 					{
 						id = "flora",
 						label = "Flora",
@@ -391,8 +395,8 @@ function Glade.build(ctx: ExampleContext)
 								end),
 							})
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "keeper", label = "Keeper", content = keeper } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					} :: Tab,
+					{ id = "keeper", label = "Keeper", content = keeper } :: Tab,
 				},
 			} :: unknown,
 			UI.Text({
@@ -428,13 +432,13 @@ function Glade.build(ctx: ExampleContext)
 				title = Compose.formula(text("keeper.confirmTitle")),
 				message = Compose.formula(text("keeper.confirmBody")),
 				actions = {
-					{ id = "cancel", label = text("keeper.keep"), role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					{ id = "cancel", label = text("keeper.keep"), role = "cancel" :: "cancel" } :: AlertAction,
 					{
 						id = "reset",
 						label = text("keeper.startOver"),
 						role = "destructive" :: "destructive",
 						onActivate = reset,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					} :: AlertAction,
 				},
 			},
 			UI.Sheet "Detail" {

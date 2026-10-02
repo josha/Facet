@@ -1,4 +1,8 @@
 --!strict
+
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 local Facet = require("../src")
 local engineLib = require("../tests/lib/native_engine")
 
@@ -6,11 +10,11 @@ export type State = {
 	Facet: Facet.Facet,
 	Compose: Facet.ComposeModule,
 	runtime: Facet.Runtime,
-	Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+	Host: RobloxHost,
 	UI: Facet.Controls,
 	engine: engineLib.Engine,
 	target: any,
-	types: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).types),
+	types: RobloxTypes,
 	viewport: { w: number, h: number },
 	frame: (number?) -> (),
 	dispose: () -> (),
@@ -23,8 +27,7 @@ return function(options: any?): State
 	engine.clock = function()
 		return elapsed
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local root = Facet.Compose.createRootOwner(function()
 		runtime.adopt(target)
@@ -33,9 +36,7 @@ return function(options: any?): State
 		Facet = Facet,
 		Compose = Facet.Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		UI = Facet.controls(runtime, { types = engine.types }),
 		engine = engine,
 		target = target,

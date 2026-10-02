@@ -1,8 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -17,8 +23,7 @@ type World = {
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -37,9 +42,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, root: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
@@ -134,10 +137,10 @@ t.describe("native parity weak3 h1", function()
 			local selected = Compose.cell("a")
 			local icon = Compose.cell("checkmark")
 			local options = Compose.cell({
-				{ id = "one", value = "a", label = "Alpha", icon = icon :: any, badge = 3 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ id = "one", value = "a", label = "Alpha", icon = icon :: any, badge = 3 } :: PickerOption,
+				{ id = "two", value = "b", label = "Beach" } :: PickerOption,
 			})
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Picker "Routes" {
 					style = style :: "inline" | "radioGroup",
 					selected = selected,
@@ -159,15 +162,15 @@ t.describe("native parity weak3 h1", function()
 					description = "A mountain route",
 					icon = "edit",
 					badge = 7,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				} :: PickerOption,
+				{ id = "two", value = "b", label = "Beach" } :: PickerOption,
 			})
 			t.expect(find(picker, "one")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
 			t.expect(paintedIcon(row)).toBe(glyph("edit"))
 			options:set({
-				{ id = "one", value = "a", label = "Alpine" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ id = "one", value = "a", label = "Alpine" } :: PickerOption,
+				{ id = "two", value = "b", label = "Beach" } :: PickerOption,
 			})
 			t.expect(find(picker, "one")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
@@ -184,20 +187,14 @@ t.describe("native parity weak3 h1", function()
 		local rung = Compose.cell(nil :: string?)
 		local theme = Compose.cell(themes.neutralPackage() :: any)
 		local builds = 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				builds += 1
-				return Host.Frame({
-					UI.Button "Other" { label = "Other" } :: unknown,
-					UI.Button "Live" { label = "Go", controlSize = rung },
-					UI.Chip "Tag" { label = "Tag", selected = Compose.cell(false), controlSize = rung },
-				})
-			end,
-			{ theme = theme }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			builds += 1
+			return Host.Frame({
+				UI.Button "Other" { label = "Other" } :: unknown,
+				UI.Button "Live" { label = "Go", controlSize = rung },
+				UI.Chip "Tag" { label = "Tag", selected = Compose.cell(false), controlSize = rung },
+			})
+		end, { theme = theme })
 		local sheet = styleSheet(world, theme)
 		local live, chip = find(world.root, "Live"), find(world.root, "Tag")
 		world.gui.SelectedObject = live
@@ -233,26 +230,20 @@ t.describe("native parity weak3 h1", function()
 
 	t.it("keeps the coach mark inside the theme spacing step at both lateral edges and inside the safe area", function()
 		local theme = Compose.cell(themes.neutralPackage() :: any)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						isPresented = Compose.cell(true),
-						onRetire = function() end,
-						content = function(): Instance
-							return UI.Button({ label = "Tip" })
-						end,
-					}),
-				})
-			end,
-			{ theme = theme }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					isPresented = Compose.cell(true),
+					onRetire = function() end,
+					content = function(): Instance
+						return UI.Button({ label = "Tip" })
+					end,
+				}),
+			})
+		end, { theme = theme })
 		local V = world.engine.types.Vector2
 		world.root.AbsolutePosition = V.new(0, 0)
 		world.root.AbsoluteSize = V.new(320, 400)

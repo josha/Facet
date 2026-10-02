@@ -1,16 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local engineLib = require("./lib/native_engine")
 local styleRules = require("./lib/style_rules")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function world(options: { [string]: any }?, distant: boolean?)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local T = engine.types

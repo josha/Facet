@@ -1,4 +1,9 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FolderConstructor = typeof(require("@repo/tools/typecheck/aliases").FolderConstructor)
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
@@ -9,26 +14,20 @@ local FRAME = 1 / 60
 
 local function sheet(extra: { [string]: any }?, options: any?): any
 	local detent = Compose.cell("medium")
-	local w = overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			local spec: any = {
-				isPresented = Compose.cell(true),
-				detent = detent,
-				title = "Race details",
-				content = function(): Instance
-					return Host.TextLabel "Copy" { Text = "Body" }
-				end,
-			}
-			for key, value in (extra or {} :: { [string]: any }) do
-				spec[key] = value
-			end
-			return UI.Sheet "Sheet"(spec)
-		end,
-		options
-	)
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+		local spec: any = {
+			isPresented = Compose.cell(true),
+			detent = detent,
+			title = "Race details",
+			content = function(): Instance
+				return Host.TextLabel "Copy" { Text = "Body" }
+			end,
+		}
+		for key, value in (extra or {} :: { [string]: any }) do
+			spec[key] = value
+		end
+		return UI.Sheet "Sheet"(spec)
+	end, options)
 	w.detent = detent
 	local modal = w.find("Modal")
 	modal.AbsoluteSize = (options and options.room) or Vector2.new(800, 600)
@@ -122,7 +121,7 @@ end)
 
 t.describe("settle: row actions", function()
 	t.it("a fast swipe that opens the tray keeps moving on the first frame after release", function()
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.RowActions({
 				fullSwipe = false,
 				content = UI.Button "Body" { label = "Row" } :: GuiObject,
@@ -148,7 +147,7 @@ t.describe("settle: row actions", function()
 	end)
 
 	t.it("a grab mid-settle starts the finger from the painted offset", function()
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.RowActions({
 				fullSwipe = false,
 				content = UI.Button "Body" { label = "Row" } :: GuiObject,
@@ -182,15 +181,10 @@ t.describe("settle: the primitive", function()
 	local engineLib = require("./lib/native_engine")
 	local function run(build: (any) -> ()): (any, () -> ())
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local stop = runtime.mount(function()
 			build(context(Compose, runtime, { types = engine.types, services = {}, motionLevel = "normal" }))
-			return (
-				(
-					runtime.constructors.Folder :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Folder)
-			)({})
+			return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({})
 		end, engine.new("Folder"))
 		return engine, function()
 			stop()

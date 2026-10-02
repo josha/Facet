@@ -1,12 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local screens = { CANVAS = { w = 920, h = 640 }, SHORT_HEIGHT = 500 }
 screens.APPS = table.freeze({ "Discover", "Avatar", "Chat", "Flap" })
 
 function screens.create(Facet: any, runtime: any, actions: any)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, civil =
-		Facet.Compose, runtime.constructors, Facet.civilDate
+	local Compose: ComposeModule, Host, civil = Facet.Compose, runtime.constructors, Facet.civilDate
 	local model = actions.model
 	local types = actions.types or getfenv(0)
 	local D, D2, V2, C3, CF, E = types.UDim, types.UDim2, types.Vector2, types.Color3, types.CFrame, types.Enum
@@ -265,28 +271,36 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							onClose = function()
 								menuShown:set(false)
 							end,
-							items = {
-								{ id = "Presentation", label = "Switch presentation", onSelect = model.toggleMode } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-								{ id = "Appearance", label = "Switch appearance", onSelect = switchAppearance } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-								{
-									id = "About",
-									label = "About",
-									onSelect = function()
-										about:set(true)
-									end,
-								} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-								if actions.spatial
-									then {
-										id = "Focus",
-										label = function(use: Use)
-											return if use(model.focused) == name then "All monitors" else "Focus"
-										end,
-										onSelect = function()
-											model.focus(name)
-										end,
-									}
-									else nil,
-							},
+							items = (
+									{
+										{
+											id = "Presentation",
+											label = "Switch presentation",
+											onSelect = model.toggleMode,
+										} :: MenuItem?,
+										{ id = "Appearance", label = "Switch appearance", onSelect = switchAppearance } :: MenuItem?,
+										{
+											id = "About",
+											label = "About",
+											onSelect = function()
+												about:set(true)
+											end,
+										} :: MenuItem?,
+										if actions.spatial
+											then {
+												id = "Focus",
+												label = function(use: Use)
+													return if use(model.focused) == name
+														then "All monitors"
+														else "Focus"
+												end,
+												onSelect = function()
+													model.focus(name)
+												end,
+											}
+											else nil,
+									} :: unknown
+								) :: { MenuItem },
 						},
 						profile,
 					},
@@ -384,9 +398,9 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							end,
 							style = "radioGroup" :: "radioGroup",
 							options = {
-								{ value = "online", label = "Online" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-								{ value = "away", label = "Away" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-								{ value = "busy", label = "Busy" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+								{ value = "online", label = "Online" } :: PickerOption,
+								{ value = "away", label = "Away" } :: PickerOption,
+								{ value = "busy", label = "Busy" } :: PickerOption,
 							},
 						},
 					}
@@ -422,7 +436,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						onActivate = function()
 							about:set(false)
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+					} :: OverlayAction,
 				},
 			},
 		})
@@ -452,15 +466,15 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					onSelect = function()
 						model.notify("Discover", `Link to {current:peek().title} copied`)
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
 				{
 					id = "Hide",
 					label = "Not interested",
 					onSelect = function()
 						model.hide(current:peek())
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
+				{ divider = true } :: MenuItem,
 				{
 					id = "Report",
 					label = "Report",
@@ -468,7 +482,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					onSelect = function()
 						model.notify("Discover", `Thanks. We will review {current:peek().title}.`)
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
 			},
 		}
 	end
@@ -620,14 +634,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							onSelect = function()
 								model.launchGame(selected.id, "Joining your friends")
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+						} :: MenuItem,
 						{
 							id = "Private",
 							label = "Start a private server",
 							onSelect = function()
 								model.launchGame(selected.id, "Starting a private server")
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+						} :: MenuItem,
 					},
 				} :: unknown,
 				quiet("LaunchStatus", function(use: Use)
@@ -717,8 +731,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					Size = D2.fromOffset(0, 44),
 					AutomaticSize = E.AutomaticSize.X,
 					options = {
-						{ value = "about", label = "About" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "similar", label = "Similar games" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "about", label = "About" } :: PickerOption,
+						{ value = "similar", label = "Similar games" } :: PickerOption,
 					},
 				} :: unknown,
 				UI.Spacer "TabsGap" { minLength = "s" },
@@ -1002,9 +1016,9 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						model.sort:set(value)
 					end,
 					options = {
-						{ value = "recommended", label = "Recommended" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "rating", label = "Top rated" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "playing", label = "Most playing" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "recommended", label = "Recommended" } :: PickerOption,
+						{ value = "rating", label = "Top rated" } :: PickerOption,
+						{ value = "playing", label = "Most playing" } :: PickerOption,
 					},
 					style = "menu" :: "menu",
 					Size = function(use: Use)
@@ -1168,7 +1182,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							value = function(item)
 								return item.title
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+						} :: TableColumn,
 						{
 							id = "genre",
 							label = "Genre",
@@ -1176,7 +1190,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							value = function(item)
 								return item.genre
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+						} :: TableColumn,
 						{
 							id = "session",
 							label = "Session",
@@ -1185,7 +1199,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 								local session = model.sessions:peek()[item.id]
 								return if session then civil.format(session) else "—"
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+						} :: TableColumn,
 						{
 							id = "rating",
 							label = "Rating",
@@ -1193,7 +1207,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							value = function(item)
 								return item.rating
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+						} :: TableColumn,
 						{
 							id = "note",
 							label = "Note",
@@ -1217,7 +1231,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									end,
 								})
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+						} :: TableColumn,
 					},
 				})
 			end),
@@ -1265,7 +1279,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						}
 					end,
 					actions = {
-						{ id = "close", label = "Done", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+						{ id = "close", label = "Done", role = "cancel" :: "cancel" } :: AlertAction,
 					},
 				} :: unknown,
 				toastFor("Discover"),

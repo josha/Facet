@@ -1,5 +1,9 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Detent sheets",
 	intro = "Open a race briefing. Drag its header to resize, or focus Size and use Left / Right. On a distant screen the panel moves to the center.",
@@ -25,9 +29,9 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -132,7 +136,7 @@ return {
 					header = false :: false,
 					isPresented = lobbyShown,
 					detent = lobbyDetent,
-					detents = { "hug", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					detents = { "hug", "large" } :: { SheetDetent },
 					scrollPolicy = "atLargestDetent" :: "atLargestDetent",
 					hero = {
 						height = 140,
@@ -167,7 +171,7 @@ return {
 							onActivate = function()
 								lobbyShown:set(false)
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+						} :: OverlayAction,
 						{
 							id = "Join",
 							label = copy.joinLobby,
@@ -176,7 +180,7 @@ return {
 								status:set("Joined the harbor sprint.")
 								lobbyShown:set(false)
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+						} :: OverlayAction,
 					},
 				},
 				UI.Sheet "Filters" {
@@ -185,7 +189,7 @@ return {
 					width = "narrow" :: "narrow",
 					isPresented = filtersShown,
 					detent = filtersDetent,
-					detents = { "medium", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					detents = { "medium", "large" } :: { SheetDetent },
 					content = function(): Instance
 						return Host.Frame "FilterList" {
 							BackgroundTransparency = 1,
@@ -234,7 +238,7 @@ return {
 					title = copy.briefing,
 					isPresented = presented,
 					detent = detent,
-					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" } :: { SheetDetent },
 					content = function(): Instance
 						return Host.Frame "Details" {
 							BackgroundTransparency = 1,

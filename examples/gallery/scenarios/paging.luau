@@ -1,7 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Paging",
 	results = "Results",
@@ -19,7 +21,7 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY

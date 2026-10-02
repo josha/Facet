@@ -1,9 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedControls)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type Row = { [string]: any, id: string, label: string }
 return function(ctx: any, options: any)
-	local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
+	local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 	local D, D2, E, V2 = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum, ctx.types.Vector2
 	local initial: { Row } = options.rows or {}
 	for index = 1, if options.rows then 0 else options.count do
@@ -17,9 +24,7 @@ return function(ctx: any, options: any)
 		}
 	end
 	local rows, selection, selected =
-		Compose.cell(initial),
-		Compose.cell({}),
-		(function(value: string?): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+		Compose.cell(initial), Compose.cell({}), (function(value: string?): OptionalStringCell
 			return Compose.cell(value)
 		end)(nil)
 	local columns, textOffset, variable = Compose.cell(4), Compose.cell(0), Compose.cell(true)
@@ -39,7 +44,7 @@ return function(ctx: any, options: any)
 		following = false,
 		measured = 0,
 	})
-	local controls: typeof(require("@repo/tools/typecheck/example_shapes").orderedControls(nil :: any)) = {}
+	local controls: OrderedControls = {}
 	local coordinator = Compose.cell(nil :: string?)
 	local titleLine, bodyLine = Compose.cell(21), Compose.cell(18)
 	local readRows, flaggedRows = Compose.cell({}), Compose.cell({})
@@ -87,7 +92,7 @@ return function(ctx: any, options: any)
 	local function edit()
 		editing:set(not editing:peek())
 	end
-	local function actions(key: string): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))
+	local function actions(key: string): RowActions
 		return {
 			Name = "Row_" .. key,
 			coordinator = coordinator,
@@ -112,7 +117,7 @@ return function(ctx: any, options: any)
 					onActivate = function()
 						remove(key)
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").rowAction(nil :: any)),
+				} :: RowAction,
 				{
 					id = "flag",
 					label = "Flag",
@@ -429,7 +434,7 @@ return function(ctx: any, options: any)
 							return mailBody(current, key, false)
 						end,
 					},
-				} :: { typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)) }
+				} :: { TableColumn }
 			collection = UI.Table(common)
 			body = collection:FindFirstChild("Body")
 		else

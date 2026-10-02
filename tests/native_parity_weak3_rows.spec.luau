@@ -1,8 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type Census = { live: number, connections: number, owners: number, holding: number, mounts: number }
 
@@ -74,17 +78,14 @@ t.describe("native parity weak3 rows: declared mount ramp ceiling", function()
 				workloads = require("../examples/performance/lab/workloads"),
 			}
 			local engine = engineLib.new({ cacheDefaults = true })
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target = engine.new("Folder")
 			local probe
 			local world = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types } :: any),
 				engine = engine,
 				target = target,

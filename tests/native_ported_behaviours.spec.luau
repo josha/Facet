@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FolderConstructor = typeof(require("@repo/tools/typecheck/aliases").FolderConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local ThemeTypes = require("../src/ui/theme_types")
 local cells = require("./lib/cells")
 local FixtureComposeTypes = require("../src/vendor/compose/core")
@@ -9,7 +16,7 @@ local Facet = require("../src")
 local engines = require("./lib/native_engine")
 local Roblox = require("@lune/roblox")
 local Vector2, UDim2 = Roblox.Vector2, Roblox.UDim2
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 local expect = t.expect
 
@@ -42,8 +49,7 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?)
 	input.GetFocusedTextBox = function()
 		return nil
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local UI: any = Facet.controls(
 		runtime,
 		{
@@ -54,11 +60,9 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?)
 		} :: any
 	)
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ build(UI, runtime.constructors, engine) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+			build(UI, runtime.constructors, engine),
+		})
 	end, engine.new("Folder"))
 	return {
 		engine = engine,
@@ -104,7 +108,7 @@ end
 t.describe("Toggle switch follows controlSize", function()
 	t.it("each rung draws its own track and knob; no rung keeps the 38 by 24 switch", function()
 		local rung = Compose.cell("compact" :: "compact" | "large" | "regular" | "xsmall")
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Toggle "Plain" { value = Compose.cell(true), label = "Sound" } :: unknown,
 				UI.Toggle "Sized" { value = Compose.cell(true), label = "Music", controlSize = rung },
@@ -134,7 +138,7 @@ t.describe("voice and contrast statuses", function()
 		local status = Compose.cell(
 			"voice" :: "accent" | "contrast" | "error" | "info" | "neutral" | "success" | "voice" | "warning"
 		)
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.StatusIndicator "Dot" { status = status } :: unknown,
 				UI.Badge "Tag" { label = "Live", status = "contrast" :: "contrast" },
@@ -165,7 +169,7 @@ end)
 
 t.describe("Avatar faces, in-experience ring and background", function()
 	t.it("an icon face replaces the initials, also for a group member", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Avatar "Guest" { name = "Guest Player", icon = "person" } :: unknown,
 				UI.AvatarGroup "Group" { items = { { id = "g", name = "Guest", icon = "person" } } },
@@ -186,7 +190,7 @@ t.describe("Avatar faces, in-experience ring and background", function()
 	t.it("inExperience rings the face in accent with a surface gap and no corner mark", function()
 		local presence: FixtureComposeTypes.Cell<("away" | "busy" | "inExperience" | "offline" | "online")?> =
 			cells.presence("inExperience")
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Avatar "A" { name = "Ada", presence = presence, background = "success" }
 		end)
 		local avatar = find(w.screen, "A")
@@ -211,7 +215,7 @@ end)
 
 t.describe("Alert suppression", function()
 	t.it("the do-not-ask-again checkbox sits below the actions", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Alert {
 				isPresented = Compose.cell(true),
 				title = "Delete save?",
@@ -237,7 +241,7 @@ t.describe("Card ring", function()
 		"a selected card keeps the live shared focus look and asks it to reach the whole card, or the artwork",
 		function()
 			for _, target in { "card", "media" } do
-				local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = world(function(UI: FacetControls)
 					return UI.Card "C" {
 						image = "rbxassetid://1",
 						title = "Track",
@@ -261,7 +265,7 @@ t.describe("Card ring", function()
 				w.stop()
 			end
 			expect(function()
-				local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = world(function(UI: FacetControls)
 					return UI.Card({ image = "rbxassetid://1", title = "T", ringTarget = "shadow" } :: any)
 				end)
 				w.stop()
@@ -272,7 +276,7 @@ end)
 
 t.describe("Slider contained", function()
 	t.it("contained paints a knob-thick pill rail and fill", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Slider "Plain" { value = Compose.cell(0.5) } :: unknown,
 				UI.Slider "Contained" { value = Compose.cell(0.5), contained = true },
@@ -295,7 +299,7 @@ end)
 t.describe("Skeleton corners", function()
 	t.it("control and panel read the theme radii", function()
 		local package = themes.neutralPackage()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Skeleton "Control" { corners = "control" :: "control" } :: unknown,
 				UI.Skeleton "Panel" { corners = "panel" :: "panel" },
@@ -309,7 +313,7 @@ end)
 
 t.describe("ShortcutHint label", function()
 	t.it("the label sits after the keys by default and before them with labelPosition start", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.ShortcutHint "End" { keys = { { "E" } }, label = "Interact" } :: unknown,
 				UI.ShortcutHint "Start" { keys = { { "Q" } }, label = "Back", labelPosition = "start" :: "start" },
@@ -354,7 +358,7 @@ end)
 
 t.describe("NavBar surface", function()
 	t.it("surface paints a plate through the theme role tag", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.NavBar "Bar" { title = "Garage", surface = "panel" :: "panel" } :: unknown,
 				UI.NavBar "Bare" { title = "Garage" },
@@ -372,8 +376,7 @@ end)
 t.describe("app.refusal", function()
 	t.it("answers the refusal words without mounting, and nil for an accepted spec", function()
 		local engine: any = engines.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local app = Facet.app({ runtime = runtime, types = engine.types, parent = engine.new("Folder") })
 		expect(app.refusal("Button", { label = "Go", onActivate = function() end })).toBe(nil)
 		local words = app.refusal("Slider", { value = Compose.cell(0.5), contained = "yes" })
@@ -396,7 +399,7 @@ t.describe("Table editable cells", function()
 			{ id = "b", name = "Bo", laps = 5, ready = true, tier = "silver" },
 		})
 		local proposals = {}
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Table "T" {
 				from = rows,
 				key = "id",
@@ -497,7 +500,7 @@ t.describe("Table row paint", function()
 	t.it("the header band and every row carry theme tags, and alternatingRows tags the even rows", function()
 		local rows = Compose.cell({ { id = "a", n = 3 }, { id = "b", n = 1 }, { id = "c", n = 2 } })
 		local sort = cells.sort(nil)
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Table "Striped" {
 					from = rows,
@@ -586,7 +589,7 @@ t.describe("Table edit mode", function()
 	local function editableTable(input: string, editing: any?): (any, { string })
 		local rows = Compose.cell({ { id = "a", ready = false } })
 		local proposals = {}
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Table "T" {
 				from = rows,
 				key = "id",
@@ -646,7 +649,7 @@ t.describe("Table edit mode", function()
 		owned.stop()
 	end)
 	t.it("a table that neither reorders nor deletes has no Edit button and keeps its cells live", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Table "T" {
 				from = { { id = "a" } },
 				key = "id",
@@ -674,8 +677,7 @@ t.describe("environment preview", function()
 		local engine: any = engines.new()
 		local input = engine.new("UserInputService")
 		local gui = engine.new("GuiService")
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local forced = cells.optionalString("Touch")
 		local size = Compose.cell(engine.types.Vector2.new(390, 844))
 		local UI: any = Facet.controls(
@@ -695,11 +697,7 @@ t.describe("environment preview", function()
 		local seen: any
 		local stop = runtime.mount(function()
 			seen = UI.environment()
-			return (
-				(
-					runtime.constructors.Folder :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Folder)
-			)({})
+			return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({})
 		end, engine.new("Folder"))
 		expect(seen.interactionClasses:peek().primary).toBe("touch")
 		expect(seen.sizeClass:peek()).toBe("compact")
@@ -721,7 +719,7 @@ end)
 
 t.describe("lab-found defects", function()
 	t.it("a Divider leaves its transparency to the facet-divider rule", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack { UI.Divider "Line" {} }
 		end)
 		local line = find(w.screen, "Line")
@@ -737,29 +735,24 @@ t.describe("collection status seed", function()
 	t.it("a status cell that starts empty is filled with the empty status record", function()
 		for _, kind in { "VirtualList", "Table" } :: { "Table" | "VirtualList" } do
 			local status = cells.emptyCollectionStatus()
-			local w = world(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					if kind == "Table" then
-						return UI.Table {
-							from = { { id = "a" } },
-							key = "id",
-							columns = { { id = "id" } :: FixtureCollectionTypes.TableColumn<any, any> },
-							status = status,
-						}
-					end
-					return UI.VirtualList {
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
+				if kind == "Table" then
+					return UI.Table {
 						from = { { id = "a" } },
 						key = "id",
+						columns = { { id = "id" } :: FixtureCollectionTypes.TableColumn<any, any> },
 						status = status,
-						render = function(): GuiObject
-							return Host.Frame {}
-						end,
 					}
 				end
-			)
+				return UI.VirtualList {
+					from = { { id = "a" } },
+					key = "id",
+					status = status,
+					render = function(): GuiObject
+						return Host.Frame {}
+					end,
+				}
+			end)
 			w.step(2)
 			expect(type(status:peek()) == "table" and type(assert(status:peek()).total) == "number").toBe(true)
 			w.stop()
@@ -771,30 +764,24 @@ t.describe("bounded text buttons", function()
 	t.it(
 		"a text Button or Toggle with an authored width wraps inside it; any text button truncates at its box",
 		function()
-			local w = world(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					engine
-				)
-					local engineEnum = engine.types.Enum
-					local w0Enum = engineEnum.AutomaticSize
-					return Host.Frame {
-						Size = UDim2.fromOffset(180, 400),
-						UI.Toggle "Long" {
-							value = Compose.cell(false),
-							label = "Allow friends to join my race from the lobby",
-							Size = UDim2.fromScale(1, 0),
-						} :: unknown,
-						UI.Button "Cell" {
-							label = "A very long button label",
-							Size = UDim2.fromOffset(80, 44),
-							AutomaticSize = w0Enum.None,
-						},
-						UI.Button "Hug" { label = "Go" },
-					}
-				end
-			)
+			local w = world(function(UI: FacetControls, Host: RobloxHost, engine)
+				local engineEnum = engine.types.Enum
+				local w0Enum = engineEnum.AutomaticSize
+				return Host.Frame {
+					Size = UDim2.fromOffset(180, 400),
+					UI.Toggle "Long" {
+						value = Compose.cell(false),
+						label = "Allow friends to join my race from the lobby",
+						Size = UDim2.fromScale(1, 0),
+					} :: unknown,
+					UI.Button "Cell" {
+						label = "A very long button label",
+						Size = UDim2.fromOffset(80, 44),
+						AutomaticSize = w0Enum.None,
+					},
+					UI.Button "Hug" { label = "Go" },
+				}
+			end)
 			local long, cell, hug = find(w.screen, "Long"), find(w.screen, "Cell"), find(w.screen, "Hug")
 			expect(long.TextWrapped).toBe(true)
 			expect(long.AutomaticSize.Name).toBe("Y")
@@ -806,7 +793,7 @@ t.describe("bounded text buttons", function()
 	)
 
 	t.it("a text button whose width follows its label never truncates it", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Button "Hug" { label = "Go" } :: unknown,
 				UI.Toggle "Wide" { value = Compose.cell(false), label = "Label", Size = UDim2.fromScale(1, 0) },
@@ -832,7 +819,7 @@ end)
 
 t.describe("outline disclosure header", function()
 	t.it("an outline DisclosureGroup header leads with its chevron and label", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.DisclosureGroup "Tree" {
 				label = "Components",
 				appearance = "outline" :: "outline",
@@ -851,7 +838,7 @@ end)
 
 t.describe("StepIndicator room", function()
 	t.it("the underline sits below the copy, and a long description counts toward the fit", function()
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.StepIndicator "Steps" {
 				steps = {
 					{ id = "a", label = "Cart" },
@@ -878,7 +865,7 @@ t.describe("plate-less appearances in skinned themes", function()
 		assert(package.assets).controlArt = { content = "rbxassetid://123" }
 		assert(package.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "controlArt" }
 		local appearance = Compose.cell("utility")
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Button "Plated" { label = "Go" } :: unknown,
 				UI.Button "Utility" { label = "Row", appearance = "utility" },
@@ -902,8 +889,7 @@ t.describe("the focus ring", function()
 	t.it("an app gives its PlayerGui one theme ring for engine selection, shown only for keys and pads", function()
 		local engine: any = engines.new()
 		local E = engine.types.Enum
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local input = engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
 			return nil
@@ -946,7 +932,7 @@ t.describe("skins on laid-out plates", function()
 		package.assets = package.assets or {}
 		assert(package.assets).fieldArt = { content = "rbxassetid://123" }
 		assert(package.chrome).field = { kind = "nineSlice" :: "nineSlice", asset = "fieldArt" }
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput "Search" { value = Compose.cell(""), placeholder = "Search", label = "Find" }
 		end, { theme = package })
 		local plate = find(w.screen, "Input")
@@ -967,7 +953,7 @@ t.describe("toggle art", function()
 		assert(package.assets).knobArt = { content = "rbxassetid://124" }
 		assert(package.chrome).toggleTrack = { kind = "nineSlice" :: "nineSlice", asset = "trackArt" }
 		assert(package.chrome).toggleKnob = { kind = "nineSlice" :: "nineSlice", asset = "knobArt" }
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.VStack {
 				UI.Toggle "Switch" { value = Compose.cell(true), label = "On" } :: unknown,
 				UI.Toggle "Box" {

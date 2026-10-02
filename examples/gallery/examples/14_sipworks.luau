@@ -1,5 +1,7 @@
 --!strict
-local loadSipworks = require :: (string) -> typeof(require("@repo/examples/reference/p3_sipworks"))
+
+type SipworksModule = typeof(require("@repo/examples/reference/p3_sipworks"))
+local loadSipworks = require :: (string) -> SipworksModule
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 return {

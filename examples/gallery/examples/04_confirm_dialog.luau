@@ -1,10 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
 local example = { title = "Confirmation Dialog" }
 function example.build(ctx: any)
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 	local built: any = {
 		deletePath = "/DangerScreen/Page/Delete",
 		restorePath = "/DangerScreen/Page/Restore",

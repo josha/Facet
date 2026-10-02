@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -23,8 +26,7 @@ end
 local function world(spec: any, options: any?): any
 	local o = options or {}
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = {}
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	local E = engine.types.Enum
@@ -82,11 +84,7 @@ local function world(spec: any, options: any?): any
 	local screen = engine.new("ScreenGui")
 	w.screen = screen
 	w.stop = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.Frame :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-		)({
+		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 			Name = "Host",
 			Compose.show(w.visible, function()
 				return UI.Slider("Vol")(merged)
@@ -678,8 +676,7 @@ t.describe("native Slider controlSize", function()
 
 	t.it("building, driving and disposing a shaped slider leaves no connection behind", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI: any = {}
 		register(context(Compose, runtime, { types = engine.types }), UI)
 		local before = engine.census()

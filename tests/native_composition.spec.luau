@@ -1,13 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function make(options: { [string]: any }?): (any, any, any, any)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local T = engine.types
 	gui.GetGuiInset = function()
@@ -238,29 +242,24 @@ t.describe("Composition", function()
 	t.it("discloses a stepped-down region's richest content in context, anchored at the region", function()
 		local overlay = require("./lib/overlay_world")
 		local form = Compose.cell(1)
-		local w: any = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Composition "Hud" {
-					gap = 8,
-					padding = 0,
-					topbar = false,
-					UI.Region "Rounds" { zone = "topLeft" :: "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } } :: unknown,
-					UI.Region "Tasks" {
-						zone = "left" :: "left",
-						rank = 2,
-						form = form,
-						expand = function(): Instance
-							return Host.TextLabel "TasksRich" { Text = "Win a round" }
-						end,
-						Host.Frame { Name = "TasksFull" } :: unknown,
-						Host.Frame { Name = "TasksChip" },
-					},
-				}
-			end
-		)
+		local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Composition "Hud" {
+				gap = 8,
+				padding = 0,
+				topbar = false,
+				UI.Region "Rounds" { zone = "topLeft" :: "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } } :: unknown,
+				UI.Region "Tasks" {
+					zone = "left" :: "left",
+					rank = 2,
+					form = form,
+					expand = function(): Instance
+						return Host.TextLabel "TasksRich" { Text = "Win a round" }
+					end,
+					Host.Frame { Name = "TasksFull" } :: unknown,
+					Host.Frame { Name = "TasksChip" },
+				},
+			}
+		end)
 		for name, size in
 			{ RoundsFull = { 120, 44 }, TasksFull = { 240, 130 }, TasksChip = { 90, 30 } } :: { [string]: { number } }
 		do
@@ -289,34 +288,29 @@ t.describe("Composition", function()
 		local overlay = require("./lib/overlay_world")
 		for _, reveal in { true, false } do
 			local form = Compose.cell(1)
-			local w: any = overlay.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.Composition "Hud" {
-						gap = 8,
-						padding = 0,
-						topbar = false,
-						UI.Region "Rounds" {
-							zone = "topLeft" :: "topLeft",
-							rank = 1,
-							Host.Frame { Name = "RoundsFull" },
-						} :: unknown,
-						UI.Region "Feed" {
-							zone = "left" :: "left",
-							rank = 2,
-							mayDrop = true,
-							reveal = if reveal then nil else false,
-							form = form,
-							expand = function(): Instance
-								return Host.TextLabel "FeedRich" { Text = "Ravi eliminated Mo" }
-							end,
-							Host.Frame { Name = "FeedFull" },
-						},
-					}
-				end
-			)
+			local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Rounds" {
+						zone = "topLeft" :: "topLeft",
+						rank = 1,
+						Host.Frame { Name = "RoundsFull" },
+					} :: unknown,
+					UI.Region "Feed" {
+						zone = "left" :: "left",
+						rank = 2,
+						mayDrop = true,
+						reveal = if reveal then nil else false,
+						form = form,
+						expand = function(): Instance
+							return Host.TextLabel "FeedRich" { Text = "Ravi eliminated Mo" }
+						end,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
 			w.size(w.find("RoundsFull"), 120, 44)
 			w.size(w.find("FeedFull"), 240, 130)
 			local disc = w.find("Reveal")
@@ -346,30 +340,25 @@ t.describe("Composition", function()
 		function()
 			local overlay = require("./lib/overlay_world")
 			local form = Compose.cell(1)
-			local w: any = overlay.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.Composition "Hud" {
-						gap = 8,
-						padding = 0,
-						topbar = false,
-						UI.Region "Rounds" {
-							zone = "topLeft" :: "topLeft",
-							rank = 1,
-							Host.Frame { Name = "RoundsFull" },
-						} :: unknown,
-						UI.Region "Feed" {
-							zone = "left" :: "left",
-							rank = 2,
-							mayDrop = true,
-							form = form,
-							Host.Frame { Name = "FeedFull" },
-						},
-					}
-				end
-			)
+			local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Rounds" {
+						zone = "topLeft" :: "topLeft",
+						rank = 1,
+						Host.Frame { Name = "RoundsFull" },
+					} :: unknown,
+					UI.Region "Feed" {
+						zone = "left" :: "left",
+						rank = 2,
+						mayDrop = true,
+						form = form,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
 			local feed = w.find("FeedFull")
 			local home = feed.Parent
 			w.size(w.find("RoundsFull"), 120, 44)
@@ -398,32 +387,27 @@ t.describe("Composition", function()
 		local overlay = require("./lib/overlay_world")
 		for _, reveal in { true, false } do
 			local feedForm, stayForm = Compose.cell(1), Compose.cell(1)
-			local w: any = overlay.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.Composition "Hud" {
-						gap = 8,
-						padding = 0,
-						topbar = false,
-						UI.Region "Stay" {
-							zone = "left" :: "left",
-							rank = 1,
-							form = stayForm,
-							Host.Frame { Name = "StayFull" },
-						} :: unknown,
-						UI.Region "Feed" {
-							zone = "left" :: "left",
-							rank = 2,
-							mayDrop = true,
-							reveal = if reveal then nil else false,
-							form = feedForm,
-							Host.Frame { Name = "FeedFull" },
-						},
-					}
-				end
-			)
+			local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Stay" {
+						zone = "left" :: "left",
+						rank = 1,
+						form = stayForm,
+						Host.Frame { Name = "StayFull" },
+					} :: unknown,
+					UI.Region "Feed" {
+						zone = "left" :: "left",
+						rank = 2,
+						mayDrop = true,
+						reveal = if reveal then nil else false,
+						form = feedForm,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
 			local feed = w.find("FeedFull")
 			local home = feed.Parent
 			w.size(w.find("StayFull"), 100, 60)
@@ -460,33 +444,28 @@ t.describe("Composition", function()
 	t.it("keeps the zone's hidden popover open while another region in the zone steps a visible form", function()
 		local overlay = require("./lib/overlay_world")
 		local feedForm, otherForm = Compose.cell(1), Compose.cell(1)
-		local w: any = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Composition "Hud" {
-					gap = 8,
-					padding = 0,
-					topbar = false,
-					UI.Region "Other" {
-						zone = "left" :: "left",
-						rank = 1,
-						mayDrop = true,
-						form = otherForm,
-						Host.Frame { Name = "OtherFull" } :: unknown,
-						Host.Frame { Name = "OtherChip" },
-					} :: unknown,
-					UI.Region "Feed" {
-						zone = "left" :: "left",
-						rank = 2,
-						mayDrop = true,
-						form = feedForm,
-						Host.Frame { Name = "FeedFull" },
-					},
-				}
-			end
-		)
+		local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Composition "Hud" {
+				gap = 8,
+				padding = 0,
+				topbar = false,
+				UI.Region "Other" {
+					zone = "left" :: "left",
+					rank = 1,
+					mayDrop = true,
+					form = otherForm,
+					Host.Frame { Name = "OtherFull" } :: unknown,
+					Host.Frame { Name = "OtherChip" },
+				} :: unknown,
+				UI.Region "Feed" {
+					zone = "left" :: "left",
+					rank = 2,
+					mayDrop = true,
+					form = feedForm,
+					Host.Frame { Name = "FeedFull" },
+				},
+			}
+		end)
 		w.size(w.find("OtherFull"), 100, 60)
 		w.size(w.find("OtherChip"), 40, 40)
 		w.size(w.find("FeedFull"), 120, 60)
@@ -519,60 +498,39 @@ t.describe("Composition", function()
 			runtime:dispose()
 			return if ok then "" else tostring(message)
 		end
-		t.expect(
-			string.find(
-				refusal(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.Region { zone = "middle" :: any, rank = 1, Host.Frame {} }
-					end
-				),
-				"zone",
-				1,
-				true
-			) ~= nil
-		).toBe(true)
-		t.expect(
-			string.find(
-				refusal(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.Region { zone = "top" :: "top", rank = 1.5, Host.Frame {} }
-					end
-				),
-				"rank",
-				1,
-				true
-			) ~= nil
-		).toBe(true)
-		t.expect(
-			string.find(
-				refusal(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.Composition { Host.Frame {} }
-					end
-				),
-				"UI.Region",
-				1,
-				true
-			) ~= nil
-		).toBe(true)
 		t.expect(string.find(
-			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			refusal(function(UI: FacetControls, Host: RobloxHost)
+				return UI.Region { zone = "middle" :: any, rank = 1, Host.Frame {} }
+			end),
+			"zone",
+			1,
+			true
+		) ~= nil).toBe(true)
+		t.expect(string.find(
+			refusal(function(UI: FacetControls, Host: RobloxHost)
+				return UI.Region { zone = "top" :: "top", rank = 1.5, Host.Frame {} }
+			end),
+			"rank",
+			1,
+			true
+		) ~= nil).toBe(true)
+		t.expect(string.find(
+			refusal(function(UI: FacetControls, Host: RobloxHost)
+				return UI.Composition { Host.Frame {} }
+			end),
+			"UI.Region",
+			1,
+			true
+		) ~= nil).toBe(true)
+		t.expect(string.find(
+			refusal(function(UI: FacetControls)
 				return UI.Region { zone = "top" :: "top", rank = 1 }
 			end),
 			"form",
 			1,
 			true
 		) ~= nil).toBe(true)
-		t.expect(refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(refusal(function(UI: FacetControls)
 			return UI.Composition { UI.fill() }
 		end)).toBe("")
 	end)

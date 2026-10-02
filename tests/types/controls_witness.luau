@@ -1,10 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureThemeTypes = require("../../src/ui/theme_types")
 local Facet = require("../../src")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 type Use = <T>(Facet.Readable<T>) -> T
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime()
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local UI = Facet.controls(runtime)
 local themeBase = Facet.themes.neutralPackage()
 themeBase.chrome = { control = { kind = "native" } } :: { [string]: FixtureThemeTypes.SkinLayer }
@@ -242,7 +246,7 @@ local alert: GuiObject = UI.Alert({
 		return "Save changes"
 	end),
 	actions = {
-		{ id = "ok", label = "OK" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+		{ id = "ok", label = "OK" } :: AlertAction,
 	},
 })
 local sheet: GuiObject = UI.Sheet({ isPresented = expanded, detent = Compose.cell("large"), content = content })
@@ -331,7 +335,7 @@ local ownedImage: Frame = UI.AsyncImage({
 	end,
 })
 local clearedAdornee = Compose.cell(nil :: Instance?)
-local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local surface: SurfaceGui = Host.SurfaceGui({ Adornee = clearedAdornee })
 local mounted: { GuiObject } = {
 	ownedImage,

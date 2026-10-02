@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -6,23 +9,15 @@ local reservations = require("../src/ui/reservations")
 local Vector2 = require("@lune/roblox").Vector2
 
 local function mount(build: (any, any) -> any, options: any?): any
-	return overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			engine,
-			gui
-		)
-			return Host.Frame({ Name = "Page", build(UI, Host) })
-		end,
-		options
-	)
+	return overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, gui)
+		return Host.Frame({ Name = "Page", build(UI, Host) })
+	end, options)
 end
 
 t.describe("native Notice: inline copy, accessories and close", function()
 	t.it("paints the severity icon, title and message, and the close reports the press only", function()
 		local closes = 0
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.Notice "Connection" {
 				severity = "warning" :: "warning",
 				title = "Connection",
@@ -45,17 +40,12 @@ t.describe("native Notice: inline copy, accessories and close", function()
 	end)
 
 	t.it("icon = false hides only the artwork, and an explicit source paints that source", function()
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Notice "Plain" { message = "No art", icon = false } :: unknown,
-					UI.Notice "Custom" { message = "Custom art", icon = "rbxassetid://123" },
-				})
-			end
-		)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Notice "Plain" { message = "No art", icon = false } :: unknown,
+				UI.Notice "Custom" { message = "Custom art", icon = "rbxassetid://123" },
+			})
+		end)
 		t.expect(overlay.find(w.find("Plain"), "Icon")).toBeNil()
 		t.expect(overlay.find(w.find("Plain"), "Message").Text).toBe("No art")
 		t.expect(overlay.find(w.find("Custom"), "Icon").Image).toBe("rbxassetid://123")
@@ -64,7 +54,7 @@ t.describe("native Notice: inline copy, accessories and close", function()
 
 	t.it("the link and actions sit beside the copy when there is room and move below it when there is not", function()
 		local pressed: { string } = {}
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.Notice "Sync" {
 				message = "Your changes are not synced",
 				link = {
@@ -115,17 +105,12 @@ t.describe("native Notice: inline copy, accessories and close", function()
 				},
 			}
 		end
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Notice "Standard"(spec("standard")) :: unknown,
-					UI.Notice "Loud"(spec("emphasis")),
-				})
-			end
-		)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Notice "Standard"(spec("standard")) :: unknown,
+				UI.Notice "Loud"(spec("emphasis")),
+			})
+		end)
 		local standard, loud = w.find("Standard"), w.find("Loud")
 		t.expect(overlay.find(standard, "Link"):HasTag("facet-appearance-link")).toBe(true)
 		t.expect(overlay.find(standard, "Install"):HasTag("facet-accent")).toBe(true)
@@ -140,23 +125,18 @@ t.describe("native Notice: inline copy, accessories and close", function()
 
 	t.it("arrival never moves focus, and every control is a pad stop in the page's own order", function()
 		local shown = Compose.cell(false)
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button "Before" { label = "Before" } :: unknown,
-					Compose.show(shown, function()
-						return UI.Notice "Sync" {
-							message = "Not synced",
-							link = { label = "Details", onActivate = function() end },
-							onDismiss = function() end,
-						}
-					end),
-				})
-			end
-		)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button "Before" { label = "Before" } :: unknown,
+				Compose.show(shown, function()
+					return UI.Notice "Sync" {
+						message = "Not synced",
+						link = { label = "Details", onActivate = function() end },
+						onDismiss = function() end,
+					}
+				end),
+			})
+		end)
 		local before = w.find("Before")
 		w.gui.SelectedObject = before
 		shown:set(true)
@@ -170,7 +150,7 @@ t.describe("native Notice: inline copy, accessories and close", function()
 
 	t.it("keyboard and gamepad reach the action and press it; a pointer or finger taps it", function()
 		local pressed = 0
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.Notice "Sync" {
 				message = "Not synced",
 				actions = {
@@ -219,7 +199,7 @@ t.describe("native Notice: inline copy, accessories and close", function()
 			}
 		do
 			local ok = pcall(function()
-				mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				mount(function(UI: FacetControls)
 					return UI.Notice(bad)
 				end).stop()
 			end)
@@ -237,20 +217,15 @@ t.describe("native Notice: affixed placement reserves space a real consumer avoi
 
 	t.it("content moves down by the notice's real height and returns when it goes", function()
 		local shown = Compose.cell(true)
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Compose.show(shown, function()
-					return UI.Notice "Banner" {
-						placement = "affixed" :: "affixed",
-						severity = "warning" :: "warning",
-						message = "Offline",
-					}
-				end)
-			end
-		)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return Compose.show(shown, function()
+				return UI.Notice "Banner" {
+					placement = "affixed" :: "affixed",
+					severity = "warning" :: "warning",
+					message = "Offline",
+				}
+			end)
+		end)
 		local inset = consumer(w)
 		local banner = w.find("Banner")
 		t.expect(banner.Size.X.Scale).toBe(1)
@@ -265,19 +240,14 @@ t.describe("native Notice: affixed placement reserves space a real consumer avoi
 	end)
 
 	t.it("two stacked notices reserve the deepest edge, and two worlds never collide", function()
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Stack",
-					UI.Notice "Banner" { placement = "affixed" :: "affixed", message = "One" } :: unknown,
-					UI.Notice "Banner2" { placement = "affixed" :: "affixed", message = "Two" },
-				})
-			end
-		)
-		local other = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Stack",
+				UI.Notice "Banner" { placement = "affixed" :: "affixed", message = "One" } :: unknown,
+				UI.Notice "Banner2" { placement = "affixed" :: "affixed", message = "Two" },
+			})
+		end)
+		local other = mount(function(UI: FacetControls)
 			return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = "Elsewhere" }
 		end)
 		local first, second = w.find("Banner"), w.find("Banner2")
@@ -300,7 +270,7 @@ t.describe("native Notice: affixed placement reserves space a real consumer avoi
 	t.it("a reservation that moves again re-reads on the next frame without an owner error", function()
 		local problems: { string } = {}
 		local message = Compose.cell("Short")
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = message }
 		end, {
 			runService = true,
@@ -322,7 +292,7 @@ t.describe("native Notice: affixed placement reserves space a real consumer avoi
 
 	t.it("a taller message grows the reservation live", function()
 		local message = Compose.cell("Short")
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = message }
 		end)
 		local banner = w.find("Banner")
@@ -338,7 +308,7 @@ end)
 t.describe("native NavBar: the slot form", function()
 	t.it("Back fires by pointer, touch, keyboard and gamepad", function()
 		local backs = 0
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.NavBar "Top" {
 				title = "Tracks",
 				backLabel = "Back",
@@ -359,19 +329,14 @@ t.describe("native NavBar: the slot form", function()
 	end)
 
 	t.it("Back, leading, a filling center and trailing share one row when there is room", function()
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.NavBar "Top" {
-					onBack = function() end,
-					leading = UI.Button "Home" { label = "Home" },
-					center = UI.TextInput "Search" { value = Compose.cell("") },
-					trailing = Host.Frame({ Name = "Tools", UI.Button "Filter" { label = "Filter" } }),
-				}
-			end
-		)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return UI.NavBar "Top" {
+				onBack = function() end,
+				leading = UI.Button "Home" { label = "Home" },
+				center = UI.TextInput "Search" { value = Compose.cell("") },
+				trailing = Host.Frame({ Name = "Tools", UI.Button "Filter" { label = "Filter" } }),
+			}
+		end)
 		local bar = w.find("Top")
 		local layout = bar:FindFirstChildWhichIsA("UIListLayout")
 		t.expect(layout.FillDirection).toBe(w.Enum.FillDirection.Horizontal)
@@ -388,7 +353,7 @@ t.describe("native NavBar: the slot form", function()
 	end)
 
 	t.it("Back is content-coloured text tight to its chevron, with a spacing step before the title", function()
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.NavBar "Top" { onBack = function() end, title = "Garage" }
 		end)
 		local back = w.find("Back")
@@ -404,17 +369,12 @@ t.describe("native NavBar: the slot form", function()
 	end)
 
 	t.it("a new bar keeps one row while its filling title row is still laid out, so it never flashes", function()
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.NavBar "Top" {
-					title = "Garage",
-					trailing = Host.Frame({ Name = "Tools", UI.Button "Edit" { label = "Edit" } }),
-				}
-			end
-		)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return UI.NavBar "Top" {
+				title = "Garage",
+				trailing = Host.Frame({ Name = "Tools", UI.Button "Edit" { label = "Edit" } }),
+			}
+		end)
 		local layout = w.find("Top"):FindFirstChildWhichIsA("UIListLayout")
 		w.find("TitleMeasure").TextBounds = w.Vector2.new(70, 24)
 		w.size(w.find("Trailing"), 40, 40)
@@ -427,18 +387,13 @@ t.describe("native NavBar: the slot form", function()
 
 	t.it("a narrow bar moves the trailing content to a second row, without rebuilding the center", function()
 		local query = Compose.cell("coast")
-		local w = mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.NavBar "Top" {
-					onBack = function() end,
-					center = UI.TextInput "Search" { value = query },
-					trailing = Host.Frame({ Name = "Tools", UI.Button "Filter" { label = "Filter" } }),
-				}
-			end
-		)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
+			return UI.NavBar "Top" {
+				onBack = function() end,
+				center = UI.TextInput "Search" { value = query },
+				trailing = Host.Frame({ Name = "Tools", UI.Button "Filter" { label = "Filter" } }),
+			}
+		end)
 		local bar, search = w.find("Top"), w.find("Search")
 		local layout = bar:FindFirstChildWhichIsA("UIListLayout")
 		w.size(w.find("Back"), 44, 44)
@@ -460,7 +415,7 @@ t.describe("native NavBar: the slot form", function()
 	end)
 
 	t.it("the default center is the one-line title, and every slot subset mounts", function()
-		local w = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = mount(function(UI: FacetControls)
 			return UI.NavBar "Top" { title = "A very long track title that does not fit", titleSize = "heading" }
 		end)
 		local title = w.find("Title")
@@ -480,7 +435,7 @@ t.describe("native NavBar: the slot form", function()
 				{ onBack = function() end, trailing = "button", title = "T" },
 			}
 		do
-			local bar = mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local bar = mount(function(UI: FacetControls)
 				local built: { [string]: any } = table.clone(spec)
 				for key, value in built do
 					if value == "button" then
@@ -505,7 +460,7 @@ t.describe("native NavBar: the slot form", function()
 			}
 		do
 			local ok = pcall(function()
-				mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				mount(function(UI: FacetControls)
 					local built: { [string]: any } = table.clone(bad)
 					if built.trailing == "array" then
 						built.trailing = { UI.Button({ label = "A" }), UI.Button({ label = "B" }) }

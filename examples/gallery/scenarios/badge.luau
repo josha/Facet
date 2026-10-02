@@ -1,11 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 return {
 	title = "Badges",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -115,10 +118,10 @@ return {
 					label = "Status",
 					selected = status,
 					options = {
-						{ value = "neutral", label = "Neutral" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "warning", label = "Warning" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "error", label = "Error" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "voice", label = "Voice" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "neutral", label = "Neutral" } :: PickerOption,
+						{ value = "warning", label = "Warning" } :: PickerOption,
+						{ value = "error", label = "Error" } :: PickerOption,
+						{ value = "voice", label = "Voice" } :: PickerOption,
 					},
 				},
 				UI.Picker "Size" {
@@ -126,8 +129,8 @@ return {
 					label = "Size",
 					selected = rung,
 					options = {
-						{ value = "compact", label = "Compact" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "large", label = "Large" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "compact", label = "Compact" } :: PickerOption,
+						{ value = "large", label = "Large" } :: PickerOption,
 					},
 				},
 				Host.Frame({

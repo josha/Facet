@@ -1,4 +1,6 @@
 --!strict
+
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local makeView = require("./showcase_view")
 local rules = require("./outpost_terminal/rules")
 return {
@@ -289,7 +291,7 @@ return {
 										draft.beacon:set(1)
 										notice:set("Beacon power staged. Apply when ready.")
 									end,
-								} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+								} :: RadialItem,
 								{
 									id = "door",
 									label = "Door",
@@ -299,7 +301,7 @@ return {
 										draft.door:set(2)
 										notice:set("Door power staged. Apply when ready.")
 									end,
-								} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+								} :: RadialItem,
 								{
 									id = "workshop",
 									label = "Workshop",
@@ -309,7 +311,7 @@ return {
 										draft.workshop:set(2)
 										notice:set("Workshop power staged. Apply when ready.")
 									end,
-								} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+								} :: RadialItem,
 							},
 						},
 					}),

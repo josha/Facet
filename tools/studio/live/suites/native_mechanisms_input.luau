@@ -1,4 +1,9 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 local GuiService = game:GetService("GuiService")
 
 type Case = {
@@ -76,27 +81,18 @@ end, {
 
 add("held-arrow-repeats-and-stops", { "inputs-79", "apps-144" }, function(t)
 	local value = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			local children: { unknown } =
-				{ Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }) }
-			for index = 1, 12 do
-				table.insert(
-					children,
-					UI.Button({ Name = "B" .. index, label = "Button " .. index, LayoutOrder = index })
-				)
-			end
-			return Host.Frame "Column" {
-				Size = UDim2.fromOffset(240, 700),
-				BackgroundTransparency = 1,
-				table.unpack((children :: unknown) :: { unknown }),
-			}
-		end,
-		{ frames = 12 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		local children: { unknown } =
+			{ Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }) }
+		for index = 1, 12 do
+			table.insert(children, UI.Button({ Name = "B" .. index, label = "Button " .. index, LayoutOrder = index }))
+		end
+		return Host.Frame "Column" {
+			Size = UDim2.fromOffset(240, 700),
+			BackgroundTransparency = 1,
+			table.unpack((children :: unknown) :: { unknown }),
+		}
+	end, { frames = 12 })
 	GuiService.SelectedObject = t.find(stage, "B1")
 	watch(value)
 	return value
@@ -116,35 +112,28 @@ end, {
 
 add("form-controls-traverse-in-document-order", { "apps-175", "apps-192", "navigation-4-30" }, function(t)
 	local value = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return Host.Frame "Form" {
-				Size = UDim2.fromOffset(360, 700),
-				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-				UI.Button "First" { label = "First", LayoutOrder = 1 },
-				UI.Slider "Volume" { value = Compose.cell(0.5), LayoutOrder = 2 },
-				UI.Stepper "Laps" { value = Compose.cell(3), min = 1, max = 9, LayoutOrder = 3 },
-				UI.Toggle "Music" { value = Compose.cell(true), label = "Music", LayoutOrder = 4 },
-				UI.Picker "Mode" {
-					style = "segmented" :: "segmented",
-					selected = Compose.cell("a"),
-					options = {
-						{ value = "a", label = "Arcade" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "b", label = "Sim" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					},
-					indicator = "underline" :: "underline",
-					LayoutOrder = 5,
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame "Form" {
+			Size = UDim2.fromOffset(360, 700),
+			BackgroundTransparency = 1,
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+			UI.Button "First" { label = "First", LayoutOrder = 1 },
+			UI.Slider "Volume" { value = Compose.cell(0.5), LayoutOrder = 2 },
+			UI.Stepper "Laps" { value = Compose.cell(3), min = 1, max = 9, LayoutOrder = 3 },
+			UI.Toggle "Music" { value = Compose.cell(true), label = "Music", LayoutOrder = 4 },
+			UI.Picker "Mode" {
+				style = "segmented" :: "segmented",
+				selected = Compose.cell("a"),
+				options = {
+					{ value = "a", label = "Arcade" } :: PickerOption,
+					{ value = "b", label = "Sim" } :: PickerOption,
 				},
-				UI.Button "Last" { label = "Last", LayoutOrder = 6 },
-			}
-		end,
-		{ frames = 12 }
-	)
+				indicator = "underline" :: "underline",
+				LayoutOrder = 5,
+			},
+			UI.Button "Last" { label = "Last", LayoutOrder = 6 },
+		}
+	end, { frames = 12 })
 	value.stage = stage
 	GuiService.SelectedObject = t.find(stage, "First")
 	watch(value)
@@ -182,7 +171,7 @@ add(
 	{ "collections-179", "collections-237", "collections-265", "collections-247" },
 	function(t)
 		local value = { activated = {} }
-		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stage = t.mount(function(UI: FacetControls)
 			local rows = {}
 			for index = 1, 30 do
 				rows[index] = { id = tostring(index) }
@@ -224,30 +213,23 @@ add(
 
 add("open-tray-steps-sideways", { "collections-288", "apps2-48", "apps-188" }, function(t)
 	local value = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return UI.RowActions "Row" {
-				content = UI.Button "Content" { label = "Message", Size = UDim2.fromScale(1, 1) },
-				open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
-				trailing = {
-					{ id = "archive", label = "Archive", onActivate = function() end },
-					{ id = "flag", label = "Flag", onActivate = function() end },
-					{
-						id = "delete",
-						label = "Delete",
-						role = "destructive" :: "destructive",
-						onActivate = function() end,
-					},
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		return UI.RowActions "Row" {
+			content = UI.Button "Content" { label = "Message", Size = UDim2.fromScale(1, 1) },
+			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
+			trailing = {
+				{ id = "archive", label = "Archive", onActivate = function() end },
+				{ id = "flag", label = "Flag", onActivate = function() end },
+				{
+					id = "delete",
+					label = "Delete",
+					role = "destructive" :: "destructive",
+					onActivate = function() end,
 				},
-				Size = UDim2.fromOffset(480, 56),
-			}
-		end,
-		{ frames = 16 }
-	)
+			},
+			Size = UDim2.fromOffset(480, 56),
+		}
+	end, { frames = 16 })
 	value.stage = stage
 	local tray = t.find(stage, "trailing")
 	local first
@@ -280,22 +262,16 @@ end, {
 
 add("tab-key-traversal", { "apps-158", "apps2-169", "apps2-222", "apps-151" }, function(t)
 	local value = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Row" {
-				Size = UDim2.fromOffset(600, 60),
-				BackgroundTransparency = 1,
-				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
-				UI.Button "A" { label = "A" },
-				UI.Button "B" { label = "B" },
-				UI.Button "C" { label = "C" },
-			}
-		end,
-		{ frames = 10 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Row" {
+			Size = UDim2.fromOffset(600, 60),
+			BackgroundTransparency = 1,
+			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
+			UI.Button "A" { label = "A" },
+			UI.Button "B" { label = "B" },
+			UI.Button "C" { label = "C" },
+		}
+	end, { frames = 10 })
 	GuiService.SelectedObject = t.find(stage, "A")
 	watch(value)
 	return value

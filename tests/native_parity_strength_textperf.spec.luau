@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
@@ -12,7 +17,7 @@ local perfRunner = require("../bench/perf_runner")
 local perfProfiles = require("../bench/perf_profiles")
 local lab = require("../examples/performance/lab/perf_lab")
 local textDegrade = require("../examples/gallery/scenarios/text_degrade")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function find(root: any, name: string): any
@@ -30,8 +35,7 @@ end
 
 local function world(options: { [string]: any }?): (any, any, any, any)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -290,11 +294,8 @@ t.describe("fine-grained cost at any collection size", function()
 			metrics.destroys += 1
 			destroy(node)
 		end
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local D2, V2 = engine.types.UDim2, engine.types.Vector2
 		local items = {}
@@ -466,9 +467,7 @@ t.describe("compact text before truncation", function()
 		local built = textDegrade.build({
 			UI = UI,
 			Compose = Compose,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 		})
 		local stop, screen: any = runtime.mount(built.screen, engine.new("ScreenGui"))
@@ -579,11 +578,7 @@ t.describe("preferred text size and disclosure", function()
 		local long = "An identity value much longer than its slot"
 		local selected, tab = Compose.cell("a"), Compose.cell("first")
 		local stop, root: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Picker "IdentitySegments" {
 					selected = selected,
 					style = "segmented" :: "segmented",
@@ -608,22 +603,14 @@ t.describe("preferred text size and disclosure", function()
 							id = "first",
 							label = long,
 							content = function(): Instance
-								return (
-									(
-										runtime.constructors.Frame :: unknown
-									) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-								)({})
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 							end,
 						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "second",
 							label = "Second",
 							content = function(): Instance
-								return (
-									(
-										runtime.constructors.Frame :: unknown
-									) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-								)({})
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 							end,
 						} :: FixtureNavigationTypes.Tab,
 					},
@@ -689,11 +676,7 @@ t.describe("preferred text size and disclosure", function()
 			{ value = "three", label = "Three" },
 		}
 		local stop, root: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Picker "Sized" {
 					selected = selected,
 					textSize = size,
@@ -747,11 +730,7 @@ t.describe("decoration cost", function()
 		local function fixture(theme: any): (any, () -> ())
 			local engine, runtime, UI = world({ theme = theme })
 			local stop, root: any = runtime.mount(function()
-				return (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 					UI.Button({ label = "Save" }) :: unknown,
 					UI.Toggle({ value = Compose.cell(false), label = "Ready" }),
 					UI.TextInput({ value = Compose.cell("Text") }),

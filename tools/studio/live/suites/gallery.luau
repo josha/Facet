@@ -1,4 +1,8 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
@@ -156,31 +160,23 @@ add("collection-toolbar-variants", { "risk:collection-toolbar" }, function(t)
 		{ name = "Large table", module = "table_virtualized" },
 	}
 	for _, variant in variants do
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core")),
-				env
-			)
-				local ctx = {
-					Facet = t.Facet,
-					Compose = Compose,
-					runtime = env.runtime,
-					Host = Host,
-					UI = UI,
-					viewport = env.viewport,
-					types = env.types,
-					guiService = game:GetService("GuiService"),
-					runService = game:GetService("RunService"),
-				}
-				local built = if variant.module
-					then (require :: any)(folder:WaitForChild(variant.module)).build(ctx)
-					else assert(variant.build)(ctx)
-				return built.screen()
-			end,
-			{ size = size, frames = 20 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+			local ctx = {
+				Facet = t.Facet,
+				Compose = Compose,
+				runtime = env.runtime,
+				Host = Host,
+				UI = UI,
+				viewport = env.viewport,
+				types = env.types,
+				guiService = game:GetService("GuiService"),
+				runService = game:GetService("RunService"),
+			}
+			local built = if variant.module
+				then (require :: any)(folder:WaitForChild(variant.module)).build(ctx)
+				else assert(variant.build)(ctx)
+			return built.screen()
+		end, { size = size, frames = 20 })
 		local scroll = t.find(stage, "ToolbarScroll")
 		if scroll then
 			toolbarChecks(t, variant.name, scroll.Parent)

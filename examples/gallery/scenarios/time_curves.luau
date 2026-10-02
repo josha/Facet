@@ -1,13 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type NumberCell = typeof(require("@repo/tools/typecheck/example_shapes").numberCell(nil :: any))
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Time-based easing",
 	build = function(ctx: ExampleContext)
-		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")), runtime =
-			ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
+		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local reduced, race, gallery, panel = Compose.cell(false), Compose.cell(0), Compose.cell(0), Compose.cell(0)
 		local counts = { race = Compose.cell(0), gallery = Compose.cell(0), panel = Compose.cell(0) }

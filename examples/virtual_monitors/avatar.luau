@@ -1,11 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local theme = require("./theme")
-type Context = typeof(require("@repo/examples/types")(nil :: any))
+type Context = typeof(require("@repo/examples/types").Context)
 return function(ctx: Context)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, model =
-		ctx.Compose, ctx.Host, ctx.UI, ctx.model
+	local Compose: ComposeModule, Host, UI, model = ctx.Compose, ctx.Host, ctx.UI, ctx.model
 	local types, D2: typeof(UDim2), V2: typeof(Vector2), C3: typeof(Color3), CF: typeof(CFrame), E: typeof(Enum) =
 		ctx.types, ctx.D2, ctx.V2, ctx.C3, ctx.CF, ctx.E
 	local words, quiet, button = ctx.words, ctx.quiet, ctx.button
@@ -391,7 +394,7 @@ return function(ctx: Context)
 							}
 						)
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)),
+				} :: Destination,
 			},
 		},
 	}
@@ -420,7 +423,7 @@ return function(ctx: Context)
 				title = "Reset your look?",
 				message = "The accent, hat, hat colour and rotation return to their defaults.",
 				actions = {
-					{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } :: AlertAction,
 					{
 						id = "reset",
 						label = "Reset",
@@ -429,7 +432,7 @@ return function(ctx: Context)
 							model.resetAvatar()
 							UI.feedback("success")
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					} :: AlertAction,
 				},
 			},
 			Compose.keyed({

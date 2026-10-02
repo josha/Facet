@@ -1,25 +1,27 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 return {
 	title = "Keys and labels",
 	build = function(ctx: ExampleContext)
-		local Facet, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Facet, ctx.UI, ctx.Compose
+		local Facet, UI, Compose: ComposeModule = ctx.Facet, ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local rung: typeof(require("@repo/tools/typecheck/example_shapes").controlSize(nil :: any)), separator, title =
+		local rung: ControlSize, separator, title =
 			Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall"),
 			Compose.cell("or"),
 			Compose.cell("Saved")
 		local guide = Compose.cell(false)
-		local function bindingCell(
-			value: string?
-		): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+		local function bindingCell(value: string?): OptionalStringCell
 			return Compose.cell(value)
 		end
 		local key = bindingCell(nil)

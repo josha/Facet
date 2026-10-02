@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -14,7 +16,7 @@ export type Opts = {
 }
 
 function visits.new(opts: Opts): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 
 	local rooted = opts.rooted
 	local now = opts.now

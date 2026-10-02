@@ -1,4 +1,10 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local requireDynamic = require :: (any) -> any
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -7,34 +13,31 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local catalogue = require("../examples/gallery/client/demo_picker")
 local gallery = require("../examples/gallery/client/screen")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
-local function controlsFor(ctx: typeof(require("@repo/examples/types")(nil :: any)))
+local function controlsFor(ctx: ExampleContext)
 	return Facet.controls(ctx.runtime, {
 		types = ctx.types,
 		viewport = ctx.viewport,
 		guiService = ctx.guiService,
-		motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+		motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 			return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-		end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+		end) :: unknown) :: MotionLevel,
 	})
 end
 
 local function nativeContext()
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
-	local ctx: typeof(require("@repo/examples/types")(nil :: any)) = {
+	local ctx: ExampleContext = {
 		UI = nil :: any,
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,

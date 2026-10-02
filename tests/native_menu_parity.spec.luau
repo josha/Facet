@@ -1,11 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local Roblox = require("../src/vendor/compose/roblox")
 local themes = require("../src/ui/themes")(Compose)
 local engineLib = require("./lib/native_engine")
@@ -31,7 +38,7 @@ local function items(count: number, log: { string }?): { any }
 end
 
 local NESTED = {
-	{ id = "plain", label = "Plain", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+	{ id = "plain", label = "Plain", onSelect = function() end } :: MenuItem,
 	{
 		id = "adjust",
 		label = "Adjust",
@@ -39,8 +46,8 @@ local NESTED = {
 			{ id = "head", label = "Head", onSelect = function() end },
 			{ id = "body", label = "Body", onSelect = function() end },
 		},
-	} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-	{ id = "skin", label = "Skin", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+	} :: MenuItem,
+	{ id = "skin", label = "Skin", onSelect = function() end } :: MenuItem,
 }
 
 local function labelled(spec: { [any]: any }, options: { [string]: any }?): any
@@ -48,15 +55,9 @@ local function labelled(spec: { [any]: any }, options: { [string]: any }?): any
 	if fields.trigger == nil and fields.label == nil then
 		fields.label = "Options"
 	end
-	return worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(fields) })
-		end,
-		options or { motionLevel = "none" }
-	)
+	return worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(fields) })
+	end, options or { motionLevel = "none" })
 end
 
 local function panelOf(world: any): any
@@ -86,16 +87,11 @@ end
 
 local function sheetRules(): (any, any)
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local sheet
 	local stop = runtime.mount(function()
 		sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
-		return (
-			(
-				runtime.constructors.Frame :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-		)({ sheet :: unknown })
+		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ sheet :: unknown })
 	end, engine.new("Folder"))
 	return sheet, function()
 		stop()
@@ -123,21 +119,15 @@ t.describe("native menu parity with main", function()
 	t.it("attaches to the caller's trigger node and returns that same node without a wrapper", function()
 		local authored: any, returned
 		local ran: { string } = {}
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				authored = UI.Button "Opener" { label = "More" }
-				returned = UI.Menu({
-					trigger = authored,
-					LayoutOrder = 3,
-					items = items(2, ran),
-				})
-				return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), returned :: unknown })
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			authored = UI.Button "Opener" { label = "More" }
+			returned = UI.Menu({
+				trigger = authored,
+				LayoutOrder = 3,
+				items = items(2, ran),
+			})
+			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), returned :: unknown })
+		end, { motionLevel = "none" })
 		t.expect(returned).toBe(authored)
 		t.expect(authored.Parent.Name).toBe("S")
 		t.expect(authored.Name).toBe("Opener")
@@ -148,46 +138,34 @@ t.describe("native menu parity with main", function()
 		world.find("row2", panel).Activated.fire()
 		t.expect(ran).toEqual({ "row2" })
 		world.stop()
-		local named = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Menu "Actions" { trigger = UI.Button "Opener" { label = "More" }, items = items(1) },
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local named = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Menu "Actions" { trigger = UI.Button "Opener" { label = "More" }, items = items(1) },
+			})
+		end, { motionLevel = "none" })
 		t.expect(named.find("Actions").ClassName).toBe("TextButton")
 		t.expect(named.find("Opener")).toBeNil()
 		named.stop()
 	end)
 
 	t.it("fills each row title so a submenu chevron or check sits at the trailing edge", function()
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "S",
-					Size = UDim2.fromOffset(800, 600),
-					UI.Menu {
-						trigger = UI.Button "Opener" { label = "More" },
-						items = {
-							{ id = "plain", label = "Plain", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-							{
-								id = "deeper",
-								label = "Deeper",
-								children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
-							} :: FixtureNavigationTypes.MenuItem<any>,
-						},
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "S",
+				Size = UDim2.fromOffset(800, 600),
+				UI.Menu {
+					trigger = UI.Button "Opener" { label = "More" },
+					items = {
+						{ id = "plain", label = "Plain", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+						{
+							id = "deeper",
+							label = "Deeper",
+							children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
+						} :: FixtureNavigationTypes.MenuItem<any>,
 					},
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+				},
+			})
+		end, { motionLevel = "none" })
 		world.find("Opener").Activated.fire()
 		local panel = panelOf(world)
 		for _, id in { "plain", "deeper" } do
@@ -201,25 +179,19 @@ t.describe("native menu parity with main", function()
 
 	t.it("dims the page behind a menu presented as a sheet and not behind a panel", function()
 		for _, case in { { "sheet" :: unknown, true }, { "menu" :: unknown, false } } do
-			local world = worlds.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({
-						Name = "S",
-						Size = UDim2.fromOffset(800, 600),
-						UI.Menu {
-							trigger = UI.Button "Opener" { label = "More" },
-							presentation = case[1] :: "sheet" | "menu",
-							items = {
-								{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-							},
+			local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					Name = "S",
+					Size = UDim2.fromOffset(800, 600),
+					UI.Menu {
+						trigger = UI.Button "Opener" { label = "More" },
+						presentation = case[1] :: "sheet" | "menu",
+						items = {
+							{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 						},
-					})
-				end,
-				{ motionLevel = "none" }
-			)
+					},
+				})
+			end, { motionLevel = "none" })
 			world.find("Opener").Activated.fire()
 			local catcher = world.find("DismissOutside")
 			t.expect(`{case[1]}: {catcher.BackgroundTransparency < 1}`).toBe(`{case[1]}: {case[2]}`)
@@ -228,16 +200,11 @@ t.describe("native menu parity with main", function()
 	end)
 
 	t.it("refuses label and trigger together", function()
-		local message = worlds.mountError(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Menu({ label = "More", trigger = UI.Button "Opener" { label = "More" }, items = items(1) }),
-				})
-			end
-		)
+		local message = worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Menu({ label = "More", trigger = UI.Button "Opener" { label = "More" }, items = items(1) }),
+			})
+		end)
 		t.expect(message ~= nil and string.find(message, "label or trigger, not both", 1, true) ~= nil).toBe(true)
 	end)
 
@@ -332,14 +299,9 @@ t.describe("native menu parity with main", function()
 				{ width = -4, words = "width must be a finite number" },
 			} :: { { width: typeof(-4) | { type: string, ratio: number?, px: number?, weight: number? }, words: string } }
 		do
-			local message = worlds.mountError(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({ UI.Menu({ label = "More", width = case.width, items = items(1) } :: any) })
-				end
-			)
+			local message = worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({ UI.Menu({ label = "More", width = case.width, items = items(1) } :: any) })
+			end)
 			t.expect(message ~= nil and string.find(message, case.words, 1, true) ~= nil).toBe(true)
 		end
 	end)
@@ -349,11 +311,11 @@ t.describe("native menu parity with main", function()
 		local world = labelled({
 			presentation = "menu" :: "menu",
 			items = {
-				{ id = "a", label = "Alpha", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "b", label = "Beta", checked = checked } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "c", label = "Gamma", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "d", label = "Delta", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "a", label = "Alpha", onSelect = function() end } :: MenuItem,
+				{ id = "b", label = "Beta", checked = checked } :: MenuItem,
+				{ id = "c", label = "Gamma", onSelect = function() end } :: MenuItem,
+				{ divider = true } :: MenuItem,
+				{ id = "d", label = "Delta", onSelect = function() end } :: MenuItem,
 			},
 		})
 		local panel = open(world)

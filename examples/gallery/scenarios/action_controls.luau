@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type ControlSize = "xsmall" | "compact" | "regular" | "large"
 type Report = {
 	tokenCount: number,
@@ -14,12 +18,12 @@ type Report = {
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Actions and menus",
 	ledgerRows = { "CONTROL-ACTIONS" },
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local sceneViewport = ctx.sceneViewport or ctx.viewport
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
@@ -342,10 +346,10 @@ return {
 				end,
 			}
 			local items = {
-				{ id = "favorites", label = "Favorites only", checked = favorites } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "any", label = "Any weather", selected = weather, value = "any" } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "dry", label = "Dry weather", selected = weather, value = "dry" } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "favorites", label = "Favorites only", checked = favorites } :: MenuItem,
+				{ divider = true } :: MenuItem,
+				{ id = "any", label = "Any weather", selected = weather, value = "any" } :: MenuItem,
+				{ id = "dry", label = "Dry weather", selected = weather, value = "dry" } :: MenuItem,
 				{
 					id = "snow",
 					label = "Snow",
@@ -353,15 +357,15 @@ return {
 					value = "snow",
 					enabled = false,
 					description = "Winter races are closed.",
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
+				{ divider = true } :: MenuItem,
 				{
 					id = "done",
 					label = "Apply filters",
 					onSelect = function()
 						status:set("Filters applied.")
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
 			}
 			local menu = UI.Menu "Filters" {
 				label = "Race filters",
@@ -380,14 +384,14 @@ return {
 						onSelect = function()
 							status:set("Practice started.")
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+					} :: MenuItem,
 					{
 						id = "time",
 						label = "Time trial",
 						onSelect = function()
 							status:set("Time trial started.")
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+					} :: MenuItem,
 				},
 			}
 			local dialog = UI.Alert "RaceConfirmation" {
@@ -402,7 +406,7 @@ return {
 						onActivate = function()
 							status:set("Race cancelled.")
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					} :: AlertAction,
 					{
 						id = "Accept",
 						label = "Start",
@@ -410,7 +414,7 @@ return {
 						onActivate = function()
 							status:set("Race confirmed.")
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					} :: AlertAction,
 				},
 			}
 			local function heading(text)

@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -8,17 +11,14 @@ local sipworks = require("../examples/reference/p3_sipworks")
 local foyer = require("../examples/reference/p4_foyer")
 local function world(module)
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local built
 	local stop, node: any = runtime.mount(function()
 		built = module.build({
 			Facet = Facet,
 			Compose = Facet.Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(runtime, { types = engine.types }),
 			types = engine.types,
 			viewport = Facet.Compose.cell({ width = 1000, height = 720 }),

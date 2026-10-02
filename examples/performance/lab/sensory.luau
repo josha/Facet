@@ -1,8 +1,9 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return function(ctx: ExampleContext)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, T =
-		ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
+	local Compose: ComposeModule, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
 	local enabled, readout = Compose.cell(false), Compose.cell("Haptics off; no effects constructed")
 	local anchor = Host.Frame({ Size = T.UDim2.new(1, 0, 1, -80), Position = T.UDim2.fromOffset(0, 80) })
 	local counters =

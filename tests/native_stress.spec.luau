@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -8,12 +13,11 @@ local cells = require("./lib/cells")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local terminal = require("../examples/gallery/examples/outpost_terminal")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function world()
 	local engine = engineLib.new({ cacheDefaults = true })
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local root = engine.new("ScreenGui")
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -98,11 +102,7 @@ t.describe("native stress invariants", function()
 			local before = engine.census()
 			local shown = Compose.cell(false)
 			local stop = runtime.mount(function()
-				return (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 					UI.Button "Base" { label = "Open" } :: unknown,
 					UI.Alert({
 						isPresented = shown,
@@ -236,9 +236,7 @@ t.describe("native stress invariants", function()
 					Facet = Facet,
 					Compose = Compose,
 					runtime = runtime,
-					Host = (
-							runtime.constructors :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
 					UI = UI,
 					types = engine.types,
 				}, { send = function() end })
@@ -337,11 +335,7 @@ t.describe("native stress invariants", function()
 						activations += 1
 					end,
 				})
-				return (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({ field :: unknown, button })
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ field :: unknown, button })
 			end, root)
 			field:CaptureFocus()
 			for step = 1, 40 do
@@ -380,11 +374,7 @@ t.describe("native stress invariants", function()
 			local builds, activations, value = 0, 0, Compose.cell(3)
 			local stop, panel: any = runtime.mount(function()
 				builds += 1
-				return (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 					UI.Button "A" {
 						label = "A",
 						onActivate = function()
@@ -441,11 +431,7 @@ t.describe("native stress invariants", function()
 		local flag = Compose.cell(false)
 		local disposed = 0
 		local stopNotify, panel: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				Compose.show(flag, function()
 					return UI.Text "On" { text = "on" }
 				end),
@@ -469,11 +455,7 @@ t.describe("native stress invariants", function()
 		local before = engine.census()
 		local sheet, alert = Compose.cell(false), Compose.cell(false)
 		local stop = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Button "Base" { label = "Base" } :: unknown,
 				UI.Sheet({
 					isPresented = sheet,

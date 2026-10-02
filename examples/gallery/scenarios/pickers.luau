@@ -1,5 +1,7 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Pickers",
 	refuse = "Refuse changes",
@@ -28,7 +30,7 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types
 		local UDim, UDim2, Color3, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Color3, nativeTypes.Enum
 		local civil = ctx.Facet.civilDate

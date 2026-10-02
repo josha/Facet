@@ -1,13 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
 local widgets = {}
 
 function widgets.new(Facet: any, runtime: any, model: any, options: any): any
-	local Host, Compose: typeof(require("@repo/src/vendor/compose/core")) =
-		(runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-		Facet.Compose
+	local Host, Compose: ComposeModule = (runtime.constructors :: unknown) :: RobloxHost, Facet.Compose
 	local kit = {}
 	kit.colors = {
 		text = Color3.fromRGB(30, 40, 57),

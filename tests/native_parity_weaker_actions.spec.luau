@@ -1,9 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -19,8 +24,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -41,9 +45,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = if type(value) == "function" and key ~= "onError" then value(engine) else value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, runtime)
 	end, root)
@@ -143,8 +145,7 @@ end
 
 local function galleryContext(): (any, any, any)
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
@@ -156,9 +157,7 @@ local function galleryContext(): (any, any, any)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -212,8 +211,7 @@ t.describe("native parity weaker actions", function()
 		t.expect(field.PlaceholderText).toBe("Your name")
 		world.stop()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types } :: any)
 		local text, commits = Compose.cell(""), {}
 		local stop, bare: any = runtime.mount(function()
@@ -539,8 +537,7 @@ t.describe("native parity weaker actions", function()
 		local screens = require("../examples/virtual_monitors/screens")
 		local modelModule = require("../examples/virtual_monitors/model")
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -753,7 +750,7 @@ t.describe("native parity weaker actions", function()
 
 	t.it("activates a plain Button once from pointer, touch, gamepad and keyboard with no wiring", function()
 		local hits, count = {}, 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Button "Go" {
 				label = "Go",
 				onActivate = function(input)
@@ -789,7 +786,7 @@ t.describe("native parity weaker actions", function()
 
 	t.it("mounts an initially busy Button with its spinner and releases it when busy ends", function()
 		local busy, actions = Compose.cell(true), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Button "Loading" {
 				label = "Loading",
 				busy = busy,
@@ -819,7 +816,7 @@ t.describe("native parity weaker actions", function()
 
 	t.it("keeps a disabled destructive Button disabled on every input and re-enables it in place", function()
 		local enabled, fired = Compose.cell(false), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Button "Delete" {
 				label = "Delete",
 				role = "destructive" :: "destructive",
@@ -858,18 +855,13 @@ t.describe("native parity weaker actions", function()
 
 	t.it("mounts an explicit rect shape as an ordinary Button and a circle with a bound label", function()
 		local label = Compose.cell("1")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button "Rect" { label = "Save changes", shape = "rect" :: "rect" } :: unknown,
-					UI.Button "Plain" { label = "Save changes" },
-					UI.Button "Count" { label = label, shape = "circle" :: "circle" },
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button "Rect" { label = "Save changes", shape = "rect" :: "rect" } :: unknown,
+				UI.Button "Plain" { label = "Save changes" },
+				UI.Button "Count" { label = label, shape = "circle" :: "circle" },
+			})
+		end)
 		local rect, plain, count = find(world.node, "Rect"), find(world.node, "Plain"), find(world.node, "Count")
 		for _, node in { rect, plain } do
 			t.expect(node:FindFirstChildWhichIsA("UIAspectRatioConstraint")).toBe(nil)
@@ -898,7 +890,7 @@ t.describe("native parity weaker actions", function()
 				for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
 					local enabled, calls = Compose.cell(true), 0
 					local value, text = Compose.cell("a"), Compose.cell("A")
-					local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					local world = setup(function(UI: FacetControls)
 						if kind == "Toggle" then
 							return UI.Toggle "Control" {
 								label = "Test checkbox",
@@ -1009,33 +1001,27 @@ t.describe("native parity weaker actions", function()
 		function()
 			local effect
 			local selected = Compose.cell("one")
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({
-						UI.Button "Plain" { label = "Play" } :: unknown,
-						UI.Button "Other" { label = "Stop", haptic = true },
-						UI.Toggle "Switch" { label = "Sound", value = Compose.cell(true) },
-						UI.Picker "Segments" {
-							selected = selected,
-							style = "segmented" :: "segmented",
-							options = {
-								{ value = "one", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
-								{ value = "two", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
-							},
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					UI.Button "Plain" { label = "Play" } :: unknown,
+					UI.Button "Other" { label = "Stop", haptic = true },
+					UI.Toggle "Switch" { label = "Sound", value = Compose.cell(true) },
+					UI.Picker "Segments" {
+						selected = selected,
+						style = "segmented" :: "segmented",
+						options = {
+							{ value = "one", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "two", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
-						UI.TextInput "Field" { value = Compose.cell("") },
-					})
+					},
+					UI.TextInput "Field" { value = Compose.cell("") },
+				})
+			end, {
+				pressHaptic = function(engine)
+					effect = engine.new("HapticEffect")
+					return effect
 				end,
-				{
-					pressHaptic = function(engine)
-						effect = engine.new("HapticEffect")
-						return effect
-					end,
-				}
-			)
+			})
 			local plain, other, switch =
 				find(world.node, "Plain"), find(world.node, "Other"), find(world.node, "Switch")
 			local segment = find(find(world.node, "Segments"), "two")
@@ -1060,7 +1046,7 @@ t.describe("native parity weaker actions", function()
 			t.expect(effect.PlayCount).toBe(nil)
 			world.stop()
 			t.expect(effect.isDestroyed()).toBe(false)
-			world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			world = setup(function(UI: FacetControls)
 				return UI.Button "Plain" { label = "Play" }
 			end)
 			t.expect(find(world.node, "Plain").PressHapticEffect).toBe(nil)
@@ -1071,18 +1057,12 @@ t.describe("native parity weaker actions", function()
 	t.it("returns a pressed pop to its rest under an authored scale and keeps the native shadow", function()
 		local package = Facet.themes.neutralPackage()
 		assert(package.chrome).control = { kind = "native" :: "native", shadow = "raised" }
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Card" {
-					Host.UIScale "Authored" { Scale = 0.8 } :: unknown,
-					UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
-				}
-			end,
-			{ motionLevel = "normal", theme = package }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Card" {
+				Host.UIScale "Authored" { Scale = 0.8 } :: unknown,
+				UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
+			}
+		end, { motionLevel = "normal", theme = package })
 		local E = world.engine.types.Enum
 		local node = find(world.node, "Pop")
 		local authored = find(world.node, "Authored")
@@ -1112,18 +1092,13 @@ t.describe("native parity weaker actions", function()
 		"tags every disabled control for the theme and tears down cleanly under a non-interactable ancestor",
 		function()
 			local enabled = Compose.cell(false)
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame "Panel" {
-						UI.Button "Go" { label = "Go", enabled = enabled, onActivate = function() end } :: unknown,
-						UI.Toggle "Switch" { label = "Sound", value = Compose.cell(true), enabled = enabled },
-						UI.TextInput "Field" { value = Compose.cell(""), enabled = enabled },
-					}
-				end
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "Panel" {
+					UI.Button "Go" { label = "Go", enabled = enabled, onActivate = function() end } :: unknown,
+					UI.Toggle "Switch" { label = "Sound", value = Compose.cell(true), enabled = enabled },
+					UI.TextInput "Field" { value = Compose.cell(""), enabled = enabled },
+				}
+			end)
 			local go, switch, field = find(world.node, "Go"), find(world.node, "Switch"), find(world.node, "Field")
 			for _, node in { go, switch, field } do
 				t.expect(node:HasTag("facet-disabled")).toBe(true)
@@ -1157,16 +1132,11 @@ t.describe("native parity weaker actions", function()
 		"waits for a resting pointer, restarts the dwell, shows current help text and opens on a touch long-press",
 		function()
 			local text = Compose.cell("Posts this avatar")
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame "Screen" {
-						UI.Button "Plus" { label = "+", help = text },
-					}
-				end
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "Screen" {
+					UI.Button "Plus" { label = "+", help = text },
+				}
+			end)
 			local plus = find(world.node, "Plus")
 			local E = world.engine.types.Enum
 			world.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
@@ -1202,21 +1172,16 @@ t.describe("native parity weaker actions", function()
 	t.it("shows the disclosure state on a leading or trailing caret through header activation", function()
 		for _, side in { "leading", "trailing" } :: { "leading" | "trailing" } do
 			local expanded = Compose.cell(false)
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.DisclosureGroup "Group" {
-						label = "Advanced",
-						chevronPosition = side :: "leading" | "trailing",
-						expanded = expanded,
-						content = function(): Instance
-							return Host.Frame "Body" {}
-						end,
-					}
-				end
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return UI.DisclosureGroup "Group" {
+					label = "Advanced",
+					chevronPosition = side :: "leading" | "trailing",
+					expanded = expanded,
+					content = function(): Instance
+						return Host.Frame "Body" {}
+					end,
+				}
+			end)
 			local header = find(world.node, "Header")
 			local caret = find(header, if side == "leading" then "LeadingIcon" else "TrailingIcon")
 			t.expect(find(header, if side == "leading" then "TrailingIcon" else "LeadingIcon")).toBe(nil)
@@ -1241,24 +1206,19 @@ t.describe("native parity weaker actions", function()
 		function()
 			for _, appearance in { "plain", "contained", "divided" } :: { "contained" | "divided" | "plain" } do
 				local expanded, description = Compose.cell(false), Compose.cell("Configure the current race")
-				local world = setup(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.DisclosureGroup "Group" {
-							label = "Details",
-							description = description,
-							icon = "menu",
-							appearance = appearance :: "contained" | "divided" | "plain",
-							chevronPosition = "trailing" :: "trailing",
-							expanded = expanded,
-							content = function(): Instance
-								return Host.Frame "Body" {}
-							end,
-						}
-					end
-				)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.DisclosureGroup "Group" {
+						label = "Details",
+						description = description,
+						icon = "menu",
+						appearance = appearance :: "contained" | "divided" | "plain",
+						chevronPosition = "trailing" :: "trailing",
+						expanded = expanded,
+						content = function(): Instance
+							return Host.Frame "Body" {}
+						end,
+					}
+				end)
 				local group, header = world.node, find(world.node, "Header")
 				t.expect(group:HasTag("facet-panel")).toBe(appearance == "contained")
 				t.expect(group:HasTag("facet-disclosure-" .. appearance)).toBe(true)
@@ -1291,7 +1251,7 @@ t.describe("native parity weaker actions", function()
 
 	t.it("keeps split primary and alternatives separate in pointer form and runs a plain touch tap", function()
 		local primary, alternative = 0, 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.SplitButton "Split" {
 				label = "Run",
 				onActivate = function()
@@ -1351,21 +1311,16 @@ t.describe("native parity weaker actions", function()
 
 	t.it("selects a page from pointer and touch taps on its indicators", function()
 		local selection = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.PageView "Pager" {
-					selection = selection,
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "three", title = "Three", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-					},
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.PageView "Pager" {
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "three", title = "Three", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+				},
+			}
+		end)
 		local indicators = find(world.node, "Indicators")
 		local layout = find(world.node, "PagesLayout")
 		find(indicators, "three").Activated.fire(pointer(world.engine, "pointer"))
@@ -1384,19 +1339,14 @@ t.describe("native parity weaker actions", function()
 	t.it("resolves live control-size rungs in place, retracts nil to regular and keeps selection", function()
 		local rung, look = Compose.cell("large" :: string?), require("./lib/cells").optionalString("standard")
 		local builds = 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				builds += 1
-				return Host.Frame({
-					UI.Button "Other" { label = "Other" } :: unknown,
-					UI.Button "Live" { label = "Go", controlSize = rung, appearance = look },
-					UI.Toggle "Switch" { label = "Sound", value = Compose.cell(true), controlSize = rung },
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			builds += 1
+			return Host.Frame({
+				UI.Button "Other" { label = "Other" } :: unknown,
+				UI.Button "Live" { label = "Go", controlSize = rung, appearance = look },
+				UI.Toggle "Switch" { label = "Sound", value = Compose.cell(true), controlSize = rung },
+			})
+		end)
 		local live, switch = find(world.node, "Live"), find(world.node, "Switch")
 		world.gui.SelectedObject = live
 		for _, entry in
@@ -1426,7 +1376,7 @@ t.describe("native parity weaker actions", function()
 
 	t.it("refuses a readable corners source that turns into an illegal word", function()
 		local corners = Compose.cell("pill" :: "pill" | "square")
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Button "Corners" { label = "Corners", corners = corners }
 		end)
 		local corner = world.node:FindFirstChildWhichIsA("UICorner")
@@ -1438,7 +1388,7 @@ t.describe("native parity weaker actions", function()
 		t.expect(string.find(tostring(message), "corners must be pill or square", 1, true) ~= nil).toBe(true)
 		world.stop()
 		local failed, reason = pcall(function()
-			setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			setup(function(UI: FacetControls)
 				return UI.Button "Bad" { label = "Bad", corners = Compose.cell("round") :: any }
 			end)
 		end)

@@ -1,7 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type EdgePicker = typeof(require("@repo/tools/typecheck/aliases").EdgePicker)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type WidthPicker = typeof(require("@repo/tools/typecheck/aliases").WidthPicker)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Row = {
 	id: number,
 	title: string,
@@ -16,12 +21,11 @@ type Row = {
 	retired: number?,
 }
 type Options = { priority: number?, duration: number?, readFloor: number?, subject: string? }
-type LineProps = typeof(require("@repo/tools/typecheck/example_shapes").text(nil :: any))
+type LineProps = typeof(require("@repo/tools/typecheck/aliases").TextProps)
 return {
 	title = "Toasts",
 	build = function(ctx: ExampleContext)
-		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")), runtime =
-			ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
+		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local rows, presses, edge, widthMode =
 			Compose.cell({} :: { Row }),
@@ -150,24 +154,20 @@ return {
 						text = "Show a toast, then try Test input. Notifications leave the controls below usable.",
 						TextWrapped = true,
 					}),
-					((UI.Picker "Edge" :: unknown) :: (
-						typeof(require("@repo/tools/typecheck/example_shapes").edgePicker(nil :: any))
-					) -> GuiObject) {
+					((UI.Picker "Edge" :: unknown) :: (EdgePicker) -> GuiObject) {
 						label = "Edge for new stacks",
 						selected = edge,
 						options = {
-							{ value = "top" :: "top" | "bottom", label = "Top" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "bottom" :: "top" | "bottom", label = "Bottom" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "top" :: "top" | "bottom", label = "Top" } :: PickerOption,
+							{ value = "bottom" :: "top" | "bottom", label = "Bottom" } :: PickerOption,
 						},
 					},
-					((UI.Picker "Width" :: unknown) :: (
-						typeof(require("@repo/tools/typecheck/example_shapes").widthPicker(nil :: any))
-					) -> GuiObject) {
+					((UI.Picker "Width" :: unknown) :: (WidthPicker) -> GuiObject) {
 						label = "Toast width",
 						selected = widthMode,
 						options = {
-							{ value = "fill" :: "fill" | "hug", label = "Wide" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "hug" :: "fill" | "hug", label = "Fit content" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "fill" :: "fill" | "hug", label = "Wide" } :: PickerOption,
+							{ value = "hug" :: "fill" | "hug", label = "Fit content" } :: PickerOption,
 						},
 					},
 					Host.Frame "Commands" {

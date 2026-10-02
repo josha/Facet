@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -7,7 +11,7 @@ local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local overlay = require("./lib/overlay_world")
 local Vector2 = require("@lune/roblox").Vector2
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local PREVIEW = 0.62
 
@@ -28,30 +32,25 @@ t.describe("layout decisions under a preview UIScale", function()
 	t.it("a nested TabView collapses and places its strip as it does unscaled", function()
 		for _, height in { 360, 240 } do
 			both(`TabView {height}`, function(factor)
-				local world: any = worlds.new(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.TabView {
-							selection = Compose.cell("a"),
-							tabs = {
-								{
-									id = "a",
-									content = function(): Instance
-										return UI.TabView "Inner" {
-											selection = Compose.cell("x"),
-											tabs = {
-												{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} } :: FixtureNavigationTypes.Tab,
-												{ id = "y", label = "Permissions", content = Host.Frame "Y" {} } :: FixtureNavigationTypes.Tab,
-											},
-										}
-									end,
-								} :: FixtureNavigationTypes.Tab,
-							},
-						}
-					end
-				)
+				local world: any = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.TabView {
+						selection = Compose.cell("a"),
+						tabs = {
+							{
+								id = "a",
+								content = function(): Instance
+									return UI.TabView "Inner" {
+										selection = Compose.cell("x"),
+										tabs = {
+											{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} } :: FixtureNavigationTypes.Tab,
+											{ id = "y", label = "Permissions", content = Host.Frame "Y" {} } :: FixtureNavigationTypes.Tab,
+										},
+									}
+								end,
+							} :: FixtureNavigationTypes.Tab,
+						},
+					}
+				end)
 				local nested = world.find("Inner")
 				scaleProbes(world, factor)
 				nested.AbsoluteSize = world.V2(705 * factor, height * factor)
@@ -66,19 +65,14 @@ t.describe("layout decisions under a preview UIScale", function()
 		for _, width in { 389, 700, 1200 } do
 			both(`environment {width}`, function(factor)
 				local class = "?"
-				local world: any = worlds.new(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						local frame = Host.Frame "Region" {}
-						local env = UI.environment(frame)
-						Compose.watch(function(use: Use)
-							class = use(env.sizeClass)
-						end)
-						return frame
-					end
-				)
+				local world: any = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					local frame = Host.Frame "Region" {}
+					local env = UI.environment(frame)
+					Compose.watch(function(use: Use)
+						class = use(env.sizeClass)
+					end)
+					return frame
+				end)
 				scaleProbes(world, factor)
 				world.find("Region").AbsoluteSize = world.V2(width * factor, 800 * factor)
 				local out = class
@@ -91,7 +85,7 @@ t.describe("layout decisions under a preview UIScale", function()
 	t.it("Pagination keeps the same page window", function()
 		for _, width in { 360, 240, 120 } do
 			both(`Pagination {width}`, function(factor)
-				local world: any = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world: any = worlds.new(function(UI: FacetControls)
 					return UI.Pagination "P" {
 						page = Compose.cell(5000),
 						pageCount = 9999,
@@ -118,32 +112,7 @@ t.describe("layout decisions under a preview UIScale", function()
 
 	t.it("a Sheet's measured scroller sets its canvas to the whole content, rounded up", function()
 		both("Sheet canvas", function(factor)
-			local world: any = worlds.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.Sheet "Briefing" {
-						isPresented = Compose.cell(true),
-						detent = Compose.cell("medium"),
-						content = function(): Instance
-							return Host.Frame "Details" {}
-						end,
-					}
-				end
-			)
-			scaleProbes(world, factor)
-			local body = world.find("SheetContent")
-			world.resize(body:FindFirstChild("SheetFlow", true), 347 * factor, 292.8 * factor)
-			local out = tostring(body.CanvasSize.Y.Offset)
-			world.stop()
-			return out
-		end)
-		local world: any = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
+			local world: any = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 				return UI.Sheet "Briefing" {
 					isPresented = Compose.cell(true),
 					detent = Compose.cell("medium"),
@@ -151,8 +120,23 @@ t.describe("layout decisions under a preview UIScale", function()
 						return Host.Frame "Details" {}
 					end,
 				}
-			end
-		)
+			end)
+			scaleProbes(world, factor)
+			local body = world.find("SheetContent")
+			world.resize(body:FindFirstChild("SheetFlow", true), 347 * factor, 292.8 * factor)
+			local out = tostring(body.CanvasSize.Y.Offset)
+			world.stop()
+			return out
+		end)
+		local world: any = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Sheet "Briefing" {
+				isPresented = Compose.cell(true),
+				detent = Compose.cell("medium"),
+				content = function(): Instance
+					return Host.Frame "Details" {}
+				end,
+			}
+		end)
 		local body = world.find("SheetContent")
 		world.resize(body:FindFirstChild("SheetFlow", true), 347, 292.8)
 		t.expect(body.CanvasSize.Y.Offset).toBe(293)
@@ -162,7 +146,7 @@ t.describe("layout decisions under a preview UIScale", function()
 	t.it("StepIndicator picks the row or the summary as it does unscaled", function()
 		for _, width in { 900, 300 } do
 			both(`StepIndicator {width}`, function(factor)
-				local world: any = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world: any = worlds.new(function(UI: FacetControls)
 					return UI.StepIndicator "Steps" {
 						steps = {
 							{ id = "cart", label = "Cart" },
@@ -198,38 +182,33 @@ t.describe("layout decisions under a preview UIScale", function()
 		}
 		for _, box in { { 844, 330 }, { 844, 230 }, { 390, 780 } } do
 			both(`Composition {box[1]}x{box[2]}`, function(factor)
-				local world: any = worlds.new(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						local function form(name: string): any
-							return Host.Frame { Name = name }
-						end
-						return UI.Composition "Hud" {
-							gap = 8,
-							padding = 0,
-							UI.Region "Tasks" {
-								zone = "left" :: "left",
-								rank = 3,
-								form("TasksFull") :: unknown,
-								form("TasksChip"),
-							} :: unknown,
-							UI.Region "Clock" {
-								zone = "top" :: "top",
-								rank = 1,
-								form("ClockFull") :: unknown,
-								form("ClockChip"),
-							},
-							UI.Region "Rail" {
-								zone = "topRight" :: "topRight",
-								rank = 2,
-								form("RailFull") :: unknown,
-								form("RailChip"),
-							},
-						}
+				local world: any = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					local function form(name: string): any
+						return Host.Frame { Name = name }
 					end
-				)
+					return UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						UI.Region "Tasks" {
+							zone = "left" :: "left",
+							rank = 3,
+							form("TasksFull") :: unknown,
+							form("TasksChip"),
+						} :: unknown,
+						UI.Region "Clock" {
+							zone = "top" :: "top",
+							rank = 1,
+							form("ClockFull") :: unknown,
+							form("ClockChip"),
+						},
+						UI.Region "Rail" {
+							zone = "topRight" :: "topRight",
+							rank = 2,
+							form("RailFull") :: unknown,
+							form("RailChip"),
+						},
+					}
+				end)
 				scaleProbes(world, factor)
 				for name, size in sizes do
 					world.resize(world.find(name), size[1] * factor, size[2] * factor)
@@ -246,23 +225,17 @@ t.describe("layout decisions under a preview UIScale", function()
 	end)
 	t.it("a hugging PageView sizes its pages and footer as it does unscaled", function()
 		both("PageView", function(factor)
-			local world: any = worlds.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					engine
-				)
-					return UI.PageView {
-						Size = engine.types.UDim2.new(1, 0, 0, 0),
-						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-						selection = Compose.cell("one"),
-						pages = {
-							{ id = "one", title = "One", content = Host.Frame "BodyOne" {} } :: FixtureNavigationTypes.Tab,
-							{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} } :: FixtureNavigationTypes.Tab,
-						},
-					}
-				end
-			)
+			local world: any = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
+				return UI.PageView {
+					Size = engine.types.UDim2.new(1, 0, 0, 0),
+					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+					selection = Compose.cell("one"),
+					pages = {
+						{ id = "one", title = "One", content = Host.Frame "BodyOne" {} } :: FixtureNavigationTypes.Tab,
+						{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} } :: FixtureNavigationTypes.Tab,
+					},
+				}
+			end)
 			scaleProbes(world, factor)
 			world.resize(world.find("BodyOne"), 300 * factor, 180 * factor)
 			world.resize(world.find("BodyTwo"), 300 * factor, 212 * factor)
@@ -274,7 +247,7 @@ t.describe("layout decisions under a preview UIScale", function()
 	t.it("a Toast with an action places it beside or below the copy as it does unscaled", function()
 		for _, copy in { 120, 250 } do
 			both(`Toast {copy}`, function(factor)
-				local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = overlay.new(function(UI: FacetControls)
 					return UI.Toast "Saved" {
 						isPresented = Compose.cell(true),
 						onPresentedChange = function() end,

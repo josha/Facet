@@ -1,7 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Rows that say no",
 	intro = "One table. Five rows. Three of them opt out of something the others allow.",
@@ -53,7 +57,7 @@ return {
 	copy = COPY,
 	seed = SEED,
 	build = function(ctx: ExampleContext)
-		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
+		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local rows = Compose.cell(table.clone(SEED))
 		local selection = Compose.cell({})
@@ -131,7 +135,7 @@ return {
 								value = function(item)
 									return COPY[item.nameKey]
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+							} :: TableColumn,
 							{
 								id = "lock",
 								label = COPY.colLock,
@@ -139,14 +143,9 @@ return {
 								value = function(item)
 									return item.lock or "—"
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+							} :: TableColumn,
 						},
-						rowActions = function(
-							current,
-							key
-						): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(
-							nil :: any
-						))
+						rowActions = function(current, key): RowActions
 							return {
 								trailing = {
 									{

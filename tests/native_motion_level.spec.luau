@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local fadeKit = require("./lib/fade")
@@ -7,22 +10,16 @@ local overlay = require("./lib/overlay_world")
 
 local function levelWorld(options: any?): (any, any)
 	local env: any = nil
-	local w = overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			env = UI.environment()
-			return Host.Frame "Screen" {}
-		end,
-		options
-	)
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+		env = UI.environment()
+		return Host.Frame "Screen" {}
+	end, options)
 	return w, env
 end
 
 local function alertWorld(options: any?): (any, any)
 	local shown = Compose.cell(false)
-	local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local w = overlay.new(function(UI: FacetControls)
 		return UI.Alert {
 			isPresented = shown,
 			title = "Leave?",
@@ -95,20 +92,11 @@ t.describe("motion levels", function()
 			local themes = require("../src").themes
 			local transition = require("./lib/transition")
 			local sheet
-			local w = overlay.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					engine,
-					_,
-					runtime
-				)
-					require("../src").controls(runtime, { types = engine.types } :: any)
-					sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
-					return Host.Frame({ sheet :: unknown })
-				end,
-				{ motionLevel = "none" }
-			)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, _, runtime)
+				require("../src").controls(runtime, { types = engine.types } :: any)
+				sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
+				return Host.Frame({ sheet :: unknown })
+			end, { motionLevel = "none" })
 			local rule
 			for _, child in sheet:GetChildren() do
 				if child.ClassName == "StyleRule" and (child :: StyleRule).Selector == ".facet-text" then

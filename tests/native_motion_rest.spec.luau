@@ -1,4 +1,8 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
@@ -10,17 +14,12 @@ local FRAME = 1 / 60
 
 t.describe("present at rest: help tooltip", function()
 	local function hovered(): any
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Screen",
-					UI.Button "Post" { label = "Post", help = "Posts this avatar to the Marketplace" },
-				})
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Button "Post" { label = "Post", help = "Posts this avatar to the Marketplace" },
+			})
+		end)
 		local post = w.find("Post")
 		post.AbsolutePosition, post.AbsoluteSize = Vector2.new(300, 200), Vector2.new(80, 44)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -85,27 +84,21 @@ end)
 
 t.describe("present at rest: callout", function()
 	local function presented(): any
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Plus" { label = "+" }
-				return Host.Frame({
-					Name = "Editor",
-					Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-					UI.Callout "Tip" {
-						anchor = anchor :: GuiObject,
-						isPresented = true,
-						content = function(): Instance
-							return Host.TextLabel "Body" { Text = "Post Avatars to Marketplace" }
-						end,
-						onRetire = function() end,
-					},
-				})
-			end,
-			{ runService = true }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Plus" { label = "+" }
+			return Host.Frame({
+				Name = "Editor",
+				Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
+				UI.Callout "Tip" {
+					anchor = anchor :: GuiObject,
+					isPresented = true,
+					content = function(): Instance
+						return Host.TextLabel "Body" { Text = "Post Avatars to Marketplace" }
+					end,
+					onRetire = function() end,
+				},
+			})
+		end, { runService = true })
 		local plus = w.find("Plus")
 		plus.AbsolutePosition, plus.AbsoluteSize = Vector2.new(300, 300), Vector2.new(44, 44)
 		return w
@@ -139,31 +132,25 @@ t.describe("present at rest: anchored popover", function()
 	for _, edge in { "top", "bottom", "leading", "trailing" } :: { "bottom" | "leading" | "top" | "trailing" } do
 		t.it(`keeps the {edge} pointer and border attached through entry and exit`, function()
 			local open = Compose.cell(true)
-			local w = overlay.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					local anchor = UI.Button "Anchor" { label = "Save" }
-					return Host.Frame {
-						anchor :: unknown,
-						UI.Popover "Pop" {
-							isPresented = open,
-							source = { node = anchor :: GuiObject },
-							edge = edge :: "bottom" | "leading" | "top" | "trailing",
-							content = function(): Instance
-								return UI.Button "Save" {
-									label = "Save",
-									onActivate = function()
-										open:set(false)
-									end,
-								}
-							end,
-						},
-					}
-				end,
-				{ runService = true }
-			)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				local anchor = UI.Button "Anchor" { label = "Save" }
+				return Host.Frame {
+					anchor :: unknown,
+					UI.Popover "Pop" {
+						isPresented = open,
+						source = { node = anchor :: GuiObject },
+						edge = edge :: "bottom" | "leading" | "top" | "trailing",
+						content = function(): Instance
+							return UI.Button "Save" {
+								label = "Save",
+								onActivate = function()
+									open:set(false)
+								end,
+							}
+						end,
+					},
+				}
+			end, { runService = true })
 			w.at(w.find("Anchor"), 350, 250)
 			w.size(w.find("Anchor"), 40, 40)
 			local panel, border, tail = w.find("Panel"), w.find("OutlineBoundary"), w.find("Tail")
@@ -242,22 +229,17 @@ t.describe("present at rest: anchored popover", function()
 		end)
 	end
 	t.it("placement reads the rested size while the panel scales in", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Popover "Pop" {
-					isPresented = Compose.cell(true),
-					source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
-					edge = "bottom" :: "bottom",
-					align = "center" :: "center",
-					content = function(): Instance
-						return Host.TextLabel "Body" { Text = "Details" }
-					end,
-				}
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Popover "Pop" {
+				isPresented = Compose.cell(true),
+				source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
+				edge = "bottom" :: "bottom",
+				align = "center" :: "center",
+				content = function(): Instance
+					return Host.TextLabel "Body" { Text = "Details" }
+				end,
+			}
+		end)
 		local panel = w.find("Panel")
 		panel.AbsoluteSize = Vector2.new(200, 100)
 		w.find("Flow").AbsoluteSize = Vector2.new(184, 84)
@@ -276,15 +258,9 @@ end)
 
 t.describe("rest tracker", function()
 	t.it("reduced motion also waits for the plate's size to hold, then shows it whole", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+		end, { motionLevel = "none" })
 		local post = w.find("Post")
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		w.gui.SelectedObject = post
@@ -303,14 +279,9 @@ t.describe("rest tracker", function()
 	end)
 
 	t.it("reduced motion switched on during the wait fades the plate in at scale 1 once its size holds", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		w.gui.SelectedObject = w.find("Post")
 		w.advance(0.5, 10)
@@ -328,14 +299,9 @@ t.describe("rest tracker", function()
 	end)
 
 	t.it("rest waits for a size that holds for a frame, not merely a filled one", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		w.gui.SelectedObject = w.find("Post")
 		w.advance(0.5, 10)
@@ -353,14 +319,9 @@ t.describe("rest tracker", function()
 	end)
 
 	t.it("a layout that never stops moving still enters after 0.25 seconds", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		w.gui.SelectedObject = w.find("Post")
 		w.advance(0.5, 10)
@@ -379,7 +340,7 @@ local lune = require("@lune/roblox")
 local UDim2 = lune.UDim2
 
 local NESTED = {
-	{ id = "plain", label = "Plain", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+	{ id = "plain", label = "Plain", onSelect = function() end } :: MenuItem,
 	{
 		id = "adjust",
 		label = "Adjust",
@@ -387,20 +348,14 @@ local NESTED = {
 			{ id = "head", label = "Head", onSelect = function() end },
 			{ id = "body", label = "Body", onSelect = function() end },
 		},
-	} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+	} :: MenuItem,
 }
 
 local function menu(spec: { [any]: any }): any
 	spec.label = spec.label or "Options"
-	return worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
-		end,
-		{}
-	)
+	return worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
+	end, {})
 end
 
 local function lay(world: any, panel: any, size: Vector2)

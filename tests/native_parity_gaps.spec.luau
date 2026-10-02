@@ -1,11 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -37,8 +43,7 @@ local helpers: { [string]: boolean } = {
 
 local function world(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -56,9 +61,7 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
@@ -92,14 +95,11 @@ end
 
 local function mountError(build: (any, any) -> any): string?
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local ok, message = pcall(function()
 		local stop = runtime.mount(function()
 			return Host.Frame({ build(UI, Host) })
@@ -406,47 +406,32 @@ t.describe("native parity gaps", function()
 		table.sort(published)
 		t.expect(table.concat(names, " ")).toBe(table.concat(published, " "))
 		for _, name in names do
-			local accepted = mountError(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					local spec = assert(minimalSpecs(Host)[name], `no minimal spec for {name}`)()
-					local node = UI[name](spec)
-					return if spec.anchor
-						then Host.Frame({ Host.Frame({ spec.anchor :: unknown }) :: unknown, node })
-						else node
-				end
-			)
+			local accepted = mountError(function(UI: FacetControls, Host: RobloxHost)
+				local spec = assert(minimalSpecs(Host)[name], `no minimal spec for {name}`)()
+				local node = UI[name](spec)
+				return if spec.anchor
+					then Host.Frame({ Host.Frame({ spec.anchor :: unknown }) :: unknown, node })
+					else node
+			end)
 			t.expect(accepted).toBeNil()
-			local refused = mountError(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					local spec = minimalSpecs(Host)[name]()
-					spec.definitelyNotAKey = true
-					local node = UI[name](spec)
-					return if spec.anchor
-						then Host.Frame({ Host.Frame({ spec.anchor :: unknown }) :: unknown, node })
-						else node
-				end
-			)
+			local refused = mountError(function(UI: FacetControls, Host: RobloxHost)
+				local spec = minimalSpecs(Host)[name]()
+				spec.definitelyNotAKey = true
+				local node = UI[name](spec)
+				return if spec.anchor
+					then Host.Frame({ Host.Frame({ spec.anchor :: unknown }) :: unknown, node })
+					else node
+			end)
 			t.expect(refused ~= nil and string.find(refused, "unknown option 'definitelyNotAKey'", 1, true) ~= nil)
 				.toBe(true)
-			local native = mountError(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					local spec = minimalSpecs(Host)[name]()
-					spec.LayoutOrder = 3
-					local node = UI[name](spec)
-					return if spec.anchor
-						then Host.Frame({ Host.Frame({ spec.anchor :: unknown }) :: unknown, node })
-						else node
-				end
-			)
+			local native = mountError(function(UI: FacetControls, Host: RobloxHost)
+				local spec = minimalSpecs(Host)[name]()
+				spec.LayoutOrder = 3
+				local node = UI[name](spec)
+				return if spec.anchor
+					then Host.Frame({ Host.Frame({ spec.anchor :: unknown }) :: unknown, node })
+					else node
+			end)
 			t.expect(native).toBeNil()
 		end
 	end)
@@ -455,25 +440,25 @@ t.describe("native parity gaps", function()
 		local invalidCases: { { any } } = {
 			{
 				"Facet UI.Button: unknown option 'lable'. Did you mean 'label'?",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Button({ lable = "Go" })
 				end,
 			},
 			{
 				"Facet UI.Text: unknown option 'zzzzzz'.",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Text({ text = "Go", zzzzzz = true })
 				end,
 			},
 			{
 				"Facet UI.Button: expected a property table, got number",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Button(42 :: any)
 				end,
 			},
 			{
 				"Facet UI.Menu: two items at one level share the id 'a'",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Menu({
 						items = {
 							{ id = "a", label = "A", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
@@ -484,26 +469,26 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"Facet UI.Picker: options must be an array of { value, label } entries",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Picker({ selected = Compose.cell("a") } :: any)
 				end,
 			},
 		}
 		table.insert(invalidCases, {
 			"Facet UI.Text: set the text with text. Remove label and Text." :: unknown,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.Text({ text = "a", label = "b" })
 			end,
 		})
 		table.insert(invalidCases, {
 			"Facet UI.Text: set the text with text." :: unknown,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.Text({ text = "a", Text = "b" })
 			end,
 		})
 		table.insert(invalidCases, {
 			"Sise is not a valid member of TextButton" :: unknown,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.Button({ label = "Go", Sise = 1 })
 			end,
 		})
@@ -511,7 +496,7 @@ t.describe("native parity gaps", function()
 			local message = mountError(case[2])
 			t.expect(message ~= nil and string.find(message, case[1], 1, true) ~= nil).toBe(true)
 		end
-		local unrelated = mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local unrelated = mountError(function(UI: FacetControls)
 			return UI.Text({ text = "Go", zzzzzz = true })
 		end)
 		t.expect(unrelated ~= nil and string.find(unrelated, "Did you mean", 1, true) == nil).toBe(true)
@@ -526,7 +511,7 @@ t.describe("native parity gaps", function()
 		local invalidCases: { { any } } = {
 			{
 				"Picker options require unique values or ids",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Picker({
 						selected = Compose.cell("a"),
 						options = {
@@ -538,7 +523,7 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"Unknown Picker style",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Picker({
 						selected = Compose.cell("a"),
 						style = "wheel",
@@ -548,7 +533,7 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"Facet UI.Menu: two items at one level share the id 'a'",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Menu({
 						items = {
 							{ id = "a", label = "A", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
@@ -559,7 +544,7 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"cannot have both children and onSelect",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Menu({
 						items = {
 							{
@@ -574,22 +559,19 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"Menu items require an action, submenu, or selection state",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Menu({ items = { { id = "a", label = "A" } } } :: any)
 				end,
 			},
 			{
 				"Picker.selected requires a writable Compose cell",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Picker({ selected = "a", options = { { value = "a", label = "A" } } } :: any)
 				end,
 			},
 			{
 				"TabView.selection requires a writable Compose cell",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.TabView(
 						{ selection = "a", tabs = { { id = "a", label = "A", content = content(Host) } } } :: any
 					)
@@ -597,16 +579,13 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"PageView requires entries",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.PageView({ selection = Compose.cell("a"), pages = {} })
 				end,
 			},
 			{
 				"PageView entries require unique string ids",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.PageView({
 						selection = Compose.cell("a"),
 						pages = {
@@ -618,10 +597,7 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"Sheet.detent requires a writable Compose cell",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.Sheet({
 						isPresented = Compose.cell(false),
 						detent = "medium",
@@ -632,10 +608,7 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"TabView entries require unique string ids",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.TabView({
 						selection = Compose.cell("a"),
 						tabs = {
@@ -647,10 +620,7 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"TabView.selection must name an entry",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.TabView({
 						selection = Compose.cell("missing"),
 						tabs = { { id = "a", label = "A", content = content(Host) } :: FixtureNavigationTypes.Tab },
@@ -659,10 +629,7 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"PageView.selection must name an entry",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.PageView({
 						selection = Compose.cell("missing"),
 						pages = { { id = "a", content = content(Host) } :: FixtureNavigationTypes.Tab },
@@ -671,35 +638,29 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"snap must be none or item",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.VirtualList({ from = {}, render = content(Host), snap = "page" } :: any)
 				end,
 			},
 			{
 				"finite min must be below max",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Stepper({ value = Compose.cell(1), min = 5, max = 5 })
 				end,
 			},
 			{
 				"step must be positive",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Slider({ value = Compose.cell(0.5), step = 0 })
 				end,
 			},
 			{
 				"exactly one of fraction or height",
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
+				function(UI: FacetControls, Host: RobloxHost)
 					return UI.Sheet({
 						isPresented = Compose.cell(false),
 						detent = Compose.cell("half"),
-						detents = { { id = "half", fraction = 0.5, height = 100 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+						detents = ({ { id = "half", fraction = 0.5, height = 100 } } :: unknown) :: { SheetDetent },
 						title = "Sheet",
 						content = content(Host),
 					} :: any)
@@ -707,37 +668,37 @@ t.describe("native parity gaps", function()
 			},
 			{
 				"count must be a positive integer",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Rating({ value = Compose.cell(1), count = 2.5 })
 				end,
 			},
 			{
 				"invalid clearButtonMode",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.TextInput({ value = Compose.cell(""), clearButtonMode = "sometimes" } :: any)
 				end,
 			},
 			{
 				"shape must be rect or circle",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Button({ label = "Go", shape = "star" } :: any)
 				end,
 			},
 			{
 				"corners must be pill or square",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Button({ label = "Go", corners = "round" } :: any)
 				end,
 			},
 			{
 				"segments require bar presentation",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.ProgressView({ value = 0.5, presentation = "circular" :: "circular", segments = 4 })
 				end,
 			},
 			{
 				"supply either a constructor name or Name",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Button("First")({ label = "Go", Name = "Second" })
 				end,
 			},
@@ -750,7 +711,7 @@ t.describe("native parity gaps", function()
 
 	t.it("reports a failed alert body to the onError factory option and dismisses once", function()
 		local presented, failures = Compose.cell(true), {}
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Alert("Broken")({
 				isPresented = presented,
 				title = "Broken",
@@ -778,25 +739,20 @@ t.describe("native parity gaps", function()
 	t.it("keeps at most the documented number of pooled row hosts", function()
 		for _, limit in { 32, 4 } do
 			local source = Compose.cell(records(100))
-			local w = world(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.VirtualList({
-						from = source,
-						key = function(item)
-							return item.id
-						end,
-						itemSize = 10,
-						overscan = 0,
-						maxRetained = if limit == 32 then nil else limit,
-						render = function(): GuiObject
-							return Host.Frame({ Name = "Cell" })
-						end,
-					})
-				end
-			)
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
+				return UI.VirtualList({
+					from = source,
+					key = function(item)
+						return item.id
+					end,
+					itemSize = 10,
+					overscan = 0,
+					maxRetained = if limit == 32 then nil else limit,
+					render = function(): GuiObject
+						return Host.Frame({ Name = "Cell" })
+					end,
+				})
+			end)
 			local list = w.screen:FindFirstChildWhichIsA("ScrollingFrame")
 			list.AbsoluteWindowSize = w.engine.types.Vector2.new(100, 600)
 			t.expect(#list:FindFirstChild("Items"):GetChildren()).toBe(60)
@@ -824,25 +780,20 @@ t.describe("native parity gaps", function()
 
 	t.it("fills the controls table with indexOfKey, placementOf and offsetOf", function()
 		local source, controls = Compose.cell(records(100)), {} :: { [string]: any }
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.VirtualList({
-					from = source,
-					key = function(item)
-						return item.id
-					end,
-					itemSize = 10,
-					gap = 2,
-					controls = controls,
-					render = function(): GuiObject
-						return Host.Frame({})
-					end,
-				})
-			end
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return UI.VirtualList({
+				from = source,
+				key = function(item)
+					return item.id
+				end,
+				itemSize = 10,
+				gap = 2,
+				controls = controls,
+				render = function(): GuiObject
+					return Host.Frame({})
+				end,
+			})
+		end)
 		local list = w.screen:FindFirstChildWhichIsA("ScrollingFrame")
 		list.AbsoluteWindowSize = w.engine.types.Vector2.new(100, 100)
 		t.expect(controls.indexOfKey(5)).toBe(5)
@@ -864,29 +815,24 @@ t.describe("native parity gaps", function()
 
 	t.it("delivers onActivate with the item and key and skips disabled rows", function()
 		local activated: { any } = {}
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.VirtualList({
-					from = records(10),
-					key = function(item)
-						return `k{item.id}`
-					end,
-					itemSize = 20,
-					disabled = function(item)
-						return item.id == 2
-					end,
-					onActivate = function(item, key)
-						table.insert(activated, { item = item, key = key })
-					end,
-					render = function(): GuiObject
-						return Host.Frame({})
-					end,
-				})
-			end
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return UI.VirtualList({
+				from = records(10),
+				key = function(item)
+					return `k{item.id}`
+				end,
+				itemSize = 20,
+				disabled = function(item)
+					return item.id == 2
+				end,
+				onActivate = function(item, key)
+					table.insert(activated, { item = item, key = key })
+				end,
+				render = function(): GuiObject
+					return Host.Frame({})
+				end,
+			})
+		end)
 		local list = w.screen:FindFirstChildWhichIsA("ScrollingFrame")
 		list.AbsoluteWindowSize = w.engine.types.Vector2.new(100, 200)
 		find(find(list, "k3"), "RowHit").Activated.fire()
@@ -901,16 +847,11 @@ t.describe("native parity gaps", function()
 	end)
 
 	t.it("shows button help when gamepad selection rests on the button and hides it on deselection", function()
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame("Screen")({
-					UI.Button("Plus")({ label = "+", help = "Posts this avatar" }),
-				})
-			end
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame("Screen")({
+				UI.Button("Plus")({ label = "+", help = "Posts this avatar" }),
+			})
+		end)
 		local Enum = w.engine.types.Enum
 		local plus = find(w.screen, "Plus")
 		w.input.PreferredInput = Enum.PreferredInput.Gamepad
@@ -930,7 +871,7 @@ t.describe("native parity gaps", function()
 
 	t.it("disables a stepper direction at its bound and refuses the step", function()
 		local value, changes = Compose.cell(0), 0
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Stepper({
 				value = value,
 				min = 0,
@@ -959,18 +900,13 @@ t.describe("native parity gaps", function()
 
 	t.it("wraps rating activation to zero only when allowZero and ignores a disabled rating", function()
 		local open, closed, blocked = Compose.cell(5), Compose.cell(5), Compose.cell(2)
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Rating("Open")({ value = open }) :: unknown,
-					UI.Rating("Closed")({ value = closed, allowZero = false }),
-					UI.Rating("Blocked")({ value = blocked, enabled = false }),
-				})
-			end
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Rating("Open")({ value = open }) :: unknown,
+				UI.Rating("Closed")({ value = closed, allowZero = false }),
+				UI.Rating("Blocked")({ value = blocked, enabled = false }),
+			})
+		end)
 		find(w.screen, "Open").Activated.fire()
 		t.expect(open:peek()).toBe(0)
 		find(w.screen, "Open").Activated.fire()
@@ -987,7 +923,7 @@ t.describe("native parity gaps", function()
 
 	t.it("tags a disabled button for the theme disabled rule and lets a package retune it", function()
 		local enabled = Compose.cell(false)
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Button("Go")({ label = "Go", enabled = enabled })
 		end)
 		local button = find(w.screen, "Go")
@@ -998,8 +934,7 @@ t.describe("native parity gaps", function()
 		t.expect(button.Interactable).toBe(true)
 		w.stop()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local function disabledRule(package: any): number?
 			local stop, sheet: any = runtime.mount(function()
 				return Facet.themes.createStyleSheet(runtime, package, { types = engine.types })
@@ -1045,7 +980,7 @@ t.describe("native parity gaps", function()
 				}
 			do
 				local controls = {} :: { [string]: any }
-				local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = world(function(UI: FacetControls)
 					return UI.Table({
 						from = records(3),
 						key = function(item)
@@ -1068,38 +1003,33 @@ t.describe("native parity gaps", function()
 		local selected, changes = Compose.cell("a"), 0
 		local pickerEnabled, groupEnabled = Compose.cell(false), Compose.cell(false)
 		local expanded, toggles = Compose.cell(false), 0
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Picker({
-						selected = selected,
-						style = "segmented" :: "segmented",
-						enabled = pickerEnabled,
-						options = {
-							{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
-							{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
-						},
-						onChange = function()
-							changes += 1
-						end,
-					}) :: unknown,
-					UI.DisclosureGroup({
-						label = "Advanced",
-						expanded = expanded,
-						enabled = groupEnabled,
-						onToggle = function()
-							toggles += 1
-						end,
-						content = function(): Instance
-							return Host.Frame("Body")({})
-						end,
-					}),
-				})
-			end
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Picker({
+					selected = selected,
+					style = "segmented" :: "segmented",
+					enabled = pickerEnabled,
+					options = {
+						{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+					onChange = function()
+						changes += 1
+					end,
+				}) :: unknown,
+				UI.DisclosureGroup({
+					label = "Advanced",
+					expanded = expanded,
+					enabled = groupEnabled,
+					onToggle = function()
+						toggles += 1
+					end,
+					content = function(): Instance
+						return Host.Frame("Body")({})
+					end,
+				}),
+			})
+		end)
 		local picker = find(w.screen, "Picker")
 		local option = find(picker, "b")
 		t.expect(option.Interactable).toBe(false)
@@ -1133,7 +1063,7 @@ t.describe("native parity gaps", function()
 			stop = function() end,
 		}
 		local failure: string? = nil
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.ComboBox({
 				value = value,
 				text = text,

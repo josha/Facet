@@ -1,11 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local requireDynamic = require :: (any) -> any
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
 local Facet = require("../../src")
 local engineLib = require("../../tests/lib/native_engine")
-local themes, Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.themes, Facet.Compose
+local themes, Compose: ComposeModule = Facet.themes, Facet.Compose
 local failures: { string } = {}
 local checks = 0
 local function check(ok, message)
@@ -41,11 +45,8 @@ local function inspect(entry: any)
 	check(not missing.ok and missing.missing[1].name == "probe:dial", name .. ": missing contribution was accepted")
 	for _, palette in entry.themes do
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local UI = Facet.controls(runtime, { types = engine.types, theme = package })
 		local sheet: any
 		local button: any

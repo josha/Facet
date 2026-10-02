@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureOverlayTypes = require("../src/ui/overlay_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
@@ -9,8 +13,7 @@ local C = Facet.Compose
 
 local function fixture(build)
 	local engine = engines.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 	input.GetFocusedTextBox = function()
@@ -20,9 +23,7 @@ local function fixture(build)
 		Compose = C,
 		Facet = Facet,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		guiService = gui,
 		viewport = C.cell({ width = 1440, height = 900 }),
@@ -61,7 +62,7 @@ end
 
 t.describe("settings update mounted controls and their presentation bounds", function()
 	t.it("automatic lab input follows the device, explicit input wins, and reset restores native facts", function()
-		local w = fixture(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = fixture(function(UI: FacetControls)
 			return UI.Text { text = "Preview" }
 		end)
 		local env
@@ -90,7 +91,7 @@ t.describe("settings update mounted controls and their presentation bounds", fun
 	for _, kind in { "color", "date" } :: { "color" | "date" } do
 		t.it(kind .. " picker adapts in place to touch, console and pointer inside the preview bounds", function()
 			local opened = C.cell(false)
-			local w = fixture(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, T)
+			local w = fixture(function(UI: FacetControls, _, T)
 				return if kind == "color"
 					then UI.ColorPicker "Picker" { value = C.cell(T.Color3.new(1, 0, 0)), isPresented = opened }
 					else UI.DateTimePicker "Picker" {
@@ -143,7 +144,7 @@ t.describe("settings update mounted controls and their presentation bounds", fun
 
 	t.it("dialog width follows a resized overlay parent rather than the desktop window", function()
 		local opened = C.cell(false)
-		local w = fixture(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = fixture(function(UI: FacetControls)
 			return UI.Dialog {
 				isPresented = opened,
 				title = "Preview",

@@ -1,19 +1,20 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Timeline = typeof(require("@repo/tools/typecheck/aliases").Timeline)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-local Compose: typeof(require("@repo/src/vendor/compose/core")) =
-	require(game:GetService("ReplicatedStorage").Facet).Compose
+local Compose: ComposeModule = require(game:GetService("ReplicatedStorage").Facet).Compose
 local scenes = {}
 
 function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: Readable<string>, active: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	return runtime.mount(function()
 		local nodes: any = { Name = item.title }
 		local accent = Color3.new(item.color.r, item.color.g, item.color.b)
 		local variant = (item.index - 1) % 6
-		local clock: typeof(require("@repo/src/vendor/compose/core").createRuntime(nil :: any).timeline()) =
+		local clock: Timeline =
 			runtime.timeline({ duration = 10 + item.index % 4, repeats = math.huge, autoplay = false })
 		runtime:watch(function(use: Use)
 			if use(motionPolicy) ~= "reduced" and (not active or active(use)) then
@@ -323,9 +324,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: Re
 end
 
 function scenes.discovery(runtime: any, target: Instance)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	return runtime.mount(function()
 		local children: any = { Name = "Afterlight" }
 		local function part(
@@ -446,9 +445,7 @@ function scenes.staticAvatar(
 	motionPolicy: Readable<string>,
 	hatTint: Readable<{ number }>
 )
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local animatedAngle: Readable<number>
 	local colors = {
 		sage = Color3.fromRGB(130, 158, 126),
@@ -634,9 +631,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 	if not avatarTemplate then
 		return scenes.staticAvatar(runtime, target, angle, palette, hat, motionPolicy, hatTint)
 	end
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local colors = {
 		sage = Color3.fromRGB(130, 158, 126),
 		clay = Color3.fromRGB(195, 121, 94),
@@ -685,7 +680,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 		local crownBase = if anchor and anchor:IsA("Attachment") then anchor.CFrame else CFrame.new(0, 0.6, 0)
 		local fit = math.clamp(head.Size.X / 1.2, 0.55, 1.3)
 		runtime.mountFragment(function()
-			local pieces = {}
+			local pieces: { Instance } = {}
 			for _, spec: { name: string, size: Vector3, height: number, color: string | Color3 } in
 				{
 					{ name = "Brim", size = Vector3.new(2.1, 0.13, 1.9), height = -0.16, color = "shade" },
@@ -708,7 +703,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 							local k = if fixed == "shade" then 0.85 else 1
 							return Color3.fromRGB(tint[1] * k, tint[2] * k, tint[3] * k)
 						end
-						else fixed,
+						else fixed :: Color3,
 					CFrame = head.CFrame * crownBase * CFrame.new(0, spec.height * fit, 0),
 					CanCollide = false,
 					Massless = true,

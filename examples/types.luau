@@ -1,13 +1,13 @@
 --!strict
+
 local Facet = require("../src")
+local Shared = require("../src/ui/types")
 export type Context = {
 	Compose: Facet.ComposeModule,
 	UI: Facet.Controls,
-	Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+	Host: Shared.Host,
 	runtime: Facet.Runtime,
-	types: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).types),
+	types: Shared.RobloxTypes,
 	[string]: any,
 }
-return function(ctx: Context): Context
-	return ctx
-end
+return (nil :: unknown) :: { Context: Context }

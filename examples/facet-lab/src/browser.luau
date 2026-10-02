@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -16,10 +19,8 @@ export type MountOpts = { Facet: any, app: any, ctx: any, settings: any, catalog
 
 function browser.mount(opts: MountOpts): any
 	local Facet, app, ctx, cat, settings = opts.Facet, opts.app, opts.ctx, opts.catalog, opts.settings
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = app.UI, Facet.Compose
-	local Host = (
-		app.runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local UI, Compose: ComposeModule = app.UI, Facet.Compose
+	local Host = (app.runtime.constructors :: unknown) :: RobloxHost
 	local adaptive = Facet.adaptive
 	local scenarios = ReplicatedStorage:WaitForChild("FacetScenarios")
 	local demoTabs = require(scenarios:WaitForChild("demo_tabs")) :: any
@@ -755,16 +756,7 @@ function browser.mount(opts: MountOpts): any
 				UI.VStack({
 					gap = "xs",
 					Host.Frame({
-						Name = role :: (
-							"accent"
-							| "content"
-							| "contentStrong"
-							| "danger"
-							| "success"
-							| "surface"
-							| "surfaceStrong"
-							| "warning"
-						),
+						Name = role :: string,
 						Size = UDim2.fromOffset(72, 40),
 						BorderSizePixel = 0,
 						BackgroundColor3 = function(use: Use)

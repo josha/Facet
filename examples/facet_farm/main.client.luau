@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 if not game:IsLoaded() then
@@ -16,7 +18,7 @@ for _ = 1, 10 do
 end
 pcall(starterGui.SetCore, starterGui, "ResetButtonCallback", false)
 local Facet = require(storage:WaitForChild("Facet"))
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local farmFolder = storage:WaitForChild("FacetFarm")
 local modelModule = require(farmFolder:WaitForChild("model"))
 local screens = require(farmFolder:WaitForChild("screens"))

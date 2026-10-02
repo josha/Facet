@@ -1,11 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type TextPropsText = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Adaptive controls",
 	build = function(ctx: ExampleContext)
-		local UI, Host, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Host, ctx.Compose
+		local UI, Host, Compose: ComposeModule = ctx.UI, ctx.Host, ctx.Compose
 		local UDim, UDim2, Vector2, Color3, Enum =
 			ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local volume, brightness, quality = Compose.cell(6), Compose.cell(40), Compose.cell("balanced")
@@ -39,7 +43,7 @@ return {
 		end
 		local function label(
 			name: string,
-			text: typeof(require("@repo/tools/typecheck/example_shapes").text(nil :: any).text),
+			text: TextPropsText,
 			role: (
 				"caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral"
 			)?
@@ -294,15 +298,9 @@ return {
 								label = "Quality",
 								selected = quality,
 								options = {
-									{ value = "performance", label = "Performance" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-										nil :: any
-									)),
-									{ value = "balanced", label = "Balanced" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-										nil :: any
-									)),
-									{ value = "fidelity", label = "Fidelity" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-										nil :: any
-									)),
+									{ value = "performance", label = "Performance" } :: PickerOption,
+									{ value = "balanced", label = "Balanced" } :: PickerOption,
+									{ value = "fidelity", label = "Fidelity" } :: PickerOption,
 								},
 							},
 							divider(),

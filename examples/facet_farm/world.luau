@@ -1,4 +1,8 @@
 --!strict
+type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
+type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
+
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local modelModule = require("./model")
@@ -60,9 +64,7 @@ function world.fitFrame(free: Rect, project: (CFrame, Vector3) -> Vector2): CFra
 end
 
 function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): () -> ()
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local function paint(name: string): Color3
 		return theme.color(Color3, name)
 	end
@@ -77,7 +79,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 		for key, value in props do
 			native[key] = value
 		end
-		return Host.Part(native)
+		return Host.Part((native :: unknown) :: PartNativeProps)
 	end
 
 	local function crop(index: number, key: string)
@@ -194,7 +196,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 				Color = paint("stalk"),
 			}))
 		end
-		return Host.Model(assert(crop) .. assert(state))(parts)
+		return Host.Model(assert(crop) .. assert(state))((parts :: unknown) :: ModelNativeProps)
 	end
 
 	local function tile(index: number)
@@ -243,7 +245,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 					end
 					return { use(farm.plots)[index].crop .. ":" .. state }
 				end,
-				render = function(current): GuiObject
+				render = function(current): Model
 					return crop(index, current:peek())
 				end,
 			}),

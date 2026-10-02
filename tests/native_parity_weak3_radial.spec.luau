@@ -1,9 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureRadialTypes = require("../src/ui/radial_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -19,8 +23,7 @@ local function setup(build: (any) -> any, animated: boolean): World
 	engine.clock = function()
 		return now
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -80,7 +83,7 @@ end
 t.describe("radial ring arrival motion", function()
 	t.it("a replacement branch slides out from its parent and settles on its own slot", function()
 		for _, appearance in { "buttons", "wedges" } :: { "buttons" | "wedges" } do
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.RadialMenu({
 					isPresented = Compose.cell(true),
 					appearance = appearance :: "buttons" | "wedges",
@@ -126,7 +129,7 @@ t.describe("radial ring arrival motion", function()
 	end)
 
 	t.it("a held D-pad stays on one ring stop because the ring pins engine selection", function()
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
 				appearance = "buttons" :: "buttons",
@@ -153,7 +156,7 @@ t.describe("radial ring arrival motion", function()
 			{ id = "Wave", label = "Wave", onSelect = function() end },
 			{ id = "Point", label = "Point", onSelect = function() end },
 		} :: { any })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
 				appearance = "buttons" :: "buttons",
@@ -180,7 +183,7 @@ t.describe("radial ring arrival motion", function()
 	end)
 
 	t.it("reduced motion places a replacement branch on its slot at once", function()
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
 				appearance = "buttons" :: "buttons",
@@ -230,7 +233,7 @@ end
 t.describe("value repeat under gameplay arbitration", function()
 	t.it("a higher priority gameplay binding cancels value repeat and receives the next press", function()
 		local value = Compose.cell(1)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Slider("Control")({ value = value, min = 0, max = 10, step = 1 })
 		end, false)
 		local R1 = world.engine.types.Enum.KeyCode.ButtonR1

@@ -1,11 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 local requireDynamic = require :: (any) -> any
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local function find(root: any, name: string): any
 	if root.Name == name then
 		return root
@@ -20,16 +25,13 @@ local function find(root: any, name: string): any
 end
 local function mount(name: string)
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local gui = engine.new("GuiService")
 	local ctx = {
 		Facet = Facet,
 		Compose = Compose,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		runtime = runtime,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
@@ -46,9 +48,9 @@ local function mount(name: string)
 		guiService = gui,
 		services = { GuiService = gui },
 		inputParent = target,
-		motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+		motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 			return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-		end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+		end) :: unknown) :: MotionLevel,
 	})
 	local built
 	local stop, node: any = runtime.mount(function()

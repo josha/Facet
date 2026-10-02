@@ -1,5 +1,7 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local document = require("./document")
 local library = require("./library")
 local history = require("./history")
@@ -16,7 +18,7 @@ local galleryPages = require("./gallery")
 local designer = {}
 
 function designer.mount(Facet: any, parent: Instance, dependencies: any): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local saved = dependencies.read and dependencies.read() or {}
 	local initial = templates[1]
 	if saved.draft and pcall(document.validate, saved.draft) then

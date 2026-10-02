@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -9,7 +13,7 @@ local settingsSync = require("../examples/gallery/examples/03_settings_sync")
 
 local measured = require("./lib/hud_measure")
 local rules = terminal.rules
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local SKIPPED = {
 	Parent = true,
@@ -118,8 +122,7 @@ end
 
 local function mountHud(width: number?, height: number?, input: string?)
 	local engine = recordingEngine()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = width or 1079, height = height or 809 })
 	local target = engine.new("ScreenGui")
 	local gui = engine.new("GuiService")
@@ -134,9 +137,7 @@ local function mountHud(width: number?, height: number?, input: string?)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		UI = Facet.controls(runtime, {
 			types = engine.types,
 			viewport = viewport,
@@ -516,8 +517,7 @@ t.describe("native parity weaker hud-world", function()
 
 	t.it("themes-P1-11 circular readouts center only while native text bounds fit inside the ring", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local stop, meter: any = runtime.mount(function()
 			return UI.ProgressView({
@@ -550,8 +550,7 @@ t.describe("native parity weaker hud-world", function()
 
 	t.it("themes-P1-14 a gauge keeps a long value whole and visible as native text grows", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local stop, meter: any = runtime.mount(function()
 			return UI.ProgressView({
@@ -587,8 +586,7 @@ t.describe("native parity weaker hud-world", function()
 
 	t.it("themes-P1-102 Stage forwards ambient, light color and light direction and keeps them reactive", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local Color3, Vector3 = engine.types.Color3, engine.types.Vector3
 		local light = Compose.cell(Color3.new(1, 0.95, 0.9))
@@ -619,8 +617,7 @@ t.describe("native parity weaker hud-world", function()
 
 	t.it("apps2-130 the terminal surface declares its walk-up contract and a 4:3 console canvas", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local sent: { { kind: string, payload: any } } = {}
 		local remote = engine.new("RemoteEvent")
@@ -643,9 +640,7 @@ t.describe("native parity weaker hud-world", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(runtime, { types = engine.types, services = { GuiService = gui } }),
 			types = engine.types,
 			inputTarget = inputTarget,
@@ -724,16 +719,13 @@ end)
 
 local function lab(noTransport: boolean?)
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local sent: { { kind: string, payload: any } } = {}
 	local ctx = {
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		UI = Facet.controls(runtime, { types = engine.types }),
 		types = engine.types,
 	}
@@ -949,15 +941,12 @@ t.describe("native parity weaker replication-server", function()
 		"apps2-41 settings sync applies optimistically, confirms, and rolls back a rejection by touch alone",
 		function()
 			local engine = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local ctx = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types }),
 				types = engine.types,
 			}

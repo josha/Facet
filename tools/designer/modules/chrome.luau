@@ -1,15 +1,16 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
 local chrome = {}
 
 function chrome.canvas(Facet: any, parent: Instance): any
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime()
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, canvas = runtime.mount(function(): ScrollingFrame
 		return Host.ScrollingFrame "DesignCanvas" {
 			Size = UDim2.fromScale(1, 1),
@@ -38,12 +39,9 @@ function chrome.canvas(Facet: any, parent: Instance): any
 end
 
 function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): any
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime()
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local Compose: ComposeModule = Facet.Compose
 	local colors = {
 		back = Color3.fromRGB(18, 21, 28),
 		panel = Color3.fromRGB(26, 30, 40),

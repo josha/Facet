@@ -8,6 +8,12 @@ The default check uses the pinned old Luau solver. Use `--solver new` or `--solv
 
 The public witness uses `Facet.controls(runtime)`, native Roblox properties and return types, Compose cells, and typed callbacks. Negative probes reject invalid behavior fields, native property values, callbacks, constructor inputs and returned-value assumptions in both constructor forms. They also reject nullable text bindings where the engine requires text.
 
+Declare named types at module scope and use those names in parameters, locals and casts. Reuse exported Facet, Compose and engine types. Do not repeat module paths or call constructors with dummy values in annotations.
+
+`aliases.luau` and `examples/types.luau` provide compiler-only type witnesses for files that receive their runtime modules through arguments. Refer to their fields from `typeof(require(...))` in a named type declaration. Luau erases those declarations. Do not import or call these witnesses at runtime. This keeps type declarations independent of each place's ModuleScript layout and adds no runtime dependency on the tools directory.
+
+Native test doubles can expose methods that Roblox instances do not have. Give those methods a named fixture interface. Keep casts for intentionally invalid inputs at the runtime validation test boundary. Do not use `any` to hide an incompatible public contract.
+
 The pinned solver can require explicit `Instance` or `GuiObject` return annotations for content factories. Preserve singleton types for literal options. Give cells the full type of the values they can store. Give arrays their shared entry type when entries have different optional fields.
 
 Run `python3 tools/check_types.py --files src/ui/inputs.luau` while editing a module. This focused mode reports errors in the requested files and records dependency errors separately. It is not complete verification. `--source-only` checks Facet-owned source. `--selftest` checks repository inventory, analysis contexts, strict directives and diagnostic policy. It also proves that the analyzer accepts a native `UDim2` and rejects an incompatible scalar assignment.

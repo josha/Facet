@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local requireDynamic = require :: (any) -> any
 local t = require("./lib/testkit")
 local Facet = require("../src")
@@ -12,16 +15,13 @@ local function mount(
 	prepare: ((any, engineLib.Engine) -> ())?
 )
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local ctx = {
 		Facet = Facet,
 		Compose = C,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = C.cell({ width = 1280, height = 720 }),
 		inputTarget = target,

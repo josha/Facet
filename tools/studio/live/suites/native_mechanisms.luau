@@ -1,4 +1,9 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
@@ -38,25 +43,16 @@ end
 
 local function mountModule(t: any, kind: string, name: string, size: Vector2, theme: any?): (any, any, string?)
 	local built, problem
-	local ok, stage = pcall(
-		t.mount,
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			local context = t.context(UI, Host, Compose, env)
-			local module = context.load(kind, name)
-			local result = module.build(context)
-			built = result
-			if type(result) == "function" then
-				return result()
-			end
-			return result.screen()
-		end,
-		{ size = size, theme = theme, frames = 16 }
-	)
+	local ok, stage = pcall(t.mount, function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local context = t.context(UI, Host, Compose, env)
+		local module = context.load(kind, name)
+		local result = module.build(context)
+		built = result
+		if type(result) == "function" then
+			return result()
+		end
+		return result.screen()
+	end, { size = size, theme = theme, frames = 16 })
 	if not ok then
 		problem = tostring(stage)
 		return nil, nil, problem
@@ -164,40 +160,33 @@ end)
 
 add("scroll-gutter-and-window", { "mech3-29", "mech3-32", "apps2-109", "apps-230", "mech3-21" }, function(t)
 	local count
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			count = Compose.cell(20)
-			return UI.ScrollView "Scroll" {
-				width = 240,
-				height = 200,
-				align = "stretch" :: "stretch",
-				Compose.keyed({
-					from = function(use: Use)
-						local list = {}
-						for index = 1, use(count) do
-							list[index] = { id = tostring(index) }
-						end
-						return list
-					end,
-					key = function(item)
-						return item.id
-					end,
-					render = function(item, index)
-						return UI.Button({
-							Name = "Row" .. item:peek().id,
-							label = "Row " .. item:peek().id,
-							LayoutOrder = index,
-						})
-					end,
-				}),
-			}
-		end,
-		{ size = Vector2.new(400, 400), frames = 16 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		count = Compose.cell(20)
+		return UI.ScrollView "Scroll" {
+			width = 240,
+			height = 200,
+			align = "stretch" :: "stretch",
+			Compose.keyed({
+				from = function(use: Use)
+					local list = {}
+					for index = 1, use(count) do
+						list[index] = { id = tostring(index) }
+					end
+					return list
+				end,
+				key = function(item)
+					return item.id
+				end,
+				render = function(item, index)
+					return UI.Button({
+						Name = "Row" .. item:peek().id,
+						label = "Row " .. item:peek().id,
+						LayoutOrder = index,
+					})
+				end,
+			}),
+		}
+	end, { size = Vector2.new(400, 400), frames = 16 })
 	local scroll = t.find(stage, "Scroll")
 	t.stable(scroll)
 	local thickness = scroll:GetStyled("ScrollBarThickness")
@@ -247,25 +236,19 @@ end)
 
 add("grid-hugs-its-lines", { "mech2-03" }, function(t)
 	for _, count in { 1, 3, 4, 7, 9 } do
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local cells = {}
-				for index = 1, count do
-					table.insert(cells, box(Host, "Cell" .. index, 0, 0))
-				end
-				return UI.Grid "Grid" {
-					columns = 3,
-					gap = 8,
-					cellHeight = 40,
-					Size = UDim2.fromOffset(316, 0),
-					table.unpack((cells :: unknown) :: { unknown }),
-				}
-			end,
-			{ size = Vector2.new(400, 600) }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			local cells = {}
+			for index = 1, count do
+				table.insert(cells, box(Host, "Cell" .. index, 0, 0))
+			end
+			return UI.Grid "Grid" {
+				columns = 3,
+				gap = 8,
+				cellHeight = 40,
+				Size = UDim2.fromOffset(316, 0),
+				table.unpack((cells :: unknown) :: { unknown }),
+			}
+		end, { size = Vector2.new(400, 600) })
 		local grid = t.find(stage, "Grid")
 		t.stable(grid)
 		local lines = math.ceil(count / 3)
@@ -282,53 +265,46 @@ add(
 	{ "mech3-66", "inputs-64", "inputs-208", "paint-149", "themes-P5-06", "mech2-45", "paint-134" },
 	function(t)
 		local width
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				width = Compose.cell(360)
-				return Host.Frame "Column" {
-					Size = function(use: Use)
-						return UDim2.fromOffset(use(width), 400)
-					end,
-					BackgroundTransparency = 1,
-					Host.UIListLayout({
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						HorizontalFlex = Enum.UIFlexAlignment.Fill,
-					}) :: unknown,
-					UI.Text({
-						Name = "Wrap",
-						text = string.rep("Wrap this sentence. ", 6),
-						TextWrapped = true,
-						LayoutOrder = 1,
-					}),
-					UI.Text({
-						Name = "Cut",
-						text = string.rep("Truncate this sentence. ", 6),
-						TextWrapped = false,
-						TextTruncate = Enum.TextTruncate.AtEnd,
-						AutomaticSize = Enum.AutomaticSize.Y,
-						Size = UDim2.new(1, 0, 0, 0),
-						LayoutOrder = 2,
-					}),
-					UI.Text({
-						Name = "Unknown",
-						text = "Unknown family text",
-						FontFace = Font.new("rbxasset://fonts/families/DoesNotExist.json"),
-						LayoutOrder = 3,
-					}),
-					UI.Text({
-						Name = "Rtl",
-						text = "مرحبا بالعالم",
-						TextDirection = Enum.TextDirection.RightToLeft,
-						LayoutOrder = 4,
-					}),
-				}
-			end,
-			{ size = Vector2.new(600, 500), frames = 16 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			width = Compose.cell(360)
+			return Host.Frame "Column" {
+				Size = function(use: Use)
+					return UDim2.fromOffset(use(width), 400)
+				end,
+				BackgroundTransparency = 1,
+				Host.UIListLayout({
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					HorizontalFlex = Enum.UIFlexAlignment.Fill,
+				}) :: unknown,
+				UI.Text({
+					Name = "Wrap",
+					text = string.rep("Wrap this sentence. ", 6),
+					TextWrapped = true,
+					LayoutOrder = 1,
+				}),
+				UI.Text({
+					Name = "Cut",
+					text = string.rep("Truncate this sentence. ", 6),
+					TextWrapped = false,
+					TextTruncate = Enum.TextTruncate.AtEnd,
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Size = UDim2.new(1, 0, 0, 0),
+					LayoutOrder = 2,
+				}),
+				UI.Text({
+					Name = "Unknown",
+					text = "Unknown family text",
+					FontFace = Font.new("rbxasset://fonts/families/DoesNotExist.json"),
+					LayoutOrder = 3,
+				}),
+				UI.Text({
+					Name = "Rtl",
+					text = "مرحبا بالعالم",
+					TextDirection = Enum.TextDirection.RightToLeft,
+					LayoutOrder = 4,
+				}),
+			}
+		end, { size = Vector2.new(600, 500), frames = 16 })
 		local wrap, cut, unknown, rtl =
 			t.find(stage, "Wrap"), t.find(stage, "Cut"), t.find(stage, "Unknown"), t.find(stage, "Rtl")
 		t.stable(wrap)
@@ -424,30 +400,24 @@ add(
 			end
 			return names
 		end
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Pair" {
-					Size = UDim2.fromOffset(400, 300),
-					BackgroundTransparency = 1,
-					UI.Button "Low" {
-						label = "Low",
-						Position = UDim2.fromOffset(20, 20),
-						Size = UDim2.fromOffset(160, 60),
-						ZIndex = 1,
-					} :: unknown,
-					UI.Button "High" {
-						label = "High",
-						Position = UDim2.fromOffset(80, 40),
-						Size = UDim2.fromOffset(160, 60),
-						ZIndex = 2,
-					},
-				}
-			end,
-			{ size = Vector2.new(800, 600), frames = 12 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Pair" {
+				Size = UDim2.fromOffset(400, 300),
+				BackgroundTransparency = 1,
+				UI.Button "Low" {
+					label = "Low",
+					Position = UDim2.fromOffset(20, 20),
+					Size = UDim2.fromOffset(160, 60),
+					ZIndex = 1,
+				} :: unknown,
+				UI.Button "High" {
+					label = "High",
+					Position = UDim2.fromOffset(80, 40),
+					Size = UDim2.fromOffset(160, 60),
+					ZIndex = 2,
+				},
+			}
+		end, { size = Vector2.new(800, 600), frames = 12 })
 		local high = t.find(stage, "High")
 		local hits = top(Vector2.new(high.AbsolutePosition.X + 20, high.AbsolutePosition.Y + 10))
 		local highAt, lowAt = table.find(hits, "High"), table.find(hits, "Low")
@@ -457,27 +427,20 @@ add(
 			hits
 		)
 		t.cleanup()
-		stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				return Host.Frame "Base" {
-					Size = UDim2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
-					UI.Alert({
-						isPresented = Compose.cell(true),
-						title = "On top",
-						actions = {
-							{ id = "ok", label = "OK" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
-						},
-					}),
-				}
-			end,
-			{ size = Vector2.new(800, 600), frames = 20 }
-		)
+		stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			return Host.Frame "Base" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
+				UI.Alert({
+					isPresented = Compose.cell(true),
+					title = "On top",
+					actions = {
+						{ id = "ok", label = "OK" } :: AlertAction,
+					},
+				}),
+			}
+		end, { size = Vector2.new(800, 600), frames = 20 })
 		local panel = visibleNamed(t, stage, "AlertPanel")
 		if panel then
 			t.stable(panel)
@@ -507,7 +470,7 @@ add(
 			end
 		end
 		if skinned then
-			stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			stage = t.mount(function(UI: FacetControls)
 				return UI.Button "Art" { label = "Art", Size = UDim2.fromOffset(200, 60) }
 			end, { size = Vector2.new(800, 600), theme = skinned.package, frames = 12 })
 			local art = t.find(stage, "Art")
@@ -530,7 +493,7 @@ add(
 		end
 		local sizes = {}
 		for _, shadow in { false, true } do
-			stage = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			stage = t.mount(function(_, Host: RobloxHost)
 				return Host.Frame "Row" {
 					Size = UDim2.fromOffset(400, 100),
 					BackgroundTransparency = 1,

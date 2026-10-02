@@ -1,9 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 return {
 	title = "Status marks",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -83,22 +86,22 @@ return {
 					label = "Status",
 					selected = status,
 					options = {
-						{ value = "neutral", label = "Neutral" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "info", label = "Info" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "success", label = "Success" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "warning", label = "Warning" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "error", label = "Error" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "accent", label = "Accent" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "voice", label = "Voice" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "contrast", label = "Contrast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "neutral", label = "Neutral" } :: PickerOption,
+						{ value = "info", label = "Info" } :: PickerOption,
+						{ value = "success", label = "Success" } :: PickerOption,
+						{ value = "warning", label = "Warning" } :: PickerOption,
+						{ value = "error", label = "Error" } :: PickerOption,
+						{ value = "accent", label = "Accent" } :: PickerOption,
+						{ value = "voice", label = "Voice" } :: PickerOption,
+						{ value = "contrast", label = "Contrast" } :: PickerOption,
 					},
 				},
 				UI.Picker "Shape" {
 					label = "Shape",
 					selected = form,
 					options = {
-						{ value = "dot", label = "Dot" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "ring", label = "Ring" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "dot", label = "Dot" } :: PickerOption,
+						{ value = "ring", label = "Ring" } :: PickerOption,
 					},
 				},
 				Host.Frame "Live" {

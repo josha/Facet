@@ -1,5 +1,7 @@
 --!strict
-local loadTabs = require :: (string) -> typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+
+type DemoTabs = typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+local loadTabs = require :: (string) -> DemoTabs
 return {
 	title = "Arcade",
 	build = function(ctx: any)

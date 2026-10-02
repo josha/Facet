@@ -1,8 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local Facet = require("../src")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local nativeApp = require("./native_app")
 local authoringMotion = require("./authoring_motion")
 type BenchRow = { id: string, name: string }
@@ -166,11 +169,7 @@ end, function(state)
 	state.frame()
 end)
 
-local function rampTree(
-	Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-	depth: number,
-	index: number
-): GuiObject
+local function rampTree(Host: RobloxHost, depth: number, index: number): GuiObject
 	if depth == 0 then
 		return Host.TextLabel({ Name = `T{index}`, Text = "leaf" })
 	end

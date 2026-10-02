@@ -1,10 +1,10 @@
 --!strict
+
+type FacetModule = typeof(require("@repo/src"))
 local requireDynamic = require :: (any) -> any
 local s = assert(_G.FacetDesignSmoke)
 local m = s.modules
-local Facet = (
-	requireDynamic(game:GetService("ReplicatedStorage"):WaitForChild("Facet")) :: unknown
-) :: typeof(require("@repo/src"))
+local Facet = (requireDynamic(game:GetService("ReplicatedStorage"):WaitForChild("Facet")) :: unknown) :: FacetModule
 local document, library = requireDynamic(m.document), requireDynamic(m.library)
 local session, render = requireDynamic(m.session), requireDynamic(m.design_render)
 local probe = { presets = 0, structured = 0, matrix = 0, fields = 0, failures = {}, done = false }

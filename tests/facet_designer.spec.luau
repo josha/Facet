@@ -374,7 +374,7 @@ t.describe("Facet Design sessions", function()
 	end)
 
 	t.it("gives comparison canvases independent state", function()
-		local cells: { typeof(require("../src/vendor/compose/core").cell(1)) } = {}
+		local cells: { Facet.Cell<number> } = {}
 		local function render(ctx)
 			local value = ctx.Compose.cell(1)
 			table.insert(cells, value)

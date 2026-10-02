@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local Players = game:GetService("Players")
 pcall(function()
 	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
@@ -8,9 +11,8 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
 local lab = require(ReplicatedStorage:WaitForChild("FacetScenarios"))
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime()
-local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local neutral = assert(Facet.themes.define(Facet.themes.neutralPackage()))
 local packages: { [string]: any } = { ["facet-neutral"] = neutral }
 local folder = ReplicatedStorage:FindFirstChild("FacetThemes")

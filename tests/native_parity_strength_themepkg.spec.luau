@@ -1,4 +1,13 @@
 --!strict
+type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
+type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local FixtureThemeTypes = require("../src/ui/theme_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -11,7 +20,7 @@ local gallery = require("../examples/gallery/client/screen")
 local themePackages = require("../tools/lune/theme_packages")
 local customControl = require("../examples/themes/custom_control")
 local ornateGauge = require("../examples/themes/ornate_gauge")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local REFERENCE: { string } = themePackages.REFERENCE_ORDER
@@ -30,8 +39,7 @@ end
 
 local function world(options: { [string]: any }?): (any, any, any, any)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -850,18 +858,15 @@ t.describe("reference art packages", function()
 		local assets = package.assets :: any
 		local target
 		local stop, skin: any = runtime.mount(function()
-			target = (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({})
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			target = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				target :: unknown,
-				themes.skin(runtime, package, "panel", { types = engine.types, target = target, label = "Quest Log" }),
+				themes.skin(
+					runtime,
+					package,
+					"panel",
+					{ types = engine.types, target = target :: GuiObject, label = "Quest Log" }
+				),
 			})
 		end, engine.new("Folder"))
 		skin = find(skin, "Skin")
@@ -920,7 +925,7 @@ t.describe("reference art packages", function()
 		t.expect(padding.PaddingLeft.Offset).toBe(16)
 		t.expect(target:HasTag("facet-skinned")).toBe(true)
 		t.expect(target:HasTag("facet-skin-caption")).toBe(true)
-		local shadow = target:FindFirstChild("ChromeShadow")
+		local shadow = target:FindFirstChild("ChromeShadow") :: FixtureShadow
 		t.expect(shadow ~= nil).toBe(true)
 		t.expect(shadow.BlurRadius).toBe(T.UDim.new(0, 14))
 		t.expect(shadow.Transparency).toBe(0.35)
@@ -1096,17 +1101,9 @@ t.describe("theme layer boxes", function()
 		local selected = Compose.cell(shapeA)
 		local target, skin
 		local stop = runtime.mount(function()
-			target = (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({})
-			skin = themes.skin(runtime, selected, "panel", { types = engine.types, target = target })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ target :: unknown, skin })
+			target = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+			skin = themes.skin(runtime, selected, "panel", { types = engine.types, target = target :: GuiObject })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ target :: unknown, skin })
 		end, engine.new("Folder"))
 		skin = find(skin, "Skin")
 		local first = images(skin)
@@ -1407,11 +1404,7 @@ t.describe("theme layer values and states", function()
 		local stop = runtime.mount(function()
 			circle = UI.Button({ label = "...", shape = "circle" :: "circle" })
 			rect = UI.Button({ label = "Save" })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ circle :: unknown, rect })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ circle :: unknown, rect })
 		end, engine.new("Folder"))
 		for _, node in { circle, rect } do
 			local skin = find(node, "Skin")
@@ -1462,11 +1455,7 @@ t.describe("theme sheet paint", function()
 			end
 			local presented = Compose.cell(true)
 			local stop, screen: any = runtime.mount(function()
-				return (
-					(
-						runtime.constructors.ScreenGui :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-				)({
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 					UI.Alert({
 						isPresented = presented,
 						title = "Leave?",
@@ -1648,9 +1637,7 @@ t.describe("theme package install and swap", function()
 		(definition.style.themes[1].colors :: any).surface = { r = 0.05, g = 0.1, b = 0.2 }
 		local package = themes.define(definition)
 		local engine, runtime, UI = world({ theme = package })
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local baseline = engine.census()
 		local outerSheet: any, outerLink
 		local stopOuter, outer: any = runtime.mount(function()
@@ -1684,13 +1671,13 @@ t.describe("theme package install and swap", function()
 		t.expect(outerLink.StyleSheet).toBe(outerSheet)
 		stop()
 		t.expect(sheet.isDestroyed()).toBe(true)
-		t.expect(link.isDestroyed()).toBe(true)
+		t.expect(((link :: unknown) :: Destroyable).isDestroyed()).toBe(true)
 		t.expect(button.isDestroyed()).toBe(true)
 		for _, rule in rules do
 			t.expect(rule.isDestroyed()).toBe(true)
 		end
 		t.expect(outerSheet.isDestroyed()).toBe(false)
-		t.expect(outerLink.isDestroyed()).toBe(false)
+		t.expect(((outerLink :: unknown) :: Destroyable).isDestroyed()).toBe(false)
 		t.expect(outerLink.StyleSheet).toBe(outerSheet)
 		t.expect(outerSheet.Parent).toBe(outer)
 		t.expect(#outerSheet:GetChildren()).toBe(#outerRules)
@@ -1827,8 +1814,7 @@ end)
 
 local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -1863,9 +1849,7 @@ local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = target,
@@ -1908,9 +1892,9 @@ local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 			inputParent = target,
 			services = { GuiService = gui, UserInputService = input },
 			theme = ctx.theme,
-			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+			end) :: unknown) :: MotionLevel,
 		})
 		sheet = themes.createStyleSheet(runtime, ctx.theme, { types = engine.types, theme = ctx.themeMode })
 		return ctx.Host.ScreenGui "GalleryTest" {

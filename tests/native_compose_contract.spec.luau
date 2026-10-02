@@ -1,16 +1,19 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 t.describe("native Compose integration contract", function()
 	t.it("keeps diamonds glitch free and batches one delivery through mounted control bindings", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local value, observations = Compose.cell(1), {}
 		local stop, node: any = runtime.mount(function()
@@ -53,8 +56,7 @@ t.describe("native Compose integration contract", function()
 
 	t.it("does not recompute equal writes and shares a formula across independent readers", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local value, runs, deliveries = Compose.cell(7), 0, 0
 		local stop = runtime.mount(function()
 			local shared = Compose.formula(function(use: Use)
@@ -67,11 +69,7 @@ t.describe("native Compose integration contract", function()
 					deliveries += 1
 				end)
 			end
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({})
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 		end, engine.new("ScreenGui"))
 		local initialRuns, initialDeliveries = runs, deliveries
 		value:set(7)
@@ -84,8 +82,7 @@ t.describe("native Compose integration contract", function()
 
 	t.it("disposes child watches with their parent and tolerates repeated disposal", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local source, calls, cleanups = Compose.cell(0), 0, 0
 		local child, unwatch
 		local stop = runtime.mount(function()
@@ -99,11 +96,7 @@ t.describe("native Compose integration contract", function()
 					cleanups += 1
 				end)
 			end)
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({})
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 		end, engine.new("ScreenGui"))
 		source:set(1)
 		assert(calls == 2)

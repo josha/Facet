@@ -1,4 +1,9 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local FixtureOverlayTypes = require("../src/ui/overlay_types")
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
@@ -22,41 +27,33 @@ end
 
 local function dialogWorld(options: any?): (any, any)
 	local open = Compose.cell(false)
-	local w = overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			_,
-			gui
-		)
-			local opener = UI.Button "Opener" { label = "About" }
-			gui.SelectedObject = opener
-			return Host.Frame({
-				opener :: unknown,
-				UI.Dialog "About" {
-					isPresented = open,
-					onPresentedChange = function(value: boolean)
-						open:set(value)
-					end,
-					title = "About",
-					content = function(): Instance
-						return Host.TextLabel "Line" { Text = "Three apps." }
-					end,
-					actions = {
-						{
-							id = "Done",
-							label = "Done",
-							role = "cancel" :: "cancel",
-							onActivate = function()
-								open:set(false)
-							end,
-						} :: FixtureOverlayTypes.DialogAction,
-					},
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
+		local opener = UI.Button "Opener" { label = "About" }
+		gui.SelectedObject = opener
+		return Host.Frame({
+			opener :: unknown,
+			UI.Dialog "About" {
+				isPresented = open,
+				onPresentedChange = function(value: boolean)
+					open:set(value)
+				end,
+				title = "About",
+				content = function(): Instance
+					return Host.TextLabel "Line" { Text = "Three apps." }
+				end,
+				actions = {
+					{
+						id = "Done",
+						label = "Done",
+						role = "cancel" :: "cancel",
+						onActivate = function()
+							open:set(false)
+						end,
+					} :: FixtureOverlayTypes.DialogAction,
 				},
-			})
-		end,
-		options
-	)
+			},
+		})
+	end, options)
 	return w, open
 end
 
@@ -136,25 +133,17 @@ end)
 t.describe("CollapsibleView in place", function()
 	local function tipsWorld(options: any?): (any, any)
 		local expanded = Compose.cell(false)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				_,
-				gui
-			)
-				local view = UI.CollapsibleView "Tips" {
-					label = "Turn step sets the increment for Rotation and both Turn buttons.",
-					expanded = expanded,
-					content = function(): Instance
-						return UI.Button "Detail" { label = "Detail" }
-					end,
-				}
-				gui.SelectedObject = view
-				return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Other" } })
-			end,
-			options
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
+			local view = UI.CollapsibleView "Tips" {
+				label = "Turn step sets the increment for Rotation and both Turn buttons.",
+				expanded = expanded,
+				content = function(): Instance
+					return UI.Button "Detail" { label = "Detail" }
+				end,
+			}
+			gui.SelectedObject = view
+			return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Other" } })
+		end, options)
 		return w, expanded
 	end
 
@@ -271,7 +260,7 @@ end)
 t.describe("presentation motion: DisclosureGroup", function()
 	local function disclosureWorld(options: any?): (any, any)
 		local expanded = Compose.cell(false)
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.DisclosureGroup "Settings" {
 				label = "Appearance",
 				expanded = expanded,
@@ -284,7 +273,7 @@ t.describe("presentation motion: DisclosureGroup", function()
 	end
 
 	t.it("keeps a fade node's outline stroke painted out whenever no fade runs, from its first frame", function()
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.DisclosureGroup "Settings" {
 				label = "Appearance",
 				expanded = Compose.cell(true),
@@ -387,7 +376,7 @@ end)
 t.describe("presentation motion: Toast with an action, and Notice", function()
 	t.it("an action toast row slides up and fades in, then slides down and fades out", function()
 		local shown = Compose.cell(false)
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.Toast "Saved" {
 				isPresented = shown,
 				message = "Saved",
@@ -423,7 +412,7 @@ t.describe("presentation motion: Toast with an action, and Notice", function()
 	local function noticeWorld(options: any?): (any, any, { number })
 		local shown = Compose.cell(true)
 		local closes: { number } = {}
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return Compose.show(shown, function()
 				return UI.Notice "Offline" {
 					message = "You are offline",
@@ -518,24 +507,19 @@ end)
 t.describe("presentation motion: the Popover compact sheet", function()
 	t.it("titles the sheet, hugs the content and slides up on a portrait phone", function()
 		local open = Compose.cell(false)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Popover "Status" {
-					source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
-					isPresented = open,
-					onPresentedChange = function(value: boolean)
-						open:set(value)
-					end,
-					title = "Status",
-					content = function(): Instance
-						return Host.TextLabel "Presence" { Text = "Online" }
-					end,
-				}
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Popover "Status" {
+				source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
+				isPresented = open,
+				onPresentedChange = function(value: boolean)
+					open:set(value)
+				end,
+				title = "Status",
+				content = function(): Instance
+					return Host.TextLabel "Presence" { Text = "Online" }
+				end,
+			}
+		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Touch
 		w.screen.AbsoluteSize = Vector2.new(390, 800)
 		open:set(true)
@@ -564,23 +548,18 @@ t.describe("presentation motion: the Popover compact sheet", function()
 
 	t.it("an untitled popover still shows an empty title beside Done", function()
 		local open = Compose.cell(true)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Popover "Plain" {
-					source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
-					isPresented = open,
-					onPresentedChange = function(value: boolean)
-						open:set(value)
-					end,
-					content = function(): Instance
-						return Host.TextLabel "Presence" { Text = "Online" }
-					end,
-				}
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Popover "Plain" {
+				source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
+				isPresented = open,
+				onPresentedChange = function(value: boolean)
+					open:set(value)
+				end,
+				content = function(): Instance
+					return Host.TextLabel "Presence" { Text = "Online" }
+				end,
+			}
+		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Touch
 		w.screen.AbsoluteSize = Vector2.new(390, 800)
 		local header = overlay.find(w.find("SheetPanel"), "Header")
@@ -595,8 +574,7 @@ t.describe("ctx.fade group warm-up", function()
 	local engines = require("./lib/native_engine")
 	local function world(theme: any?)
 		local engine = engines.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local ctx = context(Compose, runtime, {
 			types = engine.types,
 			theme = theme,
@@ -607,11 +585,7 @@ t.describe("ctx.fade group warm-up", function()
 			local node = ctx.fade({
 				Name = "Faded",
 				GroupTransparency = amount,
-				(
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				) "Child" {},
+				((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Child" {},
 			})
 			ctx.skin(node, "panel")
 			return node

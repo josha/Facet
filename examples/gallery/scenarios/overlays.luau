@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+
 local COPY = {
 	title = "Overlays on request",
 	intro = "These surfaces open only when asked. The screen owns whether a popover or a dialog is open: it can accept or refuse every close.",
@@ -43,7 +47,7 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local aboutOpen = Compose.cell(false)
@@ -195,15 +199,9 @@ return {
 										filterOpen:set(false)
 									end,
 									options = {
-										{ value = "all", label = "All races" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-											nil :: any
-										)),
-										{ value = "friends", label = "Friends" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-											nil :: any
-										)),
-										{ value = "ranked", label = "Ranked" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-											nil :: any
-										)),
+										{ value = "all", label = "All races" } :: PickerOption,
+										{ value = "friends", label = "Friends" } :: PickerOption,
+										{ value = "ranked", label = "Ranked" } :: PickerOption,
 									},
 								}
 							end,
@@ -320,7 +318,7 @@ return {
 								onActivate = function()
 									note("Last: stayed in the race")
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+							} :: OverlayAction,
 							{
 								id = "Leave",
 								label = COPY.leave,
@@ -328,7 +326,7 @@ return {
 								onActivate = function()
 									note("Last: left the race")
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+							} :: OverlayAction,
 						},
 					},
 					UI.Button "TermsButton" {

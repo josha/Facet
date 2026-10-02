@@ -1,4 +1,10 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type CellFactory = typeof(require("@repo/tools/typecheck/aliases").CellFactory)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
@@ -158,10 +164,10 @@ local function fieldGroup(UI: any, p: any, c: any, presentation: string): any
 end
 
 type Context = {
-	Compose: typeof(require("@repo/src/vendor/compose/core")),
-	Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+	Compose: ComposeModule,
+	Host: RobloxHost,
 	logical: Readable<{ width: number, height: number }>,
-	cell: typeof(require("@repo/tools/typecheck/example_shapes").cell),
+	cell: CellFactory,
 	log: (string) -> (...any) -> (),
 	UI: any,
 	[string]: any,
@@ -439,7 +445,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return { label = "Quick actions", icon = "menu", items = items, launcher = true }
 		end,
 
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties): Instance
+		make = function(UI: FacetControls, p: Properties): Instance
 			local style = p.labelStyle
 			p.labelStyle = nil
 			if style ~= nil then
@@ -794,7 +800,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function(c: Context)
 			return { label = "Volume", value = c.cell("value", 40), min = 0, max = 100, Size = UDim2.fromScale(1, 0) }
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if (p.rotation or 0) % 180 == 0 then
 				return UI.Slider(p :: any)
 			end
@@ -1650,7 +1656,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "host", values = { "icon button", "button", "avatar" } } :: Axis,
 		},
 		states = { { name = "right to left", props = { direction = "rtl" :: "rtl" } } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties): Instance
+		make = function(UI: FacetControls, p: Properties): Instance
 			local host = if p.host == "button"
 				then UI.Button({ label = "Inbox" })
 				elseif p.host == "avatar" then UI.Avatar({ name = "Ada Quill" })
@@ -1799,7 +1805,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "form", values = { "standard", "icon" } } :: Axis,
 			{ key = "presence", values = { DEFAULT, "online", "away", "busy", "offline", "inExperience" } } :: Axis,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties): Instance
+		make = function(UI: FacetControls, p: Properties): Instance
 			local content = p.content
 			p.content = nil
 			if content == "image" then
@@ -2168,7 +2174,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			} :: State,
 		},
 		demonstrates = { "isPresented", "item", "presenting" },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = p.form or "isPresented"
 			p.form = nil
 			if form == "item" then
@@ -2282,7 +2288,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			} :: State,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return trigger(c, "Show dialog", function(open)
 				p.isPresented = open
 				p.onPresentedChange = function(v)
@@ -2307,7 +2313,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {
 				title = "Filters",
 				detent = c.cell("detent", "medium"),
-				detents = { "medium", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+				detents = { "medium", "large" } :: { SheetDetent },
 				content = function(): Instance
 					return c.UI.VStack({
 						width = "fill" :: "fill",
@@ -2370,10 +2376,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = function(c: Context)
 					return {
 						detents = {
-							"hug" :: "hug" | { id: string, fraction: number } | { id: string, height: number },
+							"hug" :: SheetDetent,
 							{ id = "third", fraction = 0.33 },
 							{ id = "tall", height = 520 },
-						} :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+						} :: { SheetDetent },
 						detent = c.cell("hugDetent", "hug"),
 					}
 				end,
@@ -2383,7 +2389,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		valid = function(p: Properties)
 			return p.edge == nil or p.placement == "side" or p.placement == "adaptive"
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return trigger(c, "Show sheet", function(open)
 				p.isPresented = open
 				return UI.Sheet(p :: any)
@@ -2463,7 +2469,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			} :: State,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if p.trigger == nil then
 				local open = p.isPresented
 				return UI.VStack({
@@ -2500,7 +2506,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			}
 		end,
 
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local anchor = UI.Button({ label = "Plus", onActivate = c.log("plus") })
 			p.anchor = anchor
 			return UI.VStack({
@@ -2901,7 +2907,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 
 			{ name = "single-open group", props = { singleOpen = true }, across = false } :: State,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if not p.singleOpen then
 				return UI.DisclosureGroup(p :: any)
 			end
@@ -3014,7 +3020,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "row of cards", props = { row = true }, across = false, cellWidth = 740 } :: State,
 		},
 		demonstrates = { "browseTarget" },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if not p.row then
 				return UI.Card(p :: any)
 			end
@@ -3592,7 +3598,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any))): Instance
+		make = function(UI: FacetControls): Instance
 			return UI.HStack({
 				gap = "s",
 				UI.Button({ label = "First" }) :: unknown,
@@ -3618,7 +3624,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = { focusOnAppear = true, returnFocus = true },
 			} :: State,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties): Instance
+		make = function(UI: FacetControls, p: Properties): Instance
 			local rows: Properties = { Name = "Sidebar", gap = "xs", width = 140 }
 			for index = 1, 4 do
 				table.insert(rows, UI.Button({ Name = `Row {index}`, label = `Row {index}`, width = "fill" :: "fill" }))
@@ -3652,7 +3658,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), _: Properties, c: Context): Instance
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local selected: Cell<GuiObject?> = c.Compose.cell(nil :: GuiObject?)
 			local function cell(name: string): any
 				local node = UI.Button({ Name = name, label = name })
@@ -3729,7 +3735,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), _: Properties, c: Context): Instance
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local shown = c.Compose.cell({} :: { { n: number, spec: Properties } })
 			local count = 0
 			local function add(spec: Properties)
@@ -3819,7 +3825,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), _: Properties, c: Context): Instance
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local card = UI.Button({ label = "Drag me" })
 			local slot = UI.Button({ label = "Drop here" })
 			UI.draggable(card, { payload = "card", armOnTap = true, enabled = true })
@@ -3842,7 +3848,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), _: Properties, c: Context): Instance
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local card = UI.Button({ label = "Card" })
 			local open = UI.Button({ label = "Open slot" })
 			local full = UI.Button({ label = "Full slot" })
@@ -3874,7 +3880,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "axis", values = { "horizontal", "vertical", "none" } } :: Axis },
 		states = { { name = "repeats when held", props = { repeats = true } } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local angle = 0
 			local readout = UI.Text({ text = "0°" }) :: TextLabel
 			local row = UI.HStack({
@@ -3904,7 +3910,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {}
 		end,
 		axes = { { key = "kind", values = { "selection", "impact", "success", "warning", "error" } } :: Axis },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local kind = p.kind or "success"
 			return UI.VStack({
 				gap = "xs",
@@ -3929,7 +3935,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), _: Properties, c: Context): Instance
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local hud = UI.VStack({
 				gap = "xs",
 				UI.Button({ label = "Map" }) :: unknown,
@@ -3961,7 +3967,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "position", values = { "top", "bottom" } } :: Axis },
 		states = { { name = "instant", props = { animated = false } } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties): Instance
+		make = function(UI: FacetControls, p: Properties): Instance
 			local list: Properties = { Name = "List", width = 220, height = 140, gap = "xs" }
 			for i = 1, 20 do
 				table.insert(list, UI.Text({ text = `Line {i}` }))
@@ -3991,7 +3997,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "target", values = { 5, 15, 20 } } :: Axis },
 		states = { { name = "instant", props = { animated = false } } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties): Instance
+		make = function(UI: FacetControls, p: Properties): Instance
 			local target
 			local list: Properties = { width = 220, height = 140, gap = "xs" }
 			for i = 1, 20 do
@@ -4109,7 +4115,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "vertical (in an HStack)", props = { vertical = true }, across = false } :: State,
 			{ name = "axis x forced", props = { axis = "x" :: "x", Size = UDim2.fromOffset(1, 40) } } :: State,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties): Instance
+		make = function(UI: FacetControls, p: Properties): Instance
 			local vertical = p.vertical
 			p.vertical = nil
 			if vertical then
@@ -4262,7 +4268,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "room", values = { "hug", 360 } } :: Axis,
 		},
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local room = p.room
 			p.room = nil
 			return UI.HStack({
@@ -4286,7 +4292,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "weight", values = { DEFAULT, 1, 3 } } :: Axis },
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return UI.HStack({
 				width = 360,
 				gap = "s",
@@ -4321,7 +4327,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "fixed 300×200 (width/height)", props = { width = 300, height = 200 } } :: State,
 		},
 
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local env = UI.environment()
 			local facts = c.Compose.formula(function(use: Use)
 				local inset = use(env.safeInsets)
@@ -4366,7 +4372,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = {},
 		states = { { name = "view fails", props = { fails = true } } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local fail = c.Compose.cell(p.fails == true)
 			return UI.ErrorBoundary({
 				view = function()
@@ -4489,7 +4495,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "topbar", values = { false, true }, matrix = false } :: Axis,
 		},
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local room = p.room or "fill"
 			p.room = nil
 			local forms, names = {}, {}
@@ -4621,7 +4627,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "mayDrop", props = { mayDrop = true } } :: State,
 			{ name = "noReveal", props = { mayDrop = true, reveal = false } } :: State,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = c.cell("form", 1)
 			local room = p.room or "fill"
 			local composition = UI.Composition({
@@ -4683,7 +4689,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "source", values = { "viewport", "this box" } } :: Axis },
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local text = c.Compose.cell("")
 			local label = UI.Text({
 				text = text,
@@ -4747,7 +4753,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "occlusion ray", props = { occlusion = true } } :: State,
 			{ name = "padding 0.5", props = { padding = 0.5 } } :: State,
 		},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local part: Part? = workspace:FindFirstChild("LabAnchorPart") :: Part?
 			if part == nil then
 				part = Instance.new("Part")
@@ -4790,8 +4796,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "structure", values = { "show", "switch", "keyed", "presence" } } :: Axis },
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
-			local Compose: typeof(require("@repo/src/vendor/compose/core")) = c.Compose
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			local Compose: ComposeModule = c.Compose
 			local kind = p.structure or "show"
 			if kind == "show" then
 				local loaded = Compose.cell(false)
@@ -4900,7 +4906,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "reducedMotion", values = { false, true } } :: Axis,
 		},
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local runtime = c.app.runtime
 			local at = c.Compose.cell(false)
 			local body = function(use: Use)
@@ -4948,7 +4954,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "width", values = { 360, 700, 1200 } } :: Axis },
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local a = c.Facet.adaptive
 			local w = p.width or 360
 			return UI.Text({
@@ -4977,7 +4983,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "order", values = { "mdy", "dmy", "ymd" } } :: Axis },
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local civil = c.Facet.civilDate
 			local d = { year = 2026, month = 2, day = 27 }
 			local locale = { order = p.order or "mdy", separator = "/" }
@@ -5022,7 +5028,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "count", values = { 2, 3 } } :: Axis,
 		},
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local grow = p.sizing == "fill"
 			local function button(spec)
 				if grow then
@@ -5067,7 +5073,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "layout", values = { "column", "wrap" } } :: Axis,
 		},
 		states = { DISABLED :: State, { name = "hints", props = { hints = true } } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return fieldGroup(UI, p, c, "checkbox")
 		end,
 	},
@@ -5087,7 +5093,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "layout", values = { "column", "wrap" } } :: Axis,
 		},
 		states = { DISABLED :: State, { name = "hints", props = { hints = true } } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return fieldGroup(UI, p, c, "switch")
 		end,
 	},
@@ -5103,7 +5109,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "layout", values = { "wrap", "scroll" } } :: Axis, SIZES :: Axis },
 		states = { DISABLED :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local chips: { [any]: any } = { gap = "s" }
 			for _, tag in { "Rain", "Night", "Mirror", "Reverse", "Traffic", "Fog" } do
 				table.insert(
@@ -5141,7 +5147,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "count", values = { 1, 2, 3 } } :: Axis },
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local row: Properties = { gap = "xs" }
 			for i, icon in { "settings", "edit", "flag" } do
 				if i <= (p.count or 1) then
@@ -5173,7 +5179,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "kind", values = { "empty", "no results", "failed" } } :: Axis },
 		states = {},
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local copy = ({
 				empty = { "flag", "No tracks yet", "Create one to race it with friends.", "Create" },
 				["no results"] = { "menu", "No matches", "Nothing matches your filters.", "Clear search" },
@@ -5213,7 +5219,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "align", values = { "start", "center", "end" } } :: Axis,
 		},
 		states = { { name = "one sentence", props = { plain = true }, across = false } :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if p.plain then
 				return UI.Button({ label = "Plus", help = "Adds a lap", onActivate = c.log("plus") })
 			end
@@ -5245,7 +5251,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { FIELD_APPEARANCE :: Axis, SIZES :: Axis, CORNERS :: Axis },
 		states = { DISABLED :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local query = c.cell("query", "")
 			local function matches(use: Use, row): boolean
 				local q = string.lower(use(query))
@@ -5307,7 +5313,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { SIZES :: Axis },
 		states = { DISABLED :: State },
-		make = function(UI: typeof(require("@repo/src").controls(nil :: any)), p: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return UI.VStack({
 				width = "fill" :: "fill",
 				gap = 0,

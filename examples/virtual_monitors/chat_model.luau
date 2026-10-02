@@ -1,15 +1,16 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
+
 export type Message = { id: number, role: "user" | "assistant", content: string }
 local chat = {}
 
-function chat.new(Compose: typeof(require("@repo/src/vendor/compose/core")))
+function chat.new(Compose: ComposeModule)
 	local messages = Compose.cell({} :: { Message })
 	local draft = Compose.cell("")
 	local streaming = Compose.cell(false)
-	local active = (function(
-		value: number?
-	): typeof(require("@repo/tools/typecheck/example_shapes").optionalNumber(nil :: any))
+	local active = (function(value: number?): OptionalNumberCell
 		return Compose.cell(value)
 	end)(nil)
 	local feedback = Compose.cell({} :: { [number]: string? })

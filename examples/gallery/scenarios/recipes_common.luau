@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local WRAP_TAGS = { "Rain", "Dust", "Night", "Mirror", "Reverse", "Elimination" }
@@ -18,9 +22,9 @@ local RAIL_TAGS = {
 return {
 	title = "Recipes",
 	build = function(ctx: any)
-		local Facet, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Facet, ctx.UI, ctx.Compose
+		local Facet, UI, Compose: ComposeModule = ctx.Facet, ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -188,15 +192,10 @@ return {
 			})
 		end
 		local function metrics(use: Use)
-			local package: typeof(require("@repo/src").themes.neutralPackage()) = if ctx.theme
-				then use(ctx.theme)
-				else Facet.themes.neutralPackage()
+			local package: ThemePackage = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
 			return package.metrics
 		end
-		local function observe(
-			node: GuiObject,
-			property: string
-		): typeof(require("@repo/tools/typecheck/example_shapes").vectorCell(nil :: any))
+		local function observe(node: GuiObject, property: string): VectorCell
 			local value = Compose.cell((node :: any)[property] :: Vector2)
 			local connection = node:GetPropertyChangedSignal(property):Connect(function()
 				value:set((node :: any)[property])

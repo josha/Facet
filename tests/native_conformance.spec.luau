@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
@@ -20,8 +23,8 @@ local HELPERS = {
 }
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
-type Host = typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local Compose: ComposeModule = Facet.Compose
+type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local fixtures: { [string]: (Host) -> { [any]: any } } = {
 	Screen = function()
 		return {}
@@ -44,10 +47,10 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 	AdaptiveStack = function()
 		return { gap = "s" }
 	end,
-	ViewThatFits = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	ViewThatFits = function(Host: Host)
 		return { Host.Frame({}) }
 	end,
-	Region = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	Region = function(Host: Host)
 		return { zone = "top", rank = 1, Host.Frame({}) }
 	end,
 	Composition = function()
@@ -133,7 +136,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 	AvatarGroup = function()
 		return { items = { { id = "a", name = "Ada" } } }
 	end,
-	ErrorBoundary = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	ErrorBoundary = function(Host: Host)
 		return {
 			view = function()
 				return Host.Frame({})
@@ -189,7 +192,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 	RadialMenu = function()
 		return { items = { { id = "a", label = "A", onSelect = function() end } }, isPresented = Compose.cell(false) }
 	end,
-	DisclosureGroup = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	DisclosureGroup = function(Host: Host)
 		return {
 			label = "Details",
 			expanded = Compose.cell(false),
@@ -198,7 +201,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			end,
 		}
 	end,
-	CollapsibleView = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	CollapsibleView = function(Host: Host)
 		return {
 			label = "Details",
 			expanded = Compose.cell(false),
@@ -222,7 +225,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 	NavBar = function()
 		return { title = "Tracks" }
 	end,
-	Popover = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	Popover = function(Host: Host)
 		return {
 			isPresented = Compose.cell(false),
 			source = { rect = { x = 0, y = 0, w = 10, h = 10 } },
@@ -231,7 +234,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			end,
 		}
 	end,
-	Sheet = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	Sheet = function(Host: Host)
 		return {
 			detent = Compose.cell("medium"),
 			isPresented = Compose.cell(false),
@@ -240,7 +243,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			end,
 		}
 	end,
-	Callout = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	Callout = function(Host: Host)
 		return {
 			anchor = Host.Frame({}),
 			onRetire = function() end,
@@ -250,7 +253,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			isPresented = Compose.cell(false),
 		}
 	end,
-	TabView = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	TabView = function(Host: Host)
 		return {
 			selection = Compose.cell("a"),
 			tabs = {
@@ -264,7 +267,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			},
 		}
 	end,
-	PageView = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	PageView = function(Host: Host)
 		return {
 			selection = Compose.cell("a"),
 			pages = {
@@ -278,7 +281,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			},
 		}
 	end,
-	NavigationStack = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	NavigationStack = function(Host: Host)
 		return {
 			path = Compose.cell({}),
 			root = {
@@ -290,7 +293,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			destinations = {},
 		}
 	end,
-	RowActions = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	RowActions = function(Host: Host)
 		return {
 			content = function(): Instance
 				return Host.Frame({})
@@ -308,7 +311,7 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 	end,
 }
 for _, name in { "VirtualList", "VirtualGrid" } do
-	fixtures[name] = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	fixtures[name] = function(Host: Host)
 		return {
 			from = { { id = "a" } },
 			key = function(item)
@@ -325,8 +328,7 @@ end
 t.describe("native constructor conformance", function()
 	t.it("requires a conformance fixture for every public control with no stale fixtures", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		for name in (UI :: unknown) :: { [string]: unknown } do
 			assert(fixtures[name] or HELPERS[name], `Missing conformance fixture: {name}`)
@@ -345,8 +347,7 @@ t.describe("native constructor conformance", function()
 		t.it(`{name} preserves caller properties refs events and cleanup in both constructor forms`, function()
 			for _, named in { false, true } do
 				local engine = engineLib.new({ cacheDefaults = true })
-				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-					Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
 				local root = engine.new("ScreenGui")
 				local baseline = engine.census()

@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
@@ -24,7 +29,7 @@ local checkLinks = require("../tools/lune/check_links")
 local luau = require("@lune/luau")
 local process = require("@lune/process")
 local catalogue = require("../examples/gallery/client/demo_picker")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	built: any,
@@ -38,8 +43,7 @@ type World = {
 
 local function world(module: any): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -53,9 +57,7 @@ local function world(module: any): World
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(
 				runtime,
 				{
@@ -205,8 +207,7 @@ end
 
 local function shell(demo: any, load: (string, string) -> any): (any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -217,9 +218,7 @@ local function shell(demo: any, load: (string, string) -> any): (any, any, () ->
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = target,
@@ -243,9 +242,9 @@ local function shell(demo: any, load: (string, string) -> any): (any, any, () ->
 				inputParent = target,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+				end) :: unknown) :: MotionLevel,
 			} :: any
 		)
 		return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -1093,8 +1092,7 @@ t.describe("Documentation and tooling", function()
 
 	local function run(code: string, suffix: string): (any, any, any, any, any)
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local facade = table.clone(Facet) :: any
 		facade.Roblox = table.clone(Facet.Roblox)
 		facade.themes = table.clone(Facet.themes)

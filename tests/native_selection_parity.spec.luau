@@ -1,11 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -20,8 +25,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local shift = { down = false }
@@ -41,9 +45,7 @@ local function setup(build: (any, any, any, any) -> any): World
 			services = { GuiService = gui, UserInputService = input },
 		} :: any
 	)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, parent)
@@ -127,15 +129,9 @@ end
 
 t.describe("native selection parity with the main focus graph", function()
 	t.it("enters the screen at its first control on the first D-pad press and never moves a live selection", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return form(UI, Host, engine.types.Enum)
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return form(UI, Host, engine.types.Enum)
+		end)
 		t.expect(world.gui.SelectedObject).toBe(nil)
 		press(world, "DPadDown")
 		t.expect(selected(world)).toBe("Music")
@@ -150,24 +146,19 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("enters at the first eligible control and inside an open modal", function()
 		local presented, enabled = Compose.cell(false), Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame("Screen")({
-					UI.Button("Off")({ label = "Off", enabled = enabled }) :: unknown,
-					UI.Button("On")({ label = "On" }),
-					UI.Alert({
-						isPresented = presented,
-						title = "Leave race?",
-						actions = {
-							{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-						},
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame("Screen")({
+				UI.Button("Off")({ label = "Off", enabled = enabled }) :: unknown,
+				UI.Button("On")({ label = "On" }),
+				UI.Alert({
+					isPresented = presented,
+					title = "Leave race?",
+					actions = {
+						{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
+				}),
+			})
+		end)
 		press(world, "DPadRight")
 		t.expect(selected(world)).toBe("On")
 		world.gui.SelectedObject = nil
@@ -179,15 +170,9 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("walks Tab forward and Shift+Tab back in layout order and wraps at both ends", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return form(UI, Host, engine.types.Enum)
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return form(UI, Host, engine.types.Enum)
+		end)
 		tab(world)
 		t.expect(selected(world)).toBe("Music")
 		tab(world)
@@ -209,15 +194,9 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("skips hidden, disabled and removed controls and rereads the order on the next press", function()
 		local shown, order = Compose.cell(true), Compose.cell(3)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return form(UI, Host, engine.types.Enum, shown, order)
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return form(UI, Host, engine.types.Enum, shown, order)
+		end)
 		find(world.screen, "Haptics").Visible = false
 		world.gui.SelectedObject = find(world.screen, "Music")
 		tab(world)
@@ -238,24 +217,19 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("traps Tab inside a modal and restores the launching control when it closes", function()
 		local presented = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame("Screen")({
-					UI.Button("Opener")({ label = "Open" }) :: unknown,
-					UI.Alert({
-						isPresented = presented,
-						title = "Replace this save?",
-						actions = {
-							{ id = "keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-							{ id = "replace", label = "Replace", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
-						},
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame("Screen")({
+				UI.Button("Opener")({ label = "Open" }) :: unknown,
+				UI.Alert({
+					isPresented = presented,
+					title = "Replace this save?",
+					actions = {
+						{ id = "keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "replace", label = "Replace", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
+				}),
+			})
+		end)
 		world.gui.SelectedObject = find(world.screen, "Opener")
 		presented:set(true)
 		local seen = { selected(world) }
@@ -272,15 +246,9 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("falls to the nearest surviving neighbour when the selected control is removed", function()
 		local shown = Compose.cell(true)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return form(UI, Host, engine.types.Enum, shown)
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return form(UI, Host, engine.types.Enum, shown)
+		end)
 		world.gui.SelectedObject = find(world.screen, "Sfx")
 		shown:set(false)
 		t.expect(selected(world)).toBe("Haptics")
@@ -291,21 +259,15 @@ t.describe("native selection parity with the main focus graph", function()
 		t.expect(world.gui.SelectedObject).toBe(nil)
 		world.stop()
 		local last = Compose.cell(true)
-		local tail = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return Host.Frame("Row")({
-					Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }) :: unknown,
-					UI.Button("First")({ label = "First", LayoutOrder = 1 }),
-					Compose.show(last, function()
-						return UI.Button("Last")({ label = "Last", LayoutOrder = 2 })
-					end),
-				})
-			end
-		)
+		local tail = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return Host.Frame("Row")({
+				Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }) :: unknown,
+				UI.Button("First")({ label = "First", LayoutOrder = 1 }),
+				Compose.show(last, function()
+					return UI.Button("Last")({ label = "Last", LayoutOrder = 2 })
+				end),
+			})
+		end)
 		tail.gui.SelectedObject = find(tail.screen, "Last")
 		last:set(false)
 		t.expect(selected(tail)).toBe("First")
@@ -314,7 +276,7 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("moves a removed collection row's selection to the following key, then the preceding one", function()
 		local rows = Compose.cell({ { id = "r1" }, { id = "r2" }, { id = "r3" }, { id = "r4" } })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.VirtualList("Rows")({
 				from = rows,
 				key = function(item)
@@ -350,30 +312,25 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("takes the selection back from an engine fallback when the selected row's key is removed", function()
 		local rows = Compose.cell({ { id = "r1" }, { id = "r2" }, { id = "r3" } })
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button("Toolbar")({ label = "Jump" }) :: unknown,
-					UI.VirtualList("Rows")({
-						from = rows,
-						key = function(item)
-							return item.id
-						end,
-						itemSize = 20,
-						render = function(current): GuiObject
-							return UI.Button("Row")({
-								label = function(use: Use)
-									return use(current).id
-								end,
-							})
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button("Toolbar")({ label = "Jump" }) :: unknown,
+				UI.VirtualList("Rows")({
+					from = rows,
+					key = function(item)
+						return item.id
+					end,
+					itemSize = 20,
+					render = function(current): GuiObject
+						return UI.Button("Row")({
+							label = function(use: Use)
+								return use(current).id
+							end,
+						})
+					end,
+				}),
+			})
+		end)
 		local list = find(world.screen, "Rows")
 		list.AbsoluteWindowSize = world.engine.types.Vector2.new(200, 200)
 		local target = find(find(list, "r2"), "Row")
@@ -390,17 +347,12 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("adjusts a selected slider with the D-pad while the other axis still navigates", function()
 		local value = Compose.cell(0.5)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Slider("Volume")({ value = value, step = 0.1 }) :: unknown,
-					UI.Button("Next")({ label = "Next" }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Slider("Volume")({ value = value, step = 0.1 }) :: unknown,
+				UI.Button("Next")({ label = "Next" }),
+			})
+		end)
 		local track = find(world.screen, "Volume")
 		world.gui.SelectedObject = track
 		t.expect(track.NextSelectionRight).toBe(track)
@@ -422,7 +374,7 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("enters a submenu with Right and returns to its row with Left while selection is native", function()
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = Compose.cell(true),
 				presentation = "menu" :: "menu",
@@ -451,43 +403,38 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("enters a tab strip on its selected tab", function()
 		local selection = Compose.cell("two")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button("Above")({ label = "Above" }) :: unknown,
-					UI.TabView("Tabs")({
-						selection = selection,
-						transition = false :: false,
-						tabs = {
-							{
-								id = "one",
-								label = "One",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{
-								id = "two",
-								label = "Two",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{
-								id = "three",
-								label = "Three",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-						},
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button("Above")({ label = "Above" }) :: unknown,
+				UI.TabView("Tabs")({
+					selection = selection,
+					transition = false :: false,
+					tabs = {
+						{
+							id = "one",
+							label = "One",
+							content = function(): Instance
+								return Host.Frame({})
+							end,
+						} :: FixtureNavigationTypes.Tab,
+						{
+							id = "two",
+							label = "Two",
+							content = function(): Instance
+								return Host.Frame({})
+							end,
+						} :: FixtureNavigationTypes.Tab,
+						{
+							id = "three",
+							label = "Three",
+							content = function(): Instance
+								return Host.Frame({})
+							end,
+						} :: FixtureNavigationTypes.Tab,
+					},
+				}),
+			})
+		end)
 		local tabs = find(world.screen, "Tabs")
 		local strip = tabs:FindFirstChildWhichIsA("ScrollingFrame", true)
 		world.gui.SelectedObject = find(world.screen, "Above")
@@ -501,20 +448,15 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("passes through a scroll container with no controls to the next control in the direction of travel", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button("Above")({ label = "Above" }) :: unknown,
-					Host.ScrollingFrame("Empty")({
-						Host.TextLabel({ Text = "Beginner tasks" }),
-					}),
-					UI.Button("Below")({ label = "Below" }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button("Above")({ label = "Above" }) :: unknown,
+				Host.ScrollingFrame("Empty")({
+					Host.TextLabel({ Text = "Beginner tasks" }),
+				}),
+				UI.Button("Below")({ label = "Below" }),
+			})
+		end)
 		local V2 = world.engine.types.Vector2
 		local function place(name: string, y: number, height: number)
 			local node = find(world.screen, name)
@@ -533,21 +475,16 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("passes through an empty scroll container to the in-beam control with the nearest leading edge", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button("Above")({ label = "Above" }) :: unknown,
-					Host.ScrollingFrame("Empty")({
-						Host.TextLabel({ Text = "Beginner tasks" }),
-					}),
-					UI.Button("Near")({ label = "Near" }),
-					UI.Button("Centred")({ label = "Centred" }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button("Above")({ label = "Above" }) :: unknown,
+				Host.ScrollingFrame("Empty")({
+					Host.TextLabel({ Text = "Beginner tasks" }),
+				}),
+				UI.Button("Near")({ label = "Near" }),
+				UI.Button("Centred")({ label = "Centred" }),
+			})
+		end)
 		local V2 = world.engine.types.Vector2
 		local function place(name: string, x: number, y: number, height: number)
 			local node = find(world.screen, name)
@@ -565,19 +502,14 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("never stops on a scroll container and forwards to its nearest child", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button("Above")({ label = "Above" }) :: unknown,
-					Host.ScrollingFrame("Page")({
-						UI.Button("Inside")({ label = "Inside" }),
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button("Above")({ label = "Above" }) :: unknown,
+				Host.ScrollingFrame("Page")({
+					UI.Button("Inside")({ label = "Inside" }),
+				}),
+			})
+		end)
 		world.gui.SelectedObject = find(world.screen, "Above")
 		world.gui.SelectedObject = find(world.screen, "Page")
 		t.expect(selected(world)).toBe("Inside")
@@ -585,17 +517,12 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("a move that lands on the scroll container around the selection keeps the selection", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.ScrollingFrame("Page")({
-					UI.Button("First")({ label = "First" }) :: unknown,
-					UI.Button("Edge")({ label = "Edge" }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.ScrollingFrame("Page")({
+				UI.Button("First")({ label = "First" }) :: unknown,
+				UI.Button("Edge")({ label = "Edge" }),
+			})
+		end)
 		world.gui.SelectedObject = find(world.screen, "Edge")
 		world.gui.SelectedObject = find(world.screen, "Page")
 		t.expect(selected(world)).toBe("Edge")

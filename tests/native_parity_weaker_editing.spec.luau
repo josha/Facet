@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -8,7 +13,7 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local perfRunner = require("../bench/perf_runner")
 local perfProfiles = require("../bench/perf_profiles")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -25,8 +30,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, prepare: ((any, any) -> ())?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.KeyboardEnabled = true
@@ -51,9 +55,7 @@ local function setup(build: (any, any, any, any) -> any, prepare: ((any, any) ->
 			motionLevel = "none",
 		} :: any
 	)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, runtime)
 	end, root)
@@ -153,22 +155,17 @@ end
 t.describe("native parity weaker editing", function()
 	t.it("apps-169 keeps the arrows with an editing field and commits it through Tab before advancing", function()
 		local commits, value = {}, Compose.cell("hi")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.TextInput "Name" {
-						value = value,
-						onCommit = function(text: string, reason: "submit" | "focusLost")
-							table.insert(commits, { text, reason })
-						end,
-					} :: unknown,
-					UI.Button "Next" { label = "Next" },
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.TextInput "Name" {
+					value = value,
+					onCommit = function(text: string, reason: "submit" | "focusLost")
+						table.insert(commits, { text, reason })
+					end,
+				} :: unknown,
+				UI.Button "Next" { label = "Next" },
+			})
+		end)
 		local E = world.engine.types.Enum
 		local field = find(world.node, "Name")
 		focusedBox(world, field)
@@ -202,7 +199,7 @@ t.describe("native parity weaker editing", function()
 		for index = 1, 30 do
 			rows[index] = { id = index, name = `Row {index}` }
 		end
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Table({
 				from = rows,
 				key = "id",
@@ -262,32 +259,26 @@ t.describe("native parity weaker editing", function()
 	t.it("inputs-181 enters editing on native focus once and keeps the edit and its snapshot on a repeat", function()
 		local value, changes, commits, cancels = Compose.cell("seed"), {}, {}, 0
 		local probed = 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return Host.Frame({
-					probe(Host, engine, function()
-						probed += 1
-					end) :: unknown,
-					UI.TextInput "Name" {
-						value = value,
-						onChange = function(text)
-							value:set(text)
-							table.insert(changes, text)
-						end,
-						onCommit = function(text: string, reason: "submit" | "focusLost")
-							table.insert(commits, { text, reason })
-						end,
-						onCancel = function()
-							cancels += 1
-						end,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return Host.Frame({
+				probe(Host, engine, function()
+					probed += 1
+				end) :: unknown,
+				UI.TextInput "Name" {
+					value = value,
+					onChange = function(text)
+						value:set(text)
+						table.insert(changes, text)
+					end,
+					onCommit = function(text: string, reason: "submit" | "focusLost")
+						table.insert(commits, { text, reason })
+					end,
+					onCancel = function()
+						cancels += 1
+					end,
+				},
+			})
+		end)
 		local E = world.engine.types.Enum
 		local field = find(world.node, "Name")
 		world.gui.SelectedObject = field
@@ -326,30 +317,23 @@ t.describe("native parity weaker editing", function()
 		"inputs-137 carries an edit across device arrivals and commits it once when the editing surface leaves",
 		function()
 			local value, commits, probed = Compose.cell(""), {}, 0
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					engine
-				)
-					return Host.Frame({
-						probe(Host, engine, function()
-							probed += 1
-						end) :: unknown,
-						UI.TextInput "Name" {
-							value = value,
-							onCommit = function(text: string, reason: "submit" | "focusLost")
-								table.insert(commits, { text, reason })
-							end,
-						},
-					})
-				end,
-				function(_, input)
-					input.TouchEnabled = true
-					input.KeyboardEnabled = false
-					input.GamepadEnabled = false
-				end
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+				return Host.Frame({
+					probe(Host, engine, function()
+						probed += 1
+					end) :: unknown,
+					UI.TextInput "Name" {
+						value = value,
+						onCommit = function(text: string, reason: "submit" | "focusLost")
+							table.insert(commits, { text, reason })
+						end,
+					},
+				})
+			end, function(_, input)
+				input.TouchEnabled = true
+				input.KeyboardEnabled = false
+				input.GamepadEnabled = false
+			end)
 			local E = world.engine.types.Enum
 			local field = find(world.node, "Name")
 			field:CaptureFocus()
@@ -383,27 +367,20 @@ t.describe("native parity weaker editing", function()
 
 	t.it("inputs-141 follows the engine preferred input and ignores raw pointer and stick noise", function()
 		local env: any, published = nil, 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				env = UI.environment(engine.new("ScreenGui"))
-				Compose.watch(function(use: Use)
-					use(env.effectiveInput)
-					published += 1
-				end)
-				return Host.Frame({})
-			end,
-			function(engine, input)
-				input.MouseEnabled = true
-				input.KeyboardEnabled = true
-				input.GamepadEnabled = true
-				input.TouchEnabled = false
-				input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			env = UI.environment(engine.new("ScreenGui"))
+			Compose.watch(function(use: Use)
+				use(env.effectiveInput)
+				published += 1
+			end)
+			return Host.Frame({})
+		end, function(engine, input)
+			input.MouseEnabled = true
+			input.KeyboardEnabled = true
+			input.GamepadEnabled = true
+			input.TouchEnabled = false
+			input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+		end)
 		local E = world.engine.types.Enum
 		local classes = env.interactionClasses:peek()
 		t.expect(classes.primary).toBe("gamepad")
@@ -456,23 +433,16 @@ t.describe("native parity weaker editing", function()
 		t.expect(classes.primary).toBe("gamepad")
 		t.expect(classes.pointer).toBe(false)
 		world.stop()
-		world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				env = UI.environment(engine.new("ScreenGui"))
-				return Host.Frame({})
-			end,
-			function(engine, input)
-				input.MouseEnabled = true
-				input.KeyboardEnabled = true
-				input.GamepadEnabled = false
-				input.TouchEnabled = false
-				input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
-			end
-		)
+		world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			env = UI.environment(engine.new("ScreenGui"))
+			return Host.Frame({})
+		end, function(engine, input)
+			input.MouseEnabled = true
+			input.KeyboardEnabled = true
+			input.GamepadEnabled = false
+			input.TouchEnabled = false
+			input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		end)
 		classes = env.interactionClasses:peek()
 		t.expect(classes.primary).toBe("pointer")
 		t.expect(classes.gamepad).toBe(false)
@@ -482,23 +452,18 @@ t.describe("native parity weaker editing", function()
 
 	t.it("inputs-122 keeps the field frame outside a native viewport and keeps newlines until focus loss", function()
 		local value, commits = Compose.cell("Notes"), {}
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.TextInput "Editor" {
-						value = value,
-						multiline = true,
-						visibleLines = 4,
-						onCommit = function(text: string, reason: "submit" | "focusLost")
-							table.insert(commits, { text, reason })
-						end,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.TextInput "Editor" {
+					value = value,
+					multiline = true,
+					visibleLines = 4,
+					onCommit = function(text: string, reason: "submit" | "focusLost")
+						table.insert(commits, { text, reason })
+					end,
+				},
+			})
+		end)
 		local root = find(world.node, "Editor")
 		t.expect(root.ClassName).toBe("Frame")
 		local viewport = find(root, "Viewport")
@@ -532,7 +497,7 @@ t.describe("native parity weaker editing", function()
 		t.expect(value:peek()).toBe(long)
 		world.stop()
 		local grown = Compose.cell("Lap")
-		world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		world = setup(function(UI: FacetControls)
 			return UI.TextInput "Plain" { value = grown, multiline = true }
 		end)
 		local plain = world.node
@@ -549,8 +514,7 @@ t.describe("native parity weaker editing", function()
 		world.stop()
 		local ornate = (require :: any)("../examples/themes/fantasy_ornate").build(themes)
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local stop, sheet: any = runtime.mount(function()
 			return themes.createStyleSheet(runtime, ornate, { types = engine.types } :: any)
 		end, engine.new("Folder"))
@@ -575,7 +539,7 @@ t.describe("native parity weaker editing", function()
 	t.it("collections-53 re-derives an open tray button width when the preferred text size changes", function()
 		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
 			Compose.cell("trailing" :: ("leading" | "trailing")?)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({
 				open = open,
 				content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
@@ -613,36 +577,31 @@ t.describe("native parity weaker editing", function()
 	t.it("apps-260 retires a presence region until its exit completes and reuses it on re-entry", function()
 		local shown, done = Compose.cell(true), Compose.cell(false)
 		local built, cleaned, phase = 0, 0, nil :: any
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Holder" {
-					UI.Button "Toggle" {
-						label = "Toggle",
-						onActivate = function()
-							shown:set(not shown:peek())
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Holder" {
+				UI.Button "Toggle" {
+					label = "Toggle",
+					onActivate = function()
+						shown:set(not shown:peek())
+					end,
+				} :: unknown,
+				Host.Frame "Region" {
+					Compose.presence(shown, function(current)
+						built += 1
+						phase = current
+						Compose.cleanup(function()
+							cleaned += 1
+						end)
+						return Host.Frame "Panel" {}
+					end, {
+						exit = function()
+							done:set(false)
+							return { completed = done }
 						end,
-					} :: unknown,
-					Host.Frame "Region" {
-						Compose.presence(shown, function(current)
-							built += 1
-							phase = current
-							Compose.cleanup(function()
-								cleaned += 1
-							end)
-							return Host.Frame "Panel" {}
-						end, {
-							exit = function()
-								done:set(false)
-								return { completed = done }
-							end,
-						}),
-					},
-				}
-			end
-		)
+					}),
+				},
+			}
+		end)
 		local toggle = find(world.node, "Toggle")
 		local region = find(world.node, "Region")
 		local first = find(region, "Panel")
@@ -726,34 +685,29 @@ t.describe("native parity weaker editing", function()
 	t.it("mech1-115 rethrows a failure outside every boundary to the writer and contains one inside", function()
 		local outside, inside = Compose.cell(false), Compose.cell(false)
 		local reported = {}
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Compose.show(outside, function()
-						error("outside failure", 0)
-					end) :: unknown,
-					UI.ErrorBoundary "Guard" {
-						view = function()
-							return Host.Frame({
-								Compose.show(inside, function()
-									error("inside failure", 0)
-								end),
-							})
-						end,
-						fallback = function()
-							return Host.TextLabel "Fallback" { Text = "broken" }
-						end,
-						onError = function(failure)
-							table.insert(reported, tostring(failure))
-						end,
-					},
-					Host.TextLabel "Sibling" { Text = "ok" },
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Compose.show(outside, function()
+					error("outside failure", 0)
+				end) :: unknown,
+				UI.ErrorBoundary "Guard" {
+					view = function()
+						return Host.Frame({
+							Compose.show(inside, function()
+								error("inside failure", 0)
+							end),
+						})
+					end,
+					fallback = function()
+						return Host.TextLabel "Fallback" { Text = "broken" }
+					end,
+					onError = function(failure)
+						table.insert(reported, tostring(failure))
+					end,
+				},
+				Host.TextLabel "Sibling" { Text = "ok" },
+			})
+		end)
 		local ok = pcall(function()
 			inside:set(true)
 		end)

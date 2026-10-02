@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -8,7 +15,7 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local playlistExample = require("../examples/gallery/examples/02_playlist_table")
 local themePackages = require("../tools/lune/theme_packages")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type Stage = {
 	engine: any,
@@ -36,8 +43,7 @@ end
 
 local function stage(build: (any, any) -> any, config: { [string]: any }?): Stage
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	local options: { [string]: any } = {
 		types = engine.types,
@@ -50,9 +56,7 @@ local function stage(build: (any, any) -> any, config: { [string]: any }?): Stag
 		options[key] = value
 	end
 	local UI = Facet.controls(runtime, options :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host) })
 	end, engine.new("Folder"))
@@ -194,8 +198,7 @@ type Playlist = {
 
 local function playlist(): Playlist
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	local target = engine.new("Folder")
 	local viewport = Compose.cell({ width = 1280, height = 720 })
@@ -203,9 +206,7 @@ local function playlist(): Playlist
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -394,7 +395,7 @@ t.describe("native parity weaker tables", function()
 	)
 
 	t.it("apps2-175 the resize grip keeps one trailing edge and sizes its target per input paradigm", function()
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(2),
 				key = id,
@@ -429,7 +430,7 @@ t.describe("native parity weaker tables", function()
 	end)
 
 	t.it("apps-242 touch and gamepad table rows clear the 44 floor with no wiring and a pinned height wins", function()
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
@@ -438,7 +439,7 @@ t.describe("native parity weaker tables", function()
 			})
 		end, { theme = { metrics = { controlSizes = { regular = { height = 32 } } } } })
 		local pinnedControls: any = {}
-		local pinned = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local pinned = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
@@ -476,8 +477,7 @@ t.describe("native parity weaker tables", function()
 		"collections-36 Table keeps cell state, windows large data, prunes selection and releases action rows",
 		function()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui, input = services(engine)
 			local UI = Facet.controls(
 				runtime,
@@ -498,11 +498,7 @@ t.describe("native parity weaker tables", function()
 			local factories, released = 0, 0
 			local counts: { [string]: any } = {}
 			local stop, node: any = runtime.mount(function()
-				return (
-					(
-						runtime.constructors.ScreenGui :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-				)({
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 					UI.Table("Records")({
 						from = rows,
 						key = id,
@@ -543,9 +539,7 @@ t.describe("native parity weaker tables", function()
 								end,
 							} :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
-						rowActions = function(): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(
-							nil :: any
-						))?
+						rowActions = function(): RowActions?
 							return {
 								trailing = {
 									{
@@ -661,7 +655,7 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-37 a focused grip widens narrows clamps and releases its keys", function()
 		local widths = Compose.cell({})
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
@@ -714,8 +708,7 @@ t.describe("native parity weaker tables", function()
 		"collections-133 fill and fixed columns align in every row, rows take variable heights, dispose frees",
 		function()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui, input = services(engine)
 			local UI = Facet.controls(
 				runtime,
@@ -732,11 +725,7 @@ t.describe("native parity weaker tables", function()
 			local baseline = engine.census()
 			local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
 			local stop, screen: any = runtime.mount(function()
-				return (
-					(
-						runtime.constructors.ScreenGui :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-				)({
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 					UI.Table({
 						from = {
 							{ id = "razz", name = "Razz Raccoon", laps = 3 },
@@ -784,7 +773,7 @@ t.describe("native parity weaker tables", function()
 		local editing = Compose.cell(false)
 		for _, reorderable in { true, false } do
 			editing:set(false)
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(3),
 					key = id,
@@ -792,9 +781,7 @@ t.describe("native parity weaker tables", function()
 					editing = editing,
 					reorderable = reorderable,
 					onReorder = function() end,
-					rowActions = function(): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(
-						nil :: any
-					))?
+					rowActions = function(): RowActions?
 						return {
 							trailing = {
 								{
@@ -850,7 +837,7 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-137 single replaces, multi toggles additively and keyboard focus walks and selects", function()
 		local single = Compose.cell({})
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,
@@ -892,7 +879,7 @@ t.describe("native parity weaker tables", function()
 		t.expect(single:peek()).toEqual({ [2] = true })
 		w.stop()
 		local multi = Compose.cell({})
-		local m = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local m = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,
@@ -922,7 +909,7 @@ t.describe("native parity weaker tables", function()
 	t.it("collections-142 columns own value and render cells, coerce numbers and cycle the header sort", function()
 		local sort = require("./lib/cells").sort(nil)
 		local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = {
 					{ id = "razz", name = "Razz Raccoon", laps = 3 },
@@ -997,7 +984,7 @@ t.describe("native parity weaker tables", function()
 	t.it("collections-144 a Table row gap spaces the rows and the drop line follows the gap", function()
 		local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
 		local requests = {}
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
@@ -1038,7 +1025,7 @@ t.describe("native parity weaker tables", function()
 	t.it("collections-164 a numeric Table gap drives row pitch and the drop slot arithmetic", function()
 		local function pitch(gap: number?): (number, number)
 			local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(4),
 					key = id,
@@ -1062,7 +1049,7 @@ t.describe("native parity weaker tables", function()
 		t.expect(select(1, pitch(6))).toBe(6)
 		t.expect(select(2, pitch(6))).toBe(178)
 		local requests = {}
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,
@@ -1096,7 +1083,7 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-151 only resizable columns grow a grip that resizes and clamps both bounds", function()
 		local widths = Compose.cell({})
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(2),
 				key = id,
@@ -1143,7 +1130,7 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-203 every collapsed width carries a More disclosure on each row that opens", function()
 		local widths = Compose.cell({ a = 150, b = 150, c = 150 })
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = {
 					{ id = 1, a = "Alpha", b = "Bravo", c = "Charlie one" },
@@ -1224,7 +1211,7 @@ t.describe("native parity weaker tables", function()
 		local checked = 0
 		for _, package in packages do
 			for _, shape in shapes do
-				local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = stage(function(UI: FacetControls)
 					return UI.Table({
 						from = records(3),
 						key = id,
@@ -1254,7 +1241,7 @@ t.describe("native parity weaker tables", function()
 
 	t.it("inputs-06 a gamepad grab moves a row with the D-pad and drops it with A", function()
 		local requests = {}
-		local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,

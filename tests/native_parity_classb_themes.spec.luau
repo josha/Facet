@@ -1,10 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -25,8 +31,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 	engine.clock = function()
 		return now
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local shift = { down = false }
@@ -47,9 +52,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, parent)
@@ -122,23 +125,17 @@ end
 t.describe("native parity classb themes", function()
 	t.it("rounds only the circle skeleton and pauses its sweep under reduced motion without a new plate", function()
 		local reduced = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Skeleton("Circle")({ form = "circle" :: "circle" }) :: unknown,
-					UI.Skeleton("Box")({ form = "box" :: "box" }),
-					UI.Skeleton("Lines")({ form = "line" :: "line", lines = 2 }),
-				})
-			end,
-			{
-				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
-					return if use(reduced) then "none" else "normal"
-				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
-			}
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Skeleton("Circle")({ form = "circle" :: "circle" }) :: unknown,
+				UI.Skeleton("Box")({ form = "box" :: "box" }),
+				UI.Skeleton("Lines")({ form = "line" :: "line", lines = 2 }),
+			})
+		end, {
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				return if use(reduced) then "none" else "normal"
+			end) :: unknown) :: MotionLevel,
+		})
 		local circle = find(find(world.screen, "Circle"), "Placeholder1")
 		local box = find(find(world.screen, "Box"), "Placeholder1")
 		local lines = placeholders(find(world.screen, "Lines"))
@@ -178,23 +175,16 @@ t.describe("native parity classb themes", function()
 
 	t.it("keeps the moving band inside each placeholder at fractional widths through full cycles", function()
 		local width = Compose.cell(390)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return Host.Frame({
-					UI.Skeleton("A")({
-						form = "box" :: "box",
-						Size = function(use: Use)
-							return engine.types.UDim2.fromOffset(use(width), 0)
-						end,
-					}),
-				})
-			end,
-			{ motionLevel = "normal" }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return Host.Frame({
+				UI.Skeleton("A")({
+					form = "box" :: "box",
+					Size = function(use: Use)
+						return engine.types.UDim2.fromOffset(use(width), 0)
+					end,
+				}),
+			})
+		end, { motionLevel = "normal" })
 		local root = find(world.screen, "A")
 		local plate = find(root, "Placeholder1")
 		local sweep = find(plate, "Shimmer")
@@ -221,20 +211,14 @@ t.describe("native parity classb themes", function()
 	end)
 
 	t.it("keeps a stage out of selection and Tab traversal as a non-interactive leaf", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return Host.Frame("Form")({
-					Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }) :: unknown,
-					UI.Button("Before")({ label = "Before", LayoutOrder = 1 }),
-					UI.Stage("Scene")({ LayoutOrder = 2 }),
-					UI.Button("After")({ label = "After", LayoutOrder = 3 }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return Host.Frame("Form")({
+				Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }) :: unknown,
+				UI.Button("Before")({ label = "Before", LayoutOrder = 1 }),
+				UI.Stage("Scene")({ LayoutOrder = 2 }),
+				UI.Button("After")({ label = "After", LayoutOrder = 3 }),
+			})
+		end)
 		local stage = find(world.screen, "Scene")
 		t.expect(stage.ClassName).toBe("ViewportFrame")
 		t.expect(stage.Selectable).toBe(false)
@@ -260,12 +244,9 @@ t.describe("native parity classb themes", function()
 		local palette = Compose.cell(assert(package).style.defaultTheme)
 		local sheet
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types, theme = package } :: any)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local stop, root: any = runtime.mount(function()
 			sheet = themes.createStyleSheet(
 				runtime,
@@ -321,22 +302,16 @@ t.describe("native parity classb themes", function()
 		runtime:dispose()
 	end)
 	t.it("spends an authored count height and widens the count pill to at least that height", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return Host.Frame({
-					UI.StatusIndicator("Default")({ count = 7 }) :: unknown,
-					UI.StatusIndicator("Authored")({
-						count = 7,
-						cutout = true,
-						Size = engine.types.UDim2.new(0, 40, 0, 20),
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return Host.Frame({
+				UI.StatusIndicator("Default")({ count = 7 }) :: unknown,
+				UI.StatusIndicator("Authored")({
+					count = 7,
+					cutout = true,
+					Size = engine.types.UDim2.new(0, 40, 0, 20),
+				}),
+			})
+		end)
 		local default = find(world.screen, "Default")
 		local limits = childOf(default, "UISizeConstraint")
 		t.expect(#limits).toBe(1)

@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -17,7 +20,7 @@ return {
 	title = "Player groups",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
@@ -168,18 +171,18 @@ return {
 					label = "Layout",
 					selected = variant,
 					options = {
-						{ value = "stacked", label = "Stacked" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "spread", label = "Spread" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "ellipsis", label = "Ellipsis" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "stacked", label = "Stacked" } :: PickerOption,
+						{ value = "spread", label = "Spread" } :: PickerOption,
+						{ value = "ellipsis", label = "Ellipsis" } :: PickerOption,
 					},
 				},
 				UI.Picker "Size" {
 					label = "Size",
 					selected = size,
 					options = {
-						{ value = "compact", label = "Compact" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "regular", label = "Regular" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "large", label = "Large" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "compact", label = "Compact" } :: PickerOption,
+						{ value = "regular", label = "Regular" } :: PickerOption,
+						{ value = "large", label = "Large" } :: PickerOption,
 					},
 				},
 				UI.Text "Activations" {

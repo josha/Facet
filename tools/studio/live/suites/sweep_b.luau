@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
@@ -117,19 +120,14 @@ add("demo-sweep-phone", {}, function(t: any)
 end)
 
 add("disabled-subtree", {}, function(t: any)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Area" {
-				Size = UDim2.fromOffset(400, 300),
-				Interactable = false,
-				UI.Button "Inner" { label = "Inside" } :: unknown,
-				UI.Toggle "Check" { label = "Option", value = t.Facet.Compose.cell(false) },
-			}
-		end
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Area" {
+			Size = UDim2.fromOffset(400, 300),
+			Interactable = false,
+			UI.Button "Inner" { label = "Inside" } :: unknown,
+			UI.Toggle "Check" { label = "Option", value = t.Facet.Compose.cell(false) },
+		}
+	end)
 	t.settle(10)
 	for _, name in { "Inner", "Check" } do
 		local node = t.find(stage, name)

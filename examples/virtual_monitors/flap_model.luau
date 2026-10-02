@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local flap = {
 	WIDTH = 768,
 	HEIGHT = 448,
@@ -66,7 +68,7 @@ local function collision(state: State): boolean
 	return false
 end
 
-function flap.new(Compose: typeof(require("@repo/src/vendor/compose/core")))
+function flap.new(Compose: ComposeModule)
 	local state, best = Compose.cell(initial()), Compose.cell(0)
 	local disposed = false
 	local function flapPress()

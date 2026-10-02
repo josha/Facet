@@ -1,11 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Background transparency",
 	build = function(ctx: ExampleContext)
-		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
+		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Color3, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local gui = ctx.guiService
 		local opened = Compose.cell(false)
@@ -67,7 +70,7 @@ return {
 					title = "Modal backdrop",
 					message = "This backdrop darkens as you lower Background transparency.",
 					actions = {
-						{ id = "Close", label = "Close", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+						{ id = "Close", label = "Close", role = "cancel" :: "cancel" } :: AlertAction,
 					},
 				},
 			}

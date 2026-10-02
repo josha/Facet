@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FolderConstructor = typeof(require("@repo/tools/typecheck/aliases").FolderConstructor)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
@@ -9,7 +16,7 @@ local transitionOf = require("./lib/transition")
 local fs = require("@lune/fs")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function find(root: any, name: string): any
 	if root.Name == name then
@@ -54,8 +61,7 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 	if settings.clock then
 		engine.clock = settings.clock
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -82,9 +88,7 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, gui, runtime)
 	end, root)
@@ -187,17 +191,14 @@ t.describe("pointer, touch and drag strength", function()
 		}
 		for _, case in cases do
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target = engine.new("Folder")
 			local viewport = Compose.cell({ width = 800, height = 600 })
 			local ctx: any = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				inputTarget = target,
 				worldTarget = engine.new("Folder"),
@@ -216,11 +217,9 @@ t.describe("pointer, touch and drag strength", function()
 					{
 						types = engine.types,
 						viewport = viewport,
-						motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(
-							nil :: any
-						)),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				game = match3.build(ctx)
@@ -735,7 +734,7 @@ t.describe("pointer, touch and drag strength", function()
 		"autoscrolls a reorder only from the edge bands, stops on retraction and release, and clamps both ends",
 		function()
 			local requests = {}
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				local rows = {}
 				for index = 1, 100 do
 					rows[index] = { id = index, label = tostring(index) }
@@ -810,26 +809,20 @@ t.describe("pointer, touch and drag strength", function()
 	t.it("gives a disabled row no drag session and restores the session when it is enabled again", function()
 		local enabled, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
 			Compose.cell(false), Compose.cell(nil :: ("leading" | "trailing")?)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.RowActions({
-					open = open,
-					enabled = enabled,
-					content = Host.TextLabel({ Text = "Row" }) :: GuiObject,
-					trailing = {
-						{ id = "Save", label = "Save", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
-					},
-				})
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.RowActions({
+				open = open,
+				enabled = enabled,
+				content = Host.TextLabel({ Text = "Row" }) :: GuiObject,
+				trailing = {
+					{ id = "Save", label = "Save", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+				},
+			})
+		end, {
+			clock = function()
+				return 0
 			end,
-			{
-				clock = function()
-					return 0
-				end,
-			}
-		)
+		})
 		world.node.AbsoluteSize = V2(world, 300, 44)
 		local detector = world.node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 		local content = world.node:FindFirstChild("Content")
@@ -849,7 +842,7 @@ t.describe("pointer, touch and drag strength", function()
 		world.stop()
 		local value = Compose.cell(2)
 		local levelEnabled = Compose.cell(false)
-		local level = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local level = setup(function(UI: FacetControls)
 			return UI.LevelPicker({ value = value, count = 10, enabled = levelEnabled })
 		end)
 		level.node.AbsoluteSize = V2(level, 100, 44)
@@ -868,7 +861,7 @@ t.describe("pointer, touch and drag strength", function()
 	t.it("opens a plain menu when a touch long press begins and only then", function()
 		for _, triggers in { false, true } do
 			local opened = Compose.cell(false)
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Menu({
 					label = "Options",
 					isPresented = opened,
@@ -903,21 +896,16 @@ t.describe("pointer, touch and drag strength", function()
 
 	t.it("resizes a sheet live while its handle is dragged up and snaps to the nearest detent", function()
 		local detent = Compose.cell("medium")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Sheet({
-					isPresented = Compose.cell(true),
-					detent = detent,
-					title = "Sheet",
-					content = function(): Instance
-						return Host.Frame("Body")({})
-					end,
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = detent,
+				title = "Sheet",
+				content = function(): Instance
+					return Host.Frame("Body")({})
+				end,
+			})
+		end)
 		local panel = find(world.root, "SheetPanel")
 		local drag = find(find(world.root, "DragHandle"), "UIDragDetector")
 		t.expect(panel.Size.Y.Offset).toBe(360)
@@ -1052,39 +1040,33 @@ t.describe("adaptive environment strength", function()
 			t.expect(profile.displaySize).toBe(if tenFoot then "Large" else profile.displaySize)
 			t.expect(profile.overscanInsets.left > 0).toBe(tenFoot)
 			local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({
-						UI.Table({
-							from = { { id = 1, label = "A" }, { id = 2, label = "B" } },
-							key = function(item: any)
-								return item.id
-							end,
-							controls = controls,
-							columns = {
-								{ id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any>,
-							},
-						}) :: unknown,
-						UI.Picker("Choice")({
-							selected = Compose.cell("1"),
-							options = {
-								{ value = "1", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
-								{ value = "2", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
-								{ value = "3", label = "Three" } :: FixtureNavigationTypes.PickerOption<any>,
-								{ value = "4", label = "Four" } :: FixtureNavigationTypes.PickerOption<any>,
-								{ value = "5", label = "Five" } :: FixtureNavigationTypes.PickerOption<any>,
-							},
-						}),
-					})
-				end,
-				{
-					preferredInput = profile.preferredInput,
-					config = { theme = compactTheme() },
-				}
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					UI.Table({
+						from = { { id = 1, label = "A" }, { id = 2, label = "B" } },
+						key = function(item: any)
+							return item.id
+						end,
+						controls = controls,
+						columns = {
+							{ id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any>,
+						},
+					}) :: unknown,
+					UI.Picker("Choice")({
+						selected = Compose.cell("1"),
+						options = {
+							{ value = "1", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "2", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "3", label = "Three" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "4", label = "Four" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "5", label = "Five" } :: FixtureNavigationTypes.PickerOption<any>,
+						},
+					}),
+				})
+			end, {
+				preferredInput = profile.preferredInput,
+				config = { theme = compactTheme() },
+			})
 			t.expect(world.input.PreferredInput).toBe(
 				if tenFoot
 					then world.engine.types.Enum.PreferredInput.Gamepad
@@ -1161,8 +1143,7 @@ t.describe("adaptive environment strength", function()
 		local modelModule = require("../examples/virtual_monitors/model")
 		local screens = require("../examples/virtual_monitors/screens")
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -1271,7 +1252,7 @@ t.describe("adaptive environment strength", function()
 			SplitButton = function()
 				return { label = "Action", onActivate = function() end, items = { item("Alpha") } }
 			end,
-			DisclosureGroup = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			DisclosureGroup = function(Host: RobloxHost)
 				return {
 					label = "Details",
 					expanded = Compose.cell(true),
@@ -1280,7 +1261,7 @@ t.describe("adaptive environment strength", function()
 					end,
 				}
 			end,
-			TabView = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			TabView = function(Host: RobloxHost)
 				local function tab(id: string): any
 					return {
 						id = id,
@@ -1292,7 +1273,7 @@ t.describe("adaptive environment strength", function()
 				end
 				return { selection = Compose.cell("a"), tabs = { tab("a"), tab("b") } }
 			end,
-			PageView = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			PageView = function(Host: RobloxHost)
 				local function page(id: string): any
 					return {
 						id = id,
@@ -1315,7 +1296,7 @@ t.describe("adaptive environment strength", function()
 					},
 				}
 			end,
-			Sheet = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			Sheet = function(Host: RobloxHost)
 				return {
 					title = "Sheet",
 					detent = Compose.cell("medium"),
@@ -1325,7 +1306,7 @@ t.describe("adaptive environment strength", function()
 					end,
 				}
 			end,
-			RowActions = function(Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			RowActions = function(Host: RobloxHost)
 				return {
 					content = function(): Instance
 						return Host.TextLabel({ Text = "Row" })
@@ -1350,15 +1331,9 @@ t.describe("adaptive environment strength", function()
 		local failures = {}
 		for _, name in names do
 			for _, kind in { "Touch", "Gamepad" } :: { "Gamepad" | "Touch" } do
-				local world = setup(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return Host.Frame({ UI[name](fixtures[name](Host)) })
-					end,
-					{ preferredInput = kind :: "Gamepad" | "Touch" }
-				)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame({ UI[name](fixtures[name](Host)) })
+				end, { preferredInput = kind :: "Gamepad" | "Touch" })
 				for _, child in world.node:GetChildren() do
 					if child:IsA("GuiObject") then
 						child.AbsoluteSize = V2(world, 300, 44)
@@ -1406,43 +1381,34 @@ t.describe("adaptive environment strength", function()
 				}
 				local world: World
 				withGame(services, function()
-					world = setup(
-						function(
-							UI: typeof(require("@repo/src").controls(nil :: any)),
-							Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-							engine,
-							gui,
-							runtime
+					world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui, runtime)
+						current = gui
+						sheet = Facet.themes.createStyleSheet(
+							runtime,
+							Facet.themes.neutralPackage(),
+							{ types = engine.types }
 						)
-							current = gui
-							sheet = Facet.themes.createStyleSheet(
-								runtime,
-								Facet.themes.neutralPackage(),
-								{ types = engine.types }
-							)
-							return Host.Frame({
-								sheet :: unknown,
-								UI.Table({
-									from = { { id = 1, label = "A" }, { id = 2, label = "B" }, { id = 3, label = "C" } },
-									key = function(item: any)
-										return item.id
-									end,
-									controls = controls,
-									columns = {
-										{ id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any>,
-									},
-								}),
-								UI.Slider("Volume")({ value = value }),
-								UI.Alert({
-									title = "Confirm",
-									message = "Continue?",
-									isPresented = Compose.cell(true),
-									actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
-								}),
-							})
-						end,
-						{ config = { theme = compactTheme() } }
-					)
+						return Host.Frame({
+							sheet :: unknown,
+							UI.Table({
+								from = { { id = 1, label = "A" }, { id = 2, label = "B" }, { id = 3, label = "C" } },
+								key = function(item: any)
+									return item.id
+								end,
+								controls = controls,
+								columns = {
+									{ id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any>,
+								},
+							}),
+							UI.Slider("Volume")({ value = value }),
+							UI.Alert({
+								title = "Confirm",
+								message = "Continue?",
+								isPresented = Compose.cell(true),
+								actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
+							}),
+						})
+					end, { config = { theme = compactTheme() } })
 				end)
 				local scrim = scrimOf(sheet)
 				local body = find(world.node, "Body")
@@ -1561,7 +1527,7 @@ t.describe("adaptive environment strength", function()
 		}
 		for _, case in cases do
 			local selected = Compose.cell("1")
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Picker({ selected = selected, options = options(case[1], case[2]) })
 			end, { preferredInput = case[4] })
 			find(world.node, "LabelMeasure").TextBounds = V2(world, case[1] * 60, 18)
@@ -1579,7 +1545,7 @@ t.describe("adaptive environment strength", function()
 			end
 			world.stop()
 		end
-		local query = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local query = setup(function(UI: FacetControls)
 			return UI.Picker({ selected = Compose.cell("1"), query = Compose.cell(""), options = options(2, false) })
 		end, { preferredInput = "Gamepad" })
 		query.node.AbsoluteSize = V2(query, 400, 44)
@@ -1592,8 +1558,7 @@ t.describe("adaptive environment strength", function()
 		"follows GuiService transparency from attach and live without wiring, and keeps paint fades under Reduce Motion",
 		function()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			gui.PreferredTransparency = 0.5
 			gui.ReducedMotionEnabled = true
@@ -1608,11 +1573,7 @@ t.describe("adaptive environment strength", function()
 				stop = runtime.mount(function()
 					sheet =
 						Facet.themes.createStyleSheet(runtime, Facet.themes.neutralPackage(), { types = engine.types })
-					return (
-						(
-							runtime.constructors.Folder :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Folder)
-					)({ sheet :: unknown })
+					return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({ sheet :: unknown })
 				end, engine.new("Folder"))
 			end)
 			local scrim = scrimOf(sheet)
@@ -1638,11 +1599,7 @@ t.describe("adaptive environment strength", function()
 						Facet.themes.neutralPackage(),
 						{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" }
 					)
-					return (
-						(
-							runtime.constructors.Folder :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Folder)
-					)({ explicit :: unknown })
+					return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({ explicit :: unknown })
 				end, engine.new("Folder"))
 				t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
 				gui.PreferredTransparency = 0

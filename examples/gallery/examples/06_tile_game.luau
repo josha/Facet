@@ -1,5 +1,8 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
+
 local words = require("./words")
 
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -517,7 +520,7 @@ local CELL_MARK: { [string]: string } = {
 }
 
 function example.build(ctx: any)
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local function paletteColor(use: any, role: string): Color3
 		local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
@@ -537,8 +540,7 @@ function example.build(ctx: any)
 	local pendingSig = Compose.cell({} :: { [string]: string })
 	local rackSig = Compose.cell({} :: { [number]: string })
 	local originSig = Compose.cell({} :: { [string]: number })
-	local selectedSig: typeof(require("@repo/tools/typecheck/example_shapes").optionalNumber(nil :: any)) =
-		Compose.cell(nil :: number?)
+	local selectedSig: OptionalNumberCell = Compose.cell(nil :: number?)
 	local scoreSig = Compose.cell(0)
 	local turnSig = Compose.cell(1)
 	local phaseSig = Compose.cell("playing")

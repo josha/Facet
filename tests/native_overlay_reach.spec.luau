@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local worlds = require("./lib/content_world")
@@ -30,19 +33,13 @@ end
 
 local function menuNotes(items: { any }): { string }
 	local controls: { diagnostics: (() -> { string })? } = {}
-	local world = worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({
-				Name = "S",
-				Size = UDim2.fromOffset(800, 600),
-				UI.Menu { label = "Options", items = items, controls = controls },
-			})
-		end,
-		{ motionLevel = "none" }
-	)
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({
+			Name = "S",
+			Size = UDim2.fromOffset(800, 600),
+			UI.Menu { label = "Options", items = items, controls = controls },
+		})
+	end, { motionLevel = "none" })
 	local notes = assert(controls.diagnostics)()
 	world.stop()
 	return notes
@@ -90,24 +87,18 @@ end)
 t.describe("help reachability: every input class can open every help", function()
 	local function helped(): (any, { number })
 		local count = { 0 }
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Screen",
-					UI.Button "Post" {
-						label = "Post",
-						help = "Posts it",
-						onActivate = function()
-							count[1] += 1
-						end,
-					},
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Button "Post" {
+					label = "Post",
+					help = "Posts it",
+					onActivate = function()
+						count[1] += 1
+					end,
+				},
+			})
+		end, { motionLevel = "none" })
 		place(w.find("Post"))
 		return w, count
 	end
@@ -152,15 +143,9 @@ end)
 
 t.describe("full-value disclosure of truncated text", function()
 	local function label(spec: { [any]: any }): any
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({ Name = "Screen", UI.Text "Name"(spec) })
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ Name = "Screen", UI.Text "Name"(spec) })
+		end, { motionLevel = "none" })
 		place(w.find("Name"))
 		return w
 	end
@@ -211,21 +196,15 @@ t.describe("full-value disclosure of truncated text", function()
 	)
 
 	t.it("a keyboard or gamepad selection on the row that holds the label discloses it", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Screen",
-					UI.Button "Row" {
-						label = "",
-						UI.Text "Name" { text = LONG, truncate = "end" :: "end", disclose = true },
-					},
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Button "Row" {
+					label = "",
+					UI.Text "Name" { text = LONG, truncate = "end" :: "end", disclose = true },
+				},
+			})
+		end, { motionLevel = "none" })
 		place(w.find("Name"))
 		w.find("Name").TextFits = false
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -236,18 +215,12 @@ t.describe("full-value disclosure of truncated text", function()
 	end)
 
 	t.it("a truncated Button label outranks its help on the same engagement", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Screen",
-					UI.Button "Post" { label = LONG, disclose = true, help = "Posts it" },
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Button "Post" { label = LONG, disclose = true, help = "Posts it" },
+			})
+		end, { motionLevel = "none" })
 		local post = w.find("Post")
 		place(post)
 		post.TextFits = false
@@ -282,23 +255,17 @@ t.describe("full-value disclosure of truncated text", function()
 		for _, case: { disclose: boolean?, hint: string? } in
 			{ { disclose = true }, { disclose = true, hint = "Shown on the HUD" }, {} } :: { { disclose: boolean?, hint: string? } }
 		do
-			local w = overlay.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({
-						Name = "Screen",
-						UI.Toggle "Music" {
-							label = LONG,
-							value = Compose.cell(false),
-							disclose = case.disclose,
-							hint = case.hint,
-						},
-					})
-				end,
-				{ motionLevel = "none" }
-			)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					Name = "Screen",
+					UI.Toggle "Music" {
+						label = LONG,
+						value = Compose.cell(false),
+						disclose = case.disclose,
+						hint = case.hint,
+					},
+				})
+			end, { motionLevel = "none" })
 			local music = w.find("Music")
 			place(music)
 			local title = music:FindFirstChild("Title", true)
@@ -318,24 +285,18 @@ t.describe("full-value disclosure of truncated text", function()
 	end)
 
 	t.it("a disclosing Button or Toggle with an authored width keeps one line that truncates", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Screen",
-					UI.Toggle "Music" {
-						label = LONG,
-						value = Compose.cell(false),
-						disclose = true,
-						Size = UDim2.fromOffset(200, 44),
-					} :: unknown,
-					UI.Button "Post" { label = LONG, disclose = true, Size = UDim2.fromOffset(120, 44) },
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Toggle "Music" {
+					label = LONG,
+					value = Compose.cell(false),
+					disclose = true,
+					Size = UDim2.fromOffset(200, 44),
+				} :: unknown,
+				UI.Button "Post" { label = LONG, disclose = true, Size = UDim2.fromOffset(120, 44) },
+			})
+		end, { motionLevel = "none" })
 		for _, name in { "Music", "Post" } do
 			local node = w.find(name)
 			t.expect(`{name}: {node.TextTruncate.Name} {node.TextWrapped}`).toBe(`{name}: AtEnd false`)
@@ -352,19 +313,13 @@ end)
 
 t.describe("auto reveal of truncated text (restored from 0.11)", function()
 	local function revealing(count: number, reduced: boolean): any
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local children: { any } = {}
-				for index = 1, count do
-					table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" :: "auto" }))
-				end
-				return Host.Frame({ Name = "Screen", table.unpack((children :: unknown) :: { unknown }) })
-			end,
-			{ motionLevel = if reduced then "none" else "normal" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local children: { any } = {}
+			for index = 1, count do
+				table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" :: "auto" }))
+			end
+			return Host.Frame({ Name = "Screen", table.unpack((children :: unknown) :: { unknown }) })
+		end, { motionLevel = if reduced then "none" else "normal" })
 		for index = 1, count do
 			local name = w.find("Name" .. index)
 			place(name)
@@ -434,15 +389,9 @@ t.describe("auto reveal of truncated text (restored from 0.11)", function()
 			bad.text = LONG
 			t.expect(pcall(function()
 				overlay
-					.new(
-						function(
-							UI: typeof(require("@repo/src").controls(nil :: any)),
-							Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-						)
-							return Host.Frame({ UI.Text "Name"(bad :: any) })
-						end,
-						{ motionLevel = "none" }
-					)
+					.new(function(UI: FacetControls, Host: RobloxHost)
+						return Host.Frame({ UI.Text "Name"(bad :: any) })
+					end, { motionLevel = "none" })
 					.stop()
 			end)).toBe(false)
 		end

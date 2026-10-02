@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RingPoint = typeof(require("@repo/tools/typecheck/aliases").RingPoint)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local modelModule = require("./model")
@@ -13,7 +17,7 @@ local TOOLS = {
 }
 
 function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local shapes = Facet.pathShapes
 	local D2, E = types.UDim2, types.Enum
 	local function paint(name: string): Color3
@@ -29,7 +33,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	local function circle(cx: number, cy: number, radius: number): { any }
 		local points = shapes.ring({ radius = radius * 2 })
 		for index, point in points do
-			local moved: typeof(require("@repo/src").pathShapes.ring({ radius = 1 })[1]) = table.clone(point)
+			local moved: RingPoint = table.clone(point)
 			moved.x += cx - 0.5
 			moved.y += cy - 0.5
 			points[index] = moved
@@ -547,7 +551,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				end,
 				message = "New seeds may be waiting in the market.",
 				actions = {
-					{ id = "ok", label = "Keep farming" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					{ id = "ok", label = "Keep farming" } :: AlertAction,
 				},
 			},
 			Compose.keyed({

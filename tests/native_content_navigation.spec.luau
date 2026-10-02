@@ -1,24 +1,24 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local UDim2 = require("@lune/roblox").UDim2
 local Vector2 = require("@lune/roblox").Vector2
 local Enum = require("@lune/roblox").Enum
 
 local function menuWorld(spec: { [any]: any }, options: { [string]: any }?): any
-	local world = worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
-		end,
-		options or { motionLevel = "none" }
-	)
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
+	end, options or { motionLevel = "none" })
 	return world
 end
 
@@ -147,8 +147,8 @@ t.describe("native content navigation deltas", function()
 
 	t.it("leads plain rows like accessory rows and gives every row the target floor", function()
 		local list = {
-			{ id = "a", label = "All tracks", badge = 3, onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-			{ id = "b", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+			{ id = "a", label = "All tracks", badge = 3, onSelect = function() end } :: MenuItem,
+			{ id = "b", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = function() end } :: MenuItem,
 		}
 		for index = 1, 4 do
 			table.insert(list, { id = `p{index}`, label = `Track {index}`, onSelect = function() end })
@@ -207,8 +207,8 @@ t.describe("native content navigation deltas", function()
 		local toggles = menuWorld({
 			label = "Options",
 			items = {
-				{ id = "first", label = "First", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "flag", label = "Flag", checked = checked } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "first", label = "First", onSelect = function() end } :: MenuItem,
+				{ id = "flag", label = "Flag", checked = checked } :: MenuItem,
 			},
 		})
 		local togglePanel = openMenu(toggles, true)
@@ -308,14 +308,14 @@ t.describe("native content navigation deltas", function()
 					onSelect = function()
 						ran += 1
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
 				{
 					id = "b",
 					label = "Beta",
 					avatar = { name = "Bea" },
 					shortcutLabel = "Ctrl+B",
 					onSelect = function() end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
 			},
 		})
 		local panel = openMenu(world, true)
@@ -363,7 +363,7 @@ t.describe("native content navigation deltas", function()
 			for key, value in bad do
 				spec[key] = value
 			end
-			local failure = worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local failure = worlds.mountError(function(UI: FacetControls)
 				return UI.Menu(spec :: any)
 			end)
 			local key = next(bad) :: string
@@ -404,21 +404,15 @@ t.describe("native content navigation deltas", function()
 
 	t.it("carries a Picker option badge and sectionTitle into menu rows and searchable list rows", function()
 		local options = Compose.cell({
-			{ value = "a", label = "Alpha", badge = 2 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-			{ value = "b", label = "Beta" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ value = "a", label = "Alpha", badge = 2 } :: PickerOption,
+			{ value = "b", label = "Beta" } :: PickerOption,
 		})
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "S",
-					UI.Picker({ style = "menu" :: "menu", selected = Compose.cell("a"), options = options }),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "S",
+				UI.Picker({ style = "menu" :: "menu", selected = Compose.cell("a"), options = options }),
+			})
+		end, { motionLevel = "none" })
 		local panel = openMenu(world)
 		local count = world.find("a", panel):FindFirstChild("Count", true)
 		t.expect(count ~= nil).toBe(true)
@@ -435,31 +429,25 @@ t.describe("native content navigation deltas", function()
 		t.expect(world.find("b", panel):FindFirstChild("Count", true)).toBeNil()
 		t.expect(panel:FindFirstChild("SectionTitle", true)).toBeNil()
 		options:set({
-			{ value = "a", label = "Alpha", badge = 2 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-			{ value = "b", label = "Beta", sectionTitle = "More" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ value = "a", label = "Alpha", badge = 2 } :: PickerOption,
+			{ value = "b", label = "Beta", sectionTitle = "More" } :: PickerOption,
 		})
 		t.expect(headings(everywhere(world, "MenuPanel"))).toBe("More")
 		world.stop()
-		local search = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "S",
-					UI.Picker({
-						style = "navigationLink" :: "navigationLink",
-						query = Compose.cell(""),
-						selected = Compose.cell("a"),
-						options = {
-							{ value = "a", label = "Alpha", sectionTitle = "First" } :: FixtureNavigationTypes.PickerOption<any>,
-							{ value = "b", label = "Beta", badge = "9" } :: FixtureNavigationTypes.PickerOption<any>,
-						},
-					}),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local search = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "S",
+				UI.Picker({
+					style = "navigationLink" :: "navigationLink",
+					query = Compose.cell(""),
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Alpha", sectionTitle = "First" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Beta", badge = "9" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				}),
+			})
+		end, { motionLevel = "none" })
 		search.find("Picker").Activated.fire()
 		local list = everywhere(search, "Choices")
 		t.expect(list ~= nil).toBe(true)
@@ -471,17 +459,10 @@ t.describe("native content navigation deltas", function()
 	local function containers(): (any, any)
 		local scenario = require("../examples/gallery/scenarios/containers") :: any
 		local built: any
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				built = scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types })
-				return built.screen()
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
+			built = scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types })
+			return built.screen()
+		end, { motionLevel = "none" })
 		return world, built
 	end
 
@@ -647,19 +628,13 @@ t.describe("native content navigation deltas", function()
 
 	t.it("paints a tab indicator as a StatusIndicator in its own tab and keeps it through every switch", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = selection,
-					placement = "topBar" :: "topBar",
-					tabs = tabList(Host, { indicator = { status = "warning", form = "dot" } }),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				placement = "topBar" :: "topBar",
+				tabs = tabList(Host, { indicator = { status = "warning", form = "dot" } }),
+			})
+		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		local feed = world.find("feed", tabs)
 		local status = feed:FindFirstChild("Status")
@@ -673,48 +648,30 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("refuses a tab indicator that is not a StatusIndicator spec by name", function()
-		local failure = worlds.mountError(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = Compose.cell("home"),
-					tabs = tabList(Host, { indicator = "dot" :: "dot" }),
-				})
-			end
-		)
+		local failure = worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				tabs = tabList(Host, { indicator = "dot" :: "dot" }),
+			})
+		end)
 		t.expect(failure ~= nil and string.find(failure, "indicator", 1, true) ~= nil).toBe(true)
-		t.expect(
-			worlds.mountError(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.TabView({
-						selection = Compose.cell("home"),
-						tabs = tabList(Host, { indicator = { status = "loud" } }),
-					})
-				end
-			) ~= nil
-		).toBe(true)
+		t.expect(worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				tabs = tabList(Host, { indicator = { status = "loud" } }),
+			})
+		end) ~= nil).toBe(true)
 	end)
 
 	t.it("keeps a disabled tab in the strip and refuses its selection on every route", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = selection,
-					placement = "topBar" :: "topBar",
-					tabs = tabList(Host, { enabled = false }),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				placement = "topBar" :: "topBar",
+				tabs = tabList(Host, { enabled = false }),
+			})
+		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		local feed = world.find("feed", tabs)
 		feed.Activated.fire()
@@ -729,19 +686,13 @@ t.describe("native content navigation deltas", function()
 
 	t.it("shrinks tab words toward the caption role in a filling bottom bar before they truncate", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = selection,
-					placement = "bottomBar" :: "bottomBar",
-					tabs = tabList(Host),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				placement = "bottomBar" :: "bottomBar",
+				tabs = tabList(Host),
+			})
+		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		local feed = world.find("feed", tabs)
 		t.expect(feed:GetAttribute("FacetTextFit")).toBe(true)
@@ -770,19 +721,13 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("sizes a sidebar rail to its widest tab by default, as before 0.12", function()
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = Compose.cell("home"),
-					placement = "sidebar" :: "sidebar",
-					tabs = tabList(Host),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				placement = "sidebar" :: "sidebar",
+				tabs = tabList(Host),
+			})
+		end, { motionLevel = "none" })
 		local view = world.find("TabView")
 		world.resize(view, 1200, 800)
 		local tabs = world.find("Tabs")
@@ -808,19 +753,13 @@ t.describe("native content navigation deltas", function()
 		bare.chrome.control.contentInsets = nil
 		local widths = {}
 		for _, package in { pixel, bare } do
-			local world = worlds.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.TabView({
-						selection = Compose.cell("home"),
-						placement = "sidebar" :: "sidebar",
-						tabs = tabList(Host),
-					})
-				end,
-				{ motionLevel = "none", theme = package }
-			)
+			local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+				return UI.TabView({
+					selection = Compose.cell("home"),
+					placement = "sidebar" :: "sidebar",
+					tabs = tabList(Host),
+				})
+			end, { motionLevel = "none", theme = package })
 			world.resize(world.find("TabView"), 1200, 800)
 			local tabs = world.find("Tabs")
 			for _, id in { "home", "feed", "me" } do
@@ -834,19 +773,13 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("clips its tab strip only while the tabs overflow, so a tab's chrome shadow is not cut", function()
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = Compose.cell("home"),
-					placement = "topBar" :: "topBar",
-					tabs = tabList(Host),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				placement = "topBar" :: "topBar",
+				tabs = tabList(Host),
+			})
+		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		tabs.AbsoluteWindowSize = Vector2.new(300, 44)
 		tabs.AbsoluteCanvasSize = Vector2.new(300, 44)
@@ -857,19 +790,13 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("centres the tabs of a top bar, as before 0.12", function()
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = Compose.cell("home"),
-					placement = "topBar" :: "topBar",
-					tabs = tabList(Host),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				placement = "topBar" :: "topBar",
+				tabs = tabList(Host),
+			})
+		end, { motionLevel = "none" })
 		local layout = world.find("Tabs"):FindFirstChildWhichIsA("UIListLayout")
 		t.expect(layout.HorizontalAlignment.Name).toBe("Center")
 		world.stop()
@@ -877,19 +804,13 @@ t.describe("native content navigation deltas", function()
 
 	t.it("lets a crowded bottom bar scroll whole words when even the caption size cannot fit them", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = selection,
-					placement = "bottomBar" :: "bottomBar",
-					tabs = tabList(Host),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				placement = "bottomBar" :: "bottomBar",
+				tabs = tabList(Host),
+			})
+		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		local feed = world.find("feed", tabs)
 		local styled = feed.TextSize
@@ -912,58 +833,52 @@ t.describe("native content navigation deltas", function()
 	t.it("nests a TabView that a page builds later inside one of its branches", function()
 		local selection, inner = Compose.cell("home"), Compose.cell("foryou")
 		local shown = Compose.cell(false)
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					Name = "Outer",
-					selection = selection,
-					tabs = {
-						{
-							id = "home",
-							label = "Home",
-							content = function(): Instance
-								return Host.Frame({
-									Name = "Branch",
-									Compose.show(shown, function()
-										return UI.TabView({
-											Name = "Inner",
-											selection = inner,
-											tabs = {
-												{
-													id = "foryou",
-													label = "For you",
-													content = function(): Instance
-														return Host.Frame({})
-													end,
-												} :: FixtureNavigationTypes.Tab,
-												{
-													id = "charts",
-													label = "Charts",
-													content = function(): Instance
-														return Host.Frame({})
-													end,
-												} :: FixtureNavigationTypes.Tab,
-											},
-										})
-									end),
-								})
-							end,
-						} :: FixtureNavigationTypes.Tab,
-						{
-							id = "feed",
-							label = "Feed",
-							content = function(): Instance
-								return Host.Frame({})
-							end,
-						} :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				Name = "Outer",
+				selection = selection,
+				tabs = {
+					{
+						id = "home",
+						label = "Home",
+						content = function(): Instance
+							return Host.Frame({
+								Name = "Branch",
+								Compose.show(shown, function()
+									return UI.TabView({
+										Name = "Inner",
+										selection = inner,
+										tabs = {
+											{
+												id = "foryou",
+												label = "For you",
+												content = function(): Instance
+													return Host.Frame({})
+												end,
+											} :: FixtureNavigationTypes.Tab,
+											{
+												id = "charts",
+												label = "Charts",
+												content = function(): Instance
+													return Host.Frame({})
+												end,
+											} :: FixtureNavigationTypes.Tab,
+										},
+									})
+								end),
+							})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+					{
+						id = "feed",
+						label = "Feed",
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end, { motionLevel = "none" })
 		local outer = world.find("Outer")
 		outer.AbsoluteSize = Vector2.new(390, 800)
 		shown:set(true)
@@ -978,39 +893,33 @@ t.describe("native content navigation deltas", function()
 
 	t.it("closes up a collapsed outline section in a scroller and reopens it", function()
 		local open = Compose.cell(true)
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local groups = {}
-				for index = 1, 2 do
-					table.insert(
-						groups,
-						UI.DisclosureGroup({
-							Name = "G" .. index,
-							LayoutOrder = index,
-							label = "Group " .. index,
-							expanded = if index == 1 then open else Compose.cell(true),
-							content = function(): Instance
-								local rows = {}
-								for _, id in { "a", "b", "c", "d" } do
-									table.insert(rows, UI.Button({ Name = "B" .. id, label = id }))
-								end
-								return Host.Frame({ Name = "Rows", table.unpack((rows :: unknown) :: { unknown }) })
-							end,
-						})
-					)
-				end
-				return Host.ScrollingFrame({
-					Name = "Sc",
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-					table.unpack(groups),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			local groups = {}
+			for index = 1, 2 do
+				table.insert(
+					groups,
+					UI.DisclosureGroup({
+						Name = "G" .. index,
+						LayoutOrder = index,
+						label = "Group " .. index,
+						expanded = if index == 1 then open else Compose.cell(true),
+						content = function(): Instance
+							local rows = {}
+							for _, id in { "a", "b", "c", "d" } do
+								table.insert(rows, UI.Button({ Name = "B" .. id, label = id }))
+							end
+							return Host.Frame({ Name = "Rows", table.unpack((rows :: unknown) :: { unknown }) })
+						end,
+					})
+				)
+			end
+			return Host.ScrollingFrame({
+				Name = "Sc",
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				table.unpack(groups),
+			})
+		end, { motionLevel = "none" })
 		local first, second = world.find("G1"), world.find("G2")
 		t.expect(world.find("Rows", first) ~= nil).toBe(true)
 		t.expect(first.AutomaticSize.Name).toBe("Y")

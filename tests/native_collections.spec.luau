@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type TextBoxConstructor = typeof(require("@repo/tools/typecheck/aliases").TextBoxConstructor)
+type UIScaleConstructor = typeof(require("@repo/tools/typecheck/aliases").UIScaleConstructor)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -19,8 +24,7 @@ local function setup(options: { [string]: any }?)
 	if options and options.clock then
 		engine.clock = options.clock
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local root = engine.new("ScreenGui")
 	local config: { [string]: any } = {
@@ -105,11 +109,9 @@ t.describe("Compose native collections", function()
 						activated += 1
 					end,
 					render = function(): GuiObject
-						return (
-							(
-								runtime.constructors.Frame :: unknown
-							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-						) { Size = engine.types.UDim2.fromScale(1, 1) }
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) {
+							Size = engine.types.UDim2.fromScale(1, 1),
+						}
 					end,
 				}
 			end, target)
@@ -322,11 +324,7 @@ t.describe("Compose native collections", function()
 					return item.id == 51
 				end,
 				render = function(current): GuiObject
-					return (
-						(
-							runtime.constructors.TextBox :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextBox)
-					) "Editor" {
+					return ((runtime.constructors.TextBox :: unknown) :: TextBoxConstructor) "Editor" {
 						Text = function(use: Use)
 							return use(current).label
 						end,
@@ -459,11 +457,7 @@ t.describe("Compose native collections", function()
 				measure = true,
 				status = status,
 				render = function(): GuiObject
-					return (
-						(
-							runtime.constructors.Frame :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-					) "Measured" {
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Measured" {
 						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
 						Size = engine.types.UDim2.new(1, 0, 0, 0),
 					}
@@ -505,18 +499,13 @@ t.describe("Compose native collections", function()
 				measure = true,
 				status = status,
 				render = function(): GuiObject
-					return (
-						(
-							runtime.constructors.Frame :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-					) "Measured" {
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Measured" {
 						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
 						Size = engine.types.UDim2.new(1, 0, 0, 0),
-						(
-							(
-								runtime.constructors.UIScale :: unknown
-							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.UIScale)
-						)({ Name = "Lift", Scale = lift }),
+						((runtime.constructors.UIScale :: unknown) :: UIScaleConstructor)({
+							Name = "Lift",
+							Scale = lift,
+						}),
 					}
 				end,
 			})
@@ -541,11 +530,9 @@ t.describe("Compose native collections", function()
 				itemSize = 20,
 				measure = true,
 				render = function(): GuiObject
-					return (
-						(
-							runtime.constructors.Frame :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-					) "Fill" { Size = engine.types.UDim2.fromScale(1, 1) }
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Fill" {
+						Size = engine.types.UDim2.fromScale(1, 1),
+					}
 				end,
 			})
 		end, target)
@@ -1030,11 +1017,7 @@ t.describe("Compose native collections", function()
 						label = "Mark",
 						width = 120,
 						render = function(): GuiObject
-							return (
-								(
-									runtime.constructors.Frame :: unknown
-								) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-							)({ Name = "Mark" })
+							return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ Name = "Mark" })
 						end,
 					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
@@ -2261,11 +2244,9 @@ t.describe("Compose native collections", function()
 						priority = 3,
 						render = function(): GuiObject
 							builds += 1
-							return (
-								(
-									runtime.constructors.TextBox :: unknown
-								) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextBox)
-							)({ Text = "Local edit" })
+							return ((runtime.constructors.TextBox :: unknown) :: TextBoxConstructor)({
+								Text = "Local edit",
+							})
 						end,
 					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},

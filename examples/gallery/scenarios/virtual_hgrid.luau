@@ -1,5 +1,5 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local build = require("./collection_demo")
 return {
 	title = "Lazy grid, sideways",

@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -45,11 +48,8 @@ t.describe("Facet on the consumer's Compose instance", function()
 		t.expect(Bound.VERSION).toBe(Facet.VERSION)
 		t.expect(Facet.Compose ~= Core).toBe(true)
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local UI = Bound.controls(runtime, { types = engine.types })
 		local root = engine.new("ScreenGui")
 		local baseline = engine.census()
@@ -122,8 +122,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 
 	t.it("names the control when a runtime from another Compose instance reaches default controls", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local message = failure(function()
 			runtime.mount(function()
@@ -137,8 +136,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 
 	t.it("names the control and option when a readable comes from another Compose instance", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local message = failure(function()
 			runtime.mount(function()
@@ -203,8 +201,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 		end
 		for _, surface in { Facet, Facet.bind(Core, Roblox) } do
 			local engine = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				surface.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = surface.Roblox.createRuntime(engine)
 			local package = assert(surface.themes.define({
 				identity = { id = "app-wide" },
 				metrics = { space = { xs = 6, s = 12, m = 20, l = 30, xl = 48 } },

@@ -1,5 +1,8 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type CoordinatesCell = typeof(require("@repo/tools/typecheck/aliases").CoordinatesCell)
+
 local assets = require("./assets")
 
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -90,7 +93,7 @@ local function hasLegalMoveIn(grid: { { string } }): boolean
 end
 
 local function build(ctx: any)
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local reducedMotion = ctx.reducedMotion
 	local seed = DEFAULT_SEED
@@ -238,9 +241,7 @@ local function build(ctx: any)
 	local moves = Compose.cell(0)
 	local message = Compose.cell("")
 	local resolving = Compose.cell(false)
-	local selected = (function(
-		value: { number }?
-	): typeof(require("@repo/tools/typecheck/example_shapes").coordinatesCell(nil))
+	local selected = (function(value: { number }?): CoordinatesCell
 		return Compose.cell(value)
 	end)(nil)
 	local kindHandle = {}

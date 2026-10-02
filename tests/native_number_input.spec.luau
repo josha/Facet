@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local Compose = require("../src/vendor/compose/core")
@@ -30,8 +33,7 @@ end
 local function numberWorld(spec: any?): any
 	local o = spec or {}
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = {}
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -71,11 +73,7 @@ local function numberWorld(spec: any?): any
 	local screen = engine.new("ScreenGui")
 	w.screen = screen
 	w.stop = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.Frame :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-		)({
+		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 			Name = "Host",
 			Compose.show(w.visible, function()
 				return UI.NumberInput("Laps")(merged)
@@ -126,8 +124,7 @@ t.describe("native NumberInput preset", function()
 			expect(ok).toBe(false)
 		end
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI: any = {}
 		register(context(Compose, runtime, { types = engine.types }), UI)
 		for _, key in { "stepButtons", "step", "precision", "prefix", "suffix", "scrub" } do

@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Case = {
 	id: string,
 	contracts: { string },
@@ -18,21 +21,15 @@ local function cell(Host: any, name: string, size: UDim2): any
 end
 
 add("scroll-view-canvas-covers-rows-and-gaps", { "apps-224" }, function(t: any)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return UI.ScrollView "List" {
-				gap = 10,
-				Size = UDim2.fromOffset(300, 100),
-				cell(Host, "A", UDim2.fromOffset(300, 40)) :: unknown,
-				cell(Host, "B", UDim2.fromOffset(300, 40)),
-				cell(Host, "C", UDim2.fromOffset(300, 40)),
-			}
-		end,
-		{ size = Vector2.new(400, 400) }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return UI.ScrollView "List" {
+			gap = 10,
+			Size = UDim2.fromOffset(300, 100),
+			cell(Host, "A", UDim2.fromOffset(300, 40)) :: unknown,
+			cell(Host, "B", UDim2.fromOffset(300, 40)),
+			cell(Host, "C", UDim2.fromOffset(300, 40)),
+		}
+	end, { size = Vector2.new(400, 400) })
 	t.settle(10)
 	local list = t.find(stage, "List")
 	local a, c = t.find(list, "A"), t.find(list, "C")
@@ -46,24 +43,18 @@ add("scroll-view-canvas-covers-rows-and-gaps", { "apps-224" }, function(t: any)
 end)
 
 add("horizontal-scroll-view-steps-along-x", { "apps-226" }, function(t: any)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			local cells = {}
-			for index = 1, 5 do
-				table.insert(cells, cell(Host, "Cell" .. index, UDim2.new(0, 60, 1, 0)))
-			end
-			return UI.ScrollView "Rail" {
-				axis = "x" :: "x",
-				gap = 10,
-				Size = UDim2.fromOffset(200, 120),
-				table.unpack((cells :: unknown) :: { unknown }),
-			}
-		end,
-		{ size = Vector2.new(400, 400) }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		local cells = {}
+		for index = 1, 5 do
+			table.insert(cells, cell(Host, "Cell" .. index, UDim2.new(0, 60, 1, 0)))
+		end
+		return UI.ScrollView "Rail" {
+			axis = "x" :: "x",
+			gap = 10,
+			Size = UDim2.fromOffset(200, 120),
+			table.unpack((cells :: unknown) :: { unknown }),
+		}
+	end, { size = Vector2.new(400, 400) })
 	t.settle(10)
 	local rail = t.find(stage, "Rail")
 	local first, second = t.find(rail, "Cell1"), t.find(rail, "Cell2")

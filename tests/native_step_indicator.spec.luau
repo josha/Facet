@@ -1,9 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function workflow(): { any }
 	return {
@@ -15,7 +19,7 @@ local function workflow(): { any }
 end
 
 local function mount(spec: any, width: number?, options: { [string]: any }?): (any, any)
-	local world = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local world = worlds.new(function(UI: FacetControls)
 		return UI.StepIndicator("Steps")(spec)
 	end, options)
 	local root = world.find("Steps")
@@ -257,11 +261,11 @@ t.describe("native StepIndicator", function()
 			{ steps = {}, extra = true },
 		}
 		for _, spec in bad do
-			t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			t.expect(worlds.mountError(function(UI: FacetControls)
 				return UI.StepIndicator(spec)
 			end) ~= nil).toBe(true)
 		end
-		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.StepIndicator({
 				steps = { { id = "r1", label = "Review" }, { id = "r2", label = "Review" } },
 				current = "r1",
@@ -375,7 +379,7 @@ t.describe("native StepIndicator", function()
 
 	t.it("leaves nothing open when a callback removes the control", function()
 		local show = Compose.cell(true)
-		local world = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = worlds.new(function(UI: FacetControls)
 			return Compose.show(show, function()
 				return UI.StepIndicator("Steps")({
 					steps = workflow(),
@@ -393,15 +397,9 @@ t.describe("native StepIndicator", function()
 
 	t.it("moves the narrow summary with a row selection in the Steps scenario and refuses both", function()
 		local scenario = require("../examples/gallery/scenarios/steps") :: any
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types }).screen()
-			end
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
+			return scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types }).screen()
+		end)
 		local checkout, compact = world.find("Checkout"), world.find("Compact")
 		local compactSummary = world.find("Summary", compact)
 		t.expect(compact:GetAttribute("FacetSummary")).toBe("Step 2 of 4 — Shipping")

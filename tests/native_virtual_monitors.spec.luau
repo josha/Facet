@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
@@ -72,8 +75,7 @@ end
 local function withScreens(body: (any) -> (), options: { [string]: any }?)
 	local Facet = require("../src")
 	local engine = engineModule.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -287,8 +289,7 @@ t.describe("native virtual monitors", function()
 	t.it("mounts the actual three screens and drives their controls through native events", function()
 		local Facet = require("../src")
 		local engine = engineModule.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local lifetime = Compose.createRootOwner(function()
 			local model = modelModule.new(Compose)
@@ -1474,8 +1475,7 @@ t.describe("native virtual monitors", function()
 	t.it("NVM-13 desktop tab transitions reclaim interrupted content and release departing owners", function()
 		local Facet, desktop = require("../src"), require("../examples/virtual_monitors/desktop")
 		local engine = engineModule.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local mounted, released, now = {}, {}, 0
 		local target = engine.new("ScreenGui")
 		local lifetime = Compose.createRootOwner(function()
@@ -1488,11 +1488,7 @@ t.describe("native virtual monitors", function()
 					Compose.cleanup(function()
 						released[name] = (released[name] or 0) + 1
 					end)
-					return (
-						(
-							runtime.constructors.Frame :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-					)({ Name = name .. "Content" })
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ Name = name .. "Content" })
 				end
 			end
 			local stop, root: any = runtime.mount(

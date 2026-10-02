@@ -1,9 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local example = { title = "Settings Sync" }
 function example.build(ctx: any)
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 	local server = Compose.cell({ music = false, volume = 10, revision = 1 })
 	local draft = Compose.cell({ music = false, volume = 10 })
 	local status = Compose.cell("idle")

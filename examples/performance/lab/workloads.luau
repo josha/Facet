@@ -1,5 +1,13 @@
 --!strict
+
+type DatasetModule = typeof(require("./dataset"))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ObservedCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 local motion = require("./motion_workloads")
 local workloads = {}
@@ -63,10 +71,9 @@ workloads.DATASETS = {
 	["radial-menu-open-close"] = "Six-action radial menu; open and close",
 }
 
-local function createStandard(ctx: { [string]: any }, name: string, dataset: typeof(require("./dataset")))
+local function createStandard(ctx: { [string]: any }, name: string, dataset: DatasetModule)
 	assert(workloads.DATASETS[name], `unknown performance workload {name}`)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), runtime, Host, UI, types =
-		ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
+	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, V2, E, C3 = types.UDim2, types.Vector2, types.Enum, types.Color3
 	type Row = {
 		id: string,
@@ -82,7 +89,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: typ
 		n = 0,
 		name = name,
 		selected = nil :: any,
-		observed = {} :: { typeof(require("@repo/src/vendor/compose/core").cell(nil :: any)) },
+		observed = {} :: { ObservedCell },
 		nodes = {},
 		close = nil :: (() -> ())?,
 		focused = nil :: any,
@@ -128,7 +135,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: typ
 				return if item then item.detail else ""
 			end),
 			actions = {
-				{ id = "close", label = "Close" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+				{ id = "close", label = "Close" } :: AlertAction,
 			},
 		}
 	end
@@ -155,9 +162,9 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: typ
 		end
 		return Host.Frame(props)
 	end
-	local function bindCell<T>(value: T): typeof(require("@repo/src/vendor/compose/core").cell((nil :: unknown) :: T))
+	local function bindCell<T>(value: T): Cell<T>
 		local cell = Compose.cell(value)
-		table.insert(state.observed, cell)
+		table.insert(state.observed, (cell :: unknown) :: ObservedCell)
 		return cell
 	end
 	local function viewport(node)
@@ -301,9 +308,9 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: typ
 				message = "The save slot is cleared and the run restarts from the last checkpoint.",
 				isPresented = state.presented,
 				actions = {
-					{ id = "Delete", label = "Delete", role = "destructive" :: "destructive" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
-					{ id = "Keep", label = "Keep a copy" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
-					{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					{ id = "Delete", label = "Delete", role = "destructive" :: "destructive" } :: AlertAction,
+					{ id = "Keep", label = "Keep a copy" } :: AlertAction,
+					{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: AlertAction,
 				},
 			})
 		elseif kind == "radial" then
@@ -349,9 +356,9 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: typ
 				label = "Detail",
 				selected = selected,
 				options = {
-					{ value = "low", label = "Low" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "medium", label = "Medium" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "high", label = "High" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "low", label = "Low" } :: PickerOption,
+					{ value = "medium", label = "Medium" } :: PickerOption,
+					{ value = "high", label = "High" } :: PickerOption,
 				},
 				onChange = function(next)
 					selected:set(next)
@@ -491,9 +498,9 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: typ
 							return 16 * use(state.textSize)
 						end,
 						options = {
-							{ value = "easy", label = "Easy" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "normal", label = "Normal" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "hard", label = "Hard" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "easy", label = "Easy" } :: PickerOption,
+							{ value = "normal", label = "Normal" } :: PickerOption,
+							{ value = "hard", label = "Hard" } :: PickerOption,
 						},
 					})
 				)
@@ -1001,7 +1008,7 @@ end
 function workloads.create(
 	ctx: { [string]: any },
 	name: string,
-	dataset: typeof(require("./dataset"))
+	dataset: DatasetModule
 ): typeof(motion.create(nil :: any, nil :: any, nil :: any)) | typeof(createStandard(nil :: any, "", nil :: any))
 	if name == "dense-motion" or name == "control-motion" then
 		return motion.create(ctx, name, dataset)

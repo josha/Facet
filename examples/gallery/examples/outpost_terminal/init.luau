@@ -1,13 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type TextPropsText = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local rules = require("@self/rules")
 local terminal = { rules = rules, CANVAS = { w = 640, h = 480 }, TITLE = "OUTPOST 7 — POWER" }
 
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 	local o: { [string]: any } = options or {}
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI = ctx.Compose, ctx.Host, ctx.UI
+	local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 	local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local confirmed = Compose.cell(rules.copy(rules.START))
 	local revision = Compose.cell(0)
@@ -229,12 +232,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 		end
 		return true
 	end
-	local function label(
-		name: string,
-		text: typeof(require("@repo/tools/typecheck/example_shapes").text(nil :: any).text),
-		height: number,
-		size: number?
-	)
+	local function label(name: string, text: TextPropsText, height: number, size: number?)
 		return UI.Text({
 			Name = name,
 			text = text,

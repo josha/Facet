@@ -1,5 +1,7 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local data = require("../content/data")
 local rng = require("./rng")
 
@@ -9,7 +11,7 @@ local TIMEFRAMES = table.freeze({ "today", "week", "month", "year" })
 local POINTS = table.freeze({ twoWeeks = 14, month = 30, year = 12 })
 
 function stats_service.new(opts: any): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 	local seed: number = opts.seed or 1
 
 	local self: any = {}

@@ -1,10 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -20,8 +26,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -42,9 +47,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, runtime)
 	end, root)
@@ -98,14 +101,11 @@ end
 
 local function mountError(build: (any, any) -> any): string?
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local ok, message = pcall(function()
 		local stop = runtime.mount(function()
 			return Host.Frame({ build(UI, Host) })
@@ -140,17 +140,12 @@ end
 t.describe("native parity controls", function()
 	t.it("aligns icon button content by the declared text alignment and centers it by default", function()
 		local alignment = Compose.cell(nil :: any)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame("Buttons")({
-					UI.Button("Plain")({ label = "Plain", icon = "person" }) :: unknown,
-					UI.Button("Aligned")({ label = "Aligned", icon = "person", TextXAlignment = alignment }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame("Buttons")({
+				UI.Button("Plain")({ label = "Plain", icon = "person" }) :: unknown,
+				UI.Button("Aligned")({ label = "Aligned", icon = "person", TextXAlignment = alignment }),
+			})
+		end)
 		local E = world.engine.types.Enum
 		local function layoutOf(name: string): any
 			return find(find(world.node, name), "Content"):FindFirstChildWhichIsA("UIListLayout")
@@ -166,23 +161,18 @@ t.describe("native parity controls", function()
 	t.it("repaints a chip in place, refuses incomplete chips and honors live and inherited disabled", function()
 		local selected, enabled, removed = Compose.cell(false), Compose.cell(true), 0
 		local removable = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame("Chips")({
-					UI.Chip("Filter")({ label = "Filter", selected = selected, enabled = enabled }) :: unknown,
-					UI.Chip("Tag")({
-						label = "Tag",
-						enabled = removable,
-						onRemove = function()
-							removed += 1
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame("Chips")({
+				UI.Chip("Filter")({ label = "Filter", selected = selected, enabled = enabled }) :: unknown,
+				UI.Chip("Tag")({
+					label = "Tag",
+					enabled = removable,
+					onRemove = function()
+						removed += 1
+					end,
+				}),
+			})
+		end)
 		local chip = find(world.node, "Filter")
 		t.expect(chip:HasTag("facet-selected")).toBe(false)
 		chip.Activated.fire()
@@ -212,27 +202,18 @@ t.describe("native parity controls", function()
 		remove.Activated.fire()
 		t.expect(removed).toBe(1)
 		world.stop()
-		t.expect(
-			refuses("selected or onRemove is required", function(UI: typeof(require("@repo/src").controls(nil :: any)))
-				return UI.Chip({ label = "A" } :: any)
-			end)
-		)
-			.toBe(true)
-		t.expect(
-			refuses(
-				"read-only selected requires onToggle",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
-					return UI.Chip({
-						label = "A",
-						selected = Compose.formula(function()
-							return false
-						end),
-					} :: any)
-				end
-			)
-		)
-			.toBe(true)
-		t.expect(mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(refuses("selected or onRemove is required", function(UI: FacetControls)
+			return UI.Chip({ label = "A" } :: any)
+		end)).toBe(true)
+		t.expect(refuses("read-only selected requires onToggle", function(UI: FacetControls)
+			return UI.Chip({
+				label = "A",
+				selected = Compose.formula(function()
+					return false
+				end),
+			} :: any)
+		end)).toBe(true)
+		t.expect(mountError(function(UI: FacetControls)
 			return UI.Chip({
 				label = "A",
 				selected = Compose.formula(function()
@@ -247,26 +228,21 @@ t.describe("native parity controls", function()
 		for _, name in { "Stepper", "Slider", "Rating" } do
 			local value = Compose.cell(if name == "Slider" then 0 else 1)
 			local presented = Compose.cell(false)
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					local control = if name == "Stepper"
-						then UI.Stepper("Control")({ value = value, max = 100 })
-						elseif name == "Slider" then UI.Slider("Control")({
-							value = value,
-							min = 0,
-							max = 1,
-							step = 0.01,
-						})
-						else UI.Rating("Control")({ value = value, count = 50 })
-					return Host.Frame({
-						control :: unknown,
-						UI.Alert("Blocker")({ isPresented = presented, title = "Wait" }),
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				local control = if name == "Stepper"
+					then UI.Stepper("Control")({ value = value, max = 100 })
+					elseif name == "Slider" then UI.Slider("Control")({
+						value = value,
+						min = 0,
+						max = 1,
+						step = 0.01,
 					})
-				end
-			)
+					else UI.Rating("Control")({ value = value, count = 50 })
+				return Host.Frame({
+					control :: unknown,
+					UI.Alert("Blocker")({ isPresented = presented, title = "Wait" }),
+				})
+			end)
 			local control = find(world.node, "Control")
 			world.gui.SelectedObject = control
 			local increase = action(world.root, "Increase")
@@ -292,37 +268,37 @@ t.describe("native parity controls", function()
 		local invalidCases: { { any } } = {
 			{
 				"count must be a positive integer",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.LevelPicker({ value = value, count = 0 })
 				end,
 			},
 			{
 				"count must be a positive integer",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.LevelPicker({ value = value, count = 2.5 })
 				end,
 			},
 			{
 				"unknown option 'typo'",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.LevelPicker({ value = value, typo = 1 })
 				end,
 			},
 			{
 				"invalid segment",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.LevelPicker({ value = value, segment = "dots" } :: any)
 				end,
 			},
 			{
 				"invalid size",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.LevelPicker({ value = value, segmentSize = "huge" } :: any)
 				end,
 			},
 			{
 				"glyphs require glyph segments",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.LevelPicker(
 						{ value = value, segment = "bar", glyphs = { filled = "x", empty = "y" } } :: any
 					)
@@ -330,13 +306,13 @@ t.describe("native parity controls", function()
 			},
 			{
 				"count must be a positive integer",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Rating({ value = value, count = 0 })
 				end,
 			},
 			{
 				"invalid size",
-				function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				function(UI: FacetControls)
 					return UI.Rating({ value = value, starSize = "huge" } :: any)
 				end,
 			},
@@ -348,23 +324,18 @@ t.describe("native parity controls", function()
 
 	t.it("publishes level values inside the declared run and paints glyphs in place", function()
 		local level, rating = Compose.cell(0), Compose.cell(7)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.LevelPicker("Level")({
-						value = level,
-						allowZero = false,
-						segment = "glyph" :: "glyph",
-						glyphs = { filled = "#", empty = "." },
-						segmentSize = "large" :: "large",
-					}) :: unknown,
-					UI.Rating("Stars")({ value = rating, starSize = "medium" :: "medium" }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.LevelPicker("Level")({
+					value = level,
+					allowZero = false,
+					segment = "glyph" :: "glyph",
+					glyphs = { filled = "#", empty = "." },
+					segmentSize = "large" :: "large",
+				}) :: unknown,
+				UI.Rating("Stars")({ value = rating, starSize = "medium" :: "medium" }),
+			})
+		end)
 		local picker, stars = find(world.node, "Level"), find(world.node, "Stars")
 		t.expect(picker:GetAttribute("minimum")).toBe(1)
 		t.expect(picker:GetAttribute("maximum")).toBe(5)
@@ -400,18 +371,13 @@ t.describe("native parity controls", function()
 	t.it("refuses pointer, drag and focused adjustment on a disabled level picker, rating and slider", function()
 		local level, stars, slide = Compose.cell(2), Compose.cell(2), Compose.cell(0.5)
 		local enabled = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.LevelPicker("Level")({ value = level, enabled = enabled }) :: unknown,
-					UI.Rating("Stars")({ value = stars, enabled = enabled }),
-					UI.Slider("Slider")({ value = slide, enabled = enabled }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.LevelPicker("Level")({ value = level, enabled = enabled }) :: unknown,
+				UI.Rating("Stars")({ value = stars, enabled = enabled }),
+				UI.Slider("Slider")({ value = slide, enabled = enabled }),
+			})
+		end)
 		for _, name in { "Level", "Stars" } do
 			local node = find(world.node, name)
 			node.AbsoluteSize = V2(world, 100, 44)
@@ -447,24 +413,18 @@ t.describe("native parity controls", function()
 		local readOnly = Compose.formula(function()
 			return true
 		end)
-		t.expect(
-			refuses("read-only value requires onChange", function(UI: typeof(require("@repo/src").controls(nil :: any)))
-				return UI.Toggle({ value = readOnly } :: any)
-			end)
-		)
-			.toBe(true)
-		t.expect(
-			refuses("read-only mixed requires onChange", function(UI: typeof(require("@repo/src").controls(nil :: any)))
-				return UI.Toggle({
-					value = Compose.cell(false),
-					mixed = readOnly,
-					presentation = "checkbox" :: "checkbox",
-				})
-			end)
-		)
-			.toBe(true)
+		t.expect(refuses("read-only value requires onChange", function(UI: FacetControls)
+			return UI.Toggle({ value = readOnly } :: any)
+		end)).toBe(true)
+		t.expect(refuses("read-only mixed requires onChange", function(UI: FacetControls)
+			return UI.Toggle({
+				value = Compose.cell(false),
+				mixed = readOnly,
+				presentation = "checkbox" :: "checkbox",
+			})
+		end)).toBe(true)
 		local requests = {}
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Toggle("Mixed")({
 				value = Compose.cell(false),
 				mixed = readOnly,
@@ -500,19 +460,14 @@ t.describe("native parity controls", function()
 	end)
 	t.it("shows a bar value readout beside its label, keeps the end label with it and applies thickness", function()
 		local ending, value = Compose.cell("Connecting"), Compose.cell(0.5)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.ProgressView("Health")({ value = value, showValue = true, label = "HP", thickness = 10 }) :: unknown,
-					UI.ProgressView("Themed")({ value = 0.25 }),
-					UI.ProgressView("Steps")({ value = 0.4, showValue = true, endLabel = "2 of 5" }),
-					UI.ProgressView("Loading")({ endLabel = ending }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.ProgressView("Health")({ value = value, showValue = true, label = "HP", thickness = 10 }) :: unknown,
+				UI.ProgressView("Themed")({ value = 0.25 }),
+				UI.ProgressView("Steps")({ value = 0.4, showValue = true, endLabel = "2 of 5" }),
+				UI.ProgressView("Loading")({ endLabel = ending }),
+			})
+		end)
 		local health = find(world.node, "Health")
 		local header = find(health, "Header")
 		local label = header:FindFirstChildWhichIsA("TextLabel")
@@ -540,7 +495,7 @@ t.describe("native parity controls", function()
 
 	t.it("mounts and removes a live badge caption while keeping its icon and plate", function()
 		local caption = Compose.cell(nil :: string?)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Badge("Info")({ label = caption, icon = "checkmark", name = "Info" })
 		end)
 		local pill = world.node
@@ -560,17 +515,12 @@ t.describe("native parity controls", function()
 
 	t.it("sizes skeleton and status indicator rungs live and recovers from an illegal rung", function()
 		local skeletonRung, statusRung = Compose.cell("compact" :: string?), Compose.cell("compact" :: string?)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Skeleton("Avatar")({ form = "circle" :: "circle", controlSize = skeletonRung }) :: unknown,
-					UI.StatusIndicator("Dot")({ status = "success" :: "success", controlSize = statusRung }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Skeleton("Avatar")({ form = "circle" :: "circle", controlSize = skeletonRung }) :: unknown,
+				UI.StatusIndicator("Dot")({ status = "success" :: "success", controlSize = statusRung }),
+			})
+		end)
 		local placeholder = find(find(world.node, "Avatar"), "Placeholder1")
 		local dot = find(world.node, "Dot")
 		local UDim2 = world.engine.types.UDim2
@@ -599,7 +549,7 @@ t.describe("native parity controls", function()
 				{ "unknown option 'surprise'", { form = "box", surprise = true } },
 			} :: { { any } }
 		do
-			t.expect(refuses(case[1], function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			t.expect(refuses(case[1], function(UI: FacetControls)
 				return UI.Skeleton(case[2])
 			end)).toBe(true)
 		end
@@ -607,8 +557,7 @@ t.describe("native parity controls", function()
 
 	t.it("puts per-view slider artwork ahead of the theme skin and keeps the theme skin without it", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local package = Facet.themes.neutralPackage()
 		package.assets = { art = { content = "rbxassetid://30" } }
 		for _, slot in { "sliderThumb", "sliderTrack" } do
@@ -623,11 +572,7 @@ t.describe("native parity controls", function()
 				trackImage = "rbxassetid://101",
 			})
 			themed = UI.Slider({ value = Compose.cell(0.5) })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ custom :: unknown, themed })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ custom :: unknown, themed })
 		end, engine.new("Folder"))
 		t.expect(find(find(custom, "Thumb"), "Artwork").Image).toBe("rbxassetid://100")
 		t.expect(find(find(custom, "Rail"), "Artwork").Image).toBe("rbxassetid://101")
@@ -645,8 +590,7 @@ t.describe("native parity controls", function()
 
 	t.it("drops the toggle pill under skin art, restores it without art and keeps the knob geometry", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local skinned = Facet.themes.neutralPackage()
 		skinned.assets = { art = { content = "rbxassetid://30" } }
 		for _, slot in { "toggleTrack", "toggleKnob" } do
@@ -692,7 +636,7 @@ t.describe("native parity controls", function()
 	t.it("recovers a kept row after a destructive commit so a later commit runs again", function()
 		for _, reduced in { true, false } do
 			local invoked = 0
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.RowActions({
 					open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
 					reducedMotion = reduced,
@@ -739,7 +683,7 @@ t.describe("native parity controls", function()
 		local coordinator = Compose.cell(nil :: any)
 		local openA, openB, showA = Compose.cell(nil :: string?), Compose.cell(nil :: string?), Compose.cell(true)
 		local function row(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
+			UI: FacetControls,
 			name: string,
 			open: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>
 		)
@@ -751,19 +695,14 @@ t.describe("native parity controls", function()
 				leading = { { id = "Read", label = "Read" } :: FixtureCollectionTypes.RowAction },
 			})
 		end
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Compose.show(showA, function()
-						return row(UI, "A", openA)
-					end) :: unknown,
-					row(UI, "B", openB),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Compose.show(showA, function()
+					return row(UI, "A", openA)
+				end) :: unknown,
+				row(UI, "B", openB),
+			})
+		end)
 		local a, b = find(world.node, "A"), find(world.node, "B")
 		for _, node in { a, b } do
 			node.AbsoluteSize = V2(world, 300, 40)
@@ -821,26 +760,21 @@ t.describe("native parity controls", function()
 
 	t.it("routes a Shift+Return native activation of the row content to the row menu", function()
 		local shifted, activated = false, 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.RowActions("Row")({
-						content = UI.Button("Action")({
-							label = "Row",
-							onActivate = function()
-								activated += 1
-							end,
-						}) :: GuiObject,
-						trailing = {
-							{ id = "Delete", label = "Delete", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
-						},
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.RowActions("Row")({
+					content = UI.Button("Action")({
+						label = "Row",
+						onActivate = function()
+							activated += 1
+						end,
+					}) :: GuiObject,
+					trailing = {
+						{ id = "Delete", label = "Delete", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
+					},
+				}),
+			})
+		end)
 		local Keys = world.engine.types.Enum.KeyCode
 		world.input.IsKeyDown = function(_, code)
 			return shifted and (code == Keys.LeftShift or code == Keys.RightShift)
@@ -868,30 +802,25 @@ t.describe("native parity controls", function()
 	t.it("toggles the row menu with Shift+Return, reveals it with ButtonX and dismisses it with the row", function()
 		local shifted, invoked = false, 0
 		local show = Compose.cell(true)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Compose.show(show, function()
-						return UI.RowActions("Row")({
-							content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
-							trailing = {
-								{
-									id = "Delete",
-									label = "Delete",
-									role = "destructive" :: "destructive",
-									onActivate = function()
-										invoked += 1
-									end,
-								} :: FixtureCollectionTypes.RowAction,
-							},
-						})
-					end),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Compose.show(show, function()
+					return UI.RowActions("Row")({
+						content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
+						trailing = {
+							{
+								id = "Delete",
+								label = "Delete",
+								role = "destructive" :: "destructive",
+								onActivate = function()
+									invoked += 1
+								end,
+							} :: FixtureCollectionTypes.RowAction,
+						},
+					})
+				end),
+			})
+		end)
 		world.input.IsKeyDown = function(_, code)
 			return shifted
 				and (
@@ -939,7 +868,7 @@ t.describe("native parity controls", function()
 	t.it("moves pad selection into a revealed tray and back, and deletes once from either key", function()
 		local invoked, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
 			0, Compose.cell(nil :: ("leading" | "trailing")?)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions("Row")({
 				open = open,
 				content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
@@ -983,36 +912,30 @@ t.describe("native parity controls", function()
 
 	t.it("keeps a destructive commit running through a sibling gesture and a table scroll", function()
 		local invoked, coordinator = 0, Compose.cell(nil :: any)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.RowActions("A")({
-						open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
-						coordinator = coordinator,
-						content = UI.Button({ label = "A" }) :: GuiObject,
-						trailing = {
-							{
-								id = "Delete",
-								label = "Delete",
-								role = "destructive" :: "destructive",
-								onActivate = function()
-									invoked += 1
-								end,
-							} :: FixtureCollectionTypes.RowAction,
-						},
-					}) :: unknown,
-					UI.RowActions("B")({
-						coordinator = coordinator,
-						content = UI.Button({ label = "B" }) :: GuiObject,
-						trailing = { { id = "Save", label = "Save" } :: FixtureCollectionTypes.RowAction },
-					}),
-				})
-			end,
-			{ motionLevel = "normal" }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.RowActions("A")({
+					open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
+					coordinator = coordinator,
+					content = UI.Button({ label = "A" }) :: GuiObject,
+					trailing = {
+						{
+							id = "Delete",
+							label = "Delete",
+							role = "destructive" :: "destructive",
+							onActivate = function()
+								invoked += 1
+							end,
+						} :: FixtureCollectionTypes.RowAction,
+					},
+				}) :: unknown,
+				UI.RowActions("B")({
+					coordinator = coordinator,
+					content = UI.Button({ label = "B" }) :: GuiObject,
+					trailing = { { id = "Save", label = "Save" } :: FixtureCollectionTypes.RowAction },
+				}),
+			})
+		end, { motionLevel = "normal" })
 		local a, b = find(world.node, "A"), find(world.node, "B")
 		a.AbsoluteSize = V2(world, 300, 40)
 		b.AbsoluteSize = V2(world, 300, 40)
@@ -1031,7 +954,7 @@ t.describe("native parity controls", function()
 
 	t.it("declines row gestures until actions exist and keeps the drag detector off without them", function()
 		local trailing = Compose.cell({} :: { any })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({ content = UI.Button({ label = "Row" }) :: GuiObject, trailing = trailing })
 		end)
 		local detector = world.node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
@@ -1044,7 +967,7 @@ t.describe("native parity controls", function()
 	end)
 	t.it("coordinates table row trays, closes them on body scroll and deletes from a focused row", function()
 		local deleted, editing = {}, Compose.cell(false)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Table({
 				from = records(20),
 				key = key,
@@ -1114,7 +1037,7 @@ t.describe("native parity controls", function()
 	end)
 	t.it("refuses a reorder that would displace a pinned row and accepts one that keeps it in place", function()
 		local requests = {}
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Table({
 				from = records(5),
 				key = key,
@@ -1153,7 +1076,7 @@ t.describe("native parity controls", function()
 		"cancels an armed keyboard move when keyboard and gamepad both leave and keeps it when a pointer arrives",
 		function()
 			local requests = 0
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Table({
 					from = records(5),
 					key = key,
@@ -1191,26 +1114,21 @@ t.describe("native parity controls", function()
 
 	t.it("reorders a horizontal list along X by pointer, autoscroll and Left and Right stepping", function()
 		local requests = {}
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.VirtualList({
-					from = records(10),
-					key = key,
-					direction = "horizontal" :: "horizontal",
-					itemSize = 40,
-					reorderable = true,
-					onReorder = function(keys, slot)
-						table.insert(requests, { keys = keys, slot = slot })
-					end,
-					render = function(): GuiObject
-						return Host.Frame({})
-					end,
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.VirtualList({
+				from = records(10),
+				key = key,
+				direction = "horizontal" :: "horizontal",
+				itemSize = 40,
+				reorderable = true,
+				onReorder = function(keys, slot)
+					table.insert(requests, { keys = keys, slot = slot })
+				end,
+				render = function(): GuiObject
+					return Host.Frame({})
+				end,
+			})
+		end)
 		local list = world.node
 		list.AbsoluteWindowSize = V2(world, 200, 60)
 		local handle = list:FindFirstChild("1", true):FindFirstChild("Move", true)
@@ -1253,26 +1171,21 @@ t.describe("native parity controls", function()
 
 	t.it("finds the insertion slot from measured midpoints on ragged rows", function()
 		local requests = {}
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.VirtualList({
-					from = records(5),
-					key = key,
-					itemSize = 20,
-					measured = { [1] = 80 },
-					reorderable = true,
-					onReorder = function(keys, slot)
-						table.insert(requests, { keys = keys, slot = slot })
-					end,
-					render = function(): GuiObject
-						return Host.Frame({})
-					end,
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.VirtualList({
+				from = records(5),
+				key = key,
+				itemSize = 20,
+				measured = { [1] = 80 },
+				reorderable = true,
+				onReorder = function(keys, slot)
+					table.insert(requests, { keys = keys, slot = slot })
+				end,
+				render = function(): GuiObject
+					return Host.Frame({})
+				end,
+			})
+		end)
 		world.node.AbsoluteWindowSize = V2(world, 200, 300)
 		local detector =
 			world.node:FindFirstChild("3", true):FindFirstChild("Move", true):FindFirstChildWhichIsA("UIDragDetector")
@@ -1286,30 +1199,25 @@ t.describe("native parity controls", function()
 	end)
 	t.it("binds modifier shortcuts only with their modifier and adds the unmodified dialog key", function()
 		local saves, confirms = 0, 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button("Save")({
-						label = "Save",
-						shortcut = { keyCode = "S", modifiers = { shift = true } },
-						onActivate = function()
-							saves += 1
-						end,
-					}) :: unknown,
-					UI.Button("Confirm")({
-						label = "Confirm",
-						shortcut = { keyCode = "Y", modifiers = { shift = true } },
-						dialogAction = "default" :: "default",
-						onActivate = function()
-							confirms += 1
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button("Save")({
+					label = "Save",
+					shortcut = { keyCode = "S", modifiers = { shift = true } },
+					onActivate = function()
+						saves += 1
+					end,
+				}) :: unknown,
+				UI.Button("Confirm")({
+					label = "Confirm",
+					shortcut = { keyCode = "Y", modifiers = { shift = true } },
+					dialogAction = "default" :: "default",
+					onActivate = function()
+						confirms += 1
+					end,
+				}),
+			})
+		end)
 		local Enum = world.engine.types.Enum
 		local found: { [string]: { string } } = {}
 		for _, context in contexts(world.root, "Shortcut") do
@@ -1333,7 +1241,7 @@ t.describe("native parity controls", function()
 
 	t.it("activates a selected button once per Activate action press and once per native activation", function()
 		local count = 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Button("Go")({
 				label = "Go",
 				onActivate = function()
@@ -1367,7 +1275,7 @@ t.describe("native parity controls", function()
 		"moves radial selection and the commit candidate together on the D-pad and returns to it after the stick",
 		function()
 			local picked = {}
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				local items = {}
 				for _, id in { "N", "E", "S", "W" } do
 					table.insert(items, {
@@ -1425,7 +1333,7 @@ t.describe("native parity controls", function()
 	)
 	t.it("the radial D-pad crosses through the centre and reaches every item of a corner arc", function()
 		local function radial(spec: { [any]: any }): (any, (string) -> ())
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.RadialMenu(spec)
 			end)
 			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
@@ -1541,7 +1449,7 @@ t.describe("native parity controls", function()
 	t.it("combines table row actions with reorder handles, editing, refresh and disposal", function()
 		local source, editing = Compose.cell(records(4)), Compose.cell(false)
 		local deleted, reorders = {}, {}
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Table({
 				from = source,
 				key = key,
@@ -1633,17 +1541,14 @@ t.describe("native parity controls", function()
 
 	t.it("closes a swiped playlist tray when the table scrolls", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local target = engine.new("Folder")
 		local ctx = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
@@ -1682,7 +1587,7 @@ t.describe("native parity controls", function()
 	t.it("never commits or opens a row that has no measured width", function()
 		local invoked, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
 			0, Compose.cell(nil :: ("leading" | "trailing")?)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({
 				open = open,
 				content = UI.Button({ label = "Row" }) :: GuiObject,
@@ -1713,7 +1618,7 @@ t.describe("native parity controls", function()
 
 	t.it("keeps Delete and swipes inert while the row menu is open and leaks nothing across menu toggles", function()
 		local invoked = 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({
 				content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
 				trailing = {
@@ -1757,10 +1662,10 @@ t.describe("native parity controls", function()
 		t.expect(after.live).toBe(baseline.live)
 		t.expect(after.connections).toBe(baseline.connections)
 		world.stop()
-		t.expect(refuses("unknown option 'bogus'", function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(refuses("unknown option 'bogus'", function(UI: FacetControls)
 			return UI.RowActions({ content = UI.Button({ label = "Row" }) :: GuiObject, bogus = 1 })
 		end)).toBe(true)
-		t.expect(mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(mountError(function(UI: FacetControls)
 			return UI.RowActions({
 				open = Compose.cell("trailing"),
 				content = UI.Button({ label = "Row" }),

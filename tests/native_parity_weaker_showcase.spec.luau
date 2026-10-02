@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -8,7 +13,7 @@ local engineLib = require("./lib/native_engine")
 local glade = require("../examples/reference/p1_glade")
 local sipworks = require("../examples/reference/p3_sipworks")
 local foyer = require("../examples/reference/p4_foyer")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -60,8 +65,7 @@ end
 
 local function referenceWorld(module: any, preferred: string): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	input.PreferredInput = (engine.types.Enum.PreferredInput :: any)[preferred]
 	local parent = engine.new("Folder")
@@ -71,9 +75,7 @@ local function referenceWorld(module: any, preferred: string): World
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(
 				runtime,
 				{
@@ -136,17 +138,14 @@ end
 
 local function galleryWorld(configure: ((any) -> ())?): any
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	local parent = engine.new("Folder")
 	local ctx: any = {
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 800 }),
 		inputTarget = parent,
@@ -181,9 +180,9 @@ local function galleryWorld(configure: ((any) -> ())?): any
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+				end) :: unknown) :: MotionLevel,
 			} :: any
 		)
 		return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -241,8 +240,7 @@ end
 local function scenarioWorld(name: string, options: any?): (any, any, any)
 	local opts = options or {}
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, service = services(engine)
 	if opts.input then
 		service.PreferredInput = (engine.types.Enum.PreferredInput :: any)[opts.input]
@@ -256,9 +254,7 @@ local function scenarioWorld(name: string, options: any?): (any, any, any)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell(opts.viewport or { width = 1280, height = 720 }),
 		inputTarget = parent,
@@ -498,16 +494,13 @@ t.describe("native parity weaker showcase", function()
 
 	t.it("apps2-225 relinks a strip when a tab is disabled or hidden and in a sidebar links vertically", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui, input = services(engine)
 		local UI = Facet.controls(
 			runtime,
 			{ types = engine.types, guiService = gui, services = { GuiService = gui, UserInputService = input } } :: any
 		)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local selection, enabled = Compose.cell("a"), Compose.cell(true)
 		local customization = Compose.cell(nil :: any)
 		local stop, root: any = runtime.mount(function()
@@ -785,8 +778,7 @@ t.describe("native parity weaker showcase", function()
 		function()
 			for _, canvas in { { 1024, 768 }, { 640, 480 }, { 320, 640 } } do
 				local engine: any = engineLib.new()
-				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-					Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local gui, service = services(engine)
 				local part, holder = engine.new("Part"), engine.new("Folder")
 				local viewport = Compose.cell({ width = canvas[1], height = canvas[2] })
@@ -794,9 +786,7 @@ t.describe("native parity weaker showcase", function()
 					Facet = Facet,
 					Compose = Compose,
 					runtime = runtime,
-					Host = (
-							runtime.constructors :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
 					types = engine.types,
 					viewport = viewport,
 					guiService = gui,

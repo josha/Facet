@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
@@ -162,10 +166,9 @@ end
 
 local Facet = require("../../build/.canary/Facet") :: any
 local engine = require("../../tests/lib/native_engine").new()
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime(engine)
-local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local Compose: ComposeModule = Facet.Compose
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local UI = Facet.controls(runtime, { types = engine.types })
 check(Facet.VERSION == stampedVersion, "artifact version matches its distribution stamp")
 local title = Compose.cell("Hello")

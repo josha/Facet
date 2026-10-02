@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local t = require("./lib/testkit")
 local scenarios = require("../bench/scenarios")
 local scenes = require("../bench/perf_scenes")
@@ -297,7 +299,7 @@ t.describe("native benchmark workload contract", function()
 
 	t.it("retains default async placeholders while custom content follows loading ownership", function()
 		local world = require("../bench/native_app")()
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = world.Compose
+		local Compose: ComposeModule = world.Compose
 		local source, requests = Compose.cell("one"), {}
 		local built, disposed = 0, 0
 		local function loader(content, resolve, reject)

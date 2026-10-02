@@ -1,4 +1,13 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ImageModeCell = typeof(require("@repo/tools/typecheck/aliases").ImageModeCell)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
@@ -240,43 +249,27 @@ end
 
 local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			local ctx = t.context(UI, Host, Compose, env)
-			if patch then
-				patch(ctx)
-			end
-			built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
-			return if type(built) == "function" then built() else built.screen()
-		end,
-		{ frames = 20, size = size }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local ctx = t.context(UI, Host, Compose, env)
+		if patch then
+			patch(ctx)
+		end
+		built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
+		return if type(built) == "function" then built() else built.screen()
+	end, { frames = 20, size = size })
 	return stage, built
 end
 
 local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			local ctx = t.context(UI, Host, Compose, env)
-			if patch then
-				patch(ctx)
-			end
-			built = t.scenario(name).build(ctx)
-			return if type(built) == "function" then built() else built.screen()
-		end,
-		{ frames = 20, size = size }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local ctx = t.context(UI, Host, Compose, env)
+		if patch then
+			patch(ctx)
+		end
+		built = t.scenario(name).build(ctx)
+		return if type(built) == "function" then built() else built.screen()
+	end, { frames = 20, size = size })
 	return stage, built
 end
 
@@ -342,41 +335,34 @@ end
 
 local function stackProbe(t: any): any
 	local value: any = {}
-	value.stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.path = Compose.cell({})
-			return UI.NavigationStack "Journey" {
-				path = value.path,
-				backLabel = "Back",
-				root = {
-					title = "Plan",
-					content = function(): Instance
-						return UI.Button "Next" {
-							label = "Next",
-							onActivate = function()
-								local nextPath = table.clone(value.path:peek())
-								table.insert(nextPath, { id = "detail", value = "coast" })
-								value.path:set(nextPath)
-							end,
-						}
-					end,
-				},
-				destinations = {
-					detail = {
-						title = "Detail",
-						content = function(): Instance
-							return UI.Button "Inner" { label = "Inner" }
+	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		value.path = Compose.cell({})
+		return UI.NavigationStack "Journey" {
+			path = value.path,
+			backLabel = "Back",
+			root = {
+				title = "Plan",
+				content = function(): Instance
+					return UI.Button "Next" {
+						label = "Next",
+						onActivate = function()
+							local nextPath = table.clone(value.path:peek())
+							table.insert(nextPath, { id = "detail", value = "coast" })
+							value.path:set(nextPath)
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(900, 600), frames = 20 }
-	)
+					}
+				end,
+			},
+			destinations = {
+				detail = {
+					title = "Detail",
+					content = function(): Instance
+						return UI.Button "Inner" { label = "Inner" }
+					end,
+				} :: Destination,
+			},
+		}
+	end, { size = Vector2.new(900, 600), frames = 20 })
 	value.gui = value.stage:FindFirstAncestorWhichIsA("LayerCollector")
 	return value
 end
@@ -457,40 +443,33 @@ end)
 
 local function pagesProbe(t: any): any
 	local value: any = { played = {} }
-	value.stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.selection = Compose.cell("one")
-			local pages = {}
-			for _, id in { "one", "two", "three" } do
-				table.insert(pages, {
-					id = id,
-					label = id,
-					content = Host.Frame "Course" {
-						BackgroundTransparency = 1,
-						Size = UDim2.fromScale(1, 1),
-						UI.Button "Play" {
-							label = "Play " .. id,
-							onActivate = function()
-								table.insert(value.played, id)
-							end,
-						},
+	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value.selection = Compose.cell("one")
+		local pages = {}
+		for _, id in { "one", "two", "three" } do
+			table.insert(pages, {
+				id = id,
+				label = id,
+				content = Host.Frame "Course" {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+					UI.Button "Play" {
+						label = "Play " .. id,
+						onActivate = function()
+							table.insert(value.played, id)
+						end,
 					},
-				})
-			end
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(20, 200),
-				Size = UDim2.fromOffset(340, 420),
-				BackgroundTransparency = 1,
-				UI.PageView "Courses" { pages = pages, selection = value.selection } :: unknown,
-				UI.Button "Below" { label = "Below", Position = UDim2.fromOffset(0, 440) },
-			}
-		end,
-		{ frames = 20 }
-	)
+				},
+			})
+		end
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(20, 200),
+			Size = UDim2.fromOffset(340, 420),
+			BackgroundTransparency = 1,
+			UI.PageView "Courses" { pages = pages, selection = value.selection } :: unknown,
+			UI.Button "Below" { label = "Below", Position = UDim2.fromOffset(0, 440) },
+		}
+	end, { frames = 20 })
 	value.pages = t.find(value.stage, "Pages")
 	value.layout = value.pages and value.pages:FindFirstChildWhichIsA("UIPageLayout")
 	return value
@@ -693,14 +672,11 @@ end)
 
 add("component-setup-error-and-throwing-cleanup", { "apps-123" }, function(t)
 	local Facet = t.Facet
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local target = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	local baseline = descendantCount()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime()
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local released = {}
 	local ok, problem = pcall(function()
 		return runtime.mount(function()
@@ -760,7 +736,7 @@ add("component-setup-error-and-throwing-cleanup", { "apps-123" }, function(t)
 end)
 
 add("compose-delivery-order", { "mech1-65" }, function(t)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = t.Facet.Compose
+	local Compose: ComposeModule = t.Facet.Compose
 	local owner = Compose.createOwner()
 	local source = Compose.cell(0)
 	local seen: { number } = {}
@@ -803,42 +779,33 @@ end)
 local IMAGE = "rbxassetid://92798715826227"
 
 add("image-tile-slice-resample", { "mech2-47", "paint-78" }, function(t)
-	local modes: typeof(require("@repo/tools/typecheck/example_shapes").imageModeCell("fit"))
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			modes = (function(
-				value: "fill" | "fit" | "stretch" | "slice" | "tile" | "crop"
-			): typeof(require("@repo/tools/typecheck/example_shapes").imageModeCell("fit"))
-				return Compose.cell(value)
-			end)("fit")
-			return UI.HStack "Row" {
-				UI.Image "Tile" {
-					image = IMAGE,
-					scaleMode = "tile" :: "tile",
-					tileSize = { width = 16, height = 16 },
-					Size = UDim2.fromOffset(64, 64),
-				} :: unknown,
-				UI.Image "Slice" {
-					image = IMAGE,
-					scaleMode = "slice" :: "slice",
-					sliceCenter = { x0 = 4, y0 = 4, x1 = 12, y1 = 12 },
-					sliceScale = 2,
-					Size = UDim2.fromOffset(64, 64),
-				},
-				UI.Image "Pixel" {
-					image = IMAGE,
-					resample = "pixelated" :: "pixelated",
-					Size = UDim2.fromOffset(64, 64),
-				},
-				UI.Image "Bound" { image = IMAGE, scaleMode = modes, Size = UDim2.fromOffset(64, 64) },
-			}
-		end,
-		{ frames = 20 }
-	)
+	local modes: ImageModeCell
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		modes = (function(value: "fill" | "fit" | "stretch" | "slice" | "tile" | "crop"): ImageModeCell
+			return Compose.cell(value)
+		end)("fit")
+		return UI.HStack "Row" {
+			UI.Image "Tile" {
+				image = IMAGE,
+				scaleMode = "tile" :: "tile",
+				tileSize = { width = 16, height = 16 },
+				Size = UDim2.fromOffset(64, 64),
+			} :: unknown,
+			UI.Image "Slice" {
+				image = IMAGE,
+				scaleMode = "slice" :: "slice",
+				sliceCenter = { x0 = 4, y0 = 4, x1 = 12, y1 = 12 },
+				sliceScale = 2,
+				Size = UDim2.fromOffset(64, 64),
+			},
+			UI.Image "Pixel" {
+				image = IMAGE,
+				resample = "pixelated" :: "pixelated",
+				Size = UDim2.fromOffset(64, 64),
+			},
+			UI.Image "Bound" { image = IMAGE, scaleMode = modes, Size = UDim2.fromOffset(64, 64) },
+		}
+	end, { frames = 20 })
 	local tile, slice, pixel, bound =
 		t.find(stage, "Tile"), t.find(stage, "Slice"), t.find(stage, "Pixel"), t.find(stage, "Bound")
 	t.check("four images mount", tile and slice and pixel and bound and true or false)
@@ -901,15 +868,10 @@ add("image-tile-slice-resample", { "mech2-47", "paint-78" }, function(t)
 		}
 	do
 		local ok = pcall(function()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 			local stop = runtime.mount(function()
 				local UI = Facet.controls(runtime, {})
-				return (
-					(
-						runtime.constructors.ScreenGui :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-				) "Refusal" { UI.Image(spec) }
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor) "Refusal" { UI.Image(spec) }
 			end, Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
 			stop()
 			runtime:dispose()
@@ -925,7 +887,7 @@ add("image-tile-slice-resample", { "mech2-47", "paint-78" }, function(t)
 end)
 
 add("image-scale-mode-renders", { "paint-78" }, function(t)
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.HStack "Row" {
 			UI.Image "Fit" { image = IMAGE, scaleMode = "fit" :: "fit", Size = UDim2.fromOffset(120, 40) } :: unknown,
 			UI.Image "Crop" { image = IMAGE, scaleMode = "crop" :: "crop", Size = UDim2.fromOffset(120, 40) },
@@ -954,7 +916,7 @@ add("icon-clamped-to-content-box", { "paint-51" }, function(t)
 			}
 		do
 			local where = `{entry.name} {case.key}`
-			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local stage = t.mount(function(UI: FacetControls)
 				return UI.Button "Back" {
 					icon = "chevron.leading",
 					label = case.label,
@@ -1004,45 +966,38 @@ end)
 
 local function sortable(t: any, count: number): any
 	local value: any = { reorders = {}, activated = {} }
-	value.stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			local items = {}
-			for index = 1, count do
-				items[index] = { id = tostring(index) }
-			end
-			value.rows = Compose.cell(items)
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(20, 200),
-				Size = UDim2.fromOffset(320, 264),
-				BackgroundTransparency = 1,
-				UI.VirtualList "Sortable" {
-					from = value.rows,
-					key = "id",
-					itemSize = 44,
-					reorderable = true,
-					onReorder = function(keys, slot)
-						table.insert(value.reorders, { keys = keys, slot = slot })
-					end,
-					Size = UDim2.fromScale(1, 1),
-					render = function(current): GuiObject
-						return UI.Button({
-							Name = "Row" .. current:peek().id,
-							label = "Row " .. current:peek().id,
-							Size = UDim2.fromScale(1, 1),
-							onActivate = function()
-								table.insert(value.activated, current:peek().id)
-							end,
-						})
-					end,
-				},
-			}
-		end,
-		{ frames = 16 }
-	)
+	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		local items = {}
+		for index = 1, count do
+			items[index] = { id = tostring(index) }
+		end
+		value.rows = Compose.cell(items)
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(20, 200),
+			Size = UDim2.fromOffset(320, 264),
+			BackgroundTransparency = 1,
+			UI.VirtualList "Sortable" {
+				from = value.rows,
+				key = "id",
+				itemSize = 44,
+				reorderable = true,
+				onReorder = function(keys, slot)
+					table.insert(value.reorders, { keys = keys, slot = slot })
+				end,
+				Size = UDim2.fromScale(1, 1),
+				render = function(current): GuiObject
+					return UI.Button({
+						Name = "Row" .. current:peek().id,
+						label = "Row " .. current:peek().id,
+						Size = UDim2.fromScale(1, 1),
+						onActivate = function()
+							table.insert(value.activated, current:peek().id)
+						end,
+					})
+				end,
+			},
+		}
+	end, { frames = 16 })
 	value.list = t.find(value.stage, "Sortable")
 	value.body = value.list
 		and (
@@ -1287,32 +1242,25 @@ end
 add("feedback-motion-is-paint-only", { "mech2-70" }, function(t)
 	local io = device(t)
 	local value: any = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.invalid = Compose.cell(false)
-			value.expanded = Compose.cell(false)
-			return UI.VStack "Column" {
-				gap = "s",
-				UI.Text "Above" { text = "Above" } :: unknown,
-				UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
-				UI.Text "Middle" { text = "Middle" },
-				UI.TextInput "Field" { value = Compose.cell("abc"), onChange = function() end, invalid = value.invalid },
-				UI.Text "Lower" { text = "Lower" },
-				UI.DisclosureGroup "Group" {
-					label = "Details",
-					expanded = value.expanded,
-					content = function(): Instance
-						return UI.Text "Inside" { text = "Inside" }
-					end,
-				},
-			}
-		end,
-		{ frames = 20, motionLevel = "normal" }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		value.invalid = Compose.cell(false)
+		value.expanded = Compose.cell(false)
+		return UI.VStack "Column" {
+			gap = "s",
+			UI.Text "Above" { text = "Above" } :: unknown,
+			UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
+			UI.Text "Middle" { text = "Middle" },
+			UI.TextInput "Field" { value = Compose.cell("abc"), onChange = function() end, invalid = value.invalid },
+			UI.Text "Lower" { text = "Lower" },
+			UI.DisclosureGroup "Group" {
+				label = "Details",
+				expanded = value.expanded,
+				content = function(): Instance
+					return UI.Text "Inside" { text = "Inside" }
+				end,
+			},
+		}
+	end, { frames = 20, motionLevel = "normal" })
 	local above, pop, middle, field, lower, group =
 		t.find(stage, "Above"),
 		t.find(stage, "Pop"),
@@ -1400,27 +1348,20 @@ end)
 
 add("radial-lift-is-paint-only", { "mech2-70" }, function(t)
 	local value: any = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.open = Compose.cell(true)
-			local items = {}
-			for _, id in { "N", "E", "S", "W" } do
-				table.insert(items, {
-					id = id,
-					slot = id :: "N" | "E" | "S" | "W",
-					label = id,
-					completion = "stay" :: "stay",
-					onSelect = function() end,
-				})
-			end
-			return UI.RadialMenu "Quick" { isPresented = value.open, items = items }
-		end,
-		{ size = Vector2.new(800, 600), frames = 60, motionLevel = "normal" }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		value.open = Compose.cell(true)
+		local items = {}
+		for _, id in { "N", "E", "S", "W" } do
+			table.insert(items, {
+				id = id,
+				slot = id :: "N" | "E" | "S" | "W",
+				label = id,
+				completion = "stay" :: "stay",
+				onSelect = function() end,
+			})
+		end
+		return UI.RadialMenu "Quick" { isPresented = value.open, items = items }
+	end, { size = Vector2.new(800, 600), frames = 60, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local panel = visibleNamed(t, gui, "RadialPanel")
 	t.check("the ring presents", panel ~= nil)
@@ -1513,24 +1454,17 @@ end)
 
 add("ring-geometry-only-on-real-change", { "paint-88" }, function(t)
 	local value: any = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.progress = Compose.cell(0.25)
-			value.width = Compose.cell(300)
-			return Host.Frame "Holder" {
-				Size = function(use: Use)
-					return UDim2.fromOffset(use(value.width), 200)
-				end,
-				BackgroundTransparency = 1,
-				UI.ProgressView "Ring" { value = value.progress, presentation = "circular" :: "circular", diameter = 96 },
-			}
-		end,
-		{ frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value.progress = Compose.cell(0.25)
+		value.width = Compose.cell(300)
+		return Host.Frame "Holder" {
+			Size = function(use: Use)
+				return UDim2.fromOffset(use(value.width), 200)
+			end,
+			BackgroundTransparency = 1,
+			UI.ProgressView "Ring" { value = value.progress, presentation = "circular" :: "circular", diameter = 96 },
+		}
+	end, { frames = 20 })
 	local fillPath = t.find(stage, "RingFill")
 	t.check("the ring fill is a Path2D", fillPath ~= nil and fillPath:IsA("Path2D"))
 	if not fillPath then
@@ -1564,31 +1498,23 @@ add("press-feedback-reaches-the-device", { "paint-57" }, function(t)
 	local io = device(t)
 	local effect
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			effect = Host.HapticEffect "PressClick" { Type = Enum.HapticEffectType.UIClick }
-			local Haptic =
-				t.Facet.controls(env.runtime, { viewport = env.viewport, theme = env.theme, pressHaptic = effect })
-			built = t.scenario("sensory_feedback").build(t.context(UI, Host, Compose, env))
-			return Host.Frame "Holder" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				effect :: unknown,
-				Haptic.VStack "Plain" {
-					Position = UDim2.fromOffset(600, 40),
-					Haptic.Button "Saves" { label = "Save", haptic = true },
-					Haptic.Button "Quiet" { label = "Quiet" },
-				},
-				Host.Frame "Demo" { Size = UDim2.new(0, 560, 1, 0), BackgroundTransparency = 1, built.screen() },
-			}
-		end,
-		{ frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		effect = Host.HapticEffect "PressClick" { Type = Enum.HapticEffectType.UIClick }
+		local Haptic =
+			t.Facet.controls(env.runtime, { viewport = env.viewport, theme = env.theme, pressHaptic = effect })
+		built = t.scenario("sensory_feedback").build(t.context(UI, Host, Compose, env))
+		return Host.Frame "Holder" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			effect :: unknown,
+			Haptic.VStack "Plain" {
+				Position = UDim2.fromOffset(600, 40),
+				Haptic.Button "Saves" { label = "Save", haptic = true },
+				Haptic.Button "Quiet" { label = "Quiet" },
+			},
+			Host.Frame "Demo" { Size = UDim2.new(0, 560, 1, 0), BackgroundTransparency = 1, built.screen() },
+		}
+	end, { frames = 20 })
 	local saves, quiet = t.find(stage, "Saves"), t.find(stage, "Quiet")
 	t.check(
 		"a haptic Button carries the application press effect",
@@ -1625,46 +1551,40 @@ end)
 
 add("presence-retires-until-exit", { "apps-260" }, function(t)
 	local io = device(t)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = t.Facet.Compose
+	local Compose: ComposeModule = t.Facet.Compose
 	local value: any = { built = 0, cleaned = 0 }
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			value.shown = Compose.cell(true)
-			value.done = Compose.cell(false)
-			return Host.Frame "Holder" {
-				Size = UDim2.fromScale(1, 1),
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		value.shown = Compose.cell(true)
+		value.done = Compose.cell(false)
+		return Host.Frame "Holder" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.Button "Toggle" {
+				label = "Toggle",
+				onActivate = function()
+					value.shown:set(not value.shown:peek())
+				end,
+			} :: unknown,
+			Host.Frame "Region" {
+				Position = UDim2.fromOffset(0, 80),
+				Size = UDim2.fromOffset(200, 100),
 				BackgroundTransparency = 1,
-				UI.Button "Toggle" {
-					label = "Toggle",
-					onActivate = function()
-						value.shown:set(not value.shown:peek())
+				Compose.presence(value.shown, function(phase)
+					value.built += 1
+					value.phase = phase
+					Compose.cleanup(function()
+						value.cleaned += 1
+					end)
+					return Host.Frame "Panel" { Size = UDim2.fromOffset(120, 40) }
+				end, {
+					exit = function()
+						value.done:set(false)
+						return { completed = value.done }
 					end,
-				} :: unknown,
-				Host.Frame "Region" {
-					Position = UDim2.fromOffset(0, 80),
-					Size = UDim2.fromOffset(200, 100),
-					BackgroundTransparency = 1,
-					Compose.presence(value.shown, function(phase)
-						value.built += 1
-						value.phase = phase
-						Compose.cleanup(function()
-							value.cleaned += 1
-						end)
-						return Host.Frame "Panel" { Size = UDim2.fromOffset(120, 40) }
-					end, {
-						exit = function()
-							value.done:set(false)
-							return { completed = value.done }
-						end,
-					}),
-				},
-			}
-		end,
-		{ frames = 12 }
-	)
+				}),
+			},
+		}
+	end, { frames = 12 })
 	local toggle = t.find(stage, "Toggle")
 	local first = t.find(stage, "Panel")
 	t.check("the region shows its panel once", first ~= nil and value.built == 1, value.built)
@@ -1723,38 +1643,31 @@ end)
 add("stack-pop-retires-until-motion-ends", { "apps-260" }, function(t)
 	local io = device(t)
 	local value: any = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.path = Compose.cell({})
-			return UI.NavigationStack "Journey" {
-				path = value.path,
-				root = {
-					title = "Plan",
-					content = function(): Instance
-						return UI.Button "Next" {
-							label = "Next",
-							onActivate = function()
-								value.path:set({ { id = "detail", value = 1 } })
-							end,
-						}
-					end,
-				},
-				destinations = {
-					detail = {
-						title = "Detail",
-						content = function(): Instance
-							return UI.Button "Inner" { label = "Inner" }
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		value.path = Compose.cell({})
+		return UI.NavigationStack "Journey" {
+			path = value.path,
+			root = {
+				title = "Plan",
+				content = function(): Instance
+					return UI.Button "Next" {
+						label = "Next",
+						onActivate = function()
+							value.path:set({ { id = "detail", value = 1 } })
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(900, 600), frames = 20, motionLevel = "normal" }
-	)
+					}
+				end,
+			},
+			destinations = {
+				detail = {
+					title = "Detail",
+					content = function(): Instance
+						return UI.Button "Inner" { label = "Inner" }
+					end,
+				} :: Destination,
+			},
+		}
+	end, { size = Vector2.new(900, 600), frames = 20, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	io.click(centre(visibleNamed(t, gui, "Next")))
 	t.settle(60)
@@ -1793,33 +1706,27 @@ end)
 
 local function hintProbe(t: any): any
 	local value: any = {}
-	value.stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			value.action = Host.InputAction "Go" {
-				Type = Enum.InputActionType.Bool,
-				Host.InputBinding({ KeyCode = Enum.KeyCode.K, DisplayName = "K" }) :: unknown,
-				Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonX }),
-			}
-			value.shifted = Host.InputAction "Shifted" {
-				Type = Enum.InputActionType.Bool,
-				Host.InputBinding({ KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.LeftShift }) :: unknown,
-				Host.InputBinding({ KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.RightShift }),
-			}
-			return Host.Frame "Holder" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Host.InputContext "Hints" { value.action :: unknown, value.shifted } :: unknown,
-				UI.VStack "Column" {
-					UI.ShortcutHint "Hint" { action = value.action } :: unknown,
-					UI.ShortcutHint "ShiftHint" { action = value.shifted },
-				},
-			}
-		end,
-		{ frames = 16 }
-	)
+	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		value.action = Host.InputAction "Go" {
+			Type = Enum.InputActionType.Bool,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.K, DisplayName = "K" }) :: unknown,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonX }),
+		}
+		value.shifted = Host.InputAction "Shifted" {
+			Type = Enum.InputActionType.Bool,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.LeftShift }) :: unknown,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.J, PrimaryModifier = Enum.KeyCode.RightShift }),
+		}
+		return Host.Frame "Holder" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Host.InputContext "Hints" { value.action :: unknown, value.shifted } :: unknown,
+			UI.VStack "Column" {
+				UI.ShortcutHint "Hint" { action = value.action } :: unknown,
+				UI.ShortcutHint "ShiftHint" { action = value.shifted },
+			},
+		}
+	end, { frames = 16 })
 	return value
 end
 
@@ -1901,36 +1808,30 @@ add("split-long-press-vs-tap", { "inputs-211" }, function(t)
 	touch(t)
 	local io = device(t)
 	local value: any = { primary = 0, alternative = 0 }
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(40, 240),
-				Size = UDim2.fromOffset(200, 60),
-				BackgroundTransparency = 1,
-				UI.SplitButton "Run" {
-					Size = UDim2.fromOffset(148, 44),
-					AutomaticSize = Enum.AutomaticSize.None,
-					label = "Run",
-					onActivate = function()
-						value.primary += 1
-					end,
-					items = {
-						{
-							id = "Alternate",
-							label = "Alternate",
-							onSelect = function()
-								value.alternative += 1
-							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-					},
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(40, 240),
+			Size = UDim2.fromOffset(200, 60),
+			BackgroundTransparency = 1,
+			UI.SplitButton "Run" {
+				Size = UDim2.fromOffset(148, 44),
+				AutomaticSize = Enum.AutomaticSize.None,
+				label = "Run",
+				onActivate = function()
+					value.primary += 1
+				end,
+				items = {
+					{
+						id = "Alternate",
+						label = "Alternate",
+						onSelect = function()
+							value.alternative += 1
+						end,
+					} :: MenuItem,
 				},
-			}
-		end,
-		{ frames = 16 }
-	)
+			},
+		}
+	end, { frames = 16 })
 	local primary = t.find(stage, "Primary")
 	t.check("the split primary mounts", primary ~= nil)
 	if not primary then
@@ -1992,37 +1893,30 @@ local function multiline(t: any, touchDevice: boolean?): any
 	end
 	local value: any = { commits = 0 }
 	value.io = device(t)
-	value.stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.text = Compose.cell("")
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(20, 200),
-				Size = UDim2.fromOffset(300, 200),
-				BackgroundTransparency = 1,
-				UI.VStack "Column" {
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.TextInput "Notes" {
-						value = value.text,
-						onChange = function(text)
-							value.text:set(text)
-						end,
-						onCommit = function()
-							value.commits += 1
-						end,
-						multiline = true,
-						visibleLines = 4,
-					} :: unknown,
-					UI.Text "Below" { text = "Below" },
-				},
-			}
-		end,
-		{ frames = 16 }
-	)
+	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value.text = Compose.cell("")
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(20, 200),
+			Size = UDim2.fromOffset(300, 200),
+			BackgroundTransparency = 1,
+			UI.VStack "Column" {
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				UI.TextInput "Notes" {
+					value = value.text,
+					onChange = function(text)
+						value.text:set(text)
+					end,
+					onCommit = function()
+						value.commits += 1
+					end,
+					multiline = true,
+					visibleLines = 4,
+				} :: unknown,
+				UI.Text "Below" { text = "Below" },
+			},
+		}
+	end, { frames = 16 })
 	value.field = textBox(t.find(value.stage, "Notes"))
 	value.scroller = value.field and value.field:FindFirstAncestor("Viewport")
 	value.root = t.find(value.stage, "Notes")
@@ -2105,31 +1999,24 @@ end)
 add("multiline-grows-with-hard-breaks", { "inputs-122" }, function(t)
 	local io = device(t)
 	local value: any = { commits = 0 }
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.text = Compose.cell("")
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(20, 200),
-				Size = UDim2.fromOffset(300, 400),
-				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-				UI.TextInput "Notes" {
-					value = value.text,
-					onChange = function(text)
-						value.text:set(text)
-					end,
-					multiline = true,
-					LayoutOrder = 1,
-				},
-				UI.Text "Below" { text = "Below", LayoutOrder = 2 },
-			}
-		end,
-		{ frames = 16 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value.text = Compose.cell("")
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(20, 200),
+			Size = UDim2.fromOffset(300, 400),
+			BackgroundTransparency = 1,
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			UI.TextInput "Notes" {
+				value = value.text,
+				onChange = function(text)
+					value.text:set(text)
+				end,
+				multiline = true,
+				LayoutOrder = 1,
+			},
+			UI.Text "Below" { text = "Below", LayoutOrder = 2 },
+		}
+	end, { frames = 16 })
 	local field = textBox(t.find(stage, "Notes"))
 	if not field then
 		t.check("the field mounts", false)

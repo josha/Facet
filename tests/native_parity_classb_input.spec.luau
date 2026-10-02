@@ -1,9 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -17,8 +22,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local held: { [string]: boolean } = {}
@@ -47,9 +51,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, engine.new("Folder"))
@@ -313,27 +315,22 @@ t.describe("native parity classb input", function()
 		for _, kind in { "Slider", "Stepper", "Rating" } :: { "Rating" | "Slider" | "Stepper" } do
 			local selected = Compose.cell("a")
 			local value = Compose.cell(5)
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					local spec: { [string]: any } = { value = value }
-					if kind ~= "Rating" then
-						spec.min = 0
-						spec.max = 5
-						spec.step = 1
-					end
-					return UI.TabView("Tabs")({
-						selection = selected,
-						shoulderNavigation = "content" :: "content",
-						tabs = {
-							{ id = "a", label = "A", content = UI[kind]("Value")(spec) } :: FixtureNavigationTypes.Tab,
-							{ id = "b", label = "B", content = UI.Button("Next")({ label = "Next" }) } :: FixtureNavigationTypes.Tab,
-						},
-					})
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				local spec: { [string]: any } = { value = value }
+				if kind ~= "Rating" then
+					spec.min = 0
+					spec.max = 5
+					spec.step = 1
 				end
-			)
+				return UI.TabView("Tabs")({
+					selection = selected,
+					shoulderNavigation = "content" :: "content",
+					tabs = {
+						{ id = "a", label = "A", content = UI[kind]("Value")(spec) } :: FixtureNavigationTypes.Tab,
+						{ id = "b", label = "B", content = UI.Button("Next")({ label = "Next" }) } :: FixtureNavigationTypes.Tab,
+					},
+				})
+			end)
 			local Enum = world.engine.types.Enum
 			world.input.PreferredInput = Enum.PreferredInput.Gamepad
 			local control = find(world.screen, "Value")
@@ -378,22 +375,16 @@ t.describe("native parity classb input", function()
 				{ id = def[1], label = def[1], slot = def[2] :: "N" | "E" | "S" | "W", onSelect = function() end }
 			)
 		end
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.RadialMenu("Ring")({
-						isPresented = opened,
-						distribution = "compass" :: "compass",
-						items = items,
-					}) :: unknown,
-					UI.Button("Outside")({ label = "Outside" }),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.RadialMenu("Ring")({
+					isPresented = opened,
+					distribution = "compass" :: "compass",
+					items = items,
+				}) :: unknown,
+				UI.Button("Outside")({ label = "Outside" }),
+			})
+		end, { motionLevel = "none" })
 		local Enum = world.engine.types.Enum
 		local V2 = world.engine.types.Vector2.new
 		world.input.PreferredInput = Enum.PreferredInput.Gamepad
