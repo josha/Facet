@@ -26,7 +26,7 @@ function document.validate(value: any): Document
 	)
 	assert(type(value.nextId) == "number" and value.nextId % 1 == 0 and value.nextId >= 1, "Invalid next node ID")
 	local seen, visiting, count, maximum = {}, {}, 0, 0
-	local function visit(node: any, depth: number)
+	local function visit(node: any, depth: number, collection: any?, parent: any?)
 		assert(
 			depth <= 32 and type(node) == "table" and not visiting[node],
 			"Design nesting exceeds 32 levels or contains a cycle"
@@ -50,16 +50,42 @@ function document.validate(value: any): Document
 			local descriptor =
 				assert(library.descriptor(node.kind, key), `Unsupported {node.kind} property: {tostring(key)}`)
 			assert(library.parse(descriptor, property) == property, "Properties must use their normalized types")
+			if descriptor.kind == "column" then
+				assert(parent and parent.kind == "Table", "Column assignments need a direct table cell")
+			end
+			if descriptor.kind == "binding" then
+				assert(collection, "Row bindings need a collection cell")
+			end
 		end
 		assert(definition.container or #node.children == 0, `{node.kind} cannot contain controls`)
 		for _, child in ipairs(node.children) do
-			visit(child, depth + 1)
+			visit(
+				child,
+				depth + 1,
+				if table.find({ "Table", "VirtualList", "VirtualGrid" }, node.kind) then node else collection,
+				node
+			)
 		end
 		for key in node.children do
 			assert(
 				type(key) == "number" and key % 1 == 0 and key >= 1 and key <= #node.children,
 				"Children must be a dense array"
 			)
+		end
+		if node.kind == "Table" then
+			local columns, templates = {}, {}
+			for _, column in node.props.columns or definition.defaults.columns do
+				columns[column.id] = true
+			end
+			for _, child in node.children do
+				assert(
+					columns[child.props.columnId] and not templates[child.props.columnId],
+					"Use one cell template per table column"
+				)
+				templates[child.props.columnId] = true
+			end
+		elseif node.kind == "VirtualList" or node.kind == "VirtualGrid" then
+			assert(#node.children <= 1, "A collection uses one reusable row template")
 		end
 		visiting[node] = nil
 	end
@@ -83,6 +109,52 @@ function document.find(root: Node, id: string): (Node?, Node?, number?)
 		end
 	end
 	return nil
+end
+
+function document.collection(value: Document, selected: string): Node?
+	local _, parent = document.find(value.root, selected)
+	while parent do
+		if parent.kind == "Table" or parent.kind == "VirtualList" or parent.kind == "VirtualGrid" then
+			return parent
+		end
+		local _, nextParent = document.find(value.root, parent.id)
+		parent = nextParent
+	end
+	return nil
+end
+
+function document.columnTemplate(value: Document, selected: string, column: string): (Document, string)
+	local nextValue = document.copy(value)
+	local node = assert(document.find(nextValue.root, selected))
+	assert(node.kind == "Table", "Select a table")
+	local found = false
+	for _, entry in node.props.columns or library.definitions.Table.defaults.columns do
+		found = found or entry.id == column
+	end
+	assert(found, "Choose a table column")
+	for _, child in node.children do
+		if child.props.columnId == column then
+			return nextValue, child.id
+		end
+	end
+	local id = `n{nextValue.nextId}`
+	nextValue.nextId += 2
+	table.insert(node.children, {
+		id = id,
+		kind = "VStack",
+		name = column,
+		props = { width = "fill", gap = "xs", padding = "xs", columnId = column },
+		children = {
+			{
+				id = `n{nextValue.nextId - 1}`,
+				kind = "Text",
+				name = "CellValue",
+				props = { text = "Sample value", textField = column },
+				children = {},
+			},
+		},
+	})
+	return document.validate(nextValue), id
 end
 
 function document.rows(root: Node): { any }

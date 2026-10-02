@@ -185,13 +185,43 @@ function adapter.properties(node: document.Node): any
 		end
 	end
 	if node.kind == "VirtualList" or node.kind == "VirtualGrid" then
-		props.render = expression("row")
+		props.render = if node.children[1]
+			then expression("rowTemplate", { node = node.children[1] })
+			else expression("row")
 	end
 	if node.kind == "Table" then
 		for _, column in props.columns do
-			column.value = expression("column", { key = column.id })
+			column.value = expression("column", { key = column.field or column.id })
+			column.field = nil
+			for _, child in node.children do
+				if child.props.columnId == column.id then
+					column.render = expression("rowTemplate", { node = child })
+				end
+			end
+		end
+		if props.rowActions then
+			props.rowActions = expression("rowActions", { actions = props.rowActions })
 		end
 	end
+	if props.dataKey then
+		props.from = expression("data", { key = props.dataKey, initial = props.from })
+		props.dataKey = nil
+	end
+	if props.activationKey then
+		props.onActivate = expression("activation", { key = props.activationKey })
+		props.activationKey = nil
+	end
+	for _, descriptor in definition.fields do
+		if descriptor.kind == "binding" and props[descriptor.key] then
+			props[descriptor.target] = expression("field", {
+				key = props[descriptor.key],
+				fallback = props[descriptor.target] or (if descriptor.conversion == "number" then 0 else ""),
+				conversion = descriptor.conversion,
+			})
+			props[descriptor.key] = nil
+		end
+	end
+	props.columnId = nil
 	return props
 end
 
@@ -203,7 +233,40 @@ function adapter.evaluate(item: any, ctx: any, locals: any): any
 	local function evaluate(value)
 		return adapter.evaluate(value, ctx, locals)
 	end
-	if tag == "state" then
+	if tag == "data" then
+		return if ctx.data and ctx.data[item.key] ~= nil then ctx.data[item.key] else evaluate(item.initial)
+	elseif tag == "activation" then
+		return function(row, key, input, clickCount)
+			if ctx.data and ctx.data[item.key] then
+				ctx.data[item.key](row, key, input, clickCount)
+			end
+		end
+	elseif tag == "field" then
+		return function(use: Use)
+			local row = use(locals.current)
+			local value = if row[item.key] ~= nil then row[item.key] else item.fallback
+			return if item.conversion == "number" then tonumber(value) or item.fallback else tostring(value)
+		end
+	elseif tag == "rowTemplate" then
+		return function(current)
+			return ctx.render(item.node, { current = current })
+		end
+	elseif tag == "rowActions" then
+		return function(current)
+			local actions = {}
+			for _, action in item.actions do
+				local native = document.copy(action)
+				native.handler = nil
+				native.onActivate = function()
+					if ctx.data and ctx.data[action.handler or action.id] then
+						ctx.data[action.handler or action.id](current:peek())
+					end
+				end
+				table.insert(actions, native)
+			end
+			return { trailing = actions, fullSwipe = false }
+		end
+	elseif tag == "state" then
 		if not locals[item.name] then
 			locals[item.name] = ctx.Compose.cell(evaluate(item.initial))
 		end
@@ -213,7 +276,9 @@ function adapter.evaluate(item: any, ctx: any, locals: any): any
 	elseif tag == "color" then
 		return ctx.types.Color3.fromRGB(item.r, item.g, item.b)
 	elseif tag == "size" then
-		return ctx.types.UDim2.fromOffset(item.width, item.height)
+		return if item.width == "fill"
+			then ctx.types.UDim2.new(1, 0, 0, item.height)
+			else ctx.types.UDim2.fromOffset(item.width, item.height)
 	elseif tag == "setter" then
 		return function(value)
 			locals[item.name]:set(if item.constant ~= nil then item.constant else value)
@@ -275,14 +340,102 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 	local function emit(child)
 		return adapter.emit(child, emitNode, level + 1)
 	end
-	if tag == "state" then
+	if tag == "variable" then
+		return item.name
+	elseif tag == "data" then
+		local lookup = "data[" .. values.literal(item.key) .. "]"
+		return "if data and " .. lookup .. " then " .. lookup .. " else " .. emit(item.initial)
+	elseif tag == "activation" then
+		local lookup = "data[" .. values.literal(item.key) .. "]"
+		return "function(item: any, key: any, input: any, clickCount: any) if data and "
+			.. lookup
+			.. " then "
+			.. lookup
+			.. "(item, key, input, clickCount) end end"
+	elseif tag == "field" then
+		local lookup = "use(current)[" .. values.literal(item.key) .. "]"
+		local conversion = if item.conversion == "number" then "tonumber" else "tostring"
+		return "function(use: any) return "
+			.. conversion
+			.. "(if "
+			.. lookup
+			.. " == nil then "
+			.. emit(item.fallback)
+			.. " else "
+			.. lookup
+			.. ")"
+			.. (if item.conversion == "number" then " or " .. emit(item.fallback) else "")
+			.. " end"
+	elseif tag == "rowTemplate" then
+		local lines = { "function(current: any)" }
+		for _, row in document.rows(item.node) do
+			local child = assert(document.find(item.node, row.id))
+			if document.collection({ root = item.node } :: any, child.id) then
+				continue
+			end
+			local definition = library.definitions[child.kind]
+			for _, key in adapter.stateKeys(definition) do
+				table.insert(
+					lines,
+					"local "
+						.. adapter.stateName(child, key)
+						.. " = Compose.cell("
+						.. emit(adapter.initial(child, key))
+						.. ")"
+				)
+			end
+			if definition.anchor then
+				table.insert(
+					lines,
+					"local anchor_"
+						.. child.id
+						.. " = UI.Button "
+						.. values.literal(child.name .. "Anchor")
+						.. " { label = "
+						.. values.literal(child.props.anchorLabel or definition.defaults.anchorLabel)
+						.. ", onActivate = function(value) "
+						.. adapter.stateName(child, "isPresented")
+						.. ":set(true) end }"
+				)
+			end
+		end
+		for _, row in document.rows(item.node) do
+			local child = assert(document.find(item.node, row.id))
+			if child.kind == "Table" and not document.collection({ root = item.node } :: any, child.id) then
+				table.insert(
+					lines,
+					"local columns_"
+						.. child.id
+						.. ": {Facet.TableColumn<any, any>} = "
+						.. emit(adapter.properties(child).columns)
+				)
+			end
+		end
+		table.insert(lines, "return " .. emitNode(item.node, level + 1))
+		table.insert(lines, "end")
+		return table.concat(lines, "\n")
+	elseif tag == "rowActions" then
+		local actions = document.copy(item.actions)
+		for _, action in actions do
+			action.onActivate = adapter.expression("rowAction", { key = action.handler or action.id })
+			action.handler = nil
+		end
+		return "function(current: any): Facet.RowActionsOptions return { trailing = "
+			.. emit(actions)
+			.. ", fullSwipe = false } end"
+	elseif tag == "rowAction" then
+		local lookup = "data[" .. values.literal(item.key) .. "]"
+		return "function() if data and " .. lookup .. " then " .. lookup .. "(current:peek()) end end"
+	elseif tag == "state" then
 		return item.name
 	elseif tag == "cell" then
 		return "Compose.cell(" .. emit(item.value) .. ")"
 	elseif tag == "color" then
 		return `Color3.fromRGB({item.r}, {item.g}, {item.b})`
 	elseif tag == "size" then
-		return `UDim2.fromOffset({item.width}, {item.height})`
+		return if item.width == "fill"
+			then `UDim2.new(1, 0, 0, {item.height})`
+			else `UDim2.fromOffset({item.width}, {item.height})`
 	elseif tag == "setter" then
 		return "function(value) "
 			.. item.name
@@ -294,7 +447,7 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 	elseif tag == "accept" then
 		return "function(value) return true, value end"
 	elseif tag == "column" then
-		return "function(row) return row[" .. values.literal(item.key) .. "] end"
+		return "function(row: any) return row[" .. values.literal(item.key) .. "] end"
 	elseif tag == "row" then
 		return 'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
 	elseif tag == "anchor" then
