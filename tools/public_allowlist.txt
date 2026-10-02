@@ -19,6 +19,8 @@ rokit.toml
 stylua.toml
 .styluaignore
 # ^ Luau formatting configuration and the exclusion preserving pinned vendor bytes.
+.luaurc
+# ^ Strict Luau mode and repository aliases used by the comprehensive type checker.
 run-tests.sh
 requirements.json
 src/
