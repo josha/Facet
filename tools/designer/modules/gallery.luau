@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -25,9 +28,7 @@ function gallery.page(entries: { any }, query: string, page: number): ({ any }, 
 end
 
 function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: any, options: any): Frame
-	local Host, Compose: typeof(require("@repo/src/vendor/compose/core")) =
-		(runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-		Facet.Compose
+	local Host, Compose: ComposeModule = (runtime.constructors :: unknown) :: RobloxHost, Facet.Compose
 	local grid = Host.UIGridLayout {
 		CellSize = function(use: Use)
 			return if use(model).compact then UDim2.new(1, -8, 0, 264) else UDim2.new(1 / 3, -12, 0, 264)
@@ -111,7 +112,7 @@ function gallery.build(Facet: any, runtime: any, kit: any, model: any, actions: 
 				runtime.decorate(detail, { LayoutOrder = 3 })
 				local controls = kit.row("GalleryCardActions", { pick, manage })
 				runtime.decorate(controls, { LayoutOrder = 2 })
-				local card = Host.Frame("GalleryCard_" .. entry.id) {
+				local card = Host.Frame("GalleryCard_" .. entry.id :: string) {
 					LayoutOrder = index,
 					BackgroundColor3 = Color3.new(1, 1, 1),
 					BorderSizePixel = 0,

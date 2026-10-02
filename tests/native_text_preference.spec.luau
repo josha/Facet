@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
@@ -6,8 +8,7 @@ local nativeApp = require("../bench/native_app")
 t.describe("native text preference updates", function()
 	t.it("keeps editing focus row identity and scroll position across text and theme changes", function()
 		local world = nativeApp()
-		local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, T =
-			world.Compose, world.Host, world.types
+		local Compose: ComposeModule, Host, T = world.Compose, world.Host, world.types
 		local text, size = Compose.cell("Initial"), Compose.cell(16)
 		local package = Compose.cell(world.Facet.themes.neutralPackage())
 		local UI = world.Facet.controls(world.runtime, { types = T, theme = package })

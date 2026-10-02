@@ -1,10 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type Context = typeof(require("@repo/examples/types")(nil :: any))
+type Context = typeof(require("@repo/examples/types").Context)
 return function(ctx: Context)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, runtime, model =
-		ctx.Compose, ctx.Host, ctx.UI, ctx.runtime, ctx.model
+	local Compose: ComposeModule, Host, UI, runtime, model = ctx.Compose, ctx.Host, ctx.UI, ctx.runtime, ctx.model
 	local D2, V2, C3, E = ctx.D2, ctx.V2, ctx.C3, ctx.E
 	local words, quiet, button = ctx.words, ctx.quiet, ctx.button
 	local chat, promptUsed = model.chat, model.chatPromptUsed
@@ -213,7 +216,7 @@ return function(ctx: Context)
 		end
 		Compose.cleanup(observation.observeProperty(rowFrame, "AbsoluteSize", updateSize))
 		updateSize()
-		local trailing: { typeof(require("@repo/tools/typecheck/example_shapes").rowAction(nil :: any)) } = {
+		local trailing: { RowAction } = {
 			{
 				id = "DeleteMessage",
 				label = "Delete",
@@ -261,7 +264,7 @@ return function(ctx: Context)
 					end,
 				},
 			},
-		} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+		} :: MenuItem,
 		{
 			id = "FollowReplies",
 			label = "Follow replies",
@@ -269,9 +272,9 @@ return function(ctx: Context)
 			onChange = function(value)
 				model.followChat:set(value)
 			end,
-		} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-		{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-		{ id = "Clear", label = "Clear conversation", role = "destructive" :: "destructive", onSelect = chat.clear } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+		} :: MenuItem,
+		{ divider = true } :: MenuItem,
+		{ id = "Clear", label = "Clear conversation", role = "destructive" :: "destructive", onSelect = chat.clear } :: MenuItem,
 	}
 	local findGame = button("FindGame", "Find a game", function()
 		prompt("What game should I play with friends?")

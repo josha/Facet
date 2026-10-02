@@ -1,27 +1,26 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureContentTypes = require("../src/ui/content_types")
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local SEGMENT: { [string]: string } = { up = "Opt1", down = "Opt2" }
 
 local function mount(spec: any, extra: ((any) -> { any })?): any
-	return worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			local children: { any } = { UI.Vote("V")(spec) }
-			local additions: { any } = if extra then extra(UI) else {}
-			for _, node in additions do
-				table.insert(children, node)
-			end
-			return Host.Frame({ Name = "Row", table.unpack((children :: unknown) :: { unknown }) })
+	return worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		local children: { any } = { UI.Vote("V")(spec) }
+		local additions: { any } = if extra then extra(UI) else {}
+		for _, node in additions do
+			table.insert(children, node)
 		end
-	)
+		return Host.Frame({ Name = "Row", table.unpack((children :: unknown) :: { unknown }) })
+	end)
 end
 
 local function option(world: any, side: string, root: string?): any
@@ -122,7 +121,7 @@ t.describe("native Vote", function()
 	t.it("leaves no stale state when a callback removes the vote", function()
 		local show = Compose.cell(true)
 		local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> = Compose.cell("none" :: "down" | "none" | "up")
-		local world = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = worlds.new(function(UI: FacetControls)
 			return Compose.show(show, function()
 				return UI.Vote("V")({
 					value = value,
@@ -166,13 +165,13 @@ t.describe("native Vote", function()
 		t.expect(option(world, "down"):IsA("GuiButton")).toBe(false)
 		t.expect(#assert(controls.diagnostics)()).toBe(1)
 		world.stop()
-		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.Vote({ value = "none" } :: any)
 		end) ~= nil).toBe(true)
-		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.Vote({ value = "sideways", onChange = print } :: any)
 		end) ~= nil).toBe(true)
-		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.Vote({ value = "none", onChange = print, extra = true } :: any)
 		end) ~= nil).toBe(true)
 	end)
@@ -188,7 +187,7 @@ t.describe("native Vote", function()
 				onChange = function(nextValue: "down" | "none" | "up")
 					a:set(nextValue)
 				end,
-			}, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			}, function(UI: FacetControls)
 				return {
 					UI.Vote("W")({
 						value = b,
@@ -231,25 +230,19 @@ t.describe("native Vote", function()
 
 	t.it("repaints the Choices vote only from its caller's value and follows the summary", function()
 		local scenario = require("../examples/gallery/scenarios/selection_controls") :: any
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				local viewport = Compose.cell({ width = 1000, height = 800 })
-				return scenario
-					.build({
-						UI = UI,
-						Compose = Compose,
-						Host = Host,
-						types = engine.types,
-						viewport = viewport,
-						Facet = Facet,
-					})
-					.screen()
-			end
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
+			local viewport = Compose.cell({ width = 1000, height = 800 })
+			return scenario
+				.build({
+					UI = UI,
+					Compose = Compose,
+					Host = Host,
+					types = engine.types,
+					viewport = viewport,
+					Facet = Facet,
+				})
+				.screen()
+		end)
 		local track = world.find("TrackVote")
 		local summary = world.find("Summary", track)
 		t.expect(summary.Text).toBe("98% liked this")

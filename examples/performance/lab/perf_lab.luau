@@ -1,4 +1,14 @@
 --!strict
+
+type DatasetItem = typeof(require("@repo/tools/typecheck/aliases").DatasetItem)
+type DatasetModule = typeof(require("./dataset"))
+type SensoryBuilder = typeof(require("./sensory"))
+type RowsModule = typeof(require("./rows"))
+type CaptureModule = typeof(require("./capture"))
+type WorkloadsModule = typeof(require("./workloads"))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type Workload = { [string]: any, build: () -> any, step: () -> (), ready: boolean?, counters: any?, n: number? }
@@ -27,15 +37,14 @@ lab.WORKLOADS = {
 }
 
 type Modules = {
-	sensory: typeof(require("./sensory")),
-	dataset: typeof(require("./dataset")),
-	rows: typeof(require("./rows")),
-	capture: typeof(require("./capture")),
-	workloads: typeof(require("./workloads")),
+	sensory: SensoryBuilder,
+	dataset: DatasetModule,
+	rows: RowsModule,
+	capture: CaptureModule,
+	workloads: WorkloadsModule,
 }
 function lab.build(ctx: { [string]: any }, modules: Modules)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, T =
-		ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
+	local Compose: ComposeModule, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
 	local selected, playing, rowCount = Compose.cell("dense-scroll"), Compose.cell(false), Compose.cell(2000)
 	local captures, readout = {}, Compose.cell("Ready")
 	local active: Workload? = nil
@@ -168,11 +177,11 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 			Size = T.UDim2.fromOffset(130, 40),
 			selected = rowCount,
 			options = {
-				{ value = 100, label = "100 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ value = 500, label = "500 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ value = 2000, label = "2000 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ value = 10000, label = "10000 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ value = 40000, label = "40000 rows" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = 100, label = "100 rows" } :: PickerOption,
+				{ value = 500, label = "500 rows" } :: PickerOption,
+				{ value = 2000, label = "2000 rows" } :: PickerOption,
+				{ value = 10000, label = "10000 rows" } :: PickerOption,
+				{ value = 40000, label = "40000 rows" } :: PickerOption,
 			},
 			style = "menu" :: "menu",
 			onChange = function(value)
@@ -231,9 +240,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 					node = workload.build()
 				elseif item.workload == "dense-scroll-native" or item.workload == "mount-ramp" then
 					local progressive = item.workload == "dense-scroll-native" and ctx.heartbeat ~= nil
-					local rows = Compose.cell(
-						(if progressive then {} else data) :: { typeof(require("./dataset").build({ count = 1 })[1]) }
-					)
+					local rows = Compose.cell((if progressive then {} else data) :: { DatasetItem })
 					local function fullList()
 						return Host.ScrollingFrame({
 							Size = T.UDim2.fromScale(1, 1),
@@ -245,9 +252,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 								key = function(row)
 									return row.id
 								end,
-								render = function(
-									row: Readable<typeof(require("./dataset").build({ count = 1 })[1])>
-								): GuiObject
+								render = function(row: Readable<DatasetItem>): GuiObject
 									return modules.rows.build(context, row)
 								end,
 							}),

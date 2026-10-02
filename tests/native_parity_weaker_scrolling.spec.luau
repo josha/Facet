@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -6,7 +11,7 @@ type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -25,8 +30,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 	engine.clock = function()
 		return now
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -49,9 +53,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local node
 	local stop, screen: any = runtime.mount(function()
 		node = build(UI, Host, engine)
@@ -116,7 +118,7 @@ local function row(root: any, name: string): any
 end
 
 local function list(count: number, extra: { [string]: any }?): (any, any, any) -> any
-	return function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	return function(UI: FacetControls)
 		local spec: { [any]: any } = {
 			from = records(count),
 			key = key,
@@ -255,7 +257,7 @@ t.describe("native parity weaker scrolling", function()
 
 	t.it("collections-183 table autoscroll needs a drag and releases with the drop", function()
 		local requests = {}
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Table({
 				from = records(100),
 				key = key,
@@ -293,7 +295,7 @@ t.describe("native parity weaker scrolling", function()
 
 	t.it("collections-176 table body focus scrolls rows into view minimally in both directions", function()
 		local focus: FixtureCollectionTypes.FocusControls<any> = {}
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Table({
 				from = records(40),
 				key = key,
@@ -364,7 +366,7 @@ t.describe("native parity weaker scrolling", function()
 	end)
 
 	local function grid(direction: "horizontal" | "vertical")
-		return function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		return function(UI: FacetControls)
 			return UI.VirtualGrid({
 				from = records(400),
 				key = key,
@@ -401,7 +403,7 @@ t.describe("native parity weaker scrolling", function()
 			t.expect(row(world.node, "41") ~= nil).toBe(true)
 			world.stop()
 		end
-		local tableWorld = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local tableWorld = setup(function(UI: FacetControls)
 			return UI.Table({
 				from = records(400),
 				key = key,
@@ -741,7 +743,7 @@ t.describe("native parity weaker scrolling", function()
 			end).toThrow()
 
 			for _, snap in { "item", "none" } :: { "item" | "none" } do
-				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world = setup(function(UI: FacetControls)
 					return UI.VirtualGrid({
 						from = records(40),
 						key = key,
@@ -793,8 +795,7 @@ t.describe("native parity weaker scrolling", function()
 		for _, application in { "Discover", "Chat" } do
 			for _, screenWidth in { 640, 1280, 1920 } do
 				local engine: any = engineLib.new()
-				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-					Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local target = engine.new("ScreenGui")
 				local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 				input.GetFocusedTextBox = function()
@@ -890,7 +891,7 @@ t.describe("native parity weaker scrolling", function()
 					},
 				}
 			for _, case in cases do
-				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world = setup(function(UI: FacetControls)
 					return UI.Alert({
 						isPresented = Compose.cell(true),
 						title = "Review changes",
@@ -932,7 +933,7 @@ t.describe("native parity weaker scrolling", function()
 	t.it("navigation-5-05 selecting an off-screen tab reveals it on either side of a top bar or sidebar", function()
 		for _, placement in { "topBar", "sidebar" } :: { "sidebar" | "topBar" } do
 			local selected = Compose.cell("a")
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				local tabs = {}
 				for _, id in { "a", "b", "c" } do
 					table.insert(tabs, {

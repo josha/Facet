@@ -1,11 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local Roblox = require("@lune/roblox")
 type Readable<T> = { peek: (Readable<T>) -> T }
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -20,8 +25,7 @@ type World = {
 
 local function world(build: (any, any, any) -> any, options: { [string]: any }?, engineOptions: any?): World
 	local engine: any = engineLib.new(engineOptions)
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -40,9 +44,7 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?,
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
@@ -252,11 +254,8 @@ t.describe("native parity restore: ErrorBoundary", function()
 
 	t.it("leaves a failure outside any boundary a hard mount error", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local ok, message = pcall(function()
 			runtime.mount(function()
 				return Host.Frame({
@@ -384,8 +383,7 @@ t.describe("native parity restore: Facet Neutral Light", function()
 	t.it("paints each Neutral palette through the native sheet and follows a palette change", function()
 		local themes = Facet.themes
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local neutral = themes.neutralPackage()
 		local selected = Compose.cell("Dark")
 		local stop, sheet: any = runtime.mount(function()
@@ -427,7 +425,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 		table.clear(held)
 		local selection = Compose.cell({})
 		local focus: FixtureCollectionTypes.FocusControls<any> = {}
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Table "Racers" {
 				from = racers(),
 				key = "id",
@@ -651,45 +649,39 @@ t.describe("native parity restore: RowActions outside tap", function()
 			fired = {},
 			outside = 0,
 		}
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local function row(name: string)
-					return UI.RowActions({
-						Name = name,
-						open = state.open[name],
-						onOpenChange = settings.onOpenChange,
-						coordinator = state.coordinator,
-						content = function(): GuiObject
-							return Host.TextButton "Content" { Text = name }
-						end,
-						trailing = {
-							{
-								id = "Delete",
-								label = "Delete",
-								role = settings.role,
-								onActivate = function()
-									table.insert(state.fired, name)
-								end,
-							} :: FixtureCollectionTypes.RowAction,
-						},
-					})
-				end
-				return Host.Frame "List" {
-					row("a") :: unknown,
-					row("b"),
-					Host.TextButton "Outside" {
-						Text = "Outside",
-						Activated = function()
-							state.outside += 1
-						end,
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			local function row(name: string)
+				return UI.RowActions({
+					Name = name,
+					open = state.open[name],
+					onOpenChange = settings.onOpenChange,
+					coordinator = state.coordinator,
+					content = function(): GuiObject
+						return Host.TextButton "Content" { Text = name }
+					end,
+					trailing = {
+						{
+							id = "Delete",
+							label = "Delete",
+							role = settings.role,
+							onActivate = function()
+								table.insert(state.fired, name)
+							end,
+						} :: FixtureCollectionTypes.RowAction,
 					},
-				}
-			end,
-			{ motionLevel = settings.motionLevel or "none" }
-		)
+				})
+			end
+			return Host.Frame "List" {
+				row("a") :: unknown,
+				row("b"),
+				Host.TextButton "Outside" {
+					Text = "Outside",
+					Activated = function()
+						state.outside += 1
+					end,
+				},
+			}
+		end, { motionLevel = settings.motionLevel or "none" })
 		local V2 = w.engine.types.Vector2
 		local a, b = find(w.screen, "a"), find(w.screen, "b")
 		a.AbsolutePosition, a.AbsoluteSize = V2.new(0, 0), V2.new(300, 44)
@@ -815,7 +807,7 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		return Roblox.Vector2.new(glyphWidth(node.Text, node.TextSize), node.TextSize)
 	end
 	local function labelWorld(spec: { [any]: any }, options: { [string]: any }?): (World, any)
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Text(spec)
 		end, options, { measureText = measure })
 		local label = w.screen:FindFirstChildWhichIsA("TextLabel", true)
@@ -867,25 +859,17 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 	end)
 
 	t.it("cuts the middle to the padded text area, not the outer box", function()
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return UI.Text {
-					text = VALUE,
-					truncate = "middle" :: "middle",
-					TextSize = 16,
-					Host.UIPadding {
-						PaddingLeft = engine.types.UDim.new(0, 20),
-						PaddingRight = engine.types.UDim.new(0, 20),
-					},
-				}
-			end,
-			nil,
-			{ measureText = measure }
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost, engine)
+			return UI.Text {
+				text = VALUE,
+				truncate = "middle" :: "middle",
+				TextSize = 16,
+				Host.UIPadding {
+					PaddingLeft = engine.types.UDim.new(0, 20),
+					PaddingRight = engine.types.UDim.new(0, 20),
+				},
+			}
+		end, nil, { measureText = measure })
 		local label = w.screen:FindFirstChildWhichIsA("TextLabel", true)
 		resize(w, label, 120)
 		local painted = label.Text
@@ -1018,7 +1002,7 @@ t.describe("native parity restore: Path", function()
 
 	t.it("strokes pathShapes points on a native Path2D and follows new points without a remount", function()
 		local points = Compose.cell(shapes.arc(0, 90))
-		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = world(function(UI: FacetControls)
 			return UI.Path "Gauge" { points = points, width = 64 }
 		end)
 		local frame = w.screen:FindFirstChild("Gauge")
@@ -1037,23 +1021,17 @@ t.describe("native parity restore: Path", function()
 
 	t.it("takes its colour from a theme role or a tint, and its thickness from pixels or a metric", function()
 		local role = Compose.cell("accent" :: "accent" | "content" | "secondary")
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return Host.Frame {
-					UI.Path "Role" { points = shapes.ring(), role = role, thickness = 3, closed = true } :: unknown,
-					UI.Path "Plain" { points = shapes.ring() },
-					UI.Path "Tinted" {
-						points = shapes.ring(),
-						tint = engine.types.Color3.fromRGB(10, 200, 30),
-						thickness = "strokes.hairline",
-					},
-				}
-			end
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost, engine)
+			return Host.Frame {
+				UI.Path "Role" { points = shapes.ring(), role = role, thickness = 3, closed = true } :: unknown,
+				UI.Path "Plain" { points = shapes.ring() },
+				UI.Path "Tinted" {
+					points = shapes.ring(),
+					tint = engine.types.Color3.fromRGB(10, 200, 30),
+					thickness = "strokes.hairline",
+				},
+			}
+		end)
 		local roleStroke = w.screen:FindFirstChild("Role", true):FindFirstChild("Stroke")
 		t.expect(roleStroke:HasTag("facet-path")).toBe(true)
 		t.expect(roleStroke:HasTag("facet-path-accent")).toBe(true)
@@ -1072,10 +1050,10 @@ t.describe("native parity restore: Path", function()
 	end)
 
 	t.it("refuses missing points, more than the engine's 100 points and an unknown role", function()
-		t.expect(pcall(world, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(pcall(world, function(UI: FacetControls)
 			return UI.Path({} :: any)
 		end)).toBe(false)
-		t.expect(pcall(world, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(pcall(world, function(UI: FacetControls)
 			return UI.Path { points = shapes.arc(0, 360, { segments = 99 }), role = "danger" :: any }
 		end)).toBe(false)
 		t.expect(pcall(shapes.arc, 0, 360, { segments = 100 })).toBe(false)

@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local catalogue = require("./demo_picker")
@@ -14,7 +18,7 @@ screen.next = catalogue.next
 screen.boot = catalogue.boot
 
 function screen.configure(ctx: { [string]: any })
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+	local Compose: ComposeModule = ctx.Compose
 	ctx.overlayParent = ctx.Host.Frame "PreviewOverlays" {
 		BackgroundTransparency = 1,
 		Size = ctx.types.UDim2.fromOffset(0, 0),
@@ -161,7 +165,7 @@ function screen.preview(ctx: { [string]: any }, content: any, bounds: any)
 end
 
 function screen.themePackages(themes, modules, load)
-	local packages: { [string]: typeof(require("@repo/src").themes.neutralPackage()) } = {}
+	local packages: { [string]: ThemePackage } = {}
 	for _, module in modules do
 		if module:IsA("ModuleScript") then
 			local ok, definition = pcall(load, module)
@@ -265,7 +269,7 @@ function screen.dispatch(ctx: { [string]: any }, command: string, argument: any?
 end
 
 function screen.build(ctx: any)
-	local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
+	local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 	if not ctx.reducedMotion then
 		screen.configure(ctx)
 	end
@@ -454,10 +458,10 @@ function screen.build(ctx: any)
 					style = "segmented" :: "segmented",
 					selected = ctx.motionMode,
 					options = {
-						{ value = "device", label = "Device" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "normal", label = "Game: Normal" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "limited", label = "Game: Limited" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "none", label = "Game: None" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "device", label = "Device" } :: PickerOption,
+						{ value = "normal", label = "Game: Normal" } :: PickerOption,
+						{ value = "limited", label = "Game: Limited" } :: PickerOption,
+						{ value = "none", label = "Game: None" } :: PickerOption,
 					},
 					onChange = function(value)
 						ctx.motionPreference:set(if value == "device" then nil else value)
@@ -640,8 +644,8 @@ function screen.build(ctx: any)
 				style = "segmented" :: "segmented",
 				selected = section,
 				options = {
-					{ value = "demos", label = "Demos" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "settings", label = "Settings" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "demos", label = "Demos" } :: PickerOption,
+					{ value = "settings", label = "Settings" } :: PickerOption,
 				},
 			},
 			Compose.show(function(use: Use)

@@ -1,5 +1,5 @@
 --!strict
-type SkinLayer = typeof(require("@repo/tools/typecheck/example_shapes").skinLayer(nil :: any))
+type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
 
 local layered_test = {}
 

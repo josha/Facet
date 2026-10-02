@@ -1,4 +1,9 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -13,27 +18,21 @@ local function mount(extra: { [string]: any }?, options: any?): any
 	local detent = Compose.cell(o.detent or "medium")
 	local shown = o.shown or Compose.cell(true)
 	local builds = 0
-	local w = overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			local spec: any = {
-				isPresented = shown,
-				detent = detent,
-				title = "Race details",
-				content = function(): Instance
-					builds += 1
-					return Host.TextLabel "Copy" { Text = LONG, TextWrapped = true }
-				end,
-			}
-			for key, value in (extra or {} :: { [string]: any }) do
-				spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
-			end
-			return UI.Sheet "Sheet"(spec)
-		end,
-		o
-	)
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+		local spec: any = {
+			isPresented = shown,
+			detent = detent,
+			title = "Race details",
+			content = function(): Instance
+				builds += 1
+				return Host.TextLabel "Copy" { Text = LONG, TextWrapped = true }
+			end,
+		}
+		for key, value in (extra or {} :: { [string]: any }) do
+			spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
+		end
+		return UI.Sheet "Sheet"(spec)
+	end, o)
 	w.detent, w.shown = detent, shown
 	w.builds = function()
 		return builds
@@ -184,7 +183,7 @@ t.describe("native Sheet: placement, width, title and close", function()
 
 	t.it("the Size control reads player words, never a detent id", function()
 		local w = mount({
-			detents = { "hug", "medium" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { "hug", "medium" } :: { SheetDetent },
 		})
 		local grabber = w.find("Grabber")
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
@@ -192,7 +191,7 @@ t.describe("native Sheet: placement, width, title and close", function()
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Fit")
 		w.stop()
 		local custom = mount({
-			detents = { { id = "compact", fraction = 0.3 }, "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { { id = "compact", fraction = 0.3 }, "large" } :: { SheetDetent },
 		}, { detent = "compact" })
 		t.expect(custom.find("Grabber"):GetAttribute("AccessibleLabel")).toBe("Resize: Compact")
 		custom.stop()
@@ -227,7 +226,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("a header replaces the title; header=false removes it; utilities stay", function()
 		local w = mount({
-			header = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			header = built(function(_, Host: RobloxHost)
 				return Host.TextLabel "Custom" { Text = "Lobby" }
 			end),
 			closeButton = true,
@@ -252,8 +251,8 @@ t.describe("native Sheet: parts", function()
 		end
 		local w = mount({
 			actions = {
-				{ id = "Later", label = "Later", role = "cancel" :: "cancel", onActivate = log("Later") } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
-				{ id = "Join", label = "Join race", role = "default" :: "default", onActivate = log("Join") } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Later", label = "Later", role = "cancel" :: "cancel", onActivate = log("Later") } :: OverlayAction,
+				{ id = "Join", label = "Join race", role = "default" :: "default", onActivate = log("Join") } :: OverlayAction,
 			},
 		})
 		local actions, body = w.find("Actions"), w.find("SheetContent")
@@ -273,9 +272,9 @@ t.describe("native Sheet: parts", function()
 			closeButton = true,
 			actionLayout = "stacked",
 			actions = {
-				{ id = "One", label = "One", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
-				{ id = "Two", label = "Two", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
-				{ id = "Three", label = "Three", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "One", label = "One", onActivate = noop } :: OverlayAction,
+				{ id = "Two", label = "Two", onActivate = noop } :: OverlayAction,
+				{ id = "Three", label = "Three", onActivate = noop } :: OverlayAction,
 			},
 		}, { room = Vector2.new(800, 400), motionLevel = "none" })
 		local room, body = w.find("Room"), w.find("SheetContent")
@@ -339,7 +338,7 @@ t.describe("native Sheet: parts", function()
 		local w = mount({
 			header = false,
 			closeButton = true,
-			hero = built(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			hero = built(function(UI: FacetControls)
 				return { height = 200, content = UI.Button "Top" { label = "Top of hero" } }
 			end),
 		})
@@ -358,7 +357,7 @@ t.describe("native Sheet: parts", function()
 		local banner: any
 		local w = mount({
 			header = false,
-			hero = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			hero = built(function(_, Host: RobloxHost)
 				banner = Host.TextLabel "Banner" { Text = "Lobby" }
 				return { height = 140, content = banner }
 			end),
@@ -377,11 +376,11 @@ t.describe("native Sheet: parts", function()
 	t.it("content and a header given as Instances survive a dismissal and show again", function()
 		local copy: any, head: any
 		local w = mount({
-			content = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			content = built(function(_, Host: RobloxHost)
 				copy = Host.TextLabel "Body" { Text = "Body" }
 				return copy
 			end),
-			header = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			header = built(function(_, Host: RobloxHost)
 				head = Host.TextLabel "Head" { Text = "Head" }
 				return head
 			end),
@@ -417,7 +416,7 @@ t.describe("native Sheet: parts", function()
 	t.it("the keyboard takes its room from the one safe rectangle", function()
 		local w = mount({
 			actions = {
-				{ id = "Go", label = "Go", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Go", label = "Go", onActivate = noop } :: OverlayAction,
 			},
 		}, { detent = "large", motionLevel = "none" })
 		local panel = w.find("SheetPanel")
@@ -446,8 +445,8 @@ t.describe("native Sheet: parts", function()
 				{ actions = { { id = "A", label = "A" } } },
 				{
 					actions = {
-						{ id = "A", label = "A", role = "default" :: "default", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
-						{ id = "B", label = "B", role = "default" :: "default", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+						{ id = "A", label = "A", role = "default" :: "default", onActivate = noop } :: OverlayAction,
+						{ id = "B", label = "B", role = "default" :: "default", onActivate = noop } :: OverlayAction,
 					},
 				},
 				{ actionLayout = "grid" },
@@ -462,9 +461,9 @@ t.describe("native Sheet: parts", function()
 
 	t.it("hug fits the whole body plus the pinned regions, and follows live copy both ways", function()
 		local w = mount({
-			detents = { "hug", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { "hug", "large" } :: { SheetDetent },
 			actions = {
-				{ id = "Go", label = "Go", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Go", label = "Go", onActivate = noop } :: OverlayAction,
 			},
 		}, { detent = "hug", motionLevel = "none" })
 		local panel, body = w.find("SheetPanel"), w.find("SheetContent")
@@ -488,7 +487,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("hug measures the content, not the scroll canvas that fills the window", function()
 		local w = mount({
-			detents = { "hug" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { "hug" } :: { SheetDetent },
 		}, { detent = "hug" })
 		local panel, body = w.find("SheetPanel"), w.find("SheetContent")
 		content(w, 120)
@@ -504,7 +503,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("text and height settle off screen before the sheet moves, and hold during the slide", function()
 		local w = mount({
-			detents = { "hug" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { "hug" } :: { SheetDetent },
 		}, { detent = "hug", unsettled = true })
 		local panel = w.find("SheetPanel")
 		content(w, 40)
@@ -552,7 +551,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("hug clamps to the safe room and keeps the minimum floor", function()
 		local w = mount({
-			detents = { "hug" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { "hug" } :: { SheetDetent },
 		}, { detent = "hug", motionLevel = "none" })
 		content(w, 5000)
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(600)
@@ -563,7 +562,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("coinciding heights keep the declared id; the grabber grows past ties, then closes", function()
 		local w = mount({
-			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" } :: { SheetDetent },
 		}, { detent = "b", motionLevel = "none" })
 		t.expect(w.detent:peek()).toBe("b")
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(300)
@@ -605,49 +604,44 @@ t.describe("native Sheet: parts", function()
 	t.it("action callbacks that throw, close or dispose leave no stale surface", function()
 		local shown = Compose.cell(false)
 		local mounted = Compose.cell(true)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Compose.show(mounted, function()
-						return UI.Sheet "Sheet" {
-							isPresented = shown,
-							detent = Compose.cell("large"),
-							title = "T",
-							content = function(): Instance
-								return Host.TextLabel "Body" { Text = "Body" }
-							end,
-							actions = {
-								{
-									id = "Boom",
-									label = "Boom",
-									onActivate = function()
-										error("caller bug")
-									end,
-								} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
-								{
-									id = "Finish",
-									label = "Done",
-									onActivate = function()
-										shown:set(false)
-										shown:set(true)
-									end,
-								} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
-								{
-									id = "Drop",
-									label = "Drop",
-									onActivate = function()
-										mounted:set(false)
-									end,
-								} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
-							},
-						}
-					end),
-				})
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Compose.show(mounted, function()
+					return UI.Sheet "Sheet" {
+						isPresented = shown,
+						detent = Compose.cell("large"),
+						title = "T",
+						content = function(): Instance
+							return Host.TextLabel "Body" { Text = "Body" }
+						end,
+						actions = {
+							{
+								id = "Boom",
+								label = "Boom",
+								onActivate = function()
+									error("caller bug")
+								end,
+							} :: OverlayAction,
+							{
+								id = "Finish",
+								label = "Done",
+								onActivate = function()
+									shown:set(false)
+									shown:set(true)
+								end,
+							} :: OverlayAction,
+							{
+								id = "Drop",
+								label = "Drop",
+								onActivate = function()
+									mounted:set(false)
+								end,
+							} :: OverlayAction,
+						},
+					}
+				end),
+			})
+		end)
 		local baseline = w.engine.census()
 		shown:set(true)
 		t.expect((pcall(overlay.find(w.find("Actions"), "Boom").Activated.fire))).toBe(false)
@@ -667,7 +661,7 @@ t.describe("native Sheet: parts", function()
 	t.it("a failing content build does not leave a surface behind", function()
 		local failures = {}
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.Sheet "Sheet" {
 				isPresented = shown,
 				detent = Compose.cell("medium"),
@@ -854,26 +848,20 @@ t.describe("native Sheet: gestures", function()
 
 	t.it("disposal mid-drag releases the session and returns to baseline", function()
 		local mounted = Compose.cell(false)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Compose.show(mounted, function()
-						return UI.Sheet "Sheet" {
-							isPresented = Compose.cell(true),
-							detent = Compose.cell("medium"),
-							title = "T",
-							content = function(): Instance
-								return Host.TextLabel "Body" { Text = "Body" }
-							end,
-						}
-					end),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Compose.show(mounted, function()
+					return UI.Sheet "Sheet" {
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("medium"),
+						title = "T",
+						content = function(): Instance
+							return Host.TextLabel "Body" { Text = "Body" }
+						end,
+					}
+				end),
+			})
+		end, { motionLevel = "none" })
 		local baseline = w.engine.census()
 		mounted:set(true)
 		flick(w, { { -100, 0.1 } }, false)
@@ -901,7 +889,7 @@ t.describe("native Sheet: the grabber is the close and resize control", function
 		t.expect(w.shown:peek()).toBe(false)
 		w.stop()
 		local single = mount({
-			detents = { "medium" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			detents = { "medium" } :: { SheetDetent },
 		})
 		local only = single.find("Grabber")
 		t.expect(only.Selectable).toBe(true)
@@ -1061,7 +1049,7 @@ t.describe("native Sheet: the whole sheet moves as one unit", function()
 	t.it("a drag below the lowest detent moves the whole sheet down; dismissal continues from there", function()
 		local w = mount({
 			actions = {
-				{ id = "Apply", label = "Apply", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Apply", label = "Apply", onActivate = noop } :: OverlayAction,
 			},
 		})
 		w.advance(0.5, 10)
@@ -1097,7 +1085,7 @@ t.describe("native panels: a skinned panel keeps its content inside the art carv
 	t.it("a skinned Sheet insets header, body and actions by the carve; the grabber sits inside it", function()
 		local w = mount({
 			actions = {
-				{ id = "Apply", label = "Apply", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Apply", label = "Apply", onActivate = noop } :: OverlayAction,
 			},
 		}, { theme = fantasy })
 		t.expect(sides(w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("58 30 30 30")
@@ -1122,32 +1110,26 @@ t.describe("native panels: a skinned panel keeps its content inside the art carv
 
 	t.it("a skinned Dialog and Popover inset by the carve and follow a live theme change", function()
 		local theme = Compose.cell(fantasy)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Dialog "Confirm" {
-						isPresented = Compose.cell(true),
-						onPresentedChange = noop,
-						title = "Leave?",
-						content = function(): Instance
-							return Host.TextLabel "Line" { Text = "Body" }
-						end,
-					} :: unknown,
-					UI.Popover "Tip" {
-						isPresented = Compose.cell(true),
-						onPresentedChange = noop,
-						trigger = UI.Button "Open" { label = "Open" },
-						content = function(): Instance
-							return Host.TextLabel "PopLine" { Text = "Body" }
-						end,
-					},
-				})
-			end,
-			{ theme = theme }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Dialog "Confirm" {
+					isPresented = Compose.cell(true),
+					onPresentedChange = noop,
+					title = "Leave?",
+					content = function(): Instance
+						return Host.TextLabel "Line" { Text = "Body" }
+					end,
+				} :: unknown,
+				UI.Popover "Tip" {
+					isPresented = Compose.cell(true),
+					onPresentedChange = noop,
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function(): Instance
+						return Host.TextLabel "PopLine" { Text = "Body" }
+					end,
+				},
+			})
+		end, { theme = theme })
 		local dialog = w.find("Panel")
 		local popover = w.find("PopLine")
 		while popover.Name ~= "Panel" do
@@ -1185,21 +1167,15 @@ t.describe("native panels: the theme title plaque carries the surface title", fu
 	end)
 
 	t.it("a surface without a title draws no plaque", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Dialog "Plain" {
-					isPresented = Compose.cell(true),
-					onPresentedChange = noop,
-					content = function(): Instance
-						return Host.TextLabel "Line" { Text = "Body" }
-					end,
-				}
-			end,
-			{ theme = fantasy }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Dialog "Plain" {
+				isPresented = Compose.cell(true),
+				onPresentedChange = noop,
+				content = function(): Instance
+					return Host.TextLabel "Line" { Text = "Body" }
+				end,
+			}
+		end, { theme = fantasy })
 		local art = plaque(w.find("Panel"))
 		t.expect(art.Visible).toBe(false)
 		t.expect(overlay.find(art, "PlaqueCaption")).toBeNil()

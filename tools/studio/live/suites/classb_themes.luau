@@ -1,4 +1,8 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
@@ -44,19 +48,13 @@ local function paletteOf(package: any, name: string): any
 end
 
 add("skeleton-circle-round-sweep", { "themes-P1-87" }, function(t)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Holder" {
-				Size = UDim2.fromOffset(300, 300),
-				BackgroundTransparency = 1,
-				UI.Skeleton "Circle" { form = "circle" :: "circle" },
-			}
-		end,
-		{ size = Vector2.new(400, 400), motionLevel = "normal" }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Holder" {
+			Size = UDim2.fromOffset(300, 300),
+			BackgroundTransparency = 1,
+			UI.Skeleton "Circle" { form = "circle" :: "circle" },
+		}
+	end, { size = Vector2.new(400, 400), motionLevel = "normal" })
 	local plate = t.find(stage, "Circle"):FindFirstChild("Placeholder1")
 	local size = plate.AbsoluteSize
 	t.near("the circle placeholder is square", size.X, size.Y, 0.01)
@@ -74,26 +72,19 @@ end)
 
 add("skeleton-band-contained", { "themes-P1-88" }, function(t)
 	local width
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			width = Compose.cell(0.5)
-			return Host.Frame "Offer" {
-				Size = UDim2.fromOffset(500, 200),
-				BackgroundTransparency = 1,
-				UI.Skeleton "A" {
-					form = "box" :: "box",
-					Size = function(use: Use)
-						return UDim2.new(use(width), 0, 0, 0)
-					end,
-				},
-			}
-		end,
-		{ size = Vector2.new(600, 400), motionLevel = "normal" }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		width = Compose.cell(0.5)
+		return Host.Frame "Offer" {
+			Size = UDim2.fromOffset(500, 200),
+			BackgroundTransparency = 1,
+			UI.Skeleton "A" {
+				form = "box" :: "box",
+				Size = function(use: Use)
+					return UDim2.new(use(width), 0, 0, 0)
+				end,
+			},
+		}
+	end, { size = Vector2.new(600, 400), motionLevel = "normal" })
 	local offer = t.find(stage, "Offer")
 	local root = t.find(stage, "A")
 	local plate = root:FindFirstChild("Placeholder1")
@@ -124,7 +115,7 @@ end)
 
 add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
 	for _, align in { "center", "end", "start" } do
-		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stage = t.mount(function(UI: FacetControls)
 			return UI.VStack "Col" {
 				width = "fill" :: "fill",
 				align = align :: "center" | "end" | "start" | "stretch",
@@ -153,26 +144,20 @@ add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
 end)
 
 add("stage-not-selectable", { "themes-P1-105" }, function(t)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Form" {
-				Size = UDim2.fromScale(1, 1),
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Form" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+			Host.Frame "OnlyStage" {
+				Size = UDim2.fromOffset(260, 200),
 				BackgroundTransparency = 1,
-				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
-				Host.Frame "OnlyStage" {
-					Size = UDim2.fromOffset(260, 200),
-					BackgroundTransparency = 1,
-					LayoutOrder = 1,
-					UI.Stage "Scene" {},
-				},
-				UI.Button "After" { label = "After", LayoutOrder = 2 },
-			}
-		end,
-		{ size = Vector2.new(600, 500) }
-	)
+				LayoutOrder = 1,
+				UI.Stage "Scene" {},
+			},
+			UI.Button "After" { label = "After", LayoutOrder = 2 },
+		}
+	end, { size = Vector2.new(600, 500) })
 	local scene = t.find(stage, "Scene")
 	t.check("the stage is a ViewportFrame", scene:IsA("ViewportFrame"))
 	t.check("the stage is not selectable", scene.Selectable == false)
@@ -198,7 +183,7 @@ end)
 
 add("stage-panel-paint", { "themes-P1-107" }, function(t)
 	local env
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, _, e)
+	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
 		return UI.Stage "Scene" {}
 	end, { size = Vector2.new(400, 300) })
@@ -223,27 +208,19 @@ add("explicit-gradient-wins-across-swap", { "themes-P3-11" }, function(t)
 	local env
 	local viewColor = ColorSequence.new(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255))
 	local viewAlpha = NumberSequence.new(0.1, 0.3)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			_,
-			e
-		)
-			env = e
-			return Host.Frame "Pair" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
-				UI.Stage "Card" {
-					LayoutOrder = 1,
-					Host.UIGradient "ViewGradient" { Color = viewColor, Rotation = 45, Transparency = viewAlpha },
-				},
-				UI.Stage "Plain" { LayoutOrder = 2 },
-			}
-		end,
-		{ size = Vector2.new(600, 500), theme = glossy }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, _, e)
+		env = e
+		return Host.Frame "Pair" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+			UI.Stage "Card" {
+				LayoutOrder = 1,
+				Host.UIGradient "ViewGradient" { Color = viewColor, Rotation = 45, Transparency = viewAlpha },
+			},
+			UI.Stage "Plain" { LayoutOrder = 2 },
+		}
+	end, { size = Vector2.new(600, 500), theme = glossy })
 	local card = t.find(stage, "Card")
 	local gradient = card:FindFirstChild("ViewGradient")
 	local function verify(label: string)
@@ -286,7 +263,7 @@ end)
 
 add("skinned-selection-hugs-art", { "themes-P4-15" }, function(t)
 	local ornate = themeNamed(t, "fantasy_ornate")
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.VStack "Col" {
 			UI.Button "Skinned" { label = "Ornate" },
 		}
@@ -352,7 +329,7 @@ add("selection-corners-follow-control", { "themes-P5-43" }, function(t)
 	local env
 	local neutral = t.themes[1].package
 	local ornate = themeNamed(t, "fantasy_ornate")
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, _, e)
+	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
 		return UI.VStack "Col" {
 			UI.Button "Target" { label = "Target" },
@@ -375,23 +352,17 @@ add("status-count-authored-height", { "themes-P1-117" }, function(t)
 	for _, cutout in { false, true } do
 		for _, height in { UDim.new(0.5, 0), UDim.new(0, 20), UDim.new(0, 30) } do
 			local label = `{if cutout then "cutout" else "plain"} {height.Scale}+{height.Offset}`
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame "Offer" {
-						Size = UDim2.fromOffset(100, 100),
-						BackgroundTransparency = 1,
-						UI.StatusIndicator "Mark" {
-							count = 7,
-							cutout = cutout,
-							Size = UDim2.new(UDim.new(0, 40), height),
-						},
-					}
-				end,
-				{ size = Vector2.new(300, 300) }
-			)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "Offer" {
+					Size = UDim2.fromOffset(100, 100),
+					BackgroundTransparency = 1,
+					UI.StatusIndicator "Mark" {
+						count = 7,
+						cutout = cutout,
+						Size = UDim2.new(UDim.new(0, 40), height),
+					},
+				}
+			end, { size = Vector2.new(300, 300) })
 			local mark = t.find(stage, "Mark")
 			local want = if height.Scale > 0 then 50 else height.Offset
 			t.near(label .. " height is the authored height", mark.AbsoluteSize.Y, want, 0.01)
@@ -439,27 +410,21 @@ add("status-round-containment", { "themes-P1-120" }, function(t)
 	for _, cutout in { false, true } do
 		for _, offer in OFFERS do
 			local label = `{if cutout then "cutout" else "plain"} {offer[1]}x{offer[2]}`
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame "Box" {
-						Size = UDim2.fromOffset(100, 100),
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "Box" {
+					Size = UDim2.fromOffset(100, 100),
+					BackgroundTransparency = 1,
+					Host.Frame "Offer" {
+						Size = UDim2.fromScale(offer[1] / 100, offer[2] / 100),
 						BackgroundTransparency = 1,
-						Host.Frame "Offer" {
-							Size = UDim2.fromScale(offer[1] / 100, offer[2] / 100),
-							BackgroundTransparency = 1,
-							UI.StatusIndicator "Mark" {
-								form = "ring" :: "ring",
-								cutout = cutout,
-								Size = UDim2.fromScale(1, 1),
-							},
+						UI.StatusIndicator "Mark" {
+							form = "ring" :: "ring",
+							cutout = cutout,
+							Size = UDim2.fromScale(1, 1),
 						},
-					}
-				end,
-				{ size = Vector2.new(300, 300), frames = 6 }
-			)
+					},
+				}
+			end, { size = Vector2.new(300, 300), frames = 6 })
 			local box, mark = t.find(stage, "Offer"), t.find(stage, "Mark")
 			local side = math.min(box.AbsoluteSize.X, box.AbsoluteSize.Y)
 			t.near(label .. " the mark is square", mark.AbsoluteSize.X, mark.AbsoluteSize.Y, 0.01)
@@ -471,28 +436,21 @@ add("status-round-containment", { "themes-P1-120" }, function(t)
 		end
 	end
 	local width, height
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			width, height = Compose.cell(200), Compose.cell(100)
-			return Host.Frame "Offer" {
-				Size = function(use: Use)
-					return UDim2.fromOffset(use(width), use(height))
-				end,
-				BackgroundTransparency = 1,
-				UI.StatusIndicator "Dot" { form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) } :: unknown,
-				UI.StatusIndicator "Dash" {
-					form = "dash" :: "dash",
-					Size = UDim2.fromScale(0.5, 0.5),
-					Position = UDim2.fromScale(0.5, 0.5),
-				},
-			}
-		end,
-		{ size = Vector2.new(400, 400) }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		width, height = Compose.cell(200), Compose.cell(100)
+		return Host.Frame "Offer" {
+			Size = function(use: Use)
+				return UDim2.fromOffset(use(width), use(height))
+			end,
+			BackgroundTransparency = 1,
+			UI.StatusIndicator "Dot" { form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) } :: unknown,
+			UI.StatusIndicator "Dash" {
+				form = "dash" :: "dash",
+				Size = UDim2.fromScale(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+			},
+		}
+	end, { size = Vector2.new(400, 400) })
 	for _, dims in { { 200, 100 }, { 60, 200 }, { 200, 100 } } do
 		width:set(dims[1])
 		height:set(dims[2])
@@ -517,31 +475,23 @@ add("status-cutout-hairline", { "themes-P1-121" }, function(t)
 	for _, size in { 8, 10, 11, 13, 16, 40 } do
 		for _, form in { "dot", "ring", "square", "dash" } :: { "dash" | "dot" | "ring" | "square" } do
 			local label = `{form} {size}`
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					_,
-					e
-				)
-					env = e
-					return Host.Frame "Offer" {
-						Size = UDim2.fromOffset(size * 3, size),
-						BackgroundTransparency = 1,
-						Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal } :: unknown,
-						UI.StatusIndicator "Mark" {
-							form = form :: "dash" | "dot" | "ring" | "square",
-							diameter = size,
-							cutout = true,
-						},
-						UI.StatusIndicator "Bare" {
-							form = form :: "dash" | "dot" | "ring" | "square",
-							diameter = size,
-						},
-					}
-				end,
-				{ size = Vector2.new(200, 200), theme = pixel, frames = 6 }
-			)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, _, e)
+				env = e
+				return Host.Frame "Offer" {
+					Size = UDim2.fromOffset(size * 3, size),
+					BackgroundTransparency = 1,
+					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal } :: unknown,
+					UI.StatusIndicator "Mark" {
+						form = form :: "dash" | "dot" | "ring" | "square",
+						diameter = size,
+						cutout = true,
+					},
+					UI.StatusIndicator "Bare" {
+						form = form :: "dash" | "dot" | "ring" | "square",
+						diameter = size,
+					},
+				}
+			end, { size = Vector2.new(200, 200), theme = pixel, frames = 6 })
 			local mark = t.find(stage, "Mark")
 			local bare = t.find(stage, "Bare")
 			local stroke = mark:FindFirstChild("Cutout")

@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -47,9 +50,9 @@ return {
 	tagCount = TAG_COUNT,
 	shortCount = SHORT_COUNT,
 	build = function(ctx: any)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -164,9 +167,9 @@ return {
 						label = COPY.alignLabel,
 						style = "segmented" :: "segmented",
 						options = {
-							{ value = "start", label = COPY.alignStart } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "center", label = COPY.alignCenter } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "end", label = COPY.alignEnd } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "start", label = COPY.alignStart } :: PickerOption,
+							{ value = "center", label = COPY.alignCenter } :: PickerOption,
+							{ value = "end", label = COPY.alignEnd } :: PickerOption,
 						},
 						selected = blockAlign,
 					}),

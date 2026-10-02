@@ -1,5 +1,7 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local build = require("./collection_demo")
 local TEAMS = { "Rustbucket", "Chrome Coyote", "Nine Volt", "Paper Lantern", "Bad Weather" }
 return {
@@ -29,7 +31,7 @@ return {
 					value = function(item)
 						return `#{item.n}`
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+				} :: TableColumn,
 				{
 					id = "team",
 					label = "Team",
@@ -45,7 +47,7 @@ return {
 					value = function(item)
 						return item.team
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+				} :: TableColumn,
 				{
 					id = "best",
 					label = "Best lap",
@@ -53,7 +55,7 @@ return {
 					value = function(item)
 						return item.best
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+				} :: TableColumn,
 			},
 		})
 	end,

@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local FixtureOverlayTypes = require("../src/ui/overlay_types")
 local t = require("./lib/testkit")
@@ -20,10 +23,7 @@ local function copy(Host: any): any
 end
 
 local BUILDS: { [string]: (any, any) -> any } = {
-	Dialog = function(
-		UI: typeof(require("@repo/src").controls(nil :: any)),
-		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-	)
+	Dialog = function(UI: FacetControls, Host: RobloxHost)
 		return UI.Dialog "Long" {
 			isPresented = Compose.cell(true),
 			onPresentedChange = noop,
@@ -36,10 +36,7 @@ local BUILDS: { [string]: (any, any) -> any } = {
 			},
 		}
 	end,
-	Sheet = function(
-		UI: typeof(require("@repo/src").controls(nil :: any)),
-		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-	)
+	Sheet = function(UI: FacetControls, Host: RobloxHost)
 		return UI.Sheet "Long" {
 			isPresented = Compose.cell(true),
 			detent = Compose.cell("large"),
@@ -49,10 +46,7 @@ local BUILDS: { [string]: (any, any) -> any } = {
 			end,
 		}
 	end,
-	Popover = function(
-		UI: typeof(require("@repo/src").controls(nil :: any)),
-		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-	)
+	Popover = function(UI: FacetControls, Host: RobloxHost)
 		return UI.Popover "Long" {
 			isPresented = Compose.cell(true),
 			source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
@@ -63,10 +57,7 @@ local BUILDS: { [string]: (any, any) -> any } = {
 			end,
 		}
 	end,
-	Alert = function(
-		UI: typeof(require("@repo/src").controls(nil :: any)),
-		Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-	)
+	Alert = function(UI: FacetControls, Host: RobloxHost)
 		return UI.Alert {
 			isPresented = Compose.cell(true),
 			title = "Confirm",
@@ -100,14 +91,9 @@ t.describe("native overlay bodies: long wrapped text measures outside the scroll
 		t.it(
 			`{name}: the nearest fixed ancestor of the copy is taller than any text, and the canvas follows it`,
 			function()
-				local w = overlay.new(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return Host.Frame({ BUILDS[name](UI, Host) })
-					end
-				)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame({ BUILDS[name](UI, Host) })
+				end)
 				w.advance(1 / 60, 4)
 				local label = w.find("Copy")
 				t.expect(label ~= nil).toBe(true)

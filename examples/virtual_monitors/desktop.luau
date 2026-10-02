@@ -1,10 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local desktop = {}
 local screens = require("./screens")
 function desktop.create(Facet: any, runtime: any, views: any, model: any, progress: any, options: any?)
-	local Host, Compose: typeof(require("@repo/src/vendor/compose/core")) = runtime.constructors, Facet.Compose
+	local Host, Compose: ComposeModule = runtime.constructors, Facet.Compose
 	options = options or {}
 	local types = options.types or getfenv(0)
 	local UDim2 = types.UDim2

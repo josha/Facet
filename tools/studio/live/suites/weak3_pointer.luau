@@ -1,4 +1,8 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -58,46 +62,39 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = { commits = {} }
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				value.gap = Compose.cell({ lower = 20, upper = 60 })
-				value.pile = Compose.cell({ lower = 20, upper = 60 })
-				return Host.Frame "Column" {
-					Size = UDim2.fromOffset(600, 420),
-					Position = UDim2.fromOffset(100, 100),
-					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 40) }) :: unknown,
-					UI.Slider "Gap" {
-						LayoutOrder = 1,
-						Size = UDim2.fromOffset(420, 0),
-						value = value.gap,
-						min = 0,
-						max = 100,
-						step = 5,
-						range = true :: true,
-						minGap = 10,
-						onCommit = function(range: any, info: any)
-							table.insert(value.commits, `{info.thumb}:{range.lower}-{range.upper}`)
-						end,
-					},
-					UI.Slider "Pile" {
-						LayoutOrder = 2,
-						Size = UDim2.fromOffset(420, 0),
-						value = value.pile,
-						min = 0,
-						max = 100,
-						step = 5,
-						range = true :: true,
-						minGap = 0,
-					},
-				}
-			end,
-			{ frames = 20 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			value.gap = Compose.cell({ lower = 20, upper = 60 })
+			value.pile = Compose.cell({ lower = 20, upper = 60 })
+			return Host.Frame "Column" {
+				Size = UDim2.fromOffset(600, 420),
+				Position = UDim2.fromOffset(100, 100),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 40) }) :: unknown,
+				UI.Slider "Gap" {
+					LayoutOrder = 1,
+					Size = UDim2.fromOffset(420, 0),
+					value = value.gap,
+					min = 0,
+					max = 100,
+					step = 5,
+					range = true :: true,
+					minGap = 10,
+					onCommit = function(range: any, info: any)
+						table.insert(value.commits, `{info.thumb}:{range.lower}-{range.upper}`)
+					end,
+				},
+				UI.Slider "Pile" {
+					LayoutOrder = 2,
+					Size = UDim2.fromOffset(420, 0),
+					value = value.pile,
+					min = 0,
+					max = 100,
+					step = 5,
+					range = true :: true,
+					minGap = 0,
+				},
+			}
+		end, { frames = 20 })
 		for _, name in { "Gap", "Pile" } do
 			local track = partOf(t.find(stage, name), "Track")
 			value[name] = {
@@ -170,35 +167,28 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = { commits = {}, changes = 0 }
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				value.cell = Compose.cell(Color3.fromHSV(0.5, 0.5, 0.5))
-				return Host.Frame "Box" {
-					BackgroundTransparency = 1,
-					Position = UDim2.fromOffset(100, 100),
-					Size = UDim2.fromOffset(360, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.ColorPicker "Accent" {
-						label = "Accent",
-						style = "inline" :: "inline",
-						modes = { "spectrum" :: "spectrum" },
-						value = value.cell,
-						onChange = function(next: Color3)
-							value.changes += 1
-							value.cell:set(next)
-						end,
-						onCommit = function(committed: Color3)
-							table.insert(value.commits, hex(committed))
-						end,
-					},
-				}
-			end,
-			{ frames = 20 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			value.cell = Compose.cell(Color3.fromHSV(0.5, 0.5, 0.5))
+			return Host.Frame "Box" {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromOffset(100, 100),
+				Size = UDim2.fromOffset(360, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				UI.ColorPicker "Accent" {
+					label = "Accent",
+					style = "inline" :: "inline",
+					modes = { "spectrum" :: "spectrum" },
+					value = value.cell,
+					onChange = function(next: Color3)
+						value.changes += 1
+						value.cell:set(next)
+					end,
+					onCommit = function(committed: Color3)
+						table.insert(value.commits, hex(committed))
+					end,
+				},
+			}
+		end, { frames = 20 })
 		local plane = partOf(t.find(stage, "Accent"), "Plane")
 		value.plane = plane
 		value.surface = plane and plane:FindFirstChild("Surface")
@@ -250,22 +240,16 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = {}
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Column" {
-					Position = UDim2.fromOffset(100, 100),
-					Size = UDim2.fromOffset(400, 200),
-					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 24) }) :: unknown,
-					UI.Button "Link" { label = "Read more", underline = "hover" :: "hover", LayoutOrder = 1 },
-					UI.Button "Always" { label = "Terms", underline = "always" :: "always", LayoutOrder = 2 },
-				}
-			end,
-			{ frames = 12 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Column" {
+				Position = UDim2.fromOffset(100, 100),
+				Size = UDim2.fromOffset(400, 200),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 24) }) :: unknown,
+				UI.Button "Link" { label = "Read more", underline = "hover" :: "hover", LayoutOrder = 1 },
+				UI.Button "Always" { label = "Terms", underline = "always" :: "always", LayoutOrder = 2 },
+			}
+		end, { frames = 12 })
 		value.link = t.find(stage, "Link")
 		value.always = t.find(stage, "Always")
 		t.check(
@@ -323,24 +307,17 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = {}
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				value.toggle = Compose.cell(false)
-				return Host.Frame "Column" {
-					Position = UDim2.fromOffset(100, 100),
-					Size = UDim2.fromOffset(360, 300),
-					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
-					UI.Toggle "Toggle" { value = value.toggle, label = "On", LayoutOrder = 1 },
-					UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
-				}
-			end,
-			{ frames = 10 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			value.toggle = Compose.cell(false)
+			return Host.Frame "Column" {
+				Position = UDim2.fromOffset(100, 100),
+				Size = UDim2.fromOffset(360, 300),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
+				UI.Toggle "Toggle" { value = value.toggle, label = "On", LayoutOrder = 1 },
+				UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
+			}
+		end, { frames = 10 })
 		value.indicator = t.find(t.find(stage, "Toggle"), "Indicator")
 		value.stepper = t.find(t.find(stage, "Stepper"), "Increase")
 		t.check(

@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type TextLabelConstructor = typeof(require("@repo/tools/typecheck/aliases").TextLabelConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
@@ -21,8 +28,7 @@ local function radialWorld(spec: any): any
 	input.GetFocusedTextBox = function()
 		return nil
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = controls(
 		Compose,
 		runtime,
@@ -34,11 +40,7 @@ local function radialWorld(spec: any): any
 	)
 	spec.isPresented = spec.isPresented or Compose.cell(true)
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ UI.RadialMenu(spec) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.RadialMenu(spec) })
 	end, engine.new("Folder"))
 	return {
 		engine = engine,
@@ -212,7 +214,7 @@ t.describe("native parity weak3 h2: radial content fit", function()
 		local paint = paintOf(world, "N")
 		local cx, cy = centerOf(world)
 		local sector = geometry.sectors({
-			{ id = "N", label = "N", slot = "N" } :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+			{ id = "N", label = "N", slot = "N" :: "N" } :: RadialItem,
 		}, 0, 360, "compass", 40, 220)[1]
 		t.expect(sector.outer - 1 > paint.outer).toBe(true)
 		local touch: any = {
@@ -258,8 +260,7 @@ t.describe("native parity weak3 h2: virtual monitors saved shelf", function()
 	t.it("unmounts the Catalog grid on the Saved shelf so the table owns the whole feed, and restores it", function()
 		local Facet = require("../src")
 		local engine: any = engines.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -323,17 +324,12 @@ end)
 
 local function keyedRows(throwOn: { [string]: boolean? }): any
 	local engine: any = engines.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local cards = Compose.cell({ { id = "a" }, { id = "b" } })
 	local built: { [string]: number } = {}
 	local live = 0
 	local stop, frame: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.Frame :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-		)({
+		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 			Name = "Rows",
 			Compose.keyed({
 				from = cards,
@@ -350,11 +346,10 @@ local function keyedRows(throwOn: { [string]: boolean? }): any
 					Compose.cleanup(function()
 						live -= 1
 					end)
-					return (
-						(
-							runtime.constructors.TextLabel :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextLabel)
-					)({ Name = "Row-" .. id, Text = id })
+					return ((runtime.constructors.TextLabel :: unknown) :: TextLabelConstructor)({
+						Name = "Row-" .. id,
+						Text = id,
+					})
 				end,
 			}),
 		})
@@ -449,8 +444,7 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 	local function rowsWorld(): (any, { [string]: any })
 		local Facet = require("../src")
 		local engine: any = engines.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
 			return nil
@@ -467,9 +461,7 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 				services = { GuiService = gui, UserInputService = input },
 			} :: any
 		)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local state: { [string]: any } = {
 			open = { a = Compose.cell(nil), b = Compose.cell(nil) },
 			coordinator = Compose.cell(nil),

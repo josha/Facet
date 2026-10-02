@@ -1,10 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -21,8 +26,7 @@ type World = {
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -44,9 +48,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[field] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine)
 	end, root)
@@ -216,7 +218,7 @@ local function resolve(sheet: any, node: any, property: string, pseudo: string?)
 end
 
 local function tableWorld(spec: { [string]: any }, options: { [string]: any }?): (World, any)
-	local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local world = setup(function(UI: FacetControls)
 		local base: { [any]: any } = {
 			from = rows(20),
 			key = "id",
@@ -244,7 +246,7 @@ end
 t.describe("native parity classb collections", function()
 	t.it("collections-29 the cross axis of each row fills the collection window by default", function()
 		for _, direction in { "vertical", "horizontal" } :: { "horizontal" | "vertical" } do
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(30),
 					key = "id",
@@ -278,7 +280,7 @@ t.describe("native parity classb collections", function()
 			end
 			world.stop()
 		end
-		local grid = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local grid = setup(function(UI: FacetControls)
 			return UI.VirtualGrid({
 				from = rows(30),
 				key = "id",
@@ -332,7 +334,7 @@ t.describe("native parity classb collections", function()
 	t.it("collections-54 a destructive tray action and a default tray action resolve different paint", function()
 		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
 			Compose.cell("trailing" :: ("leading" | "trailing")?)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({
 				open = open,
 				content = UI.Text({ text = "Row" }),
@@ -371,7 +373,7 @@ t.describe("native parity classb collections", function()
 			local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
 				Compose.cell(nil :: ("leading" | "trailing")?)
 			local fired = {}
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.RowActions({
 					open = open,
 					content = UI.Button({ Name = "Body", label = "Row" }) :: GuiObject,
@@ -431,7 +433,7 @@ t.describe("native parity classb collections", function()
 
 	t.it("collections-73 a re-grab mid snap-open flight starts from the painted offset and never drifts", function()
 		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> = Compose.cell(nil :: ("leading" | "trailing")?)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({
 				open = open,
 				content = UI.Text({ text = "Row" }),
@@ -482,7 +484,7 @@ t.describe("native parity classb collections", function()
 						fired += 1
 					end,
 				}
-				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world = setup(function(UI: FacetControls)
 					return UI.RowActions({
 						content = UI.Text({ Name = "Body", text = "Row" }),
 						leading = if edge == "leading" then { destructive } else nil,
@@ -767,7 +769,7 @@ t.describe("native parity classb collections", function()
 		"collections-233 a virtual grid clips partial lines, slides on engine scroll without activating and clamps a negative offset",
 		function()
 			local activations = {}
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = rows(200),
 					key = "id",
@@ -807,7 +809,7 @@ t.describe("native parity classb collections", function()
 	)
 
 	t.it("collections-243 a horizontal virtual grid clamps a negative engine offset to its leading line", function()
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.VirtualGrid({
 				from = rows(200),
 				key = "id",
@@ -838,7 +840,7 @@ t.describe("native parity classb collections", function()
 		"collections-254 a horizontal list slides on a sideways engine scroll without activating, and Return or ButtonA activate",
 		function()
 			local activations = {}
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(100),
 					key = "id",
@@ -878,7 +880,7 @@ t.describe("native parity classb collections", function()
 		"collections-264 a vertical list clips partial rows, slides on engine scroll and clamps a negative offset",
 		function()
 			local activations = {}
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(100),
 					key = "id",
@@ -916,7 +918,7 @@ t.describe("native parity classb collections", function()
 		"collections-291 a vertical drag on a row with swipe actions opens nothing and does not activate the row",
 		function()
 			local activations, fired = {}, {}
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(40),
 					key = "id",

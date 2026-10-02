@@ -1,4 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local NavigationFixtures = require("../src/ui/navigation_types")
@@ -50,7 +59,7 @@ local themePackages = require("../tools/lune/theme_packages")
 local ornateGauge = require("../examples/themes/ornate_gauge")
 local customControl = require("../examples/themes/custom_control")
 local fantasyOrnate = require("../examples/themes/fantasy_ornate")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	built: any,
@@ -90,8 +99,7 @@ local helpers: { [string]: boolean } = {
 local function world(module: any, options: Options?): World
 	local settings: Options = options or {}
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	gui.ReducedMotionEnabled = settings.reducedMotion == true
 	local input = engine.new("UserInputService")
@@ -105,9 +113,7 @@ local function world(module: any, options: Options?): World
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(
 				runtime,
 				{
@@ -1099,8 +1105,7 @@ t.describe("native parity reference applications", function()
 			a.stop()
 			b.stop()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local host = engine.new("ScreenGui")
 			local baseline = engine.census()
 			local stop, root: any = runtime.mount(function()
@@ -1109,9 +1114,7 @@ t.describe("native parity reference applications", function()
 						Facet = Facet,
 						Compose = Compose,
 						runtime = runtime,
-						Host = (
-								runtime.constructors :: unknown
-							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						Host = (runtime.constructors :: unknown) :: RobloxHost,
 						UI = Facet.controls(runtime, { types = engine.types } :: any),
 						types = engine.types,
 						viewport = Compose.cell({ width = 1000, height = 720 }),
@@ -1451,8 +1454,7 @@ t.describe("native parity reference applications", function()
 			moving.stop()
 			still.stop()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local host = engine.new("ScreenGui")
 			local baseline = engine.census()
 			local built
@@ -1461,9 +1463,7 @@ t.describe("native parity reference applications", function()
 					Facet = Facet,
 					Compose = Compose,
 					runtime = runtime,
-					Host = (
-							runtime.constructors :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
 					UI = Facet.controls(runtime, { types = engine.types } :: any),
 					types = engine.types,
 					viewport = Compose.cell({ width = 1000, height = 720 }),
@@ -1848,8 +1848,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery examples", function()
 		local function nativeContext(): (any, any, any)
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local viewport = Compose.cell({ width = 1280, height = 720 })
 			local target = engine.new("Folder")
 			local guiService = engine.new("GuiService")
@@ -1857,9 +1856,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = viewport,
 				inputTarget = target,
@@ -1883,11 +1880,9 @@ t.describe("native parity reference applications", function()
 						types = engine.types,
 						viewport = ctx.viewport,
 						guiService = ctx.guiService,
-						motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(
-							nil :: any
-						)),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				built = (require :: any)("../examples/gallery/" .. path .. name).build(ctx)
@@ -2163,8 +2158,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery shell", function()
 		local function shell(demos: { any }, load: (string, string) -> any, native: boolean?): (any, any, () -> ())
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target, gui = engine.new("Folder"), engine.new("GuiService")
 			gui.ReducedMotionEnabled = native == true
 			local input = engine.new("UserInputService")
@@ -2176,9 +2170,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = Compose.cell({ width = 1280, height = 720 }),
 				inputTarget = target,
@@ -2201,11 +2193,9 @@ t.describe("native parity reference applications", function()
 						inputParent = target,
 						services = { GuiService = gui, UserInputService = input },
 						theme = ctx.theme,
-						motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(
-							nil :: any
-						)),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -2276,7 +2266,7 @@ t.describe("native parity reference applications", function()
 					}
 				end
 				return {
-					build = function(page: typeof(require("@repo/examples/types")(nil :: any)))
+					build = function(page: ExampleContext)
 						return {
 							screen = function()
 								return page.Host.Frame({ Name = name })
@@ -2312,7 +2302,7 @@ t.describe("native parity reference applications", function()
 			local pages = {}
 			local ctx, root, stop = shell(two(), function(_, name)
 				return {
-					build = function(page: typeof(require("@repo/examples/types")(nil :: any)))
+					build = function(page: ExampleContext)
 						pages[name] = page
 						return {
 							screen = function()
@@ -2347,7 +2337,7 @@ t.describe("native parity reference applications", function()
 			local tree: any = nil
 			local ctx, root, stop = shell(two(), function(_, name)
 				return {
-					build = function(page: typeof(require("@repo/examples/types")(nil :: any)))
+					build = function(page: ExampleContext)
 						if name ~= "first" then
 							return {
 								screen = function()
@@ -2424,7 +2414,7 @@ t.describe("native parity reference applications", function()
 			t.expect(listed).toBe(true)
 			local ctx, _, stop = shell(two(), function(_, name)
 				return {
-					build = function(page: typeof(require("@repo/examples/types")(nil :: any)))
+					build = function(page: ExampleContext)
 						return {
 							screen = function()
 								return page.Host.Frame({ Name = name })
@@ -2444,8 +2434,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery recipes", function()
 		local function recipe(name: string): (any, any, () -> (), any, any)
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target, gui = engine.new("Folder"), engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -2455,9 +2444,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = Compose.cell({ width = 1280, height = 720 }),
 				inputTarget = target,
@@ -2475,11 +2462,9 @@ t.describe("native parity reference applications", function()
 						viewport = ctx.viewport,
 						guiService = gui,
 						services = { GuiService = gui, UserInputService = input },
-						motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(
-							nil :: any
-						)),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				built = (require :: any)("../examples/gallery/scenarios/" .. name).build(ctx)
@@ -2745,16 +2730,13 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery layouts", function()
 		local function scenario(name: string): (any, any, () -> (), any)
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local viewport = Compose.cell({ width = 1280, height = 720 })
 			local ctx: { [string]: any } = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = viewport,
 				inputTarget = engine.new("Folder"),
@@ -2839,15 +2821,12 @@ t.describe("native parity reference applications", function()
 	t.describe("Outpost terminal", function()
 		local function terminalWorld(options: any): (any, any, () -> ())
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local ctx = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types } :: any),
 				types = engine.types,
 			}
@@ -3111,8 +3090,7 @@ t.describe("native parity reference applications", function()
 		end
 
 		local function controlsFor(engine: any, target: any, extra: { [string]: any }?): (any, any, any, any)
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
 				return nil
@@ -3164,9 +3142,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = viewport,
 				guiService = gui,
@@ -3573,11 +3549,7 @@ t.describe("native parity reference applications", function()
 			local opened = spec.isPresented or Compose.cell(true)
 			spec.isPresented = opened
 			local stop, screen: any = runtime.mount(function()
-				return (
-					(
-						runtime.constructors.ScreenGui :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-				)({ UI.RadialMenu(spec) })
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.RadialMenu(spec) })
 			end, target)
 			return {
 				engine = engine,
@@ -4059,8 +4031,7 @@ t.describe("native parity reference applications", function()
 
 		local function controlNames(): { string }
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local names = {}
 			for name in (Facet.controls(runtime, { types = engine.types } :: any) :: unknown) :: { [string]: unknown } do
 				if not helpers[name] then
@@ -4245,8 +4216,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Menu scenario copy", function()
 		t.it("takes every player-visible string from its exported copy", function()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -4256,9 +4226,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = Compose.cell({ width = 1280, height = 720 }),
 				inputTarget = engine.new("Folder"),
@@ -4353,8 +4321,7 @@ t.describe("native parity reference applications", function()
 					return node
 				end
 			end
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -4372,9 +4339,7 @@ t.describe("native parity reference applications", function()
 				config[key] = value
 			end
 			local UI = Facet.controls(runtime, config :: any)
-			local Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
 			local stop, screen: any = runtime.mount(function()
 				return Host.ScreenGui({ build(UI, Host) })
 			end, engine.new("Folder"))
@@ -4454,8 +4419,7 @@ t.describe("native parity reference applications", function()
 
 		local function mountFailure(build: (any, any) -> any): string?
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local UI = Facet.controls(
 				runtime,
@@ -4463,11 +4427,9 @@ t.describe("native parity reference applications", function()
 			)
 			local ok, message = pcall(function()
 				local stop = runtime.mount(function()
-					return (
-						(
-							runtime.constructors.ScreenGui :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-					)({ build(UI, runtime.constructors) })
+					return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+						build(UI, runtime.constructors),
+					})
 				end, engine.new("Folder"))
 				stop()
 			end)
@@ -4479,23 +4441,18 @@ t.describe("native parity reference applications", function()
 			"resumes following within followThreshold and rejoins the tail after the reader returns to the end",
 			function()
 				local source, status = Compose.cell(records(10)), newStatus()
-				local w = stage(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.VirtualList({
-							from = source,
-							key = id,
-							itemSize = 20,
-							overscan = 0,
-							follow = "end" :: "end",
-							followThreshold = 30,
-							status = status,
-							render = plain(Host),
-						})
-					end
-				)
+				local w = stage(function(UI: FacetControls, Host: RobloxHost)
+					return UI.VirtualList({
+						from = source,
+						key = id,
+						itemSize = 20,
+						overscan = 0,
+						follow = "end" :: "end",
+						followThreshold = 30,
+						status = status,
+						render = plain(Host),
+					})
+				end)
 				local V2 = w.engine.types.Vector2
 				local list = collectionOf(w)
 				list.AbsoluteWindowSize = V2.new(200, 100)
@@ -4515,22 +4472,17 @@ t.describe("native parity reference applications", function()
 				t.expect(list.CanvasPosition.Y).toBe(160)
 				w.stop()
 				local strict, strictStatus = Compose.cell(records(10)), newStatus()
-				local d = stage(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.VirtualList({
-							from = strict,
-							key = id,
-							itemSize = 20,
-							overscan = 0,
-							follow = "end" :: "end",
-							status = strictStatus,
-							render = plain(Host),
-						})
-					end
-				)
+				local d = stage(function(UI: FacetControls, Host: RobloxHost)
+					return UI.VirtualList({
+						from = strict,
+						key = id,
+						itemSize = 20,
+						overscan = 0,
+						follow = "end" :: "end",
+						status = strictStatus,
+						render = plain(Host),
+					})
+				end)
 				local defaultList = collectionOf(d)
 				defaultList.AbsoluteWindowSize = V2.new(200, 100)
 				defaultList.CanvasPosition = V2.new(0, 80)
@@ -4547,26 +4499,20 @@ t.describe("native parity reference applications", function()
 
 		t.it("settles the last page to the end and leaves it only after a decisive drag back", function()
 			local now = 0
-			local w = stage(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.VirtualList({
-						from = records(10),
-						key = id,
-						itemSize = 40,
-						snap = "item" :: "item",
-						reducedMotion = true,
-						render = plain(Host),
-					})
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
+				return UI.VirtualList({
+					from = records(10),
+					key = id,
+					itemSize = 40,
+					snap = "item" :: "item",
+					reducedMotion = true,
+					render = plain(Host),
+				})
+			end, {
+				clock = function()
+					return now
 				end,
-				{
-					clock = function()
-						return now
-					end,
-				}
-			)
+			})
 			local function advance(seconds: number)
 				for _ = 1, math.ceil(seconds * 60) do
 					now += 1 / 60
@@ -4600,27 +4546,21 @@ t.describe("native parity reference applications", function()
 
 		t.it("releases the snap frame hook once settled and writes nothing while idle", function()
 			local now = 0
-			local w = stage(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.VirtualList({
-						from = records(20),
-						key = id,
-						itemSize = 40,
-						snap = "item" :: "item",
-						reducedMotion = false,
-						render = plain(Host),
-					})
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
+				return UI.VirtualList({
+					from = records(20),
+					key = id,
+					itemSize = 40,
+					snap = "item" :: "item",
+					reducedMotion = false,
+					render = plain(Host),
+				})
+			end, {
+				count = true,
+				clock = function()
+					return now
 				end,
-				{
-					count = true,
-					clock = function()
-						return now
-					end,
-				}
-			)
+			})
 			local function advance(seconds: number)
 				for _ = 1, math.ceil(seconds * 60) do
 					now += 1 / 60
@@ -4645,7 +4585,7 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("offsets the header by the reorder gutter and the scroll and matches the row cell span", function()
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(3),
 					key = id,
@@ -4701,7 +4641,7 @@ t.describe("native parity reference applications", function()
 		t.it("removes the header band and sizes a non-scrolling table to its rows when header is false", function()
 			for _, shown in { false, true } do
 				local status = newStatus()
-				local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = stage(function(UI: FacetControls)
 					return UI.Table({
 						from = records(3),
 						key = id,
@@ -4723,7 +4663,7 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("keeps every column when their widths exactly fill the room and collapses one pixel narrower", function()
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(2),
 					key = id,
@@ -4756,7 +4696,7 @@ t.describe("native parity reference applications", function()
 			local activated: { any } = {}
 			local focus: FixtureCollectionTypes.FocusControls<any> = {}
 			local selection = Compose.cell({})
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(5),
 					key = id,
@@ -4793,22 +4733,17 @@ t.describe("native parity reference applications", function()
 			t.expect(selection:peek()).toEqual({ [2] = true })
 			w.stop()
 			local listActivated: { any } = {}
-			local l = stage(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.VirtualList({
-						from = records(5),
-						key = id,
-						itemSize = 20,
-						onActivate = function(_, key, input)
-							table.insert(listActivated, { key = key, input = input })
-						end,
-						render = plain(Host),
-					})
-				end
-			)
+			local l = stage(function(UI: FacetControls, Host: RobloxHost)
+				return UI.VirtualList({
+					from = records(5),
+					key = id,
+					itemSize = 20,
+					onActivate = function(_, key, input)
+						table.insert(listActivated, { key = key, input = input })
+					end,
+					render = plain(Host),
+				})
+			end)
 			local list = collectionOf(l)
 			list.AbsoluteWindowSize = l.engine.types.Vector2.new(200, 100)
 			local hit = rowHit(list, "4")
@@ -4825,7 +4760,7 @@ t.describe("native parity reference applications", function()
 			local ornate = fantasyOrnate.build(Facet.themes)
 			t.expect(ornate.identity ~= nil).toBe(true)
 			for _, package in { false, ornate } do
-				local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = stage(function(UI: FacetControls)
 					return UI.Table({
 						from = records(2),
 						key = id,
@@ -4874,31 +4809,26 @@ t.describe("native parity reference applications", function()
 
 		local function shrinkAtEnd(useTable: boolean)
 			local measured, status = Compose.cell({}), newStatus()
-			local w = stage(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					if useTable then
-						return UI.Table({
-							from = records(20),
-							key = id,
-							itemSize = 40,
-							measured = measured,
-							status = status,
-							columns = { { id = "label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any> },
-						})
-					end
-					return UI.VirtualList({
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
+				if useTable then
+					return UI.Table({
 						from = records(20),
 						key = id,
 						itemSize = 40,
 						measured = measured,
 						status = status,
-						render = plain(Host),
+						columns = { { id = "label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any> },
 					})
 				end
-			)
+				return UI.VirtualList({
+					from = records(20),
+					key = id,
+					itemSize = 40,
+					measured = measured,
+					status = status,
+					render = plain(Host),
+				})
+			end)
 			local list = collectionOf(w)
 			list.AbsoluteWindowSize = w.engine.types.Vector2.new(200, 100)
 			list.CanvasPosition = w.engine.types.Vector2.new(0, 700)
@@ -4931,22 +4861,17 @@ t.describe("native parity reference applications", function()
 
 		t.it("keeps the grid anchor item at the top when the column count and a line extent change", function()
 			local columns, measured, controls = Compose.cell(4), Compose.cell({}), {} :: { [string]: any }
-			local w = stage(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.VirtualGrid({
-						from = records(100),
-						key = id,
-						itemSize = 20,
-						columns = columns,
-						measured = measured,
-						controls = controls,
-						render = plain(Host),
-					})
-				end
-			)
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
+				return UI.VirtualGrid({
+					from = records(100),
+					key = id,
+					itemSize = 20,
+					columns = columns,
+					measured = measured,
+					controls = controls,
+					render = plain(Host),
+				})
+			end)
 			local grid = collectionOf(w)
 			grid.AbsoluteWindowSize = w.engine.types.Vector2.new(200, 100)
 			grid.CanvasPosition = w.engine.types.Vector2.new(0, 200)
@@ -4962,7 +4887,7 @@ t.describe("native parity reference applications", function()
 
 		t.it("gives grid cells a focus readable that follows the focus ring", function()
 			local focus: FixtureCollectionTypes.FocusControls<any> = {}
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(12),
 					key = id,
@@ -4990,27 +4915,19 @@ t.describe("native parity reference applications", function()
 		t.it("activates a vertical or horizontal grid cell from pointer and touch with its key", function()
 			for _, direction in { "vertical", "horizontal" } :: { "horizontal" | "vertical" } do
 				local activated: { any } = {}
-				local w = stage(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.VirtualGrid({
-							from = records(12),
-							key = id,
-							itemSize = 20,
-							columns = 3,
-							direction = direction :: "horizontal" | "vertical",
-							onActivate = function(item, key, input, clickCount)
-								table.insert(
-									activated,
-									{ item = item, key = key, input = input, clickCount = clickCount }
-								)
-							end,
-							render = plain(Host),
-						})
-					end
-				)
+				local w = stage(function(UI: FacetControls, Host: RobloxHost)
+					return UI.VirtualGrid({
+						from = records(12),
+						key = id,
+						itemSize = 20,
+						columns = 3,
+						direction = direction :: "horizontal" | "vertical",
+						onActivate = function(item, key, input, clickCount)
+							table.insert(activated, { item = item, key = key, input = input, clickCount = clickCount })
+						end,
+						render = plain(Host),
+					})
+				end)
 				local E = w.engine.types.Enum
 				local grid = collectionOf(w)
 				grid.AbsoluteWindowSize = w.engine.types.Vector2.new(300, 300)
@@ -5031,7 +4948,7 @@ t.describe("native parity reference applications", function()
 
 		t.it("steps grid focus cell by cell with Left and Right and stops at the line edge", function()
 			local focus: FixtureCollectionTypes.FocusControls<any> = {}
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(12),
 					key = id,
@@ -5058,7 +4975,7 @@ t.describe("native parity reference applications", function()
 
 		t.it("transposes horizontal grid navigation and scrolls a focused cell into view on X", function()
 			local focus: FixtureCollectionTypes.FocusControls<any> = {}
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(30),
 					key = id,
@@ -5087,7 +5004,7 @@ t.describe("native parity reference applications", function()
 
 		t.it("steps a horizontal list with Left and Right, ignores Up and Down and keeps focus visible on X", function()
 			local focus: FixtureCollectionTypes.FocusControls<any> = {}
-			local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = records(20),
 					key = id,
@@ -5129,23 +5046,18 @@ t.describe("native parity reference applications", function()
 
 		t.it("activates a horizontal list item from pointer and touch with its key", function()
 			local activated: { any } = {}
-			local w = stage(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.VirtualList({
-						from = records(10),
-						key = id,
-						itemSize = 20,
-						direction = "horizontal" :: "horizontal",
-						onActivate = function(item, key, input)
-							table.insert(activated, { item = item, key = key, input = input })
-						end,
-						render = plain(Host),
-					})
-				end
-			)
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
+				return UI.VirtualList({
+					from = records(10),
+					key = id,
+					itemSize = 20,
+					direction = "horizontal" :: "horizontal",
+					onActivate = function(item, key, input)
+						table.insert(activated, { item = item, key = key, input = input })
+					end,
+					render = plain(Host),
+				})
+			end)
 			local E = w.engine.types.Enum
 			local list = collectionOf(w)
 			list.AbsoluteWindowSize = w.engine.types.Vector2.new(100, 50)
@@ -5161,7 +5073,7 @@ t.describe("native parity reference applications", function()
 		t.it("wraps arrow and D-pad focus at both ends only when wrapFocus is set", function()
 			for _, wrap in { true, false } do
 				local focus: FixtureCollectionTypes.FocusControls<any> = {}
-				local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = stage(function(UI: FacetControls)
 					return UI.VirtualList({
 						from = records(5),
 						key = id,
@@ -5187,7 +5099,7 @@ t.describe("native parity reference applications", function()
 				w.stop()
 			end
 			local gridFocus: any = {}
-			local g = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local g = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(12),
 					key = id,
@@ -5212,7 +5124,7 @@ t.describe("native parity reference applications", function()
 			t.expect(gridFocus.current:peek()).toBe(8)
 			g.stop()
 			local rowFocus: any = {}
-			local h = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local h = stage(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = records(5),
 					key = id,
@@ -5239,7 +5151,7 @@ t.describe("native parity reference applications", function()
 			function()
 				for _, wrap in { true, false } do
 					local focus: FixtureCollectionTypes.FocusControls<any> = {}
-					local w = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					local w = stage(function(UI: FacetControls)
 						return UI.VirtualList({
 							from = records(5),
 							key = id,
@@ -5259,7 +5171,7 @@ t.describe("native parity reference applications", function()
 					w.stop()
 				end
 				local skipFocus: any = {}
-				local s = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local s = stage(function(UI: FacetControls)
 					return UI.VirtualList({
 						from = records(5),
 						key = id,
@@ -5279,7 +5191,7 @@ t.describe("native parity reference applications", function()
 				t.expect(s.gui.SelectedObject.Text).toBe("2")
 				s.stop()
 				for _, auto in { true, false } do
-					local a = stage(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					local a = stage(function(UI: FacetControls)
 						return UI.VirtualList({
 							from = records(5),
 							key = id,
@@ -5314,8 +5226,7 @@ t.describe("native parity reference applications", function()
 
 		local function world(build: (any, any) -> any, options: { [string]: any }?): StackWorld
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -5335,9 +5246,7 @@ t.describe("native parity reference applications", function()
 			local target = engine.new("Folder")
 			local baseline = engine.census()
 			local UI = Facet.controls(runtime, config :: any)
-			local Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
 			local stop, screen: any = runtime.mount(function()
 				return Host.ScreenGui({ build(UI, Host) })
 			end, target)
@@ -5391,22 +5300,17 @@ t.describe("native parity reference applications", function()
 		t.it("fades a pushed page in over its transition and still fades it under reduced motion", function()
 			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 			local counts = { built = 0, disposed = 0 }
-			local w = world(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.NavigationStack({
-						path = path,
-						transition = { seconds = 0.2 },
-						root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
-						destinations = {
-							detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
-							more = { title = "More", content = counted(Host, "MoreBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
-						},
-					})
-				end
-			)
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
+				return UI.NavigationStack({
+					path = path,
+					transition = { seconds = 0.2 },
+					root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					destinations = {
+						detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+						more = { title = "More", content = counted(Host, "MoreBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					},
+				})
+			end)
 			local root = find(w.screen, "@root")
 			t.expect(root.ClassName).toBe("Frame")
 			w.engine.heartbeat.fire(0.3)
@@ -5452,21 +5356,16 @@ t.describe("native parity reference applications", function()
 		t.it("leaves one opaque interactive root page after rapid pushes and pops under a fade", function()
 			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 			local counts = { built = 0, disposed = 0 }
-			local w = world(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.NavigationStack({
-						path = path,
-						transition = { seconds = 0.2 },
-						root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
-						destinations = {
-							detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
-						},
-					})
-				end
-			)
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
+				return UI.NavigationStack({
+					path = path,
+					transition = { seconds = 0.2 },
+					root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					destinations = {
+						detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					},
+				})
+			end)
 			local stack = find(w.screen, "NavigationStack")
 			local root = find(w.screen, "@root")
 			w.engine.heartbeat.fire(0.3)
@@ -5495,34 +5394,29 @@ t.describe("native parity reference applications", function()
 
 		t.it("restores the remembered page focus when surviving chrome holds selection during a pop", function()
 			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
-			local w = world(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({
-						UI.Button "Chrome" { label = "Chrome" } :: unknown,
-						UI.NavigationStack({
-							path = path,
-							root = {
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					UI.Button "Chrome" { label = "Chrome" } :: unknown,
+					UI.NavigationStack({
+						path = path,
+						root = {
+							content = function(): Instance
+								return Host.Frame({
+									UI.Button "First" { label = "First" } :: unknown,
+									UI.Button "RootAction" { label = "Root" },
+								})
+							end,
+						} :: NavigationFixtures.NavigationDestination<any>,
+						destinations = {
+							detail = {
 								content = function(): Instance
-									return Host.Frame({
-										UI.Button "First" { label = "First" } :: unknown,
-										UI.Button "RootAction" { label = "Root" },
-									})
+									return UI.Button "DetailAction" { label = "Detail" }
 								end,
 							} :: NavigationFixtures.NavigationDestination<any>,
-							destinations = {
-								detail = {
-									content = function(): Instance
-										return UI.Button "DetailAction" { label = "Detail" }
-									end,
-								} :: NavigationFixtures.NavigationDestination<any>,
-							},
-						}),
-					})
-				end
-			)
+						},
+					}),
+				})
+			end)
 			local chrome, action = find(w.screen, "Chrome"), find(w.screen, "RootAction")
 			w.gui.SelectedObject = action
 			path:set({ { id = "detail" } })
@@ -5560,31 +5454,26 @@ t.describe("native parity reference applications", function()
 			function()
 				local path, enabled =
 					Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> }), Compose.cell(true)
-				local w = world(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return UI.NavigationStack({
-							path = path,
-							root = {
+				local w = world(function(UI: FacetControls, Host: RobloxHost)
+					return UI.NavigationStack({
+						path = path,
+						root = {
+							content = function(): Instance
+								return Host.Frame({
+									UI.Button "First" { label = "First" } :: unknown,
+									UI.Button "Remember" { label = "Remember", enabled = enabled },
+								})
+							end,
+						} :: NavigationFixtures.NavigationDestination<any>,
+						destinations = {
+							detail = {
 								content = function(): Instance
-									return Host.Frame({
-										UI.Button "First" { label = "First" } :: unknown,
-										UI.Button "Remember" { label = "Remember", enabled = enabled },
-									})
+									return UI.Button "DetailAction" { label = "Detail" }
 								end,
 							} :: NavigationFixtures.NavigationDestination<any>,
-							destinations = {
-								detail = {
-									content = function(): Instance
-										return UI.Button "DetailAction" { label = "Detail" }
-									end,
-								} :: NavigationFixtures.NavigationDestination<any>,
-							},
-						})
-					end
-				)
+						},
+					})
+				end)
 				local remember = find(w.screen, "Remember")
 				w.gui.SelectedObject = remember
 				path:set({ { id = "detail" } })
@@ -5614,17 +5503,12 @@ t.describe("native parity reference applications", function()
 			local function attempt(mutate: (spec: { [any]: any }) -> ()): (string?, number)
 				local built = 0
 				local engine: any = engineLib.new()
-				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-					Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local gui = engine.new("GuiService")
 				local UI = Facet.controls(runtime, { types = engine.types, services = { GuiService = gui } } :: any)
 				local function content()
 					built += 1
-					return (
-						(
-							runtime.constructors.Frame :: unknown
-						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-					)({})
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 				end
 				local spec: { [any]: any } = {
 					path = Compose.cell({}),
@@ -5697,22 +5581,16 @@ t.describe("native parity reference applications", function()
 			local counts = { built = 0, disposed = 0 }
 			local theme = Compose.cell(Facet.themes.neutralPackage())
 			local viewport = Compose.cell({ width = 1280, height = 720 })
-			local w = world(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.NavigationStack({
-						path = path,
-						transition = { seconds = 0.2 },
-						root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
-						destinations = {
-							detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
-						},
-					})
-				end,
-				{ theme = theme, viewport = viewport }
-			)
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
+				return UI.NavigationStack({
+					path = path,
+					transition = { seconds = 0.2 },
+					root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					destinations = {
+						detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					},
+				})
+			end, { theme = theme, viewport = viewport })
 			local Enum, V2 = w.engine.types.Enum, w.engine.types.Vector2
 			path:set({ { id = "detail" } })
 			w.engine.heartbeat.fire(0.3)
@@ -5741,7 +5619,7 @@ t.describe("native parity reference applications", function()
 
 		t.it("releases an expanded collapsible surface across open close cycles and on unmount", function()
 			local expanded, image = Compose.cell(false), Compose.cell("rbxassetid://1")
-			local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local w = world(function(UI: FacetControls)
 				return UI.CollapsibleView "Summary" {
 					label = "Summary",
 					image = image,

@@ -1,12 +1,15 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Alerts and confirmations",
 	ledgerRows = {},
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -92,7 +95,7 @@ return {
 							onActivate = function()
 								status:set("Previous save kept.")
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+						} :: AlertAction,
 						{
 							id = "Replace",
 							label = "Replace save",
@@ -100,7 +103,7 @@ return {
 							onActivate = function()
 								status:set("Checkpoint replaced.")
 							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+						} :: AlertAction,
 					},
 				},
 			}

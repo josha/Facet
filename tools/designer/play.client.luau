@@ -1,13 +1,15 @@
 --!strict
 
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+
 game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
 
 local storage = game:GetService("ReplicatedStorage")
 local Facet = require(storage.Facet)
 local designer = require(storage.FacetDesignModules.designer)
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime()
-local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 local stopBackground = runtime.mount(function()
 	return Host.ScreenGui "FacetDesignBackground" {

@@ -1,5 +1,8 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
+
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type Column = {
@@ -25,7 +28,7 @@ local TRACKS = {
 	{ id = "apex", name = "Apex Bloom", artist = "Nine Volt", length = 176, rating = 3 },
 }
 function example.build(ctx: any)
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 	local UDim2, Enum = ctx.types.UDim2, ctx.types.Enum
 	local built: any = {}
 
@@ -35,9 +38,7 @@ function example.build(ctx: any)
 	local baseRows = Compose.cell(table.clone(TRACKS))
 	local filterText = Compose.cell("")
 	local nowPlaying = Compose.cell(nil :: string?)
-	local sortOrder = (function(
-		value: { column: string, direction: "ascending" | "descending" }?
-	): typeof(require("@repo/tools/typecheck/example_shapes").sortCell(nil))
+	local sortOrder = (function(value: { column: string, direction: "ascending" | "descending" }?): SortCell
 		return Compose.cell(value)
 	end)(nil)
 	local columnWidths = Compose.cell({})

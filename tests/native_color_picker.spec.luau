@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
@@ -6,7 +11,7 @@ local Facet = require("../src")
 local Roblox = require("@lune/roblox")
 local engineLib = require("./lib/native_engine")
 local styleRules = require("./lib/style_rules")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local expect = t.expect
 local Color3 = Roblox.Color3
 local V2 = Roblox.Vector2.new
@@ -62,8 +67,7 @@ local function world(spec: any, options: any?): any
 	local o = options or {}
 	local engine: any = engineLib.new()
 	local E = engine.types.Enum
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	if o.tenFoot then
 		gui.IsTenFootInterface = function()
@@ -100,9 +104,7 @@ local function world(spec: any, options: any?): any
 		{ types = types, services = { GuiService = gui, UserInputService = proxy }, guiService = gui, theme = o.theme } :: any
 	)
 	local target = engine.new("Folder")
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({
 			Host.Frame "Col" {
@@ -1022,10 +1024,7 @@ t.describe("native ColorPicker composed in a screen", function()
 			{ color = Color3.fromRGB(0, 170, 140), label = "Teal" },
 		} :: { any })
 		local w = world({}, {
-			build = function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
+			build = function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame "Pickers" {
 					UI.ColorPicker("P")({
 						label = "Trim",

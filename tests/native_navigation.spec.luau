@@ -1,4 +1,10 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local FixtureEngineTypes = require("../src/ui/engine_types")
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureRadialTypes = require("../src/ui/radial_types")
@@ -52,8 +58,7 @@ local function setup(
 	input.GetFocusedTextBox = function()
 		return nil
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI = controls(Compose, runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
@@ -63,11 +68,9 @@ local function setup(
 	})
 	local target = engine.new("Folder")
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ build(UI, (runtime.constructors :: unknown) :: Shared.Host, engine, gui) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+			build(UI, (runtime.constructors :: unknown) :: Shared.Host, engine, gui),
+		})
 	end, target)
 	return {
 		engine = engine,
@@ -90,7 +93,7 @@ end
 t.describe("native navigation controls", function()
 	t.it("selects enabled picker values once and honors changing veto", function()
 		local selected, changes = Compose.cell("one"), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker({
 				selected = selected,
 				style = "segmented" :: "segmented",
@@ -119,34 +122,29 @@ t.describe("native navigation controls", function()
 
 	t.it("shows a labelled segmented picker beside its label and a labelled list above it", function()
 		local selected = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Picker "Segments" {
-						label = "Mode",
-						LayoutOrder = 3,
-						selected = selected,
-						style = "segmented" :: "segmented",
-						options = {
-							{ value = "one", label = "One", icon = "edit" } :: Navigation.PickerOption<string>,
-							{ value = "two", label = "Two", icon = "edit" } :: Navigation.PickerOption<string>,
-						},
-					} :: unknown,
-					UI.Picker "List" {
-						label = "Group",
-						selected = selected,
-						style = "inline" :: "inline",
-						options = {
-							{ value = "one", label = "One", icon = "edit" } :: Navigation.PickerOption<string>,
-							{ value = "two", label = "Two", icon = "edit" } :: Navigation.PickerOption<string>,
-						},
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Picker "Segments" {
+					label = "Mode",
+					LayoutOrder = 3,
+					selected = selected,
+					style = "segmented" :: "segmented",
+					options = {
+						{ value = "one", label = "One", icon = "edit" } :: Navigation.PickerOption<string>,
+						{ value = "two", label = "Two", icon = "edit" } :: Navigation.PickerOption<string>,
 					},
-				})
-			end
-		)
+				} :: unknown,
+				UI.Picker "List" {
+					label = "Group",
+					selected = selected,
+					style = "inline" :: "inline",
+					options = {
+						{ value = "one", label = "One", icon = "edit" } :: Navigation.PickerOption<string>,
+						{ value = "two", label = "Two", icon = "edit" } :: Navigation.PickerOption<string>,
+					},
+				},
+			})
+		end)
 		local segments = find(world.screen, "Segments")
 		t.expect(segments.LayoutOrder).toBe(3)
 		t.expect(segments:FindFirstChild("Label").Text).toBe("Mode")
@@ -176,33 +174,28 @@ t.describe("native navigation controls", function()
 
 	t.it("reads a bound iconOnly, drops an empty badge and paints only the underline indicator", function()
 		local selected = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Picker "Plain" {
-						selected = selected,
-						style = "segmented" :: "segmented",
-						iconOnly = Compose.cell(false),
-						options = {
-							{ value = "one", label = "One", badge = "" } :: Navigation.PickerOption<string>,
-							{ value = "two", label = "Two", badge = 3 } :: Navigation.PickerOption<string>,
-						},
-					} :: unknown,
-					UI.Picker "Underlined" {
-						selected = selected,
-						style = "segmented" :: "segmented",
-						indicator = "underline" :: "underline",
-						options = {
-							{ value = "one", label = "One" } :: Navigation.PickerOption<string>,
-							{ value = "two", label = "Two" } :: Navigation.PickerOption<string>,
-						},
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Picker "Plain" {
+					selected = selected,
+					style = "segmented" :: "segmented",
+					iconOnly = Compose.cell(false),
+					options = {
+						{ value = "one", label = "One", badge = "" } :: Navigation.PickerOption<string>,
+						{ value = "two", label = "Two", badge = 3 } :: Navigation.PickerOption<string>,
 					},
-				})
-			end
-		)
+				} :: unknown,
+				UI.Picker "Underlined" {
+					selected = selected,
+					style = "segmented" :: "segmented",
+					indicator = "underline" :: "underline",
+					options = {
+						{ value = "one", label = "One" } :: Navigation.PickerOption<string>,
+						{ value = "two", label = "Two" } :: Navigation.PickerOption<string>,
+					},
+				},
+			})
+		end)
 		local plain, underlined = find(world.screen, "Plain"), find(world.screen, "Underlined")
 		t.expect(find(plain, "one"):GetAttribute("label")).toBe("One")
 		t.expect(find(plain, "two"):GetAttribute("label")).toBe("Two (3)")
@@ -215,7 +208,7 @@ t.describe("native navigation controls", function()
 
 	t.it("retains model values and updates picker font bindings", function()
 		local selected, textSize = Compose.cell("one"), Compose.cell(16)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker({
 				selected = selected,
 				textSize = textSize,
@@ -230,7 +223,7 @@ t.describe("native navigation controls", function()
 
 	t.it("mounts menus in the native layer, traverses submenus and closes after action", function()
 		local opened, count = Compose.cell(false), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = opened,
 				items = {
@@ -265,36 +258,29 @@ t.describe("native navigation controls", function()
 	t.it("traps all modal selection directions and restores surviving focus on Back", function()
 		local presented = Compose.cell(false)
 		local cancelled = 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				_,
-				gui
-			)
-				local button = UI.Button "Original" { label = "Original" }
-				gui.SelectedObject = button
-				return Host.Frame({
-					button :: unknown,
-					UI.Alert({
-						isPresented = presented,
-						title = "Confirm",
-						actions = {
-							{ id = "Disabled", label = "No", enabled = false } :: FixtureNavigationTypes.AlertAction<any>,
-							{
-								id = "Cancel",
-								label = "Cancel",
-								role = "cancel" :: "cancel",
-								onActivate = function()
-									cancelled += 1
-								end,
-							} :: FixtureNavigationTypes.AlertAction<any>,
-							{ id = "Accept", label = "Accept" } :: FixtureNavigationTypes.AlertAction<any>,
-						},
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, _, gui)
+			local button = UI.Button "Original" { label = "Original" }
+			gui.SelectedObject = button
+			return Host.Frame({
+				button :: unknown,
+				UI.Alert({
+					isPresented = presented,
+					title = "Confirm",
+					actions = {
+						{ id = "Disabled", label = "No", enabled = false } :: FixtureNavigationTypes.AlertAction<any>,
+						{
+							id = "Cancel",
+							label = "Cancel",
+							role = "cancel" :: "cancel",
+							onActivate = function()
+								cancelled += 1
+							end,
+						} :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Accept", label = "Accept" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
+				}),
+			})
+		end)
 		presented:set(true)
 		local panel = find(world.screen, "AlertPanel")
 		for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
@@ -314,7 +300,7 @@ t.describe("native navigation controls", function()
 
 	t.it("captures alert payload and closes before invoking its action", function()
 		local item, result = Compose.cell({ id = "payload" } :: { id: string }?), nil
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				item = item,
 				title = function(payload)
@@ -341,25 +327,20 @@ t.describe("native navigation controls", function()
 	t.it("owns disclosure content only while expanded", function()
 		for _, appearance in { "plain", "contained", "divided" } :: { "contained" | "divided" | "plain" } do
 			local expanded, built, disposed = Compose.cell(false), 0, 0
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.DisclosureGroup({
-						expanded = expanded,
-						label = "Details",
-						appearance = appearance :: "contained" | "divided" | "plain",
-						content = function(): Instance
-							built += 1
-							Compose.cleanup(function()
-								disposed += 1
-							end)
-							return Host.Frame "Details" { LayoutOrder = -10 }
-						end,
-					})
-				end
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return UI.DisclosureGroup({
+					expanded = expanded,
+					label = "Details",
+					appearance = appearance :: "contained" | "divided" | "plain",
+					content = function(): Instance
+						built += 1
+						Compose.cleanup(function()
+							disposed += 1
+						end)
+						return Host.Frame "Details" { LayoutOrder = -10 }
+					end,
+				})
+			end)
 			local header = find(world.screen, "Header")
 			t.expect(built).toBe(0)
 			local function checkOrder()
@@ -398,25 +379,20 @@ t.describe("native navigation controls", function()
 	t.it("retains visited tab state across selection and declaration reorders", function()
 		local selected, built, disposed = Compose.cell("one"), 0, 0
 		local tabs
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local function content()
-					built += 1
-					Compose.cleanup(function()
-						disposed += 1
-					end)
-					return Host.Frame "ContentState" {}
-				end
-				tabs = Compose.cell({
-					{ id = "one", label = "One", content = content } :: FixtureNavigationTypes.Tab,
-					{ id = "two", label = "Two", content = content } :: FixtureNavigationTypes.Tab,
-				})
-				return UI.TabView({ selection = selected, tabs = tabs })
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local function content()
+				built += 1
+				Compose.cleanup(function()
+					disposed += 1
+				end)
+				return Host.Frame "ContentState" {}
 			end
-		)
+			tabs = Compose.cell({
+				{ id = "one", label = "One", content = content } :: FixtureNavigationTypes.Tab,
+				{ id = "two", label = "Two", content = content } :: FixtureNavigationTypes.Tab,
+			})
+			return UI.TabView({ selection = selected, tabs = tabs })
+		end)
 		selected:set("two")
 		selected:set("one")
 		local old = tabs:peek()
@@ -430,27 +406,22 @@ t.describe("native navigation controls", function()
 
 	t.it("retains covered navigation destinations and disposes popped pages", function()
 		local path, built, disposed = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> }), 0, 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local function content(entry: any): Instance
-					built += 1
-					Compose.cleanup(function()
-						disposed += 1
-					end)
-					return Host.Frame({ Name = if entry then "Detail" else "Root" })
-				end
-				return UI.NavigationStack({
-					path = path,
-					root = { title = "Root", content = content } :: NavigationFixtures.NavigationDestination<any>,
-					destinations = {
-						detail = { title = "Detail", content = content } :: NavigationFixtures.NavigationDestination<any>,
-					},
-				})
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local function content(entry: any): Instance
+				built += 1
+				Compose.cleanup(function()
+					disposed += 1
+				end)
+				return Host.Frame({ Name = if entry then "Detail" else "Root" })
 			end
-		)
+			return UI.NavigationStack({
+				path = path,
+				root = { title = "Root", content = content } :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					detail = { title = "Detail", content = content } :: NavigationFixtures.NavigationDestination<any>,
+				},
+			})
+		end)
 		path:set({ { id = "detail" } })
 		t.expect(built).toBe(2)
 		t.expect(disposed).toBe(0)
@@ -464,21 +435,16 @@ t.describe("native navigation controls", function()
 	t.it("a destination given as an Instance survives a pop and shows on the next push", function()
 		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 		local page: any
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				page = Host.Frame({ Name = "Shared" })
-				return UI.NavigationStack({
-					path = path,
-					root = { title = "Root", content = Host.Frame({ Name = "Root" }) } :: NavigationFixtures.NavigationDestination<any>,
-					destinations = {
-						detail = { title = "Detail", content = page } :: NavigationFixtures.NavigationDestination<any>,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			page = Host.Frame({ Name = "Shared" })
+			return UI.NavigationStack({
+				path = path,
+				root = { title = "Root", content = Host.Frame({ Name = "Root" }) } :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					detail = { title = "Detail", content = page } :: NavigationFixtures.NavigationDestination<any>,
+				},
+			})
+		end)
 		for _ = 1, 2 do
 			path:set({ { id = "detail" } })
 			t.expect(page.isDestroyed()).toBe(false)
@@ -491,20 +457,15 @@ t.describe("native navigation controls", function()
 
 	t.it("uses native page layout for model navigation and engine swipes", function()
 		local selection = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.PageView({
-					selection = selection,
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.PageView({
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		find(world.screen, "Next").Activated.fire()
 		t.expect(selection:peek()).toBe("two")
 		local layout = find(world.screen, "PagesLayout")
@@ -516,23 +477,17 @@ t.describe("native navigation controls", function()
 
 	t.it("hugs its tallest page and centres the footer under it when its height is automatic", function()
 		local selection = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return UI.PageView({
-					Size = engine.types.UDim2.new(1, 0, 0, 0),
-					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-					selection = selection,
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame "BodyOne" {} } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return UI.PageView({
+				Size = engine.types.UDim2.new(1, 0, 0, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame "BodyOne" {} } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local V = world.engine.types.Vector2
 		find(world.screen, "BodyOne").AbsoluteSize = V.new(300, 180)
 		find(world.screen, "BodyTwo").AbsoluteSize = V.new(300, 212.5)
@@ -546,20 +501,15 @@ t.describe("native navigation controls", function()
 
 	t.it("eases between pages with Cubic Out, and a fast swipe with Quint Out, never overshooting", function()
 		local selection = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.PageView({
-					selection = selection,
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.PageView({
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local Enum = world.engine.types.Enum
 		local layout = find(world.screen, "PagesLayout")
 		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Cubic)
@@ -584,20 +534,15 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("snaps the showing page into place without motion when the pages frame resizes", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.PageView({
-					selection = Compose.cell("two"),
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.PageView({
+				selection = Compose.cell("two"),
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local layout = find(world.screen, "PagesLayout")
 		local writes = {}
 		layout:GetPropertyChangedSignal("Animated"):Connect(function()
@@ -611,21 +556,16 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("pages in a clipped frame with no scroll bar and shows one dot per page", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.PageView({
-					selection = Compose.cell("one"),
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "three", title = "Three", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.PageView({
+				selection = Compose.cell("one"),
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "three", title = "Three", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local pages = find(world.screen, "Pages")
 		t.expect(pages.ClassName).toBe("Frame")
 		t.expect(pages.ClipsDescendants).toBe(true)
@@ -641,20 +581,15 @@ t.describe("native navigation controls", function()
 
 	t.it("pages by direction from a control inside the showing page", function()
 		local selection = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.PageView({
-					selection = selection,
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame({ UI.Button "PlayOne" { label = "One" } }) } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame({ UI.Button "PlayTwo" { label = "Two" } }) } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.PageView({
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({ UI.Button "PlayOne" { label = "One" } }) } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame({ UI.Button "PlayTwo" { label = "Two" } }) } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local Enum = world.engine.types.Enum
 		local play = find(world.screen, "PlayOne")
 		world.gui.SelectedObject = play
@@ -672,7 +607,7 @@ t.describe("native navigation controls", function()
 
 	t.it("validates combo custom commits and cancels editable text", function()
 		local value, text, changes = Compose.cell("a"), Compose.cell("Alpha"), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.ComboBox({
 				value = value,
 				text = text,
@@ -704,7 +639,7 @@ t.describe("native navigation controls", function()
 
 	t.it("keeps combo suggestions beside a single line and preserves native typing until Down", function()
 		local value, text, changes, validations = Compose.cell("a"), Compose.cell("Alpha"), 0, 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, engine)
+		local world = setup(function(UI: FacetControls, _, engine)
 			return UI.ComboBox "SearchCombo" {
 				Size = engine.types.UDim2.fromOffset(320, 44),
 				value = value,
@@ -781,7 +716,7 @@ t.describe("native navigation controls", function()
 
 	t.it("closes combo suggestions outside the field and honors custom focus-loss policy", function()
 		local value, text, enabled = Compose.cell("a"), Compose.cell("Alpha"), Compose.cell(true)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.ComboBox({
 				value = value,
 				text = text,
@@ -810,7 +745,7 @@ t.describe("native navigation controls", function()
 		world.stop()
 
 		local enabledCommit = Compose.cell(true)
-		local committing = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local committing = setup(function(UI: FacetControls)
 			return UI.ComboBox({
 				value = value,
 				text = text,
@@ -840,46 +775,41 @@ t.describe("native navigation controls", function()
 	t.it("reopens combo suggestions after selected-result alerts finish their exit and the editor refocuses", function()
 		local value, text, presented = Compose.cell(""), Compose.cell(""), Compose.cell(false)
 		local changes = 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.ComboBox "Search" {
-						value = value,
-						text = text,
-						options = function(use: Use): { Navigation.PickerOption<string> }
-							local query = string.lower(use(text))
-							local options: { Navigation.PickerOption<string> } = {}
-							for _, option in
-								{ { value = "circuit", label = "Circuit" }, { value = "forest", label = "Forest" } }
-							do
-								if string.find(string.lower(option.label), query, 1, true) then
-									table.insert(options, option)
-								end
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.ComboBox "Search" {
+					value = value,
+					text = text,
+					options = function(use: Use): { Navigation.PickerOption<string> }
+						local query = string.lower(use(text))
+						local options: { Navigation.PickerOption<string> } = {}
+						for _, option in
+							{ { value = "circuit", label = "Circuit" }, { value = "forest", label = "Forest" } }
+						do
+							if string.find(string.lower(option.label), query, 1, true) then
+								table.insert(options, option)
 							end
-							return options
-						end,
-						acceptCustom = function()
-							return true
-						end,
-						onChange = function()
-							changes += 1
-							presented:set(true)
-						end,
-					} :: unknown,
-					UI.Alert "Result" {
-						isPresented = presented,
-						title = "Selected game",
-						transition = { seconds = 0.1 },
-						actions = {
-							{ id = "CloseResult", label = "Close", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-						},
+						end
+						return options
+					end,
+					acceptCustom = function()
+						return true
+					end,
+					onChange = function()
+						changes += 1
+						presented:set(true)
+					end,
+				} :: unknown,
+				UI.Alert "Result" {
+					isPresented = presented,
+					title = "Selected game",
+					transition = { seconds = 0.1 },
+					actions = {
+						{ id = "CloseResult", label = "Close", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
-				})
-			end
-		)
+				},
+			})
+		end)
 		local editor = find(world.screen, "Editor")
 		world.input.GetFocusedTextBox = function()
 			return if editor:IsFocused() then editor else nil
@@ -913,22 +843,17 @@ t.describe("native navigation controls", function()
 
 	t.it("snaps native sheet drags to declared detents and respects dismissal policy", function()
 		local opened, detent = Compose.cell(true), Compose.cell("large")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Sheet({
-					isPresented = opened,
-					detent = detent,
-					title = "Sheet",
-					content = function(): Instance
-						return Host.Frame "Body" {}
-					end,
-					interactiveDismissDisabled = true,
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Sheet({
+				isPresented = opened,
+				detent = detent,
+				title = "Sheet",
+				content = function(): Instance
+					return Host.Frame "Body" {}
+				end,
+				interactiveDismissDisabled = true,
+			})
+		end)
 		local drag = find(world.screen, "UIDragDetector")
 		drag.DragStart.fire(world.engine.types.Vector2.new(0, 0))
 		drag.DragContinue.fire(world.engine.types.Vector2.new(0, 400))
@@ -941,7 +866,7 @@ t.describe("native navigation controls", function()
 
 	t.it("navigates radial branches and applies action completion", function()
 		local opened, count = Compose.cell(true), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = opened,
 				items = {
@@ -972,23 +897,18 @@ t.describe("native navigation controls", function()
 	end)
 	t.it("blocks background shortcuts until the top modal leaves", function()
 		local presented, count = Compose.cell(false), 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button "Background" {
-						label = "Background",
-						shortcut = { keyCode = "K" },
-						onActivate = function()
-							count += 1
-						end,
-					} :: unknown,
-					UI.Alert({ isPresented = presented, title = "Modal" }),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button "Background" {
+					label = "Background",
+					shortcut = { keyCode = "K" },
+					onActivate = function()
+						count += 1
+					end,
+				} :: unknown,
+				UI.Alert({ isPresented = presented, title = "Modal" }),
+			})
+		end)
 		local shortcut = find(world.screen, "Shortcut")
 		shortcut.Pressed.fire()
 		t.expect(count).toBe(1)
@@ -1005,7 +925,7 @@ t.describe("native navigation controls", function()
 
 	t.it("lets Back dismiss a disabled cancel action without invoking it", function()
 		local presented, count = Compose.cell(true), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = presented,
 				actions = {
@@ -1030,7 +950,7 @@ t.describe("native navigation controls", function()
 
 	t.it("runs a cancelAction action on Back and refuses a non-table transition", function()
 		local presented, stayed = Compose.cell(true), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = presented,
 				title = "Leave?",
@@ -1052,7 +972,7 @@ t.describe("native navigation controls", function()
 		t.expect(presented:peek()).toBe(false)
 		world.stop()
 		t.expect(function()
-			setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			setup(function(UI: FacetControls)
 				return UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Leave?",
@@ -1064,7 +984,7 @@ t.describe("native navigation controls", function()
 
 	t.it("reveals a disclosure at once under reduced motion, with no frame of travel", function()
 		local expanded = Compose.cell(false)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.DisclosureGroup({
 				expanded = expanded,
 				label = "Details",
@@ -1084,15 +1004,10 @@ t.describe("native navigation controls", function()
 	t.it("a disclosure given an Instance as content shows it again after a collapse", function()
 		local expanded = Compose.cell(true)
 		local inside: any
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				inside = Host.TextLabel "Inside" { Text = "Inside" }
-				return UI.DisclosureGroup({ expanded = expanded, label = "Details", content = inside })
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			inside = Host.TextLabel "Inside" { Text = "Inside" }
+			return UI.DisclosureGroup({ expanded = expanded, label = "Details", content = inside })
+		end)
 		world.gui.ReducedMotionEnabled = true
 		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
 		expanded:set(false)
@@ -1106,15 +1021,10 @@ t.describe("native navigation controls", function()
 	t.it("a collapsible view given an Instance as content shows it again after a collapse", function()
 		local expanded = Compose.cell(true)
 		local inside: any
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				inside = Host.TextLabel "Inside" { Text = "Inside" }
-				return UI.CollapsibleView({ expanded = expanded, label = "Summary", content = inside })
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			inside = Host.TextLabel "Inside" { Text = "Inside" }
+			return UI.CollapsibleView({ expanded = expanded, label = "Summary", content = inside })
+		end)
 		world.gui.ReducedMotionEnabled = true
 		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
 		expanded:set(false)
@@ -1127,7 +1037,7 @@ t.describe("native navigation controls", function()
 
 	t.it("returns disclosure focus before unmounting its content", function()
 		local expanded = Compose.cell(true)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.DisclosureGroup({
 				expanded = expanded,
 				label = "Details",
@@ -1144,7 +1054,7 @@ t.describe("native navigation controls", function()
 
 	t.it("draws the ancestor column of a cascade as menu rows in item order", function()
 		local presented, follow = Compose.cell(true), Compose.cell(true)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = presented,
 				items = {
@@ -1191,7 +1101,7 @@ t.describe("native navigation controls", function()
 
 	t.it("adapts an open menu to a compact sheet without losing its branch", function()
 		local presented = Compose.cell(true)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = presented,
 				items = {
@@ -1217,7 +1127,7 @@ t.describe("native navigation controls", function()
 
 	t.it("keeps checked menu state and required radio values while honoring dismissal", function()
 		local presented, checked, selected = Compose.cell(true), Compose.cell(false), Compose.cell("a")
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = presented,
 				items = {
@@ -1240,35 +1150,30 @@ t.describe("native navigation controls", function()
 	t.it("rehomes tab accessories with native measured space and owner cleanup", function()
 		local selected, retired, built = Compose.cell("one"), 0, 0
 		local preference, placement = cells.sidebar("automatic"), cells.placement("automatic")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local function accessory(): Instance
-					built += 1
-					Compose.cleanup(function()
-						retired += 1
-					end)
-					return Host.Frame({})
-				end
-				return UI.TabView({
-					selection = selected,
-					style = "sidebarAdaptable" :: "sidebarAdaptable",
-					sidebarPreference = preference,
-					placement = placement,
-					tabs = {
-						{
-							id = "one",
-							content = function(): Instance
-								return Host.Frame({})
-							end,
-						} :: FixtureNavigationTypes.Tab,
-					},
-					accessories = { head = accessory, foot = accessory, trailing = accessory, aboveBar = accessory },
-				})
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local function accessory(): Instance
+				built += 1
+				Compose.cleanup(function()
+					retired += 1
+				end)
+				return Host.Frame({})
 			end
-		)
+			return UI.TabView({
+				selection = selected,
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				sidebarPreference = preference,
+				placement = placement,
+				tabs = {
+					{
+						id = "one",
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+				},
+				accessories = { head = accessory, foot = accessory, trailing = accessory, aboveBar = accessory },
+			})
+		end)
 		local root = find(world.screen, "TabView")
 		t.expect(find(root, "Tabs").ZIndex > find(root, "Content").ZIndex).toBe(true)
 		root.AbsoluteSize = world.engine.types.Vector2.new(1200, 800)
@@ -1300,32 +1205,27 @@ t.describe("native navigation controls", function()
 		local selected, placement =
 			Compose.cell("one"),
 			Compose.cell("none" :: "automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = selected,
-					style = "sidebarAdaptable" :: "sidebarAdaptable",
-					placement = placement,
-					tabs = {
-						{
-							id = "one",
-							content = function(): Instance
-								return Host.Frame({})
-							end,
-						} :: FixtureNavigationTypes.Tab,
-						{
-							id = "two",
-							content = function(): Instance
-								return Host.Frame({})
-							end,
-						} :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selected,
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				placement = placement,
+				tabs = {
+					{
+						id = "one",
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+					{
+						id = "two",
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local root = find(world.screen, "TabView")
 		root.AbsoluteSize = world.engine.types.Vector2.new(844, 332)
 		local T = world.engine.types
@@ -1340,24 +1240,19 @@ t.describe("native navigation controls", function()
 
 	t.it("removes dynamically deleted tab owners and preserves the selected survivor", function()
 		local selection, tabs, disposed = Compose.cell("one"), nil, 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local function content()
-					Compose.cleanup(function()
-						disposed += 1
-					end)
-					return Host.Frame({})
-				end
-				tabs = Compose.cell({
-					{ id = "one", content = content } :: FixtureNavigationTypes.Tab,
-					{ id = "two", content = content } :: FixtureNavigationTypes.Tab,
-				})
-				return UI.TabView({ selection = selection, tabs = tabs })
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local function content()
+				Compose.cleanup(function()
+					disposed += 1
+				end)
+				return Host.Frame({})
 			end
-		)
+			tabs = Compose.cell({
+				{ id = "one", content = content } :: FixtureNavigationTypes.Tab,
+				{ id = "two", content = content } :: FixtureNavigationTypes.Tab,
+			})
+			return UI.TabView({ selection = selection, tabs = tabs })
+		end)
 		selection:set("two")
 		selection:set("one")
 		tabs:set({ tabs:peek()[1] })
@@ -1367,16 +1262,11 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("shows button help after a pointer rests on it and never on touch", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Screen" {
-					UI.Button "Plus" { label = "+", help = "Posts this avatar" },
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Screen" {
+				UI.Button "Plus" { label = "+", help = "Posts this avatar" },
+			}
+		end)
 		local plus = find(world.screen, "Plus")
 		local Enum = world.engine.types.Enum
 		world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
@@ -1398,23 +1288,18 @@ t.describe("native navigation controls", function()
 
 	t.it("takes selection into a modal only for players navigating by selection", function()
 		local presented = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Screen" {
-					UI.Button "Opener" { label = "Open" } :: unknown,
-					UI.Alert {
-						isPresented = presented,
-						title = "Leave race?",
-						actions = {
-							{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-						},
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Screen" {
+				UI.Button "Opener" { label = "Open" } :: unknown,
+				UI.Alert {
+					isPresented = presented,
+					title = "Leave race?",
+					actions = {
+						{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
-				}
-			end
-		)
+				},
+			}
+		end)
 		presented:set(true)
 		t.expect(world.gui.SelectedObject).toBe(nil)
 		presented:set(false)
@@ -1432,7 +1317,7 @@ t.describe("native navigation controls", function()
 
 	t.it("darkens modal scrims as the player lowers background transparency", function()
 		local presented = Compose.cell(true)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = presented,
 				title = "Leave race?",
@@ -1448,7 +1333,7 @@ t.describe("native navigation controls", function()
 
 	t.it("shows a checkmark on the marked menu item only", function()
 		local opened, current = Compose.cell(false), Compose.cell("a")
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			local function item(id: string): Navigation.MenuItem<string>
 				return {
 					id = id,
@@ -1477,7 +1362,7 @@ t.describe("native navigation controls", function()
 
 	t.it("keeps a transparent menu catcher transparent at every background preference", function()
 		local opened = Compose.cell(false)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = opened,
 				items = {
@@ -1498,7 +1383,7 @@ t.describe("native navigation controls", function()
 
 	t.it("hands selection to the shown tab panel and restores it on return", function()
 		local selection = Compose.cell("one")
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.TabView({
 				selection = selection,
 				tabs = {
@@ -1518,30 +1403,25 @@ t.describe("native navigation controls", function()
 
 	t.it("collapses a nested tab strip into one menu row when its region is short", function()
 		local outer, inner = Compose.cell("a"), Compose.cell("x")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView {
-					selection = outer,
-					tabs = {
-						{
-							id = "a",
-							content = function(): Instance
-								return UI.TabView "Inner" {
-									selection = inner,
-									tabs = {
-										{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} } :: FixtureNavigationTypes.Tab,
-										{ id = "y", label = "Permissions", content = Host.Frame "Y" {} } :: FixtureNavigationTypes.Tab,
-									},
-								}
-							end,
-						} :: FixtureNavigationTypes.Tab,
-					},
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView {
+				selection = outer,
+				tabs = {
+					{
+						id = "a",
+						content = function(): Instance
+							return UI.TabView "Inner" {
+								selection = inner,
+								tabs = {
+									{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} } :: FixtureNavigationTypes.Tab,
+									{ id = "y", label = "Permissions", content = Host.Frame "Y" {} } :: FixtureNavigationTypes.Tab,
+								},
+							}
+						end,
+					} :: FixtureNavigationTypes.Tab,
+				},
+			}
+		end)
 		local nested = find(world.screen, "Inner")
 		local strip = nested:FindFirstChild("Tabs")
 		nested.AbsoluteSize = world.engine.types.Vector2.new(705, 200)
@@ -1561,20 +1441,15 @@ t.describe("native navigation controls", function()
 
 	t.it("pauses repeating progress motion while its retained tab is hidden", function()
 		local selection = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView {
-					selection = selection,
-					tabs = {
-						{ id = "one", content = UI.ProgressView "Spinner" { presentation = "spinner" :: "spinner" } } :: FixtureNavigationTypes.Tab,
-						{ id = "two", content = Host.Frame "Two" {} } :: FixtureNavigationTypes.Tab,
-					},
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView {
+				selection = selection,
+				tabs = {
+					{ id = "one", content = UI.ProgressView "Spinner" { presentation = "spinner" :: "spinner" } } :: FixtureNavigationTypes.Tab,
+					{ id = "two", content = Host.Frame "Two" {} } :: FixtureNavigationTypes.Tab,
+				},
+			}
+		end)
 		local spinner = find(world.screen, "Spinner")
 		local function snapshot()
 			local values = {}
@@ -1616,41 +1491,36 @@ t.describe("native navigation controls", function()
 
 	t.it("hides a callout while its retained tab is away and shows it again on return", function()
 		local selection, events = Compose.cell("one"), {}
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView {
-					selection = selection,
-					tabs = {
-						{
-							id = "one",
-							content = function(): Instance
-								local anchor = UI.Button "Anchor" { label = "Anchor" }
-								return Host.Frame "One" {
-									anchor :: unknown,
-									UI.Callout {
-										anchor = anchor :: GuiObject,
-										content = function(): Instance
-											return Host.TextLabel "Tip" {}
-										end,
-										onShow = function()
-											table.insert(events, "show")
-										end,
-										onHide = function(reason: "hidden" | "retired")
-											table.insert(events, "hide:" .. reason)
-										end,
-										onRetire = function() end,
-									},
-								}
-							end,
-						} :: FixtureNavigationTypes.Tab,
-						{ id = "two", content = UI.Button "TwoAction" { label = "Two" } } :: FixtureNavigationTypes.Tab,
-					},
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView {
+				selection = selection,
+				tabs = {
+					{
+						id = "one",
+						content = function(): Instance
+							local anchor = UI.Button "Anchor" { label = "Anchor" }
+							return Host.Frame "One" {
+								anchor :: unknown,
+								UI.Callout {
+									anchor = anchor :: GuiObject,
+									content = function(): Instance
+										return Host.TextLabel "Tip" {}
+									end,
+									onShow = function()
+										table.insert(events, "show")
+									end,
+									onHide = function(reason: "hidden" | "retired")
+										table.insert(events, "hide:" .. reason)
+									end,
+									onRetire = function() end,
+								},
+							}
+						end,
+					} :: FixtureNavigationTypes.Tab,
+					{ id = "two", content = UI.Button "TwoAction" { label = "Two" } } :: FixtureNavigationTypes.Tab,
+				},
+			}
+		end)
 		t.expect(find(world.screen, "Tip") ~= nil).toBe(true)
 		selection:set("two")
 		t.expect(find(world.screen, "Tip")).toBe(nil)
@@ -1662,39 +1532,34 @@ t.describe("native navigation controls", function()
 
 	t.it("queues callouts by priority and retires once without writing model facts", function()
 		local seen, used, retired = Compose.cell(false), Compose.cell(false), {}
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						seen = seen,
-						priority = 1,
-						content = function(): Instance
-							return Host.TextLabel "FirstTip" {}
-						end,
-						onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
-							table.insert(retired, "low:" .. reason)
-						end,
-					}),
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						featureUsed = used,
-						priority = 2,
-						content = function(): Instance
-							return Host.TextLabel "PriorityTip" {}
-						end,
-						onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
-							table.insert(retired, "high:" .. reason)
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					seen = seen,
+					priority = 1,
+					content = function(): Instance
+						return Host.TextLabel "FirstTip" {}
+					end,
+					onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
+						table.insert(retired, "low:" .. reason)
+					end,
+				}),
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					featureUsed = used,
+					priority = 2,
+					content = function(): Instance
+						return Host.TextLabel "PriorityTip" {}
+					end,
+					onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
+						table.insert(retired, "high:" .. reason)
+					end,
+				}),
+			})
+		end)
 		t.expect(find(world.screen, "FirstTip")).toBe(nil)
 		t.expect(find(world.screen, "PriorityTip") ~= nil).toBe(true)
 		used:set(true)
@@ -1710,23 +1575,18 @@ t.describe("native navigation controls", function()
 
 	t.it("keeps sheet content in a native flex remainder and explicit close operable", function()
 		local presented, detent = Compose.cell(true), Compose.cell("medium")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Sheet({
-					isPresented = presented,
-					detent = detent,
-					title = "Details",
-					closeButton = true,
-					interactiveDismissDisabled = true,
-					content = function(): Instance
-						return Host.ScrollingFrame "DetailBody" {}
-					end,
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Sheet({
+				isPresented = presented,
+				detent = detent,
+				title = "Details",
+				closeButton = true,
+				interactiveDismissDisabled = true,
+				content = function(): Instance
+					return Host.ScrollingFrame "DetailBody" {}
+				end,
+			})
+		end)
 		t.expect(find(world.screen, "DetailBody").Parent.Name).toBe("SheetFlow")
 		local body = find(world.screen, "SheetContent")
 		t.expect(body.ClassName).toBe("ScrollingFrame")
@@ -1751,28 +1611,23 @@ t.describe("native navigation controls", function()
 	end)
 	t.it("contains failed alert factories and accepts a later valid presentation", function()
 		local item, disposed = Compose.cell(nil :: { id: string }?), 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Alert({
-					item = item,
-					title = function(value)
-						return value.id
-					end,
-					content = function(value): Instance
-						Compose.cleanup(function()
-							disposed += 1
-						end)
-						if value.id == "bad" then
-							error("invalid content")
-						end
-						return Host.Frame "Recovered" {}
-					end,
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Alert({
+				item = item,
+				title = function(value)
+					return value.id
+				end,
+				content = function(value): Instance
+					Compose.cleanup(function()
+						disposed += 1
+					end)
+					if value.id == "bad" then
+						error("invalid content")
+					end
+					return Host.Frame "Recovered" {}
+				end,
+			})
+		end)
 		item:set({ id = "bad" })
 		t.expect(item:peek()).toBe(nil)
 		t.expect(disposed).toBe(1)
@@ -1783,7 +1638,7 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("wraps alert actions and bounds long message scrolling to native measurements", function()
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = Compose.cell(true),
 				message = string.rep("Long message ", 100),
@@ -1809,7 +1664,7 @@ t.describe("native navigation controls", function()
 		package.chrome = package.chrome or {}
 		assert(package.chrome).panel =
 			{ kind = "native" :: "native", contentInsets = { top = 18, bottom = 18, left = 18, right = 18 } }
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = Compose.cell(true),
 				message = string.rep("Long message ", 100),
@@ -1837,7 +1692,7 @@ t.describe("native navigation controls", function()
 		package.chrome = package.chrome or {}
 		assert(package.chrome).control =
 			{ kind = "fill" :: "fill", contentInsets = { top = 10, bottom = 10, left = 12, right = 12 } }
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker({
 				style = "segmented" :: "segmented",
 				selected = Compose.cell("a"),
@@ -1864,7 +1719,7 @@ t.describe("native navigation controls", function()
 
 	t.it("keeps split primary activation separate from touch long-press alternatives", function()
 		local primary, alternative = 0, 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, engine)
+		local world = setup(function(UI: FacetControls, _, engine)
 			return UI.SplitButton({
 				Size = engine.types.UDim2.fromOffset(148, 44),
 				AutomaticSize = engine.types.Enum.AutomaticSize.None,
@@ -1903,7 +1758,7 @@ t.describe("native navigation controls", function()
 
 	t.it("opens searchable picker content only when presented and commits filtered results", function()
 		local selection, query, opened = Compose.cell("a"), Compose.cell(""), Compose.cell(false)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker({
 				selected = selection,
 				query = query,
@@ -1926,30 +1781,25 @@ t.describe("native navigation controls", function()
 	end)
 	t.it("sizes the navigation bar title by the stack's width class", function()
 		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.NavigationStack({
-					path = path,
-					root = {
-						title = "Garage",
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.NavigationStack({
+				path = path,
+				root = {
+					title = "Garage",
+					content = function(): Instance
+						return Host.Frame({})
+					end,
+				} :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					detail = {
+						title = "Engine",
 						content = function(): Instance
 							return Host.Frame({})
 						end,
 					} :: NavigationFixtures.NavigationDestination<any>,
-					destinations = {
-						detail = {
-							title = "Engine",
-							content = function(): Instance
-								return Host.Frame({})
-							end,
-						} :: NavigationFixtures.NavigationDestination<any>,
-					},
-				})
-			end
-		)
+				},
+			})
+		end)
 		local bar = find(world.screen, "NavigationBar")
 		local title = find(bar, "Title")
 		bar.AbsoluteSize = world.engine.types.Vector2.new(390, 44)
@@ -1965,7 +1815,7 @@ t.describe("native navigation controls", function()
 	end)
 	t.it("restores surviving navigation focus and moves paging focus into the visible page", function()
 		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.NavigationStack({
 				path = path,
 				root = {
@@ -1991,7 +1841,7 @@ t.describe("native navigation controls", function()
 		t.expect(world.gui.SelectedObject.Name).toBe("RootAction")
 		world.stop()
 		local selection = Compose.cell("one")
-		local pager = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local pager = setup(function(UI: FacetControls)
 			return UI.PageView({
 				selection = selection,
 				pages = {
@@ -2010,7 +1860,7 @@ t.describe("native navigation controls", function()
 			Compose.cell(true), Compose.cell({ { id = "branch", label = "Branch", children = {
 				{ id = "leaf", label = "Leaf", onSelect = function() end },
 			} } } :: { Navigation.MenuItem<any> })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({ isPresented = shown, items = items })
 		end)
 		local panel = find(world.screen, "MenuPanel")
@@ -2039,50 +1889,44 @@ t.describe("native navigation controls", function()
 		local value, axis, badge = Compose.cell("a"), cells.axis("x"), Compose.cell(1)
 		local position, visible, interactable = Compose.cell(24), Compose.cell(true), Compose.cell(true)
 		local reference, references, enters = nil, 0, 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return Host.Frame({
-					UI.Picker("Auto")({
-						Position = function(use: Use)
-							return engine.types.UDim2.fromOffset(use(position), 70)
-						end,
-						AnchorPoint = engine.types.Vector2.new(0.5, 0),
-						Size = engine.types.UDim2.fromOffset(240, 44),
-						AutomaticSize = engine.types.Enum.AutomaticSize.None,
-						LayoutOrder = 7,
-						Visible = visible,
-						Interactable = interactable,
-						Attributes = { role = "choice" :: "choice" } :: FixtureEngineTypes.Attributes,
-						ref = function(node)
-							reference = node
-							references += 1
-						end,
-						[Compose.event("MouseEnter") :: number | typeof(Compose.event(""))] = (function()
-							enters += 1
-						end) :: unknown,
-						Host.UICorner "AuthoredCorner" {} :: unknown,
-						selected = value,
-						options = {
-							{ value = "a", label = "Alpha" } :: Navigation.PickerOption<string>,
-							{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
-						},
-					}) :: unknown,
-					UI.Picker "Segments" {
-						style = "segmented" :: "segmented",
-						axis = axis,
-						selected = value,
-						options = {
-							{ value = "a", label = "Alpha", badge = badge } :: Navigation.PickerOption<string>,
-							{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
-						},
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			return Host.Frame({
+				UI.Picker("Auto")({
+					Position = function(use: Use)
+						return engine.types.UDim2.fromOffset(use(position), 70)
+					end,
+					AnchorPoint = engine.types.Vector2.new(0.5, 0),
+					Size = engine.types.UDim2.fromOffset(240, 44),
+					AutomaticSize = engine.types.Enum.AutomaticSize.None,
+					LayoutOrder = 7,
+					Visible = visible,
+					Interactable = interactable,
+					Attributes = { role = "choice" :: "choice" } :: FixtureEngineTypes.Attributes,
+					ref = function(node)
+						reference = node
+						references += 1
+					end,
+					[Compose.event("MouseEnter") :: number | typeof(Compose.event(""))] = (function()
+						enters += 1
+					end) :: unknown,
+					Host.UICorner "AuthoredCorner" {} :: unknown,
+					selected = value,
+					options = {
+						{ value = "a", label = "Alpha" } :: Navigation.PickerOption<string>,
+						{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
 					},
-				})
-			end
-		)
+				}) :: unknown,
+				UI.Picker "Segments" {
+					style = "segmented" :: "segmented",
+					axis = axis,
+					selected = value,
+					options = {
+						{ value = "a", label = "Alpha", badge = badge } :: Navigation.PickerOption<string>,
+						{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
+					},
+				},
+			})
+		end)
 		local automatic = find(world.screen, "Auto")
 		local decoration = find(automatic, "AuthoredCorner")
 		t.expect(reference).toBe(automatic)
@@ -2142,34 +1986,28 @@ t.describe("native navigation controls", function()
 	t.it("bounds menu picker triggers to authored widths without losing their full label", function()
 		local selected = Compose.cell("hud")
 		local sizing
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				sizing = Compose.cell(engine.types.Enum.AutomaticSize.None)
-				return Host.Frame({
-					UI.Picker "Bounded" {
-						style = "menu" :: "menu",
-						Size = engine.types.UDim2.new(1, -160, 0, 44),
-						selected = selected,
-						options = {
-							{ value = "hud", label = "Screen-anchored HUD with a long title" } :: Navigation.PickerOption<string>,
-							{ value = "other", label = "Another destination with a long title" } :: Navigation.PickerOption<string>,
-						},
-					} :: unknown,
-					UI.Menu "AdaptiveHeight" {
-						Size = engine.types.UDim2.new(1, 0, 0, 0),
-						AutomaticSize = sizing,
-						label = "Menu",
-						items = {
-							{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-						},
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			sizing = Compose.cell(engine.types.Enum.AutomaticSize.None)
+			return Host.Frame({
+				UI.Picker "Bounded" {
+					style = "menu" :: "menu",
+					Size = engine.types.UDim2.new(1, -160, 0, 44),
+					selected = selected,
+					options = {
+						{ value = "hud", label = "Screen-anchored HUD with a long title" } :: Navigation.PickerOption<string>,
+						{ value = "other", label = "Another destination with a long title" } :: Navigation.PickerOption<string>,
 					},
-				})
-			end
-		)
+				} :: unknown,
+				UI.Menu "AdaptiveHeight" {
+					Size = engine.types.UDim2.new(1, 0, 0, 0),
+					AutomaticSize = sizing,
+					label = "Menu",
+					items = {
+						{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+					},
+				},
+			})
+		end)
 		local bounded = find(world.screen, "Bounded")
 		local trigger = find(bounded, "Trigger")
 		t.expect(bounded.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
@@ -2199,35 +2037,30 @@ t.describe("native navigation controls", function()
 	t.it("keeps plain picker segments native while retaining live description sources", function()
 		local selected, description = Compose.cell("a"), Compose.cell("")
 		local options = Compose.cell({ { value = "a", label = "Alpha" } })
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Picker "Plain" {
-						style = "segmented" :: "segmented",
-						selected = selected,
-						options = {
-							{ value = "a", label = "Alpha" } :: Navigation.PickerOption<string>,
-							{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
-						},
-					} :: unknown,
-					UI.Picker "ReadableDescription" {
-						style = "segmented" :: "segmented",
-						selected = selected,
-						options = {
-							{ value = "a", label = "Alpha", description = description } :: Navigation.PickerOption<string>,
-						},
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Picker "Plain" {
+					style = "segmented" :: "segmented",
+					selected = selected,
+					options = {
+						{ value = "a", label = "Alpha" } :: Navigation.PickerOption<string>,
+						{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
 					},
-					UI.Picker "ReadableOptions" {
-						style = "segmented" :: "segmented",
-						selected = selected,
-						options = options,
+				} :: unknown,
+				UI.Picker "ReadableDescription" {
+					style = "segmented" :: "segmented",
+					selected = selected,
+					options = {
+						{ value = "a", label = "Alpha", description = description } :: Navigation.PickerOption<string>,
 					},
-				})
-			end
-		)
+				},
+				UI.Picker "ReadableOptions" {
+					style = "segmented" :: "segmented",
+					selected = selected,
+					options = options,
+				},
+			})
+		end)
 		local plain = find(find(world.screen, "Plain"), "a")
 		t.expect(plain.ClassName).toBe("TextButton")
 		t.expect(plain.Text).toBe("Alpha")
@@ -2253,37 +2086,32 @@ t.describe("native navigation controls", function()
 
 	t.it("quarantines invalid paths and contains destination faults while preserving Back", function()
 		local path, disposed = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> }), 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.NavigationStack({
-					path = path,
-					root = {
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.NavigationStack({
+				path = path,
+				root = {
+					content = function(): Instance
+						return UI.Button "RootAction" { label = "Root" }
+					end,
+				} :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					good = {
 						content = function(): Instance
-							return UI.Button "RootAction" { label = "Root" }
+							return UI.Button "Good" { label = "Good" }
 						end,
 					} :: NavigationFixtures.NavigationDestination<any>,
-					destinations = {
-						good = {
-							content = function(): Instance
-								return UI.Button "Good" { label = "Good" }
-							end,
-						} :: NavigationFixtures.NavigationDestination<any>,
-						bad = {
-							content = function()
-								Compose.cleanup(function()
-									disposed += 1
-								end)
-								Host.Frame({})
-								error("failed page")
-							end,
-						} :: NavigationFixtures.NavigationDestination<any>,
-					},
-				})
-			end
-		)
+					bad = {
+						content = function()
+							Compose.cleanup(function()
+								disposed += 1
+							end)
+							Host.Frame({})
+							error("failed page")
+						end,
+					} :: NavigationFixtures.NavigationDestination<any>,
+				},
+			})
+		end)
 		local root = find(world.screen, "@root")
 		t.expect(find(root, "Destination").Position.Y.Offset).toBe(0)
 		path:set({ { id = "good" } })
@@ -2304,7 +2132,7 @@ t.describe("native navigation controls", function()
 		local outer, inner =
 			Compose.cell({ { id = "child" } } :: { NavigationFixtures.NavigationEntry<any> }),
 			Compose.cell({ { id = "detail" } } :: { NavigationFixtures.NavigationEntry<any> })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.NavigationStack({
 				path = outer,
 				root = {
@@ -2355,35 +2183,28 @@ t.describe("native navigation controls", function()
 
 	t.it("keeps callouts nonmodal, fits their plate and observes nonconsuming tap away", function()
 		local shown, retired, presses = Compose.cell(true), nil, 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine,
-				gui
-			)
-				local anchor = UI.Button "Anchor" {
-					label = "Anchor",
-					onActivate = function()
-						presses += 1
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui)
+			local anchor = UI.Button "Anchor" {
+				label = "Anchor",
+				onActivate = function()
+					presses += 1
+				end,
+			}
+			gui.SelectedObject = anchor
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					isPresented = shown,
+					onRetire = function(reason)
+						retired = reason
 					end,
-				}
-				gui.SelectedObject = anchor
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						isPresented = shown,
-						onRetire = function(reason)
-							retired = reason
-						end,
-						content = function(): Instance
-							return UI.Button({ label = "Tip" })
-						end,
-					}),
-				})
-			end
-		)
+					content = function(): Instance
+						return UI.Button({ label = "Tip" })
+					end,
+				}),
+			})
+		end)
 		local V = world.engine.types.Vector2
 		world.screen.AbsoluteSize = V.new(320, 400)
 		local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
@@ -2407,30 +2228,25 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("paints a presented modal above a visible callout", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						isPresented = Compose.cell(true),
-						onRetire = function() end,
-						content = function(): Instance
-							return UI.Text({ text = "Tip" })
-						end,
-					}),
-					UI.Alert({
-						isPresented = Compose.cell(true),
-						title = "Leave?",
-						actions = { { id = "Stay", label = "Stay" } :: FixtureNavigationTypes.AlertAction<any> },
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					isPresented = Compose.cell(true),
+					onRetire = function() end,
+					content = function(): Instance
+						return UI.Text({ text = "Tip" })
+					end,
+				}),
+				UI.Alert({
+					isPresented = Compose.cell(true),
+					title = "Leave?",
+					actions = { { id = "Stay", label = "Stay" } :: FixtureNavigationTypes.AlertAction<any> },
+				}),
+			})
+		end)
 		world.settle()
 		local callout, modal = find(world.screen, "CalloutPanel"), find(world.screen, "AlertModal")
 		t.expect(callout ~= nil and modal ~= nil).toBe(true)
@@ -2447,8 +2263,7 @@ t.describe("native navigation controls", function()
 		input.GetFocusedTextBox = function()
 			return nil
 		end
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local overlay = engine.new("Frame")
 		local UI = controls(Compose, runtime, {
 			types = engine.types,
@@ -2457,16 +2272,8 @@ t.describe("native navigation controls", function()
 		})
 		local stop, screen: any = runtime.mount(function()
 			local anchor = UI.Button "Anchor" { label = "Anchor" }
-			return (
-				(
-					runtime.constructors.ScreenGui :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-			)({
-				(
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({
+			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+				((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 					anchor :: unknown,
 					UI.Callout({
 						anchor = anchor :: GuiObject,
@@ -2505,7 +2312,7 @@ t.describe("native navigation controls", function()
 
 	t.it("retargets native sheet motion and honors live reduced motion without losing content", function()
 		local selected, shown = Compose.cell("medium"), Compose.cell(true)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Sheet({
 				detent = selected,
 				isPresented = shown,
@@ -2531,7 +2338,7 @@ t.describe("native navigation controls", function()
 
 	t.it("fades native tab layers with Compose and reveals an offscreen selected tab", function()
 		local selected = Compose.cell("a")
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.TabView({
 				selection = selected,
 				placement = "topBar" :: "topBar",
@@ -2575,33 +2382,28 @@ t.describe("native navigation controls", function()
 	t.it("clears bound alert errors and turns native page animation off for reduced motion", function()
 		local shown, errorValue: FixtureComposeTypes.Cell<string?>, page =
 			Compose.cell(true), cells.optionalString("Oops"), Compose.cell("a")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Alert({ isPresented = shown, error = errorValue }) :: unknown,
-					UI.PageView({
-						selection = page,
-						pages = {
-							{
-								id = "a",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{
-								id = "b",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-						},
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Alert({ isPresented = shown, error = errorValue }) :: unknown,
+				UI.PageView({
+					selection = page,
+					pages = {
+						{
+							id = "a",
+							content = function(): Instance
+								return Host.Frame({})
+							end,
+						} :: FixtureNavigationTypes.Tab,
+						{
+							id = "b",
+							content = function(): Instance
+								return Host.Frame({})
+							end,
+						} :: FixtureNavigationTypes.Tab,
+					},
+				}),
+			})
+		end)
 		find(world.screen, "ModalBack").Pressed.fire()
 		t.expect(errorValue:peek()).toBe(nil)
 		world.gui.ReducedMotionEnabled = true
@@ -2610,25 +2412,20 @@ t.describe("native navigation controls", function()
 	end)
 	t.it("lets one arrow from the anchor reach a callout plate and B dismiss it back to the anchor", function()
 		local reasons = {}
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						edge = "bottom" :: "bottom",
-						title = "New",
-						onRetire = function(reason)
-							table.insert(reasons, reason)
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					edge = "bottom" :: "bottom",
+					title = "New",
+					onRetire = function(reason)
+						table.insert(reasons, reason)
+					end,
+				}),
+			})
+		end)
 		local V = world.engine.types.Vector2
 		world.screen.AbsoluteSize = V.new(960, 720)
 		local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
@@ -2664,24 +2461,19 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("restores only the anchor link the callout set and leaves an app's own link", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Button "Own" { label = "Own" },
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						edge = "bottom" :: "bottom",
-						title = "New",
-						onRetire = function() end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Button "Own" { label = "Own" },
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					edge = "bottom" :: "bottom",
+					title = "New",
+					onRetire = function() end,
+				}),
+			})
+		end)
 		local V = world.engine.types.Vector2
 		world.screen.AbsoluteSize = V.new(960, 720)
 		local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
@@ -2711,31 +2503,25 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("keeps measured callout arrows outside automatic content bounds", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						edge = "top" :: "top",
-						onRetire = function() end,
-						content = function(): Instance
-							return Host.TextLabel "TipContent" {
-								Text = "Start from a prompt, then edit it before you send.",
-								TextWrapped = true,
-								Size = engine.types.UDim2.new(1, 0, 0, 0),
-								AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-							}
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					edge = "top" :: "top",
+					onRetire = function() end,
+					content = function(): Instance
+						return Host.TextLabel "TipContent" {
+							Text = "Start from a prompt, then edit it before you send.",
+							TextWrapped = true,
+							Size = engine.types.UDim2.new(1, 0, 0, 0),
+							AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+						}
+					end,
+				}),
+			})
+		end)
 		local V = world.engine.types.Vector2
 		world.screen.AbsoluteSize = V.new(960, 720)
 		local anchor, panel, arrow =
@@ -2806,25 +2592,20 @@ t.describe("native navigation controls", function()
 	end)
 
 	t.it("moves a top callout below its anchor when only the bottom has room", function()
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						edge = "top" :: "top",
-						onRetire = function() end,
-						content = function(): Instance
-							return UI.Text({ text = "Tip" })
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					edge = "top" :: "top",
+					onRetire = function() end,
+					content = function(): Instance
+						return UI.Text({ text = "Tip" })
+					end,
+				}),
+			})
+		end)
 		local V = world.engine.types.Vector2
 		world.screen.AbsoluteSize = V.new(844, 311)
 		local anchor, panel, arrow =
@@ -2846,26 +2627,21 @@ t.describe("native navigation controls", function()
 
 	t.it("suspends callout plates with hidden anchors and restores their native arrow", function()
 		local retired = 0
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Anchor" { label = "Anchor" }
-				return Host.Frame "Surface" {
-					anchor :: unknown,
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						onRetire = function()
-							retired += 1
-						end,
-						content = function(): Instance
-							return UI.Text({ text = "Tip" })
-						end,
-					}),
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame "Surface" {
+				anchor :: unknown,
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					onRetire = function()
+						retired += 1
+					end,
+					content = function(): Instance
+						return UI.Text({ text = "Tip" })
+					end,
+				}),
+			}
+		end)
 		t.expect(find(world.screen, "Arrow") ~= nil).toBe(true)
 		find(world.screen, "Surface").Visible = false
 		t.expect(find(world.screen, "CalloutPanel")).toBe(nil)
@@ -2877,7 +2653,7 @@ t.describe("native navigation controls", function()
 
 	t.it("preserves icon-only names, indicator choices and native target floors", function()
 		local value, indicator = Compose.cell("a"), cells.indicator("underline")
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker({
 				selected = value,
 				style = "segmented" :: "segmented",
@@ -2908,33 +2684,28 @@ t.describe("native navigation controls", function()
 
 	t.it("renders disclosure appearances and collapsible summaries with native assets and close policy", function()
 		local expanded, image = Compose.cell(false), Compose.cell("rbxassetid://1")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.DisclosureGroup "Disclosure" {
-						label = "Details",
-						appearance = "divided" :: "divided",
-						chevronPosition = "leading" :: "leading",
-						expanded = Compose.cell(true),
-						content = function(): Instance
-							return UI.Text({ text = "Details" })
-						end,
-					} :: unknown,
-					UI.CollapsibleView "Summary" {
-						label = "Summary",
-						image = image,
-						expanded = expanded,
-						dismissButton = false,
-						content = function(): Instance
-							return UI.Button "DetailsAction" { label = "Details" }
-						end,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.DisclosureGroup "Disclosure" {
+					label = "Details",
+					appearance = "divided" :: "divided",
+					chevronPosition = "leading" :: "leading",
+					expanded = Compose.cell(true),
+					content = function(): Instance
+						return UI.Text({ text = "Details" })
+					end,
+				} :: unknown,
+				UI.CollapsibleView "Summary" {
+					label = "Summary",
+					image = image,
+					expanded = expanded,
+					dismissButton = false,
+					content = function(): Instance
+						return UI.Button "DetailsAction" { label = "Details" }
+					end,
+				},
+			})
+		end)
 		t.expect(find(find(world.screen, "Disclosure"), "LeadingIcon") ~= nil).toBe(true)
 		t.expect(find(find(world.screen, "Disclosure"), "Divider") ~= nil).toBe(true)
 		local summary = find(world.screen, "Summary")
@@ -2953,14 +2724,65 @@ t.describe("native navigation controls", function()
 
 	t.it("marks the filled current sidebar tab selected, so a skinned theme paints its selected art", function()
 		local selected = Compose.cell("a")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView "Sidebar" {
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView "Sidebar" {
+				selection = selected,
+				placement = "sidebar" :: "sidebar",
+				tabs = {
+					{
+						id = "a",
+						label = "Alpha",
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+					{
+						id = "b",
+						label = "Beta",
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+				},
+			}
+		end)
+		local tabs = find(world.screen, "Tabs")
+		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(true)
+		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(false)
+		selected:set("b")
+		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(false)
+		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(true)
+		world.stop()
+	end)
+
+	t.it("renders sidebar sections and collapsed tab destinations through the shared menu", function()
+		local selected = Compose.cell("a")
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.TabView "Sidebar" {
 					selection = selected,
 					placement = "sidebar" :: "sidebar",
+					sections = { { id = "s", label = "Section" } },
+					tabs = {
+						{
+							id = "a",
+							section = "s",
+							content = function(): Instance
+								return Host.Frame({})
+							end,
+						} :: FixtureNavigationTypes.Tab,
+						{
+							id = "b",
+							section = "s",
+							content = function(): Instance
+								return Host.Frame({})
+							end,
+						} :: FixtureNavigationTypes.Tab,
+					},
+				} :: unknown,
+				UI.TabView "Collapsed" {
+					selection = selected,
+					style = "collapsible" :: "collapsible",
 					tabs = {
 						{
 							id = "a",
@@ -2977,70 +2799,9 @@ t.describe("native navigation controls", function()
 							end,
 						} :: FixtureNavigationTypes.Tab,
 					},
-				}
-			end
-		)
-		local tabs = find(world.screen, "Tabs")
-		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(true)
-		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(false)
-		selected:set("b")
-		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(false)
-		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(true)
-		world.stop()
-	end)
-
-	t.it("renders sidebar sections and collapsed tab destinations through the shared menu", function()
-		local selected = Compose.cell("a")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.TabView "Sidebar" {
-						selection = selected,
-						placement = "sidebar" :: "sidebar",
-						sections = { { id = "s", label = "Section" } },
-						tabs = {
-							{
-								id = "a",
-								section = "s",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{
-								id = "b",
-								section = "s",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-						},
-					} :: unknown,
-					UI.TabView "Collapsed" {
-						selection = selected,
-						style = "collapsible" :: "collapsible",
-						tabs = {
-							{
-								id = "a",
-								label = "Alpha",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{
-								id = "b",
-								label = "Beta",
-								content = function(): Instance
-									return Host.Frame({})
-								end,
-							} :: FixtureNavigationTypes.Tab,
-						},
-					},
-				})
-			end
-		)
+				},
+			})
+		end)
 		t.expect(find(find(world.screen, "Sidebar"), "Section").Text).toBe("Section")
 		local collapsed = find(world.screen, "Collapsed")
 		t.expect(find(collapsed, "Tabs").Visible).toBe(false)
@@ -3053,24 +2814,19 @@ t.describe("native navigation controls", function()
 
 	t.it("closes menu and picker presentations when native ancestors become unavailable", function()
 		local selected, opened = Compose.cell("a"), Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Surface" {
-					UI.Picker({
-						selected = selected,
-						style = "menu" :: "menu",
-						isPresented = opened,
-						options = {
-							{ value = "a", label = "Alpha" } :: Navigation.PickerOption<string>,
-							{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
-						},
-					}),
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Surface" {
+				UI.Picker({
+					selected = selected,
+					style = "menu" :: "menu",
+					isPresented = opened,
+					options = {
+						{ value = "a", label = "Alpha" } :: Navigation.PickerOption<string>,
+						{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
+					},
+				}),
+			}
+		end)
 		opened:set(true)
 		local row = find(find(world.screen, "MenuPanel"), "b")
 		find(world.screen, "Surface").Interactable = false
@@ -3092,24 +2848,18 @@ t.describe("native navigation controls", function()
 			layers = { { kind = "fill" :: "fill", asset = "panel" } :: FixtureThemeTypes.SkinLayer },
 		}
 		local alert, sheet = Compose.cell(true), Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Alert({ isPresented = alert, severity = "critical" :: "critical", title = "Danger" }) :: unknown,
-					UI.Sheet({
-						isPresented = sheet,
-						detent = Compose.cell("medium"),
-						content = function(): Instance
-							return Host.Frame({})
-						end,
-					}),
-				})
-			end,
-			{ theme = package }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Alert({ isPresented = alert, severity = "critical" :: "critical", title = "Danger" }) :: unknown,
+				UI.Sheet({
+					isPresented = sheet,
+					detent = Compose.cell("medium"),
+					content = function(): Instance
+						return Host.Frame({})
+					end,
+				}),
+			})
+		end, { theme = package })
 		local panel = find(world.screen, "AlertPanel")
 		t.expect(panel.BackgroundTransparency).toBe(0)
 		t.expect(panel:HasTag("facet-panel")).toBe(true)
@@ -3148,22 +2898,17 @@ t.describe("native navigation controls", function()
 
 	t.it("animates alerts from native sources and reclaims interrupted Compose presence", function()
 		local shown = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local source = UI.Button "Source" { label = "Open" }
-				return Host.Frame({
-					source :: unknown,
-					UI.Alert({
-						isPresented = shown,
-						title = "Detail",
-						transition = { source = source :: GuiObject, seconds = 0.2 },
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local source = UI.Button "Source" { label = "Open" }
+			return Host.Frame({
+				source :: unknown,
+				UI.Alert({
+					isPresented = shown,
+					title = "Detail",
+					transition = { source = source :: GuiObject, seconds = 0.2 },
+				}),
+			})
+		end)
 		local source = find(world.screen, "Source")
 		source.AbsolutePosition = world.engine.types.Vector2.new(20, 30)
 		source.AbsoluteSize = world.engine.types.Vector2.new(100, 60)
@@ -3191,38 +2936,32 @@ t.describe("native navigation controls", function()
 
 	t.it("expands a source rectangle into full screen and reverses the same Compose-owned snapshot", function()
 		local shown = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				local camera = Host.Camera "PreviewCamera" {}
-				local externalCamera = Host.Camera "ExternalCamera" {}
-				local source = Host.Frame "Card" {
-					Host.UICorner({ CornerRadius = engine.types.UDim.new(0, 12) }) :: unknown,
-					Host.ViewportFrame "Scene" {
-						CurrentCamera = Compose.static(camera),
-						Host.Camera "PreviewCamera" { Archivable = false } :: unknown,
-						camera,
-						Host.WorldModel "World" {},
-					},
-					Host.ViewportFrame "OtherScene" { CurrentCamera = Compose.static(externalCamera) },
-					UI.Button "Open" { label = "Open" },
-					Host.UIDragDetector "CardDrag" {},
-				}
-				return Host.Frame({
-					source :: unknown,
-					externalCamera,
-					UI.Alert({
-						isPresented = shown,
-						title = "Detail",
-						surface = "fullScreen" :: "fullScreen",
-						transition = { source = source :: GuiObject, seconds = 0.4 },
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			local camera = Host.Camera "PreviewCamera" {}
+			local externalCamera = Host.Camera "ExternalCamera" {}
+			local source = Host.Frame "Card" {
+				Host.UICorner({ CornerRadius = engine.types.UDim.new(0, 12) }) :: unknown,
+				Host.ViewportFrame "Scene" {
+					CurrentCamera = Compose.static(camera),
+					Host.Camera "PreviewCamera" { Archivable = false } :: unknown,
+					camera,
+					Host.WorldModel "World" {},
+				},
+				Host.ViewportFrame "OtherScene" { CurrentCamera = Compose.static(externalCamera) },
+				UI.Button "Open" { label = "Open" },
+				Host.UIDragDetector "CardDrag" {},
+			}
+			return Host.Frame({
+				source :: unknown,
+				externalCamera,
+				UI.Alert({
+					isPresented = shown,
+					title = "Detail",
+					surface = "fullScreen" :: "fullScreen",
+					transition = { source = source :: GuiObject, seconds = 0.4 },
+				}),
+			})
+		end)
 		local V2 = world.engine.types.Vector2
 		local source = find(world.screen, "Card")
 		local originalParent = source.Parent
@@ -3297,24 +3036,19 @@ t.describe("native navigation controls", function()
 	t.it("keeps a full-screen alert's content and actions in a centred readable column", function()
 		for _, case in { { nil, 960 }, { 700, 700 } } :: { { number? } } do
 			local shown = Compose.cell(false)
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({
-						UI.Alert({
-							isPresented = shown,
-							title = "Detail",
-							surface = "fullScreen" :: "fullScreen",
-							maxWidth = case[1],
-							actions = {
-								{ id = "done", label = "Done", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-							},
-						}),
-					})
-				end
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					UI.Alert({
+						isPresented = shown,
+						title = "Detail",
+						surface = "fullScreen" :: "fullScreen",
+						maxWidth = case[1],
+						actions = {
+							{ id = "done", label = "Done", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						},
+					}),
+				})
+			end)
 			shown:set(true)
 			local panel = find(world.screen, "AlertPanel")
 			for _, name in { "AlertMessage", "Actions" } do
@@ -3331,25 +3065,18 @@ t.describe("native navigation controls", function()
 
 	t.it("makes full-screen source transitions immediate under native reduced motion", function()
 		local shown = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine,
-				gui
-			)
-				gui.ReducedMotionEnabled = true
-				local source = UI.Button "Card" { label = "Card" }
-				return Host.Frame({
-					source :: unknown,
-					UI.Alert({
-						isPresented = shown,
-						surface = "fullScreen" :: "fullScreen",
-						transition = { source = source :: GuiObject, seconds = 0.4 },
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui)
+			gui.ReducedMotionEnabled = true
+			local source = UI.Button "Card" { label = "Card" }
+			return Host.Frame({
+				source :: unknown,
+				UI.Alert({
+					isPresented = shown,
+					surface = "fullScreen" :: "fullScreen",
+					transition = { source = source :: GuiObject, seconds = 0.4 },
+				}),
+			})
+		end)
 		shown:set(true)
 		local panel = find(world.screen, "AlertPanel")
 		find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(390, 720)
@@ -3365,21 +3092,15 @@ t.describe("native navigation controls", function()
 
 	t.it("resets the mounted callout showcase without replacing anchor identities", function()
 		local built
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				built = require("../examples/gallery/scenarios/callout").build({
-					UI = UI,
-					Host = Host,
-					Compose = Compose,
-					types = engine.types,
-				})
-				return built.screen()
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			built = require("../examples/gallery/scenarios/callout").build({
+				UI = UI,
+				Host = Host,
+				Compose = Compose,
+				types = engine.types,
+			})
+			return built.screen()
+		end)
 		local anchor = find(world.screen, "Plus")
 		built.steps.show()
 		t.expect(built.report().tip.state).toBe("showing")
@@ -3397,7 +3118,7 @@ t.describe("native navigation controls", function()
 		local options = Compose.cell(
 			{ { value = "a", label = "Alpha" }, { value = "b", label = "Beta", enabled = false } } :: { Navigation.PickerOption<string> }
 		)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker({
 				selected = selected,
 				multiple = true :: true,
@@ -3436,29 +3157,24 @@ t.describe("native navigation controls", function()
 	end)
 	t.it("forgives near-miss backdrop taps and closes only the top native modal", function()
 		local outer, inner = Compose.cell(true), Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Sheet({
-						isPresented = outer,
-						detent = Compose.cell("medium"),
-						content = function(): Instance
-							return UI.Button({ label = "Outer" })
-						end,
-					}) :: unknown,
-					UI.Sheet({
-						isPresented = inner,
-						detent = Compose.cell("medium"),
-						content = function(): Instance
-							return UI.Button({ label = "Inner" })
-						end,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Sheet({
+					isPresented = outer,
+					detent = Compose.cell("medium"),
+					content = function(): Instance
+						return UI.Button({ label = "Outer" })
+					end,
+				}) :: unknown,
+				UI.Sheet({
+					isPresented = inner,
+					detent = Compose.cell("medium"),
+					content = function(): Instance
+						return UI.Button({ label = "Inner" })
+					end,
+				}),
+			})
+		end)
 		local panel = find(world.screen, "SheetPanel")
 		panel.AbsolutePosition = world.engine.types.Vector2.new(100, 100)
 		panel.AbsoluteSize = world.engine.types.Vector2.new(200, 200)
@@ -3487,39 +3203,33 @@ t.describe("native navigation controls", function()
 			{ "normal", "limited", "none", "false", "custom" } :: { "custom" | "false" | "limited" | "none" | "normal" }
 		do
 			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame({
-						UI.ScrollView "Neighbour" { UI.Button "Outside" { label = "Outside" } } :: unknown,
-						UI.NavigationStack({
-							path = path,
-							transition = if mode == "false"
-								then false :: false
-								elseif mode == "custom" then { seconds = 0.2 }
-								else nil,
-							root = {
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					UI.ScrollView "Neighbour" { UI.Button "Outside" { label = "Outside" } } :: unknown,
+					UI.NavigationStack({
+						path = path,
+						transition = if mode == "false"
+							then false :: false
+							elseif mode == "custom" then { seconds = 0.2 }
+							else nil,
+						root = {
+							content = function(): Instance
+								return UI.VStack {
+									UI.Button "RootAction" { label = "Root" } :: unknown,
+									UI.Button "RootNext" { label = "Next" },
+								}
+							end,
+						} :: NavigationFixtures.NavigationDestination<any>,
+						destinations = {
+							detail = {
 								content = function(): Instance
-									return UI.VStack {
-										UI.Button "RootAction" { label = "Root" } :: unknown,
-										UI.Button "RootNext" { label = "Next" },
-									}
+									return UI.Button "DetailAction" { label = "Detail" }
 								end,
 							} :: NavigationFixtures.NavigationDestination<any>,
-							destinations = {
-								detail = {
-									content = function(): Instance
-										return UI.Button "DetailAction" { label = "Detail" }
-									end,
-								} :: NavigationFixtures.NavigationDestination<any>,
-							},
-						}),
-					})
-				end,
-				{ motionLevel = if mode == "none" then "none" else "normal" }
-			)
+						},
+					}),
+				})
+			end, { motionLevel = if mode == "none" then "none" else "normal" })
 			if mode == "limited" then
 				world.gui.ReducedMotionEnabled = true
 			end
@@ -3569,7 +3279,7 @@ t.describe("native navigation controls", function()
 
 	t.it("slides pages with parallax and restores selection after push and pop settle", function()
 		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.NavigationStack({
 				path = path,
 				root = {
@@ -3646,21 +3356,16 @@ t.describe("native navigation controls", function()
 	t.it("pushes and pops without travel under reduced motion (a fade) or a false transition (none)", function()
 		for _, mode in { "reduced", "false" } :: { "false" | "reduced" } do
 			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return UI.NavigationStack({
-						path = path,
-						transition = if mode == "false" then false :: false else nil,
-						root = { title = "Root", content = Host.Frame "RootBody" {} } :: NavigationFixtures.NavigationDestination<any>,
-						destinations = {
-							detail = { title = "Detail", content = Host.Frame "DetailBody" {} } :: NavigationFixtures.NavigationDestination<any>,
-						},
-					})
-				end
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return UI.NavigationStack({
+					path = path,
+					transition = if mode == "false" then false :: false else nil,
+					root = { title = "Root", content = Host.Frame "RootBody" {} } :: NavigationFixtures.NavigationDestination<any>,
+					destinations = {
+						detail = { title = "Detail", content = Host.Frame "DetailBody" {} } :: NavigationFixtures.NavigationDestination<any>,
+					},
+				})
+			end)
 			world.gui.ReducedMotionEnabled = mode == "reduced"
 			local stack = find(world.screen, "NavigationStack")
 			local root = find(stack, "@root")
@@ -3684,20 +3389,15 @@ t.describe("native navigation controls", function()
 
 	t.it("crossfades tab pages without blocking the incoming page and shows the first page at once", function()
 		local selection = Compose.cell("one")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = selection,
-					tabs = {
-						{ id = "one", content = Host.Frame "OneBody" {} } :: FixtureNavigationTypes.Tab,
-						{ id = "two", content = Host.Frame "TwoBody" {} } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				tabs = {
+					{ id = "one", content = Host.Frame "OneBody" {} } :: FixtureNavigationTypes.Tab,
+					{ id = "two", content = Host.Frame "TwoBody" {} } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local one = fadeKit.layer(find(world.screen, "OneBody"))
 		t.expect(one.ClassName).toBe("Frame")
 		t.expect(fadeKit.of(one)).toBe(0)
@@ -3731,22 +3431,17 @@ t.describe("native navigation controls", function()
 
 	t.it("slides a sheet up over a fading scrim and releases input when its dismissal starts", function()
 		local shown, detent = Compose.cell(false), Compose.cell("medium")
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button "Opener" { label = "Open" } :: unknown,
-					UI.Sheet({
-						isPresented = shown,
-						detent = detent,
-						title = "Sheet",
-						content = Host.Frame({}) :: Instance,
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button "Opener" { label = "Open" } :: unknown,
+				UI.Sheet({
+					isPresented = shown,
+					detent = detent,
+					title = "Sheet",
+					content = Host.Frame({}) :: Instance,
+				}),
+			})
+		end)
 		world.gui.SelectedObject = find(world.screen, "Opener")
 		shown:set(true)
 		local panel = find(world.screen, "SheetPanel")
@@ -3795,7 +3490,7 @@ t.describe("native navigation controls", function()
 
 	t.it("grows the alert panel around final-size content and dismisses it faster than it entered", function()
 		local shown = Compose.cell(false)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = shown,
 				title = "Leave?",
@@ -3836,29 +3531,24 @@ t.describe("native navigation controls", function()
 
 	t.it("grows callouts, help and menus from their anchor and settles them exactly", function()
 		local opened = Compose.cell(false)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = Host.TextButton "Anchor" {}
-				return Host.Frame({
-					anchor :: unknown,
-					UI.Button "Plus" { label = "+", help = "Adds one" },
-					UI.Callout({
-						anchor = anchor :: GuiObject,
-						content = Host.TextLabel "Tip" {} :: Instance,
-						onRetire = function() end,
-					}),
-					UI.Menu({
-						isPresented = opened,
-						items = {
-							{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-						},
-					}),
-				})
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = Host.TextButton "Anchor" {}
+			return Host.Frame({
+				anchor :: unknown,
+				UI.Button "Plus" { label = "+", help = "Adds one" },
+				UI.Callout({
+					anchor = anchor :: GuiObject,
+					content = Host.TextLabel "Tip" {} :: Instance,
+					onRetire = function() end,
+				}),
+				UI.Menu({
+					isPresented = opened,
+					items = {
+						{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+					},
+				}),
+			})
+		end)
 		local V = world.engine.types.Vector2
 		world.screen.AbsoluteSize = V.new(960, 720)
 		local anchor = find(world.screen, "Anchor")
@@ -3924,50 +3614,44 @@ t.describe("native navigation controls", function()
 	t.it("plays the press haptic for selection changes and decisive alert actions only", function()
 		local selected, shown, opened = Compose.cell("a"), Compose.cell(true), Compose.cell(true)
 		local effect
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Picker "Mode" {
-						selected = selected,
-						style = "segmented" :: "segmented",
-						options = {
-							{ value = "a", label = "A" } :: Navigation.PickerOption<string>,
-							{ value = "b", label = "B" } :: Navigation.PickerOption<string>,
-						},
-					} :: unknown,
-					UI.TabView({
-						selection = Compose.cell("one"),
-						tabs = {
-							{ id = "one", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							{ id = "two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						},
-					}),
-					UI.Menu({
-						isPresented = opened,
-						items = {
-							{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-						},
-					}),
-					UI.Alert({
-						isPresented = shown,
-						title = "Delete?",
-						actions = {
-							{ id = "Keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-							{ id = "Erase", label = "Delete", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
-						},
-					}),
-				})
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Picker "Mode" {
+					selected = selected,
+					style = "segmented" :: "segmented",
+					options = {
+						{ value = "a", label = "A" } :: Navigation.PickerOption<string>,
+						{ value = "b", label = "B" } :: Navigation.PickerOption<string>,
+					},
+				} :: unknown,
+				UI.TabView({
+					selection = Compose.cell("one"),
+					tabs = {
+						{ id = "one", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+						{ id = "two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					},
+				}),
+				UI.Menu({
+					isPresented = opened,
+					items = {
+						{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+					},
+				}),
+				UI.Alert({
+					isPresented = shown,
+					title = "Delete?",
+					actions = {
+						{ id = "Keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Erase", label = "Delete", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
+				}),
+			})
+		end, {
+			pressHaptic = function(engine)
+				effect = engine.new("HapticEffect")
+				return effect
 			end,
-			{
-				pressHaptic = function(engine)
-					effect = engine.new("HapticEffect")
-					return effect
-				end,
-			}
-		)
+		})
 		local mode = find(world.screen, "Mode")
 		t.expect(find(mode, "a").PressHapticEffect).toBe(nil)
 		t.expect(find(mode, "b").PressHapticEffect).toBe(effect)

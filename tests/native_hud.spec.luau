@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -19,17 +22,14 @@ local function mount(width: number?, height: number?)
 		end
 		return node
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Facet.Compose.cell({ width = width or 1079, height = height or 809 })
 	local target = engine.new("ScreenGui")
 	local ctx = {
 		Facet = Facet,
 		Compose = Facet.Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		UI = Facet.controls(runtime, { types = engine.types, viewport = viewport }),
 		types = engine.types,
 		viewport = viewport,

@@ -1,11 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local farmModel = require("../examples/facet_farm/model")
 local screens = require("../examples/facet_farm/screens")
 local theme = require("../examples/facet_farm/theme")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function clockAt(start: number)
 	local now = start
@@ -18,8 +22,7 @@ end
 
 local function mount()
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -37,11 +40,9 @@ local function mount()
 	local farm
 	local stop, screen: any = runtime.mount(function()
 		farm = farmModel.new(Compose, clock)
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ screens.farm(Facet, UI, runtime.constructors, engine.types, farm) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+			screens.farm(Facet, UI, runtime.constructors, engine.types, farm),
+		})
 	end, engine.new("Folder"))
 	return {
 		engine = engine,

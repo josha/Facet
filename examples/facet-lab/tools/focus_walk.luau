@@ -1,9 +1,12 @@
 --!strict
+
+type LiveModule = typeof(require("@repo/tools/studio/live"))
+type FocusModule = typeof(require("@repo/tools/studio/live/focus"))
 local HttpService = game:GetService("HttpService")
 local liveModule = game:GetService("ReplicatedStorage"):WaitForChild("FacetLive") :: ModuleScript
-local loadLive = require :: (ModuleScript) -> typeof(require("@repo/tools/studio/live"))
+local loadLive = require :: (ModuleScript) -> LiveModule
 local L = loadLive(liveModule)
-local loadFocus = require :: (ModuleScript) -> typeof(require("@repo/tools/studio/live/focus"))
+local loadFocus = require :: (ModuleScript) -> FocusModule
 local focus = loadFocus(liveModule:WaitForChild("focus") :: ModuleScript)
 local api = workspace:WaitForChild("FacetLabAPI")
 local root = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Facet_Lab")

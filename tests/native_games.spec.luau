@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
@@ -6,15 +11,15 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local ComposeTypes = require("../src/vendor/compose/core/reactive/types")
 local words = require("../examples/gallery/examples/words")
 type World = {
 	Facet: typeof(Facet),
 	Compose: typeof(Compose),
 	runtime: Facet.Runtime,
-	Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-	types: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).types),
+	Host: RobloxHost,
+	types: RobloxTypes,
 	viewport: typeof(Compose.cell({ width = 0, height = 0 })),
 	engine: engineLib.Engine,
 	node: any,
@@ -53,8 +58,7 @@ local function tap(ctx: World, path: string)
 end
 local function makeWorld(): World
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local viewport = Compose.cell({ width = 800, height = 600 })
 	return {
@@ -62,9 +66,7 @@ local function makeWorld(): World
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		inputTarget = target,
 		worldTarget = engine.new("Folder"),

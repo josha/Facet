@@ -1,4 +1,12 @@
 --!strict
+type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
+type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local requireDynamic = require :: (any) -> any
 local FixtureMediaTypes = require("../src/ui/media_types")
@@ -18,8 +26,7 @@ local fs = require("@lune/fs")
 
 local function setup()
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI = media(context(Compose, runtime, { types = engine.types }))
 	return engine, runtime, UI
 end
@@ -41,11 +48,7 @@ t.describe("native themes and media", function()
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, selected, { types = engine.types })
 			label = UI.Text({ text = "Themed" })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				sheet :: unknown,
 				runtime.constructors.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				label,
@@ -107,9 +110,9 @@ t.describe("native themes and media", function()
 			return themes.createStyleSheet(runtime, package, {
 				types = engine.types,
 				theme = selection,
-				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if use(reduced) then "none" else "normal"
-				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+				end) :: unknown) :: MotionLevel,
 				transition = explicit,
 			})
 		end, engine.new("Folder"))
@@ -351,9 +354,7 @@ t.describe("native themes and media", function()
 			badge = UI.StatusIndicator({ count = count, status = "success" :: "success" })
 			stage = UI.Stage({
 				content = function(sceneRuntime: FixtureComposeTypes.Runtime, world: WorldModel): (() -> ())?
-					local Host = (
-						sceneRuntime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					local Host = (sceneRuntime.constructors :: unknown) :: RobloxHost
 					local stop = sceneRuntime.mount(function(): Part
 						return Host.Part "Model" {}
 					end, world)
@@ -363,11 +364,7 @@ t.describe("native themes and media", function()
 			Compose.cleanup(function()
 				released += 1
 			end)
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ bar :: unknown, badge, stage })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ bar :: unknown, badge, stage })
 		end, engine.new("Folder"))
 		t.expect((bar:FindFirstChild("Fill1", true) :: any).Size.X.Scale).toBe(0.25)
 		progress:set(2)
@@ -405,11 +402,7 @@ t.describe("native themes and media", function()
 					selected += 1
 				end,
 			})
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ avatar :: unknown, group })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ avatar :: unknown, group })
 		end, engine.new("Folder"))
 		t.expect((avatar:FindFirstChild("Initials") :: any).Text).toBe("ÉN")
 		t.expect(avatar.Size.X.Offset).toBe(36)
@@ -447,14 +440,13 @@ t.describe("native themes and media", function()
 
 	t.it("animates skeletons with one shared Compose clock and honors reduced motion", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local reduced = Compose.cell(false)
 		local UI = media(context(Compose, runtime, {
 			types = engine.types,
-			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+			end) :: unknown) :: MotionLevel,
 		}))
 		local first: any, one: any = runtime.mount(function()
 			return UI.Skeleton({ form = "line" :: "line", lines = 3 })
@@ -487,18 +479,13 @@ t.describe("native themes and media", function()
 
 	t.it("keeps indeterminate progress stepping and trails determinate decreases", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, motionLevel = "none" }))
 		local value, bar, busy = Compose.cell(0.8), nil, nil
 		local stop = runtime.mount(function()
 			bar = UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.4 } })
 			busy = UI.ProgressView({ presentation = "spinner" :: "spinner" })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ bar :: unknown, busy })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ bar :: unknown, busy })
 		end, engine.new("Folder"))
 		local dot: any = busy:FindFirstChild("Segment1", true)
 		local before = dot.BackgroundTransparency
@@ -525,11 +512,7 @@ t.describe("native themes and media", function()
 		local stop = runtime.mount(function()
 			badge = UI.Badge({ label = label, status = status })
 			indicator = UI.StatusIndicator({ status = status, form = form, diameter = 16 })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ badge :: unknown, indicator })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ badge :: unknown, indicator })
 		end, engine.new("Folder"))
 		t.expect(badge.Selectable).toBe(false)
 		t.expect(indicator.Selectable).toBe(false)
@@ -668,11 +651,7 @@ t.describe("native themes and media", function()
 					ResampleMode = engine.types.Enum.ResamplerMode.Pixelated,
 				},
 			})
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ avatar :: unknown, image })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ avatar :: unknown, image })
 		end, engine.new("Folder"))
 		t.expect(
 			((avatar:FindFirstChild("Image", true) :: any):FindFirstChildWhichIsA("UICorner") :: any).CornerRadius.Scale
@@ -715,19 +694,15 @@ t.describe("native themes and media", function()
 		}
 		local target, skin: any, sheet: any
 		local stop = runtime.mount(function()
-			target = (
-				(
-					runtime.constructors.TextButton :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextButton)
-			)({ Text = "Captain" })
-			skin =
-				themes.skin(runtime, package, "control", { types = engine.types, target = target, label = "Captain" })
+			target = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({ Text = "Captain" })
+			skin = themes.skin(
+				runtime,
+				package,
+				"control",
+				{ types = engine.types, target = target :: GuiObject, label = "Captain" }
+			)
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ target :: unknown, skin, sheet })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ target :: unknown, skin, sheet })
 		end, engine.new("Folder"))
 		t.expect(target:HasTag("facet-skin-caption")).toBe(true)
 		t.expect((skin:FindFirstChild("PlaqueCaption", true) :: any).Text).toBe("Captain")
@@ -779,11 +754,12 @@ t.describe("native themes and media", function()
 				cutout = true,
 				Size = engine.types.UDim2.fromOffset(80, 12),
 			})
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ avatar :: unknown, group, badge, mark })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				avatar :: unknown,
+				group,
+				badge,
+				mark,
+			})
 		end, engine.new("Folder"))
 		t.expect(avatar:GetAttribute("AccessibleLabel")).toBe("Ada, Disponible")
 		t.expect(avatar.Size.X.Offset).toBe(52)
@@ -871,8 +847,7 @@ t.describe("native themes and media", function()
 
 	t.it("keeps circular progress endpoints bounded and theme metrics reactive", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = Compose.cell(themes.neutralPackage())
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
 		local value = Compose.cell(0)
@@ -913,8 +888,7 @@ t.describe("native themes and media", function()
 	end)
 	t.it("keeps native semantic icons reactive with pixel resampling and metric sizing", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = Compose.cell(themes.neutralPackage())
 		local ctx = context(Compose, runtime, { types = engine.types, theme = package })
 		local UI = media(ctx)
@@ -940,8 +914,7 @@ t.describe("native themes and media", function()
 
 	t.it("preserves full size progress art endcaps centers and fill direction", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = themes.neutralPackage()
 		package.assets = {
 			fill = { content = "rbxassetid://1" },
@@ -989,8 +962,7 @@ t.describe("native themes and media", function()
 	end)
 	t.it("applies rich native skin slots to editable fields toggles steppers and sliders", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = themes.neutralPackage()
 		package.assets = { art = { content = "rbxassetid://30" }, selected = { content = "rbxassetid://31" } }
 		for _, slot in { "field", "toggleTrack", "toggleKnob", "stepperPlate", "sliderTrack", "sliderThumb", "barFill" } do
@@ -1005,11 +977,12 @@ t.describe("native themes and media", function()
 			toggle = UI.Toggle({ value = active })
 			stepper = UI.Stepper({ value = Compose.cell(2), min = 0, max = 10 })
 			slider = UI.Slider({ value = Compose.cell(0.5), min = 0, max = 1 })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ field :: unknown, toggle, stepper, slider })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				field :: unknown,
+				toggle,
+				stepper,
+				slider,
+			})
 		end, engine.new("Folder"))
 		for slot, root in
 			{
@@ -1041,17 +1014,13 @@ t.describe("native themes and media", function()
 		local selected = Compose.cell(package)
 		local target
 		local stop = runtime.mount(function()
-			target = (
-				(
-					runtime.constructors.TextButton :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextButton)
-			)({ Text = "Play" })
+			target = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({ Text = "Play" })
 			runtime.mount(function()
-				return themes.skin(runtime, selected, "control", { types = engine.types, target = target })
+				return themes.skin(runtime, selected, "control", { types = engine.types, target = target :: GuiObject })
 			end, target)
 			return target
 		end, engine.new("Folder"))
-		local shadow = target:FindFirstChild("ChromeShadow")
+		local shadow = target:FindFirstChild("ChromeShadow") :: FixtureShadow
 		t.expect(shadow.ClassName).toBe("UIShadow")
 		t.expect(shadow.BlurRadius.Offset).toBe(14)
 		t.expect(shadow.Offset.Y.Offset).toBe(3)
@@ -1147,8 +1116,7 @@ t.describe("native themes and media", function()
 	end)
 	t.it("preloads the Compose owned ImageLabel after its source binding settles", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local environment = getfenv(media)
 		local originalTask = environment.task
 		local pending = {}
@@ -1307,14 +1275,13 @@ t.describe("native themes and media", function()
 
 	t.it("cancels pending damage trails for reduced motion and releases their clock", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local reduced, value = Compose.cell(false), Compose.cell(1)
 		local UI = media(context(Compose, runtime, {
 			types = engine.types,
-			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+			end) :: unknown) :: MotionLevel,
 		}))
 		local stop, meter: any = runtime.mount(function()
 			return UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.3 } })
@@ -1405,8 +1372,7 @@ t.describe("native themes and media", function()
 		assert(plain.assets).plate = { content = "rbxassetid://3" }
 		assert(plain.chrome).control = { kind = "fill" :: "fill", asset = "plate" }
 		local selected = Compose.cell(tiled)
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local ctx = context(Compose, runtime, { types = engine.types, theme = selected })
 		local skin: any, icon
 		local stop = runtime.mount(function()
@@ -1429,11 +1395,7 @@ t.describe("native themes and media", function()
 			do
 				table.insert(children, themes.skin(runtime, selected, slot, { types = engine.types }))
 			end
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)(children)
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)(children)
 		end, create("Folder"))
 		local plate = skin:FindFirstChild("control1", true)
 		t.expect(plate.ResampleMode).toBe(engine.types.Enum.ResamplerMode.Pixelated)
@@ -1480,25 +1442,20 @@ t.describe("native themes and media", function()
 
 	t.it("rotates a smooth native circular arc with reduced motion and themed stroke colors", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local reduced, package = Compose.cell(false), Compose.cell(themes.neutralPackage())
 		local UI = media(context(Compose, runtime, {
 			types = engine.types,
 			theme = package,
-			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+			end) :: unknown) :: MotionLevel,
 		}))
 		local sheet: any, meter: any
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
 			meter = UI.ProgressView({ presentation = "circular" :: "circular", diameter = 120, thickness = 4 })
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ sheet :: unknown, meter })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ sheet :: unknown, meter })
 		end, engine.new("Folder"))
 		local arc = meter:FindFirstChild("RingFill", true)
 		t.expect(arc.Thickness).toBe(4)
@@ -1556,8 +1513,7 @@ t.describe("native themes and media", function()
 			end
 			return node
 		end
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = themes.neutralPackage()
 		local contributed: FixtureThemeTypes.RuleProperties = { ImageTransparency = 0.2 }
 		package.rules = { { selector = ".game-icon", properties = contributed } }
@@ -1651,11 +1607,7 @@ t.describe("native themes and media", function()
 					return UI.Text({ text = "Controls" })
 				end,
 			})
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ sheet :: unknown, disclosure })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ sheet :: unknown, disclosure })
 		end, engine.new("Folder"))
 		local header: any = disclosure:FindFirstChild("Header")
 		t.expect(header:HasTag("facet-selected")).toBe(false)
@@ -1778,11 +1730,7 @@ t.describe("native themes and media", function()
 			local sheet: any
 			local stop = runtime.mount(function()
 				sheet = themes.createStyleSheet(runtime, package, { types = engine.types, theme = "Light" })
-				return (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 					sheet :: unknown,
 					themes.skin(runtime, package, "control", { types = engine.types }),
 				})
@@ -1814,11 +1762,7 @@ t.describe("native themes and media", function()
 	t.it("returns the Label root that api.md states, with and without an icon", function()
 		local engine, runtime, UI = setup()
 		local stop, root: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Text "Plain" { text = "Plain" } :: unknown,
 				UI.Label "Iconic" { title = "Iconic", icon = "rbxassetid://1" },
 			})
@@ -1854,18 +1798,12 @@ t.describe("native themes and media", function()
 		t.expect(custom.resolve(nil).usedFallback.size).toBe(true)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local core = {
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 		}
 		local fraction = Compose.cell(0.25)
 		local stop, root: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				gauge.blueprint(UI, core, dial, { id = "Boiler", fraction = fraction }) :: unknown,
 				custom.blueprint(UI, core, track, "Meter"),
 			})
@@ -1885,12 +1823,9 @@ t.describe("native themes and media", function()
 
 	t.it("skin art follows a host inset that code writes, not only one a style rule writes", function()
 		local engine = engineLib.new({ styleOnlySignals = true })
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local decorate = require("../src/ui/native_decoration")
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local stop, host: any = runtime.mount(function()
 			return Host.Frame({ Name = "Panel", Host.UIPadding({}) })
 		end, engine.new("Folder"))
@@ -1911,12 +1846,9 @@ t.describe("native themes and media", function()
 
 	t.it("skin art on a scrolling host stays pinned to the window, not the scrolled canvas", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local decorate = require("../src/ui/native_decoration")
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local stop, host: any = runtime.mount(function()
 			return Host.ScrollingFrame({ Name = "Surface" })
 		end, engine.new("Folder"))
@@ -1938,8 +1870,7 @@ end)
 t.describe("native Avatar and AvatarGroup per-input rules", function()
 	local function inputWorld(touch: boolean)
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.TouchEnabled = touch
 		input.MouseEnabled = not touch
@@ -1968,11 +1899,7 @@ t.describe("native Avatar and AvatarGroup per-input rules", function()
 		local engine, runtime, UI = inputWorld(false)
 		local screen = engine.new("ScreenGui")
 		local stop = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Avatar "Passive" { name = "Pat Lane" } :: unknown,
 				UI.Avatar "Ada" { name = "Ada Quill", onActivate = function() end },
 				UI.Avatar "Bo" { name = "Bo Lane", onActivate = function() end },

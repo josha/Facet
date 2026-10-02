@@ -1,15 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
 local outline = {}
 
 function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any): ScrollingFrame
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local selection = Compose.cell({})
-	local editing = (function(
-		value: string?
-	): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+	local editing = (function(value: string?): OptionalStringCell
 		return Compose.cell(value)
 	end)(nil)
 	local draft = Compose.cell("")

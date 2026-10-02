@@ -1,5 +1,7 @@
 --!strict
-local loadSupply = require :: (string) -> typeof(require("@repo/examples/reference/p1_glade/services/supply"))
+
+type SupplyModule = typeof(require("@repo/examples/reference/p1_glade/services/supply"))
+local loadSupply = require :: (string) -> SupplyModule
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 local creatures = {

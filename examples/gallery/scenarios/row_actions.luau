@@ -1,5 +1,7 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local build = require("./collection_demo")
 local SEED = {
 	{
@@ -54,7 +56,7 @@ local SEED = {
 return {
 	title = "Mail row actions",
 	build = function(ctx: ExampleContext)
-		local Compose: typeof(require("@repo/src/vendor/compose/core")), UI = ctx.Compose, ctx.UI
+		local Compose: ComposeModule, UI = ctx.Compose, ctx.UI
 		local selected = Compose.cell("list")
 		local tabs, surfaces = {}, {}
 		for _, entry in { { "list", "List" }, { "table", "Table" }, { "virtual", "Virtual list" } } do

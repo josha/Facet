@@ -1,7 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type CollectionStatusCell = typeof(require("@repo/tools/typecheck/aliases").CollectionStatusCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local BADGES = { "Rally", "Drift", "Circuit", "Sprint", "Endurance" }
 local COPY = {
 	title = "Card rail — your racing collection",
@@ -15,7 +19,7 @@ return {
 	title = "Card rail (horizontal VirtualList)",
 	copy = COPY,
 	build = function(ctx: ExampleContext)
-		local Compose: typeof(require("@repo/src/vendor/compose/core")), UI, Host = ctx.Compose, ctx.UI, ctx.Host
+		local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local copy = ctx.copy or COPY
 		local cards = {}
@@ -28,10 +32,7 @@ return {
 		end
 		local items, selected = Compose.cell(cards), Compose.cell(nil :: string | nil)
 		local rails = {}
-		local function observe(
-			node: GuiObject,
-			property: string
-		): typeof(require("@repo/tools/typecheck/example_shapes").vectorCell(nil :: any))
+		local function observe(node: GuiObject, property: string): VectorCell
 			local value = Compose.cell((node :: any)[property] :: Vector2)
 			local connection = node:GetPropertyChangedSignal(property):Connect(function()
 				value:set((node :: any)[property])
@@ -76,9 +77,7 @@ return {
 					+ math.max(18, use(badgeBounds).Y)
 					+ 28
 			end)
-			local status = (function(): typeof(require("@repo/tools/typecheck/example_shapes").collectionStatusCell(
-				nil :: any
-			))
+			local status = (function(): CollectionStatusCell
 				return Compose.cell({
 					mode = "windowed" :: "windowed" | "all",
 					direction = "horizontal" :: "horizontal" | "vertical",

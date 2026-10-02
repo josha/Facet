@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 local Compose = require("../../src/vendor/compose/core")
 local Roblox = require("../../src/vendor/compose/roblox")
 local controls = require("../../src/ui")
@@ -57,8 +60,7 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 	input.GetFocusedTextBox = function()
 		return nil
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local UI = controls(Compose, runtime, {
 		types = engine.types,
@@ -76,11 +78,9 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 	})
 	local V = engine.types.Vector2
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ build(UI, runtime.constructors, engine, gui, runtime) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+			build(UI, runtime.constructors, engine, gui, runtime),
+		})
 	end, target)
 	local size = o.size or V.new(800, 600)
 	screen.AbsoluteSize = size

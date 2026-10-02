@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -41,35 +44,29 @@ local UNDO = { label = "Undo", onActivate = noop }
 local function mount(list: { Entry }, options: any?): any
 	local o = options or {}
 	local gate = Compose.cell(true)
-	local w = overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({
-				Name = "Page",
-				UI.Button "Content" { label = "Content" } :: unknown,
-				Compose.show(gate, function()
-					local nodes: { any } = {}
-					for index, entry in list do
-						local spec: any = {
-							isPresented = entry.c.shown,
-							message = entry.message or `Message {index}`,
-							onPresentedChange = entry.c.onPresentedChange,
-							onDismiss = entry.c.onDismiss,
-							action = UNDO,
-						}
-						for key, value in (entry.spec or {} :: { [string]: any }) do
-							spec[key] = value
-						end
-						table.insert(nodes, UI.Toast(`S{index}`)(spec))
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({
+			Name = "Page",
+			UI.Button "Content" { label = "Content" } :: unknown,
+			Compose.show(gate, function()
+				local nodes: { any } = {}
+				for index, entry in list do
+					local spec: any = {
+						isPresented = entry.c.shown,
+						message = entry.message or `Message {index}`,
+						onPresentedChange = entry.c.onPresentedChange,
+						onDismiss = entry.c.onDismiss,
+						action = UNDO,
+					}
+					for key, value in (entry.spec or {} :: { [string]: any }) do
+						spec[key] = value
 					end
-					return Host.Frame({ Name = "Holder", table.unpack((nodes :: unknown) :: { unknown }) })
-				end),
-			})
-		end,
-		{ size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none", runService = o.runService }
-	)
+					table.insert(nodes, UI.Toast(`S{index}`)(spec))
+				end
+				return Host.Frame({ Name = "Holder", table.unpack((nodes :: unknown) :: { unknown }) })
+			end),
+		})
+	end, { size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none", runService = o.runService })
 	w.gate = gate
 	w.rows = function(): number
 		return #w.findAll("Snack")
@@ -248,26 +245,20 @@ t.describe("native Toast with an action: an art theme's panel carve", function()
 		local c = caller()
 		c.shown:set(true)
 		local gate = Compose.cell(true)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Compose.show(gate, function()
-						return UI.Toast "S1" {
-							isPresented = c.shown,
-							message = "Offline",
-							icon = "status.warning",
-							action = UNDO,
-							closeButton = false,
-							onPresentedChange = c.onPresentedChange,
-						}
-					end),
-				})
-			end,
-			{ theme = package, motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Compose.show(gate, function()
+					return UI.Toast "S1" {
+						isPresented = c.shown,
+						message = "Offline",
+						icon = "status.warning",
+						action = UNDO,
+						closeButton = false,
+						onPresentedChange = c.onPresentedChange,
+					}
+				end),
+			})
+		end, { theme = package, motionLevel = "none" })
 		local row = w.find("Snack")
 		local padding = row:FindFirstChildWhichIsA("UIPadding")
 		t.expect(padding.PaddingLeft.Offset).toBe(20)
@@ -521,29 +512,23 @@ t.describe("native Toast with an action: admission and lifetime", function()
 		local a = caller()
 		a.shown:set(true)
 		local modal = Compose.cell(false)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Toast "S1" {
-						isPresented = a.shown,
-						message = "Saved",
-						action = UNDO,
-						duration = 3,
-						onPresentedChange = a.onPresentedChange,
-						onDismiss = function(
-							reason: "timeout" | "supersede" | "preempt" | "capacity" | "manual" | "action" | "close" | "cancel"
-						)
-							a.onDismiss(reason)
-						end,
-					} :: unknown,
-					UI.Alert { isPresented = modal, title = "Hold" },
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Toast "S1" {
+					isPresented = a.shown,
+					message = "Saved",
+					action = UNDO,
+					duration = 3,
+					onPresentedChange = a.onPresentedChange,
+					onDismiss = function(
+						reason: "timeout" | "supersede" | "preempt" | "capacity" | "manual" | "action" | "close" | "cancel"
+					)
+						a.onDismiss(reason)
+					end,
+				} :: unknown,
+				UI.Alert { isPresented = modal, title = "Hold" },
+			})
+		end, { motionLevel = "none" })
 		modal:set(true)
 		frames(w, 5)
 		t.expect(#a.changes).toBe(0)
@@ -579,7 +564,7 @@ t.describe("native Toast with an action: admission and lifetime", function()
 		do
 			local ok = pcall(function()
 				overlay
-					.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					.new(function(UI: FacetControls)
 						return UI.Toast(bad)
 					end)
 					.stop()
@@ -605,7 +590,7 @@ t.describe("native Toast with an action: admission and lifetime", function()
 
 	t.it("a throwing caller callback is raised, and the row stays consistent", function()
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.Toast "S1" {
 				isPresented = shown,
 				message = "Saved",
@@ -754,43 +739,37 @@ t.describe("native Toast with an action: without a binding", function()
 	t.it("the action runs and retires it; Close retires it; no duration never expires", function()
 		local runs, reasons = 0, {}
 		local shown = Compose.cell(true)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Compose.show(shown, function()
-						return Host.Frame({
-							UI.Toast "A" {
-								message = "Kart sold",
-								action = {
-									label = "Undo",
-									onActivate = function()
-										runs += 1
-									end,
-								},
-								onDismiss = function(
-									reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
-								)
-									table.insert(reasons, reason)
-								end,
-							} :: unknown,
-							UI.Toast "B" {
-								message = "Saved",
-								action = UNDO,
-								onDismiss = function(
-									reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
-								)
-									table.insert(reasons, reason)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Compose.show(shown, function()
+					return Host.Frame({
+						UI.Toast "A" {
+							message = "Kart sold",
+							action = {
+								label = "Undo",
+								onActivate = function()
+									runs += 1
 								end,
 							},
-						})
-					end),
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+							onDismiss = function(
+								reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
+							)
+								table.insert(reasons, reason)
+							end,
+						} :: unknown,
+						UI.Toast "B" {
+							message = "Saved",
+							action = UNDO,
+							onDismiss = function(
+								reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
+							)
+								table.insert(reasons, reason)
+							end,
+						},
+					})
+				end),
+			})
+		end, { motionLevel = "none" })
 		frames(w, 30)
 		t.expect(w.find("A"):GetAttribute("ToastVisible")).toBe(true)
 		t.expect(w.find("B"):GetAttribute("ToastQueued")).toBe(true)
@@ -805,7 +784,7 @@ t.describe("native Toast with an action: without a binding", function()
 
 	t.it("a timed one still reads for the 2.5 s floor, then retires with timeout", function()
 		local reasons = {}
-		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.Toast "A" {
 				message = "Kart sold",
 				action = UNDO,

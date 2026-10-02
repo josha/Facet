@@ -1,21 +1,27 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local Services = require("@self/services")
 local seed = require("@self/content/seed")
 local strings = require("@self/content/strings")
 local referenceView = require("./view")
 local Foyer = { title = "Foyer" }
 function Foyer.build(ctx: ExampleContext)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), UI, Host = ctx.Compose, ctx.UI, ctx.Host
+	local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 	local D2 = ctx.types.UDim2
 	local view = referenceView(ctx)
 	local services = Services.new({ Compose = Compose })
 	local destination, tab, query, locale =
 		Compose.cell("home"), Compose.cell("forYou"), Compose.cell(""), Compose.cell("en")
 	local selected, detailOpen, notifications, invite =
-		(function(value: string?): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+		(function(value: string?): OptionalStringCell
 			return Compose.cell(value)
 		end)(nil), Compose.cell(false), Compose.cell(false), Compose.cell(false)
 	local sectionOpen, expanded = Compose.cell(false), Compose.cell(nil :: { tiles: { seed.Tile } }?)
@@ -115,8 +121,8 @@ function Foyer.build(ctx: ExampleContext)
 			UI.Picker "FeedSelection" {
 				selected = tab,
 				options = {
-					{ value = "forYou", label = "For you" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "charts", label = "Charts" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "forYou", label = "For you" } :: PickerOption,
+					{ value = "charts", label = "Charts" } :: PickerOption,
 				},
 			},
 			Compose.show(function(use: Use)
@@ -207,8 +213,8 @@ function Foyer.build(ctx: ExampleContext)
 				selection = destination,
 				Size = D2.new(1, 0, 1, -64),
 				tabs = {
-					{ id = "home", label = text("nav.home"), content = feed } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "crews", label = text("nav.crews"), content = friends } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "home", label = text("nav.home"), content = feed } :: Tab,
+					{ id = "crews", label = text("nav.crews"), content = friends } :: Tab,
 					{
 						id = "forge",
 						label = text("nav.forge"),
@@ -218,8 +224,8 @@ function Foyer.build(ctx: ExampleContext)
 								{ view.text(text("nav.forge"), 28), view.text(text("stub.honest")) }
 							)
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "mail", label = text("nav.mail"), content = mailbox } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					} :: Tab,
+					{ id = "mail", label = text("nav.mail"), content = mailbox } :: Tab,
 					{
 						id = "you",
 						label = text("nav.you"),
@@ -230,17 +236,13 @@ function Foyer.build(ctx: ExampleContext)
 								UI.Picker "Locale" {
 									selected = locale,
 									options = {
-										{ value = "en", label = "English" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-											nil :: any
-										)),
-										{ value = "xa", label = "Expanded" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-											nil :: any
-										)),
+										{ value = "en", label = "English" } :: PickerOption,
+										{ value = "xa", label = "Expanded" } :: PickerOption,
 									},
 								},
 							})
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					} :: Tab,
 				},
 			} :: unknown,
 			UI.Text({
@@ -294,7 +296,7 @@ function Foyer.build(ctx: ExampleContext)
 				title = Compose.formula(text("invite.label")),
 				message = Compose.formula(text("invite.stub")),
 				actions = {
-					{ id = "close", label = text("close.label"), role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					{ id = "close", label = text("close.label"), role = "cancel" :: "cancel" } :: AlertAction,
 				},
 			},
 		}

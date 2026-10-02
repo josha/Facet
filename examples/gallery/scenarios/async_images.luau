@@ -1,25 +1,29 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type UnknownCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Loading profile pictures",
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local shown = Compose.cell(true)
 		local states = {
-			(function(value: string): typeof(require("@repo/tools/typecheck/example_shapes").stringCell(nil :: any))
+			(function(value: string): StringCell
 				return Compose.cell(value)
 			end)("loading"),
-			(function(value: string): typeof(require("@repo/tools/typecheck/example_shapes").stringCell(nil :: any))
+			(function(value: string): StringCell
 				return Compose.cell(value)
 			end)("loading"),
-			(function(value: string): typeof(require("@repo/tools/typecheck/example_shapes").stringCell(nil :: any))
+			(function(value: string): StringCell
 				return Compose.cell(value)
 			end)("loading"),
 		}
-		local function errorCell(): typeof(require("@repo/tools/typecheck/example_shapes").unknownCell(nil :: any))
+		local function errorCell(): UnknownCell
 			return Compose.cell(nil :: unknown)
 		end
 		local errors = { errorCell(), errorCell(), errorCell() }

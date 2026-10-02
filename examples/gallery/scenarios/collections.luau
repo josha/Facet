@@ -1,5 +1,5 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local demoTabs = require("./demo_tabs")
 
 type Scenario = { build: (ExampleContext) -> { screen: () -> Instance } }

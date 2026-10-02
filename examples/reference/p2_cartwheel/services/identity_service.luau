@@ -1,11 +1,13 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local data = require("../content/data")
 
 local identity_service = {}
 
 function identity_service.new(opts: any): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 	local self: any = {}
 
 	local signedIn = Compose.cell(false)

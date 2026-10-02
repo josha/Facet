@@ -1,7 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiObject
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 	local selected = Compose.cell(false)
 	local quantity = Compose.cell(3)
 	local filter = Compose.cell("")

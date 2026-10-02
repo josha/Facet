@@ -1,11 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type ScrollingFrameConstructor = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameConstructor)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local engineLib = require("./lib/native_engine")
 local Roblox = require("@lune/roblox")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local adaptive = Facet.adaptive
 
 local function signal()
@@ -35,8 +41,7 @@ end
 
 local function world(services: { [string]: any }?, options: { [string]: any }?)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local frames = { Heartbeat = signal() }
@@ -879,11 +884,7 @@ t.describe("draggable and dropTarget", function()
 					table.insert(log, `{payload} {info.mode}`)
 				end,
 			})
-			return (
-				(
-					w.runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({ card :: unknown, slot })
+			return ((w.runtime.constructors.Frame :: unknown) :: FrameConstructor)({ card :: unknown, slot })
 		end, screen)
 		local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
 
@@ -912,22 +913,18 @@ t.describe("draggable and dropTarget", function()
 						opened += 1
 					end,
 				}
-				local slot = (
-					(
-						w.runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({ Name = "Slot" })
+				local slot = ((w.runtime.constructors.Frame :: unknown) :: FrameConstructor)({ Name = "Slot" })
 				w.UI.draggable(card, { payload = "card" })
 				w.UI.dropTarget(slot, {
 					onDrop = function(payload, info)
 						table.insert(log, `{payload} {info.mode}`)
 					end,
 				})
-				return (
-					(
-						w.runtime.constructors.ScrollingFrame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScrollingFrame)
-				)({ Name = "List", card :: unknown, slot })
+				return ((w.runtime.constructors.ScrollingFrame :: unknown) :: ScrollingFrameConstructor)({
+					Name = "List",
+					card :: unknown,
+					slot,
+				})
 			end, screen)
 			local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
 			card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 0), V2.new(100, 40)
@@ -1306,9 +1303,9 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 			}
 			local w = world({ TweenService = tweens }, {
 				theme = package,
-				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if use(motionOff) then "none" else "normal"
-				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+				end) :: unknown) :: MotionLevel,
 				environment = { preferredInput = "Gamepad" },
 			})
 			local playerGui = w.engine.new("PlayerGui")

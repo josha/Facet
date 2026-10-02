@@ -1,20 +1,21 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local ThemeTypes = require("../src/ui/theme_types")
 local FixtureEngineTypes = require("../src/ui/engine_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local context = require("../src/ui/context")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 t.describe("native public surface", function()
 	t.it("exposes controls over the unwrapped Compose Roblox runtime", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local UI = Facet.controls(runtime, { types = engine.types })
 		t.expect(((Facet :: unknown) :: { [string]: unknown }).new).toBeNil()
 		t.expect(type(UI.Screen)).toBe("function")
@@ -55,11 +56,8 @@ t.describe("native public surface", function()
 
 	t.it("gates native actions through retained ancestors and detaches observations", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local ctx = context(Facet.Compose, runtime, { types = engine.types })
 		local root = engine.new("ScreenGui")
 		local action: any, input: any, button: any, activated: number = nil, nil, nil, 0
@@ -92,8 +90,7 @@ t.describe("native public surface", function()
 
 	t.it("resolves named icons reactively without a second theme runtime", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local first = Facet.themes.neutralPackage()
 		first.icons = { test = "rbxassetid://1" } :: { [string]: ThemeTypes.IconEntry }
 		local package = Compose.cell(first)

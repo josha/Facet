@@ -1,14 +1,20 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type VoteCell = typeof(require("@repo/tools/typecheck/aliases").VoteCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Choices and filters",
 	ledgerRows = { "CONTROL-SELECTION" },
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -106,8 +112,8 @@ return {
 			return UI.Picker "Segments" {
 				selected = selected,
 				options = {
-					{ value = "open", label = "Open" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "club", label = "Club", enabled = club } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "open", label = "Open" } :: PickerOption,
+					{ value = "club", label = "Club", enabled = club } :: PickerOption,
 				},
 				style = "segmented" :: "segmented",
 				enabled = enabled,
@@ -118,8 +124,8 @@ return {
 				label = "Race group",
 				selected = selected,
 				options = {
-					{ value = "open", label = "Open races" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "open", label = "Open races" } :: PickerOption,
+					{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club } :: PickerOption,
 				},
 				enabled = enabled,
 			}
@@ -145,15 +151,15 @@ return {
 					onActivate = function() end,
 				} :: GuiObject,
 				items = {
-					{ id = "coastal", label = "Coastal", checked = tagCoastal } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-					{ id = "forest", label = "Forest", checked = tagForest } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+					{ id = "coastal", label = "Coastal", checked = tagCoastal } :: MenuItem,
+					{ id = "forest", label = "Forest", checked = tagForest } :: MenuItem,
 					{
 						id = "snow",
 						label = "Snow",
 						checked = tagSnow,
 						enabled = false,
 						description = "Winter routes are closed.",
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+					} :: MenuItem,
 				},
 			}
 		end
@@ -162,8 +168,8 @@ return {
 				value = comboValue,
 				text = comboText,
 				options = {
-					{ id = "road", label = "Road" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_string(nil :: any)),
-					{ id = "rally", label = "Rally" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_string(nil :: any)),
+					{ id = "road", label = "Road" } :: StringPickerOption,
+					{ id = "rally", label = "Rally" } :: StringPickerOption,
 				},
 				enabled = enabled,
 				acceptCustom = function(text)
@@ -171,9 +177,7 @@ return {
 				end,
 			}
 		end
-		local vote = (function(
-			value: "up" | "down" | "none"
-		): typeof(require("@repo/tools/typecheck/example_shapes").voteCell(nil :: any))
+		local vote = (function(value: "up" | "down" | "none"): VoteCell
 			return signal(value)
 		end)("none")
 		local function votes()
@@ -247,15 +251,15 @@ return {
 				required = false,
 				selected = mode,
 				options = {
-					{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" } :: PickerOption,
+					{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" } :: PickerOption,
 					{
 						value = "night",
 						label = "Night",
 						description = "Unlocks at level 10",
 						meta = "Soon",
 						enabled = false,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					} :: PickerOption,
 				},
 				enabled = enabled,
 			}
@@ -268,9 +272,9 @@ return {
 				controlSize = "compact" :: "compact",
 				selected = laps,
 				options = {
-					{ value = "3", label = "3" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "5", label = "5" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "10", label = "10" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "3", label = "3" } :: PickerOption,
+					{ value = "5", label = "5" } :: PickerOption,
+					{ value = "10", label = "10" } :: PickerOption,
 				},
 				enabled = enabled,
 			}

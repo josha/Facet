@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -98,8 +103,7 @@ local function world(build: (any, any) -> any, options: any?): any
 			return true
 		end
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local errors: { any } = {}
 	local UI: any = controls(
 		Compose,
@@ -116,11 +120,7 @@ local function world(build: (any, any) -> any, options: any?): any
 	local target = engine.new("Folder")
 	local view = o.viewport or { w = 600, h = 900 }
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ build(UI, runtime.constructors) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ build(UI, runtime.constructors) })
 	end, target)
 	screen.AbsoluteSize = engine.types.Vector2.new(view.w, view.h)
 	local w: any = {
@@ -191,20 +191,14 @@ end
 local function mount(spec: any, options: any?): any
 	local full: { [any]: any } = table.clone(spec)
 	full.clock = full.clock or clock
-	local w = world(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({
-				Name = "Col",
-				Host.UIListLayout({}) :: unknown,
-				UI.DateTimePicker("P")(full),
-				UI.Button("Other")({ label = "Other" }),
-			})
-		end,
-		options
-	)
+	local w = world(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({
+			Name = "Col",
+			Host.UIListLayout({}) :: unknown,
+			UI.DateTimePicker("P")(full),
+			UI.Button("Other")({ label = "Other" }),
+		})
+	end, options)
 	w.weekStart = full.weekStart or 1
 	return w
 end
@@ -814,8 +808,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		local neighbour = must(w.cellAt(1), "Day")
 		expect(`{inMonth:HasTag("facet-calendar-dim")} {neighbour:HasTag("facet-calendar-dim")}`).toBe("false true")
 		local engine: any = engines.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local sheet: any = nil
 		local stop = runtime.mount(function()
 			sheet = themes(Compose).createStyleSheet(runtime, nil, { types = engine.types })
@@ -1015,53 +1008,47 @@ t.describe("DateTimePicker: the gallery tab", function()
 				end
 			end
 		end
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Pickers",
-					Host.UIListLayout({}) :: unknown,
-					UI.Toggle("Refuse")({ label = "Refuse changes", value = refuse }),
-					UI.Text("Committed")({
-						text = function(use: any): string
-							return `Committed: {use(committed)}`
-						end,
-					}),
-					UI.DateTimePicker("RaceDay")({
-						label = "Race day",
-						value = raceDay,
-						onChange = accept(raceDay),
-						clock = clock,
-					}),
-					UI.DateTimePicker("Window")({
-						label = "Season window",
-						selection = "range" :: "range",
-						range = window,
-						onRangeChange = accept(window),
-						onRangeCommit = function(r: any)
-							committed:set(`{civil.format(r.start)} – {civil.format(r.finish)}`)
-						end,
-						draft = true,
-						weekStart = 2,
-						placeholder = "Choose a start and an end",
-						clock = clock,
-						presets = {
-							{
-								id = "week",
-								label = "This week",
-								range = function(today: any)
-									local start = civil.addDays(today, -((civil.weekday(today) + 5) % 7))
-									return { start = start, finish = civil.addDays(start, 6) }
-								end,
-							},
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Pickers",
+				Host.UIListLayout({}) :: unknown,
+				UI.Toggle("Refuse")({ label = "Refuse changes", value = refuse }),
+				UI.Text("Committed")({
+					text = function(use: any): string
+						return `Committed: {use(committed)}`
+					end,
+				}),
+				UI.DateTimePicker("RaceDay")({
+					label = "Race day",
+					value = raceDay,
+					onChange = accept(raceDay),
+					clock = clock,
+				}),
+				UI.DateTimePicker("Window")({
+					label = "Season window",
+					selection = "range" :: "range",
+					range = window,
+					onRangeChange = accept(window),
+					onRangeCommit = function(r: any)
+						committed:set(`{civil.format(r.start)} – {civil.format(r.finish)}`)
+					end,
+					draft = true,
+					weekStart = 2,
+					placeholder = "Choose a start and an end",
+					clock = clock,
+					presets = {
+						{
+							id = "week",
+							label = "This week",
+							range = function(today: any)
+								local start = civil.addDays(today, -((civil.weekday(today) + 5) % 7))
+								return { start = start, finish = civil.addDays(start, 6) }
+							end,
 						},
-					}),
-				})
-			end,
-			{ input = "touch" }
-		)
+					},
+				}),
+			})
+		end, { input = "touch" })
 		local line = must(w.screen, "Committed")
 		local text = if line:IsA("TextLabel") then line else line:FindFirstChildWhichIsA("TextLabel", true)
 		expect(must(w.picker("Window"), "Show").Text).toBe("Choose a start and an end")
@@ -1133,25 +1120,19 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 	end)
 
 	t.it("two time pickers on one page: Down from a picker's last week reaches ITS OWN hour field", function()
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local function picker(id: string): any
-					local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
-					return UI.DateTimePicker(id)({
-						value = cell,
-						onChange = change,
-						time = true,
-						style = "inline" :: "inline",
-						clock = clock,
-					})
-				end
-				return Host.Frame({ Name = "Col", Host.UIListLayout({}) :: unknown, picker("A"), picker("B") })
-			end,
-			{ input = "pad" }
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			local function picker(id: string): any
+				local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
+				return UI.DateTimePicker(id)({
+					value = cell,
+					onChange = change,
+					time = true,
+					style = "inline" :: "inline",
+					clock = clock,
+				})
+			end
+			return Host.Frame({ Name = "Col", Host.UIListLayout({}) :: unknown, picker("A"), picker("B") })
+		end, { input = "pad" })
 		for _, id in { "A", "B" } do
 			local last = 0
 			for i, day in civil.monthGrid(2026, 9, 1) do
@@ -1277,7 +1258,7 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 	t.it("refuses a malformed contract at construction and quarantines a late bad value", function()
 		local function build(spec: any): string
 			local ok, err = pcall(function()
-				local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local w = world(function(UI: FacetControls)
 					spec.clock = clock
 					return UI.DateTimePicker(spec)
 				end)

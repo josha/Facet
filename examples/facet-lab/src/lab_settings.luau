@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -49,7 +51,7 @@ local DISPLAY = { phone = "Small", tablet = "Medium", desktop = "Medium", tv = "
 local TRANSPARENCY = { default = 1, reduced = 0.5, opaque = 0 }
 
 function lab_settings.new(ctx: any, input: UserInputService): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+	local Compose: ComposeModule = ctx.Compose
 	local Enum = ctx.types.Enum
 	local gui = ctx.guiService
 	local cells: { [string]: any } = {

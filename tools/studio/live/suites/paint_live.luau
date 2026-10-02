@@ -1,4 +1,8 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Case = {
 	id: string,
 	contracts: { string },
@@ -19,20 +23,15 @@ end
 
 add("explicit-paint-beats-the-sheet", { "paint-72" }, function(t: any)
 	local red = Color3.fromRGB(200, 0, 0)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Row" {
-				Size = UDim2.fromOffset(400, 60),
-				BackgroundTransparency = 1,
-				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
-				UI.Button "Plain" { label = "Plain" },
-				UI.Button "Painted" { label = "Painted", BackgroundColor3 = red, BackgroundTransparency = 0 },
-			}
-		end
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Row" {
+			Size = UDim2.fromOffset(400, 60),
+			BackgroundTransparency = 1,
+			Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
+			UI.Button "Plain" { label = "Plain" },
+			UI.Button "Painted" { label = "Painted", BackgroundColor3 = red, BackgroundTransparency = 0 },
+		}
+	end)
 	t.settle(10)
 	local plain, painted = first(stage, "Plain"), first(stage, "Painted")
 	local sheetColour = plain:GetStyled("BackgroundColor3")
@@ -51,7 +50,7 @@ end)
 add("toggle-follows-a-live-palette", { "paint-76" }, function(t: any)
 	local value = t.Facet.Compose.cell(true)
 	local context
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, _, ctx)
+	local stage = t.mount(function(UI: FacetControls, _, _, ctx)
 		context = ctx
 		return UI.Toggle "Sound" { label = "Sound", value = value }
 	end)
@@ -78,27 +77,21 @@ add("toggle-follows-a-live-palette", { "paint-76" }, function(t: any)
 end)
 
 add("alert-title-is-centred", { "navigation-1-37" }, function(t: any)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Host" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				UI.Alert "Confirm" {
-					isPresented = t.Facet.Compose.cell(true),
-					title = "Save changes?",
-					message = "Your edits stay on this device until you save.",
-					actions = {
-						{ id = "save", label = "Save" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
-						{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
-					},
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Host" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.Alert "Confirm" {
+				isPresented = t.Facet.Compose.cell(true),
+				title = "Save changes?",
+				message = "Your edits stay on this device until you save.",
+				actions = {
+					{ id = "save", label = "Save" } :: AlertAction,
+					{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } :: AlertAction,
 				},
-			}
-		end,
-		{ size = Vector2.new(800, 600) }
-	)
+			},
+		}
+	end, { size = Vector2.new(800, 600) })
 	t.settle(30)
 	local title = nil
 	for _, node in stage.Parent:GetDescendants() do
@@ -125,26 +118,20 @@ end)
 
 add("path-strokes-in-theme-roles", { "mech1-38", "themes-P3-18" }, function(t: any)
 	for _, theme in t.themes do
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Row" {
-					Size = UDim2.fromOffset(300, 80),
-					BackgroundTransparency = 1,
-					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
-					UI.Path "Accent" {
-						points = t.Facet.pathShapes.ring(),
-						role = "accent" :: "accent",
-						thickness = 3,
-						width = 64,
-					},
-					UI.Path "Content" { points = t.Facet.pathShapes.needle(45), thickness = 2, width = 64 },
-				}
-			end,
-			{ theme = theme.package, size = Vector2.new(400, 200) }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Row" {
+				Size = UDim2.fromOffset(300, 80),
+				BackgroundTransparency = 1,
+				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
+				UI.Path "Accent" {
+					points = t.Facet.pathShapes.ring(),
+					role = "accent" :: "accent",
+					thickness = 3,
+					width = 64,
+				},
+				UI.Path "Content" { points = t.Facet.pathShapes.needle(45), thickness = 2, width = 64 },
+			}
+		end, { theme = theme.package, size = Vector2.new(400, 200) })
 		t.settle(8)
 		local accent = t.find(t.find(stage, "Accent"), "Stroke")
 		local content = t.find(t.find(stage, "Content"), "Stroke")

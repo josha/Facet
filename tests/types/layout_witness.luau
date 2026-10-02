@@ -1,8 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 local Facet = require("../../src")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime()
+local Compose: ComposeModule = Facet.Compose
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local UI = Facet.controls(runtime)
 local gap = Compose.cell("s" :: Facet.Space)
 local width: Facet.Cell<Facet.Extent> = Compose.cell("fill" :: Facet.Extent)
@@ -57,18 +61,13 @@ local guarded: Frame = UI.ErrorBoundary("Region")({
 		return use(maximum)
 	end,
 	view = function()
-		return (
-			(
-				runtime.constructors.Frame :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-		)({})
+		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 	end,
 	fallback = function(failure: unknown, retry: () -> ())
-		return (
-			(
-				runtime.constructors.TextButton :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextButton)
-		)({ Text = tostring(failure), Activated = retry })
+		return ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
+			Text = tostring(failure),
+			Activated = retry,
+		})
 	end,
 	onError = function(_failure: unknown) end,
 	width = "fill" :: "fill",

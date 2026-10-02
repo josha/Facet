@@ -1,5 +1,11 @@
 --!strict
-type Radial = typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type CenterCell = typeof(require("@repo/tools/typecheck/aliases").CenterCell)
+type DimCell = typeof(require("@repo/tools/typecheck/aliases").DimCell)
+type RadialSpec = typeof(require("@repo/tools/typecheck/aliases").RadialSpec)
+type RegionZone = typeof(require("@repo/tools/typecheck/aliases").RegionZone)
+type Radial = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 type Scene = {
 	id: string,
 	kind: string,
@@ -13,7 +19,7 @@ type Scene = {
 }
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 return {
 	title = "Quick actions",
@@ -21,7 +27,7 @@ return {
 	build = function(ctx: ExampleContext)
 		local UI = ctx.UI
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -39,14 +45,10 @@ return {
 		local fitNames = { both = "Hug content", radial = "Slim band", angular = "Short arcs", none = "Full arcs" }
 		local advanced = Compose.cell(false)
 		local passThrough = Compose.cell(false)
-		local centerPolicy = (function(
-			value: "empty" | "back"
-		): typeof(require("@repo/tools/typecheck/example_shapes").centerCell(nil :: any))
+		local centerPolicy = (function(value: "empty" | "back"): CenterCell
 			return Compose.cell(value)
 		end)("empty")
-		local dim = (function(
-			value: "none" | "dark" | "light"
-		): typeof(require("@repo/tools/typecheck/example_shapes").dimCell(nil :: any))
+		local dim = (function(value: "none" | "dark" | "light"): DimCell
 			return Compose.cell(value)
 		end)("none")
 		local lastAction = Compose.cell("ready")
@@ -86,7 +88,7 @@ return {
 			local turnAngle, unpacked, taken = Compose.cell(0), Compose.cell(false), Compose.cell(false)
 			local stage: GuiObject?
 			local Vector3, CFrame = ctx.types.Vector3, ctx.types.CFrame
-			local spec: typeof(require("@repo/tools/typecheck/example_shapes").radialSpec(nil :: any)) = {
+			local spec: RadialSpec = {
 				Name = "Commands",
 				items = {},
 
@@ -419,9 +421,7 @@ return {
 						} :: unknown,
 				},
 				UI.Region "LauncherCorner" {
-					zone = if item.kind == "corner"
-						then corner :: typeof(require("@repo/tools/typecheck/example_shapes").regionZone(nil :: any))
-						else "bottomLeft",
+					zone = if item.kind == "corner" then corner :: RegionZone else "bottomLeft" :: RegionZone,
 					rank = 2,
 					menuNode :: unknown,
 				},

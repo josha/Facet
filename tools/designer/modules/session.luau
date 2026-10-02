@@ -1,16 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
 local session = {}
 
 function session.mount(Facet: any, parent: Instance, preview: any, options: any): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(options.engine)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Compose: ComposeModule = Facet.Compose
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(options.engine)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local UDim2 = if options.types then options.types.UDim2 else UDim2
 	local Vector2 = if options.types then options.types.Vector2 else Vector2
 	local owner = Compose.createOwner(runtime.reactor)

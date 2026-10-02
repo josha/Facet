@@ -1,5 +1,9 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Steps",
 	refuse = "Refuse changes",
@@ -17,17 +21,15 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY
 		local refuse = Compose.cell(false)
-		local current = (function(
-			value: string?
-		): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+		local current = (function(value: string?): OptionalStringCell
 			return Compose.cell(value)
 		end)("ship")
-		local steps: { typeof(require("@repo/tools/typecheck/example_shapes").Step(nil :: any)) } = {
+		local steps: { Step } = {
 			{ id = "cart", label = copy.cart, state = "complete" :: "complete", navigable = true },
 			{ id = "ship", label = copy.shipping, description = copy.shippingNote, navigable = true },
 			{

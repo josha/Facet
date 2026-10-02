@@ -1,7 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local catalogService = require("@self/services/catalog")
 local favoritesService = require("@self/services/favorites")
 local rewardsService = require("@self/services/rewards")
@@ -14,7 +18,7 @@ local art = require("@self/content/art")
 local referenceView = require("./view")
 local Sipworks = { title = "Sipworks" }
 function Sipworks.build(ctx: ExampleContext)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), UI, runtime = ctx.Compose, ctx.UI, ctx.runtime
+	local Compose: ComposeModule, UI, runtime = ctx.Compose, ctx.UI, ctx.runtime
 	local view = referenceView(ctx)
 	local clock = clockService.new(0)
 	local function batch(body)
@@ -31,9 +35,7 @@ function Sipworks.build(ctx: ExampleContext)
 	local order = orderService.new({ Compose = Compose, batch = batch, clock = clock })
 	local taskModel = taskService.new({ Compose = Compose, batch = batch, rewards = rewards, order = order })
 	local i18n = i18nService.new({ Compose = Compose, locale = "en" })
-	local function optionalString(
-		value: string?
-	): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+	local function optionalString(value: string?): OptionalStringCell
 		return Compose.cell(value)
 	end
 	local section, search, selected = Compose.cell("menu"), Compose.cell(""), optionalString(nil)
@@ -279,14 +281,9 @@ function Sipworks.build(ctx: ExampleContext)
 			view.text(text("rewards.title"), 28),
 			UI.Picker "Locale" {
 				selected = i18n.locale,
-				options = function(use: Use): {
-					typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_string(
-						nil :: any
-					))
-				}
+				options = function(use: Use): { StringPickerOption }
 					local locale = use(i18n.locale)
-					local options: { typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_string(nil :: any)) } =
-						{}
+					local options: { StringPickerOption } = {}
 					for _, id in i18nService.LOCALES do
 						table.insert(options, { value = id, label = i18n.at(locale, "locale." .. id) })
 					end

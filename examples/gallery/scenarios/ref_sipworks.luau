@@ -1,5 +1,5 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Sipworks",
 	build = function(ctx: ExampleContext)

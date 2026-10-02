@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local ThemeTypes = require("../src/ui/theme_types")
@@ -6,7 +11,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type Harness = {
@@ -37,8 +42,7 @@ local function openSettings(root: any)
 end
 local function harness(options: { [string]: any }?): Harness
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
 	for key, value in (options or {}) :: { [string]: any } do
@@ -49,9 +53,7 @@ local function harness(options: { [string]: any }?): Harness
 		engine = engine,
 		runtime = runtime,
 		UI = UI,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		gui = gui,
 		dispose = function()
 			runtime:dispose()
@@ -911,8 +913,7 @@ t.describe("native parity themes", function()
 
 	t.it("lists Neutral first then names, keeps the installed package on reselection and selects a palette", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, gui = engine.new("Folder"), engine.new("GuiService")
 		local input = engine.new("UserInputService")
 		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
@@ -935,9 +936,7 @@ t.describe("native parity themes", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
@@ -970,9 +969,9 @@ t.describe("native parity themes", function()
 					inputParent = target,
 					services = { GuiService = gui, UserInputService = input },
 					theme = ctx.theme,
-					motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+					motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-					end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+					end) :: unknown) :: MotionLevel,
 				} :: any
 			)
 			Compose.watch(function(use: Use)

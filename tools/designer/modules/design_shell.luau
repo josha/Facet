@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -9,11 +13,8 @@ local layerOutline = require("./layer_outline")
 local shell = {}
 
 function shell.mount(Facet: any, parent: Instance, model: any, actions: any, options: any): any
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime()
-	local Host, Compose: typeof(require("@repo/src/vendor/compose/core")) =
-		(runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-		Facet.Compose
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+	local Host, Compose: ComposeModule = (runtime.constructors :: unknown) :: RobloxHost, Facet.Compose
 	local kit: any
 	local canvas: Frame?, codeBox: TextBox?
 	local stop, mounted = runtime.mount(function(): Frame
@@ -22,10 +23,10 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 		local function contentTop(use)
 			return if use(model).compact then 192 else 122
 		end
-		local function contentPosition(use)
+		local function contentPosition(use: Use): UDim2
 			return UDim2.fromOffset(if use(model).compact then 0 else 224, contentTop(use))
 		end
-		local function contentSize(use)
+		local function contentSize(use: Use): UDim2
 			return UDim2.new(1, if use(model).compact then 0 else -496, 1, -contentTop(use) - 32)
 		end
 		local function paneVisible(name)
@@ -653,10 +654,12 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 		end
 
 		for _, name in { "Commands", "PreviewSettings", "DataActions" } do
-			local row = if name == "Commands"
-				then header:FindFirstChild(name)
-				elseif name == "PreviewSettings" then settings:FindFirstChild(name)
-				else dataPanel:FindFirstChild(name, true)
+			local row = (
+				if name == "Commands"
+					then header:FindFirstChild(name)
+					elseif name == "PreviewSettings" then settings:FindFirstChild(name)
+					else dataPanel:FindFirstChild(name, true)
+			) :: GuiObject
 			row.AutomaticSize = Enum.AutomaticSize.X
 			row.Size = UDim2.fromOffset(0, 44)
 		end

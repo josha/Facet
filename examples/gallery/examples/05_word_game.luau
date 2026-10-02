@@ -1,5 +1,8 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+
 local words = require("./words")
 
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -156,7 +159,7 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 end
 
 function example.build(ctx: any)
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 
 	local theme = Compose.formula(function(use: Use)
@@ -547,8 +550,8 @@ function example.build(ctx: any)
 					title = resultTitle,
 					message = resultMessage,
 					actions = {
-						{ id = "Again", label = "New game", onActivate = restart } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
-						{ id = "Close", label = "Close", role = "cancel" :: "cancel", onActivate = closeResults } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+						{ id = "Again", label = "New game", onActivate = restart } :: AlertAction,
+						{ id = "Close", label = "Close", role = "cancel" :: "cancel", onActivate = closeResults } :: AlertAction,
 					},
 				},
 			}

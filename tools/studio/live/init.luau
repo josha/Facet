@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local HttpService = game:GetService("HttpService")
@@ -171,12 +176,9 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 	end
 	function t.mount(build: (any, any, any, any) -> any, options: { [string]: any }?): any
 		local config: { [string]: any } = options or {}
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime()
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Compose: ComposeModule = Facet.Compose
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local package = config.theme or themes[1].package
 		local root
 		local emulate = config.size ~= nil and config.emulate ~= false
@@ -344,59 +346,51 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 	function t.gallery(options: { [string]: any }?): (any, any)
 		local config: { [string]: any } = options or {}
 		local context
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core")),
-				env
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+			local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
+			local folder = storage:FindFirstChild("FacetThemes")
+			local packages = screen.themePackages(
+				Facet.themes,
+				if folder then folder:GetChildren() else {},
+				function(module)
+					return (require :: any)(module)
+				end
 			)
-				local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
-				local folder = storage:FindFirstChild("FacetThemes")
-				local packages = screen.themePackages(
-					Facet.themes,
-					if folder then folder:GetChildren() else {},
-					function(module)
-						return (require :: any)(module)
-					end
-				)
-				packages.Neutral = env.theme:peek()
-				context = {
-					Facet = Facet,
-					Compose = Compose,
-					runtime = env.runtime,
-					Host = Host,
-					viewport = env.viewport,
-					types = env.types,
-					worldTarget = workspace,
-					selection = Compose.cell(config.demo or "all-controls"),
-					demos = screen.list(),
-					inputTarget = Players.LocalPlayer:WaitForChild("PlayerGui"),
-					guiService = GuiService,
-					runService = RunService,
-					theme = env.theme,
-					themeMode = env.palette,
-					packages = packages,
-					load = function(kind, name)
-						local source = if kind == "example"
-							then storage:WaitForChild("FacetExamples")
-							elseif kind == "reference" then storage:WaitForChild("FacetReference")
-							else storage:WaitForChild("FacetScenarios")
-						return (require :: any)(source:WaitForChild(name))
-					end,
-				}
-				screen.configure(context)
-				context.UI = UI
-				context.show = function(id: string): any
-					return screen.dispatch(context, "show", id)
-				end
-				context.dispatch = function(command: string, argument: any): any
-					return screen.dispatch(context, command, argument)
-				end
-				return screen.build(context)
-			end,
-			{ size = config.size, theme = config.theme, frames = config.frames or 20 }
-		)
+			packages.Neutral = env.theme:peek()
+			context = {
+				Facet = Facet,
+				Compose = Compose,
+				runtime = env.runtime,
+				Host = Host,
+				viewport = env.viewport,
+				types = env.types,
+				worldTarget = workspace,
+				selection = Compose.cell(config.demo or "all-controls"),
+				demos = screen.list(),
+				inputTarget = Players.LocalPlayer:WaitForChild("PlayerGui"),
+				guiService = GuiService,
+				runService = RunService,
+				theme = env.theme,
+				themeMode = env.palette,
+				packages = packages,
+				load = function(kind, name)
+					local source = if kind == "example"
+						then storage:WaitForChild("FacetExamples")
+						elseif kind == "reference" then storage:WaitForChild("FacetReference")
+						else storage:WaitForChild("FacetScenarios")
+					return (require :: any)(source:WaitForChild(name))
+				end,
+			}
+			screen.configure(context)
+			context.UI = UI
+			context.show = function(id: string): any
+				return screen.dispatch(context, "show", id)
+			end
+			context.dispatch = function(command: string, argument: any): any
+				return screen.dispatch(context, command, argument)
+			end
+			return screen.build(context)
+		end, { size = config.size, theme = config.theme, frames = config.frames or 20 })
 		return stage, context
 	end
 	function t.device(options: { [string]: any }): Vector2

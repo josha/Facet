@@ -1,8 +1,10 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 return function(ctx: any, id: string, groups: { any })
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2 = ctx.types.UDim2
 	local selections = {}
 	local preference = ctx.categoryPlacement or Compose.cell("automatic")

@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureRadialTypes = require("../src/ui/radial_types")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
@@ -9,7 +14,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local InspectState = require("../src/vendor/compose/core/ownership/inspect")
 
 type Census = { live: number, connections: number, owners: number, holding: number, mounts: number }
@@ -90,17 +95,16 @@ local function controlsFor(ctx: any): any
 			viewport = ctx.viewport,
 			guiService = ctx.guiService,
 			services = { GuiService = ctx.guiService },
-			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+			end) :: unknown) :: MotionLevel,
 		} :: any
 	)
 	return ctx
 end
 
 local function exampleContext(engine: any, extra: { [string]: any }?): any
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
@@ -108,9 +112,7 @@ local function exampleContext(engine: any, extra: { [string]: any }?): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -161,8 +163,7 @@ local function radialWorld(animated: boolean): any
 	engine.clock = function()
 		return now
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local UI = Facet.controls(
 		runtime,
 		{
@@ -177,9 +178,7 @@ local function radialWorld(animated: boolean): any
 		input = input,
 		runtime = runtime,
 		UI = UI,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		target = engine.new("Folder"),
 		step = function(seconds: number)
 			for _ = 1, math.ceil(seconds * 60) do
@@ -200,8 +199,7 @@ end
 
 local function controlWorld(options: { [string]: any }?): any
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -227,9 +225,7 @@ local function controlWorld(options: { [string]: any }?): any
 		engine = engine,
 		runtime = runtime,
 		UI = UI,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		gui = gui,
 		input = input,
 		root = root,
@@ -840,17 +836,14 @@ t.describe("lifetime parity strength", function()
 		inspected(function()
 			local hud = require("../examples/gallery/scenarios/hud") :: any
 			local engine = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local viewport = Compose.cell({ width = 1079, height = 809 })
 			local target = engine.new("ScreenGui")
 			local ctx = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types, viewport = viewport } :: any),
 				types = engine.types,
 				viewport = viewport,
@@ -2148,17 +2141,14 @@ t.describe("lifetime parity strength", function()
 				workloads = require("../examples/performance/lab/workloads"),
 			}
 			local engine = engineLib.new({ cacheDefaults = true })
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target = engine.new("Folder")
 			local probe
 			local world = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = (
-						runtime.constructors :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types } :: any),
 				engine = engine,
 				target = target,

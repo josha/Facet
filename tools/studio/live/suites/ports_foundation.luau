@@ -1,4 +1,10 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -221,48 +227,41 @@ interactive(
 		desktop(t)
 		local value: { [string]: any } = { chosen = nil }
 		local dense = define(t, "Dense", { metrics = { targetSizes = { minimum = 44, pointer = 28 } } })
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				value.open = Compose.cell(true)
-				local function item(id: string, label: string): any
-					return {
-						id = id,
-						label = label,
-						onSelect = function()
-							value.chosen = id
-						end,
-					}
-				end
-				return Host.Frame "Board" {
-					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 1),
-					UI.Menu({
-						Name = "Options",
-						label = "Options",
-						items = { item("a", "Alpha"), item("b", "Beta"), item("c", "Gamma") },
-						isPresented = value.open,
-						Position = UDim2.fromOffset(120, 80),
-					}) :: unknown,
-					UI.Picker({
-						Name = "Speed",
-						style = "menu" :: "menu",
-						selected = Compose.cell("normal"),
-						options = {
-							{ value = "slow", label = "Slow" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "normal", label = "Normal" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "fast", label = "Fast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						},
-						Position = UDim2.fromOffset(480, 80),
-						Size = UDim2.fromOffset(200, 44),
-					}),
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			value.open = Compose.cell(true)
+			local function item(id: string, label: string): any
+				return {
+					id = id,
+					label = label,
+					onSelect = function()
+						value.chosen = id
+					end,
 				}
-			end,
-			{ theme = dense, size = Vector2.new(800, 600), frames = 20 }
-		)
+			end
+			return Host.Frame "Board" {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				UI.Menu({
+					Name = "Options",
+					label = "Options",
+					items = { item("a", "Alpha"), item("b", "Beta"), item("c", "Gamma") },
+					isPresented = value.open,
+					Position = UDim2.fromOffset(120, 80),
+				}) :: unknown,
+				UI.Picker({
+					Name = "Speed",
+					style = "menu" :: "menu",
+					selected = Compose.cell("normal"),
+					options = {
+						{ value = "slow", label = "Slow" } :: PickerOption,
+						{ value = "normal", label = "Normal" } :: PickerOption,
+						{ value = "fast", label = "Fast" } :: PickerOption,
+					},
+					Position = UDim2.fromOffset(480, 80),
+					Size = UDim2.fromOffset(200, 44),
+				}),
+			}
+		end, { theme = dense, size = Vector2.new(800, 600), frames = 20 })
 		value.stage = stage
 		t.settle(20)
 		value.panel = visibleNamed(t, stage, "MenuPanel")
@@ -332,33 +331,26 @@ local OPTIONS = {
 }
 
 local function startPicker(t: any, size: Vector2): any
-	return t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return Host.Frame "Toolbar" {
-				BackgroundTransparency = 1,
-				Size = UDim2.fromScale(1, 1),
-				UI.HStack "Bar" {
-					gap = "s",
-					align = "center" :: "center",
-					UI.Picker "Motion" {
-						label = "Motion",
-						style = "menu" :: "menu",
-						valueAlignment = "start" :: "start",
-						sizing = "hug" :: "hug",
-						controlSize = "compact" :: "compact",
-						options = OPTIONS,
-						selected = Compose.cell("normal"),
-					} :: unknown,
-					UI.Button "Reset" { label = "Reset" },
-				},
-			}
-		end,
-		{ size = size, frames = 20 }
-	)
+	return t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame "Toolbar" {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			UI.HStack "Bar" {
+				gap = "s",
+				align = "center" :: "center",
+				UI.Picker "Motion" {
+					label = "Motion",
+					style = "menu" :: "menu",
+					valueAlignment = "start" :: "start",
+					sizing = "hug" :: "hug",
+					controlSize = "compact" :: "compact",
+					options = OPTIONS,
+					selected = Compose.cell("normal"),
+				} :: unknown,
+				UI.Button "Reset" { label = "Reset" },
+			},
+		}
+	end, { size = size, frames = 20 })
 end
 
 add("picker-start-inline", { "post-port26-018" }, function(t: any)
@@ -429,36 +421,29 @@ end)
 
 add("tab-rung", { "post-port26-025" }, function(t: any)
 	desktop(t)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return UI.TabView "Pages" {
-				placement = "topBar" :: "topBar",
-				controlSize = "compact" :: "compact",
-				selection = Compose.cell("a"),
-				tabs = {
-					{
-						id = "a",
-						label = "Alpha",
-						content = function()
-							return Host.Frame { Name = "PA", BackgroundTransparency = 1 }
-						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{
-						id = "b",
-						label = "Beta",
-						content = function()
-							return Host.Frame { Name = "PB", BackgroundTransparency = 1 }
-						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(600, 400), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return UI.TabView "Pages" {
+			placement = "topBar" :: "topBar",
+			controlSize = "compact" :: "compact",
+			selection = Compose.cell("a"),
+			tabs = {
+				{
+					id = "a",
+					label = "Alpha",
+					content = function()
+						return Host.Frame { Name = "PA", BackgroundTransparency = 1 }
+					end,
+				} :: Tab,
+				{
+					id = "b",
+					label = "Beta",
+					content = function()
+						return Host.Frame { Name = "PB", BackgroundTransparency = 1 }
+					end,
+				} :: Tab,
+			},
+		}
+	end, { size = Vector2.new(600, 400), frames = 20 })
 	local strip = t.find(stage, "Tabs")
 	t.check("the strip exists", strip ~= nil)
 	if not strip then
@@ -494,26 +479,19 @@ interactive(
 	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = {}
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				value.size = Compose.cell(Vector2.new(1200, 800))
-				value.presented = Compose.cell(false)
-				return UI.Sheet "Sheet" {
-					isPresented = value.presented,
-					detent = Compose.cell("medium"),
-					placement = "adaptive" :: "adaptive",
-					title = "Inspector",
-					content = function(): Instance
-						return Host.Frame { Name = "Copy", BackgroundTransparency = 1, Size = UDim2.fromOffset(200, 120) }
-					end,
-				}
-			end,
-			{ size = Vector2.new(1200, 800), frames = 12 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			value.size = Compose.cell(Vector2.new(1200, 800))
+			value.presented = Compose.cell(false)
+			return UI.Sheet "Sheet" {
+				isPresented = value.presented,
+				detent = Compose.cell("medium"),
+				placement = "adaptive" :: "adaptive",
+				title = "Inspector",
+				content = function(): Instance
+					return Host.Frame { Name = "Copy", BackgroundTransparency = 1, Size = UDim2.fromOffset(200, 120) }
+				end,
+			}
+		end, { size = Vector2.new(1200, 800), frames = 12 })
 		value.stage = stage
 		value.presented:set(true)
 		local samples = {}
@@ -570,28 +548,21 @@ interactive(
 		narrow = function(t: any, value: any)
 			desktop(t)
 			t.cleanup()
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					Compose: typeof(require("@repo/src/vendor/compose/core"))
-				)
-					return UI.Sheet "Sheet" {
-						isPresented = Compose.cell(true),
-						detent = Compose.cell("medium"),
-						placement = "adaptive" :: "adaptive",
-						title = "Inspector",
-						content = function(): Instance
-							return Host.Frame {
-								Name = "Copy",
-								BackgroundTransparency = 1,
-								Size = UDim2.fromOffset(200, 120),
-							}
-						end,
-					}
-				end,
-				{ size = Vector2.new(390, 800), frames = 20 }
-			)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+				return UI.Sheet "Sheet" {
+					isPresented = Compose.cell(true),
+					detent = Compose.cell("medium"),
+					placement = "adaptive" :: "adaptive",
+					title = "Inspector",
+					content = function(): Instance
+						return Host.Frame {
+							Name = "Copy",
+							BackgroundTransparency = 1,
+							Size = UDim2.fromOffset(200, 120),
+						}
+					end,
+				}
+			end, { size = Vector2.new(390, 800), frames = 20 })
 			local panel = visibleNamed(t, stage, "SheetPanel")
 			t.check("the narrow sheet is shown", panel ~= nil)
 			if panel then
@@ -611,35 +582,28 @@ interactive(
 
 add("outline-indent", { "post-port26-014" }, function(t: any)
 	desktop(t)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return Host.Frame "Board" {
-				BackgroundTransparency = 1,
-				Size = UDim2.fromScale(1, 1),
-				UI.DisclosureGroup "G" {
-					label = "Components",
-					appearance = "outline" :: "outline",
-					textSize = "label" :: "label",
-					indent = "m" :: "m",
-					expanded = Compose.cell(true),
-					Size = UDim2.fromOffset(320, 0),
-					content = function(): Instance
-						return Host.TextLabel {
-							Name = "Row",
-							Text = "Button",
-							Size = UDim2.fromOffset(120, 28),
-							BackgroundTransparency = 1,
-						}
-					end,
-				},
-			}
-		end,
-		{ size = Vector2.new(600, 400), frames = 30 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame "Board" {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			UI.DisclosureGroup "G" {
+				label = "Components",
+				appearance = "outline" :: "outline",
+				textSize = "label" :: "label",
+				indent = "m" :: "m",
+				expanded = Compose.cell(true),
+				Size = UDim2.fromOffset(320, 0),
+				content = function(): Instance
+					return Host.TextLabel {
+						Name = "Row",
+						Text = "Button",
+						Size = UDim2.fromOffset(120, 28),
+						BackgroundTransparency = 1,
+					}
+				end,
+			},
+		}
+	end, { size = Vector2.new(600, 400), frames = 30 })
 	local group = t.find(stage, "G")
 	local row = t.find(stage, "Row")
 	local header = t.find(stage, "Header")
@@ -668,48 +632,41 @@ end)
 add("selection-marks", { "post-port26-026", "post-port26-027", "post-port26-028", "post-port26-030" }, function(t: any)
 	desktop(t)
 	local package = authored(t, "Ink", { selection = rgb(INK), onSelection = rgb(ON_INK) })
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return UI.VStack "Board" {
-				gap = "s",
-				UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true) } :: unknown,
-				UI.Toggle "Check" {
-					label = "Check",
-					presentation = "checkbox" :: "checkbox",
-					value = Compose.cell(true),
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return UI.VStack "Board" {
+			gap = "s",
+			UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true) } :: unknown,
+			UI.Toggle "Check" {
+				label = "Check",
+				presentation = "checkbox" :: "checkbox",
+				value = Compose.cell(true),
+			},
+			UI.Toggle "Sound" { label = "Sound", value = Compose.cell(true) },
+			UI.Slider "Vol" { value = Compose.cell(0.5), min = 0, max = 1 },
+			UI.TabView "Pages" {
+				placement = "topBar" :: "topBar",
+				indicator = "underline" :: "underline",
+				selection = Compose.cell("a"),
+				Size = UDim2.fromOffset(400, 120),
+				tabs = {
+					{
+						id = "a",
+						label = "A",
+						content = function()
+							return Host.Frame { Name = "PA", BackgroundTransparency = 1 }
+						end,
+					} :: Tab,
+					{
+						id = "b",
+						label = "B",
+						content = function()
+							return Host.Frame { Name = "PB", BackgroundTransparency = 1 }
+						end,
+					} :: Tab,
 				},
-				UI.Toggle "Sound" { label = "Sound", value = Compose.cell(true) },
-				UI.Slider "Vol" { value = Compose.cell(0.5), min = 0, max = 1 },
-				UI.TabView "Pages" {
-					placement = "topBar" :: "topBar",
-					indicator = "underline" :: "underline",
-					selection = Compose.cell("a"),
-					Size = UDim2.fromOffset(400, 120),
-					tabs = {
-						{
-							id = "a",
-							label = "A",
-							content = function()
-								return Host.Frame { Name = "PA", BackgroundTransparency = 1 }
-							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-						{
-							id = "b",
-							label = "B",
-							content = function()
-								return Host.Frame { Name = "PB", BackgroundTransparency = 1 }
-							end,
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					},
-				},
-			}
-		end,
-		{ theme = package, size = Vector2.new(800, 600), frames = 30 }
-	)
+			},
+		}
+	end, { theme = package, size = Vector2.new(800, 600), frames = 30 })
 	local function paint(where: string, node: any, property: string, want: Color3)
 		t.check(`{where} found`, node ~= nil)
 		if node then
@@ -749,24 +706,17 @@ interactive(
 		desktop(t)
 		local package = authored(t, "InkHover", { selection = rgb(INK), onSelection = rgb(ON_INK) })
 		local value: { [string]: any } = {}
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				return Host.Frame "Board" {
-					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 1),
-					UI.Chip "Pick" {
-						label = "Pick",
-						selected = Compose.cell(true),
-						Position = UDim2.fromOffset(200, 200),
-					},
-				}
-			end,
-			{ theme = package, size = Vector2.new(800, 600), frames = 20 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			return Host.Frame "Board" {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				UI.Chip "Pick" {
+					label = "Pick",
+					selected = Compose.cell(true),
+					Position = UDim2.fromOffset(200, 200),
+				},
+			}
+		end, { theme = package, size = Vector2.new(800, 600), frames = 20 })
 		value.chip = t.find(stage, "Pick")
 		value.target = if value.chip then point(value.chip) else nil
 		t.note("chip point", value.target)
@@ -793,30 +743,24 @@ interactive(
 	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = {}
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame "Board" {
-					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 1),
-					UI.Button "More" {
-						label = "Learn more",
-						appearance = "link" :: "link",
-						underline = "hover" :: "hover",
-						Position = UDim2.fromOffset(200, 200),
-					} :: unknown,
-					UI.Button "Always" {
-						label = "Terms",
-						appearance = "link" :: "link",
-						underline = "always" :: "always",
-						Position = UDim2.fromOffset(200, 300),
-					},
-				}
-			end,
-			{ size = Vector2.new(800, 600), frames = 20 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Board" {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				UI.Button "More" {
+					label = "Learn more",
+					appearance = "link" :: "link",
+					underline = "hover" :: "hover",
+					Position = UDim2.fromOffset(200, 200),
+				} :: unknown,
+				UI.Button "Always" {
+					label = "Terms",
+					appearance = "link" :: "link",
+					underline = "always" :: "always",
+					Position = UDim2.fromOffset(200, 300),
+				},
+			}
+		end, { size = Vector2.new(800, 600), frames = 20 })
 		value.more = t.find(stage, "More")
 		value.always = t.find(stage, "Always")
 		value.target = if value.more then point(value.more) else nil
@@ -873,23 +817,17 @@ interactive(
 		value.colors = { Dark = paletteNamed(neutral, dark).colors, Light = paletteNamed(neutral, light).colors }
 		value.buttons = {}
 		for index, name in { dark, light } do
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return Host.Frame "Board" {
-						BackgroundTransparency = 1,
-						Size = UDim2.fromScale(1, 1),
-						UI.Button "Inv" {
-							label = "Invert",
-							appearance = "inverse",
-							Position = UDim2.fromOffset(100 + (index - 1) * 400, 200),
-						},
-					}
-				end,
-				{ palette = name, size = Vector2.new(800, 600), frames = 20 }
-			)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "Board" {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+					UI.Button "Inv" {
+						label = "Invert",
+						appearance = "inverse",
+						Position = UDim2.fromOffset(100 + (index - 1) * 400, 200),
+					},
+				}
+			end, { palette = name, size = Vector2.new(800, 600), frames = 20 })
 			local button = t.find(stage, "Inv")
 			value.buttons[name] = button
 			local colors = value.colors[name]
@@ -930,7 +868,7 @@ interactive(
 
 add("strong-divider-and-pane", { "post-port26-021", "post-port26-033", "post-port26-035" }, function(t: any)
 	desktop(t)
-	local stage = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local stage = t.mount(function(_, Host: RobloxHost)
 		local hairline = Host.Frame "Hairline" { Size = UDim2.fromOffset(400, 1), Position = UDim2.fromOffset(20, 40) }
 		hairline:AddTag("facet-divider")
 		local strong = Host.Frame "Strong" { Size = UDim2.fromOffset(400, 1), Position = UDim2.fromOffset(20, 80) }
@@ -985,39 +923,32 @@ add("dim-disabled-plates", { "post-port26-032" }, function(t: any)
 		{ name = "Inverse", props = { appearance = "inverse" } },
 		{ name = "Destructive", props = { role = "destructive" :: "destructive" } },
 	}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			local rows = { Name = "Board", gap = "s" }
-			for _, look in looks do
-				for _, on in { true, false } do
-					local props = table.clone(look.props)
-					props.Name = look.name .. (if on then "On" else "Off")
-					props.label = look.name
-					props.enabled = on
-					table.insert(rows, UI.Button(props))
-				end
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		local rows = { Name = "Board", gap = "s" }
+		for _, look in looks do
+			for _, on in { true, false } do
+				local props = table.clone(look.props)
+				props.Name = look.name .. (if on then "On" else "Off")
+				props.label = look.name
+				props.enabled = on
+				table.insert(rows, UI.Button(props))
 			end
-			table.insert(
-				rows,
-				UI.Toggle "BoxOn" { label = "Box", presentation = "checkbox" :: "checkbox", value = Compose.cell(true) }
-			)
-			table.insert(
-				rows,
-				UI.Toggle "BoxOff" {
-					label = "Box",
-					presentation = "checkbox" :: "checkbox",
-					value = Compose.cell(true),
-					enabled = false,
-				}
-			)
-			return UI.VStack(rows)
-		end,
-		{ theme = package, size = Vector2.new(800, 900), frames = 30 }
-	)
+		end
+		table.insert(
+			rows,
+			UI.Toggle "BoxOn" { label = "Box", presentation = "checkbox" :: "checkbox", value = Compose.cell(true) }
+		)
+		table.insert(
+			rows,
+			UI.Toggle "BoxOff" {
+				label = "Box",
+				presentation = "checkbox" :: "checkbox",
+				value = Compose.cell(true),
+				enabled = false,
+			}
+		)
+		return UI.VStack(rows)
+	end, { theme = package, size = Vector2.new(800, 900), frames = 30 })
 	local page = toColor(colors.surface)
 	local function compare(where: string, on: any, off: any)
 		t.check(`{where} found`, on ~= nil and off ~= nil)
@@ -1060,38 +991,31 @@ interactive(
 	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = { clicks = 0 }
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				value.chosen = Compose.cell(false)
-				return Host.Frame "Board" {
-					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 1),
-					UI.Button "Tiny" {
-						label = "Go",
-						icon = "close",
-						controlSize = "xsmall" :: "xsmall",
-						Position = UDim2.fromOffset(200, 200),
-						onActivate = function()
-							value.clicks += 1
-						end,
-					} :: unknown,
-					UI.Chip "TinyChip" {
-						label = "Tag",
-						controlSize = "xsmall" :: "xsmall",
-						selected = value.chosen,
-						onToggle = function(next)
-							value.chosen:set(next)
-						end,
-						Position = UDim2.fromOffset(200, 300),
-					},
-				}
-			end,
-			{ size = Vector2.new(800, 600), frames = 20 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			value.chosen = Compose.cell(false)
+			return Host.Frame "Board" {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				UI.Button "Tiny" {
+					label = "Go",
+					icon = "close",
+					controlSize = "xsmall" :: "xsmall",
+					Position = UDim2.fromOffset(200, 200),
+					onActivate = function()
+						value.clicks += 1
+					end,
+				} :: unknown,
+				UI.Chip "TinyChip" {
+					label = "Tag",
+					controlSize = "xsmall" :: "xsmall",
+					selected = value.chosen,
+					onToggle = function(next)
+						value.chosen:set(next)
+					end,
+					Position = UDim2.fromOffset(200, 300),
+				},
+			}
+		end, { size = Vector2.new(800, 600), frames = 20 })
 		for _, name in { "Tiny", "TinyChip" } do
 			local node = t.find(stage, name)
 			t.check(`{name} found`, node ~= nil)
@@ -1132,20 +1056,14 @@ interactive(
 add("utility-stroke", { "post-port26-034" }, function(t: any)
 	desktop(t)
 	local package = define(t, "Utility", { metrics = { strokes = { hairline = 1, utility = 2 } } })
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Board" {
-				BackgroundTransparency = 1,
-				Size = UDim2.fromScale(1, 1),
-				UI.Button "Util" { label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) } :: unknown,
-				UI.Button "Plain" { label = "Standard", Position = UDim2.fromOffset(400, 200) },
-			}
-		end,
-		{ theme = package, size = Vector2.new(800, 600), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Board" {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			UI.Button "Util" { label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) } :: unknown,
+			UI.Button "Plain" { label = "Standard", Position = UDim2.fromOffset(400, 200) },
+		}
+	end, { theme = package, size = Vector2.new(800, 600), frames = 20 })
 	local button = t.find(stage, "Util")
 	t.check("the utility button exists", button ~= nil)
 	if not button then

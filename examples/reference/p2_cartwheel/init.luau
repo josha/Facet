@@ -1,7 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local data = require("@self/content/data")
 local strings = require("@self/content/strings")
 local clockService = require("@self/services/clock")
@@ -14,7 +20,7 @@ local commandsService = require("@self/services/commands")
 local referenceView = require("./view")
 local Cartwheel = { title = "Cartwheel" }
 function Cartwheel.build(ctx: ExampleContext)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), UI, Host = ctx.Compose, ctx.UI, ctx.Host
+	local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 	local D2 = ctx.types.UDim2
 	local view = referenceView(ctx)
 	local S = strings.new("en")
@@ -199,10 +205,10 @@ function Cartwheel.build(ctx: ExampleContext)
 			UI.Picker "Timeframe" {
 				selected = timeframe,
 				options = {
-					{ value = "today", label = "Today" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "week", label = "Week" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "month", label = "Month" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "year", label = "Year" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "today", label = "Today" } :: PickerOption,
+					{ value = "week", label = "Week" } :: PickerOption,
+					{ value = "month", label = "Month" } :: PickerOption,
+					{ value = "year", label = "Year" } :: PickerOption,
 				},
 			},
 			view.text("Top five", 24),
@@ -242,14 +248,7 @@ function Cartwheel.build(ctx: ExampleContext)
 			garnish:set(record.garnish)
 		end)
 	end
-	local function pickerOptions(
-		items,
-		optional
-	): {
-		typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_string(
-			nil :: any
-		))
-	}
+	local function pickerOptions(items, optional): { StringPickerOption }
 		local options = if optional then { { value = "", label = "None" } } else {}
 		for _, item in items do
 			table.insert(options, { value = item.id, label = item.name })
@@ -298,9 +297,9 @@ function Cartwheel.build(ctx: ExampleContext)
 			UI.Picker "LedgerTimeframe" {
 				selected = ledgerTimeframe,
 				options = {
-					{ value = "twoWeeks", label = "Two weeks" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "month", label = "Month · Full Ledger" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "year", label = "Year · Full Ledger" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "twoWeeks", label = "Two weeks" } :: PickerOption,
+					{ value = "month", label = "Month · Full Ledger" } :: PickerOption,
+					{ value = "year", label = "Year · Full Ledger" } :: PickerOption,
 				},
 			},
 			Compose.show(function(use: Use)
@@ -481,12 +480,12 @@ function Cartwheel.build(ctx: ExampleContext)
 				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -112),
 				tabs = {
-					{ id = "dashboard", label = "Dashboard", content = dashboard } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "brews", label = "Brews", content = brewsPage } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "workbench", label = "Workbench", content = workbench } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "ledger", label = "Ledger", content = ledger } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "chatter", label = "Chatter", content = chatter } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{ id = "plazas", label = "Plazas", content = plazas } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "dashboard", label = "Dashboard", content = dashboard } :: Tab,
+					{ id = "brews", label = "Brews", content = brewsPage } :: Tab,
+					{ id = "workbench", label = "Workbench", content = workbench } :: Tab,
+					{ id = "ledger", label = "Ledger", content = ledger } :: Tab,
+					{ id = "chatter", label = "Chatter", content = chatter } :: Tab,
+					{ id = "plazas", label = "Plazas", content = plazas } :: Tab,
 				},
 			} :: unknown,
 			UI.Button "Guild" {
@@ -592,7 +591,7 @@ function Cartwheel.build(ctx: ExampleContext)
 				title = "Brew collected!",
 				message = notice,
 				actions = {
-					{ id = "done", label = "Keep brewing" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					{ id = "done", label = "Keep brewing" } :: AlertAction,
 				},
 			},
 		}

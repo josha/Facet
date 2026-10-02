@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -58,9 +62,9 @@ return {
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -83,13 +87,13 @@ return {
 				end
 			end
 			return {
-				{ id = "accessory", label = COPY.accessory, icon = "edit", onSelect = run("accessory") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				{ id = "accessory", label = COPY.accessory, icon = "edit", onSelect = run("accessory") } :: MenuItem,
 				{
 					id = "layering",
 					label = COPY.layering,
 					icon = "more",
 					children = {
-						{ id = "clothing", label = COPY.clothing, onSelect = run("clothing") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+						{ id = "clothing", label = COPY.clothing, onSelect = run("clothing") } :: MenuItem,
 						{
 							id = "makeup",
 							label = COPY.makeup,
@@ -97,19 +101,19 @@ return {
 								{ id = "lips", label = COPY.lips, onSelect = run("lips") },
 								{ id = "eyes", label = COPY.eyes, onSelect = run("eyes") },
 							},
-						} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+						} :: MenuItem,
 					},
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "skin", label = COPY.skin, icon = "edit", onSelect = run("skin") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				{ id = "report", label = COPY.report, icon = "flag", onSelect = run("report") } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
+				{ id = "skin", label = COPY.skin, icon = "edit", onSelect = run("skin") } :: MenuItem,
+				{ divider = true } :: MenuItem,
+				{ id = "report", label = COPY.report, icon = "flag", onSelect = run("report") } :: MenuItem,
 				{
 					id = "reset",
 					label = COPY.reset,
 					icon = "trash",
 					role = "destructive" :: "destructive",
 					onSelect = run("reset"),
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+				} :: MenuItem,
 			}
 		end
 
@@ -341,9 +345,9 @@ return {
 							label = COPY.idiomTitle,
 							style = "segmented" :: "segmented",
 							options = {
-								{ value = "auto", label = COPY.idiomAuto } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-								{ value = "panel", label = COPY.idiomPanel } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-								{ value = "sheet", label = COPY.idiomSheet } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+								{ value = "auto", label = COPY.idiomAuto } :: PickerOption,
+								{ value = "panel", label = COPY.idiomPanel } :: PickerOption,
+								{ value = "sheet", label = COPY.idiomSheet } :: PickerOption,
 							},
 							selected = idiom,
 						}),

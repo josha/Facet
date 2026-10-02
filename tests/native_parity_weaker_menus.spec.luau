@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local FixtureRadialTypes = require("../src/ui/radial_types")
@@ -8,7 +15,7 @@ local materialize = require("./lib/materialize")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local navMenu = require("../src/ui/nav_menu")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -28,8 +35,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 	engine.clock = function()
 		return now
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -52,9 +58,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop = runtime.mount(function()
 		return Host.Frame "Surface" {
 			Size = engine.types.UDim2.fromScale(1, 1),
@@ -137,14 +141,11 @@ end
 
 local function mountError(build: (any, any) -> any): string?
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local ok, message = pcall(function()
 		local stop = runtime.mount(function()
 			return Host.ScreenGui({ build(UI, Host) })
@@ -257,7 +258,7 @@ local NESTED = {
 		id = "adjust",
 		label = "Adjust",
 		children = {
-			{ id = "head", label = "Head Adjustment", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+			{ id = "head", label = "Head Adjustment", onSelect = function() end } :: MenuItem,
 			{
 				id = "layer",
 				label = "Layering",
@@ -265,10 +266,10 @@ local NESTED = {
 					{ id = "clothing", label = "Clothing Layering", onSelect = function() end },
 					{ id = "makeup", label = "Makeup Layering", onSelect = function() end },
 				},
-			} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+			} :: MenuItem,
 		},
-	} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-	{ id = "skin", label = "Skin Color", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+	} :: MenuItem,
+	{ id = "skin", label = "Skin Color", onSelect = function() end } :: MenuItem,
 }
 
 local function place(world: World, trigger: any, x: number, y: number, width: number, height: number)
@@ -298,8 +299,7 @@ t.describe("native parity weaker menus", function()
 					engine.heartbeat.fire(1 / 60)
 				end
 			end
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -367,8 +367,7 @@ t.describe("native parity weaker menus", function()
 		local modelModule = require("../examples/virtual_monitors/model")
 		local screens = require("../examples/virtual_monitors/screens")
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -551,8 +550,8 @@ t.describe("native parity weaker menus", function()
 	t.it("keeps choice rows, their selection focus and missing selected values through live replacements", function()
 		local selected = Compose.cell("a")
 		local options = Compose.cell({
-			{ id = "one", value = "a", label = "Alpine", badge = 3 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-			{ id = "two", value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ id = "one", value = "a", label = "Alpine", badge = 3 } :: PickerOption,
+			{ id = "two", value = "b", label = "Beach" } :: PickerOption,
 		})
 		local world = setup(function(UI)
 			return UI.Picker "Routes" { style = "radioGroup" :: "radioGroup", selected = selected, options = options }
@@ -564,8 +563,8 @@ t.describe("native parity weaker menus", function()
 		t.expect(count(row)).toBe("3")
 		t.expect(find(row, "Description").Visible).toBe(false)
 		options:set({
-			{ id = "one", value = "a", label = "Alpine pass", description = "A mountain route", badge = 7 } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-			{ id = "two", value = "c", label = "Coast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ id = "one", value = "a", label = "Alpine pass", description = "A mountain route", badge = 7 } :: PickerOption,
+			{ id = "two", value = "c", label = "Coast" } :: PickerOption,
 		})
 		t.expect(find(picker, "one")).toBe(row)
 		t.expect(world.gui.SelectedObject).toBe(row)
@@ -575,8 +574,8 @@ t.describe("native parity weaker menus", function()
 		t.expect(find(row, "Description").Visible).toBe(true)
 		t.expect(selected:peek()).toBe("a")
 		options:set({
-			{ id = "one", value = "a", label = "Alpine pass" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-			{ id = "two", value = "c", label = "Coast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+			{ id = "one", value = "a", label = "Alpine pass" } :: PickerOption,
+			{ id = "two", value = "c", label = "Coast" } :: PickerOption,
 		})
 		t.expect(find(picker, "one")).toBe(row)
 		t.expect(world.gui.SelectedObject).toBe(row)
@@ -1581,8 +1580,7 @@ t.describe("native parity weaker menus", function()
 
 	t.it("switches the menu scenario idiom at depth and rebuilds the open chain in place", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local input = engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -1596,9 +1594,7 @@ t.describe("native parity weaker menus", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1200, height = 900 }),
 			inputTarget = target,
@@ -1891,8 +1887,9 @@ t.describe("native parity weaker menus", function()
 	end)
 
 	t.it("keeps a focused menu row while its live description appears, changes and disappears", function()
-		local options = Compose.cell({ { value = "a", label = "Alpine" }, { value = "b", label = "Beach" } })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local options =
+			Compose.cell({ { value = "a", label = "Alpine" }, { value = "b", label = "Beach" } } :: { PickerOption })
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker "Route" {
 				style = "menu" :: "menu",
 				selected = Compose.cell("a"),
@@ -1909,8 +1906,8 @@ t.describe("native parity weaker menus", function()
 		t.expect(find(row, "Description").Visible).toBe(false)
 		for _, description in { "Added", "", "Returned" } do
 			options:set({
-				{ value = "a", label = "Alpine", description = description } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ value = "b", label = "Beach" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = "a", label = "Alpine", description = description } :: PickerOption,
+				{ value = "b", label = "Beach" } :: PickerOption,
 			})
 			t.expect(find(panel, "a")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
@@ -1930,7 +1927,7 @@ t.describe("native parity weaker menus", function()
 		local selected, query, changes = Compose.cell({ a = true } :: { [string]: boolean }), Compose.cell(""), 0
 		local options =
 			Compose.cell({ { value = "a", label = "Alpine" }, { value = "b", label = "Beach", enabled = false } })
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker "Route" {
 				style = "menu" :: "menu",
 				multiple = true :: true,
@@ -1971,7 +1968,7 @@ t.describe("native parity weaker menus", function()
 
 	t.it("keeps checked and radio menu items open by default with their marks while actions dismiss", function()
 		local presented, checked, selected, calls = Compose.cell(true), Compose.cell(false), Compose.cell("a"), 0
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu "Filters" {
 				isPresented = presented,
 				items = {

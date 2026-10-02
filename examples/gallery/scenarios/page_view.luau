@@ -1,5 +1,8 @@
 --!strict
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Pages and dots",
 	intro = "Swipe one course at a time, choose any dot, or focus the dots and use Left / Right.",
@@ -15,9 +18,9 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -26,7 +29,7 @@ return {
 		local selected = Compose.cell("coast")
 		local picked = Compose.cell("Choose a course.")
 		local function screen()
-			local pages: { typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)) } = {}
+			local pages: { Tab } = {}
 			for _, key in ids do
 				table.insert(pages, {
 					id = key,

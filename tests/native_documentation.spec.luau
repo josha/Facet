@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local t = require("./lib/testkit")
 local fs, luau = require("@lune/fs"), require("@lune/luau")
 local Facet, engineLib = require("../src"), require("./lib/native_engine")
@@ -35,9 +38,8 @@ t.describe("native documentation", function()
 				return
 			end
 			local engine = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
-			local Compose: typeof(require("@repo/src/vendor/compose/core")), Host = Facet.Compose, runtime.constructors
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local Compose: ComposeModule, Host = Facet.Compose, runtime.constructors
 			local UI = Facet.controls(runtime, { types = engine.types })
 			local facade = table.clone(Facet)
 			facade.Roblox = table.clone(Facet.Roblox)

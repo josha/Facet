@@ -1,4 +1,13 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type CivilRangeCell = typeof(require("@repo/tools/typecheck/aliases").CivilRangeCell)
+type CivilRange = typeof(require("@repo/tools/typecheck/aliases").CivilRange)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -206,37 +215,30 @@ add("dialog-actions-stack-and-row", { "post-overlays-015" }, function(t)
 	}
 	t.note("host", host(t))
 	for _, form in forms do
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				local spec: { [any]: any } = {
-					isPresented = Compose.cell(true),
-					onPresentedChange = noop,
-					title = "Leave the race?",
-					content = function()
-						return UI.Text({
-							Name = "Line",
-							text = "Your lap will not count.",
-							TextWrapped = true,
-							Size = UDim2.new(1, 0, 0, 0),
-							AutomaticSize = Enum.AutomaticSize.Y,
-						})
-					end,
-				}
-				for key, value in form.spec do
-					spec[key] = value
-				end
-				return Host.Frame "Board" {
-					Size = UDim2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					UI.Dialog("Confirm")(spec),
-				}
-			end,
-			{ size = Vector2.new(1280, 720), frames = 30 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			local spec: { [any]: any } = {
+				isPresented = Compose.cell(true),
+				onPresentedChange = noop,
+				title = "Leave the race?",
+				content = function()
+					return UI.Text({
+						Name = "Line",
+						text = "Your lap will not count.",
+						TextWrapped = true,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+					})
+				end,
+			}
+			for key, value in form.spec do
+				spec[key] = value
+			end
+			return Host.Frame "Board" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				UI.Dialog("Confirm")(spec),
+			}
+		end, { size = Vector2.new(1280, 720), frames = 30 })
 		local panel = visibleNamed(t, stage, "Panel")
 		local actions = panel and partOf(panel, "Actions")
 		local a = actions and partOf(actions, "A")
@@ -280,29 +282,22 @@ end)
 add("picker-panel-widest-row", { "post-pickers-054" }, function(t)
 	t.note("host", host(t))
 	local open
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			open = Compose.cell(false)
-			return UI.Picker "P" {
-				Position = UDim2.fromOffset(40, 40),
-				Size = UDim2.fromOffset(160, 0),
-				style = "menu" :: "menu",
-				label = "Driver",
-				selected = Compose.cell("a"),
-				isPresented = open,
-				options = {
-					{ value = "a", label = "Ada", avatar = { name = "Ada" }, badge = 3, icon = "settings" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "b", label = "Bo", avatar = { name = "Bo" }, meta = "Crew", icon = "settings" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "c", label = "Cy", avatar = { name = "Cy" }, icon = "settings" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(1280, 720), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		open = Compose.cell(false)
+		return UI.Picker "P" {
+			Position = UDim2.fromOffset(40, 40),
+			Size = UDim2.fromOffset(160, 0),
+			style = "menu" :: "menu",
+			label = "Driver",
+			selected = Compose.cell("a"),
+			isPresented = open,
+			options = {
+				{ value = "a", label = "Ada", avatar = { name = "Ada" }, badge = 3, icon = "settings" } :: PickerOption,
+				{ value = "b", label = "Bo", avatar = { name = "Bo" }, meta = "Crew", icon = "settings" } :: PickerOption,
+				{ value = "c", label = "Cy", avatar = { name = "Cy" }, icon = "settings" } :: PickerOption,
+			},
+		}
+	end, { size = Vector2.new(1280, 720), frames = 20 })
 	open:set(true)
 	t.settle(20)
 	local panel = visibleNamed(t, stage, "MenuPanel")
@@ -347,27 +342,20 @@ end)
 
 add("navigation-link-one-line", { "post-pickers-083" }, function(t)
 	t.note("host", host(t))
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return UI.Picker "P" {
-				Position = UDim2.fromOffset(40, 40),
-				Size = UDim2.fromOffset(480, 0),
-				label = "Track",
-				style = "navigationLink" :: "navigationLink",
-				selected = Compose.cell("normal"),
-				options = {
-					{ value = "easy", label = "Easy" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "normal", label = "Normal" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "hard", label = "Hard" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(1400, 700), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		return UI.Picker "P" {
+			Position = UDim2.fromOffset(40, 40),
+			Size = UDim2.fromOffset(480, 0),
+			label = "Track",
+			style = "navigationLink" :: "navigationLink",
+			selected = Compose.cell("normal"),
+			options = {
+				{ value = "easy", label = "Easy" } :: PickerOption,
+				{ value = "normal", label = "Normal" } :: PickerOption,
+				{ value = "hard", label = "Hard" } :: PickerOption,
+			},
+		}
+	end, { size = Vector2.new(1400, 700), frames = 20 })
 	local root = t.find(stage, "P")
 	local trailing = partOf(root, "Trailing")
 	local title = nil
@@ -400,39 +388,32 @@ end)
 add("slider-custom-knob-footprint", { "post-pickers-118" }, function(t)
 	t.note("host", host(t))
 	local builds, value = 0, nil
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value = Compose.cell(50)
-			return UI.Slider "Vol" {
-				Position = UDim2.fromOffset(40, 40),
-				Size = UDim2.fromOffset(320, 0),
-				value = value,
-				onChange = function(next: number)
-					value:set(next)
-				end,
-				min = 0,
-				max = 100,
-				step = 10,
-				thumbContent = function(): Instance
-					builds += 1
-					return Host.TextLabel "Pip" {
-						BackgroundTransparency = 1,
-						Text = "x",
-						TextSize = 12,
-						Size = UDim2.fromOffset(0, 0),
-						AutomaticSize = Enum.AutomaticSize.XY,
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						Position = UDim2.fromScale(0.5, 0.5),
-					}
-				end,
-			}
-		end,
-		{ size = Vector2.new(600, 300), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value = Compose.cell(50)
+		return UI.Slider "Vol" {
+			Position = UDim2.fromOffset(40, 40),
+			Size = UDim2.fromOffset(320, 0),
+			value = value,
+			onChange = function(next: number)
+				value:set(next)
+			end,
+			min = 0,
+			max = 100,
+			step = 10,
+			thumbContent = function(): Instance
+				builds += 1
+				return Host.TextLabel "Pip" {
+					BackgroundTransparency = 1,
+					Text = "x",
+					TextSize = 12,
+					Size = UDim2.fromOffset(0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+				}
+			end,
+		}
+	end, { size = Vector2.new(600, 300), frames = 20 })
 	local knob = partOf(stage, "Thumb")
 	local mark = knob and partOf(knob, "Pip")
 	t.check("the custom knob is built once", builds == 1, builds)
@@ -459,27 +440,20 @@ end)
 
 add("slider-rung-thin-rail-whole-target", { "post-pickers-120" }, function(t)
 	t.note("host", host(t))
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return Host.Frame "Column" {
-				BackgroundTransparency = 1,
-				Size = UDim2.fromScale(1, 1),
-				Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-				UI.Slider "Regular" { LayoutOrder = 1, Size = UDim2.fromOffset(320, 0), value = Compose.cell(50) },
-				UI.Slider "Compact" {
-					LayoutOrder = 2,
-					Size = UDim2.fromOffset(320, 0),
-					value = Compose.cell(50),
-					controlSize = "compact" :: "compact",
-				},
-			}
-		end,
-		{ size = Vector2.new(600, 300), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame "Column" {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			UI.Slider "Regular" { LayoutOrder = 1, Size = UDim2.fromOffset(320, 0), value = Compose.cell(50) },
+			UI.Slider "Compact" {
+				LayoutOrder = 2,
+				Size = UDim2.fromOffset(320, 0),
+				value = Compose.cell(50),
+				controlSize = "compact" :: "compact",
+			},
+		}
+	end, { size = Vector2.new(600, 300), frames = 20 })
 	local regular, compact = t.find(stage, "Regular"), t.find(stage, "Compact")
 	local nodes = {
 		thin = partOf(compact, "Rail"),
@@ -508,65 +482,54 @@ add("dtp-draft-footer-rects", { "post-pickers-150" }, function(t)
 	t.note("host", host(t))
 	local civil = t.Facet.civilDate
 	local open
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			open = Compose.cell(false)
-			local range = (
-				function(): typeof(require("@repo/tools/typecheck/example_shapes").civilRangeCell(nil :: any))
-					return Compose.cell({
-						start = { year = 2026, month = 9, day = 1, hour = nil :: number?, minute = nil :: number? },
-						finish = { year = 2026, month = 9, day = 3, hour = nil :: number?, minute = nil :: number? },
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").civilRange(
-						nil :: any
-					)))
-				end
-			)()
-			return Host.Frame "Holder" {
-				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(40, 40),
-				Size = UDim2.fromOffset(360, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				UI.DateTimePicker "Window" {
-					label = "Season window",
-					selection = "range" :: "range",
-					range = range,
-					onRangeChange = function(next: any)
-						range:set(next)
-					end,
-					clock = function()
-						return { year = 2026, month = 9, day = 23, hour = nil :: number?, minute = nil :: number? }
-					end,
-					draft = true,
-					isPresented = open,
-					presets = {
-						{
-							id = "week",
-							label = "This week",
-							range = function(today: any)
-								local start = civil.addDays(today, -(civil.weekday(today) - 1))
-								return { start = start, finish = civil.addDays(start, 6) }
-							end,
-						},
-						{
-							id = "lastYear",
-							label = "Last year",
-							range = function(today: any)
-								return {
-									start = { year = today.year - 1, month = 1, day = 1 },
-									finish = { year = today.year - 1, month = 12, day = 31 },
-								}
-							end,
-						},
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		open = Compose.cell(false)
+		local range = (function(): CivilRangeCell
+			return Compose.cell({
+				start = { year = 2026, month = 9, day = 1, hour = nil :: number?, minute = nil :: number? },
+				finish = { year = 2026, month = 9, day = 3, hour = nil :: number?, minute = nil :: number? },
+			} :: CivilRange)
+		end)()
+		return Host.Frame "Holder" {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(40, 40),
+			Size = UDim2.fromOffset(360, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			UI.DateTimePicker "Window" {
+				label = "Season window",
+				selection = "range" :: "range",
+				range = range,
+				onRangeChange = function(next: any)
+					range:set(next)
+				end,
+				clock = function()
+					return { year = 2026, month = 9, day = 23, hour = nil :: number?, minute = nil :: number? }
+				end,
+				draft = true,
+				isPresented = open,
+				presets = {
+					{
+						id = "week",
+						label = "This week",
+						range = function(today: any)
+							local start = civil.addDays(today, -(civil.weekday(today) - 1))
+							return { start = start, finish = civil.addDays(start, 6) }
+						end,
+					},
+					{
+						id = "lastYear",
+						label = "Last year",
+						range = function(today: any)
+							return {
+								start = { year = today.year - 1, month = 1, day = 1 },
+								finish = { year = today.year - 1, month = 12, day = 31 },
+							}
+						end,
 					},
 				},
-			}
-		end,
-		{ size = Vector2.new(1280, 720), frames = 20 }
-	)
+			},
+		}
+	end, { size = Vector2.new(1280, 720), frames = 20 })
 	open:set(true)
 	t.settle(20)
 	local layer = layerOf(stage)
@@ -620,26 +583,19 @@ end)
 add("color-swatch-square-cells", { "post-pickers-174" }, function(t)
 	t.note("host", host(t))
 	local open
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			open = Compose.cell(false)
-			local value = Compose.cell(Color3.fromRGB(255, 196, 0))
-			return UI.ColorPicker "Trim" {
-				Position = UDim2.fromOffset(40, 40),
-				value = value,
-				onChange = function(next: any)
-					value:set(next)
-				end,
-				isPresented = open,
-				swatches = { { color = Color3.fromRGB(255, 196, 0) }, { color = Color3.fromRGB(20, 20, 24) } },
-			}
-		end,
-		{ size = Vector2.new(1280, 720), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		open = Compose.cell(false)
+		local value = Compose.cell(Color3.fromRGB(255, 196, 0))
+		return UI.ColorPicker "Trim" {
+			Position = UDim2.fromOffset(40, 40),
+			value = value,
+			onChange = function(next: any)
+				value:set(next)
+			end,
+			isPresented = open,
+			swatches = { { color = Color3.fromRGB(255, 196, 0) }, { color = Color3.fromRGB(20, 20, 24) } },
+		}
+	end, { size = Vector2.new(1280, 720), frames = 20 })
 	open:set(true)
 	t.settle(20)
 	local layer = layerOf(stage)
@@ -670,26 +626,19 @@ end)
 
 add("color-brick-field-above-grid", { "post-pickers-187" }, function(t)
 	t.note("host", host(t))
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			local value = Compose.cell(Color3.fromRGB(255, 0, 0))
-			return UI.ColorPicker "Brick" {
-				Position = UDim2.fromOffset(40, 40),
-				Size = UDim2.fromOffset(420, 0),
-				value = value,
-				onChange = function(next: any)
-					value:set(next)
-				end,
-				style = "inline" :: "inline",
-				modes = { "brick" :: "brick" },
-			}
-		end,
-		{ size = Vector2.new(1280, 900), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		local value = Compose.cell(Color3.fromRGB(255, 0, 0))
+		return UI.ColorPicker "Brick" {
+			Position = UDim2.fromOffset(40, 40),
+			Size = UDim2.fromOffset(420, 0),
+			value = value,
+			onChange = function(next: any)
+				value:set(next)
+			end,
+			style = "inline" :: "inline",
+			modes = { "brick" :: "brick" },
+		}
+	end, { size = Vector2.new(1280, 900), frames = 20 })
 	local field, grid = partOf(stage, "NameField"), partOf(stage, "BrickGrid")
 	local name = field and partOf(field, "BrickName")
 	if
@@ -713,26 +662,19 @@ local MENU_IDS = { "a", "b", "c" }
 
 local function denseMenu(t: any, theme: any): (any, any)
 	local open
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			open = Compose.cell(false)
-			return UI.Menu "M" {
-				Position = UDim2.fromOffset(40, 40),
-				label = "Options",
-				isPresented = open,
-				items = {
-					{ id = "a", label = "Alpha", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-					{ id = "b", label = "Beta", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-					{ id = "c", label = "Gamma", onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(800, 600), theme = theme, frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		open = Compose.cell(false)
+		return UI.Menu "M" {
+			Position = UDim2.fromOffset(40, 40),
+			label = "Options",
+			isPresented = open,
+			items = {
+				{ id = "a", label = "Alpha", onSelect = function() end } :: MenuItem,
+				{ id = "b", label = "Beta", onSelect = function() end } :: MenuItem,
+				{ id = "c", label = "Gamma", onSelect = function() end } :: MenuItem,
+			},
+		}
+	end, { size = Vector2.new(800, 600), theme = theme, frames = 20 })
 	open:set(true)
 	t.settle(20)
 	return stage, visibleNamed(t, stage, "MenuPanel")
@@ -784,28 +726,21 @@ add("picker-dense-pointer-rows-live", { "post-port26-020" }, function(t)
 	unemulated(t)
 	t.note("pointer host", host(t))
 	local open
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			open = Compose.cell(false)
-			return UI.Picker "P" {
-				Position = UDim2.fromOffset(40, 40),
-				Size = UDim2.fromOffset(240, 0),
-				style = "menu" :: "menu",
-				selected = Compose.cell("normal"),
-				isPresented = open,
-				options = {
-					{ value = "slow", label = "Slow" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "normal", label = "Normal" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					{ value = "fast", label = "Fast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(800, 600), theme = dense(t), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		open = Compose.cell(false)
+		return UI.Picker "P" {
+			Position = UDim2.fromOffset(40, 40),
+			Size = UDim2.fromOffset(240, 0),
+			style = "menu" :: "menu",
+			selected = Compose.cell("normal"),
+			isPresented = open,
+			options = {
+				{ value = "slow", label = "Slow" } :: PickerOption,
+				{ value = "normal", label = "Normal" } :: PickerOption,
+				{ value = "fast", label = "Fast" } :: PickerOption,
+			},
+		}
+	end, { size = Vector2.new(800, 600), theme = dense(t), frames = 20 })
 	open:set(true)
 	t.settle(20)
 	local ids = { "slow", "normal", "fast" }
@@ -828,30 +763,23 @@ end)
 
 add("outline-disclosure-indent", { "post-port26-014" }, function(t)
 	t.note("host", host(t))
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return Host.Frame "Tree" {
-				BackgroundTransparency = 1,
-				Size = UDim2.fromOffset(390, 400),
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-				UI.DisclosureGroup "G" {
-					label = "Inputs",
-					appearance = "outline" :: "outline",
-					textSize = "label" :: "label",
-					indent = "m" :: "m",
-					expanded = Compose.cell(true),
-					content = function(): Instance
-						return UI.Text({ Name = "Row", text = "Button", AutomaticSize = Enum.AutomaticSize.XY })
-					end,
-				},
-			}
-		end,
-		{ size = Vector2.new(390, 400), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame "Tree" {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(390, 400),
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			UI.DisclosureGroup "G" {
+				label = "Inputs",
+				appearance = "outline" :: "outline",
+				textSize = "label" :: "label",
+				indent = "m" :: "m",
+				expanded = Compose.cell(true),
+				content = function(): Instance
+					return UI.Text({ Name = "Row", text = "Button", AutomaticSize = Enum.AutomaticSize.XY })
+				end,
+			},
+		}
+	end, { size = Vector2.new(390, 400), frames = 20 })
 	local group = t.find(stage, "G")
 	local header = partOf(group, "Header")
 	local row = partOf(group, "Row")
@@ -882,35 +810,28 @@ end)
 add("picker-start-inline-hug", { "post-port26-018" }, function(t)
 	t.note("host", host(t))
 	local function build(theme: any): any
-		return t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				return Host.Frame "Strip" {
-					BackgroundTransparency = 1,
-					Position = UDim2.fromOffset(40, 40),
-					Size = UDim2.fromOffset(0, 0),
-					AutomaticSize = Enum.AutomaticSize.XY,
-					Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
-					UI.Picker "P" {
-						label = "Motion",
-						style = "menu" :: "menu",
-						valueAlignment = "start" :: "start",
-						sizing = "hug" :: "hug",
-						controlSize = "compact" :: "compact",
-						selected = Compose.cell("normal"),
-						options = {
-							{ value = "slow", label = "Slow" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "normal", label = "Normal" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-							{ value = "fast", label = "Fast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						},
+		return t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			return Host.Frame "Strip" {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromOffset(40, 40),
+				Size = UDim2.fromOffset(0, 0),
+				AutomaticSize = Enum.AutomaticSize.XY,
+				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
+				UI.Picker "P" {
+					label = "Motion",
+					style = "menu" :: "menu",
+					valueAlignment = "start" :: "start",
+					sizing = "hug" :: "hug",
+					controlSize = "compact" :: "compact",
+					selected = Compose.cell("normal"),
+					options = {
+						{ value = "slow", label = "Slow" } :: PickerOption,
+						{ value = "normal", label = "Normal" } :: PickerOption,
+						{ value = "fast", label = "Fast" } :: PickerOption,
 					},
-				}
-			end,
-			{ size = Vector2.new(1280, 700), theme = theme, frames = 20 }
-		)
+				},
+			}
+		end, { size = Vector2.new(1280, 700), theme = theme, frames = 20 })
 	end
 	local function parts(stage: any): (any, any, any)
 		local root = t.find(stage, "P")
@@ -941,35 +862,28 @@ add("picker-touch-inline-hug", { "post-port26-019" }, function(t)
 	local phone = emulate(t, "iphone_14", Enum.PreferredInput.Touch, Enum.ScreenOrientation.LandscapeRight)
 	t.note("host", phone)
 	t.check("the preferred input is touch", phone.preferred == tostring(Enum.PreferredInput.Touch), phone.preferred)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return Host.Frame "Strip" {
-				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(40, 40),
-				Size = UDim2.fromOffset(0, 0),
-				AutomaticSize = Enum.AutomaticSize.XY,
-				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
-				UI.Picker "P" {
-					label = "Motion",
-					style = "menu" :: "menu",
-					valueAlignment = "start" :: "start",
-					sizing = "hug" :: "hug",
-					controlSize = "compact" :: "compact",
-					selected = Compose.cell("normal"),
-					options = {
-						{ value = "slow", label = "Slow" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "normal", label = "Normal" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "fast", label = "Fast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-					},
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame "Strip" {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(40, 40),
+			Size = UDim2.fromOffset(0, 0),
+			AutomaticSize = Enum.AutomaticSize.XY,
+			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
+			UI.Picker "P" {
+				label = "Motion",
+				style = "menu" :: "menu",
+				valueAlignment = "start" :: "start",
+				sizing = "hug" :: "hug",
+				controlSize = "compact" :: "compact",
+				selected = Compose.cell("normal"),
+				options = {
+					{ value = "slow", label = "Slow" } :: PickerOption,
+					{ value = "normal", label = "Normal" } :: PickerOption,
+					{ value = "fast", label = "Fast" } :: PickerOption,
 				},
-			}
-		end,
-		{ frames = 20 }
-	)
+			},
+		}
+	end, { frames = 20 })
 	local root = t.find(stage, "P")
 	local trigger = root and partOf(root, "Trigger")
 	local label = root and root:FindFirstChild("Label")
@@ -1010,28 +924,21 @@ add("sheet-adaptive-side-edge", { "post-port26-024" }, function(t)
 	unemulated(t)
 	t.note("pointer host", host(t))
 	local function sheet(size: Vector2, reduced: boolean): (any, any)
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				return Host.Frame "Room" {
-					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 1),
-					UI.Sheet "Inspector" {
-						isPresented = Compose.cell(true),
-						detent = Compose.cell("medium"),
-						placement = "adaptive" :: "adaptive",
-						title = "Inspector",
-						content = function(): Instance
-							return UI.Text({ Name = "Copy", text = "Details", AutomaticSize = Enum.AutomaticSize.XY })
-						end,
-					},
-				}
-			end,
-			{ size = size, motionLevel = if reduced then "none" else "normal", frames = 2 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			return Host.Frame "Room" {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				UI.Sheet "Inspector" {
+					isPresented = Compose.cell(true),
+					detent = Compose.cell("medium"),
+					placement = "adaptive" :: "adaptive",
+					title = "Inspector",
+					content = function(): Instance
+						return UI.Text({ Name = "Copy", text = "Details", AutomaticSize = Enum.AutomaticSize.XY })
+					end,
+				},
+			}
+		end, { size = size, motionLevel = if reduced then "none" else "normal", frames = 2 })
 		return stage, nil
 	end
 	local stage = sheet(Vector2.new(1200, 800), false)
@@ -1092,37 +999,30 @@ end)
 
 add("tabview-rung-centred", { "post-port26-025" }, function(t)
 	t.note("host", host(t))
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return UI.TabView "Pages" {
-				Size = UDim2.fromOffset(600, 400),
-				placement = "topBar" :: "topBar",
-				controlSize = "compact" :: "compact",
-				selection = Compose.cell("a"),
-				tabs = {
-					{
-						id = "a",
-						label = "Alpha",
-						content = function()
-							return Host.Frame({ Name = "PA", BackgroundTransparency = 1 })
-						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-					{
-						id = "b",
-						label = "Beta",
-						content = function()
-							return Host.Frame({ Name = "PB", BackgroundTransparency = 1 })
-						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
-				},
-			}
-		end,
-		{ size = Vector2.new(600, 400), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return UI.TabView "Pages" {
+			Size = UDim2.fromOffset(600, 400),
+			placement = "topBar" :: "topBar",
+			controlSize = "compact" :: "compact",
+			selection = Compose.cell("a"),
+			tabs = {
+				{
+					id = "a",
+					label = "Alpha",
+					content = function()
+						return Host.Frame({ Name = "PA", BackgroundTransparency = 1 })
+					end,
+				} :: Tab,
+				{
+					id = "b",
+					label = "Beta",
+					content = function()
+						return Host.Frame({ Name = "PB", BackgroundTransparency = 1 })
+					end,
+				} :: Tab,
+			},
+		}
+	end, { size = Vector2.new(600, 400), frames = 20 })
 	local root = t.find(stage, "Pages")
 	local strip = partOf(root, "Tabs")
 	local nodes = { strip = strip, a = strip and partOf(strip, "a"), b = strip and partOf(strip, "b") }
@@ -1147,31 +1047,24 @@ interactive(
 	function(t)
 		unemulated(t)
 		local value: { [string]: any } = {}
-		local stage = t.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				Compose: typeof(require("@repo/src/vendor/compose/core"))
-			)
-				value.cell = Compose.cell(false)
-				return Host.Frame "Col" {
-					BackgroundTransparency = 1,
-					Position = UDim2.fromOffset(40, 40),
-					Size = UDim2.fromOffset(320, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-					UI.Toggle "Box" {
-						label = "Reduced motion",
-						presentation = "checkbox" :: "checkbox",
-						appearance = "plain",
-						controlSize = "compact" :: "compact",
-						textSize = "label",
-						value = value.cell,
-					},
-				}
-			end,
-			{ size = Vector2.new(400, 300), frames = 20 }
-		)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			value.cell = Compose.cell(false)
+			return Host.Frame "Col" {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromOffset(40, 40),
+				Size = UDim2.fromOffset(320, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				UI.Toggle "Box" {
+					label = "Reduced motion",
+					presentation = "checkbox" :: "checkbox",
+					appearance = "plain",
+					controlSize = "compact" :: "compact",
+					textSize = "label",
+					value = value.cell,
+				},
+			}
+		end, { size = Vector2.new(400, 300), frames = 20 })
 		t.note("host", host(t))
 		local row = t.find(stage, "Box")
 		value.row = row

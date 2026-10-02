@@ -1,11 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local ThemeTypes = require("../src/ui/theme_types")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local themePackages = require("../tools/lune/theme_packages")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local SHIPPED: { string } = themePackages.shippable()
@@ -20,8 +25,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -42,9 +46,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop = runtime.mount(function()
 		return Host.Frame "Surface" {
 			Size = engine.types.UDim2.fromScale(1, 1),
@@ -92,8 +94,7 @@ end
 
 local function sheetFor(package: any, options: { [string]: any }?): (any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local settings: { [string]: any } = { types = engine.types, preferredTransparency = 1, motionLevel = "none" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
@@ -265,7 +266,7 @@ t.describe("native parity weaker paint", function()
 		"apps-200 the segmented track and its chosen segment follow radii.control concentrically in every package",
 		function()
 			local selected = Compose.cell("low")
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Picker "View" { style = "segmented" :: "segmented", selected = selected, options = THREE }
 			end)
 			local strip = find(world.root, "View")
@@ -323,7 +324,7 @@ t.describe("native parity weaker paint", function()
 
 	t.it("apps-202 an authored square or pill strip corner outranks the theme radius in every package", function()
 		for _, corners in { "square", "pill" } :: { "square" | "pill" } do
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Picker "View" {
 					style = "segmented" :: "segmented",
 					corners = corners :: "pill" | "square",
@@ -352,17 +353,12 @@ t.describe("native parity weaker paint", function()
 
 	t.it("apps-205 a bar LevelPicker plates each level from the theme while a glyph picker plates nothing", function()
 		local value = Compose.cell(2)
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame {
-					UI.LevelPicker "Bars" { value = value, count = 4 } :: unknown,
-					UI.LevelPicker "Stars" { value = value, count = 5, segment = "glyph" :: "glyph" },
-				}
-			end
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame {
+				UI.LevelPicker "Bars" { value = value, count = 4 } :: unknown,
+				UI.LevelPicker "Stars" { value = value, count = 5, segment = "glyph" :: "glyph" },
+			}
+		end)
 		local bars, stars = find(world.root, "Bars"), find(world.root, "Stars")
 		for _, entry in packages() do
 			local sheet, _, stop = sheetFor(entry.package)
@@ -391,7 +387,7 @@ t.describe("native parity weaker paint", function()
 
 	t.it("inputs-110 filled and empty bar levels resolve to different theme colours in every palette", function()
 		local value = Compose.cell(3)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.LevelPicker "Quality" { value = value, count = 10 }
 		end)
 		local picker = find(world.root, "Quality")
@@ -420,7 +416,7 @@ t.describe("native parity weaker paint", function()
 	end)
 
 	t.it("inputs-132 the hover fill is its own theme role and differs from the rest fill in every palette", function()
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Button "Go" { label = "Go" }
 		end)
 		local button = find(world.root, "Go")
@@ -449,7 +445,7 @@ t.describe("native parity weaker paint", function()
 
 	t.it("inputs-205 the checkbox keeps a theme-owned border outline in off, on, mixed and disabled states", function()
 		local value, mixed, enabled = Compose.cell(false), Compose.cell(false), Compose.cell(true)
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Toggle "Music" {
 				label = "Music",
 				value = value,
@@ -500,7 +496,7 @@ t.describe("native parity weaker paint", function()
 
 	t.it("navigation-1-37 an alert centres its title and message and centres the mark over the title", function()
 		for _, severity in { "none", "critical" } do
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Alert {
 					isPresented = Compose.cell(true),
 					title = "Replace this save?",
@@ -534,8 +530,7 @@ t.describe("native parity weaker paint", function()
 		"navigation-3-35 the tab bar keeps its paint order over the content through compact and distant resizes",
 		function()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -614,7 +609,7 @@ t.describe("native parity weaker paint", function()
 	)
 
 	t.it("navigation-3-83 the chosen menu row clears 4.5:1 on its selection fill in every shipped palette", function()
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.Picker "Quality" {
 				style = "menu" :: "menu",
 				label = "Quality",
@@ -658,20 +653,13 @@ t.describe("native parity weaker paint", function()
 	t.it("paint-72 an explicit per-view colour is written on the instance and survives theme changes", function()
 		local red
 		local theme = Compose.cell(themes.neutralPackage())
-		local world = setup(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				red = engine.types.Color3.new(1, 0, 0)
-				return Host.Frame {
-					UI.Button "Custom" { label = "Custom", BackgroundColor3 = red } :: unknown,
-					UI.Button "Plain" { label = "Plain" },
-				}
-			end,
-			{ theme = theme }
-		)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+			red = engine.types.Color3.new(1, 0, 0)
+			return Host.Frame {
+				UI.Button "Custom" { label = "Custom", BackgroundColor3 = red } :: unknown,
+				UI.Button "Plain" { label = "Plain" },
+			}
+		end, { theme = theme })
 		local custom, plain = find(world.root, "Custom"), find(world.root, "Plain")
 		local blank = world.engine.new("TextButton").BackgroundColor3
 		t.expect(custom.BackgroundColor3).toBe(red)
@@ -691,29 +679,20 @@ t.describe("native parity weaker paint", function()
 			local value, changes = Compose.cell(true), 0
 			local theme = Compose.cell(themes.neutralPackage())
 			local sheet
-			local world = setup(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					engine,
-					runtime
-				)
-					sheet =
-						themes.createStyleSheet(runtime, theme, { types = engine.types, motionLevel = "none" } :: any)
-					return Host.Frame {
-						sheet :: unknown,
-						UI.Toggle "Music" {
-							label = "Music",
-							value = value,
-							onChange = function(next)
-								changes += 1
-								value:set(next)
-							end,
-						},
-					}
-				end,
-				{ theme = theme }
-			)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, runtime)
+				sheet = themes.createStyleSheet(runtime, theme, { types = engine.types, motionLevel = "none" } :: any)
+				return Host.Frame {
+					sheet :: unknown,
+					UI.Toggle "Music" {
+						label = "Music",
+						value = value,
+						onChange = function(next)
+							changes += 1
+							value:set(next)
+						end,
+					},
+				}
+			end, { theme = theme })
 			local indicator = find(find(world.root, "Music"), "Indicator")
 			local mark = find(indicator, "Mark")
 			local blank = world.engine.new("Frame").BackgroundColor3
@@ -738,8 +717,7 @@ t.describe("native parity weaker paint", function()
 			t.expect(same(off, last.package.style.themes[1].extra.control)).toBe(true)
 			world.stop()
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local _, bare: any = runtime.mount(function()
 				return themes.createStyleSheet(runtime, nil, { types = engine.types } :: any)
 			end, engine.new("Folder"))

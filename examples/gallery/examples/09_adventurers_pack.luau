@@ -1,4 +1,6 @@
 --!strict
+
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 local items = {
@@ -159,18 +161,10 @@ return {
 							UI.Picker "EquipmentCategory" {
 								selected = filter,
 								options = {
-									{ value = "all", label = "All equipment" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-										nil :: any
-									)),
-									{ value = "coat", label = "Coats" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-										nil :: any
-									)),
-									{ value = "boots", label = "Boots" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-										nil :: any
-									)),
-									{ value = "tool", label = "Tools" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
-										nil :: any
-									)),
+									{ value = "all", label = "All equipment" } :: PickerOption,
+									{ value = "coat", label = "Coats" } :: PickerOption,
+									{ value = "boots", label = "Boots" } :: PickerOption,
+									{ value = "tool", label = "Tools" } :: PickerOption,
 								},
 							},
 							C.show(function(use: any)

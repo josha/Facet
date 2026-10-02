@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 local Facet = require("../../src")
 local engineLib = require("./native_engine")
 
@@ -6,8 +8,7 @@ local alive = setmetatable({} :: { [any]: boolean }, { __mode = "k" })
 
 local function mountAndDispose()
 	local engine = engineLib.new({ cacheDefaults = true })
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI = Facet.controls(
 		runtime,
@@ -44,8 +45,7 @@ print(`retained {count}`)
 
 local motion = require("../../src/ui/motion")
 local engine = engineLib.new({ cacheDefaults = true })
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime(engine)
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 local gui = engine.new("GuiService")
 local contexts = setmetatable({} :: { [any]: boolean }, { __mode = "k" })
 for _ = 1, 50 do

@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 local FixtureMediaTypes = require("../src/ui/media_types")
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
@@ -16,8 +20,7 @@ local engineLib = require("./lib/native_engine")
 
 local function setup(options: { [string]: any }?): (any, any, any)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local config: { [string]: any } = { types = engine.types }
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -28,8 +31,7 @@ end
 
 local function controlsFor(options: { [string]: any }?): (any, any, any)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -281,8 +283,7 @@ t.describe("async image states", function()
 		local engine = engineLib.new()
 		local folder = engine.new("Folder")
 		local baseline = engine.census()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types }))
 		local acquired, released = 0, 0
 		local resource = Compose.createSharedResource(function()
@@ -664,49 +665,49 @@ t.describe("avatar groups", function()
 
 	t.it("refuses bad members and malformed container policies and keeps an empty group informational", function()
 		local refused = {
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({} :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = false } :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = { [2] = { id = "a", name = "A" } } })
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = { { id = "a", name = "" } :: FixtureMediaTypes.AvatarMember } })
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = { { id = "", name = "A" } :: FixtureMediaTypes.AvatarMember } })
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = { { id = "a", name = "A", presence = "unknown" } } } :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, max = 0 })
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, max = math.huge })
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, max = 1.5 })
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, layout = "grid" } :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, overflow = "more" } :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, form = "photo" } :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, onOverflow = true } :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, controlSize = "huge" } :: any)
 			end,
-			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			function(UI: FacetControls)
 				return UI.AvatarGroup({ items = {}, over = "photo" })
 			end,
 		}
@@ -1109,8 +1110,7 @@ t.describe("semantic icons", function()
 
 	t.it("resolves, sizes, tags and pixel-samples an icon element that dies with its owner", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = Compose.cell(themes.neutralPackage())
 		local ctx = context(Compose, runtime, { types = engine.types, theme = package })
 		local folder = engine.new("Folder")
@@ -1156,11 +1156,7 @@ t.describe("semantic icons", function()
 		local selected = Compose.cell(base)
 		local engine, runtime, UI = setup({ theme = selected })
 		local stop, root: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Label "Up" { title = "Up", icon = "increment" } :: unknown,
 				UI.Label "Down" { title = "Down", icon = "decrement" },
 			})
@@ -1209,8 +1205,7 @@ local SKIN_STATES = { "default", "hover", "pressed", "selected", "disabled" }
 
 local function skinImages(package: any, slots: { string }?): (number, number, { string })
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local pixelated, other, offenders = 0, 0, {}
 	local names = slots
 	if names == nil then
@@ -1297,8 +1292,7 @@ t.describe("pixel rendering", function()
 					t.expect(other).toBe(layers * #SKIN_STATES)
 				end
 				local engine = engineLib.new()
-				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-					Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local ctx = context(Compose, runtime, { types = engine.types, theme = package })
 				local state: FixtureComposeTypes.Cell<"default" | "disabled" | "hover" | "pressed" | "selected"> =
 					Compose.cell("default" :: FixtureThemeTypes.SkinState)
@@ -1397,8 +1391,7 @@ t.describe("reference package art", function()
 		t.expect(themes.resolveIcon(viaContent, "increment")).toBe("rbxassetid://137937473154830")
 		t.expect(themes.resolveIcon(viaContentId, "increment")).toBe("rbxassetid://137937473154830")
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local images = {}
 		for _, package in { viaContent, viaContentId } do
 			local stop, root: any = runtime.mount(function()
@@ -1427,11 +1420,7 @@ t.describe("icon layout", function()
 		local gap = Compose.cell(12)
 		local engine, runtime, UI = setup({ theme = package })
 		local stop, root: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Label "Leading" { title = "Save", icon = "checkmark" } :: unknown,
 				UI.Label "Trailing" { title = "Next", icon = "chevron.trailing", iconPosition = "trailing", gap = gap },
 			})
@@ -1473,8 +1462,7 @@ t.describe("icon layout", function()
 	t.it("keeps a preferred hint glyph square at the theme icon size across a live theme swap", function()
 		local package = Compose.cell(themes.neutralPackage())
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local input = engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
 			return nil
@@ -1495,11 +1483,7 @@ t.describe("icon layout", function()
 		binding.KeyCode = engine.types.Enum.KeyCode.ButtonX
 		action.PreferredBinding = binding
 		local stop, root: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.Frame :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-			)({
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.ShortcutHint "Art" { action = action } :: unknown,
 				UI.ShortcutHint "Keys" { keys = { { "Ctrl", "S" } } },
 			})
@@ -1574,22 +1558,13 @@ t.describe("sliced and bar art", function()
 			local package = assert(require("../examples/themes/fantasy_parchment").build(themes))
 			local asset = package.assets.parchment_panel
 			local engine = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 			local target, root, sheet
 			local stop = runtime.mount(function()
-				target = (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({})
-				root = themes.skin(runtime, package, "panel", { types = engine.types, target = target })
+				target = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+				root = themes.skin(runtime, package, "panel", { types = engine.types, target = target :: GuiObject })
 				sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-				return (
-					(
-						runtime.constructors.Frame :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
-				)({ target :: unknown, root, sheet })
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ target :: unknown, root, sheet })
 			end, engine.new("Folder"))
 			local image: any = root:FindFirstChild("panel1", true)
 			t.expect(image.Image).toBe(asset.contentId)
@@ -1646,8 +1621,7 @@ t.describe("sliced and bar art", function()
 			{ kind = "nineSlice" :: "nineSlice", asset = "center", size = { w = 36, h = 28 } }
 		local selected = Compose.cell(package)
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = selected }))
 		local thickness = Compose.cell(18)
 		local stop, root: any = runtime.mount(function()
@@ -1730,8 +1704,7 @@ t.describe("sliced and bar art", function()
 		local engine = engineLib.new()
 		local folder = engine.new("Folder")
 		local baseline = engine.census()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
 		local value = Compose.cell(0.4)
 		local stop, root: any = runtime.mount(function()

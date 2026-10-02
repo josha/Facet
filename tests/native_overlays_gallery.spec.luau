@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local requireDynamic = require :: (any) -> any
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
@@ -7,20 +10,11 @@ local Vector2 = require("@lune/roblox").Vector2
 
 local function scenario(name: string, options: any?): (any, any)
 	local built: any
-	local w = overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			engine,
-			_,
-			runtime
-		)
-			local ctx = { UI = UI, Host = Host, Compose = Compose, types = engine.types, runtime = runtime }
-			built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
-			return built.screen()
-		end,
-		options
-	)
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, _, runtime)
+		local ctx = { UI = UI, Host = Host, Compose = Compose, types = engine.types, runtime = runtime }
+		built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
+		return built.screen()
+	end, options)
 	return w, built
 end
 

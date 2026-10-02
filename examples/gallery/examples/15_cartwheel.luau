@@ -1,6 +1,12 @@
 --!strict
-local loadCartwheel = require :: (string) -> typeof(require("@repo/examples/reference/p2_cartwheel"))
-local loadCartwheelData = require :: (string) -> typeof(require("@repo/examples/reference/p2_cartwheel/content/data"))
+
+type CartwheelModule = typeof(require("@repo/examples/reference/p2_cartwheel"))
+type CartwheelData = typeof(require("@repo/examples/reference/p2_cartwheel/content/data"))
+
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+local loadCartwheel = require :: (string) -> CartwheelModule
+local loadCartwheelData = require :: (string) -> CartwheelData
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 return {
@@ -102,7 +108,7 @@ return {
 								onSelect = function()
 									inspect(id)
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+							} :: RadialItem,
 							{
 								id = "pin",
 								label = "Prioritize",
@@ -110,7 +116,7 @@ return {
 									pinned:set(id)
 									notice:set(`Order {id} moved to the front of its queue.`)
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+							} :: RadialItem,
 							{
 								id = "serve",
 								label = "Serve",
@@ -120,7 +126,7 @@ return {
 								onSelect = function()
 									command(id)
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+							} :: RadialItem,
 						},
 					},
 				}),
@@ -242,9 +248,9 @@ return {
 							label = "Orders",
 							selected = lane,
 							options = {
-								{ value = "new", label = "Waiting" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-								{ value = "brewing", label = "Brewing" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-								{ value = "ready", label = "Ready" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+								{ value = "new", label = "Waiting" } :: PickerOption,
+								{ value = "brewing", label = "Brewing" } :: PickerOption,
+								{ value = "ready", label = "Ready" } :: PickerOption,
 							},
 						}
 					end),

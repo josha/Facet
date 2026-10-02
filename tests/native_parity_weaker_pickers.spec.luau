@@ -1,8 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -21,8 +26,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -47,9 +51,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, runtime)
 	end, root)
@@ -270,7 +272,7 @@ end
 t.describe("native parity weaker pickers", function()
 	t.it("post-pickers-002 the label stands above the plate in a vertical list and a press on it focuses", function()
 		for _, input in { "pointer", "touch" } do
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.TextInput("Name")({ value = Compose.cell(""), label = "Display name" })
 			end)
 			local root = world.node
@@ -368,7 +370,7 @@ t.describe("native parity weaker pickers", function()
 		for _, labelled in { false, true } do
 			for _, input in INPUTS do
 				local value = Compose.cell("Ada")
-				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world = setup(function(UI: FacetControls)
 					return UI.TextInput("Name")({
 						value = value,
 						clearButtonMode = "always" :: "always",
@@ -412,7 +414,7 @@ t.describe("native parity weaker pickers", function()
 		"post-pickers-016 a compact plate sits centred in a whole target and focuses from the plate or the label",
 		function()
 			for _, labelled in { false, true } do
-				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world = setup(function(UI: FacetControls)
 					return UI.TextInput("Name")({
 						value = Compose.cell(""),
 						controlSize = "compact" :: "compact",
@@ -443,7 +445,7 @@ t.describe("native parity weaker pickers", function()
 				world.stop()
 			end
 			for _, rung in { "xsmall", "regular", "large" } :: { "large" | "regular" | "xsmall" } do
-				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local world = setup(function(UI: FacetControls)
 					return UI.TextInput("Name")({
 						value = Compose.cell(""),
 						controlSize = rung :: "large" | "regular" | "xsmall",
@@ -478,7 +480,7 @@ t.describe("native parity weaker pickers", function()
 				merged[key] = entry
 			end
 		end
-		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = setup(function(UI: FacetControls)
 			return UI.NumberInput("Laps")(merged)
 		end)
 		return world, draft, number, commits
@@ -529,7 +531,7 @@ t.describe("native parity weaker pickers", function()
 		"post-pickers-045 the error paints the menu trigger's stroke in the danger colour and the hint returns",
 		function()
 			local failure = Compose.cell("")
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Picker("P")({
 					style = "menu" :: "menu",
 					selected = Compose.cell("normal"),
@@ -581,7 +583,7 @@ t.describe("native parity weaker pickers", function()
 				elseif input == "keyboard" then "KeyboardAndMouse"
 				else "Gamepad"
 			local selected = Compose.cell("v25")
-			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = setup(function(UI: FacetControls)
 				return UI.Picker("P")({ style = "menu" :: "menu", options = long, maxHeight = 200, selected = selected })
 			end, { preferred = preferred })
 			local trigger = find(world.node, "Trigger")

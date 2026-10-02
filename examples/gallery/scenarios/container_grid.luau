@@ -1,7 +1,10 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local CELLS: { { id: string, label: string, spans: { number }? } } = {
 	{ id = "Standings", label = "Standings", spans = { 3, 4, 6 } },
 	{ id = "Lap", label = "Lap times", spans = { 3, 2, 3 } },
@@ -11,15 +14,11 @@ local CELLS: { { id: string, label: string, spans: { number }? } } = {
 return {
 	title = "Measured container grid",
 	build = function(ctx: ExampleContext)
-		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Host, ctx.UI, ctx.Compose
+		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local sidebarWidth, guides, media = Compose.cell(360), Compose.cell(false), Compose.cell(true)
 		local panels = {}
-		local function observe(
-			node: Frame,
-			property: string,
-			cell: typeof(require("@repo/tools/typecheck/example_shapes").vectorCell(nil :: any))
-		)
+		local function observe(node: Frame, property: string, cell: VectorCell)
 			cell:set((node :: any)[property])
 			local connection = node:GetPropertyChangedSignal(property):Connect(function()
 				cell:set((node :: any)[property])

@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
@@ -70,7 +74,7 @@ local function monitors(t: any, size: Vector2, app: string, options: { [string]:
 	local modelModule = (require :: any)(folder:WaitForChild("model"))
 	local package = theme.create(t.Facet, if app == "Desktop" then "Discover" else app)
 	local value: any = {}
-	value.stage = t.mount(function(_, _, Compose: typeof(require("@repo/src/vendor/compose/core")), env)
+	value.stage = t.mount(function(_, _, Compose: ComposeModule, env)
 		local model = modelModule.new(Compose)
 		Compose.cleanup(model.dispose)
 		value.model = model
@@ -158,18 +162,10 @@ end
 
 local function scenario(t: any, name: string, size: any, frames: number?): (any, any)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-			return if type(built) == "function" then built() else built.screen()
-		end,
-		{ size = size, frames = frames or 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+		return if type(built) == "function" then built() else built.screen()
+	end, { size = size, frames = frames or 20 })
 	return stage, built
 end
 

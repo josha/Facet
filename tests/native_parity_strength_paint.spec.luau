@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureRadialTypes = require("../src/ui/radial_types")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local FixtureThemeTypes = require("../src/ui/theme_types")
@@ -9,7 +13,7 @@ local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type Harness = {
@@ -24,8 +28,7 @@ type Harness = {
 
 local function harness(options: { [string]: any }?): Harness
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -41,9 +44,7 @@ local function harness(options: { [string]: any }?): Harness
 		engine = engine,
 		runtime = runtime,
 		UI = UI,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		gui = gui,
 		input = input,
 		dispose = function()

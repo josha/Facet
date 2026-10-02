@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local requireDynamic = require :: (any) -> any
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -13,10 +18,9 @@ pcall(function()
 end)
 local Facet = require(storage:WaitForChild("Facet"))
 local gallery = require(script:WaitForChild("screen"))
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime()
-local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local Compose: ComposeModule = Facet.Compose
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local owner = Compose.createRootOwner(function()
 	local viewport = Facet.Roblox.createViewport(workspace.CurrentCamera)
 	local demos = gallery.list()
@@ -44,7 +48,7 @@ local owner = Compose.createRootOwner(function()
 		end
 	)
 	packages.Neutral = neutral
-	local context: typeof(require("@repo/examples/types")(nil :: any)) = {
+	local context: ExampleContext = {
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,

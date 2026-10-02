@@ -1,10 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local FixtureRadialTypes = require("../src/ui/radial_types")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function signal()
 	local handlers: { () -> () } = {}
@@ -33,8 +38,7 @@ end
 
 local function world(build: (any) -> any)
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local frames = { Heartbeat = signal() }
 	local UI = Facet.controls(
@@ -47,11 +51,7 @@ local function world(build: (any) -> any)
 		} :: any
 	)
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ build(UI) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ build(UI) })
 	end, engine.new("Folder"))
 	return screen, frames, function()
 		stop()
@@ -78,7 +78,7 @@ t.describe("presented surfaces arrive styled", function()
 	t.it("holds a newly presented surface hidden until the next frame, when the theme styles apply", function()
 		for _, kind in { "Sheet", "Alert" } :: { "Alert" | "Sheet" } do
 			local open = Compose.cell(false)
-			local screen, frames, stop = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local screen, frames, stop = world(function(UI: FacetControls)
 				if kind == "Sheet" then
 					return UI.Sheet "Market" {
 						title = "Seeds",
@@ -107,7 +107,7 @@ t.describe("presented surfaces arrive styled", function()
 
 	t.it("releases its frame hook when the surface closes before the first frame", function()
 		local open = Compose.cell(false)
-		local _, frames, stop = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local _, frames, stop = world(function(UI: FacetControls)
 			return UI.Alert "Confirm" {
 				title = "Sell the crop?",
 				isPresented = open,
@@ -124,8 +124,7 @@ t.describe("presented surfaces arrive styled", function()
 	t.it("selects a presented surface's first control only once it is shown, never the hidden or panel node", function()
 		for _, kind in { "RadialMenu", "Dialog" } :: { "Dialog" | "RadialMenu" } do
 			local engine = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local frames = { Heartbeat = signal() }
 			local UI = Facet.controls(
@@ -139,11 +138,7 @@ t.describe("presented surfaces arrive styled", function()
 			)
 			local open = Compose.cell(false)
 			local stop, screen: any = runtime.mount(function()
-				return (
-					(
-						runtime.constructors.ScreenGui :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-				)({
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 					UI.Button "Opener" { label = "Open" } :: unknown,
 					if kind == "RadialMenu"
 						then UI.RadialMenu {

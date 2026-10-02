@@ -1,15 +1,19 @@
 --!strict
+type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 
 return {
 	title = "Plan a journey",
 	ledgerRows = { "CAPABILITY-NAVIGATION" },
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -349,7 +353,7 @@ return {
 								},
 							})
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)),
+					} :: Destination,
 					review = {
 						title = "Ready to go",
 						content = function(entry): Instance
@@ -359,7 +363,7 @@ return {
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),
 									AutomaticSize = Enum.AutomaticSize.Y,
-									text = "Destination: " .. tostring(entry.value),
+									text = "Destination: " .. tostring((entry :: NavigationEntry).value),
 									textRole = "heading" :: "heading",
 									TextWrapped = true,
 									TextYAlignment = Enum.TextYAlignment.Top,
@@ -383,7 +387,7 @@ return {
 								},
 							})
 						end,
-					} :: typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)),
+					} :: Destination,
 				},
 			}
 		end

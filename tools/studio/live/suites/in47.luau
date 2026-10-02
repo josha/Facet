@@ -1,4 +1,9 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -225,43 +230,27 @@ end
 
 local function example(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			local ctx = t.context(UI, Host, Compose, env)
-			if patch then
-				patch(ctx)
-			end
-			built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
-			return if type(built) == "function" then built() else built.screen()
-		end,
-		{ frames = 20, size = size }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local ctx = t.context(UI, Host, Compose, env)
+		if patch then
+			patch(ctx)
+		end
+		built = (require :: any)(storage:WaitForChild("FacetExamples"):WaitForChild(name)).build(ctx)
+		return if type(built) == "function" then built() else built.screen()
+	end, { frames = 20, size = size })
 	return stage, built
 end
 
 local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vector2?): (any, any)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			local ctx = t.context(UI, Host, Compose, env)
-			if patch then
-				patch(ctx)
-			end
-			built = t.scenario(name).build(ctx)
-			return if type(built) == "function" then built() else built.screen()
-		end,
-		{ frames = 20, size = size }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		local ctx = t.context(UI, Host, Compose, env)
+		if patch then
+			patch(ctx)
+		end
+		built = t.scenario(name).build(ctx)
+		return if type(built) == "function" then built() else built.screen()
+	end, { frames = 20, size = size })
 	return stage, built
 end
 
@@ -602,43 +591,37 @@ end)
 
 local function chromeBar(t: any): (any, any, any)
 	local pressed = {}
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Root" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				UI.HStack "Bar" {
-					UI.Button "Left" {
-						label = "Left",
-						onActivate = function()
-							table.insert(pressed, "Left")
-						end,
-					} :: unknown,
-					UI.Button "Right" {
-						label = "Right",
-						onActivate = function()
-							table.insert(pressed, "Right")
-						end,
-					},
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Root" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.HStack "Bar" {
+				UI.Button "Left" {
+					label = "Left",
+					onActivate = function()
+						table.insert(pressed, "Left")
+					end,
 				} :: unknown,
-				Host.Frame "Content" {
-					Position = UDim2.fromOffset(0, 200),
-					Size = UDim2.fromOffset(300, 100),
-					BackgroundTransparency = 1,
-					UI.Button "A" {
-						label = "Content A",
-						onActivate = function()
-							table.insert(pressed, "A")
-						end,
-					},
+				UI.Button "Right" {
+					label = "Right",
+					onActivate = function()
+						table.insert(pressed, "Right")
+					end,
 				},
-			}
-		end,
-		{ frames = 12 }
-	)
+			} :: unknown,
+			Host.Frame "Content" {
+				Position = UDim2.fromOffset(0, 200),
+				Size = UDim2.fromOffset(300, 100),
+				BackgroundTransparency = 1,
+				UI.Button "A" {
+					label = "Content A",
+					onActivate = function()
+						table.insert(pressed, "A")
+					end,
+				},
+			},
+		}
+	end, { frames = 12 })
 	local left, a = t.find(stage, "Left"), t.find(stage, "A")
 	t.check("the chrome and content buttons mount", left ~= nil and a ~= nil)
 	local leftButton = left and (if left:IsA("GuiButton") then left else left:FindFirstChildWhichIsA("GuiButton", true))
@@ -695,30 +678,23 @@ end)
 
 local function fieldForm(t: any): (any, any)
 	local value = { commits = {}, changes = {} }
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.text = Compose.cell("seed")
-			return UI.VStack "Form" {
-				gap = "s",
-				UI.TextInput "Name" {
-					value = value.text,
-					onChange = function(text)
-						table.insert(value.changes, text)
-						value.text:set(text)
-					end,
-					onCommit = function(text: string, reason: "focusLost" | "submit")
-						table.insert(value.commits, { text, reason })
-					end,
-				} :: unknown,
-				UI.Button "Next" { label = "Next" },
-			}
-		end,
-		{ frames = 12 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value.text = Compose.cell("seed")
+		return UI.VStack "Form" {
+			gap = "s",
+			UI.TextInput "Name" {
+				value = value.text,
+				onChange = function(text)
+					table.insert(value.changes, text)
+					value.text:set(text)
+				end,
+				onCommit = function(text: string, reason: "focusLost" | "submit")
+					table.insert(value.commits, { text, reason })
+				end,
+			} :: unknown,
+			UI.Button "Next" { label = "Next" },
+		}
+	end, { frames = 12 })
 	value.field = textBox(t.find(stage, "Name"))
 	value.next = t.find(stage, "Next")
 	t.check("the field and the next button mount", value.field ~= nil and value.next ~= nil)
@@ -879,39 +855,32 @@ local COMPASS =
 local function radial(t: any, options: { [string]: any }?): { [string]: any }
 	local config: { [string]: any } = options or {}
 	local value: { [string]: any } = { fired = {} }
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.open = Compose.cell(false)
-			local items: { typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)) } = {}
-			for _, entry in COMPASS do
-				table.insert(items, {
-					id = entry[1],
-					slot = entry[1] :: "N" | "E" | "S" | "W",
-					label = entry[1],
-					icon = entry[2],
-					completion = "stay" :: "stay",
-					onSelect = function()
-						table.insert(value.fired, entry[1])
-					end,
-				})
-			end
-			return UI.RadialMenu "Quick" {
-				isPresented = value.open,
-				items = items,
-				preset = config.preset,
-				labelStyle = if config.iconOnly then "icon" else nil,
-			}
-		end,
-		{
-			size = (config.size or Vector2.new(800, 600)) / (config.scale or 1),
-			theme = config.theme,
-			frames = 20,
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value.open = Compose.cell(false)
+		local items: { RadialItem } = {}
+		for _, entry in COMPASS do
+			table.insert(items, {
+				id = entry[1],
+				slot = entry[1] :: "N" | "E" | "S" | "W",
+				label = entry[1],
+				icon = entry[2],
+				completion = "stay" :: "stay",
+				onSelect = function()
+					table.insert(value.fired, entry[1])
+				end,
+			})
+		end
+		return UI.RadialMenu "Quick" {
+			isPresented = value.open,
+			items = items,
+			preset = config.preset,
+			labelStyle = if config.iconOnly then "icon" else nil,
 		}
-	)
+	end, {
+		size = (config.size or Vector2.new(800, 600)) / (config.scale or 1),
+		theme = config.theme,
+		frames = 20,
+	})
 	if config.scale then
 		local scale = Instance.new("UIScale")
 		scale.Name = "ViewingDistance"
@@ -1211,7 +1180,7 @@ local function monitors(t: any, size: Vector2?, app: string): any
 	local modelModule = (require :: any)(folder:WaitForChild("model"))
 	local package = theme.create(t.Facet, app)
 	local value: any = {}
-	value.stage = t.mount(function(_, _, Compose: typeof(require("@repo/src/vendor/compose/core")), env)
+	value.stage = t.mount(function(_, _, Compose: ComposeModule, env)
 		local model = modelModule.new(Compose)
 		Compose.cleanup(model.dispose)
 		value.model = model
@@ -1231,24 +1200,17 @@ local function monitors(t: any, size: Vector2?, app: string): any
 end
 
 local function tableProbe(t: any): (any, any)
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			return UI.Table "Scores" {
-				from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" } },
-				key = "id",
-				widths = Compose.cell({}),
-				Size = UDim2.fromOffset(400, 200),
-				columns = {
-					{ id = "name", label = "Name", width = 160, minWidth = 60, maxWidth = 300 },
-				},
-			}
-		end,
-		{ size = Vector2.new(600, 400), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		return UI.Table "Scores" {
+			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" } },
+			key = "id",
+			widths = Compose.cell({}),
+			Size = UDim2.fromOffset(400, 200),
+			columns = {
+				{ id = "name", label = "Name", width = 160, minWidth = 60, maxWidth = 300 },
+			},
+		}
+	end, { size = Vector2.new(600, 400), frames = 20 })
 	return t.find(stage, "Header"), t.find(stage, "Resize")
 end
 
@@ -1443,46 +1405,39 @@ end
 add("native-context-arbitration", { "inputs-97" }, function(t: any)
 	local io = device(t)
 	local value: any = { high = 0, low = 0, highReleased = 0 }
-	local stage = t.mount(
-		function(
-			_,
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value.highOn = Compose.cell(true)
-			return Host.Frame "Root" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Host.InputContext "High" {
-					Priority = 3000,
-					Sink = true,
-					Enabled = value.highOn,
-					Host.InputAction "Hit" {
-						Type = Enum.InputActionType.Bool,
-						Pressed = function()
-							value.high += 1
-						end,
-						Released = function()
-							value.highReleased += 1
-						end,
-						Host.InputBinding({ KeyCode = Enum.KeyCode.X }),
-					},
-				} :: unknown,
-				Host.InputContext "Low" {
-					Priority = 1000,
-					Sink = false,
-					Host.InputAction "Hit" {
-						Type = Enum.InputActionType.Bool,
-						Pressed = function()
-							value.low += 1
-						end,
-						Host.InputBinding({ KeyCode = Enum.KeyCode.X }),
-					},
+	local stage = t.mount(function(_, Host: RobloxHost, Compose: ComposeModule)
+		value.highOn = Compose.cell(true)
+		return Host.Frame "Root" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Host.InputContext "High" {
+				Priority = 3000,
+				Sink = true,
+				Enabled = value.highOn,
+				Host.InputAction "Hit" {
+					Type = Enum.InputActionType.Bool,
+					Pressed = function()
+						value.high += 1
+					end,
+					Released = function()
+						value.highReleased += 1
+					end,
+					Host.InputBinding({ KeyCode = Enum.KeyCode.X }),
 				},
-			}
-		end,
-		{ frames = 10 }
-	)
+			} :: unknown,
+			Host.InputContext "Low" {
+				Priority = 1000,
+				Sink = false,
+				Host.InputAction "Hit" {
+					Type = Enum.InputActionType.Bool,
+					Pressed = function()
+						value.low += 1
+					end,
+					Host.InputBinding({ KeyCode = Enum.KeyCode.X }),
+				},
+			},
+		}
+	end, { frames = 10 })
 	local high, low = t.find(stage, "High"), t.find(stage, "Low")
 	t.check("both native contexts mount", high ~= nil and low ~= nil)
 	if not (high and low) then
@@ -1544,7 +1499,7 @@ end)
 
 local function shortcutPair(t: any): any
 	local value: any = { plain = 0, shifted = 0 }
-	t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	t.mount(function(UI: FacetControls)
 		return UI.VStack "Pair" {
 			UI.Button "Plain" {
 				label = "Plain K",
@@ -1640,7 +1595,7 @@ add("editing-sinks-lower-navigation", { "inputs-145" }, function(t: any)
 	local io = device(t)
 	local moved = 0
 	local _, value = fieldForm(t)
-	local extra = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local extra = t.mount(function(_, Host: RobloxHost)
 		return Host.InputContext "CharacterControls" {
 			Priority = 1000,
 			Sink = false,
@@ -1682,7 +1637,7 @@ add("actions-released-with-their-owner", { "mech3-36" }, function(t: any)
 	local io = device(t)
 	local baseline = #contexts()
 	local fired = 0
-	t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	t.mount(function(UI: FacetControls)
 		return UI.VStack "Owned" {
 			UI.Button "Save" {
 				label = "Save",
@@ -1717,7 +1672,7 @@ end)
 add("one-action-many-devices", { "mech3-40" }, function(t: any)
 	local io = device(t)
 	local fired = 0
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.Button "Close" {
 			label = "Close",
 			shortcut = { keyCode = "K" },
@@ -1762,7 +1717,7 @@ end)
 add("pad-one-action-many-devices", { "mech3-40" }, function(t: any)
 	local io = device(t)
 	local fired = 0
-	t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	t.mount(function(UI: FacetControls)
 		return UI.Button "Close" {
 			label = "Close",
 			shortcut = { keyCode = "K" },
@@ -1785,55 +1740,43 @@ add("touch-one-action-many-devices", { "mech3-40" }, function(t: any)
 	touch(t)
 	local io = device(t)
 	local fired = 0
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(40, 240),
-				Size = UDim2.fromOffset(200, 100),
-				BackgroundTransparency = 1,
-				UI.Button "Close" {
-					label = "Close",
-					shortcut = { keyCode = "K" },
-					dialogAction = "cancel" :: "cancel",
-					onActivate = function()
-						fired += 1
-					end,
-				},
-			}
-		end,
-		{ frames = 12 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(40, 240),
+			Size = UDim2.fromOffset(200, 100),
+			BackgroundTransparency = 1,
+			UI.Button "Close" {
+				label = "Close",
+				shortcut = { keyCode = "K" },
+				dialogAction = "cancel" :: "cancel",
+				onActivate = function()
+					fired += 1
+				end,
+			},
+		}
+	end, { frames = 12 })
 	io.click(centre(t.find(stage, "Close")))
 	t.check("a touch tap fires the same control once", fired == 1, fired)
 end)
 
 local function hoverProbe(t: any, value: any): any
-	return t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(40, 240),
-				Size = UDim2.fromOffset(300, 200),
-				BackgroundTransparency = 1,
-				UI.VStack "Column" {
-					UI.Button "Go" {
-						label = "Go",
-						help = "Starts the race",
-						onActivate = function()
-							value.activated += 1
-						end,
-					} :: unknown,
-					UI.Text "Caption" { text = "A caption" },
-				},
-			}
-		end,
-		{ frames = 12 }
-	)
+	return t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(40, 240),
+			Size = UDim2.fromOffset(300, 200),
+			BackgroundTransparency = 1,
+			UI.VStack "Column" {
+				UI.Button "Go" {
+					label = "Go",
+					help = "Starts the race",
+					onActivate = function()
+						value.activated += 1
+					end,
+				} :: unknown,
+				UI.Text "Caption" { text = "A caption" },
+			},
+		}
+	end, { frames = 12 })
 end
 
 local function guiStates(node: GuiObject): { string }
@@ -1957,24 +1900,17 @@ end, {
 add("help-leaves-with-its-surface", { "inputs-94" }, function(t: any)
 	local io = device(t)
 	local open
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			open = Compose.cell(true)
-			return UI.Sheet "Editor" {
-				isPresented = open,
-				detent = Compose.cell("medium"),
-				title = "Editor",
-				content = function(): Instance
-					return UI.Button "Post" { label = "Post", help = "Posts this avatar" }
-				end,
-			}
-		end,
-		{ frames = 30 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		open = Compose.cell(true)
+		return UI.Sheet "Editor" {
+			isPresented = open,
+			detent = Compose.cell("medium"),
+			title = "Editor",
+			content = function(): Instance
+				return UI.Button "Post" { label = "Post", help = "Posts this avatar" }
+			end,
+		}
+	end, { frames = 30 })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local post = visibleNamed(t, gui, "Post")
 	t.check("the sheet shows its Post button", post ~= nil)
@@ -1998,22 +1934,15 @@ end)
 
 local function sliderProbe(t: any): (any, any)
 	local value
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			value = Compose.cell(0)
-			return Host.Frame "Holder" {
-				Position = UDim2.fromOffset(40, 300),
-				Size = UDim2.fromOffset(300, 80),
-				BackgroundTransparency = 1,
-				UI.Slider "Vol" { value = value, min = 0, max = 100, Size = UDim2.fromOffset(300, 44) },
-			}
-		end,
-		{ frames = 12 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		value = Compose.cell(0)
+		return Host.Frame "Holder" {
+			Position = UDim2.fromOffset(40, 300),
+			Size = UDim2.fromOffset(300, 80),
+			BackgroundTransparency = 1,
+			UI.Slider "Vol" { value = value, min = 0, max = 100, Size = UDim2.fromOffset(300, 44) },
+		}
+	end, { frames = 12 })
 	return stage, value
 end
 
@@ -2047,24 +1976,17 @@ end)
 add("pad-table-row-a-selects", { "inputs-05" }, function(t: any)
 	local io = device(t)
 	local selection
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			_,
-			Compose: typeof(require("@repo/src/vendor/compose/core"))
-		)
-			selection = Compose.cell({})
-			return UI.Table "Scores" {
-				from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" }, { id = "c", name = "Charlie" } },
-				key = "id",
-				selection = selection,
-				selectionMode = "multiple" :: "multiple",
-				Size = UDim2.fromOffset(400, 240),
-				columns = { { id = "name", label = "Name" } },
-			}
-		end,
-		{ size = Vector2.new(600, 400), frames = 20 }
-	)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		selection = Compose.cell({})
+		return UI.Table "Scores" {
+			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" }, { id = "c", name = "Charlie" } },
+			key = "id",
+			selection = selection,
+			selectionMode = "multiple" :: "multiple",
+			Size = UDim2.fromOffset(400, 240),
+			columns = { { id = "name", label = "Name" } },
+		}
+	end, { size = Vector2.new(600, 400), frames = 20 })
 	local rows = {}
 	for _, node in stage:GetDescendants() do
 		if

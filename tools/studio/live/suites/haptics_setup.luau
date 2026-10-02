@@ -1,22 +1,18 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 return {
 	{
 		id = "haptics-mount-feedback-demo",
 		contracts = { "risk:haptics" },
 		run = function(t: any)
 			local built
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-					Compose: typeof(require("@repo/src/vendor/compose/core")),
-					env
-				)
-					built = t.scenario("sensory_feedback").build(t.context(UI, Host, Compose, env))
-					return built.screen()
-				end,
-				{ frames = 12 }
-			)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+				built = t.scenario("sensory_feedback").build(t.context(UI, Host, Compose, env))
+				return built.screen()
+			end, { frames = 12 })
 			local press = t.find(stage, "Press")
 			t.check("press button mounted", press ~= nil and press:IsA("GuiButton"))
 			t.check(

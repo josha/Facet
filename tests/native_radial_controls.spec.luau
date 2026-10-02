@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local Shared = require("../src/ui/types")
 local Radial = require("../src/ui/radial_types")
 local t = require("./lib/testkit")
@@ -31,8 +35,7 @@ local function setup(
 	engine.clock = function()
 		return now
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI = controls(Compose, runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
@@ -42,11 +45,7 @@ local function setup(
 	local opened = actual.isPresented or Compose.cell(true)
 	actual.isPresented = opened
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ UI.RadialMenu(actual) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.RadialMenu(actual) })
 	end, engine.new("Folder"))
 	return {
 		engine = engine,
@@ -607,14 +606,11 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("NRAD-13 gallery nearby item uses native owned scene and real actions", function()
 		local engine = engines.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local ctx = {
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			UI = controls(
@@ -626,11 +622,7 @@ t.describe("native radial interaction policies", function()
 		local built
 		local stop, screen: any = runtime.mount(function()
 			built = require("../examples/gallery/scenarios/radial_menu").build(ctx)
-			return (
-				(
-					runtime.constructors.ScreenGui :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-			)({ built.screen() })
+			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ built.screen() })
 		end, engine.new("Folder"))
 		built.steps.world()
 		local stage = screen:FindFirstChild("TrailPack", true)

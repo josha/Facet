@@ -1,6 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local Facet = require("../../src")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local package: Facet.ThemePackage = Facet.themes.neutralPackage()
 local app: Facet.App = Facet.app({
 	theme = package,

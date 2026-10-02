@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
@@ -8,7 +11,7 @@ local overlay = require("./lib/overlay_world")
 local function scene(options: { lazy: boolean?, count: number? }?): any
 	local o: { lazy: boolean?, count: number? } = options or {}
 	local log = { builds = 0, writes = 0, lives = {} :: { any } }
-	local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)), Host)
+	local w = overlay.new(function(UI: FacetControls, Host)
 		local stages = {}
 		for index = 1, o.count or 1 do
 			table.insert(
@@ -163,33 +166,28 @@ t.describe("native Stage presence", function()
 	t.it("drops a queued lazy build when its stage is removed before the frame runs", function()
 		local gate = Compose.cell(true)
 		local builds = 0
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.ScrollingFrame({
-					Name = "Feed",
-					Compose.show(gate, function()
-						local stages = {}
-						for index = 1, 3 do
-							table.insert(
-								stages,
-								UI.Stage({
-									Name = "Stage" .. index,
-									lazy = true,
-									content = function(): (() -> ())?
-										builds += 1
-										return nil
-									end,
-								})
-							)
-						end
-						return Host.Frame({ Name = "Cards", table.unpack((stages :: unknown) :: { unknown }) })
-					end),
-				})
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.ScrollingFrame({
+				Name = "Feed",
+				Compose.show(gate, function()
+					local stages = {}
+					for index = 1, 3 do
+						table.insert(
+							stages,
+							UI.Stage({
+								Name = "Stage" .. index,
+								lazy = true,
+								content = function(): (() -> ())?
+									builds += 1
+									return nil
+								end,
+							})
+						)
+					end
+					return Host.Frame({ Name = "Cards", table.unpack((stages :: unknown) :: { unknown }) })
+				end),
+			})
+		end)
 		local V = w.Vector2
 		local feed = w.find("Feed")
 		feed.AbsolutePosition = V.new(0, 0)

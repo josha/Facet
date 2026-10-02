@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local requireDynamic = require :: (any) -> any
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
@@ -7,7 +12,7 @@ local worlds = require("./lib/content_world")
 local overlay = require("./lib/overlay_world")
 local engineLib = require("./lib/native_engine")
 local Roblox = require("@lune/roblox")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 local UDim2, Vector2, Enum = Roblox.UDim2, Roblox.Vector2, Roblox.Enum
 
@@ -131,8 +136,7 @@ end
 
 local function sheetOf(package: any): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local stop, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(
 			runtime,
@@ -174,15 +178,9 @@ local function same(color: any, rgb: any): boolean
 end
 
 local function screen(package: any?, build: (any, any) -> any): any
-	return worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), build(UI, Host) })
-		end,
-		{ motionLevel = "none", theme = package }
-	)
+	return worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), build(UI, Host) })
+	end, { motionLevel = "none", theme = package })
 end
 
 t.describe("native optional palette roles", function()
@@ -234,39 +232,33 @@ t.describe("native optional palette roles", function()
 	t.it("a mounted Slider fill, tab underline and switch track resolve the authored ink", function()
 		local package = authored({ selection = INK, onSelection = ON_INK })
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(
-			package,
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.VStack({
-					UI.Slider("Vol")({ value = Compose.cell(0.5), min = 0, max = 1 }) :: unknown,
-					UI.Toggle("Sound")({ label = "Sound", value = Compose.cell(true) }),
-					UI.TabView("Pages")({
-						placement = "topBar" :: "topBar",
-						indicator = "underline" :: "underline",
-						selection = Compose.cell("a"),
-						tabs = {
-							{
-								id = "a",
-								label = "A",
-								content = function(): Instance
-									return Host.Frame({ Name = "PA" })
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{
-								id = "b",
-								label = "B",
-								content = function(): Instance
-									return Host.Frame({ Name = "PB" })
-								end,
-							} :: FixtureNavigationTypes.Tab,
-						},
-					}),
-				})
-			end
-		)
+		local world = screen(package, function(UI: FacetControls, Host: RobloxHost)
+			return UI.VStack({
+				UI.Slider("Vol")({ value = Compose.cell(0.5), min = 0, max = 1 }) :: unknown,
+				UI.Toggle("Sound")({ label = "Sound", value = Compose.cell(true) }),
+				UI.TabView("Pages")({
+					placement = "topBar" :: "topBar",
+					indicator = "underline" :: "underline",
+					selection = Compose.cell("a"),
+					tabs = {
+						{
+							id = "a",
+							label = "A",
+							content = function(): Instance
+								return Host.Frame({ Name = "PA" })
+							end,
+						} :: FixtureNavigationTypes.Tab,
+						{
+							id = "b",
+							label = "B",
+							content = function(): Instance
+								return Host.Frame({ Name = "PB" })
+							end,
+						} :: FixtureNavigationTypes.Tab,
+					},
+				}),
+			})
+		end)
 		local fill = nil
 		for _, node in world.find("Vol"):GetDescendants() do
 			if node:HasTag("facet-slider-fill") then
@@ -289,7 +281,7 @@ t.describe("native selection marks", function()
 		local package = authored({ selection = INK, onSelection = ON_INK })
 		local sheet, stopSheet = sheetOf(package)
 		local checked = Compose.cell(false)
-		local world = screen(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(package, function(UI: FacetControls)
 			return UI.VStack({
 				UI.Chip("Pick")({ label = "Pick", selected = Compose.cell(true) }) :: unknown,
 				UI.Toggle("Check")({ label = "Check", presentation = "checkbox" :: "checkbox", value = checked }),
@@ -322,7 +314,7 @@ t.describe("native selection marks", function()
 	t.it("without an authored selection a chosen Chip keeps the selected-row wash", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(package, function(UI: FacetControls)
 			return UI.Chip("Pick")({ label = "Pick", selected = Compose.cell(true) })
 		end)
 		local chip = world.find("Pick")
@@ -338,7 +330,7 @@ t.describe("native whole-control disabled dim", function()
 		local package = authored({ dimDisabledPlates = true, disabledContentOpacity = 0.5 })
 		local colors = package.style.themes[1].colors
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(package, function(UI: FacetControls)
 			return UI.VStack({
 				UI.Button("Go")({ label = "Go", appearance = "emphasis", enabled = false }) :: unknown,
 				UI.Button("Stop")({ label = "Stop", role = "destructive" :: "destructive", enabled = false }),
@@ -378,8 +370,7 @@ t.describe("native strong divider, pane and utility outline", function()
 		t.expect(resolve(authoredSheet, rule, "BackgroundTransparency")).toBe(0.6)
 		stopAuthored()
 		local engine2: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine2)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine2)
 		local stopDim, dimmed: any = runtime.mount(function()
 			return themes.createStyleSheet(
 				runtime,
@@ -393,7 +384,7 @@ t.describe("native strong divider, pane and utility outline", function()
 		runtime:dispose()
 		local neutralSheet, stopNeutral = sheetOf(themes.neutralPackage())
 		local strong = Compose.cell("strong" :: "standard" | "strong")
-		local world = screen(themes.neutralPackage(), function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(themes.neutralPackage(), function(UI: FacetControls)
 			return UI.VStack({ UI.Divider("Edge")({ appearance = strong }) })
 		end)
 		local edge = world.find("Edge")
@@ -410,8 +401,7 @@ t.describe("native strong divider, pane and utility outline", function()
 	t.it("the see-through backgrounds are a measured set, and the preference moves only the scrim", function()
 		local function census(preference: number): { [string]: number }
 			local engine: any = engineLib.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local found: { [string]: number } = {}
 			local stop, sheet: any = runtime.mount(function()
 				return themes.createStyleSheet(
@@ -494,7 +484,7 @@ t.describe("native inverse and underlined Buttons", function()
 		local package = themes.neutralPackage()
 		local colors = package.style.themes[1].colors
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(package, function(UI: FacetControls)
 			return UI.Button("Inv")({ label = "Invert", appearance = "inverse" })
 		end)
 		local button = world.find("Inv")
@@ -511,7 +501,7 @@ t.describe("native inverse and underlined Buttons", function()
 	end)
 
 	t.it("underline hover marks the escaped label while hovered or selected, and always marks it at rest", function()
-		local world = screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(nil, function(UI: FacetControls)
 			return UI.VStack({
 				UI.Button("More")({
 					label = "Learn & more",
@@ -539,12 +529,12 @@ t.describe("native inverse and underlined Buttons", function()
 		t.expect(more.Text).toBe("Learn &amp; more")
 		world.stop()
 		t.expect(function()
-			screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			screen(nil, function(UI: FacetControls)
 				return UI.Button({ label = "Go", icon = "close", underline = "always" } :: any)
 			end)
 		end).toThrow("underline belongs to a text button")
 		t.expect(function()
-			screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			screen(nil, function(UI: FacetControls)
 				return UI.Button({ label = "Go", underline = "sometimes" :: any })
 			end)
 		end).toThrow("underline must be always or hover")
@@ -553,7 +543,7 @@ t.describe("native inverse and underlined Buttons", function()
 	t.it("textSize reaches the label beside an icon and the plain label, as a role or a number", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(package, function(UI: FacetControls)
 			return UI.VStack({
 				UI.Button("Browse")({
 					label = "Browse",
@@ -573,7 +563,7 @@ t.describe("native inverse and underlined Buttons", function()
 		world.stop()
 		stopSheet()
 		t.expect(function()
-			screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			screen(nil, function(UI: FacetControls)
 				return UI.Button({ label = "Go", textSize = "huge" })
 			end)
 		end).toThrow("textSize must be a type role")
@@ -584,7 +574,7 @@ t.describe("native xsmall rung", function()
 	t.it(
 		"xsmall is one ladder step below compact unless the theme authors it, and a partial rung is refused",
 		function()
-			local world = screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local world = screen(nil, function(UI: FacetControls)
 				return UI.VStack({
 					UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" :: "xsmall" }) :: unknown,
 					UI.Chip("TinyChip")({
@@ -602,13 +592,13 @@ t.describe("native xsmall rung", function()
 			world.stop()
 			local package =
 				assert((withMetrics({ controlSizes = { xsmall = { height = 24, paddingX = 8, iconSize = 12 } } })))
-			local themed = screen(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local themed = screen(package, function(UI: FacetControls)
 				return UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" :: "xsmall" })
 			end)
 			t.expect(themed.find("Tiny").Size.Y.Offset).toBe(24)
 			themed.stop()
 			t.expect(function()
-				screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				screen(nil, function(UI: FacetControls)
 					return UI.Button({ label = "Go", controlSize = "tiny" :: any })
 				end)
 			end).toThrow("xsmall, compact, regular or large")
@@ -630,26 +620,20 @@ t.describe("native dense pointer rows", function()
 	end)
 
 	local function menu(package: any): (any, () -> { string })
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "S",
-					Size = UDim2.fromOffset(800, 600),
-					UI.Menu("M")({
-						label = "Options",
-						items = {
-							{ id = "a", label = "Alpha", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-							{ id = "b", label = "Beta", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-							{ id = "c", label = "Gamma", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-						},
-					}),
-				})
-			end,
-			{ motionLevel = "none", theme = package }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "S",
+				Size = UDim2.fromOffset(800, 600),
+				UI.Menu("M")({
+					label = "Options",
+					items = {
+						{ id = "a", label = "Alpha", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+						{ id = "b", label = "Beta", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+						{ id = "c", label = "Gamma", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+					},
+				}),
+			})
+		end, { motionLevel = "none", theme = package })
 		world.input.MouseEnabled, world.input.TouchEnabled, world.input.GamepadEnabled = true, false, false
 		world.find("Trigger").Activated.fire()
 		local function pitch(): { string }
@@ -686,27 +670,21 @@ t.describe("native dense pointer rows", function()
 
 	t.it("a Picker menu's rows take the pointer floor, and touch grows them back", function()
 		local package = assert((withMetrics({ targetSizes = { minimum = 44, pointer = 28 } })))
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "S",
-					Size = UDim2.fromOffset(800, 600),
-					UI.Picker("P")({
-						style = "menu" :: "menu",
-						selected = Compose.cell("normal"),
-						options = {
-							{ value = "slow", label = "Slow" } :: FixtureNavigationTypes.PickerOption<any>,
-							{ value = "normal", label = "Normal" } :: FixtureNavigationTypes.PickerOption<any>,
-							{ value = "fast", label = "Fast" } :: FixtureNavigationTypes.PickerOption<any>,
-						},
-					}),
-				})
-			end,
-			{ motionLevel = "none", theme = package }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "S",
+				Size = UDim2.fromOffset(800, 600),
+				UI.Picker("P")({
+					style = "menu" :: "menu",
+					selected = Compose.cell("normal"),
+					options = {
+						{ value = "slow", label = "Slow" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "normal", label = "Normal" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "fast", label = "Fast" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				}),
+			})
+		end, { motionLevel = "none", theme = package })
 		world.input.MouseEnabled = true
 		world.find("Trigger").Activated.fire()
 		local panel = world.find("MenuPanel", world.screen.Parent)
@@ -726,7 +704,7 @@ t.describe("native plain Toggle", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
 		local value = Compose.cell(false)
-		local world = screen(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(package, function(UI: FacetControls)
 			return UI.Toggle("Box")({
 				label = "Reduced motion",
 				presentation = "checkbox" :: "checkbox",
@@ -747,7 +725,7 @@ t.describe("native plain Toggle", function()
 		world.stop()
 		stopSheet()
 		t.expect(function()
-			screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			screen(nil, function(UI: FacetControls)
 				return UI.Toggle({
 					label = "B",
 					presentation = "button" :: "button",
@@ -761,31 +739,25 @@ end)
 
 t.describe("native outline DisclosureGroup", function()
 	t.it("leads its header with the title, and a trailing chevron sits at the far edge", function()
-		local world = screen(
-			nil,
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.DisclosureGroup("Lead")({
-						label = "Inputs",
-						expanded = Compose.cell(false),
-						content = function(): Instance
-							return Host.TextLabel({ Text = "Button" })
-						end,
-					}) :: unknown,
-					UI.DisclosureGroup("Trail")({
-						label = "Inputs",
-						chevronPosition = "trailing" :: "trailing",
-						expanded = Compose.cell(false),
-						content = function(): Instance
-							return Host.TextLabel({ Text = "Button" })
-						end,
-					}),
-				})
-			end
-		)
+		local world = screen(nil, function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.DisclosureGroup("Lead")({
+					label = "Inputs",
+					expanded = Compose.cell(false),
+					content = function(): Instance
+						return Host.TextLabel({ Text = "Button" })
+					end,
+				}) :: unknown,
+				UI.DisclosureGroup("Trail")({
+					label = "Inputs",
+					chevronPosition = "trailing" :: "trailing",
+					expanded = Compose.cell(false),
+					content = function(): Instance
+						return Host.TextLabel({ Text = "Button" })
+					end,
+				}),
+			})
+		end)
 		local E = Enum
 		for _, name in { "Lead", "Trail" } do
 			local content = world.find(name):FindFirstChild("Content", true)
@@ -798,21 +770,15 @@ t.describe("native outline DisclosureGroup", function()
 	end)
 
 	t.it("keeps the gap above the body inside the clipped reveal, so a collapse ends without a step", function()
-		local world = screen(
-			nil,
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.DisclosureGroup("G")({
-					label = "Inputs",
-					expanded = Compose.cell(true),
-					content = function(): Instance
-						return Host.TextLabel({ Name = "Row", Text = "Button" })
-					end,
-				})
-			end
-		)
+		local world = screen(nil, function(UI: FacetControls, Host: RobloxHost)
+			return UI.DisclosureGroup("G")({
+				label = "Inputs",
+				expanded = Compose.cell(true),
+				content = function(): Instance
+					return Host.TextLabel({ Name = "Row", Text = "Button" })
+				end,
+			})
+		end)
 		local group = world.find("G")
 		t.expect(group:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(0)
 		local reveal = world.find("Reveal")
@@ -827,24 +793,18 @@ t.describe("native outline DisclosureGroup", function()
 	t.it("an outline group has no expanded wash, a chosen role and an indented body", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(
-			package,
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.DisclosureGroup("G")({
-					label = "Inputs",
-					appearance = "outline" :: "outline",
-					textSize = "label" :: "label",
-					indent = "m" :: "m",
-					expanded = Compose.cell(true),
-					content = function(): Instance
-						return Host.TextLabel({ Name = "Row", Text = "Button" })
-					end,
-				})
-			end
-		)
+		local world = screen(package, function(UI: FacetControls, Host: RobloxHost)
+			return UI.DisclosureGroup("G")({
+				label = "Inputs",
+				appearance = "outline" :: "outline",
+				textSize = "label" :: "label",
+				indent = "m" :: "m",
+				expanded = Compose.cell(true),
+				content = function(): Instance
+					return Host.TextLabel({ Name = "Row", Text = "Button" })
+				end,
+			})
+		end)
 		local header = world.find("Header")
 		t.expect(header:HasTag("facet-selected")).toBe(false)
 		t.expect(resolve(sheet, header, "BackgroundTransparency")).toBe(1)
@@ -858,7 +818,7 @@ t.describe("native outline DisclosureGroup", function()
 		world.stop()
 		stopSheet()
 		t.expect(function()
-			screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			screen(nil, function(UI: FacetControls)
 				return UI.DisclosureGroup({
 					label = "X",
 					indent = "huge" :: any,
@@ -874,35 +834,29 @@ end)
 
 t.describe("native TabView controlSize", function()
 	t.it("each tab paints at the rung height while the strip keeps the touch floor", function()
-		local world = screen(
-			nil,
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView("Pages")({
-					placement = "topBar" :: "topBar",
-					controlSize = "compact" :: "compact",
-					selection = Compose.cell("a"),
-					tabs = {
-						{
-							id = "a",
-							label = "Alpha",
-							content = function(): Instance
-								return Host.Frame({ Name = "PA" })
-							end,
-						} :: FixtureNavigationTypes.Tab,
-						{
-							id = "b",
-							label = "Beta",
-							content = function(): Instance
-								return Host.Frame({ Name = "PB" })
-							end,
-						} :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = screen(nil, function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView("Pages")({
+				placement = "topBar" :: "topBar",
+				controlSize = "compact" :: "compact",
+				selection = Compose.cell("a"),
+				tabs = {
+					{
+						id = "a",
+						label = "Alpha",
+						content = function(): Instance
+							return Host.Frame({ Name = "PA" })
+						end,
+					} :: FixtureNavigationTypes.Tab,
+					{
+						id = "b",
+						label = "Beta",
+						content = function(): Instance
+							return Host.Frame({ Name = "PB" })
+						end,
+					} :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		for _, id in { "a", "b" } do
 			local tab = world.find(id)
 			t.expect(`{id} {tab.Size.Y.Offset}`).toBe(`{id} 36`)
@@ -915,23 +869,17 @@ end)
 
 t.describe("native Sheet adaptive placement", function()
 	local function mount(placement: string, width: number, touch: boolean): any
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Sheet("Sheet")({
-					isPresented = Compose.cell(true),
-					detent = Compose.cell("medium"),
-					placement = placement :: any,
-					title = "Inspector",
-					content = function(): Instance
-						return Host.Frame({ Name = "Copy" })
-					end,
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Sheet("Sheet")({
+				isPresented = Compose.cell(true),
+				detent = Compose.cell("medium"),
+				placement = placement :: any,
+				title = "Inspector",
+				content = function(): Instance
+					return Host.Frame({ Name = "Copy" })
+				end,
+			})
+		end, { motionLevel = "none" })
 		w.input.MouseEnabled, w.input.TouchEnabled = true, touch
 		w.find("Modal").AbsoluteSize = Vector2.new(width, 800)
 		w.advance(1 / 300, 2)
@@ -965,7 +913,7 @@ t.describe("native start-aligned Picker menu", function()
 	}
 
 	t.it("a start-aligned title sits on one line beside its value, and hug sizing hugs the pair", function()
-		local world = screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(nil, function(UI: FacetControls)
 			return UI.Picker("P")({
 				label = "Motion",
 				style = "menu" :: "menu",
@@ -990,7 +938,7 @@ t.describe("native start-aligned Picker menu", function()
 	end)
 
 	t.it("under touch the one-line trigger hugs its value, and end keeps the title above the trigger", function()
-		local world = screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = screen(nil, function(UI: FacetControls)
 			return UI.VStack({
 				UI.Picker("Start")({
 					label = "Motion",
@@ -1017,7 +965,7 @@ t.describe("native start-aligned Picker menu", function()
 		t.expect(stacked.FillDirection).toBe(Enum.FillDirection.Vertical)
 		world.stop()
 		t.expect(function()
-			screen(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			screen(nil, function(UI: FacetControls)
 				return UI.Picker({
 					label = "M",
 					style = "menu" :: "menu",
@@ -1032,8 +980,7 @@ end)
 
 local function scenario(name: string): any
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local guiService = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -1043,9 +990,7 @@ local function scenario(name: string): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = (
-				runtime.constructors :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = engine.new("Folder"),

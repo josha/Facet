@@ -1,5 +1,7 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local commands = {}
 
 export type Submit = {
@@ -16,7 +18,7 @@ export type Submit = {
 }
 
 function commands.new(opts: any): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 	local clock = opts.clock
 	local feedback = opts.feedback
 	local S = opts.strings

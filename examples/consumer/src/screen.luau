@@ -1,9 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local screen = {}
 function screen.build(Facet: any, UI: any)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local count = Compose.cell(0)
 	local sound = Compose.cell(true)
 	local visible = Compose.cell(true)

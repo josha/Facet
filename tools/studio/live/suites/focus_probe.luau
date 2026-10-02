@@ -1,4 +1,6 @@
 --!strict
+
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
@@ -44,7 +46,7 @@ local function each(t: any, from: GuiObject, keys: { string }, label: string)
 end
 
 add("F1-overlap-vs-near", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -59,7 +61,7 @@ add("F1-overlap-vs-near", function(t)
 end)
 
 add("F2-m2-with-control-frames", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -75,7 +77,7 @@ add("F2-m2-with-control-frames", function(t)
 end)
 
 add("F3-stick-honours-links", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -94,7 +96,7 @@ add("F3-stick-honours-links", function(t)
 end)
 
 add("F4-drag-detector-phantom", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -118,7 +120,7 @@ add("F4-drag-detector-phantom", function(t)
 end)
 
 add("F5-selection-group-column", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -145,7 +147,7 @@ add("F5-selection-group-column", function(t)
 end)
 
 add("F6-offscreen-scroll-child", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		local rows = {}
 		for index = 1, 12 do
 			table.insert(rows, box(Host, `Row{index}`, 0, (index - 1) * 60, 300, 44))
@@ -171,7 +173,7 @@ add("F6-offscreen-scroll-child", function(t)
 end)
 
 add("F7-rotated-and-canvasgroup", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -198,7 +200,7 @@ add("F7-rotated-and-canvasgroup", function(t)
 end)
 
 add("F8-sink-context-on-dpad-and-stick", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -231,7 +233,7 @@ add("F8-sink-context-on-dpad-and-stick", function(t)
 end)
 
 add("F9-arrow-keys-drive-engine", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -244,7 +246,7 @@ add("F9-arrow-keys-drive-engine", function(t)
 end)
 
 add("F10-l1-r1-with-selection", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -268,7 +270,7 @@ add("F10-l1-r1-with-selection", function(t)
 end)
 
 add("E1-input-actions-while-selected", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -309,7 +311,7 @@ add("E1-input-actions-while-selected", function(t)
 end)
 
 add("E2-wired-candidates-first", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -330,7 +332,7 @@ add("E2-wired-candidates-first", function(t)
 end)
 
 add("F12-out-of-beam-alignment", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -344,7 +346,7 @@ add("F12-out-of-beam-alignment", function(t)
 end)
 
 add("F12-sweep", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -419,7 +421,7 @@ add("F12-sweep", function(t)
 end)
 
 add("F14-scroll-strip-vs-its-tabs", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -469,7 +471,7 @@ add("F14-scroll-strip-vs-its-tabs", function(t)
 end)
 
 add("F15-lane-is-span-or-centre-line", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -491,7 +493,7 @@ add("F15-lane-is-span-or-centre-line", function(t)
 end)
 
 add("F16-scroll-container-in-lane-vs-control-out-of-lane", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -529,7 +531,7 @@ add("F16-scroll-container-in-lane-vs-control-out-of-lane", function(t)
 end)
 
 add("F6b-clipped-scroll-child-from-outside", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -550,7 +552,7 @@ add("F6b-clipped-scroll-child-from-outside", function(t)
 end)
 
 add("F11-selection-image-part", function(t)
-	local world = t.mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+	local world = t.mount(function(_, Host: RobloxHost)
 		return Host.Frame({
 			Name = "Row",
 			Position = UDim2.fromOffset(100, 100),

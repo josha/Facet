@@ -1,10 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local flight = require("./flap_model")
 
 return function(ctx: any)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI = ctx.Compose, ctx.Host, ctx.UI
+	local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 	local D2, D, V2, C3, E = ctx.D2, ctx.D, ctx.V2, ctx.C3, ctx.E
 	local gameModel = ctx.model.flap
 	local state = gameModel.state

@@ -1,10 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local nativeApp = require("./native_app")
 return function(automatic: boolean)
 	local world = nativeApp({ viewport = { w = 900, h = 900 } })
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host = world.Compose, world.Host
+	local Compose: ComposeModule, Host = world.Compose, world.Host
 	local tall = Compose.cell(false)
 	local height = Compose.cell(4)
 	local observed

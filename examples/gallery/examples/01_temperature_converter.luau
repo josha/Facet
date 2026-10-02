@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
@@ -11,11 +14,9 @@ local function toCelsius(text: string): number?
 	return if n then (n - 32) * 5 / 9 else nil
 end
 function example.build(ctx: any)
-	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
+	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 	local fahrenheit = Compose.cell("")
-	local celsius = (function(
-		value: number?
-	): typeof(require("@repo/tools/typecheck/example_shapes").optionalNumber(nil :: any))
+	local celsius = (function(value: number?): OptionalNumberCell
 		return Compose.cell(value)
 	end)(nil)
 

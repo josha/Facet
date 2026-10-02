@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+
 local catalog = require("./catalog")
 local loader = require("./loader")
 local profiles = require("./profiles")
@@ -9,7 +13,7 @@ local chrome = require("./chrome")
 local workbench = {}
 
 function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local defaults = {
 		device = "Phone",
 		input = "Automatic",
@@ -147,8 +151,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 		else
 			table.insert(requests, { profile = profile, preview = preview })
 		end
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime()
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 		local owner = Compose.createOwner(runtime.reactor)
 		local group = {
 			cards = {},
@@ -160,13 +163,11 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 			end,
 		}
 		pendingGroup = group
-		local Host = (
-			runtime.constructors :: unknown
-		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local ok, err = xpcall(function()
 			local _, root = Compose.withOwner(owner, function()
 				return runtime.mount(function()
-					local children = {
+					local children: { Instance } = {
 						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Horizontal,
 							Padding = UDim.new(0, 16),

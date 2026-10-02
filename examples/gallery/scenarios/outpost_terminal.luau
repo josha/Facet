@@ -1,11 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type InstanceCell = typeof(require("@repo/tools/typecheck/aliases").InstanceCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Outpost power terminal (world surface)",
 	build = function(ctx: ExampleContext)
-		local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI = ctx.Compose, ctx.Host, ctx.UI
+		local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 		local UDim, UDim2, Vector2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local terminal = ctx.load("example", "outpost_terminal")
 		local remote, player = ctx.outpostRemote, ctx.player
@@ -14,9 +17,7 @@ return {
 			player = game:GetService("Players").LocalPlayer
 		end
 		local world = ctx.worldTarget
-		local console = (function(
-			value: Instance?
-		): typeof(require("@repo/tools/typecheck/example_shapes").instanceCell(nil :: any))
+		local console = (function(value: Instance?): InstanceCell
 			return Compose.cell(value)
 		end)(nil)
 		local token = nil

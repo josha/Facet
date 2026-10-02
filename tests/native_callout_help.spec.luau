@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
@@ -26,25 +29,19 @@ local function tip(Host: any): () -> any
 end
 
 local function mount(specOf: (any, any) -> { [any]: any }, options: any?): any
-	return overlay.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			local anchor = UI.Button "Plus" { label = "+" }
-			local spec = specOf(UI, Host)
-			spec.anchor = anchor
-			if spec.onRetire == nil then
-				spec.onRetire = function() end
-			end
-			return Host.Frame({
-				Name = "Editor",
-				Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-				UI.Callout "Callout"(spec),
-			})
-		end,
-		options
-	)
+	return overlay.new(function(UI: FacetControls, Host: RobloxHost)
+		local anchor = UI.Button "Plus" { label = "+" }
+		local spec = specOf(UI, Host)
+		spec.anchor = anchor
+		if spec.onRetire == nil then
+			spec.onRetire = function() end
+		end
+		return Host.Frame({
+			Name = "Editor",
+			Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
+			UI.Callout "Callout"(spec),
+		})
+	end, options)
 end
 
 local function buttons(root: any): { string }
@@ -61,7 +58,7 @@ end
 t.describe("native Callout: bound facts are read as tracked values", function()
 	t.it("a function isPresented is evaluated and followed, not treated as a request", function()
 		local wanted = Compose.cell(false)
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return {
 				content = tip(Host),
 				isPresented = function(use: any)
@@ -80,7 +77,7 @@ t.describe("native Callout: bound facts are read as tracked values", function()
 	t.it("a function seen or featureUsed rules the callout out, and a later true retires it once", function()
 		local seen = Compose.cell(true)
 		local early: { string } = {}
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return {
 				content = tip(Host),
 				seen = function(use: any)
@@ -96,7 +93,7 @@ t.describe("native Callout: bound facts are read as tracked values", function()
 		w.stop()
 		local used = Compose.cell(false)
 		local reports: { string } = {}
-		local live = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local live = mount(function(_, Host: RobloxHost)
 			return {
 				content = tip(Host),
 				featureUsed = function(use: any)
@@ -122,47 +119,41 @@ t.describe("native Callout: callbacks during a show never strand or double-close
 		local reports: { string } = {}
 		local used = Compose.cell(false)
 		local gate = Compose.cell(true)
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local first = UI.Button "Plus" { label = "+" }
-				local second = UI.Button "Share" { label = "Share" }
-				return Host.Frame({
-					Name = "Editor",
-					Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
-					Compose.show(gate, function()
-						return UI.Callout "First" {
-							anchor = first :: GuiObject,
-							priority = 2,
-							content = tip(Host),
-							featureUsed = used,
-							onShow = function()
-								onShow({ used = used, gate = gate })
-							end,
-							onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
-								table.insert(reports, reason)
-							end,
-						}
-					end),
-					UI.Callout "Second" {
-						anchor = second :: GuiObject,
-						priority = 1,
-						content = function(): Instance
-							return Host.TextLabel "SecondBody" { Text = "Share it" }
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local first = UI.Button "Plus" { label = "+" }
+			local second = UI.Button "Share" { label = "Share" }
+			return Host.Frame({
+				Name = "Editor",
+				Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
+				Compose.show(gate, function()
+					return UI.Callout "First" {
+						anchor = first :: GuiObject,
+						priority = 2,
+						content = tip(Host),
+						featureUsed = used,
+						onShow = function()
+							onShow({ used = used, gate = gate })
 						end,
-						onRetire = function() end,
-					},
-				})
-			end,
-			{ motionLevel = "none" }
-		)
+						onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
+							table.insert(reports, reason)
+						end,
+					}
+				end),
+				UI.Callout "Second" {
+					anchor = second :: GuiObject,
+					priority = 1,
+					content = function(): Instance
+						return Host.TextLabel "SecondBody" { Text = "Share it" }
+					end,
+					onRetire = function() end,
+				},
+			})
+		end, { motionLevel = "none" })
 		return w, reports, gate
 	end
 
 	t.it("dismissing from inside the plate hands the selection to the anchor at once", function()
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return { content = tip(Host) }
 		end)
 		w.advance(0.5)
@@ -198,43 +189,37 @@ t.describe("native Callout: callbacks during a show never strand or double-close
 	t.it("an ordinary throw in onShow still shows the plate and keeps the slot accounting", function()
 		local failures: { string } = {}
 		local reports: { string } = {}
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local first = UI.Button "Plus" { label = "+" }
-				local second = UI.Button "Share" { label = "Share" }
-				return Host.Frame({
-					Name = "Editor",
-					Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
-					UI.Callout "First" {
-						anchor = first :: GuiObject,
-						priority = 2,
-						content = tip(Host),
-						onShow = function()
-							error("caller bug")
-						end,
-						onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
-							table.insert(reports, reason)
-						end,
-					},
-					UI.Callout "Second" {
-						anchor = second :: GuiObject,
-						priority = 1,
-						content = function(): Instance
-							return Host.TextLabel "SecondBody" { Text = "Share it" }
-						end,
-						onRetire = function() end,
-					},
-				})
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local first = UI.Button "Plus" { label = "+" }
+			local second = UI.Button "Share" { label = "Share" }
+			return Host.Frame({
+				Name = "Editor",
+				Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
+				UI.Callout "First" {
+					anchor = first :: GuiObject,
+					priority = 2,
+					content = tip(Host),
+					onShow = function()
+						error("caller bug")
+					end,
+					onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
+						table.insert(reports, reason)
+					end,
+				},
+				UI.Callout "Second" {
+					anchor = second :: GuiObject,
+					priority = 1,
+					content = function(): Instance
+						return Host.TextLabel "SecondBody" { Text = "Share it" }
+					end,
+					onRetire = function() end,
+				},
+			})
+		end, {
+			onError = function(failure: unknown)
+				table.insert(failures, tostring(failure))
 			end,
-			{
-				onError = function(failure: unknown)
-					table.insert(failures, tostring(failure))
-				end,
-			}
-		)
+		})
 		t.expect(w.find("Body") ~= nil).toBe(true)
 		t.expect(w.find("SecondBody")).toBeNil()
 		t.expect(#failures).toBe(1)
@@ -250,25 +235,20 @@ end)
 t.describe("native Callout: two worlds and a recycled source keep their own resources", function()
 	t.it("disposing one world's callout never touches another world's", function()
 		local gate = Compose.cell(true)
-		local a = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Plus" { label = "+" }
-				return Host.Frame({
-					Host.Frame({ anchor :: unknown }) :: unknown,
-					Compose.show(gate, function()
-						return UI.Callout "Callout" {
-							anchor = anchor :: GuiObject,
-							content = tip(Host),
-							onRetire = function() end,
-						}
-					end),
-				})
-			end
-		)
-		local b = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local a = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Plus" { label = "+" }
+			return Host.Frame({
+				Host.Frame({ anchor :: unknown }) :: unknown,
+				Compose.show(gate, function()
+					return UI.Callout "Callout" {
+						anchor = anchor :: GuiObject,
+						content = tip(Host),
+						onRetire = function() end,
+					}
+				end),
+			})
+		end)
+		local b = mount(function(_, Host: RobloxHost)
 			return { content = tip(Host) }
 		end)
 		t.expect(a.find("CalloutPanel") ~= nil and b.find("CalloutPanel") ~= nil).toBe(true)
@@ -281,25 +261,20 @@ t.describe("native Callout: two worlds and a recycled source keep their own reso
 
 	t.it("a callout rebuilt by a branch cycle is a new control with one plate", function()
 		local gate, built = Compose.cell(true), 0
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Plus" { label = "+" }
-				return Host.Frame({
-					Host.Frame({ anchor :: unknown }) :: unknown,
-					Compose.show(gate, function()
-						built += 1
-						return UI.Callout "Callout" {
-							anchor = anchor :: GuiObject,
-							content = tip(Host),
-							onRetire = function() end,
-						}
-					end),
-				})
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Plus" { label = "+" }
+			return Host.Frame({
+				Host.Frame({ anchor :: unknown }) :: unknown,
+				Compose.show(gate, function()
+					built += 1
+					return UI.Callout "Callout" {
+						anchor = anchor :: GuiObject,
+						content = tip(Host),
+						onRetire = function() end,
+					}
+				end),
+			})
+		end)
 		t.expect(#w.findAll("CalloutPanel")).toBe(1)
 		gate:set(false)
 		t.expect(#w.findAll("CalloutPanel")).toBe(0)
@@ -311,25 +286,20 @@ t.describe("native Callout: two worlds and a recycled source keep their own reso
 
 	t.it("an Instance content survives the callout leaving and shows in the next one", function()
 		local gate, body = Compose.cell(true), nil
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Plus" { label = "+" }
-				body = Host.TextLabel "Body" { Text = TIP }
-				return Host.Frame({
-					Host.Frame({ anchor :: unknown }) :: unknown,
-					Compose.show(gate, function()
-						return UI.Callout "Callout" {
-							anchor = anchor :: GuiObject,
-							content = body,
-							onRetire = function() end,
-						}
-					end),
-				})
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Plus" { label = "+" }
+			body = Host.TextLabel "Body" { Text = TIP }
+			return Host.Frame({
+				Host.Frame({ anchor :: unknown }) :: unknown,
+				Compose.show(gate, function()
+					return UI.Callout "Callout" {
+						anchor = anchor :: GuiObject,
+						content = body,
+						onRetire = function() end,
+					}
+				end),
+			})
+		end)
 		t.expect(body:IsDescendantOf(w.find("CalloutPanel"))).toBe(true)
 		gate:set(false)
 		t.expect((body :: any).isDestroyed()).toBe(false)
@@ -342,7 +312,7 @@ end)
 t.describe("native Callout: rich parts", function()
 	t.it("the full composition paints every part, and one or two actions replace the bottom dismiss", function()
 		local pressed, reports = {}, {}
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return {
 				content = tip(Host),
 				title = "Try the editor",
@@ -389,43 +359,36 @@ t.describe("native Callout: rich parts", function()
 
 	t.it("an action retires its own generation once, and never a newer one it presented", function()
 		local generation, reports = Compose.cell(1), {}
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Plus" { label = "+" }
-				return Host.Frame({
-					Host.Frame({ anchor :: unknown }) :: unknown,
-					Compose.keyed({
-						from = function(use: any)
-							return { use(generation) }
-						end,
-						render = function(): GuiObject
-							return UI.Callout "Callout" {
-								anchor = anchor :: GuiObject,
-								content = tip(Host),
-								actions = {
-									{
-										id = "Again",
-										label = "Again",
-										onActivate = function()
-											generation:set(generation:peek() + 1)
-											error("caller bug after rearm")
-										end,
-									},
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Plus" { label = "+" }
+			return Host.Frame({
+				Host.Frame({ anchor :: unknown }) :: unknown,
+				Compose.keyed({
+					from = function(use: any)
+						return { use(generation) }
+					end,
+					render = function(): GuiObject
+						return UI.Callout "Callout" {
+							anchor = anchor :: GuiObject,
+							content = tip(Host),
+							actions = {
+								{
+									id = "Again",
+									label = "Again",
+									onActivate = function()
+										generation:set(generation:peek() + 1)
+										error("caller bug after rearm")
+									end,
 								},
-								onRetire = function(
-									reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway"
-								)
-									table.insert(reports, reason)
-								end,
-							}
-						end,
-					}),
-				})
-			end
-		)
+							},
+							onRetire = function(reason: "action" | "dismissed" | "featureUsed" | "seen" | "tapAway")
+								table.insert(reports, reason)
+							end,
+						}
+					end,
+				}),
+			})
+		end)
 		local first = w.find("CalloutPanel")
 		local ok = pcall(overlay.find(first, "Again").Activated.fire)
 		t.expect(ok).toBe(false)
@@ -440,7 +403,7 @@ t.describe("native Callout: rich parts", function()
 
 	t.it("a throwing action still retires the presentation it belonged to, exactly once", function()
 		local reports = {}
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return {
 				content = tip(Host),
 				actions = {
@@ -467,7 +430,7 @@ t.describe("native Callout: rich parts", function()
 
 	t.it("a disabled action cannot fire", function()
 		local fired = false
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return {
 				content = tip(Host),
 				actions = {
@@ -492,7 +455,7 @@ t.describe("native Callout: rich parts", function()
 
 	t.it("closeButton adds a top close and keeps the legacy bottom dismiss when there are no actions", function()
 		local reports = {}
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return {
 				content = tip(Host),
 				closeButton = true,
@@ -512,7 +475,7 @@ t.describe("native Callout: rich parts", function()
 	end)
 
 	t.it("the legacy content-only plate is unchanged: content then the dismiss button, nothing else", function()
-		local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+		local w = mount(function(_, Host: RobloxHost)
 			return { content = tip(Host) }
 		end)
 		local panel = w.find("CalloutPanel")
@@ -586,15 +549,9 @@ end)
 
 t.describe("native help: the structured form and the live plate", function()
 	local function helped(value: any): any
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = value } })
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = value } })
+		end, { motionLevel = "none" })
 		local post = w.find("Post")
 		post.AbsolutePosition = Vector2.new(300, 200)
 		post.AbsoluteSize = Vector2.new(80, 44)
@@ -605,14 +562,9 @@ t.describe("native help: the structured form and the live plate", function()
 	end
 
 	t.it("a title, a body and a display-only shortcut paint in one plate", function()
-		local before = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
-			end
-		)
+		local before = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+		end)
 		local post = before.find("Post")
 		before.input.PreferredInput = before.Enum.PreferredInput.Gamepad
 		before.gui.SelectedObject = post
@@ -719,48 +671,38 @@ end)
 
 t.describe("native Callout: layering", function()
 	t.it("paints above the modal layer that holds its anchor and stays under modals elsewhere", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local plain = UI.Button "Plain" { label = "+" }
-				local held = UI.Button "Held" { label = "+" }
-				return Host.Folder({
-					Name = "Root",
-					Host.Frame({ Name = "Page", ZIndex = 1, plain :: unknown }) :: unknown,
-					Host.Frame({ Name = "Modal", ZIndex = 100, held :: unknown }),
-					UI.Callout "Low" {
-						anchor = plain :: GuiObject,
-						isPresented = true,
-						content = tip(Host),
-						onRetire = function() end,
-					},
-				})
-			end
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local plain = UI.Button "Plain" { label = "+" }
+			local held = UI.Button "Held" { label = "+" }
+			return Host.Folder({
+				Name = "Root",
+				Host.Frame({ Name = "Page", ZIndex = 1, plain :: unknown }) :: unknown,
+				Host.Frame({ Name = "Modal", ZIndex = 100, held :: unknown }),
+				UI.Callout "Low" {
+					anchor = plain :: GuiObject,
+					isPresented = true,
+					content = tip(Host),
+					onRetire = function() end,
+				},
+			})
+		end)
 		local panel = w.find("CalloutPanel")
 		t.expect(panel ~= nil).toBe(true)
 		t.expect(panel.ZIndex).toBe(95)
 		w.stop()
-		local lifted = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local held = UI.Button "Held" { label = "+" }
-				return Host.Folder({
-					Name = "Root",
-					Host.Frame({ Name = "Modal", ZIndex = 100, held :: unknown }) :: unknown,
-					UI.Callout "High" {
-						anchor = held :: GuiObject,
-						isPresented = true,
-						content = tip(Host),
-						onRetire = function() end,
-					},
-				})
-			end
-		)
+		local lifted = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local held = UI.Button "Held" { label = "+" }
+			return Host.Folder({
+				Name = "Root",
+				Host.Frame({ Name = "Modal", ZIndex = 100, held :: unknown }) :: unknown,
+				UI.Callout "High" {
+					anchor = held :: GuiObject,
+					isPresented = true,
+					content = tip(Host),
+					onRetire = function() end,
+				},
+			})
+		end)
 		local high = lifted.find("CalloutPanel")
 		t.expect(high ~= nil).toBe(true)
 		t.expect(high:HasTag("facet-floating")).toBe(true)
@@ -777,26 +719,20 @@ end)
 t.describe("native help: the plate arrives as one unit", function()
 	local NORMAL = 0.2
 	local function hovered(options: any?): any
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Screen",
-					UI.Button "Post" {
-						label = "Post",
-						help = {
-							title = "Save",
-							body = "Saves your setup",
-							shortcut = { { "Ctrl", "S" } },
-							edge = "top" :: "top",
-						},
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Button "Post" {
+					label = "Post",
+					help = {
+						title = "Save",
+						body = "Saves your setup",
+						shortcut = { { "Ctrl", "S" } },
+						edge = "top" :: "top",
 					},
-				})
-			end,
-			options
-		)
+				},
+			})
+		end, options)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		w.gui.SelectedObject = w.find("Post")
 		w.advance(0.45)
@@ -861,25 +797,19 @@ end)
 
 t.describe("native Callout: the plate and its tail arrive together", function()
 	t.it("the panel and the tail both wait for the first styled frame and fade over the short duration", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				local anchor = UI.Button "Plus" { label = "+" }
-				return Host.Frame({
-					Name = "Editor",
-					Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-					UI.Callout "Tip" {
-						anchor = anchor :: GuiObject,
-						isPresented = true,
-						content = tip(Host),
-						onRetire = function() end,
-					},
-				})
-			end,
-			{ runService = true }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Plus" { label = "+" }
+			return Host.Frame({
+				Name = "Editor",
+				Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
+				UI.Callout "Tip" {
+					anchor = anchor :: GuiObject,
+					isPresented = true,
+					content = tip(Host),
+					onRetire = function() end,
+				},
+			})
+		end, { runService = true })
 		local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
 		t.expect(panel.Visible).toBe(false)
 		t.expect(arrow.Visible).toBe(false)
@@ -895,25 +825,19 @@ t.describe("native Callout: the plate and its tail arrive together", function()
 	t.it(
 		"the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one",
 		function()
-			local w = overlay.new(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					local anchor = UI.Button "Plus" { label = "+" }
-					return Host.Frame({
-						Name = "Editor",
-						Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-						UI.Callout "Tip" {
-							anchor = anchor :: GuiObject,
-							isPresented = true,
-							content = tip(Host),
-							onRetire = function() end,
-						},
-					})
-				end,
-				{ runService = true }
-			)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				local anchor = UI.Button "Plus" { label = "+" }
+				return Host.Frame({
+					Name = "Editor",
+					Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
+					UI.Callout "Tip" {
+						anchor = anchor :: GuiObject,
+						isPresented = true,
+						content = tip(Host),
+						onRetire = function() end,
+					},
+				})
+			end, { runService = true })
 			local panel = w.find("CalloutPanel")
 			t.expect(panel.Visible).toBe(false)
 			panel.AbsoluteSize = w.Vector2.new(280, 120)
@@ -937,7 +861,7 @@ end)
 t.describe("touch contextual text placement", function()
 	t.it("prefers above for default callouts, falls back and honors an explicit edge", function()
 		for _, edge in { "default", "bottom" } :: { "bottom" | "default" } do
-			local w = mount(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
+			local w = mount(function(_, Host: RobloxHost)
 				return { content = tip(Host), edge = if edge == "default" then nil else edge }
 			end, { motionLevel = "none" })
 			local anchor, panel = w.find("Plus"), w.find("CalloutPanel")
@@ -957,15 +881,9 @@ t.describe("touch contextual text placement", function()
 	end)
 
 	t.it("keeps long-press help above and flips it when the top has no room", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame { UI.Button "HelpAnchor" { label = "Help", help = "Full action name" } }
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame { UI.Button "HelpAnchor" { label = "Help", help = "Full action name" } }
+		end, { motionLevel = "none" })
 		local anchor = w.find("HelpAnchor")
 		anchor.AbsolutePosition = Vector2.new(300, 200)
 		anchor.AbsoluteSize = Vector2.new(80, 44)
@@ -983,18 +901,12 @@ end)
 
 t.describe("help while using the pointer", function()
 	t.it("waits for idle movement and all mouse buttons to be released, even over another row", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame {
-					UI.Button "First" { label = "First", help = "First help" } :: unknown,
-					UI.Button "Second" { label = "Second", help = "Second help" },
-				}
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame {
+				UI.Button "First" { label = "First", help = "First help" } :: unknown,
+				UI.Button "Second" { label = "Second", help = "Second help" },
+			}
+		end, { motionLevel = "none" })
 		local E = w.Enum
 		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 		w.find("First").GuiState = E.GuiState.Hover
@@ -1027,18 +939,12 @@ t.describe("help while using the pointer", function()
 	end)
 
 	t.it("shares native GUI mouse activity when plugin input bypasses UserInputService", function()
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame {
-					UI.Button "First" { label = "First", help = "First help" } :: unknown,
-					UI.Button "Second" { label = "Second", help = "Second help" },
-				}
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame {
+				UI.Button "First" { label = "First", help = "First help" } :: unknown,
+				UI.Button "Second" { label = "Second", help = "Second help" },
+			}
+		end, { motionLevel = "none" })
 		local first, second, E = w.find("First"), w.find("Second"), w.Enum
 		first.GuiState = E.GuiState.Hover
 		for _ = 1, 4 do
@@ -1069,21 +975,15 @@ t.describe("help while using the pointer", function()
 
 	t.it("carries a nested stylesheet to its overlay without restyling sibling content", function()
 		local sheet: any, link
-		local w = overlay.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				sheet = Host.StyleSheet {}
-				link = Host.StyleLink { StyleSheet = Compose.static(sheet) }
-				return Host.Frame {
-					sheet :: unknown,
-					link,
-					UI.Button "Styled" { label = "Styled", help = "Styled help" },
-				}
-			end,
-			{ motionLevel = "none" }
-		)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			sheet = Host.StyleSheet {}
+			link = Host.StyleLink { StyleSheet = Compose.static(sheet) }
+			return Host.Frame {
+				sheet :: unknown,
+				link,
+				UI.Button "Styled" { label = "Styled", help = "Styled help" },
+			}
+		end, { motionLevel = "none" })
 		w.gui.SelectedObject = w.find("Styled")
 		w.advance(0.5)
 		local panel = w.find("Help")

@@ -1,17 +1,19 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PresenceCell = typeof(require("@repo/tools/typecheck/aliases").PresenceCell)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Avatars",
 	build = function(ctx: ExampleContext)
-		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local mode, presence, size =
 			Compose.cell("ready"),
-			(function(
-				value: ("online" | "away" | "busy" | "offline" | "inExperience")?
-			): typeof(require("@repo/tests/lib/cells").presence(nil))
+			(function(value: ("online" | "away" | "busy" | "offline" | "inExperience")?): PresenceCell
 				return Compose.cell(value)
 			end)("online"),
 			Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall")
@@ -99,29 +101,29 @@ return {
 						end)
 					end,
 					options = {
-						{ value = "pending", label = "Loading" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "ready", label = "Loaded" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "failed", label = "Failed" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "pending", label = "Loading" } :: PickerOption,
+						{ value = "ready", label = "Loaded" } :: PickerOption,
+						{ value = "failed", label = "Failed" } :: PickerOption,
 					},
 				},
 				UI.Picker "Presence" {
 					label = "Presence",
 					selected = presence,
 					options = {
-						{ value = "online", label = "Online" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "away", label = "Away" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "busy", label = "Busy" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "offline", label = "Offline" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "inExperience", label = "In game" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "online", label = "Online" } :: PickerOption,
+						{ value = "away", label = "Away" } :: PickerOption,
+						{ value = "busy", label = "Busy" } :: PickerOption,
+						{ value = "offline", label = "Offline" } :: PickerOption,
+						{ value = "inExperience", label = "In game" } :: PickerOption,
 					},
 				},
 				UI.Picker "Size" {
 					label = "Size",
 					selected = size,
 					options = {
-						{ value = "compact", label = "Compact" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "regular", label = "Regular" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-						{ value = "large", label = "Large" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "compact", label = "Compact" } :: PickerOption,
+						{ value = "regular", label = "Regular" } :: PickerOption,
+						{ value = "large", label = "Large" } :: PickerOption,
 					},
 				},
 				UI.Text({

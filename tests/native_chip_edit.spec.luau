@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -23,8 +27,7 @@ end
 
 local function world(build: (any, any) -> any, theme: any?): any
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = {}
 	local gui = engine.new("GuiService")
 	local held: { [string]: boolean } = {}
@@ -83,7 +86,7 @@ end
 
 local function tagWorld(theme: any?, rung: ("xsmall" | "compact" | "regular" | "large")?): any
 	local state = { selected = Compose.cell(false), editing = Compose.cell(false), removes = 0 }
-	local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local w = world(function(UI: FacetControls)
 		return UI.Chip("Tag")({
 			label = "Rain",
 			selected = state.selected,
@@ -177,12 +180,12 @@ t.describe("native Chip edit mode", function()
 	end)
 
 	t.it("a selectable tag that can be removed must say when it is editing", function()
-		local ok, err = pcall(world, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local ok, err = pcall(world, function(UI: FacetControls)
 			return UI.Chip("Tag")({ label = "Rain", selected = Compose.cell(false), onRemove = function() end })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "editing", 1, true) ~= nil).toBe(true)
-		local okEditing = pcall(world, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local okEditing = pcall(world, function(UI: FacetControls)
 			return UI.Chip("Tag")({ label = "Rain", selected = Compose.cell(false), editing = true })
 		end)
 		expect(okEditing).toBe(false)
@@ -193,32 +196,27 @@ t.describe("native Chip edit mode", function()
 			for _, n in { 3, 2 } do
 				local all = { "A", "B", "C" }
 				local items = Compose.cell(table.move(all, 1, n, 1, {}))
-				local w = world(
-					function(
-						UI: typeof(require("@repo/src").controls(nil :: any)),
-						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-					)
-						return Host.Frame({
-							Name = "Tokens",
-							Compose.keyed({
-								from = items,
-								render = function(current, index): GuiObject
-									local id = current:peek()
-									return UI.Chip({
-										Name = id,
-										label = id,
-										LayoutOrder = index,
-										onRemove = function()
-											local nextItems = table.clone(items:peek())
-											table.remove(nextItems, table.find(nextItems, id) :: number)
-											items:set(nextItems)
-										end,
-									})
-								end,
-							}),
-						})
-					end
-				)
+				local w = world(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame({
+						Name = "Tokens",
+						Compose.keyed({
+							from = items,
+							render = function(current, index): GuiObject
+								local id = current:peek()
+								return UI.Chip({
+									Name = id,
+									label = id,
+									LayoutOrder = index,
+									onRemove = function()
+										local nextItems = table.clone(items:peek())
+										table.remove(nextItems, table.find(nextItems, id) :: number)
+										items:set(nextItems)
+									end,
+								})
+							end,
+						}),
+					})
+				end)
 				w.gui.SelectedObject = find(w.screen, all[n])
 				w.held[key] = true
 				local remove = action(w, "RemoveChip")
@@ -238,23 +236,18 @@ t.describe("native Chip edit mode", function()
 
 	t.it("a held removal does not repeat after an input change, and inherited disabled refuses it", function()
 		local calls, enabled = 0, Compose.cell(true)
-		local w = world(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Holder",
-					UI.Chip("Token")({
-						label = "Rain",
-						enabled = enabled,
-						onRemove = function()
-							calls += 1
-						end,
-					}),
-				})
-			end
-		)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Holder",
+				UI.Chip("Token")({
+					label = "Rain",
+					enabled = enabled,
+					onRemove = function()
+						calls += 1
+					end,
+				}),
+			})
+		end)
 		local token = find(w.screen, "Token")
 		local content = find(token, "Content")
 		expect(content.AnchorPoint.Y).toBe(0.5)

@@ -1,8 +1,12 @@
 --!strict
-local loadTabs = require :: (string) -> typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+
+type DemoTabs = typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+local loadTabs = require :: (string) -> DemoTabs
 return function(ctx: any)
 	local demoTabs = if ctx.load then ctx.load("fixture", "demo_tabs") else loadTabs("../scenarios/demo_tabs")
-	local UI, Host, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Host, ctx.Compose
+	local UI, Host, Compose: ComposeModule = ctx.UI, ctx.Host, ctx.Compose
 	local D2, V3, CF, C3, E = ctx.types.UDim2, ctx.types.Vector3, ctx.types.CFrame, ctx.types.Color3, ctx.types.Enum
 	local view: any = {}
 	function view.text(name: string, text, role)

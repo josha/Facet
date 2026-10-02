@@ -1,10 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local window = require("../src/ui/pagination_window")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function controlled(initial: number, extra: { [string]: any }?): (any, any, { number })
 	local page = Compose.cell(initial)
@@ -23,19 +27,14 @@ local function controlled(initial: number, extra: { [string]: any }?): (any, any
 end
 
 local function mount(spec: any, width: number?, digit: number?): (any, any)
-	local world = worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({
-				Name = "Page",
-				UI.Button({ Name = "Before", label = "Before" }) :: unknown,
-				UI.Pagination("P")(spec),
-				UI.Button({ Name = "After", label = "After" }),
-			})
-		end
-	)
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({
+			Name = "Page",
+			UI.Button({ Name = "Before", label = "Before" }) :: unknown,
+			UI.Pagination("P")(spec),
+			UI.Button({ Name = "After", label = "After" }),
+		})
+	end)
 	local root = world.find("P")
 	if digit then
 		world.bounds(root:FindFirstChild("DigitMeasure"), digit * 10)
@@ -194,7 +193,7 @@ t.describe("native Pagination", function()
 			{ page = 1, onChange = print, AutomaticSize = Enum.AutomaticSize.X },
 		}
 		for _, spec in bad do
-			t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			t.expect(worlds.mountError(function(UI: FacetControls)
 				return UI.Pagination(spec :: any)
 			end) ~= nil).toBe(true)
 		end
@@ -422,7 +421,7 @@ t.describe("native Pagination", function()
 		local count = Compose.cell(10)
 		local page = Compose.cell(2)
 		local asked = 0
-		local world = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = worlds.new(function(UI: FacetControls)
 			return Compose.show(show, function()
 				return UI.Pagination("P")({
 					page = page,
@@ -444,15 +443,9 @@ t.describe("native Pagination", function()
 
 	t.it("follows an accepted page in the Paging scenario context and changes nothing on a refusal", function()
 		local scenario = require("../examples/gallery/scenarios/paging") :: any
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				return scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types }).screen()
-			end
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
+			return scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types }).screen()
+		end)
 		local context = world.find("ResultsContext")
 		t.expect(context.Text).toBe("Showing results 81–100 of 4000")
 		local results = world.find("Results")

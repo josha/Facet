@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -27,8 +30,7 @@ end
 
 local function mount(theme: any?, build: (any) -> any): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = {}
 	register(context(Compose, runtime, { types = engine.types, theme = theme }), UI)
 	local screen = engine.new("ScreenGui")
@@ -53,8 +55,7 @@ end
 
 local function padding(package: any, selector: string): (number, number)
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local sheet: any
 	local stop = runtime.mount(function()
 		sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
@@ -76,7 +77,7 @@ t.describe("native Toggle rows", function()
 	t.it("a switch, bare or in a settings row, wears no plate and no control art", function()
 		for _, theme in { "pixel_quest", "fantasy_ornate" } do
 			local package = shipped(theme)
-			local screen, stop = mount(package, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local screen, stop = mount(package, function(UI: FacetControls)
 				return UI.Button("Holder")({
 					label = "",
 					UI.Toggle("Bare")({ label = "Bare", value = Compose.cell(true) }) :: unknown,
@@ -120,7 +121,7 @@ t.describe("native Toggle rows", function()
 			local sl, sr = padding(package, ".facet-slider-settings::UIPadding")
 			expect(`{package.identity.id}: {sl} {sr}`).toBe(`{package.identity.id}: {bl} {br}`)
 		end
-		local screen, stop = mount(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local screen, stop = mount(nil, function(UI: FacetControls)
 			return UI.Toggle("Row")({
 				label = "Driving assistance",
 				value = Compose.cell(true),
@@ -129,7 +130,7 @@ t.describe("native Toggle rows", function()
 		end)
 		expect(find(screen, "Row"):HasTag("facet-toggle-settings")).toBe(true)
 		stop()
-		local plain, stopPlain = mount(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local plain, stopPlain = mount(nil, function(UI: FacetControls)
 			return UI.Toggle("Plain")({ label = "Plain", value = Compose.cell(true) })
 		end)
 		expect(find(plain, "Plain"):HasTag("facet-toggle-settings")).toBe(false)
@@ -137,7 +138,7 @@ t.describe("native Toggle rows", function()
 	end)
 
 	t.it("a toggle settings row puts its icon first and its switch last, like a button row", function()
-		local screen, stop = mount(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local screen, stop = mount(nil, function(UI: FacetControls)
 			return UI.Toggle("Row")({
 				label = "Driving assistance",
 				value = Compose.cell(true),

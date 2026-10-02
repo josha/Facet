@@ -1,9 +1,11 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local favorites = {}
 
 function favorites.new(opts: any)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 	local seed = opts.seed or 1
 	local ids: { string } = opts.ids or {}
 

@@ -1,4 +1,10 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 type Case = {
 	id: string,
 	contracts: { string },
@@ -27,18 +33,10 @@ end
 
 local function hud(t: any, size: any): (any, any)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			built = t.scenario("hud").build(t.context(UI, Host, Compose, env))
-			return built.screen()
-		end,
-		{ size = size, frames = 12 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		built = t.scenario("hud").build(t.context(UI, Host, Compose, env))
+		return built.screen()
+	end, { size = size, frames = 12 })
 	return stage, built
 end
 
@@ -252,7 +250,7 @@ add("hud-notice-clear-of-zones", { "apps-221" }, function(t)
 end)
 
 add("circular-value-inside-gauge", { "themes-P1-11" }, function(t)
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.ProgressView "Ring" {
 			value = 0.75,
 			presentation = "circular" :: "circular",
@@ -278,7 +276,7 @@ end)
 
 add("large-text-gauge-value-below-ring", { "themes-P1-14" }, function(t)
 	t.note("preferred text size", t.environment.preferredTextSize)
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.ProgressView "Ring" {
 			value = 1,
 			presentation = "circular" :: "circular",
@@ -358,73 +356,66 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 	for _, theme in t.themes do
 		for _, shape in shapes do
 			local editing, rows
-			local stage = t.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					_,
-					Compose: typeof(require("@repo/src/vendor/compose/core"))
-				)
-					editing = Compose.cell(shape.options.editing == true)
-					rows = Compose.cell(table.clone(LAPS))
-					return UI.Table "Grid" {
-						from = rows,
-						key = function(item)
-							return item.id
-						end,
-						columns = {
-							{
-								id = "name",
-								label = "Name",
-								value = function(item)
-									return item.name
+			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+				editing = Compose.cell(shape.options.editing == true)
+				rows = Compose.cell(table.clone(LAPS))
+				return UI.Table "Grid" {
+					from = rows,
+					key = function(item)
+						return item.id
+					end,
+					columns = ({
+						{
+							id = "name",
+							label = "Name",
+							value = function(item)
+								return item.name
+							end,
+						} :: TableColumn?,
+						{
+							id = "laps",
+							label = "Laps",
+							width = 64,
+							value = function(item)
+								return item.laps
+							end,
+						} :: TableColumn?,
+						if shape.options.narrow
+							then {
+								id = "team",
+								label = "Team",
+								width = 150,
+								priority = 2,
+								value = function()
+									return "Glade"
 								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
-							{
-								id = "laps",
-								label = "Laps",
-								width = 64,
-								value = function(item)
-									return item.laps
-								end,
-							} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
-							if shape.options.narrow
-								then {
-									id = "team",
-									label = "Team",
-									width = 150,
-									priority = 2,
-									value = function()
-										return "Glade"
-									end,
-								}
-								else nil,
-						},
-						scrolls = shape.options.scrolls,
-						reorderable = shape.options.reorderable,
-						editing = editing,
-						rowActions = if shape.options.actions
-							then function(): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))
-								return {
-									trailing = {
-										{
-											id = "delete",
-											label = "Delete",
-											role = "destructive" :: "destructive",
-											onActivate = function() end,
-										},
-									},
-								}
-							end
+							}
 							else nil,
-						Size = UDim2.fromScale(1, if shape.options.scrolls == false then 0 else 1),
-					}
-				end,
-				{
-					theme = theme.package,
-					size = if shape.options.narrow then Vector2.new(260, 300) else Vector2.new(520, 320),
-					frames = 12,
+					} :: unknown) :: { TableColumn },
+					scrolls = shape.options.scrolls,
+					reorderable = shape.options.reorderable,
+					editing = editing,
+					rowActions = if shape.options.actions
+						then function(): RowActions
+							return {
+								trailing = {
+									{
+										id = "delete",
+										label = "Delete",
+										role = "destructive" :: "destructive",
+										onActivate = function() end,
+									},
+								},
+							}
+						end
+						else nil,
+					Size = UDim2.fromScale(1, if shape.options.scrolls == false then 0 else 1),
 				}
-			)
+			end, {
+				theme = theme.package,
+				size = if shape.options.narrow then Vector2.new(260, 300) else Vector2.new(520, 320),
+				frames = 12,
+			})
 			local grid = t.find(stage, "Grid")
 			columnsMatch(t, `{theme.name} {shape.name}`, grid, { "name", "laps", "team" })
 			if shape.name == "reorderable" then
@@ -448,7 +439,7 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 end)
 
 add("collapsed-column-details-target", { "collections-203" }, function(t)
-	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Grid" {
 			from = LAPS,
 			key = function(item)
@@ -462,7 +453,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function(item)
 						return item.name
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+				} :: TableColumn,
 				{
 					id = "b",
 					label = "Beta",
@@ -471,7 +462,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function(item)
 						return item.laps
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+				} :: TableColumn,
 				{
 					id = "c",
 					label = "Gamma",
@@ -480,7 +471,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function()
 						return "Glade"
 					end,
-				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+				} :: TableColumn,
 			},
 			Size = UDim2.fromScale(1, 1),
 		}
@@ -568,18 +559,10 @@ end)
 
 add("coach-mark-clear-of-share-and-reset-floor", { "navigation-1-65" }, function(t)
 	local built
-	local stage = t.mount(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-			Compose: typeof(require("@repo/src/vendor/compose/core")),
-			env
-		)
-			built = t.scenario("callout").build(t.context(UI, Host, Compose, env))
-			return built.screen()
-		end,
-		{ frames = 12 }
-	)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		built = t.scenario("callout").build(t.context(UI, Host, Compose, env))
+		return built.screen()
+	end, { frames = 12 })
 	local share = t.find(stage, "Share")
 	if not share then
 		t.check("Share mounted", false)

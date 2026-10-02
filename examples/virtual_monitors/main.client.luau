@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 if not game:IsLoaded() then
@@ -23,16 +27,15 @@ task.spawn(function()
 end)
 local Facet = require(storage:WaitForChild("Facet"))
 Facet = Facet.bind(Facet.Compose, Facet.Roblox)
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local screens = require(storage.VirtualMonitors.screens)
 local scenes = require(storage.VirtualMonitors.scenes)
 local spatial = require(storage.VirtualMonitors.spatial)
 local theme = require(storage.VirtualMonitors.theme)
 local desktop = require(storage.VirtualMonitors.desktop)
 local modelModule = require(storage.VirtualMonitors.model)
-local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-	Facet.Roblox.createRuntime()
-local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local lifetime = Compose.createRootOwner(function()
 	local model = modelModule.new(Compose)
 	Compose.cleanup(model.dispose)

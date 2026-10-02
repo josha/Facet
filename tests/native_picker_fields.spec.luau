@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -48,8 +52,7 @@ local function world(spec: any, preferred: string?, tenFoot: boolean?): any
 		return nil
 	end
 	input.PreferredInput = engine.types.Enum.PreferredInput[preferred or "KeyboardAndMouse"]
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = controls(Compose, runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
@@ -59,11 +62,7 @@ local function world(spec: any, preferred: string?, tenFoot: boolean?): any
 	built.options = built.options or THREE
 	local target = engine.new("Folder")
 	local stop, screen: any = runtime.mount(function()
-		return (
-			(
-				runtime.constructors.ScreenGui :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-		)({ UI.Picker("P")(built) })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.Picker("P")(built) })
 	end, target)
 	return {
 		engine = engine,
@@ -162,8 +161,7 @@ t.describe("native Picker menu field", function()
 	t.it("the hint line belongs to the picker: disposal releases it for every style", function()
 		for _, style in { "menu", "segmented", "cards", "inline" } :: { "cards" | "inline" | "menu" | "segmented" } do
 			local engine: any = engines.new()
-			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-				Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 			local UI: any = controls(Compose, runtime, { types = engine.types })
 			local before = engine.census()
 			local stop = runtime.mount(function()
@@ -282,9 +280,9 @@ t.describe("native Picker menu rows", function()
 	t.it("badge, meta and sectionTitle reach the menu engine from an automatic picker", function()
 		local w = world({
 			options = {
-				{ value = "easy", label = "Easy", sectionTitle = "Casual" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ value = "normal", label = "Normal", badge = 3, meta = "Crew" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
-				{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				{ value = "easy", label = "Easy", sectionTitle = "Casual" } :: PickerOption,
+				{ value = "normal", label = "Normal", badge = 3, meta = "Crew" } :: PickerOption,
+				{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" } :: PickerOption,
 			},
 		})
 		find(w.screen, "LabelMeasure").TextBounds = w.engine.types.Vector2.new(190, 18)

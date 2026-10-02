@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 return {
@@ -12,66 +15,58 @@ return {
 				end
 				for _, scale in { 0.75, 1.5 } do
 					local widths, runtime, Host, container
-					local stage = t.mount(
-						function(
-							UI: typeof(require("@repo/src").controls(nil :: any)),
-							constructors,
-							Compose: typeof(require("@repo/src/vendor/compose/core")),
-							env
-						)
-							runtime, Host = env.runtime, constructors
-							widths = Compose.cell({ name = 140, laps = 72 })
-							local rows = {}
-							for index = 1, 30 do
-								table.insert(rows, { id = index, name = "Driver " .. index, laps = 3 })
-							end
-							container = Host.Frame {
-								Size = UDim2.fromOffset(460, 300),
-								Host.UIScale { Scale = scale } :: unknown,
-								UI.Table "Results" {
-									from = rows,
-									key = function(row)
-										return row.id
-									end,
-									widths = widths,
-									columns = {
-										{
-											id = "name",
-											label = "Driver",
-											render = function(row)
-												return UI.Text {
-													text = function(use: Use)
-														return use(row).name
-													end,
-												}
-											end,
-										},
-										{
-											id = "laps",
-											label = "Laps completed",
-											render = function(row)
-												return UI.Text {
-													text = function(use: Use)
-														return tostring(use(row).laps)
-													end,
-												}
-											end,
-										},
+					local stage = t.mount(function(UI: FacetControls, constructors, Compose: ComposeModule, env)
+						runtime, Host = env.runtime, constructors
+						widths = Compose.cell({ name = 140, laps = 72 })
+						local rows = {}
+						for index = 1, 30 do
+							table.insert(rows, { id = index, name = "Driver " .. index, laps = 3 })
+						end
+						container = Host.Frame {
+							Size = UDim2.fromOffset(460, 300),
+							Host.UIScale { Scale = scale } :: unknown,
+							UI.Table "Results" {
+								from = rows,
+								key = function(row)
+									return row.id
+								end,
+								widths = widths,
+								columns = {
+									{
+										id = "name",
+										label = "Driver",
+										render = function(row)
+											return UI.Text {
+												text = function(use: Use)
+													return use(row).name
+												end,
+											}
+										end,
+									},
+									{
+										id = "laps",
+										label = "Laps completed",
+										render = function(row)
+											return UI.Text {
+												text = function(use: Use)
+													return tostring(use(row).laps)
+												end,
+											}
+										end,
 									},
 								},
-							}
-							return container
-						end,
-						{
-							theme = theme.package,
-							size = Vector2.new(960, 720),
-							environment = {
-								preferredInput = "Gamepad",
-								displaySize = "Large",
-								preferredTextSize = "Largest",
 							},
 						}
-					)
+						return container
+					end, {
+						theme = theme.package,
+						size = Vector2.new(960, 720),
+						environment = {
+							preferredInput = "Gamepad",
+							displaySize = "Large",
+							preferredTextSize = "Largest",
+						},
+					})
 					local tableNode = t.find(stage, "Results")
 					local body, header = tableNode.Body, tableNode.Header
 					body.VerticalScrollBarInset = Enum.ScrollBarInset.Always

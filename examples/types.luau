@@ -1,13 +1,14 @@
 --!strict
+
 local Facet = require("../src")
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 export type Context = {
 	Compose: Facet.ComposeModule,
 	UI: Facet.Controls,
-	Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+	Host: RobloxHost,
 	runtime: Facet.Runtime,
-	types: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).types),
+	types: RobloxTypes,
 	[string]: any,
 }
-return function(ctx: Context): Context
-	return ctx
-end
+return (nil :: unknown) :: { Context: Context }

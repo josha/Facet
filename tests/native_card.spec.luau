@@ -1,11 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local UDim2 = require("@lune/roblox").UDim2
 
 local function cardSpec(log: { string }, extra: { [any]: any }?): { [any]: any }
@@ -44,19 +48,13 @@ end
 local function mount(spec: { [any]: any }, options: { [string]: any }?, touch: boolean?): (any, any, { [any]: any })
 	local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
 	spec.controls = controls
-	local world = worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			return Host.Frame({
-				Name = "Row",
-				UI.Card("C")(spec) :: unknown,
-				UI.Button({ Name = "Next", label = "Next" }),
-			})
-		end,
-		options or { motionLevel = "none" }
-	)
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame({
+			Name = "Row",
+			UI.Card("C")(spec) :: unknown,
+			UI.Button({ Name = "Next", label = "Next" }),
+		})
+	end, options or { motionLevel = "none" })
 	if touch then
 		world.input.TouchEnabled = true
 	end
@@ -109,78 +107,72 @@ local function gridWorld(count: number, twoGrids: boolean?, reduced: boolean?): 
 		end)()),
 		B = Compose.cell({ { id = "i1", title = "Other 1" }, { id = "i2", title = "Other 2" } }),
 	}
-	local world = worlds.new(
-		function(
-			UI: typeof(require("@repo/src").controls(nil :: any)),
-			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-		)
-			local function grid(name: string)
-				local controls, cards = controlsByGrid[name], cardsByGrid[name]
-				return UI.VirtualGrid({
-					Name = name,
-					from = sources[name],
-					key = "id",
-					columns = 3,
-					itemSize = 280,
-					gap = 16,
-					onActivate = function(_item: any, key: string)
-						local entry = controls[key]
-						if entry then
-							entry.enterActions()
-						end
-					end,
-					render = function(current: any, _placement: any, key: string): GuiObject
-						local entry = {}
-						controls[key] = entry
-						local card = UI.Card({
-							Name = "Card",
-							image = "rbxassetid://1",
-							title = function(use: any)
-								return use(current).title
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+		local function grid(name: string)
+			local controls, cards = controlsByGrid[name], cardsByGrid[name]
+			return UI.VirtualGrid({
+				Name = name,
+				from = sources[name],
+				key = "id",
+				columns = 3,
+				itemSize = 280,
+				gap = 16,
+				onActivate = function(_item: any, key: string)
+					local entry = controls[key]
+					if entry then
+						entry.enterActions()
+					end
+				end,
+				render = function(current: any, _placement: any, key: string): GuiObject
+					local entry = {}
+					controls[key] = entry
+					local card = UI.Card({
+						Name = "Card",
+						image = "rbxassetid://1",
+						title = function(use: any)
+							return use(current).title
+						end,
+						controls = entry,
+						browseTarget = function()
+							local node = cards[key]
+							local content = if node then node.Parent else nil
+							return if content then content:FindFirstChild("RowHit") else nil
+						end,
+						primaryAction = {
+							label = "Play",
+							onActivate = function()
+								table.insert(log, `play:{key}`)
 							end,
-							controls = entry,
-							browseTarget = function()
-								local node = cards[key]
-								local content = if node then node.Parent else nil
-								return if content then content:FindFirstChild("RowHit") else nil
-							end,
-							primaryAction = {
-								label = "Play",
-								onActivate = function()
-									table.insert(log, `play:{key}`)
-								end,
-							},
-							menu = {
-								items = {
-									{
-										id = "hide",
-										label = "Not interested",
-										onSelect = function()
-											table.insert(log, `hide:{key}`)
-										end,
-									},
+						},
+						menu = {
+							items = {
+								{
+									id = "hide",
+									label = "Not interested",
+									onSelect = function()
+										table.insert(log, `hide:{key}`)
+									end,
 								},
 							},
-						})
-						cards[key] = card
-						Compose.cleanup(function()
-							if cards[key] == card then
-								cards[key] = nil
-								controls[key] = nil
-							end
-						end)
-						return card
-					end,
-				})
-			end
-			local children: { any } = { grid("A") }
-			if twoGrids then
-				table.insert(children, grid("B"))
-			end
-			return Host.Frame({ Name = "Page", table.unpack((children :: unknown) :: { unknown }) })
-		end,
-		{ motionLevel = if reduced ~= false then "none" else "normal" }
-	)
+						},
+					})
+					cards[key] = card
+					Compose.cleanup(function()
+						if cards[key] == card then
+							cards[key] = nil
+							controls[key] = nil
+						end
+					end)
+					return card
+				end,
+			})
+		end
+		local children: { any } = { grid("A") }
+		if twoGrids then
+			table.insert(children, grid("B"))
+		end
+		return Host.Frame({ Name = "Page", table.unpack((children :: unknown) :: { unknown }) })
+	end, { motionLevel = if reduced ~= false then "none" else "normal" })
 	for _, name in (if twoGrids then { "A", "B" } else { "A" }) :: { string } do
 		local node = world.find(name)
 		node.AbsoluteWindowSize = world.V2(900, 600)
@@ -218,7 +210,7 @@ t.describe("native Card", function()
 			{ image = "", title = "T", artwork = function() end },
 		}
 		for _, spec in bad do
-			t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			t.expect(worlds.mountError(function(UI: FacetControls)
 				return UI.Card(spec)
 			end) ~= nil).toBe(true)
 		end
@@ -244,26 +236,20 @@ t.describe("native Card", function()
 	t.it("draws live artwork in the artwork frame and forwards the activating input to the body", function()
 		local inputs: { InputObject | string } = {}
 		local released = 0
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Card "C" {
-					title = "Afterlight",
-					artwork = function(): GuiObject
-						Compose.cleanup(function()
-							released += 1
-						end)
-						return Host.ViewportFrame({ Name = "Preview" })
-					end,
-					onActivate = function(input: InputObject?)
-						table.insert(inputs, (input or "none") :: any)
-					end,
-				}
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Card "C" {
+				title = "Afterlight",
+				artwork = function(): GuiObject
+					Compose.cleanup(function()
+						released += 1
+					end)
+					return Host.ViewportFrame({ Name = "Preview" })
+				end,
+				onActivate = function(input: InputObject?)
+					table.insert(inputs, (input or "none") :: any)
+				end,
+			}
+		end, { motionLevel = "none" })
 		local artwork = world.find("Artwork")
 		local live = artwork:FindFirstChild("Preview")
 		t.expect(artwork.Image).toBe("")
@@ -339,24 +325,19 @@ t.describe("native Card", function()
 
 	t.it("leaves nothing behind when a callback removes its own card", function()
 		local show = Compose.cell(true)
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "Row",
-					Compose.show(show, function()
-						return UI.Card("C")(cardSpec({}, {
-							onActivate = function()
-								show:set(false)
-							end,
-						}))
-					end) :: unknown,
-					UI.Button({ Name = "Next", label = "Next" }),
-				})
-			end
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "Row",
+				Compose.show(show, function()
+					return UI.Card("C")(cardSpec({}, {
+						onActivate = function()
+							show:set(false)
+						end,
+					}))
+				end) :: unknown,
+				UI.Button({ Name = "Next", label = "Next" }),
+			})
+		end)
 		local body = world.find("Body")
 		world.gui.SelectedObject = body
 		body.Activated.fire()
@@ -759,23 +740,16 @@ t.describe("native Card", function()
 	t.it("keeps a half gutter at the outer edges of a grid so a lifted corner card is not clipped", function()
 		local scenario = require("../examples/gallery/scenarios/cards") :: any
 		local built: any
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
-				engine
-			)
-				built = scenario.build({
-					UI = UI,
-					Compose = Compose,
-					Host = Host,
-					types = engine.types,
-					viewport = Compose.cell({ width = 1280, height = 720 }),
-				})
-				return built.screen()
-			end,
-			{ motionLevel = "none" }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
+			built = scenario.build({
+				UI = UI,
+				Compose = Compose,
+				Host = Host,
+				types = engine.types,
+				viewport = Compose.cell({ width = 1280, height = 720 }),
+			})
+			return built.screen()
+		end, { motionLevel = "none" })
 		local grid = world.find("Games")
 		grid.AbsoluteWindowSize = world.V2(1248, 640)
 		local columns, crossGap, gap =
@@ -810,17 +784,12 @@ t.describe("native Card", function()
 
 	t.it("centres a count seal on the top-right corner of its host without changing the host", function()
 		local unread = Compose.cell(120 :: any)
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					Name = "S",
-					UI.badged(UI.Button({ Name = "Inbox", label = "Inbox", LayoutOrder = 3 }), unread),
-				})
-			end
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				Name = "S",
+				UI.badged(UI.Button({ Name = "Inbox", label = "Inbox", LayoutOrder = 3 }), unread),
+			})
+		end)
 		local wrapper = world.find("Inbox+badge")
 		local host = world.find("Inbox")
 		t.expect(host.Parent).toBe(wrapper)
@@ -844,52 +813,47 @@ t.describe("native Card", function()
 	end)
 
 	t.it("mirrors the seal to the top-left in rtl and shows true as a dot", function()
-		local world = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local world = worlds.new(function(UI: FacetControls)
 			return UI.badged(UI.Button({ Name = "Inbox", label = "Inbox" }), true, "rtl")
 		end)
 		local wrapper = world.find("Inbox+badge")
 		t.expect(world.find("Corner", wrapper).Position).toBe(UDim2.fromScale(0, 0))
 		t.expect(world.find("CornerBadge", wrapper).Text).toBe("•")
 		world.stop()
-		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.badged(UI.Button({ label = "Inbox" }), 1, "up" :: any)
 		end) ~= nil).toBe(true)
-		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.badged(UI.Button({ label = "Inbox" }), 1.5)
 		end) ~= nil).toBe(true)
 	end)
 
 	t.it("puts an icon tab count on the icon corner and a text tab count in a trailing pill", function()
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.TabView({
-					selection = Compose.cell("inbox"),
-					placement = "topBar" :: "topBar",
-					tabs = {
-						{
-							id = "inbox",
-							label = "Inbox",
-							icon = "menu",
-							badge = 3,
-							content = function(): Instance
-								return Host.Frame({})
-							end,
-						} :: FixtureNavigationTypes.Tab,
-						{
-							id = "sent",
-							label = "Sent",
-							badge = 2,
-							content = function(): Instance
-								return Host.Frame({})
-							end,
-						} :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("inbox"),
+				placement = "topBar" :: "topBar",
+				tabs = {
+					{
+						id = "inbox",
+						label = "Inbox",
+						icon = "menu",
+						badge = 3,
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+					{
+						id = "sent",
+						label = "Sent",
+						badge = 2,
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					} :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end)
 		local tabs = world.find("Tabs")
 		local inbox = world.find("inbox", tabs)
 		local seal = inbox:FindFirstChild("CornerBadge", true)
@@ -900,31 +864,26 @@ t.describe("native Card", function()
 		t.expect(sent:FindFirstChild("Count", true).Text).toBe("2")
 		t.expect(sent:GetAttribute("label")).toBe("Sent (2)")
 		world.stop()
-		local pickers = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Picker("Icons")({
-						style = "segmented" :: "segmented",
-						selected = Compose.cell("a"),
-						options = {
-							{ value = "a", label = "Inbox", icon = "menu", badge = 3 } :: FixtureNavigationTypes.PickerOption<any>,
-							{ value = "b", label = "Sent", icon = "flag" } :: FixtureNavigationTypes.PickerOption<any>,
-						},
-					}) :: unknown,
-					UI.Picker("Words")({
-						style = "segmented" :: "segmented",
-						selected = Compose.cell("a"),
-						options = {
-							{ value = "a", label = "Inbox", badge = 3 } :: FixtureNavigationTypes.PickerOption<any>,
-							{ value = "b", label = "Sent" } :: FixtureNavigationTypes.PickerOption<any>,
-						},
-					}),
-				})
-			end
-		)
+		local pickers = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Picker("Icons")({
+					style = "segmented" :: "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Inbox", icon = "menu", badge = 3 } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Sent", icon = "flag" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				}) :: unknown,
+				UI.Picker("Words")({
+					style = "segmented" :: "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Inbox", badge = 3 } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Sent" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				}),
+			})
+		end)
 		local icons = pickers.find("Icons")
 		local iconSeal = pickers.find("a", icons):FindFirstChild("CornerBadge", true)
 		t.expect(iconSeal ~= nil and iconSeal.Text == "3").toBe(true)

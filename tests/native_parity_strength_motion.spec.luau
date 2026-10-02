@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 local FixtureComposeTypes = require("../src/vendor/compose/core")
 local FixtureRadialTypes = require("../src/ui/radial_types")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
@@ -11,7 +18,7 @@ local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local pathShapes = require("../src/ui/nav_path_shapes")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function openSettings(root: any)
@@ -50,8 +57,7 @@ local function world(options: { [string]: any }?): any
 	engine.clock = function()
 		return now
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -66,11 +72,9 @@ local function world(options: { [string]: any }?): any
 	local w: any = { engine = engine, runtime = runtime, gui = gui, input = input, UI = UI, config = config }
 	function w.mount(build: (any, any) -> any): (() -> (), any)
 		local stop, node: any = runtime.mount(function()
-			return (
-				(
-					runtime.constructors.ScreenGui :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-			)({ build(UI, runtime.constructors) })
+			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+				build(UI, runtime.constructors),
+			})
 		end, engine.new("Folder"))
 		return stop, node
 	end
@@ -118,7 +122,7 @@ end
 t.describe("indeterminate progress lifetime", function()
 	t.it("an indeterminate bar keeps travelling in its third second and stops dead with its owner", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.ProgressView({})
 		end)
 		local fill = find(screen, "Fill1")
@@ -167,7 +171,7 @@ t.describe("indeterminate progress lifetime", function()
 	t.it("unmounting and disposing the runtime are safe in either order", function()
 		for _, unmountFirst in { true, false } do
 			local w = world({ motionLevel = "normal" })
-			local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local stop, screen = w.mount(function(UI: FacetControls)
 				return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 			end)
 			local dot = find(screen, "Segment1")
@@ -193,7 +197,7 @@ t.describe("indeterminate progress lifetime", function()
 		for _, reduced in { false, true } do
 			local w = world({ motionLevel = if reduced then "none" else "normal" })
 			local value = Compose.cell(0.4)
-			local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local stop, screen = w.mount(function(UI: FacetControls)
 				return UI.ProgressView({ value = value })
 			end)
 			t.expect(w.engine.heartbeat.count()).toBe(0)
@@ -213,17 +217,12 @@ t.describe("indeterminate progress lifetime", function()
 
 	t.it("an indeterminate view under reduced motion still runs its cycle and says Loading", function()
 		local w = world({ motionLevel = "none" })
-		local stop, screen = w.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.ProgressView({ presentation = "spinner" :: "spinner" }) :: unknown,
-					UI.ProgressView({ showValue = true }),
-				})
-			end
-		)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.ProgressView({ presentation = "spinner" :: "spinner" }) :: unknown,
+				UI.ProgressView({ showValue = true }),
+			})
+		end)
 		t.expect(w.engine.heartbeat.count() >= 2).toBe(true)
 		t.expect(find(screen, "Value").Text).toBe("Loading")
 		local indicator = find(screen, "Indicator")
@@ -240,7 +239,7 @@ t.describe("spinner paint", function()
 	t.it("draws eight fixed square dots at the theme dot size and no bar", function()
 		local package = Compose.cell(themes.neutralPackage())
 		local w2 = world({ motionLevel = "normal", theme = package })
-		local stop, screen = w2.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w2.mount(function(UI: FacetControls)
 			return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 		end)
 		local indicator = find(screen, "Indicator")
@@ -273,7 +272,7 @@ t.describe("spinner paint", function()
 
 	t.it("moves the brightest dot around the ring while every dot stays visible", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 		end)
 		local indicator = find(screen, "Indicator")
@@ -300,11 +299,11 @@ t.describe("spinner paint", function()
 	t.it("writes the spinner on full-motion frames and quantizes a mid-run switch without restarting", function()
 		local reduced = Compose.cell(false)
 		local w = world({
-			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+			end) :: unknown) :: MotionLevel,
 		})
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 		end)
 		local indicator = find(screen, "Indicator")
@@ -345,7 +344,7 @@ end)
 t.describe("circular progress motion", function()
 	t.it("travels the indeterminate head while the sweep stays a fixed quarter turn", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.ProgressView({ presentation = "circular" :: "circular", diameter = 100 })
 		end)
 		local arc = find(screen, "RingFill")
@@ -371,7 +370,7 @@ t.describe("circular progress motion", function()
 	t.it("keeps the reduced-motion ring travelling in a few visible poses each second", function()
 		local function poses(reducedMotion: boolean, frames: number, dt: number): (number, any)
 			local w = world({ motionLevel = if reducedMotion then "none" else "normal" })
-			local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local stop, screen = w.mount(function(UI: FacetControls)
 				return UI.ProgressView({ presentation = "circular" :: "circular", diameter = 100 })
 			end)
 			local arc = find(screen, "RingFill")
@@ -390,7 +389,7 @@ t.describe("circular progress motion", function()
 			return count, arc
 		end
 		local w = world({ motionLevel = "none" })
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.ProgressView({ presentation = "circular" :: "circular", diameter = 100 })
 		end)
 		local arc = find(screen, "RingFill")
@@ -412,7 +411,7 @@ t.describe("circular progress motion", function()
 	t.it("ends a quarter value at three o'clock and closes the ring at the full value", function()
 		local w = world({ motionLevel = "none" })
 		local value = Compose.cell(0.25)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.ProgressView({
 				presentation = "circular" :: "circular",
 				value = value,
@@ -581,7 +580,7 @@ t.describe("radial retirement motion", function()
 	t.it("reopening mid-exit continues from the painted opacity and keeps every node", function()
 		local w = world({ motionLevel = "normal" })
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = opened,
 				distribution = "compass" :: "compass",
@@ -623,7 +622,7 @@ t.describe("radial retirement motion", function()
 
 	t.it("a retiring branch keeps its geometry, leaves the focus order and then releases", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
 				items = {
@@ -681,33 +680,28 @@ t.describe("radial retirement motion", function()
 		local w = world({ theme = package })
 		w.gui.ReducedMotionEnabled = true
 		local opened = Compose.cell(false)
-		local stop, screen = w.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					themes.createStyleSheet(w.runtime, package, { types = w.engine.types, motionLevel = "none" }) :: unknown,
-					UI.RadialMenu({
-						isPresented = opened,
-						distribution = "even" :: "even",
-						items = {
-							{
-								id = "look",
-								label = "Look at the beautiful mountain",
-								icon = "facet:search" :: string,
-								labelStyle = "text" :: "text",
-								completion = "stay" :: "stay",
-								onSelect = function()
-									table.insert(picked, "look")
-								end,
-							} :: FixtureRadialTypes.RadialItem<any>,
-							{ id = "wave", label = "Wave", completion = "stay" :: "stay" } :: FixtureRadialTypes.RadialItem<any>,
-						},
-					}),
-				})
-			end
-		)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				themes.createStyleSheet(w.runtime, package, { types = w.engine.types, motionLevel = "none" }) :: unknown,
+				UI.RadialMenu({
+					isPresented = opened,
+					distribution = "even" :: "even",
+					items = {
+						{
+							id = "look",
+							label = "Look at the beautiful mountain",
+							icon = "facet:search" :: string,
+							labelStyle = "text" :: "text",
+							completion = "stay" :: "stay",
+							onSelect = function()
+								table.insert(picked, "look")
+							end,
+						} :: FixtureRadialTypes.RadialItem<any>,
+						{ id = "wave", label = "Wave", completion = "stay" :: "stay" } :: FixtureRadialTypes.RadialItem<any>,
+					},
+				}),
+			})
+		end)
 		opened:set(true)
 		local sector = find(screen, "Sector-look")
 		t.expect(sector ~= nil).toBe(true)
@@ -733,7 +727,7 @@ t.describe("presented surface motion", function()
 	t.it("fades an alert in from transparent, fades it out over the declared time and then removes it", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = shown,
 				title = "Delete?",
@@ -784,7 +778,7 @@ t.describe("presented surface motion", function()
 	t.it("presents and removes an alert immediately without a transition", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = shown,
 				title = "Now",
@@ -808,32 +802,27 @@ t.describe("presented surface motion", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
 		local cancels = 0
-		local stop, screen = w.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.Button "Keep" { label = "Keep" } :: unknown,
-					UI.Alert({
-						isPresented = shown,
-						title = "Leave?",
-						transition = { seconds = 0.2 },
-						actions = {
-							{ id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any>,
-							{
-								id = "cancel",
-								label = "Cancel",
-								role = "cancel" :: "cancel",
-								onActivate = function()
-									cancels += 1
-								end,
-							} :: FixtureNavigationTypes.AlertAction<any>,
-						},
-					}),
-				})
-			end
-		)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Button "Keep" { label = "Keep" } :: unknown,
+				UI.Alert({
+					isPresented = shown,
+					title = "Leave?",
+					transition = { seconds = 0.2 },
+					actions = {
+						{ id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any>,
+						{
+							id = "cancel",
+							label = "Cancel",
+							role = "cancel" :: "cancel",
+							onActivate = function()
+								cancels += 1
+							end,
+						} :: FixtureNavigationTypes.AlertAction<any>,
+					},
+				}),
+			})
+		end)
 		local keep = find(screen, "Keep")
 		w.gui.SelectedObject = keep
 		shown:set(true)
@@ -862,41 +851,36 @@ t.describe("presented surface motion", function()
 		local w = world({ motionLevel = "normal" })
 		local selection = Compose.cell("a")
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame({
-					UI.TabView({
-						selection = selection,
-						placement = "topBar" :: "topBar",
-						transition = { seconds = 0.2 },
-						tabs = {
-							{
-								id = "a",
-								label = "A",
-								content = function(): Instance
-									return UI.Button "AContent" { label = "A" }
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{
-								id = "b",
-								label = "B",
-								content = function(): Instance
-									return UI.Button "BContent" { label = "B" }
-								end,
-							} :: FixtureNavigationTypes.Tab,
-						},
-					}) :: unknown,
-					UI.RadialMenu({
-						isPresented = opened,
-						distribution = "compass" :: "compass",
-						items = compassItems(function() end),
-					}),
-				})
-			end
-		)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.TabView({
+					selection = selection,
+					placement = "topBar" :: "topBar",
+					transition = { seconds = 0.2 },
+					tabs = {
+						{
+							id = "a",
+							label = "A",
+							content = function(): Instance
+								return UI.Button "AContent" { label = "A" }
+							end,
+						} :: FixtureNavigationTypes.Tab,
+						{
+							id = "b",
+							label = "B",
+							content = function(): Instance
+								return UI.Button "BContent" { label = "B" }
+							end,
+						} :: FixtureNavigationTypes.Tab,
+					},
+				}) :: unknown,
+				UI.RadialMenu({
+					isPresented = opened,
+					distribution = "compass" :: "compass",
+					items = compassItems(function() end),
+				}),
+			})
+		end)
 		w.step(0.3)
 		local layerA = fadeKit.layer(find(screen, "AContent"))
 		selection:set("b")
@@ -921,7 +905,7 @@ t.describe("presented surface motion", function()
 	t.it("a sheet reversed mid-flight holds its painted height and returns, and reduced motion settles it", function()
 		local w = world({})
 		local detent, shown = Compose.cell("medium"), Compose.cell(true)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Sheet({
 				detent = detent,
 				isPresented = shown,
@@ -976,7 +960,7 @@ end)
 t.describe("tab content transition", function()
 	local function tabs(w: any, transition: any, retention: ("all" | "top")?): (() -> (), any, any)
 		local selection = Compose.cell("a")
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.TabView({
 				selection = selection,
 				placement = "topBar" :: "topBar",
@@ -1094,7 +1078,7 @@ t.describe("row action reveal motion", function()
 	local function row(reduced: boolean): (any, () -> (), any, any)
 		local w = world({ motionLevel = if reduced then "none" else "normal" })
 		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> = Compose.cell(nil :: ("leading" | "trailing")?)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RowActions({
 				content = UI.Button "Body" { label = "A preview line long enough to wrap once squeezed" } :: GuiObject,
 				open = open,
@@ -1215,25 +1199,20 @@ t.describe("reduced motion preference", function()
 		withGame(w.gui, function()
 			local presses = 0
 			local sheet
-			local stop, screen = w.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					sheet = themes.createStyleSheet(w.runtime, themes.neutralPackage(), { types = w.engine.types })
-					return Host.Frame({
-						sheet :: unknown,
-						UI.Button({
-							Name = "Go",
-							label = "Go",
-							pop = true,
-							onActivate = function()
-								presses += 1
-							end,
-						}),
-					})
-				end
-			)
+			local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
+				sheet = themes.createStyleSheet(w.runtime, themes.neutralPackage(), { types = w.engine.types })
+				return Host.Frame({
+					sheet :: unknown,
+					UI.Button({
+						Name = "Go",
+						label = "Go",
+						pop = true,
+						onActivate = function()
+							presses += 1
+						end,
+					}),
+				})
+			end)
 			local button = find(screen, "Go")
 			local scale = find(button, "Pop")
 			local text = ruleFor(sheet, ".facet-text")
@@ -1272,18 +1251,13 @@ t.describe("reduced motion preference", function()
 		w.gui.ReducedMotionEnabled = true
 		withGame(w.gui, function()
 			local sheet
-			local stop, screen = w.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					sheet = themes.createStyleSheet(w.runtime, themes.neutralPackage(), { types = w.engine.types })
-					return Host.Frame({
-						sheet :: unknown,
-						UI.Button({ Name = "Go", label = "Go", pop = true, onActivate = function() end }),
-					})
-				end
-			)
+			local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
+				sheet = themes.createStyleSheet(w.runtime, themes.neutralPackage(), { types = w.engine.types })
+				return Host.Frame({
+					sheet :: unknown,
+					UI.Button({ Name = "Go", label = "Go", pop = true, onActivate = function() end }),
+				})
+			end)
 			t.expect(transitionOf(ruleFor(sheet, ".facet-surface"), "BackgroundColor3").Time).toBe(0.2)
 			local scale = find(find(screen, "Go"), "Pop")
 			find(screen, "Go").Activated.fire()
@@ -1300,12 +1274,12 @@ end)
 t.describe("invalid entry feedback", function()
 	local function field(reduced: any): (any, () -> (), any, any)
 		local w = world({
-			motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if if type(reduced) == "table" then use(reduced) else reduced then "none" else "normal"
-			end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+			end) :: unknown) :: MotionLevel,
 		})
 		local invalid = Compose.cell(false)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.TextInput({ Name = "Name", value = Compose.cell("ready"), invalid = invalid })
 		end)
 		return w, stop, find(screen, "Name"), invalid
@@ -1405,7 +1379,7 @@ t.describe("invalid entry feedback", function()
 	t.it("refuses an invalid declaration that is not a readable boolean", function()
 		for _, bad in { true :: any, "yes", 1, Compose.cell("no") } do
 			local w = world({})
-			local ok, err = pcall(w.mount, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local ok, err = pcall(w.mount, function(UI: FacetControls)
 				return UI.TextInput({ value = Compose.cell(""), invalid = bad })
 			end)
 			t.expect(ok).toBe(false)
@@ -1480,19 +1454,14 @@ t.describe("control motion policy and lifetime", function()
 		function()
 			local reduced = Compose.cell(false)
 			local w = world({
-				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if use(reduced) then "none" else "normal"
-				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+				end) :: unknown) :: MotionLevel,
 			})
 			local state = newState()
-			local stop, screen = w.mount(
-				function(
-					UI: typeof(require("@repo/src").controls(nil :: any)),
-					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-				)
-					return motionScene(UI, Host, state)
-				end
-			)
+			local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
+				return motionScene(UI, Host, state)
+			end)
 			local row = find(screen, "RowBody").Parent.Parent
 			row.AbsoluteSize = w.engine.types.Vector2.new(320, 44)
 			w.step(0.6)
@@ -1569,11 +1538,9 @@ t.describe("control motion policy and lifetime", function()
 		local function cycle()
 			local state = newState()
 			local stop = w.runtime.mount(function()
-				return (
-					(
-						w.runtime.constructors.ScreenGui :: unknown
-					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
-				)({ motionScene(w.UI, w.runtime.constructors, state) })
+				return ((w.runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+					motionScene(w.UI, w.runtime.constructors, state),
+				})
 			end, target)
 			local row = find(target, "RowBody").Parent.Parent
 			row.AbsoluteSize = w.engine.types.Vector2.new(320, 44)
@@ -1647,7 +1614,7 @@ t.describe("control motion policy and lifetime", function()
 	t.it("a row reveal reversed mid-flight continues from its painted offset", function()
 		local w = world({ motionLevel = "normal" })
 		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> = Compose.cell(nil :: ("leading" | "trailing")?)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RowActions({
 				content = UI.Button "Body" { label = "Row" } :: GuiObject,
 				open = open,
@@ -1680,7 +1647,7 @@ t.describe("control motion policy and lifetime", function()
 	t.it("an alert reopened mid-exit continues from its painted opacity", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Alert({ isPresented = shown, title = "Again", transition = { seconds = 0.2 } })
 		end)
 		shown:set(true)
@@ -1809,17 +1776,14 @@ t.describe("match3 cascade order and input lock", function()
 
 	local function newGame(): (any, any)
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target = engine.new("Folder")
 		local viewport = Compose.cell({ width = 800, height = 600 })
 		local ctx: any = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			inputTarget = target,
 			worldTarget = engine.new("Folder"),
@@ -1837,9 +1801,9 @@ t.describe("match3 cascade order and input lock", function()
 				{
 					types = engine.types,
 					viewport = viewport,
-					motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+					motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-					end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+					end) :: unknown) :: MotionLevel,
 				} :: any
 			)
 			game = match3.build(ctx)
@@ -1970,8 +1934,7 @@ t.describe("gallery motion setting", function()
 	t.it("offers Full and Reduced, never on or off wording, and follows the native preference", function()
 		local gallery = require("../examples/gallery/client/screen")
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, gui = engine.new("Folder"), engine.new("GuiService")
 		local input = engine.new("UserInputService")
 		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -1982,9 +1945,7 @@ t.describe("gallery motion setting", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = (
-					runtime.constructors :: unknown
-				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
@@ -2005,9 +1966,9 @@ t.describe("gallery motion setting", function()
 					inputParent = target,
 					services = { GuiService = gui, UserInputService = input },
 					theme = ctx.theme,
-					motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
+					motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-					end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
+					end) :: unknown) :: MotionLevel,
 				} :: any
 			)
 			ctx.demos = { { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } }
@@ -2189,7 +2150,7 @@ t.describe("performance lab motion flight", function()
 
 	t.it("the segmented selection fill never reaches past the strip, so it cannot widen it", function()
 		local w = world({ motionLevel = "none" })
-		local _, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
 				style = "segmented" :: "segmented",
 				selected = Compose.cell("b"),
@@ -2213,7 +2174,7 @@ t.describe("performance lab motion flight", function()
 		"the segmented selection fill is placed in the strip's padded content box, so it cannot grow the strip",
 		function()
 			local w = world({ motionLevel = "none" })
-			local _, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local _, screen = w.mount(function(UI: FacetControls)
 				return UI.Picker "Mode" {
 					style = "segmented" :: "segmented",
 					selected = Compose.cell("b"),
@@ -2242,7 +2203,7 @@ t.describe("performance lab motion flight", function()
 
 	t.it("a stale segment position cannot place the selection fill past the laid-out segments", function()
 		local w = world({ motionLevel = "none" })
-		local _, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
 				style = "segmented" :: "segmented",
 				axis = "y" :: "y",
@@ -2277,7 +2238,7 @@ t.describe("performance lab motion flight", function()
 	t.it("the segmented selection fill sits on a segment that wrapped to the next line, inside the strip", function()
 		local w = world({ motionLevel = "none" })
 		local selected = Compose.cell("b")
-		local _, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
 				style = "segmented" :: "segmented",
 				selected = selected,
@@ -2306,7 +2267,7 @@ t.describe("performance lab motion flight", function()
 			local function run(reduced: boolean): (any, any, any)
 				local w = world({ motionLevel = if reduced then "none" else "normal" })
 				local selected = Compose.cell("a")
-				local _, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				local _, screen = w.mount(function(UI: FacetControls)
 					return UI.Picker "Mode" {
 						style = "segmented" :: "segmented",
 						selected = selected,
@@ -2348,7 +2309,7 @@ t.describe("performance lab motion flight", function()
 	t.it("the segmented selection fill lands with the strip when the strip reflows during its slide", function()
 		local w = world({ motionLevel = "normal" })
 		local selected = Compose.cell("c")
-		local _, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
 				style = "segmented" :: "segmented",
 				selected = selected,
@@ -2393,7 +2354,7 @@ t.describe("performance lab motion flight", function()
 		function()
 			local w = world({ motionLevel = "normal" })
 			local selected = Compose.cell("c")
-			local _, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			local _, screen = w.mount(function(UI: FacetControls)
 				return UI.Picker "Mode" {
 					style = "segmented" :: "segmented",
 					selected = selected,
@@ -2450,7 +2411,7 @@ t.describe("radial presentation geometry", function()
 	t.it("closing folds the ring back into its centre as it fades", function()
 		local w = world({ motionLevel = "normal" })
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({ isPresented = opened, items = compassItems(function() end) })
 		end)
 		w.step(0.3)
@@ -2469,7 +2430,7 @@ t.describe("radial presentation geometry", function()
 	t.it("a replacing level keeps the ring it replaced", function()
 		local w = world({ motionLevel = "normal" })
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = opened,
 				preset = "bottom-left" :: "bottom-left",

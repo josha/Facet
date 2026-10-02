@@ -1,11 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local motion = {}
 
 function motion.create(ctx: { [string]: any }, name: string, _dataset)
-	local Compose: typeof(require("@repo/src/vendor/compose/core")), runtime, Host, UI, types =
-		ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
+	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, E = types.UDim2, types.Enum
 	local state = {
 		n = 0,

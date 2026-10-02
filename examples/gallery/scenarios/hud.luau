@@ -1,7 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local copy = {
 	tasksTitle = "Beginner tasks",
 	task1 = "Win a round",
@@ -58,15 +63,14 @@ return {
 	copy = copy,
 	forms = FORMS,
 	build = function(ctx: ExampleContext)
-		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Facet =
-			ctx.Host, ctx.UI, ctx.Compose, ctx.Facet
+		local Host, UI, Compose: ComposeModule, Facet = ctx.Host, ctx.UI, ctx.Compose, ctx.Facet
 		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local health, roundLeft, seconds = Compose.cell(0.84), Compose.cell(0.62), Compose.cell(134)
 		local tasks = { Compose.cell(0.2), Compose.cell(0.4), Compose.cell(0.6) }
 		local urlBar, ride, overflow, reportOpen =
 			Compose.cell(false), Compose.cell(true), Compose.cell(false), Compose.cell(false)
 		local notice, selectedWeapon =
-			(function(value: string?): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+			(function(value: string?): OptionalStringCell
 				return Compose.cell(value)
 			end)(nil), Compose.cell(1)
 		local chosen = {}
@@ -361,7 +365,7 @@ return {
 		rich.Weapon = function()
 			return text("WeaponText", copy.weaponName)
 		end
-		local menuItems: { typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)) } = {
+		local menuItems: { MenuItem } = {
 			{
 				id = "damage",
 				label = "Take damage",
@@ -586,7 +590,7 @@ return {
 						title = "Round report",
 						message = "Your report was recorded.",
 						actions = {
-							{ id = "close", label = "Done", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+							{ id = "close", label = "Done", role = "cancel" :: "cancel" } :: AlertAction,
 						},
 					}),
 				})

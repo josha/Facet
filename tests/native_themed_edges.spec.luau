@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local ThemeTypes = require("../src/ui/theme_types")
 local FixtureCollectionTypes = require("../src/ui/collection_types")
 local FixtureNavigationTypes = require("../src/ui/navigation_types")
@@ -33,8 +37,7 @@ end
 
 local function sheetOf(package: any, palette: string?): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local _, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(
 			runtime,
@@ -179,8 +182,7 @@ t.describe("themed edges, plates and gutters", function()
 				{ { label = "neutral", package = themes.neutralPackage() }, { label = "game", package = authored } }
 			do
 				local engine: any = engineLib.new()
-				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-					Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local _, sheet: any = runtime.mount(function()
 					return themes.createStyleSheet(runtime, entry.package, { types = engine.types } :: any)
 				end, engine.new("Folder"))
@@ -218,8 +220,7 @@ t.describe("themed edges, plates and gutters", function()
 
 	t.it("preloads a theme's art once per applied package so a first panel does not open without it", function()
 		local engine: any = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local requests: { { string } } = {}
 		local provider = {
 			PreloadAsync = function(_, content: { string })
@@ -368,28 +369,22 @@ t.describe("themed edges, plates and gutters", function()
 	t.it("skins a table row with the theme's control art, selected art when selected", function()
 		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
 		local selection = Facet.Compose.cell({ a = true } :: { [string]: boolean })
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.Table({
-					from = Facet.Compose.cell({ { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } }),
-					key = "id",
-					selection = selection,
-					columns = {
-						{
-							id = "label",
-							label = "Name",
-							render = function(current): GuiObject
-								return Host.TextLabel({ Text = current:peek().label })
-							end,
-						} :: FixtureCollectionTypes.TableColumn<any, any>,
-					},
-				})
-			end,
-			{ motionLevel = "none", theme = parchment }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Table({
+				from = Facet.Compose.cell({ { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } }),
+				key = "id",
+				selection = selection,
+				columns = {
+					{
+						id = "label",
+						label = "Name",
+						render = function(current): GuiObject
+							return Host.TextLabel({ Text = current:peek().label })
+						end,
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
+			})
+		end, { motionLevel = "none", theme = parchment })
 		world.find("Body").AbsoluteWindowSize = world.V2(400, 300)
 		local rows = {}
 		for _, node in world.screen:GetDescendants() do
@@ -407,21 +402,15 @@ t.describe("themed edges, plates and gutters", function()
 
 	t.it("keeps a PageView dot a plain dot on a skinned theme, not a control plate", function()
 		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return UI.PageView({
-					selection = Facet.Compose.cell("one"),
-					pages = {
-						{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-					},
-				})
-			end,
-			{ motionLevel = "none", theme = parchment }
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.PageView({
+				selection = Facet.Compose.cell("one"),
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+					{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+				},
+			})
+		end, { motionLevel = "none", theme = parchment })
 		local dots = world.find("Indicators")
 		for _, dot in dots:GetChildren() do
 			if dot:IsA("GuiButton") then
@@ -441,27 +430,22 @@ t.describe("themed edges, plates and gutters", function()
 	end)
 
 	t.it("keeps a horizontal rail free of the vertical gutter", function()
-		local world = worlds.new(
-			function(
-				UI: typeof(require("@repo/src").controls(nil :: any)),
-				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
-			)
-				return Host.Frame {
-					UI.ScrollView "Chips" { axis = "x" :: "x", UI.Text { text = "A" } } :: unknown,
-					UI.VirtualList "Rail" {
-						from = { { id = 1 }, { id = 2 } },
-						key = function(item)
-							return item.id
-						end,
-						direction = "horizontal" :: "horizontal",
-						itemSize = 80,
-						render = function(): GuiObject
-							return Host.Frame {}
-						end,
-					},
-				}
-			end
-		)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame {
+				UI.ScrollView "Chips" { axis = "x" :: "x", UI.Text { text = "A" } } :: unknown,
+				UI.VirtualList "Rail" {
+					from = { { id = 1 }, { id = 2 } },
+					key = function(item)
+						return item.id
+					end,
+					direction = "horizontal" :: "horizontal",
+					itemSize = 80,
+					render = function(): GuiObject
+						return Host.Frame {}
+					end,
+				},
+			}
+		end)
 		for _, name in { "Chips", "Rail" } do
 			local node = world.find(name)
 			local scroller = if node:IsA("ScrollingFrame")

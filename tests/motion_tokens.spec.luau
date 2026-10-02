@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FolderConstructor = typeof(require("@repo/tools/typecheck/aliases").FolderConstructor)
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local Facet = require("../src")
@@ -10,16 +13,11 @@ local engineLib = require("./lib/native_engine")
 
 local function newContext(): (any, () -> ())
 	local engine = engineLib.new()
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local ctx: any
 	local stop = runtime.mount(function()
 		ctx = context(Compose, runtime, { types = engine.types, services = {} })
-		return (
-			(
-				runtime.constructors.Folder :: unknown
-			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Folder)
-		)({})
+		return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({})
 	end, engine.new("Folder"))
 	return ctx, function()
 		stop()

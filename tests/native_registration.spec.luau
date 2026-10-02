@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 local requireDynamic = require :: (any) -> any
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
@@ -23,8 +25,7 @@ end
 t.describe("native registration and package contract", function()
 	t.it("registers every authored control and documents every public constructor", function()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local found: { [string]: string } = {}
 		registrations("src/ui", found)
@@ -72,8 +73,7 @@ t.describe("native registration and package contract", function()
 			},
 		})()
 		local engine = engineLib.new()
-		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-			Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = createControls(Facet.Compose, runtime, { types = engine.types })
 		t.expect(table.isfrozen(UI)).toBe(true)
 		local stop, node: any = runtime.mount(function()

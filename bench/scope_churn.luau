@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local process = require("@lune/process")
@@ -10,7 +12,7 @@ local samples = tonumber(process.args[3]) or 150
 assert(workload == "children" or workload == "keyed-churn" or workload == "keyed-reverse", "unknown workload")
 assert(size > 0 and size % 1 == 0 and samples > 0 and samples % 1 == 0, "invalid sample dimensions")
 local world = nativeApp()
-local Compose: typeof(require("@repo/src/vendor/compose/core")), Host = world.Compose, world.Host
+local Compose: ComposeModule, Host = world.Compose, world.Host
 local owner = Compose.createOwner(world.runtime.reactor)
 local children = {}
 local stop, root, items

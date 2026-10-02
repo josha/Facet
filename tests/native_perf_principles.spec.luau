@@ -1,10 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local function world(count)
 	local engine = engineLib.new({ recordCreated = false })
 	local metrics = { writes = 0, creates = 0, destroys = 0, nodes = {} }
@@ -25,18 +31,15 @@ local function world(count)
 		metrics.destroys += 1
 		destroy(node)
 	end
-	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
-		Facet.Roblox.createRuntime(engine)
-	local Host = (
-		runtime.constructors :: unknown
-	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local UI = Facet.controls(runtime, { types = engine.types })
 	local D2, V2 = engine.types.UDim2, engine.types.Vector2
 	local target = engine.new("Folder")
 	type Item = {
 		id: string,
-		value: typeof(require("@repo/src/vendor/compose/core").cell(0)),
-		ready: typeof(require("@repo/src/vendor/compose/core").cell(false)),
+		value: NumberCell,
+		ready: BooleanCell,
 	}
 	local items: { Item } = {}
 	local list
