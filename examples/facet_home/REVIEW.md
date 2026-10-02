@@ -54,9 +54,11 @@ console navigation still need fresh evidence.
 - A 353-pixel native parent produced a 329-pixel panel with 12 pixels of
   space at each side. The panel uses a native UISizeConstraint for its desktop
   maximum width. It measures its safe-area parent, not the full camera viewport.
-- Home held a Scriptable camera while its panel was open. Explore changed it
-  to Custom and hid the panel. The startup policy handles the player camera
-  module setting CameraType after the Home mount.
+- Immersive mode uses the normal Custom avatar camera while Home is open or
+  closed. Flat mode uses a Scriptable room overview. Explore hides the panel
+  and enters immersive mode. A native movement check kept Home open and
+  observed 14.79 studs of camera travel with the Humanoid as its subject.
+  Switching to flat mode selected Scriptable; switching back selected Custom.
 
 ## Verification
 

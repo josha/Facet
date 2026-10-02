@@ -307,10 +307,8 @@ local stop = runtime.mount(function()
 	Compose.watch(function(use: Use)
 		local camera = workspace.CurrentCamera
 		if camera then
-			camera.CameraType = if use(immersive) and not use(panelOpen)
-				then Enum.CameraType.Custom
-				else Enum.CameraType.Scriptable
-			if not use(immersive) or use(panelOpen) then
+			camera.CameraType = if use(immersive) then Enum.CameraType.Custom else Enum.CameraType.Scriptable
+			if not use(immersive) then
 				camera.CFrame =
 					CFrame.lookAt(use(origin) + Vector3.new(24, 22, -29), use(origin) + Vector3.new(-4, 2, 0))
 			end
@@ -319,7 +317,7 @@ local stop = runtime.mount(function()
 	local camera = workspace.CurrentCamera
 	if camera then
 		local changed = camera:GetPropertyChangedSignal("CameraType"):Connect(function()
-			if (panelOpen:peek() or not immersive:peek()) and camera.CameraType ~= Enum.CameraType.Scriptable then
+			if not immersive:peek() and camera.CameraType ~= Enum.CameraType.Scriptable then
 				camera.CameraType = Enum.CameraType.Scriptable
 			end
 		end)

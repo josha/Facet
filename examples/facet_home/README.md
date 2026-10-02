@@ -19,7 +19,8 @@ examples/facet_home/build.sh
 
 Open `build/Facet-Home.rbxl` in Studio and start Play. Each player gets a room.
 Home keeps its interactive UI inside Roblox core and device safe areas.
-The room camera stays fixed while Home is open. Explore restores avatar control.
+Immersive mode uses the normal avatar camera, including while Home is open.
+Flat mode uses a fixed room overview. Explore closes Home and enters immersive mode.
 Cloud saves require a published experience with DataStore access. When loading
 cloud data fails, Home keeps the room in memory and labels Save as session-only.
 Save is explicit. Unsaved changes end when the player leaves.
