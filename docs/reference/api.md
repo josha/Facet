@@ -2887,6 +2887,12 @@ names.
 
 ### VirtualList and VirtualGrid
 
+Use these controls for data rows or tiles that need selection, reordering or
+collection focus, even when the data is small. They also window large or
+unbounded collections. A Button may supply row content while the collection
+owns the interaction. See [choosing collections](../guide/14-choosing-controls.md#interactive-collections)
+and the shared [editable collection contract](#editable-collections).
+
 Required: `from` (an array, readable or body) and
 `render(current, placement, key)`. `key` is a function `(item, index) -> key`
 or the name of the field that holds the identity, for example `key = "id"`. A
@@ -3119,7 +3125,9 @@ progress. An editor with `render`, an unknown editor word, a menu without
 `options`, editor settings on a column without `editor`, and an editor column
 without `onCellChange` cause an error.
 
-Editable collections. Table, VirtualList and VirtualGrid take the same model.
+#### Editable collections
+
+Table, VirtualList and VirtualGrid take the same model.
 `reorderable = true` with `onReorder(keys, insertionSlot)` moves rows, and
 `deletable = true` with `onDelete(keys)` removes them; both only propose, and
 the caller changes its rows. `movable(item)` and `rowDeletable(item)` refuse

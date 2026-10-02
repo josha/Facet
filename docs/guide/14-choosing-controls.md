@@ -4,6 +4,11 @@ Start from the task and the existing screen. If a new action belongs in the
 toolbar, navigation or settings of the host screen, put it there. Add a new
 surface only when the existing surface cannot express the task clearly.
 
+Choose the control that owns the required interaction before composing its
+visual parts. Item count decides whether to window content; it does not decide
+whether selection, reordering or collection focus is needed. This applies to
+game screens and Studio plugin interfaces.
+
 ## Task to control
 
 | Need | Control |
@@ -30,14 +35,18 @@ surface only when the existing surface cannot express the task clearly.
 | Confirm what the player just did | Toast, with an action for Undo. |
 | Put Back, a title and tools at the top of a surface | NavBar. |
 | Organize named peer destinations | TabView. |
-| Navigate a hierarchy | NavigationStack. |
+| Navigate a hierarchy of pages with Back | NavigationStack. |
 | Step through peer pages | PageView. |
 | Select a page of numbered results | Pagination. |
 | Show the progress of a workflow | StepIndicator. |
 | Compare sortable columns | Table. |
+| Select or reorder data rows, even a short list | VirtualList; VirtualGrid for tiles, Table for columns. |
+| Edit a layer outline | VirtualList for visible rows; the model owns hierarchy and valid moves. |
+| Move user-ordered items | The collection's `reorderable` and `onReorder` options. |
 | Show large scrolling data | VirtualList or VirtualGrid. |
 | Show a browsable item with a picture and actions | Card, in a VirtualGrid for many items. |
 | Add operations for one row | RowActions. |
+| Drag data between separate controls or targets | draggable and dropTarget; use collection reordering for row order. |
 
 ## Compose in the existing screen
 
@@ -143,6 +152,43 @@ For a world object, use `UI.worldAnchor` to project the object. Then bind its
 `anchor` to the control. One primary proximity command is
 usually a direct prompt. Two or more contextual operations can justify a menu. Do not
 add a second input or focus system around it.
+
+## Interactive collections
+
+Use VirtualList for rows, VirtualGrid for tiles, and Table when columns help
+compare or edit fields. These controls are appropriate for short collections
+when the task needs row selection, reordering or collection focus. A layer pane
+with five items still needs the same interaction contract as one with 500.
+
+A Button inside `render` is valid row content. The collection owns the row's
+identity, selection, focus and reorder gesture. A stack of independent Buttons
+does not supply those behaviors. Use native layout and `Compose.keyed` for
+repeated content that does not need a collection interaction contract, such as
+toolbar commands or independent form sections. ScrollView can scroll a document
+or form; it does not add row selection or reordering.
+
+For a user-ordered collection:
+
+- Give items stable keys and keep selection and durable edits in the model.
+- Set `reorderable = true`. In `onReorder(keys, insertionSlot)`, validate the
+  move and update the model. The slot is zero-based among the rows left after
+  removing the moved keys. The control proposes a move; it does not change the
+  caller's array. Use `movable(item)` to exclude fixed rows.
+- Preserve pointer dragging, touch pickup, and the keyboard/gamepad move paths.
+  Supply an `editing` cell and an Edit control for a VirtualList when its
+  non-pointer edit handles are needed. Read the full
+  [editable collection contract](../reference/api.md#editable-collections).
+- Do not replace the gesture with a pair of Up/Down buttons merely because the
+  list is short or the rows are custom. Add such commands only for a requested
+  or task-specific interaction; they can use the same model operation.
+
+A layer outline is a hierarchy of items, not a history of pages. Render its
+visible rows with stable IDs and depth in VirtualList. The model owns expansion,
+parent/child relationships, and valid destinations. Translate a flat insertion
+slot into a domain move; do not treat it as automatic tree reparenting. Use
+NavigationStack when opening child pages with Back. Use `UI.draggable` and
+`UI.dropTarget` when the task needs transfers between separate targets rather
+than order changes within a collection.
 
 ## Collection size and lifetime
 

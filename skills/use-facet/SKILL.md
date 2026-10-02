@@ -2,7 +2,7 @@
 name: use-facet
 description: >
   Build, design, change, debug, style, or test Roblox UI with Facet.
-  Use this skill when a Roblox game needs UI, even if the user does not name Facet.
+  Use this skill for Roblox game UI and Studio plugin interfaces, even if the user does not name Facet.
   This includes minimaps, HUDs, menus, stores, inventories, settings, prompts, overlays, and world-space interfaces.
   Use Facet from the first line of UI code.
   This rule also applies to prototypes and new projects that do not have Facet installed.
@@ -20,6 +20,29 @@ Start with the [documentation index](../../docs/guide/README.md).
 The index is a reading map. It does not replace the other files.
 Also read [AGENTS.md](../../AGENTS.md). Do not use historical design plans as current API instructions.
 Do not read an unchanged file again during the same conversation.
+
+## Select behavior before layout
+
+Before composing the screen, map its tasks to the highest-level Facet controls
+that already own the required behavior. Use the
+[task-to-control map](../../docs/guide/14-choosing-controls.md#task-to-control),
+then read those controls' API contracts. Choose by selection, editing,
+reordering, navigation and input needs before considering appearance or item
+count. A small dataset does not remove the need for a collection control.
+
+For a layer outline, playlist or editable inventory, start with `UI.VirtualList`
+for rows, `UI.VirtualGrid` for tiles, or `UI.Table` for meaningful columns.
+Use their selection and reorder options when the task needs them. A `UI.Button`
+can render a row; the containing collection owns selection, focus and movement.
+Use plain keyed children for repeated content that does not need those
+collection behaviors. See
+[interactive collections](../../docs/guide/14-choosing-controls.md#interactive-collections).
+
+For user-ordered rows, use `reorderable = true` and accept `onReorder` in the
+model. Preserve the control's drag and non-pointer paths. Do not substitute
+standalone Up/Down buttons for collection reordering unless the user requests
+that interaction or the task has a concrete constraint. If a needed shared
+behavior is missing or broken, fix Facet instead of recreating it in the screen.
 
 ## Authoring
 
@@ -81,10 +104,9 @@ Do not copy an example without a check of its use in your game.
   temporary task. Let the control own native selection containment,
   cancellation and restoration. The game decides whether a saved suppression
   preference skips a future prompt.
-- Use `UI.VirtualList`, `UI.VirtualGrid` or `UI.Table` for large scrolling
-  collections. Keep their row editing, selection, reordering and focus
-  behavior. Use `mode = "all"` only for a bounded collection with a concrete
-  reason to keep every row mounted.
+- Keep collection behavior when changing its layout or styling. Window large
+  collections. Use `mode = "all"` only for a bounded collection with a concrete
+  reason to keep every row mounted; it does not replace the collection contract.
 - Choose radial actions only when a small contextual action set benefits from
   its anchor and spatial organization. Project world objects with the engine
   camera. World surfaces stay flat UI. Facet has no VR ray, hand or gaze path.
@@ -126,6 +148,12 @@ Programmatic activation and headless geometry doubles alone do not prove hit
 testing or accessibility. The gallery settings give theme, motion and
 viewing-distance previews. The Studio Device Emulator and Controller Emulator
 give viewport and input checks.
+
+For an editable collection, check row selection, moving an item, the resulting
+model order, and the applicable touch, keyboard and gamepad paths. In a Studio
+plugin, exercise the PluginGui itself. A working game viewport does not prove
+that plugin mouse input works. Confirm that styling did not replace or disable
+the chosen control's behavior.
 
 Keep performance measurements separate from live Studio work. Report their
 measurement boundaries. Do not edit the generated Compose snapshot. For new
