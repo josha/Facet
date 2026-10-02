@@ -86,7 +86,10 @@
         ],
         "GlobalShadows": true,
         "EnvironmentDiffuseScale": 0.65,
-        "EnvironmentSpecularScale": 0.8
+        "EnvironmentSpecularScale": 0.8,
+        "Technology": "Future",
+        "LightingStyle": "Realistic",
+        "PrioritizeLightingQuality": true
       },
       "Atmosphere": {
         "$className": "Atmosphere",
