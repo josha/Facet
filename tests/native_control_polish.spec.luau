@@ -1,10 +1,12 @@
 --!strict
+local NavigationFixtures = require("../src/ui/navigation_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local transitionOf = require("./lib/transition")
 local Facet = require("../src")
 local engines = require("./lib/native_engine")
 local Vector2 = require("@lune/roblox").Vector2
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 local expect = t.expect
 
@@ -55,7 +57,8 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?)
 	input.GetFocusedTextBox = function()
 		return nil
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local config: { [string]: any } = {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
@@ -63,8 +66,12 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?)
 		controlSize = o.controlSize,
 	}
 	local UI: any = Facet.controls(runtime, config :: any)
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ build(UI, runtime.constructors, engine) })
+	local stop, screen: any = runtime.mount(function()
+		return (
+			(
+				runtime.constructors.ScreenGui :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+		)({ build(UI, runtime.constructors, engine) })
 	end, engine.new("Folder"))
 	return {
 		engine = engine,
@@ -162,11 +169,11 @@ end
 
 t.describe("native option rows keep the mark in its own slot", function()
 	t.it("the label starts after the leading radio mark and ends before a trailing one", function()
-		for _, edge in { "leading", "trailing" } do
-			local w = world(function(UI)
+		for _, edge in { "leading", "trailing" } :: { "leading" | "trailing" } do
+			local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Picker "P" {
-					style = "radioGroup",
-					indicatorPosition = edge,
+					style = "radioGroup" :: "radioGroup",
+					indicatorPosition = edge :: "leading" | "trailing",
 					selected = Compose.cell("normal"),
 					options = THREE,
 				}
@@ -184,9 +191,9 @@ t.describe("native option rows keep the mark in its own slot", function()
 	t.it("a radio row without a description keeps one line centered at the row height", function()
 		local options = table.clone(THREE)
 		options[2] = { value = "normal", label = "Normal", description = "Most players" }
-		local w = world(function(UI)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker "P" {
-				style = "radioGroup",
+				style = "radioGroup" :: "radioGroup",
 				selected = Compose.cell("normal"),
 				options = options,
 			}
@@ -201,19 +208,19 @@ t.describe("native option rows keep the mark in its own slot", function()
 	end)
 
 	t.it("the radio group in a presented popover keeps the same slot", function()
-		local w = world(function(UI)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Popover "Status" {
 				isPresented = Compose.cell(true),
 				onPresentedChange = function() end,
 				trigger = UI.Button "Open" { label = "Open" },
-				content = function()
+				content = function(): Instance
 					return UI.Picker "Presence" {
-						style = "radioGroup",
+						style = "radioGroup" :: "radioGroup",
 						selected = Compose.cell("away"),
 						options = {
-							{ value = "online", label = "Online" },
-							{ value = "away", label = "Away" },
-							{ value = "busy", label = "Busy" },
+							{ value = "online", label = "Online" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "away", label = "Away" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "busy", label = "Busy" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
 					}
 				end,
@@ -226,18 +233,18 @@ t.describe("native option rows keep the mark in its own slot", function()
 	end)
 
 	t.it("an inline list and a menu keep the check after the label", function()
-		local inline = world(function(UI)
+		local inline = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker "P" {
-				style = "inline",
-				indicator = "none",
+				style = "inline" :: "inline",
+				indicator = "none" :: "none",
 				selected = Compose.cell("normal"),
 				options = THREE,
 			}
 		end)
 		clear("inline", find(inline.screen, "normal"), "TrailingIcon", "trailing")
 		inline.stop()
-		local menu = world(function(UI)
-			return UI.Picker "P" { style = "menu", selected = Compose.cell("normal"), options = THREE }
+		local menu = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Picker "P" { style = "menu" :: "menu", selected = Compose.cell("normal"), options = THREE }
 		end)
 		find(menu.screen, "Trigger").Activated.fire()
 		local row
@@ -302,10 +309,10 @@ t.describe("native segmented picker track", function()
 		for _, package in packages do
 			local id = package.identity.id
 			for _, size in { "compact", "regular", "large" } do
-				local w = world(function(UI)
+				local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Picker "P" {
-						style = "segmented",
-						controlSize = size,
+						style = "segmented" :: "segmented",
+						controlSize = size :: "compact" | "regular" | "large",
 						selected = Compose.cell("normal"),
 						options = THREE,
 					}
@@ -344,9 +351,9 @@ t.describe("native segmented picker track", function()
 	end)
 
 	t.it("bounds segments in layout units under a scaled ancestor", function()
-		local w = world(function(UI)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker "P" {
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				label = "Mode",
 				selected = Compose.cell("easy"),
 				options = THREE,
@@ -364,15 +371,15 @@ t.describe("native segmented picker track", function()
 
 	t.it("an icon-only segment takes the glyph padding so its icon stays centred in a narrow tile", function()
 		local iconOnly = Compose.cell(true)
-		local w = world(function(UI)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker "Rail" {
-				style = "segmented",
-				axis = "y",
+				style = "segmented" :: "segmented",
+				axis = "y" :: "y",
 				iconOnly = iconOnly,
 				selected = Compose.cell("a"),
 				options = {
-					{ value = "a", label = "Browse", icon = "menu" },
-					{ value = "b", label = "Compose", icon = "edit" },
+					{ value = "a", label = "Browse", icon = "menu" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Compose", icon = "edit" } :: FixtureNavigationTypes.PickerOption<any>,
 				},
 			}
 		end)
@@ -384,9 +391,9 @@ t.describe("native segmented picker track", function()
 	end)
 
 	t.it("a caller's fixed 44 point track keeps the segments inside it", function()
-		local w = world(function(UI, _, engine)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, engine)
 			return UI.Picker "P" {
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				selected = Compose.cell("easy"),
 				options = THREE,
 				Size = engine.types.UDim2.new(1, 0, 0, 44),
@@ -406,18 +413,24 @@ end)
 
 t.describe("native NavBar fit", function()
 	local function bar(title: string): (any, any)
-		local w = world(function(UI, Host, engine)
-			return UI.NavBar "Header" {
-				title = title,
-				titleSize = "heading",
-				trailing = UI.HStack "HeaderActions" {
-					gap = "s",
-					align = "center",
-					UI.Button "MenuButton" { icon = "more", name = "Menu", shape = "circle" },
-					Host.Frame "Profile" { Size = engine.types.UDim2.fromOffset(36, 36) },
-				},
-			}
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				return UI.NavBar "Header" {
+					title = title,
+					titleSize = "heading",
+					trailing = UI.HStack "HeaderActions" {
+						gap = "s",
+						align = "center" :: "center",
+						UI.Button "MenuButton" { icon = "more", name = "Menu", shape = "circle" :: "circle" } :: unknown,
+						Host.Frame "Profile" { Size = engine.types.UDim2.fromOffset(36, 36) },
+					},
+				}
+			end
+		)
 		local header = find(w.screen, "Header")
 		header.AbsoluteSize = w.V2.new(358, 44)
 		find(header, "Trailing").AbsoluteSize = w.V2.new(88, 44)
@@ -441,29 +454,33 @@ end)
 
 t.describe("native selection paint", function()
 	t.it("applies the selected state during the activation that causes it", function()
-		local w = world(function(UI)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VStack "Column" {
-				UI.Picker "Segments" { style = "segmented", selected = Compose.cell("easy"), options = THREE },
+				UI.Picker "Segments" {
+					style = "segmented" :: "segmented",
+					selected = Compose.cell("easy"),
+					options = THREE,
+				} :: unknown,
 				UI.Toggle "Hat" { label = "Hat", value = Compose.cell(false) },
 				UI.TabView "Tabs" {
 					selection = Compose.cell("one"),
-					indicator = "pill",
-					placement = "topBar",
+					indicator = "pill" :: "pill",
+					placement = "topBar" :: "topBar",
 					tabs = {
 						{
 							id = "one",
 							label = "One",
-							content = function()
+							content = function(): Instance
 								return UI.Text "OneBody" { text = "One" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "two",
 							label = "Two",
-							content = function()
+							content = function(): Instance
 								return UI.Text "TwoBody" { text = "Two" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				},
 			}
@@ -490,7 +507,7 @@ t.describe("native selection paint", function()
 	end)
 
 	t.it("a pressed control keeps its highlight and a pressed current option keeps its selected paint", function()
-		local w = world(function(UI)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VStack "Empty" {}
 		end)
 		local sheet = sheetFor(w, themes.neutralPackage())
@@ -538,33 +555,39 @@ end)
 
 t.describe("native navigation stack paint", function()
 	local function stackWorld(): (any, any, any)
-		local path = Compose.cell({})
-		local w = world(function(UI, Host, engine)
-			return Host.Frame "Card" {
-				BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
-				BackgroundTransparency = 0,
-				Host.Frame "Clear" {
-					BackgroundTransparency = 1,
-					UI.NavigationStack "Stack" {
-						path = path,
-						root = {
-							title = "Explorer",
-							content = function()
-								return UI.Button "RootAction" { label = "Motion & turning" }
-							end,
-						},
-						destinations = {
-							motion = {
-								title = "Motion & turning",
-								content = function()
-									return UI.Button "DetailAction" { label = "Turn speed" }
+		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				return Host.Frame "Card" {
+					BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
+					BackgroundTransparency = 0,
+					Host.Frame "Clear" {
+						BackgroundTransparency = 1,
+						UI.NavigationStack "Stack" {
+							path = path,
+							root = {
+								title = "Explorer",
+								content = function(): Instance
+									return UI.Button "RootAction" { label = "Motion & turning" }
 								end,
+							} :: NavigationFixtures.NavigationDestination<any>,
+							destinations = {
+								motion = {
+									title = "Motion & turning",
+									content = function(): Instance
+										return UI.Button "DetailAction" { label = "Turn speed" }
+									end,
+								} :: NavigationFixtures.NavigationDestination<any>,
 							},
 						},
 					},
-				},
-			}
-		end)
+				}
+			end
+		)
 		return w, path, w.engine.types.Color3.new(0.2, 0.3, 0.4)
 	end
 
@@ -631,7 +654,7 @@ t.describe("native navigation stack paint", function()
 	end)
 	t.it("lets a fixed-width button's padding give way before its label vanishes", function()
 		local styleRules = require("./lib/style_rules")
-		local w = world(function(UI, _, engine)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, engine)
 			return UI.Button "Key" {
 				label = "W",
 				Size = engine.types.UDim2.fromOffset(31, 44),
@@ -690,7 +713,7 @@ t.describe("native navigation stack paint", function()
 
 	t.it("decides the tight padding from the engine's live fit, not a fit report still in flight", function()
 		local live: boolean? = nil
-		local w = world(function(UI, _, engine)
+		local w = world(function(UI: typeof(require("@repo/src").controls(nil :: any)), _, engine)
 			return UI.Button "Tab" {
 				label = "Inputs",
 				Size = engine.types.UDim2.fromOffset(94, 44),

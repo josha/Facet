@@ -1,21 +1,24 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local nativeApp = require("../bench/native_app")
 t.describe("native text preference updates", function()
 	t.it("keeps editing focus row identity and scroll position across text and theme changes", function()
 		local world = nativeApp()
-		local Compose, Host, T = world.Compose, world.Host, world.types
+		local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, T =
+			world.Compose, world.Host, world.types
 		local text, size = Compose.cell("Initial"), Compose.cell(16)
 		local package = Compose.cell(world.Facet.themes.neutralPackage())
 		local UI = world.Facet.controls(world.runtime, { types = T, theme = package })
-		local field, list, button
+		local field: TextBox, list: ScrollingFrame, button: TextButton
 		local records = {}
 		for index = 1, 100 do
 			records[index] = { id = index, label = tostring(index) }
 		end
 		world.runtime.mount(function()
 			local sheet = world.Facet.themes.createStyleSheet(world.runtime, package, { types = T })
-			field = UI.TextInput({ value = text, TextSize = size })
+			field = UI.TextInput({ value = text, TextSize = size }) :: TextBox
 			button = UI.Button({ label = "Save", TextSize = size })
 			list = UI.VirtualList({
 				from = records,
@@ -23,16 +26,22 @@ t.describe("native text preference updates", function()
 					return row.id
 				end,
 				itemSize = 56,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.Text({
-						text = function(use)
+						text = function(use: Use)
 							return use(current).label
 						end,
 						TextSize = size,
 					})
 				end,
 			})
-			return Host.ScreenGui({ sheet, Host.StyleLink({ StyleSheet = Compose.static(sheet) }), field, button, list })
+			return Host.ScreenGui({
+				sheet :: unknown,
+				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+				field,
+				button,
+				list,
+			})
 		end, world.target)
 		list.AbsoluteWindowSize = T.Vector2.new(320, 400)
 		list.CanvasPosition = T.Vector2.new(0, 137)

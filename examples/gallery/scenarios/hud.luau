@@ -1,4 +1,7 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local copy = {
 	tasksTitle = "Beginner tasks",
 	task1 = "Win a round",
@@ -54,19 +57,23 @@ return {
 	title = "Screen-anchored HUD",
 	copy = copy,
 	forms = FORMS,
-	build = function(ctx)
-		local Host, UI, Compose, Facet = ctx.Host, ctx.UI, ctx.Compose, ctx.Facet
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Facet =
+			ctx.Host, ctx.UI, ctx.Compose, ctx.Facet
 		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local health, roundLeft, seconds = Compose.cell(0.84), Compose.cell(0.62), Compose.cell(134)
 		local tasks = { Compose.cell(0.2), Compose.cell(0.4), Compose.cell(0.6) }
 		local urlBar, ride, overflow, reportOpen =
 			Compose.cell(false), Compose.cell(true), Compose.cell(false), Compose.cell(false)
-		local notice, selectedWeapon = Compose.cell(nil), Compose.cell(1)
+		local notice, selectedWeapon =
+			(function(value: string?): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+				return Compose.cell(value)
+			end)(nil), Compose.cell(1)
 		local chosen = {}
 		for _, id in ORDER do
 			chosen[id] = Compose.cell(1)
 		end
-		local forms = Compose.formula(function(use)
+		local forms = Compose.formula(function(use: Use)
 			local named = {}
 			for _, id in ORDER do
 				local index = use(chosen[id])
@@ -74,7 +81,7 @@ return {
 			end
 			return named
 		end)
-		local unshown = Compose.formula(function(use)
+		local unshown = Compose.formula(function(use: Use)
 			local result = {}
 			for _, id in ORDER do
 				if use(chosen[id]) ~= 1 and id ~= "Rounds" then
@@ -83,12 +90,18 @@ return {
 			end
 			return result
 		end)
-		local short = Compose.formula(function(use)
+		local short = Compose.formula(function(use: Use)
 			local viewport = if ctx.viewport then use(ctx.viewport) else nil
 			return viewport ~= nil and viewport.height < 480
 		end)
-		local function row(name, children, gap, vertical, align)
-			local fields = {
+		local function row(
+			name: string,
+			children: { GuiObject },
+			gap: number?,
+			vertical: boolean?,
+			align: Enum.HorizontalAlignment?
+		): Frame
+			local fields: { [any]: any } = {
 				Name = name,
 				BackgroundTransparency = 1,
 				Size = D2.new(),
@@ -107,12 +120,12 @@ return {
 			end
 			return Host.Frame(fields)
 		end
-		local function plate(name, slot, content, padX, padY)
+		local function plate(name: string, slot: string, content: GuiObject, padX: number, padY: number): Frame
 			local node = Host.Frame({
 				Name = name,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
-				Host.UICorner({}),
+				Host.UICorner({}) :: unknown,
 				Host.UIPadding({}),
 				Host.Frame({
 					Name = "Inset",
@@ -124,7 +137,7 @@ return {
 						PaddingRight = D.new(0, padX),
 						PaddingTop = D.new(0, padY),
 						PaddingBottom = D.new(0, padY),
-					}),
+					}) :: unknown,
 					content,
 				}),
 			})
@@ -136,30 +149,38 @@ return {
 			end
 			return node
 		end
-		local function text(name, label, role)
+		local function text(
+			name: string,
+			label: string | ((Use) -> string),
+			role: ("caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral")?
+		): GuiObject
 			return UI.Text({
 				Name = name,
 				text = label,
-				textRole = role or "caption",
+				textRole = role or ("caption" :: "caption"),
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			})
 		end
-		local function pill(name, label, role)
+		local function pill(
+			name: string,
+			label: any,
+			role: ("caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral")?
+		): Frame
 			return plate(name, "control", text(name .. "Text", label, role), 10, 4)
 		end
-		local function disc(name, label, icon, onActivate)
+		local function disc(name: string, label: string, icon: string, onActivate: (() -> ())?): TextButton
 			return UI.Button({
 				Name = name,
 				label = "",
 				name = label,
 				icon = icon,
-				shape = "circle",
+				shape = "circle" :: "circle",
 				Size = D2.fromOffset(44, 44),
 				onActivate = onActivate,
 			})
 		end
-		local function showNotice(message)
+		local function showNotice(message: string)
 			notice:set(message)
 		end
 		local steps = {
@@ -202,14 +223,14 @@ return {
 				tasks[index]:set(math.clamp(value, 0, 1))
 			end,
 		}
-		local function timerText(style, use)
+		local function timerText(style: string, use: Use)
 			local value = use(seconds)
 			if style == "short" then
 				return tostring(math.floor(value / 60)) .. "m"
 			end
 			return string.format("%d:%02d", math.floor(value / 60), value % 60)
 		end
-		local function bar(name, value, width, segments)
+		local function bar(name: string, value: Readable<number>, width: number, segments: number?): Frame
 			return UI.ProgressView({
 				Name = name,
 				value = value,
@@ -218,7 +239,7 @@ return {
 				Size = D2.fromOffset(width, 8),
 			})
 		end
-		local function taskRow(index)
+		local function taskRow(index: number)
 			local mark = Host.Frame({
 				Name = "Mark" .. index,
 				Size = D2.fromOffset(8, 8),
@@ -254,7 +275,7 @@ return {
 			local ring = UI.ProgressView({
 				Name = "TimerRing",
 				value = roundLeft,
-				presentation = "circular",
+				presentation = "circular" :: "circular",
 				diameter = 28,
 				Size = D2.fromOffset(28, 28),
 			})
@@ -265,7 +286,7 @@ return {
 					"control",
 					row("TimerRow", {
 						ring,
-						text("TimerText", function(use)
+						text("TimerText", function(use: Use)
 							return timerText("full", use)
 						end, "numeral"),
 					}, 8),
@@ -276,7 +297,7 @@ return {
 			})
 		end
 		rich.Rail = function()
-			local rows = {}
+			local rows: { GuiObject } = {}
 			for index = 1, 3 do
 				table.insert(
 					rows,
@@ -284,9 +305,9 @@ return {
 						UI.Button({
 							Name = "Weapon" .. index,
 							label = copy["weapon" .. index],
-							controlSize = "compact",
+							controlSize = "compact" :: "compact",
 
-							selected = function(use)
+							selected = function(use: Use)
 								return use(selectedWeapon) == index
 							end,
 							onActivate = function()
@@ -304,7 +325,7 @@ return {
 				"HealthPod",
 				"control",
 				row("HealthRow", {
-					text("HealthNum", function(use)
+					text("HealthNum", function(use: Use)
 						return tostring(math.floor(use(health) * 100 + 0.5))
 					end, "numeral"),
 					bar("HealthBar", health, 96, 4),
@@ -316,14 +337,14 @@ return {
 		rich.Actions = function()
 			local node = UI.AdaptiveStack({
 				Name = "ActionsFull",
-				axis = function(use)
+				axis = function(use: Use): "x" | "y"
 					return if use(short) then "x" else "y"
 				end,
 				gap = "s",
-				width = "hug",
+				width = "hug" :: "hug",
 				disc("Shop", copy.action1, "more", function()
 					showNotice("Shop opened")
-				end),
+				end) :: unknown,
 				disc("Squad", copy.action2, "menu", function()
 					showNotice("Squad ready")
 				end),
@@ -340,15 +361,42 @@ return {
 		rich.Weapon = function()
 			return text("WeaponText", copy.weaponName)
 		end
-		local menuItems = {
-			{ id = "damage", label = "Take damage", onSelect = steps.takeDamage },
-			{ id = "heal", label = "Restore health", onSelect = steps.heal },
-			{ id = "tick", label = "Advance clock", onSelect = steps.tickRound },
-			{ id = "notice", label = "Show notification", onSelect = steps.notify },
+		local menuItems: { typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)) } = {
+			{
+				id = "damage",
+				label = "Take damage",
+				onSelect = function()
+					steps.takeDamage()
+				end,
+			},
+			{
+				id = "heal",
+				label = "Restore health",
+				onSelect = function()
+					steps.heal()
+				end,
+			},
+			{
+				id = "tick",
+				label = "Advance clock",
+				onSelect = function()
+					steps.tickRound()
+				end,
+			},
+			{
+				id = "notice",
+				label = "Show notification",
+				onSelect = function()
+					steps.notify()
+				end,
+			},
 		}
-		local function rounds(suffix, vertical)
+		local function rounds(suffix: string, vertical: boolean)
 			return row(if vertical then "RoundsColumn" else "RoundsRow", {
-				UI.Menu({ trigger = disc("HudActions" .. suffix .. "Trigger", copy.round1, "menu"), items = menuItems }),
+				UI.Menu({
+					trigger = disc("HudActions" .. suffix .. "Trigger", copy.round1, "menu") :: GuiObject,
+					items = menuItems,
+				}),
 				disc("Report" .. suffix, copy.round2, "flag", function()
 					reportOpen:set(true)
 				end),
@@ -372,7 +420,7 @@ return {
 					LayoutOrder = 3,
 					Size = D2.fromScale(1, 0),
 					topbar = ride,
-					UI.fill(),
+					UI.fill() :: unknown,
 					region("Strip", "topbar", 6, false, rich.Strip(), pill("ObjectiveShort", copy.objectiveShort)),
 					region("Rounds", "topLeft", 1, false, rounds("", false), rounds("Column", true)),
 					region(
@@ -396,7 +444,7 @@ return {
 						5,
 						true,
 						rich.Health(),
-						pill("HealthCompact", function(use)
+						pill("HealthCompact", function(use: Use)
 							return tostring(math.floor(use(health) * 100 + 0.5))
 						end, "numeral")
 					),
@@ -407,10 +455,10 @@ return {
 						2,
 						false,
 						rich.Clock(),
-						pill("ClockCompact", function(use)
+						pill("ClockCompact", function(use: Use)
 							return timerText("full", use)
 						end, "numeral"),
-						pill("ClockShort", function(use)
+						pill("ClockShort", function(use: Use)
 							return timerText("short", use)
 						end, "numeral")
 					),
@@ -420,7 +468,7 @@ return {
 						4,
 						true,
 						rich.Rail(),
-						pill("RailCompact", function(use)
+						pill("RailCompact", function(use: Use)
 							return copy["weapon" .. use(selectedWeapon)]
 						end)
 					),
@@ -439,25 +487,25 @@ return {
 					Name = "HudScreen",
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
+					Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 					Host.Frame({
 						Name = "BrowserChrome",
 						LayoutOrder = 1,
 						Visible = urlBar,
 						Size = D2.new(1, 0, 0, 64),
-						Host.UIPadding({ PaddingLeft = D.new(0, 16), PaddingTop = D.new(0, 12) }),
+						Host.UIPadding({ PaddingLeft = D.new(0, 16), PaddingTop = D.new(0, 12) }) :: unknown,
 						text("Address", copy.urlBarField, "body"),
 					}),
 					Host.Frame({
 						Name = "Notice",
 						LayoutOrder = 2,
-						Visible = function(use)
+						Visible = function(use: Use)
 							return use(notice) ~= nil
 						end,
 						Size = D2.new(1, 0, 0, 40),
 						BackgroundTransparency = 1,
 						UI.Button({
-							label = function(use)
+							label = function(use: Use)
 								return use(notice) or ""
 							end,
 							onActivate = steps.clearNotice,
@@ -475,7 +523,7 @@ return {
 							PaddingLeft = D.new(0, 8),
 							PaddingRight = D.new(0, 8),
 							PaddingBottom = D.new(0, 4),
-						}),
+						}) :: unknown,
 						Host.UIListLayout({
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
@@ -489,7 +537,7 @@ return {
 							Name = "Ladder",
 							LayoutOrder = 3,
 							text = copy.ladder,
-							textRole = "caption",
+							textRole = "caption" :: "caption",
 							TextWrapped = true,
 							Size = D2.new(0, 280, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
@@ -501,7 +549,7 @@ return {
 						isPresented = overflow,
 						detent = Compose.cell("large"),
 						title = copy.overflowTitle,
-						content = function()
+						content = function(): Instance
 							return Host.ScrollingFrame({
 								Name = "OverflowBody",
 								BackgroundTransparency = 1,
@@ -509,16 +557,16 @@ return {
 								CanvasSize = D2.fromOffset(0, 0),
 								AutomaticCanvasSize = E.AutomaticSize.Y,
 								ScrollBarThickness = 6,
-								Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }),
+								Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 								text("OverflowNote", copy.overflowNote),
-								Compose.show(function(use)
+								Compose.show(function(use: Use)
 									return #use(unshown) == 0
 								end, function()
 									return text("OverflowEmpty", copy.overflowEmpty)
 								end),
 								Compose.keyed({
 									from = unshown,
-									render = function(current, index)
+									render = function(current, index): GuiObject
 										return Host.Frame({
 											Name = "Rich" .. current:peek(),
 											LayoutOrder = index,
@@ -537,7 +585,9 @@ return {
 						isPresented = reportOpen,
 						title = "Round report",
 						message = "Your report was recorded.",
-						actions = { { id = "close", label = "Done", role = "cancel" } },
+						actions = {
+							{ id = "close", label = "Done", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+						},
 					}),
 				})
 			end,

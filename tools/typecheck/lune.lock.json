@@ -1,0 +1,15 @@
+{
+  "version": "0.10.4",
+  "sha256": {
+    "datetime.luau": "ba75d0cb28383e6c4503f1e20af3bd516614a5913328c0b325354e592466c807",
+    "fs.luau": "6e78df9f9749f5a777fe7ff10329dec100e44f669b88205d396032b9d93237cc",
+    "luau.luau": "77bc7c3ad963d7ec287dd27035a782e212121587e3e25dd8f13ce9d7e09a7b54",
+    "net.luau": "4d47b4afa337279bd0e8740703ca0329ad079d7535875c92f5965a0ef1c022f8",
+    "process.luau": "706dacb7d63d8cc0cb371715ea16e99eff3a031b5dca821ae6fc9cb18cca8b99",
+    "regex.luau": "fd11ddb131edd37d5bcce36f6888f11d7d109ac114a49dc430948805ff993c00",
+    "roblox.luau": "9c18fb9ff8d01a01c6706724ce617c0aa1633f9f2e93fe5b1c13d78d3884d8aa",
+    "serde.luau": "9385d579bca40f579ff1a97b9b6b4bff7ee35ab5261804d43968b304fd6a734c",
+    "stdio.luau": "86f469e71451197119e1b3a95df73e24dc9f60f4d8dfad6267abb9b53bf4b529",
+    "task.luau": "15b7e047dbde6d8b781426e616f1bbbba1f1bbfd145a120a26af1cf7c98f0f04"
+  }
+}

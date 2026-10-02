@@ -2,7 +2,15 @@
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -49,33 +57,41 @@ local function centre(node: GuiObject): Vector2
 	return node.AbsolutePosition + node.AbsoluteSize / 2
 end
 
-add("mail-row-grip", { "collections-101" }, function(t)
+add("mail-row-grip", { "collections-101" }, function(t: any)
 	local mouse = pointer(t)
 	local value = {}
 	local demo = t.scenario("collection_demo")
-	local stage = t.mount(function(UI, Host, Compose, env)
-		local seed = {}
-		for index = 1, 30 do
-			seed[index] = {
-				id = "m" .. index,
-				from = "Sender " .. index,
-				subject = "Subject " .. index,
-				preview = "Preview " .. index,
-				read = false,
-				flagged = false,
-			}
-		end
-		value.built = demo(t.context(UI, Host, Compose, env), {
-			name = "Mail_list",
-			title = "Mail",
-			rows = seed,
-			count = 30,
-			actions = true,
-			mail = true,
-			list = true,
-		})
-		return value.built.screen()
-	end, { frames = 20, motionLevel = "normal" })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			local seed = {}
+			for index = 1, 30 do
+				seed[index] = {
+					id = "m" .. index,
+					from = "Sender " .. index,
+					subject = "Subject " .. index,
+					preview = "Preview " .. index,
+					read = false,
+					flagged = false,
+				}
+			end
+			value.built = demo(t.context(UI, Host, Compose, env), {
+				name = "Mail_list",
+				title = "Mail",
+				rows = seed,
+				count = 30,
+				actions = true,
+				mail = true,
+				list = true,
+			})
+			return value.built.screen()
+		end,
+		{ frames = 20, motionLevel = "normal" }
+	)
 	local function read(): { [string]: boolean }
 		return value.built.report().read
 	end
@@ -89,7 +105,10 @@ add("mail-row-grip", { "collections-101" }, function(t)
 	t.check("the grip is not a selection stop", grip.Selectable == false, grip.Selectable)
 	t.check("the content Button stays a selection stop", mail.Selectable == true, mail.Selectable)
 	local at = centre(row)
-	local hits = (game:GetService("Players").LocalPlayer.PlayerGui :: any):GetGuiObjectsAtPosition(at.X, at.Y)
+	local hits = ((game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(
+		at.X,
+		at.Y
+	)
 	t.check("a press on the row lands on the grip first", hits[1] == grip, hits[1] and hits[1]:GetFullName())
 	local x = row.AbsolutePosition.X
 	local w = row.AbsoluteSize.X
@@ -123,38 +142,46 @@ add("mail-row-grip", { "collections-101" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("mail-row-touch-pan", { "collections-101" }, function(t)
+add("mail-row-touch-pan", { "collections-101" }, function(t: any)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 	local mouse = pointer(t)
 	local value = {}
 	local demo = t.scenario("collection_demo")
-	local stage = t.mount(function(UI, Host, Compose, env)
-		local seed = {}
-		for index = 1, 30 do
-			seed[index] = {
-				id = "m" .. index,
-				from = "Sender " .. index,
-				subject = "Subject " .. index,
-				preview = "Preview " .. index,
-				read = false,
-				flagged = false,
-			}
-		end
-		value.built = demo(t.context(UI, Host, Compose, env), {
-			name = "Mail_list",
-			title = "Mail",
-			rows = seed,
-			count = 30,
-			actions = true,
-			mail = true,
-			list = true,
-		})
-		return value.built.screen()
-	end, { frames = 20, motionLevel = "normal" })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			local seed = {}
+			for index = 1, 30 do
+				seed[index] = {
+					id = "m" .. index,
+					from = "Sender " .. index,
+					subject = "Subject " .. index,
+					preview = "Preview " .. index,
+					read = false,
+					flagged = false,
+				}
+			end
+			value.built = demo(t.context(UI, Host, Compose, env), {
+				name = "Mail_list",
+				title = "Mail",
+				rows = seed,
+				count = 30,
+				actions = true,
+				mail = true,
+				list = true,
+			})
+			return value.built.screen()
+		end,
+		{ frames = 20, motionLevel = "normal" }
+	)
 	local function read(): { [string]: boolean }
 		return value.built.report().read
 	end
-	local kinds = {}
+	local kinds: { string } = {}
 	local watch = UserInputService.InputBegan:Connect(function(input)
 		table.insert(kinds, input.UserInputType.Name)
 	end)
@@ -208,7 +235,10 @@ add("mail-row-touch-pan", { "collections-101" }, function(t)
 	t.check("the closing touch tap does not mark m3 read", read().m3 ~= true, read())
 	local fourth = t.find(stage, "Row_m4")
 	local spot = centre(fourth)
-	local top = (game:GetService("Players").LocalPlayer.PlayerGui :: any):GetGuiObjectsAtPosition(spot.X, spot.Y)[1]
+	local top = ((game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(
+		spot.X,
+		spot.Y
+	)[1]
 	t.check("the tap point on m4 is its grip", top == t.find(fourth, "SwipeGrip"), top and top:GetFullName())
 	mouse.click(spot)
 	t.settle(10)
@@ -216,59 +246,66 @@ add("mail-row-touch-pan", { "collections-101" }, function(t)
 	watch:Disconnect()
 end)
 
-add("range-knobs-flush", { "post-pickers-127" }, function(t)
+add("range-knobs-flush", { "post-pickers-127" }, function(t: any)
 	local mouse = pointer(t)
 	local value = {}
-	local stage = t.mount(function(UI, Host, Compose)
-		value.range = Compose.cell({ lower = 0, upper = 100 })
-		value.single = Compose.cell(0)
-		value.vertical = Compose.cell(0)
-		local function art(side: number): (any) -> Instance
-			return function()
-				return Host.Frame "Art" {
-					Size = UDim2.fromOffset(side, side),
-					BackgroundColor3 = Color3.new(1, 1, 1),
-					Host.UICorner({ CornerRadius = UDim.new(0.5, 0) }),
-				}
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			value.range = Compose.cell({ lower = 0, upper = 100 })
+			value.single = Compose.cell(0)
+			value.vertical = Compose.cell(0)
+			local function art(side: number): (any) -> Instance
+				return function()
+					return Host.Frame "Art" {
+						Size = UDim2.fromOffset(side, side),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						Host.UICorner({ CornerRadius = UDim.new(0.5, 0) }),
+					}
+				end
 			end
-		end
-		return Host.Frame "Column" {
-			Size = UDim2.fromOffset(420, 600),
-			Position = UDim2.fromOffset(100, 60),
-			BackgroundTransparency = 1,
-			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }),
-			UI.Slider "Band" {
-				LayoutOrder = 1,
-				value = value.range,
-				range = true,
-				minGap = 10,
-				min = 0,
-				max = 100,
-				step = 1,
-				Size = UDim2.fromOffset(420, 0),
-				thumbContent = function(info)
-					return art(if info.thumb == "lower" then 12 else 40)(info)
-				end,
-			},
-			UI.Slider "Plain" {
-				LayoutOrder = 2,
-				value = value.single,
-				min = 0,
-				max = 100,
-				step = 1,
-				Size = UDim2.fromOffset(420, 0),
-			},
-			UI.Slider "Tall" {
-				LayoutOrder = 3,
-				value = value.vertical,
-				axis = "y",
-				min = 0,
-				max = 100,
-				step = 1,
-				Size = UDim2.fromOffset(0, 240),
-			},
-		}
-	end, { frames = 20 })
+			return Host.Frame "Column" {
+				Size = UDim2.fromOffset(420, 600),
+				Position = UDim2.fromOffset(100, 60),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				UI.Slider "Band" {
+					LayoutOrder = 1,
+					value = value.range,
+					range = true :: true,
+					minGap = 10,
+					min = 0,
+					max = 100,
+					step = 1,
+					Size = UDim2.fromOffset(420, 0),
+					thumbContent = function(info)
+						return art(if info.thumb == "lower" then 12 else 40)(info)
+					end,
+				},
+				UI.Slider "Plain" {
+					LayoutOrder = 2,
+					value = value.single,
+					min = 0,
+					max = 100,
+					step = 1,
+					Size = UDim2.fromOffset(420, 0),
+				},
+				UI.Slider "Tall" {
+					LayoutOrder = 3,
+					value = value.vertical,
+					axis = "y" :: "y",
+					min = 0,
+					max = 100,
+					step = 1,
+					Size = UDim2.fromOffset(0, 240),
+				},
+			}
+		end,
+		{ frames = 20 }
+	)
 	local function part(slider: string, name: string): GuiObject
 		return t.find(t.find(stage, slider), name)
 	end

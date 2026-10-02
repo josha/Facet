@@ -1,9 +1,18 @@
 --!strict
+local FixtureThemeTypes = require("../../src/ui/theme_types")
 local Facet = require("../../src")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 type Use = <T>(Facet.Readable<T>) -> T
-local runtime = Facet.Roblox.createRuntime()
+local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+	Facet.Roblox.createRuntime()
 local UI = Facet.controls(runtime)
+local themeBase = Facet.themes.neutralPackage()
+themeBase.chrome = { control = { kind = "native" } } :: { [string]: FixtureThemeTypes.SkinLayer }
+local themeDefinition: FixtureThemeTypes.ThemeDefinition =
+	{ base = themeBase, chrome = { control = { contentInsets = { left = 8 } } } }
+local theme = assert(Facet.themes.define(themeDefinition))
+local themeSheet: StyleSheet =
+	Facet.themes.createStyleSheet(runtime, theme, { transition = Compose.cell(nil :: (TweenInfo | false)?) })
 local enabled = Compose.cell(true)
 local text = Compose.cell("Amber")
 local value = Compose.cell(0.5)
@@ -17,8 +26,10 @@ local function guiContent(): GuiObject
 end
 local function nothing() end
 local button: TextButton = UI.Button({
+	appearance = Compose.cell(nil :: string?),
 	label = text,
 	enabled = enabled,
+	controlSize = Compose.cell(nil :: ("xsmall" | "compact" | "regular" | "large")?),
 	Size = UDim2.fromOffset(200, 44),
 	Visible = function(use: Use): boolean
 		return use(enabled)
@@ -224,7 +235,16 @@ local stack: GuiObject = UI.NavigationStack({
 })
 local radial: GuiObject = UI.RadialMenu({ items = items, holdAction = Instance.new("InputAction") })
 local nestedRadial: GuiObject = UI.RadialMenu({ items = require("./radial_witness") })
-local alert: GuiObject = UI.Alert({ isPresented = expanded, title = "Save", actions = { { id = "ok", label = "OK" } } })
+local alert: GuiObject = UI.Alert({
+	isPresented = expanded,
+	title = Compose.cell("Save"),
+	message = Compose.formula(function()
+		return "Save changes"
+	end),
+	actions = {
+		{ id = "ok", label = "OK" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+	},
+})
 local sheet: GuiObject = UI.Sheet({ isPresented = expanded, detent = Compose.cell("large"), content = content })
 local disclosure: GuiObject = UI.DisclosureGroup({ expanded = expanded, content = content })
 local outline: GuiObject = UI.DisclosureGroup({
@@ -243,7 +263,9 @@ local sideSheet: GuiObject = UI.Sheet({
 local compactTabs: GuiObject = UI.TabView({
 	selection = selected,
 	controlSize = "xsmall" :: "xsmall",
-	tabs = { { id = "home", label = "Home", content = content } },
+	indicator = Compose.cell(nil :: ("automatic" | "pill" | "underline" | "none")?),
+	railWidth = Compose.cell(nil :: number?),
+	tabs = { { id = "home", label = "Home", content = content, badge = Compose.cell(nil :: (string | number)?) } },
 })
 local toolbarPicker: GuiObject = UI.Picker({
 	selected = selected,
@@ -302,7 +324,17 @@ local fieldTable: GuiObject = UI.Table({
 })
 local actions: GuiObject =
 	UI.RowActions({ content = guiContent, trailing = { { id = "save", label = "Save", onActivate = nothing } } })
+local ownedImage: Frame = UI.AsyncImage({
+	resource = function(): Facet.ImageResource
+		Compose.cleanup(nothing)
+		return { value = text, state = "ready" :: "ready" }
+	end,
+})
+local clearedAdornee = Compose.cell(nil :: Instance?)
+local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+local surface: SurfaceGui = Host.SurfaceGui({ Adornee = clearedAdornee })
 local mounted: { GuiObject } = {
+	ownedImage,
 	button,
 	named,
 	toggle,

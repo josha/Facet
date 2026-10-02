@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local modelModule = require("./model")
 local theme = require("./theme")
 
@@ -11,7 +13,7 @@ local TOOLS = {
 }
 
 function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
-	local Compose = Facet.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 	local shapes = Facet.pathShapes
 	local D2, E = types.UDim2, types.Enum
 	local function paint(name: string): Color3
@@ -27,7 +29,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	local function circle(cx: number, cy: number, radius: number): { any }
 		local points = shapes.ring({ radius = radius * 2 })
 		for index, point in points do
-			local moved = table.clone(point)
+			local moved: typeof(require("@repo/src").pathShapes.ring({ radius = 1 })[1]) = table.clone(point)
 			moved.x += cx - 0.5
 			moved.y += cy - 0.5
 			points[index] = moved
@@ -48,7 +50,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 			AnchorPoint = types.Vector2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
 			Size = D2.fromScale(0.8, 0.8),
-			table.unpack(parts),
+			table.unpack((parts :: unknown) :: { unknown }),
 		})
 	end
 
@@ -96,13 +98,13 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	end
 
 	local function plotView(index: number)
-		local function plot(use): any
+		local function plot(use: Use): any
 			return use(farm.plots)[index]
 		end
-		local function stage(use): string
+		local function stage(use: Use): string
 			return modelModule.stateAt(plot(use), use(farm.now))
 		end
-		local function describe(use): string
+		local function describe(use: Use): string
 			local current, state = plot(use), stage(use)
 			if state == "grass" then
 				return `Plot {index}, grass`
@@ -128,29 +130,29 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				PaddingRight = types.UDim.new(0, 1),
 				PaddingTop = types.UDim.new(0, 1),
 				PaddingBottom = types.UDim.new(0, 1),
-			},
+			} :: unknown,
 			UI.ZStack "Tile" {
-				width = "fill",
-				height = "fill",
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
 				Host.Frame "Soil" {
 					Size = D2.new(1, -4, 1, -4),
 					Position = D2.fromOffset(2, 2),
 					BorderSizePixel = 0,
-					BackgroundColor3 = function(use)
+					BackgroundColor3 = function(use: Use)
 						local state = stage(use)
 						return paint(
 							if state == "grass" then "grass" elseif state == "withered" then "withered" else "plowed"
 						)
 					end,
-					Host.UICorner { CornerRadius = types.UDim.new(0, 12) },
+					Host.UICorner { CornerRadius = types.UDim.new(0, 12) } :: unknown,
 					Host.UIStroke {
 						Thickness = 3,
-						Color = function(use)
+						Color = function(use: Use)
 							return paint(if stage(use) == "grass" then "grassEdge" else "soilEdge")
 						end,
 					},
-				},
-				Compose.show(function(use)
+				} :: unknown,
+				Compose.show(function(use: Use)
 					return stage(use) ~= "grass"
 				end, function()
 					local rows = {}
@@ -169,35 +171,39 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 							})
 						)
 					end
-					return UI.ZStack "Furrows" { width = "fill", height = "fill", table.unpack(rows) }
+					return UI.ZStack "Furrows" {
+						width = "fill" :: "fill",
+						height = "fill" :: "fill",
+						table.unpack((rows :: unknown) :: { unknown }),
+					}
 				end),
 				Compose.keyed({
-					from = function(use)
+					from = function(use: Use)
 						local state = stage(use)
 						if state == "grass" or state == "plowed" then
 							return {}
 						end
 						return { plot(use).crop .. ":" .. state }
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						local crop, state = string.match(current:peek(), "^(%w+):(%w+)$")
 						return cropArt(crop :: string, state :: string)
 					end,
 				}),
-				Compose.show(function(use)
+				Compose.show(function(use: Use)
 					return stage(use) == "growing"
 				end, function()
 					return UI.ProgressView "Growth" {
-						presentation = "circular",
+						presentation = "circular" :: "circular",
 						diameter = 22,
-						value = function(use)
+						value = function(use: Use)
 							return modelModule.progress(plot(use), use(farm.now))
 						end,
 						AnchorPoint = types.Vector2.new(1, 0),
 						Position = D2.new(1, -6, 0, 6),
 					}
 				end),
-				Compose.show(function(use)
+				Compose.show(function(use: Use)
 					return stage(use) == "ready"
 				end, function()
 					return UI.StatusIndicator "Ready" {
@@ -221,7 +227,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 		table.insert(seedOptions, {
 			value = crop.id,
 			label = `{crop.label} · {crop.cost}`,
-			enabled = function(use)
+			enabled = function(use: Use)
 				return modelModule.levelOf(use(farm.xp)) >= crop.unlock
 			end,
 		})
@@ -240,7 +246,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						title = crop.label,
 						description = `{crop.cost} coins · grows in {crop.grow} s · sells for {crop.sell} · level {crop.unlock}`,
 					},
-					enabled = function(use)
+					enabled = function(use: Use)
 						return modelModule.levelOf(use(farm.xp)) >= crop.unlock
 					end,
 					onActivate = function()
@@ -255,23 +261,23 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	end
 
 	local env = UI.environment()
-	local function blend(use): number
+	local function blend(use: Use): number
 		if farm.blend then
 			return use(farm.blend)
 		end
 		return if use(farm.view) == "3d" then 1 else 0
 	end
 	local GAP, INSET = 8, 14
-	local function short(use): boolean
+	local function short(use: Use): boolean
 		return use(env.viewportHeight) < 520
 	end
-	local function narrow(use): boolean
+	local function narrow(use: Use): boolean
 		return not short(use) and use(env.viewportWidth) < 640
 	end
-	local function stacked(use): boolean
+	local function stacked(use: Use): boolean
 		return short(use) or narrow(use)
 	end
-	local function cell(use): number
+	local function cell(use: Use): number
 		local width, height = use(env.viewportWidth), use(env.viewportHeight)
 		local rows, columns = modelModule.ROWS, modelModule.COLUMNS
 		if short(use) then
@@ -285,7 +291,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	end
 	local function coins()
 		return UI.Badge "Coins" {
-			label = function(use)
+			label = function(use: Use)
 				return `{use(farm.coins)} coins`
 			end,
 			status = "warning",
@@ -294,7 +300,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	end
 	local function level()
 		return UI.Badge "Level" {
-			label = function(use)
+			label = function(use: Use)
 				return `Level {use(farm.level)}`
 			end,
 			status = "success",
@@ -304,12 +310,12 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	local function experience(width: number)
 		return UI.ProgressView "Experience" {
 			Size = D2.fromOffset(width, 0),
-			value = function(use)
+			value = function(use: Use)
 				local xp, current = use(farm.xp), use(farm.level)
 				local low, high = modelModule.xpFor(current), modelModule.xpFor(current + 1)
 				return (xp - low) / math.max(1, high - low)
 			end,
-			label = function(use)
+			label = function(use: Use)
 				local current = use(farm.level)
 				return `{use(farm.xp)} / {modelModule.xpFor(current + 1)} XP`
 			end,
@@ -320,52 +326,56 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	end
 
 	return UI.ZStack "FarmRoot" {
-		width = "fill",
-		height = "fill",
+		width = "fill" :: "fill",
+		height = "fill" :: "fill",
 		UI.Screen "Farm" {
 			gap = "s",
 			padding = { top = "s", right = "m", bottom = "s", left = "m" },
 			UI.HStack "Hud" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "m",
-				align = "center",
+				align = "center" :: "center",
 				padding = "s",
 				BackgroundColor3 = paint("meadow"),
-				BackgroundTransparency = function(use)
+				BackgroundTransparency = function(use: Use)
 					return if use(farm.view) == "3d" then 0.1 else 1
 				end,
-				Host.UICorner { CornerRadius = types.UDim.new(0, 14) },
-				Visible = function(use)
+				Host.UICorner { CornerRadius = types.UDim.new(0, 14) } :: unknown,
+				Visible = function(use: Use)
 					return not stacked(use)
 				end,
 				UI.VStack "Brand" {
 					gap = "xs",
-					UI.Text "Title" { text = "Facet Farm", textRole = "title" },
-					UI.Text "Tagline" { text = "Plow · Plant · Harvest", role = "secondary", textRole = "label" },
+					UI.Text "Title" { text = "Facet Farm", textRole = "title" :: "title" } :: unknown,
+					UI.Text "Tagline" {
+						text = "Plow · Plant · Harvest",
+						role = "secondary" :: "secondary",
+						textRole = "label" :: "label",
+					},
 				},
 				UI.Spacer {},
 				UI.HStack "Stats" {
 					gap = "s",
-					align = "center",
-					coins(),
+					align = "center" :: "center",
+					coins() :: unknown,
 					level(),
 					experience(240),
 				},
-			},
+			} :: unknown,
 			Host.Frame "Arena" {
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 0),
-				fill(),
+				fill() :: unknown,
 				Host.UIListLayout {
-					FillDirection = function(use)
+					FillDirection = function(use: Use)
 						return if short(use) then E.FillDirection.Horizontal else E.FillDirection.Vertical
 					end,
-					HorizontalAlignment = function(use)
+					HorizontalAlignment = function(use: Use)
 						return if blend(use) >= 0.35 and short(use)
 							then E.HorizontalAlignment.Right
 							else E.HorizontalAlignment.Center
 					end,
-					VerticalAlignment = function(use)
+					VerticalAlignment = function(use: Use)
 						return if blend(use) >= 0.35 and not short(use)
 							then E.VerticalAlignment.Bottom
 							else E.VerticalAlignment.Center
@@ -375,19 +385,19 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				},
 				UI.ZStack "Board" {
 					LayoutOrder = 1,
-					Visible = function(use)
+					Visible = function(use: Use)
 						return blend(use) < 0.35
 					end,
 					Host.UIScale {
-						Scale = function(use)
+						Scale = function(use: Use)
 							return 1 - 0.25 * math.clamp(blend(use) / 0.35, 0, 1)
 						end,
-					},
+					} :: unknown,
 					Host.Frame "Fence" {
 						Size = D2.fromScale(1, 1),
 						BorderSizePixel = 0,
 						BackgroundColor3 = paint("fence"),
-						Host.UICorner { CornerRadius = types.UDim.new(0, 22) },
+						Host.UICorner { CornerRadius = types.UDim.new(0, 22) } :: unknown,
 						Host.UIStroke { Thickness = 4, Color = paint("fenceEdge") },
 					},
 					UI.VStack "Plots" {
@@ -396,20 +406,20 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 							columns = modelModule.COLUMNS,
 							gap = GAP,
 							cellHeight = cell,
-							width = function(use)
+							width = function(use: Use)
 								return cell(use) * modelModule.COLUMNS + (modelModule.COLUMNS - 1) * GAP
 							end,
-							table.unpack(plots),
+							table.unpack((plots :: unknown) :: { unknown }),
 						},
 					},
 				},
 				Host.Frame "Controls" {
 					LayoutOrder = 2,
 					BackgroundColor3 = paint("meadow"),
-					BackgroundTransparency = function(use)
+					BackgroundTransparency = function(use: Use)
 						return if blend(use) >= 0.35 then 0.1 else 1
 					end,
-					Host.UICorner { CornerRadius = types.UDim.new(0, 16) },
+					Host.UICorner { CornerRadius = types.UDim.new(0, 16) } :: unknown,
 					Host.UIPadding {
 						PaddingLeft = types.UDim.new(0, 10),
 						PaddingRight = types.UDim.new(0, 10),
@@ -419,7 +429,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 					AutomaticSize = E.AutomaticSize.XY,
 					Size = D2.fromOffset(0, 0),
 					Host.UIListLayout {
-						FillDirection = function(use)
+						FillDirection = function(use: Use)
 							return if stacked(use) then E.FillDirection.Vertical else E.FillDirection.Horizontal
 						end,
 						HorizontalAlignment = E.HorizontalAlignment.Center,
@@ -432,21 +442,21 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						gap = "xs",
 						padding = "s",
 						BackgroundColor3 = paint("meadow"),
-						BackgroundTransparency = function(use)
+						BackgroundTransparency = function(use: Use)
 							return if use(farm.view) == "3d" then 0.1 else 1
 						end,
-						Host.UICorner { CornerRadius = types.UDim.new(0, 12) },
+						Host.UICorner { CornerRadius = types.UDim.new(0, 12) } :: unknown,
 						Visible = stacked,
-						UI.Text "PocketTitle" { text = "Facet Farm", textRole = "heading" },
-						UI.HStack "PocketBadges" { gap = "xs", coins(), level() },
+						UI.Text "PocketTitle" { text = "Facet Farm", textRole = "heading" :: "heading" },
+						UI.HStack "PocketBadges" { gap = "xs", coins() :: unknown, level() },
 						experience(200),
 					},
 					UI.Picker "Tool" {
 						LayoutOrder = 1,
 						selected = farm.tool,
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						options = TOOLS,
-						Size = function(use)
+						Size = function(use: Use)
 							return D2.fromOffset(if short(use) then 264 else 330, 44)
 						end,
 						AutomaticSize = E.AutomaticSize.None,
@@ -454,12 +464,12 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 					UI.HStack "Actions" {
 						LayoutOrder = 2,
 						gap = "s",
-						align = "center",
+						align = "center" :: "center",
 						UI.Picker "Seed" {
 							selected = farm.seed,
-							style = "menu",
+							style = "menu" :: "menu",
 							options = seedOptions,
-						},
+						} :: unknown,
 						UI.Button "HarvestAll" {
 							label = "Harvest all",
 							icon = "checkmark",
@@ -479,20 +489,20 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 							VerticalAlignment = E.VerticalAlignment.Center,
 							SortOrder = E.SortOrder.LayoutOrder,
 							Padding = types.UDim.new(0, 8),
-						},
+						} :: unknown,
 						UI.HStack "Shop" {
 							LayoutOrder = 1,
 							gap = "s",
-							align = "center",
+							align = "center" :: "center",
 							UI.Button "Market" {
-								label = function(use)
+								label = function(use: Use)
 									return if short(use) then "Market" else "Seed market"
 								end,
 								appearance = "accent",
 								onActivate = function()
 									farm.marketOpen:set(true)
 								end,
-							},
+							} :: unknown,
 							UI.RadialMenu "QuickTools" {
 								label = "Tools",
 								items = toolItems,
@@ -501,13 +511,13 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						UI.HStack "Settings" {
 							LayoutOrder = 2,
 							gap = "s",
-							align = "center",
+							align = "center" :: "center",
 							UI.Toggle "Music" {
 								label = "Music",
 								value = farm.music,
-							},
+							} :: unknown,
 							UI.Button "View" {
-								label = function(use)
+								label = function(use: Use)
 									return if use(farm.view) == "3d" then "2D board" else "3D farm"
 								end,
 								onActivate = function()
@@ -522,11 +532,11 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				title = "Seed market",
 				isPresented = farm.marketOpen,
 				detent = Compose.cell("medium"),
-				content = function()
+				content = function(): Instance
 					return UI.VStack "Seeds" {
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "s",
-						table.unpack(marketRows()),
+						table.unpack((marketRows() :: unknown) :: { unknown }),
 					}
 				end,
 			},
@@ -536,17 +546,19 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 					return `Level {farm.level:peek()}!`
 				end,
 				message = "New seeds may be waiting in the market.",
-				actions = { { id = "ok", label = "Keep farming" } },
+				actions = {
+					{ id = "ok", label = "Keep farming" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+				},
 			},
 			Compose.keyed({
-				from = function(use)
+				from = function(use: Use)
 					local toast = use(farm.toast)
 					return if toast then { toast.serial } else {}
 				end,
-				render = function(current)
+				render = function(current): GuiObject
 					local serial = current:peek()
 					return UI.Toast("Toast" .. serial)({
-						isPresented = function(use)
+						isPresented = function(use: Use)
 							local toast = use(farm.toast)
 							return toast ~= nil and toast.serial == serial
 						end,
@@ -571,17 +583,17 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 end
 
 function screens.backdrop(Host: any, types: any, farm: any)
-	local function blend(use): number
+	local function blend(use: Use): number
 		if farm.blend then
 			return use(farm.blend)
 		end
 		return if use(farm.view) == "3d" then 1 else 0
 	end
 	return Host.Frame "Meadow" {
-		Visible = function(use)
+		Visible = function(use: Use)
 			return blend(use) < 1
 		end,
-		BackgroundTransparency = function(use)
+		BackgroundTransparency = function(use: Use)
 			return math.clamp(blend(use) / 0.35, 0, 1)
 		end,
 		Size = types.UDim2.fromScale(1, 1),

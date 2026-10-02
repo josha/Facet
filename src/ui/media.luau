@@ -597,8 +597,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 		end
 		if spec.shape == "circle" then
-			table.insert(defaults, Host.UICorner({ CornerRadius = ctx.round }))
-			table.insert(defaults, Host.UIAspectRatioConstraint({ AspectRatio = 1 }))
+			defaults[#defaults + 1] = Host.UICorner({ CornerRadius = ctx.round })
+			defaults[#defaults + 1] = Host.UIAspectRatioConstraint({ AspectRatio = 1 })
 		end
 		return Host.ImageLabel(ctx.props(spec, keys, defaults))
 	end)
@@ -1143,71 +1143,65 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				ClipsDescendants = false,
 			}
 			if trail then
-				table.insert(
-					track,
-					ctx.styled(
-						Host.Frame "Trail" {
-							BackgroundTransparency = 0.6,
-							BorderSizePixel = 0,
-							ZIndex = 0,
-							Size = function(use: ComposeTypes.Use)
-								local fraction = if motionReduced(use)
-									then use(progress)
-									else math.max(use(trail :: ComposeTypes.Formula<number>), use(progress))
-								return if vertical(use) then D2.fromScale(1, fraction) else D2.fromScale(fraction, 1)
-							end,
-							AnchorPoint = function(use: ComposeTypes.Use)
-								return if reversed(use)
-									then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
-									else V2.new(0, 0)
-							end,
-							Position = function(use: ComposeTypes.Use)
-								return if reversed(use)
-									then (if vertical(use) then D2.fromScale(0, 1) else D2.fromScale(1, 0))
-									else D2.fromScale(0, 0)
-							end,
-						},
-						"fill"
-					)
+				track[#track + 1] = ctx.styled(
+					Host.Frame "Trail" {
+						BackgroundTransparency = 0.6,
+						BorderSizePixel = 0,
+						ZIndex = 0,
+						Size = function(use: ComposeTypes.Use)
+							local fraction = if motionReduced(use)
+								then use(progress)
+								else math.max(use(trail :: ComposeTypes.Formula<number>), use(progress))
+							return if vertical(use) then D2.fromScale(1, fraction) else D2.fromScale(fraction, 1)
+						end,
+						AnchorPoint = function(use: ComposeTypes.Use)
+							return if reversed(use)
+								then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
+								else V2.new(0, 0)
+						end,
+						Position = function(use: ComposeTypes.Use)
+							return if reversed(use)
+								then (if vertical(use) then D2.fromScale(0, 1) else D2.fromScale(1, 0))
+								else D2.fromScale(0, 0)
+						end,
+					},
+					"fill"
 				)
 			end
 			for index = 1, count do
-				table.insert(
-					track,
-					ctx.styled(
-						Host.Frame({
-							Name = "Fill" .. index,
-							ClipsDescendants = true,
-							AnchorPoint = fixed(function(use: ComposeTypes.Use)
-								return if reversed(use)
-									then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
-									else V2.new(0, 0)
-							end),
-							BorderSizePixel = 0,
-							Size = fixed(function(use: ComposeTypes.Use)
-								local fraction = if indeterminate
-									then 0.3
-									else math.clamp(use(progress) * count - (index - 1), 0, 1)
-								local gap = if count > 1 and fraction > 0 then -2 else 0
-								return if vertical(use)
-									then D2.new(1, 0, fraction / count, gap)
-									else D2.new(fraction / count, gap, 1, 0)
-							end),
-							Position = fixed(function(use: ComposeTypes.Use)
-								local position = if indeterminate
-									then (if motionReduced(use) then use(progress) * 0.7 else use(progress) * 1.3 - 0.3)
-									else (index - 1) / count
-								if reversed(use) then
-									position = 1 - position
-								end
-								return D2.fromScale(
-									if vertical(use) then 0 else position,
-									if vertical(use) then position else 0
-								)
-							end),
-						}),
-						"fill"
-					)
+				track[#track + 1] = ctx.styled(
+					Host.Frame({
+						Name = "Fill" .. index,
+						ClipsDescendants = true,
+						AnchorPoint = fixed(function(use: ComposeTypes.Use)
+							return if reversed(use)
+								then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
+								else V2.new(0, 0)
+						end),
+						BorderSizePixel = 0,
+						Size = fixed(function(use: ComposeTypes.Use)
+							local fraction = if indeterminate
+								then 0.3
+								else math.clamp(use(progress) * count - (index - 1), 0, 1)
+							local gap = if count > 1 and fraction > 0 then -2 else 0
+							return if vertical(use)
+								then D2.new(1, 0, fraction / count, gap)
+								else D2.new(fraction / count, gap, 1, 0)
+						end),
+						Position = fixed(function(use: ComposeTypes.Use)
+							local position = if indeterminate
+								then (if motionReduced(use) then use(progress) * 0.7 else use(progress) * 1.3 - 0.3)
+								else (index - 1) / count
+							if reversed(use) then
+								position = 1 - position
+							end
+							return D2.fromScale(
+								if vertical(use) then 0 else position,
+								if vertical(use) then position else 0
+							)
+						end),
+					}),
+					"fill"
 				)
 			end
 			local clipped: Engine.FrameNativeProps = {
@@ -1224,13 +1218,13 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
 			}
-			for _, child in ipairs(track) do
-				table.insert(clipped, child)
+			for _, child in ipairs((track :: unknown) :: { unknown }) do
+				clipped[#clipped + 1] = child
 			end
 			for index = #track, 1, -1 do
-				table.remove(track, index)
+				table.remove((track :: unknown) :: { unknown }, index)
 			end
-			table.insert(track, Host.Frame(clipped))
+			track[#track + 1] = Host.Frame(clipped)
 			content = skin(ctx.styled(Host.Frame(track), "track"), "barTrack")
 			local trackSize = ctx.layoutSize(content)
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -1296,29 +1290,26 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				local count = 8
 				for index = 1, count do
 					local angle = (index - 1) / count * math.pi * 2 - math.pi / 2
-					table.insert(
-						native,
-						ctx.styled(
-							Host.Frame("Segment" .. index)({
-								AnchorPoint = V2.new(0.5, 0.5),
-								BorderSizePixel = 0,
-								Position = D2.fromScale(0.5 + math.cos(angle) * 0.4, 0.5 + math.sin(angle) * 0.4),
-								Size = function(use: ComposeTypes.Use)
-									local thickness = read(spec.thickness, use)
-										or metric("controls.progress.spinnerDotSize", use)
-									return D2.fromOffset(thickness, thickness)
-								end,
-								BackgroundTransparency = function(use: ComposeTypes.Use)
-									local value = use(progress)
-									if not indeterminate then
-										return if index / count <= value then 0 else 0.85
-									end
-									return ((index / count - value) % 1) * 0.85
-								end,
-								Host.UICorner({ CornerRadius = ctx.round }),
-							}),
-							"fill"
-						)
+					native[#native + 1] = ctx.styled(
+						Host.Frame("Segment" .. index)({
+							AnchorPoint = V2.new(0.5, 0.5),
+							BorderSizePixel = 0,
+							Position = D2.fromScale(0.5 + math.cos(angle) * 0.4, 0.5 + math.sin(angle) * 0.4),
+							Size = function(use: ComposeTypes.Use)
+								local thickness = read(spec.thickness, use)
+									or metric("controls.progress.spinnerDotSize", use)
+								return D2.fromOffset(thickness, thickness)
+							end,
+							BackgroundTransparency = function(use: ComposeTypes.Use)
+								local value = use(progress)
+								if not indeterminate then
+									return if index / count <= value then 0 else 0.85
+								end
+								return ((index / count - value) % 1) * 0.85
+							end,
+							Host.UICorner({ CornerRadius = ctx.round }),
+						}),
+						"fill"
 					)
 				end
 			else
@@ -1366,7 +1357,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 						end
 						path:SetControlPoints(nativePoints)
 					end)
-					table.insert(native, path)
+					native[#native + 1] = path
 				end
 			end
 			content = Host.Frame(native)
@@ -1516,30 +1507,27 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				},
 			}
 			if form == "circle" then
-				table.insert(native, Host.UICorner({ CornerRadius = ctx.round }))
+				native[#native + 1] = Host.UICorner({ CornerRadius = ctx.round })
 			elseif spec.corners then
-				table.insert(
-					native,
-					Host.UICorner({
-						CornerRadius = function(use: ComposeTypes.Use)
-							local value = read(spec.corners, use)
-							if value == "pill" then
-								return D.new(1, 0)
-							end
-							if value == "square" then
-								return D.new(0, 0)
-							end
-							if value == "rounded" or value == "control" then
-								return D.new(0, metric("radii.control", use))
-							end
-							if value == "panel" then
-								return D.new(0, metric("radii.panel", use))
-							end
-							assert(type(value) == "number" and value >= 0, "Facet Skeleton invalid corners")
-							return D.new(0, value)
-						end,
-					})
-				)
+				native[#native + 1] = Host.UICorner({
+					CornerRadius = function(use: ComposeTypes.Use)
+						local value = read(spec.corners, use)
+						if value == "pill" then
+							return D.new(1, 0)
+						end
+						if value == "square" then
+							return D.new(0, 0)
+						end
+						if value == "rounded" or value == "control" then
+							return D.new(0, metric("radii.control", use))
+						end
+						if value == "panel" then
+							return D.new(0, metric("radii.panel", use))
+						end
+						assert(type(value) == "number" and value >= 0, "Facet Skeleton invalid corners")
+						return D.new(0, value)
+					end,
+				})
 			end
 			table.insert(rows, ctx.styled(Host.Frame(native), "skeleton"))
 		end
@@ -1596,24 +1584,18 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			}
 			local custom = spec.placeholder
 			if custom then
-				table.insert(
-					placeholder,
-					Compose.show(function(use: ComposeTypes.Use)
-						return use(state) ~= "ready"
-					end, function()
-						return custom(state)
-					end)
-				)
+				placeholder[#placeholder + 1] = Compose.show(function(use: ComposeTypes.Use)
+					return use(state) ~= "ready"
+				end, function()
+					return custom(state)
+				end)
 			end
 			if spec.failureLabel ~= nil then
-				table.insert(
-					placeholder,
-					Compose.show(function(use: ComposeTypes.Use)
-						return use(state) == "failed"
-					end, function()
-						return ctx.text({ Text = bind(spec.failureLabel, ""), Size = D2.fromScale(1, 1) })
-					end)
-				)
+				placeholder[#placeholder + 1] = Compose.show(function(use: ComposeTypes.Use)
+					return use(state) == "failed"
+				end, function()
+					return ctx.text({ Text = bind(spec.failureLabel, ""), Size = D2.fromScale(1, 1) })
+				end)
 			end
 			local node = Host.Frame(placeholder)
 			return if spec.placeholder then node else ctx.styled(node, "skeleton")

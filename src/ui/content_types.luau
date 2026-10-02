@@ -18,7 +18,7 @@ export type PaginationSpec = Types.FrameProps & {
 	showFirstLast: boolean?,
 	form: PaginationForm?,
 	direction: ("ltr" | "rtl")?,
-	controlSize: Value<Types.ControlSize>?,
+	controlSize: Value<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
@@ -37,7 +37,7 @@ export type StepIndicatorSpec = Types.FrameProps & {
 	onSelect: ((string) -> ())?,
 	sizing: ("fill" | "hug")?,
 	listLabel: string?,
-	controlSize: Value<Types.ControlSize>?,
+	controlSize: Value<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
@@ -47,7 +47,7 @@ export type VoteSpec = Types.FrameProps & {
 	onChange: ((VoteValue) -> ())?,
 	summary: Types.ValueString?,
 	readOnly: Types.ValueBoolean?,
-	controlSize: Value<Types.ControlSize>?,
+	controlSize: Value<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }

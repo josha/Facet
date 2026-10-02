@@ -1,5 +1,15 @@
 --!strict
 
+type Need = {
+	name: string,
+	kind: string,
+	section: string,
+	fields: { string }?,
+	authority: string,
+	capability: string,
+	fallback: number | { [string]: number },
+}
+
 local ornate_gauge = {}
 
 ornate_gauge.namespace = "gauge"
@@ -17,17 +27,18 @@ ornate_gauge.NEEDLE_PX = 24
 ornate_gauge.needs = table.freeze({
 	table.freeze({
 		name = "gauge:dial",
-		kind = "controlSize",
+		kind = "controlSize" :: string,
 		section = "metrics.controlSizes",
-		fields = table.freeze({ "height", "paddingX", "iconSize" }),
+		fields = table.freeze({ "height", "paddingX", "iconSize" }) :: { string }?,
 		authority = "layout",
 		capability = "none",
-		fallback = table.freeze({ height = 44, paddingX = 12, iconSize = 18 }),
+		fallback = table.freeze({ height = 44, paddingX = 12, iconSize = 18 }) :: number | { [string]: number },
 	}),
 	table.freeze({
 		name = "gauge:needle",
-		kind = "color",
+		kind = "color" :: string,
 		section = "style.themes[].extra",
+		fields = nil :: { string }?,
 		authority = "paint",
 		capability = "none",
 
@@ -35,8 +46,9 @@ ornate_gauge.needs = table.freeze({
 	}),
 	table.freeze({
 		name = "gauge:ring",
-		kind = "number",
+		kind = "number" :: string,
 		section = "metrics.radii",
+		fields = nil :: { string }?,
 		authority = "paint",
 		capability = "none",
 		fallback = 6,
@@ -123,7 +135,7 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 		Size = function(use: any)
 			return UDim2.new(1, 0, 0, height(use))
 		end,
-		Host.UICorner({ CornerRadius = UDim.new(0, resolved.ring) }),
+		Host.UICorner({ CornerRadius = UDim.new(0, resolved.ring) }) :: unknown,
 		Host.ImageLabel(name .. "Face")({
 			Image = ornate_gauge.ART.face,
 			BackgroundTransparency = 1,
@@ -153,10 +165,10 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
+		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }) :: unknown,
 		UI.Text(name .. "Label")({
 			text = o.label or "Boiler pressure (gauge:dial)",
-			textRole = "caption",
+			textRole = "caption" :: "caption",
 			LayoutOrder = 1,
 		}),
 		dial,

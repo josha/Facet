@@ -2,7 +2,15 @@
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -13,7 +21,7 @@ local function api(command: string, argument: any): any
 end
 
 local function gallery(): ScreenGui
-	return Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery") :: ScreenGui
+	return (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery") :: ScreenGui
 end
 
 local function screenRect(t: any): any
@@ -117,7 +125,7 @@ add("collection-toolbar-variants", { "risk:collection-toolbar" }, function(t)
 	local size = if reference then reference.Parent.AbsoluteSize else Vector2.new(644, 213)
 	local folder = storage:WaitForChild("FacetScenarios")
 	local demo = (require :: any)(folder:WaitForChild("collection_demo"))
-	local variants = {
+	local variants: { { name: string, module: string?, build: ((any) -> any)? } } = {
 		{
 			name = "Mail table",
 			build = function(ctx)
@@ -148,23 +156,31 @@ add("collection-toolbar-variants", { "risk:collection-toolbar" }, function(t)
 		{ name = "Large table", module = "table_virtualized" },
 	}
 	for _, variant in variants do
-		local stage = t.mount(function(UI, Host, Compose, env)
-			local ctx = {
-				Facet = t.Facet,
-				Compose = Compose,
-				runtime = env.runtime,
-				Host = Host,
-				UI = UI,
-				viewport = env.viewport,
-				types = env.types,
-				guiService = game:GetService("GuiService"),
-				runService = game:GetService("RunService"),
-			}
-			local built = if variant.module
-				then (require :: any)(folder:WaitForChild(variant.module)).build(ctx)
-				else variant.build(ctx)
-			return built.screen()
-		end, { size = size, frames = 20 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core")),
+				env
+			)
+				local ctx = {
+					Facet = t.Facet,
+					Compose = Compose,
+					runtime = env.runtime,
+					Host = Host,
+					UI = UI,
+					viewport = env.viewport,
+					types = env.types,
+					guiService = game:GetService("GuiService"),
+					runService = game:GetService("RunService"),
+				}
+				local built = if variant.module
+					then (require :: any)(folder:WaitForChild(variant.module)).build(ctx)
+					else assert(variant.build)(ctx)
+				return built.screen()
+			end,
+			{ size = size, frames = 20 }
+		)
 		local scroll = t.find(stage, "ToolbarScroll")
 		if scroll then
 			toolbarChecks(t, variant.name, scroll.Parent)
@@ -192,11 +208,11 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 		local toolbar = shell and shell:FindFirstChild("Toolbar")
 		local compact = toolbar == nil or not t.visible(toolbar)
 
-		local strip = gallery().Parent:FindFirstChild("FacetGalleryMenu")
+		local strip = assert(assert(gallery()).Parent):FindFirstChild("FacetGalleryMenu")
 		local screen = if compact and strip then t.rect(strip) else screenRect(t)
 		local settings = if compact
 			then strip and visibleNamed(t, strip, "Demos")
-			else visibleNamed(t, toolbar, "Settings")
+			else visibleNamed(t, assert(toolbar), "Settings")
 		if not settings then
 			t.check(name .. " Settings control visible", false, { compact = compact })
 			continue

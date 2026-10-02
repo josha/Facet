@@ -6,7 +6,7 @@ rewards.THRESHOLD = 10
 rewards.REDEEM_COST = 10
 
 function rewards.new(opts: any)
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 
 	local batch = opts.batch
 

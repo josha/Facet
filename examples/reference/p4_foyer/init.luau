@@ -1,23 +1,28 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local Services = require("@self/services")
 local seed = require("@self/content/seed")
 local strings = require("@self/content/strings")
 local referenceView = require("./view")
 local Foyer = { title = "Foyer" }
-function Foyer.build(ctx)
-	local Compose, UI, Host = ctx.Compose, ctx.UI, ctx.Host
+function Foyer.build(ctx: ExampleContext)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")), UI, Host = ctx.Compose, ctx.UI, ctx.Host
 	local D2 = ctx.types.UDim2
 	local view = referenceView(ctx)
 	local services = Services.new({ Compose = Compose })
 	local destination, tab, query, locale =
 		Compose.cell("home"), Compose.cell("forYou"), Compose.cell(""), Compose.cell("en")
 	local selected, detailOpen, notifications, invite =
-		Compose.cell(nil), Compose.cell(false), Compose.cell(false), Compose.cell(false)
-	local sectionOpen, expanded = Compose.cell(false), Compose.cell(nil)
+		(function(value: string?): typeof(require("@repo/tools/typecheck/example_shapes").optionalStringCell(nil))
+			return Compose.cell(value)
+		end)(nil), Compose.cell(false), Compose.cell(false), Compose.cell(false)
+	local sectionOpen, expanded = Compose.cell(false), Compose.cell(nil :: { tiles: { seed.Tile } }?)
 	local filtered = services.filterMemo(query)
 	local notice = Compose.cell("")
 	local function text(key, param)
-		return function(use)
+		return function(use: Use)
 			return strings.get(use(locale), key, param)
 		end
 	end
@@ -35,7 +40,7 @@ function Foyer.build(ctx)
 			beat:Disconnect()
 		end)
 	end
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		local status = use(services.refreshStatus)
 		if status == "confirmed" then
 			notice:set(strings.get(locale:peek(), "toast.refreshed"))
@@ -43,14 +48,14 @@ function Foyer.build(ctx)
 			notice:set(strings.get(locale:peek(), services.refreshReason:peek() or "err.generic"))
 		end
 	end)
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		if use(services.visitStatus) == "confirmed" then
 			notice:set(strings.get(locale:peek(), "toast.visited"))
 		elseif use(services.visitStatus) == "rejected" then
 			notice:set(strings.get(locale:peek(), "err.generic"))
 		end
 	end)
-	local function image(key, size)
+	local function image(key: string, size: UDim2?)
 		return UI.AsyncImage "Artwork" {
 			source = key,
 			Size = size or D2.new(1, 0, 0, 140),
@@ -65,7 +70,7 @@ function Foyer.build(ctx)
 			end,
 		}
 	end
-	local function tile(item)
+	local function tile(item: seed.Tile)
 		return view.column(item.id, {
 			image(item.thumbKey),
 			view.action("Open", item.title, function()
@@ -84,12 +89,12 @@ function Foyer.build(ctx)
 				return item.id
 			end,
 			itemSize = 258,
-			columns = function(use)
+			columns = function(use: Use)
 				return math.max(1, math.floor((use(ctx.viewport).width - 32) / 232))
 			end,
 			gap = 12,
 			Size = D2.fromScale(1, 1),
-			render = function(current)
+			render = function(current): GuiObject
 				return tile(current:peek())
 			end,
 		}
@@ -98,10 +103,10 @@ function Foyer.build(ctx)
 		return view.page("Feed", {
 			view.text("Foyer", 30),
 			UI.TextInput "Search" { value = query, placeholder = text("search.ph") },
-			view.action("Refresh", text("refresh.label"), services.refresh, function(use)
+			view.action("Refresh", text("refresh.label"), services.refresh, function(use: Use)
 				return use(services.refreshStatus) ~= "pending"
 			end),
-			view.action("Notifications", function(use)
+			view.action("Notifications", function(use: Use)
 				return strings.get(use(locale), "bell.label") .. " · " .. tostring(use(services.noticeCount))
 			end, function()
 				services.clearNotices()
@@ -109,16 +114,19 @@ function Foyer.build(ctx)
 			end),
 			UI.Picker "FeedSelection" {
 				selected = tab,
-				options = { { value = "forYou", label = "For you" }, { value = "charts", label = "Charts" } },
+				options = {
+					{ value = "forYou", label = "For you" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "charts", label = "Charts" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				},
 			},
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return use(query) ~= ""
 			end, function()
 				return view.column("SearchResults", {
 					view.list(filtered, function(current)
 						return tile(current:peek())
 					end),
-					Compose.show(function(use)
+					Compose.show(function(use: Use)
 						return #use(filtered) == 0
 					end, function()
 						return view.text(text("search.none"))
@@ -126,7 +134,7 @@ function Foyer.build(ctx)
 				})
 			end, function()
 				return view.column("Sections", {
-					view.list(function(use)
+					view.list(function(use: Use)
 						return if use(tab) == "charts" then services.charted else use(services.sections)
 					end, function(current)
 						local entry = current:peek()
@@ -141,7 +149,7 @@ function Foyer.build(ctx)
 								end
 							),
 							view.column("Tiles", {
-								view.list(function(use)
+								view.list(function(use: Use)
 									return use(current).tiles
 								end, function(item)
 									return tile(item:peek())
@@ -166,7 +174,9 @@ function Foyer.build(ctx)
 						image(friend.portraitKey, D2.fromOffset(60, 60)),
 						view.text(friend.handle, 22),
 						UI.StatusIndicator({
-							status = if friend.presence == "here" then "success" else "neutral",
+							status = if friend.presence == "here"
+								then "success" :: "success"
+								else "neutral" :: "neutral",
 						}),
 						view.text(friend.presence),
 					})
@@ -174,7 +184,7 @@ function Foyer.build(ctx)
 			}),
 		})
 	end
-	local function mailbox()
+	local function mailbox(): Instance
 		return view.page("Mail", {
 			view.text(text("notices.title"), 28),
 			view.column("Notices", {
@@ -193,42 +203,46 @@ function Foyer.build(ctx)
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			UI.TabView "Destinations" {
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				selection = destination,
 				Size = D2.new(1, 0, 1, -64),
 				tabs = {
-					{ id = "home", label = text("nav.home"), content = feed },
-					{ id = "crews", label = text("nav.crews"), content = friends },
+					{ id = "home", label = text("nav.home"), content = feed } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "crews", label = text("nav.crews"), content = friends } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 					{
 						id = "forge",
 						label = text("nav.forge"),
-						content = function()
+						content = function(): Instance
 							return view.page(
 								"Forge",
 								{ view.text(text("nav.forge"), 28), view.text(text("stub.honest")) }
 							)
 						end,
-					},
-					{ id = "mail", label = text("nav.mail"), content = mailbox },
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "mail", label = text("nav.mail"), content = mailbox } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 					{
 						id = "you",
 						label = text("nav.you"),
-						content = function()
+						content = function(): Instance
 							return view.page("Profile", {
 								view.text(text("profile.label"), 28),
 								view.text(text("profile.caption")),
 								UI.Picker "Locale" {
 									selected = locale,
 									options = {
-										{ value = "en", label = "English" },
-										{ value = "xa", label = "Expanded" },
+										{ value = "en", label = "English" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
+											nil :: any
+										)),
+										{ value = "xa", label = "Expanded" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(
+											nil :: any
+										)),
 									},
 								},
 							})
 						end,
-					},
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 				},
-			},
+			} :: unknown,
 			UI.Text({
 				text = notice,
 				TextWrapped = true,
@@ -240,7 +254,7 @@ function Foyer.build(ctx)
 				title = "World",
 				isPresented = detailOpen,
 				detent = Compose.cell("large"),
-				content = function()
+				content = function(): Instance
 					local item = services.tileById(selected:peek())
 					return view.page("World", {
 						image(item.thumbKey),
@@ -248,14 +262,14 @@ function Foyer.build(ctx)
 						view.text(item.creator),
 						view.text(item.blurb),
 						view.text(`{item.approval}% approval`),
-						view.action("Visit", function(use)
+						view.action("Visit", function(use: Use)
 							return strings.get(
 								use(locale),
 								if use(services.visitStatus) == "pending" then "detail.visiting" else "detail.visit"
 							)
 						end, function()
 							services.visit(item.id)
-						end, function(use)
+						end, function(use: Use)
 							return use(services.visitStatus) ~= "pending"
 						end),
 					})
@@ -265,8 +279,8 @@ function Foyer.build(ctx)
 				title = "Explore worlds",
 				isPresented = sectionOpen,
 				detent = Compose.cell("large"),
-				content = function()
-					return tiles(expanded:peek().tiles)
+				content = function(): Instance
+					return tiles(assert(expanded:peek()).tiles)
 				end,
 			},
 			UI.Sheet "Notifications" {
@@ -279,7 +293,9 @@ function Foyer.build(ctx)
 				isPresented = invite,
 				title = Compose.formula(text("invite.label")),
 				message = Compose.formula(text("invite.stub")),
-				actions = { { id = "close", label = text("close.label"), role = "cancel" } },
+				actions = {
+					{ id = "close", label = text("close.label"), role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+				},
 			},
 		}
 	end

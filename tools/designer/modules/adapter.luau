@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local library = require("./library")
 local document = require("./document")
@@ -229,16 +231,16 @@ function adapter.evaluate(item: any, ctx: any, locals: any): any
 	elseif tag == "row" then
 		return function(current)
 			return ctx.UI.Text "RowLabel" {
-				text = function(use)
+				text = function(use: Use)
 					local row = use(current)
 					return tostring(row.label or row.name or row.id or "Item")
 				end,
-				wrap = true,
+				TextWrapped = true,
 			}
 		end
 	elseif tag == "content" then
 		return function()
-			local props = { gap = "s", width = "fill" }
+			local props = { gap = "s", width = "fill" :: "fill" }
 			for _, node in item.nodes do
 				table.insert(props, ctx.render(node))
 			end
@@ -294,7 +296,7 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 	elseif tag == "column" then
 		return "function(row) return row[" .. values.literal(item.key) .. "] end"
 	elseif tag == "row" then
-		return 'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, wrap = true } end'
+		return 'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
 	elseif tag == "anchor" then
 		return "anchor_" .. item.node.id
 	elseif tag == "content" then

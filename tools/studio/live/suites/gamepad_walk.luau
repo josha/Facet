@@ -4,7 +4,15 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -15,7 +23,7 @@ local function api(command: string, argument: any): any
 end
 
 local function gallery(): ScreenGui
-	return Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery") :: ScreenGui
+	return (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery") :: ScreenGui
 end
 
 local function press(name: string): Instance?
@@ -25,7 +33,7 @@ local function press(name: string): Instance?
 end
 
 local function controls(t: any, layer: Instance): { GuiObject }
-	local out = {}
+	local out: { GuiObject } = {}
 	for _, node in layer:GetDescendants() do
 		if
 			(node:IsA("GuiButton") or node:IsA("TextBox"))
@@ -34,7 +42,7 @@ local function controls(t: any, layer: Instance): { GuiObject }
 			and t.visible(node)
 			and t.clipped(node)
 		then
-			table.insert(out, node)
+			table.insert(out, node :: GuiObject)
 		end
 	end
 	return out
@@ -114,7 +122,7 @@ end
 
 local function demos(): { string }
 	local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
-	local out = {}
+	local out: { string } = {}
 	for _, entry in screen.list() do
 		table.insert(out, if type(entry) == "table" then entry.id else entry)
 	end
@@ -199,7 +207,7 @@ local function reach(t: any, id: string)
 	for _, node in pool do
 		wanted[node] = true
 	end
-	local start = pool[1]
+	local start: GuiObject? = pool[1]
 	if start == nil then
 		t.check(`{id} has a selectable control`, false)
 		return
@@ -223,7 +231,7 @@ local function reach(t: any, id: string)
 			presses += 1
 			if landed and landed ~= from and landed:IsDescendantOf(layer) and not reached[landed] then
 				reached[landed] = true
-				table.insert(queue, landed)
+				table.insert(queue, landed :: GuiObject)
 			end
 		end
 	end

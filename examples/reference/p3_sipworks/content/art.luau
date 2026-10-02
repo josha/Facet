@@ -50,7 +50,7 @@ function art.of(kind: string, id: string): Art
 	if hit ~= nil then
 		return hit
 	end
-	return { mark = "?", role = "surfaceStrong", blend = 0.5, image = nil }
+	return { mark = "?", role = "surfaceStrong" :: "surfaceStrong", blend = 0.5, image = nil }
 end
 
 art.entries = entries

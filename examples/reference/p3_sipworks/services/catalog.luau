@@ -126,10 +126,10 @@ function catalog.new()
 			return {}
 		end
 		return {
-			{ key = "facts.leaf", kind = "grams", value = round(self.gramsOf(measure), 1) },
-			{ key = "facts.caffeine", kind = "mg", value = math.floor(self.caffeineOf(measure) + 0.5) },
-			{ key = "facts.steep", kind = "minutes", value = botanical.steepMinutes },
-			{ key = "facts.warmth", kind = "warmth", value = botanical.warmth },
+			{ key = "facts.leaf", kind = "grams" :: "grams", value = round(self.gramsOf(measure), 1) },
+			{ key = "facts.caffeine", kind = "mg" :: "mg", value = math.floor(self.caffeineOf(measure) + 0.5) },
+			{ key = "facts.steep", kind = "minutes" :: "minutes", value = botanical.steepMinutes },
+			{ key = "facts.warmth", kind = "warmth" :: "warmth", value = botanical.warmth },
 		}
 	end
 

@@ -38,7 +38,7 @@ for line in string.gmatch(injectedOut, "[^\n]+") do
 end
 
 print(`prove_perf_gate: injected run exit={injectedCode} (expected nonzero)`)
-local injectedViolations = {}
+local injectedViolations: { { scene: string, kind: string } } = {}
 local stampedAsInjected = false
 if fs.isFile(PERF_ARTIFACT) then
 	local injected = serde.decode("json", fs.readFile(PERF_ARTIFACT))

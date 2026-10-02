@@ -1,11 +1,13 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local catalogue = require("../examples/gallery/client/demo_picker")
 local gallery = require("../examples/gallery/client/screen")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 local function find(root: any, name: string, class: string?): any
 	if root.Name == name and (class == nil or root:IsA(class)) then
@@ -38,7 +40,8 @@ end
 local function world(options: any?): any
 	local opts = options or {}
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -53,7 +56,9 @@ local function world(options: any?): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -104,7 +109,8 @@ end
 local function galleryWorld(options: any?): any
 	local opts = options or {}
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -118,7 +124,9 @@ local function galleryWorld(options: any?): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		types = engine.types,
 		viewport = Compose.cell(opts.viewport or { width = 1280, height = 720 }),
 		inputTarget = target,
@@ -128,8 +136,8 @@ local function galleryWorld(options: any?): any
 		selection = Compose.cell(opts.initial or (if opts.fixtures then "all-controls" else "garage")),
 		demos = if opts.fixtures
 			then {
-				{ id = "all-controls", title = "All controls", kind = "fixture", module = "all_controls" },
-				{ id = "collections", title = "Collections", kind = "fixture", module = "collections" },
+				{ id = "all-controls", title = "All controls", kind = "fixture" :: "fixture", module = "all_controls" },
+				{ id = "collections", title = "Collections", kind = "fixture" :: "fixture", module = "collections" },
 			}
 			else nil,
 		theme = Compose.cell(neutral),
@@ -140,7 +148,7 @@ local function galleryWorld(options: any?): any
 	local baseline = engine.census()
 	local roots = Compose.outstandingMounts()
 	local sheet
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = Facet.controls(
 			runtime,
@@ -151,15 +159,15 @@ local function galleryWorld(options: any?): any
 				inputParent = target,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				motionLevel = Compose.formula(function(use)
+				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end),
+				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
 				environment = ctx.environment,
 			} :: any
 		)
 		sheet = Facet.themes.createStyleSheet(runtime, ctx.theme, { types = engine.types, theme = ctx.themeMode })
 		return ctx.Host.ScreenGui "FacetGallery" {
-			sheet,
+			sheet :: unknown,
 			ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 			gallery.build(ctx),
 		}
@@ -206,9 +214,9 @@ end
 local function input(w: any, kind: string): any
 	local E = w.types.Enum
 	if kind == "mouse" then
-		return { UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode.Unknown }
+		return { UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }
 	elseif kind == "touch" then
-		return { UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode.Unknown }
+		return { UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }
 	elseif kind == "gamepad" then
 		return { UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }
 	end
@@ -289,7 +297,7 @@ t.describe("native parity weaker gallery", function()
 	)
 
 	t.it("apps2-66 word game types, deletes and wins through pointer and touch key activations", function()
-		for _, kind in { "mouse", "touch" } do
+		for _, kind in { "mouse", "touch" } :: { "mouse" | "touch" } do
 			local w = world()
 			local built, node, stop = mountBuilt(w, load("example", "05_word_game"))
 			local answer = built.solution()
@@ -315,7 +323,7 @@ t.describe("native parity weaker gallery", function()
 	end)
 
 	t.it("apps2-66 crossword selects then places, undoes and explains an empty submit through touch", function()
-		for _, kind in { "mouse", "touch" } do
+		for _, kind in { "mouse", "touch" } :: { "mouse" | "touch" } do
 			local w = world()
 			local built, node, stop = mountBuilt(w, load("example", "06_tile_game"))
 			local first, second = built.rackLetter(1), built.rackLetter(3)
@@ -365,7 +373,7 @@ t.describe("native parity weaker gallery", function()
 		local expected = ref.boardSnapshot()
 		stopRef()
 		reference.runtime:dispose()
-		for _, kind in { "mouse", "touch" } do
+		for _, kind in { "mouse", "touch" } :: { "mouse" | "touch" } do
 			local w = world()
 			local built, node, stop = mountBuilt(w, load("example", "07_match3"))
 			built.debugSetBoard(board)
@@ -559,7 +567,8 @@ t.describe("native parity weaker gallery", function()
 
 	t.it("apps2-261 featured carousel opens a game and hides on the Saved shelf and a short viewport", function()
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, uis = engine.new("GuiService"), engine.new("UserInputService")
 		uis.GetFocusedTextBox = function()
@@ -577,7 +586,7 @@ t.describe("native parity weaker gallery", function()
 				services = { GuiService = gui, UserInputService = uis },
 				motionLevel = "none",
 			})
-			local _, discover = runtime.mount(views.Discover, target)
+			local _, discover: any = runtime.mount(views.Discover, target)
 			local body = find(discover, "DiscoverBody")
 			body.AbsoluteSize = engine.types.Vector2.new(1000, 800)
 			local first = model.catalog.items:peek()[1]
@@ -604,7 +613,7 @@ t.describe("native parity weaker gallery", function()
 	end)
 
 	t.it("apps2-285 every input class moves the objective marker, including after a resize", function()
-		for _, kind in { "gamepad", "keyboard", "touch", "mouse" } do
+		for _, kind in { "gamepad", "keyboard", "touch", "mouse" } :: { "gamepad" | "keyboard" | "mouse" | "touch" } do
 			local w = world()
 			local built, node, stop = mountBuilt(w, load("fixture", "world_markers"))
 			local map = find(node, "Map")
@@ -820,7 +829,7 @@ t.describe("native parity weaker gallery", function()
 			stop()
 			w.runtime:dispose()
 		end
-		for _, kind in { "mouse", "touch", "gamepad", "keyboard" } do
+		for _, kind in { "mouse", "touch", "gamepad", "keyboard" } :: { "gamepad" | "keyboard" | "mouse" | "touch" } do
 			local w = world()
 			local built, node, stop = mountBuilt(w, load("fixture", "inherited_subtree"))
 			local go, nested, after = find(node, "Go"), find(node, "InnerGo"), find(node, "After")

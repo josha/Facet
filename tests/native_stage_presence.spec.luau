@@ -1,12 +1,14 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 
 local function scene(options: { lazy: boolean?, count: number? }?): any
-	local o = options or {}
+	local o: { lazy: boolean?, count: number? } = options or {}
 	local log = { builds = 0, writes = 0, lives = {} :: { any } }
-	local w = overlay.new(function(UI, Host)
+	local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)), Host)
 		local stages = {}
 		for index = 1, o.count or 1 do
 			table.insert(
@@ -14,11 +16,15 @@ local function scene(options: { lazy: boolean?, count: number? }?): any
 				UI.Stage({
 					Name = "Stage" .. index,
 					lazy = o.lazy,
-					content = function(runtime, world, live)
+					content = function(
+						runtime: Compose.Runtime,
+						world: WorldModel,
+						live: Compose.Readable<boolean>
+					): (() -> ())?
 						log.builds += 1
 						table.insert(log.lives, live)
 						local clock = runtime.timeline({ duration = 4, repeats = math.huge, autoplay = false })
-						Compose.watch(function(use)
+						Compose.watch(function(use: Use)
 							if use(live) then
 								clock:play()
 							else
@@ -27,7 +33,7 @@ local function scene(options: { lazy: boolean?, count: number? }?): any
 						end)
 						local part = Host.Part({
 							Name = "Spinner",
-							Transparency = function(use)
+							Transparency = function(use: Use)
 								return use(clock.progress)
 							end,
 						})
@@ -40,7 +46,7 @@ local function scene(options: { lazy: boolean?, count: number? }?): any
 				})
 			)
 		end
-		return Host.ScrollingFrame({ Name = "Feed", table.unpack(stages) })
+		return Host.ScrollingFrame({ Name = "Feed", table.unpack((stages :: unknown) :: { unknown }) })
 	end)
 	local V = w.Vector2
 	local feed = w.find("Feed")
@@ -157,28 +163,33 @@ t.describe("native Stage presence", function()
 	t.it("drops a queued lazy build when its stage is removed before the frame runs", function()
 		local gate = Compose.cell(true)
 		local builds = 0
-		local w = overlay.new(function(UI, Host)
-			return Host.ScrollingFrame({
-				Name = "Feed",
-				Compose.show(gate, function()
-					local stages = {}
-					for index = 1, 3 do
-						table.insert(
-							stages,
-							UI.Stage({
-								Name = "Stage" .. index,
-								lazy = true,
-								content = function()
-									builds += 1
-									return nil
-								end,
-							})
-						)
-					end
-					return Host.Frame({ Name = "Cards", table.unpack(stages) })
-				end),
-			})
-		end)
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.ScrollingFrame({
+					Name = "Feed",
+					Compose.show(gate, function()
+						local stages = {}
+						for index = 1, 3 do
+							table.insert(
+								stages,
+								UI.Stage({
+									Name = "Stage" .. index,
+									lazy = true,
+									content = function(): (() -> ())?
+										builds += 1
+										return nil
+									end,
+								})
+							)
+						end
+						return Host.Frame({ Name = "Cards", table.unpack((stages :: unknown) :: { unknown }) })
+					end),
+				})
+			end
+		)
 		local V = w.Vector2
 		local feed = w.find("Feed")
 		feed.AbsolutePosition = V.new(0, 0)

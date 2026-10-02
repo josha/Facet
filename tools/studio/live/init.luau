@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
@@ -168,10 +170,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 		return current ~= nil
 	end
 	function t.mount(build: (any, any, any, any) -> any, options: { [string]: any }?): any
-		local config = options or {}
-		local Compose = Facet.Compose
-		local runtime = Facet.Roblox.createRuntime()
-		local Host = runtime.constructors
+		local config: { [string]: any } = options or {}
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime()
+		local Host = (
+			runtime.constructors :: unknown
+		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 		local package = config.theme or themes[1].package
 		local root
 		local emulate = config.size ~= nil and config.emulate ~= false
@@ -182,7 +187,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 			local theme = Compose.cell(package)
 			local palette = Compose.cell(config.palette or package.style.defaultTheme)
 			local viewport = if emulate
-				then Compose.formula(function(use)
+				then Compose.formula(function(use: Use)
 					local size = config.size
 					local value = if Compose.isReadable(size) then use(size) else size
 					return { width = value.X, height = value.Y }
@@ -197,7 +202,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 			})
 			local sheet = Facet.themes.createStyleSheet(runtime, theme, { theme = palette, transition = false })
 			local stage = Host.Frame "Stage" {
-				Size = function(use)
+				Size = function(use: Use)
 					local size = config.size
 					if size == nil then
 						return UDim2.fromScale(1, 1)
@@ -241,7 +246,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 				ResetOnSpawn = false,
 				DisplayOrder = 50,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-				sheet,
+				sheet :: unknown,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				Host.Frame "Backdrop" {
 					Size = UDim2.fromScale(1, 1),
@@ -298,7 +303,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 		return { x = x, y = y, w = r - x, h = b - y, r = r, b = b }
 	end
 	function t.offenders(root: Instance, bounds: any, options: { [string]: any }?): { [string]: any }
-		local config = options or {}
+		local config: { [string]: any } = options or {}
 		local limit = if typeof(bounds) == "Instance" then t.rect(bounds) else bounds
 		local margin = config.margin or 0.5
 		local out = { lateral = {}, vertical = {}, clipped = {} }
@@ -312,10 +317,10 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 				local seen = t.clipped(node)
 				if seen then
 					if seen.x < limit.x - margin or seen.r > limit.r + margin then
-						table.insert(out.lateral, { node.Name, seen.x, seen.r })
+						table.insert(out.lateral, { node.Name :: unknown, seen.x, seen.r })
 					end
 					if seen.y < limit.y - margin or seen.b > limit.b + margin then
-						table.insert(out.vertical, { node.Name, seen.y, seen.b })
+						table.insert(out.vertical, { node.Name :: unknown, seen.y, seen.b })
 					end
 					if
 						(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
@@ -326,7 +331,10 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 						) == true))
 						and node:GetStyled("TextTruncate") == Enum.TextTruncate.None
 					then
-						table.insert(out.clipped, { node.Name, node.ContentText, node.TextBounds, node.AbsoluteSize })
+						table.insert(
+							out.clipped,
+							{ node.Name :: unknown, node.ContentText, node.TextBounds, node.AbsoluteSize }
+						)
 					end
 				end
 			end
@@ -334,53 +342,61 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 		return out
 	end
 	function t.gallery(options: { [string]: any }?): (any, any)
-		local config = options or {}
+		local config: { [string]: any } = options or {}
 		local context
-		local stage = t.mount(function(UI, Host, Compose, env)
-			local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
-			local folder = storage:FindFirstChild("FacetThemes")
-			local packages = screen.themePackages(
-				Facet.themes,
-				if folder then folder:GetChildren() else {},
-				function(module)
-					return (require :: any)(module)
-				end
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core")),
+				env
 			)
-			packages.Neutral = env.theme:peek()
-			context = {
-				Facet = Facet,
-				Compose = Compose,
-				runtime = env.runtime,
-				Host = Host,
-				viewport = env.viewport,
-				types = env.types,
-				worldTarget = workspace,
-				selection = Compose.cell(config.demo or "all-controls"),
-				demos = screen.list(),
-				inputTarget = Players.LocalPlayer:WaitForChild("PlayerGui"),
-				guiService = GuiService,
-				runService = RunService,
-				theme = env.theme,
-				themeMode = env.palette,
-				packages = packages,
-				load = function(kind, name)
-					local source = if kind == "example"
-						then storage:WaitForChild("FacetExamples")
-						elseif kind == "reference" then storage:WaitForChild("FacetReference")
-						else storage:WaitForChild("FacetScenarios")
-					return (require :: any)(source:WaitForChild(name))
-				end,
-			}
-			screen.configure(context)
-			context.UI = UI
-			context.show = function(id: string): any
-				return screen.dispatch(context, "show", id)
-			end
-			context.dispatch = function(command: string, argument: any): any
-				return screen.dispatch(context, command, argument)
-			end
-			return screen.build(context)
-		end, { size = config.size, theme = config.theme, frames = config.frames or 20 })
+				local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
+				local folder = storage:FindFirstChild("FacetThemes")
+				local packages = screen.themePackages(
+					Facet.themes,
+					if folder then folder:GetChildren() else {},
+					function(module)
+						return (require :: any)(module)
+					end
+				)
+				packages.Neutral = env.theme:peek()
+				context = {
+					Facet = Facet,
+					Compose = Compose,
+					runtime = env.runtime,
+					Host = Host,
+					viewport = env.viewport,
+					types = env.types,
+					worldTarget = workspace,
+					selection = Compose.cell(config.demo or "all-controls"),
+					demos = screen.list(),
+					inputTarget = Players.LocalPlayer:WaitForChild("PlayerGui"),
+					guiService = GuiService,
+					runService = RunService,
+					theme = env.theme,
+					themeMode = env.palette,
+					packages = packages,
+					load = function(kind, name)
+						local source = if kind == "example"
+							then storage:WaitForChild("FacetExamples")
+							elseif kind == "reference" then storage:WaitForChild("FacetReference")
+							else storage:WaitForChild("FacetScenarios")
+						return (require :: any)(source:WaitForChild(name))
+					end,
+				}
+				screen.configure(context)
+				context.UI = UI
+				context.show = function(id: string): any
+					return screen.dispatch(context, "show", id)
+				end
+				context.dispatch = function(command: string, argument: any): any
+					return screen.dispatch(context, command, argument)
+				end
+				return screen.build(context)
+			end,
+			{ size = config.size, theme = config.theme, frames = config.frames or 20 }
+		)
 		return stage, context
 	end
 	function t.device(options: { [string]: any }): Vector2
@@ -445,7 +461,7 @@ function live.cases(suite: string): { any }
 end
 
 function live.run(suite: string, options: { [string]: any }?): string
-	local config = options or {}
+	local config: { [string]: any } = options or {}
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local themes = themeModules(Facet)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -464,7 +480,7 @@ function live.run(suite: string, options: { [string]: any }?): string
 		if not case.run or (config.only and not string.find(case.id, config.only, 1, true)) then
 			continue
 		end
-		local record = { id = case.id, contracts = case.contracts or {}, checks = {}, notes = {} }
+		local record: { [string]: any } = { id = case.id, contracts = case.contracts or {}, checks = {}, notes = {} }
 		local t = newCase(Facet, themes, record)
 		local ok, problem = xpcall(case.run, debug.traceback, t)
 		if not record.held then
@@ -660,7 +676,9 @@ end
 
 function live.record(tag: string, suites: { string }?): string
 	local lines = {}
-	for _, suite in suites or { "layout_geometry", "gallery", "needs_live", "motion_continuity", "table_resize" } do
+	local selectedSuites: { string } = suites
+		or { "layout_geometry", "gallery", "needs_live", "motion_continuity", "table_resize" }
+	for _, suite in selectedSuites do
 		local json = live.run(suite, { keepGallery = suite ~= "layout_geometry" })
 		live.save(`{suite}-{tag}`, json)
 		table.insert(lines, live.summary(json))

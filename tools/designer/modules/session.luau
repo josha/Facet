@@ -1,11 +1,16 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local session = {}
 
 function session.mount(Facet: any, parent: Instance, preview: any, options: any): any
-	local Compose = Facet.Compose
-	local runtime = Facet.Roblox.createRuntime(options.engine)
-	local Host = runtime.constructors
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(options.engine)
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local UDim2 = if options.types then options.types.UDim2 else UDim2
 	local Vector2 = if options.types then options.types.Vector2 else Vector2
 	local owner = Compose.createOwner(runtime.reactor)
@@ -30,7 +35,7 @@ function session.mount(Facet: any, parent: Instance, preview: any, options: any)
 		return Compose.withOwner(owner, function()
 			return runtime.mount(function()
 				local function field(key: string)
-					return Compose.formula(function(use)
+					return Compose.formula(function(use: Use)
 						return use(config)[key]
 					end)
 				end
@@ -45,21 +50,21 @@ function session.mount(Facet: any, parent: Instance, preview: any, options: any)
 					keyboardNavigation = options.keyboardNavigation == true,
 					motionLevel = field("motionLevel"),
 					environment = {
-						viewportSize = Compose.formula(function(use)
+						viewportSize = Compose.formula(function(use: Use)
 							local value = use(config)
 							return Vector2.new(value.width, value.height)
 						end),
 						preferredInput = field("input"),
-						touchEnabled = Compose.formula(function(use)
+						touchEnabled = Compose.formula(function(use: Use)
 							return use(config).input == "Touch"
 						end),
-						mouseEnabled = Compose.formula(function(use)
+						mouseEnabled = Compose.formula(function(use: Use)
 							return use(config).input == "KeyboardAndMouse"
 						end),
-						gamepadEnabled = Compose.formula(function(use)
+						gamepadEnabled = Compose.formula(function(use: Use)
 							return use(config).input == "Gamepad"
 						end),
-						keyboardEnabled = Compose.formula(function(use)
+						keyboardEnabled = Compose.formula(function(use: Use)
 							return use(config).input == "KeyboardAndMouse"
 						end),
 						preferredTextSize = field("textSize"),
@@ -87,13 +92,13 @@ function session.mount(Facet: any, parent: Instance, preview: any, options: any)
 				})
 				assert(content ~= nil and content:IsA("GuiObject"), "Preview render must return a GuiObject")
 				root = Host.Frame "FacetDesignSurface" {
-					Size = function(use)
+					Size = function(use: Use)
 						local value = use(config)
 						return UDim2.fromOffset(value.width, value.height)
 					end,
 					ClipsDescendants = true,
 					BorderSizePixel = 0,
-					sheet,
+					sheet :: unknown,
 					Host.StyleLink { StyleSheet = Compose.static(sheet) },
 					content,
 					overlay,

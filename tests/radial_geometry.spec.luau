@@ -4,17 +4,22 @@ local g = require("../src/ui/nav_radial_geometry")
 local it, expect = t.it, t.expect
 t.describe("radial geometry", function()
 	it("radial sectors exclude the hole, preserve compass gaps, and bound overshoot", function()
-		local items = { { id = "up", slot = "N" }, { id = "right", slot = "E" }, { id = "left", slot = "W" } }
+		local items = {
+			{ id = "up", label = "up", slot = "N" :: "N" | "E" | "W" },
+			{ id = "right", label = "right", slot = "E" :: "N" | "E" | "W" },
+			{ id = "left", label = "left", slot = "W" :: "N" | "E" | "W" },
+		}
 		local sectors = g.sectors(items, 0, 360, "compass", 60, 120)
 		expect(g.hit(sectors, 0, 0, "wedges")).toBe(nil)
-		expect(g.hit(sectors, 0, -90, "wedges").id).toBe("up")
+		expect(assert(g.hit(sectors, 0, -90, "wedges")).id).toBe("up")
 		expect(g.hit(sectors, 64, -64, "wedges")).toBe(nil)
 		expect(g.hit(sectors, 0, -140, "wedges")).toBe(nil)
-		expect(g.hit(sectors, 0, -140, "wedges", 32).id).toBe("up")
+		expect(assert(g.hit(sectors, 0, -140, "wedges", 32)).id).toBe("up")
 		expect(g.hit(sectors, 0, -180, "wedges", 32)).toBe(nil)
 	end)
 	it("all corner arcs face inward without rotating authored compass directions", function()
-		local expected = { ["top-left"] = 90, ["top-right"] = 180, ["bottom-right"] = 270, ["bottom-left"] = 0 }
+		local expected: { [string]: number } =
+			{ ["top-left"] = 90, ["top-right"] = 180, ["bottom-right"] = 270, ["bottom-left"] = 0 }
 		for corner, angle in expected do
 			local start, sweep = g.arc(corner)
 			expect(start).toBe(angle)
@@ -22,13 +27,20 @@ t.describe("radial geometry", function()
 		end
 	end)
 	it("direct circular buttons reject rectangular corners", function()
-		local sectors = g.sectors({ { id = "a" } }, 0, 360, "even", 60, 120)
+		local sectors = g.sectors({ { id = "a", label = "a" } }, 0, 360, "even", 60, 120)
 		expect(g.hit(sectors, 29, -61, "buttons")).toBe(nil)
-		expect(g.hit(sectors, 0, -90, "buttons").id).toBe("a")
+		expect(assert(g.hit(sectors, 0, -90, "buttons")).id).toBe("a")
 	end)
 	it("paint seams have the same pixel width at both edges of thick and slim rings", function()
 		for _, band in { 44, 62, 96 } do
-			local sectors = g.sectors({ { id = "a" }, { id = "b" }, { id = "c" } }, 0, 360, "even", 82, 82 + band)
+			local sectors = g.sectors(
+				{ { id = "a", label = "a" }, { id = "b", label = "b" }, { id = "c", label = "c" } },
+				0,
+				360,
+				"even",
+				82,
+				82 + band
+			)
 			local pa, pb = g.paint(sectors[1]), g.paint(sectors[2])
 			local a, b = pa.points[#pa.points], pb.points[1]
 			local ax, ay, bx, by = a.x * pa.w + pa.x, a.y * pa.h + pa.y, b.x * pb.w + pb.x, b.y * pb.h + pb.y
@@ -46,7 +58,7 @@ t.describe("radial geometry", function()
 		end
 	end)
 	it("short arc outlines close both end caps with straight tangents", function()
-		local s = g.sectors({ { id = "a" } }, 0, 90, "even", 82, 144)[1]
+		local s = g.sectors({ { id = "a", label = "a" } }, 0, 90, "even", 82, 144)[1]
 		local p = g.paint(g.fitContent(s, 20, 22, 4, "both"))
 		local outline = p.outline
 		expect(type(outline)).toBe("table")
@@ -63,7 +75,7 @@ t.describe("radial geometry", function()
 	it("content-fitted paint encloses upright icons at every compass direction", function()
 		local items = {}
 		for i = 1, 8 do
-			table.insert(items, { id = tostring(i) })
+			table.insert(items, { id = tostring(i), label = tostring(i) })
 		end
 		for _, s in g.sectors(items, 0, 360, "even", 82, 143.6) do
 			local p = g.fitContent(s, 20, 22, 4, "both")
@@ -81,7 +93,10 @@ t.describe("radial geometry", function()
 	end)
 	it("conflicting compass assignments are rejected", function()
 		local ok = pcall(function()
-			g.sectors({ { id = "a", slot = "N" }, { id = "b", slot = "N" } }, 0, 360, "compass", 60, 120)
+			g.sectors({
+				{ id = "a", label = "a", slot = "N" :: "N" | "E" | "W" },
+				{ id = "b", label = "b", slot = "N" :: "N" | "E" | "W" },
+			}, 0, 360, "compass", 60, 120)
 		end)
 		expect(ok).toBe(false)
 	end)

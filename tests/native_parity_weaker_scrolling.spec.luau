@@ -1,8 +1,12 @@
 --!strict
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 type World = {
 	engine: any,
@@ -21,7 +25,8 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 	engine.clock = function()
 		return now
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -44,11 +49,13 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local node
-	local stop, screen = runtime.mount(function()
+	local stop, screen: any = runtime.mount(function()
 		node = build(UI, Host, engine)
-		return Host.ScreenGui({ node })
+		return Host.ScreenGui({ node :: unknown })
 	end, engine.new("Folder"))
 	return {
 		engine = engine,
@@ -95,7 +102,7 @@ local function records(count: number): { { id: number, label: string } }
 	return values
 end
 
-local function key(item: { id: number }): number
+local function key(item: { id: number, label: string }, _index: number?): number
 	return item.id
 end
 
@@ -109,21 +116,21 @@ local function row(root: any, name: string): any
 end
 
 local function list(count: number, extra: { [string]: any }?): (any, any, any) -> any
-	return function(UI)
-		local spec: { [string]: any } = {
+	return function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		local spec: { [any]: any } = {
 			from = records(count),
 			key = key,
 			itemSize = 20,
 			overscan = 0,
-			render = function(current)
+			render = function(current): GuiObject
 				return UI.Button("Action")({
-					label = function(use)
+					label = function(use: Use)
 						return use(current).label
 					end,
 				})
 			end,
 		}
-		for field, value in extra or {} do
+		for field, value in (extra or {} :: { [string]: any }) do
 			spec[field] = value
 		end
 		return UI.VirtualList(spec)
@@ -248,7 +255,7 @@ t.describe("native parity weaker scrolling", function()
 
 	t.it("collections-183 table autoscroll needs a drag and releases with the drop", function()
 		local requests = {}
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = records(100),
 				key = key,
@@ -257,7 +264,9 @@ t.describe("native parity weaker scrolling", function()
 				onReorder = function(keys, slot)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local body = find(world.node, "Body")
@@ -283,19 +292,21 @@ t.describe("native parity weaker scrolling", function()
 	end)
 
 	t.it("collections-176 table body focus scrolls rows into view minimally in both directions", function()
-		local focus: { [string]: any } = {}
-		local world = setup(function(UI)
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = records(40),
 				key = key,
 				overscan = 0,
 				focus = focus,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local body = find(world.node, "Body")
 		body.AbsoluteWindowSize = V2(world, 200, 200)
-		focus.focus(1)
+		assert(focus.focus)(1)
 		local first = row(body, "1")
 		t.expect(first ~= nil).toBe(true)
 		local height = first.Size.Y.Offset
@@ -306,26 +317,26 @@ t.describe("native parity weaker scrolling", function()
 		for _ = 1, band - 1 do
 			down.Pressed.fire()
 		end
-		t.expect(focus.current:peek()).toBe(band)
+		t.expect(assert(focus.current):peek()).toBe(band)
 		t.expect(body.CanvasPosition.Y).toBe(0)
 		for _ = 1, 3 do
 			down.Pressed.fire()
 		end
-		t.expect(focus.current:peek()).toBe(band + 3)
+		t.expect(assert(focus.current):peek()).toBe(band + 3)
 		t.expect(body.CanvasPosition.Y).toBe((band + 3) * height - 200)
 		t.expect(world.gui.SelectedObject:IsDescendantOf(row(body, tostring(band + 3)))).toBe(true)
 		for _ = 1, band + 2 do
 			up.Pressed.fire()
 		end
-		t.expect(focus.current:peek()).toBe(1)
+		t.expect(assert(focus.current):peek()).toBe(1)
 		t.expect(body.CanvasPosition.Y).toBe(0)
 		world.stop()
 	end)
 
 	t.it("apps-225 engine scrolling reaches the collection observer until teardown", function()
 		local status = Compose.cell({
-			mode = "windowed",
-			direction = "vertical",
+			mode = "windowed" :: "windowed",
+			direction = "vertical" :: "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,
@@ -336,7 +347,7 @@ t.describe("native parity weaker scrolling", function()
 			extent = 0,
 			following = false,
 			measured = 0,
-		} :: Compose.OrderedCollectionStatus)
+		} :: FixtureComposeTypes.OrderedCollectionStatus)
 		local world = setup(list(100, { status = status }))
 		local node = world.node
 		node.AbsoluteWindowSize = V2(world, 200, 100)
@@ -352,8 +363,8 @@ t.describe("native parity weaker scrolling", function()
 		t.expect(node:GetPropertyChangedSignal("CanvasPosition").count()).toBe(0)
 	end)
 
-	local function grid(direction: string)
-		return function(UI)
+	local function grid(direction: "horizontal" | "vertical")
+		return function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VirtualGrid({
 				from = records(400),
 				key = key,
@@ -361,9 +372,9 @@ t.describe("native parity weaker scrolling", function()
 				direction = direction,
 				itemSize = 40,
 				overscan = 0,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.Button("Action")({
-						label = function(use)
+						label = function(use: Use)
 							return use(current).label
 						end,
 					})
@@ -380,8 +391,8 @@ t.describe("native parity weaker scrolling", function()
 		t.expect(row(vertical.node, "1")).toBeNil()
 		t.expect(row(vertical.node, "51") ~= nil).toBe(true)
 		vertical.stop()
-		for _, direction in { "vertical", "horizontal" } do
-			local world = setup(grid(direction))
+		for _, direction in { "vertical", "horizontal" } :: { "horizontal" | "vertical" } do
+			local world = setup(grid(direction :: "horizontal" | "vertical"))
 			world.node.AbsoluteWindowSize = if direction == "vertical" then V2(world, 320, 400) else V2(world, 400, 320)
 			t.expect(row(world.node, "1") ~= nil).toBe(true)
 			t.expect(row(world.node, "41")).toBeNil()
@@ -390,13 +401,13 @@ t.describe("native parity weaker scrolling", function()
 			t.expect(row(world.node, "41") ~= nil).toBe(true)
 			world.stop()
 		end
-		local tableWorld = setup(function(UI)
+		local tableWorld = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = records(400),
 				key = key,
 				overscan = 0,
 				header = false,
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		local body = find(tableWorld.node, "Body")
@@ -450,7 +461,7 @@ t.describe("native parity weaker scrolling", function()
 	end)
 
 	t.it("collections-262 list keys bind arrows and D-pad to one action that steps and reveals rows", function()
-		local focus: { [string]: any } = {}
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
 		local world = setup(list(100, { itemSize = 40, focus = focus }))
 		local node = world.node
 		node.AbsoluteWindowSize = V2(world, 200, 200)
@@ -459,12 +470,18 @@ t.describe("native parity weaker scrolling", function()
 		t.expect(row(node, "13").Position.Y.Offset).toBe(12 * 40)
 		node.CanvasPosition = V2(world, 0, 0)
 		local KeyCode = world.engine.types.Enum.KeyCode
-		local expected = {
-			CollectionDown = { KeyCode.Down, KeyCode.DPadDown },
-			CollectionUp = { KeyCode.Up, KeyCode.DPadUp },
-			CollectionLeft = { KeyCode.Left, KeyCode.DPadLeft },
-			CollectionRight = { KeyCode.Right, KeyCode.DPadRight },
-		}
+		local expected: {
+			[string]: { typeof(KeyCode.Down) | typeof(KeyCode.DPadDown) }
+				| { typeof(KeyCode.Up) | typeof(KeyCode.DPadUp) }
+				| { typeof(KeyCode.Left) | typeof(KeyCode.DPadLeft) }
+				| { typeof(KeyCode.Right) | typeof(KeyCode.DPadRight) },
+		} =
+			{
+				CollectionDown = { KeyCode.Down, KeyCode.DPadDown },
+				CollectionUp = { KeyCode.Up, KeyCode.DPadUp },
+				CollectionLeft = { KeyCode.Left, KeyCode.DPadLeft },
+				CollectionRight = { KeyCode.Right, KeyCode.DPadRight },
+			}
 		for name, keys in expected do
 			local inputAction = action(world.screen, name)
 			t.expect(inputAction.ClassName).toBe("InputAction")
@@ -476,7 +493,7 @@ t.describe("native parity weaker scrolling", function()
 			end
 			t.expect(bound).toEqual(keys)
 		end
-		focus.focus(1)
+		assert(focus.focus)(1)
 		t.expect(world.gui.SelectedObject.Text).toBe("1")
 		local down, up = action(world.screen, "CollectionDown"), action(world.screen, "CollectionUp")
 		down.Pressed.fire()
@@ -499,8 +516,8 @@ t.describe("native parity weaker scrolling", function()
 		extra: { [string]: any }?,
 		options: { [string]: any }?
 	): World
-		local spec: { [string]: any } = { itemSize = 100, snap = "item" }
-		for field, value in extra or {} do
+		local spec: { [any]: any } = { itemSize = 100, snap = "item" }
+		for field, value in (extra or {} :: { [string]: any }) do
 			spec[field] = value
 		end
 		local world = setup(list(count, spec), options)
@@ -709,11 +726,11 @@ t.describe("native parity weaker scrolling", function()
 			t.expect(anchored.node.CanvasPosition.Y).toBe(450)
 			anchored.stop()
 
-			local focus: { [string]: any } = {}
+			local focus: FixtureCollectionTypes.FocusControls<any> = {}
 			local focused = snapList(20, 250, { focus = focus })
 			focused.advance(1)
 			flick(focused, 0, 40, 4)
-			focus.focus(9)
+			assert(focus.focus)(9)
 			t.expect(focused.node.CanvasPosition.Y).toBe(650)
 			focused.advance(1)
 			t.expect(focused.node.CanvasPosition.Y).toBe(650)
@@ -723,18 +740,18 @@ t.describe("native parity weaker scrolling", function()
 				setup(list(4, { snap = "paging" }))
 			end).toThrow()
 
-			for _, snap in { "item", "none" } do
-				local world = setup(function(UI)
+			for _, snap in { "item", "none" } :: { "item" | "none" } do
+				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.VirtualGrid({
 						from = records(40),
 						key = key,
 						columns = 2,
 						itemSize = 100,
 						overscan = 0,
-						snap = snap,
-						render = function(current)
+						snap = snap :: "item" | "none",
+						render = function(current): GuiObject
 							return UI.Button("Action")({
-								label = function(use)
+								label = function(use: Use)
 									return use(current).label
 								end,
 							})
@@ -776,7 +793,8 @@ t.describe("native parity weaker scrolling", function()
 		for _, application in { "Discover", "Chat" } do
 			for _, screenWidth in { 640, 1280, 1920 } do
 				local engine: any = engineLib.new()
-				local runtime = Facet.Roblox.createRuntime(engine)
+				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+					Facet.Roblox.createRuntime(engine)
 				local target = engine.new("ScreenGui")
 				local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 				input.GetFocusedTextBox = function()
@@ -809,7 +827,7 @@ t.describe("native parity weaker scrolling", function()
 							spatial = spatial,
 							motionLevel = "none",
 						})
-						local stop, root = runtime.mount(views[application], target)
+						local stop, root: any = runtime.mount(views[application], target)
 						root.AbsoluteSize = types.Vector2.new(width, 640)
 						find(root, bodyName).AbsoluteSize = types.Vector2.new(width, 640)
 						local scroller = find(root, scrollerName)
@@ -850,32 +868,33 @@ t.describe("native parity weaker scrolling", function()
 	t.it(
 		"navigation-1-18 a long alert message scrolls inside a bounded region while the actions stay reachable",
 		function()
-			local cases = {
+			local cases: { { modal: { number }, content: number, message: string, actions: { Facet.AlertAction<any> } } } =
 				{
-					modal = { 640, 320 },
-					content = 1000,
-					message = string.rep("Check your selected equipment before continuing. ", 40),
-					actions = {
-						{ id = "Cancel", label = "Cancel", role = "cancel" },
-						{ id = "Go", label = "Continue" },
+					{
+						modal = { 640, 320 },
+						content = 1000,
+						message = string.rep("Check your selected equipment before continuing. ", 40),
+						actions = {
+							{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" },
+							{ id = "Go", label = "Continue" },
+						},
 					},
-				},
-				{
-					modal = { 749, 235 },
-					content = 60,
-					message = "Your current progress will replace the previous checkpoint.",
-					actions = {
-						{ id = "Cancel", label = "Keep previous", role = "cancel" },
-						{ id = "Delete", label = "Replace save", role = "destructive" },
+					{
+						modal = { 749, 235 },
+						content = 60,
+						message = "Your current progress will replace the previous checkpoint.",
+						actions = {
+							{ id = "Cancel", label = "Keep previous", role = "cancel" :: "cancel" },
+							{ id = "Delete", label = "Replace save", role = "destructive" :: "destructive" },
+						},
 					},
-				},
-			}
+				}
 			for _, case in cases do
-				local world = setup(function(UI)
+				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Alert({
 						isPresented = Compose.cell(true),
 						title = "Review changes",
-						severity = if case.actions[2].role == "destructive" then "critical" else nil,
+						severity = if case.actions[2].role == "destructive" then "critical" :: "critical" else nil,
 						message = case.message,
 						actions = case.actions,
 					})
@@ -911,20 +930,25 @@ t.describe("native parity weaker scrolling", function()
 	)
 
 	t.it("navigation-5-05 selecting an off-screen tab reveals it on either side of a top bar or sidebar", function()
-		for _, placement in { "topBar", "sidebar" } do
+		for _, placement in { "topBar", "sidebar" } :: { "sidebar" | "topBar" } do
 			local selected = Compose.cell("a")
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				local tabs = {}
 				for _, id in { "a", "b", "c" } do
 					table.insert(tabs, {
 						id = id,
 						label = string.upper(id),
-						content = function()
+						content = function(): Instance
 							return UI.Button(id .. "Content")({ label = id })
 						end,
 					})
 				end
-				return UI.TabView({ selection = selected, placement = placement, transition = false, tabs = tabs })
+				return UI.TabView({
+					selection = selected,
+					placement = placement :: "sidebar" | "topBar",
+					transition = false :: false,
+					tabs = tabs,
+				})
 			end)
 			local types = world.engine.types
 			local vertical = placement == "sidebar"

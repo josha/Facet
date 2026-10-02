@@ -20,7 +20,7 @@ local function fixture()
 			sourceStamp = "test",
 			placeName = "headless",
 			viewport = "800x600",
-			orientation = "landscape",
+			orientation = "landscape" :: "landscape",
 			graphicsQualityLevel = "n/a",
 			frameTarget = "n/a",
 			studioVersion = "n/a",

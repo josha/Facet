@@ -19,7 +19,7 @@ end
 local mode = argv[1]
 local outDir = argv[2] or "build/themes"
 
-local function fail(message: string, ...: string): never
+local function fail(message: string, ...: string)
 	stdio.ewrite(`theme_artifacts: {message}\n`)
 	for _, path in { ... } do
 		if fs.isFile(path) then

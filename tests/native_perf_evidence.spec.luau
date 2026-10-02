@@ -88,7 +88,12 @@ describe("evidence classes (UI-PERF-002)", function()
 end)
 
 describe("device budgets are unreachable from the wrong class (UI-PERF-002)", function()
-	local function headlessReport()
+	local function headlessReport(): {
+		schema: string,
+		environment: { evidenceClass: string },
+		referenceProfile: string,
+		runs: { { [string]: any } },
+	}
 		return {
 			schema = "facet-perf/2",
 			environment = { evidenceClass = "lune" },

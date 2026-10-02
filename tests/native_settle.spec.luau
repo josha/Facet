@@ -1,4 +1,5 @@
 --!strict
+local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -8,20 +9,26 @@ local FRAME = 1 / 60
 
 local function sheet(extra: { [string]: any }?, options: any?): any
 	local detent = Compose.cell("medium")
-	local w = overlay.new(function(UI, Host)
-		local spec: any = {
-			isPresented = Compose.cell(true),
-			detent = detent,
-			title = "Race details",
-			content = function()
-				return Host.TextLabel "Copy" { Text = "Body" }
-			end,
-		}
-		for key, value in extra or {} do
-			spec[key] = value
-		end
-		return UI.Sheet "Sheet"(spec)
-	end, options)
+	local w = overlay.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			local spec: any = {
+				isPresented = Compose.cell(true),
+				detent = detent,
+				title = "Race details",
+				content = function(): Instance
+					return Host.TextLabel "Copy" { Text = "Body" }
+				end,
+			}
+			for key, value in (extra or {} :: { [string]: any }) do
+				spec[key] = value
+			end
+			return UI.Sheet "Sheet"(spec)
+		end,
+		options
+	)
 	w.detent = detent
 	local modal = w.find("Modal")
 	modal.AbsoluteSize = (options and options.room) or Vector2.new(800, 600)
@@ -48,7 +55,7 @@ t.describe("settle: the sheet", function()
 	end)
 
 	t.it("a side pull released short springs back carrying the release velocity", function()
-		local w = sheet({ placement = "side" }, { room = Vector2.new(1200, 800) })
+		local w = sheet({ placement = "side" :: "side" }, { room = Vector2.new(1200, 800) })
 		local panel = w.find("SheetPanel")
 		local drag = w.find("UIDragDetector")
 		drag.DragStart.fire(w.Vector2.new(100, 300))
@@ -66,7 +73,10 @@ t.describe("settle: the sheet", function()
 	end)
 
 	t.it("a dismissal-disabled side sheet grabbed mid spring-back continues from where it is drawn", function()
-		local w = sheet({ placement = "side", interactiveDismissDisabled = true }, { room = Vector2.new(1200, 800) })
+		local w = sheet(
+			{ placement = "side" :: "side", interactiveDismissDisabled = true },
+			{ room = Vector2.new(1200, 800) }
+		)
 		local panel = w.find("SheetPanel")
 		local drag = w.find("UIDragDetector")
 		drag.DragStart.fire(w.Vector2.new(100, 300))
@@ -112,11 +122,11 @@ end)
 
 t.describe("settle: row actions", function()
 	t.it("a fast swipe that opens the tray keeps moving on the first frame after release", function()
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.RowActions({
 				fullSwipe = false,
-				content = UI.Button "Body" { label = "Row" },
-				trailing = { { id = "Archive", label = "Archive" } },
+				content = UI.Button "Body" { label = "Row" } :: GuiObject,
+				trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
 			})
 		end)
 		local content = w.find("Content")
@@ -138,11 +148,11 @@ t.describe("settle: row actions", function()
 	end)
 
 	t.it("a grab mid-settle starts the finger from the painted offset", function()
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.RowActions({
 				fullSwipe = false,
-				content = UI.Button "Body" { label = "Row" },
-				trailing = { { id = "Archive", label = "Archive" } },
+				content = UI.Button "Body" { label = "Row" } :: GuiObject,
+				trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
 			})
 		end)
 		local content = w.find("Content")
@@ -170,12 +180,17 @@ t.describe("settle: the primitive", function()
 	local context = require("../src/ui/context")
 	local settle = require("../src/ui/settle")
 	local engineLib = require("./lib/native_engine")
-	local function run(build: (any) -> ()): any
+	local function run(build: (any) -> ()): (any, () -> ())
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local stop = runtime.mount(function()
 			build(context(Compose, runtime, { types = engine.types, services = {}, motionLevel = "normal" }))
-			return runtime.constructors.Folder({})
+			return (
+				(
+					runtime.constructors.Folder :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Folder)
+			)({})
 		end, engine.new("Folder"))
 		return engine, function()
 			stop()

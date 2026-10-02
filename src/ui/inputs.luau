@@ -816,46 +816,40 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					end,
 				})
 			)
-			table.insert(
-				p,
-				Compose.show(function(use: ComposeTypes.Use)
-					return read(spec.busy, use) == true
-				end, function()
-					local phase =
-						runtime.timeline({ duration = ctx.metric("motion.durations.busyLoop"), repeats = math.huge })
-					local dotsReduced = reducedMotion(ctx)
-					local dots: Shared.FrameNativeProps = {
-						Name = "Busy",
-						Size = D2.fromOffset(18, 18),
-						AnchorPoint = V2.new(0, 0.5),
-						Position = D2.new(1, 5, 0.5, 0),
-						BackgroundTransparency = 1,
-						ZIndex = 2,
-					}
-					for index = 1, 3 do
-						table.insert(
-							dots,
-							ctx.styled(
-								Host.Frame(`Dot{index}`)({
-									Size = D2.fromOffset(4, 4),
-									Position = D2.fromOffset((index - 1) * 6, 7),
-									BorderSizePixel = 0,
-									BackgroundTransparency = function(use: ComposeTypes.Use)
-										return if dotsReduced(use)
-											then 0
-											else 0.2 + 0.6 * ((use(phase.progress) + index / 3) % 1)
-									end,
-									ctx.corner(2),
-								}),
-								"fill"
-							)
-						)
-					end
-					local busy = Host.Frame(dots)
-					ctx.playWhileShown(phase, busy)
-					return busy
-				end)
-			)
+			p[#p + 1] = Compose.show(function(use: ComposeTypes.Use)
+				return read(spec.busy, use) == true
+			end, function()
+				local phase =
+					runtime.timeline({ duration = ctx.metric("motion.durations.busyLoop"), repeats = math.huge })
+				local dotsReduced = reducedMotion(ctx)
+				local dots: Shared.FrameNativeProps = {
+					Name = "Busy",
+					Size = D2.fromOffset(18, 18),
+					AnchorPoint = V2.new(0, 0.5),
+					Position = D2.new(1, 5, 0.5, 0),
+					BackgroundTransparency = 1,
+					ZIndex = 2,
+				}
+				for index = 1, 3 do
+					dots[#dots + 1] = ctx.styled(
+						Host.Frame(`Dot{index}`)({
+							Size = D2.fromOffset(4, 4),
+							Position = D2.fromOffset((index - 1) * 6, 7),
+							BorderSizePixel = 0,
+							BackgroundTransparency = function(use: ComposeTypes.Use)
+								return if dotsReduced(use)
+									then 0
+									else 0.2 + 0.6 * ((use(phase.progress) + index / 3) % 1)
+							end,
+							ctx.corner(2),
+						}),
+						"fill"
+					)
+				end
+				local busy = Host.Frame(dots)
+				ctx.playWhileShown(phase, busy)
+				return busy
+			end)
 		end
 		local markRow: ((GuiObject) -> ())? = nil
 		local function listRow(
@@ -2038,15 +2032,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		slot: string
 	): Frame
 		if image then
-			table.insert(
-				native,
-				Host.ImageLabel "Artwork" {
-					Image = image,
-					BackgroundTransparency = 1,
-					Size = D2.fromScale(1, 1),
-					ScaleType = E.ScaleType.Stretch,
-				}
-			)
+			native[#native + 1] = Host.ImageLabel "Artwork" {
+				Image = image,
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(1, 1),
+				ScaleType = E.ScaleType.Stretch,
+			}
 		end
 		local node = ctx.styled(Host.Frame(native), role)
 		if not image then
@@ -2207,7 +2198,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		}
 		for index, mark in marks do
 			runtime.decorate(mark, { LayoutOrder = index })
-			table.insert(contentProps, mark)
+			contentProps[#contentProps + 1] = mark
 		end
 		local markContent = Host.Frame(contentProps)
 
@@ -2724,101 +2715,98 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				semantic,
 				{ Size = D2.fromOffset(0, 0), AutomaticSize = E.AutomaticSize.XY, BackgroundTransparency = 0 }
 			)
-			table.insert(
-				p,
-				Compose.keyed({
-					from = function(use: ComposeTypes.Use)
-						local value = use(binding)
-						local list: { InputBinding } = if value then { value } else {}
-						return list
-					end,
-					render = function(_, _, current: InputBinding)
-						local name, key = ctx.observe.DisplayName(current), ctx.observe.KeyCode(current)
-						local primary, secondary =
-							ctx.observe.PrimaryModifier(current), ctx.observe.SecondaryModifier(current)
-						local image = ctx.observe.DisplayImage(current)
-						local input = ctx.config.services.UserInputService
-						local nativeImage = Compose.formula(function(use: ComposeTypes.Use): Content | string | nil
-							local content = use(image)
-							if content and content.SourceType and content.SourceType.Name ~= "None" then
-								return content
+			p[#p + 1] = Compose.keyed({
+				from = function(use: ComposeTypes.Use)
+					local value = use(binding)
+					local list: { InputBinding } = if value then { value } else {}
+					return list
+				end,
+				render = function(_, _, current: InputBinding)
+					local name, key = ctx.observe.DisplayName(current), ctx.observe.KeyCode(current)
+					local primary, secondary =
+						ctx.observe.PrimaryModifier(current), ctx.observe.SecondaryModifier(current)
+					local image = ctx.observe.DisplayImage(current)
+					local input = ctx.config.services.UserInputService
+					local nativeImage = Compose.formula(function(use: ComposeTypes.Use): Content | string | nil
+						local content = use(image)
+						if content and content.SourceType and content.SourceType.Name ~= "None" then
+							return content
+						end
+						if input and input.GetImageForKeyCode then
+							local ok, asset = pcall(input.GetImageForKeyCode, input, use(key))
+							if ok and type(asset) == "string" and asset ~= "" then
+								return asset
 							end
-							if input and input.GetImageForKeyCode then
-								local ok, asset = pcall(input.GetImageForKeyCode, input, use(key))
-								if ok and type(asset) == "string" and asset ~= "" then
-									return asset
-								end
-							end
-							return nil
-						end)
-						return Host.Frame "PreferredBinding" {
-							Size = D2.fromOffset(0, 0),
-							AutomaticSize = E.AutomaticSize.XY,
-							BackgroundTransparency = 1,
-							Compose.keyed({
-								from = function(use: ComposeTypes.Use)
-									local asset = use(nativeImage)
-									return {
-										if asset == nil
-											then "text"
-											elseif type(asset) == "string" then "Image"
-											else "ImageContent",
+						end
+						return nil
+					end)
+					return Host.Frame "PreferredBinding" {
+						Size = D2.fromOffset(0, 0),
+						AutomaticSize = E.AutomaticSize.XY,
+						BackgroundTransparency = 1,
+						Compose.keyed({
+							from = function(use: ComposeTypes.Use)
+								local asset = use(nativeImage)
+								return {
+									if asset == nil
+										then "text"
+										elseif type(asset) == "string" then "Image"
+										else "ImageContent",
+								}
+							end,
+							render = function(_, _, kind: string): GuiObject
+								if kind ~= "text" then
+									local native: Shared.ImageLabelNativeProps = {
+										Name = "Glyph",
+										BackgroundTransparency = 1,
+										Size = function(use: ComposeTypes.Use)
+											local size = ctx.controlSize(spec.controlSize, "iconSize", use)
+											return D2.fromOffset(size, size)
+										end,
 									}
-								end,
-								render = function(_, _, kind: string): GuiObject
-									if kind ~= "text" then
-										local native: Shared.ImageLabelNativeProps = {
-											Name = "Glyph",
-											BackgroundTransparency = 1,
-											Size = function(use: ComposeTypes.Use)
-												local size = ctx.controlSize(spec.controlSize, "iconSize", use)
-												return D2.fromOffset(size, size)
-											end,
-										}
-										if kind == "Image" then
-											native.Image = function(use: ComposeTypes.Use): string
-												return use(nativeImage) :: string
-											end
-										else
-											native.ImageContent = function(use: ComposeTypes.Use): Content
-												return use(nativeImage) :: Content
+									if kind == "Image" then
+										native.Image = function(use: ComposeTypes.Use): string
+											return use(nativeImage) :: string
+										end
+									else
+										native.ImageContent = function(use: ComposeTypes.Use): Content
+											return use(nativeImage) :: Content
+										end
+									end
+									return Host.ImageLabel(native)
+								end
+								return ctx.text({
+									Name = "Key",
+									Text = function(use: ComposeTypes.Use): string
+										local custom = use(name)
+										if custom and custom ~= "" then
+											return custom
+										end
+										local keys: { string } = {}
+										local service = input
+										for _, code in { use(primary), use(secondary), use(key) } do
+											if code and code ~= noKey then
+												local ok, found = true, ""
+												if service and service.GetStringForKeyCode then
+													ok, found = pcall(function(): string
+														return service:GetStringForKeyCode(code)
+													end)
+												end
+												local text = if ok and type(found) == "string" then found else ""
+												if text == "" then
+													text = keyNames[code.Name] or code.Name
+												end
+												table.insert(keys, text)
 											end
 										end
-										return Host.ImageLabel(native)
-									end
-									return ctx.text({
-										Name = "Key",
-										Text = function(use: ComposeTypes.Use): string
-											local custom = use(name)
-											if custom and custom ~= "" then
-												return custom
-											end
-											local keys: { string } = {}
-											local service = input
-											for _, code in { use(primary), use(secondary), use(key) } do
-												if code and code ~= noKey then
-													local ok, found = true, ""
-													if service and service.GetStringForKeyCode then
-														ok, found = pcall(function(): string
-															return service:GetStringForKeyCode(code)
-														end)
-													end
-													local text = if ok and type(found) == "string" then found else ""
-													if text == "" then
-														text = keyNames[code.Name] or code.Name
-													end
-													table.insert(keys, text)
-												end
-											end
-											return table.concat(keys, "+")
-										end,
-									})
-								end,
-							}),
-						}
-					end,
-				})
-			)
+										return table.concat(keys, "+")
+									end,
+								})
+							end,
+						}),
+					}
+				end,
+			})
 			return ctx.styled(Host.Frame(p :: Shared.FrameNativeProps), "shortcut-hint")
 		end
 	)

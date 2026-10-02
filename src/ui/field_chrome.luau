@@ -10,7 +10,7 @@ export type Options = {
 	requiredMark: Mark?,
 	hint: Shared.Value<string>?,
 	errorText: Shared.Value<string>?,
-	controlSize: Shared.Value<Shared.ControlSize>?,
+	controlSize: Shared.Value<Shared.ControlSize?>?,
 	appearance: Shared.Value<string>?,
 	corners: Corners?,
 }

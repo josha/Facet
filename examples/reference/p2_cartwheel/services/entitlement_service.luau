@@ -3,7 +3,7 @@
 local entitlement_service = {}
 
 function entitlement_service.new(opts: any): any
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 	local self: any = {}
 
 	local chatterPlus = Compose.cell(false)

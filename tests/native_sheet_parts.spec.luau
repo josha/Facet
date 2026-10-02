@@ -13,21 +13,27 @@ local function mount(extra: { [string]: any }?, options: any?): any
 	local detent = Compose.cell(o.detent or "medium")
 	local shown = o.shown or Compose.cell(true)
 	local builds = 0
-	local w = overlay.new(function(UI, Host)
-		local spec: any = {
-			isPresented = shown,
-			detent = detent,
-			title = "Race details",
-			content = function()
-				builds += 1
-				return Host.TextLabel "Copy" { Text = LONG, TextWrapped = true }
-			end,
-		}
-		for key, value in extra or {} do
-			spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
-		end
-		return UI.Sheet "Sheet"(spec)
-	end, o)
+	local w = overlay.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			local spec: any = {
+				isPresented = shown,
+				detent = detent,
+				title = "Race details",
+				content = function(): Instance
+					builds += 1
+					return Host.TextLabel "Copy" { Text = LONG, TextWrapped = true }
+				end,
+			}
+			for key, value in (extra or {} :: { [string]: any }) do
+				spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
+			end
+			return UI.Sheet "Sheet"(spec)
+		end,
+		o
+	)
 	w.detent, w.shown = detent, shown
 	w.builds = function()
 		return builds
@@ -63,24 +69,24 @@ t.describe("native Sheet: placement, width, title and close", function()
 	end)
 
 	t.it("explicit placements pin the panel to the bottom or the center", function()
-		local w = mount({ placement = "bottom" })
+		local w = mount({ placement = "bottom" :: "bottom" })
 		local panel = w.find("SheetPanel")
 		t.expect(panel.AnchorPoint).toBe(w.Vector2.new(0.5, 1))
 		t.expect(panel.Position.Y.Scale).toBe(1)
 		t.expect(panel.Position.X.Scale).toBe(0.5)
 		w.stop()
-		local c = mount({ placement = "center" })
+		local c = mount({ placement = "center" :: "center" })
 		local centered = c.find("SheetPanel")
 		t.expect(centered.AnchorPoint).toBe(c.Vector2.new(0.5, 0.5))
 		t.expect(centered.Position.Y.Scale).toBe(0.5)
 		c.stop()
-		local a = mount({ placement = "automatic" })
+		local a = mount({ placement = "automatic" :: "automatic" })
 		t.expect(a.find("SheetPanel").AnchorPoint).toBe(a.Vector2.new(0.5, 1))
 		a.stop()
 	end)
 
 	t.it("side placement docks to its physical edge, detents stay vertical", function()
-		local w = mount({ placement = "side" }, { room = Vector2.new(1200, 800), motionLevel = "none" })
+		local w = mount({ placement = "side" :: "side" }, { room = Vector2.new(1200, 800), motionLevel = "none" })
 		local panel = w.find("SheetPanel")
 		t.expect(panel.AnchorPoint).toBe(w.Vector2.new(1, 1))
 		t.expect(panel.Position.X.Scale).toBe(1)
@@ -89,7 +95,7 @@ t.describe("native Sheet: placement, width, title and close", function()
 		t.expect(panel.Size.Y.Offset).toBe(400)
 		w.stop()
 		local left = mount(
-			{ placement = "side", edge = "left", width = "narrow" },
+			{ placement = "side" :: "side", edge = "left" :: "left", width = "narrow" :: "narrow" },
 			{ room = Vector2.new(1200, 800), motionLevel = "none" }
 		)
 		local leftPanel = left.find("SheetPanel")
@@ -101,19 +107,22 @@ t.describe("native Sheet: placement, width, title and close", function()
 
 	t.it("width presets reuse the dialog widths, bounded by safe room", function()
 		local widths = {}
-		for _, preset in { "narrow", "automatic", "wide" } do
-			local w = mount({ width = preset }, { room = Vector2.new(1200, 800) })
+		for _, preset in { "narrow", "automatic", "wide" } :: { "automatic" | "narrow" | "wide" } do
+			local w = mount({ width = preset :: "automatic" | "narrow" | "wide" }, { room = Vector2.new(1200, 800) })
 			widths[preset] = w.find("SheetPanel").Size.X.Offset
 			w.stop()
 		end
 		t.expect(widths).toEqual({ narrow = 360, automatic = 560, wide = 800 })
-		local narrow = mount({ width = "wide" }, { room = Vector2.new(500, 800) })
+		local narrow = mount({ width = "wide" :: "wide" }, { room = Vector2.new(500, 800) })
 		t.expect(narrow.find("SheetPanel").Size.X.Offset).toBe(500)
 		narrow.stop()
 	end)
 
 	t.it("side sheets enter and leave toward their own edge", function()
-		local w = mount({ placement = "side", edge = "left" }, { room = Vector2.new(1200, 800), unsettled = true })
+		local w = mount(
+			{ placement = "side" :: "side", edge = "left" :: "left" },
+			{ room = Vector2.new(1200, 800), unsettled = true }
+		)
 		local panel = w.find("SheetPanel")
 		t.expect(panel.Position.X.Offset).toBe(-560)
 		w.advance(1 / 300, 2)
@@ -126,7 +135,7 @@ t.describe("native Sheet: placement, width, title and close", function()
 		w.advance(0.3, 6)
 		t.expect(w.find("SheetPanel")).toBeNil()
 		w.stop()
-		local right = mount({ placement = "side" }, { room = Vector2.new(1200, 800), unsettled = true })
+		local right = mount({ placement = "side" :: "side" }, { room = Vector2.new(1200, 800), unsettled = true })
 		t.expect(right.find("SheetPanel").Position.X.Offset).toBe(560)
 		right.stop()
 		local bottom = mount(nil, { room = Vector2.new(1200, 800), unsettled = true })
@@ -158,9 +167,9 @@ t.describe("native Sheet: placement, width, title and close", function()
 		for _, change in
 			{
 				{ placement = "top" } :: any,
-				{ edge = "left" },
-				{ placement = "side", edge = "start" },
-				{ width = "huge" },
+				{ edge = "left" :: "left" },
+				{ placement = "side" :: "side", edge = "start" :: "start" },
+				{ width = "huge" :: "huge" },
 				{ closeButton = 4 },
 				{ dragIndicator = "sometimes" },
 				{ scrollPolicy = "never" },
@@ -174,13 +183,17 @@ t.describe("native Sheet: placement, width, title and close", function()
 	end)
 
 	t.it("the Size control reads player words, never a detent id", function()
-		local w = mount({ detents = { "hug", "medium" } })
+		local w = mount({
+			detents = { "hug", "medium" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+		})
 		local grabber = w.find("Grabber")
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
 		w.detent:set("hug")
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Fit")
 		w.stop()
-		local custom = mount({ detents = { { id = "compact", fraction = 0.3 }, "large" } }, { detent = "compact" })
+		local custom = mount({
+			detents = { { id = "compact", fraction = 0.3 }, "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+		}, { detent = "compact" })
 		t.expect(custom.find("Grabber"):GetAttribute("AccessibleLabel")).toBe("Resize: Compact")
 		custom.stop()
 	end)
@@ -214,7 +227,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("a header replaces the title; header=false removes it; utilities stay", function()
 		local w = mount({
-			header = built(function(_, Host)
+			header = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
 				return Host.TextLabel "Custom" { Text = "Lobby" }
 			end),
 			closeButton = true,
@@ -239,8 +252,8 @@ t.describe("native Sheet: parts", function()
 		end
 		local w = mount({
 			actions = {
-				{ id = "Later", label = "Later", role = "cancel", onActivate = log("Later") },
-				{ id = "Join", label = "Join race", role = "default", onActivate = log("Join") },
+				{ id = "Later", label = "Later", role = "cancel" :: "cancel", onActivate = log("Later") } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Join", label = "Join race", role = "default" :: "default", onActivate = log("Join") } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
 			},
 		})
 		local actions, body = w.find("Actions"), w.find("SheetContent")
@@ -260,9 +273,9 @@ t.describe("native Sheet: parts", function()
 			closeButton = true,
 			actionLayout = "stacked",
 			actions = {
-				{ id = "One", label = "One", onActivate = noop },
-				{ id = "Two", label = "Two", onActivate = noop },
-				{ id = "Three", label = "Three", onActivate = noop },
+				{ id = "One", label = "One", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Two", label = "Two", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+				{ id = "Three", label = "Three", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
 			},
 		}, { room = Vector2.new(800, 400), motionLevel = "none" })
 		local room, body = w.find("Room"), w.find("SheetContent")
@@ -326,7 +339,7 @@ t.describe("native Sheet: parts", function()
 		local w = mount({
 			header = false,
 			closeButton = true,
-			hero = built(function(UI)
+			hero = built(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return { height = 200, content = UI.Button "Top" { label = "Top of hero" } }
 			end),
 		})
@@ -342,10 +355,10 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("a hero given as an Instance survives a dismissal and shows again on the next presentation", function()
-		local banner
+		local banner: any
 		local w = mount({
 			header = false,
-			hero = built(function(_, Host)
+			hero = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
 				banner = Host.TextLabel "Banner" { Text = "Lobby" }
 				return { height = 140, content = banner }
 			end),
@@ -362,13 +375,13 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("content and a header given as Instances survive a dismissal and show again", function()
-		local copy, head
+		local copy: any, head: any
 		local w = mount({
-			content = built(function(_, Host)
+			content = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
 				copy = Host.TextLabel "Body" { Text = "Body" }
 				return copy
 			end),
-			header = built(function(_, Host)
+			header = built(function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host))
 				head = Host.TextLabel "Head" { Text = "Head" }
 				return head
 			end),
@@ -402,10 +415,11 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("the keyboard takes its room from the one safe rectangle", function()
-		local w = mount(
-			{ actions = { { id = "Go", label = "Go", onActivate = noop } } },
-			{ detent = "large", motionLevel = "none" }
-		)
+		local w = mount({
+			actions = {
+				{ id = "Go", label = "Go", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+			},
+		}, { detent = "large", motionLevel = "none" })
 		local panel = w.find("SheetPanel")
 		local tall = panel.Size.Y.Offset
 		w.input.OnScreenKeyboardSize = Vector2.new(800, 250)
@@ -427,13 +441,13 @@ t.describe("native Sheet: parts", function()
 				{ contentInset = "wide" },
 				{ hero = { image = "rbxassetid://1", content = function() end, height = 10 } },
 				{ hero = { height = 10 } },
-				{ hero = { content = function() end, height = 10, scaleMode = "fit" } },
+				{ hero = { content = function() end, height = 10, scaleMode = "fit" :: "fit" } },
 				{ hero = { image = "rbxassetid://1", height = 10, sticky = "yes" } },
 				{ actions = { { id = "A", label = "A" } } },
 				{
 					actions = {
-						{ id = "A", label = "A", role = "default", onActivate = noop },
-						{ id = "B", label = "B", role = "default", onActivate = noop },
+						{ id = "A", label = "A", role = "default" :: "default", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+						{ id = "B", label = "B", role = "default" :: "default", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
 					},
 				},
 				{ actionLayout = "grid" },
@@ -448,8 +462,10 @@ t.describe("native Sheet: parts", function()
 
 	t.it("hug fits the whole body plus the pinned regions, and follows live copy both ways", function()
 		local w = mount({
-			detents = { "hug", "large" },
-			actions = { { id = "Go", label = "Go", onActivate = noop } },
+			detents = { "hug", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+			actions = {
+				{ id = "Go", label = "Go", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+			},
 		}, { detent = "hug", motionLevel = "none" })
 		local panel, body = w.find("SheetPanel"), w.find("SheetContent")
 		w.size(w.find("Header"), 500, 44)
@@ -471,7 +487,9 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("hug measures the content, not the scroll canvas that fills the window", function()
-		local w = mount({ detents = { "hug" } }, { detent = "hug" })
+		local w = mount({
+			detents = { "hug" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+		}, { detent = "hug" })
 		local panel, body = w.find("SheetPanel"), w.find("SheetContent")
 		content(w, 120)
 		w.advance(1, 30)
@@ -485,7 +503,9 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("text and height settle off screen before the sheet moves, and hold during the slide", function()
-		local w = mount({ detents = { "hug" } }, { detent = "hug", unsettled = true })
+		local w = mount({
+			detents = { "hug" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+		}, { detent = "hug", unsettled = true })
 		local panel = w.find("SheetPanel")
 		content(w, 40)
 		w.advance(1 / 60)
@@ -531,7 +551,9 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("hug clamps to the safe room and keeps the minimum floor", function()
-		local w = mount({ detents = { "hug" } }, { detent = "hug", motionLevel = "none" })
+		local w = mount({
+			detents = { "hug" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+		}, { detent = "hug", motionLevel = "none" })
 		content(w, 5000)
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(600)
 		content(w, 1)
@@ -541,7 +563,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("coinciding heights keep the declared id; the grabber grows past ties, then closes", function()
 		local w = mount({
-			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" },
+			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
 		}, { detent = "b", motionLevel = "none" })
 		t.expect(w.detent:peek()).toBe("b")
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(300)
@@ -570,7 +592,9 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("refuses a malformed hug entry", function()
-		for _, detents in { { "hug", "hug" } :: any, { { id = "hug", fraction = 0.5 }, "hug" }, { "Hug" } } do
+		for _, detents in
+			{ { "hug", "hug" } :: { any }, { { id = "hug", fraction = 0.5 }, "hug" } :: { any }, { "Hug" } :: { any } }
+		do
 			local ok = pcall(function()
 				mount({ detents = detents }, { detent = "hug" }).stop()
 			end)
@@ -581,44 +605,49 @@ t.describe("native Sheet: parts", function()
 	t.it("action callbacks that throw, close or dispose leave no stale surface", function()
 		local shown = Compose.cell(false)
 		local mounted = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Compose.show(mounted, function()
-					return UI.Sheet "Sheet" {
-						isPresented = shown,
-						detent = Compose.cell("large"),
-						title = "T",
-						content = function()
-							return Host.TextLabel "Body" { Text = "Body" }
-						end,
-						actions = {
-							{
-								id = "Boom",
-								label = "Boom",
-								onActivate = function()
-									error("caller bug")
-								end,
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Compose.show(mounted, function()
+						return UI.Sheet "Sheet" {
+							isPresented = shown,
+							detent = Compose.cell("large"),
+							title = "T",
+							content = function(): Instance
+								return Host.TextLabel "Body" { Text = "Body" }
+							end,
+							actions = {
+								{
+									id = "Boom",
+									label = "Boom",
+									onActivate = function()
+										error("caller bug")
+									end,
+								} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+								{
+									id = "Finish",
+									label = "Done",
+									onActivate = function()
+										shown:set(false)
+										shown:set(true)
+									end,
+								} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+								{
+									id = "Drop",
+									label = "Drop",
+									onActivate = function()
+										mounted:set(false)
+									end,
+								} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
 							},
-							{
-								id = "Finish",
-								label = "Done",
-								onActivate = function()
-									shown:set(false)
-									shown:set(true)
-								end,
-							},
-							{
-								id = "Drop",
-								label = "Drop",
-								onActivate = function()
-									mounted:set(false)
-								end,
-							},
-						},
-					}
-				end),
-			})
-		end)
+						}
+					end),
+				})
+			end
+		)
 		local baseline = w.engine.census()
 		shown:set(true)
 		t.expect((pcall(overlay.find(w.find("Actions"), "Boom").Activated.fire))).toBe(false)
@@ -638,7 +667,7 @@ t.describe("native Sheet: parts", function()
 	t.it("a failing content build does not leave a surface behind", function()
 		local failures = {}
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet "Sheet" {
 				isPresented = shown,
 				detent = Compose.cell("medium"),
@@ -825,20 +854,26 @@ t.describe("native Sheet: gestures", function()
 
 	t.it("disposal mid-drag releases the session and returns to baseline", function()
 		local mounted = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				Compose.show(mounted, function()
-					return UI.Sheet "Sheet" {
-						isPresented = Compose.cell(true),
-						detent = Compose.cell("medium"),
-						title = "T",
-						content = function()
-							return Host.TextLabel "Body" { Text = "Body" }
-						end,
-					}
-				end),
-			})
-		end, { motionLevel = "none" })
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					Compose.show(mounted, function()
+						return UI.Sheet "Sheet" {
+							isPresented = Compose.cell(true),
+							detent = Compose.cell("medium"),
+							title = "T",
+							content = function(): Instance
+								return Host.TextLabel "Body" { Text = "Body" }
+							end,
+						}
+					end),
+				})
+			end,
+			{ motionLevel = "none" }
+		)
 		local baseline = w.engine.census()
 		mounted:set(true)
 		flick(w, { { -100, 0.1 } }, false)
@@ -865,7 +900,9 @@ t.describe("native Sheet: the grabber is the close and resize control", function
 		grabber.Activated.fire()
 		t.expect(w.shown:peek()).toBe(false)
 		w.stop()
-		local single = mount({ detents = { "medium" } })
+		local single = mount({
+			detents = { "medium" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+		})
 		local only = single.find("Grabber")
 		t.expect(only.Selectable).toBe(true)
 		t.expect(only:GetAttribute("AccessibleLabel")).toBe("Close sheet")
@@ -939,7 +976,7 @@ t.describe("native Sheet: the grabber sits on the edge the sheet came from", fun
 	t.it("the grip is a direct child of a panel that neither lays out nor pads it", function()
 		local bindThemes = require("../src/ui/themes")
 		local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
-		for _, extra in { {}, { placement = "side" } } :: { any } do
+		for _, extra in { {}, { placement = "side" :: "side" } } :: { any } do
 			local w = mount(extra, { room = WIDE.room, motionLevel = "none", theme = fantasy })
 			local panel = w.find("SheetPanel")
 			t.expect(w.find("DragHandle").Parent).toBe(panel)
@@ -964,7 +1001,7 @@ t.describe("native Sheet: the grabber sits on the edge the sheet came from", fun
 	end)
 
 	t.it("a sheet from the right has a vertical bar on its left edge and reserves the left", function()
-		local w = mount({ placement = "side" }, WIDE)
+		local w = mount({ placement = "side" :: "side" }, WIDE)
 		local handle, pill, padding = grip(w)
 		t.expect(handle.Size).toBe(w.engine.types.UDim2.new(0, 20, 1, 0))
 		t.expect(handle.AnchorPoint).toBe(w.Vector2.new(0, 0))
@@ -974,7 +1011,7 @@ t.describe("native Sheet: the grabber sits on the edge the sheet came from", fun
 		t.expect(padding.PaddingTop.Offset).toBe(12)
 		t.expect(padding.PaddingRight.Offset).toBe(16)
 		w.stop()
-		local left = mount({ placement = "side", edge = "left" }, WIDE)
+		local left = mount({ placement = "side" :: "side", edge = "left" :: "left" }, WIDE)
 		local leftHandle, _, leftPadding = grip(left)
 		t.expect(leftHandle.AnchorPoint).toBe(left.Vector2.new(1, 0))
 		t.expect(leftHandle.Position).toBe(left.engine.types.UDim2.new(1, 0, 0, 0))
@@ -984,7 +1021,7 @@ t.describe("native Sheet: the grabber sits on the edge the sheet came from", fun
 	end)
 
 	t.it("a hidden grabber reserves no side", function()
-		local w = mount({ dragIndicator = "hidden", placement = "side" }, WIDE)
+		local w = mount({ dragIndicator = "hidden", placement = "side" :: "side" }, WIDE)
 		local handle, _, padding = grip(w)
 		t.expect(handle.Visible).toBe(false)
 		t.expect(padding.PaddingLeft.Offset).toBe(16)
@@ -993,7 +1030,7 @@ t.describe("native Sheet: the grabber sits on the edge the sheet came from", fun
 	end)
 
 	t.it("dragging a side grabber toward its edge dismisses; a short pull springs back", function()
-		local w = mount({ placement = "side" }, { room = Vector2.new(1200, 800) })
+		local w = mount({ placement = "side" :: "side" }, { room = Vector2.new(1200, 800) })
 		w.advance(0.5, 10)
 		local panel = w.find("SheetPanel")
 		local drag = w.find("UIDragDetector")
@@ -1022,7 +1059,11 @@ end)
 
 t.describe("native Sheet: the whole sheet moves as one unit", function()
 	t.it("a drag below the lowest detent moves the whole sheet down; dismissal continues from there", function()
-		local w = mount({ actions = { { id = "Apply", label = "Apply", onActivate = noop } } })
+		local w = mount({
+			actions = {
+				{ id = "Apply", label = "Apply", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+			},
+		})
 		w.advance(0.5, 10)
 		local panel = w.find("SheetPanel")
 		local rest = panel.Size.Y.Offset
@@ -1054,12 +1095,16 @@ t.describe("native panels: a skinned panel keeps its content inside the art carv
 	end
 
 	t.it("a skinned Sheet insets header, body and actions by the carve; the grabber sits inside it", function()
-		local w = mount({ actions = { { id = "Apply", label = "Apply", onActivate = noop } } }, { theme = fantasy })
+		local w = mount({
+			actions = {
+				{ id = "Apply", label = "Apply", onActivate = noop } :: typeof(require("@repo/tools/typecheck/example_shapes").Action(nil :: any)),
+			},
+		}, { theme = fantasy })
 		t.expect(sides(w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("58 30 30 30")
 		local bar = w.find("DragHandle").Position.Y.Offset
 		t.expect(bar >= 30 and bar + 20 <= 58).toBe(true)
 		w.stop()
-		local side = mount({ placement = "side" }, { theme = fantasy, room = Vector2.new(1200, 800) })
+		local side = mount({ placement = "side" :: "side" }, { theme = fantasy, room = Vector2.new(1200, 800) })
 		t.expect(sides(side.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 58")
 		local x = side.find("DragHandle").Position.X.Offset
 		t.expect(x >= 30 and x + 20 <= 58).toBe(true)
@@ -1077,26 +1122,32 @@ t.describe("native panels: a skinned panel keeps its content inside the art carv
 
 	t.it("a skinned Dialog and Popover inset by the carve and follow a live theme change", function()
 		local theme = Compose.cell(fantasy)
-		local w = overlay.new(function(UI, Host)
-			return Host.Frame({
-				UI.Dialog "Confirm" {
-					isPresented = Compose.cell(true),
-					onPresentedChange = noop,
-					title = "Leave?",
-					content = function()
-						return Host.TextLabel "Line" { Text = "Body" }
-					end,
-				},
-				UI.Popover "Tip" {
-					isPresented = Compose.cell(true),
-					onPresentedChange = noop,
-					trigger = UI.Button "Open" { label = "Open" },
-					content = function()
-						return Host.TextLabel "PopLine" { Text = "Body" }
-					end,
-				},
-			})
-		end, { theme = theme })
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Dialog "Confirm" {
+						isPresented = Compose.cell(true),
+						onPresentedChange = noop,
+						title = "Leave?",
+						content = function(): Instance
+							return Host.TextLabel "Line" { Text = "Body" }
+						end,
+					} :: unknown,
+					UI.Popover "Tip" {
+						isPresented = Compose.cell(true),
+						onPresentedChange = noop,
+						trigger = UI.Button "Open" { label = "Open" },
+						content = function(): Instance
+							return Host.TextLabel "PopLine" { Text = "Body" }
+						end,
+					},
+				})
+			end,
+			{ theme = theme }
+		)
 		local dialog = w.find("Panel")
 		local popover = w.find("PopLine")
 		while popover.Name ~= "Panel" do
@@ -1134,15 +1185,21 @@ t.describe("native panels: the theme title plaque carries the surface title", fu
 	end)
 
 	t.it("a surface without a title draws no plaque", function()
-		local w = overlay.new(function(UI, Host)
-			return UI.Dialog "Plain" {
-				isPresented = Compose.cell(true),
-				onPresentedChange = noop,
-				content = function()
-					return Host.TextLabel "Line" { Text = "Body" }
-				end,
-			}
-		end, { theme = fantasy })
+		local w = overlay.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return UI.Dialog "Plain" {
+					isPresented = Compose.cell(true),
+					onPresentedChange = noop,
+					content = function(): Instance
+						return Host.TextLabel "Line" { Text = "Body" }
+					end,
+				}
+			end,
+			{ theme = fantasy }
+		)
 		local art = plaque(w.find("Panel"))
 		t.expect(art.Visible).toBe(false)
 		t.expect(overlay.find(art, "PlaqueCaption")).toBeNil()

@@ -1,13 +1,15 @@
 --!strict
+local requireDynamic = require :: (any) -> any
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local expect = t.expect
 
 local function scenario(name: string): any
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local guiService = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -17,7 +19,9 @@ local function scenario(name: string): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = engine.new("Folder"),
@@ -35,8 +39,8 @@ local function scenario(name: string): any
 	}
 	local built: any
 	local target = engine.new("ScreenGui")
-	local stop, node = runtime.mount(function()
-		built = require("../examples/gallery/scenarios/" .. name).build(ctx)
+	local stop, node: any = runtime.mount(function()
+		built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
 		if built.dispose then
 			Compose.cleanup(built.dispose)
 		end

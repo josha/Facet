@@ -1,11 +1,15 @@
 --!strict
+local ThemeTypes = require("../src/ui/theme_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local icons = require("../src/ui/icons")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 local SHIPPED: { any } = {
@@ -21,7 +25,8 @@ local SHIPPED: { any } = {
 
 local function make(options: { [string]: any }?): (any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local config: { [string]: any } = {
 		types = engine.types,
@@ -35,7 +40,7 @@ local function make(options: { [string]: any }?): (any, any, any)
 end
 
 local function mount(engine: any, runtime: any, build: () -> any): (() -> (), any)
-	local stop, root = runtime.mount(build, engine.new("ScreenGui"))
+	local stop, root: any = runtime.mount(build, engine.new("ScreenGui"))
 	return stop, root
 end
 
@@ -188,7 +193,7 @@ t.describe("native parity media", function()
 		end)
 
 		t.it("shows four quarter poses per cycle under reduced motion for bar, circular and spinner", function()
-			for _, presentation in { "bar", "circular", "spinner" } do
+			for _, presentation in { "bar", "circular", "spinner" } :: { "bar" | "circular" | "spinner" } do
 				t.expect(distinctReadings(presentation, true, 0.05, 19)).toBe(4)
 				local full = distinctReadings(presentation, false, 0.02, 20)
 				local reduced = distinctReadings(presentation, true, 0.02, 20)
@@ -201,9 +206,9 @@ t.describe("native parity media", function()
 		t.it("steps from the running phase when reduced motion turns on mid-cycle instead of restarting", function()
 			local reduced = Compose.cell(false)
 			local engine, runtime, UI = make({
-				motionLevel = Compose.formula(function(use)
+				motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if use(reduced) then "none" else "normal"
-				end),
+				end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
 			})
 			local stop, root = mount(engine, runtime, function()
 				return UI.ProgressView({})
@@ -225,15 +230,15 @@ t.describe("native parity media", function()
 		end)
 
 		t.it("refuses an unknown progress presentation before creating native nodes or a clock", function()
-			local refused = refusal(function(UI)
-				return UI.ProgressView({ value = 1, presentation = "ring" })
+			local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.ProgressView({ value = 1, presentation = "ring" } :: any)
 			end)
 			t.expect(refusedWith(refused, "presentation must be bar, circular or spinner")).toBe(true)
 			t.expect(refused.created).toBe(0)
 			t.expect(refused.heartbeat).toBe(0)
-			for _, presentation in { "bar", "circular", "spinner" } do
-				local accepted = refusal(function(UI)
-					return UI.ProgressView({ value = 1, presentation = presentation })
+			for _, presentation in { "bar", "circular", "spinner" } :: { "bar" | "circular" | "spinner" } do
+				local accepted = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					return UI.ProgressView({ value = 1, presentation = presentation :: "bar" | "circular" | "spinner" })
 				end)
 				t.expect(accepted.message).toBeNil()
 				t.expect(accepted.created).toBeGreaterThan(0)
@@ -264,9 +269,13 @@ t.describe("native parity media", function()
 				largest.dot = math.max(largest.dot, progress.spinnerDotSize)
 				local themed: any = Facet.controls(runtime, { types = engine.types, theme = package } :: any)
 				local stop, root = mount(engine, runtime, function()
-					return runtime.constructors.Frame({
-						themed.ProgressView "Ring" { value = 0.5, presentation = "circular" },
-						themed.ProgressView "Spinner" { presentation = "spinner" },
+					return (
+						(
+							runtime.constructors.Frame :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+					)({
+						themed.ProgressView "Ring" { value = 0.5, presentation = "circular" :: "circular" } :: unknown,
+						themed.ProgressView "Spinner" { presentation = "spinner" :: "spinner" },
 					})
 				end)
 				local ring = root:FindFirstChild("Ring", true):FindFirstChild("Indicator", true)
@@ -288,11 +297,15 @@ t.describe("native parity media", function()
 			local engine, runtime, UI = make()
 			local status = Compose.cell("neutral")
 			local package = themes.neutralPackage()
-			local sheet, badge
+			local sheet, badge: any
 			local stop = mount(engine, runtime, function()
 				sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
 				badge = UI.Badge({ label = "Ready", icon = "checkmark", status = status })
-				return runtime.constructors.Frame({ sheet, badge })
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({ sheet :: unknown, badge })
 			end)
 			local icon = badge:FindFirstChildWhichIsA("ImageLabel")
 			local label = badge:FindFirstChild("Label")
@@ -331,11 +344,15 @@ t.describe("native parity media", function()
 		t.it("gives an icon badge the plain caption height and orders the icon by its position", function()
 			local engine, runtime, UI = make()
 			local stop, root = mount(engine, runtime, function()
-				return runtime.constructors.Frame({
-					UI.Badge "Plain" { label = "Ranked" },
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({
+					UI.Badge "Plain" { label = "Ranked" } :: unknown,
 					UI.Badge "Leading" { label = "Ranked", icon = "checkmark" },
 					UI.Badge "Trailing" { label = "Ranked", icon = "checkmark", iconPosition = "trailing" },
-					UI.Badge "Large" { label = "Ranked", icon = "checkmark", controlSize = "large" },
+					UI.Badge "Large" { label = "Ranked", icon = "checkmark", controlSize = "large" :: "large" },
 				})
 			end)
 			local plain = root:FindFirstChild("Plain", true)
@@ -370,11 +387,15 @@ t.describe("native parity media", function()
 			local engine, runtime, UI = make()
 			local appearance = Compose.cell("status")
 			local package = themes.neutralPackage()
-			local sheet, badge
+			local sheet, badge: any
 			local stop = mount(engine, runtime, function()
 				sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
 				badge = UI.Badge({ label = "Live", status = "error", appearance = appearance })
-				return runtime.constructors.Frame({ sheet, badge })
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({ sheet :: unknown, badge })
 			end)
 			local palette: any = package.style.themes[1]
 			local statusRule, errorRule = style(sheet, ".facet-badge-status"), style(sheet, ".facet-status-error")
@@ -408,7 +429,7 @@ t.describe("native parity media", function()
 		t.it("mounts and clears a live caption on a named icon badge while the plate and icon stay", function()
 			local engine, runtime, UI = make()
 			local caption = Compose.cell(nil :: string?)
-			local stop, badge = mount(engine, runtime, function()
+			local stop, badge: any = mount(engine, runtime, function()
 				return UI.Badge({ label = caption, icon = "checkmark", name = "Info" })
 			end)
 			local label, icon = badge:FindFirstChild("Label"), badge:FindFirstChildWhichIsA("ImageLabel")
@@ -438,8 +459,12 @@ t.describe("native parity media", function()
 				{ id = "b", name = "Bo", presence = "online" },
 			}
 			local stop, root = mount(engine, runtime, function()
-				return runtime.constructors.Frame({
-					UI.Avatar "Hidden" { name = "Ada", presence = "away", presenceMark = false },
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({
+					UI.Avatar "Hidden" { name = "Ada", presence = "away", presenceMark = false } :: unknown,
 					UI.Avatar "Shown" { name = "Ada", presence = "away" },
 					UI.AvatarGroup "Stacked" { items = members },
 					UI.AvatarGroup "Spread" { items = members, layout = "spread" },
@@ -477,8 +502,8 @@ t.describe("native parity media", function()
 			for _, case in cases do
 				local spec = table.clone(case[1])
 				spec.resource = resource
-				local refused = refusal(function(UI)
-					return UI.Avatar(spec)
+				local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					return UI.Avatar(spec :: any)
 				end)
 				t.expect(refusedWith(refused, case[2])).toBe(true)
 				t.expect(acquired).toBe(0)
@@ -529,8 +554,12 @@ t.describe("native parity media", function()
 			local engine, runtime, UI = make()
 			local rung = Compose.cell("compact" :: string?)
 			local stop, root = mount(engine, runtime, function()
-				return runtime.constructors.Frame({
-					UI.Skeleton "Circle" { form = "circle", controlSize = rung },
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({
+					UI.Skeleton "Circle" { form = "circle", controlSize = rung } :: unknown,
 					UI.Skeleton "Line" { form = "line", controlSize = rung },
 				})
 			end)
@@ -561,11 +590,11 @@ t.describe("native parity media", function()
 				{ { form = "box", lines = 2 }, "lines require line form" },
 				{ { form = "line", lines = 0 }, "lines must be positive" },
 				{ { form = "line", lines = 1.5 }, "lines must be positive" },
-				{ { form = "circle", corners = "pill" }, "circle owns its corners" },
+				{ { form = "circle", corners = "pill" :: "pill" }, "circle owns its corners" },
 				{ { form = "box", surprise = true }, "unknown option 'surprise'" },
 			}
 			for _, case in cases do
-				local refused = refusal(function(UI)
+				local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Skeleton(case[1])
 				end)
 				t.expect(refusedWith(refused, case[2])).toBe(true)
@@ -578,7 +607,7 @@ t.describe("native parity media", function()
 			local engine, runtime, UI = make()
 			t.expect(function()
 				mount(engine, runtime, function()
-					return UI.Skeleton({ form = "box", controlSize = "wrong" })
+					return UI.Skeleton({ form = "box", controlSize = "wrong" :: "wrong" })
 				end)
 			end).toThrow()
 			t.expect(engine.heartbeat.count()).toBe(0)
@@ -599,8 +628,12 @@ t.describe("native parity media", function()
 			local engine, runtime, UI = make()
 			local rung = Compose.cell("compact" :: string?)
 			local stop, root = mount(engine, runtime, function()
-				return runtime.constructors.Frame({
-					UI.StatusIndicator "Sized" { status = "info", controlSize = rung },
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({
+					UI.StatusIndicator "Sized" { status = "info", controlSize = rung } :: unknown,
 					UI.StatusIndicator "Plain" { status = "info" },
 				})
 			end)
@@ -678,15 +711,15 @@ t.describe("native parity media", function()
 			local neutral = themes.neutralPackage()
 			t.expect(themes.resolveIcon(neutral, "not.an.icon")).toBeNil()
 			t.expect(string.match(themes.resolveIcon(neutral, "close") or "", "^rbxassetid://%d+$") ~= nil).toBe(true)
-			local label = refusal(function(UI)
+			local label = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Label({ title = "x", icon = "not.an.icon" })
 			end)
 			t.expect(refusedWith(label, "Facet UI.Label: unknown icon 'not.an.icon'")).toBe(true)
-			local button = refusal(function(UI)
+			local button = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Button({ label = "x", icon = "nope" })
 			end)
 			t.expect(refusedWith(button, "Facet icon nope requires an image asset")).toBe(true)
-			local accepted = refusal(function(UI)
+			local accepted = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Label({ title = "x", icon = "close" })
 			end)
 			t.expect(accepted.message).toBeNil()
@@ -724,7 +757,7 @@ t.describe("native parity media", function()
 				local package: any = themes.neutralPackage()
 				package.assets.panel =
 					{ [field] = "rbxassetid://9", sliceCenter = { x0 = 12, y0 = 12, x1 = 52, y1 = 52 } }
-				package.chrome.panel = { kind = "nineSlice", asset = "panel" }
+				package.chrome.panel = { kind = "nineSlice" :: "nineSlice", asset = "panel" }
 				package.icons["facet:search"] = { default = "panel" }
 				local defined: any, report = themes.define(package)
 				t.expect(report.ok).toBe(true)
@@ -750,8 +783,12 @@ t.describe("native parity media", function()
 		t.it("frames a button image by crop by default and by fit on request", function()
 			local engine, runtime, UI = make()
 			local stop, root = mount(engine, runtime, function()
-				return runtime.constructors.Frame({
-					UI.Button "Default" { label = "x", image = "rbxassetid://1" },
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({
+					UI.Button "Default" { label = "x", image = "rbxassetid://1" } :: unknown,
 					UI.Button "Crop" { label = "x", image = "rbxassetid://1", imageFraming = "crop" },
 					UI.Button "Fit" { label = "x", image = "rbxassetid://1", imageFraming = "fit" },
 				})
@@ -765,8 +802,8 @@ t.describe("native parity media", function()
 			t.expect(root:FindFirstChild("Fit", true):FindFirstChild("Image", true).Image).toBe("rbxassetid://1")
 			stop()
 			runtime:dispose()
-			for _, framing in { "stretch", { width = 256, height = 256 } } do
-				local refused = refusal(function(UI)
+			for _, framing in { "stretch" :: unknown, { width = 256, height = 256 } } do
+				local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Button({ label = "x", image = "rbxassetid://1", imageFraming = framing :: any })
 				end)
 				t.expect(refusedWith(refused, "imageFraming must be fit or crop")).toBe(true)
@@ -792,8 +829,8 @@ t.describe("native parity media", function()
 				runtime:dispose()
 			end
 			t.expect(refusedWith(
-				refusal(function(UI)
-					return UI.Button({ label = "x", role = "danger" })
+				refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					return UI.Button({ label = "x", role = "danger" :: "danger" } :: any)
 				end),
 				"Facet.Button: invalid semantic role"
 			)).toBe(true)
@@ -816,17 +853,21 @@ t.describe("native parity media", function()
 
 		t.it("refuses an unknown or reactive button shape at construction", function()
 			for _, shape in { "oval", Compose.cell("circle") :: any } do
-				local refused = refusal(function(UI)
-					return UI.Button({ label = "x", shape = shape })
+				local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					return UI.Button({ label = "x", shape = shape } :: any)
 				end)
 				t.expect(refusedWith(refused, "Facet.Button: shape must be rect or circle")).toBe(true)
 				t.expect(refused.created).toBe(0)
 			end
 			local engine, runtime, UI = make()
 			local stop, root = mount(engine, runtime, function()
-				return runtime.constructors.Frame({
-					UI.Button "Circle" { label = "x", shape = "circle" },
-					UI.Button "Rect" { label = "x", shape = "rect" },
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({
+					UI.Button "Circle" { label = "x", shape = "circle" :: "circle" } :: unknown,
+					UI.Button "Rect" { label = "x", shape = "rect" :: "rect" },
 				})
 			end)
 			t.expect(root:FindFirstChild("Circle", true):HasTag("facet-shape-circle")).toBe(true)
@@ -845,12 +886,12 @@ t.describe("native parity media", function()
 					{ hint = "More" },
 				} :: { { [string]: any } }
 			do
-				local refused = refusal(function(UI)
-					local spec: { [string]: any } = { label = "Continue", compactLabel = "Go" }
+				local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					local spec: { [any]: any } = { label = "Continue", compactLabel = "Go" }
 					for key, value in extra do
 						spec[key] = value
 					end
-					return UI.Button(spec)
+					return UI.Button(spec :: any)
 				end)
 				t.expect(refusedWith(refused, "Facet.Button: compactLabel requires a text button")).toBe(true)
 				t.expect(refused.live).toBe(0)
@@ -866,7 +907,7 @@ t.describe("native parity media", function()
 		end)
 
 		t.it("refuses a text input that supplies both enabled and disabled", function()
-			local refused = refusal(function(UI)
+			local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.TextInput({ value = Compose.cell(""), enabled = true, disabled = false })
 			end)
 			t.expect(refusedWith(refused, "Facet.TextInput: use enabled or disabled, not both")).toBe(true)
@@ -896,19 +937,19 @@ t.describe("native parity media", function()
 				{ { validate = "x" }, "validate must be a function" },
 			}
 			for _, case in cases do
-				local refused = refusal(function(UI)
+				local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					local spec = table.clone(case[1])
-					spec.presentation = "number"
+					spec.presentation = "number" :: "number"
 					spec.value = Compose.cell("1")
 					spec.numericValue = Compose.cell(1)
-					return UI.TextInput(spec)
+					return UI.TextInput(spec :: any)
 				end)
 				t.expect(refusedWith(refused, case[2])).toBe(true)
 				t.expect(refused.created).toBe(0)
 			end
-			local accepted = refusal(function(UI)
+			local accepted = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.TextInput({
-					presentation = "number",
+					presentation = "number" :: "number",
 					value = Compose.cell("1"),
 					numericValue = Compose.cell(1),
 					min = 1,
@@ -923,11 +964,11 @@ t.describe("native parity media", function()
 		t.it("refuses an unknown control size and keeps the last legal size for a live rung", function()
 			for _, build in
 				{
-					function(UI)
-						return UI.Button({ label = "Go", controlSize = "tiny" })
+					function(UI: typeof(require("@repo/src").controls(nil :: any)))
+						return UI.Button({ label = "Go", controlSize = "tiny" :: "tiny" })
 					end,
-					function(UI)
-						return UI.ShortcutHint({ keys = { { "Ctrl", "K" } }, controlSize = "tiny" })
+					function(UI: typeof(require("@repo/src").controls(nil :: any)))
+						return UI.ShortcutHint({ keys = { { "Ctrl", "K" } }, controlSize = "tiny" :: "tiny" })
 					end,
 				} :: { (any) -> any }
 			do
@@ -939,12 +980,16 @@ t.describe("native parity media", function()
 				local rung = Compose.cell("regular")
 				local source: any = if bound == "cell"
 					then rung
-					else function(use)
+					else function(use: Use)
 						return use(rung)
 					end
 				local stop, root = mount(engine, runtime, function()
-					return runtime.constructors.Frame({
-						UI.Button "Go" { label = "Go", controlSize = source },
+					return (
+						(
+							runtime.constructors.Frame :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+					)({
+						UI.Button "Go" { label = "Go", controlSize = source } :: unknown,
 						UI.ShortcutHint "Hint" { keys = { { "Ctrl", "K" } }, controlSize = source },
 					})
 				end)
@@ -970,17 +1015,17 @@ t.describe("native parity media", function()
 		t.it(
 			"refuses a combo box with a plain value, missing text, a non-function validator or an unknown key",
 			function()
-				local function spec(overrides: { [string]: any }): { [string]: any }
-					local result: { [string]: any } = {
+				local function spec(overrides: { [string]: any }): FixtureNavigationTypes.ComboBoxSpec
+					local result: FixtureNavigationTypes.ComboBoxSpec = {
 						value = Compose.cell("a"),
 						text = Compose.cell("A"),
 						options = { { value = "a", label = "A" } },
-						acceptCustom = function()
-							return false
+						acceptCustom = function(_: string): (boolean, string?)
+							return false, nil
 						end,
 					}
 					for key, value in overrides do
-						result[key] = if value == "nil" then nil else value
+						(result :: any)[key] = if value == "nil" then nil else value
 					end
 					return result
 				end
@@ -997,17 +1042,17 @@ t.describe("native parity media", function()
 					{ { bogus = 1 }, "unknown option 'bogus'" },
 				}
 				for _, case in cases do
-					local refused = refusal(function(UI)
+					local refused = refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 						return UI.ComboBox(spec(case[1]))
 					end)
 					t.expect(refusedWith(refused, case[2])).toBe(true)
 					t.expect(refused.live).toBe(0)
 					t.expect(refused.connections).toBe(0)
 				end
-				t.expect(refusal(function(UI)
+				t.expect(refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.ComboBox(spec({}))
 				end).message).toBeNil()
-				t.expect(refusal(function(UI)
+				t.expect(refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.ComboBox(spec({ options = Compose.cell({ { value = "a", label = "A" } }) }))
 				end).message).toBeNil()
 			end
@@ -1020,8 +1065,8 @@ t.describe("native parity media", function()
 				end
 			end
 			local function radial(option: string): (any, any, any) -> any
-				return function(UI, _, value)
-					local spec: { [string]: any } = { items = { { id = "a", label = "A", onSelect = function() end } } }
+				return function(UI: typeof(require("@repo/src").controls(nil :: any)), _, value)
+					local spec: { [any]: any } = { items = { { id = "a", label = "A", onSelect = function() end } } }
 					spec[option] = value
 					return UI.RadialMenu(spec)
 				end
@@ -1032,7 +1077,7 @@ t.describe("native parity media", function()
 					"circle",
 					"oval",
 					"shape must be rect or circle",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Button({ label = "Go", shape = v })
 					end,
 				},
@@ -1041,7 +1086,7 @@ t.describe("native parity media", function()
 					"square",
 					"rounded",
 					"corners must be pill or square",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Button({ label = "Go", corners = v })
 					end,
 				},
@@ -1050,7 +1095,7 @@ t.describe("native parity media", function()
 					"cancel",
 					"confirm",
 					"invalid dialogAction",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Button({ label = "Go", dialogAction = v })
 					end,
 				},
@@ -1059,7 +1104,7 @@ t.describe("native parity media", function()
 					"destructive",
 					"danger",
 					"invalid semantic role",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Button({ label = "Go", role = v })
 					end,
 				},
@@ -1068,7 +1113,7 @@ t.describe("native parity media", function()
 					"large",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Button({ label = "Go", controlSize = v })
 					end,
 				},
@@ -1077,7 +1122,7 @@ t.describe("native parity media", function()
 					"compact",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Chip({ label = "Go", selected = Compose.cell(false), controlSize = v })
 					end,
 				},
@@ -1086,7 +1131,7 @@ t.describe("native parity media", function()
 					"checkbox",
 					"radio",
 					"Toggle: invalid presentation",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Toggle({ value = Compose.cell(false), presentation = v })
 					end,
 				},
@@ -1095,7 +1140,7 @@ t.describe("native parity media", function()
 					"trailing",
 					"above",
 					"Toggle: invalid indicatorPosition",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Toggle({ value = Compose.cell(false), indicatorPosition = v })
 					end,
 				},
@@ -1104,7 +1149,7 @@ t.describe("native parity media", function()
 					"search",
 					"email",
 					"TextInput: invalid presentation",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.TextInput({ value = Compose.cell(""), presentation = v })
 					end,
 				},
@@ -1113,7 +1158,7 @@ t.describe("native parity media", function()
 					"whileEditing",
 					"often",
 					"invalid clearButtonMode",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.TextInput({ value = Compose.cell(""), clearButtonMode = v })
 					end,
 				},
@@ -1122,7 +1167,7 @@ t.describe("native parity media", function()
 					"large",
 					"huge",
 					"invalid size",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Rating({ value = Compose.cell(1), starSize = v })
 					end,
 				},
@@ -1131,7 +1176,7 @@ t.describe("native parity media", function()
 					"glyph",
 					"dot",
 					"invalid segment",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.LevelPicker({ value = Compose.cell(1), segment = v })
 					end,
 				},
@@ -1140,7 +1185,7 @@ t.describe("native parity media", function()
 					"medium",
 					"huge",
 					"invalid size",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.LevelPicker({ value = Compose.cell(1), segmentSize = v })
 					end,
 				},
@@ -1149,7 +1194,7 @@ t.describe("native parity media", function()
 					"large",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.ShortcutHint({ keys = { { "Ctrl", "K" } }, controlSize = v })
 					end,
 				},
@@ -1158,10 +1203,10 @@ t.describe("native parity media", function()
 					"inline",
 					"carousel",
 					"Unknown Picker style",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Picker({
 							selected = Compose.cell("a"),
-							options = { { value = "a", label = "A" } },
+							options = { { value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any> },
 							style = v,
 						})
 					end,
@@ -1171,11 +1216,11 @@ t.describe("native parity media", function()
 					"underline",
 					"dot",
 					"Invalid Picker.indicator",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Picker({
 							selected = Compose.cell("a"),
-							options = { { value = "a", label = "A" } },
-							style = "segmented",
+							options = { { value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any> },
+							style = "segmented" :: "segmented",
 							indicator = v,
 						})
 					end,
@@ -1185,11 +1230,11 @@ t.describe("native parity media", function()
 					"y",
 					"z",
 					"Picker.axis must be x or y",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Picker({
 							selected = Compose.cell("a"),
-							options = { { value = "a", label = "A" } },
-							style = "segmented",
+							options = { { value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any> },
+							style = "segmented" :: "segmented",
 							axis = v,
 						})
 					end,
@@ -1199,11 +1244,11 @@ t.describe("native parity media", function()
 					"hug",
 					"auto",
 					"Picker.sizing must be fill or hug",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Picker({
 							selected = Compose.cell("a"),
-							options = { { value = "a", label = "A" } },
-							style = "segmented",
+							options = { { value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any> },
+							style = "segmented" :: "segmented",
 							sizing = v,
 						})
 					end,
@@ -1213,10 +1258,14 @@ t.describe("native parity media", function()
 					"collapsible",
 					"floating",
 					"Invalid TabView.style",
-					function(UI, Host, v)
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						v
+					)
 						return UI.TabView({
 							selection = Compose.cell("a"),
-							tabs = { { id = "a", label = "A", content = content(Host) } },
+							tabs = { { id = "a", label = "A", content = content(Host) } :: FixtureNavigationTypes.Tab },
 							style = v,
 						})
 					end,
@@ -1226,10 +1275,14 @@ t.describe("native parity media", function()
 					"top",
 					"some",
 					"TabView.retention uses Compose all or top",
-					function(UI, Host, v)
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						v
+					)
 						return UI.TabView({
 							selection = Compose.cell("a"),
-							tabs = { { id = "a", label = "A", content = content(Host) } },
+							tabs = { { id = "a", label = "A", content = content(Host) } :: FixtureNavigationTypes.Tab },
 							retention = v,
 						})
 					end,
@@ -1239,7 +1292,11 @@ t.describe("native parity media", function()
 					"trailing",
 					"above",
 					"Invalid DisclosureGroup.chevronPosition",
-					function(UI, Host, v)
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						v
+					)
 						return UI.DisclosureGroup({
 							label = "More",
 							expanded = Compose.cell(false),
@@ -1253,7 +1310,11 @@ t.describe("native parity media", function()
 					"contained",
 					"boxed",
 					"Invalid DisclosureGroup.appearance",
-					function(UI, Host, v)
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						v
+					)
 						return UI.DisclosureGroup({
 							label = "More",
 							expanded = Compose.cell(false),
@@ -1267,11 +1328,13 @@ t.describe("native parity media", function()
 					"fullScreen",
 					"sheet",
 					"Alert.surface must be dialog or fullScreen",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Alert({
 							isPresented = Compose.cell(false),
 							title = "Title",
-							actions = { { id = "ok", label = "OK", role = "default" } },
+							actions = {
+								{ id = "ok", label = "OK", role = "default" :: "default" } :: FixtureNavigationTypes.AlertAction<any>,
+							},
 							surface = v,
 						})
 					end,
@@ -1302,7 +1365,11 @@ t.describe("native parity media", function()
 					"item",
 					"row",
 					"snap must be none or item",
-					function(UI, Host, v)
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						v
+					)
 						return UI.VirtualList({ from = {}, render = content(Host), snap = v })
 					end,
 				},
@@ -1311,7 +1378,11 @@ t.describe("native parity media", function()
 					"none",
 					"page",
 					"snap must be none or item",
-					function(UI, Host, v)
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						v
+					)
 						return UI.VirtualGrid({ from = {}, render = content(Host), snap = v })
 					end,
 				},
@@ -1320,7 +1391,7 @@ t.describe("native parity media", function()
 					"utility",
 					"loud",
 					"Facet Badge invalid appearance",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Badge({ label = "New", appearance = v })
 					end,
 				},
@@ -1329,7 +1400,7 @@ t.describe("native parity media", function()
 					"warning",
 					"danger",
 					"Facet: invalid status",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Badge({ label = "New", status = v })
 					end,
 				},
@@ -1338,7 +1409,7 @@ t.describe("native parity media", function()
 					"capsule",
 					"round",
 					"Facet Badge invalid corners",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Badge({ label = "New", corners = v })
 					end,
 				},
@@ -1347,7 +1418,7 @@ t.describe("native parity media", function()
 					"compact",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Badge({ label = "New", controlSize = v })
 					end,
 				},
@@ -1356,7 +1427,7 @@ t.describe("native parity media", function()
 					"accent",
 					"critical",
 					"Facet: invalid status",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.StatusIndicator({ status = v })
 					end,
 				},
@@ -1365,8 +1436,8 @@ t.describe("native parity media", function()
 					"square",
 					"star",
 					"Facet StatusIndicator invalid form",
-					function(UI, _, v)
-						return UI.StatusIndicator({ status = "info", form = v })
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
+						return UI.StatusIndicator({ status = "info" :: "info", form = v })
 					end,
 				},
 				{
@@ -1374,8 +1445,8 @@ t.describe("native parity media", function()
 					"large",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
-						return UI.StatusIndicator({ status = "info", controlSize = v })
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
+						return UI.StatusIndicator({ status = "info" :: "info", controlSize = v })
 					end,
 				},
 				{
@@ -1383,7 +1454,7 @@ t.describe("native parity media", function()
 					"spinner",
 					"ring",
 					"presentation must be bar, circular or spinner",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.ProgressView({ value = 1, presentation = v })
 					end,
 				},
@@ -1392,8 +1463,8 @@ t.describe("native parity media", function()
 					"compact",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
-						return UI.ProgressView({ value = 1, presentation = "circular", controlSize = v })
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
+						return UI.ProgressView({ value = 1, presentation = "circular" :: "circular", controlSize = v })
 					end,
 				},
 				{
@@ -1401,7 +1472,7 @@ t.describe("native parity media", function()
 					"circle",
 					"oval",
 					"Facet Skeleton invalid form",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Skeleton({ form = v })
 					end,
 				},
@@ -1410,8 +1481,8 @@ t.describe("native parity media", function()
 					"pill",
 					"round",
 					"Facet Skeleton invalid corners",
-					function(UI, _, v)
-						return UI.Skeleton({ form = "box", corners = v })
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
+						return UI.Skeleton({ form = "box" :: "box", corners = v })
 					end,
 				},
 				{
@@ -1419,7 +1490,7 @@ t.describe("native parity media", function()
 					"large",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Skeleton({ controlSize = v })
 					end,
 				},
@@ -1428,7 +1499,7 @@ t.describe("native parity media", function()
 					"icon",
 					"photo",
 					"Facet Avatar invalid form",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Avatar({ name = "Ada", form = v })
 					end,
 				},
@@ -1437,7 +1508,7 @@ t.describe("native parity media", function()
 					"busy",
 					"idle",
 					"Facet Avatar invalid presence",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Avatar({ name = "Ada", presence = v })
 					end,
 				},
@@ -1446,7 +1517,7 @@ t.describe("native parity media", function()
 					"compact",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.Avatar({ name = "Ada", controlSize = v })
 					end,
 				},
@@ -1455,7 +1526,7 @@ t.describe("native parity media", function()
 					"spread",
 					"grid",
 					"Facet AvatarGroup invalid layout",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.AvatarGroup({ items = { { id = "a", name = "Ada" } }, layout = v })
 					end,
 				},
@@ -1464,7 +1535,7 @@ t.describe("native parity media", function()
 					"ellipsis",
 					"hidden",
 					"Facet AvatarGroup invalid overflow",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.AvatarGroup({ items = { { id = "a", name = "Ada" } }, overflow = v })
 					end,
 				},
@@ -1473,7 +1544,7 @@ t.describe("native parity media", function()
 					"large",
 					"tiny",
 					"compact, regular or large",
-					function(UI, _, v)
+					function(UI: typeof(require("@repo/src").controls(nil :: any)), _, v)
 						return UI.AvatarGroup({ items = { { id = "a", name = "Ada" } }, controlSize = v })
 					end,
 				},
@@ -1481,12 +1552,22 @@ t.describe("native parity media", function()
 			local failures = {}
 			for _, case in cases do
 				local name, good, bad, fragment, build = case[1], case[2], case[3], case[4], case[5]
-				local accepted = refusal(function(UI, Host)
-					return build(UI, Host, good)
-				end)
-				local refused = refusal(function(UI, Host)
-					return build(UI, Host, bad)
-				end)
+				local accepted = refusal(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return build(UI, Host, good)
+					end
+				)
+				local refused = refusal(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return build(UI, Host, bad)
+					end
+				)
 				if accepted.message ~= nil then
 					table.insert(failures, `{name} refused {good}: {accepted.message}`)
 				elseif not refusedWith(refused, fragment) then
@@ -1506,7 +1587,8 @@ t.describe("native parity media", function()
 	t.describe("controls", function()
 		local function session(build: (any, any) -> any, prepare: ((any, any) -> ())?): { [string]: any }
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -1526,7 +1608,9 @@ t.describe("native parity media", function()
 					services = { GuiService = gui, UserInputService = input },
 				} :: any
 			)
-			local Host = runtime.constructors
+			local Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 			local stop, screen: any = runtime.mount(function()
 				return Host.ScreenGui({ build(UI, Host) })
 			end, engine.new("Folder"))
@@ -1548,29 +1632,40 @@ t.describe("native parity media", function()
 
 		local function press(engine: any, node: any)
 			local Enum = engine.types.Enum
-			node.InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown })
+			node.InputBegan.fire({
+				UserInputType = Enum.UserInputType.MouseButton1,
+				KeyCode = Enum.KeyCode:FromValue(0),
+			})
 		end
 
 		local function release(engine: any, node: any)
 			local Enum = engine.types.Enum
-			node.InputEnded.fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown })
+			node.InputEnded.fire({
+				UserInputType = Enum.UserInputType.MouseButton1,
+				KeyCode = Enum.KeyCode:FromValue(0),
+			})
 		end
 
 		t.it("adds no pop scale without pop and does not re-kick pop on held repeats", function()
 			local activations = 0
-			local w = session(function(UI, Host)
-				return Host.Frame({
-					UI.Button "Plain" { label = "x", onActivate = function() end },
-					UI.Button "Held" {
-						label = "x",
-						pop = true,
-						repeatInterval = 0.1,
-						onActivate = function()
-							activations += 1
-						end,
-					},
-				})
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button "Plain" { label = "x", onActivate = function() end } :: unknown,
+						UI.Button "Held" {
+							label = "x",
+							pop = true,
+							repeatInterval = 0.1,
+							onActivate = function()
+								activations += 1
+							end,
+						},
+					})
+				end
+			)
 			t.expect(w.find("Plain"):FindFirstChild("Pop")).toBeNil()
 			t.expect(w.find("Plain"):FindFirstChildWhichIsA("UIScale")).toBeNil()
 			local held = w.find("Held")
@@ -1600,21 +1695,27 @@ t.describe("native parity media", function()
 		t.it("follows GuiService reduced motion for button pop, validation pulse and busy dots", function()
 			local function run(reduced: boolean): { [string]: any }
 				local value, number = Compose.cell("2"), Compose.cell(2)
-				local w = session(function(UI, Host)
-					return Host.Frame({
-						UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
-						UI.Button "Busy" { label = "Save", busy = true },
-						UI.TextInput "Field" {
-							value = value,
-							numericValue = number,
-							presentation = "number",
-							min = 1,
-							max = 10,
-						},
-					})
-				end, function(gui)
-					gui.ReducedMotionEnabled = reduced
-				end)
+				local w = session(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return Host.Frame({
+							UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+							UI.Button "Busy" { label = "Save", busy = true },
+							UI.TextInput "Field" {
+								value = value,
+								numericValue = number,
+								presentation = "number" :: "number",
+								min = 1,
+								max = 10,
+							},
+						})
+					end,
+					function(gui)
+						gui.ReducedMotionEnabled = reduced
+					end
+				)
 				local button = w.find("Pop")
 				button.Activated.fire()
 				local field = w.find("Field")
@@ -1673,7 +1774,11 @@ t.describe("native parity media", function()
 				local stop = mount(engine, runtime, function()
 					sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
 					button = themed.Button({ label = "Save", busy = busy })
-					return runtime.constructors.Frame({ sheet, button })
+					return (
+						(
+							runtime.constructors.Frame :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+					)({ sheet :: unknown, button })
 				end)
 				local busyRule, plainRule =
 					style(sheet, ".facet-busy::UIPadding"), style(sheet, ".facet-button::UIPadding")
@@ -1706,19 +1811,24 @@ t.describe("native parity media", function()
 
 		t.it("renders caller numeric children inside the button beside its label", function()
 			local activations = 0
-			local art, badge
-			local w = session(function(UI, Host)
-				art = Host.ImageLabel "Art" { Image = "rbxassetid://7" }
-				badge = Host.TextLabel "Count" { Text = "3" }
-				return UI.Button "Buy" {
-					label = "Buy",
-					onActivate = function()
-						activations += 1
-					end,
-					art,
-					badge,
-				}
-			end)
+			local art: any, badge: any
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					art = Host.ImageLabel "Art" { Image = "rbxassetid://7" }
+					badge = Host.TextLabel "Count" { Text = "3" }
+					return UI.Button "Buy" {
+						label = "Buy",
+						onActivate = function()
+							activations += 1
+						end,
+						art :: unknown,
+						badge,
+					}
+				end
+			)
 			local button = w.find("Buy")
 			t.expect(button.ClassName).toBe("TextButton")
 			t.expect(button.Text).toBe("Buy")
@@ -1740,12 +1850,14 @@ t.describe("native parity media", function()
 			local engine, runtime = make()
 			local themed: any = Facet.controls(runtime, { types = engine.types, theme = package } :: any)
 			local stop, root = mount(engine, runtime, function()
-				local Host = runtime.constructors
+				local Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 				sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
 				lead = Host.ImageLabel "Lead" { Image = "rbxassetid://9" }
 				count = Host.TextLabel "Count" { Text = "3" }
 				return Host.Frame({
-					sheet,
+					sheet :: unknown,
 					themed.Chip "Plain" { label = "Dry", selected = selected },
 					themed.Chip "Rain" {
 						label = "Rain",
@@ -1801,41 +1913,46 @@ t.describe("native parity media", function()
 
 		t.it("fires button pointer down, up and cancel once each and none while disabled", function()
 			local calls = { down = 0, up = 0, cancel = 0, lone = 0, blocked = 0 }
-			local w = session(function(UI, Host)
-				return Host.Frame({
-					UI.Button "Tracked" {
-						label = "x",
-						onPointerDown = function()
-							calls.down += 1
-						end,
-						onPointerUp = function()
-							calls.up += 1
-						end,
-						onPointerCancel = function()
-							calls.cancel += 1
-						end,
-					},
-					UI.Button "Lone" {
-						label = "x",
-						onPointerCancel = function()
-							calls.lone += 1
-						end,
-					},
-					UI.Button "Blocked" {
-						label = "x",
-						enabled = false,
-						onPointerDown = function()
-							calls.blocked += 1
-						end,
-						onPointerUp = function()
-							calls.blocked += 1
-						end,
-						onPointerCancel = function()
-							calls.blocked += 1
-						end,
-					},
-				})
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button "Tracked" {
+							label = "x",
+							onPointerDown = function()
+								calls.down += 1
+							end,
+							onPointerUp = function()
+								calls.up += 1
+							end,
+							onPointerCancel = function()
+								calls.cancel += 1
+							end,
+						} :: unknown,
+						UI.Button "Lone" {
+							label = "x",
+							onPointerCancel = function()
+								calls.lone += 1
+							end,
+						},
+						UI.Button "Blocked" {
+							label = "x",
+							enabled = false,
+							onPointerDown = function()
+								calls.blocked += 1
+							end,
+							onPointerUp = function()
+								calls.blocked += 1
+							end,
+							onPointerCancel = function()
+								calls.blocked += 1
+							end,
+						},
+					})
+				end
+			)
 			local tracked, lone, blocked = w.find("Tracked"), w.find("Lone"), w.find("Blocked")
 			tracked.MouseLeave.fire()
 			t.expect(calls.cancel).toBe(0)
@@ -1871,11 +1988,16 @@ t.describe("native parity media", function()
 		t.it("shows button help in an unselectable panel that wraps long text at 264 pixels", function()
 			local long = string.rep("Posts this avatar to the shared gallery. ", 8)
 			t.expect(#long).toBeGreaterThan(300)
-			local w = session(function(UI, Host)
-				return Host.Frame "Screen" {
-					UI.Button "Plus" { label = "+", help = long },
-				}
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame "Screen" {
+						UI.Button "Plus" { label = "+", help = long },
+					}
+				end
+			)
 			local Enum = w.engine.types.Enum
 			local plus = w.find("Plus")
 			w.input.PreferredInput = Enum.PreferredInput.Gamepad
@@ -1904,19 +2026,24 @@ t.describe("native parity media", function()
 
 		t.it("rejects an invalid UTF-8 edit and keeps the model, the text and onChange untouched", function()
 			local value, bounded, requests = Compose.cell("ab"), Compose.cell("ab"), {}
-			local w = session(function(UI, Host)
-				return Host.Frame({
-					UI.TextInput "Free" { value = value },
-					UI.TextInput "Bounded" {
-						value = bounded,
-						maxLength = 5,
-						onChange = function(text)
-							table.insert(requests, text)
-							bounded:set(text)
-						end,
-					},
-				})
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.TextInput "Free" { value = value } :: unknown,
+						UI.TextInput "Bounded" {
+							value = bounded,
+							maxLength = 5,
+							onChange = function(text)
+								table.insert(requests, text)
+								bounded:set(text)
+							end,
+						},
+					})
+				end
+			)
 			local free, limited = w.find("Free"), w.find("Bounded")
 			free:CaptureFocus()
 			free.Text = "ab\xff"
@@ -1948,13 +2075,18 @@ t.describe("native parity media", function()
 
 		t.it("shows the clear button at all times when clearButton is true and clears the value", function()
 			local value, plain = Compose.cell("a"), Compose.cell("a")
-			local w = session(function(UI, Host)
-				return Host.Frame({
-					UI.TextInput "Clearable" { value = value, clearButton = true },
-					UI.TextInput "Plain" { value = plain },
-					UI.TextInput "Off" { value = plain, clearButton = false },
-				})
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.TextInput "Clearable" { value = value, clearButton = true } :: unknown,
+						UI.TextInput "Plain" { value = plain },
+						UI.TextInput "Off" { value = plain, clearButton = false },
+					})
+				end
+			)
 			local field = w.find("Clearable")
 			local clear = field:FindFirstChild("Clear")
 			t.expect(clear.Visible).toBe(true)
@@ -1987,39 +2119,44 @@ t.describe("native parity media", function()
 						end
 					end
 				end
-				local w = session(function(UI, Host)
-					return Host.Frame({
-						Compose.show(shown, function()
-							return UI.TextInput "Amount" {
-								value = value,
-								numericValue = number,
-								presentation = "number",
-								enabled = enabled,
-								parse = function(text)
-									if stage == "parse" or stage == "unmount" then
-										trip()
-									end
-									return tonumber(text)
-								end,
-								format = function(amount)
-									if stage == "format" then
-										trip()
-									end
-									return string.format("%.2f", amount)
-								end,
-								validate = function(text)
-									if stage == "validate" then
-										trip()
-									end
-									return text
-								end,
-								onCommit = function()
-									commits += 1
-								end,
-							}
-						end),
-					})
-				end)
+				local w = session(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return Host.Frame({
+							Compose.show(shown, function()
+								return UI.TextInput "Amount" {
+									value = value,
+									numericValue = number,
+									presentation = "number" :: "number",
+									enabled = enabled,
+									parse = function(text)
+										if stage == "parse" or stage == "unmount" then
+											trip()
+										end
+										return tonumber(text)
+									end,
+									format = function(amount)
+										if stage == "format" then
+											trip()
+										end
+										return string.format("%.2f", amount)
+									end,
+									validate = function(text)
+										if stage == "validate" then
+											trip()
+										end
+										return text
+									end,
+									onCommit = function()
+										commits += 1
+									end,
+								}
+							end),
+						})
+					end
+				)
 				local field = w.find("Amount")
 				field:CaptureFocus()
 				field.Text = "5"
@@ -2048,7 +2185,7 @@ t.describe("native parity media", function()
 			end
 			for _, disable in { false, true } do
 				local text, enabled, commits, armed = Compose.cell("a"), Compose.cell(true), 0, false
-				local w = session(function(UI)
+				local w = session(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.TextInput "Plain" {
 						value = text,
 						enabled = enabled,
@@ -2076,12 +2213,17 @@ t.describe("native parity media", function()
 
 		t.it("takes a disabled or busy button out of native selection and restores it", function()
 			local enabled, busy = Compose.cell(false), Compose.cell(false)
-			local w = session(function(UI, Host)
-				return Host.Frame({
-					UI.Button "Gated" { label = "Go", enabled = enabled },
-					UI.Button "Working" { label = "Save", busy = busy },
-				})
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button "Gated" { label = "Go", enabled = enabled } :: unknown,
+						UI.Button "Working" { label = "Save", busy = busy },
+					})
+				end
+			)
 			local gated, working = w.find("Gated"), w.find("Working")
 			t.expect(gated.Selectable).toBe(false)
 			t.expect(gated.Interactable).toBe(false)
@@ -2110,24 +2252,29 @@ t.describe("native parity media", function()
 
 		t.it("restores focus through nested sheet and alert presentations in last-in first-out order", function()
 			local sheet, alert = Compose.cell(false), Compose.cell(false)
-			local w = session(function(UI, Host)
-				return Host.Frame({
-					UI.Button "Base" { label = "Base" },
-					UI.Sheet({
-						isPresented = sheet,
-						detent = Compose.cell("medium"),
-						title = "Outer",
-						content = function()
-							return UI.Button "Inner" { label = "Inner" }
-						end,
-					}),
-					UI.Alert({
-						isPresented = alert,
-						title = "Confirm",
-						actions = { { id = "Accept", label = "Accept" } },
-					}),
-				})
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button "Base" { label = "Base" } :: unknown,
+						UI.Sheet({
+							isPresented = sheet,
+							detent = Compose.cell("medium"),
+							title = "Outer",
+							content = function(): Instance
+								return UI.Button "Inner" { label = "Inner" }
+							end,
+						}),
+						UI.Alert({
+							isPresented = alert,
+							title = "Confirm",
+							actions = { { id = "Accept", label = "Accept" } :: FixtureNavigationTypes.AlertAction<any> },
+						}),
+					})
+				end
+			)
 			local base = w.find("Base")
 			w.gui.SelectedObject = base
 			sheet:set(true)
@@ -2164,20 +2311,25 @@ t.describe("native parity media", function()
 			function()
 				local shown = Compose.cell(false)
 				local origin: any = nil
-				local w = session(function(UI, Host)
-					local a = Host.Frame "CardA" {}
-					local b = Host.Frame "CardB" {}
-					origin = Compose.cell(a)
-					return Host.Frame({
-						a,
-						b,
-						UI.Alert({
-							isPresented = shown,
-							title = "Detail",
-							transition = { source = origin, seconds = 0.2 },
-						}),
-					})
-				end)
+				local w = session(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						local a = Host.Frame "CardA" {}
+						local b = Host.Frame "CardB" {}
+						origin = Compose.cell(a)
+						return Host.Frame({
+							a :: unknown,
+							b,
+							UI.Alert({
+								isPresented = shown,
+								title = "Detail",
+								transition = { source = origin, seconds = 0.2 },
+							}),
+						})
+					end
+				)
 				local V2 = w.engine.types.Vector2
 				local a, b = w.find("CardA"), w.find("CardB")
 				a.AbsolutePosition, a.AbsoluteSize = V2.new(20, 30), V2.new(100, 60)
@@ -2241,19 +2393,24 @@ t.describe("native parity media", function()
 		t.it("dismisses a full-screen alert in place and destroys its snapshot when the source is gone", function()
 			local shown = Compose.cell(false)
 			local origin: any = nil
-			local w = session(function(UI, Host)
-				local card = Host.Frame "Card" { Host.UICorner({}) }
-				origin = Compose.cell(card)
-				return Host.Frame({
-					card,
-					UI.Alert({
-						isPresented = shown,
-						title = "Detail",
-						surface = "fullScreen",
-						transition = { source = origin, seconds = 0.4 },
-					}),
-				})
-			end)
+			local w = session(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					local card = Host.Frame "Card" { Host.UICorner({}) }
+					origin = Compose.cell(card)
+					return Host.Frame({
+						card :: unknown,
+						UI.Alert({
+							isPresented = shown,
+							title = "Detail",
+							surface = "fullScreen" :: "fullScreen",
+							transition = { source = origin, seconds = 0.4 },
+						}),
+					})
+				end
+			)
 			local V2 = w.engine.types.Vector2
 			local card = w.find("Card")
 			card.AbsolutePosition, card.AbsoluteSize = V2.new(20, 30), V2.new(120, 80)
@@ -2351,7 +2508,7 @@ t.describe("native parity media", function()
 			end
 			t.expect(count >= 7).toBe(true)
 			local broken = themes.neutralPackage()
-			broken.icons = { close = "missing-asset" }
+			broken.icons = { close = "missing-asset" } :: { [string]: ThemeTypes.IconEntry }
 			t.expect(resolvesToArt(broken, "close")).toBe(false)
 			t.expect(resolvesToArt(themes.neutralPackage(), "close")).toBe(true)
 		end)
@@ -2359,7 +2516,7 @@ t.describe("native parity media", function()
 		t.it("resolves every framework icon to art in every shipped theme package", function()
 			local packages = { themes.neutralPackage() }
 			for _, definition in SHIPPED do
-				table.insert(packages, (assert(themes.define(definition.build(themes)))))
+				table.insert(packages, (assert(themes.define((definition.build(themes))))))
 			end
 			t.expect(#packages).toBe(9)
 			local names = 0
@@ -2379,13 +2536,13 @@ t.describe("native parity media", function()
 		end)
 
 		t.it("shows the package increment and decrement art on stepper buttons instead of glyphs", function()
-			local pixel = assert(themes.define(require("../examples/themes/pixel_quest").build(themes)))
+			local pixel = assert(themes.define((require("../examples/themes/pixel_quest").build(themes))))
 			for _, case in { { package = themes.neutralPackage(), own = false }, { package = pixel, own = true } } do
 				local engine, runtime, UI = make({ theme = case.package })
 				local stop, root = mount(engine, runtime, function()
 					return UI.Stepper({ value = Compose.cell(2), min = 0, max = 5 })
 				end)
-				for name, icon in { Increase = "increment", Decrease = "decrement" } do
+				for name, icon in { Increase = "increment", Decrease = "decrement" } :: { [string]: string } do
 					local button = assert(root:FindFirstChild(name, true))
 					local image = assert(button:FindFirstChildWhichIsA("ImageLabel", true))
 					t.expect(image.Image).toBe(themes.resolveIcon(case.package, icon))

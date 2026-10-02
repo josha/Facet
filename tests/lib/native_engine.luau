@@ -1,10 +1,25 @@
 --!strict
 
 local Roblox = require("@lune/roblox")
+local Shared = require("../../src/ui/types")
+local ComposeRoblox = require("../../src/vendor/compose/roblox")
+export type Signal = {
+	Connect: (any, (...any) -> ()) -> { Disconnect: () -> () },
+	fire: (...any) -> (),
+	count: () -> number,
+}
+export type Engine = ComposeRoblox.Engine & {
+	heartbeat: Signal,
+	types: Shared.RobloxTypes,
+	made: { any },
+	rejectedSelections: { any },
+	census: () -> { live: number, connections: number },
+}
+
 local function signal()
-	local listeners = {}
+	local listeners: { [any]: (...any) -> () } = {}
 	return {
-		Connect = function(_, callback)
+		Connect = function(_: any, callback: (...any) -> ()): { Disconnect: () -> () }
 			local token = {}
 			listeners[token] = callback
 			return {
@@ -52,8 +67,8 @@ local function isMember(className: string, key: string): boolean
 	end
 	return false
 end
-local function new(options: any?)
-	local made = {}
+local function new(options: any?): Engine
+	local made: { any } = {}
 	local rejectedSelections = {}
 	local defaultsByClass = {}
 	local membersByClass = {}
@@ -91,9 +106,9 @@ local function new(options: any?)
 		SelectionGained = true,
 		SelectionLost = true,
 	}
-	local function create(className)
+	local function create(className: string): any
 		local cached = options and options.cacheDefaults == true
-		local record = if cached then defaultsByClass[className] else nil
+		local record: any = if cached then defaultsByClass[className] else nil
 		if record == nil then
 			record = {
 				node = Roblox.Instance.new(if className == "UIShadow" then "Folder" else className),
@@ -105,7 +120,7 @@ local function new(options: any?)
 			end
 		end
 		local defaults = record.node
-		local properties = {
+		local properties: { [string]: any } = {
 			ClassName = className,
 			Name = className,
 			AbsoluteSize = Roblox.Vector2.zero,
@@ -130,8 +145,12 @@ local function new(options: any?)
 			properties.ZIndex = -1
 			properties.Enabled = true
 		end
-		local changed, signals, children = {}, {}, {}
-		local node, destroyed, focused
+		local changed: { [string]: any } = {}
+		local signals: { [string]: typeof(signal()) } = {}
+		local children: { any } = {}
+		local node: any
+		local destroyed: boolean?
+		local focused: boolean?
 		local tags, styleProperties, styleTransitions = {}, {}, {}
 		local methods = {
 			_fireSignal = function(_, name, ...)
@@ -157,7 +176,7 @@ local function new(options: any?)
 					return nil
 				end
 				local copies = {}
-				local function copyTree(original)
+				local function copyTree(original: any): any
 					local copy = create(original.ClassName)
 					copies[original] = copy
 					for _, child in original:GetChildren() do
@@ -386,8 +405,8 @@ local function new(options: any?)
 				return destroyed == true
 			end,
 		}
-		local function lineage(start, name)
-			local listeners = {}
+		local function lineage(start: any, name: string)
+			local listeners: { any } = {}
 			local cursor = start
 			while cursor do
 				if cursor:_hasSignal(name) then
@@ -481,7 +500,7 @@ local function new(options: any?)
 								or found == "Vector2"
 							then found
 							else false
-						kinds[key] = kind
+						kinds[key] = kind :: string | false
 					end
 					if kind then
 						assert(
@@ -560,7 +579,7 @@ local function new(options: any?)
 		return node
 	end
 	local heartbeat = signal()
-	local types = table.clone(Roblox)
+	local types: any = table.clone(Roblox)
 	types.BrickColor = setmetatable({
 		palette = function(index: number): any
 			return Roblox.BrickColor.palette(index + 1)
@@ -627,18 +646,19 @@ local function new(options: any?)
 			return { Position = position, LeftTangent = leftTangent, RightTangent = rightTangent }
 		end,
 	}
-	return {
+	local result = {
 		new = create,
 		heartbeat = heartbeat,
 		clock = os.clock,
 		typeName = typeof,
-		destroy = function(node)
+		destroy = function(node: any)
 			node:Destroy()
 		end,
-		propertyChanged = function(node, key)
+		propertyChanged = function(node: any, key: string)
 			return node:GetPropertyChangedSignal(key)
 		end,
 		datatypes = {
+			CFrame = nil,
 			Vector2 = Roblox.Vector2.new,
 			Vector3 = Roblox.Vector3.new,
 			Color3 = Roblox.Color3.new,
@@ -658,7 +678,8 @@ local function new(options: any?)
 		end,
 		made = made,
 		rejectedSelections = rejectedSelections,
-		types = types,
+		types = types :: Shared.RobloxTypes,
 	}
+	return (result :: unknown) :: Engine
 end
 return { new = new }

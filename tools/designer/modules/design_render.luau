@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local library = require("./library")
 local document = require("./document")
@@ -50,7 +52,7 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 				BorderStrokePosition = Enum.BorderStrokePosition.Inner,
 				ZIndex = 10,
-				Enabled = function(use)
+				Enabled = function(use: Use)
 					return not use(editing.interactive) and use(editing.selected) == node.id
 				end,
 			}
@@ -87,7 +89,7 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			BackgroundTransparency = 1,
 			Active = true,
 			ZIndex = 2000,
-			Visible = function(use)
+			Visible = function(use: Use)
 				return not use(editing.interactive)
 			end,
 			[ctx.Compose.event("InputBegan")] = function(input)

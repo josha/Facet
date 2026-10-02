@@ -1,5 +1,13 @@
 --!strict
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -19,10 +27,18 @@ end
 
 local function hud(t: any, size: any): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
-		built = t.scenario("hud").build(t.context(UI, Host, Compose, env))
-		return built.screen()
-	end, { size = size, frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			built = t.scenario("hud").build(t.context(UI, Host, Compose, env))
+			return built.screen()
+		end,
+		{ size = size, frames = 12 }
+	)
 	return stage, built
 end
 
@@ -181,7 +197,7 @@ end)
 add("hud-heights-keep-zones-apart", { "apps-214" }, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1079, 809))
 	local stage = hud(t, size)
-	local lanes = {
+	local lanes: { [string]: { string } } = {
 		Left = { "Tasks", "Health", "Feed" },
 		Center = { "Clock" },
 		Right = { "Rail", "Readout", "Weapon", "Actions" },
@@ -236,8 +252,13 @@ add("hud-notice-clear-of-zones", { "apps-221" }, function(t)
 end)
 
 add("circular-value-inside-gauge", { "themes-P1-11" }, function(t)
-	local stage = t.mount(function(UI)
-		return UI.ProgressView "Ring" { value = 0.75, presentation = "circular", diameter = 120, showValue = true }
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+		return UI.ProgressView "Ring" {
+			value = 0.75,
+			presentation = "circular" :: "circular",
+			diameter = 120,
+			showValue = true,
+		}
 	end, { size = Vector2.new(300, 300) })
 	local value, gauge = t.find(stage, "Value"), t.find(stage, "Gauge")
 	if not (value and gauge) then
@@ -257,10 +278,10 @@ end)
 
 add("large-text-gauge-value-below-ring", { "themes-P1-14" }, function(t)
 	t.note("preferred text size", t.environment.preferredTextSize)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.ProgressView "Ring" {
 			value = 1,
-			presentation = "circular",
+			presentation = "circular" :: "circular",
 			diameter = 80,
 			showValue = true,
 			format = function()
@@ -337,66 +358,73 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 	for _, theme in t.themes do
 		for _, shape in shapes do
 			local editing, rows
-			local stage = t.mount(function(UI, _, Compose)
-				editing = Compose.cell(shape.options.editing == true)
-				rows = Compose.cell(table.clone(LAPS))
-				return UI.Table "Grid" {
-					from = rows,
-					key = function(item)
-						return item.id
-					end,
-					columns = {
-						{
-							id = "name",
-							label = "Name",
-							value = function(item)
-								return item.name
-							end,
-						},
-						{
-							id = "laps",
-							label = "Laps",
-							width = 64,
-							value = function(item)
-								return item.laps
-							end,
-						},
-						if shape.options.narrow
-							then {
-								id = "team",
-								label = "Team",
-								width = 150,
-								priority = 2,
-								value = function()
-									return "Glade"
+			local stage = t.mount(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					_,
+					Compose: typeof(require("@repo/src/vendor/compose/core"))
+				)
+					editing = Compose.cell(shape.options.editing == true)
+					rows = Compose.cell(table.clone(LAPS))
+					return UI.Table "Grid" {
+						from = rows,
+						key = function(item)
+							return item.id
+						end,
+						columns = {
+							{
+								id = "name",
+								label = "Name",
+								value = function(item)
+									return item.name
 								end,
-							}
-							else nil,
-					},
-					scrolls = shape.options.scrolls,
-					reorderable = shape.options.reorderable,
-					editing = editing,
-					rowActions = if shape.options.actions
-						then function()
-							return {
-								trailing = {
-									{
-										id = "delete",
-										label = "Delete",
-										role = "destructive",
-										onActivate = function() end,
+							} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+							{
+								id = "laps",
+								label = "Laps",
+								width = 64,
+								value = function(item)
+									return item.laps
+								end,
+							} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
+							if shape.options.narrow
+								then {
+									id = "team",
+									label = "Team",
+									width = 150,
+									priority = 2,
+									value = function()
+										return "Glade"
+									end,
+								}
+								else nil,
+						},
+						scrolls = shape.options.scrolls,
+						reorderable = shape.options.reorderable,
+						editing = editing,
+						rowActions = if shape.options.actions
+							then function(): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))
+								return {
+									trailing = {
+										{
+											id = "delete",
+											label = "Delete",
+											role = "destructive" :: "destructive",
+											onActivate = function() end,
+										},
 									},
-								},
-							}
-						end
-						else nil,
-					Size = UDim2.fromScale(1, if shape.options.scrolls == false then 0 else 1),
+								}
+							end
+							else nil,
+						Size = UDim2.fromScale(1, if shape.options.scrolls == false then 0 else 1),
+					}
+				end,
+				{
+					theme = theme.package,
+					size = if shape.options.narrow then Vector2.new(260, 300) else Vector2.new(520, 320),
+					frames = 12,
 				}
-			end, {
-				theme = theme.package,
-				size = if shape.options.narrow then Vector2.new(260, 300) else Vector2.new(520, 320),
-				frames = 12,
-			})
+			)
 			local grid = t.find(stage, "Grid")
 			columnsMatch(t, `{theme.name} {shape.name}`, grid, { "name", "laps", "team" })
 			if shape.name == "reorderable" then
@@ -420,7 +448,7 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 end)
 
 add("collapsed-column-details-target", { "collections-203" }, function(t)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 		return UI.Table "Grid" {
 			from = LAPS,
 			key = function(item)
@@ -434,7 +462,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function(item)
 						return item.name
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
 				{
 					id = "b",
 					label = "Beta",
@@ -443,7 +471,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function(item)
 						return item.laps
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
 				{
 					id = "c",
 					label = "Gamma",
@@ -452,7 +480,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function()
 						return "Glade"
 					end,
-				},
+				} :: typeof(require("@repo/tools/typecheck/example_shapes").TableColumn_any(nil :: any)),
 			},
 			Size = UDim2.fromScale(1, 1),
 		}
@@ -474,7 +502,9 @@ add("playlist-resize-grip-touch-target", { "apps2-175" }, function(t)
 	local result = api:Invoke("show", "ex02")
 	t.settle(20)
 	t.check("gallery shows the playlist", result.ok == true, result)
-	local gui = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+	local gui = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild(
+		"FacetGallery"
+	)
 	local header
 	for _ = 1, 120 do
 		for _, node in gui:GetDescendants() do
@@ -503,7 +533,9 @@ end)
 
 add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
-	local gui = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+	local gui = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild(
+		"FacetGallery"
+	)
 	local function check(where: string)
 		local shell = gui:FindFirstChild("Gallery")
 		local demos = shell and shell:FindFirstChild("Demos")
@@ -517,8 +549,8 @@ add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
 		t.check(where .. " tab is tagged filled", tab:HasTag("facet-tab-filled"), tab:GetTags())
 		t.check(
 			where .. " tab has a non-empty size",
-			tab.AbsoluteSize.X > 0 and tab.AbsoluteSize.Y > 0,
-			tab.AbsoluteSize
+			(tab :: GuiObject).AbsoluteSize.X > 0 and (tab :: GuiObject).AbsoluteSize.Y > 0,
+			(tab :: GuiObject).AbsoluteSize
 		)
 		local transparency = (tab :: any):GetStyled("BackgroundTransparency")
 		t.check(where .. " tab shows its fill", transparency < 1, transparency)
@@ -536,10 +568,18 @@ end)
 
 add("coach-mark-clear-of-share-and-reset-floor", { "navigation-1-65" }, function(t)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
-		built = t.scenario("callout").build(t.context(UI, Host, Compose, env))
-		return built.screen()
-	end, { frames = 12 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			built = t.scenario("callout").build(t.context(UI, Host, Compose, env))
+			return built.screen()
+		end,
+		{ frames = 12 }
+	)
 	local share = t.find(stage, "Share")
 	if not share then
 		t.check("Share mounted", false)

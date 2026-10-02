@@ -1,8 +1,11 @@
 --!strict
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -17,7 +20,8 @@ type World = {
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -37,8 +41,10 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
 	return {
@@ -89,7 +95,7 @@ local function within(node: any, ancestor: any): boolean
 end
 
 local function sheetFor(engine: any, runtime: any, package: any): (any, () -> ())
-	local stop, sheet = runtime.mount(function()
+	local stop, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(runtime, package, { types = engine.types, motionLevel = "none" } :: any)
 	end, engine.new("Folder"))
 	return sheet, stop
@@ -125,8 +131,8 @@ end
 local function skinnedPackage(): any
 	local package = themes.neutralPackage()
 	package.assets = package.assets or {}
-	package.assets.controlArt = { content = "rbxassetid://7" }
-	package.chrome.control = { kind = "nineSlice", asset = "controlArt" }
+	assert(package.assets).controlArt = { content = "rbxassetid://7" }
+	assert(package.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "controlArt" }
 	return package
 end
 
@@ -134,20 +140,26 @@ t.describe("native parity classb navigation", function()
 	t.it("mounts a nameplate in a BillboardGui and updates its health text in place", function()
 		local health = Compose.cell("100")
 		local billboard
-		local world = setup(function(UI, Host, engine)
-			billboard = Host.BillboardGui({
-				Name = "Nameplate",
-				Size = engine.types.UDim2.fromOffset(300, 96),
-				UI.VStack("Plate")({
-					padding = 8,
-					gap = 4,
-					width = "fill",
-					UI.Text("Name")({ text = "Razz Raccoon", TextSize = 18 }),
-					UI.Text("Health")({ text = health, TextSize = 14 }),
-				}),
-			})
-			return billboard
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				billboard = Host.BillboardGui({
+					Name = "Nameplate",
+					Size = engine.types.UDim2.fromOffset(300, 96),
+					UI.VStack("Plate")({
+						padding = 8,
+						gap = 4,
+						width = "fill" :: "fill",
+						UI.Text("Name")({ text = "Razz Raccoon", TextSize = 18 }) :: unknown,
+						UI.Text("Health")({ text = health, TextSize = 14 }),
+					}),
+				})
+				return billboard
+			end
+		)
 		t.expect(billboard.ClassName).toBe("BillboardGui")
 		local plate = find(billboard, "Plate")
 		local padding = plate:FindFirstChildWhichIsA("UIPadding")
@@ -186,12 +198,15 @@ t.describe("native parity classb navigation", function()
 
 	t.it("gives the segments of a pill strip a capsule corner and of a square strip a square corner", function()
 		for _, corners in { "pill", "square" } do
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Picker({
 					selected = Compose.cell("a"),
-					style = "segmented",
-					corners = corners,
-					options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+					style = "segmented" :: "segmented",
+					corners = corners :: "pill" | "square",
+					options = {
+						{ value = "a", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				})
 			end)
 			local strip = tagged(world.screen, "facet-segmented")[1]
@@ -212,11 +227,14 @@ t.describe("native parity classb navigation", function()
 			stop()
 			world.stop()
 		end
-		local plain = setup(function(UI)
+		local plain = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker({
 				selected = Compose.cell("a"),
-				style = "segmented",
-				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+				style = "segmented" :: "segmented",
+				options = {
+					{ value = "a", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			})
 		end)
 		local strip = tagged(plain.screen, "facet-segmented")[1]
@@ -226,11 +244,14 @@ t.describe("native parity classb navigation", function()
 
 	t.it("keeps the accent plate and hides the control art under the current segment of a skinned theme", function()
 		local package = skinnedPackage()
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker({
 				selected = Compose.cell("full"),
-				style = "segmented",
-				options = { { value = "full", label = "Full" }, { value = "reduced", label = "Reduced" } },
+				style = "segmented" :: "segmented",
+				options = {
+					{ value = "full", label = "Full" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "reduced", label = "Reduced" } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			})
 		end, { theme = package })
 		local current = tagged(world.screen, "facet-segment-current")
@@ -253,26 +274,34 @@ t.describe("native parity classb navigation", function()
 
 	t.it("parents the underline to the chosen option in whichever home the strip mounts", function()
 		local atTop, selected = Compose.cell(true), Compose.cell("a")
-		local world = setup(function(UI, Host)
-			local function strip()
-				return UI.Picker("Strip")({
-					selected = selected,
-					style = "inline",
-					indicator = "underline",
-					axis = "x",
-					options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local function strip()
+					return UI.Picker("Strip")({
+						selected = selected,
+						style = "inline" :: "inline",
+						indicator = "underline" :: "underline",
+						axis = "x" :: "x",
+						options = {
+							{ value = "a", label = "Alpha" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "b", label = "Beta" } :: FixtureNavigationTypes.PickerOption<any>,
+						},
+					})
+				end
+				return Host.Frame({
+					Host.Frame({ Name = "Top", Compose.show(atTop, strip) }) :: unknown,
+					Host.Frame({
+						Name = "Bottom",
+						Compose.show(function(use: Use)
+							return not use(atTop)
+						end, strip),
+					}),
 				})
 			end
-			return Host.Frame({
-				Host.Frame({ Name = "Top", Compose.show(atTop, strip) }),
-				Host.Frame({
-					Name = "Bottom",
-					Compose.show(function(use)
-						return not use(atTop)
-					end, strip),
-				}),
-			})
-		end)
+		)
 		local function underline(): any
 			local found = {}
 			for _, node in world.screen:GetDescendants() do
@@ -303,36 +332,36 @@ t.describe("native parity classb navigation", function()
 
 	t.it("reorders customized tabs by moving the same buttons without rebuilding the page", function()
 		local order, builds = Compose.cell({ "home", "feed", "me" }), 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.TabView({
 				selection = Compose.cell("home"),
-				placement = "bottomBar",
-				customization = function(use)
+				placement = "bottomBar" :: "bottomBar",
+				customization = function(use: Use): { order: { string }?, hidden: { string }? }
 					return { order = use(order) }
 				end,
 				tabs = {
 					{
 						id = "home",
 						label = "Home",
-						content = function()
+						content = function(): Instance
 							builds += 1
 							return UI.Button("First")({ label = "First" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "feed",
 						label = "Feed",
-						content = function()
+						content = function(): Instance
 							return UI.Text({ text = "Feed" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "me",
 						label = "Me",
-						content = function()
+						content = function(): Instance
 							return UI.Text({ text = "Me" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -356,43 +385,43 @@ t.describe("native parity classb navigation", function()
 
 	t.it("lets Tab walk both nested tab strips and the page in one open order without a trap", function()
 		local outerSelection, innerSelection = Compose.cell("discover"), Compose.cell("foryou")
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.TabView("App")({
 				selection = outerSelection,
-				placement = "bottomBar",
+				placement = "bottomBar" :: "bottomBar",
 				tabs = {
 					{
 						id = "discover",
 						label = "Discover",
-						content = function()
+						content = function(): Instance
 							return UI.TabView("Inner")({
 								selection = innerSelection,
 								tabs = {
 									{
 										id = "foryou",
 										label = "For you",
-										content = function()
+										content = function(): Instance
 											return UI.Button("Play")({ label = "Play" })
 										end,
-									},
+									} :: FixtureNavigationTypes.Tab,
 									{
 										id = "charts",
 										label = "Charts",
-										content = function()
+										content = function(): Instance
 											return UI.Text({ text = "Charts" })
 										end,
-									},
+									} :: FixtureNavigationTypes.Tab,
 								},
 							})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "me",
 						label = "Me",
-						content = function()
+						content = function(): Instance
 							return UI.Text({ text = "Me" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -447,8 +476,8 @@ t.describe("native parity classb navigation", function()
 	end)
 
 	t.it("paints the ring fill above its track by explicit Path2D ZIndex", function()
-		local world = setup(function(UI)
-			return UI.ProgressView({ presentation = "circular", value = Compose.cell(0.5) })
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.ProgressView({ presentation = "circular" :: "circular", value = Compose.cell(0.5) })
 		end)
 		local track = find(world.screen, "RingTrack")
 		local fill = find(world.screen, "RingFill")
@@ -467,18 +496,27 @@ t.describe("native parity classb navigation", function()
 			table.insert(packages, ((require :: any)("../examples/themes/" .. name).build(themes)))
 		end
 		for _, package in packages do
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					UI.Button({ label = "Go" }),
-					UI.Toggle({ label = "Sound", value = Compose.cell(true) }),
-					UI.Picker({
-						selected = Compose.cell("a"),
-						style = "segmented",
-						options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
-					}),
-					UI.Slider({ value = Compose.cell(0.5) }),
-				})
-			end, { theme = package })
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button({ label = "Go" }) :: unknown,
+						UI.Toggle({ label = "Sound", value = Compose.cell(true) }),
+						UI.Picker({
+							selected = Compose.cell("a"),
+							style = "segmented" :: "segmented",
+							options = {
+								{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+								{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+							},
+						}),
+						UI.Slider({ value = Compose.cell(0.5) }),
+					})
+				end,
+				{ theme = package }
+			)
 			local selectable = 0
 			for _, node in world.screen:GetDescendants() do
 				if node:IsA("GuiObject") and node.Selectable then

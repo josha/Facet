@@ -15,7 +15,7 @@ export type AppOptions = {
 	userInputService: UserInputService?,
 	inputParent: Instance?,
 	overlayParent: Instance?,
-	controlSize: Types.Value<Types.ControlSize>?,
+	controlSize: Types.Value<Types.ControlSize?>?,
 	theme: Types.Value<ThemeTypes.ThemePackage>?,
 	icons: Types.Value<{ [string]: ThemeTypes.IconEntry }>?,
 	motionLevel: Types.Value<Types.MotionLevel>?,

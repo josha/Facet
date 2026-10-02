@@ -121,7 +121,8 @@ t.describe("gamepad_contention (client module, headless structural spec)", funct
 
 	local function fakePlayer(contextNames: { string }?): any
 		local folder = { children = {} :: { [string]: any } }
-		for _, name in contextNames or {} do
+		local names: { string } = contextNames or {}
+		for _, name in names do
 			folder.children[name] = { ClassName = "InputContext" }
 		end
 		function folder.FindFirstChild(_self: any, name: string): any

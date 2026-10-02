@@ -3,7 +3,7 @@ return {
 	title = "Status marks",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -39,7 +39,7 @@ return {
 							VerticalAlignment = Enum.VerticalAlignment.Center,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
+						}) :: unknown,
 						UI.StatusIndicator "Mark" {
 							LayoutOrder = 1,
 							form = word,
@@ -61,11 +61,11 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
-				UI.Text "Title" { text = "Status marks", textRole = "heading" },
+				}) :: unknown,
+				UI.Text "Title" { text = "Status marks", textRole = "heading" :: "heading" },
 				UI.Text "Guide" {
 					text = "Shapes carry meaning alongside color. Counts stop growing at 99+.",
-					role = "secondary",
+					role = "secondary" :: "secondary",
 				},
 				Host.Frame "Shapes" {
 					BackgroundTransparency = 1,
@@ -76,29 +76,29 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 24),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					table.unpack(shapes),
 				},
 				UI.Picker "Status" {
 					label = "Status",
 					selected = status,
 					options = {
-						{ value = "neutral", label = "Neutral" },
-						{ value = "info", label = "Info" },
-						{ value = "success", label = "Success" },
-						{ value = "warning", label = "Warning" },
-						{ value = "error", label = "Error" },
-						{ value = "accent", label = "Accent" },
-						{ value = "voice", label = "Voice" },
-						{ value = "contrast", label = "Contrast" },
+						{ value = "neutral", label = "Neutral" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "info", label = "Info" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "success", label = "Success" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "warning", label = "Warning" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "error", label = "Error" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "accent", label = "Accent" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "voice", label = "Voice" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "contrast", label = "Contrast" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 					},
 				},
 				UI.Picker "Shape" {
 					label = "Shape",
 					selected = form,
 					options = {
-						{ value = "dot", label = "Dot" },
-						{ value = "ring", label = "Ring" },
+						{ value = "dot", label = "Dot" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						{ value = "ring", label = "Ring" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 					},
 				},
 				Host.Frame "Live" {
@@ -111,7 +111,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 12),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.StatusIndicator "Count" {
 						count = count,
 						status = status,
@@ -124,7 +124,7 @@ return {
 						form = form,
 						status = status,
 						cutout = true,
-						controlSize = "large",
+						controlSize = "large" :: "large",
 					},
 					UI.Button "More" {
 						label = "Add 25",

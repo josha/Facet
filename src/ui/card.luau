@@ -355,7 +355,7 @@ return function(
 				} :: Types.Attributes,
 			}
 			for _, child in bodyChildren do
-				table.insert(props, child)
+				props[#props + 1] = child
 			end
 			body = ctx.styled(Host.Frame(props), "panel")
 		end
@@ -427,7 +427,7 @@ return function(
 			end
 		end
 		for _, child in rowChildren do
-			table.insert(rowProps, child)
+			rowProps[#rowProps + 1] = child
 		end
 		rowProps.ZIndex = 2
 		local function tuck(use: ComposeTypes.Use): number
@@ -437,17 +437,14 @@ return function(
 			local function side(use: ComposeTypes.Use): UDim
 				return D.new(0, ctx.metric("space.s", use))
 			end
-			table.insert(
-				rowProps,
-				Host.UIPadding({
-					PaddingLeft = side,
-					PaddingRight = side,
-					PaddingTop = function(use: ComposeTypes.Use): UDim
-						return D.new(0, ctx.metric("space.s", use) + tuck(use))
-					end,
-					PaddingBottom = side,
-				})
-			)
+			rowProps[#rowProps + 1] = Host.UIPadding({
+				PaddingLeft = side,
+				PaddingRight = side,
+				PaddingTop = function(use: ComposeTypes.Use): UDim
+					return D.new(0, ctx.metric("space.s", use) + tuck(use))
+				end,
+				PaddingBottom = side,
+			})
 		end
 		local row = Host.Frame(rowProps)
 		local plateLayer = ctx.styled(

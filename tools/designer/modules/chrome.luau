@@ -1,11 +1,16 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local chrome = {}
 
 function chrome.canvas(Facet: any, parent: Instance): any
-	local runtime = Facet.Roblox.createRuntime()
-	local Host = runtime.constructors
-	local stop, canvas = runtime.mount(function()
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, canvas = runtime.mount(function(): ScrollingFrame
 		return Host.ScrollingFrame "DesignCanvas" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Color3.fromRGB(233, 237, 245),
@@ -33,9 +38,12 @@ function chrome.canvas(Facet: any, parent: Instance): any
 end
 
 function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): any
-	local runtime = Facet.Roblox.createRuntime()
-	local Host = runtime.constructors
-	local Compose = Facet.Compose
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 	local colors = {
 		back = Color3.fromRGB(18, 21, 28),
 		panel = Color3.fromRGB(26, 30, 40),
@@ -80,7 +88,7 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 			TextSize = 12,
 			Font = Enum.Font.GothamMedium,
 			AutoButtonColor = true,
-			[Compose.event("Activated")] = callback,
+			Activated = callback,
 			corner(6),
 		}
 	end
@@ -92,26 +100,26 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 				FillDirection = Enum.FillDirection.Horizontal,
 				Padding = UDim.new(0, 6),
 				SortOrder = Enum.SortOrder.LayoutOrder,
-			},
+			} :: unknown,
 			table.unpack(children),
 		}
 	end
-	local stop, root = runtime.mount(function()
+	local stop, mounted = runtime.mount(function(): Frame
 		local header = Host.Frame "Header" {
 			Size = UDim2.new(1, 0, 0, 64),
 			BackgroundColor3 = colors.panel,
 			BorderSizePixel = 0,
-			padding(14),
+			padding(14) :: unknown,
 			text("Brand", "FACET DESIGN", UDim2.new(0, 190, 1, 0), nil, 16),
 			Host.Frame "Commands" {
 				AnchorPoint = Vector2.new(1, 0),
 				Position = UDim2.fromScale(1, 0),
 				Size = UDim2.fromOffset(354, 32),
 				BackgroundTransparency = 1,
-				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) },
+				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) } :: unknown,
 				button("OpenSource", "Open source", actions.openSource, 108),
 				button("Refresh", "Refresh", actions.refresh, 86),
-				button("Live", function(use)
+				button("Live", function(use: Use)
 					return if use(model).live then "Live: on" else "Live: off"
 				end, actions.toggleLive, 92),
 				button("Reset", "Reset", actions.reset, 50),
@@ -122,7 +130,7 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 			Size = UDim2.new(0, 218, 1, -94),
 			BackgroundColor3 = colors.panel,
 			BorderSizePixel = 0,
-			padding(12),
+			padding(12) :: unknown,
 			Host.UIListLayout { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder },
 			Host.TextBox "Search" {
 				LayoutOrder = 1,
@@ -136,12 +144,12 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 				Font = Enum.Font.Gotham,
 				TextSize = 12,
 				ClearTextOnFocus = false,
-				[Compose.event("Changed")] = function(property)
+				Changed = function(property)
 					if property == "Text" and searchInput then
 						actions.search(searchInput.Text)
 					end
 				end,
-				corner(6),
+				corner(6) :: unknown,
 				padding(8),
 			},
 			text("ComponentsHeading", "COMPONENTS", nil, 22, 11),
@@ -153,9 +161,9 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				CanvasSize = UDim2.new(),
 				ScrollBarThickness = 3,
-				Host.UIListLayout { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder },
+				Host.UIListLayout { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 				Compose.keyed({
-					from = function(use)
+					from = function(use: Use)
 						return use(model).entries
 					end,
 					key = function(entry)
@@ -168,10 +176,10 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 						end, 188)
 						node.Size = UDim2.new(1, -4, 0, 32)
 						runtime.decorate(node, {
-							BackgroundColor3 = function(use)
+							BackgroundColor3 = function(use: Use)
 								return if use(model).selected == entry.module then colors.accent else colors.button
 							end,
-							TextColor3 = function(use)
+							TextColor3 = function(use: Use)
 								return if use(model).selected == entry.module then colors.back else colors.text
 							end,
 						})
@@ -188,9 +196,9 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				CanvasSize = UDim2.new(),
 				ScrollBarThickness = 3,
-				Host.UIListLayout { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder },
+				Host.UIListLayout { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 				Compose.keyed({
-					from = function(use)
+					from = function(use: Use)
 						return use(model).states
 					end,
 					key = function(value)
@@ -203,7 +211,7 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 						end, 188)
 						node.Size = UDim2.new(1, -4, 0, 32)
 						runtime.decorate(node, {
-							BackgroundColor3 = function(use)
+							BackgroundColor3 = function(use: Use)
 								return if use(model).state == name then colors.line else colors.button
 							end,
 						})
@@ -217,48 +225,48 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 			Size = UDim2.new(1, -218, 0, 104),
 			BackgroundColor3 = colors.back,
 			BorderSizePixel = 0,
-			padding(12),
+			padding(12) :: unknown,
 			Host.UIListLayout { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder },
 			row("DeviceControls", {
-				button("Device", function(use)
+				button("Device", function(use: Use)
 					return use(model).device
 				end, function()
 					actions.cycle("device")
 				end, 104),
 				button("Rotate", "Rotate", actions.rotate, 60),
-				button("Input", function(use)
+				button("Input", function(use: Use)
 					return `Input: {use(model).input}`
 				end, function()
 					actions.cycle("input")
 				end, 136),
-				button("Comparison", function(use)
+				button("Comparison", function(use: Use)
 					return `View: {use(model).comparison}`
 				end, function()
 					actions.cycle("comparison")
 				end, 110),
-				button("Zoom", function(use)
+				button("Zoom", function(use: Use)
 					return `Zoom: {use(model).zoom}`
 				end, function()
 					actions.cycle("zoom")
 				end, 94),
 			}),
 			row("AppearanceControls", {
-				button("Palette", function(use)
+				button("Palette", function(use: Use)
 					return `Palette: {use(model).palette}`
 				end, function()
 					actions.cycle("palette")
 				end, 124),
-				button("TextSize", function(use)
+				button("TextSize", function(use: Use)
 					return `Text: {use(model).textSize}`
 				end, function()
 					actions.cycle("textSize")
 				end, 114),
-				button("Motion", function(use)
+				button("Motion", function(use: Use)
 					return `Motion: {use(model).motionLevel}`
 				end, function()
 					actions.cycle("motionLevel")
 				end, 116),
-				button("Inspect", function(use)
+				button("Inspect", function(use: Use)
 					return if use(model).inspect then "Bounds: on" else "Bounds: off"
 				end, actions.inspect, 90),
 			}),
@@ -278,12 +286,12 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 			Position = UDim2.fromOffset(238, 188),
 			Size = UDim2.new(1, -258, 0, 150),
 			ZIndex = 2000,
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(model).error ~= ""
 			end,
 			BackgroundColor3 = colors.panel,
 			BorderSizePixel = 0,
-			corner(8),
+			corner(8) :: unknown,
 			padding(12),
 			Host.UIStroke { Color = Color3.fromRGB(226, 112, 121), Thickness = 1 },
 			Host.TextBox "ErrorDetails" {
@@ -291,7 +299,7 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 				BackgroundTransparency = 1,
 				TextEditable = false,
 				ClearTextOnFocus = false,
-				Text = function(use)
+				Text = function(use: Use)
 					return use(model).error
 				end,
 				TextColor3 = colors.text,
@@ -307,7 +315,7 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = colors.back,
 			BorderSizePixel = 0,
-			header,
+			header :: unknown,
 			sidebar,
 			controls,
 			canvas,
@@ -317,14 +325,15 @@ function chrome.mount(Facet: any, parent: Instance, model: any, actions: any): a
 				Size = UDim2.new(1, 0, 0, 30),
 				BackgroundColor3 = colors.panel,
 				BorderSizePixel = 0,
-				padding(6),
-				text("Status", function(use)
+				padding(6) :: unknown,
+				text("Status", function(use: Use)
 					return use(model).status
 				end, nil, 18, 11),
 			},
 		}
 	end, parent)
-	searchInput = root:FindFirstChild("Search", true)
+	local root = mounted :: Frame
+	searchInput = root:FindFirstChild("Search", true) :: TextBox?
 	return {
 		root = root,
 		canvas = canvas,

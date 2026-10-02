@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -24,10 +26,10 @@ local function tinyScene(name: string?)
 		setup = function(_profile: any)
 			local core = Compose.createRootOwner(function() end)
 			local s = Compose.cell(0)
-			local m = Compose.formula(function(use)
+			local m = Compose.formula(function(use: Use)
 				return use(s) * 2
 			end)
-			core.owner.watch(function(use)
+			core.owner.watch(function(use: Use)
 				use(m)
 			end)
 			return { core = core, s = s, n = 0 }

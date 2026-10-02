@@ -1,5 +1,15 @@
 --!strict
-local cases = {}
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 local TEXT = "Your selected driver is ready."
 
 local function visible(node: GuiObject, root: Instance): boolean
@@ -99,22 +109,28 @@ table.insert(cases, {
 	contracts = {},
 	run = function(t)
 		local factor, extent, label
-		local stage = t.mount(function(UI, Host, Compose)
-			factor, extent = Compose.cell(0.94), Compose.cell(80)
-			label = UI.Text { text = TEXT, TextSize = 24 }
-			return Host.Frame "Fault" {
-				Size = UDim2.fromOffset(300, 100),
-				Host.UIScale { Scale = factor },
-				label,
-				Host.ScrollingFrame {
-					Size = UDim2.fromOffset(300, 40),
-					CanvasSize = function(use)
-						return UDim2.fromOffset(0, use(extent))
-					end,
-					ScrollBarThickness = 12,
-				},
-			}
-		end)
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				factor, extent = Compose.cell(0.94), Compose.cell(80)
+				label = UI.Text { text = TEXT, TextSize = 24 }
+				return Host.Frame "Fault" {
+					Size = UDim2.fromOffset(300, 100),
+					Host.UIScale { Scale = factor } :: unknown,
+					label,
+					Host.ScrollingFrame {
+						Size = UDim2.fromOffset(300, 40),
+						CanvasSize = function(use: Use)
+							return UDim2.fromOffset(0, use(extent))
+						end,
+						ScrollBarThickness = 12,
+					},
+				}
+			end
+		)
 		local frames = { snapshot(stage), snapshot(stage) }
 		factor:set(1)
 		extent:set(0)
@@ -150,7 +166,9 @@ table.insert(cases, {
 	end,
 })
 
-for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet", "CollapsibleView", "Toast" } do
+for _, kind in
+	{ "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet", "CollapsibleView", "Toast" } :: { "Alert" | "Callout" | "CollapsibleView" | "Dialog" | "Help" | "Menu" | "Popover" | "Sheet" | "Toast" }
+do
 	table.insert(cases, {
 		id = string.lower(kind) .. "-entrance-continuity",
 		contracts = {},
@@ -170,118 +188,137 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 							end
 						end
 						local open, trigger
-						local stage = t.mount(function(UI, Host, Compose)
-							open = Compose.cell(false)
-							local function content()
-								return UI.Text "Copy" {
-									text = copy,
-									TextSize = if large then 36 else 24,
-									TextWrapped = true,
-									Size = UDim2.new(1, 0, 0, 0),
-									AutomaticSize = Enum.AutomaticSize.Y,
+						local stage = t.mount(
+							function(
+								UI: typeof(require("@repo/src").controls(nil :: any)),
+								Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+								Compose: typeof(require("@repo/src/vendor/compose/core"))
+							)
+								open = Compose.cell(false)
+								local function content(): Instance
+									return UI.Text "Copy" {
+										text = copy,
+										TextSize = if large then 36 else 24,
+										TextWrapped = true,
+										Size = UDim2.new(1, 0, 0, 0),
+										AutomaticSize = Enum.AutomaticSize.Y,
+									}
+								end
+								local function change(value: boolean)
+									open:set(value)
+								end
+								trigger = UI.Button "Trigger" {
+									label = "Open",
+									Position = UDim2.fromOffset(40, 100),
+									help = if kind == "Help" then copy else nil,
 								}
-							end
-							local function change(value: boolean)
-								open:set(value)
-							end
-							trigger = UI.Button "Trigger" {
-								label = "Open",
-								Position = UDim2.fromOffset(40, 100),
-								help = if kind == "Help" then copy else nil,
-							}
-							local overlay
-							if kind == "Alert" then
-								overlay = UI.Alert {
-									isPresented = open,
-									title = "Start this race?",
-									message = copy,
-									actions = {
-										{
-											id = "Cancel",
-											label = "Cancel",
-											role = "cancel",
-											onActivate = function()
-												open:set(false)
-											end,
+								local overlay: GuiObject?
+								if kind == "Alert" then
+									overlay = UI.Alert {
+										isPresented = open,
+										title = "Start this race?",
+										message = copy,
+										actions = {
+											{
+												id = "Cancel",
+												label = "Cancel",
+												role = "cancel" :: "cancel",
+												onActivate = function()
+													open:set(false)
+												end,
+											} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(
+												nil :: any
+											)),
 										},
-									},
-								}
-							elseif kind == "Dialog" then
-								overlay = UI.Dialog {
-									isPresented = open,
-									onPresentedChange = change,
-									title = "Start this race?",
-									content = content,
-									actions = {
-										{
-											id = "Cancel",
-											label = "Cancel",
-											role = "cancel",
-											onActivate = function()
-												open:set(false)
-											end,
+									}
+								elseif kind == "Dialog" then
+									overlay = UI.Dialog {
+										isPresented = open,
+										onPresentedChange = change,
+										title = "Start this race?",
+										content = content,
+										actions = {
+											{
+												id = "Cancel",
+												label = "Cancel",
+												role = "cancel" :: "cancel",
+												onActivate = function()
+													open:set(false)
+												end,
+											} :: typeof(require("@repo/tools/typecheck/example_shapes").Action(
+												nil :: any
+											)),
 										},
-									},
+									}
+								elseif kind == "Menu" then
+									overlay = UI.Menu {
+										isPresented = open,
+										label = "Options",
+										Position = UDim2.fromOffset(40, shape.Y - 80),
+										presentation = if shape.X < 600 then "sheet" :: "sheet" else "menu" :: "menu",
+										items = {
+											{ id = "Start", label = copy, onSelect = function() end } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(
+												nil :: any
+											)),
+										},
+									}
+								elseif kind == "Popover" then
+									overlay = UI.Popover {
+										isPresented = open,
+										onPresentedChange = change,
+										trigger = trigger :: GuiButton,
+										content = content,
+										maxWidth = 340,
+									}
+								elseif kind == "Callout" then
+									overlay = UI.Callout {
+										isPresented = open,
+										anchor = trigger :: GuiObject,
+										content = content,
+										onRetire = function()
+											open:set(false)
+										end,
+									}
+								elseif kind == "Sheet" then
+									overlay = UI.Sheet {
+										isPresented = open,
+										detent = Compose.cell("hug"),
+										detents = { "hug" } :: {
+											typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(
+												nil :: any
+											))
+										},
+										content = content,
+										title = "Details",
+									}
+								elseif kind == "CollapsibleView" then
+									overlay = UI.CollapsibleView { label = copy, expanded = open, content = content }
+								elseif kind == "Toast" then
+									overlay = UI.Toast {
+										isPresented = open,
+										onPresentedChange = change,
+										message = copy,
+										duration = 10,
+									}
+								end
+								return Host.Frame {
+									Size = UDim2.fromScale(1, 1),
+									BackgroundTransparency = 1,
+									overlay or trigger :: unknown,
+									if kind ~= "Popover" and overlay then trigger else nil :: unknown,
 								}
-							elseif kind == "Menu" then
-								overlay = UI.Menu {
-									isPresented = open,
-									label = "Options",
-									Position = UDim2.fromOffset(40, shape.Y - 80),
-									presentation = if shape.X < 600 then "sheet" else "menu",
-									items = { { id = "Start", label = copy, onSelect = function() end } },
-								}
-							elseif kind == "Popover" then
-								overlay = UI.Popover {
-									isPresented = open,
-									onPresentedChange = change,
-									trigger = trigger,
-									content = content,
-									maxWidth = 340,
-								}
-							elseif kind == "Callout" then
-								overlay = UI.Callout {
-									isPresented = open,
-									anchor = trigger,
-									content = content,
-									onRetire = function()
-										open:set(false)
-									end,
-								}
-							elseif kind == "Sheet" then
-								overlay = UI.Sheet {
-									isPresented = open,
-									detent = Compose.cell("hug"),
-									detents = { "hug" },
-									content = content,
-									title = "Details",
-								}
-							elseif kind == "CollapsibleView" then
-								overlay = UI.CollapsibleView { label = copy, expanded = open, content = content }
-							elseif kind == "Toast" then
-								overlay = UI.Toast {
-									isPresented = open,
-									onPresentedChange = change,
-									message = copy,
-									duration = 10,
-								}
-							end
-							return Host.Frame {
-								Size = UDim2.fromScale(1, 1),
-								BackgroundTransparency = 1,
-								overlay or trigger,
-								if kind ~= "Popover" and overlay then trigger else nil,
+							end,
+							{
+								size = shape,
+								theme = theme.package,
+								motionLevel = motion,
+								environment = {
+									preferredInput = "Gamepad",
+									displaySize = "Large",
+									preferredTextSize = if large then "Largest" else "Medium",
+								},
 							}
-						end, {
-							size = shape,
-							theme = theme.package,
-							motionLevel = motion,
-							environment = {
-								preferredInput = "Gamepad",
-								displaySize = "Large",
-								preferredTextSize = if large then "Largest" else "Medium",
-							},
-						})
+						)
 						local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
 						if kind == "Help" then
 							game:GetService("GuiService").SelectedObject = trigger

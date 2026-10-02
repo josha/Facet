@@ -496,7 +496,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				end
 			end
 			for _, child in moved do
-				table.insert(rootProps :: { unknown }, child)
+				table.insert((rootProps :: unknown) :: { unknown }, child)
 			end
 			nativeProps.Name = "Field"
 			nativeProps.BackgroundTransparency = 1

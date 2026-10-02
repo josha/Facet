@@ -13,14 +13,19 @@ local templates = {
 		nextId = 10,
 		root = node(1, "Screen", "TrailCompanion", { gap = "m" }, {
 			node(2, "Badge", "Season", { label = "YOUR NEXT CHAPTER", status = "success" }),
-			node(3, "Text", "Heading", { text = "Find your next adventure.", textRole = "title", wrap = true }),
+			node(
+				3,
+				"Text",
+				"Heading",
+				{ text = "Find your next adventure.", textRole = "title" :: "title", wrap = true }
+			),
 			node(
 				4,
 				"Text",
 				"Introduction",
-				{ text = "A little planning. A lot of possibility.", role = "secondary", wrap = true }
+				{ text = "A little planning. A lot of possibility.", role = "secondary" :: "secondary", wrap = true }
 			),
-			node(5, "VStack", "Preferences", { gap = "m", padding = "m", width = "fill" }, {
+			node(5, "VStack", "Preferences", { gap = "m", padding = "m", width = "fill" :: "fill" }, {
 				node(6, "Toggle", "Nearby", { label = "Show nearby trails", value = true }),
 				node(
 					7,
@@ -42,8 +47,8 @@ local templates = {
 		name = "Player settings",
 		nextId = 8,
 		root = node(1, "Screen", "Settings", { gap = "m" }, {
-			node(2, "Text", "Title", { text = "Your game. Your way.", textRole = "title", wrap = true }),
-			node(3, "Text", "VolumeLabel", { text = "Music volume", textRole = "heading" }),
+			node(2, "Text", "Title", { text = "Your game. Your way.", textRole = "title" :: "title", wrap = true }),
+			node(3, "Text", "VolumeLabel", { text = "Music volume", textRole = "heading" :: "heading" }),
 			node(4, "Slider", "Volume", { value = 0.65, min = 0, max = 1 }),
 			node(5, "Toggle", "Effects", { label = "Sound effects", value = true }),
 			node(6, "Toggle", "Invites", { label = "Allow party invitations", value = false }),
@@ -75,26 +80,26 @@ end
 design(
 	"Expedition inventory",
 	shapeNode("Screen", "Inventory", { gap = "m" }, {
-		shapeNode("HStack", "Player", { gap = "m", align = "center", width = "fill" }, {
+		shapeNode("HStack", "Player", { gap = "m", align = "center" :: "center", width = "fill" :: "fill" }, {
 			shapeNode("Avatar", "Portrait", { name = "Alex", presence = "online", diameter = 52 }),
-			shapeNode("VStack", "PlayerInfo", { gap = "xs", width = "fill" }, {
-				shapeNode("Text", "Name", { text = "Alex’s expedition", textRole = "heading" }),
-				shapeNode(
-					"Text",
-					"Capacity",
-					{ text = "12 of 24 slots used", role = "secondary", textRole = "caption" }
-				),
+			shapeNode("VStack", "PlayerInfo", { gap = "xs", width = "fill" :: "fill" }, {
+				shapeNode("Text", "Name", { text = "Alex’s expedition", textRole = "heading" :: "heading" }),
+				shapeNode("Text", "Capacity", {
+					text = "12 of 24 slots used",
+					role = "secondary" :: "secondary",
+					textRole = "caption" :: "caption",
+				}),
 			}),
 		}),
-		shapeNode("Text", "Title", { text = "Ready for the wild.", textRole = "title", wrap = true }),
+		shapeNode("Text", "Title", { text = "Ready for the wild.", textRole = "title" :: "title", wrap = true }),
 		shapeNode(
 			"TextInput",
 			"Search",
-			{ value = "", placeholder = "Find equipment", presentation = "search", clearButton = true }
+			{ value = "", placeholder = "Find equipment", presentation = "search" :: "search", clearButton = true }
 		),
 		shapeNode("Picker", "Category", {
 			selected = "all",
-			style = "segmented",
+			style = "segmented" :: "segmented",
 			options = {
 				{ value = "all", label = "All" },
 				{ value = "gear", label = "Gear" },
@@ -123,8 +128,12 @@ design(
 	"Quest journal",
 	shapeNode("Screen", "QuestJournal", { gap = "m" }, {
 		shapeNode("Badge", "Chapter", { label = "CHAPTER 04", status = "accent" }),
-		shapeNode("Text", "Title", { text = "A new horizon.", textRole = "title", wrap = true }),
-		shapeNode("Text", "Intro", { text = "Follow the path. Find your story.", role = "secondary", wrap = true }),
+		shapeNode("Text", "Title", { text = "A new horizon.", textRole = "title" :: "title", wrap = true }),
+		shapeNode(
+			"Text",
+			"Intro",
+			{ text = "Follow the path. Find your story.", role = "secondary" :: "secondary", wrap = true }
+		),
 		shapeNode("ProgressView", "Progress", { value = 0.6, label = "Chapter progress", showValue = true }),
 		shapeNode("DisclosureGroup", "MainQuest", {
 			label = "The missing cartographer",
@@ -157,7 +166,7 @@ design(
 	"Party lobby",
 	shapeNode("Screen", "PartyLobby", { gap = "m" }, {
 		shapeNode("Badge", "Mode", { label = "COOPERATIVE", status = "success" }),
-		shapeNode("Text", "Title", { text = "Better together.", textRole = "title", wrap = true }),
+		shapeNode("Text", "Title", { text = "Better together.", textRole = "title" :: "title", wrap = true }),
 		shapeNode("AvatarGroup", "Party", {
 			items = {
 				{ id = "alex", name = "Alex", presence = "online" },
@@ -168,10 +177,10 @@ design(
 			diameter = 52,
 			max = 4,
 		}),
-		shapeNode("Text", "Members", { text = "3 of 4 players joined", role = "secondary" }),
+		shapeNode("Text", "Members", { text = "3 of 4 players joined", role = "secondary" :: "secondary" }),
 		shapeNode("Picker", "Difficulty", {
 			selected = "normal",
-			style = "cards",
+			style = "cards" :: "cards",
 			options = {
 				{ value = "normal", label = "Explore", description = "A relaxed expedition" },
 				{ value = "hard", label = "Challenge", description = "Every choice matters" },

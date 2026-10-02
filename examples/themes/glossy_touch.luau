@@ -1,4 +1,11 @@
 --!strict
+type BarLayer = {
+	kind: "fill" | "tile",
+	asset: string,
+	inset: { x: number, y: number }?,
+	mask: string?,
+	tileSize: { w: number, h: number }?,
+}
 
 local glossy_touch = {}
 
@@ -199,7 +206,7 @@ function glossy_touch.definition(themes: any): any
 		},
 		chrome = {
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "glossy_panel",
 				contentInsets = { top = 14, right = 14, bottom = 14, left = 14 },
 				fallback = "native",
@@ -207,7 +214,7 @@ function glossy_touch.definition(themes: any): any
 			},
 
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "glossy_button_default",
 					pressed = "glossy_button_pressed",
@@ -217,19 +224,19 @@ function glossy_touch.definition(themes: any): any
 				fallback = "native",
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "glossy_field",
 				contentInsets = { top = 8, right = 14, bottom = 8, left = 14 },
 				fallback = "native",
 			},
 			selection = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "glossy_selection_default", selected = "glossy_selection_selected" },
 				contentInsets = { top = 6, right = 10, bottom = 6, left = 10 },
 				fallback = "native",
 			},
 			focus = {
-				kind = "glow",
+				kind = "glow" :: "glow",
 				color = "$FocusGlow",
 				blurRadius = { scale = 0, offset = 22 },
 				transparency = 0.3,
@@ -237,39 +244,49 @@ function glossy_touch.definition(themes: any): any
 			},
 
 			barTrack = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 				layers = {
-					{ kind = "fill", asset = "glossy_bar_track" },
+					{ kind = "fill" :: "fill", asset = "glossy_bar_track" } :: BarLayer,
 
 					{
-						kind = "tile",
+						kind = "tile" :: "tile",
 						asset = "glossy_stripe_tile",
 						tileSize = { w = 24, h = 24 },
 						mask = "pill",
 						inset = { x = 2, y = 2 },
-					},
+					} :: BarLayer,
 				},
 			},
-			barFill = { kind = "nineSlice", asset = "glossy_bar_fill", direction = "ltr", fallback = "native" },
+			barFill = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "glossy_bar_fill",
+				direction = "ltr" :: "ltr",
+				fallback = "native",
+			},
 
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "glossy_toggle_track_off", selected = "glossy_toggle_track_on" },
 				fallback = "native",
 			},
-			toggleKnob = { kind = "nineSlice", asset = "glossy_toggle_knob", sliced = false, fallback = "native" },
+			toggleKnob = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "glossy_toggle_knob",
+				sliced = false,
+				fallback = "native",
+			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "glossy_stepper_plate_default", pressed = "glossy_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 4, right = 4, bottom = 4, left = 4 },
 				fallback = "native",
 			},
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = { ["facet:search"] = "search" },

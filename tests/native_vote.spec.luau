@@ -1,19 +1,27 @@
 --!strict
+local FixtureContentTypes = require("../src/ui/content_types")
+local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
-local SEGMENT = { up = "Opt1", down = "Opt2" }
+local SEGMENT: { [string]: string } = { up = "Opt1", down = "Opt2" }
 
 local function mount(spec: any, extra: ((any) -> { any })?): any
-	return worlds.new(function(UI, Host)
-		local children: { any } = { UI.Vote("V")(spec) }
-		for _, node in (if extra then extra(UI) else {}) do
-			table.insert(children, node)
+	return worlds.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			local children: { any } = { UI.Vote("V")(spec) }
+			local additions: { any } = if extra then extra(UI) else {}
+			for _, node in additions do
+				table.insert(children, node)
+			end
+			return Host.Frame({ Name = "Row", table.unpack((children :: unknown) :: { unknown }) })
 		end
-		return Host.Frame({ Name = "Row", table.unpack(children) })
-	end)
+	)
 end
 
 local function option(world: any, side: string, root: string?): any
@@ -34,12 +42,12 @@ end
 
 t.describe("native Vote", function()
 	t.it("accepts, swaps in one change, and proposes none when the chosen side is pressed again", function()
-		local value = Compose.cell("none")
+		local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> = Compose.cell("none" :: "down" | "none" | "up")
 		local seen: { string } = {}
 		local world: any
 		world = mount({
 			value = value,
-			onChange = function(nextValue: string)
+			onChange = function(nextValue: "down" | "none" | "up")
 				table.insert(seen, `{nextValue}<{value:peek()},{painted(world) or "nil"}>`)
 				value:set(nextValue)
 			end,
@@ -56,11 +64,11 @@ t.describe("native Vote", function()
 	end)
 
 	t.it("never paints a refused proposal and never touches the caller's cell", function()
-		local value = Compose.cell("up")
+		local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> = Compose.cell("up" :: "down" | "none" | "up")
 		local asked: { string } = {}
 		local world = mount({
 			value = value,
-			onChange = function(nextValue: string)
+			onChange = function(nextValue: "down" | "none" | "up")
 				table.insert(asked, nextValue)
 			end,
 		})
@@ -73,10 +81,10 @@ t.describe("native Vote", function()
 	end)
 
 	t.it("proposes from a selected side through the keyboard Activate action", function()
-		local value = Compose.cell("none")
+		local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> = Compose.cell("none" :: "down" | "none" | "up")
 		local world = mount({
 			value = value,
-			onChange = function(nextValue: string)
+			onChange = function(nextValue: "down" | "none" | "up")
 				value:set(nextValue)
 			end,
 		})
@@ -92,20 +100,20 @@ t.describe("native Vote", function()
 
 	t.it("reads a function value and keeps the last legal paint for an invalid late value", function()
 		local source = Compose.cell("up")
-		local controls: { [string]: any } = {}
+		local controls: FixtureContentTypes.Diagnostics = {}
 		local world = mount({
 			value = function(use: any)
 				return use(source)
 			end,
 			controls = controls,
-			onChange = function(nextValue: string)
+			onChange = function(nextValue: "down" | "none" | "up")
 				source:set(nextValue)
 			end,
 		})
 		t.expect(painted(world)).toBe("up")
 		source:set("sideways")
 		t.expect(painted(world)).toBe("up")
-		t.expect(#controls.diagnostics()).toBe(1)
+		t.expect(#assert(controls.diagnostics)()).toBe(1)
 		source:set("down")
 		t.expect(painted(world)).toBe("down")
 		world.stop()
@@ -113,12 +121,12 @@ t.describe("native Vote", function()
 
 	t.it("leaves no stale state when a callback removes the vote", function()
 		local show = Compose.cell(true)
-		local value = Compose.cell("none")
-		local world = worlds.new(function(UI)
+		local value: FixtureComposeTypes.Cell<"down" | "none" | "up"> = Compose.cell("none" :: "down" | "none" | "up")
+		local world = worlds.new(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return Compose.show(show, function()
 				return UI.Vote("V")({
 					value = value,
-					onChange = function(nextValue: string)
+					onChange = function(nextValue: "down" | "none" | "up")
 						value:set(nextValue)
 						show:set(false)
 					end,
@@ -151,40 +159,41 @@ t.describe("native Vote", function()
 
 	t.it("refuses to become interactive without onChange", function()
 		local readOnly = Compose.cell(true)
-		local controls: { [string]: any } = {}
+		local controls: FixtureContentTypes.Diagnostics = {}
 		local world = mount({ value = "down", readOnly = readOnly, controls = controls })
 		readOnly:set(false)
 		t.expect(world.find("V"):GetAttribute("FacetReadOnly")).toBe(true)
 		t.expect(option(world, "down"):IsA("GuiButton")).toBe(false)
-		t.expect(#controls.diagnostics()).toBe(1)
+		t.expect(#assert(controls.diagnostics)()).toBe(1)
 		world.stop()
-		t.expect(worlds.mountError(function(UI)
-			return UI.Vote({ value = "none" })
+		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Vote({ value = "none" } :: any)
 		end) ~= nil).toBe(true)
-		t.expect(worlds.mountError(function(UI)
-			return UI.Vote({ value = "sideways", onChange = print })
+		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Vote({ value = "sideways", onChange = print } :: any)
 		end) ~= nil).toBe(true)
-		t.expect(worlds.mountError(function(UI)
-			return UI.Vote({ value = "none", onChange = print, extra = true })
+		t.expect(worlds.mountError(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Vote({ value = "none", onChange = print, extra = true } :: any)
 		end) ~= nil).toBe(true)
 	end)
 
 	t.it(
 		"sizes each vote square to its rung, floors it at the touch target on touch, and discloses the summary",
 		function()
-			local a, b = Compose.cell("up"), Compose.cell("none")
+			local a, b: FixtureComposeTypes.Cell<"down" | "none" | "up"> =
+				Compose.cell("up"), Compose.cell("none" :: "down" | "none" | "up")
 			local world = mount({
 				value = a,
 				summary = "99% liked",
-				onChange = function(nextValue: string)
+				onChange = function(nextValue: "down" | "none" | "up")
 					a:set(nextValue)
 				end,
-			}, function(UI)
+			}, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return {
 					UI.Vote("W")({
 						value = b,
-						controlSize = "compact",
-						onChange = function(nextValue: string)
+						controlSize = "compact" :: "compact",
+						onChange = function(nextValue: "down" | "none" | "up")
 							b:set(nextValue)
 						end,
 					}),
@@ -222,12 +231,25 @@ t.describe("native Vote", function()
 
 	t.it("repaints the Choices vote only from its caller's value and follows the summary", function()
 		local scenario = require("../examples/gallery/scenarios/selection_controls") :: any
-		local world = worlds.new(function(UI, Host, engine)
-			local viewport = Compose.cell({ width = 1000, height = 800 })
-			return scenario
-				.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types, viewport = viewport, Facet = Facet })
-				.screen()
-		end)
+		local world = worlds.new(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				local viewport = Compose.cell({ width = 1000, height = 800 })
+				return scenario
+					.build({
+						UI = UI,
+						Compose = Compose,
+						Host = Host,
+						types = engine.types,
+						viewport = viewport,
+						Facet = Facet,
+					})
+					.screen()
+			end
+		)
 		local track = world.find("TrackVote")
 		local summary = world.find("Summary", track)
 		t.expect(summary.Text).toBe("98% liked this")

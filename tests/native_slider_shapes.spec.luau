@@ -23,7 +23,8 @@ end
 local function world(spec: any, options: any?): any
 	local o = options or {}
 	local engine: any = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local UI: any = {}
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	local E = engine.types.Enum
@@ -63,7 +64,7 @@ local function world(spec: any, options: any?): any
 		commits = {},
 		visible = Compose.cell(true),
 	}
-	local merged = table.clone(spec)
+	local merged: { [string]: any } = table.clone(spec)
 	merged.min = merged.min or 0
 	merged.max = merged.max or 100
 	if merged.range and merged.value == nil then
@@ -81,7 +82,11 @@ local function world(spec: any, options: any?): any
 	local screen = engine.new("ScreenGui")
 	w.screen = screen
 	w.stop = runtime.mount(function()
-		return runtime.constructors.Frame({
+		return (
+			(
+				runtime.constructors.Frame :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+		)({
 			Name = "Host",
 			Compose.show(w.visible, function()
 				return UI.Slider("Vol")(merged)
@@ -135,7 +140,8 @@ end
 local function drag(w: any, node: any, from: any, to: { any }?)
 	local detector = node:FindFirstChildWhichIsA("UIDragDetector")
 	detector.DragStart.fire(from)
-	for _, point in to or {} do
+	local points: { any } = to or {}
+	for _, point in points do
 		detector.DragContinue.fire(point)
 	end
 	detector.DragEnd.fire()
@@ -148,7 +154,7 @@ end
 
 t.describe("native Slider axis", function()
 	t.it("a vertical track fills from the bottom edge and the thumb climbs as the value rises", function()
-		local w = world({ axis = "y", step = 10 })
+		local w = world({ axis = "y" :: "y", step = 10 })
 		local fill, thumb = find(w.track, "Fill"), find(w.track, "ThumbStop")
 		expect(w.track.Size.Y.Scale).toBe(1)
 		expect(w.track.Size.X.Offset).toBe(44)
@@ -167,7 +173,7 @@ t.describe("native Slider axis", function()
 	end)
 
 	t.it("Up and Down adjust a vertical track and Left and Right do not", function()
-		local w = world({ axis = "y", step = 10 })
+		local w = world({ axis = "y" :: "y", step = 10 })
 		w.gui.SelectedObject = w.node
 		expect(bindings(w, "IncreaseArrow")).toBe("DPadUp Up")
 		expect(bindings(w, "DecreaseArrow")).toBe("DPadDown Down")
@@ -184,7 +190,7 @@ t.describe("native Slider axis", function()
 
 	t.it("the arrow that lands the ring is not a value step; the next arrow is", function()
 		for _, key in { "Up", "DPadUp" } do
-			local w = world({ axis = "y", step = 10 })
+			local w = world({ axis = "y" :: "y", step = 10 })
 			w.held[key] = true
 			w.gui.SelectedObject = w.node
 			local increase = action(w, "IncreaseArrow")
@@ -197,7 +203,7 @@ t.describe("native Slider axis", function()
 			expect(`{key} next {w.value:peek()}`).toBe(`{key} next 60`)
 			w.stop()
 		end
-		local tabbed = world({ axis = "y", step = 10 })
+		local tabbed = world({ axis = "y" :: "y", step = 10 })
 		tabbed.gui.SelectedObject = tabbed.node
 		press(tabbed, "IncreaseArrow")
 		expect(tabbed.value:peek()).toBe(60)
@@ -221,7 +227,7 @@ end)
 
 t.describe("native Slider rotation", function()
 	t.it("keeps the rotating track outside the list layout for every slider shape", function()
-		for _, shape in { {}, { axis = "y" }, { row = { title = "Volume" } }, { range = true } } do
+		for _, shape in { {}, { axis = "y" :: "y" }, { row = { title = "Volume" } }, { range = true } } do
 			local options: any = table.clone(shape)
 			options.rotation = Compose.cell(0)
 			local w = world(options)
@@ -630,7 +636,7 @@ t.describe("native Slider knob travel", function()
 	end)
 
 	t.it("a vertical and a rotated knob stop flush with the rail ends", function()
-		local w = world({ axis = "y", value = Compose.cell(0) })
+		local w = world({ axis = "y" :: "y", value = Compose.cell(0) })
 		local thumb = find(w.track, "ThumbStop")
 		local function centre(): number
 			return thumb.Position.Y.Scale * 200 + thumb.Position.Y.Offset
@@ -652,7 +658,7 @@ end)
 
 t.describe("native Slider controlSize", function()
 	t.it("a named rung paints a thinner track inside the whole target", function()
-		local regular, compact = world({}), world({ controlSize = "compact" })
+		local regular, compact = world({}), world({ controlSize = "compact" :: "compact" })
 		local thin, normal = find(compact.track, "Rail"), find(regular.track, "Rail")
 		expect(thin.Size.Y.Offset < normal.Size.Y.Offset).toBe(true)
 		expect(compact.track.Size.Y.Offset).toBe(44)
@@ -662,7 +668,7 @@ t.describe("native Slider controlSize", function()
 	end)
 
 	t.it("a rung thins a vertical track and the column keeps its travel", function()
-		local w = world({ axis = "y", controlSize = "compact" })
+		local w = world({ axis = "y" :: "y", controlSize = "compact" :: "compact" })
 		local rail = find(w.track, "Rail")
 		expect(rail.Size.X.Offset).toBe(4)
 		expect(rail.Size.Y.Scale).toBe(1)
@@ -672,7 +678,8 @@ t.describe("native Slider controlSize", function()
 
 	t.it("building, driving and disposing a shaped slider leaves no connection behind", function()
 		local engine: any = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local UI: any = {}
 		register(context(Compose, runtime, { types = engine.types }), UI)
 		local before = engine.census()

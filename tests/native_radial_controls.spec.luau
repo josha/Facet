@@ -1,15 +1,29 @@
 --!strict
+local Shared = require("../src/ui/types")
+local Radial = require("../src/ui/radial_types")
 local t = require("./lib/testkit")
 local fadeKit = require("./lib/fade")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
 local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
-local function setup(spec, animated, environment)
+type World = {
+	engine: engines.Engine,
+	gui: any,
+	input: any,
+	screen: any,
+	opened: Compose.Cell<boolean>,
+	find: (string) -> any,
+	step: (number) -> (),
+	stop: () -> (),
+}
+local function setup(
+	spec: Radial.RadialMenuSpec<any> | ((engines.Engine) -> Radial.RadialMenuSpec<any>),
+	animated: boolean?,
+	environment: Shared.EnvironmentPreview?
+): World
 	local engine, now = engines.new(), 0
-	if type(spec) == "function" then
-		spec = spec(engine)
-	end
+	local actual: Radial.RadialMenuSpec<any> = if type(spec) == "function" then spec(engine) else spec
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -17,17 +31,22 @@ local function setup(spec, animated, environment)
 	engine.clock = function()
 		return now
 	end
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local UI = controls(Compose, runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
 		motionLevel = if not animated then "none" else "normal",
 		environment = environment,
 	})
-	local opened = spec.isPresented or Compose.cell(true)
-	spec.isPresented = opened
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ UI.RadialMenu(spec) })
+	local opened = actual.isPresented or Compose.cell(true)
+	actual.isPresented = opened
+	local stop, screen: any = runtime.mount(function()
+		return (
+			(
+				runtime.constructors.ScreenGui :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+		)({ UI.RadialMenu(actual) })
 	end, engine.new("Folder"))
 	return {
 		engine = engine,
@@ -38,7 +57,7 @@ local function setup(spec, animated, environment)
 		find = function(name)
 			return screen:FindFirstChild(name, true)
 		end,
-		step = function(seconds)
+		step = function(seconds: number)
 			for _ = 1, math.ceil(seconds * 60) do
 				now += 1 / 60
 				engine.heartbeat.fire(1 / 60)
@@ -50,14 +69,14 @@ local function setup(spec, animated, environment)
 		end,
 	}
 end
-local function compass(callback)
-	local entries = {}
+local function compass(callback: (string) -> ()): { Radial.RadialItem<string> }
+	local entries: { Radial.RadialItem<string> } = {}
 	for _, id in { "N", "E", "S", "W" } do
 		table.insert(entries, {
 			id = id,
-			slot = id,
+			slot = id :: Radial.CompassSlot,
 			label = id,
-			completion = "stay",
+			completion = "stay" :: "stay",
 			onSelect = function()
 				callback(id)
 			end,
@@ -65,7 +84,7 @@ local function compass(callback)
 	end
 	return entries
 end
-local function pointer(world, x, y)
+local function pointer(world: World, x: number, y: number)
 	return {
 		UserInputType = world.engine.types.Enum.UserInputType.Touch,
 		UserInputState = world.engine.types.Enum.UserInputState.Begin,
@@ -76,7 +95,7 @@ t.describe("native radial interaction policies", function()
 	t.it("keeps the ring's aim, commit and direction actions in one input context", function()
 		local picked = {}
 		local world = setup({
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(function(id)
 				table.insert(picked, id)
 			end),
@@ -99,14 +118,14 @@ t.describe("native radial interaction policies", function()
 
 	t.it("the ring's Back and Close are icon-only even when the level's items carry text labels", function()
 		local world = setup({
-			center = "empty",
+			center = "empty" :: "empty",
 			items = {
 				{
 					id = "gear",
 					label = "Gear",
 					children = { { id = "wear", label = "Wear" }, { id = "tools", label = "Tools" } },
-				},
-				{ id = "wave", label = "Wave" },
+				} :: Radial.RadialItem<any>,
+				{ id = "wave", label = "Wave" } :: Radial.RadialItem<any>,
 			},
 		})
 		world.step(0.5)
@@ -125,7 +144,8 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("opens at the anchor's measured place instead of gliding in from where it was first read", function()
 		local anchor = Compose.cell({ x = 40, y = 40 })
-		local world = setup({ anchor = anchor, distribution = "compass", items = compass(function() end) }, true)
+		local world =
+			setup({ anchor = anchor, distribution = "compass" :: "compass", items = compass(function() end) }, true)
 		anchor:set({ x = 320, y = 240 })
 		world.step(1 / 60)
 		local centre = world.find("Center")
@@ -144,16 +164,16 @@ t.describe("native radial interaction policies", function()
 			local world = setup(function()
 				return {
 					isPresented = Compose.cell(false),
-					center = "empty",
+					center = "empty" :: "empty",
 					items = {
-						{ id = "gear", label = "Gear", icon = "menu", labelStyle = "icon" },
-						{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" },
+						{ id = "gear", label = "Gear", icon = "menu", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<any>,
+						{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<any>,
 					},
 				}
 			end)
 			local E = world.engine.types.Enum
 			world.input.GetLastInputType = function()
-				return E.UserInputType[last]
+				return assert(E.UserInputType:FromName(last))
 			end
 			world.gui.SelectedObject = world.find("Launcher")
 			world.opened:set(true)
@@ -168,17 +188,17 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("a level's wedges keep their shape while they fade out for the next level", function()
 		local world = setup({
-			center = "empty",
-			contentFit = "radial",
+			center = "empty" :: "empty",
+			contentFit = "radial" :: "radial",
 			items = {
 				{
 					id = "gear",
 					label = "Gear",
 					icon = "menu",
-					labelStyle = "icon",
+					labelStyle = "icon" :: "icon",
 					children = { { id = "wear", label = "Wear the lantern" }, { id = "tools", label = "Tools" } },
-				},
-				{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" },
+				} :: Radial.RadialItem<any>,
+				{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" :: "icon" } :: Radial.RadialItem<any>,
 			},
 		}, true)
 		world.step(1)
@@ -199,11 +219,11 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("an item that shows only its icon takes the glyph padding, a worded item does not", function()
 		local world = setup({
-			preset = "bottom-left",
-			appearance = "buttons",
+			preset = "bottom-left" :: "bottom-left",
+			appearance = "buttons" :: "buttons",
 			items = {
-				{ id = "look", label = "Look", icon = "facet:search" },
-				{ id = "wave", label = "Wave" },
+				{ id = "look", label = "Look", icon = "facet:search" } :: Radial.RadialItem<any>,
+				{ id = "wave", label = "Wave" } :: Radial.RadialItem<any>,
 			},
 		})
 		t.expect(world.find("look"):HasTag("facet-button-glyph")).toBe(true)
@@ -213,9 +233,9 @@ t.describe("native radial interaction policies", function()
 	t.it("a corner menu keeps its launcher's room while the launcher hides under the open ring", function()
 		local world = setup({
 			isPresented = Compose.cell(false),
-			preset = "bottom-left",
-			appearance = "buttons",
-			items = { { id = "look", label = "Look", icon = "facet:search" } },
+			preset = "bottom-left" :: "bottom-left",
+			appearance = "buttons" :: "buttons",
+			items = { { id = "look", label = "Look", icon = "facet:search" } :: Radial.RadialItem<any> },
 		})
 		local launcher = world.find("Launcher")
 		local root = launcher.Parent
@@ -235,11 +255,11 @@ t.describe("native radial interaction policies", function()
 		local world = setup(function(engine)
 			return {
 				isPresented = Compose.cell(false),
-				preset = "bottom-left",
-				appearance = "buttons",
+				preset = "bottom-left" :: "bottom-left",
+				appearance = "buttons" :: "buttons",
 				Size = engine.types.UDim2.fromOffset(60, 0),
 				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-				items = { { id = "look", label = "Look", icon = "facet:search" } },
+				items = { { id = "look", label = "Look", icon = "facet:search" } :: Radial.RadialItem<any> },
 			}
 		end)
 		local V2 = world.engine.types.Vector2
@@ -258,12 +278,12 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("a corner menu names the hovered button right beside it", function()
 		local world = setup({
-			preset = "bottom-left",
-			appearance = "buttons",
+			preset = "bottom-left" :: "bottom-left",
+			appearance = "buttons" :: "buttons",
 			items = {
-				{ id = "look", label = "Look", icon = "facet:search" },
-				{ id = "pack", label = "Pack", icon = "menu" },
-				{ id = "wave", label = "Wave", icon = "flag" },
+				{ id = "look", label = "Look", icon = "facet:search" } :: Radial.RadialItem<any>,
+				{ id = "pack", label = "Pack", icon = "menu" } :: Radial.RadialItem<any>,
+				{ id = "wave", label = "Wave", icon = "flag" } :: Radial.RadialItem<any>,
 			},
 		})
 		world.step(0.5)
@@ -285,8 +305,11 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("a slim-band ring paints its wedges only once every label on it is measured", function()
 		local world = setup({
-			contentFit = "radial",
-			items = { { id = "wear", label = "Wear" }, { id = "tools", label = "Tools" } },
+			contentFit = "radial" :: "radial",
+			items = {
+				{ id = "wear", label = "Wear" } :: Radial.RadialItem<any>,
+				{ id = "tools", label = "Tools" } :: Radial.RadialItem<any>,
+			},
 		})
 		world.step(0.5)
 		local function shown(id)
@@ -305,7 +328,7 @@ t.describe("native radial interaction policies", function()
 		local world = setup({
 			isPresented = Compose.cell(false),
 			holdAction = hold,
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(function(id)
 				table.insert(picked, id)
 			end),
@@ -328,7 +351,7 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("NRAD-2 ignores foreign touch release and cancels captured touch", function()
 		local count = 0
-		local world = setup({ distribution = "compass", items = compass(function()
+		local world = setup({ distribution = "compass" :: "compass", items = compass(function()
 			count += 1
 		end) })
 		local panel, touch = world.find("RadialPanel"), pointer(world, 320, 110)
@@ -342,7 +365,7 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("NRAD-3 suppresses the native activation echo after gesture commit", function()
 		local count = 0
-		local world = setup({ distribution = "compass", items = compass(function()
+		local world = setup({ distribution = "compass" :: "compass", items = compass(function()
 			count += 1
 		end) })
 		local touch = pointer(world, 320, 110)
@@ -356,11 +379,11 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 	t.it("NRAD-4 direction gestures work outside paint while bounded gestures cancel", function()
-		for _, mode in { "direction", "bounded" } do
+		for _, mode in { "direction", "bounded" } :: { "bounded" | "direction" } do
 			local count = 0
 			local world = setup({
-				distribution = "compass",
-				gestureSelection = mode,
+				distribution = "compass" :: "compass",
+				gestureSelection = mode :: "bounded" | "direction",
 				items = compass(function()
 					count += 1
 				end),
@@ -376,7 +399,7 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("NRAD-5 freezes idle-follow anchor during capture then resumes", function()
 		local anchor = Compose.cell({ x = 320, y = 240 })
-		local world = setup({ anchor = anchor, distribution = "compass", items = compass(function() end) })
+		local world = setup({ anchor = anchor, distribution = "compass" :: "compass", items = compass(function() end) })
 		local north = world.find("N").Position
 		local touch = pointer(world, north.X.Offset, north.Y.Offset)
 		world.find("RadialPanel").InputBegan.fire(touch)
@@ -404,7 +427,7 @@ t.describe("native radial interaction policies", function()
 							end,
 						},
 					},
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		world.find("Branch").Activated.fire()
@@ -426,7 +449,7 @@ t.describe("native radial interaction policies", function()
 		local world = setup({
 			isPresented = opened,
 			items = {
-				{ id = "Check", label = "Check", checked = checked },
+				{ id = "Check", label = "Check", checked = checked } :: Radial.RadialItem<any>,
 				{
 					id = "Radio",
 					label = "Radio",
@@ -435,14 +458,14 @@ t.describe("native radial interaction policies", function()
 					onChange = function()
 						count += 1
 					end,
-				},
+				} :: Radial.RadialItem<any>,
 				{
 					id = "Done",
 					label = "Done",
 					onSelect = function()
 						during = opened:peek()
 					end,
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		world.find("Check").Activated.fire()
@@ -457,16 +480,16 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("NRAD-8 nested expansion preserves parents and completion back returns", function()
 		local world = setup({
-			navigation = "replace",
-			gestureSelection = "direction",
+			navigation = "replace" :: "replace",
+			gestureSelection = "direction" :: "direction",
 			items = {
 				{
 					id = "Branch",
 					label = "Branch",
-					navigation = "expand",
-					expansion = "fan",
-					children = { { id = "Child", label = "Child", completion = "back" } },
-				},
+					navigation = "expand" :: "expand",
+					expansion = "fan" :: "fan",
+					children = { { id = "Child", label = "Child", completion = "back" :: "back" } },
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		world.find("Branch").Activated.fire()
@@ -499,10 +522,10 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("NRAD-11 native image skins retain upright labels", function()
 		local world = setup({
-			appearance = "buttons",
-			buttonSurface = "none",
+			appearance = "buttons" :: "buttons",
+			buttonSurface = "none" :: "none",
 			skin = { item = { default = "rbxassetid://1", pressed = "rbxassetid://2" } },
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(function() end),
 		})
 		local button = world.find("N")
@@ -515,11 +538,11 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("draws icon items in the buttons appearance as icon-only circles and names Close with an icon", function()
 		local world = setup({
-			appearance = "buttons",
-			center = "close",
+			appearance = "buttons" :: "buttons",
+			center = "close" :: "close",
 			items = {
-				{ id = "Look", label = "Look", icon = "menu", onSelect = function() end },
-				{ id = "Words", label = "Words only", onSelect = function() end },
+				{ id = "Look", label = "Look", icon = "menu", onSelect = function() end } :: Radial.RadialItem<any>,
+				{ id = "Words", label = "Words only", onSelect = function() end } :: Radial.RadialItem<any>,
 			},
 		})
 		local look = world.find("Look")
@@ -541,10 +564,10 @@ t.describe("native radial interaction policies", function()
 
 	t.it("draws Close as an icon in a ring whose items are all icons", function()
 		local world = setup({
-			center = "close",
+			center = "close" :: "close",
 			items = {
-				{ id = "A", label = "Alpha", icon = "menu", labelStyle = "icon", onSelect = function() end },
-				{ id = "B", label = "Beta", icon = "menu", labelStyle = "icon", onSelect = function() end },
+				{ id = "A", label = "Alpha", icon = "menu", labelStyle = "icon" :: "icon", onSelect = function() end } :: Radial.RadialItem<any>,
+				{ id = "B", label = "Beta", icon = "menu", labelStyle = "icon" :: "icon", onSelect = function() end } :: Radial.RadialItem<any>,
 			},
 		})
 		local close = world.find("$navigation")
@@ -557,7 +580,7 @@ t.describe("native radial interaction policies", function()
 
 	t.it("NRAD-12 empty center keeps ring Back and full-label preview", function()
 		local world = setup({
-			center = "empty",
+			center = "empty" :: "empty",
 			items = {
 				{
 					id = "Branch",
@@ -569,7 +592,7 @@ t.describe("native radial interaction policies", function()
 							compactLabel = { icon = "menu", prefer = true },
 						},
 					},
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		world.find("Branch").Activated.fire()
@@ -584,11 +607,14 @@ t.describe("native radial interaction policies", function()
 	end)
 	t.it("NRAD-13 gallery nearby item uses native owned scene and real actions", function()
 		local engine = engines.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local ctx = {
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			UI = controls(
@@ -598,20 +624,24 @@ t.describe("native radial interaction policies", function()
 			),
 		}
 		local built
-		local stop, screen = runtime.mount(function()
+		local stop, screen: any = runtime.mount(function()
 			built = require("../examples/gallery/scenarios/radial_menu").build(ctx)
-			return runtime.constructors.ScreenGui({ built.screen() })
+			return (
+				(
+					runtime.constructors.ScreenGui :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+			)({ built.screen() })
 		end, engine.new("Folder"))
 		built.steps.world()
 		local stage = screen:FindFirstChild("TrailPack", true)
 		t.expect(stage:IsA("ViewportFrame")).toBe(true)
 		screen:FindFirstChild("Launcher", true).Activated.fire()
 		screen:FindFirstChild("inspect", true).Activated.fire()
-		t.expect(built.report().world.angle).toBe(45)
+		t.expect(assert(assert(built).report().world).angle).toBe(45)
 		screen:FindFirstChild("resize", true).Activated.fire()
-		t.expect(built.report().world.unpacked).toBe(true)
+		t.expect(assert(assert(built).report().world).unpacked).toBe(true)
 		screen:FindFirstChild("take", true).Activated.fire()
-		t.expect(built.report().world.taken).toBe(true)
+		t.expect(assert(assert(built).report().world).taken).toBe(true)
 		t.expect(stage.Visible).toBe(false)
 		stop()
 		t.expect(stage.isDestroyed()).toBe(true)
@@ -621,7 +651,7 @@ t.describe("native radial interaction policies", function()
 		local count = 0
 		local world = setup({
 			isPresented = Compose.cell(false),
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(function()
 				count += 1
 			end),
@@ -658,7 +688,7 @@ t.describe("native radial interaction policies", function()
 		local count = 0
 		local world = setup({
 			isPresented = Compose.cell(false),
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(function()
 				count += 1
 			end),
@@ -682,7 +712,7 @@ t.describe("native radial interaction policies", function()
 						id = "Branch",
 						label = "Branch",
 						children = { { id = "Leaf", label = "Leaf", onSelect = function() end } },
-					},
+					} :: Radial.RadialItem<any>,
 				},
 			}, animated)
 			world.step(0.3)
@@ -710,11 +740,11 @@ t.describe("native radial interaction policies", function()
 	t.it("NRAD-16 keeps round button swatches circular and expands the same targets into compact rows", function()
 		local selected = Compose.cell("sage")
 		local world = setup({
-			appearance = "buttons",
+			appearance = "buttons" :: "buttons",
 			items = {
-				{ id = "sage", label = "Sage", selected = selected, value = "sage" },
-				{ id = "clay", label = "Clay", selected = selected, value = "clay" },
-				{ id = "iris", label = "Iris", selected = selected, value = "iris" },
+				{ id = "sage", label = "Sage", selected = selected, value = "sage" } :: Radial.RadialItem<any>,
+				{ id = "clay", label = "Clay", selected = selected, value = "clay" } :: Radial.RadialItem<any>,
+				{ id = "iris", label = "Iris", selected = selected, value = "iris" } :: Radial.RadialItem<any>,
 			},
 		})
 		local modal, panel = world.find("Modal"), world.find("RadialPanel")
@@ -745,7 +775,8 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 	t.it("presents on the modal layer over a dimmed page and a still tap outside the ring closes it", function()
-		local world = setup({ distribution = "compass", scrim = "dark", items = compass(function() end) })
+		local world =
+			setup({ distribution = "compass" :: "compass", scrim = "dark" :: "dark", items = compass(function() end) })
 		local modal = world.find("Modal")
 		t.expect(modal.Parent).toBe(world.screen)
 		t.expect(modal.ZIndex >= 100).toBe(true)
@@ -771,7 +802,7 @@ t.describe("native radial interaction policies", function()
 			isPresented = Compose.cell(false),
 			clearance = 60,
 			ringWidth = 48,
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(function() end),
 		})
 		local V2 = world.engine.types.Vector2
@@ -818,19 +849,28 @@ t.describe("native radial interaction policies", function()
 		"scrim sets the ring's dim: clear by default as in 0.11, dark or the theme scrim when asked, and refuses other words",
 		function()
 			for _, case in
-				{ { nil, false, false }, { "dark", true, true }, { "light", true, false }, { "none", false, false } }
+				{
+					{ scrim = nil, base = false, ring = false },
+					{ scrim = "dark", base = true, ring = true },
+					{ scrim = "light", base = true, ring = false },
+					{ scrim = "none", base = false, ring = false },
+				} :: { { scrim: ("dark" | "light" | "none")?, base: boolean, ring: boolean } }
 			do
-				local world = setup({ distribution = "compass", scrim = case[1], items = compass(function() end) })
+				local world = setup({
+					distribution = "compass" :: "compass",
+					scrim = case.scrim,
+					items = compass(function() end),
+				})
 				local scrim = world.find("DismissOutside")
-				t.expect(`{case[1]}:{scrim:HasTag("facet-scrim")}:{scrim:HasTag("facet-radial-scrim")}`)
-					.toBe(`{case[1]}:{case[2]}:{case[3]}`)
+				t.expect(`{case.scrim}:{scrim:HasTag("facet-scrim")}:{scrim:HasTag("facet-radial-scrim")}`)
+					.toBe(`{case.scrim}:{case.base}:{case.ring}`)
 				t.expect(scrim.Visible).toBe(true)
-				if case[1] == "none" or case[1] == nil then
+				if case.scrim == "none" or case.scrim == nil then
 					t.expect(scrim.BackgroundTransparency).toBe(1)
 				end
 				world.stop()
 			end
-			local ok, message = pcall(setup, { scrim = "heavy", items = compass(function() end) })
+			local ok, message = pcall(setup, { scrim = "heavy", items = compass(function() end) } :: any)
 			t.expect(ok).toBe(false)
 			t.expect(string.find(tostring(message), "scrim", 1, true) ~= nil).toBe(true)
 		end
@@ -838,19 +878,19 @@ t.describe("native radial interaction policies", function()
 
 	t.it("paints the centre control on the ten-foot ladder at a distance", function()
 		local world = setup(
-			{ distribution = "compass", items = compass(function() end) },
+			{ distribution = "compass" :: "compass", items = compass(function() end) },
 			false,
-			{ viewingDistance = "ten-foot" }
+			{ viewingDistance = "ten-foot" :: "ten-foot" }
 		)
 		t.expect(world.find("Center").Size.X.Offset).toBe(48)
 		world.stop()
 	end)
 	t.it("puts a small plate-less close in the hole over a full dark scrim and names no labelled wedge", function()
-		for _, label in { false, "Leave the wheel" } do
+		for _, label in { false, "Leave the wheel" } :: { false | string } do
 			local world = setup({
-				distribution = "compass",
-				scrim = "dark",
-				centerLabel = if label then label else nil,
+				distribution = "compass" :: "compass",
+				scrim = "dark" :: "dark",
+				centerLabel = if type(label) == "string" then label else nil,
 				items = compass(function() end),
 			})
 			local scrim = world.find("DismissOutside")
@@ -870,7 +910,7 @@ t.describe("native radial interaction policies", function()
 			t.expect(hit.AnchorPoint).toBe(world.engine.types.Vector2.new(0.5, 0.5))
 			t.expect(hit.Position).toBe(centre.Position)
 			t.expect(centre.Position.X.Offset).toBe(320)
-			local function inside(x, y)
+			local function inside(x: number, y: number)
 				return (x - 320) ^ 2 + (y - 240) ^ 2 <= 40 * 40 + 0.5
 			end
 			for _, dx in { -w / 2, w / 2 } do
@@ -892,7 +932,7 @@ t.describe("native radial interaction policies", function()
 		end
 	end)
 	t.it("opens with nothing highlighted until the player points, steps or aims", function()
-		local world = setup({ distribution = "compass", items = compass(function() end) })
+		local world = setup({ distribution = "compass" :: "compass", items = compass(function() end) })
 		for _, node in world.screen:GetDescendants() do
 			t.expect(node:HasTag("facet-radial-candidate")).toBe(false)
 			if node:IsA("TextButton") and node.Name ~= "Center" then
@@ -910,9 +950,9 @@ t.describe("native radial interaction policies", function()
 		end
 		local world = setup({
 			isPresented = Compose.cell(false),
-			preset = "bottom-left",
-			center = "empty",
-			appearance = "buttons",
+			preset = "bottom-left" :: "bottom-left",
+			center = "empty" :: "empty",
+			appearance = "buttons" :: "buttons",
 			items = items,
 		})
 		local V2 = world.engine.types.Vector2
@@ -945,7 +985,7 @@ t.describe("native radial interaction policies", function()
 	t.it("blooms from its launcher on a measured screen instead of travelling in from a default one", function()
 		local world = setup({
 			isPresented = Compose.cell(false),
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(function() end),
 		}, true)
 		local V2 = world.engine.types.Vector2
@@ -966,13 +1006,13 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 	t.it("takes ringWidth as a theme width or pixels and grows a ring until each label fits", function()
-		local function band(width, label)
+		local function band(width: "narrow" | "regular" | "wide" | number, label: string)
 			local world = setup({
 				ringWidth = width,
 				items = {
-					{ id = "a", label = label, onSelect = function() end },
-					{ id = "b", label = "B", onSelect = function() end },
-					{ id = "c", label = "C", onSelect = function() end },
+					{ id = "a", label = label, onSelect = function() end } :: Radial.RadialItem<any>,
+					{ id = "b", label = "B", onSelect = function() end } :: Radial.RadialItem<any>,
+					{ id = "c", label = "C", onSelect = function() end } :: Radial.RadialItem<any>,
 				},
 			})
 			local reach = 240 - world.find("a").Position.Y.Offset
@@ -983,20 +1023,20 @@ t.describe("native radial interaction policies", function()
 		t.expect(band("narrow", "A")).toBe(band(48, "A"))
 		t.expect(band("wide", "A") > band("narrow", "A")).toBe(true)
 		t.expect(band(48, "Wear the lantern") > band(48, "A")).toBe(true)
-		local ok, message = pcall(band, "huge", "A")
+		local ok, message = pcall(band, "huge" :: any, "A")
 		t.expect(ok).toBe(false)
 		t.expect(string.find(tostring(message), "ringWidth", 1, true) ~= nil).toBe(true)
 	end)
 	t.it("shows either a glyph or a word on a ring item, never both over each other", function()
 		local world = setup({
-			appearance = "buttons",
+			appearance = "buttons" :: "buttons",
 			items = {
-				{ id = "map", label = "Map", compactLabel = { icon = "flag" }, onSelect = function() end },
-				{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end },
+				{ id = "map", label = "Map", compactLabel = { icon = "flag" }, onSelect = function() end } :: Radial.RadialItem<any>,
+				{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end } :: Radial.RadialItem<any>,
 			},
 		})
 		local function shown(button)
-			local words = button.Text
+			local words: string = button.Text
 			for _, node in button:GetDescendants() do
 				if node:IsA("TextLabel") and node.Visible then
 					words ..= node.Text
@@ -1015,7 +1055,7 @@ t.describe("native radial interaction policies", function()
 			return {
 				isPresented = Compose.cell(false),
 				anchor = anchor,
-				distribution = "compass",
+				distribution = "compass" :: "compass",
 				items = compass(function() end),
 			}
 		end)
@@ -1030,31 +1070,31 @@ t.describe("native radial interaction policies", function()
 	end)
 end)
 t.describe("RadialMenu navigation placement (restored from 0.11)", function()
-	local function actions(count)
+	local function actions(count: number): { Radial.RadialItem<any> }
 		local items = {}
 		for index = 1, count do
 			table.insert(items, { id = `a{index}`, label = `A{index}`, onSelect = function() end })
 		end
 		return items
 	end
-	local function nested()
+	local function nested(): { Radial.RadialItem<any> }
 		return {
 			{ id = "gear", label = "Gear", children = { { id = "tool", label = "Tool", onSelect = function() end } } },
 			{ id = "wave", label = "Wave", onSelect = function() end },
 		}
 	end
-	local function angleOf(node)
+	local function angleOf(node: any): number
 		local dx, dy = node.Position.X.Offset - 320, node.Position.Y.Offset - 240
 		return math.deg(math.atan2(dx, -dy)) % 360
 	end
-	local function visibleCenter(world)
+	local function visibleCenter(world: World): any
 		local centre = world.find("Center")
 		return if centre and centre.Visible then centre else nil
 	end
 
 	t.it("an empty or content centre puts Back/Close on the ring at the lower left of an even ring", function()
 		for _, center in { "empty", "content", "root", "close" } do
-			local world = setup({ center = center, items = actions(3) })
+			local world = setup({ center = center :: "empty" | "content" | "root" | "close", items = actions(3) })
 			local nav = world.find("$navigation")
 			t.expect(`{center}: {nav ~= nil}`).toBe(`{center}: true`)
 			t.expect(`{center}: {math.abs(angleOf(nav) - 225) <= 1}`).toBe(`{center}: true`)
@@ -1078,7 +1118,7 @@ t.describe("RadialMenu navigation placement (restored from 0.11)", function()
 	end)
 
 	t.it("an empty centre shows no centre control while the ring holds Back", function()
-		local world = setup({ center = "empty", items = actions(3) })
+		local world = setup({ center = "empty" :: "empty", items = actions(3) })
 		t.expect(visibleCenter(world)).toBeNil()
 		world.stop()
 	end)
@@ -1086,9 +1126,12 @@ t.describe("RadialMenu navigation placement (restored from 0.11)", function()
 	t.it("a full compass with an empty centre uses the external control at the centre", function()
 		local items = {}
 		for _, slot in { "N", "NE", "E", "SE", "S", "SW", "W", "NW" } do
-			table.insert(items, { id = slot, slot = slot, label = slot, onSelect = function() end })
+			table.insert(
+				items,
+				{ id = slot, slot = slot :: Radial.CompassSlot, label = slot, onSelect = function() end }
+			)
 		end
-		local world = setup({ center = "empty", distribution = "compass", items = items })
+		local world = setup({ center = "empty" :: "empty", distribution = "compass" :: "compass", items = items })
 		t.expect(world.find("$navigation")).toBeNil()
 		local centre = visibleCenter(world)
 		t.expect(centre ~= nil).toBe(true)
@@ -1102,9 +1145,12 @@ t.describe("RadialMenu navigation placement (restored from 0.11)", function()
 	t.it("a compass ring takes the first free slot from SW, S, SE", function()
 		local items = {}
 		for _, slot in { "N", "E", "SW", "W" } do
-			table.insert(items, { id = slot, slot = slot, label = slot, onSelect = function() end })
+			table.insert(
+				items,
+				{ id = slot, slot = slot :: Radial.CompassSlot, label = slot, onSelect = function() end }
+			)
 		end
-		local world = setup({ center = "empty", distribution = "compass", items = items })
+		local world = setup({ center = "empty" :: "empty", distribution = "compass" :: "compass", items = items })
 		t.expect(math.abs(angleOf(world.find("$navigation")) - 180) <= 1).toBe(true)
 		world.stop()
 	end)
@@ -1113,8 +1159,8 @@ t.describe("RadialMenu navigation placement (restored from 0.11)", function()
 		for _, center in { "back", "root", "close", "empty", "content" } do
 			local world = setup({
 				isPresented = Compose.cell(false),
-				preset = "bottom-left",
-				center = center,
+				preset = "bottom-left" :: "bottom-left",
+				center = center :: "empty" | "content" | "root" | "close",
 				centerLabel = "Home base",
 				items = nested(),
 			})
@@ -1138,7 +1184,7 @@ t.describe("RadialMenu navigation placement (restored from 0.11)", function()
 
 	t.it("the list fallback has one round Back/Close at the top right for every centre policy", function()
 		for _, center in { "empty", "back", "root", "close", "content" } do
-			local world = setup({ center = center, items = nested() })
+			local world = setup({ center = center :: "empty" | "content" | "root" | "close", items = nested() })
 			world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
 			t.expect(world.find("RadialPanel"):GetAttribute("Presentation")).toBe("list")
 			t.expect(`{center}: {world.find("$navigation") == nil}`).toBe(`{center}: true`)
@@ -1158,7 +1204,7 @@ end)
 
 t.describe("RadialMenu centre and corner controls (restored from 0.11)", function()
 	local themes = require("../src/ui/themes")(Compose)
-	local function nested()
+	local function nested(): { Radial.RadialItem<any> }
 		return {
 			{ id = "gear", label = "Gear", children = { { id = "tool", label = "Tool", onSelect = function() end } } },
 			{ id = "wave", label = "Wave", onSelect = function() end },
@@ -1175,8 +1221,8 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	end)
 	t.it("Home in the centre is the up chevron", function()
 		local world = setup({
-			center = "root",
-			items = { { id = "a", label = "A", onSelect = function() end } },
+			center = "root" :: "root",
+			items = { { id = "a", label = "A", onSelect = function() end } :: Radial.RadialItem<any> },
 		})
 		local glyph = world.find("Center"):FindFirstChild("LeadingIcon", true)
 		t.expect(glyph.Image).toBe(themes.resolveIcon({} :: any, "chevron.up"))
@@ -1208,7 +1254,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	t.it("closing a corner ring hands the selection back to its launcher", function()
 		local world = setup({
 			isPresented = Compose.cell(false),
-			preset = "bottom-left",
+			preset = "bottom-left" :: "bottom-left",
 			items = nested(),
 		}, true)
 		local launcher = world.find("Launcher")
@@ -1232,7 +1278,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	t.it("a corner control grows out of the launcher and back into it, crossfading the glyphs", function()
 		local world = setup({
 			isPresented = Compose.cell(false),
-			preset = "bottom-left",
+			preset = "bottom-left" :: "bottom-left",
 			items = nested(),
 		}, true)
 		local V2 = world.engine.types.Vector2
@@ -1240,10 +1286,10 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		local launcher = world.find("Launcher")
 		launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
 		world.opened:set(true)
-		local function state()
+		local function state(): (any, any, any, any)
 			local centre = world.find("Center")
 			if not centre then
-				return nil
+				return nil, nil, nil, nil
 			end
 			local back = centre:FindFirstChild("LeadingIcon", true)
 			local own = centre:FindFirstChild("LauncherIcon", true)
@@ -1288,21 +1334,28 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	end)
 	t.it("names an icon item only while a finger holds it, never on a tap or a level change", function()
 		local function leaf(id: string, label: string): any
-			return { id = id, slot = "N", label = label, icon = "flag", labelStyle = "icon", onSelect = function() end }
+			return {
+				id = id,
+				slot = "N" :: Radial.CompassSlot,
+				label = label,
+				icon = "flag",
+				labelStyle = "icon" :: "icon",
+				onSelect = function() end,
+			}
 		end
 		local world = setup({
-			distribution = "compass",
-			completion = "stay",
+			distribution = "compass" :: "compass",
+			completion = "stay" :: "stay",
 			items = {
 				leaf("N", "Lantern"),
 				{
 					id = "E",
-					slot = "E",
+					slot = "E" :: Radial.CompassSlot,
 					label = "Tools",
 					icon = "menu",
-					labelStyle = "icon",
+					labelStyle = "icon" :: "icon",
 					children = { leaf("stow", "Stow") },
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		local preview, panel = world.find("SelectionPreview"), world.find("RadialPanel")
@@ -1331,10 +1384,15 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 			return { id = id, label = id, onSelect = function() end }
 		end
 		local world = setup({
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = {
-				{ id = "gear", slot = "N", label = "Gear", children = { leaf("a"), leaf("b"), leaf("c"), leaf("d") } },
-				{ id = "E", slot = "E", label = "E", onSelect = function() end },
+				{
+					id = "gear",
+					slot = "N" :: Radial.CompassSlot,
+					label = "Gear",
+					children = { leaf("a"), leaf("b"), leaf("c"), leaf("d") },
+				} :: Radial.RadialItem<any>,
+				{ id = "E", slot = "E" :: Radial.CompassSlot, label = "E", onSelect = function() end } :: Radial.RadialItem<any>,
 			},
 		}, true)
 		world.step(0.5)
@@ -1361,15 +1419,15 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		end
 		local function ring(): any
 			return setup({
-				distribution = "compass",
+				distribution = "compass" :: "compass",
 				items = {
 					{
 						id = "gear",
-						slot = "N",
+						slot = "N" :: Radial.CompassSlot,
 						label = "Gear",
 						children = { leaf("a"), leaf("b"), leaf("c"), leaf("d") },
-					},
-					{ id = "E", slot = "E", label = "E", onSelect = function() end },
+					} :: Radial.RadialItem<any>,
+					{ id = "E", slot = "E" :: Radial.CompassSlot, label = "E", onSelect = function() end } :: Radial.RadialItem<any>,
 				},
 			}, true)
 		end
@@ -1414,7 +1472,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		end
 		local gear = { id = "gear", label = "Gear", children = { leaf("x"), leaf("y") } }
 		local items = Compose.cell({ leaf("a"), gear })
-		local world = setup({ distribution = "even", items = items }, true)
+		local world = setup({ distribution = "even" :: "even", items = items }, true)
 		local function at(id: string): any
 			local node = world.find(id)
 			return world.engine.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
@@ -1439,19 +1497,19 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	t.it("a long press names an item without acting; the release does nothing and a second tap acts", function()
 		local picked = 0
 		local world = setup({
-			distribution = "compass",
-			completion = "stay",
+			distribution = "compass" :: "compass",
+			completion = "stay" :: "stay",
 			items = {
 				{
 					id = "N",
-					slot = "N",
+					slot = "N" :: Radial.CompassSlot,
 					label = "Lantern",
 					icon = "flag",
-					labelStyle = "icon",
+					labelStyle = "icon" :: "icon",
 					onSelect = function()
 						picked += 1
 					end,
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		local preview, panel, north = world.find("SelectionPreview"), world.find("RadialPanel"), world.find("N")
@@ -1487,16 +1545,20 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		local function item(id: string): any
 			return {
 				id = id,
-				slot = id,
+				slot = id :: Radial.CompassSlot,
 				label = id,
 				icon = "flag",
-				labelStyle = "icon",
+				labelStyle = "icon" :: "icon",
 				onSelect = function()
 					table.insert(picks, id)
 				end,
 			}
 		end
-		local world = setup({ distribution = "compass", completion = "stay", items = { item("N"), item("E") } })
+		local world = setup({
+			distribution = "compass" :: "compass",
+			completion = "stay" :: "stay",
+			items = { item("N"), item("E") },
+		})
 		local panel, north, east = world.find("RadialPanel"), world.find("N"), world.find("E")
 		local hold = pointer(world, north.Position.X.Offset, north.Position.Y.Offset)
 		panel.InputBegan.fire(hold)
@@ -1510,17 +1572,17 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	end)
 	t.it("keeps a held item's name on the screen beside a ring near the edge of a phone", function()
 		local world = setup({
-			distribution = "compass",
-			completion = "stay",
+			distribution = "compass" :: "compass",
+			completion = "stay" :: "stay",
 			items = {
 				{
 					id = "E",
-					slot = "E",
+					slot = "E" :: Radial.CompassSlot,
 					label = "Lantern",
 					icon = "flag",
-					labelStyle = "icon",
+					labelStyle = "icon" :: "icon",
 					onSelect = function() end,
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
@@ -1537,7 +1599,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	end)
 	t.it("keeps a nested level on the ring by replacing its parent before it falls back to a list", function()
 		local function leaf(id: string): any
-			return { id = id, label = id, icon = "flag", labelStyle = "icon", onSelect = function() end }
+			return { id = id, label = id, icon = "flag", labelStyle = "icon" :: "icon", onSelect = function() end }
 		end
 		local world = setup({
 			items = {
@@ -1548,18 +1610,18 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 					id = "gear",
 					label = "Gear",
 					icon = "menu",
-					labelStyle = "icon",
+					labelStyle = "icon" :: "icon",
 					children = {
 						{
 							id = "tools",
 							label = "Tools",
-							navigation = "expand",
-							expansion = "fan",
+							navigation = "expand" :: "expand",
+							expansion = "fan" :: "fan",
 							children = { leaf("x"), leaf("y"), leaf("z") },
-						},
-						{ id = "wear", label = "Wear", children = { leaf("w") } },
+						} :: Radial.RadialItem<any>,
+						{ id = "wear", label = "Wear", children = { leaf("w") } } :: Radial.RadialItem<any>,
 					},
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(360, 240)
@@ -1571,7 +1633,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	end)
 	t.it("fits an anchored ring inside the page space that holds its anchor, down to the touch floor", function()
 		local function leaf(id: string): any
-			return { id = id, label = id, icon = "flag", labelStyle = "icon", onSelect = function() end }
+			return { id = id, label = id, icon = "flag", labelStyle = "icon" :: "icon", onSelect = function() end }
 		end
 		local scene, anchor
 		local world = setup(function(engine)
@@ -1580,9 +1642,9 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 			return {
 				anchor = anchor,
 				clearance = 82,
-				ringWidth = "narrow",
-				center = "empty",
-				contentFit = "none",
+				ringWidth = "narrow" :: "narrow",
+				center = "empty" :: "empty",
+				contentFit = "none" :: "none",
 				items = {
 					leaf("wave"),
 					leaf("look"),
@@ -1590,21 +1652,21 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 						id = "gear",
 						label = "Gear",
 						icon = "menu",
-						labelStyle = "icon",
-						navigation = "replace",
+						labelStyle = "icon" :: "icon",
+						navigation = "replace" :: "replace",
 						children = {
 							{
 								id = "tools",
 								label = "Tools",
 								icon = "edit",
-								labelStyle = "icon",
-								navigation = "expand",
-								expansion = "fan",
+								labelStyle = "icon" :: "icon",
+								navigation = "expand" :: "expand",
+								expansion = "fan" :: "fan",
 								children = { leaf("x"), leaf("y"), leaf("z") },
 							},
 							leaf("wear"),
 						},
-					},
+					} :: Radial.RadialItem<any>,
 				},
 			}
 		end)
@@ -1630,9 +1692,9 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 	t.it("shows an item's icon instead of a word that is wider than its fitted slot", function()
 		local world = setup({
 			items = {
-				{ id = "lantern", label = "Lantern", compactLabel = { icon = "increment" }, onSelect = function() end },
-				{ id = "stow", label = "Stow", icon = "flag", onSelect = function() end },
-				{ id = "go", label = "Go", onSelect = function() end },
+				{ id = "lantern", label = "Lantern", compactLabel = { icon = "increment" }, onSelect = function() end } :: Radial.RadialItem<any>,
+				{ id = "stow", label = "Stow", icon = "flag", onSelect = function() end } :: Radial.RadialItem<any>,
+				{ id = "go", label = "Go", onSelect = function() end } :: Radial.RadialItem<any>,
 			},
 		})
 		local V2 = world.engine.types.Vector2
@@ -1655,17 +1717,17 @@ end)
 t.describe("touch radial label placement", function()
 	t.it("follows a captured touch outside the wedge, wraps its name in tooltip paint and clears on cancel", function()
 		local world = setup({
-			gestureSelection = "direction",
-			distribution = "compass",
+			gestureSelection = "direction" :: "direction",
+			distribution = "compass" :: "compass",
 			items = {
 				{
 					id = "S",
-					slot = "S",
+					slot = "S" :: Radial.CompassSlot,
 					label = "Workshop",
 					description = "Restore power",
 					icon = "settings",
-					labelStyle = "icon",
-				},
+					labelStyle = "icon" :: "icon",
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		local V2, V3, E = world.engine.types.Vector2, world.engine.types.Vector3, world.engine.types.Enum
@@ -1700,16 +1762,16 @@ t.describe("touch radial label placement", function()
 	t.it("keeps held labels above lower and side items, with the pointer layout unchanged", function()
 		for _, slot in { "E", "SE", "S", "SW", "W" } do
 			local world = setup({
-				distribution = "compass",
+				distribution = "compass" :: "compass",
 				items = {
 					{
 						id = slot,
-						slot = slot,
+						slot = slot :: Radial.CompassSlot,
 						label = "Workshop",
 						icon = "settings",
-						labelStyle = "icon",
+						labelStyle = "icon" :: "icon",
 						onSelect = function() end,
-					},
+					} :: Radial.RadialItem<any>,
 				},
 			})
 			local V2 = world.engine.types.Vector2
@@ -1744,17 +1806,17 @@ t.describe("touch radial label bounds", function()
 	t.it("falls back below a top-edge item when its label cannot fit above", function()
 		local world = setup({
 			anchor = { x = 195, y = 8 },
-			gestureSelection = "direction",
-			distribution = "compass",
+			gestureSelection = "direction" :: "direction",
+			distribution = "compass" :: "compass",
 			items = {
 				{
 					id = "N",
-					slot = "N",
+					slot = "N" :: Radial.CompassSlot,
 					label = "Beacon",
 					icon = "flag",
-					labelStyle = "icon",
+					labelStyle = "icon" :: "icon",
 					onSelect = function() end,
-				},
+				} :: Radial.RadialItem<any>,
 			},
 		})
 		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)

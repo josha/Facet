@@ -1,5 +1,13 @@
 --!strict
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -10,7 +18,7 @@ local function anchored(UI: any, Host: any, Compose: any, at: UDim2, edge: strin
 	return Host.Frame "Surface" {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		anchor,
+		anchor :: unknown,
 		UI.Callout({
 			anchor = anchor,
 			edge = edge,
@@ -23,19 +31,41 @@ local function anchored(UI: any, Host: any, Compose: any, at: UDim2, edge: strin
 	}
 end
 
-local SPOTS = {
-	{ name = "centre", at = UDim2.fromScale(0.5, 0.6), edge = "top", pivot = Vector2.new(0.5, 0.5) },
-	{ name = "left", at = UDim2.new(0, 8, 0.6, 0), edge = "top", pivot = Vector2.new(0, 0.5) },
-	{ name = "right", at = UDim2.new(1, -8, 0.6, 0), edge = "top", pivot = Vector2.new(1, 0.5) },
-	{ name = "top-left", at = UDim2.fromOffset(8, 12), edge = "top", pivot = Vector2.zero },
-	{ name = "bottom-right", at = UDim2.new(1, -8, 1, -8), edge = nil, pivot = Vector2.one },
-}
+local SPOTS: {
+	{
+		name: string,
+		at: typeof(UDim2.fromScale(0.5, 0.6))
+			| typeof(UDim2.new(0, 8, 0.6, 0))
+			| typeof(UDim2.new(1, -8, 0.6, 0))
+			| typeof(UDim2.fromOffset(8, 12))
+			| typeof(UDim2.new(1, -8, 1, -8)),
+		edge: "top" | nil,
+		pivot: typeof(Vector2.new(0.5, 0.5))
+			| typeof(Vector2.new(0, 0.5))
+			| typeof(Vector2.new(1, 0.5))
+			| typeof(Vector2.zero)
+			| typeof(Vector2.one),
+	}
+} =
+	{
+		{ name = "centre", at = UDim2.fromScale(0.5, 0.6), edge = "top" :: "top", pivot = Vector2.new(0.5, 0.5) },
+		{ name = "left", at = UDim2.new(0, 8, 0.6, 0), edge = "top" :: "top", pivot = Vector2.new(0, 0.5) },
+		{ name = "right", at = UDim2.new(1, -8, 0.6, 0), edge = "top" :: "top", pivot = Vector2.new(1, 0.5) },
+		{ name = "top-left", at = UDim2.fromOffset(8, 12), edge = "top" :: "top", pivot = Vector2.zero },
+		{ name = "bottom-right", at = UDim2.new(1, -8, 1, -8), edge = nil, pivot = Vector2.one },
+	}
 
 add("callout-edge-gap-shift-clamp", { "navigation-1-39", "navigation-1-67" }, function(t)
 	for _, spot in SPOTS do
-		local stage = t.mount(function(UI, Host, Compose)
-			return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
-		end)
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
+			end
+		)
 		local anchor, panel = t.find(stage, "Anchor"), t.find(stage.Parent, "CalloutPanel")
 		if not panel then
 			t.check(spot.name .. " panel mounted", false)
@@ -73,9 +103,15 @@ end)
 
 add("callout-tail-centre-border-corners", { "navigation-1-42" }, function(t)
 	for _, spot in SPOTS do
-		local stage = t.mount(function(UI, Host, Compose)
-			return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
-		end)
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
+			end
+		)
 		local screen = stage.Parent
 		local anchor, panel, arrow = t.find(stage, "Anchor"), t.find(screen, "CalloutPanel"), t.find(screen, "Arrow")
 		if not (panel and arrow) then
@@ -107,25 +143,32 @@ end)
 
 add("navigation-stack-root-box-and-back-chrome", { "navigation-3-27" }, function(t)
 	local path
-	local stage = t.mount(function(UI, _, Compose)
-		path = Compose.cell({})
-		return UI.NavigationStack({
-			path = path,
-			root = {
-				content = function()
-					return UI.Text "RootLabel" { text = "Root" }
-				end,
-			},
-			destinations = {
-				detail = {
-					title = "Detail",
-					content = function()
-						return UI.Text "DetailLabel" { text = "Detail" }
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			path = Compose.cell({})
+			return UI.NavigationStack({
+				path = path,
+				root = {
+					content = function(): Instance
+						return UI.Text "RootLabel" { text = "Root" }
 					end,
 				},
-			},
-		})
-	end, { size = Vector2.new(480, 320) })
+				destinations = {
+					detail = {
+						title = "Detail",
+						content = function(): Instance
+							return UI.Text "DetailLabel" { text = "Detail" }
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").destination(nil :: any)),
+				},
+			})
+		end,
+		{ size = Vector2.new(480, 320) }
+	)
 	local stack = t.find(stage, "NavigationStack")
 	local rootDestination = t.find(t.find(stack, "@root") or stack, "Destination")
 	local s, d = t.rect(stack), t.rect(rootDestination)
@@ -148,18 +191,25 @@ add("navigation-stack-root-box-and-back-chrome", { "navigation-3-27" }, function
 end)
 
 add("vertical-segments-stack-share-width-floor", { "navigation-3-59" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.Picker "Rail" {
-			style = "segmented",
-			axis = "y",
-			selected = Compose.cell("a"),
-			options = {
-				{ value = "a", label = "Alpha" },
-				{ value = "b", label = "Beta with a longer label" },
-				{ value = "c", label = "C" },
-			},
-		}
-	end, { size = Vector2.new(480, 400) })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.Picker "Rail" {
+				style = "segmented" :: "segmented",
+				axis = "y" :: "y",
+				selected = Compose.cell("a"),
+				options = {
+					{ value = "a", label = "Alpha" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "b", label = "Beta with a longer label" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "c", label = "C" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				},
+			}
+		end,
+		{ size = Vector2.new(480, 400) }
+	)
 	local segments = {}
 	for _, value in { "a", "b", "c" } do
 		local node = t.find(stage, value)
@@ -183,37 +233,44 @@ add("vertical-segments-stack-share-width-floor", { "navigation-3-59" }, function
 end)
 
 add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
-	local stage = t.mount(function(UI, Host, Compose)
-		return UI.TabView({
-			selection = Compose.cell("one"),
-			style = "sidebarAdaptable",
-			placement = "sidebar",
-			tabs = {
-				{
-					id = "one",
-					label = "One",
-					content = function()
-						return Host.Frame({ BackgroundTransparency = 1 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.TabView({
+				selection = Compose.cell("one"),
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				placement = "sidebar" :: "sidebar",
+				tabs = {
+					{
+						id = "one",
+						label = "One",
+						content = function()
+							return Host.Frame({ BackgroundTransparency = 1 })
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{
+						id = "two",
+						label = "Two",
+						content = function()
+							return Host.Frame({ BackgroundTransparency = 1 })
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+				},
+				accessories = {
+					head = function(): Instance?
+						return UI.Text "HeadLabel" { text = "Profile header" }
+					end,
+					foot = function(): Instance?
+						return UI.Button "FootButton" { label = "Settings" }
 					end,
 				},
-				{
-					id = "two",
-					label = "Two",
-					content = function()
-						return Host.Frame({ BackgroundTransparency = 1 })
-					end,
-				},
-			},
-			accessories = {
-				head = function()
-					return UI.Text "HeadLabel" { text = "Profile header" }
-				end,
-				foot = function()
-					return UI.Button "FootButton" { label = "Settings" }
-				end,
-			},
-		})
-	end, { size = Vector2.new(1000, 600) })
+			})
+		end,
+		{ size = Vector2.new(1000, 600) }
+	)
 	local head, tabs = t.find(stage, "Accessory-head"), t.find(stage, "Tabs")
 	local foot = t.find(stage, "Accessory-foot")
 	if not (head and tabs and foot) then
@@ -238,9 +295,14 @@ add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
 end)
 
 add("circle-button-authored-axes", { "paint-14" }, function(t)
-	for _, rung in { "compact", "regular", "large" } do
-		local stage = t.mount(function(UI)
-			return UI.Button "Circle" { label = "Close", icon = "close", shape = "circle", controlSize = rung }
+	for _, rung in { "compact", "regular", "large" } :: { "compact" | "large" | "regular" } do
+		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Button "Circle" {
+				label = "Close",
+				icon = "close",
+				shape = "circle" :: "circle",
+				controlSize = rung :: "compact" | "large" | "regular",
+			}
 		end, { size = Vector2.new(300, 200) })
 		local node = t.find(stage, "Circle")
 		local r = t.rect(node)
@@ -251,12 +313,12 @@ add("circle-button-authored-axes", { "paint-14" }, function(t)
 	end
 	for _, axis in { "width", "height" } do
 		local size = if axis == "width" then UDim2.fromOffset(32, 0) else UDim2.fromOffset(0, 72)
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Button "Circle" {
 				label = "Close",
 				icon = "close",
-				shape = "circle",
-				controlSize = "compact",
+				shape = "circle" :: "circle",
+				controlSize = "compact" :: "compact",
 				Size = size,
 			}
 		end, { size = Vector2.new(300, 200) })
@@ -270,8 +332,8 @@ end)
 
 add("circular-progress-stroke-inside-box", { "themes-P1-71" }, function(t)
 	for _, theme in t.themes do
-		local stage = t.mount(function(UI)
-			return UI.ProgressView "Ring" { presentation = "circular", value = 1 }
+		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.ProgressView "Ring" { presentation = "circular" :: "circular", value = 1 }
 		end, { theme = theme.package, size = Vector2.new(200, 200) })
 		local indicator = t.find(stage, "Indicator")
 		local fill = indicator and indicator:FindFirstChild("RingFill")
@@ -313,15 +375,22 @@ end
 
 add("chrome-insets-reserve-native-padding", { "themes-P2-20", "themes-P2-26" }, function(t)
 	for _, theme in t.themes do
-		local stage = t.mount(function(UI, Host, Compose)
-			return Host.Frame "Column" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }),
-				UI.Button "Plain" { label = "Continue the long journey", LayoutOrder = 1 },
-				UI.Toggle "Switch" { label = "Notifications", value = Compose.cell(true), LayoutOrder = 2 },
-			}
-		end, { theme = theme.package, size = Vector2.new(420, 300) })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return Host.Frame "Column" {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+					UI.Button "Plain" { label = "Continue the long journey", LayoutOrder = 1 },
+					UI.Toggle "Switch" { label = "Notifications", value = Compose.cell(true), LayoutOrder = 2 },
+				}
+			end,
+			{ theme = theme.package, size = Vector2.new(420, 300) }
+		)
 		for _, name in { "Plain", "Switch" } do
 			local node = t.find(stage, name)
 			if not node then
@@ -365,14 +434,24 @@ add("panel-insets-reserve-native-padding", { "themes-P2-20" }, function(t)
 	for _, theme in t.themes do
 		local recipe = theme.package.chrome and theme.package.chrome.panel
 		local inset = if recipe then recipe.contentInsets or {} else {}
-		local stage = t.mount(function(UI, _, Compose)
-			return UI.Alert({
-				isPresented = Compose.cell(true),
-				title = "Replace the save?",
-				message = "Your changes to this slot are not saved yet.",
-				actions = { { id = "stay", label = "Stay", role = "cancel" }, { id = "go", label = "Replace" } },
-			})
-		end, { theme = theme.package, size = Vector2.new(800, 600) })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				_,
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Alert({
+					isPresented = Compose.cell(true),
+					title = "Replace the save?",
+					message = "Your changes to this slot are not saved yet.",
+					actions = {
+						{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+						{ id = "go", label = "Replace" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					},
+				})
+			end,
+			{ theme = theme.package, size = Vector2.new(800, 600) }
+		)
 		local panel
 		for _, node in stage.Parent:GetDescendants() do
 			if node.Name == "AlertPanel" and node:IsA("GuiObject") and t.visible(node) then
@@ -420,7 +499,7 @@ add("chrome-zero-inset-full-bleed", { "themes-P2-26" }, function(t)
 		local bare = table.clone(control)
 		bare.contentInsets = { left = 0, right = 0, top = 0, bottom = 0 }
 		package.chrome.control = bare
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Button "Plain" { label = "Continue", Size = UDim2.fromOffset(240, 44) }
 		end, { theme = package, size = Vector2.new(420, 300) })
 		local node = t.find(stage, "Plain")
@@ -447,22 +526,29 @@ end)
 
 add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 	for _, theme in t.themes do
-		t.mount(function(UI, Host, Compose)
-			return UI.Sheet({
-				isPresented = Compose.cell(true),
-				detent = Compose.cell("medium"),
-				title = "Loadout",
-				content = function()
-					return UI.Text "SheetBody" {
-						text = "Choose a loadout for the next round.",
-						TextWrapped = true,
-						Size = UDim2.fromScale(1, 0),
-						AutomaticSize = Enum.AutomaticSize.Y,
-					}
-				end,
-			})
-		end, { theme = theme.package })
-		local gui = game:GetService("Players").LocalPlayer.PlayerGui
+		t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				Compose: typeof(require("@repo/src/vendor/compose/core"))
+			)
+				return UI.Sheet({
+					isPresented = Compose.cell(true),
+					detent = Compose.cell("medium"),
+					title = "Loadout",
+					content = function(): Instance
+						return UI.Text "SheetBody" {
+							text = "Choose a loadout for the next round.",
+							TextWrapped = true,
+							Size = UDim2.fromScale(1, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+						}
+					end,
+				})
+			end,
+			{ theme = theme.package }
+		)
+		local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 		local panel
 		for _, node in gui:GetDescendants() do
 			if node.Name == "SheetPanel" and node:IsA("GuiObject") and t.visible(node) then
@@ -492,8 +578,8 @@ add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 			t.near(theme.name .. " art starts at the panel origin", art.x, p.x, 1.5)
 			t.check(
 				theme.name .. " art boundary is not a layout item",
-				not boundary.Parent:IsA("GuiObject"),
-				boundary.Parent.ClassName
+				not assert(assert(boundary).Parent):IsA("GuiObject"),
+				assert(boundary.Parent).ClassName
 			)
 		end
 		t.note(theme.name .. " content offset", { offset = offset, skinned = skin ~= nil })
@@ -507,25 +593,31 @@ add("grid-cell-width-arithmetic", { "collections-226" }, function(t)
 		for index = 1, 12 do
 			rows[index] = { id = tostring(index) }
 		end
-		local stage = t.mount(function(UI, Host)
-			return UI.VirtualGrid "Grid" {
-				from = rows,
-				key = function(item)
-					return item.id
-				end,
-				columns = columns,
-				itemSize = 60,
-				gap = 8,
-				crossGap = 10,
-				Size = UDim2.fromOffset(400, 300),
-				render = function(current)
-					return Host.Frame({
-						Name = "Cell" .. current:peek().id,
-						Size = UDim2.fromScale(1, 1),
-					})
-				end,
-			}
-		end, { size = Vector2.new(400, 300) })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return UI.VirtualGrid "Grid" {
+					from = rows,
+					key = function(item)
+						return item.id
+					end,
+					columns = columns,
+					itemSize = 60,
+					gap = 8,
+					crossGap = 10,
+					Size = UDim2.fromOffset(400, 300),
+					render = function(current): GuiObject
+						return Host.Frame({
+							Name = "Cell" .. current:peek().id,
+							Size = UDim2.fromScale(1, 1),
+						})
+					end,
+				}
+			end,
+			{ size = Vector2.new(400, 300) }
+		)
 		local grid = t.find(stage, "Grid")
 		local window = grid.AbsoluteWindowSize.X
 		local edge = math.ceil(10 / 2)
@@ -553,7 +645,7 @@ end)
 add("image-button-caption-clear-of-artwork", { "navigation-1-06" }, function(t)
 	for _, theme in t.themes do
 		for _, width in { 180, 240, 320 } do
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Button "Card" {
 					label = "A driver with a descriptive title",
 					subtitle = "A longer description that must wrap inside the card.",

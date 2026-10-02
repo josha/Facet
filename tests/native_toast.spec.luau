@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
@@ -290,7 +292,7 @@ end)
 
 type Toasts = { world: any, shown: { any }, reasons: { string } }
 
-local function toasts(specs: { { [string]: any } }, options: any?): Toasts
+local function toasts(specs: { { [any]: any } }, options: any?): Toasts
 	local reasons: { string } = {}
 	local shown: { any } = {}
 	for index, spec in specs do
@@ -299,20 +301,26 @@ local function toasts(specs: { { [string]: any } }, options: any?): Toasts
 			table.insert(reasons, `{spec.message or "content"}:{reason}`)
 		end
 	end
-	local world = overlay.new(function(UI, Host)
-		local children = { UI.Button "Under" { label = "Under" } }
-		for index, spec in specs do
-			table.insert(
-				children,
-				Compose.show(function(use)
-					return use(shown[index])
-				end, function()
-					return UI.Toast(`T{index}`)(spec)
-				end)
-			)
-		end
-		return Host.Frame({ Name = "S", table.unpack(children) })
-	end, options or { motionLevel = "none" })
+	local world = overlay.new(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			local children: { unknown } = { UI.Button "Under" { label = "Under" } }
+			for index, spec in specs do
+				table.insert(
+					children,
+					Compose.show(function(use: Use)
+						return use(shown[index])
+					end, function()
+						return UI.Toast(`T{index}`)(spec)
+					end)
+				)
+			end
+			return Host.Frame({ Name = "S", table.unpack((children :: unknown) :: { unknown }) })
+		end,
+		options or { motionLevel = "none" }
+	)
 	return { world = world, shown = shown, reasons = reasons }
 end
 
@@ -457,26 +465,42 @@ describe("UI.Toast: presentation", function()
 	end)
 
 	it("a TabView bottom bar reserves its band on its layer, and a top bar does not", function()
-		for _, case in { { "bottomBar", 44 }, { "topBar", 0 } } do
-			local world = overlay.new(function(UI, Host)
-				local tabs = {}
-				for _, id in { "home", "feed" } do
-					table.insert(tabs, {
-						id = id,
-						label = id,
-						content = function()
-							return Host.Frame({ Name = "Page-" .. id })
-						end,
+		for _, case in { { placement = "bottomBar", height = 44 }, { placement = "topBar", height = 0 } } do
+			local world = overlay.new(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					local tabs = {}
+					for _, id in { "home", "feed" } do
+						table.insert(tabs, {
+							id = id,
+							label = id,
+							content = function(): Instance
+								return Host.Frame({ Name = "Page-" .. id })
+							end,
+						})
+					end
+					return UI.TabView({
+						selection = Compose.cell("home"),
+						placement = case.placement :: (
+							"automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar"
+						),
+						tabs = tabs,
 					})
-				end
-				return UI.TabView({ selection = Compose.cell("home"), placement = case[1], tabs = tabs })
-			end, { motionLevel = "none" })
+				end,
+				{ motionLevel = "none" }
+			)
 			local bar = world.find("Tabs")
-			bar.AbsolutePosition = Vector2.new(0, if case[2] > 0 then 556 else 0)
+			bar.AbsolutePosition = Vector2.new(0, if case.height > 0 then 556 else 0)
 			bar.AbsoluteSize = Vector2.new(800, 44)
-			expect(`{case[1]}: {world.screen:GetAttribute("FacetInsetBottom") or 0}`).toBe(`{case[1]}: {case[2]}`)
+			expect(`{case.placement}: {world.screen:GetAttribute("FacetInsetBottom") or 0}`).toBe(
+				`{case.placement}: {case.height}`
+			)
 			world.stop()
-			expect(`{case[1]} after: {world.screen:GetAttribute("FacetInsetBottom") or 0}`).toBe(`{case[1]} after: 0`)
+			expect(`{case.placement} after: {world.screen:GetAttribute("FacetInsetBottom") or 0}`).toBe(
+				`{case.placement} after: 0`
+			)
 		end
 	end)
 
@@ -491,7 +515,7 @@ describe("UI.Toast: presentation", function()
 	end)
 
 	it("fill spans the layer less the margins; hug fits the text, centred, up to 560", function()
-		local f = toasts({ { message = "a" }, { message = "b", width = "hug" } }, { motionLevel = "none" })
+		local f = toasts({ { message = "a" }, { message = "b", width = "hug" :: "hug" } }, { motionLevel = "none" })
 		f.world.advance(0.1)
 		local list = rows(f.world)
 		expect(list[1].Size.X.Offset).toBe(800 - 32)
@@ -503,15 +527,17 @@ describe("UI.Toast: presentation", function()
 
 	it("fits the overlay that receives it and follows its resized width", function()
 		local presentation
-		local w = overlay.new(function(_, Host, engine, _, runtime)
-			presentation = Host.Frame "Presentation" {}
-			local UI = require("../src/ui")(Compose, runtime, {
-				types = engine.types,
-				overlayParent = presentation,
-				motionLevel = "none",
-			})
-			return Host.Frame { presentation, UI.Toast { message = "Ready" } }
-		end)
+		local w = overlay.new(
+			function(_, Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host), engine, _, runtime)
+				presentation = Host.Frame "Presentation" {}
+				local UI = require("../src/ui")(Compose, runtime, {
+					types = engine.types,
+					overlayParent = presentation :: Instance,
+					motionLevel = "none",
+				})
+				return Host.Frame { presentation :: unknown, UI.Toast { message = "Ready" } }
+			end
+		)
 		presentation.AbsoluteSize = Vector2.new(390, 720)
 		w.advance(0.1)
 		local row = w.find("ToastRow")
@@ -599,7 +625,8 @@ describe("app.presentToast", function()
 	local engineLib = require("./lib/native_engine")
 	it("owns its body, returns an id and dismiss, and releases the layer when it retires", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local target = engine.new("PlayerGui")
 		local app = Facet.app({
@@ -610,7 +637,7 @@ describe("app.presentToast", function()
 			motionLevel = "none",
 		} :: any)
 		local live = 0
-		local toast = app.presentToast(function(UI)
+		local toast = app.presentToast(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			live += 1
 			Compose.cleanup(function()
 				live -= 1
@@ -621,7 +648,7 @@ describe("app.presentToast", function()
 		expect(live).toBe(1)
 		expect(#target:GetChildren()).toBe(1)
 		for index = 2, 4 do
-			app.presentToast(function(UI)
+			app.presentToast(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Text { text = `Saved {index}` }
 			end, { duration = 20 })
 		end

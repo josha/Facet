@@ -1,11 +1,13 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 return function(ctx: any, id: string, groups: { any })
-	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2 = ctx.types.UDim2
 	local selections = {}
 	local preference = ctx.categoryPlacement or Compose.cell("automatic")
 	local builtById = {}
-	local function tabsFor(key, entries, outer, parentVisible)
+	local function tabsFor(key: string, entries: { any }, outer: boolean, parentVisible: Readable<boolean>?): GuiObject
 		local selected = selections[key]
 		if not selected then
 			selected = Compose.cell(entries[1].id)
@@ -16,8 +18,8 @@ return function(ctx: any, id: string, groups: { any })
 			table.insert(tabs, {
 				id = entry.id,
 				label = entry.label,
-				content = function()
-					local visible = Compose.formula(function(use)
+				content = function(): Instance
+					local visible = Compose.formula(function(use: Use): boolean
 						return (not parentVisible or use(parentVisible)) and use(selected) == entry.id
 					end)
 					if entry.tabs then
@@ -44,33 +46,37 @@ return function(ctx: any, id: string, groups: { any })
 			})
 		end
 		local home, distant = Compose.cell("automatic"), Compose.cell(false)
-		local effective = Compose.formula(function(use)
-			local choice, place = use(preference), use(home)
-			if use(distant) or choice == "automatic" or string.find(place, "bottom") ~= nil then
-				return place
+		local effective = Compose.formula(
+			function(use: Use): "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
+				local choice, place = use(preference), use(home)
+				if use(distant) or choice == "automatic" or string.find(place, "bottom") ~= nil then
+					return place :: "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
+				end
+				return if choice == "side" then "sidebar" else "topBar"
 			end
-			return if choice == "side" then "sidebar" else "topBar"
-		end)
+		)
 		local view = UI.TabView({
 			Name = key,
 			selection = selected,
 			tabs = tabs,
-			style = "sidebarAdaptable",
-			placement = function(use)
+			style = "sidebarAdaptable" :: "sidebarAdaptable",
+			placement = function(use: Use)
 				local place = use(effective)
-				return if place == use(home) then "automatic" else place
+				return if place == use(home)
+					then "automatic"
+					else place :: "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
 			end,
 			Size = UDim2.fromScale(1, 1),
 		})
 		local env = UI.environment(view)
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			home:set(use(env.navPlacement))
 			distant:set(use(env.isTenFoot))
 		end)
 		if ctx.categoryLayout then
 			local layout = {
 				placement = effective,
-				available = Compose.formula(function(use)
+				available = Compose.formula(function(use: Use): boolean
 					local place = use(effective)
 					return not use(distant) and (place == "sidebar" or place == "topBar")
 				end),
@@ -100,7 +106,8 @@ return function(ctx: any, id: string, groups: { any })
 			local entries, key = groups, "Categories"
 			for part in string.gmatch(path, "[^/]+") do
 				local found
-				for _, entry in entries or {} do
+				local currentEntries: { any } = entries or {}
+				for _, entry in currentEntries do
 					if entry.id == part then
 						found = entry
 						break

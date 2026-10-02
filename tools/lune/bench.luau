@@ -181,10 +181,10 @@ if phaseDominated > 0 then
 	print("        collector phase — not retention. Compare nets across runs; never read one sign.")
 end
 
-yardBefore.p95_norm = yardBefore.p95_ms / yardstickP95
-yardAfter.p95_norm = yardAfter.p95_ms / yardstickP95
-yardBefore.name = `{YARDSTICK}-before`
-yardAfter.name = `{YARDSTICK}-after`
+assert(yardBefore).p95_norm = yardBefore.p95_ms / yardstickP95
+assert(yardAfter).p95_norm = yardAfter.p95_ms / yardstickP95
+assert(yardBefore).name = `{YARDSTICK}-before`
+assert(yardAfter).name = `{YARDSTICK}-after`
 table.insert(results, yardBefore)
 table.insert(results, yardAfter)
 print(

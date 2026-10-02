@@ -1,8 +1,14 @@
 --!strict
+local FixtureRadialTypes = require("../src/ui/radial_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local NavigationFixtures = require("../src/ui/navigation_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 type World = {
 	engine: any,
@@ -15,7 +21,8 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -37,8 +44,10 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (
+		runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, engine.new("Folder"))
 	return {
@@ -126,19 +135,24 @@ end
 t.describe("native parity weaker focus", function()
 	t.it("dismisses a sheet with Back and returns selection to the control that opened it", function()
 		local presented = Compose.cell(false)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Opener")({ label = "Open" }),
-				UI.Sheet({
-					isPresented = presented,
-					detent = Compose.cell("medium"),
-					title = "Options",
-					content = function()
-						return UI.Button("Inside")({ label = "Inside" })
-					end,
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Opener")({ label = "Open" }) :: unknown,
+					UI.Sheet({
+						isPresented = presented,
+						detent = Compose.cell("medium"),
+						title = "Options",
+						content = function(): Instance
+							return UI.Button("Inside")({ label = "Inside" })
+						end,
+					}),
+				})
+			end
+		)
 		local opener = find(world.screen, "Opener")
 		world.gui.SelectedObject = opener
 		presented:set(true)
@@ -154,26 +168,33 @@ t.describe("native parity weaker focus", function()
 	end)
 
 	t.it("keeps the scrim out of selection so a rejected scrim selection leaves focus in the modal", function()
-		for _, kind in { "Alert", "Sheet" } do
+		for _, kind in { "Alert", "Sheet" } :: { "Alert" | "Sheet" } do
 			local presented = Compose.cell(false)
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					UI.Button("Opener")({ label = "Open" }),
-					if kind == "Alert"
-						then UI.Alert({
-							isPresented = presented,
-							title = "Leave?",
-							actions = { { id = "Stay", label = "Stay", role = "cancel" } },
-						})
-						else UI.Sheet({
-							isPresented = presented,
-							detent = Compose.cell("medium"),
-							content = function()
-								return UI.Button("Inside")({ label = "Inside" })
-							end,
-						}),
-				})
-			end)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button("Opener")({ label = "Open" }) :: unknown,
+						if kind == "Alert"
+							then UI.Alert({
+								isPresented = presented,
+								title = "Leave?",
+								actions = {
+									{ id = "Stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+								},
+							})
+							else UI.Sheet({
+								isPresented = presented,
+								detent = Compose.cell("medium"),
+								content = function(): Instance
+									return UI.Button("Inside")({ label = "Inside" })
+								end,
+							}) :: unknown,
+					})
+				end
+			)
 			world.gui.SelectedObject = find(world.screen, "Opener")
 			presented:set(true)
 			local scrim = find(world.screen, "DismissOutside")
@@ -191,42 +212,47 @@ t.describe("native parity weaker focus", function()
 	t.it("dismisses every modal presentation on the default Back without an authored cancel action", function()
 		local alert, sheet, menu = Compose.cell(true), Compose.cell(false), Compose.cell(false)
 		local accepted = 0
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Alert({
-					isPresented = alert,
-					title = "Saved",
-					actions = {
-						{
-							id = "Accept",
-							label = "Accept",
-							onActivate = function()
-								accepted += 1
-							end,
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Alert({
+						isPresented = alert,
+						title = "Saved",
+						actions = {
+							{
+								id = "Accept",
+								label = "Accept",
+								onActivate = function()
+									accepted += 1
+								end,
+							} :: FixtureNavigationTypes.AlertAction<any>,
 						},
-					},
-				}),
-				UI.Sheet({
-					isPresented = sheet,
-					detent = Compose.cell("medium"),
-					content = function()
-						return UI.Button({ label = "Inside" })
-					end,
-				}),
-				UI.Menu({
-					isPresented = menu,
-					items = {
-						{
-							id = "Run",
-							label = "Run",
-							onSelect = function()
-								accepted += 1
-							end,
+					}) :: unknown,
+					UI.Sheet({
+						isPresented = sheet,
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return UI.Button({ label = "Inside" })
+						end,
+					}),
+					UI.Menu({
+						isPresented = menu,
+						items = {
+							{
+								id = "Run",
+								label = "Run",
+								onSelect = function()
+									accepted += 1
+								end,
+							} :: FixtureNavigationTypes.MenuItem<any>,
 						},
-					},
-				}),
-			})
-		end)
+					}),
+				})
+			end
+		)
 		for _, presented in { alert, sheet, menu } do
 			presented:set(true)
 			local back = action(world.screen, "ModalBack")
@@ -242,12 +268,17 @@ t.describe("native parity weaker focus", function()
 	t.it("keeps Tab and Escape native while an alert owns safe initial selection and Back", function()
 		for _, reserved in { "Tab", "Escape" } do
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local UI = Facet.controls(runtime, { types = engine.types, services = { GuiService = gui } } :: any)
 			local ok, message = pcall(function()
 				local stop = runtime.mount(function()
-					return runtime.constructors.ScreenGui({
+					return (
+						(
+							runtime.constructors.ScreenGui :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+					)({
 						UI.Button({ label = "Background", shortcut = { keyCode = reserved } }),
 					})
 				end, engine.new("Folder"))
@@ -262,39 +293,44 @@ t.describe("native parity weaker focus", function()
 		end
 		local presented = Compose.cell(false)
 		local shortcutCount, cancelled, deleted = 0, 0, 0
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Background")({
-					label = "Background",
-					shortcut = { keyCode = "K" },
-					onActivate = function()
-						shortcutCount += 1
-					end,
-				}),
-				UI.Alert({
-					isPresented = presented,
-					title = "Delete?",
-					actions = {
-						{
-							id = "Delete",
-							label = "Delete",
-							role = "destructive",
-							onActivate = function()
-								deleted += 1
-							end,
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Background")({
+						label = "Background",
+						shortcut = { keyCode = "K" },
+						onActivate = function()
+							shortcutCount += 1
+						end,
+					}) :: unknown,
+					UI.Alert({
+						isPresented = presented,
+						title = "Delete?",
+						actions = {
+							{
+								id = "Delete",
+								label = "Delete",
+								role = "destructive" :: "destructive",
+								onActivate = function()
+									deleted += 1
+								end,
+							} :: FixtureNavigationTypes.AlertAction<any>,
+							{
+								id = "Keep",
+								label = "Keep",
+								role = "cancel" :: "cancel",
+								onActivate = function()
+									cancelled += 1
+								end,
+							} :: FixtureNavigationTypes.AlertAction<any>,
 						},
-						{
-							id = "Keep",
-							label = "Keep",
-							role = "cancel",
-							onActivate = function()
-								cancelled += 1
-							end,
-						},
-					},
-				}),
-			})
-		end)
+					}),
+				})
+			end
+		)
 		local background = find(world.screen, "Background")
 		world.gui.SelectedObject = background
 		local shortcut = action(world.screen, "Shortcut")
@@ -317,7 +353,8 @@ t.describe("native parity weaker focus", function()
 
 	t.it("selects inside a modal only once its screen reaches a PlayerGui", function()
 		local engine: any = engineLib.new({ selectionNeedsPlayerGui = true })
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local UI = Facet.controls(runtime, { types = engine.types, services = { GuiService = gui } } :: any)
 		local playerGui = engine.new("PlayerGui")
@@ -328,12 +365,16 @@ t.describe("native parity weaker focus", function()
 		elsewhere.Parent = other
 		gui.SelectedObject = elsewhere
 		local holder = engine.new("Folder")
-		local stop, screen = runtime.mount(function()
-			return runtime.constructors.ScreenGui({
+		local stop, screen: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.ScreenGui :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+			)({
 				UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Leave?",
-					actions = { { id = "Stay", label = "Stay" } },
+					actions = { { id = "Stay", label = "Stay" } :: FixtureNavigationTypes.AlertAction<any> },
 				}),
 			})
 		end, holder)
@@ -347,28 +388,34 @@ t.describe("native parity weaker focus", function()
 
 	t.it("groups modal selection and enters at the first selectable control in document order", function()
 		local presented = Compose.cell(false)
-		local world = setup(function(UI, Host, engine)
-			return Host.Frame({
-				UI.Button("Opener")({ label = "Open" }),
-				UI.Sheet({
-					isPresented = presented,
-					detent = Compose.cell("large"),
-					content = function()
-						return Host.Frame("Body")({
-							Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }),
-							UI.Button("First")({ label = "First", LayoutOrder = 1 }),
-							UI.Button("Second")({ label = "Second", LayoutOrder = 2 }),
-							UI.Button("Third")({ label = "Third", LayoutOrder = 3 }),
-						})
-					end,
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				return Host.Frame({
+					UI.Button("Opener")({ label = "Open" }) :: unknown,
+					UI.Sheet({
+						isPresented = presented,
+						detent = Compose.cell("large"),
+						content = function(): Instance
+							return Host.Frame("Body")({
+								Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }) :: unknown,
+								UI.Button("First")({ label = "First", LayoutOrder = 1 }),
+								UI.Button("Second")({ label = "Second", LayoutOrder = 2 }),
+								UI.Button("Third")({ label = "Third", LayoutOrder = 3 }),
+							})
+						end,
+					}),
+				})
+			end
+		)
 		world.gui.SelectedObject = find(world.screen, "Opener")
 		presented:set(true)
 		local panel = find(world.screen, "SheetPanel")
 		t.expect(panel.SelectionGroup).toBe(true)
-		for _, direction in { "Up", "Down", "Left", "Right" } do
+		for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 			t.expect(panel["SelectionBehavior" .. direction]).toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 		end
 		t.expect(within(world.gui.SelectedObject, panel)).toBe(true)
@@ -399,20 +446,25 @@ t.describe("native parity weaker focus", function()
 		presented:set(false)
 		local alertPresented = Compose.cell(false)
 		world.stop()
-		local alertWorld = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Opener")({ label = "Open" }),
-				UI.Alert({
-					isPresented = alertPresented,
-					title = "Choose",
-					actions = {
-						{ id = "Off", label = "Off", enabled = false },
-						{ id = "One", label = "One" },
-						{ id = "Two", label = "Two" },
-					},
-				}),
-			})
-		end)
+		local alertWorld = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Opener")({ label = "Open" }) :: unknown,
+					UI.Alert({
+						isPresented = alertPresented,
+						title = "Choose",
+						actions = {
+							{ id = "Off", label = "Off", enabled = false } :: FixtureNavigationTypes.AlertAction<any>,
+							{ id = "One", label = "One" } :: FixtureNavigationTypes.AlertAction<any>,
+							{ id = "Two", label = "Two" } :: FixtureNavigationTypes.AlertAction<any>,
+						},
+					}),
+				})
+			end
+		)
 		alertWorld.gui.SelectedObject = find(alertWorld.screen, "Opener")
 		alertPresented:set(true)
 		t.expect(alertWorld.gui.SelectedObject.Name).toBe("One")
@@ -426,19 +478,24 @@ t.describe("native parity weaker focus", function()
 	t.it("traps an open menu and returns selection to its trigger after outside tap, Back and model close", function()
 		for _, route in { "outside", "back", "model" } do
 			local opened = Compose.cell(false)
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					UI.Button("Elsewhere")({ label = "Elsewhere" }),
-					UI.Menu({
-						label = "More",
-						isPresented = opened,
-						items = {
-							{ id = "Rename", label = "Rename", onSelect = function() end },
-							{ id = "Share", label = "Share", onSelect = function() end },
-						},
-					}),
-				})
-			end)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Button("Elsewhere")({ label = "Elsewhere" }) :: unknown,
+						UI.Menu({
+							label = "More",
+							isPresented = opened,
+							items = {
+								{ id = "Rename", label = "Rename", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+								{ id = "Share", label = "Share", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+							},
+						}),
+					})
+				end
+			)
 			local trigger = find(world.screen, "Trigger")
 			world.gui.SelectedObject = trigger
 			trigger.Activated.fire()
@@ -451,7 +508,7 @@ t.describe("native parity weaker focus", function()
 				group = group.Parent
 			end
 			t.expect(group ~= nil).toBe(true)
-			for _, direction in { "Up", "Down", "Left", "Right" } do
+			for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 				t.expect(group["SelectionBehavior" .. direction]).toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 			end
 			t.expect(action(world.screen, "Menu")).toBeNil()
@@ -471,25 +528,30 @@ t.describe("native parity weaker focus", function()
 
 	t.it("returns a submenu Back row to the item that opened it and traps a picker menu", function()
 		local opened = Compose.cell(false)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Menu({
-					isPresented = opened,
-					presentation = "sheet",
-					items = {
-						{
-							id = "Sort",
-							label = "Sort",
-							children = {
-								{ id = "Name", label = "Name", onSelect = function() end },
-								{ id = "Date", label = "Date", onSelect = function() end },
-							},
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Menu({
+						isPresented = opened,
+						presentation = "sheet" :: "sheet",
+						items = {
+							{
+								id = "Sort",
+								label = "Sort",
+								children = {
+									{ id = "Name", label = "Name", onSelect = function() end },
+									{ id = "Date", label = "Date", onSelect = function() end },
+								},
+							} :: FixtureNavigationTypes.MenuItem<any>,
+							{ id = "Close", label = "Close", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 						},
-						{ id = "Close", label = "Close", onSelect = function() end },
-					},
-				}),
-			})
-		end)
+					}),
+				})
+			end
+		)
 		local trigger = find(world.screen, "Trigger")
 		world.gui.SelectedObject = trigger
 		trigger.Activated.fire()
@@ -510,19 +572,24 @@ t.describe("native parity weaker focus", function()
 		world.stop()
 		for _, route in { "outside", "back", "model" } do
 			local selected, presented = Compose.cell("a"), Compose.cell(false)
-			local pickerWorld = setup(function(UI, Host)
-				return Host.Frame({
-					UI.Picker("Speed")({
-						selected = selected,
-						style = "menu",
-						isPresented = presented,
-						options = {
-							{ value = "a", label = "Slow" },
-							{ value = "b", label = "Fast" },
-						},
-					}),
-				})
-			end)
+			local pickerWorld = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Picker("Speed")({
+							selected = selected,
+							style = "menu" :: "menu",
+							isPresented = presented,
+							options = {
+								{ value = "a", label = "Slow" } :: FixtureNavigationTypes.PickerOption<any>,
+								{ value = "b", label = "Fast" } :: FixtureNavigationTypes.PickerOption<any>,
+							},
+						}),
+					})
+				end
+			)
 			local pickerTrigger = find(pickerWorld.screen, "Trigger")
 			pickerWorld.gui.SelectedObject = pickerTrigger
 			pickerTrigger.Activated.fire()
@@ -544,27 +611,33 @@ t.describe("native parity weaker focus", function()
 	end)
 
 	t.it("lets a presented modal own Back over a navigation stack and leaves root Back unconsumed", function()
-		local path, presented = Compose.cell({ { id = "detail" } }), Compose.cell(false)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.NavigationStack({
-					path = path,
-					root = {
-						content = function()
-							return UI.Button("RootAction")({ label = "Root" })
-						end,
-					},
-					destinations = {
-						detail = {
-							content = function()
-								return UI.Button("DetailAction")({ label = "Detail" })
+		local path, presented =
+			Compose.cell({ { id = "detail" } } :: { NavigationFixtures.NavigationEntry<any> }), Compose.cell(false)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.NavigationStack({
+						path = path,
+						root = {
+							content = function(): Instance
+								return UI.Button("RootAction")({ label = "Root" })
 							end,
+						} :: NavigationFixtures.NavigationDestination<any>,
+						destinations = {
+							detail = {
+								content = function(): Instance
+									return UI.Button("DetailAction")({ label = "Detail" })
+								end,
+							} :: NavigationFixtures.NavigationDestination<any>,
 						},
-					},
-				}),
-				UI.Alert({ isPresented = presented, title = "Hold on" }),
-			})
-		end)
+					}) :: unknown,
+					UI.Alert({ isPresented = presented, title = "Hold on" }),
+				})
+			end
+		)
 		world.gui.SelectedObject = find(world.screen, "DetailAction")
 		local navigationBack = actionsNamed(world.screen, "NavigationBack")[1]
 		t.expect(navigationBack.Parent.Enabled).toBe(true)
@@ -588,41 +661,51 @@ t.describe("native parity weaker focus", function()
 	end)
 
 	t.it("gives an open menu or picker popup the shoulders before tab content paging", function()
-		for _, kind in { "Menu", "Picker" } do
+		for _, kind in { "Menu", "Picker" } :: { "Menu" | "Picker" } do
 			local selection, opened = Compose.cell("a"), Compose.cell(false)
-			local world = setup(function(UI, Host)
-				return UI.TabView({
-					selection = selection,
-					shoulderNavigation = "content",
-					tabs = {
-						{
-							id = "a",
-							label = "A",
-							content = function()
-								if kind == "Menu" then
-									return UI.Menu({
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.TabView({
+						selection = selection,
+						shoulderNavigation = "content" :: "content",
+						tabs = {
+							{
+								id = "a",
+								label = "A",
+								content = function(): Instance
+									if kind == "Menu" then
+										return UI.Menu({
+											isPresented = opened,
+											items = {
+												{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+											},
+										})
+									end
+									return UI.Picker({
+										selected = Compose.cell(1),
+										style = "menu" :: "menu",
 										isPresented = opened,
-										items = { { id = "Run", label = "Run", onSelect = function() end } },
+										options = {
+											{ value = 1, label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
+											{ value = 2, label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
+										},
 									})
-								end
-								return UI.Picker({
-									selected = Compose.cell(1),
-									style = "menu",
-									isPresented = opened,
-									options = { { value = 1, label = "One" }, { value = 2, label = "Two" } },
-								})
-							end,
+								end,
+							} :: FixtureNavigationTypes.Tab,
+							{
+								id = "b",
+								label = "B",
+								content = function(): Instance
+									return Host.Frame("BBody")({})
+								end,
+							} :: FixtureNavigationTypes.Tab,
 						},
-						{
-							id = "b",
-							label = "B",
-							content = function()
-								return Host.Frame("BBody")({})
-							end,
-						},
-					},
-				})
-			end)
+					})
+				end
+			)
 			local trigger = find(world.screen, "Trigger")
 			world.gui.SelectedObject = trigger
 			local next = action(world.screen, "NextTab")
@@ -653,23 +736,28 @@ t.describe("native parity weaker focus", function()
 
 	t.it("returns disclosure focus to the header for a child collapse and leaves outside focus alone", function()
 		local expanded = Compose.cell(true)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Outside")({ label = "Outside" }),
-				UI.DisclosureGroup({
-					expanded = expanded,
-					label = "Details",
-					content = function()
-						return UI.Button("Collapse")({
-							label = "Collapse",
-							onActivate = function()
-								expanded:set(false)
-							end,
-						})
-					end,
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Outside")({ label = "Outside" }) :: unknown,
+					UI.DisclosureGroup({
+						expanded = expanded,
+						label = "Details",
+						content = function(): Instance
+							return UI.Button("Collapse")({
+								label = "Collapse",
+								onActivate = function()
+									expanded:set(false)
+								end,
+							})
+						end,
+					}),
+				})
+			end
+		)
 		local collapse = find(world.screen, "Collapse")
 		world.gui.SelectedObject = collapse
 		collapse.Activated.fire()
@@ -689,27 +777,32 @@ t.describe("native parity weaker focus", function()
 
 	t.it("leaves background selection and shortcuts live while a callout is shown", function()
 		local shown, count = Compose.cell(true), 0
-		local world = setup(function(UI, Host)
-			local anchor = UI.Button("Anchor")({ label = "Anchor" })
-			return Host.Frame({
-				anchor,
-				UI.Button("Other")({
-					label = "Other",
-					shortcut = { keyCode = "K" },
-					onActivate = function()
-						count += 1
-					end,
-				}),
-				UI.Callout({
-					anchor = anchor,
-					isPresented = shown,
-					onRetire = function() end,
-					content = function()
-						return UI.Button("Tip")({ label = "Tip" })
-					end,
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local anchor = UI.Button("Anchor")({ label = "Anchor" })
+				return Host.Frame({
+					anchor :: unknown,
+					UI.Button("Other")({
+						label = "Other",
+						shortcut = { keyCode = "K" },
+						onActivate = function()
+							count += 1
+						end,
+					}),
+					UI.Callout({
+						anchor = anchor :: GuiObject,
+						isPresented = shown,
+						onRetire = function() end,
+						content = function(): Instance
+							return UI.Button("Tip")({ label = "Tip" })
+						end,
+					}),
+				})
+			end
+		)
 		local anchor, other = find(world.screen, "Anchor"), find(world.screen, "Other")
 		world.gui.SelectedObject = anchor
 		local panel = find(world.screen, "CalloutPanel")
@@ -739,14 +832,17 @@ t.describe("native parity weaker focus", function()
 
 	t.it("releases a column grip when selection moves to another grip or the table leaves", function()
 		local widths = Compose.cell({})
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = { { id = 1 }, { id = 2 } },
 				key = function(item)
 					return item.id
 				end,
 				widths = widths,
-				columns = { { id = "first", width = 100 }, { id = "second", width = 100 } },
+				columns = {
+					{ id = "first", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "second", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local header = find(world.screen, "Header")
@@ -807,7 +903,7 @@ t.describe("native parity weaker focus", function()
 			})
 		end
 		local opened = Compose.cell(false)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.RadialMenu({ isPresented = opened, holdAction = hold, items = items })
 		end, { motionLevel = "none" })
 		hold.Pressed.fire()
@@ -846,21 +942,28 @@ t.describe("native parity weaker focus", function()
 	t.it("takes modal selection on entry only for selection navigation across sheets and menus", function()
 		for _, preferred in { "Touch", "KeyboardAndMouse", "Gamepad" } do
 			local sheet, menu = Compose.cell(false), Compose.cell(false)
-			local world = setup(function(UI, Host)
-				return Host.Frame({
-					UI.Sheet({
-						isPresented = sheet,
-						detent = Compose.cell("medium"),
-						content = function()
-							return UI.Button("Inside")({ label = "Inside" })
-						end,
-					}),
-					UI.Menu({
-						isPresented = menu,
-						items = { { id = "Run", label = "Run", onSelect = function() end } },
-					}),
-				})
-			end)
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({
+						UI.Sheet({
+							isPresented = sheet,
+							detent = Compose.cell("medium"),
+							content = function(): Instance
+								return UI.Button("Inside")({ label = "Inside" })
+							end,
+						}) :: unknown,
+						UI.Menu({
+							isPresented = menu,
+							items = {
+								{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+							},
+						}),
+					})
+				end
+			)
 			world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[preferred]
 			for _, presented in { sheet, menu } do
 				presented:set(true)
@@ -885,51 +988,56 @@ t.describe("native parity weaker focus", function()
 			for index = 1, 12 do
 				rows[index] = { id = index, label = tostring(index) }
 			end
-			local world = setup(function(UI, Host)
-				return UI.TabView({
-					selection = selection,
-					shoulderNavigation = "content",
-					restoreFocus = restore,
-					transition = false,
-					tabs = {
-						{
-							id = "one",
-							label = "One",
-							content = function()
-								return Host.Frame("OneBody")({
-									UI.Button("Top")({ label = "Top" }),
-									Host.ScrollingFrame("Scroller")({
-										Host.Frame("Group")({
-											UI.Button("Shallow")({ label = "Shallow" }),
-											UI.Button("Deep")({ label = "Deep" }),
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.TabView({
+						selection = selection,
+						shoulderNavigation = "content" :: "content",
+						restoreFocus = restore,
+						transition = false :: false,
+						tabs = {
+							{
+								id = "one",
+								label = "One",
+								content = function(): Instance
+									return Host.Frame("OneBody")({
+										UI.Button("Top")({ label = "Top" }) :: unknown,
+										Host.ScrollingFrame("Scroller")({
+											Host.Frame("Group")({
+												UI.Button("Shallow")({ label = "Shallow" }) :: unknown,
+												UI.Button("Deep")({ label = "Deep" }),
+											}),
 										}),
-									}),
-								})
-							end,
+									})
+								end,
+							} :: FixtureNavigationTypes.Tab,
+							{
+								id = "two",
+								label = "Two",
+								content = function(): Instance
+									return UI.VirtualList("Rows")({
+										from = rows,
+										key = function(item)
+											return item.id
+										end,
+										itemSize = 20,
+										render = function(current): GuiObject
+											return UI.Button("Row")({
+												label = function(use: Use)
+													return use(current).label
+												end,
+											})
+										end,
+									})
+								end,
+							} :: FixtureNavigationTypes.Tab,
 						},
-						{
-							id = "two",
-							label = "Two",
-							content = function()
-								return UI.VirtualList("Rows")({
-									from = rows,
-									key = function(item)
-										return item.id
-									end,
-									itemSize = 20,
-									render = function(current)
-										return UI.Button("Row")({
-											label = function(use)
-												return use(current).label
-											end,
-										})
-									end,
-								})
-							end,
-						},
-					},
-				})
-			end)
+					})
+				end
+			)
 			local deep = find(world.screen, "Deep")
 			world.gui.SelectedObject = deep
 			action(world.screen, "NextTab").Pressed.fire()
@@ -966,7 +1074,7 @@ t.describe("native parity weaker focus", function()
 	t.it("extends reversed and focus-anchored ranges and toggles additive taps in multi selection", function()
 		local shifted = false
 		local selected = Compose.cell({})
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = (function()
 					local rows = {}
@@ -979,10 +1087,10 @@ t.describe("native parity weaker focus", function()
 					return item.id
 				end,
 				selection = selected,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				itemSize = 20,
 				overscan = 0,
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		world.input.IsKeyDown = function(_, code)
@@ -1034,15 +1142,15 @@ t.describe("native parity weaker focus", function()
 		t.expect(keysOf()).toEqual({ 1, 2, 3, 4 })
 		world.stop()
 		local single = Compose.cell({})
-		local singleWorld = setup(function(UI)
+		local singleWorld = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = { { id = 1 }, { id = 2 }, { id = 3 } },
 				key = function(item)
 					return item.id
 				end,
 				selection = single,
-				selectionMode = "single",
-				columns = { { id = "id", label = "Id" } },
+				selectionMode = "single" :: "single",
+				columns = { { id = "id", label = "Id" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		local singleBody = find(singleWorld.screen, "Body")
@@ -1055,19 +1163,23 @@ t.describe("native parity weaker focus", function()
 
 	t.it("toggles multi selection from the pad in edit mode without a focus landing undoing it", function()
 		local selected, editing = Compose.cell({}), Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = { { id = 1 }, { id = 2 }, { id = 3 } },
 				key = function(item)
 					return item.id
 				end,
 				selection = selected,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				editing = editing,
-				rowActions = function()
-					return { trailing = { { id = "Remove", label = "Remove", role = "destructive" } } }
+				rowActions = function(): typeof(require("@repo/tools/typecheck/example_shapes").rowActions(nil :: any))?
+					return {
+						trailing = {
+							{ id = "Remove", label = "Remove", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
+						},
+					}
 				end,
-				columns = { { id = "id", label = "Id" } },
+				columns = { { id = "id", label = "Id" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		local Enum = world.engine.types.Enum
@@ -1097,8 +1209,8 @@ t.describe("native parity weaker focus", function()
 
 	t.it("keeps collection focus on its key through a re-sort and a table sort change", function()
 		local source = Compose.cell({ { id = 1 }, { id = 2 }, { id = 3 }, { id = 4 }, { id = 5 } })
-		local focus: any = {}
-		local world = setup(function(UI)
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VirtualList({
 				from = source,
 				key = function(item)
@@ -1106,9 +1218,9 @@ t.describe("native parity weaker focus", function()
 				end,
 				itemSize = 20,
 				focus = focus,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.Button("Row")({
-						label = function(use)
+						label = function(use: Use)
 							return tostring(use(current).id)
 						end,
 					})
@@ -1117,21 +1229,21 @@ t.describe("native parity weaker focus", function()
 		end)
 		local list = world.screen:FindFirstChildWhichIsA("ScrollingFrame", true)
 		list.AbsoluteWindowSize = V2(world, 200, 200)
-		focus.focus(3)
+		assert(focus.focus)(3)
 		local before = world.gui.SelectedObject
 		t.expect(before.Text).toBe("3")
 		source:set({ { id = 5 }, { id = 4 }, { id = 3 }, { id = 2 }, { id = 1 } })
-		t.expect(focus.current:peek()).toBe(3)
+		t.expect(assert(focus.current):peek()).toBe(3)
 		t.expect(world.gui.SelectedObject.Text).toBe("3")
 		source:set({ { id = 3 }, { id = 1 }, { id = 5 } })
-		t.expect(focus.current:peek()).toBe(3)
+		t.expect(assert(focus.current):peek()).toBe(3)
 		t.expect(world.gui.SelectedObject.Text).toBe("3")
 		action(world.screen, "CollectionDown").Pressed.fire()
-		t.expect(focus.current:peek()).toBe(1)
+		t.expect(assert(focus.current):peek()).toBe(1)
 		t.expect(world.gui.SelectedObject.Text).toBe("1")
 		world.stop()
 		local sort = Compose.cell(nil :: any)
-		local tableWorld = setup(function(UI)
+		local tableWorld = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = { { id = 1, name = "c" }, { id = 2, name = "a" }, { id = 3, name = "b" } },
 				key = function(item)
@@ -1146,7 +1258,7 @@ t.describe("native parity weaker focus", function()
 						value = function(item)
 							return item.name
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end)
@@ -1155,7 +1267,7 @@ t.describe("native parity weaker focus", function()
 		local hit = body:FindFirstChild("3", true):FindFirstChild("RowHit", true)
 		tableWorld.gui.SelectedObject = hit
 		hit.SelectionGained.fire()
-		sort:set({ column = "name", direction = "descending" })
+		sort:set({ column = "name", direction = "descending" :: "descending" })
 		t.expect(tableWorld.gui.SelectedObject).toBe(hit)
 		t.expect(within(hit, body:FindFirstChild("3", true))).toBe(true)
 		action(tableWorld.screen, "CollectionDown").Pressed.fire()
@@ -1165,8 +1277,8 @@ t.describe("native parity weaker focus", function()
 
 	t.it("never strands selection on a removed focused row and skips disabled table rows", function()
 		local source = Compose.cell({ { id = 1 }, { id = 2 }, { id = 3 } })
-		local focus: any = {}
-		local world = setup(function(UI)
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VirtualList({
 				from = source,
 				key = function(item)
@@ -1174,9 +1286,9 @@ t.describe("native parity weaker focus", function()
 				end,
 				itemSize = 20,
 				focus = focus,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.Button("Row")({
-						label = function(use)
+						label = function(use: Use)
 							return tostring(use(current).id)
 						end,
 					})
@@ -1185,7 +1297,7 @@ t.describe("native parity weaker focus", function()
 		end)
 		local list = world.screen:FindFirstChildWhichIsA("ScrollingFrame", true)
 		list.AbsoluteWindowSize = V2(world, 200, 200)
-		focus.focus(2)
+		assert(focus.focus)(2)
 		local removed = world.gui.SelectedObject
 		t.expect(removed.Text).toBe("2")
 		source:set({ { id = 1 }, { id = 3 } })
@@ -1193,7 +1305,7 @@ t.describe("native parity weaker focus", function()
 		t.expect(world.gui.SelectedObject == nil or not world.gui.SelectedObject.isDestroyed()).toBe(true)
 		world.stop()
 		local selected, activated = Compose.cell({}), 0
-		local tableWorld = setup(function(UI)
+		local tableWorld = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Table({
 				from = { { id = 1 }, { id = 2 }, { id = 3 }, { id = 4 } },
 				key = function(item)
@@ -1206,7 +1318,7 @@ t.describe("native parity weaker focus", function()
 				onActivate = function()
 					activated += 1
 				end,
-				columns = { { id = "id", label = "Id" } },
+				columns = { { id = "id", label = "Id" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		local body = find(tableWorld.screen, "Body")
@@ -1228,12 +1340,17 @@ t.describe("native parity weaker focus", function()
 
 	t.it("holds the minimum-side arrow at the bound while bumpers stay bound, also inside a list row", function()
 		local value = Compose.cell(1)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Rating("Stars")({ value = value }),
-				UI.Slider("Volume")({ value = Compose.cell(0.5) }),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Rating("Stars")({ value = value }) :: unknown,
+					UI.Slider("Volume")({ value = Compose.cell(0.5) }),
+				})
+			end
+		)
 		local stars = find(world.screen, "Stars")
 		world.gui.SelectedObject = stars
 		stars.SelectionGained.fire()
@@ -1256,14 +1373,14 @@ t.describe("native parity weaker focus", function()
 		t.expect(decrease.Parent.Enabled).toBe(true)
 		world.stop()
 		local rated = Compose.cell(3)
-		local listWorld = setup(function(UI)
+		local listWorld = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VirtualList({
 				from = { { id = 1 }, { id = 2 } },
 				key = function(item)
 					return item.id
 				end,
 				itemSize = 44,
-				render = function()
+				render = function(): GuiObject
 					return UI.Rating("Stars")({ value = rated })
 				end,
 			})
@@ -1308,7 +1425,8 @@ t.describe("native parity weaker focus", function()
 		local modelModule = require("../examples/virtual_monitors/model")
 		local screens = require("../examples/virtual_monitors/screens")
 		local engine: any = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -1326,7 +1444,7 @@ t.describe("native parity weaker focus", function()
 				services = { GuiService = gui, UserInputService = input },
 				motionLevel = "none",
 			})
-			local stop, avatar = runtime.mount(views.Avatar, target)
+			local stop, avatar: any = runtime.mount(views.Avatar, target)
 			local summary = find(find(avatar, "SummaryActions"), "Summary")
 			for _, route in { "back", "done" } do
 				gui.SelectedObject = summary
@@ -1367,12 +1485,20 @@ t.describe("native parity weaker focus", function()
 				return UI.RadialMenu({
 					isPresented = opened,
 					launcher = false,
-					items = { { id = "North", label = "North", onSelect = function() end } },
+					items = {
+						{ id = "North", label = "North", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
+					},
 				})
 			end
-			local world = setup(function(UI, Host)
-				return Host.Frame({ wheel(UI, a), wheel(UI, b) })
-			end, { motionLevel = "none" })
+			local world = setup(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return Host.Frame({ wheel(UI, a) :: unknown, wheel(UI, b) })
+				end,
+				{ motionLevel = "none" }
+			)
 			world.gui.GuiNavigationEnabled = true
 			a:set(true)
 			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
@@ -1409,7 +1535,7 @@ t.describe("native parity weaker focus", function()
 				end,
 			}
 		end
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.RadialMenu({
 				isPresented = opened,
 				holdAction = hold,
@@ -1418,7 +1544,7 @@ t.describe("native parity weaker focus", function()
 				end,
 				items = {
 					item("North"),
-					{ id = "Branch", label = "Branch", children = { item("Leaf"), item("Other") } },
+					{ id = "Branch", label = "Branch", children = { item("Leaf"), item("Other") } } :: FixtureRadialTypes.RadialItem<any>,
 					item("South"),
 					item("West"),
 				},
@@ -1460,7 +1586,7 @@ t.describe("native parity weaker focus", function()
 
 	t.it("activates a selected button once per Return or Space press and leaves a disabled one inert", function()
 		local enabled, count = Compose.cell(true), 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Button("Go")({
 				label = "Go",
 				enabled = enabled,
@@ -1505,9 +1631,9 @@ t.describe("native parity weaker focus", function()
 					end,
 				}
 			end
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.RowActions({
-					content = UI.Button("Action")({ label = "Row" }),
+					content = UI.Button("Action")({ label = "Row" }) :: GuiObject,
 					leading = if variant == "none"
 						then { recorder("Mark") }
 						else { recorder("Archive", "destructive") },
@@ -1541,10 +1667,10 @@ t.describe("native parity weaker focus", function()
 
 	t.it("repeats touch, keyboard and gamepad holds and suppresses the trailing activation in either order", function()
 		local Enum: any
-		for _, kind in { "Touch", "Return", "Space", "ButtonA" } do
+		for _, kind in { "Touch", "Return", "Space", "ButtonA" } :: { "ButtonA" | "Return" | "Space" | "Touch" } do
 			for _, order in { "endFirst", "activatedFirst" } do
 				local count = 0
-				local world = setup(function(UI)
+				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Button("Repeat")({
 						label = "Repeat",
 						repeatDelay = 0.4,
@@ -1557,7 +1683,7 @@ t.describe("native parity weaker focus", function()
 				Enum = world.engine.types.Enum
 				local node = find(world.screen, "Repeat")
 				local input = if kind == "Touch"
-					then { UserInputType = Enum.UserInputType.Touch, KeyCode = Enum.KeyCode.Unknown }
+					then { UserInputType = Enum.UserInputType.Touch, KeyCode = Enum.KeyCode:FromValue(0) }
 					elseif kind == "ButtonA" then {
 						UserInputType = Enum.UserInputType.Gamepad1,
 						KeyCode = Enum.KeyCode.ButtonA,
@@ -1592,7 +1718,7 @@ t.describe("native parity weaker focus", function()
 
 	t.it("stops a held repeat when busy begins and keeps the next shortcut after a pointer leaves", function()
 		local busy, count = Compose.cell(false), 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Button("Repeat")({
 				label = "Repeat",
 				busy = busy,
@@ -1606,7 +1732,7 @@ t.describe("native parity weaker focus", function()
 		end)
 		local Enum = world.engine.types.Enum
 		local node = find(world.screen, "Repeat")
-		local mouse = { UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }
+		local mouse = { UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode:FromValue(0) }
 		local shortcut = action(world.screen, "Shortcut")
 		node.InputBegan.fire(mouse)
 		world.engine.heartbeat.fire(0.4)
@@ -1636,7 +1762,8 @@ t.describe("native parity weaker focus", function()
 
 	t.it("keeps readable key names and no glyph when the native key service fails", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local failing = engine.new("UserInputService")
 		failing.GetStringForKeyCode = function()
@@ -1656,7 +1783,7 @@ t.describe("native parity weaker focus", function()
 				services = { GuiService = gui, UserInputService = failing },
 			} :: any
 		)
-		local stop, screen = runtime.mount(function()
+		local stop, screen: any = runtime.mount(function()
 			local inputAction, binding = engine.new("InputAction"), engine.new("InputBinding")
 			binding.KeyCode, binding.DisplayName = engine.types.Enum.KeyCode.Return, ""
 			binding.PrimaryModifier = engine.types.Enum.KeyCode.LeftShift
@@ -1665,8 +1792,12 @@ t.describe("native parity weaker focus", function()
 			rightBinding.KeyCode, rightBinding.DisplayName = engine.types.Enum.KeyCode.J, ""
 			rightBinding.PrimaryModifier = engine.types.Enum.KeyCode.RightShift
 			rightAction.PreferredBinding = rightBinding
-			return runtime.constructors.ScreenGui({
-				UI.ShortcutHint("Hint")({ action = inputAction }),
+			return (
+				(
+					runtime.constructors.ScreenGui :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+			)({
+				UI.ShortcutHint("Hint")({ action = inputAction }) :: unknown,
 				UI.ShortcutHint("Right")({ action = rightAction }),
 			})
 		end, engine.new("Folder"))
@@ -1678,29 +1809,37 @@ t.describe("native parity weaker focus", function()
 	end)
 
 	t.it("tracks separator and control rung on the same hint node without a rebuild", function()
-		local separator, rung = Compose.cell("or"), Compose.cell("compact")
-		local world = setup(function(UI, Host, engine)
-			local inputAction, binding = engine.new("InputAction"), engine.new("InputBinding")
-			binding.KeyCode = engine.types.Enum.KeyCode.ButtonX
-			inputAction.PreferredBinding = binding
-			return Host.Frame({
-				UI.ShortcutHint("Explicit")({
-					keys = { { "Ctrl", "K" }, { "F1" } },
-					separator = separator,
-					controlSize = rung,
-				}),
-				UI.ShortcutHint("Live")({ action = inputAction, controlSize = rung }),
-			})
-		end, {
-			prepare = function(_, input)
-				input.GetImageForKeyCode = function()
-					return "rbxasset://textures/ui/Controls/xboxX.png"
-				end
-				input.GetStringForKeyCode = function()
-					return ""
-				end
+		local separator, rung =
+			Compose.cell("or"), Compose.cell("compact" :: "compact" | "large" | "regular" | "xsmall")
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+				engine
+			)
+				local inputAction, binding = engine.new("InputAction"), engine.new("InputBinding")
+				binding.KeyCode = engine.types.Enum.KeyCode.ButtonX
+				inputAction.PreferredBinding = binding
+				return Host.Frame({
+					UI.ShortcutHint("Explicit")({
+						keys = { { "Ctrl", "K" }, { "F1" } },
+						separator = separator,
+						controlSize = rung,
+					}) :: unknown,
+					UI.ShortcutHint("Live")({ action = inputAction, controlSize = rung }),
+				})
 			end,
-		})
+			{
+				prepare = function(_, input)
+					input.GetImageForKeyCode = function()
+						return "rbxasset://textures/ui/Controls/xboxX.png"
+					end
+					input.GetStringForKeyCode = function()
+						return ""
+					end
+				end,
+			}
+		)
 		local explicit = find(world.screen, "Explicit")
 		local glyph = find(find(world.screen, "Live"), "Glyph")
 		t.expect(explicit.Text).toBe("Ctrl+K or F1")
@@ -1754,7 +1893,7 @@ t.describe("native parity weaker focus", function()
 				return { keys = { { "K" } }, separator = Compose.cell("") }
 			end,
 			size = function()
-				return { keys = { { "K" } }, controlSize = "huge" }
+				return { keys = { { "K" } }, controlSize = "huge" :: "huge" }
 			end,
 			over = function()
 				return { keys = { { "K" } }, over = "photo" }
@@ -1765,14 +1904,19 @@ t.describe("native parity weaker focus", function()
 		}
 		for name, build in cases do
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local UI = Facet.controls(runtime, { types = engine.types, services = { GuiService = gui } } :: any)
 			local spec = build(engine)
 			local folder = engine.new("Folder")
 			local ok = pcall(function()
 				local stop = runtime.mount(function()
-					return runtime.constructors.ScreenGui({ UI.ShortcutHint(spec) })
+					return (
+						(
+							runtime.constructors.ScreenGui :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+					)({ UI.ShortcutHint(spec :: any) })
 				end, folder)
 				stop()
 			end)
@@ -1797,18 +1941,18 @@ t.describe("native parity weaker focus", function()
 
 	t.it("selects an indicated picker option once by tap and by Return on the selected segment", function()
 		local selected, changes = Compose.cell("a"), 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Picker({
 				selected = selected,
-				style = "segmented",
-				indicator = "underline",
+				style = "segmented" :: "segmented",
+				indicator = "underline" :: "underline",
 				onChange = function()
 					changes += 1
 				end,
 				options = {
-					{ value = "a", label = "Alpha" },
-					{ value = "b", label = "Beta" },
-					{ value = "c", label = "Gamma", enabled = false },
+					{ value = "a", label = "Alpha" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Beta" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "c", label = "Gamma", enabled = false } :: FixtureNavigationTypes.PickerOption<any>,
 				},
 			})
 		end)
@@ -1836,15 +1980,15 @@ t.describe("native parity weaker focus", function()
 	end)
 
 	t.it("a tap or click on the grabber closes the sheet; Return and A grow it and close from the tallest", function()
-		for _, kind in { "Touch", "MouseButton1" } do
+		for _, kind in { "Touch", "MouseButton1" } :: { "MouseButton1" | "Touch" } do
 			local presented = Compose.cell(true)
 			local detent = Compose.cell("peek")
-			local world = setup(function(UI)
+			local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Sheet({
 					isPresented = presented,
 					detent = detent,
-					detents = { "medium", "large", { id = "peek", height = 160 } },
-					content = function()
+					detents = { "medium", "large", { id = "peek", height = 160 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+					content = function(): Instance
 						return UI.Button({ label = "Inside" })
 					end,
 				})
@@ -1855,13 +1999,13 @@ t.describe("native parity weaker focus", function()
 			world.stop()
 		end
 		local held = Compose.cell("peek")
-		local locked = setup(function(UI)
+		local locked = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = held,
-				detents = { "medium", { id = "peek", height = 160 } },
+				detents = { "medium", { id = "peek", height = 160 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
 				interactiveDismissDisabled = true,
-				content = function()
+				content = function(): Instance
 					return UI.Button({ label = "Inside" })
 				end,
 			})
@@ -1872,12 +2016,12 @@ t.describe("native parity weaker focus", function()
 		locked.stop()
 		local detent = Compose.cell("peek")
 		local presented = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = presented,
 				detent = detent,
-				detents = { "medium", "large", { id = "peek", height = 160 } },
-				content = function()
+				detents = { "medium", "large", { id = "peek", height = 160 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+				content = function(): Instance
 					return UI.Button({ label = "Inside" })
 				end,
 			})
@@ -1894,17 +2038,19 @@ t.describe("native parity weaker focus", function()
 	end)
 
 	t.it("the grabber's own drag detector reads a still press as a tap that closes, and a drag as a resize", function()
-		for _, case in { { nil, 0, -10 }, { "right", -10, 0 } } do
+		for _, case: { direction: "right" | nil, x: number | typeof(-10), y: typeof(-10) | number } in
+			{ { direction = nil, x = 0, y = -10 }, { direction = "right" :: "right", x = -10, y = 0 } } :: { { direction: "right" | nil, x: number | typeof(-10), y: typeof(-10) | number } }
+		do
 			for _, travel in { 1, 10 } do
 				local presented = Compose.cell(true)
-				local world = setup(function(UI)
+				local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Sheet({
 						isPresented = presented,
 						detent = Compose.cell("medium"),
-						edge = case[1],
-						placement = if case[1] then "side" else nil,
-						detents = { "medium", "large" },
-						content = function()
+						edge = case.direction,
+						placement = if case.direction then "side" :: "side" else nil,
+						detents = { "medium", "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+						content = function(): Instance
 							return UI.Button({ label = "Inside" })
 						end,
 					})
@@ -1913,10 +2059,10 @@ t.describe("native parity weaker focus", function()
 				local detector = find(world.screen, "Grabber"):FindFirstChildWhichIsA("UIDragDetector")
 				local scale = travel / 10
 				detector.DragStart.fire(V2.new(200, 400))
-				detector.DragContinue.fire(V2.new(200 + case[2] * scale, 400 + case[3] * scale))
+				detector.DragContinue.fire(V2.new(200 + case.x * scale, 400 + case.y * scale))
 				detector.DragEnd.fire()
-				t.expect(`{tostring(case[1])} {travel}: {tostring(presented:peek())}`)
-					.toBe(`{tostring(case[1])} {travel}: {tostring(travel > 4)}`)
+				t.expect(`{tostring(case.direction)} {travel}: {tostring(presented:peek())}`)
+					.toBe(`{tostring(case.direction)} {travel}: {tostring(travel > 4)}`)
 				world.stop()
 			end
 		end
@@ -1924,13 +2070,13 @@ t.describe("native parity weaker focus", function()
 
 	t.it("counts a still grip press once when the engine also activates the grabber", function()
 		local detent = Compose.cell("peek")
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = detent,
 				interactiveDismissDisabled = true,
-				detents = { "medium", "large", { id = "peek", height = 160 } },
-				content = function()
+				detents = { "medium", "large", { id = "peek", height = 160 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+				content = function(): Instance
 					return UI.Button({ label = "Inside" })
 				end,
 			})
@@ -1947,12 +2093,12 @@ t.describe("native parity weaker focus", function()
 	t.it("grows sheet detents from the selectable grabber and closes from the tallest", function()
 		local detent = Compose.cell("peek")
 		local presented = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = presented,
 				detent = detent,
-				detents = { "medium", "large", { id = "peek", height = 160 } },
-				content = function()
+				detents = { "medium", "large", { id = "peek", height = 160 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+				content = function(): Instance
 					return UI.Button({ label = "Inside" })
 				end,
 			})
@@ -1973,12 +2119,12 @@ t.describe("native parity weaker focus", function()
 		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
 		t.expect(presented:peek()).toBe(false)
 		world.stop()
-		local single = setup(function(UI)
+		local single = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("large"),
-				detents = { "large" },
-				content = function()
+				detents = { "large" } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+				content = function(): Instance
 					return UI.Button({ label = "Inside" })
 				end,
 			})
@@ -1990,11 +2136,11 @@ t.describe("native parity weaker focus", function()
 
 	t.it("a pad-selected grabber leaves A to the button: its drag detector stands down", function()
 		local input
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("medium"),
-				content = function()
+				content = function(): Instance
 					return UI.Button({ label = "Inside" })
 				end,
 			})
@@ -2019,12 +2165,12 @@ t.describe("native parity weaker focus", function()
 
 	t.it("resizes a selected sheet grabber with Left and Right, as the pre-0.12 Adjust did", function()
 		local detent = Compose.cell("peek")
-		local world = setup(function(UI)
+		local world = setup(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = detent,
-				detents = { "medium", "large", { id = "peek", height = 160 } },
-				content = function()
+				detents = { "medium", "large", { id = "peek", height = 160 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+				content = function(): Instance
 					return UI.Button({ label = "Inside" })
 				end,
 			})
@@ -2046,25 +2192,31 @@ t.describe("native parity weaker focus", function()
 
 	t.it("retakes the modal entry when the engine refuses it before the panel is laid out", function()
 		local presented = Compose.cell(false)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Opener")({ label = "Open" }),
-				UI.Button("Beside")({ label = "Beside" }),
-				UI.Sheet({
-					isPresented = presented,
-					detent = Compose.cell("large"),
-					content = function()
-						return Host.Frame("Body")({
-							UI.Button("First")({ label = "First" }),
-						})
-					end,
-				}),
-			})
-		end, {
-			prepare = function(engine, input)
-				input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Opener")({ label = "Open" }) :: unknown,
+					UI.Button("Beside")({ label = "Beside" }),
+					UI.Sheet({
+						isPresented = presented,
+						detent = Compose.cell("large"),
+						content = function(): Instance
+							return Host.Frame("Body")({
+								UI.Button("First")({ label = "First" }),
+							})
+						end,
+					}),
+				})
 			end,
-		})
+			{
+				prepare = function(engine, input)
+					input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+				end,
+			}
+		)
 		local beside = find(world.screen, "Beside")
 		local refusals = 0
 		local refusing = world.gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
@@ -2103,21 +2255,26 @@ t.describe("native parity weaker focus", function()
 
 	t.it("returns the selection to the opener when the engine moves it aside as the modal leaves", function()
 		local presented = Compose.cell(false)
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Opener")({ label = "Open" }),
-				UI.Button("Beside")({ label = "Beside" }),
-				UI.Sheet({
-					isPresented = presented,
-					detent = Compose.cell("large"),
-					content = function()
-						return Host.Frame("Body")({
-							UI.Button("First")({ label = "First" }),
-						})
-					end,
-				}),
-			})
-		end)
+		local world = setup(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Opener")({ label = "Open" }) :: unknown,
+					UI.Button("Beside")({ label = "Beside" }),
+					UI.Sheet({
+						isPresented = presented,
+						detent = Compose.cell("large"),
+						content = function(): Instance
+							return Host.Frame("Body")({
+								UI.Button("First")({ label = "First" }),
+							})
+						end,
+					}),
+				})
+			end
+		)
 		local opener, beside = find(world.screen, "Opener"), find(world.screen, "Beside")
 		world.gui.SelectedObject = opener
 		presented:set(true)

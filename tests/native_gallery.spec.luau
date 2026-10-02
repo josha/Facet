@@ -1,33 +1,40 @@
 --!strict
+local requireDynamic = require :: (any) -> any
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local catalogue = require("../examples/gallery/client/demo_picker")
 local gallery = require("../examples/gallery/client/screen")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
-local function controlsFor(ctx)
+local function controlsFor(ctx: typeof(require("@repo/examples/types")(nil :: any)))
 	return Facet.controls(ctx.runtime, {
 		types = ctx.types,
 		viewport = ctx.viewport,
 		guiService = ctx.guiService,
-		motionLevel = Compose.formula(function(use)
+		motionLevel = Compose.formula(function(use: Use): "normal" | "limited" | "none"
 			return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-		end),
+		end) :: typeof(require("@repo/tools/typecheck/example_shapes").motionLevel(nil :: any)),
 	})
 end
 
 local function nativeContext()
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
-	local ctx = {
+	local ctx: typeof(require("@repo/examples/types")(nil :: any)) = {
+		UI = nil :: any,
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -39,11 +46,11 @@ local function nativeContext()
 	return ctx, engine, target
 end
 
-local function load(kind, name)
-	return require("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
+local function load(kind, name: string)
+	return requireDynamic("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
 end
 
-local function find(root, name)
+local function find(root: any, name: string): any
 	if root.Name == name then
 		return root
 	end
@@ -59,7 +66,7 @@ end
 local function mountExample(name)
 	local ctx, engine, target = nativeContext()
 	local built
-	local stop, node = ctx.runtime.mount(function()
+	local stop, node: any = ctx.runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = controlsFor(ctx)
 		built = load("example", name).build(ctx)
@@ -83,7 +90,7 @@ t.describe("native gallery", function()
 		local stop, gui = ctx.runtime.mount(function()
 			sheet = Facet.themes.createStyleSheet(ctx.runtime, ctx.theme, { types = ctx.types, theme = ctx.themeMode })
 			return ctx.Host.ScreenGui "FacetGallery" {
-				sheet,
+				sheet :: unknown,
 				ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				require("../examples/gallery/client/screen").build(ctx),
 			}
@@ -217,7 +224,7 @@ t.describe("native gallery", function()
 		local hit = find(node, "RowHit")
 		local row = find(hit.Parent, "Row")
 		local E = ctx.types.Enum
-		local mouse = { UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode.Unknown }
+		local mouse = { UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }
 		hit.Activated.fire(mouse, 0)
 		t.expect(built.nowPlaying:peek()).toBe(nil)
 		t.expect(row:GetAttribute("FacetSelected")).toBe(true)
@@ -230,7 +237,7 @@ t.describe("native gallery", function()
 		hit.Activated.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.Return }, 1)
 		t.expect(built.nowPlaying:peek()).toBe(playing)
 		built.nowPlaying:set(nil)
-		hit.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode.Unknown }, 1)
+		hit.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
 		t.expect(built.nowPlaying:peek()).toBe(playing)
 		stop()
 		ctx.runtime:dispose()
@@ -251,11 +258,12 @@ t.describe("native gallery", function()
 	t.it("updates and removes the standalone consumer through its controls", function()
 		local ctx, _, target = nativeContext()
 		local app = Facet.app({ runtime = ctx.runtime, types = ctx.types, parent = target, name = "FacetConsumer" })
-		local stop, node = app.mount(function()
+		local stop, node: any = app.mount(function()
 			return require("../examples/consumer/src/screen").build(Facet, app.UI)
 		end)
 		t.expect(node.Name).toBe("FacetConsumer")
-		t.expect(node:FindFirstChildWhichIsA("StyleLink").StyleSheet).toBe(node:FindFirstChildWhichIsA("StyleSheet"))
+		t.expect(assert(node):FindFirstChildWhichIsA("StyleLink").StyleSheet)
+			.toBe(node:FindFirstChildWhichIsA("StyleSheet"))
 		find(node, "Bump").Activated.fire()
 		t.expect(find(node, "Count").Text).toBe("1 tap")
 		find(node, "Close").Activated.fire()
@@ -268,7 +276,7 @@ t.describe("native gallery", function()
 	t.it("requests native haptics and releases effects when the screen closes", function()
 		local ctx, _, target = nativeContext()
 		local built
-		local stop, node = ctx.runtime.mount(function()
+		local stop, node: any = ctx.runtime.mount(function()
 			built = load("fixture", "sensory_feedback").build(ctx)
 			return built.screen()
 		end, target)
@@ -295,25 +303,26 @@ t.describe("native gallery", function()
 		ctx.runtime:dispose()
 	end)
 
-	local maintained = catalogue.list()
+	local maintained: { { id: string, kind: "fixture" | "example", module: string, title: string?, blurb: string? } } =
+		catalogue.list()
 	for _, demo in
 		{
-			{ id = "all-controls", kind = "fixture", module = "all_controls" },
-			{ id = "collections", kind = "fixture", module = "collections" },
-			{ id = "motion-layout", kind = "fixture", module = "motion_layout" },
-			{ id = "radial-menu", kind = "fixture", module = "radial_menu" },
-			{ id = "ex03", kind = "example", module = "03_settings_sync" },
-			{ id = "ex05", kind = "example", module = "05_word_game" },
-			{ id = "ex06", kind = "example", module = "06_tile_game" },
-			{ id = "ex07", kind = "example", module = "07_match3" },
-		}
+			{ id = "all-controls", kind = "fixture" :: "fixture", module = "all_controls" },
+			{ id = "collections", kind = "fixture" :: "fixture", module = "collections" },
+			{ id = "motion-layout", kind = "fixture" :: "fixture", module = "motion_layout" },
+			{ id = "radial-menu", kind = "fixture" :: "fixture", module = "radial_menu" },
+			{ id = "ex03", kind = "example" :: "example", module = "03_settings_sync" },
+			{ id = "ex05", kind = "example" :: "example", module = "05_word_game" },
+			{ id = "ex06", kind = "example" :: "example", module = "06_tile_game" },
+			{ id = "ex07", kind = "example" :: "example", module = "07_match3" },
+		} :: { { id: string, kind: "fixture" | "example", module: string, title: string?, blurb: string? } }
 	do
 		table.insert(maintained, demo)
 	end
 	for _, demo in maintained do
 		t.it("mounts " .. demo.id .. " with the native runtime", function()
 			local ctx, engine, target = nativeContext()
-			local stop, node = ctx.runtime.mount(function()
+			local stop, node: any = ctx.runtime.mount(function()
 				gallery.configure(ctx)
 				ctx.UI = controlsFor(ctx)
 				local definition = load(demo.kind, demo.module)
@@ -336,7 +345,7 @@ t.describe("native gallery", function()
 			for _, tab in section.tabs do
 				t.it("mounts " .. groupName .. "/" .. tab.id, function()
 					local ctx, _, target = nativeContext()
-					local stop, node = ctx.runtime.mount(function()
+					local stop, node: any = ctx.runtime.mount(function()
 						local built = tab.scenario.build(ctx)
 						if built.dispose then
 							Compose.cleanup(built.dispose)

@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
@@ -21,27 +23,28 @@ task.spawn(function()
 end)
 local Facet = require(storage:WaitForChild("Facet"))
 Facet = Facet.bind(Facet.Compose, Facet.Roblox)
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local screens = require(storage.VirtualMonitors.screens)
 local scenes = require(storage.VirtualMonitors.scenes)
 local spatial = require(storage.VirtualMonitors.spatial)
 local theme = require(storage.VirtualMonitors.theme)
 local desktop = require(storage.VirtualMonitors.desktop)
 local modelModule = require(storage.VirtualMonitors.model)
-local runtime = Facet.Roblox.createRuntime()
-local Host = runtime.constructors
+local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+	Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 local lifetime = Compose.createRootOwner(function()
 	local model = modelModule.new(Compose)
 	Compose.cleanup(model.dispose)
 	local mode, dark = model.mode, model.dark
 	local entrance = Compose.cell(0)
 	local reducedMotion = Compose.cell(false)
-	local motionPolicy = Compose.formula(function(use)
+	local motionPolicy = Compose.formula(function(use: Use)
 		return if use(reducedMotion) then "reduced" else "full"
 	end)
-	local motionLevel = Compose.formula(function(use)
-		return if use(reducedMotion) then "limited" else "normal"
-	end)
+	local function motionLevel(use: Use): "normal" | "limited" | "none"
+		return if use(reducedMotion) then "limited" :: "limited" else "normal" :: "normal"
+	end
 	local pressHaptic = Host.HapticEffect "PressHaptic" { Type = Enum.HapticEffectType.UIClick }
 	pressHaptic.Parent = players.LocalPlayer:WaitForChild("PlayerGui")
 	Compose.cleanup(function()
@@ -49,7 +52,7 @@ local lifetime = Compose.createRootOwner(function()
 	end)
 	local cameraGoal = Compose.cell(CFrame.lookAt(Vector3.new(0, 7.6, -29), Vector3.new(0, 7, 0)))
 	local cameraMotion, modeMotion
-	local camera = workspace.CurrentCamera
+	local camera = assert(workspace.CurrentCamera)
 	local originalCameraType, originalCameraFrame, originalFieldOfView =
 		camera.CameraType, camera.CFrame, camera.FieldOfView
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -77,22 +80,22 @@ local lifetime = Compose.createRootOwner(function()
 	end
 	local parts = {}
 	local stopWorld = runtime.mount(function()
-		modeMotion = runtime.tween(function(use)
+		modeMotion = runtime.tween(function(use: Use)
 			return if use(mode) == "Screen" then 1 else 0
 		end, { seconds = 0.6, ease = Compose.easing.inOutCubic })
-		cameraMotion = runtime.spring(function(use)
+		cameraMotion = runtime.spring(function(use: Use)
 			return use(cameraGoal)
 		end, { period = 0.65, damping = 1 })
-		local arrival = runtime.spring(function(use)
+		local arrival = runtime.spring(function(use: Use)
 			return use(entrance)
 		end, { period = 0.8, damping = 0.9 })
 
 		local function moodColor(night, day)
-			local function goal(use)
+			local function goal(use: Use)
 				return if use(dark) then night else day
 			end
 			local animated = runtime.spring(goal, { period = 0.55, damping = 1 })
-			return function(use)
+			return function(use: Use)
 				return if use(reducedMotion) then goal(use) else use(animated)
 			end
 		end
@@ -105,7 +108,7 @@ local lifetime = Compose.createRootOwner(function()
 				Anchored = true,
 				CanCollide = false,
 				Size = Vector3.new(10.8, 10.8 * screens.CANVAS.h / screens.CANVAS.w, 0.12),
-				CFrame = function(use)
+				CFrame = function(use: Use)
 					local progress = if use(reducedMotion) then use(entrance) else use(arrival)
 					return frame * CFrame.new(0, -2 * (1 - progress), 1.5 * (1 - progress))
 				end,
@@ -115,8 +118,8 @@ local lifetime = Compose.createRootOwner(function()
 			parts[name] = panel
 			table.insert(children, panel)
 			local screenHeight = 10.8 * screens.CANVAS.h / screens.CANVAS.w
-			local function arrived(offset)
-				return function(use)
+			local function arrived(offset: CFrame)
+				return function(use: Use)
 					local progress = if use(reducedMotion) then use(entrance) else use(arrival)
 					return frame * CFrame.new(0, -2 * (1 - progress), 1.5 * (1 - progress)) * offset
 				end
@@ -124,59 +127,59 @@ local lifetime = Compose.createRootOwner(function()
 			for _, piece in
 				{
 					{
-						"Bezel",
-						Vector3.new(11.04, screenHeight + 0.24, 0.1),
-						CFrame.new(0, 0, 0.1),
-						Color3.fromRGB(14, 14, 17),
-						Enum.Material.Glass,
+						name = "Bezel",
+						size = Vector3.new(11.04, screenHeight + 0.24, 0.1),
+						frame = CFrame.new(0, 0, 0.1),
+						color = Color3.fromRGB(14, 14, 17),
+						material = Enum.Material.Glass,
 					},
 					{
-						"Housing",
-						Vector3.new(11.04, screenHeight + 0.24, 0.22),
-						CFrame.new(0, 0, 0.26),
-						Color3.fromRGB(58, 60, 66),
-						Enum.Material.Metal,
+						name = "Housing",
+						size = Vector3.new(11.04, screenHeight + 0.24, 0.22),
+						frame = CFrame.new(0, 0, 0.26),
+						color = Color3.fromRGB(58, 60, 66),
+						material = Enum.Material.Metal,
 					},
 					{
-						"Back",
-						Vector3.new(7.2, screenHeight * 0.62, 0.34),
-						CFrame.new(0, -0.3, 0.52),
-						Color3.fromRGB(52, 54, 60),
-						Enum.Material.Metal,
+						name = "Back",
+						size = Vector3.new(7.2, screenHeight * 0.62, 0.34),
+						frame = CFrame.new(0, -0.3, 0.52),
+						color = Color3.fromRGB(52, 54, 60),
+						material = Enum.Material.Metal,
 					},
 				}
 			do
 				table.insert(
 					children,
 					Host.Part({
-						Name = name .. piece[1],
+						Name = name .. piece.name,
 						Anchored = true,
 						CanCollide = false,
-						Size = piece[2],
-						CFrame = arrived(piece[3]),
-						Color = piece[4],
-						Material = piece[5],
+						Size = piece.size,
+						CFrame = arrived(piece.frame),
+						Color = piece.color,
+						Material = piece.material,
 					})
 				)
 			end
 			for _, piece in
 				{
 					{
-						"Neck",
-						Vector3.new(1.1, 6.6, 0.18),
-						CFrame.new(0, -3.7, 0.86) * CFrame.Angles(math.rad(-4), 0, 0),
+						name = "Neck",
+						size = Vector3.new(1.1, 6.6, 0.18),
+						frame = CFrame.new(0, -3.7, 0.86) * CFrame.Angles(math.rad(-4), 0, 0),
 					},
-					{ "Foot", Vector3.new(3.6, 0.14, 2.8), CFrame.new(0, -6.93, 1.3) },
+					{ name = "Foot", size = Vector3.new(3.6, 0.14, 2.8), frame = CFrame.new(0, -6.93, 1.3) },
 				}
 			do
 				table.insert(
 					children,
 					Host.Part({
-						Name = name .. "Stand" .. piece[1],
+						Name = name .. "Stand" .. piece.name,
 						Anchored = true,
 						CanCollide = false,
-						Size = piece[2],
-						CFrame = frame * piece[3],
+						Size = piece.size,
+						CFrame = frame * piece.frame,
 						Color = Color3.fromRGB(170, 172, 178),
 						Material = Enum.Material.Metal,
 					})
@@ -195,7 +198,7 @@ local lifetime = Compose.createRootOwner(function()
 						Color = if name == "Discover"
 							then Color3.fromRGB(120, 214, 182)
 							else Color3.fromRGB(170, 150, 255),
-						Brightness = function(use)
+						Brightness = function(use: Use)
 							return if use(dark) then 1.6 else 0.25
 						end,
 						Range = 22,
@@ -231,7 +234,7 @@ local lifetime = Compose.createRootOwner(function()
 	Compose.cleanup(stopWorld)
 	scenes.prepareAvatar()
 	Compose.cleanup(scenes.disposeAvatar)
-	local modeProgress = Compose.formula(function(use)
+	local modeProgress = Compose.formula(function(use: Use)
 		return if use(reducedMotion) then (if use(mode) == "Screen" then 1 else 0) else use(modeMotion)
 	end)
 	local function sceneActions(spatial, package)
@@ -243,7 +246,7 @@ local lifetime = Compose.createRootOwner(function()
 			motionLevel = motionLevel,
 			pressHaptic = pressHaptic,
 		}
-		local function active(use)
+		local function active(use: Use): boolean
 			return if spatial then use(mode) == "Spatial" else use(mode) == "Screen"
 		end
 		actions.discoveryContent = function(sceneRuntime, target)
@@ -251,7 +254,7 @@ local lifetime = Compose.createRootOwner(function()
 		end
 		actions.gameContent = function(current)
 			return function(sceneRuntime, target, live)
-				return scenes.card(sceneRuntime, target, current:peek(), motionPolicy, function(use)
+				return scenes.card(sceneRuntime, target, current:peek(), motionPolicy, function(use: Use)
 					return active(use) and use(live)
 				end)
 			end
@@ -279,7 +282,7 @@ local lifetime = Compose.createRootOwner(function()
 			local sheet = Facet.themes.createStyleSheet(runtime, package, {
 				motionLevel = motionLevel,
 				tenFoot = false,
-				theme = function(use)
+				theme = function(use: Use)
 					return theme.paletteName(use(model.palette), use(dark))
 				end,
 			})
@@ -291,25 +294,25 @@ local lifetime = Compose.createRootOwner(function()
 				SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
 				CanvasSize = Vector2.new(screens.CANVAS.w, screens.CANVAS.h),
 				LightInfluence = 0,
-				Brightness = function(use)
+				Brightness = function(use: Use)
 					return if use(dark) then 1.3 else 1.1
 				end,
 				MaxDistance = 0,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-				Enabled = function(use)
+				Enabled = function(use: Use)
 					return use(modeProgress) < 1
 				end,
-				sheet,
+				sheet :: unknown,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				views[name](),
 			})
 		end, players.LocalPlayer:WaitForChild("PlayerGui"))
 	end
 	local desktopPackage = theme.create(Facet, "Discover")
-	local palette = function(use)
+	local palette = function(use: Use)
 		return theme.paletteName(use(model.palette), use(dark))
 	end
-	local showing = function(use)
+	local showing = function(use: Use)
 		return use(modeProgress) > 0
 	end
 	runtime.mount(function()
@@ -320,7 +323,7 @@ local lifetime = Compose.createRootOwner(function()
 		local backdrop = Host.Frame "Backdrop" {
 			Size = UDim2.fromScale(1, 1),
 			BorderSizePixel = 0,
-			BackgroundTransparency = function(use)
+			BackgroundTransparency = function(use: Use)
 				local t = math.clamp((use(modeProgress) - 0.55) / 0.45, 0, 1)
 				return 1 - t * t * (3 - 2 * t)
 			end,
@@ -331,7 +334,7 @@ local lifetime = Compose.createRootOwner(function()
 			ResetOnSpawn = false,
 			ScreenInsets = Enum.ScreenInsets.None,
 			Enabled = showing,
-			sheet,
+			sheet :: unknown,
 			Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 			backdrop,
 		}
@@ -363,7 +366,7 @@ local lifetime = Compose.createRootOwner(function()
 		})()
 	end)
 	local viewport = Facet.Roblox.createViewport(camera)
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		if (use(viewport).width < 700 or guiService:IsTenFootInterface()) and not model.modeChosen then
 			model.focused:set(model.selectedTab:peek())
 			mode:set("Screen")
@@ -421,7 +424,7 @@ local lifetime = Compose.createRootOwner(function()
 		Enabled = model.flapActive,
 		Host.InputAction "Flap" {
 			Pressed = function()
-				if game:GetService("UserInputService"):GetFocusedTextBox() == nil then
+				if not game:GetService("UserInputService"):GetFocusedTextBox() then
 					model.flapPress()
 				end
 			end,

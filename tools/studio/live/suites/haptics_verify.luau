@@ -3,7 +3,7 @@ return {
 	{
 		id = "haptics-requests-after-real-input",
 		contracts = { "risk:haptics" },
-		run = function(t)
+		run = function(t: any)
 			local built = t.held()
 			if not built then
 				t.check("feedback demo held from haptics_setup", false)
@@ -19,7 +19,9 @@ return {
 			end
 			t.note("history", history)
 			t.note("report", built.report())
-			for _, kind in { "press", "release", "selection", "custom" } do
+			for _, kind in
+				{ "press", "release", "selection", "custom" } :: { "custom" | "press" | "release" | "selection" }
+			do
 				t.check(`{kind} feedback requested by real input`, kinds[kind] == true, history)
 			end
 			local haptics = game:GetService("HapticService")

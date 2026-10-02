@@ -1,12 +1,28 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 return {
 	title = "Loading profile pictures",
-	build = function(ctx)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	build = function(ctx: ExampleContext)
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local shown = Compose.cell(true)
-		local states = { Compose.cell("loading"), Compose.cell("loading"), Compose.cell("loading") }
-		local errors = { Compose.cell(nil), Compose.cell(nil), Compose.cell(nil) }
+		local states = {
+			(function(value: string): typeof(require("@repo/tools/typecheck/example_shapes").stringCell(nil :: any))
+				return Compose.cell(value)
+			end)("loading"),
+			(function(value: string): typeof(require("@repo/tools/typecheck/example_shapes").stringCell(nil :: any))
+				return Compose.cell(value)
+			end)("loading"),
+			(function(value: string): typeof(require("@repo/tools/typecheck/example_shapes").stringCell(nil :: any))
+				return Compose.cell(value)
+			end)("loading"),
+		}
+		local function errorCell(): typeof(require("@repo/tools/typecheck/example_shapes").unknownCell(nil :: any))
+			return Compose.cell(nil :: unknown)
+		end
+		local errors = { errorCell(), errorCell(), errorCell() }
 		local pictures = {
 			{ id = "AvatarRoblox", image = "rbxthumb://type=AvatarHeadShot&id=1&w=48&h=48" },
 			{ id = "AvatarBuilderman", image = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48" },
@@ -16,7 +32,7 @@ return {
 			return UI.AsyncImage({
 				Name = pictures[index].id,
 				image = pictures[index].image,
-				onStatus = function(state, message)
+				onStatus = function(state: "failed" | "loading" | "ready", message: unknown)
 					states[index]:set(state)
 					errors[index]:set(message)
 				end,
@@ -35,14 +51,14 @@ return {
 					gap = 12,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" }),
+					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" :: "title" }) :: unknown,
 					UI.Text({
 						LayoutOrder = 2,
 						text = "Pictures keep their space while loading; unavailable pictures keep a placeholder.",
 					}),
 					UI.Text({
 						LayoutOrder = 3,
-						text = function(use)
+						text = function(use: Use)
 							return string.format(
 								"Roblox: %s • Builderman: %s • Unavailable picture: %s",
 								use(states[1]),
@@ -60,7 +76,7 @@ return {
 							SortOrder = E.SortOrder.LayoutOrder,
 							FillDirection = E.FillDirection.Horizontal,
 							Padding = D.new(0, 12),
-						}),
+						}) :: unknown,
 						picture(1),
 						Compose.show(shown, function()
 							return picture(2)

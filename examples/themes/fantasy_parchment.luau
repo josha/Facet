@@ -272,7 +272,7 @@ local GENERATED: any = {
 			body = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -281,7 +281,7 @@ local GENERATED: any = {
 			caption = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -290,7 +290,7 @@ local GENERATED: any = {
 			control = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -299,7 +299,7 @@ local GENERATED: any = {
 			heading = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -308,7 +308,7 @@ local GENERATED: any = {
 			label = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -317,7 +317,7 @@ local GENERATED: any = {
 			title = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -350,7 +350,7 @@ function fantasy_parchment.definition(themes: any): any
 		chrome = {
 
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_panel",
 				contentInsets = { top = 18, right = 18, bottom = 18, left = 18 },
 				fallback = "native",
@@ -358,7 +358,7 @@ function fantasy_parchment.definition(themes: any): any
 				shadow = "raised",
 			},
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "parchment_button",
 					selected = { asset = "parchment_button", rotation = 180, tint = INK },
@@ -368,26 +368,26 @@ function fantasy_parchment.definition(themes: any): any
 				shadow = "raised",
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_field",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
 			},
 
-			focus = { kind = "ring", color = "$FocusGlow", thickness = 3 },
+			focus = { kind = "ring" :: "ring", color = "$FocusGlow", thickness = 3 },
 
-			selection = { kind = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			selection = { kind = "native" :: "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 
 			sliderTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_slider_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			sliderThumb = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_slider_thumb",
 				sliced = false,
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
@@ -395,7 +395,7 @@ function fantasy_parchment.definition(themes: any): any
 			},
 
 			badge = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_badge",
 				sliced = false,
 				contentInsets = { top = 5, right = 5, bottom = 5, left = 5 },

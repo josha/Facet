@@ -80,7 +80,7 @@ function capture.problems(row: any): { string }
 	if class == nil then
 		table.insert(problems, `unknown evidenceClass '{tostring(row.evidenceClass)}'`)
 	end
-	for group, keys in capture.REQUIRED do
+	for group, keys in capture.REQUIRED :: { [string]: { string } } do
 		for _, key in missingFrom(row, keys) do
 			table.insert(problems, `missing {group}.{key}`)
 		end

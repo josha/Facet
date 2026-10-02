@@ -1,5 +1,13 @@
 --!strict
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -40,17 +48,23 @@ end
 
 add("button-labels-centred-in-every-package", { "inputs-50" }, function(t: any)
 	for _, theme in t.themes do
-		local stage = t.mount(function(UI, Host)
-			return Host.Frame "Row" {
-				Size = UDim2.fromOffset(600, 80),
-				BackgroundTransparency = 1,
-				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12) },
-				UI.Button "Word" { label = "Play" },
-				UI.Button "Marked" { label = "Next", icon = "chevron.down" },
-			}
-		end, { theme = theme.package, size = Vector2.new(600, 200) })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame "Row" {
+					Size = UDim2.fromOffset(600, 80),
+					BackgroundTransparency = 1,
+					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12) } :: unknown,
+					UI.Button "Word" { label = "Play" },
+					UI.Button "Marked" { label = "Next", icon = "chevron.down" },
+				}
+			end,
+			{ theme = theme.package, size = Vector2.new(600, 200) }
+		)
 		t.settle(10)
-		for name, text in { Word = "Play", Marked = "Next" } do
+		for name, text in { Word = "Play", Marked = "Next" } :: { [string]: string } do
 			local button = t.find(stage, name)
 			local label = button and drawn(button.Parent, text)
 			if not (button and label) then
@@ -71,22 +85,28 @@ add("described-toggle-fits-a-narrow-row", { "apps-130" }, function(t: any)
 			chosen = theme
 		end
 	end
-	local stage = t.mount(function(UI, Host)
-		return Host.Frame "Column" {
-			Size = UDim2.fromOffset(320, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			Host.UIListLayout {},
-			UI.Toggle "Hints" {
-				row = {
-					title = "Show hints",
-					description = "Adds a short line of help under each control in this panel",
-					icon = "settings",
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return Host.Frame "Column" {
+				Size = UDim2.fromOffset(320, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BackgroundTransparency = 1,
+				Host.UIListLayout {} :: unknown,
+				UI.Toggle "Hints" {
+					row = {
+						title = "Show hints",
+						description = "Adds a short line of help under each control in this panel",
+						icon = "settings",
+					},
+					value = t.Facet.Compose.cell(true),
 				},
-				value = t.Facet.Compose.cell(true),
-			},
-		}
-	end, { theme = chosen.package, size = Vector2.new(320, 400) })
+			}
+		end,
+		{ theme = chosen.package, size = Vector2.new(320, 400) }
+	)
 	t.settle(15)
 	local root = t.find(stage, "Hints")
 	local hint = root and drawn(root, "Adds a short line of help under each control in this panel")
@@ -107,20 +127,26 @@ add("described-toggle-fits-a-narrow-row", { "apps-130" }, function(t: any)
 end)
 
 add("padded-text-draws-inside-its-inset", { "mech3-76" }, function(t: any)
-	local stage = t.mount(function(UI, Host)
-		return UI.Text "Padded" {
-			text = "A padded paragraph that wraps across several lines inside its box",
-			Size = UDim2.fromOffset(200, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			TextWrapped = true,
-			Host.UIPadding {
-				PaddingLeft = UDim.new(0, 20),
-				PaddingRight = UDim.new(0, 20),
-				PaddingTop = UDim.new(0, 8),
-				PaddingBottom = UDim.new(0, 8),
-			},
-		}
-	end, { size = Vector2.new(400, 400) })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+		)
+			return UI.Text "Padded" {
+				text = "A padded paragraph that wraps across several lines inside its box",
+				Size = UDim2.fromOffset(200, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextWrapped = true,
+				Host.UIPadding {
+					PaddingLeft = UDim.new(0, 20),
+					PaddingRight = UDim.new(0, 20),
+					PaddingTop = UDim.new(0, 8),
+					PaddingBottom = UDim.new(0, 8),
+				},
+			}
+		end,
+		{ size = Vector2.new(400, 400) }
+	)
 	t.settle(10)
 	local label = t.find(stage, "Padded")
 	t.check("the padded text mounted", label ~= nil)

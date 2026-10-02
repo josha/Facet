@@ -30,7 +30,8 @@ end
 local function numberWorld(spec: any?): any
 	local o = spec or {}
 	local engine: any = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local UI: any = {}
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -70,7 +71,11 @@ local function numberWorld(spec: any?): any
 	local screen = engine.new("ScreenGui")
 	w.screen = screen
 	w.stop = runtime.mount(function()
-		return runtime.constructors.Frame({
+		return (
+			(
+				runtime.constructors.Frame :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+		)({
 			Name = "Host",
 			Compose.show(w.visible, function()
 				return UI.NumberInput("Laps")(merged)
@@ -99,7 +104,7 @@ t.describe("native NumberInput preset", function()
 		expect(`{w.commits[1].value} {typeof(w.commits[1].value)}`).toBe("12 number")
 		w.stop()
 		local ok, err = pcall(function()
-			numberWorld({ presentation = "search" })
+			numberWorld({ presentation = "search" :: "search" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "IS the number presentation", 1, true) ~= nil).toBe(true)
@@ -121,7 +126,8 @@ t.describe("native NumberInput preset", function()
 			expect(ok).toBe(false)
 		end
 		local engine: any = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local UI: any = {}
 		register(context(Compose, runtime, { types = engine.types }), UI)
 		for _, key in { "stepButtons", "step", "precision", "prefix", "suffix", "scrub" } do
@@ -150,7 +156,8 @@ t.describe("native NumberInput draft grammar", function()
 			expect(w.field:GetAttribute("validationMessage")).toBe("")
 			w.stop()
 		end
-		local required = numberWorld({ draft = "7", number = 7, requiredMark = "required", label = "Laps" })
+		local required =
+			numberWorld({ draft = "7", number = 7, requiredMark = "required" :: "required", label = "Laps" })
 		editAndCommit(required, "")
 		expect(required.field:GetAttribute("validationMessage") ~= "").toBe(true)
 		expect(find(required.node, "Message/Validation").Text).toBe("Enter a number.")
@@ -276,7 +283,7 @@ t.describe("native NumberInput units and step buttons", function()
 	t.it("a held step button repeats after 0.4 seconds, then every 0.1 seconds, with no idle frame work", function()
 		local w = numberWorld({ draft = "0", number = 0, stepButtons = true, step = 1, min = 0, max = 20 })
 		local button = find(w.node, "Input/Increment")
-		local held = { UserInputType = w.E.UserInputType.MouseButton1, KeyCode = w.E.KeyCode.Unknown }
+		local held = { UserInputType = w.E.UserInputType.MouseButton1, KeyCode = w.E.KeyCode:FromValue(0) }
 		expect(w.engine.heartbeat.count()).toBe(0)
 		button.InputBegan.fire(held)
 		w.engine.heartbeat.fire(0.4)

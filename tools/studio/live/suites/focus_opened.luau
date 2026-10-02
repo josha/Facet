@@ -10,35 +10,54 @@ local PAD = {
 }
 local KEYS = { open = "Return", close = "Escape", moves = { "Up", "Down", "Left", "Right" } }
 
-local CASES = {
-	{ id = "menu", show = "all-controls", tab = "actions/menus", trigger = "Trigger" },
-	{ id = "menu-sheet", show = "all-controls", tab = "actions/menus", before = "sheet", trigger = "Trigger" },
-	{ id = "collapsible", show = "all-controls", tab = "navigation/disclosure", trigger = "Settings" },
+local CASES: {
 	{
-		id = "disclosure-group",
-		show = "all-controls",
-		tab = "navigation/disclosure",
-		trigger = "Practice",
-		inline = true,
-	},
-	{ id = "sheet-lobby", show = "all-controls", tab = "actions/sheets", trigger = "OpenLobby" },
-	{ id = "sheet-filters", show = "all-controls", tab = "actions/sheets", trigger = "OpenFilters" },
-	{ id = "popover-filter", show = "all-controls", tab = "actions/overlays", trigger = "Filter" },
-	{ id = "dialog", show = "all-controls", tab = "actions/overlays", trigger = "DialogButton" },
-	{ id = "alert", show = "all-controls", tab = "actions/alerts", trigger = "Open" },
-	{ id = "sheet", show = "all-controls", tab = "actions/sheets", trigger = "Open" },
-	{ id = "date-picker", show = "all-controls", tab = "inputs/pickers", trigger = "Open" },
-	{ id = "color-picker", show = "all-controls", tab = "inputs/pickers", trigger = "Well" },
-	{ id = "callout", show = "all-controls", tab = "actions/help", trigger = "Show" },
-	{ id = "radial", show = "radial-menu", trigger = nil },
-	{ id = "demo-popover", show = "all-controls", trigger = "Showcase", anywhere = true },
-}
+		id: string,
+		show: string,
+		tab: string?,
+		trigger: string | nil,
+		before: string?,
+		inline: boolean?,
+		anywhere: boolean?,
+	}
+} =
+	{
+		{ id = "menu", show = "all-controls", tab = "actions/menus", trigger = "Trigger" },
+		{ id = "menu-sheet", show = "all-controls", tab = "actions/menus", before = "sheet", trigger = "Trigger" },
+		{ id = "collapsible", show = "all-controls", tab = "navigation/disclosure", trigger = "Settings" },
+		{
+			id = "disclosure-group",
+			show = "all-controls",
+			tab = "navigation/disclosure",
+			trigger = "Practice",
+			inline = true,
+		},
+		{ id = "sheet-lobby", show = "all-controls", tab = "actions/sheets", trigger = "OpenLobby" },
+		{ id = "sheet-filters", show = "all-controls", tab = "actions/sheets", trigger = "OpenFilters" },
+		{ id = "popover-filter", show = "all-controls", tab = "actions/overlays", trigger = "Filter" },
+		{ id = "dialog", show = "all-controls", tab = "actions/overlays", trigger = "DialogButton" },
+		{ id = "alert", show = "all-controls", tab = "actions/alerts", trigger = "Open" },
+		{ id = "sheet", show = "all-controls", tab = "actions/sheets", trigger = "Open" },
+		{ id = "date-picker", show = "all-controls", tab = "inputs/pickers", trigger = "Open" },
+		{ id = "color-picker", show = "all-controls", tab = "inputs/pickers", trigger = "Well" },
+		{ id = "callout", show = "all-controls", tab = "actions/help", trigger = "Show" },
+		{ id = "radial", show = "radial-menu", trigger = nil },
+		{ id = "demo-popover", show = "all-controls", trigger = "Showcase", anywhere = true },
+	}
 
 local function api(command: string, argument: any): any
 	return (workspace:WaitForChild("FacetShowcaseAPI") :: any):Invoke(command, argument)
 end
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 for _, spec in CASES do
 	table.insert(cases, {
 		id = "opened-" .. spec.id,
@@ -46,7 +65,7 @@ for _, spec in CASES do
 		run = function(t: any)
 			local live = (require :: any)(storage.FacetLive)
 			local focus = (require :: any)(storage.FacetLive.focus)
-			local root = Players.LocalPlayer.PlayerGui
+			local root = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 			local options = shared.FacetFocusOpened or {}
 			local keys = table.clone(if options.keys then KEYS else PAD)
 			keys.up = if options.keys then nil else options.up

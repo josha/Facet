@@ -1,4 +1,7 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local COPY = {
 	title = "Collapsible views",
 	intro = "Open a custom settings view, or expand the selected destination below.",
@@ -11,10 +14,10 @@ return {
 	title = "Collapsible views",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -22,13 +25,13 @@ return {
 		local expanded = Compose.cell(false)
 		local club = Compose.cell(false)
 		local selected = Compose.cell("coast")
-		local label = Compose.formula(function(use)
+		local label = Compose.formula(function(use: Use)
 			return if use(club) then "Club race settings" else copy.settings
 		end)
-		local icon = Compose.formula(function(use)
+		local icon = Compose.formula(function(use: Use)
 			return if use(club) then "check" else "flag"
 		end)
-		local function settingsContent()
+		local function settingsContent(): Instance
 			return Host.Frame "SettingsContent" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -37,7 +40,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text({
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -45,7 +48,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = copy.settings,
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -75,7 +78,7 @@ return {
 				id = key,
 				label = copy[key],
 				icon = "flag",
-				content = function()
+				content = function(): Instance
 					return Host.ScrollingFrame "Course" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
@@ -86,7 +89,7 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 16),
-						}),
+						}) :: unknown,
 						UI.Text({
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -94,7 +97,7 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = copy[key],
-							textRole = "title",
+							textRole = "title" :: "title",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -139,11 +142,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = copy.title,
-						textRole = "title",
+						textRole = "title" :: "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					}) :: unknown,
 					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
@@ -172,11 +175,11 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 0),
-						}),
+						}) :: unknown,
 						UI.TabView({
 							LayoutOrder = 1,
 							Name = "Destinations",
-							style = "collapsible",
+							style = "collapsible" :: "collapsible",
 							selection = selected,
 							tabs = tabs,
 						}),
@@ -203,7 +206,7 @@ return {
 				return {
 					{
 						id = "settings-open",
-						kind = "dialog",
+						kind = "dialog" :: "dialog",
 						open = function()
 							expanded:set(true)
 							return true

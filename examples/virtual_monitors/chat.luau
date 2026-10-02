@@ -1,20 +1,24 @@
 --!strict
-return function(ctx)
-	local Compose, Host, UI, runtime, model = ctx.Compose, ctx.Host, ctx.UI, ctx.runtime, ctx.model
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type Context = typeof(require("@repo/examples/types")(nil :: any))
+return function(ctx: Context)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, runtime, model =
+		ctx.Compose, ctx.Host, ctx.UI, ctx.runtime, ctx.model
 	local D2, V2, C3, E = ctx.D2, ctx.V2, ctx.C3, ctx.E
 	local words, quiet, button = ctx.words, ctx.quiet, ctx.button
 	local chat, promptUsed = model.chat, model.chatPromptUsed
 	local extent = Compose.cell(V2.new(920, 560))
-	local width = Compose.formula(function(use)
+	local width = Compose.formula(function(use: Use)
 		return math.min(960, math.max(0, use(extent).X - 24))
 	end)
-	local short = Compose.formula(function(use)
+	local short = Compose.formula(function(use: Use)
 		return use(extent).Y < 360
 	end)
 	local measured = Compose.cell({})
 	local status = Compose.cell({
-		mode = "windowed",
-		direction = "vertical",
+		mode = "windowed" :: "windowed",
+		direction = "vertical" :: "vertical",
 		total = 0,
 		retained = 0,
 		first = 0,
@@ -30,11 +34,11 @@ return function(ctx)
 		promptUsed:set(true)
 		chat.draft:set(value)
 	end
-	local function sparkle(size)
+	local function sparkle(size: number)
 		local path = Host.Path2D "AssistantMark" {
 			Thickness = math.max(2, math.floor(size / 10)),
 			Closed = true,
-			Color3 = function(use)
+			Color3 = function(use: Use)
 				return if use(model.dark) then C3.fromRGB(192, 172, 255) else C3.fromRGB(91, 70, 140)
 			end,
 		}
@@ -53,15 +57,15 @@ return function(ctx)
 		return Host.Frame "AssistantIcon" {
 			Size = D2.fromOffset(size, size),
 			BackgroundTransparency = 1,
-			path,
+			path :: unknown,
 		}
 	end
 	local motion = UI.environment().reducedMotion
-	local function reduced(use)
+	local function reduced(use: Use)
 		return use(motion)
 	end
 	local spin = runtime.timeline({ duration = 1.6, repeats = math.huge, autoplay = false })
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		if use(chat.streaming) and not reduced(use) then
 			spin:play()
 		else
@@ -74,11 +78,11 @@ return function(ctx)
 		end)
 		return if ok then service else nil
 	end)()
-	local function measuredHeight(label)
+	local function measuredHeight(label: TextLabel)
 		if textService == nil then
 			return label
 		end
-		local observation = runtime.host.observation
+		local observation = assert(runtime.host.observation)
 		local serial = 0
 		local function refresh()
 			local text = label.ContentText
@@ -117,14 +121,14 @@ return function(ctx)
 	local function message(current)
 		local id = current:peek().id
 		local isUser = current:peek().role == "user"
-		local streamingHere = Compose.formula(function(use)
+		local streamingHere = Compose.formula(function(use: Use)
 			return use(chat.active) == id
 		end)
-		local function content(props)
-			props.Visible = function(use)
+		local function content(props: { [any]: unknown })
+			props.Visible = function(use: Use)
 				return use(current).content ~= ""
 			end
-			return words("Message", function(use)
+			return words("Message", function(use: Use)
 				return use(current).content
 			end, "body", props)
 		end
@@ -132,72 +136,73 @@ return function(ctx)
 		if isUser then
 			local card = UI.VStack("Message_" .. id)({
 				padding = 14,
-				ctx.rounded(18),
+				ctx.rounded(18) :: unknown,
 				content({
 					Size = D2.new(0, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.XY,
 					Host.UISizeConstraint({
-						MaxSize = function(use)
+						MaxSize = function(use: Use)
 							return V2.new(math.max(96, math.floor(use(width) * 0.78) - 32), math.huge)
 						end,
 					}),
 				}),
 			})
 			card:AddTag("facet-track")
-			rowFrame = UI.VStack("MessageRow_" .. id)({ width = "fill", align = "end", card })
+			rowFrame =
+				UI.VStack("MessageRow_" .. id)({ width = "fill" :: "fill", align = "end" :: "end", card :: unknown })
 		else
 			local icon = sparkle(22)
 			runtime.decorate(icon, {
-				Rotation = function(use)
+				Rotation = function(use: Use)
 					return if use(streamingHere) and not reduced(use) then use(spin.progress) * 360 else 0
 				end,
 			})
 			rowFrame = UI.HStack("MessageRow_" .. id)({
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = 12,
-				icon,
+				icon :: unknown,
 				UI.VStack("Message_" .. id)({
 					gap = "s",
 					Size = D2.new(0, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
-					UI.fill(),
-					Compose.show(function(use)
+					UI.fill() :: unknown,
+					Compose.show(function(use: Use)
 						return use(current).content == ""
 					end, function()
 						return UI.ProgressView "Thinking" {
-							presentation = "spinner",
+							presentation = "spinner" :: "spinner",
 							label = "Thinking",
 							diameter = 18,
 						}
 					end),
 					measuredHeight(content({})),
-					Compose.show(function(use)
+					Compose.show(function(use: Use)
 						return use(current).content ~= "" and not use(streamingHere)
 					end, function()
 						return UI.HStack "MessageTools" {
 							gap = "s",
-							align = "center",
+							align = "center" :: "center",
 							UI.Vote "Feedback" {
-								value = function(use)
+								value = function(use: Use)
 									return use(chat.feedback)[id] or "none"
 								end,
 								onChange = function(nextValue)
 									chat.rate(id, nextValue)
 								end,
-								controlSize = "compact",
-							},
+								controlSize = "compact" :: "compact",
+							} :: unknown,
 							button("Retry", "Retry", function()
 								chat.retry(id)
-							end, { appearance = "utility", controlSize = "compact" }),
+							end, { appearance = "utility", controlSize = "compact" :: "compact" }),
 						}
 					end),
 				}),
 			})
 		end
-		local observation = runtime.host.observation
+		local observation = assert(runtime.host.observation)
 		local key = tostring(id)
 		local function updateSize()
-			local height = observation.readProperty(rowFrame, "AbsoluteSize").Y
+			local height = (observation.readProperty(rowFrame, "AbsoluteSize") :: Vector2).Y
 			if height > 0 and measured:peek()[key] ~= height then
 				measured:update(function(currentSizes)
 					local nextSizes = table.clone(currentSizes)
@@ -208,11 +213,11 @@ return function(ctx)
 		end
 		Compose.cleanup(observation.observeProperty(rowFrame, "AbsoluteSize", updateSize))
 		updateSize()
-		local trailing = {
+		local trailing: { typeof(require("@repo/tools/typecheck/example_shapes").rowAction(nil :: any)) } = {
 			{
 				id = "DeleteMessage",
 				label = "Delete",
-				role = "destructive",
+				role = "destructive" :: "destructive",
 				onActivate = function()
 					model.deleteMessage(id)
 				end,
@@ -230,8 +235,8 @@ return function(ctx)
 		return UI.RowActions({
 			Name = "MessageActions_" .. id,
 			Size = D2.fromScale(1, 1),
-			content = function()
-				return rowFrame
+			content = function(): GuiObject
+				return rowFrame :: GuiObject
 			end,
 			trailing = trailing,
 		})
@@ -256,7 +261,7 @@ return function(ctx)
 					end,
 				},
 			},
-		},
+		} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 		{
 			id = "FollowReplies",
 			label = "Follow replies",
@@ -264,9 +269,9 @@ return function(ctx)
 			onChange = function(value)
 				model.followChat:set(value)
 			end,
-		},
-		{ divider = true },
-		{ id = "Clear", label = "Clear conversation", role = "destructive", onSelect = chat.clear },
+		} :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+		{ divider = true } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
+		{ id = "Clear", label = "Clear conversation", role = "destructive" :: "destructive", onSelect = chat.clear } :: typeof(require("@repo/tools/typecheck/example_shapes").MenuItem_any(nil :: any)),
 	}
 	local findGame = button("FindGame", "Find a game", function()
 		prompt("What game should I play with friends?")
@@ -275,14 +280,14 @@ return function(ctx)
 		prompt("Help me build a game browser")
 	end, { TextWrapped = true })
 	local send = UI.Button "Send" {
-		name = function(use)
+		name = function(use: Use)
 			return if use(chat.streaming) then "Stop" else "Send"
 		end,
-		icon = function(use)
+		icon = function(use: Use)
 			return if use(chat.streaming) then "close" else "chevron.up"
 		end,
-		shape = "circle",
-		appearance = function(use)
+		shape = "circle" :: "circle",
+		appearance = function(use: Use)
 			return if use(chat.streaming) or use(chat.draft):match("%S") then "emphasis" else "soft"
 		end,
 		onActivate = function()
@@ -293,21 +298,21 @@ return function(ctx)
 			end
 		end,
 	}
-	local welcome = Compose.show(function(use)
+	local welcome = Compose.show(function(use: Use)
 		return #use(chat.messages) == 0
 	end, function()
 		local entered = Compose.cell(0)
-		local motion = runtime.tween(function(use)
+		local motion = runtime.tween(function(use: Use)
 			return use(entered)
 		end, { seconds = 0.24 })
 		entered:set(1)
-		local function reveal(use)
+		local function reveal(use: Use)
 			return if reduced(use) then 1 else math.clamp(use(motion), 0, 1)
 		end
 		return Host.CanvasGroup "Welcome" {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			GroupTransparency = function(use)
+			GroupTransparency = function(use: Use)
 				return 1 - reveal(use)
 			end,
 			UI.VStack "WelcomeContent" {
@@ -315,18 +320,18 @@ return function(ctx)
 				AnchorPoint = V2.new(0.5, 0.5),
 				Size = D2.new(1, -24, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				Position = function(use)
+				Position = function(use: Use)
 					return D2.new(0.5, 0, 0.5, (1 - reveal(use)) * 12)
 				end,
-				Compose.show(function(use)
+				Compose.show(function(use: Use)
 					return not use(short)
 				end, function()
 					return sparkle(40)
-				end),
+				end) :: unknown,
 				UI.Text "WelcomeQuestion" {
 					text = "What are you working on?",
-					textRole = "title",
-					TextSize = function(use)
+					textRole = "title" :: "title",
+					TextSize = function(use: Use)
 						return if use(short) then 20 else 28
 					end,
 					TextWrapped = true,
@@ -334,7 +339,7 @@ return function(ctx)
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 				},
-				Compose.show(function(use)
+				Compose.show(function(use: Use)
 					return not use(short)
 				end, function()
 					return quiet("Hint", "Ask a question or try a prompt below.", "body")
@@ -343,28 +348,28 @@ return function(ctx)
 		}
 	end)
 	local body = UI.VStack "ChatBody" {
-		width = "fill",
-		height = "fill",
-		align = "center",
+		width = "fill" :: "fill",
+		height = "fill" :: "fill",
+		align = "center" :: "center",
 		UI.VStack "ConversationColumn" {
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			gap = "s",
-			Host.UISizeConstraint({ MaxSize = V2.new(960, math.huge) }),
+			Host.UISizeConstraint({ MaxSize = V2.new(960, math.huge) }) :: unknown,
 			UI.Notice "Disclaimer" {
-				placement = "affixed",
+				placement = "affixed" :: "affixed",
 				message = "Simulated responses · No messages leave this device",
-				Visible = function(use)
+				Visible = function(use: Use)
 					return not use(short)
 				end,
 			},
 			UI.HStack "ChatToolbar" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
-				align = "center",
+				align = "center" :: "center",
 				quiet(
 					"Status",
-					function(use)
+					function(use: Use)
 						local count = #use(chat.messages)
 						return if use(chat.streaming)
 							then "Writing a reply…"
@@ -379,7 +384,7 @@ return function(ctx)
 						TextTruncate = E.TextTruncate.AtEnd,
 						UI.fill(),
 					}
-				),
+				) :: unknown,
 				button("NewChat", "New chat", function()
 					local kept = chat.draft:peek()
 					chat.clear()
@@ -389,7 +394,7 @@ return function(ctx)
 					appearance = "utility",
 					Size = D2.fromOffset(0, 40),
 					AutomaticSize = E.AutomaticSize.X,
-					Visible = function(use)
+					Visible = function(use: Use)
 						return #use(chat.messages) > 0
 					end,
 				}),
@@ -400,22 +405,22 @@ return function(ctx)
 						AutomaticSize = E.AutomaticSize.None,
 					}),
 					items = conversationItems,
-					width = { type = "hug", min = 220, max = 320 },
+					width = { type = "hug" :: "hug", min = 220, max = 320 },
 				},
 			},
 			UI.ZStack "Thread" {
 				ClipsDescendants = true,
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.None,
-				UI.fill(),
+				UI.fill() :: unknown,
 				Compose.keyed({
-					from = function(use)
+					from = function(use: Use)
 						return { use(model.followChat) }
 					end,
 					key = function(value)
 						return tostring(value)
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return ctx.collection("VirtualList", {
 							Name = "Messages",
 							from = chat.messages,
@@ -436,24 +441,24 @@ return function(ctx)
 				welcome,
 			},
 			UI.VStack "Composer" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
 				UI.Grid "Suggestions" {
-					columns = function(use)
+					columns = function(use: Use)
 						return if use(width) < 420 then 1 else 2
 					end,
 					gap = "s",
 					cellHeight = 44,
-					Visible = function(use)
+					Visible = function(use: Use)
 						return not use(short) and #use(chat.messages) == 0
 					end,
-					findGame,
+					findGame :: unknown,
 					buildSomething,
-				},
+				} :: unknown,
 				UI.TextInput "Draft" {
 					value = chat.draft,
 					placeholder = "Reply to Assistant…",
-					corners = "pill",
+					corners = "pill" :: "pill",
 					trailing = send,
 					onChange = function(value)
 						chat.draft:set(value)
@@ -472,23 +477,24 @@ return function(ctx)
 	ctx.measure(body, extent)
 	local callout = UI.Callout "PromptHint" {
 		anchor = findGame,
-		edge = "top",
-		align = "leading",
+		edge = "top" :: "top",
+		align = "leading" :: "leading",
 		featureUsed = promptUsed,
-		isPresented = function(use)
+		isPresented = function(use: Use)
 			return #use(chat.messages) == 0 and not use(promptUsed) and not use(short)
 		end,
 		onRetire = function()
 			promptUsed:set(true)
 		end,
-		content = function()
+		content = function(): Instance
 			return words("PromptTip", "Start from a prompt, then edit it before you send.", "label")
 		end,
 	}
-	return body, UI.ZStack "Overlays" {
-		width = "fill",
-		height = "fill",
-		callout,
-		ctx.toastFor("Chat"),
-	}
+	return body,
+		UI.ZStack "Overlays" {
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
+			callout :: unknown,
+			ctx.toastFor("Chat"),
+		}
 end

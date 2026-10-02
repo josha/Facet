@@ -1,4 +1,9 @@
 --!strict
+local FixtureMediaTypes = require("../src/ui/media_types")
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local requireDynamic = require :: (any) -> any
+local FixtureThemeTypes = require("../src/ui/theme_types")
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local Compose = require("../src/vendor/compose/core")
@@ -11,7 +16,8 @@ local engineLib = require("./lib/native_engine")
 
 local function setup(options: { [string]: any }?): (any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local config: { [string]: any } = { types = engine.types }
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -22,7 +28,8 @@ end
 
 local function controlsFor(options: { [string]: any }?): (any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -97,7 +104,7 @@ t.describe("async image states", function()
 			types = engine.types,
 			services = {
 				ContentProvider = {
-					PreloadAsync = function(_, list, callback)
+					PreloadAsync = function(_, list: { any }, callback: (string, any) -> ())
 						local before = #engine.made
 						local liveBefore = engine.census().live
 						table.insert(calls, { list = list, image = list[1].Image, count = #list })
@@ -105,11 +112,11 @@ t.describe("async image states", function()
 						madeDuringPreload += #engine.made - before
 						destroyedDuringPreload += liveBefore - engine.census().live
 					end,
-				},
+				} :: any,
 			},
 		}))
-		local source, states = Compose.cell("rbxassetid://123"), {}
-		local stop, root = runtime.mount(function()
+		local source, states = Compose.cell("rbxassetid://123" :: string?), {}
+		local stop, root: any = runtime.mount(function()
 			return UI.AsyncImage({
 				source = source,
 				onStatus = function(state)
@@ -117,7 +124,7 @@ t.describe("async image states", function()
 				end,
 			})
 		end, engine.new("Folder"))
-		local image = root:FindFirstChild("Image")
+		local image: any = root:FindFirstChild("Image")
 		t.expect(states[#states]).toBe("loading")
 		t.expect(image.Visible).toBe(false)
 		t.expect(coroutine.resume(pending[1])).toBe(true)
@@ -151,7 +158,7 @@ t.describe("async image states", function()
 	t.it("shows the placeholder and hides the image while the first request is pending", function()
 		local engine, runtime, UI = setup()
 		local states, requested = {}, {}
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.AsyncImage({
 				image = "rbxthumb://type=AvatarHeadShot&id=1",
 				loader = function(content)
@@ -165,7 +172,7 @@ t.describe("async image states", function()
 		end, engine.new("Folder"))
 		t.expect(requested).toEqual({ "rbxthumb://type=AvatarHeadShot&id=1" })
 		t.expect(states).toEqual({ "loading" })
-		local placeholder, image = root:FindFirstChild("Placeholder"), root:FindFirstChild("Image")
+		local placeholder, image: any = root:FindFirstChild("Placeholder"), root:FindFirstChild("Image")
 		t.expect(placeholder.Visible).toBe(true)
 		t.expect(placeholder:HasTag("facet-skeleton")).toBe(true)
 		t.expect(image.Visible).toBe(false)
@@ -191,14 +198,14 @@ t.describe("async image states", function()
 				types = engine.types,
 				services = {
 					ContentProvider = {
-						PreloadAsync = function(_, list, callback)
+						PreloadAsync = function(_, list: { any }, callback: (string, any) -> ())
 							callback(list[1].Image, engine.types.Enum.AssetFetchStatus.Failure)
 						end,
-					},
+					} :: any,
 				},
 			}))
 			local states, reasons = {}, {}
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				return UI.AsyncImage({
 					image = "rbxassetid://999999999999999",
 					loader = if path == "loader"
@@ -213,7 +220,7 @@ t.describe("async image states", function()
 					end,
 				})
 			end, engine.new("Folder"))
-			local placeholder, image = root:FindFirstChild("Placeholder"), root:FindFirstChild("Image")
+			local placeholder, image: any = root:FindFirstChild("Placeholder"), root:FindFirstChild("Image")
 			t.expect(states[#states]).toBe("failed")
 			t.expect(reasons[#reasons] ~= nil).toBe(true)
 			t.expect(placeholder.Visible).toBe(true)
@@ -231,7 +238,8 @@ t.describe("async image states", function()
 	t.it("renders a shared completion, dims the image and restores it, and releases with the owner", function()
 		local engine, runtime, UI = setup()
 		local acquired, released = 0, 0
-		local state, value = Compose.cell("loading"), Compose.cell("")
+		local state: FixtureComposeTypes.Cell<"loading" | "ready" | "failed">, value =
+			Compose.cell("loading" :: "loading" | "ready" | "failed"), Compose.cell("")
 		local resource = Compose.createSharedResource(function()
 			acquired += 1
 			return { state = state, value = value }, function()
@@ -239,14 +247,14 @@ t.describe("async image states", function()
 			end
 		end)
 		local dimmed = Compose.cell(false)
-		local first, one = runtime.mount(function()
+		local first, one: any = runtime.mount(function()
 			return UI.AsyncImage({ resource = resource, dimmed = dimmed })
 		end, engine.new("Folder"))
-		local second, two = runtime.mount(function()
+		local second, two: any = runtime.mount(function()
 			return UI.AsyncImage({ resource = resource })
 		end, engine.new("Folder"))
 		t.expect(acquired).toBe(1)
-		local image = one:FindFirstChild("Image")
+		local image: any = one:FindFirstChild("Image")
 		t.expect(one:FindFirstChild("Placeholder").Visible).toBe(true)
 		t.expect(image.Visible).toBe(false)
 		value:set("rbxassetid://123")
@@ -273,12 +281,16 @@ t.describe("async image states", function()
 		local engine = engineLib.new()
 		local folder = engine.new("Folder")
 		local baseline = engine.census()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types }))
 		local acquired, released = 0, 0
 		local resource = Compose.createSharedResource(function()
 			acquired += 1
-			return { state = Compose.cell("ready"), value = Compose.cell("rbxassetid://7") }, function()
+			return {
+				state = Compose.cell("ready" :: FixtureMediaTypes.ImageState),
+				value = Compose.cell("rbxassetid://7"),
+			}, function()
 				released += 1
 			end
 		end)
@@ -289,10 +301,10 @@ t.describe("async image states", function()
 				return UI.AsyncImage({ resource = resource })
 			end, folder)))
 		end
-		local pendingStop, pendingRoot = runtime.mount(function()
+		local pendingStop, pendingRoot: any = runtime.mount(function()
 			return UI.AsyncImage({
 				image = "rbxassetid://8",
-				loader = function(content, resolve, reject)
+				loader = function(content: string, resolve: (string?) -> (), reject: (unknown) -> ())
 					table.insert(requests, { content = content, resolve = resolve, reject = reject })
 					return function()
 						cancellations += 1
@@ -315,7 +327,7 @@ t.describe("async image states", function()
 		t.expect(acquired).toBe(2)
 		again()
 		t.expect(released).toBe(2)
-		local image = pendingRoot:FindFirstChild("Image")
+		local image: any = pendingRoot:FindFirstChild("Image")
 		t.expect(#requests).toBe(1)
 		local observed = statuses
 		pendingStop()
@@ -336,7 +348,7 @@ t.describe("avatar faces", function()
 	t.it("cuts UTF-8 first and last initials in authored case", function()
 		local engine, runtime, UI = setup()
 		local name = Compose.cell("Ada Quill")
-		local stop, avatar = runtime.mount(function()
+		local stop, avatar: any = runtime.mount(function()
 			return UI.Avatar({ name = name })
 		end, engine.new("Folder"))
 		local initials = avatar:FindFirstChild("Initials")
@@ -361,7 +373,7 @@ t.describe("avatar faces", function()
 
 	t.it("paints initials and passive semantics at the default regular diameter without a focus stop", function()
 		local engine, runtime, UI = setup()
-		local stop, avatar = runtime.mount(function()
+		local stop, avatar: any = runtime.mount(function()
 			return UI.Avatar({ name = "Ada Quill" })
 		end, engine.new("Folder"))
 		t.expect(avatar:FindFirstChild("Initials").Text).toBe("AQ")
@@ -382,11 +394,11 @@ t.describe("avatar faces", function()
 		for _, ready in { true, false } do
 			local engine, runtime, UI = setup()
 			local requests, statuses = {}, {}
-			local stop, avatar = runtime.mount(function()
+			local stop, avatar: any = runtime.mount(function()
 				return UI.Avatar({
 					name = "Ada Quill",
 					userId = 24813339,
-					loader = function(content, resolve, reject)
+					loader = function(content: string, resolve: (string?) -> (), reject: (unknown) -> ())
 						table.insert(requests, { content = content, resolve = resolve, reject = reject })
 						return nil
 					end,
@@ -398,7 +410,7 @@ t.describe("avatar faces", function()
 			t.expect(#requests).toBe(1)
 			t.expect(requests[1].content).toBe("rbxthumb://type=AvatarHeadShot&id=24813339&w=150&h=150")
 			local portrait = avatar:FindFirstChild("Portrait")
-			local initials, image = avatar:FindFirstChild("Initials"), portrait:FindFirstChild("Image")
+			local initials, image: any = avatar:FindFirstChild("Initials"), portrait:FindFirstChild("Image")
 			t.expect(avatar.Size).toBe(engine.types.UDim2.fromOffset(44, 44))
 			t.expect(portrait.Size).toBe(engine.types.UDim2.fromScale(1, 1))
 			t.expect(initials.Visible).toBe(true)
@@ -426,7 +438,8 @@ t.describe("avatar faces", function()
 
 	t.it("survives repeated resource state flips with one retained lease and rejects stale completions", function()
 		local engine, runtime, UI = setup()
-		local state, value = Compose.cell("loading"), Compose.cell("rbxassetid://1")
+		local state: FixtureComposeTypes.Cell<"loading" | "ready" | "failed">, value =
+			Compose.cell("loading" :: "loading" | "ready" | "failed"), Compose.cell("rbxassetid://1")
 		local held, acquired = 0, 0
 		local resource = Compose.createSharedResource(function()
 			acquired += 1
@@ -435,11 +448,11 @@ t.describe("avatar faces", function()
 				held -= 1
 			end
 		end)
-		local stop, avatar = runtime.mount(function()
+		local stop, avatar: any = runtime.mount(function()
 			return UI.Avatar({ name = "Ada", resource = resource })
 		end, engine.new("Folder"))
 		local initials = avatar:FindFirstChild("Initials")
-		local image = avatar:FindFirstChild("Portrait"):FindFirstChild("Image")
+		local image: any = avatar:FindFirstChild("Portrait"):FindFirstChild("Image")
 		for _ = 1, 8 do
 			state:set("ready")
 			t.expect(initials.Visible).toBe(false)
@@ -456,12 +469,12 @@ t.describe("avatar faces", function()
 		t.expect(avatar:FindFirstChild("Initials")).toBe(initials)
 		stop()
 		t.expect(held).toBe(0)
-		local source, requests = Compose.cell("rbxassetid://first"), {}
-		local stopSecond, second = runtime.mount(function()
+		local source, requests = Compose.cell("rbxassetid://first" :: string?), {}
+		local stopSecond, second: any = runtime.mount(function()
 			return UI.Avatar({
 				name = "Bo",
 				image = source,
-				loader = function(content, resolve)
+				loader = function(content: string, resolve: (string?) -> ())
 					requests[content] = resolve
 					return nil
 				end,
@@ -484,19 +497,22 @@ t.describe("avatar faces", function()
 		local loaded, released = 0, 0
 		local resource = Compose.createSharedResource(function()
 			loaded += 1
-			return { state = Compose.cell("ready"), value = Compose.cell("rbxassetid://21") }, function()
+			return {
+				state = Compose.cell("ready" :: FixtureMediaTypes.ImageState),
+				value = Compose.cell("rbxassetid://21"),
+			}, function()
 				released += 1
 			end
 		end)
-		local stopA, a = runtime.mount(function()
+		local stopA, a: any = runtime.mount(function()
 			return UI.Avatar({ name = "A", resource = resource })
 		end, engine.new("Folder"))
-		local stopB, b = runtime.mount(function()
+		local stopB, b: any = runtime.mount(function()
 			return UI.Avatar({ name = "B", resource = resource })
 		end, engine.new("Folder"))
 		t.expect(loaded).toBe(1)
 		for _, face in { a, b } do
-			local image = face:FindFirstChild("Portrait"):FindFirstChild("Image")
+			local image: any = face:FindFirstChild("Portrait"):FindFirstChild("Image")
 			t.expect(image.Image).toBe("rbxassetid://21")
 			t.expect(image.Visible).toBe(true)
 			t.expect(face:FindFirstChild("Initials").Visible).toBe(false)
@@ -511,8 +527,8 @@ t.describe("avatar faces", function()
 
 	t.it("maps four presence states to four mark forms and follows a reactive presence label", function()
 		local engine, runtime, UI = setup()
-		local presence, label = Compose.cell("online"), Compose.cell("Available")
-		local stop, avatar = runtime.mount(function()
+		local presence, label = Compose.cell("online" :: string?), Compose.cell("Available")
+		local stop, avatar: any = runtime.mount(function()
 			return UI.Avatar({
 				name = "Ada",
 				presence = presence,
@@ -521,7 +537,8 @@ t.describe("avatar faces", function()
 			})
 		end, engine.new("Folder"))
 		local mark = avatar:FindFirstChild("Presence")
-		local statuses = { online = "success", away = "warning", busy = "error", offline = "neutral" }
+		local statuses: { [string]: string } =
+			{ online = "success", away = "warning", busy = "error", offline = "neutral" }
 		for _, state in { "online", "away", "busy", "offline" } do
 			presence:set(state)
 			label:set("Local " .. state)
@@ -566,7 +583,7 @@ t.describe("avatar faces", function()
 
 	t.it("draws the presence mark on the avatar with a shared inner cutout stroke in the corner", function()
 		local engine, runtime, UI = setup()
-		local stop, avatar = runtime.mount(function()
+		local stop, avatar: any = runtime.mount(function()
 			return UI.Avatar({ name = "Ada", presence = "online", onActivate = function() end })
 		end, engine.new("Folder"))
 		local mark = avatar:FindFirstChild("Presence")
@@ -586,8 +603,8 @@ t.describe("avatar faces", function()
 
 	t.it("refuses an invalid bound rung without moving geometry and recovers through a valid rung and nil", function()
 		local engine, runtime, UI = setup()
-		local rung = Compose.cell("compact")
-		local stop, avatar = runtime.mount(function()
+		local rung = Compose.cell("compact" :: string?)
+		local stop, avatar: any = runtime.mount(function()
 			return UI.Avatar({ name = "Ada", controlSize = rung })
 		end, engine.new("Folder"))
 		local initials = avatar:FindFirstChild("Initials")
@@ -615,7 +632,7 @@ end)
 t.describe("avatar groups", function()
 	t.it("caps the caller order at four, reports the hidden count and keeps faces informational", function()
 		local engine, runtime, UI = setup()
-		local stop, group = runtime.mount(function()
+		local stop, group: any = runtime.mount(function()
 			return UI.AvatarGroup({ items = people(6) })
 		end, engine.new("Folder"))
 		local shown = {}
@@ -647,49 +664,49 @@ t.describe("avatar groups", function()
 
 	t.it("refuses bad members and malformed container policies and keeps an empty group informational", function()
 		local refused = {
-			function(UI)
-				return UI.AvatarGroup({})
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({} :: any)
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = false })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = false } :: any)
 			end,
-			function(UI)
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.AvatarGroup({ items = { [2] = { id = "a", name = "A" } } })
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = { { id = "a", name = "" } } })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = { { id = "a", name = "" } :: FixtureMediaTypes.AvatarMember } })
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = { { id = "", name = "A" } } })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = { { id = "", name = "A" } :: FixtureMediaTypes.AvatarMember } })
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = { { id = "a", name = "A", presence = "unknown" } } })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = { { id = "a", name = "A", presence = "unknown" } } } :: any)
 			end,
-			function(UI)
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.AvatarGroup({ items = {}, max = 0 })
 			end,
-			function(UI)
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.AvatarGroup({ items = {}, max = math.huge })
 			end,
-			function(UI)
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.AvatarGroup({ items = {}, max = 1.5 })
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = {}, layout = "grid" })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = {}, layout = "grid" } :: any)
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = {}, overflow = "more" })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = {}, overflow = "more" } :: any)
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = {}, form = "photo" })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = {}, form = "photo" } :: any)
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = {}, onOverflow = true })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = {}, onOverflow = true } :: any)
 			end,
-			function(UI)
-				return UI.AvatarGroup({ items = {}, controlSize = "huge" })
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AvatarGroup({ items = {}, controlSize = "huge" } :: any)
 			end,
-			function(UI)
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.AvatarGroup({ items = {}, over = "photo" })
 			end,
 		}
@@ -697,7 +714,7 @@ t.describe("avatar groups", function()
 			t.expect(`{index}: {rejects(build)}`).toBe(`{index}: true`)
 		end
 		local engine, runtime, UI = setup()
-		local stop, group = runtime.mount(function()
+		local stop, group: any = runtime.mount(function()
 			return UI.AvatarGroup({ items = {} })
 		end, engine.new("Folder"))
 		local faces = 0
@@ -718,13 +735,16 @@ t.describe("avatar groups", function()
 		function()
 			for _, layout in { "stacked", "spread" } do
 				local engine, runtime, UI = setup()
-				local items = Compose.cell({ { id = "a", name = "Ada", presence = "online" } })
-				local stop, group = runtime.mount(function()
+				local items =
+					Compose.cell({ { id = "a", name = "Ada", presence = "online" } :: FixtureMediaTypes.AvatarMember })
+				local stop, group: any = runtime.mount(function()
 					return UI.AvatarGroup({ items = items, layout = layout })
 				end, engine.new("Folder"))
 				local face = group:FindFirstChild("a")
 				t.expect(face:GetAttribute("AccessibleLabel")).toBe("Ada, online")
-				items:set({ { id = "a", name = "Émile Noël", presence = "offline" } })
+				items:set({
+					{ id = "a", name = "Émile Noël", presence = "offline" } :: FixtureMediaTypes.AvatarMember,
+				})
 				t.expect(group:FindFirstChild("a")).toBe(face)
 				t.expect(face:FindFirstChild("Initials").Text).toBe("ÉN")
 				t.expect(face:GetAttribute("AccessibleLabel")).toBe("Émile Noël, offline")
@@ -746,14 +766,14 @@ t.describe("avatar groups", function()
 	)
 
 	t.it("localizes overflow semantics reactively for the count and ellipsis forms", function()
-		for _, form in { "count", "ellipsis" } do
+		for _, form in { "count", "ellipsis" } :: { "count" | "ellipsis" } do
 			local engine, runtime, UI = setup()
-			local phrase, items, calls = Compose.cell("Deux autres"), Compose.cell(people(3)), 0
-			local stop, group = runtime.mount(function()
+			local phrase, items, calls = Compose.cell("Deux autres" :: string?), Compose.cell(people(3)), 0
+			local stop, group: any = runtime.mount(function()
 				return UI.AvatarGroup({
 					items = items,
 					max = 1,
-					overflow = form,
+					overflow = form :: "count" | "ellipsis",
 					overflowLabel = phrase,
 					onOverflow = function()
 						calls += 1
@@ -785,14 +805,14 @@ t.describe("avatar groups", function()
 
 	t.it("keeps a bound nil presence valid through source replacement and a later presence", function()
 		local engine, runtime, UI = setup()
-		local function roster(image: string, presence: string?)
+		local function roster(image: string, presence: FixtureMediaTypes.Presence?)
 			return {
-				{ id = "a", name = "Ada", image = image, presence = presence },
-				{ id = "b", name = "Bo" },
+				{ id = "a", name = "Ada", image = image, presence = presence } :: FixtureMediaTypes.AvatarMember,
+				{ id = "b", name = "Bo" } :: FixtureMediaTypes.AvatarMember,
 			}
 		end
 		local items, activations = Compose.cell(roster("rbxassetid://1", nil)), 0
-		local stop, group = runtime.mount(function()
+		local stop, group: any = runtime.mount(function()
 			return UI.AvatarGroup({
 				items = items,
 				max = 1,
@@ -812,7 +832,7 @@ t.describe("avatar groups", function()
 		t.expect(mark.Visible).toBe(true)
 		t.expect(mark:HasTag("facet-status-success")).toBe(true)
 		t.expect(pcall(function()
-			items:set(roster("rbxassetid://1", "invalid"))
+			items:set(roster("rbxassetid://1", "invalid" :: any))
 		end)).toBe(false)
 		items:set(roster("rbxassetid://1", nil))
 		t.expect(face:GetAttribute("AccessibleLabel")).toBe("Ada")
@@ -844,17 +864,20 @@ t.describe("avatar groups", function()
 		local loaded, released = 0, 0
 		local shared = Compose.createSharedResource(function()
 			loaded += 1
-			return { state = Compose.cell("ready"), value = Compose.cell("rbxthumb://type=AvatarHeadShot&id=1") }, function()
+			return {
+				state = Compose.cell("ready" :: FixtureMediaTypes.ImageState),
+				value = Compose.cell("rbxthumb://type=AvatarHeadShot&id=1"),
+			}, function()
 				released += 1
 			end
 		end)
 		local items = Compose.cell({
-			{ id = "a", name = "Ada", image = "rbxassetid://123" },
-			{ id = "b", name = "Bo", image = "rbxassetid://456" },
-			{ id = "c", name = "Côte", userId = 1, resource = shared },
-			{ id = "d", name = "Dan", userId = 1, resource = shared },
+			{ id = "a", name = "Ada", image = "rbxassetid://123" } :: FixtureMediaTypes.AvatarMember,
+			{ id = "b", name = "Bo", image = "rbxassetid://456" } :: FixtureMediaTypes.AvatarMember,
+			{ id = "c", name = "Côte", userId = 1, resource = shared } :: FixtureMediaTypes.AvatarMember,
+			{ id = "d", name = "Dan", userId = 1, resource = shared } :: FixtureMediaTypes.AvatarMember,
 		})
-		local stop, group = runtime.mount(function()
+		local stop, group: any = runtime.mount(function()
 			return UI.AvatarGroup({ items = items })
 		end, engine.new("Folder"))
 		local function image(id: string): any
@@ -868,7 +891,7 @@ t.describe("avatar groups", function()
 		t.expect(image("d").Image).toBe("rbxthumb://type=AvatarHeadShot&id=1")
 		t.expect(image("c") ~= image("d")).toBe(true)
 		local first = group:FindFirstChild("a")
-		items:set({ { id = "a", name = "Ada", image = "rbxassetid://789" } })
+		items:set({ { id = "a", name = "Ada", image = "rbxassetid://789" } :: FixtureMediaTypes.AvatarMember })
 		t.expect(image("a").Image).toBe("rbxassetid://789")
 		t.expect(released).toBe(1)
 		t.expect(group:FindFirstChild("a")).toBe(first)
@@ -879,8 +902,10 @@ t.describe("avatar groups", function()
 
 	t.it("builds the thumbnail address from a member user id", function()
 		local engine, runtime, UI = setup()
-		local stop, group = runtime.mount(function()
-			return UI.AvatarGroup({ items = { { id = "u", name = "User", userId = 24813339 } } })
+		local stop, group: any = runtime.mount(function()
+			return UI.AvatarGroup({
+				items = { { id = "u", name = "User", userId = 24813339 } :: FixtureMediaTypes.AvatarMember },
+			})
 		end, engine.new("Folder"))
 		t.expect(group:FindFirstChild("u"):FindFirstChild("Portrait"):FindFirstChild("Image").Image)
 			.toBe("rbxthumb://type=AvatarHeadShot&id=24813339&w=150&h=150")
@@ -904,9 +929,9 @@ end
 
 local function iconPackage(entries: { [string]: any }): any
 	local package = themes.neutralPackage()
-	package.assets.cross = { content = "rbxassetid://33" }
-	package.assets.caretHot = { content = "rbxassetid://32" }
-	package.assets.caret = { content = "rbxassetid://31" }
+	assert(package.assets).cross = { content = "rbxassetid://33" }
+	assert(package.assets).caretHot = { content = "rbxassetid://32" }
+	assert(package.assets).caret = { content = "rbxassetid://31" }
 	package.icons = entries
 	return assert(themes.define(package))
 end
@@ -926,7 +951,7 @@ t.describe("semantic icons", function()
 		t.expect(themes.resolveIcon(namespaced, "demo:gauge.needle", "hover")).toBe("rbxassetid://31")
 		local engine, runtime, UI = controlsFor({ theme = package })
 		local selected, enabled = Compose.cell(false), Compose.cell(true)
-		local stop, button = runtime.mount(function()
+		local stop, button: any = runtime.mount(function()
 			return UI.Button({ icon = "close", label = "Close", selected = selected, enabled = enabled })
 		end, engine.new("Folder"))
 		local icon = find(button, "LeadingIcon")
@@ -953,12 +978,14 @@ t.describe("semantic icons", function()
 		t.expect(icons.ART.settings.contentId).toBe("rbxassetid://78513807849201")
 		t.expect(icons.ART.settings.tintRole).toBe("content")
 		local engine, runtime, UI = controlsFor()
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.Picker({
 				selected = Compose.cell("a"),
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				iconOnly = true,
-				options = { { value = "a", label = "Alpha", icon = "settings" } },
+				options = {
+					{ value = "a", label = "Alpha", icon = "settings" } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			})
 		end, engine.new("Folder"))
 		t.expect(find(find(root, "a"), "LeadingIcon").Image).toBe("rbxassetid://78513807849201")
@@ -1008,13 +1035,13 @@ t.describe("semantic icons", function()
 		t.expect(icons.ART["facet:search"].contentId).toBe(standard)
 		t.expect(themes.resolveIcon(themes.neutralPackage(), "facet:search")).toBe(standard)
 		for _, name in { "pixel_quest", "compact_pointer", "glossy_touch" } do
-			local package = assert(require("../examples/themes/" .. name).build(themes))
+			local package = assert(requireDynamic("../examples/themes/" .. name).build(themes))
 			t.expect(`{name}: {themes.resolveIcon(package, "facet:search")}`).toBe(`{name}: {standard}`)
 		end
 		local custom = iconPackage({ ["facet:search"] = "caret" })
 		t.expect(themes.resolveIcon(custom, "facet:search")).toBe("rbxassetid://31")
 		local engine, runtime, UI = setup({ theme = custom })
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.Label({ title = "Find", icon = "facet:search" })
 		end, engine.new("Folder"))
 		t.expect(root:FindFirstChildWhichIsA("ImageLabel").Image).toBe("rbxassetid://31")
@@ -1023,15 +1050,15 @@ t.describe("semantic icons", function()
 	end)
 
 	t.it("sizes icons from the theme rung metric, with defaults and a filled partial declaration", function()
-		local rung = Compose.cell("regular")
+		local rung = Compose.cell("regular" :: "compact" | "regular" | "large")
 		local selected = Compose.cell(themes.neutralPackage())
 		local engine, runtime, UI = setup({ theme = selected, controlSize = rung })
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.Label({ title = "Find", icon = "facet:search" })
 		end, engine.new("Folder"))
 		local icon = root:FindFirstChildWhichIsA("ImageLabel")
 		for name, size in { compact = 16, regular = 20, large = 24 } do
-			rung:set(name)
+			rung:set(name :: "compact" | "regular" | "large")
 			t.expect(`{name}: {icon.Size.X.Offset}x{icon.Size.Y.Offset}`).toBe(`{name}: {size}x{size}`)
 		end
 		local partial = themes.neutralPackage()
@@ -1041,7 +1068,7 @@ t.describe("semantic icons", function()
 		t.expect(package.metrics.controlSizes.compact.iconSize).toBe(16)
 		selected:set(package)
 		for name, size in { compact = 16, regular = 20, large = 48 } do
-			rung:set(name)
+			rung:set(name :: "compact" | "regular" | "large")
 			t.expect(`{name}: {icon.Size.X.Offset}x{icon.Size.Y.Offset}`).toBe(`{name}: {size}x{size}`)
 		end
 		t.expect(root:FindFirstChildWhichIsA("ImageLabel")).toBe(icon)
@@ -1052,11 +1079,11 @@ t.describe("semantic icons", function()
 	t.it("swaps the disclosure caret between trailing and down chevron art on the same icon", function()
 		local engine, runtime, UI = controlsFor()
 		local expanded = Compose.cell(false)
-		local stop, disclosure = runtime.mount(function()
+		local stop, disclosure: any = runtime.mount(function()
 			return UI.DisclosureGroup({
 				label = "Advanced",
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Text({ text = "Body" })
 				end,
 			})
@@ -1082,13 +1109,14 @@ t.describe("semantic icons", function()
 
 	t.it("resolves, sizes, tags and pixel-samples an icon element that dies with its owner", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local package = Compose.cell(themes.neutralPackage())
 		local ctx = context(Compose, runtime, { types = engine.types, theme = package })
 		local folder = engine.new("Folder")
 		local baseline = engine.census()
 		local name = Compose.cell("close")
-		local stop, icon = runtime.mount(function()
+		local stop, icon: any = runtime.mount(function()
 			return ctx.icon(name)
 		end, folder)
 		t.expect(icon.ClassName).toBe("ImageLabel")
@@ -1118,18 +1146,22 @@ t.describe("semantic icons", function()
 	t.it("re-renders mounted icons on content and declaration changes but not on palette or map order", function()
 		local function variant(configure: (any) -> ()): any
 			local package = themes.neutralPackage()
-			package.assets.plus = { content = "rbxassetid://901" }
-			package.assets.minus = { content = "rbxassetid://902" }
-			package.icons = { increment = "plus", decrement = "minus" }
+			assert(package.assets).plus = { content = "rbxassetid://901" }
+			assert(package.assets).minus = { content = "rbxassetid://902" }
+			package.icons = { increment = "plus", decrement = "minus" } :: { [string]: FixtureThemeTypes.IconEntry }
 			configure(package)
 			return assert(themes.define(package))
 		end
 		local base = variant(function() end)
 		local selected = Compose.cell(base)
 		local engine, runtime, UI = setup({ theme = selected })
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Label "Up" { title = "Up", icon = "increment" },
+		local stop, root: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({
+				UI.Label "Up" { title = "Up", icon = "increment" } :: unknown,
 				UI.Label "Down" { title = "Down", icon = "decrement" },
 			})
 		end, engine.new("Folder"))
@@ -1177,7 +1209,8 @@ local SKIN_STATES = { "default", "hover", "pressed", "selected", "disabled" }
 
 local function skinImages(package: any, slots: { string }?): (number, number, { string })
 	local engine = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local pixelated, other, offenders = 0, 0, {}
 	local names = slots
 	if names == nil then
@@ -1191,12 +1224,13 @@ local function skinImages(package: any, slots: { string }?): (number, number, { 
 		names = collected
 	end
 	for _, slot in names :: { string } do
-		local state = Compose.cell("default")
-		local stop, root = runtime.mount(function()
+		local state: FixtureComposeTypes.Cell<"default" | "disabled" | "hover" | "pressed" | "selected"> =
+			Compose.cell("default" :: FixtureThemeTypes.SkinState)
+		local stop, root: any = runtime.mount(function()
 			return themes.skin(runtime, package, slot, { types = engine.types, state = state })
 		end, engine.new("Folder"))
 		for _, name in SKIN_STATES do
-			state:set(name)
+			state:set(name :: FixtureThemeTypes.SkinState)
 			for _, image in imageLabels(root) do
 				if image.Visible then
 					if image.ResampleMode == engine.types.Enum.ResamplerMode.Pixelated then
@@ -1227,26 +1261,32 @@ t.describe("pixel rendering", function()
 	t.it(
 		"stamps every layer of a pixel stack, state-swapped art and icons, and a standard package stamps none",
 		function()
-			local function stack(rendering: string?): any
+			local function stack(rendering: (string | boolean)?): any
 				local package = themes.neutralPackage()
 				package.identity.rendering = rendering :: any
-				package.assets.art = { content = "rbxassetid://10" }
-				package.assets.hot = { content = "rbxassetid://11", sliceCenter = { x0 = 2, y0 = 2, x1 = 6, y1 = 6 } }
-				package.icons = { close = { default = "art", pressed = "hot" } }
-				package.chrome.control = {
-					kind = "layered",
+				assert(package.assets).art = { content = "rbxassetid://10" }
+				assert(package.assets).hot =
+					{ content = "rbxassetid://11", sliceCenter = { x0 = 2, y0 = 2, x1 = 6, y1 = 6 } }
+				package.icons =
+					{ close = { default = "art", pressed = "hot" } } :: { [string]: FixtureThemeTypes.IconEntry }
+				assert(package.chrome).control = {
+					kind = "layered" :: "layered",
 					layers = {
-						{ kind = "fill", asset = { default = "art", pressed = "hot" } },
-						{ kind = "tile", asset = "art", tileSize = { w = 8, h = 8 } },
-						{ kind = "edges", asset = "art", thickness = 4 },
-						{ kind = "corners", asset = "art", size = 8 },
-						{ kind = "plaque", asset = { default = "art", hover = "hot" }, size = { w = 40, h = 12 } },
+						{ kind = "fill" :: "fill", asset = { default = "art", pressed = "hot" } } :: FixtureThemeTypes.SkinLayer,
+						{ kind = "tile" :: "tile", asset = "art", tileSize = { w = 8, h = 8 } } :: FixtureThemeTypes.SkinLayer,
+						{ kind = "edges" :: "edges", asset = "art", thickness = 4 } :: FixtureThemeTypes.SkinLayer,
+						{ kind = "corners" :: "corners", asset = "art", size = 8 } :: FixtureThemeTypes.SkinLayer,
+						{
+							kind = "plaque" :: "plaque",
+							asset = { default = "art", hover = "hot" },
+							size = { w = 40, h = 12 },
+						} :: FixtureThemeTypes.SkinLayer,
 					},
 				}
 				return assert(themes.define(package))
 			end
-			for _, rendering in { "pixel", false } do
-				local package = stack(if rendering then rendering else nil)
+			for _, rendering in { "pixel", false } :: { string | boolean } do
+				local package = stack(if rendering then "pixel" else nil)
 				local pixelated, other = skinImages(package, { "control" })
 				local layers = 1 + 1 + 4 + 4 + 1
 				if rendering then
@@ -1257,10 +1297,12 @@ t.describe("pixel rendering", function()
 					t.expect(other).toBe(layers * #SKIN_STATES)
 				end
 				local engine = engineLib.new()
-				local runtime = Roblox.createRuntime(engine)
+				local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+					Roblox.createRuntime(engine)
 				local ctx = context(Compose, runtime, { types = engine.types, theme = package })
-				local state = Compose.cell("default")
-				local stop, icon = runtime.mount(function()
+				local state: FixtureComposeTypes.Cell<"default" | "disabled" | "hover" | "pressed" | "selected"> =
+					Compose.cell("default" :: FixtureThemeTypes.SkinState)
+				local stop, icon: any = runtime.mount(function()
 					return ctx.icon("close", nil, state)
 				end, engine.new("Folder"))
 				local expected = if rendering
@@ -1279,7 +1321,7 @@ t.describe("pixel rendering", function()
 
 	t.it("keeps shipped standard packages on Default resampling across every skin state", function()
 		for _, name in { "fantasy_ornate", "fantasy_parchment", "glossy_touch", "compact_pointer" } do
-			local package = assert(require("../examples/themes/" .. name).build(themes))
+			local package = assert(requireDynamic("../examples/themes/" .. name).build(themes))
 			local pixelated, other = skinImages(package)
 			t.expect(`{name}: {pixelated} pixelated, some art {other > 0}`).toBe(`{name}: 0 pixelated, some art true`)
 		end
@@ -1289,7 +1331,7 @@ end)
 t.describe("reference package art", function()
 	t.it("resolves Fantasy Ornate's six mapped icons and one namespaced icon to its own art", function()
 		local package = assert(require("../examples/themes/fantasy_ornate").build(themes))
-		local own = {
+		local own: { [string]: string } = {
 			increment = "ornate_icon_plus",
 			decrement = "ornate_icon_minus",
 			["chevron.trailing"] = "ornate_icon_chevron_right",
@@ -1302,7 +1344,7 @@ t.describe("reference package art", function()
 		for name, asset in own do
 			count += 1
 			local resolved = themes.resolveIcon(package, name)
-			t.expect(`{name}: {resolved}`).toBe(`{name}: {package.assets[asset].content}`)
+			t.expect(`{name}: {resolved}`).toBe(`{name}: {assert(package.assets)[asset].content}`)
 			t.expect(string.match(resolved :: string, "^rbxassetid://%d+$") ~= nil).toBe(true)
 			if icons.ART[name] then
 				t.expect(resolved ~= icons.ART[name].contentId).toBe(true)
@@ -1322,7 +1364,7 @@ t.describe("reference package art", function()
 
 	t.it("gives the platform pair one authored icon each and the framework art for the rest", function()
 		for _, name in { "glossy_touch", "compact_pointer" } do
-			local package = assert(require("../examples/themes/" .. name).build(themes))
+			local package = assert(requireDynamic("../examples/themes/" .. name).build(themes))
 			local count = 0
 			for icon in package.icons do
 				t.expect(icon).toBe("facet:search")
@@ -1355,13 +1397,14 @@ t.describe("reference package art", function()
 		t.expect(themes.resolveIcon(viaContent, "increment")).toBe("rbxassetid://137937473154830")
 		t.expect(themes.resolveIcon(viaContentId, "increment")).toBe("rbxassetid://137937473154830")
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local images = {}
 		for _, package in { viaContent, viaContentId } do
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				return themes.skin(runtime, package, "control", { types = engine.types })
 			end, engine.new("Folder"))
-			local image = root:FindFirstChild("control1")
+			local image: any = root:FindFirstChild("control1")
 			table.insert(images, {
 				image = image.Image,
 				scale = image.ScaleType,
@@ -1383,13 +1426,19 @@ t.describe("icon layout", function()
 		local package = Compose.cell(themes.neutralPackage())
 		local gap = Compose.cell(12)
 		local engine, runtime, UI = setup({ theme = package })
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Label "Leading" { title = "Save", icon = "checkmark" },
+		local stop, root: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({
+				UI.Label "Leading" { title = "Save", icon = "checkmark" } :: unknown,
 				UI.Label "Trailing" { title = "Next", icon = "chevron.trailing", iconPosition = "trailing", gap = gap },
 			})
 		end, engine.new("Folder"))
-		for name, expected in { Leading = { "icon", "text" }, Trailing = { "text", "icon" } } do
+		for name, expected in
+			{ Leading = { "icon", "text" }, Trailing = { "text", "icon" } } :: { [string]: { string } }
+		do
 			local row = root:FindFirstChild(name)
 			local icon, title = row:FindFirstChildWhichIsA("ImageLabel"), row:FindFirstChildWhichIsA("TextLabel")
 			local layout = row:FindFirstChildWhichIsA("UIListLayout")
@@ -1424,7 +1473,8 @@ t.describe("icon layout", function()
 	t.it("keeps a preferred hint glyph square at the theme icon size across a live theme swap", function()
 		local package = Compose.cell(themes.neutralPackage())
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local input = engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
 			return nil
@@ -1444,9 +1494,13 @@ t.describe("icon layout", function()
 		local binding = engine.new("InputBinding")
 		binding.KeyCode = engine.types.Enum.KeyCode.ButtonX
 		action.PreferredBinding = binding
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.ShortcutHint "Art" { action = action },
+		local stop, root: any = runtime.mount(function()
+			return (
+				(
+					runtime.constructors.Frame :: unknown
+				) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+			)({
+				UI.ShortcutHint "Art" { action = action } :: unknown,
 				UI.ShortcutHint "Keys" { keys = { { "Ctrl", "S" } } },
 			})
 		end, engine.new("Folder"))
@@ -1471,27 +1525,27 @@ end)
 t.describe("sliced and bar art", function()
 	t.it("compiles slice art with or without declared source sizes and paints the exact slice values", function()
 		local sized = themes.neutralPackage()
-		sized.assets.plate = {
+		assert(sized.assets).plate = {
 			content = "rbxassetid://51",
 			sliceCenter = { x0 = 8, y0 = 6, x1 = 24, y1 = 26 },
 			sliceScale = 2,
 			width = 32,
 			height = 32,
 		} :: any
-		sized.chrome.control = { kind = "nineSlice", asset = "plate" }
+		assert(sized.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "plate" }
 		local package, report = themes.define(sized)
 		t.expect(report.ok).toBe(true)
-		local compiled = assert(package).assets.plate :: any
+		local compiled = assert(assert(package).assets).plate :: any
 		t.expect(compiled.width).toBe(32)
 		t.expect(compiled.height).toBe(32)
 		t.expect(compiled.sliceCenter.x0).toBe(8)
 		t.expect(compiled.sliceCenter.y1).toBe(26)
 		local bare = themes.neutralPackage()
-		bare.assets.plate = { content = "rbxassetid://52", sliceCenter = { x0 = 8, y0 = 8, x1 = 24, y1 = 24 } }
-		bare.chrome.control = { kind = "nineSlice", asset = "plate" }
+		assert(bare.assets).plate = { content = "rbxassetid://52", sliceCenter = { x0 = 8, y0 = 8, x1 = 24, y1 = 24 } }
+		assert(bare.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "plate" }
 		local sizeless, sizelessReport = themes.define(bare)
 		t.expect(sizelessReport.ok).toBe(true)
-		t.expect((assert(sizeless).assets.plate :: any).width).toBe(nil)
+		t.expect((assert(assert(sizeless).assets).plate :: any).width).toBe(nil)
 		local engine = engineLib.new()
 		local runtime = Roblox.createRuntime(engine)
 		for _, case in
@@ -1500,10 +1554,10 @@ t.describe("sliced and bar art", function()
 				{ package = assert(sizeless), image = "rbxassetid://52", rect = { 8, 8, 24, 24 }, scale = 1 },
 			}
 		do
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				return themes.skin(runtime, case.package, "control", { types = engine.types })
 			end, engine.new("Folder"))
-			local image = root:FindFirstChild("control1")
+			local image: any = root:FindFirstChild("control1")
 			t.expect(image.Image).toBe(case.image)
 			t.expect(image.ScaleType).toBe(engine.types.Enum.ScaleType.Slice)
 			t.expect(image.SliceCenter).toBe(engine.types.Rect.new(table.unpack(case.rect)))
@@ -1520,15 +1574,24 @@ t.describe("sliced and bar art", function()
 			local package = assert(require("../examples/themes/fantasy_parchment").build(themes))
 			local asset = package.assets.parchment_panel
 			local engine = engineLib.new()
-			local runtime = Roblox.createRuntime(engine)
+			local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+				Roblox.createRuntime(engine)
 			local target, root, sheet
 			local stop = runtime.mount(function()
-				target = runtime.constructors.Frame({})
+				target = (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({})
 				root = themes.skin(runtime, package, "panel", { types = engine.types, target = target })
 				sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-				return runtime.constructors.Frame({ target, root, sheet })
+				return (
+					(
+						runtime.constructors.Frame :: unknown
+					) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+				)({ target :: unknown, root, sheet })
 			end, engine.new("Folder"))
-			local image = root:FindFirstChild("panel1", true)
+			local image: any = root:FindFirstChild("panel1", true)
 			t.expect(image.Image).toBe(asset.contentId)
 			t.expect(image.Image).toBe("rbxassetid://78012779616687")
 			t.expect(image.ScaleType).toBe(engine.types.Enum.ScaleType.Slice)
@@ -1540,7 +1603,7 @@ t.describe("sliced and bar art", function()
 			t.expect(table.concat(image:GetTags(), ",")).toBe("facet-skin-art,facet-skin-art-panel")
 			t.expect(target:HasTag("facet-skinned")).toBe(true)
 			local skinned = false
-			for _, rule in sheet:GetChildren() do
+			for _, rule in (sheet:GetChildren() :: unknown) :: { StyleRule } do
 				local properties = rule:GetProperties()
 				local roleTint = rule.Selector == ".facet-role-destructive > #SkinBoundary >> .facet-skin-art"
 					or rule.Selector == ".facet-accent > #SkinBoundary >> .facet-skin-art"
@@ -1576,16 +1639,18 @@ t.describe("sliced and bar art", function()
 			center = { content = "rbxassetid://4" },
 			shared = { content = "rbxassetid://5" },
 		}
-		package.chrome.barFill = { kind = "nineSlice", asset = "fill" }
-		package.chrome.barCap =
-			{ kind = "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 28, h = 36 } }
-		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 36, h = 28 } }
+		assert(package.chrome).barFill = { kind = "nineSlice" :: "nineSlice", asset = "fill" }
+		assert(package.chrome).barCap =
+			{ kind = "nineSlice" :: "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 28, h = 36 } }
+		assert(package.chrome).barCenter =
+			{ kind = "nineSlice" :: "nineSlice", asset = "center", size = { w = 36, h = 28 } }
 		local selected = Compose.cell(package)
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = selected }))
 		local thickness = Compose.cell(18)
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.ProgressView({ value = 0.01, thickness = thickness })
 		end, engine.new("Folder"))
 		local fill = root:FindFirstChild("Fill1", true)
@@ -1611,10 +1676,11 @@ t.describe("sliced and bar art", function()
 		t.expect(center.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
 		t.expect(center.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
 		t.expect(center.Size).toBe(engine.types.UDim2.fromOffset(23, 18))
-		for _, direction in { "ttb", "btt", "rtl" } do
+		for _, direction in { "ttb", "btt", "rtl" } :: { "btt" | "rtl" | "ttb" } do
 			local next = table.clone(package)
 			next.chrome = table.clone(package.chrome)
-			next.chrome.barFill = { kind = "nineSlice", asset = "fill", direction = direction }
+			assert(next.chrome).barFill =
+				{ kind = "nineSlice" :: "nineSlice", asset = "fill", direction = direction :: "btt" | "rtl" | "ttb" }
 			selected:set(next)
 			t.expect(center.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
 			for _, cap in { start, finish } do
@@ -1632,7 +1698,8 @@ t.describe("sliced and bar art", function()
 		end
 		local sharedCap = table.clone(package)
 		sharedCap.chrome = table.clone(package.chrome)
-		sharedCap.chrome.barCap = { kind = "nineSlice", asset = "shared", size = { w = 28, h = 36 } }
+		assert(sharedCap.chrome).barCap =
+			{ kind = "nineSlice" :: "nineSlice", asset = "shared", size = { w = 28, h = 36 } }
 		selected:set(sharedCap)
 		t.expect(start.Image).toBe("rbxassetid://5")
 		t.expect(finish.Image).toBe("rbxassetid://5")
@@ -1655,17 +1722,19 @@ t.describe("sliced and bar art", function()
 			cap = { content = "rbxassetid://3" },
 			center = { content = "rbxassetid://4" },
 		}
-		package.chrome.barTrack = { kind = "nineSlice", asset = "track" }
-		package.chrome.barFill = { kind = "nineSlice", asset = "fill" }
-		package.chrome.barCap = { kind = "nineSlice", asset = "cap", size = { w = 12, h = 12 } }
-		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 12, h = 12 } }
+		assert(package.chrome).barTrack = { kind = "nineSlice" :: "nineSlice", asset = "track" }
+		assert(package.chrome).barFill = { kind = "nineSlice" :: "nineSlice", asset = "fill" }
+		assert(package.chrome).barCap = { kind = "nineSlice" :: "nineSlice", asset = "cap", size = { w = 12, h = 12 } }
+		assert(package.chrome).barCenter =
+			{ kind = "nineSlice" :: "nineSlice", asset = "center", size = { w = 12, h = 12 } }
 		local engine = engineLib.new()
 		local folder = engine.new("Folder")
 		local baseline = engine.census()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
 		local value = Compose.cell(0.4)
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.ProgressView({ value = value })
 		end, folder)
 		local track = root:FindFirstChild("Track", true)

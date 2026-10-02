@@ -95,7 +95,7 @@ export type NoticeSpec = Types.FrameProps & {
 	link: { label: Types.ValueString, onActivate: () -> () }?,
 	actions: { Action }?,
 	onDismiss: (() -> ())?,
-	controlSize: Value<Types.ControlSize>?,
+	controlSize: Value<Types.ControlSize?>?,
 }
 
 export type NavBarSpec = Types.FrameProps & {

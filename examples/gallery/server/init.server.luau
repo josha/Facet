@@ -46,7 +46,7 @@ local function broadcast(reply: any)
 end
 
 local function stateReply(): any
-	return { kind = "state", revision = revision, allocation = rules.copy(allocation) }
+	return { kind = "state" :: "state", revision = revision, allocation = rules.copy(allocation) }
 end
 
 local function part(name: string, size: Vector3, cframe: CFrame, color: Color3, parent: Instance): BasePart
@@ -134,7 +134,7 @@ local function buildFixture()
 		holder = player
 		holderToken = `s{tokenCounter}`
 		send(player, {
-			kind = "session",
+			kind = "session" :: "session",
 			token = holderToken,
 			revision = revision,
 			allocation = rules.copy(allocation),
@@ -232,7 +232,7 @@ COMMANDS.character = function(player: Player, payload: any)
 				(character :: Model):PivotTo(SPAWN_CFRAME)
 			end
 		end
-		send(player, { kind = "character", loaded = true })
+		send(player, { kind = "character" :: "character", loaded = true })
 	elseif payload.action == "remove" then
 		loadedFor[player] = nil
 		if player.Character ~= nil then
@@ -242,16 +242,16 @@ COMMANDS.character = function(player: Player, payload: any)
 		if holder == player then
 			holder = nil
 			holderToken = ""
-			send(player, { kind = "closed", reason = "character-removed" })
+			send(player, { kind = "closed" :: "closed", reason = "character-removed" })
 		end
-		send(player, { kind = "character", loaded = false })
+		send(player, { kind = "character" :: "character", loaded = false })
 	end
 end
 
 COMMANDS.console = function(_player: Player, payload: any)
 	if payload.action == "remove" then
 		destroyFixture()
-		broadcast({ kind = "closed", reason = "adornee-lost" })
+		broadcast({ kind = "closed" :: "closed", reason = "adornee-lost" })
 	elseif payload.action == "restore" then
 		destroyFixture()
 		buildFixture()
@@ -273,7 +273,7 @@ COMMANDS.apply = function(player: Player, payload: any)
 	lastCommandAt[player] = os.clock()
 	if not verdict.ok then
 		send(player, {
-			kind = "verdict",
+			kind = "verdict" :: "verdict",
 			requestId = requestId,
 			ok = false,
 			code = verdict.code,
@@ -287,7 +287,7 @@ COMMANDS.apply = function(player: Player, payload: any)
 	revision += 1
 	applyToWorld()
 	send(player, {
-		kind = "verdict",
+		kind = "verdict" :: "verdict",
 		requestId = requestId,
 		ok = true,
 		revision = revision,

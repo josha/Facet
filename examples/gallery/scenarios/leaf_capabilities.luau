@@ -1,12 +1,14 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 return {
 	title = "Leaf capabilities",
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -20,17 +22,17 @@ return {
 		local frozen = Compose.cell(false)
 		local narrow = Compose.cell(true)
 
-		local nodes = {}
-		local function solvedNameWidth(_built, name)
+		local nodes: { [string]: ScrollingFrame | TextLabel } = {}
+		local function solvedNameWidth(_built: any, name: string?): number?
 			local node = nodes[name or "CutMiddle"]
 			return if node then node.AbsoluteSize.X else nil
 		end
-		local function boardOffset(_built)
-			return if nodes.Board then nodes.Board.CanvasPosition else nil
+		local function boardOffset(_built: any): Vector2?
+			return if nodes.Board then (nodes.Board :: ScrollingFrame).CanvasPosition else nil
 		end
 
 		local function Page()
-			local function nameWidth(use)
+			local function nameWidth(use: Use)
 				return if use(narrow) then 160 else 320
 			end
 
@@ -63,7 +65,7 @@ return {
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								text = `sector {row}-{col}`,
-								textRole = "body",
+								textRole = "body" :: "body",
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
@@ -88,7 +90,7 @@ return {
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
+						}) :: unknown,
 						table.unpack(tiles),
 					})
 				)
@@ -102,14 +104,14 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Leaf capabilities",
-					textRole = "title",
+					textRole = "title" :: "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -123,11 +125,11 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.Button({
 						LayoutOrder = 1,
 						Name = "Width",
-						label = function(use)
+						label = function(use: Use)
 							return if use(narrow) then "Widen" else "Narrow"
 						end,
 						onActivate = function()
@@ -137,7 +139,7 @@ return {
 					UI.Button({
 						LayoutOrder = 2,
 						Name = "Freeze",
-						label = function(use)
+						label = function(use: Use)
 							return if use(frozen) then "Thaw" else "Freeze"
 						end,
 						onActivate = function()
@@ -151,7 +153,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Markup, and the box it reserves",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -240,7 +242,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Direction: right to left",
-					direction = "rtl",
+					direction = "rtl" :: "rtl",
 					TextWrapped = true,
 				},
 				UI.Text "CutHeading" {
@@ -249,7 +251,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Where the cut goes",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -260,7 +262,7 @@ return {
 					end,
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
-					Size = function(use)
+					Size = function(use: Use)
 						return UDim2.new(0, nameWidth(use), 0, 0)
 					end,
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -273,7 +275,7 @@ return {
 					end,
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
-					Size = function(use)
+					Size = function(use: Use)
 						return UDim2.new(0, nameWidth(use), 0, 0)
 					end,
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -286,7 +288,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "One picture, two modes",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -299,7 +301,7 @@ return {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					}) :: unknown,
 					Host.ImageLabel({
 						LayoutOrder = 1,
 						Name = "Tiled",
@@ -327,7 +329,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "A canvas with two axes",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -341,7 +343,7 @@ return {
 						AutomaticCanvasSize = Enum.AutomaticSize.XY,
 						CanvasSize = UDim2.new(),
 						ScrollingDirection = Enum.ScrollingDirection.XY,
-						ScrollingEnabled = function(use)
+						ScrollingEnabled = function(use: Use)
 							return not use(frozen)
 						end,
 						ScrollBarThickness = 6,
@@ -349,7 +351,7 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
+						}) :: unknown,
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),

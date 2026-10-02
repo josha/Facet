@@ -27,7 +27,7 @@ return function(
 		AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
 	}
 	for _, child in children do
-		table.insert(flowProps, child)
+		flowProps[#flowProps + 1] = child
 	end
 	local flow = Host.Frame(flowProps)
 	local size = ctx.observe.AbsoluteSize(flow)
@@ -36,15 +36,12 @@ return function(
 	props.CanvasSize = function(use: ComposeTypes.Use)
 		return D2.fromOffset(0, use(extent))
 	end
-	table.insert(
-		props,
-		Host.Frame "Measure" {
-			BackgroundTransparency = 1,
-			Size = if hug then D2.fromOffset(0, MEASURE) else D2.new(1, 0, 0, MEASURE),
-			AutomaticSize = if hug then E.AutomaticSize.X else E.AutomaticSize.None,
-			flow,
-		}
-	)
+	props[#props + 1] = Host.Frame "Measure" {
+		BackgroundTransparency = 1,
+		Size = if hug then D2.fromOffset(0, MEASURE) else D2.new(1, 0, 0, MEASURE),
+		AutomaticSize = if hug then E.AutomaticSize.X else E.AutomaticSize.None,
+		flow,
+	}
 	local scroller = Host.ScrollingFrame(props)
 	scrollLock.own(scroller)
 	local laidOut = ctx.layoutSize(flow, ctx.layoutUnit(scroller))

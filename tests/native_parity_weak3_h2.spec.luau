@@ -1,4 +1,5 @@
 --!strict
+local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -20,7 +21,8 @@ local function radialWorld(spec: any): any
 	input.GetFocusedTextBox = function()
 		return nil
 	end
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local UI: any = controls(
 		Compose,
 		runtime,
@@ -31,8 +33,12 @@ local function radialWorld(spec: any): any
 		} :: any
 	)
 	spec.isPresented = spec.isPresented or Compose.cell(true)
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ UI.RadialMenu(spec) })
+	local stop, screen: any = runtime.mount(function()
+		return (
+			(
+				runtime.constructors.ScreenGui :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+		)({ UI.RadialMenu(spec) })
 	end, engine.new("Folder"))
 	return {
 		engine = engine,
@@ -86,7 +92,7 @@ local function iconItems(slots: { string }, fired: { string }?): { any }
 			slot = slot,
 			label = slot,
 			icon = "flag",
-			labelStyle = "icon",
+			labelStyle = "icon" :: "icon",
 			onSelect = function()
 				if fired then
 					table.insert(fired, slot)
@@ -102,9 +108,9 @@ local compassSlots = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }
 t.describe("native parity weak3 h2: radial content fit", function()
 	t.it("defaults to radial fitting and matches an explicit radial fit", function()
 		local results: { [string]: any } = {}
-		for _, mode in { "default", "radial", "none" } do
+		for _, mode in { "default", "radial", "none" } :: { "default" | "none" | "radial" } do
 			local world = radialWorld({
-				distribution = "compass",
+				distribution = "compass" :: "compass",
 				ringWidth = 180,
 				contentFit = if mode == "default" then nil else mode,
 				items = iconItems({ "N", "E" }),
@@ -121,11 +127,11 @@ t.describe("native parity weak3 h2: radial content fit", function()
 	end)
 	t.it("offers independent radial and angular axes and an unchanged full-ring none mode", function()
 		local results: { [string]: any } = {}
-		for _, mode in { "none", "radial", "angular", "both" } do
+		for _, mode in { "none", "radial", "angular", "both" } :: { "angular" | "both" | "none" | "radial" } do
 			local world = radialWorld({
-				distribution = "compass",
+				distribution = "compass" :: "compass",
 				ringWidth = 180,
-				contentFit = mode,
+				contentFit = mode :: "angular" | "both" | "none" | "radial",
 				items = iconItems({ "N", "E" }),
 			})
 			results[mode] = paintOf(world, "N")
@@ -144,12 +150,12 @@ t.describe("native parity weak3 h2: radial content fit", function()
 	end)
 	t.it("gives every sector of a radial-fit ring one pair of radii for unequal content", function()
 		local world = radialWorld({
-			distribution = "compass",
-			contentFit = "radial",
+			distribution = "compass" :: "compass",
+			contentFit = "radial" :: "radial",
 			items = {
 				{ id = "N", slot = "N", label = "Go" },
 				{ id = "E", slot = "E", label = "Wave hello" },
-				{ id = "S", slot = "S", label = "Wave", icon = "flag", labelStyle = "icon" },
+				{ id = "S", slot = "S", label = "Wave", icon = "flag", labelStyle = "icon" :: "icon" },
 			},
 		})
 		local north, east, south = paintOf(world, "N"), paintOf(world, "E"), paintOf(world, "S")
@@ -173,7 +179,7 @@ t.describe("native parity weak3 h2: radial content fit", function()
 					compactLabel = if compact then { icon = "flag", prefer = true } else nil,
 				})
 			end
-			local world = radialWorld({ distribution = "compass", ringWidth = 72, items = items })
+			local world = radialWorld({ distribution = "compass" :: "compass", ringWidth = 72, items = items })
 			local cx, cy = centerOf(world)
 			for _, slot in compassSlots do
 				local paint = paintOf(world, slot)
@@ -198,10 +204,16 @@ t.describe("native parity weak3 h2: radial content fit", function()
 	end)
 	t.it("keeps the full logical sector as the gesture target outside the fitted paint", function()
 		local fired = {}
-		local world = radialWorld({ distribution = "compass", ringWidth = 180, items = iconItems({ "N", "E" }, fired) })
+		local world = radialWorld({
+			distribution = "compass" :: "compass",
+			ringWidth = 180,
+			items = iconItems({ "N", "E" }, fired),
+		})
 		local paint = paintOf(world, "N")
 		local cx, cy = centerOf(world)
-		local sector = geometry.sectors({ { id = "N", slot = "N" } }, 0, 360, "compass", 40, 220)[1]
+		local sector = geometry.sectors({
+			{ id = "N", label = "N", slot = "N" } :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+		}, 0, 360, "compass", 40, 220)[1]
 		t.expect(sector.outer - 1 > paint.outer).toBe(true)
 		local touch: any = {
 			UserInputType = world.engine.types.Enum.UserInputType.Touch,
@@ -246,7 +258,8 @@ t.describe("native parity weak3 h2: virtual monitors saved shelf", function()
 	t.it("unmounts the Catalog grid on the Saved shelf so the table owns the whole feed, and restores it", function()
 		local Facet = require("../src")
 		local engine: any = engines.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -264,7 +277,7 @@ t.describe("native parity weak3 h2: virtual monitors saved shelf", function()
 				services = { GuiService = gui, UserInputService = input },
 				motionLevel = "none",
 			})
-			local _, discover = runtime.mount(views.Discover, target)
+			local _, discover: any = runtime.mount(views.Discover, target)
 			local body = findNamed(discover, "DiscoverBody")
 			local function feeds(): { any }
 				local found = {}
@@ -308,21 +321,26 @@ t.describe("native parity weak3 h2: virtual monitors saved shelf", function()
 	end)
 end)
 
-local function keyedRows(throwOn: { [string]: boolean }): any
+local function keyedRows(throwOn: { [string]: boolean? }): any
 	local engine: any = engines.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local cards = Compose.cell({ { id = "a" }, { id = "b" } })
 	local built: { [string]: number } = {}
 	local live = 0
-	local stop, frame = runtime.mount(function()
-		return runtime.constructors.Frame({
+	local stop, frame: any = runtime.mount(function()
+		return (
+			(
+				runtime.constructors.Frame :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+		)({
 			Name = "Rows",
 			Compose.keyed({
 				from = cards,
 				key = function(card: { id: string })
 					return card.id
 				end,
-				render = function(card: any)
+				render = function(card: any): GuiObject
 					local id = card:peek().id
 					if throwOn[id] then
 						error("row factory throws for " .. id, 0)
@@ -332,7 +350,11 @@ local function keyedRows(throwOn: { [string]: boolean }): any
 					Compose.cleanup(function()
 						live -= 1
 					end)
-					return runtime.constructors.TextLabel({ Name = "Row-" .. id, Text = id })
+					return (
+						(
+							runtime.constructors.TextLabel :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextLabel)
+					)({ Name = "Row-" .. id, Text = id })
 				end,
 			}),
 		})
@@ -377,7 +399,7 @@ t.describe("native parity weak3 h2: keyed row factory failure outside a boundary
 		end
 	)
 	t.it("retries the row that threw on the next update", function()
-		local throwOn = { c = true }
+		local throwOn: { [string]: boolean? } = { c = true }
 		local rows = keyedRows(throwOn)
 		pcall(function()
 			rows.cards:set({ { id = "a" }, { id = "c" } })
@@ -427,7 +449,8 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 	local function rowsWorld(): (any, { [string]: any })
 		local Facet = require("../src")
 		local engine: any = engines.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+			Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
 			return nil
@@ -444,7 +467,9 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 				services = { GuiService = gui, UserInputService = input },
 			} :: any
 		)
-		local Host = runtime.constructors
+		local Host = (
+			runtime.constructors :: unknown
+		) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 		local state: { [string]: any } = {
 			open = { a = Compose.cell(nil), b = Compose.cell(nil) },
 			coordinator = Compose.cell(nil),
@@ -456,7 +481,7 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 				Name = name,
 				open = state.open[name],
 				coordinator = state.coordinator,
-				content = function()
+				content = function(): Instance
 					return Host.TextButton({
 						Name = "RowContent",
 						Text = name,
@@ -472,7 +497,7 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 						onActivate = function()
 							table.insert(state.fired, name .. ":Pin")
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 				trailing = {
 					{
@@ -481,12 +506,12 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 						onActivate = function()
 							table.insert(state.fired, name .. ":Delete")
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end
-		local stop, screen = runtime.mount(function()
-			return Host.ScreenGui({ Host.Frame({ Name = "List", row("a"), row("b") }) })
+		local stop, screen: any = runtime.mount(function()
+			return Host.ScreenGui({ Host.Frame({ Name = "List", row("a") :: unknown, row("b") }) })
 		end, engine.new("Folder"))
 		local V2 = engine.types.Vector2
 		local a, b = findNamed(screen, "a"), findNamed(screen, "b")
@@ -517,7 +542,7 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 		local shield = findNamed(row, "DismissTray")
 		t.expect(shield.Parent).toBe(content)
 		t.expect(shield.Visible).toBe(false)
-		for _, kind in { "Touch", "MouseButton1" } do
+		for _, kind in { "Touch", "MouseButton1" } :: { "MouseButton1" | "Touch" } do
 			state.open.a:set("trailing")
 			t.expect(shield.Visible).toBe(true)
 			t.expect(shield.Active).toBe(true)

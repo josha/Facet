@@ -1,11 +1,12 @@
 --!strict
+local requireDynamic = require :: (any) -> any
 
 local process = require("@lune/process")
 local testkit = require("./lib/testkit")
 
 local name = process.args[1]
 assert(name ~= nil and name ~= "", "usage: lune run tests/run_one <spec-name> [full]  (without the .spec suffix)")
-require("./" .. name .. ".spec")
+requireDynamic("./" .. name .. ".spec")
 
 if
 	not testkit.run({

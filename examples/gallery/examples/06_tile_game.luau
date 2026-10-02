@@ -2,7 +2,8 @@
 
 local words = require("./words")
 
-type Use = (any) -> any
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local example = {}
 example.title = "Crossword (Scrabble-style)"
@@ -488,15 +489,15 @@ example.rules = rules
 
 local CELL_TINT: { [string]: any } = {
 
-	idle = { role = "contentSecondary", blend = 0.2 },
+	idle = { role = "contentSecondary" :: "contentSecondary", blend = 0.2 },
 
-	legal = { role = "accent", blend = 0.3 },
+	legal = { role = "accent" :: "accent", blend = 0.3 },
 
-	centre = { role = "accent", blend = 0.3 },
+	centre = { role = "accent" :: "accent", blend = 0.3 },
 
-	pending = { role = "accent", blend = 0.6 },
+	pending = { role = "accent" :: "accent", blend = 0.6 },
 
-	committed = { role = "contentSecondary", blend = 0.5 },
+	committed = { role = "contentSecondary" :: "contentSecondary", blend = 0.5 },
 }
 
 local CELL_SURFACE: { [string]: string } = {
@@ -516,7 +517,7 @@ local CELL_MARK: { [string]: string } = {
 }
 
 function example.build(ctx: any)
-	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local function paletteColor(use: any, role: string): Color3
 		local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
@@ -536,7 +537,8 @@ function example.build(ctx: any)
 	local pendingSig = Compose.cell({} :: { [string]: string })
 	local rackSig = Compose.cell({} :: { [number]: string })
 	local originSig = Compose.cell({} :: { [string]: number })
-	local selectedSig = Compose.cell(nil :: number?)
+	local selectedSig: typeof(require("@repo/tools/typecheck/example_shapes").optionalNumber(nil :: any)) =
+		Compose.cell(nil :: number?)
 	local scoreSig = Compose.cell(0)
 	local turnSig = Compose.cell(1)
 	local phaseSig = Compose.cell("playing")
@@ -687,11 +689,11 @@ function example.build(ctx: any)
 		end
 		local nextScore = scoreSig:peek() + (verdict.score :: number)
 		local nextTurn = turnSig:peek() + 1
-		local phase = "playing"
+		local phase = "playing" :: "playing"
 		if nextScore >= GOAL then
-			phase = "won"
+			phase = "won" :: "won"
 		elseif nextTurn > TURNS then
-			phase = "lost"
+			phase = "lost" :: "lost"
 		end
 		ctx.runtime:batch(function()
 			boardSig:set(nextBoard)
@@ -717,10 +719,10 @@ function example.build(ctx: any)
 		turnsLeft = Compose.formula(function(use: Use)
 			return math.max(0, TURNS - (use(turnSig) - 1))
 		end)
-		scoreText = Compose.formula(function(use)
+		scoreText = Compose.formula(function(use: Use)
 			return `{use(scoreSig)} of {GOAL} points`
 		end)
-		progressText = Compose.formula(function(use)
+		progressText = Compose.formula(function(use: Use)
 			local left = use(turnsLeft)
 			return `{left} {if left == 1 then "turn" else "turns"} left`
 		end)
@@ -780,16 +782,16 @@ function example.build(ctx: any)
 					return if rr == CENTRE and cc == CENTRE then "centre" else "idle"
 				end)
 				cellStateOf[key] = state
-				local label = Compose.formula(function(use)
+				local label = Compose.formula(function(use: Use)
 					return letterAt(use(boardSig), use(pendingSig), rr, cc) or ""
 				end)
-				local tint = Compose.formula(function(use)
+				local tint = Compose.formula(function(use: Use)
 					return CELL_TINT[use(state)]
 				end)
-				local surface = Compose.formula(function(use)
+				local surface = Compose.formula(function(use: Use)
 					return CELL_SURFACE[use(state)]
 				end)
-				local mark = Compose.formula(function(use)
+				local mark = Compose.formula(function(use: Use)
 					return CELL_MARK[use(state)]
 				end)
 				table.insert(
@@ -797,13 +799,13 @@ function example.build(ctx: any)
 					UI.ZStack(`cell{r}_{c}`)({
 						width = 44,
 						height = 44,
-						UI.Text "mark" { text = mark, textRole = "caption" },
+						UI.Text "mark" { text = mark, textRole = "caption" :: "caption" } :: unknown,
 						UI.Button "tap" {
 							Size = UDim2.fromScale(1, 1),
 							label = function(use: Use)
 								return use(label) .. use(mark)
 							end,
-							name = function(use)
+							name = function(use: Use)
 								local letter = use(label)
 								local base = if letter ~= ""
 									then `Row {r}, column {c}, {letter}`
@@ -814,14 +816,14 @@ function example.build(ctx: any)
 									elseif current == "centre" then base .. ", start square"
 									else base
 							end,
-							BackgroundColor3 = function(use)
+							BackgroundColor3 = function(use: Use)
 								local cellTint = use(tint)
 								return paletteColor(use, "surface"):Lerp(
 									paletteColor(use, cellTint.role),
 									cellTint.blend
 								)
 							end,
-							TextColor3 = function(use)
+							TextColor3 = function(use: Use)
 								return paletteColor(use, "contentStrong")
 							end,
 							TextSize = 16,
@@ -830,14 +832,14 @@ function example.build(ctx: any)
 							end,
 							Host.UIStroke "Outline" {
 								ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-								Color = function(use)
+								Color = function(use: Use)
 									return paletteColor(use, "contentStrong")
 								end,
 								Thickness = 2,
-								Enabled = function(use)
+								Enabled = function(use: Use)
 									return use(surface) == CELL_SURFACE.pending
 								end,
-							},
+							} :: unknown,
 							Host.UIPadding {},
 						},
 					})
@@ -847,16 +849,16 @@ function example.build(ctx: any)
 		local rackTiles: { any } = { columns = RACK_SIZE, gap = "xs", cellHeight = 48, narrow() }
 		for i = 1, RACK_SIZE do
 			local slot = i
-			local letter = Compose.formula(function(use)
+			local letter = Compose.formula(function(use: Use)
 				return use(rackSig)[slot]
 			end)
-			local label = Compose.formula(function(use)
+			local label = Compose.formula(function(use: Use)
 				return use(letter) or "·"
 			end)
-			local enabled = Compose.formula(function(use)
+			local enabled = Compose.formula(function(use: Use)
 				return use(letter) ~= nil and use(phaseSig) == "playing"
 			end)
-			local isSelected = Compose.formula(function(use)
+			local isSelected = Compose.formula(function(use: Use)
 				return use(selectedSig) == slot
 			end)
 			table.insert(
@@ -876,13 +878,13 @@ function example.build(ctx: any)
 		return UI.Screen "TileGame" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch",
-				UI.Text "Title" { text = "Facet Crossword", textRole = "title", TextWrapped = true },
+				align = "stretch" :: "stretch",
+				UI.Text "Title" { text = "Facet Crossword", textRole = "title" :: "title", TextWrapped = true } :: unknown,
 				UI.HStack "Stats" {
 					wrap = true,
 					gap = "m",
-					width = "fill",
-					UI.Text "Score" { text = scoreText },
+					width = "fill" :: "fill",
+					UI.Text "Score" { text = scoreText } :: unknown,
 					UI.Text "Progress" { text = progressText },
 				},
 				UI.Text "Hint" { text = hintText, TextWrapped = true },
@@ -892,8 +894,8 @@ function example.build(ctx: any)
 				UI.Grid "rack"(rackTiles),
 				UI.HStack "Actions" {
 					gap = "s",
-					width = "fill",
-					UI.Button "Submit" { label = "Submit word", onActivate = submit, UI.fill() },
+					width = "fill" :: "fill",
+					UI.Button "Submit" { label = "Submit word", onActivate = submit, UI.fill() } :: unknown,
 					UI.Button "Undo" { label = "Undo turn", onActivate = undo, UI.fill() },
 				},
 				UI.Button "Reset" {
@@ -952,7 +954,7 @@ function example.build(ctx: any)
 		Parent = ctx.inputTarget,
 		Priority = 2000,
 		Sink = true,
-		table.unpack(bindings),
+		table.unpack((bindings :: unknown) :: { unknown }),
 	}
 
 	return {

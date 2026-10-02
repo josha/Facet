@@ -1,15 +1,38 @@
+--!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
+type Row = {
+	id: number,
+	title: string,
+	detail: string,
+	priority: number,
+	duration: number,
+	readFloor: number?,
+	key: string?,
+	position: "top" | "bottom",
+	width: "fill" | "hug",
+	presented: boolean,
+	retired: number?,
+}
+type Options = { priority: number?, duration: number?, readFloor: number?, subject: string? }
+type LineProps = typeof(require("@repo/tools/typecheck/example_shapes").text(nil :: any))
 return {
 	title = "Toasts",
-	build = function(ctx)
-		local Host, UI, Compose, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: typeof(require("@repo/src/vendor/compose/core")), runtime =
+			ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local rows, presses, edge, widthMode =
-			Compose.cell({}), Compose.cell(0), Compose.cell("bottom"), Compose.cell("fill")
+			Compose.cell({} :: { Row }),
+			Compose.cell(0),
+			Compose.cell("bottom" :: "top" | "bottom"),
+			Compose.cell("fill" :: "fill" | "hug")
 		local clock = runtime.timeline({ duration = 86400, repeats = math.huge })
 		local nextId, dropped, superseded = 0, 0, 0
-		local anchors = setmetatable({}, { __mode = "v" })
+		local anchors = setmetatable({} :: { [number]: GuiObject }, { __mode = "v" })
 		local revision = Compose.cell(0)
-		local function update(id, change)
+		local function update(id: number?, change: (Row) -> ())
 			local next = {}
 			for _, row in rows:peek() do
 				if id == nil or row.id == id then
@@ -20,8 +43,8 @@ return {
 			end
 			rows:set(next)
 		end
-		local function show(title, detail, options)
-			local o = options or {}
+		local function show(title: string, detail: string, options: Options?)
+			local o: Options = options or {}
 			nextId += 1
 			local next = table.clone(rows:peek())
 			table.insert(next, {
@@ -39,12 +62,12 @@ return {
 			rows:set(next)
 			return nextId
 		end
-		local function dismiss(id)
+		local function dismiss(id: number?)
 			update(id, function(row)
 				row.presented = false
 			end)
 		end
-		local function retire(id, reason)
+		local function retire(id: number, reason: string)
 			if reason == "capacity" then
 				dropped += 1
 			elseif reason == "supersede" then
@@ -54,7 +77,7 @@ return {
 				row.presented, row.retired = false, clock.elapsed:peek()
 			end)
 		end
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			local now = use(clock.elapsed)
 			local kept, pruned = {}, false
 			for _, row in rows:peek() do
@@ -122,20 +145,30 @@ return {
 					gap = 12,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text({ text = "Toasts", textRole = "title" }),
+					UI.Text({ text = "Toasts", textRole = "title" :: "title" }) :: unknown,
 					UI.Text({
 						text = "Show a toast, then try Test input. Notifications leave the controls below usable.",
 						TextWrapped = true,
 					}),
-					UI.Picker "Edge" {
+					((UI.Picker "Edge" :: unknown) :: (
+						typeof(require("@repo/tools/typecheck/example_shapes").edgePicker(nil :: any))
+					) -> GuiObject) {
 						label = "Edge for new stacks",
 						selected = edge,
-						options = { { value = "top", label = "Top" }, { value = "bottom", label = "Bottom" } },
+						options = {
+							{ value = "top" :: "top" | "bottom", label = "Top" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "bottom" :: "top" | "bottom", label = "Bottom" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						},
 					},
-					UI.Picker "Width" {
+					((UI.Picker "Width" :: unknown) :: (
+						typeof(require("@repo/tools/typecheck/example_shapes").widthPicker(nil :: any))
+					) -> GuiObject) {
 						label = "Toast width",
 						selected = widthMode,
-						options = { { value = "fill", label = "Wide" }, { value = "hug", label = "Fit content" } },
+						options = {
+							{ value = "fill" :: "fill" | "hug", label = "Wide" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+							{ value = "hug" :: "fill" | "hug", label = "Fit content" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+						},
 					},
 					Host.Frame "Commands" {
 						Size = D2.new(1, 0, 0, 0),
@@ -146,7 +179,7 @@ return {
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
 							Padding = D.new(0, 8),
-						}),
+						}) :: unknown,
 						UI.Button "Send" { label = "Show toast", onActivate = send },
 						UI.Button "Pair" {
 							label = "Show pair",
@@ -184,7 +217,7 @@ return {
 						},
 					},
 					UI.Button "Beneath" {
-						label = function(use)
+						label = function(use: Use)
 							return "Test input: " .. use(presses)
 						end,
 						onActivate = function()
@@ -192,7 +225,7 @@ return {
 						end,
 					},
 					UI.Text "Status" {
-						text = function(use)
+						text = function(use: Use)
 							use(rows)
 							use(revision)
 							local r = report()
@@ -205,21 +238,21 @@ return {
 						end,
 						TextWrapped = true,
 					},
-				},
+				} :: unknown,
 				Host.Frame "Messages" {
 					BackgroundTransparency = 1,
 					Active = false,
 					Size = D2.fromScale(0, 0),
 					Compose.OrderedCollection({
 						from = rows,
-						key = function(row)
+						key = function(row: Row)
 							return row.id
 						end,
-						render = function(current)
+						render = function(current: Readable<Row>): GuiObject
 							local row = current:peek()
 							local id = row.id
 							local hug = row.width == "hug"
-							local function line(name, props)
+							local function line(name: string, props: LineProps)
 								props.Name = name
 								props.TextWrapped = true
 								props.Size = if hug then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
@@ -227,7 +260,7 @@ return {
 								return UI.Text(props)
 							end
 							local anchor = UI.Toast "Toast" {
-								isPresented = Compose.formula(function(use)
+								isPresented = Compose.formula(function(use: Use)
 									return use(current).presented
 								end),
 								onPresentedChange = function(presented)
@@ -235,7 +268,9 @@ return {
 										dismiss(id)
 									end
 								end,
-								onDismiss = function(reason)
+								onDismiss = function(
+									reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
+								)
 									retire(id, reason)
 								end,
 								key = row.key,
@@ -244,12 +279,12 @@ return {
 								readFloor = row.readFloor,
 								position = row.position,
 								width = row.width,
-								content = function()
+								content = function(): Instance
 									return UI.VStack "Body" {
 										gap = 4,
-										width = if hug then "hug" else "fill",
-										line("Title", { textRole = "strong", text = row.title }),
-										line("Detail", { role = "secondary", text = row.detail }),
+										width = (if hug then "hug" else "fill") :: "hug" | "fill",
+										line("Title", { textRole = "strong" :: "strong", text = row.title }) :: unknown,
+										line("Detail", { role = "secondary" :: "secondary", text = row.detail }),
 									}
 								end,
 							}

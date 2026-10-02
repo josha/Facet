@@ -1,4 +1,7 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 local seed = require("@self/content/seed")
 local strings = require("@self/content/strings")
 local supplyService = require("@self/services/supply")
@@ -6,11 +9,12 @@ local commerceService = require("@self/services/commerce")
 local visitsService = require("@self/services/visits")
 local referenceView = require("./view")
 local Glade = { title = "Glade" }
-function Glade.build(ctx)
-	local Compose, Host, UI, runtime = ctx.Compose, ctx.Host, ctx.UI, ctx.runtime
+function Glade.build(ctx: ExampleContext)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")), Host, UI, runtime =
+		ctx.Compose, ctx.Host, ctx.UI, ctx.runtime
 	local D2, V2, C3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local view = referenceView(ctx)
-	local owner = Compose.currentOwner()
+	local owner = assert(Compose.currentOwner())
 	local now, locale = Compose.cell(0), Compose.cell("en")
 	local function rooted(body)
 		return Compose.withOwner(owner, body)
@@ -45,7 +49,7 @@ function Glade.build(ctx)
 		return strings.get(locale:peek(), key, subs)
 	end
 	local function text(key, subs)
-		return function(use)
+		return function(use: Use)
 			return strings.get(use(locale), key, subs)
 		end
 	end
@@ -62,12 +66,12 @@ function Glade.build(ctx)
 			beat:Disconnect()
 		end)
 	end
-	local ready = Compose.formula(function(use)
+	local ready = Compose.formula(function(use: Use)
 		return use(supply.state(seed.TASK.glade, "dew")) == "full"
 			and use(supply.nectarOf(seed.TASK.glade)) == seed.TASK_NECTAR
 			and use(supply.state(seed.TASK.glade, "nectar")) == "full"
 	end)
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		if use(ready) and not complete:peek() then
 			complete:set(true)
 			local visitor = visits.current(seed.TASK.glade):peek()
@@ -116,7 +120,7 @@ function Glade.build(ctx)
 				shopOpen:set(true)
 				return false
 			end
-			held:update(function(count)
+			held:update(function(count: number)
 				return count - 1
 			end)
 		end
@@ -127,7 +131,7 @@ function Glade.build(ctx)
 		selected:set(id)
 		detailOpen:set(true)
 	end
-	local filtered = Compose.formula(function(use)
+	local filtered = Compose.formula(function(use: Use)
 		local query, which = string.lower(use(search)), use(section)
 		local result = {}
 		for _, glade in seed.GLADES do
@@ -147,7 +151,7 @@ function Glade.build(ctx)
 			Size = D2.new(1, 0, 0, 190),
 			ClipsDescendants = true,
 			BorderSizePixel = 0,
-			BackgroundColor3 = function(use)
+			BackgroundColor3 = function(use: Use)
 				local definition = seed.GLADE_BY_ID[gladeId]
 				local index = math.floor(
 					((use(now) + definition.phaseOffset) % seed.DAY_SECONDS) / seed.DAY_SECONDS * #seed.PHASES
@@ -160,8 +164,8 @@ function Glade.build(ctx)
 				Size = D2.fromScale(1, 0.3),
 				BackgroundColor3 = C3.new(seed.MOSS[1], seed.MOSS[2], seed.MOSS[3]),
 				BorderSizePixel = 0,
-			},
-			Compose.show(function(use)
+			} :: unknown,
+			Compose.show(function(use: Use)
 				return use(visitor) ~= nil
 			end, function()
 				local id = visitor:peek().wisp
@@ -170,7 +174,7 @@ function Glade.build(ctx)
 					Name = id,
 					Size = D2.fromOffset(36, 36),
 					AnchorPoint = V2.new(0.5, 0.5),
-					Position = function(use)
+					Position = function(use: Use)
 						local at = if use(reducedMotion) then 0 else use(now)
 						return D2.fromScale(0.5 + math.sin(at * 0.25) * 0.2, 0.45 + math.sin(at) * 0.04)
 					end,
@@ -181,7 +185,7 @@ function Glade.build(ctx)
 			end),
 		}
 	end
-	local function detail()
+	local function detail(): Instance
 		local id = selected:peek()
 		local options = {}
 		for _, nectar in seed.NECTARS do
@@ -192,14 +196,14 @@ function Glade.build(ctx)
 			view.text(text("glade." .. id), 28),
 			scene(id),
 			UI.Toggle "Favorite" { label = "Favorite glade", value = favorites[id] },
-			view.text(function(use)
+			view.text(function(use: Use)
 				return "Dew: " .. use(supply.state(id, "dew"))
 			end),
 			UI.ProgressView({ value = supply.level(id, "dew"), label = "Dew" }),
 			view.action("Refill", "Refill dew", function()
 				refill(id)
 			end),
-			view.text(function(use)
+			view.text(function(use: Use)
 				return "Nectar: " .. use(supply.state(id, "nectar"))
 			end),
 			UI.ProgressView({ value = supply.level(id, "nectar"), label = "Nectar" }),
@@ -228,7 +232,7 @@ function Glade.build(ctx)
 		return view.page("Glades", {
 			view.text("Glade", 30),
 			view.text("Prepare a home for a visiting wisp."),
-			view.text(function(use)
+			view.text(function(use: Use)
 				return if use(complete)
 					then "Mossholm is ready. Your visiting wisp has a home."
 					else "Refill Mossholm's dew and offer " .. strings.get(
@@ -248,7 +252,7 @@ function Glade.build(ctx)
 						view.action("Open", text("glade." .. glade.id), function()
 							open(glade.id)
 						end),
-						view.text(function(use)
+						view.text(function(use: Use)
 							return "Dew "
 								.. use(supply.state(glade.id, "dew"))
 								.. " · Nectar "
@@ -277,23 +281,23 @@ function Glade.build(ctx)
 			}),
 		})
 	end
-	local function shop()
+	local function shop(): Instance
 		local children = { view.text("Provisions", 28) }
 		for _, pack in seed.PACKS do
 			table.insert(
 				children,
 				view.column(pack.id, {
 					view.text(`{L("nectar." .. pack.nectar)} × {pack.quantity}`),
-					view.action("Buy", function(use)
+					view.action("Buy", function(use: Use)
 						return if use(commerce.status(pack.id)) == "pending"
 							then "Confirming…"
 							else commerce.priceOf(pack.id)
 					end, function()
 						commerce.buyPack(pack.id)
-					end, function(use)
+					end, function(use: Use)
 						return use(commerce.status(pack.id)) ~= "pending"
 					end),
-					view.text(function(use)
+					view.text(function(use: Use)
 						return use(commerce.status(pack.id))
 							.. (if use(commerce.reason(pack.id)) then ": " .. use(commerce.reason(pack.id)) else "")
 					end),
@@ -315,7 +319,7 @@ function Glade.build(ctx)
 			view.action("FreshStart", text("keeper.freshStart"), function()
 				resetOpen:set(true)
 			end),
-			view.text(function(use)
+			view.text(function(use: Use)
 				return "Charm: " .. use(commerce.charmTier())
 			end),
 			view.action("Shop", "Browse provisions", function()
@@ -327,7 +331,7 @@ function Glade.build(ctx)
 				children,
 				view.action(tier.id, `Keeper's Charm: {tier.id} · {commerce.charmPriceOf(tier.id)}`, function()
 					commerce.buyCharm(tier.id)
-				end, function(use)
+				end, function(use: Use)
 					return use(commerce.status(tier.id)) ~= "pending"
 				end)
 			)
@@ -337,7 +341,7 @@ function Glade.build(ctx)
 			if nectar.premium then
 				table.insert(
 					children,
-					view.text(function(use)
+					view.text(function(use: Use)
 						return L("nectar." .. nectar.id) .. ": " .. tostring(use(commerce.satchelOf(nectar.id)))
 					end)
 				)
@@ -348,7 +352,10 @@ function Glade.build(ctx)
 			children,
 			UI.Picker "Locale" {
 				selected = locale,
-				options = { { value = "en", label = "English" }, { value = "xa", label = "Expanded" } },
+				options = {
+					{ value = "en", label = "English" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "xa", label = "Expanded" } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+				},
 			}
 		)
 		return view.page("Keeper", children)
@@ -359,16 +366,16 @@ function Glade.build(ctx)
 			Size = D2.fromScale(1, 1),
 			UI.TabView "Destinations" {
 				selection = section,
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -64),
 				tabs = {
-					{ id = "glades", label = "Glades", content = overview },
-					{ id = "favorites", label = "Favorites", content = overview },
-					{ id = "wisps", label = "Wisps", content = wisps },
+					{ id = "glades", label = "Glades", content = overview } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "favorites", label = "Favorites", content = overview } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "wisps", label = "Wisps", content = wisps } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 					{
 						id = "flora",
 						label = "Flora",
-						content = function()
+						content = function(): Instance
 							return view.page("Flora", {
 								view.list(seed.FLORA, function(current)
 									local item = current:peek()
@@ -384,10 +391,10 @@ function Glade.build(ctx)
 								end),
 							})
 						end,
-					},
-					{ id = "keeper", label = "Keeper", content = keeper },
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{ id = "keeper", label = "Keeper", content = keeper } :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 				},
-			},
+			} :: unknown,
 			UI.Text({
 				text = notice,
 				Position = D2.new(0, 16, 1, -60),
@@ -399,7 +406,7 @@ function Glade.build(ctx)
 				title = text("keeper.editTitle"),
 				isPresented = editOpen,
 				detent = Compose.cell("medium"),
-				content = function()
+				content = function(): Instance
 					return view.column("Fields", {
 						UI.TextInput "DisplayName" {
 							value = draftName,
@@ -421,8 +428,13 @@ function Glade.build(ctx)
 				title = Compose.formula(text("keeper.confirmTitle")),
 				message = Compose.formula(text("keeper.confirmBody")),
 				actions = {
-					{ id = "cancel", label = text("keeper.keep"), role = "cancel" },
-					{ id = "reset", label = text("keeper.startOver"), role = "destructive", onActivate = reset },
+					{ id = "cancel", label = text("keeper.keep"), role = "cancel" :: "cancel" } :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
+					{
+						id = "reset",
+						label = text("keeper.startOver"),
+						role = "destructive" :: "destructive",
+						onActivate = reset,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").AlertAction_any(nil :: any)),
 				},
 			},
 			UI.Sheet "Detail" {
@@ -441,8 +453,8 @@ function Glade.build(ctx)
 				title = "Wisp",
 				isPresented = wispOpen,
 				detent = Compose.cell("medium"),
-				content = function()
-					local id = wisp:peek()
+				content = function(): Instance
+					local id = assert(wisp:peek())
 					local item = seed.WISP_BY_ID[id]
 					local last = visits.lastSeen(id)
 					return view.column("Wisp", {

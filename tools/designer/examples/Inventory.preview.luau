@@ -1,19 +1,23 @@
 --!strict
 
 local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiObject
-	local UI, Compose = ctx.UI, ctx.Compose
+	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 	local selected = Compose.cell(false)
 	local quantity = Compose.cell(3)
 	local filter = Compose.cell("")
 	local details = Compose.cell(false)
 	return UI.Screen "Inventory" {
 		gap = "m",
-		UI.Text { text = "Your next adventure", textRole = "title" },
-		UI.Text { text = "Pack what matters. Leave room for discoveries.", role = "secondary", wrap = true },
+		UI.Text { text = "Your next adventure", textRole = "title" :: "title" } :: unknown,
+		UI.Text {
+			text = "Pack what matters. Leave room for discoveries.",
+			role = "secondary" :: "secondary",
+			wrap = true,
+		},
 		UI.TextInput { value = filter, placeholder = "Find equipment", clearButton = true },
 		UI.ScrollView "Equipment" {
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			gap = "s",
 			if populated
 				then UI.Card {
@@ -22,7 +26,7 @@ local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiO
 						else "Explorer’s field pack",
 					caption = "Ready for the trail",
 					artwork = function()
-						return UI.Text { text = "TRAIL / 01", textRole = "title", textAlign = "center" }
+						return UI.Text { text = "TRAIL / 01", textRole = "title" :: "title", textAlign = "center" }
 					end,
 					onActivate = function()
 						details:set(true)
@@ -31,7 +35,7 @@ local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiO
 				else UI.Notice {
 					title = "A fresh start",
 					message = "Your pack is empty. Visit the outfitter to get ready.",
-				},
+				} :: unknown,
 			UI.Toggle { label = "Include emergency supplies", value = selected },
 			UI.Stepper { value = quantity, min = 1, max = 10 },
 			UI.AdaptiveStack "Actions" {
@@ -41,7 +45,7 @@ local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiO
 					onActivate = function()
 						details:set(true)
 					end,
-				},
+				} :: unknown,
 				UI.Button {
 					label = "Reset quantity",
 					onActivate = function()
@@ -58,7 +62,7 @@ local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiO
 				return UI.VStack {
 					gap = "m",
 					padding = "m",
-					UI.Text { text = "Everything you need for a day outside.", wrap = true },
+					UI.Text { text = "Everything you need for a day outside.", wrap = true } :: unknown,
 					UI.Button {
 						label = "Done",
 						onActivate = function()

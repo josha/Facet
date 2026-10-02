@@ -1,8 +1,10 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 local themes = Facet.themes
 local Roblox = require("@lune/roblox")
 
@@ -19,7 +21,8 @@ local SHIPPED = {
 
 local function make(options: { [string]: any }?): (any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
 	for key, value in (options or {}) :: { [string]: any } do
@@ -57,8 +60,9 @@ end
 
 local function sheetOf(package: any): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
-	local _, sheet = runtime.mount(function()
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
+	local _, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(
 			runtime,
 			package,
@@ -93,8 +97,8 @@ end
 t.describe("native restored controls: Text", function()
 	t.it("paints text with its type role and follows a bound text without a rebuild", function()
 		local value = Compose.cell("Lap 1")
-		local root, _, stop = build(nil, function(UI)
-			return UI.Text("Lap")({ text = value, textRole = "title" })
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Text("Lap")({ text = value, textRole = "title" :: "title" })
 		end)
 		t.expect(root.ClassName).toBe("TextLabel")
 		t.expect(root.Name).toBe("Lap")
@@ -109,21 +113,27 @@ t.describe("native restored controls: Text", function()
 	end)
 
 	t.it("takes a pixel size, a role name, alignment, wrapping, rich text, direction and tint", function()
-		local align = Compose.cell("center")
-		local root, engine, stop = build(nil, function(UI, Host)
-			return Host.Frame({
-				UI.Text("Pixels")({ text = "a", textSize = 22 }),
-				UI.Text("Role")({ text = "b", textSize = "caption" }),
-				UI.Text("Styled")({
-					text = "<b>c</b>",
-					textAlign = align,
-					wrap = true,
-					rich = true,
-					direction = "rtl",
-					tint = Roblox.Color3.new(1, 0, 0),
-				}),
-			})
-		end)
+		local align = Compose.cell("center" :: "center" | "end" | "start")
+		local root, engine, stop = build(
+			nil,
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Text("Pixels")({ text = "a", textSize = 22 }) :: unknown,
+					UI.Text("Role")({ text = "b", textSize = "caption" :: "caption" }),
+					UI.Text("Styled")({
+						text = "<b>c</b>",
+						textAlign = align,
+						wrap = true,
+						rich = true,
+						direction = "rtl" :: "rtl",
+						tint = Roblox.Color3.new(1, 0, 0),
+					}),
+				})
+			end
+		)
 		local Enum = engine.types.Enum
 		local pixels, role, styled =
 			root:FindFirstChild("Pixels"), root:FindFirstChild("Role"), root:FindFirstChild("Styled")
@@ -142,8 +152,8 @@ t.describe("native restored controls: Text", function()
 	end)
 
 	t.it("turns the secondary role on and off with a bound role", function()
-		local role = Compose.cell("secondary")
-		local root, _, stop = build(nil, function(UI)
+		local role = Compose.cell("secondary" :: "content" | "secondary")
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Text({ text = "Offline", role = role })
 		end)
 		t.expect(root:HasTag("facet-secondary")).toBe(true)
@@ -156,14 +166,14 @@ t.describe("native restored controls: Text", function()
 
 	t.it("refuses a missing text, the retired spellings, style authority and a doubled role", function()
 		t.expect(mentions(
-			refusal(function(UI)
-				return UI.Text({})
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Text({} :: any)
 			end),
 			"requires text"
 		)).toBe(true)
 		for _, spec in { { label = "a" }, { text = "a", label = "b" }, { Text = "a" } } :: { any } do
 			t.expect(mentions(
-				refusal(function(UI)
+				refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Text(spec)
 				end),
 				"set the text with text"
@@ -171,27 +181,27 @@ t.describe("native restored controls: Text", function()
 		end
 		for _, key in { "color", "font" } do
 			t.expect(mentions(
-				refusal(function(UI)
-					return UI.Text({ text = "a", [key] = "x" })
+				refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					return UI.Text({ text = "a", [key] = "x" } :: any)
 				end),
 				"style authority"
 			)).toBe(true)
 		end
 		t.expect(mentions(
-			refusal(function(UI)
-				return UI.Text({ text = "a", textSize = "title", textRole = "body" })
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Text({ text = "a", textSize = "title" :: "title", textRole = "body" :: "body" } :: any)
 			end),
 			"one time"
 		)).toBe(true)
 		t.expect(mentions(
-			refusal(function(UI)
-				return UI.Text({ text = "a", role = "loud" })
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Text({ text = "a", role = "loud" :: "loud" } :: any)
 			end),
 			"secondary or content"
 		)).toBe(true)
 		t.expect(mentions(
-			refusal(function(UI)
-				return UI.Text({ text = "a", direction = "up" })
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Text({ text = "a", direction = "up" :: "up" } :: any)
 			end),
 			"auto, ltr or rtl"
 		)).toBe(true)
@@ -200,7 +210,7 @@ end)
 
 t.describe("native restored controls: Label", function()
 	t.it("renders an icon and a title together and names itself by the title", function()
-		local root, _, stop = build(nil, function(UI)
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Label("Save")({ title = "Save", icon = "rbxassetid://1" })
 		end)
 		t.expect(root.Name).toBe("Save")
@@ -214,8 +224,8 @@ t.describe("native restored controls: Label", function()
 	end)
 
 	t.it("keeps the title as the accessible name when it shows the icon only", function()
-		local root, _, stop = build(nil, function(UI)
-			return UI.Label({ title = "Save", icon = "rbxassetid://1", presentation = "iconOnly" })
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Label({ title = "Save", icon = "rbxassetid://1", presentation = "iconOnly" :: "iconOnly" })
 		end)
 		t.expect(root:FindFirstChild("Title")).toBe(nil)
 		t.expect(root:FindFirstChild("Icon") ~= nil).toBe(true)
@@ -225,8 +235,8 @@ t.describe("native restored controls: Label", function()
 	end)
 
 	t.it("shows the title when iconOnly has no icon, because an empty square is worse than a word", function()
-		local root, _, stop = build(nil, function(UI)
-			return UI.Label({ title = "Save", presentation = "iconOnly" })
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Label({ title = "Save", presentation = "iconOnly" :: "iconOnly" })
 		end)
 		t.expect(root:GetAttribute("FacetPresentation")).toBe("titleOnly")
 		t.expect(root:FindFirstChild("Title") ~= nil).toBe(true)
@@ -235,23 +245,23 @@ t.describe("native restored controls: Label", function()
 	end)
 
 	t.it("titleOnly renders no empty icon slot", function()
-		local root, _, stop = build(nil, function(UI)
-			return UI.Label({ title = "Save", icon = "rbxassetid://1", presentation = "titleOnly" })
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
+			return UI.Label({ title = "Save", icon = "rbxassetid://1", presentation = "titleOnly" :: "titleOnly" })
 		end)
 		t.expect(root:FindFirstChild("Icon")).toBe(nil)
 		t.expect(root:FindFirstChild("Title").Text).toBe("Save")
 		stop()
 	end)
 
-	for _, form in { "cell", "formula", "function" } do
+	for _, form in { "cell", "formula", "function" } :: { "cell" | "formula" | "function" } do
 		t.it(`tracks a {form} title in the text and the accessible name without a rebuild`, function()
 			local value = Compose.cell("Lap 1")
 			local builds = 0
-			local root, _, stop = build(nil, function(UI)
+			local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				builds += 1
 				local title: any = if form == "cell"
 					then value
-					elseif form == "formula" then Compose.formula(function(use)
+					elseif form == "formula" then Compose.formula(function(use: Use)
 						return use(value)
 					end)
 					else function(use: any)
@@ -287,7 +297,7 @@ t.describe("native restored controls: Label", function()
 			} :: { any }
 		do
 			t.expect(mentions(
-				refusal(function(UI)
+				refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Label(spec)
 				end),
 				"title"
@@ -297,8 +307,8 @@ t.describe("native restored controls: Label", function()
 
 	t.it("rejects an unknown presentation and names the legal set", function()
 		t.expect(mentions(
-			refusal(function(UI)
-				return UI.Label({ title = "T", presentation = "sideways" })
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Label({ title = "T", presentation = "sideways" :: "sideways" } :: any)
 			end),
 			"iconOnly | titleAndIcon | titleOnly"
 		)).toBe(true)
@@ -306,36 +316,42 @@ t.describe("native restored controls: Label", function()
 
 	t.it("refuses an unknown semantic icon and plain-text options", function()
 		t.expect(mentions(
-			refusal(function(UI)
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Label({ title = "Saved", icon = "check" })
 			end),
 			"unknown icon"
 		)).toBe(true)
 		t.expect(mentions(
-			refusal(function(UI)
-				return UI.Label({ text = "Saved" })
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Label({ text = "Saved" } :: any)
 			end),
 			"UI.Text"
 		)).toBe(true)
 	end)
 
 	t.it("sizes a semantic icon by a metric name or pixels, and puts it after the title on request", function()
-		local root, _, stop = build(nil, function(UI, Host)
-			return Host.Frame({
-				UI.Label("Metric")({
-					title = "Search",
-					icon = "facet:search",
-					presentation = "iconOnly",
-					iconSize = "controlSizes.large.iconSize",
-				}),
-				UI.Label("Pixels")({
-					title = "Next",
-					icon = "chevron.trailing",
-					iconSize = 30,
-					iconPosition = "trailing",
-				}),
-			})
-		end)
+		local root, _, stop = build(
+			nil,
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Label("Metric")({
+						title = "Search",
+						icon = "facet:search",
+						presentation = "iconOnly" :: "iconOnly",
+						iconSize = "controlSizes.large.iconSize",
+					}) :: unknown,
+					UI.Label("Pixels")({
+						title = "Next",
+						icon = "chevron.trailing",
+						iconSize = 30,
+						iconPosition = "trailing" :: "trailing",
+					}),
+				})
+			end
+		)
 		local metric = root:FindFirstChild("Metric"):FindFirstChild("Icon")
 		local expected = themes.neutralPackage().metrics.controlSizes.large.iconSize
 		t.expect(metric.Size.X.Offset).toBe(expected)
@@ -349,31 +365,39 @@ end)
 
 t.describe("native restored controls: Image", function()
 	t.it("maps every scale mode to the native ScaleType and follows a bound mode", function()
-		local mode = Compose.cell("fit")
-		local root, engine, stop = build(nil, function(UI, Host)
-			return Host.Frame({
-				UI.Image("Bound")({ image = "rbxassetid://1", scaleMode = mode }),
-				UI.Image("Tile")({
-					image = "rbxassetid://1",
-					scaleMode = "tile",
-					tileSize = { width = 32, height = 16 },
-				}),
-				UI.Image("Slice")({
-					image = "rbxassetid://1",
-					scaleMode = "slice",
-					sliceCenter = { x0 = 8, y0 = 8, x1 = 56, y1 = 56 },
-					sliceScale = 2,
-				}),
-			})
-		end)
+		local mode = Compose.cell("fit" :: "crop" | "fill" | "fit" | "slice" | "stretch" | "tile")
+		local root, engine, stop = build(
+			nil,
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Image("Bound")({ image = "rbxassetid://1", scaleMode = mode }) :: unknown,
+					UI.Image("Tile")({
+						image = "rbxassetid://1",
+						scaleMode = "tile" :: "tile",
+						tileSize = { width = 32, height = 16 },
+					}),
+					UI.Image("Slice")({
+						image = "rbxassetid://1",
+						scaleMode = "slice" :: "slice",
+						sliceCenter = { x0 = 8, y0 = 8, x1 = 56, y1 = 56 },
+						sliceScale = 2,
+					}),
+				})
+			end
+		)
 		local types = engine.types
 		local ScaleType = types.Enum.ScaleType
 		local bound = root:FindFirstChild("Bound")
 		t.expect(bound.ClassName).toBe("ImageLabel")
 		t.expect(bound.Image).toBe("rbxassetid://1")
 		t.expect(bound.ScaleType).toBe(ScaleType.Fit)
-		for word, native in { fill = ScaleType.Crop, crop = ScaleType.Crop, stretch = ScaleType.Stretch } do
-			mode:set(word)
+		local scaleTypes: { [string]: Enum.ScaleType } =
+			{ fill = ScaleType.Crop, crop = ScaleType.Crop, stretch = ScaleType.Stretch }
+		for word, native in scaleTypes do
+			mode:set(word :: "fill" | "crop" | "stretch")
 			t.expect(bound.ScaleType).toBe(native)
 		end
 		local tile = root:FindFirstChild("Tile")
@@ -388,14 +412,21 @@ t.describe("native restored controls: Image", function()
 
 	t.it("checks each geometry key against its mode in both directions", function()
 		local cases: { { spec: any, fragment: string } } = {
-			{ spec = { scaleMode = "tile" }, fragment = "requires tileSize" },
-			{ spec = { scaleMode = "tile", tileSize = { width = 1.5, height = 2 } }, fragment = "whole pixels" },
+			{ spec = { scaleMode = "tile" :: "tile" }, fragment = "requires tileSize" },
+			{
+				spec = { scaleMode = "tile" :: "tile", tileSize = { width = 1.5, height = 2 } },
+				fragment = "whole pixels",
+			},
 			{ spec = { tileSize = { width = 2, height = 2 } }, fragment = "tileSize requires scaleMode tile" },
-			{ spec = { scaleMode = "slice" }, fragment = "requires sliceCenter" },
+			{ spec = { scaleMode = "slice" :: "slice" }, fragment = "requires sliceCenter" },
 			{ spec = { sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 } }, fragment = "requires scaleMode slice" },
 			{ spec = { sliceScale = 2 }, fragment = "sliceScale requires scaleMode slice" },
 			{
-				spec = { scaleMode = "slice", sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 }, sliceScale = 0 },
+				spec = {
+					scaleMode = "slice" :: "slice",
+					sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 },
+					sliceScale = 0,
+				},
 				fragment = "above zero",
 			},
 			{
@@ -403,22 +434,26 @@ t.describe("native restored controls: Image", function()
 				fragment = "static",
 			},
 			{
-				spec = { shape = "circle", scaleMode = "slice", sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 } },
+				spec = {
+					shape = "circle" :: "circle",
+					scaleMode = "slice" :: "slice",
+					sliceCenter = { x0 = 1, y0 = 1, x1 = 2, y1 = 2 },
+				},
 				fragment = "circle cannot slice",
 			},
-			{ spec = { scaleMode = "zoom" }, fragment = "scaleMode must be" },
+			{ spec = { scaleMode = "zoom" :: "zoom" }, fragment = "scaleMode must be" },
 			{ spec = { imageFraming = { width = 2, height = 2 } }, fragment = "unknown option" },
 		}
 		for _, case in cases do
 			t.expect(mentions(
-				refusal(function(UI)
+				refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.Image(case.spec)
 				end),
 				case.fragment
 			)).toBe(true)
 		end
-		local mode = Compose.cell("fit")
-		local root, engine, stop = build(nil, function(UI)
+		local mode = Compose.cell("fit" :: "crop" | "fill" | "fit" | "slice" | "stretch" | "tile")
+		local root, engine, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Image({ scaleMode = mode })
 		end)
 		local ok, failure = pcall(function()
@@ -431,13 +466,13 @@ t.describe("native restored controls: Image", function()
 	end)
 
 	t.it("resamples, tints, sizes and rounds a circle through native properties", function()
-		local resample = Compose.cell("pixelated")
-		local root, engine, stop = build(nil, function(UI)
+		local resample = Compose.cell("pixelated" :: "default" | "pixelated")
+		local root, engine, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Image({
 				image = "rbxassetid://2",
 				resample = resample,
 				tint = Roblox.Color3.new(0, 1, 0),
-				shape = "circle",
+				shape = "circle" :: "circle",
 			})
 		end)
 		local types = engine.types
@@ -456,13 +491,19 @@ end)
 
 t.describe("native restored controls: Divider", function()
 	t.it("takes its direction from the stack that holds it and turns with it", function()
-		local root, engine, stop = build(nil, function(UI, Host)
-			return Host.Frame({
-				UI.VStack("Column")({ UI.Divider("Rule")({}) }),
-				UI.HStack("Row")({ UI.Divider("Rule")({}) }),
-				UI.HStack("Forced")({ UI.Divider("Rule")({ axis = "y" }) }),
-			})
-		end)
+		local root, engine, stop = build(
+			nil,
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.VStack("Column")({ UI.Divider("Rule")({}) }) :: unknown,
+					UI.HStack("Row")({ UI.Divider("Rule")({}) }),
+					UI.HStack("Forced")({ UI.Divider("Rule")({ axis = "y" :: "y" }) }),
+				})
+			end
+		)
 		local UDim2 = engine.types.UDim2
 		local hairline = themes.neutralPackage().metrics.strokes.hairline
 		local function rule(name: string): any
@@ -481,13 +522,16 @@ t.describe("native restored controls: Divider", function()
 
 	t.it("uses the theme hairline weight by default and accepts pixels or a metric name", function()
 		local theme = Compose.cell(themes.neutralPackage())
-		local root, engine, stop = build({ theme = theme }, function(UI)
-			return UI.VStack({
-				UI.Divider("Default")({}),
-				UI.Divider("Pixels")({ thickness = 3 }),
-				UI.Divider("Step")({ thickness = "xs" }),
-			})
-		end)
+		local root, engine, stop = build(
+			{ theme = theme },
+			function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.VStack({
+					UI.Divider("Default")({}) :: unknown,
+					UI.Divider("Pixels")({ thickness = 3 }),
+					UI.Divider("Step")({ thickness = "xs" }),
+				})
+			end
+		)
 		local UDim2 = engine.types.UDim2
 		t.expect(root:FindFirstChild("Default").Size).toBe(UDim2.new(1, 0, 0, 1))
 		t.expect(root:FindFirstChild("Pixels").Size).toBe(UDim2.new(1, 0, 0, 3))
@@ -499,7 +543,7 @@ t.describe("native restored controls: Divider", function()
 		t.expect(root:FindFirstChild("Default").Size).toBe(UDim2.new(1, 0, 0, 2))
 		stop()
 		t.expect(mentions(
-			refusal(function(UI)
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.Divider({ thickness = 0 })
 			end),
 			"positive number"
@@ -507,8 +551,8 @@ t.describe("native restored controls: Divider", function()
 	end)
 
 	t.it("wears the divider tags and adds the strong tag while a bound appearance is strong", function()
-		local appearance = Compose.cell("standard")
-		local root, _, stop = build(nil, function(UI)
+		local appearance = Compose.cell("standard" :: "standard" | "strong")
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Divider({ appearance = appearance })
 		end)
 		t.expect(root:HasTag("facet-divider")).toBe(true)
@@ -521,15 +565,15 @@ t.describe("native restored controls: Divider", function()
 	end)
 
 	t.it("leaves its transparency at the class default so the divider rule paints the line", function()
-		local root, _, stop = build(nil, function(UI)
+		local root, _, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.Divider({})
 		end)
 		t.expect(root.BackgroundTransparency).toBe(0)
 		t.expect(root.BorderSizePixel).toBe(0)
 		stop()
 		t.expect(mentions(
-			refusal(function(UI)
-				return UI.Divider({ appearance = "loud" })
+			refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.Divider({ appearance = "loud" :: "loud" } :: any)
 			end),
 			"standard or strong"
 		)).toBe(true)
@@ -593,9 +637,9 @@ end)
 t.describe("native restored controls: Spacer", function()
 	t.it("fills the free main-axis space and keeps a themed minimum on the stack axis", function()
 		local floor = Compose.cell("m")
-		local root, engine, stop = build(nil, function(UI)
+		local root, engine, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.VStack({
-				UI.HStack("Row")({ UI.Spacer("Gap")({ minLength = floor }) }),
+				UI.HStack("Row")({ UI.Spacer("Gap")({ minLength = floor }) }) :: unknown,
 				UI.VStack("Column")({ UI.Spacer("Gap")({ minLength = 12 }) }),
 				UI.VStack("Bare")({ UI.Spacer("Gap")({}) }),
 			})
@@ -614,13 +658,13 @@ t.describe("native restored controls: Spacer", function()
 	end)
 
 	t.it("keeps an explicit native size and refuses an invalid minimum", function()
-		local root, engine, stop = build(nil, function(UI)
+		local root, engine, stop = build(nil, function(UI: typeof(require("@repo/src").controls(nil :: any)))
 			return UI.HStack({ UI.Spacer("Gap")({ Size = Roblox.UDim2.fromOffset(40, 4), minLength = 8 }) })
 		end)
 		t.expect(root:FindFirstChild("Gap").Size).toBe(engine.types.UDim2.fromOffset(40, 4))
 		stop()
 		for _, value in { -1, "huge" } :: { any } do
-			t.expect(refusal(function(UI)
+			t.expect(refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 				return UI.HStack({ UI.Spacer({ minLength = value }) })
 			end) ~= nil).toBe(true)
 		end

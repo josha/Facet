@@ -75,7 +75,30 @@ def imports(path):
     scanner = ImportScanner(source)
     scanner.code()
     ignored = scanner.comments + scanner.strings + [(start, end) for start, end, _, _ in scanner.long_strings]
-    return [("dynamic:" if match[3] else "") + match[2] for match in REQUIRES.finditer(source) if not any(start <= match.start() < end for start, end in ignored)]
+    erased = []
+    for expression in re.finditer(r"\btypeof\s*\(", source):
+        if any(start <= expression.start() < end for start, end in ignored):
+            continue
+        prefix = source[:expression.start()]
+        if re.search(r"(?:^|\n)\s*(?:local\s+)?[\w.,]+(?:\s*:\s*[^=\n]*)?\s*=\s*$", prefix) or re.search(r"\breturn\s*$", prefix):
+            continue
+        depth, index = 1, expression.end()
+        while index < len(source) and depth:
+            region = next((end for start, end in ignored if start <= index < end), None)
+            if region is not None:
+                index = region
+                continue
+            depth += (source[index] == "(") - (source[index] == ")")
+            index += 1
+        if depth == 0:
+            erased.append((expression.start(), index))
+    ignored.extend(erased)
+    aliases = {"require"}
+    for binding in re.finditer(r"\blocal\s+(\w+)\s*=\s*require\s*::", source):
+        if not any(start <= binding.start() < end for start, end in ignored):
+            aliases.add(binding[1])
+    calls = re.compile(r"\b(?:" + "|".join(re.escape(name) for name in sorted(aliases)) + r")\s*\(?\s*([\"'])([^\"']+)\1\s*(\.\.)?")
+    return [("dynamic:" if match[3] else "") + match[2] for match in calls.finditer(source) if not any(start <= match.start() < end for start, end in ignored)]
 
 def missing_dependencies(path, visited=None):
     visited = visited or set()

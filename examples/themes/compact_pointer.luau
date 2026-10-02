@@ -188,14 +188,14 @@ function compact_pointer.definition(themes: any): any
 		},
 		chrome = {
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_panel",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 				fallback = "native",
 			},
 
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "compact_button_default",
 					hover = "compact_button_hover",
@@ -206,43 +206,53 @@ function compact_pointer.definition(themes: any): any
 				fallback = "native",
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_field",
 				contentInsets = { top = 2, right = 6, bottom = 2, left = 6 },
 				fallback = "native",
 			},
 
 			selection = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "compact_button_default", selected = "compact_button_hover" },
 				contentInsets = { top = 2, right = 4, bottom = 2, left = 4 },
 				fallback = "native",
 			},
 
-			focus = { kind = "ring" },
+			focus = { kind = "ring" :: "ring" },
 			barTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
-			barFill = { kind = "nineSlice", asset = "compact_bar_fill", direction = "ltr", fallback = "native" },
+			barFill = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "compact_bar_fill",
+				direction = "ltr" :: "ltr",
+				fallback = "native",
+			},
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "compact_toggle_track_off", selected = "compact_toggle_track_on" },
 				fallback = "native",
 			},
-			toggleKnob = { kind = "nineSlice", asset = "compact_toggle_knob", sliced = false, fallback = "native" },
+			toggleKnob = {
+				kind = "nineSlice" :: "nineSlice",
+				asset = "compact_toggle_knob",
+				sliced = false,
+				fallback = "native",
+			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "compact_stepper_plate_default", pressed = "compact_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 2, right = 2, bottom = 2, left = 2 },
 				fallback = "native",
 			},
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = { ["facet:search"] = "search" },

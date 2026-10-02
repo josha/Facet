@@ -2,7 +2,15 @@
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -39,10 +47,18 @@ end
 
 local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
-		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
-		return if type(built) == "function" then built() else built.screen()
-	end, { size = size, theme = theme, frames = 20 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			built = t.scenario(name).build(t.context(UI, Host, Compose, env))
+			return if type(built) == "function" then built() else built.screen()
+		end,
+		{ size = size, theme = theme, frames = 20 }
+	)
 	return stage, built
 end
 
@@ -110,13 +126,20 @@ local function radialItems(count: number, long: boolean): { any }
 end
 
 add("radial-list-fallback-fits", { "apps2-191" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.RadialMenu "Quick" {
-			isPresented = Compose.cell(true),
-			clearance = 100,
-			items = radialItems(3, true),
-		}
-	end, { size = Vector2.new(320, 300), frames = 30 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.RadialMenu "Quick" {
+				isPresented = Compose.cell(true),
+				clearance = 100,
+				items = radialItems(3, true),
+			}
+		end,
+		{ size = Vector2.new(320, 300), frames = 30 }
+	)
 	local panel = visibleNamed(t, stage, "RadialPanel")
 	t.check("the menu presents", panel ~= nil)
 	if not panel then
@@ -142,12 +165,19 @@ end)
 
 interactive("radial-list-scrolls-selection-into-view", { "apps2-191" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.RadialMenu "Quick" {
-			isPresented = Compose.cell(true),
-			items = radialItems(12, false),
-		}
-	end, { size = Vector2.new(420, 200), frames = 30 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.RadialMenu "Quick" {
+				isPresented = Compose.cell(true),
+				items = radialItems(12, false),
+			}
+		end,
+		{ size = Vector2.new(420, 200), frames = 30 }
+	)
 	value.panel = visibleNamed(t, stage, "RadialPanel")
 	t.check(
 		"a 420x200 space presents the list",
@@ -235,12 +265,29 @@ add("quick-actions-ring-fits-phones", { "apps2-194" }, function(t)
 end)
 
 add("character-commands-ring-or-list", { "apps2-224" }, function(t)
-	for _, entry in
+	for
+		_,
+		entry: {
+		size: typeof(Vector2.new(1280, 720))
+			| typeof(Vector2.new(960, 540))
+			| typeof(Vector2.new(800, 600))
+			| typeof(Vector2.new(677, 338)),
+		kind: "radial" | "list",
+	}
+	in
 		{
-			{ size = Vector2.new(1280, 720), kind = "radial" },
-			{ size = Vector2.new(960, 540), kind = "radial" },
-			{ size = Vector2.new(800, 600), kind = "radial" },
-			{ size = Vector2.new(677, 338), kind = "list" },
+			{ size = Vector2.new(1280, 720), kind = "radial" :: "radial" },
+			{ size = Vector2.new(960, 540), kind = "radial" :: "radial" },
+			{ size = Vector2.new(800, 600), kind = "radial" :: "radial" },
+			{ size = Vector2.new(677, 338), kind = "list" :: "list" },
+		} :: {
+			{
+				size: typeof(Vector2.new(1280, 720))
+					| typeof(Vector2.new(960, 540))
+					| typeof(Vector2.new(800, 600))
+					| typeof(Vector2.new(677, 338)),
+				kind: "radial" | "list",
+			}
 		}
 	do
 		local where = `{entry.size.X}x{entry.size.Y}`
@@ -291,8 +338,8 @@ end, {
 })
 
 add("gallery-previews-keep-page-and-pad-routes", { "apps2-225" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
-	local Compose = t.Facet.Compose
+	local live = (require :: any)(assert(script.Parent).Parent)
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = t.Facet.Compose
 	local size = Compose.cell(Vector2.new(1280, 800))
 	local stage, context = t.gallery({ size = size, demo = "all-controls" })
 	t.settle(20)
@@ -331,7 +378,7 @@ add("gallery-previews-keep-page-and-pad-routes", { "apps2-225" }, function(t)
 end)
 
 add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
+	local live = (require :: any)(assert(script.Parent).Parent)
 	local http = game:GetService("HttpService")
 	local results = {}
 	for _, run in
@@ -411,23 +458,30 @@ local PICKER_SIZES = {
 }
 
 add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
-	local stage = t.mount(function(UI, _, Compose)
-		return UI.RadialMenu({
-			isPresented = Compose.cell(true),
-			items = {
-				{
-					id = "Branch",
-					label = "Branch",
-					children = {
-						{ id = "Leaf", label = "Leaf", completion = "stay" },
-						{ id = "Twig", label = "Twig", completion = "stay" },
-					},
+	local live = (require :: any)(assert(script.Parent).Parent)
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			return UI.RadialMenu({
+				isPresented = Compose.cell(true),
+				items = {
+					{
+						id = "Branch",
+						label = "Branch",
+						children = {
+							{ id = "Leaf", label = "Leaf", completion = "stay" :: "stay" },
+							{ id = "Twig", label = "Twig", completion = "stay" :: "stay" },
+						},
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
+					{ id = "Other", label = "Other", completion = "stay" :: "stay" } :: typeof(require("@repo/tools/typecheck/example_shapes").RadialItem_any(nil :: any)),
 				},
-				{ id = "Other", label = "Other", completion = "stay" },
-			},
-		})
-	end, { size = Vector2.new(900, 700), motionLevel = "normal", frames = 30 })
+			})
+		end,
+		{ size = Vector2.new(900, 700), motionLevel = "normal", frames = 30 }
+	)
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local retiring = visibleNamed(t, gui, "Sector-Branch")
 	local button = retiring and retiring:FindFirstChild("Branch", true)
@@ -466,7 +520,7 @@ add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
 end)
 
 add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
+	local live = (require :: any)(assert(script.Parent).Parent)
 	local UserInputService = game:GetService("UserInputService")
 	local virtual = (UserInputService :: any):CreateVirtualInput()
 	local inset = GuiService:GetGuiInset()
@@ -483,12 +537,20 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 		t.settle(4)
 	end
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
-		local ctx = t.context(UI, Host, Compose, env)
-		local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
-		built = (require :: any)(folder:WaitForChild("02_playlist_table")).build(ctx)
-		return built.screen()
-	end, { size = Vector2.new(1100, 700), frames = 30 })
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core")),
+			env
+		)
+			local ctx = t.context(UI, Host, Compose, env)
+			local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
+			built = (require :: any)(folder:WaitForChild("02_playlist_table")).build(ctx)
+			return built.screen()
+		end,
+		{ size = Vector2.new(1100, 700), frames = 30 }
+	)
 	local function ids(): string
 		local out = {}
 		for _, track in built.baseRows:peek() do
@@ -556,7 +618,7 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-local SHORT_OPTIONS = {
+local SHORT_OPTIONS: { typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_string(nil :: any)) } = {
 	{ value = "a", label = "Open" },
 	{ value = "b", label = "Club" },
 }
@@ -573,25 +635,34 @@ add("picker-style-sweep", { "navigation-3-85" }, function(t)
 			for _, style in PICKER_STYLES do
 				local where = `{theme.name} {size.X}x{size.Y} {style}`
 				local opened
-				local stage = t.mount(function(UI, Host, Compose)
-					opened = Compose.cell(false)
-					return Host.Frame "Column" {
-						Size = UDim2.new(1, 0, 0, 0),
-						AutomaticSize = Enum.AutomaticSize.Y,
-						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
-						UI.Picker "Handling" {
-							label = "Handling",
-							style = style,
-							selected = Compose.cell("b"),
-							options = if style == "segmented" then SHORT_OPTIONS else options,
-							isPresented = opened,
-							query = if style == "navigationLink" then Compose.cell("") else nil,
-							LayoutOrder = 1,
-						},
-						UI.Text "Below" { text = "Neighbour", LayoutOrder = 2 },
-					}
-				end, { theme = theme.package, size = size, frames = 12 })
+				local stage = t.mount(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+						Compose: typeof(require("@repo/src/vendor/compose/core"))
+					)
+						opened = Compose.cell(false)
+						return Host.Frame "Column" {
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							BackgroundTransparency = 1,
+							Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+							UI.Picker "Handling" {
+								label = "Handling",
+								style = style :: (
+									"automatic" | "segmented" | "inline" | "radioGroup" | "navigationLink" | "menu"
+								),
+								selected = Compose.cell("b"),
+								options = if style == "segmented" then SHORT_OPTIONS else options,
+								isPresented = opened,
+								query = if style == "navigationLink" then Compose.cell("") else nil,
+								LayoutOrder = 1,
+							},
+							UI.Text "Below" { text = "Neighbour", LayoutOrder = 2 },
+						}
+					end,
+					{ theme = theme.package, size = size, frames = 12 }
+				)
 				local picker, below = t.find(stage, "Handling"), t.find(stage, "Below")
 				t.stable(picker)
 				t.check(where .. " closed picker clear of its neighbour", not overlap(t.rect(picker), t.rect(below)), {
@@ -634,19 +705,26 @@ end)
 
 interactive("grabber-activation-cycles-detents", { "navigation-4-38" }, function(t)
 	local value = { detents = {} }
-	t.mount(function(UI, _, Compose)
-		value.detent = Compose.cell("medium")
-		return UI.Sheet({
-			isPresented = Compose.cell(true),
-			detent = value.detent,
-			detents = { "medium", "large", { id = "short", height = 260 } },
-			title = "Loadout",
-			content = function()
-				return UI.Text({ text = "Pick a loadout" })
-			end,
-		})
-	end, { frames = 20 })
-	local gui = game:GetService("Players").LocalPlayer.PlayerGui
+	t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			_,
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			value.detent = Compose.cell("medium")
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = value.detent,
+				detents = { "medium", "large", { id = "short", height = 260 } } :: { typeof(require("@repo/tools/typecheck/example_shapes").sheetDetent(nil :: any)) },
+				title = "Loadout",
+				content = function(): Instance
+					return UI.Text({ text = "Pick a loadout" })
+				end,
+			})
+		end,
+		{ frames = 20 }
+	)
+	local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	value.grabber = visibleNamed(t, gui, "Grabber")
 	t.check("the grabber shows", value.grabber ~= nil)
 	GuiService.SelectedObject = value.grabber
@@ -685,46 +763,53 @@ end)
 
 add("virtual-list-clamps-across-tabs", { "navigation-4-68" }, function(t)
 	local rows, selection
-	local stage = t.mount(function(UI, Host, Compose)
-		rows = Compose.cell((function()
-			local list = {}
-			for index = 1, 100 do
-				list[index] = { id = tostring(index) }
-			end
-			return list
-		end)())
-		selection = Compose.cell("a")
-		return UI.TabView "Tabs" {
-			selection = selection,
-			Size = UDim2.fromOffset(400, 360),
-			tabs = {
-				{
-					id = "a",
-					label = "List",
-					content = function()
-						return UI.VirtualList "List" {
-							from = rows,
-							key = function(item)
-								return item.id
-							end,
-							itemSize = 100,
-							Size = UDim2.fromOffset(300, 300),
-							render = function(current)
-								return UI.Text({ text = "Row " .. current:peek().id, Size = UDim2.fromScale(1, 1) })
-							end,
-						}
-					end,
+	local stage = t.mount(
+		function(
+			UI: typeof(require("@repo/src").controls(nil :: any)),
+			Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
+			Compose: typeof(require("@repo/src/vendor/compose/core"))
+		)
+			rows = Compose.cell((function()
+				local list = {}
+				for index = 1, 100 do
+					list[index] = { id = tostring(index) }
+				end
+				return list
+			end)())
+			selection = Compose.cell("a")
+			return UI.TabView "Tabs" {
+				selection = selection,
+				Size = UDim2.fromOffset(400, 360),
+				tabs = {
+					{
+						id = "a",
+						label = "List",
+						content = function()
+							return UI.VirtualList "List" {
+								from = rows,
+								key = function(item)
+									return item.id
+								end,
+								itemSize = 100,
+								Size = UDim2.fromOffset(300, 300),
+								render = function(current)
+									return UI.Text({ text = "Row " .. current:peek().id, Size = UDim2.fromScale(1, 1) })
+								end,
+							}
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
+					{
+						id = "b",
+						label = "Other",
+						content = function()
+							return Host.Frame({ Size = UDim2.fromOffset(10, 10) })
+						end,
+					} :: typeof(require("@repo/tools/typecheck/example_shapes").tab(nil :: any)),
 				},
-				{
-					id = "b",
-					label = "Other",
-					content = function()
-						return Host.Frame({ Size = UDim2.fromOffset(10, 10) })
-					end,
-				},
-			},
-		}
-	end, { size = Vector2.new(600, 500), frames = 20 })
+			}
+		end,
+		{ size = Vector2.new(600, 500), frames = 20 }
+	)
 	local list = visibleNamed(t, stage, "List")
 	if not list then
 		t.check("the list mounts", false)
@@ -760,15 +845,26 @@ add("type-roles-compile-to-native-fonts", { "paint-148" }, function(t)
 	local roles = t.Facet.themes.TYPE_ROLES
 	for _, theme in t.themes do
 		local labels = {}
-		local stage = t.mount(function(UI, Host)
-			local children = { Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) }
-			for index, role in roles do
-				local label = UI.Text({ Name = role, text = "Sample " .. role, textRole = role, LayoutOrder = index })
-				labels[role] = label
-				table.insert(children, label)
-			end
-			return Host.Frame { Size = UDim2.fromOffset(600, 600), BackgroundTransparency = 1, table.unpack(children) }
-		end, { theme = theme.package, size = Vector2.new(600, 600), frames = 10 })
+		local stage = t.mount(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				local children: { unknown } = { Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) }
+				for index, role in roles do
+					local label =
+						UI.Text({ Name = role, text = "Sample " .. role, textRole = role, LayoutOrder = index })
+					labels[role] = label
+					table.insert(children, label)
+				end
+				return Host.Frame {
+					Size = UDim2.fromOffset(600, 600),
+					BackgroundTransparency = 1,
+					table.unpack((children :: unknown) :: { unknown }),
+				}
+			end,
+			{ theme = theme.package, size = Vector2.new(600, 600), frames = 10 }
+		)
 		local typography = theme.package.metrics.typography
 		for _, role in roles do
 			local label = labels[role]
@@ -784,8 +880,8 @@ add("type-roles-compile-to-native-fonts", { "paint-148" }, function(t)
 				t.check(`{theme.name} {role} FontFace weight`, face.Weight.Name ~= "", tostring(face))
 				t.check(
 					`{theme.name} {role} TextBounds follow the size`,
-					label.TextBounds.Y >= spec.size * 0.9,
-					label.TextBounds
+					(label :: TextLabel).TextBounds.Y >= spec.size * 0.9,
+					(label :: TextLabel).TextBounds
 				)
 			end
 		end

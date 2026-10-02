@@ -1,11 +1,14 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types")(nil :: any))
 return {
 	title = "Writing and search",
 	ledgerRows = { "CONTROL-TEXT" },
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -27,7 +30,7 @@ return {
 		local speed = Compose.cell(120)
 		local fields: { [string]: GuiObject } = {}
 		local function keep(name: string)
-			return function(node: GuiObject)
+			return function(node: TextBox)
 				fields[name] = node
 			end
 		end
@@ -38,7 +41,7 @@ return {
 			end
 			return at
 		end
-		local matches = Compose.formula(function(use)
+		local matches = Compose.formula(function(use: Use): { string }
 			local out = {}
 			for _, name in
 				{ "Coastal circuit", "Forest sprint", "Harbor loop", "Mountain pass", "Night rally", "Riverside run" }
@@ -67,7 +70,13 @@ return {
 			speedDraft:set("120")
 			speed:set(120)
 		end
-		local function caption(name: string, text: string, role: string?)
+		local function caption(
+			name: string,
+			text: string,
+			role: (
+				"body" | "caption" | "control" | "heading" | "label" | "numeral" | "strong" | "title"
+			)?
+		)
 			return UI.Text(name)({
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -89,7 +98,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -97,7 +106,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Writing and search",
-					textRole = "title",
+					textRole = "title" :: "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -110,10 +119,10 @@ return {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					}) :: unknown,
 					UI.Button "Enable" {
 						LayoutOrder = 1,
-						label = function(use)
+						label = function(use: Use)
 							return if use(enabled) then "Disable fields" else "Enable fields"
 						end,
 						onActivate = function()
@@ -129,7 +138,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Race notes",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -177,28 +186,30 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Find a track",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 				UI.TextInput "Search" {
 					value = query,
-					presentation = "search",
+					presentation = "search" :: "search",
 					enabled = enabled,
 				},
 				Compose.OrderedCollection({
-					from = matches,
+					from = function(use: Use): { string }
+						return use(matches)
+					end,
 					key = function(name)
 						return name
 					end,
-					render = function(name)
+					render = function(name: Readable<string>): GuiObject
 						return UI.Text({
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							text = function(use)
+							text = function(use: Use)
 								return use(name)
 							end,
 							TextWrapped = true,
@@ -214,7 +225,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Lap count · 1 to 99",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -233,7 +244,7 @@ return {
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					text = function(use)
+					text = function(use: Use)
 						return "Committed laps: " .. tostring(use(laps))
 					end,
 					TextWrapped = true,
@@ -262,7 +273,7 @@ return {
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					text = function(use)
+					text = function(use: Use)
 						return "Committed fee: " .. use(feeReason)
 					end,
 					TextWrapped = true,
@@ -279,7 +290,7 @@ return {
 					label = "Pit lane limit",
 					hint = "Drag sideways to change it. Focusing selects the number.",
 					scrub = true,
-					selectOnFocus = "all",
+					selectOnFocus = "all" :: "all",
 					ref = keep("Speed"),
 				},
 				caption("FurnitureHeading", "Fields with furniture", "heading"),
@@ -287,7 +298,7 @@ return {
 					value = handle,
 					enabled = enabled,
 					label = "Display name",
-					requiredMark = "required",
+					requiredMark = "required" :: "required",
 					hint = "Other racers see this above your kart.",
 					errorText = nameError,
 					trailing = UI.Button "Paste" {
@@ -305,7 +316,7 @@ return {
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					text = function(use)
+					text = function(use: Use)
 						return "Paste pressed " .. tostring(use(pasted)) .. " times"
 					end,
 					TextWrapped = true,
@@ -316,7 +327,7 @@ return {
 					label = "Join code",
 					hint = "Share this with friends. It cannot be edited here.",
 					readOnly = true,
-					clearButtonMode = "always",
+					clearButtonMode = "always" :: "always",
 					ref = keep("JoinCode"),
 				},
 				UI.TextInput "Briefing" {

@@ -35,7 +35,13 @@ t.describe("native facet flap", function()
 			}
 		do
 			local game = flap.new(Compose)
-			game.state:set({ phase = "playing", x = setup.x, y = setup.y, velocity = setup.velocity, score = 0 })
+			game.state:set({
+				phase = "playing" :: "playing",
+				x = setup.x,
+				y = setup.y,
+				velocity = setup.velocity,
+				score = 0,
+			})
 			game.step(10)
 			t.expect(game.state:peek().phase).toBe("over")
 			local ended = game.state:peek()
@@ -52,14 +58,14 @@ t.describe("native facet flap", function()
 		t.expect(flap.tileAt(18, 3)).toBe(nil)
 		t.expect(flap.tileAt(18, 2)).toBe("cap")
 		t.expect(flap.tileAt(18, 8)).toBe("cap")
-		game.state:set({ phase = "playing", x = 491, y = 176, velocity = 0, score = 0 })
+		game.state:set({ phase = "playing" :: "playing", x = 491, y = 176, velocity = 0, score = 0 })
 		game.step(0.01)
 		t.expect(game.state:peek().phase).toBe("playing")
 		t.expect(game.state:peek().score).toBe(1)
 		game.step(0.01)
 		t.expect(game.state:peek().score).toBe(1)
 		t.expect(game.best:peek()).toBe(1)
-		game.state:set({ phase = "over", x = 500, y = 380, velocity = 0, score = 1 })
+		game.state:set({ phase = "over" :: "over", x = 500, y = 380, velocity = 0, score = 1 })
 		game.flap()
 		t.expect(game.state:peek().score).toBe(0)
 		t.expect(game.best:peek()).toBe(1)

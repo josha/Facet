@@ -54,16 +54,16 @@ local function definition(themes: any, field: string): any
 		style = { defaultTheme = "AB", themes = { { name = "AB", colors = THEME.colors, extra = THEME.extra } } },
 		chrome = {
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "plate",
 				fallback = "native",
 				contentInsets = { top = 16, right = 16, bottom = 16, left = 16 },
 			},
-			panel = { kind = "native" },
-			field = { kind = "native" },
-			selection = { kind = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			panel = { kind = "native" :: "native" },
+			field = { kind = "native" :: "native" },
+			selection = { kind = "native" :: "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 		icons = { increment = "glyph" },
 		assets = {

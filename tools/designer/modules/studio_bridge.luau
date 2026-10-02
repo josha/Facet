@@ -155,7 +155,7 @@ function bridge.new(pluginHost: any): any
 				undo:TryBeginRecording("FacetDesign.Export", "Export Facet design"),
 				"Finish the current Studio edit before exporting"
 			)
-			local created = {}
+			local created: { Instance } = {}
 			local ok, err = pcall(function()
 				local folder = storage:FindFirstChild("FacetDesigns")
 				if folder then

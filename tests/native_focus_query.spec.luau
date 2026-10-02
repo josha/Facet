@@ -64,7 +64,8 @@ local engineLib = require("./lib/native_engine")
 
 local function world(build: (any, any) -> any): any
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -83,8 +84,12 @@ local function world(build: (any, any) -> any): any
 			services = { GuiService = gui, UserInputService = input },
 		} :: any
 	)
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ build(UI, runtime.constructors, engine.types.Enum) })
+	local stop, screen: any = runtime.mount(function()
+		return (
+			(
+				runtime.constructors.ScreenGui :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.ScreenGui)
+		)({ (build :: (any, any, any) -> any)(UI, runtime.constructors, engine.types.Enum) })
 	end, parent)
 	local w = { engine = engine, gui = gui, UI = UI, screen = screen, parent = parent }
 	function w.place(name: string, x: number, y: number, width: number, height: number)
@@ -102,14 +107,19 @@ end
 
 t.describe("UI.focusQuery", function()
 	t.it("reports the beam for free moves, capture on an adjusted axis, and a set link", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Top")({ label = "Top" }),
-				UI.Stepper("Mid")({ value = Facet.Compose.cell(3), max = 9 }),
-				UI.Button("Bottom")({ label = "Bottom" }),
-				UI.Button("Side")({ label = "Side" }),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Top")({ label = "Top" }) :: unknown,
+					UI.Stepper("Mid")({ value = Facet.Compose.cell(3), max = 9 }),
+					UI.Button("Bottom")({ label = "Bottom" }),
+					UI.Button("Side")({ label = "Side" }),
+				})
+			end
+		)
 		local top = w.place("Top", 100, 100, 200, 44)
 		local mid = w.place("Mid", 100, 200, 200, 44)
 		local bottom = w.place("Bottom", 100, 300, 200, 44)
@@ -129,17 +139,22 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("searches an enclosing SelectionGroup first and honours Stop", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Outside")({ label = "Outside" }),
-				Host.Frame({
-					Name = "Group",
-					SelectionGroup = true,
-					UI.Button("A")({ label = "A" }),
-					UI.Button("B")({ label = "B" }),
-				}),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Outside")({ label = "Outside" }) :: unknown,
+					Host.Frame({
+						Name = "Group",
+						SelectionGroup = true,
+						UI.Button("A")({ label = "A" }) :: unknown,
+						UI.Button("B")({ label = "B" }),
+					}),
+				})
+			end
+		)
 		w.place("Outside", 100, 100, 100, 44)
 		local a = w.place("A", 100, 300, 100, 44)
 		local b = w.place("B", 400, 300, 100, 44)
@@ -153,14 +168,19 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("reports capture on an adjustable's own axis before it is selected", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("L")({ label = "L" }),
-				UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9 }),
-				UI.Slider("Rear")({ value = Facet.Compose.cell(3), min = 0, max = 9, axis = "y" }),
-				UI.Button("Below")({ label = "Below" }),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("L")({ label = "L" }) :: unknown,
+					UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9 }),
+					UI.Slider("Rear")({ value = Facet.Compose.cell(3), min = 0, max = 9, axis = "y" :: "y" }),
+					UI.Button("Below")({ label = "Below" }),
+				})
+			end
+		)
 		w.place("L", 0, 100, 80, 44)
 		local volume = w.place("Volume", 100, 100, 200, 44)
 		local rear = w.place("Rear", 400, 50, 44, 200)
@@ -176,12 +196,17 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("does not report capture for a disabled value control", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("L")({ label = "L" }),
-				UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9, enabled = false }),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("L")({ label = "L" }) :: unknown,
+					UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9, enabled = false }),
+				})
+			end
+		)
 		w.place("L", 0, 100, 80, 44)
 		local volume = w.place("Volume", 100, 100, 200, 44)
 		t.expect(w.UI.focusQuery(volume).Left.rule).toBe("beam")
@@ -189,17 +214,22 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("searches nested SelectionGroups inside out and honours an outer Stop", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Out")({ label = "Out" }),
-				Host.Frame({
-					Name = "Outer",
-					SelectionGroup = true,
-					UI.Button("Sibling")({ label = "Sibling" }),
-					Host.Frame({ Name = "Inner", SelectionGroup = true, UI.Button("A")({ label = "A" }) }),
-				}),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Out")({ label = "Out" }) :: unknown,
+					Host.Frame({
+						Name = "Outer",
+						SelectionGroup = true,
+						UI.Button("Sibling")({ label = "Sibling" }) :: unknown,
+						Host.Frame({ Name = "Inner", SelectionGroup = true, UI.Button("A")({ label = "A" }) }),
+					}),
+				})
+			end
+		)
 		w.place("Out", 100, 0, 100, 44)
 		w.place("Sibling", 100, 100, 100, 44)
 		local a = w.place("A", 100, 300, 100, 44)
@@ -213,15 +243,20 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("ignores a link to a hidden or unselectable target, zero-size and off-screen candidates", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("From")({ label = "From" }),
-				UI.Button("Hidden")({ label = "Hidden" }),
-				UI.Button("Flat")({ label = "Flat" }),
-				UI.Button("Away")({ label = "Away" }),
-				UI.Button("Near")({ label = "Near" }),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("From")({ label = "From" }) :: unknown,
+					UI.Button("Hidden")({ label = "Hidden" }),
+					UI.Button("Flat")({ label = "Flat" }),
+					UI.Button("Away")({ label = "Away" }),
+					UI.Button("Near")({ label = "Near" }),
+				})
+			end
+		)
 		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1000, 800)
 		local from = w.place("From", 100, 100, 100, 44)
 		local hidden = w.place("Hidden", 400, 100, 100, 44)
@@ -238,17 +273,22 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a scroll child is a candidate off its window only from inside the same scroll container", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
-				Host.ScrollingFrame("Scroller")({
-					Selectable = false,
-					UI.Button("Row1")({ label = "Row1" }),
-					UI.Button("Row2")({ label = "Row2" }),
-				}),
-				UI.Button("Far")({ label = "Far" }),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Above")({ label = "Above" }) :: unknown,
+					Host.ScrollingFrame("Scroller")({
+						Selectable = false,
+						UI.Button("Row1")({ label = "Row1" }) :: unknown,
+						UI.Button("Row2")({ label = "Row2" }),
+					}),
+					UI.Button("Far")({ label = "Far" }),
+				})
+			end
+		)
 		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1000, 800)
 		local above = w.place("Above", 100, 20, 300, 44)
 		w.place("Scroller", 100, 100, 320, 200)
@@ -263,13 +303,18 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a multi-line text field below the screen is reached through its viewport (F6c)", function()
-		local w = world(function(UI, Host)
-			return Host.ScrollingFrame("Page")({
-				Selectable = false,
-				UI.Button("Above")({ label = "Above" }),
-				UI.TextInput("Notes")({ value = Facet.Compose.cell(""), multiline = true, visibleLines = 3 }),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.ScrollingFrame("Page")({
+					Selectable = false,
+					UI.Button("Above")({ label = "Above" }) :: unknown,
+					UI.TextInput("Notes")({ value = Facet.Compose.cell(""), multiline = true, visibleLines = 3 }),
+				})
+			end
+		)
 		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1000, 1000)
 		w.place("Page", 0, 0, 1000, 1000)
 		local above = w.place("Above", 20, 950, 300, 44)
@@ -283,16 +328,21 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a selectable scroll container ranks by its own rectangle, like a control (F16)", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
-				UI.Button("Right")({ label = "Right" }),
-				Host.ScrollingFrame("Scroller")({
-					Selectable = true,
-					UI.Button("Clipped")({ label = "Clipped" }),
-				}),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Above")({ label = "Above" }) :: unknown,
+					UI.Button("Right")({ label = "Right" }),
+					Host.ScrollingFrame("Scroller")({
+						Selectable = true,
+						UI.Button("Clipped")({ label = "Clipped" }),
+					}),
+				})
+			end
+		)
 		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1000, 800)
 		local above = w.place("Above", 100, 20, 300, 44)
 		w.place("Right", 600, 120, 100, 44)
@@ -305,19 +355,24 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a SelectionGroup counts through a Folder between it and the control", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("Near")({ label = "Near" }),
-				Host.Frame({
-					Name = "Group",
-					SelectionGroup = true,
-					Host.Folder({
-						UI.Button("Top")({ label = "Top" }),
-						UI.Button("Low")({ label = "Low" }),
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("Near")({ label = "Near" }) :: unknown,
+					Host.Frame({
+						Name = "Group",
+						SelectionGroup = true,
+						Host.Folder({
+							UI.Button("Top")({ label = "Top" }) :: unknown,
+							UI.Button("Low")({ label = "Low" }),
+						}),
 					}),
-				}),
-			})
-		end)
+				})
+			end
+		)
 		local top = w.place("Top", 100, 100, 687, 44)
 		local low = w.place("Low", 100, 300, 44, 100)
 		w.place("Near", 400, 160, 200, 44)
@@ -327,13 +382,18 @@ t.describe("UI.focusQuery", function()
 
 	t.it("at a limit a value control's axis reports the control beyond it", function()
 		local value = Facet.Compose.cell(0)
-		local w = world(function(UI, Host)
-			return Host.Frame({
-				UI.Button("L")({ label = "L" }),
-				UI.Stepper("Volume")({ value = value, max = 9 }),
-				UI.Button("R")({ label = "R" }),
-			})
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({
+					UI.Button("L")({ label = "L" }) :: unknown,
+					UI.Stepper("Volume")({ value = value, max = 9 }),
+					UI.Button("R")({ label = "R" }),
+				})
+			end
+		)
 		local l = w.place("L", 0, 100, 100, 44)
 		local volume = w.place("Volume", 120, 100, 200, 44)
 		w.place("R", 340, 100, 100, 44)
@@ -343,9 +403,14 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("adds no per-frame work", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({ UI.Button("A")({ label = "A" }), UI.Button("B")({ label = "B" }) })
-		end)
+		local w = world(
+			function(
+				UI: typeof(require("@repo/src").controls(nil :: any)),
+				Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+			)
+				return Host.Frame({ UI.Button("A")({ label = "A" }) :: unknown, UI.Button("B")({ label = "B" }) })
+			end
+		)
 		local before = w.engine.heartbeat.count()
 		w.gui.SelectedObject = w.place("A", 0, 0, 100, 44)
 		w.UI.focusQuery()

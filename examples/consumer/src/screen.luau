@@ -1,7 +1,9 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local screen = {}
 function screen.build(Facet: any, UI: any)
-	local Compose = Facet.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 	local count = Compose.cell(0)
 	local sound = Compose.cell(true)
 	local visible = Compose.cell(true)
@@ -9,19 +11,19 @@ function screen.build(Facet: any, UI: any)
 		Compose.show(visible, function()
 			return UI.VStack "Panel" {
 				gap = "s",
-				width = "fill",
-				align = "stretch",
-				UI.Text "Title" { text = "Facet consumer", textRole = "title" },
+				width = "fill" :: "fill",
+				align = "stretch" :: "stretch",
+				UI.Text "Title" { text = "Facet consumer", textRole = "title" :: "title" } :: unknown,
 				UI.Text "Blurb" {
 					text = "One component, local state, one theme. Press Bump and watch the count follow.",
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 				},
 				UI.Text "Count" {
-					text = function(use)
+					text = function(use: Use)
 						return if use(count) == 1 then "1 tap" else `{use(count)} taps`
 					end,
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 				},
 				UI.Toggle "Sound" { label = "Sound", value = sound },
 				UI.Button "Bump" {

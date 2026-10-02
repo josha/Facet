@@ -1,4 +1,9 @@
 --!strict
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+local SharedTypes = require("../src/ui/control_types")
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -9,28 +14,29 @@ local registerRowActions = require("../src/ui/collection_row_actions")
 local registerTable = require("../src/ui/collection_table")
 local engineLib = require("./lib/native_engine")
 
-local function setup(options)
+local function setup(options: { [string]: any }?)
 	local engine = engineLib.new(options and options.engine)
 	if options and options.clock then
 		engine.clock = options.clock
 	end
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local root = engine.new("ScreenGui")
-	local config = {
+	local config: { [string]: any } = {
 		types = engine.types,
 		guiService = gui,
 		services = { GuiService = gui },
 		inputParent = root,
 		motionLevel = "none",
 	}
-	for field, value in options or {} do
+	for field, value in (options or {}) :: { [string]: any } do
 		if field ~= "engine" then
 			config[field] = value
 		end
 	end
 	if config.userInputService and config.userInputService.GetPropertyChangedSignal == nil then
-		local service = engine.new("UserInputService")
+		local service: any = engine.new("UserInputService")
 		service.IsKeyDown = function()
 			return false
 		end
@@ -43,8 +49,8 @@ local function setup(options)
 		config.userInputService = service
 		config.services.UserInputService = service
 	end
-	local ctx = context(Compose, runtime, config)
-	local UI = {}
+	local ctx = context(Compose, runtime, config :: SharedTypes.Config)
+	local UI = ({} :: unknown) :: SharedTypes.Controls
 	registerInputs(ctx, UI)
 	local surfaces = require("../src/ui/nav_modal")(ctx)
 	require("../src/ui/nav_menu")(ctx, UI, surfaces)
@@ -66,13 +72,18 @@ local function records(count)
 	return values
 end
 
-local function key(item)
+type KeyedRecord =
+	{ id: number, label: string }
+	| { id: number, name: string }
+	| { id: number, name: string, artist: string, rating: number }
+	| { id: number, first: string, second: string, third: string }
+local function key(item: KeyedRecord): number
 	return item.id
 end
 
-local function button(UI, current)
+local function button(UI: SharedTypes.Controls, current: Compose.Readable<{ id: number, label: string }>): GuiObject
 	return UI.Button "Action" {
-		label = function(use)
+		label = function(use: Use)
 			return use(current).label
 		end,
 	}
@@ -80,21 +91,25 @@ end
 
 t.describe("Compose native collections", function()
 	t.it("selects on click zero and activates on click one for lists and grids", function()
-		for _, kind in { "VirtualList", "VirtualGrid" } do
+		for _, kind in { "VirtualList", "VirtualGrid" } :: { "VirtualGrid" | "VirtualList" } do
 			local engine, runtime, UI, target = setup()
 			local selected = Compose.cell({})
 			local activated = 0
-			local stop, list = runtime.mount(function()
+			local stop, list: any = runtime.mount(function()
 				return UI[kind] {
 					from = records(2),
 					key = key,
-					mode = "all",
+					mode = "all" :: "all",
 					selection = selected,
 					onActivate = function()
 						activated += 1
 					end,
-					render = function()
-						return runtime.constructors.Frame { Size = engine.types.UDim2.fromScale(1, 1) }
+					render = function(): GuiObject
+						return (
+							(
+								runtime.constructors.Frame :: unknown
+							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+						) { Size = engine.types.UDim2.fromScale(1, 1) }
 					end,
 				}
 			end, target)
@@ -112,21 +127,21 @@ t.describe("Compose native collections", function()
 	t.it("uses native whole-row dragging in plugin windows without global mouse events", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2 = engine.types.Enum, engine.types.Vector2
-		ctx.config.userInputService.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.KeyboardAndMouse
 		local widget = engine.new("DockWidgetPluginGui")
 		ctx.config.inputParent = widget
 		local reorders = {}
-		local stop, list = runtime.mount(function()
+		local stop, list: any = runtime.mount(function()
 			return UI.VirtualList {
 				from = records(3),
 				key = key,
-				mode = "all",
+				mode = "all" :: "all",
 				itemSize = 40,
 				reorderable = true,
-				onReorder = function(keys, slot)
+				onReorder = function(keys: { number }, slot: number)
 					table.insert(reorders, { keys = keys, slot = slot })
 				end,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			}
@@ -168,8 +183,8 @@ t.describe("Compose native collections", function()
 		local rows = records(100)
 		local source, status =
 			Compose.cell(rows), Compose.cell({
-				mode = "windowed",
-				direction = "vertical",
+				mode = "windowed" :: "windowed",
+				direction = "vertical" :: "vertical",
 				total = 0,
 				retained = 0,
 				first = 0,
@@ -182,14 +197,14 @@ t.describe("Compose native collections", function()
 				measured = 0,
 			} :: Compose.OrderedCollectionStatus)
 		local rendered, disposed = 0, 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = source,
 				key = key,
 				itemSize = 20,
 				overscan = 0,
 				status = status,
-				render = function(current)
+				render = function(current): GuiObject
 					rendered += 1
 					Compose.cleanup(function()
 						disposed += 1
@@ -242,12 +257,12 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target = setup()
 		local source = Compose.cell({ { id = 7, label = "Seven" }, { id = 9, label = "Nine" } })
 		local keys = {}
-		local stopList, list = runtime.mount(function()
+		local stopList, list: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = source,
 				key = "id",
 				itemSize = 20,
-				render = function(current, _placement, rowKey)
+				render = function(current, _placement, rowKey): GuiObject
 					table.insert(keys, rowKey)
 					return button(UI, current)
 				end,
@@ -257,7 +272,7 @@ t.describe("Compose native collections", function()
 		t.expect(list:FindFirstChild("7", true) ~= nil).toBe(true)
 		t.expect(keys[1]).toBe("7")
 		stopList()
-		local stopTable, tableNode = runtime.mount(function()
+		local stopTable, tableNode: any = runtime.mount(function()
 			return UI.Table({
 				from = source,
 				key = "id",
@@ -265,10 +280,10 @@ t.describe("Compose native collections", function()
 					{
 						id = "label",
 						label = "Name",
-						render = function(current)
+						render = function(current): GuiObject
 							return button(UI, current)
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end, target)
@@ -280,10 +295,10 @@ t.describe("Compose native collections", function()
 				return UI.VirtualList({
 					from = source,
 					key = 3,
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
-				})
+				} :: any)
 			end, target)
 			stopBad()
 		end)
@@ -294,8 +309,8 @@ t.describe("Compose native collections", function()
 
 	t.it("defers initial offscreen focus until native geometry and suppresses navigation while editing", function()
 		local engine, runtime, UI, target, gui = setup()
-		local focus = {}
-		local stop, node = runtime.mount(function()
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(100),
 				key = key,
@@ -306,9 +321,13 @@ t.describe("Compose native collections", function()
 				disabled = function(item)
 					return item.id == 51
 				end,
-				render = function(current)
-					return runtime.constructors.TextBox "Editor" {
-						Text = function(use)
+				render = function(current): GuiObject
+					return (
+						(
+							runtime.constructors.TextBox :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextBox)
+					) "Editor" {
+						Text = function(use: Use)
 							return use(current).label
 						end,
 						Selectable = true,
@@ -322,10 +341,10 @@ t.describe("Compose native collections", function()
 		local down = target:FindFirstChild("FacetCollectionDown"):FindFirstChild("CollectionDown")
 		gui.SelectedObject:CaptureFocus()
 		down.Pressed.fire()
-		t.expect(focus.current:peek()).toBe(50)
+		t.expect(assert(focus.current):peek()).toBe(50)
 		gui.SelectedObject:ReleaseFocus()
 		down.Pressed.fire()
-		t.expect(focus.current:peek()).toBe(52)
+		t.expect(assert(focus.current):peek()).toBe(52)
 		t.expect(gui.SelectedObject.Text).toBe("52")
 		stop()
 		runtime:dispose()
@@ -334,42 +353,42 @@ t.describe("Compose native collections", function()
 	t.it("wraps arrow and D-pad focus at both ends when wrapFocus is set", function()
 		for _, wrap in { true, false } do
 			local engine, runtime, UI, target, gui = setup()
-			local focus = {}
-			local stop, node = runtime.mount(function()
+			local focus: FixtureCollectionTypes.FocusControls<any> = {}
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(5),
 					key = key,
 					itemSize = 20,
 					focus = focus,
 					wrapFocus = wrap,
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
 			end, target)
 			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
-			focus.focus(5)
+			assert(focus.focus)(5)
 			t.expect(gui.SelectedObject.Text).toBe("5")
 			target:FindFirstChild("FacetCollectionDown"):FindFirstChild("CollectionDown").Pressed.fire()
-			t.expect(focus.current:peek()).toBe(if wrap then 1 else 5)
-			focus.focus(1)
+			t.expect(assert(focus.current):peek()).toBe(if wrap then 1 else 5)
+			assert(focus.focus)(1)
 			target:FindFirstChild("FacetCollectionUp"):FindFirstChild("CollectionUp").Pressed.fire()
-			t.expect(focus.current:peek()).toBe(if wrap then 5 else 1)
+			t.expect(assert(focus.current):peek()).toBe(if wrap then 5 else 1)
 			target:FindFirstChild("FacetCollectionRight"):FindFirstChild("CollectionRight").Pressed.fire()
-			t.expect(focus.current:peek()).toBe(if wrap then 5 else 1)
+			t.expect(assert(focus.current):peek()).toBe(if wrap then 5 else 1)
 			stop()
 			runtime:dispose()
 		end
 	end)
 
 	t.it("uses measured extents and column placements for both scroll directions", function()
-		for _, direction in { "vertical", "horizontal" } do
+		for _, direction in { "vertical", "horizontal" } :: { "horizontal" | "vertical" } do
 			local engine, runtime, UI, target = setup()
 			local measured, columns, gap = Compose.cell({ [1] = 60 }), Compose.cell(2), Compose.cell(5)
-			local controls, status =
+			local controls: FixtureComposeTypes.OrderedCollectionControls<any>, status =
 				{}, Compose.cell({
-					mode = "windowed",
-					direction = "vertical",
+					mode = "windowed" :: "windowed",
+					direction = "vertical" :: "vertical",
 					total = 0,
 					retained = 0,
 					first = 0,
@@ -381,12 +400,12 @@ t.describe("Compose native collections", function()
 					following = false,
 					measured = 0,
 				} :: Compose.OrderedCollectionStatus)
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualGrid({
 					from = records(10),
 					key = key,
 					columns = columns,
-					direction = direction,
+					direction = direction :: "horizontal" | "vertical",
 					measured = measured,
 					itemSize = 20,
 					gap = gap,
@@ -394,22 +413,22 @@ t.describe("Compose native collections", function()
 					overscan = 0,
 					status = status,
 					controls = controls,
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
 			end, target)
 			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
-			t.expect(controls.placementOf(3).offset).toBe(65)
+			t.expect(assert(controls.placementOf)(3).offset).toBe(65)
 			t.expect(status:peek().extent).toBe(160)
 			measured:set({ [1] = 40 })
-			t.expect(controls.placementOf(3).offset).toBe(45)
+			t.expect(assert(controls.placementOf)(3).offset).toBe(45)
 			columns:set(1)
-			t.expect(controls.placementOf(2).offset).toBe(45)
+			t.expect(assert(controls.placementOf)(2).offset).toBe(45)
 			local second = node:FindFirstChild("2", true)
 			t.expect(if direction == "horizontal" then second.Position.X.Offset else second.Position.Y.Offset).toBe(45)
 			gap:set(9)
-			t.expect(controls.placementOf(2).offset).toBe(49)
+			t.expect(assert(controls.placementOf)(2).offset).toBe(49)
 			t.expect(node:FindFirstChild("2", true)).toBe(second)
 			stop()
 			runtime:dispose()
@@ -419,8 +438,8 @@ t.describe("Compose native collections", function()
 	t.it("observes automatic row sizes without overwriting content geometry", function()
 		local engine, runtime, UI, target = setup()
 		local status = Compose.cell({
-			mode = "windowed",
-			direction = "vertical",
+			mode = "windowed" :: "windowed",
+			direction = "vertical" :: "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,
@@ -432,15 +451,19 @@ t.describe("Compose native collections", function()
 			following = false,
 			measured = 0,
 		} :: Compose.OrderedCollectionStatus)
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(5),
 				key = key,
 				itemSize = 20,
 				measure = true,
 				status = status,
-				render = function()
-					return runtime.constructors.Frame "Measured" {
+				render = function(): GuiObject
+					return (
+						(
+							runtime.constructors.Frame :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+					) "Measured" {
 						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
 						Size = engine.types.UDim2.new(1, 0, 0, 0),
 					}
@@ -460,8 +483,8 @@ t.describe("Compose native collections", function()
 	t.it("measures a row at its unscaled size while a lift scale grows it", function()
 		local engine, runtime, UI, target = setup()
 		local status = Compose.cell({
-			mode = "windowed",
-			direction = "vertical",
+			mode = "windowed" :: "windowed",
+			direction = "vertical" :: "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,
@@ -474,18 +497,26 @@ t.describe("Compose native collections", function()
 			measured = 0,
 		} :: Compose.OrderedCollectionStatus)
 		local lift = Compose.cell(1)
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(5),
 				key = key,
 				itemSize = 20,
 				measure = true,
 				status = status,
-				render = function()
-					return runtime.constructors.Frame "Measured" {
+				render = function(): GuiObject
+					return (
+						(
+							runtime.constructors.Frame :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+					) "Measured" {
 						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
 						Size = engine.types.UDim2.new(1, 0, 0, 0),
-						runtime.constructors.UIScale({ Name = "Lift", Scale = lift }),
+						(
+							(
+								runtime.constructors.UIScale :: unknown
+							) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.UIScale)
+						)({ Name = "Lift", Scale = lift }),
 					}
 				end,
 			})
@@ -503,14 +534,18 @@ t.describe("Compose native collections", function()
 
 	t.it("measures a slot-filling row in layout units under a scaled ancestor", function()
 		local engine, runtime, UI, target = setup()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(3),
 				key = key,
 				itemSize = 20,
 				measure = true,
-				render = function()
-					return runtime.constructors.Frame "Fill" { Size = engine.types.UDim2.fromScale(1, 1) }
+				render = function(): GuiObject
+					return (
+						(
+							runtime.constructors.Frame :: unknown
+						) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+					) "Fill" { Size = engine.types.UDim2.fromScale(1, 1) }
 				end,
 			})
 		end, target)
@@ -537,15 +572,15 @@ t.describe("Compose native collections", function()
 
 	t.it("follows a readable follow policy while the viewport stays at the end", function()
 		local engine, runtime, UI, target = setup()
-		local source, follow = Compose.cell(records(10)), Compose.cell("none")
-		local stop, node = runtime.mount(function()
+		local source, follow = Compose.cell(records(10)), Compose.cell("none" :: "end" | "none")
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = source,
 				key = key,
 				itemSize = 20,
 				overscan = 0,
 				follow = follow,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -570,10 +605,10 @@ t.describe("Compose native collections", function()
 					from = source,
 					key = key,
 					follow = "bottom",
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
-				})
+				} :: any)
 			end, target)
 		end).toThrow()
 		runtime:dispose()
@@ -583,8 +618,8 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target = setup()
 		local source, status =
 			Compose.cell(records(10)), Compose.cell({
-				mode = "windowed",
-				direction = "vertical",
+				mode = "windowed" :: "windowed",
+				direction = "vertical" :: "vertical",
 				total = 0,
 				retained = 0,
 				first = 0,
@@ -596,15 +631,15 @@ t.describe("Compose native collections", function()
 				following = false,
 				measured = 0,
 			} :: Compose.OrderedCollectionStatus)
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = source,
 				key = key,
 				itemSize = 20,
 				overscan = 0,
-				follow = "end",
+				follow = "end" :: "end",
 				status = status,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -623,21 +658,21 @@ t.describe("Compose native collections", function()
 
 	t.it("restores the keyed native focus target when virtualization remounts it", function()
 		local engine, runtime, UI, target, gui = setup()
-		local focus = {}
-		local stop, node = runtime.mount(function()
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(100),
 				key = key,
 				itemSize = 20,
 				overscan = 0,
 				focus = focus,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
 		end, target)
 		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
-		focus.focus(50)
+		assert(focus.focus)(50)
 		t.expect(gui.SelectedObject.Text).toBe("50")
 		t.expect(node.CanvasPosition.Y).toBe(900)
 		local action
@@ -659,24 +694,24 @@ t.describe("Compose native collections", function()
 
 	t.it("waits for a PlayerGui before it restores the keyed focus target", function()
 		local engine, runtime, UI, target, gui = setup({ engine = { selectionNeedsPlayerGui = true } })
-		local focus = {}
-		local stop, node = runtime.mount(function()
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(100),
 				key = key,
 				itemSize = 20,
 				overscan = 0,
 				focus = focus,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
 		end, target)
 		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
-		t.expect(pcall(focus.focus, 50)).toBe(true)
+		t.expect(pcall(assert(focus.focus), 50)).toBe(true)
 		t.expect(gui.SelectedObject).toBeNil()
 		target.Parent = engine.new("PlayerGui")
-		focus.focus(51)
+		assert(focus.focus)(51)
 		t.expect(gui.SelectedObject.Text).toBe("51")
 		stop()
 		runtime:dispose()
@@ -685,9 +720,12 @@ t.describe("Compose native collections", function()
 	t.it("keeps table cells alive across sort and native column resize and prunes selection", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local source = Compose.cell({ { id = 1, label = "Z" }, { id = 2, label = "A" } })
-		local sort, widths, selection = Compose.cell(nil), Compose.cell({}), Compose.cell({ [1] = true })
+		local sort, widths, selection =
+			Compose.cell(nil :: { column: string, direction: "ascending" | "descending" }?),
+			Compose.cell({} :: { [string]: number }),
+			Compose.cell({ [1] = true })
 		local builds = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = source,
 				key = key,
@@ -701,11 +739,11 @@ t.describe("Compose native collections", function()
 						width = 100,
 						minWidth = 60,
 						maxWidth = 160,
-						render = function(current)
+						render = function(current): GuiObject
 							builds += 1
 							return button(UI, current)
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end, target)
@@ -714,7 +752,7 @@ t.describe("Compose native collections", function()
 		local original = body:FindFirstChild("1", true):FindFirstChild("Action", true)
 		local column = header:FindFirstChild("label")
 		column:FindFirstChild("Sort").Activated.fire()
-		t.expect(sort:peek()).toEqual({ column = "label", direction = "ascending" })
+		t.expect(sort:peek()).toEqual({ column = "label", direction = "ascending" :: "ascending" })
 		t.expect(body:FindFirstChild("1", true):FindFirstChild("Action", true)).toBe(original)
 		column.AbsoluteSize = engine.types.Vector2.new(100, 40)
 		local grip = column:FindFirstChild("Resize")
@@ -722,10 +760,10 @@ t.describe("Compose native collections", function()
 		t.expect(grip.Position).toBe(engine.types.UDim2.fromScale(1, 0))
 		t.expect(grip.Size.X.Offset).toBe(12)
 		t.expect(header.Size.Y.Offset).toBe(40)
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.Touch
 		t.expect(grip.Size.X.Offset).toBe(44)
 		t.expect(header.Size.Y.Offset).toBe(44)
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(grip.Size.X.Offset).toBe(12)
 		t.expect(header.Size.Y.Offset).toBe(40)
 		local detector = column:FindFirstChildWhichIsA("UIDragDetector", true)
@@ -752,12 +790,12 @@ t.describe("Compose native collections", function()
 		for _, reduced in { false, true } do
 			local engine, runtime, UI, target = setup({ motionLevel = if reduced then "none" else "normal" })
 			local source = Compose.cell(records(5))
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 20,
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
@@ -780,12 +818,12 @@ t.describe("Compose native collections", function()
 
 	t.it("lays rows out in layout units under a scaled ancestor, as in a ten-foot preview", function()
 		local engine, runtime, UI, target = setup()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
 				itemSize = 20,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -801,22 +839,22 @@ t.describe("Compose native collections", function()
 	t.it("resolves a card rail to one card with a peek on compact touch and to whole cards elsewhere", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2 = engine.types.Enum, engine.types.Vector2
-		ctx.config.userInputService.PreferredInput = E.PreferredInput.KeyboardAndMouse
-		local stop, node = runtime.mount(function()
+		assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.KeyboardAndMouse
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
-				direction = "horizontal",
-				itemSize = "cards",
+				direction = "horizontal" :: "horizontal",
+				itemSize = "cards" :: "cards",
 				gap = 8,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
 		end, target)
 		node.AbsoluteWindowSize = V2.new(1000, 200)
 		t.expect(node:FindFirstChild("1", true).Size.X.Offset).toBe(244)
-		ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+		assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
 		node.AbsoluteWindowSize = V2.new(400, 200)
 		t.expect(node:FindFirstChild("1", true).Size.X.Offset).toBe(352)
 		t.expect(node:FindFirstChild("2", true).Position.X.Offset).toBe(360)
@@ -824,14 +862,14 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 		t.expect(pcall(function()
 			runtime.mount(function()
-				return UI.VirtualList({ from = {}, render = button, cards = { perView = 2 } })
+				return UI.VirtualList({ from = {}, render = button, cards = { perView = 2 } } :: any)
 			end, target)
 		end)).toBe(false)
 	end)
 
 	t.it("withholds a table row's destructive actions from every route when rowDeletable refuses it", function()
 		local engine, runtime, UI, target = setup()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
@@ -841,12 +879,14 @@ t.describe("Compose native collections", function()
 					return item.id ~= 1
 				end,
 				onDelete = function() end,
-				columns = { { id = "label", label = "Label", width = 100 } },
-				rowActions = function()
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
+				rowActions = function(): FixtureCollectionTypes.RowActionsOptions?
 					return {
 						trailing = {
-							{ id = "delete", label = "Delete", role = "destructive" },
-							{ id = "flag", label = "Flag" },
+							{ id = "delete", label = "Delete", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
+							{ id = "flag", label = "Flag" } :: FixtureCollectionTypes.RowAction,
 						},
 					}
 				end,
@@ -865,15 +905,17 @@ t.describe("Compose native collections", function()
 	t.it("offers a table's own Edit toolbar on touch, gamepad and a mouseless keyboard, never with a mouse", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		input.PreferredInput, input.MouseEnabled, input.KeyboardEnabled = E.PreferredInput.KeyboardAndMouse, true, true
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
 				reorderable = true,
 				onReorder = function() end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local function shown()
@@ -894,7 +936,7 @@ t.describe("Compose native collections", function()
 	t.it("a bare modifier press does not flip a touch table to its pointer layout; a real key does", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		local pressed = {}
 		input.GetKeysPressed = function()
 			return pressed
@@ -903,13 +945,15 @@ t.describe("Compose native collections", function()
 			return {}
 		end
 		input.PreferredInput, input.TouchEnabled, input.MouseEnabled = E.PreferredInput.Touch, true, true
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
 				deletable = true,
 				onDelete = function() end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local function shown()
@@ -951,15 +995,15 @@ t.describe("Compose native collections", function()
 	t.it("keeps a gap under its Edit toolbar and paints the header band across the persistent scrollbar", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		input.PreferredInput, input.MouseEnabled = E.PreferredInput.Touch, false
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
 				reorderable = true,
 				onReorder = function() end,
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end, target)
 		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(347, 240)
@@ -975,20 +1019,24 @@ t.describe("Compose native collections", function()
 
 	t.it("holds a custom cell's content in the themed inset a text value uses", function()
 		local engine, runtime, UI, target = setup()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(1),
 				key = key,
 				columns = {
-					{ id = "label", label = "Label" },
+					{ id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any>,
 					{
 						id = "mark",
 						label = "Mark",
 						width = 120,
-						render = function()
-							return runtime.constructors.Frame({ Name = "Mark" })
+						render = function(): GuiObject
+							return (
+								(
+									runtime.constructors.Frame :: unknown
+								) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+							)({ Name = "Mark" })
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end, target)
@@ -1004,14 +1052,16 @@ t.describe("Compose native collections", function()
 	t.it("sizes table rows by viewing distance: dense pointer, two-line touch, one large line at ten feet", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		input.PreferredInput, input.MouseEnabled, input.TouchEnabled = E.PreferredInput.Gamepad, false, false
 		gui.ViewportDisplaySize = E.DisplaySize.Large
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(300, 400)
@@ -1038,14 +1088,16 @@ t.describe("Compose native collections", function()
 	t.it("marks each row's selection in the leading gutter while a selectable table is editing", function()
 		local engine, runtime, UI, target = setup()
 		local editing, selection = Compose.cell(false), Compose.cell({ [2] = true })
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
 				editing = editing,
 				selection = selection,
-				selectionMode = "multiple",
-				columns = { { id = "label", label = "Label", width = 100 } },
+				selectionMode = "multiple" :: "multiple",
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(300, 400)
@@ -1071,20 +1123,22 @@ t.describe("Compose native collections", function()
 
 	t.it("resizes and sorts a column from the keyboard or pad and releases the grip to its heading", function()
 		local engine, runtime, UI, target, gui = setup()
-		local sort, widths = Compose.cell(nil), Compose.cell({})
-		local stop, node = runtime.mount(function()
+		local sort, widths = Compose.cell(nil :: {}?), Compose.cell({})
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
 				sort = sort,
 				widths = widths,
-				columns = { { id = "label", label = "Name", width = 100, minWidth = 60 } },
+				columns = {
+					{ id = "label", label = "Name", width = 100, minWidth = 60 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local column = node:FindFirstChild("Header"):FindFirstChild("label")
 		column.AbsoluteSize = engine.types.Vector2.new(100, 40)
 		local heading, grip = column:FindFirstChild("Sort"), column:FindFirstChild("Resize")
-		local function press(name)
+		local function press(name: string)
 			for _, context in target:GetChildren() do
 				if context.Name == "Facet" .. name and context.Enabled then
 					context:FindFirstChild(name).Pressed.fire()
@@ -1101,7 +1155,7 @@ t.describe("Compose native collections", function()
 		t.expect(press("WidenColumnKey")).toBe(true)
 		t.expect(widths:peek().label).toBe(100)
 		t.expect(press("SortColumn")).toBe(true)
-		t.expect(sort:peek()).toEqual({ column = "label", direction = "ascending" })
+		t.expect(sort:peek()).toEqual({ column = "label", direction = "ascending" :: "ascending" })
 		gui.SelectedObject = grip
 		t.expect(press("ReleaseColumn")).toBe(true)
 		t.expect(gui.SelectedObject).toBe(heading)
@@ -1110,15 +1164,15 @@ t.describe("Compose native collections", function()
 	end)
 
 	t.it("leaves the cross-axis D-pad to the engine so focus can leave a rail for the next shelf", function()
-		for _, direction in { "horizontal", "vertical" } do
+		for _, direction in { "horizontal", "vertical" } :: { "horizontal" | "vertical" } do
 			local engine, runtime, UI, target, gui = setup()
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(6),
 					key = key,
 					itemSize = 40,
-					direction = direction,
-					render = function(current)
+					direction = direction :: "horizontal" | "vertical",
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
@@ -1145,36 +1199,36 @@ t.describe("Compose native collections", function()
 	t.it("keeps focus on the item by default and on the slot with focusPolicy index", function()
 		for _, policyName in { "key", "index" } do
 			local engine, runtime, UI, target = setup()
-			local source, focus = Compose.cell(records(6)), {}
-			local stop, node = runtime.mount(function()
+			local source, focus: FixtureCollectionTypes.FocusControls<any> = Compose.cell(records(6)), {}
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 20,
 					focus = focus,
-					focusPolicy = policyName,
-					render = function(current)
+					focusPolicy = policyName :: "index" | "key",
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
 			end, target)
 			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 120)
-			focus.focus(2)
+			assert(focus.focus)(2)
 			local reversed = records(6)
 			for index = 1, 3 do
 				reversed[index], reversed[7 - index] = reversed[7 - index], reversed[index]
 			end
 			source:set(reversed)
-			t.expect(focus.current:peek()).toBe(if policyName == "index" then 5 else 2)
+			t.expect(assert(focus.current):peek()).toBe(if policyName == "index" then 5 else 2)
 			source:set(records(6))
-			t.expect(focus.current:peek()).toBe(2)
+			t.expect(assert(focus.current):peek()).toBe(2)
 			stop()
 			runtime:dispose()
 		end
 		local _, runtime, UI, target = setup()
 		t.expect(pcall(function()
 			runtime.mount(function()
-				return UI.VirtualList({ from = {}, render = button, focusPolicy = "slot" })
+				return UI.VirtualList({ from = {}, render = button, focusPolicy = "slot" } :: any)
 			end, target)
 		end)).toBe(false)
 	end)
@@ -1183,7 +1237,7 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V3 = engine.types.Enum, engine.types.Vector3
 		local reorders = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(6),
 				key = key,
@@ -1192,13 +1246,13 @@ t.describe("Compose native collections", function()
 				onReorder = function()
 					reorders += 1
 				end,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
 		end, target)
 		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 120)
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		local action = node:FindFirstChild("1", true):FindFirstChild("Action", true)
 		local swipe = { UserInputType = E.UserInputType.Touch, Position = V3.new(50, 10, 0) }
 		action.InputBegan.fire(swipe)
@@ -1229,7 +1283,7 @@ t.describe("Compose native collections", function()
 		for _, autoscroll in { true, false } do
 			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 			local E, V3 = engine.types.Enum, engine.types.Vector3
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(20),
 					key = key,
@@ -1237,7 +1291,7 @@ t.describe("Compose native collections", function()
 					reorderable = true,
 					autoscroll = autoscroll,
 					onReorder = function() end,
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
@@ -1247,7 +1301,8 @@ t.describe("Compose native collections", function()
 				UserInputType = E.UserInputType.MouseButton1,
 				Position = V3.new(50, 10, 0),
 			})
-			ctx.config.userInputService.InputChanged.fire({
+			local injectedInputChanged = assert(ctx.config.userInputService).InputChanged :: any
+			injectedInputChanged.fire({
 				UserInputType = E.UserInputType.MouseMovement,
 				Position = V3.new(50, 98, 0),
 			})
@@ -1265,14 +1320,14 @@ t.describe("Compose native collections", function()
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
 		local page = engine.new("ScrollingFrame")
 		page.AbsoluteWindowSize, page.AbsoluteCanvasSize = V2.new(200, 110), V2.new(200, 600)
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
 				itemSize = 20,
 				reorderable = true,
 				onReorder = function() end,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -1282,7 +1337,8 @@ t.describe("Compose native collections", function()
 			UserInputType = E.UserInputType.MouseButton1,
 			Position = V3.new(50, 10, 0),
 		})
-		ctx.config.userInputService.InputChanged.fire({
+		local injectedInputChanged = assert(ctx.config.userInputService).InputChanged :: any
+		injectedInputChanged.fire({
 			UserInputType = E.UserInputType.MouseMovement,
 			Position = V3.new(50, 98, 0),
 		})
@@ -1300,20 +1356,20 @@ t.describe("Compose native collections", function()
 	t.it("scrolls a horizontal rail by a mouse drag and keeps the press from activating a card", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
-				direction = "horizontal",
+				direction = "horizontal" :: "horizontal",
 				itemSize = 100,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
 		end, target)
 		node.AbsoluteWindowSize = V2.new(300, 100)
 		node.AbsoluteSize = V2.new(300, 100)
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		local function mouse(kind, x)
 			return { UserInputType = kind, Position = V3.new(x, 50, 0) }
 		end
@@ -1344,20 +1400,20 @@ t.describe("Compose native collections", function()
 			end,
 		})
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(40),
 				key = key,
-				direction = "horizontal",
+				direction = "horizontal" :: "horizontal",
 				itemSize = 100,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
 		end, target)
 		node.AbsoluteWindowSize = V2.new(300, 100)
 		node.AbsoluteSize = V2.new(300, 100)
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		local function mouse(kind, x)
 			return { UserInputType = kind, Position = V3.new(x, 50, 0) }
 		end
@@ -1404,23 +1460,23 @@ t.describe("Compose native collections", function()
 			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 			local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
 			local moved
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(20),
 					key = key,
 					itemSize = 20,
 					reorderable = true,
-					onReorder = function(keys, slot)
+					onReorder = function(keys: { number }, slot: number)
 						moved = `{table.concat(keys, ",")}@{slot}`
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
 			end, target)
 			node:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(2, 2)
 			node.AbsoluteWindowSize = V2.new(400, 400)
-			local input = ctx.config.userInputService
+			local input: any = assert(ctx.config.userInputService)
 			node:FindFirstChild("1", true):FindFirstChild("Action", true).InputBegan.fire({
 				UserInputType = E.UserInputType.MouseButton1,
 				Position = V3.new(50, 20, 0),
@@ -1443,16 +1499,16 @@ t.describe("Compose native collections", function()
 			for index = 1, count do
 				chosen[index] = true
 			end
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(6),
 					key = key,
 					itemSize = 20,
 					selection = Compose.cell(chosen),
-					selectionMode = "multiple",
+					selectionMode = "multiple" :: "multiple",
 					reorderable = true,
 					onReorder = function() end,
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
 				})
@@ -1463,7 +1519,8 @@ t.describe("Compose native collections", function()
 			reorderable.AbsoluteSize = engine.types.Vector2.new(200, 20)
 			local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(50, 10, 0) }
 			row:FindFirstChild("Action", true).InputBegan.fire(press)
-			ctx.config.userInputService.InputChanged.fire({
+			local injectedInputChanged = assert(ctx.config.userInputService).InputChanged :: any
+			injectedInputChanged.fire({
 				UserInputType = E.UserInputType.MouseMovement,
 				Position = V3.new(50, 40, 0),
 			})
@@ -1488,21 +1545,21 @@ t.describe("Compose native collections", function()
 	t.it("draws icon actions at a fixed width and arms the first action past a 0.6 full swipe", function()
 		local engine, runtime, UI, target = setup()
 		local deleted = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
 				fullSwipe = true,
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				trailing = {
 					{
 						id = "delete",
 						label = "Delete",
 						icon = "trash",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						onActivate = function()
 							deleted += 1
 						end,
-					},
-					{ id = "flag", label = "Flag", icon = "flag" },
+					} :: FixtureCollectionTypes.RowAction,
+					{ id = "flag", label = "Flag", icon = "flag" } :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -1532,14 +1589,15 @@ t.describe("Compose native collections", function()
 
 	t.it("uses native drag to reveal and invoke row actions with cancellation and coordination", function()
 		local engine, runtime, UI, target = setup()
-		local open, coordinator = Compose.cell(nil), Compose.cell(nil)
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, coordinator =
+			Compose.cell(nil :: ("leading" | "trailing")?), Compose.cell(nil :: {}?)
 		local invoked = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
 				open = open,
 				coordinator = coordinator,
 				fullSwipe = true,
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				trailing = {
 					{
 						id = "Delete",
@@ -1547,7 +1605,7 @@ t.describe("Compose native collections", function()
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -1570,8 +1628,9 @@ t.describe("Compose native collections", function()
 
 	t.it("swipes a Button row from a grip over the content and forwards a tap to the Button", function()
 		local engine, runtime, UI, target = setup()
-		local open, activated = Compose.cell(nil), 0
-		local stop, node = runtime.mount(function()
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, activated =
+			Compose.cell(nil :: ("leading" | "trailing")?), 0
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
 				open = open,
 				content = UI.Button "Mail" {
@@ -1579,8 +1638,10 @@ t.describe("Compose native collections", function()
 					onActivate = function()
 						activated += 1
 					end,
+				} :: GuiObject,
+				trailing = {
+					{ id = "Delete", label = "Delete", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
 				},
-				trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
 			})
 		end, target)
 		node.AbsoluteSize = engine.types.Vector2.new(300, 40)
@@ -1620,8 +1681,9 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
 		local V2 = engine.types.Vector2
-		local open, activated = Compose.cell(nil), 0
-		local stop, node = runtime.mount(function()
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, activated =
+			Compose.cell(nil :: ("leading" | "trailing")?), 0
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
 				open = open,
 				content = UI.Button "Mail" {
@@ -1629,15 +1691,17 @@ t.describe("Compose native collections", function()
 					onActivate = function()
 						activated += 1
 					end,
+				} :: GuiObject,
+				trailing = {
+					{ id = "Delete", label = "Delete", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
 				},
-				trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
 			})
 		end, target)
 		node.AbsoluteSize = V2.new(300, 40)
 		local grip = node:FindFirstChild("SwipeGrip", true)
 		local detector = grip:FindFirstChildWhichIsA("UIDragDetector")
 		t.expect(detector.Enabled).toBe(true)
-		ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+		assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
 		t.expect(detector.Enabled).toBe(false)
 		local function pan(to: any, state: any)
 			grip.TouchPan.fire({ to }, to - V2.new(200, 20), V2.zero, state)
@@ -1674,22 +1738,23 @@ t.describe("Compose native collections", function()
 		do
 			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 			local E, V2 = engine.types.Enum, engine.types.Vector2
-			ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
-			local open, invoked = Compose.cell(nil), 0
-			local stop, node = runtime.mount(function()
+			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
+			local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, invoked =
+				Compose.cell(nil :: ("leading" | "trailing")?), 0
+			local stop, node: any = runtime.mount(function()
 				return UI.RowActions({
 					open = open,
 					fullSwipe = sample.fullSwipe,
-					content = UI.Button { label = "Track" },
+					content = UI.Button { label = "Track" } :: GuiObject,
 					trailing = {
 						{
 							id = "remove",
 							label = "Remove",
-							role = "destructive",
+							role = "destructive" :: "destructive",
 							onActivate = function()
 								invoked += 1
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 					},
 				})
 			end, target)
@@ -1718,16 +1783,19 @@ t.describe("Compose native collections", function()
 			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 			local E = engine.types.Enum
 			local V2 = engine.types.Vector2
-			ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
-			local open = Compose.cell(nil)
-			local stop, page = runtime.mount(function()
+			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
+			local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+				Compose.cell(nil :: ("leading" | "trailing")?)
+			local stop, page: any = runtime.mount(function()
 				return ctx.Host.ScrollingFrame "Page" {
 					ctx.Host.ScrollingFrame "Body" {
 						UI.RowActions({
 							Name = "Row",
 							open = open,
-							content = UI.Button "Mail" { label = "Mail" },
-							trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
+							content = UI.Button "Mail" { label = "Mail" } :: GuiObject,
+							trailing = {
+								{ id = "Delete", label = "Delete", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+							},
 						}),
 					},
 				}
@@ -1786,12 +1854,12 @@ t.describe("Compose native collections", function()
 			},
 		})
 		local selected = Compose.cell({})
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(100),
 				key = key,
 				selection = selected,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				itemSize = 20,
 				overscan = 0,
 				selectable = function(item)
@@ -1800,7 +1868,7 @@ t.describe("Compose native collections", function()
 				disabled = function(item)
 					return item.id == 5
 				end,
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
@@ -1821,21 +1889,23 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target = setup()
 		local source, selected = Compose.cell(records(5)), Compose.cell({ [1] = true, [3] = true })
 		local requests = {}
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = source,
 				key = key,
 				selection = selected,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				itemSize = 20,
 				reorderable = true,
 				movable = function(item)
 					return item.id ~= 4
 				end,
-				onReorder = function(keys, slot)
+				onReorder = function(keys: { number }, slot: number)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
@@ -1890,16 +1960,18 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target = setup()
 		local source = Compose.cell(records(5))
 		local requests = {}
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = source,
 				key = key,
 				itemSize = 20,
 				reorderable = true,
-				onReorder = function(keys, slot)
+				onReorder = function(keys: { number }, slot: number)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
@@ -1933,22 +2005,22 @@ t.describe("Compose native collections", function()
 		local function mount()
 			return runtime.mount(function()
 				return UI.RowActions({
-					open = Compose.cell("trailing"),
-					content = button(UI, Compose.cell({ label = "Row" })),
+					open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
+					content = UI.Button "Action" { label = "Row" } :: GuiObject,
 					trailing = {
 						{
 							id = "Delete",
 							label = "Delete",
-							role = "destructive",
+							role = "destructive" :: "destructive",
 							onActivate = function()
 								invoked += 1
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 					},
 				})
 			end, target)
 		end
-		local stop, node = mount()
+		local stop, node: any = mount()
 		node.AbsoluteSize = engine.types.Vector2.new(300, 40)
 		engine.heartbeat.fire(0.3)
 		local action = node:FindFirstChild("Delete", true)
@@ -1961,7 +2033,7 @@ t.describe("Compose native collections", function()
 		action.Activated.fire()
 		t.expect(invoked).toBe(1)
 		stop()
-		local cancel, pending = mount()
+		local cancel, pending: any = mount()
 		pending.AbsoluteSize = engine.types.Vector2.new(300, 40)
 		engine.heartbeat.fire(0.3)
 		pending:FindFirstChild("Delete", true).Activated.fire()
@@ -1973,11 +2045,12 @@ t.describe("Compose native collections", function()
 
 	t.it("never commits or opens a full swipe on an unmeasured row", function()
 		local engine, runtime, UI, target = setup()
-		local invoked, open = 0, Compose.cell(nil)
-		local stop, node = runtime.mount(function()
+		local invoked, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+			0, Compose.cell(nil :: ("leading" | "trailing")?)
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
 				open = open,
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				trailing = {
 					{
 						id = "Archive",
@@ -1985,7 +2058,7 @@ t.describe("Compose native collections", function()
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -2001,21 +2074,22 @@ t.describe("Compose native collections", function()
 
 	t.it("restores a kept row after a destructive action so it can commit again", function()
 		local engine, runtime, UI, target = setup()
-		local invoked, open = 0, Compose.cell("trailing")
-		local stop, node = runtime.mount(function()
+		local invoked, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+			0, Compose.cell("trailing" :: ("leading" | "trailing")?)
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
 				open = open,
 				reducedMotion = true,
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				trailing = {
 					{
 						id = "Delete",
 						label = "Delete",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -2037,11 +2111,12 @@ t.describe("Compose native collections", function()
 
 	t.it("respects edge full-swipe policy, edit affordances and focused destructive input", function()
 		local engine, runtime, UI, target, gui = setup()
-		local editing, open = Compose.cell(false), Compose.cell(nil)
+		local editing, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+			Compose.cell(false), Compose.cell(nil :: ("leading" | "trailing")?)
 		local invoked = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				editing = editing,
 				open = open,
 				fullSwipe = { trailing = false },
@@ -2049,11 +2124,11 @@ t.describe("Compose native collections", function()
 					{
 						id = "Erase",
 						label = "Delete",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -2082,9 +2157,9 @@ t.describe("Compose native collections", function()
 	t.it("uses the shared native menu for all actions and restores focus after cancellation", function()
 		local engine, runtime, UI, target, gui = setup()
 		local invoked = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				leading = {
 					{
 						id = "Read",
@@ -2092,7 +2167,7 @@ t.describe("Compose native collections", function()
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 				trailing = {
 					{
@@ -2101,7 +2176,7 @@ t.describe("Compose native collections", function()
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -2129,9 +2204,9 @@ t.describe("Compose native collections", function()
 
 	t.it("lets domain callbacks reject table selection, sorting and resize requests", function()
 		local engine, runtime, UI, target = setup()
-		local selection, sort, widths = Compose.cell({}), Compose.cell(nil), Compose.cell({})
+		local selection, sort, widths = Compose.cell({}), Compose.cell(nil :: {}?), Compose.cell({})
 		local requests = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(5),
 				key = key,
@@ -2147,7 +2222,9 @@ t.describe("Compose native collections", function()
 				onWidthsChange = function()
 					requests += 1
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
@@ -2168,25 +2245,29 @@ t.describe("Compose native collections", function()
 	t.it("keeps block tables fully mounted and discloses collapsed columns without losing cell state", function()
 		local engine, runtime, UI, target = setup()
 		local builds = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = { { id = 1, first = "One", second = "Two", third = "Full hidden value" } },
 				key = key,
 				scrolls = false,
 				itemSize = 40,
 				columns = {
-					{ id = "first", width = 100 },
-					{ id = "second", width = 100 },
+					{ id = "first", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "second", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
 					{
 						id = "third",
 						label = "Third",
 						width = 100,
 						priority = 3,
-						render = function()
+						render = function(): GuiObject
 							builds += 1
-							return runtime.constructors.TextBox({ Text = "Local edit" })
+							return (
+								(
+									runtime.constructors.TextBox :: unknown
+								) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.TextBox)
+							)({ Text = "Local edit" })
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end, target)
@@ -2211,24 +2292,24 @@ t.describe("Compose native collections", function()
 
 	t.it("uses new grid neighbors when responsive columns change without changing total extent", function()
 		local engine, runtime, UI, target = setup()
-		local columns, focus = Compose.cell(4), {}
-		local stop, node = runtime.mount(function()
+		local columns, focus: FixtureCollectionTypes.FocusControls<any> = Compose.cell(4), {}
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualGrid({
 				from = records(12),
 				key = key,
 				itemSize = 20,
 				columns = columns,
 				focus = focus,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
 		end, target)
 		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
-		focus.focus(2)
+		assert(focus.focus)(2)
 		columns:set(5)
-		focus.move("down")
-		t.expect(focus.current:peek()).toBe(7)
+		assert(focus.move)("down")
+		t.expect(assert(focus.current):peek()).toBe(7)
 		stop()
 		runtime:dispose()
 	end)
@@ -2237,8 +2318,8 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target = setup()
 		local source, status =
 			Compose.cell(records(2)), Compose.cell({
-				mode = "windowed",
-				direction = "vertical",
+				mode = "windowed" :: "windowed",
+				direction = "vertical" :: "vertical",
 				total = 0,
 				retained = 0,
 				first = 0,
@@ -2251,18 +2332,18 @@ t.describe("Compose native collections", function()
 				measured = 0,
 			} :: Compose.OrderedCollectionStatus)
 		local invoked = ""
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = source,
 				key = key,
 				itemSize = 20,
 				status = status,
 				measure = true,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.RowActions({
-						open = Compose.cell("trailing"),
+						open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
 						content = button(UI, current),
-						trailing = function(use)
+						trailing = function(use: Use): { FixtureCollectionTypes.RowAction }
 							local item = use(current)
 							return {
 								{
@@ -2302,10 +2383,11 @@ t.describe("Compose native collections", function()
 				return now
 			end,
 		})
-		local enabled, open, invoked = Compose.cell(true), Compose.cell(nil), 0
-		local stop, node = runtime.mount(function()
+		local enabled, open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, invoked =
+			Compose.cell(true), Compose.cell(nil :: ("leading" | "trailing")?), 0
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				open = open,
 				enabled = enabled,
 				trailing = {
@@ -2316,7 +2398,7 @@ t.describe("Compose native collections", function()
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -2350,27 +2432,27 @@ t.describe("Compose native collections", function()
 	t.it("adapts table row and header height from native text bounds and preferred input", function()
 		local engine, runtime, UI, target, _, ctx =
 			setup({ userInputService = {}, theme = { metrics = { controlSizes = { regular = { height = 32 } } } } })
-		local controls = {}
-		local stop, node = runtime.mount(function()
+		local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(2),
 				key = key,
 				controls = controls,
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
 		local row = body:FindFirstChild("1", true)
-		t.expect(controls.placementOf(2).offset).toBe(40)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(40)
 		row:FindFirstChild("Value", true).TextBounds = engine.types.Vector2.new(100, 60)
-		t.expect(controls.placementOf(2).offset).toBe(76)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(76)
 		node:FindFirstChild("Sort", true).TextBounds = engine.types.Vector2.new(100, 70)
 		t.expect(body.Position.Y.Offset).toBe(86)
 
 		node:FindFirstChild("LayoutUnit").AbsoluteSize = engine.types.Vector2.new(2, 2)
 		t.expect(body.Position.Y.Offset).toBe(51)
-		t.expect(controls.placementOf(2).offset).toBe(46)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(46)
 		local header = node:FindFirstChild("Header")
 		header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = engine.types.Vector2.new(800, 102)
 		t.expect(body.CanvasSize.X.Offset).toBe(400)
@@ -2379,11 +2461,11 @@ t.describe("Compose native collections", function()
 		body.CanvasPosition = engine.types.Vector2.zero
 		node:FindFirstChild("LayoutUnit").AbsoluteSize = engine.types.Vector2.one
 
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.Touch
 		row:FindFirstChild("Value", true).TextBounds = engine.types.Vector2.new(100, 8)
-		t.expect(controls.placementOf(2).offset).toBe(56)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(56)
 		row:FindFirstChild("Value", true).TextBounds = engine.types.Vector2.new(100, 60)
-		t.expect(controls.placementOf(2).offset).toBe(76)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(76)
 		t.expect(body:FindFirstChild("1", true)).toBe(row)
 		node:FindFirstChild("Sort", true).TextBounds = engine.types.Vector2.new(100, 20)
 		t.expect(body.Position.Y.Offset).toBe(44)
@@ -2392,13 +2474,16 @@ t.describe("Compose native collections", function()
 	end)
 	t.it("measures localized row action labels and reveals truncated visible table values", function()
 		local engine, runtime, UI, target = setup()
-		local open, editing = Compose.cell("trailing"), Compose.cell(true)
-		local stopActions, actions = runtime.mount(function()
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, editing =
+			Compose.cell("trailing" :: ("leading" | "trailing")?), Compose.cell(true)
+		local stopActions, actions: any = runtime.mount(function()
 			return UI.RowActions({
-				content = button(UI, Compose.cell({ label = "Row" })),
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
 				open = open,
 				editing = editing,
-				trailing = { { id = "Remove", label = "Localized destructive action", role = "destructive" } },
+				trailing = {
+					{ id = "Remove", label = "Localized destructive action", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
+				},
 			})
 		end, target)
 		actions.AbsoluteSize = engine.types.Vector2.new(500, 40)
@@ -2410,8 +2495,14 @@ t.describe("Compose native collections", function()
 		t.expect(actions:FindFirstChild("trailing").Size.X.Offset).toBe(88)
 		stopActions()
 		local source = Compose.cell({ { id = 1, label = "Long value that should be disclosed" } })
-		local stop, node = runtime.mount(function()
-			return UI.Table({ from = source, key = key, columns = { { id = "label", label = "Label", width = 180 } } })
+		local stop, node: any = runtime.mount(function()
+			return UI.Table({
+				from = source,
+				key = key,
+				columns = {
+					{ id = "label", label = "Label", width = 180 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
+			})
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(250, 100)
@@ -2433,17 +2524,19 @@ t.describe("Compose native collections", function()
 	t.it("keeps native reorder capture and keyboard drop alive across offscreen autoscroll", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 		local requests = {}
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(100),
 				key = key,
 				itemSize = 20,
 				overscan = 0,
 				reorderable = true,
-				onReorder = function(keys, slot)
+				onReorder = function(keys: { number }, slot: number)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
@@ -2462,11 +2555,13 @@ t.describe("Compose native collections", function()
 		end
 		t.expect(body.CanvasPosition.Y > 200).toBe(true)
 		t.expect(body:FindFirstChild("1", true)).toBeNil()
-		ctx.config.userInputService.InputChanged.fire({
+		local injectedInputChanged = assert(ctx.config.userInputService).InputChanged :: any
+		injectedInputChanged.fire({
 			UserInputType = engine.types.Enum.UserInputType.MouseMovement,
 			Position = engine.types.Vector3.new(10, 80, 0),
 		})
-		ctx.config.userInputService.InputEnded.fire(input)
+		local injectedInputEnded = assert(ctx.config.userInputService).InputEnded :: any
+		injectedInputEnded.fire(input)
 		t.expect(#requests).toBe(1)
 		t.expect(requests[1].keys).toEqual({ 1 })
 		t.expect(requests[1].slot > 10).toBe(true)
@@ -2494,7 +2589,8 @@ t.describe("Compose native collections", function()
 		detector.DragStart.fire(engine.types.Vector2.new(10, 10))
 		ctx.config.userInputService.MouseEnabled = false
 		t.expect(node:FindFirstChild("DropLine", true)).toBeNil()
-		ctx.config.userInputService.InputEnded.fire(input)
+		local injectedInputEnded = assert(ctx.config.userInputService).InputEnded :: any
+		injectedInputEnded.fire(input)
 		t.expect(#requests).toBe(2)
 		stop()
 		runtime:dispose()
@@ -2503,14 +2599,14 @@ t.describe("Compose native collections", function()
 		local engine, runtime, UI, target = setup()
 		local selected, requests = Compose.cell({}), {}
 		local source = Compose.cell(records(4))
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = source,
 				key = key,
 				itemSize = 20,
 				overscan = 0,
 				selection = selected,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				selectable = function(item)
 					if item.id == 2 then
 						error("rejected")
@@ -2524,10 +2620,10 @@ t.describe("Compose native collections", function()
 					return true
 				end,
 				reorderable = true,
-				onReorder = function(keys, slot)
+				onReorder = function(keys: { number }, slot: number)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2559,19 +2655,19 @@ t.describe("Compose native collections", function()
 			end,
 			motionLevel = "normal",
 		})
-		local function advance(seconds)
+		local function advance(seconds: number)
 			for _ = 1, math.ceil(seconds * 60) do
 				now += 1 / 60
 				engine.heartbeat.fire(1 / 60)
 			end
 		end
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
 				itemSize = 40,
-				snap = "item",
-				render = function(current)
+				snap = "item" :: "item",
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2590,15 +2686,15 @@ t.describe("Compose native collections", function()
 		advance(0.4)
 		t.expect(node.CanvasPosition.Y).toBe(40)
 		stop()
-		local stopMeasured, measured = runtime.mount(function()
+		local stopMeasured, measured: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
 				itemSize = 20,
 				measured = { [1] = 35 },
-				snap = "item",
+				snap = "item" :: "item",
 				reducedMotion = true,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2609,16 +2705,16 @@ t.describe("Compose native collections", function()
 		advance(0.2)
 		t.expect(measured.CanvasPosition.Y).toBe(35)
 		stopMeasured()
-		local stopGrid, grid = runtime.mount(function()
+		local stopGrid, grid: any = runtime.mount(function()
 			return UI.VirtualGrid({
 				from = records(20),
 				key = key,
 				itemSize = 40,
 				columns = 2,
-				direction = "horizontal",
-				snap = "item",
+				direction = "horizontal" :: "horizontal",
+				snap = "item" :: "item",
 				reducedMotion = true,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2631,14 +2727,14 @@ t.describe("Compose native collections", function()
 		advance(0.15)
 		t.expect(grid.CanvasPosition.X).toBe(40)
 		stopGrid()
-		local stopLarge, large = runtime.mount(function()
+		local stopLarge, large: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(5),
 				key = key,
 				itemSize = 120,
-				snap = "item",
+				snap = "item" :: "item",
 				reducedMotion = true,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2659,14 +2755,14 @@ t.describe("Compose native collections", function()
 			end,
 			motionLevel = "none",
 		})
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
 				itemSize = 40,
-				snap = "item",
+				snap = "item" :: "item",
 				reducedMotion = false,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2690,13 +2786,13 @@ t.describe("Compose native collections", function()
 			end,
 			motionLevel = "normal",
 		})
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(20),
 				key = key,
 				itemSize = 40,
-				snap = "item",
-				render = function(current)
+				snap = "item" :: "item",
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2724,22 +2820,23 @@ t.describe("Compose native collections", function()
 	end)
 	t.it("cancels native row gestures and keeps destructive opt-outs behind every action route", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
-		local enabled, open, invoked = Compose.cell(false), Compose.cell(nil), 0
-		local stop, node = runtime.mount(function()
+		local enabled, open: FixtureComposeTypes.Cell<("leading" | "trailing")?>, invoked =
+			Compose.cell(false), Compose.cell(nil :: ("leading" | "trailing")?), 0
+		local stop, node: any = runtime.mount(function()
 			return UI.RowActions({
-				content = button(UI, Compose.cell({ label = "Protected" })),
+				content = UI.Button "Action" { label = "Protected" } :: GuiObject,
 				open = open,
 				editing = Compose.cell(true),
 				trailing = {
 					{
 						id = "Remove",
 						label = "Remove",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						enabled = enabled,
 						onActivate = function()
 							invoked += 1
 						end,
-					},
+					} :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end, target)
@@ -2772,7 +2869,8 @@ t.describe("Compose native collections", function()
 		detector.DragStart.fire(engine.types.Vector2.new(280, 0))
 		detector.DragContinue.fire(engine.types.Vector2.new(10, 0))
 		pointer.UserInputState = engine.types.Enum.UserInputState.Cancel
-		ctx.config.userInputService.InputChanged.fire(pointer)
+		local injectedInputChanged = assert(ctx.config.userInputService).InputChanged :: any
+		injectedInputChanged.fire(pointer)
 		detector.DragEnd.fire()
 		t.expect(invoked).toBe(0)
 		t.expect(open:peek()).toBeNil()
@@ -2782,7 +2880,7 @@ t.describe("Compose native collections", function()
 	t.it("enters native focus after unfocused collection churn and reaches offscreen keys", function()
 		local engine, runtime, UI, target, gui = setup()
 		local source = Compose.cell(records(100))
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = source,
 				key = key,
@@ -2791,7 +2889,7 @@ t.describe("Compose native collections", function()
 				disabled = function(item)
 					return item.id == 2
 				end,
-				render = function(current)
+				render = function(current): GuiObject
 					return button(UI, current)
 				end,
 			})
@@ -2816,16 +2914,16 @@ end)
 t.describe("Table compact width", function()
 	t.it("keeps every column in a narrow table and paints the header band across its columns", function()
 		local engine, runtime, UI, target = setup()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = { { id = 1, name = "Neon Straightaway", artist = "Chrome Coyote", rating = 4 } },
 				key = key,
 				reorderable = true,
 				onReorder = function() end,
 				columns = {
-					{ id = "name", label = "Name", minWidth = 90 },
-					{ id = "artist", label = "Artist", minWidth = 72 },
-					{ id = "rating", label = "Rating", width = 144, resizable = false },
+					{ id = "name", label = "Name", minWidth = 90 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "artist", label = "Artist", minWidth = 72 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "rating", label = "Rating", width = 144, resizable = false } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end, target)
@@ -2856,11 +2954,14 @@ end)
 t.describe("Table under a scaled ancestor", function()
 	t.it("sizes its header in layout units when a UIScale shrinks the rendered window", function()
 		local engine, runtime, UI, target = setup()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = { { id = 1, name = "Neon" } },
 				key = key,
-				columns = { { id = "name", label = "Name" }, { id = "rating", label = "Rating", width = 144 } },
+				columns = {
+					{ id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "rating", label = "Rating", width = 144 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
@@ -2880,21 +2981,21 @@ t.describe("Table row tap", function()
 		local E = engine.types.Enum
 		local selection = Compose.cell({})
 		local rating = 0
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = { { id = 1, name = "Neon" }, { id = 2, name = "Drift" } },
 				key = key,
 				selection = selection,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				reorderable = true,
 				onReorder = function() end,
 				columns = {
-					{ id = "name", label = "Name" },
+					{ id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any>,
 					{
 						id = "rating",
 						label = "Rating",
 						width = 100,
-						render = function()
+						render = function(): GuiObject
 							return UI.Button "Star" {
 								label = "*",
 								onActivate = function()
@@ -2902,10 +3003,14 @@ t.describe("Table row tap", function()
 								end,
 							}
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
-				rowActions = function()
-					return { trailing = { { id = "remove", label = "Remove", onActivate = function() end } } }
+				rowActions = function(): FixtureCollectionTypes.RowActionsOptions?
+					return {
+						trailing = {
+							{ id = "remove", label = "Remove", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+						},
+					}
 				end,
 			})
 		end, target)
@@ -2941,19 +3046,21 @@ t.describe("Row actions under a reorder drag", function()
 	t.it("the drag image carries the row content without its open action tray", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V3 = engine.types.Enum, engine.types.Vector3
-		local opened = Compose.cell(nil)
-		local stop, node = runtime.mount(function()
+		local opened = Compose.cell(nil :: ("leading" | "trailing")?)
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = { { id = 1, name = "Neon" }, { id = 2, name = "Drift" }, { id = 3, name = "Apex" } },
 				key = key,
 				itemSize = 40,
 				reorderable = true,
 				onReorder = function() end,
-				columns = { { id = "name", label = "Name" } },
-				rowActions = function(_, rowKey)
+				columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
+				rowActions = function(_, rowKey): FixtureCollectionTypes.RowActionsOptions?
 					return {
 						open = if rowKey == 1 then opened else nil,
-						trailing = { { id = "remove", label = "Remove", onActivate = function() end } },
+						trailing = {
+							{ id = "remove", label = "Remove", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+						},
 					}
 				end,
 			})
@@ -2974,7 +3081,7 @@ t.describe("Row actions under a reorder drag", function()
 		t.expect(dismiss.Visible).toBe(true)
 		dismiss.InputBegan.fire(press)
 		t.expect(opened:peek()).toBeNil()
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(100, 60, 0) })
 		local image = node:FindFirstChild("DragImage", true)
 		t.expect(image ~= nil).toBe(true)
@@ -2992,15 +3099,15 @@ t.describe("Table selection after a pointer reorder", function()
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
 		local rows = Compose.cell({ { id = 1, name = "Neon" }, { id = 2, name = "Drift" }, { id = 3, name = "Apex" } })
 		local selection = Compose.cell({})
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = rows,
 				key = key,
 				itemSize = 40,
 				selection = selection,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				reorderable = true,
-				onReorder = function(keys, slot)
+				onReorder = function(keys, slot: number)
 					local list = {}
 					for _, item in rows:peek() do
 						if item.id ~= keys[1] then
@@ -3010,15 +3117,19 @@ t.describe("Table selection after a pointer reorder", function()
 					table.insert(list, slot + 1, { id = keys[1], name = "moved" })
 					rows:set(list)
 				end,
-				columns = { { id = "name", label = "Name" } },
-				rowActions = function()
-					return { trailing = { { id = "remove", label = "Remove", onActivate = function() end } } }
+				columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
+				rowActions = function(): FixtureCollectionTypes.RowActionsOptions?
+					return {
+						trailing = {
+							{ id = "remove", label = "Remove", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+						},
+					}
 				end,
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(400, 200)
-		local input = ctx.config.userInputService
+		local input: any = assert(ctx.config.userInputService)
 		local function grip(rowKey)
 			return body:FindFirstChild("Items"):FindFirstChild(rowKey):FindFirstChild("SwipeGrip", true)
 		end
@@ -3068,8 +3179,13 @@ t.describe("Table keyed reorder motion", function()
 	t.it("a Table glides its rows to a reversed order like VirtualList", function()
 		local engine, runtime, UI, target = setup({ motionLevel = "normal" })
 		local rows = Compose.cell({ { id = 1, name = "A" }, { id = 2, name = "B" }, { id = 3, name = "C" } })
-		local stop, node = runtime.mount(function()
-			return UI.Table({ from = rows, key = key, itemSize = 40, columns = { { id = "name", label = "Name" } } })
+		local stop, node: any = runtime.mount(function()
+			return UI.Table({
+				from = rows,
+				key = key,
+				itemSize = 40,
+				columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
+			})
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 300)
@@ -3093,11 +3209,13 @@ end)
 t.describe("Row action tray width", function()
 	t.it("an icon action's tray fits its painted icon and keeps the label as its name", function()
 		local engine, runtime, UI, target = setup()
-		local stop, actions = runtime.mount(function()
+		local stop, actions: any = runtime.mount(function()
 			return UI.RowActions({
-				content = button(UI, Compose.cell({ label = "Row" })),
-				open = Compose.cell("trailing"),
-				trailing = { { id = "remove", label = "Remove", icon = "trash", role = "destructive" } },
+				content = UI.Button "Action" { label = "Row" } :: GuiObject,
+				open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
+				trailing = {
+					{ id = "remove", label = "Remove", icon = "trash", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
+				},
 			})
 		end, target)
 		actions.AbsoluteSize = engine.types.Vector2.new(500, 40)
@@ -3111,19 +3229,19 @@ t.describe("Row action tray width", function()
 end)
 
 t.describe("editable collections: reorderable and deletable on every input", function()
-	local function editableWorld(input, spec, list)
+	local function editableWorld(input: string, spec: { [string]: any }, list: boolean?)
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
-		local service = ctx.config.userInputService
-		service.PreferredInput = engine.types.Enum.PreferredInput[input]
+		local service: any = assert(ctx.config.userInputService)
+		service.PreferredInput = engine.types.Enum.PreferredInput:FromName(input)
 		local reorders, deletes = {}, {}
 		local selection = Compose.cell(spec.selected or {})
-		local base = {
+		local base: { [any]: any } = {
 			from = records(4),
 			key = key,
 			itemSize = 40,
 			selection = selection,
-			selectionMode = "multiple",
-			onReorder = function(keys, slot)
+			selectionMode = "multiple" :: "multiple",
+			onReorder = function(keys: { number }, slot: number)
 				table.insert(reorders, { keys = keys, slot = slot })
 			end,
 			onDelete = function(keys)
@@ -3142,12 +3260,12 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		else
 			base.columns = { { id = "label", label = "Label", width = 100 } }
 		end
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return if list then UI.VirtualList(base) else UI.Table(base)
 		end, target)
 		local body = if list then node else node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
-		local function pressed(name)
+		local function pressed(name: string)
 			target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed.fire()
 		end
 		local function row(rowKey)
@@ -3386,7 +3504,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 	t.it("a single-selection List in edit mode toggles its one row: a tap on the chosen row clears it", function()
 		local activated = {}
 		local w = editableWorld("Touch", {
-			selectionMode = "single",
+			selectionMode = "single" :: "single",
 			editing = Compose.cell(true),
 			onActivate = function(_, rowKey)
 				table.insert(activated, rowKey)
@@ -3480,8 +3598,8 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 	t.it("columns that cannot fit beside the edit controls scroll inside a pinned lane, never clip", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local V2 = engine.types.Vector2
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
-		local stop, node = runtime.mount(function()
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = records(3),
 				key = key,
@@ -3491,9 +3609,9 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 				onReorder = function() end,
 				onDelete = function() end,
 				columns = {
-					{ id = "name", label = "Name", minWidth = 90 },
-					{ id = "artist", label = "Artist", minWidth = 72 },
-					{ id = "rating", label = "Rating", width = 144 },
+					{ id = "name", label = "Name", minWidth = 90 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "artist", label = "Artist", minWidth = 72 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "rating", label = "Rating", width = 144 } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end, target)
@@ -3504,7 +3622,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		node:FindFirstChild("Edit", true).Activated.fire()
 		t.expect(header.Size.X.Offset).toBe(271)
 		t.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(44)
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(header.Size.X.Offset).toBe(306)
 		header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(306, 44)
 		t.expect(body.CanvasSize.X.Offset).toBe(306 + 88)
@@ -3524,12 +3642,12 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 
 	t.it("a touch cell wraps only at word boundaries and truncates when one word cannot fit", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
-		local stop, node = runtime.mount(function()
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = { { id = 1, name = "Neon Straightaway MMMM illlllll" } },
 				key = key,
-				columns = { { id = "name", label = "Name" } },
+				columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end, target)
 		local body = node:FindFirstChild("Body")
@@ -3544,7 +3662,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		t.expect(value.TextWrapped).toBe(true)
 		word.TextFits = false
 		t.expect(value.TextWrapped).toBe(false)
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		word.TextFits = true
 		t.expect(value.TextWrapped).toBe(false)
 		stop()
@@ -3554,12 +3672,12 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 	t.it("touch flexible columns keep the touch floor and scroll sideways instead of shrinking to nothing", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local V2 = engine.types.Vector2
-		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.Touch
 		local columns = {}
 		for index = 1, 6 do
 			table.insert(columns, { id = `c{index}`, label = `Column {index}` })
 		end
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({ from = records(3), key = key, itemSize = 44, columns = columns })
 		end, target)
 		node:FindFirstChild("Body").AbsoluteWindowSize = V2.new(200, 200)
@@ -3602,10 +3720,10 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 					from = records(2),
 					key = key,
 					selectionMode = "multi",
-					render = function(current)
+					render = function(current): GuiObject
 						return button(UI, current)
 					end,
-				})
+				} :: any)
 			end, target)
 		end).toThrow()
 		runtime:dispose()

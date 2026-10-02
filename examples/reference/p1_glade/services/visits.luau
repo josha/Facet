@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local seedData = require("../content/seed")
 
@@ -12,7 +14,7 @@ export type Opts = {
 }
 
 function visits.new(opts: Opts): any
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 
 	local rooted = opts.rooted
 	local now = opts.now
@@ -36,7 +38,7 @@ function visits.new(opts: Opts): any
 		local memo = currentByGlade[gladeId]
 		if memo == nil then
 			memo = rooted(function()
-				return Compose.formula(function(use)
+				return Compose.formula(function(use: Use): { id: string, wisp: string, glade: string, start: number }?
 					local at = use(now)
 					local tier = use(charmTier)
 					for _, visit in seedData.VISITS do
@@ -59,39 +61,45 @@ function visits.new(opts: Opts): any
 		local memo = recentByGlade[gladeId]
 		if memo == nil then
 			memo = rooted(function()
-				return Compose.formula(function(use)
-					local at = use(now)
-					local tier = use(charmTier)
-					local out: { any } = {}
-					for _, visit in seedData.VISITS do
-						if visit.glade == gladeId and visit.finish <= at then
+				return Compose.formula(
+					function(use: Use): { { id: string, wisp: string, glade: string, finish: number } }
+						local at = use(now)
+						local tier = use(charmTier)
+						local out: { { id: string, wisp: string, glade: string, finish: number } } = {}
+						for _, visit in seedData.VISITS do
+							if visit.glade == gladeId and visit.finish <= at then
+								table.insert(
+									out,
+									{ id = visit.id, wisp = visit.wisp, glade = visit.glade, finish = visit.finish }
+								)
+							end
+						end
+
+						local live: { id: string, wisp: string, glade: string, start: number }? =
+							use(service.current(gladeId))
+						if live ~= nil then
 							table.insert(
 								out,
-								{ id = visit.id, wisp = visit.wisp, glade = visit.glade, finish = visit.finish }
+								{ id = live.id, wisp = live.wisp, glade = live.glade, finish = live.start }
 							)
 						end
+						table.sort(out, function(a: any, b: any)
+							if a.finish == b.finish then
+								return a.id > b.id
+							end
+							return a.finish > b.finish
+						end)
+						local _ = tier
+						return out
 					end
-
-					local live = use(service.current(gladeId))
-					if live ~= nil then
-						table.insert(out, { id = live.id, wisp = live.wisp, glade = live.glade, finish = live.start })
-					end
-					table.sort(out, function(a: any, b: any)
-						if a.finish == b.finish then
-							return a.id > b.id
-						end
-						return a.finish > b.finish
-					end)
-					local _ = tier
-					return out
-				end)
+				)
 			end)
 			recentByGlade[gladeId] = memo
 		end
 		return memo
 	end
 
-	local currentAll = Compose.formula(function(use)
+	local currentAll = Compose.formula(function(use: Use)
 		local at = use(now)
 		local tier = use(charmTier)
 		local out: { any } = {}

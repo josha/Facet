@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local STOPS: { { value: string, width: number? } } = {
 	{ value = "roomy", width = nil },
@@ -43,15 +45,15 @@ return {
 	stops = STOPS,
 	sortCompact = SORT_COMPACT,
 	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
 		local stop = Compose.cell("roomy")
-		local rowWidth = Compose.formula(function(use)
+		local rowWidth = Compose.formula(function(use: Use)
 			local chosen = use(stop)
 			for _, entry in STOPS do
 				if entry.value == chosen then
@@ -60,19 +62,19 @@ return {
 			end
 			return UDim.new(1, 0)
 		end)
-		local columnWidth = Compose.formula(function(use)
+		local columnWidth = Compose.formula(function(use: Use)
 			return UDim.new(0, WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy)
 		end)
 
 		local function widthPicker()
 			return UI.Picker "Room" {
 				label = COPY.widthLabel,
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				options = {
-					{ value = "roomy", label = COPY.roomy },
-					{ value = "snug", label = COPY.snug },
-					{ value = "tight", label = COPY.tight },
-					{ value = "impossible", label = COPY.impossible },
+					{ value = "roomy", label = COPY.roomy } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "snug", label = COPY.snug } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "tight", label = COPY.tight } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
+					{ value = "impossible", label = COPY.impossible } :: typeof(require("@repo/tools/typecheck/example_shapes").PickerOption_any(nil :: any)),
 				},
 				selected = stop,
 			}
@@ -94,18 +96,18 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.title,
-						textRole = "title",
+						textRole = "title" :: "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					},
+					} :: unknown,
 					UI.Text "Lead" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.lead,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -119,7 +121,7 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
+						}) :: unknown,
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 16),
 							PaddingBottom = UDim.new(0, 16),
@@ -134,7 +136,7 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.rowHeading,
-							textRole = "caption",
+							textRole = "caption" :: "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -143,7 +145,7 @@ return {
 							LayoutOrder = 2,
 							Name = "Row",
 							BackgroundTransparency = 1,
-							Size = function(use)
+							Size = function(use: Use)
 								return UDim2.new(use(rowWidth).Scale, use(rowWidth).Offset, 0, 0)
 							end,
 							AutomaticSize = Enum.AutomaticSize.Y,
@@ -151,7 +153,7 @@ return {
 								FillDirection = Enum.FillDirection.Horizontal,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 4),
-							}),
+							}) :: unknown,
 							UI.Button({
 								LayoutOrder = 1,
 								Name = "Sort",
@@ -193,7 +195,7 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
+						}) :: unknown,
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 16),
 							PaddingBottom = UDim.new(0, 16),
@@ -208,7 +210,7 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.wrapHeading,
-							textRole = "caption",
+							textRole = "caption" :: "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -218,7 +220,7 @@ return {
 							Name = "WrapBody",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
-							Size = function(use)
+							Size = function(use: Use)
 								return UDim2.new(use(columnWidth).Scale, use(columnWidth).Offset, 0, 0)
 							end,
 							AutomaticSize = Enum.AutomaticSize.Y,
@@ -234,7 +236,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.footnote,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -259,7 +261,7 @@ return {
 							known = true
 						end
 					end
-					stop:set(if known then value else "roomy")
+					stop:set(if known then assert(value) else "roomy")
 					return { stop = stop:peek() }
 				end,
 			},

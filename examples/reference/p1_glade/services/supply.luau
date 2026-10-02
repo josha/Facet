@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local seedData = require("../content/seed")
 
@@ -14,7 +16,7 @@ local KINDS = { "nectar", "dew" }
 supply.KINDS = KINDS
 
 function supply.new(opts: Opts): any
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 
 	local rooted = opts.rooted
 	local now = opts.now
@@ -45,7 +47,7 @@ function supply.new(opts: Opts): any
 		local memo = remainings[key]
 		if memo == nil then
 			memo = rooted(function()
-				return Compose.formula(function(use)
+				return Compose.formula(function(use: Use)
 					local at = use(now)
 					local stamp = use(stamps[gladeId][kind])
 					local left = seedData.DRAIN[kind].empty - (at - stamp)
@@ -62,7 +64,7 @@ function supply.new(opts: Opts): any
 		local memo = levels[key]
 		if memo == nil then
 			memo = rooted(function()
-				return Compose.formula(function(use)
+				return Compose.formula(function(use: Use)
 					local left = use(service.remaining(gladeId, kind))
 					return left / seedData.DRAIN[kind].empty
 				end)
@@ -77,7 +79,7 @@ function supply.new(opts: Opts): any
 		local memo = states[key]
 		if memo == nil then
 			memo = rooted(function()
-				return Compose.formula(function(use)
+				return Compose.formula(function(use: Use)
 					local at = use(now)
 					local stamp = use(stamps[gladeId][kind])
 					local elapsed = at - stamp

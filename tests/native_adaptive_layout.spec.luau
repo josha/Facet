@@ -2,11 +2,12 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 local function build(body: (any, any) -> any): (any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
@@ -22,7 +23,8 @@ end
 
 local function refusal(body: (any, any) -> any): string
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+		Facet.Roblox.createRuntime(engine)
 	local UI = Facet.controls(runtime, { types = engine.types } :: any)
 	local ok, message = pcall(function()
 		runtime.mount(function()
@@ -44,10 +46,20 @@ end
 t.describe("adaptive layout", function()
 	t.describe("AdaptiveStack with a bound axis", function()
 		t.it("flips the list direction in place and keeps every child", function()
-			local axis = Compose.cell("x")
-			local root, engine, stop = build(function(UI, Host)
-				return UI.AdaptiveStack { axis = axis, gap = 8, Host.Frame { Name = "A" }, Host.Frame { Name = "B" } }
-			end)
+			local axis = Compose.cell("x" :: "x" | "y")
+			local root, engine, stop = build(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.AdaptiveStack {
+						axis = axis,
+						gap = 8,
+						Host.Frame { Name = "A" } :: unknown,
+						Host.Frame { Name = "B" },
+					}
+				end
+			)
 			local E = engine.types.Enum
 			local layout, a = list(root), root:FindFirstChild("A")
 			t.expect(layout.FillDirection).toBe(E.FillDirection.Horizontal)
@@ -60,9 +72,9 @@ t.describe("adaptive layout", function()
 		end)
 
 		t.it("moves align to the cross axis and distribute to the main axis when it flips", function()
-			local axis = Compose.cell("x")
-			local root, engine, stop = build(function(UI)
-				return UI.AdaptiveStack { axis = axis, align = "center", distribute = "end" }
+			local axis = Compose.cell("x" :: "x" | "y")
+			local root, engine, stop = build(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.AdaptiveStack { axis = axis, align = "center" :: "center", distribute = "end" :: "end" }
 			end)
 			local E = engine.types.Enum
 			local layout = list(root)
@@ -76,8 +88,8 @@ t.describe("adaptive layout", function()
 
 		t.it("refuses an axis other than x or y", function()
 			t.expect(string.find(
-				refusal(function(UI)
-					return UI.AdaptiveStack { axis = "xy" }
+				refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+					return UI.AdaptiveStack { axis = "xy" :: any }
 				end),
 				"AdaptiveStack axis must be x or y",
 				1,
@@ -89,16 +101,21 @@ t.describe("adaptive layout", function()
 	end)
 
 	t.describe("AdaptiveStack that fits", function()
-		local function toolbar(align: string?): (any, any, () -> ())
-			local root, engine, stop = build(function(UI, Host)
-				return UI.AdaptiveStack {
-					gap = 20,
-					align = align,
-					Host.Frame { Name = "A" },
-					Host.Frame { Name = "B" },
-					Host.Frame { Name = "C" },
-				}
-			end)
+		local function toolbar(align: ("center" | "end" | "start" | "stretch")?): (any, any, () -> ())
+			local root, engine, stop = build(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.AdaptiveStack {
+						gap = 20,
+						align = align,
+						Host.Frame { Name = "A" } :: unknown,
+						Host.Frame { Name = "B" },
+						Host.Frame { Name = "C" },
+					}
+				end
+			)
 			for _, name in { "A", "B", "C" } do
 				sized(engine, root:FindFirstChild(name), 100, 40)
 			end
@@ -166,15 +183,20 @@ t.describe("adaptive layout", function()
 		t.it(
 			"counts no width for a Divider or a filling child and retries a refused row only after a change",
 			function()
-				local root, engine, stop = build(function(UI, Host)
-					return UI.AdaptiveStack {
-						gap = 20,
-						Host.Frame { Name = "A" },
-						UI.Divider "Line" {},
-						Host.Frame { Name = "B", UI.fill() },
-						Host.Frame { Name = "C" },
-					}
-				end)
+				local root, engine, stop = build(
+					function(
+						UI: typeof(require("@repo/src").controls(nil :: any)),
+						Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+					)
+						return UI.AdaptiveStack {
+							gap = 20,
+							Host.Frame { Name = "A" } :: unknown,
+							UI.Divider "Line" {},
+							Host.Frame { Name = "B", UI.fill() },
+							Host.Frame { Name = "C" },
+						}
+					end
+				)
 				local E, V2 = engine.types.Enum, engine.types.Vector2
 				local layout = list(root)
 				for _, name in { "A", "B", "C" } do
@@ -198,9 +220,14 @@ t.describe("adaptive layout", function()
 		)
 
 		t.it("measures against the width inside its padding", function()
-			local root, engine, stop = build(function(UI, Host)
-				return UI.AdaptiveStack { padding = 10, Host.Frame { Name = "A" } }
-			end)
+			local root, engine, stop = build(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.AdaptiveStack { padding = 10, Host.Frame { Name = "A" } }
+				end
+			)
 			local E = engine.types.Enum
 			local layout = list(root)
 			sized(engine, root:FindFirstChild("A"), 100, 40)
@@ -213,8 +240,8 @@ t.describe("adaptive layout", function()
 		end)
 
 		t.it("stays a row along a horizontal scroll axis, where the width is unbounded", function()
-			local root, engine, stop = build(function(UI)
-				return UI.ScrollView { axis = "x", UI.AdaptiveStack "Row" {} }
+			local root, engine, stop = build(function(UI: typeof(require("@repo/src").controls(nil :: any)))
+				return UI.ScrollView { axis = "x" :: "x", UI.AdaptiveStack "Row" {} }
 			end)
 			local row = root:FindFirstChild("Row")
 			sized(engine, row, 100, 40)
@@ -226,12 +253,17 @@ t.describe("adaptive layout", function()
 
 	t.describe("ViewThatFits", function()
 		local function actions(): (any, any, () -> ())
-			return build(function(UI, Host)
-				return UI.ViewThatFits {
-					Host.Frame { Name = "Row" },
-					Host.Frame { Name = "Column" },
-				}
-			end)
+			return build(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.ViewThatFits {
+						Host.Frame { Name = "Row" } :: unknown,
+						Host.Frame { Name = "Column" },
+					}
+				end
+			)
 		end
 
 		t.it("shows the first candidate whose width fits and hides the others", function()
@@ -271,9 +303,18 @@ t.describe("adaptive layout", function()
 		end)
 
 		t.it("tests the height too when the height is bounded", function()
-			local root, engine, stop = build(function(UI, Host)
-				return UI.ViewThatFits { height = "fill", Host.Frame { Name = "Tall" }, Host.Frame { Name = "Short" } }
-			end)
+			local root, engine, stop = build(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.ViewThatFits {
+						height = "fill" :: "fill",
+						Host.Frame { Name = "Tall" } :: unknown,
+						Host.Frame { Name = "Short" },
+					}
+				end
+			)
 			sized(engine, root:FindFirstChild("Tall"), 100, 300)
 			sized(engine, root:FindFirstChild("Short"), 100, 50)
 			sized(engine, root, 320, 200)
@@ -283,12 +324,20 @@ t.describe("adaptive layout", function()
 		end)
 
 		t.it("picks the first candidate along a horizontal scroll axis", function()
-			local root, engine, stop = build(function(UI, Host)
-				return UI.ScrollView {
-					axis = "x",
-					UI.ViewThatFits "Fits" { Host.Frame { Name = "Wide" }, Host.Frame { Name = "Narrow" } },
-				}
-			end)
+			local root, engine, stop = build(
+				function(
+					UI: typeof(require("@repo/src").controls(nil :: any)),
+					Host: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
+				)
+					return UI.ScrollView {
+						axis = "x" :: "x",
+						UI.ViewThatFits "Fits" {
+							Host.Frame { Name = "Wide" } :: unknown,
+							Host.Frame { Name = "Narrow" },
+						},
+					}
+				end
+			)
 			local fits = root:FindFirstChild("Fits")
 			sized(engine, fits:FindFirstChild("Wide"), 900, 40)
 			sized(engine, fits, 300, 40)
@@ -299,7 +348,7 @@ t.describe("adaptive layout", function()
 
 		t.it("refuses a ViewThatFits without candidates", function()
 			t.expect(string.find(
-				refusal(function(UI)
+				refusal(function(UI: typeof(require("@repo/src").controls(nil :: any)))
 					return UI.ViewThatFits {}
 				end),
 				"ViewThatFits needs at least one candidate",

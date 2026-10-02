@@ -1,11 +1,13 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local browser = {}
 
 local LOG_LINES = 8
-local catalog = require(script.Parent.catalog)
+local catalog = require("./catalog")
 local NONE = catalog.NONE
 
 local SIZE_KEYS = { controlSize = true, starSize = true, segmentSize = true }
@@ -14,8 +16,10 @@ export type MountOpts = { Facet: any, app: any, ctx: any, settings: any, catalog
 
 function browser.mount(opts: MountOpts): any
 	local Facet, app, ctx, cat, settings = opts.Facet, opts.app, opts.ctx, opts.catalog, opts.settings
-	local UI, Compose = app.UI, Facet.Compose
-	local Host = app.runtime.constructors
+	local UI, Compose: typeof(require("@repo/src/vendor/compose/core")) = app.UI, Facet.Compose
+	local Host = (
+		app.runtime.constructors :: unknown
+	) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host)
 	local adaptive = Facet.adaptive
 	local scenarios = ReplicatedStorage:WaitForChild("FacetScenarios")
 	local demoTabs = require(scenarios:WaitForChild("demo_tabs")) :: any
@@ -37,12 +41,12 @@ function browser.mount(opts: MountOpts): any
 	local env = UI.environment()
 
 	local logical = Compose.cell({ width = 1280, height = 720 })
-	local roomy = Compose.formula(function(use)
+	local roomy = Compose.formula(function(use: Use)
 		local size = use(logical)
 		return adaptive.sizeClassAtLeast(adaptive.sizeClass(size.width), "regular")
 			and adaptive.heightClass(size.height) ~= "short"
 	end)
-	local compact = Compose.formula(function(use)
+	local compact = Compose.formula(function(use: Use)
 		return not use(roomy)
 	end)
 
@@ -54,22 +58,22 @@ function browser.mount(opts: MountOpts): any
 		return UI.Text(props)
 	end
 	local function caption(text: any): any
-		return wrapped({ text = text, textRole = "caption" })
+		return wrapped({ text = text, textRole = "caption" :: "caption" })
 	end
 	local function heading(text: string): any
-		return wrapped({ Name = "Heading", text = text, textRole = "heading" })
+		return wrapped({ Name = "Heading", text = text, textRole = "heading" :: "heading" })
 	end
 	local function section(id: string, title: string, body: { any }): any
-		local children: { any } = { Name = id, width = "fill", gap = "m", heading(title) }
+		local children: { any } = { Name = id, width = "fill" :: "fill", gap = "m", heading(title) }
 		for _, child in body do
 			table.insert(children, child)
 		end
 		return UI.VStack(children)
 	end
-	local function scroller(id: string, children: { any }): any
+	local function scroller(id: string, children: { [any]: any }): any
 		children.Name = id
-		children.width = "fill"
-		children.height = "fill"
+		children.width = "fill" :: "fill"
+		children.height = "fill" :: "fill"
 		children.gap = "xl"
 		children.padding = { top = "m", left = "m", right = "m", bottom = "xl" }
 		return UI.ScrollView(children)
@@ -81,7 +85,9 @@ function browser.mount(opts: MountOpts): any
 	local function dropdown(id: string, label: string, selected: any, values: { any }, onChange: any?, enabledFor: any?)
 		local options = {}
 		for _, v in values do
-			local option = if type(v) == "table" then table.clone(v) else { value = v, label = tostring(v) }
+			local option: { [string]: any } = if type(v) == "table"
+				then table.clone(v)
+				else { value = v, label = tostring(v) }
 			option.enabled = if enabledFor then enabledFor(option.value) else nil
 			option.id = string.gsub(tostring(option.value), "[^%w_%-]", "_")
 			table.insert(options, option)
@@ -89,10 +95,10 @@ function browser.mount(opts: MountOpts): any
 		return UI.Picker({
 			Name = id,
 			label = label,
-			style = "menu",
-			valueAlignment = "start",
-			sizing = "hug",
-			controlSize = "compact",
+			style = "menu" :: "menu",
+			valueAlignment = "start" :: "start",
+			sizing = "hug" :: "hug",
+			controlSize = "compact" :: "compact",
 			selected = selected,
 			options = options,
 			onChange = onChange,
@@ -277,7 +283,7 @@ function browser.mount(opts: MountOpts): any
 				return UI.Text({
 					Name = "Refused",
 					text = `Refused: {string.sub(message, 1, 220)}`,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					wrap = true,
 					Size = UDim2.fromOffset(240, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -288,13 +294,13 @@ function browser.mount(opts: MountOpts): any
 				})
 			end,
 			onError = function() end,
-			if tall then UI.fill() else nil,
+			if tall then UI.fill() else nil :: unknown,
 		})
 	end
 
 	local function cells(page: any, id: string, title: string?, entries: { any }): any
 		local data, c = page.data, contextFor(pageState(page), false)
-		local row: { any } = { Name = "Cells", width = "fill", wrap = true, gap = "m" }
+		local row: { any } = { Name = "Cells", width = "fill" :: "fill", wrap = true, gap = "m" }
 		for i, entry in entries do
 			local states = if entry.state then { entry.state } else {}
 			if not isValid(page, entry.axis or {}, states, entry.context) then
@@ -309,7 +315,7 @@ function browser.mount(opts: MountOpts): any
 					gap = "xs",
 					width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
 					height = height or "hug",
-					UI.Text({ Name = "Label", text = entry.label, textRole = "caption" }),
+					UI.Text({ Name = "Label", text = entry.label, textRole = "caption" :: "caption" }) :: unknown,
 					render(page, c, overrides, `{id}C{i}`, height ~= nil),
 				})
 			)
@@ -317,9 +323,9 @@ function browser.mount(opts: MountOpts): any
 		if #row == 0 then
 			return nil
 		end
-		local children: { any } = { Name = id, width = "fill", gap = "s" }
+		local children: { any } = { Name = id, width = "fill" :: "fill", gap = "s" }
 		if title then
-			table.insert(children, wrapped({ Name = "Title", text = title, textRole = "body" }))
+			table.insert(children, wrapped({ Name = "Title", text = title, textRole = "body" :: "body" }))
 		end
 		table.insert(children, UI.HStack(row))
 		return UI.VStack(children)
@@ -339,7 +345,8 @@ function browser.mount(opts: MountOpts): any
 	local function Controls(page: any): any
 		local data, ps = page.data, pageState(page)
 		local axes, states = data.axes or {}, data.states or {}
-		local row: { any } = { Name = "Options", width = "fill", wrap = true, gap = "m", align = "center" }
+		local row: { any } =
+			{ Name = "Options", width = "fill" :: "fill", wrap = true, gap = "m", align = "center" :: "center" }
 
 		local function current(use: any, key: string?, value: any, extra: any?): (any, any)
 			local values, list = {}, {}
@@ -365,7 +372,7 @@ function browser.mount(opts: MountOpts): any
 					nil,
 					if checked
 						then function(value)
-							return Compose.formula(function(use)
+							return Compose.formula(function(use: Use)
 								return isValid(page, current(use, axis.key, value))
 							end)
 						end
@@ -382,14 +389,14 @@ function browser.mount(opts: MountOpts): any
 				UI.Toggle({
 					Name = `State_{st.name}`,
 					label = st.name,
-					presentation = "checkbox",
+					presentation = "checkbox" :: "checkbox",
 					appearance = "plain",
-					controlSize = "compact",
+					controlSize = "compact" :: "compact",
 					textSize = "label",
 					value = ps.flags[st.name],
 
 					enabled = if checked
-						then Compose.formula(function(use)
+						then Compose.formula(function(use: Use)
 							return use(ps.flags[st.name]) or isValid(page, current(use, nil, nil, st))
 						end)
 						else nil,
@@ -402,7 +409,7 @@ function browser.mount(opts: MountOpts): any
 				Name = "Reset",
 				label = "Reset",
 				textSize = "label",
-				controlSize = "compact",
+				controlSize = "compact" :: "compact",
 				onActivate = function()
 					app.runtime:batch(function()
 						for _, axis in axes do
@@ -439,7 +446,7 @@ function browser.mount(opts: MountOpts): any
 		local data, ps = page.data, pageState(page)
 		local axes, states = data.axes or {}, data.states or {}
 
-		local signature = Compose.formula(function(use)
+		local signature = Compose.formula(function(use: Use)
 			local parts = {}
 			for _, axis in axes do
 				table.insert(parts, `{axis.key}={use(ps.axis[axis.key])}`)
@@ -452,7 +459,7 @@ function browser.mount(opts: MountOpts): any
 			return { { id = table.concat(parts, " · ") } }
 		end)
 		local c = contextFor(ps, true)
-		local cellHeight = Compose.formula(function(use)
+		local cellHeight = Compose.formula(function(use: Use)
 			for _, st in states do
 				if st.cellHeight and use(ps.flags[st.name]) then
 					return st.cellHeight
@@ -472,7 +479,7 @@ function browser.mount(opts: MountOpts): any
 				key = function(item: any): string
 					return item.id
 				end,
-				render = function()
+				render = function(): GuiObject
 					local values, list = {}, {}
 					for _, axis in axes do
 						values[axis.key] = ps.axis[axis.key]:peek()
@@ -488,7 +495,7 @@ function browser.mount(opts: MountOpts): any
 		})
 
 		local seen: { [string]: string } = {}
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			use(ps.version)
 			for name, cell in ps.values do
 				local now = show(use(cell))
@@ -498,7 +505,7 @@ function browser.mount(opts: MountOpts): any
 				seen[name] = now
 			end
 		end)
-		local values = Compose.formula(function(use)
+		local values = Compose.formula(function(use: Use)
 			use(ps.version)
 			local out = {}
 			for name, cell in ps.values do
@@ -509,10 +516,10 @@ function browser.mount(opts: MountOpts): any
 		end)
 		return section("Playground", "Playground", {
 			liveControl,
-			caption(function(use)
+			caption(function(use: Use)
 				return `Configuration: {use(signature)[1].id}\nValues: {use(values)}`
 			end),
-			caption(function(use)
+			caption(function(use: Use)
 				local lines = use(ps.log)
 				return if #lines == 0 then "Event log: (interact with the control)" else table.concat(lines, "\n")
 			end),
@@ -582,21 +589,21 @@ function browser.mount(opts: MountOpts): any
 		local ps = pageState(page)
 		return UI.VStack({
 			Name = "InContext",
-			width = "fill",
+			width = "fill" :: "fill",
 			gap = "s",
-			when(function(use)
+			when(function(use: Use)
 				return not use(ps.examples)
 			end, function()
 				return UI.Button({
 					Name = "ShowExamples",
 					label = "Show examples",
 					appearance = "utility",
-					controlSize = "compact",
+					controlSize = "compact" :: "compact",
 					onActivate = function()
 						ps.examples:set(true)
 					end,
 				})
-			end),
+			end) :: unknown,
 			when(ps.examples, function()
 				local entries = {}
 				for _, name in page.data.scenarios do
@@ -611,7 +618,7 @@ function browser.mount(opts: MountOpts): any
 				if built.dispose then
 					Compose.cleanup(built.dispose)
 				end
-				return UI.VStack({ Name = "Examples", width = "fill", height = 600, built.screen() })
+				return UI.VStack({ Name = "Examples", width = "fill" :: "fill", height = 600, built.screen() })
 			end),
 		})
 	end
@@ -624,7 +631,10 @@ function browser.mount(opts: MountOpts): any
 			table.insert(body, caption(`Choose instead: {data.alternatives}`))
 		end
 		if data.snippet then
-			table.insert(body, wrapped({ text = data.snippet, textRole = "caption", role = "content" }))
+			table.insert(
+				body,
+				wrapped({ text = data.snippet, textRole = "caption" :: "caption", role = "content" :: "content" })
+			)
 		end
 		table.insert(
 			body,
@@ -644,12 +654,12 @@ function browser.mount(opts: MountOpts): any
 	local function Header(title: string, description: string?, note: string?): any
 		local children: { any } = {
 			Name = "Header",
-			width = "fill",
+			width = "fill" :: "fill",
 			gap = "m",
 			wrapped({
 				Name = "Title",
 				text = title,
-				textRole = function(use)
+				textRole = function(use: Use)
 					return if use(compact) then "heading" else "title"
 				end,
 			}),
@@ -704,7 +714,7 @@ function browser.mount(opts: MountOpts): any
 		return node
 	end
 	local function StylePage(): any
-		local surfaces: { any } = { Name = "Surfaces", gap = "m", width = "fill", wrap = true }
+		local surfaces: { any } = { Name = "Surfaces", gap = "m", width = "fill" :: "fill", wrap = true }
 		for _, tag in
 			{ "surface", "pane", "panel", "control", "field", "button", "badge", "track", "skeleton", "scrim" }
 		do
@@ -712,13 +722,13 @@ function browser.mount(opts: MountOpts): any
 				surfaces,
 				UI.VStack({
 					gap = "xs",
-					tagged(tag, `facet-{tag}`, 96, 56),
-					UI.Text({ text = `facet-{tag}`, textRole = "caption" }),
+					tagged(tag, `facet-{tag}`, 96, 56) :: unknown,
+					UI.Text({ text = `facet-{tag}`, textRole = "caption" :: "caption" }),
 				})
 			)
 		end
 
-		local palette = Compose.formula(function(use)
+		local palette = Compose.formula(function(use: Use)
 			local package, name = use(ctx.theme), use(ctx.themeMode)
 			for _, entry in package.style.themes do
 				if entry.name == name then
@@ -727,44 +737,83 @@ function browser.mount(opts: MountOpts): any
 			end
 			return package.style.themes[1]
 		end)
-		local swatches: { any } = { Name = "Palette", gap = "m", width = "fill", wrap = true }
+		local swatches: { any } = { Name = "Palette", gap = "m", width = "fill" :: "fill", wrap = true }
 		for _, role in
-			{ "surface", "surfaceStrong", "content", "contentStrong", "accent", "danger", "success", "warning" }
+			{ "surface", "surfaceStrong", "content", "contentStrong", "accent", "danger", "success", "warning" } :: {
+				"accent"
+				| "content"
+				| "contentStrong"
+				| "danger"
+				| "success"
+				| "surface"
+				| "surfaceStrong"
+				| "warning"
+			}
 		do
 			table.insert(
 				swatches,
 				UI.VStack({
 					gap = "xs",
 					Host.Frame({
-						Name = role,
+						Name = role :: (
+							"accent"
+							| "content"
+							| "contentStrong"
+							| "danger"
+							| "success"
+							| "surface"
+							| "surfaceStrong"
+							| "warning"
+						),
 						Size = UDim2.fromOffset(72, 40),
 						BorderSizePixel = 0,
-						BackgroundColor3 = function(use)
+						BackgroundColor3 = function(use: Use)
 							local color = use(palette).colors[role]
 							return if color then Color3.new(color.r, color.g, color.b) else Color3.new()
 						end,
+					}) :: unknown,
+					UI.Text({
+						text = role :: (
+							"accent"
+							| "content"
+							| "contentStrong"
+							| "danger"
+							| "success"
+							| "surface"
+							| "surfaceStrong"
+							| "warning"
+						),
+						textRole = "caption" :: "caption",
 					}),
-					UI.Text({ text = role, textRole = "caption" }),
 				})
 			)
 		end
-		local ramp: { any } = { Name = "Type", gap = "xs", width = "fill" }
+		local ramp: { any } = { Name = "Type", gap = "xs", width = "fill" :: "fill" }
 		for _, role in Facet.themes.TYPE_ROLES do
 			table.insert(ramp, wrapped({ text = `{role} — The quick brown fox`, textRole = role }))
 		end
-		local ladder: { any } = { Name = "Ladder", gap = "m", width = "fill", wrap = true }
+		local ladder: { any } = { Name = "Ladder", gap = "m", width = "fill" :: "fill", wrap = true }
 		for _, size in { "xsmall", "compact", "regular", "large" } do
-			for _, appearance in { "standard", "emphasis", "soft", "utility", "link", "inverse" } do
-				table.insert(ladder, UI.Button({ label = appearance, appearance = appearance, controlSize = size }))
+			for _, appearance in
+				{ "standard", "emphasis", "soft", "utility", "link", "inverse" } :: { "emphasis" | "inverse" | "link" | "soft" | "standard" | "utility" }
+			do
+				table.insert(
+					ladder,
+					UI.Button({
+						label = appearance :: "emphasis" | "inverse" | "link" | "soft" | "standard" | "utility",
+						appearance = appearance :: "emphasis" | "inverse" | "link" | "soft" | "standard" | "utility",
+						controlSize = size,
+					})
+				)
 			end
 		end
 		local dividers = UI.VStack({
 			Name = "Dividers",
 			width = 240,
 			gap = "s",
-			UI.Text({ text = "standard", textRole = "caption" }),
+			UI.Text({ text = "standard", textRole = "caption" :: "caption" }) :: unknown,
 			UI.Divider({}),
-			UI.Text({ text = "strong", textRole = "caption" }),
+			UI.Text({ text = "strong", textRole = "caption" :: "caption" }),
 			UI.Divider({ appearance = "strong" }),
 		})
 		return scroller("Style", {
@@ -772,7 +821,7 @@ function browser.mount(opts: MountOpts): any
 				"Style",
 				"Theme token gallery: the public theme tags, the live palette, type roles and the control ladder."
 			),
-			caption(function(use)
+			caption(function(use: Use)
 				return `Theme: {use(ctx.themeName)} / {use(ctx.themeMode)}`
 			end),
 			section("SurfacesSection", "Surface tags", { UI.HStack(surfaces) }),
@@ -806,7 +855,7 @@ function browser.mount(opts: MountOpts): any
 		return out
 	end
 	local THEMES = themeOptions()
-	local themeChoice = Compose.formula(function(use)
+	local themeChoice = Compose.formula(function(use: Use)
 		return `{use(ctx.themeName)}/{use(ctx.themeMode)}`
 	end)
 	local function setTheme(value: string): any
@@ -824,7 +873,7 @@ function browser.mount(opts: MountOpts): any
 	end
 
 	local themeCell = Compose.cell(themeChoice:peek())
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		themeCell:set(use(themeChoice))
 	end)
 
@@ -880,24 +929,24 @@ function browser.mount(opts: MountOpts): any
 	end
 
 	local function Detail(): any
-		local current = Compose.formula(function(use)
+		local current = Compose.formula(function(use: Use)
 			local top = use(state.top)
 			return { { id = if top == "catalog" then use(state.selected) else "@" .. top } }
 		end)
-		local detail: { any } = { Name = "Detail", width = "fill", height = "fill" }
+		local detail: { any } = { Name = "Detail", width = "fill" :: "fill", height = "fill" :: "fill" }
 		table.insert(
 			detail,
 			UI.VStack({
 				Name = "Body",
-				width = "fill",
-				height = "fill",
-				UI.fill(),
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
+				UI.fill() :: unknown,
 				Compose.keyed({
 					from = current,
 					key = function(item: any): string
 						return item.id
 					end,
-					render = function(item: any)
+					render = function(item: any): GuiObject
 						local id = item:peek().id
 						if id == "@style" then
 							return StylePage()
@@ -938,11 +987,11 @@ function browser.mount(opts: MountOpts): any
 			label = label,
 
 			appearance = "utility",
-			controlSize = "compact",
+			controlSize = "compact" :: "compact",
 			textSize = "body",
 			selected = isSelected,
 			onActivate = pick,
-			Size = function(use)
+			Size = function(use: Use)
 				local package = use(ctx.theme)
 				local dense = math.max(32, package.metrics.targetSizes.pointer or 44)
 				return UDim2.new(1, 0, 0, if use(env.interactionClasses).primary == "pointer" then dense else 44)
@@ -972,15 +1021,15 @@ function browser.mount(opts: MountOpts): any
 				expanded = state.expanded[id],
 				Size = UDim2.fromScale(1, 0),
 				Visible = any,
-				content = function()
-					local rows: { any } = { Name = "Rows", width = "fill" }
+				content = function(): Instance
+					local rows: { any } = { Name = "Rows", width = "fill" :: "fill" }
 					for _, e in entries do
 						local row = pageRow(e.id, e.label, e.selected, function()
 							e.pick()
 							if onPick then
 								onPick()
 							end
-						end, function(use)
+						end, function(use: Use)
 							return e.matches(use(state.query))
 						end)
 						table.insert(rows, row)
@@ -989,14 +1038,14 @@ function browser.mount(opts: MountOpts): any
 				end,
 			})
 		end
-		local groups: { any } = { Name = "Tree", width = "fill", gap = 0, padding = { bottom = "m" } }
+		local groups: { any } = { Name = "Tree", width = "fill" :: "fill", gap = 0, padding = { bottom = "m" } }
 		for _, family in cat.families do
 			local entries = {}
 			for _, page in family.pages do
 				table.insert(entries, {
 					id = `P_{page.id}`,
 					label = page.title,
-					selected = function(use)
+					selected = function(use: Use)
 						return use(state.top) == "catalog" and use(state.selected) == page.id
 					end,
 					matches = function(q)
@@ -1017,7 +1066,7 @@ function browser.mount(opts: MountOpts): any
 			table.insert(labEntries, {
 				id = `L_{entry.id}`,
 				label = entry.label,
-				selected = function(use)
+				selected = function(use: Use)
 					return use(state.top) == entry.id
 				end,
 				matches = function(q)
@@ -1031,25 +1080,25 @@ function browser.mount(opts: MountOpts): any
 		table.insert(groups, group("lab", "Lab", labEntries))
 		return UI.VStack({
 			Name = "OutlineList",
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			gap = "s",
 			padding = { top = "s", left = "s", right = "s" },
 			UI.TextInput({
 				Name = "Search",
 				value = state.query,
 				placeholder = "Search...",
-				presentation = "search",
+				presentation = "search" :: "search",
 				clearButton = true,
-				controlSize = "compact",
+				controlSize = "compact" :: "compact",
 				Size = UDim2.fromScale(1, 0),
-			}),
+			}) :: unknown,
 			UI.Button({
 				Name = "L_settings",
 				label = "Settings",
 				icon = "settings",
-				controlSize = "compact",
-				selected = function(use)
+				controlSize = "compact" :: "compact",
+				selected = function(use: Use)
 					return use(state.top) == "settings"
 				end,
 				onActivate = function()
@@ -1060,20 +1109,26 @@ function browser.mount(opts: MountOpts): any
 				end,
 				Size = UDim2.fromScale(1, 0),
 			}),
-			UI.ScrollView({ Name = "Outline", width = "fill", height = "fill", UI.fill(), UI.VStack(groups) }),
+			UI.ScrollView({
+				Name = "Outline",
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
+				UI.fill() :: unknown,
+				UI.VStack(groups),
+			}),
 		})
 	end
 
 	local function Catalog(): any
 		return UI.VStack({
 			Name = "Catalog",
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			when(roomy, function()
 				local pane = UI.VStack({
 					Name = "OutlinePane",
-					height = "fill",
-					width = function(use)
+					height = "fill" :: "fill",
+					width = function(use: Use)
 						return math.clamp(math.floor(use(logical).width * 0.22), 240, 305)
 					end,
 					Outline(),
@@ -1083,14 +1138,20 @@ function browser.mount(opts: MountOpts): any
 				UI.focusSection(pane)
 				return UI.HStack({
 					Name = "Split",
-					width = "fill",
-					height = "fill",
+					width = "fill" :: "fill",
+					height = "fill" :: "fill",
 					gap = 0,
-					pane,
+					pane :: unknown,
 					UI.Divider({ Name = "PaneDivider", appearance = "strong" }),
-					UI.VStack({ Name = "DetailPane", width = "fill", height = "fill", UI.fill(), Detail() }),
+					UI.VStack({
+						Name = "DetailPane",
+						width = "fill" :: "fill",
+						height = "fill" :: "fill",
+						UI.fill() :: unknown,
+						Detail(),
+					}),
 				})
-			end),
+			end) :: unknown,
 			when(compact, function()
 				local function open()
 					state.compactPath:set({ { id = "page" } })
@@ -1102,7 +1163,7 @@ function browser.mount(opts: MountOpts): any
 					Size = UDim2.fromScale(1, 1),
 					root = {
 						title = "Controls",
-						content = function()
+						content = function(): Instance
 							local outline = Outline(open)
 
 							UI.focusSection(outline, { focusOnAppear = `P_{state.selected:peek()}` })
@@ -1111,7 +1172,7 @@ function browser.mount(opts: MountOpts): any
 					},
 					destinations = {
 						page = {
-							title = function(use)
+							title = function(use: Use)
 								local top = use(state.top)
 								if top ~= "catalog" then
 									return if top == "settings" then "Settings" else "Style"
@@ -1119,8 +1180,13 @@ function browser.mount(opts: MountOpts): any
 								local page = cat.pages[use(state.selected)]
 								return if page then page.title else ""
 							end,
-							content = function()
-								return UI.VStack({ Name = "Current", width = "fill", height = "fill", Detail() })
+							content = function(): Instance
+								return UI.VStack({
+									Name = "Current",
+									width = "fill" :: "fill",
+									height = "fill" :: "fill",
+									Detail(),
+								})
 							end,
 						},
 					},
@@ -1131,18 +1197,18 @@ function browser.mount(opts: MountOpts): any
 
 	app.mount(function()
 		local roomSize = Compose.cell(nil :: Vector2?)
-		local device = Compose.formula(function(use)
+		local device = Compose.formula(function(use: Use)
 			local size = use(roomSize) or use(env.viewportSize)
 			return settings.device(use, { width = math.max(size.X, 320), height = math.max(size.Y, 240) })
 		end)
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			local size = use(device).logical
 			logical:set(size)
 			settings.viewport:set(Vector2.new(size.width, size.height))
 		end)
 		local frame = UI.VStack({
 			Name = "Device",
-			Size = function(use)
+			Size = function(use: Use)
 				local d = use(device)
 				return if d.simulated
 					then UDim2.fromOffset(d.logical.width, d.logical.height)
@@ -1151,7 +1217,7 @@ function browser.mount(opts: MountOpts): any
 			AutomaticSize = Enum.AutomaticSize.None,
 			ClipsDescendants = true,
 
-			padding = function(use)
+			padding = function(use: Use): number | { left: number, right: number, top: number, bottom: number }
 				local d = use(device)
 				if use(settings.cells.platform) ~= "tv" then
 					return 0
@@ -1169,13 +1235,13 @@ function browser.mount(opts: MountOpts): any
 				Name = "DeviceEdge",
 				Color = Color3.fromRGB(128, 128, 128),
 				Thickness = 1,
-				Transparency = function(use)
+				Transparency = function(use: Use)
 					return if use(device).simulated then 0.4 else 1
 				end,
-			}),
+			}) :: unknown,
 			Host.UIScale({
 				Name = "Preview",
-				Scale = function(use)
+				Scale = function(use: Use)
 					return use(device).scale
 				end,
 			}),
@@ -1184,14 +1250,14 @@ function browser.mount(opts: MountOpts): any
 		frame:AddTag("facet-surface")
 		local stage = UI.ZStack({
 			Name = "Stage",
-			width = "fill",
-			height = "fill",
-			alignH = "center",
-			alignV = "center",
-			frame,
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
+			alignH = "center" :: "center",
+			alignV = "center" :: "center",
+			frame :: unknown,
 		})
 		local room = UI.environment(stage)
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			roomSize:set(use(room.viewportSize))
 		end)
 		return ctx.preview(ctx, stage, frame)
@@ -1331,7 +1397,7 @@ function browser.mount(opts: MountOpts): any
 				if cell == nil then
 					return { ok = false, reason = "no such value" }
 				end
-				cell:set(game:GetService("HttpService"):JSONDecode(json))
+				cell:set(game:GetService("HttpService"):JSONDecode(assert(json)))
 				return { ok = true }
 			end
 			local sign, flag = string.match(command, "^([%+%-])(.+)$")
@@ -1357,7 +1423,8 @@ function browser.mount(opts: MountOpts): any
 		report = function(): any
 			local page = cat.pages[state.selected:peek()]
 			local ps = pageState(page)
-			local config, values = {}, {}
+			local config: { [string]: boolean | string } = {}
+			local values = {}
 			for key, cell in ps.axis do
 				config[key] = tostring(cell:peek())
 			end

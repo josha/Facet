@@ -4,7 +4,7 @@ return {
 	title = "Notices",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: typeof(require("@repo/src/vendor/compose/core")), Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local shown = Compose.cell(true)
@@ -43,7 +43,7 @@ return {
 					release(id)
 				end,
 			}
-			for key, value in extra or {} do
+			for key, value in (extra or {} :: { [string]: any }) do
 				spec[key] = value
 			end
 			local list = table.clone(entries:peek())
@@ -104,7 +104,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
+				}) :: unknown,
 				label("ToastTitle", "Toasts", 1, "heading"),
 				label("Undone", function(use: any): string
 					local n = use(undone)
@@ -167,7 +167,7 @@ return {
 					key = function(entry: Entry): number
 						return entry.id
 					end,
-					render = function(item: any)
+					render = function(item: any): GuiObject
 						local entry: Entry = item:peek()
 						return UI.Toast(`Snack{entry.id}`)(entry.spec :: any)
 					end,
@@ -222,7 +222,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				label("NoticeTitle", "Notices", 1, "heading"),
 				label("Last", last, 2),
 				Compose.show(shown, function()
@@ -242,7 +242,7 @@ return {
 							{
 								id = "Install",
 								label = "Install",
-								role = "default",
+								role = "default" :: "default",
 								onActivate = function()
 									last:set("Last: install")
 								end,
@@ -275,7 +275,7 @@ return {
 		local function affixed(): any
 			return Compose.show(banner, function()
 				return UI.Notice "Offline" {
-					placement = "affixed",
+					placement = "affixed" :: "affixed",
 					severity = "warning",
 					message = "Connection interrupted. Reconnecting.",
 					onDismiss = function()
@@ -303,7 +303,7 @@ return {
 						Size = UDim2.fromScale(1, 1),
 						ScrollBarThickness = 6,
 						section(),
-					},
+					} :: unknown,
 					affixed(),
 				}
 			end,

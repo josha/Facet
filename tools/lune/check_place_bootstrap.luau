@@ -12,7 +12,7 @@ for _, path in process.args do
 	if
 		gallery == nil
 		or gallery.ClassName ~= "Script"
-		or gallery.RunContext ~= roblox.Enum.RunContext.Client
+		or (gallery :: any).RunContext ~= roblox.Enum.RunContext.Client
 		or duplicate ~= nil
 	then
 		print(`FAIL {path}: requires one ReplicatedStorage.Gallery Script with RunContext Client and no starter copy`)

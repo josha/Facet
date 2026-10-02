@@ -12,18 +12,19 @@ local UserInputService = game:GetService("UserInputService")
 
 local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
 local showcase = require(ReplicatedStorage:WaitForChild("FacetShowcase"):WaitForChild("screen")) :: any
-local lab_settings = require(script.Parent.lab_settings) :: any
-local catalog = require(script.Parent.catalog) :: any
-local browser = require(script.Parent.browser) :: any
-local lab_audit = require(script.Parent.lab_audit) :: any
-local Compose = Facet.Compose
+local lab_settings = require(assert(script.Parent).lab_settings) :: any
+local catalog = require(assert(script.Parent).catalog) :: any
+local browser = require(assert(script.Parent).browser) :: any
+local lab_audit = require(assert(script.Parent).lab_audit) :: any
+local Compose: typeof(require("@repo/src/vendor/compose/core")) = Facet.Compose
 
 pcall(function()
 	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 end)
 
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-local runtime = Facet.Roblox.createRuntime()
+local runtime: typeof(require("@repo/src/vendor/compose/roblox").createRuntime(nil :: any)) =
+	Facet.Roblox.createRuntime()
 
 local modules = {}
 for _, folder in { ReplicatedStorage:WaitForChild("FacetThemes"), ReplicatedStorage:WaitForChild("LabThemes") } do
@@ -44,7 +45,9 @@ local owner = Compose.createRootOwner(function()
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (
+				runtime.constructors :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host),
 		viewport = viewport,
 		guiService = GuiService,
 		runService = game:GetService("RunService"),
@@ -100,8 +103,11 @@ local owner = Compose.createRootOwner(function()
 	})
 	Compose.cleanup(backdrop.dispose)
 	backdrop.mount(function()
-		local fill =
-			runtime.constructors.Frame({ Name = "Backdrop", Size = UDim2.fromScale(1, 1), BorderSizePixel = 0 })
+		local fill = (
+			(
+				runtime.constructors.Frame :: unknown
+			) :: typeof(require("@repo/src/ui/context")(nil :: any, nil :: any).Host.Frame)
+		)({ Name = "Backdrop", Size = UDim2.fromScale(1, 1), BorderSizePixel = 0 })
 		fill:AddTag("facet-surface")
 		return fill
 	end)

@@ -23,7 +23,7 @@ local function isKnownReason(reason: string): boolean
 end
 
 function commerce.new(opts: Opts): any
-	local Compose = opts.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = opts.Compose
 	local now = opts.now
 
 	local satchel: { [string]: any } = {}

@@ -1,15 +1,19 @@
+--!strict
 local HttpService = game:GetService("HttpService")
-local L = require(game.ReplicatedStorage.FacetLive)
-local focus = require(game.ReplicatedStorage.FacetLive.focus)
+local liveModule = game:GetService("ReplicatedStorage"):WaitForChild("FacetLive") :: ModuleScript
+local loadLive = require :: (ModuleScript) -> typeof(require("@repo/tools/studio/live"))
+local L = loadLive(liveModule)
+local loadFocus = require :: (ModuleScript) -> typeof(require("@repo/tools/studio/live/focus"))
+local focus = loadFocus(liveModule:WaitForChild("focus") :: ModuleScript)
 local api = workspace:WaitForChild("FacetLabAPI")
-local root = game.Players.LocalPlayer.PlayerGui:WaitForChild("Facet_Lab")
+local root = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Facet_Lab")
 local options = shared.LabFocusWalk or {}
 local summary = {}
-for _, id in HttpService:JSONDecode(api.pages:Invoke()) do
+for _, id in HttpService:JSONDecode((api:WaitForChild("pages") :: BindableFunction):Invoke()) do
 	if options.only and not string.find(id, options.only, 1, true) then
 		continue
 	end
-	api.open:Invoke(id)
+	(api:WaitForChild("open") :: BindableFunction):Invoke(id)
 	task.wait(1)
 	local lint = focus.lint(root)
 	focus.rest(root)

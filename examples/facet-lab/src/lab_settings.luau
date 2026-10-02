@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local lab_settings = {}
 
@@ -47,7 +49,7 @@ local DISPLAY = { phone = "Small", tablet = "Medium", desktop = "Medium", tv = "
 local TRANSPARENCY = { default = 1, reduced = 0.5, opaque = 0 }
 
 function lab_settings.new(ctx: any, input: UserInputService): any
-	local Compose = ctx.Compose
+	local Compose: typeof(require("@repo/src/vendor/compose/core")) = ctx.Compose
 	local Enum = ctx.types.Enum
 	local gui = ctx.guiService
 	local cells: { [string]: any } = {
@@ -80,11 +82,11 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		return if choice == "automatic" then DEVICE_INPUT[use(cells.platform)] or "automatic" else choice
 	end
 	local self: any = { cells = cells, CHOICES = lab_settings.CHOICES }
-	self.transparency = Compose.formula(function(use)
+	self.transparency = Compose.formula(function(use: Use)
 		local choice = use(cells.transparency)
 		return if choice == "automatic" then use(realTransparency) else TRANSPARENCY[choice]
 	end)
-	self.hover = Compose.formula(function(use)
+	self.hover = Compose.formula(function(use: Use)
 		local choice = use(cells.hover)
 		if choice ~= "automatic" then
 			return choice == "on"
@@ -170,7 +172,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		end)
 	end
 
-	self.lines = Compose.formula(function(use)
+	self.lines = Compose.formula(function(use: Use)
 		local function word(v: any): string
 			return (string.gsub(tostring(v), "^Enum%.%w+%.", ""))
 		end
