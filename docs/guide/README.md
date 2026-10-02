@@ -78,7 +78,7 @@ to select a control. Then read the exact contract of that control in the
 | A short confirmation with an Undo at the bottom of the screen | `UI.Toast` with an `action` |
 | A surface top bar with Back, a title and tools | `UI.NavBar` |
 | Anchored content for one control | `UI.Popover` |
-| Windowed lists and grids | `UI.VirtualList`, `UI.VirtualGrid` |
+| Lists and grids with selection, reordering, focus and optional windowing | `UI.VirtualList`, `UI.VirtualGrid` |
 | Browsable items with artwork and revealed actions | `UI.Card` |
 | A count or dot seal on a host's corner | `UI.badged` |
 | Sorting, selection, resizing and row reorder | `UI.Table` |

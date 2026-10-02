@@ -76,13 +76,17 @@ return UI.VStack {
 }
 ```
 
-For a bounded collection that stays mounted, use `Compose.keyed` with `from`, a
-key function and `render(current, index, key)`. The Facet collection controls
-also accept a field name as the key: `key = "id"`. Read the current item inside
-property bindings. An existing key can receive a replacement item.
+For bounded repeated content that does not need collection selection,
+reordering or focus, use `Compose.keyed` with `from`, a key function and
+`render(current, index, key)`. Read the current item inside property bindings.
+An existing key can receive a replacement item.
 
-For large scrolling collections, use the Facet
-[VirtualList or VirtualGrid](../reference/api.md#virtuallist-and-virtualgrid).
+For interactive data collections, including short editable lists, use Facet
+[VirtualList or VirtualGrid](../reference/api.md#virtuallist-and-virtualgrid),
+or [Table](../reference/api.md#table) for columns. These controls also accept a
+field name as the key: `key = "id"`. Choose the interaction contract first.
+Then choose windowing or `mode = "all"` according to the collection size and
+lifetime requirements. See [interactive collections](14-choosing-controls.md#interactive-collections).
 Keep durable row edits and selections in the model, outside the windowed row
 owners. Compose `OrderedCollection` and `Pool` supply the collection mechanisms
 for those controls. Screens do not need their own windowing.

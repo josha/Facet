@@ -55,15 +55,15 @@ and gives recipes for search, drill-down and contextual actions.
 
 | Control | When to use it |
 |---|---|
-| [VirtualList / VirtualGrid](../reference/api.md#virtuallist-and-virtualgrid) | Large or unbounded collections; choose rows or tiles to suit the data. Use ScrollView for small heterogeneous content. |
+| [VirtualList / VirtualGrid](../reference/api.md#virtuallist-and-virtualgrid) | Data rows or tiles with selection, reordering or collection focus, including short editable lists; also large or unbounded collections. Use ScrollView for a document or form without those collection behaviors. |
 | [Table](../reference/api.md#table) | Comparing, sorting, selecting or reordering columnar data. Use cards when artwork and individual browsing matter more. |
 | [Card](../reference/api.md#card) | A browsable item with artwork and actions; compose it in VirtualGrid for many items. |
 | [RowActions](../reference/api.md#rowactions) | Commands on one row, including swipe/context actions. Keep primary navigation on the row itself. |
 | [Screen](../reference/api.md#screen) | A themed screen root with native layout. It does not own application state or routes. |
 | [VStack / HStack](../reference/api.md#vstack-and-hstack) | Vertical or horizontal groups. Use AdaptiveStack when the axis must change with space. |
 | [ZStack](../reference/api.md#zstack) | Ordinary overlapping content. Modal presentation belongs to a presented control. |
-| [ScrollView](../reference/api.md#scrollview) | A small document or form that may exceed its viewport. Large data needs a virtual collection. |
-| [Grid](../reference/api.md#grid) | A bounded arrangement of cells. Large collections need VirtualGrid. |
+| [ScrollView](../reference/api.md#scrollview) | A document or form that may exceed its viewport. Interactive rows need a collection control even when the list is short. |
+| [Grid](../reference/api.md#grid) | A bounded arrangement of cells without collection behavior. Selectable or reorderable tiles, and large collections, need VirtualGrid. |
 | [AdaptiveStack](../reference/api.md#adaptivestack) | A group that changes orientation to fit the available space. |
 | [ViewThatFits](../reference/api.md#viewthatfits) | Selecting among authored presentations based on available space. |
 | [Composition / Region](../reference/api.md#composition-and-region) | Screen-anchored HUD regions with priorities and compact forms. Ordinary app layouts use stacks or grids. |
