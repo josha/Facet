@@ -18,6 +18,36 @@ local ROWS = {
 	{ id = "6", name = "Desert Dunes", laps = 3 },
 }
 
+local function transferState(c)
+	local rows = c.cell("transferRows", ROWS)
+	local serial = 0
+	return {
+		from = rows,
+		collectionId = rows,
+		drag = function(items, keys)
+			return { payload = { items = items, keys = keys, collection = rows }, operations = { "copy" } }
+		end,
+		drop = {
+			operation = "copy",
+			accepts = function(payload)
+				return type(payload) == "table" and payload.items ~= nil
+			end,
+			onDrop = function(payload, info)
+				local next = table.clone(rows:peek())
+				for index, item in payload.items do
+					serial += 1
+					local copy = table.clone(item)
+					copy.id, copy.name = "copy-" .. serial, item.name .. " copy"
+					table.insert(next, info.insertion.slot + index, copy)
+				end
+				rows:set(next)
+				c.log("onDrop")(info.operation, info.insertion.slot)
+				return true
+			end,
+		},
+	}
+end
+
 local function emptyStatus(c: any): any
 	return c.cell("status", {
 		mode = "windowed",
@@ -2905,8 +2935,96 @@ local PAGE_DATA: { [string]: any } = {
 			return UI.Grid(cards)
 		end,
 	},
+	CellEditor = {
+		family = "collections",
+		cellWidth = 280,
+		cellHeight = 90,
+		purpose = "A model-backed cell editor with durable drafts and commit validation.",
+		alternatives = "TextInput for immediate text changes.",
+		scenarios = { "table_virtualized" },
+		snippet = 'UI.CellEditor { editor = "text", value = name, draft = draft, onChange = save }',
+		base = function(c)
+			local value = c.cell("value", "Coast")
+			return {
+				editor = "text",
+				label = "File name",
+				value = value,
+				draft = c.cell("draft", nil),
+				onChange = function(v)
+					value:set(v)
+				end,
+				Size = UDim2.fromScale(1, 1),
+			}
+		end,
+		states = {
+			DISABLED,
+			{ name = "pending", props = { busy = true } },
+			{
+				name = "validation",
+				props = {
+					validate = function(v)
+						return if v == "" then "Enter a name." else nil
+					end,
+				},
+			},
+			{
+				name = "number",
+				props = function(c)
+					return {
+						editor = "number",
+						value = c.cell("number", 10),
+						onChange = function(v)
+							c.cell("number", 10):set(v)
+						end,
+						min = 0,
+						max = 100,
+						step = 1,
+					}
+				end,
+			},
+			{
+				name = "menu",
+				props = function(c)
+					return {
+						editor = "menu",
+						draft = NONE,
+						value = c.cell("menu", "Blue"),
+						options = { { value = "Blue", label = "Blue" }, { value = "Coral", label = "Coral" } },
+						onChange = function(v)
+							c.cell("menu", "Blue"):set(v)
+						end,
+					}
+				end,
+			},
+			{
+				name = "toggle",
+				props = function(c)
+					return {
+						editor = "toggle",
+						draft = NONE,
+						value = c.cell("flag", true),
+						onChange = function(v)
+							c.cell("flag", true):set(v)
+						end,
+					}
+				end,
+			},
+		},
+	},
+
 	Table = {
 		family = "collections",
+		demonstrates = {
+			"selectionFrom",
+			"selectionIndicator",
+			"rowActions",
+			"focusPolicy",
+			"initialFocus",
+			"autoFocus",
+			"wrapFocus",
+			"maxRetained",
+			"onReachEnd",
+		},
 		cellWidth = 460,
 		cellHeight = 260,
 		alias = "(Facet) table",
@@ -2941,6 +3059,7 @@ local PAGE_DATA: { [string]: any } = {
 		end,
 		axes = { { key = "selectionMode", values = { "none", "single", "multiple" }, matrix = false } },
 		states = {
+			{ name = "copy rows by dragging into this collection", props = transferState },
 			{
 				name = "custom cell render",
 				props = function(c)
@@ -3175,6 +3294,7 @@ local PAGE_DATA: { [string]: any } = {
 	},
 	VirtualList = {
 		family = "collections",
+		demonstrates = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth" },
 		cellWidth = 280,
 		cellHeight = 220,
 		alias = "List",
@@ -3207,6 +3327,7 @@ local PAGE_DATA: { [string]: any } = {
 			{ key = "mode", values = { "windowed", "all" }, matrix = false },
 		},
 		states = {
+			{ name = "copy rows by dragging into this collection", props = transferState },
 			{ name = "no reorder autoscroll", props = { reorderable = true, autoscroll = false } },
 			{ name = "focus stays on the index", props = { focusPolicy = "index" } },
 			{
@@ -3310,6 +3431,7 @@ local PAGE_DATA: { [string]: any } = {
 	},
 	VirtualGrid = {
 		family = "collections",
+		demonstrates = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth" },
 		cellWidth = 460,
 		cellHeight = 220,
 		alias = "Grid (virtualized)",
@@ -3343,13 +3465,14 @@ local PAGE_DATA: { [string]: any } = {
 			{ key = "snap", values = { "none", "item" }, matrix = false },
 		},
 		states = {
+			{ name = "copy rows by dragging into this collection", props = transferState },
 			{ name = "horizontal", props = { direction = "horizontal", columns = 2, itemSize = 140 }, across = false },
 			{ name = "cross gap 16", props = { crossGap = 16 } },
 		},
 	},
 	RowActions = {
 		family = "collections",
-		demonstrates = { "coordinator" },
+		demonstrates = { "swipeEnabled", "coordinator" },
 		cellWidth = 320,
 		alias = "(Facet-only) swipe actions",
 		purpose = "Leading/trailing swipe actions on a row, reachable by pointer, touch, keyboard and gamepad.",
@@ -3666,15 +3789,26 @@ local PAGE_DATA: { [string]: any } = {
 		purpose = "Makes any node a drag source: pointer travel, the touch long press, or A / Return on a selected source.",
 		alternatives = "Table and list reorder for rows.",
 		snippet = 'UI.draggable(card, { payload = "card" })',
-		demonstrates = { "payload", "enabled", "armOnTap" },
+		demonstrates = { "payload", "enabled", "armOnTap", "operations", "valid", "onStart", "onEnd" },
 		base = function()
 			return {}
 		end,
 		make = function(UI, _, c)
 			local card = UI.Button({ label = "Drag me" })
 			local slot = UI.Button({ label = "Drop here" })
-			UI.draggable(card, { payload = "card", armOnTap = true, enabled = true })
+			UI.draggable(card, {
+				payload = "card",
+				armOnTap = true,
+				enabled = true,
+				operations = { "copy" },
+				valid = function()
+					return card.Parent ~= nil
+				end,
+				onStart = c.log("onStart"),
+				onEnd = c.log("onEnd"),
+			})
 			UI.dropTarget(slot, {
+				operation = "copy",
 				onDrop = function(payload, info)
 					c.log("onDrop")(payload, info.mode)
 				end,
@@ -3689,7 +3823,17 @@ local PAGE_DATA: { [string]: any } = {
 		purpose = "Accepts a dragged payload; accepts() gives the legality and a reason, onReject reports a refusal.",
 		alternatives = "Table and list reorder for rows.",
 		snippet = "UI.dropTarget(slot, { onDrop = place, accepts = legal })",
-		demonstrates = { "onDrop", "accepts", "onReject", "onEnter", "onLeave" },
+		demonstrates = {
+			"onDrop",
+			"accepts",
+			"onReject",
+			"onEnter",
+			"onLeave",
+			"focusTarget",
+			"onUpdate",
+			"operation",
+			"passThrough",
+		},
 		base = function()
 			return {}
 		end,
@@ -3699,6 +3843,12 @@ local PAGE_DATA: { [string]: any } = {
 			local full = UI.Button({ label = "Full slot" })
 			UI.draggable(card, { payload = "card" })
 			UI.dropTarget(open, {
+				focusTarget = open,
+				operation = "move",
+				passThrough = function(payload)
+					return payload == "decoration"
+				end,
+				onUpdate = c.log("onUpdate"),
 				onDrop = c.log("onDrop"),
 				onEnter = c.log("onEnter"),
 				onLeave = c.log("onLeave"),

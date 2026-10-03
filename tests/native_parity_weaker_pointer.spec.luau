@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 local t = require("./lib/testkit")
 local transitionOf = require("./lib/transition")
 local fs = require("@lune/fs")
@@ -111,12 +112,12 @@ end
 local function moveTo(world: World, input: any, x: number, y: number)
 	input.Position = world.engine.types.Vector3.new(x, y, 0)
 	input.UserInputState = world.engine.types.Enum.UserInputState.Change
-	world.input.InputChanged.fire(input)
+	nativeDrag.move(world.input, input)
 end
 
 local function release(world: World, input: any)
 	input.UserInputState = world.engine.types.Enum.UserInputState.End
-	world.input.InputEnded.fire(input)
+	nativeDrag.finish(world.input, input)
 end
 
 local function compass(picked: { string }): { any }
@@ -272,7 +273,7 @@ t.describe("pointer, touch and drag strength", function()
 		local launcher = find(world.root, "Launcher")
 		for _, point in { { 0, 0 }, { 320, 240 } } do
 			local press = touch(world, point[1], point[2])
-			launcher.InputBegan.fire(press)
+			nativeDrag.press(launcher, press)
 			t.expect(opened:peek()).toBe(true)
 			release(world, press)
 			launcher.Activated.fire(press)
@@ -302,7 +303,7 @@ t.describe("pointer, touch and drag strength", function()
 				local py = y + uy * offset[1] + ux * offset[2]
 				local before = #picked
 				local press = touch(world, px, py)
-				panel.InputBegan.fire(press)
+				nativeDrag.press(panel, press)
 				release(world, press)
 				t.expect(#picked).toBe(before + 1)
 				t.expect(picked[#picked]).toBe(id)
@@ -339,14 +340,14 @@ t.describe("pointer, touch and drag strength", function()
 			for _, kind in { "Touch", "MouseButton1" } do
 				local press = touch(world, 320, 240)
 				press.UserInputType = world.engine.types.Enum.UserInputType[kind]
-				launcher.InputBegan.fire(press)
+				nativeDrag.press(launcher, press)
 				t.expect(opened:peek()).toBe(true)
 				local south = find(world.root, "S")
 				t.expect(south:HasTag("facet-selected")).toBe(false)
 				if kind == "Touch" then
 					moveTo(world, press, 320, 370)
 				else
-					world.input.InputChanged.fire({
+					nativeDrag.move(world.input, {
 						UserInputType = world.engine.types.Enum.UserInputType.MouseMovement,
 						UserInputState = world.engine.types.Enum.UserInputState.Change,
 						Position = world.engine.types.Vector3.new(320, 370, 0),
@@ -358,7 +359,7 @@ t.describe("pointer, touch and drag strength", function()
 				if kind == "Touch" then
 					moveTo(world, press, 321, 239)
 				else
-					world.input.InputChanged.fire({
+					nativeDrag.move(world.input, {
 						UserInputType = world.engine.types.Enum.UserInputType.MouseMovement,
 						UserInputState = world.engine.types.Enum.UserInputState.Change,
 						Position = world.engine.types.Vector3.new(321, 239, 0),
@@ -392,13 +393,13 @@ t.describe("pointer, touch and drag strength", function()
 			local world = radial({ distribution = "compass", completion = "stay", items = compass(picked) })
 			local north = find(world.root, "N")
 			local press = touch(world, 320, 110)
-			north.InputBegan.fire(press)
+			nativeDrag.press(north, press)
 			north.Activated.fire(press)
 			t.expect(#picked).toBe(1)
 			release(world, press)
 			t.expect(#picked).toBe(1)
 			local after = touch(world, 320, 110)
-			north.InputBegan.fire(after)
+			nativeDrag.press(north, after)
 			release(world, after)
 			north.Activated.fire(after)
 			t.expect(#picked).toBe(2)
@@ -408,7 +409,7 @@ t.describe("pointer, touch and drag strength", function()
 			local listWorld = radial({ isPresented = opened, distribution = "compass", items = compass(listPicked) })
 			local launcher = find(listWorld.root, "Launcher")
 			local tap = touch(listWorld, 0, 0)
-			launcher.InputBegan.fire(tap)
+			nativeDrag.press(launcher, tap)
 			t.expect(opened:peek()).toBe(true)
 			find(listWorld.root, "Modal").AbsoluteSize = V2(listWorld, 420, 200)
 			t.expect(presentation(listWorld)).toBe("list")
@@ -419,7 +420,7 @@ t.describe("pointer, touch and drag strength", function()
 			find(listWorld.root, "E").Activated.fire(touch(listWorld, 40, 40))
 			t.expect(#listPicked).toBe(1)
 			t.expect(listPicked[1]).toBe("E")
-			listWorld.input.InputEnded.fire(touch(listWorld, 40, 40))
+			nativeDrag.finish(listWorld.input, touch(listWorld, 40, 40))
 			t.expect(#listPicked).toBe(1)
 			listWorld.stop()
 		end
@@ -433,7 +434,7 @@ t.describe("pointer, touch and drag strength", function()
 			t.expect(presentation(world)).toBe(if mode == "direction" then "radial" else "list")
 			if mode == "direction" then
 				local press = touch(world, 210, 100)
-				find(world.root, "RadialPanel").InputBegan.fire(press)
+				nativeDrag.press(find(world.root, "RadialPanel"), press)
 				moveTo(world, press, 710, 100)
 				t.expect(presentation(world)).toBe("radial")
 				t.expect(find(world.root, "E"):HasTag("facet-selected")).toBe(true)
@@ -468,12 +469,12 @@ t.describe("pointer, touch and drag strength", function()
 		end
 		t.expect(covered).toBe(640 * 480 - 80 * 80)
 		local through = touch(world, 200, 150)
-		panel.InputBegan.fire(through)
+		nativeDrag.press(panel, through)
 		moveTo(world, through, 200, 20)
 		release(world, through)
 		t.expect(#picked).toBe(0)
 		local ring = touch(world, 200, 60)
-		panel.InputBegan.fire(ring)
+		nativeDrag.press(panel, ring)
 		release(world, ring)
 		t.expect(table.concat(picked, ",")).toBe("N")
 		find(world.root, "Modal").AbsoluteSize = V2(world, 180, 180)
@@ -731,6 +732,7 @@ t.describe("pointer, touch and drag strength", function()
 			local engine = world.engine
 			local body = world.node:FindFirstChild("Body")
 			body.AbsoluteWindowSize = V2(world, 200, 100)
+			nativeDrag.measure(body)
 			local function frames(count: number)
 				for _ = 1, count do
 					engine.heartbeat.fire(1 / 60)
@@ -745,7 +747,7 @@ t.describe("pointer, touch and drag strength", function()
 				UserInputState = engine.types.Enum.UserInputState.Begin,
 				Position = engine.types.Vector3.new(10, 50, 0),
 			}
-			handle.InputBegan.fire(press)
+			nativeDrag.press(handle, press)
 			detector.DragStart.fire(V2(world, 10, 50))
 			frames(20)
 			t.expect(body.CanvasPosition.Y).toBe(0)
@@ -754,7 +756,8 @@ t.describe("pointer, touch and drag strength", function()
 			local advanced = body.CanvasPosition.Y
 			t.expect(advanced > 0).toBe(true)
 			local function pointerAt(y: number)
-				world.input.InputChanged.fire({
+				detector.DragContinue.fire(V2(world, 10, y))
+				nativeDrag.move(world.input, {
 					UserInputType = engine.types.Enum.UserInputType.MouseMovement,
 					UserInputState = engine.types.Enum.UserInputState.Change,
 					Position = engine.types.Vector3.new(10, y, 0),
@@ -769,7 +772,7 @@ t.describe("pointer, touch and drag strength", function()
 			pointerAt(99)
 			frames(2000)
 			t.expect(body.CanvasPosition.Y).toBe(100 * 20 - 100)
-			world.input.InputEnded.fire(press)
+			nativeDrag.finish(world.input, press)
 			t.expect(#requests).toBe(1)
 			t.expect(requests[1].slot).toBe(99)
 			body.CanvasPosition = V2(world, 0, 500)
@@ -1362,6 +1365,7 @@ t.describe("adaptive environment strength", function()
 				local scrim = scrimOf(sheet)
 				local body = find(world.node, "Body")
 				body.AbsoluteWindowSize = V2(world, 200, 200)
+				nativeDrag.measure(body)
 				local rows = {}
 				for index = 1, 3 do
 					rows[index] = body:FindFirstChild(tostring(index), true)
@@ -1383,6 +1387,7 @@ t.describe("adaptive environment strength", function()
 					world.gui.PreferredTransparency = garbage[nextInteger(1, #garbage)]
 					world.gui.ReducedMotionEnabled = nextInteger(0, 1) == 1
 					body.AbsoluteWindowSize = V2(world, extents[nextInteger(1, #extents)], 200)
+					nativeDrag.measure(body)
 					if drag then
 						drag.DragEnd.fire(V2(world, 100, 20))
 					end

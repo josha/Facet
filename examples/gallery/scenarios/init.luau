@@ -13,6 +13,7 @@ local names = {
 	"cards",
 	"collapsible_view",
 	"collections",
+	"collection_workbench",
 	"component_motion",
 	"container_grid",
 	"containers",

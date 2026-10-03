@@ -2908,6 +2908,8 @@ render owner.
 | `itemSize` | `40`, the estimated main-axis extent. On a horizontal list, `"cards"` sizes the cards from the space the rail gets. A compact touch rail (under 600 px) shows one card with a peek of the next and snaps to cards. Wider rails show as many whole cards of at least 200 px as fit. `cards = { perView?, minWidth?, peek? }` overrides the count, the floor or the peek. `cards` is refused without `"cards"`. |
 | `gap`, `crossGap` | `0`; the cross gap defaults to the gap. A VirtualGrid keeps half of each gap (rounded up) at its outer edges, as a `UIPadding` on its `Items` frame and in its canvas extent. Thus content that paints past its cell, such as a lifted Card, is not cut by the scroll clip. |
 | `columns` | The grid column count, default `1`; can be reactive. |
+| `minColumnWidth` | VirtualGrid only: a positive minimum tile width. Computes columns from the available cross-axis space and gaps. Do not combine it with `columns`. |
+| `rowActions` | The same action factory and permission rules as Table. |
 | `overscan` | `2`. |
 | `measure` | `false`; set to observe the rendered native `AbsoluteSize`. |
 | `measured` | An optional readable map from key to extent; overrides observed measurements. |
@@ -3090,6 +3092,7 @@ VirtualList. A column has:
 
 - `id` and `label`,
 - an optional pixel `width` (otherwise flex),
+- `align = "start"`, `"center"` or `"end"` for the heading and value text,
 - `minWidth` (48) and `maxWidth` (1e6),
 - `resizable` and `sortable` (both true),
 - `value(item)` or `render(current, placement, key)`.
@@ -3117,13 +3120,96 @@ raw value: a string, a number, a boolean or the value of a menu option. `options
 number. Each accepted edit calls the `onCellChange(rowKey, columnId, value)` of
 the table, which an editor column requires. The caller updates its rows, and a
 row change updates the cell. An edit that does not change the value proposes
-nothing. A refused edit shows the value of the row again. The editors keep
-their native routes: a click or a tap, Return or the A button starts a text
-edit, and Escape or the B button cancels it. A row that leaves the table, or
-scrolls out of a windowed table, releases its editors and discards an edit in
-progress. An editor with `render`, an unknown editor word, a menu without
+nothing. Table uses the same `CellEditor` as custom list and grid cells.
+A rejected edit keeps the draft and shows an error. Supply `draft(key)` on a
+text or number column to keep its draft outside recycled cells, and
+`validate(value)` to return an error message or nil. Without a supplied draft,
+the draft lasts only as long as the mounted cell. Explicit `editing` controls
+whether the editor is enabled on every input device. Native Return or blur
+commits; Escape or B cancels to the latest model value. Unmounting never commits.
+An editor with `render`, an unknown editor word, a menu without
 `options`, editor settings on a column without `editor`, and an editor column
 without `onCellChange` cause an error.
+
+### CellEditor
+
+Use `UI.CellEditor` in a custom table column, list row or grid item. Each call
+returns a new Frame; share the render function and model binding between views.
+Do not mount one Instance in two parents.
+
+```luau
+local drafts = {}
+local function nameDraft(key)
+    if not drafts[key] then drafts[key] = Compose.cell(nil) end
+    return drafts[key]
+end
+local function nameCell(current, placement, key)
+    return UI.CellEditor {
+        editor = "text",
+        value = function(use) return use(current).name end,
+        draft = nameDraft(key),
+        validate = function(value)
+            return if value == "" then "Enter a name." else nil
+        end,
+        onChange = function(value) model.rename(key, value) end,
+    }
+end
+```
+
+Required options are `editor`, `value`, and `onChange(value)`. `editor` accepts
+`text`, `number`, `toggle`, or `menu`. Use `options = { { value, label } }` for a
+menu and `min`, `max`, `step` for a number. `label` names a text field or toggle.
+`enabled = false` or `busy = true` prevents proposals. Set `busy` while the model
+validates an asynchronous request, then update `value` on acceptance. The model
+remains authoritative; Facet does not mutate a record.
+
+`draft` is an optional writable cell containing nil or
+`{ text: string, original: unknown, error: string? }`. It is valid only for text
+and number editors. Keep one draft per record and field outside the render
+owner. Clear it when the record is deleted. Accepted changes clear the draft.
+Validation errors and synchronous rejections keep it for correction. An external
+model update does not replace dirty text; the editor reports a conflict. Escape
+cancels to the latest value; an explicit commit proposes the draft against that
+latest value. The model can reject that proposal. A pending request's rejection
+can set `draft.error` before clearing `busy`.
+
+#### Shared models and views
+
+All three containers accept `from`, stable `key`, `selection`, `selectionMode`,
+`editing`, `disabled`, `selectable`, `rowActions`, `onActivate`, and model-owned
+delete/reorder callbacks. List and grid use `render`; Table columns can use the
+same render function. Table also forwards `focusPolicy`, `initialFocus`,
+`autoFocus`, `wrapFocus`, `maxRetained` and `onReachEnd` to its virtual body.
+
+When `from` is a filtered projection, supply `selectionFrom = allRecords` to
+every view sharing the selection. Facet then preserves hidden selected IDs and
+prunes only IDs absent from the authoritative records. Without `selectionFrom`,
+it prunes against `from`. Use stable record IDs, not projection indices.
+Use `measure = true` with content-sized custom list or grid cells. Measurement
+follows the original rendered cell through selection and row-action wrappers.
+Tables measure custom cells that use native automatic height or a fixed height.
+`UI.CellEditor` grows with its native field, including theme insets, validation
+messages and text size. Prefer content-sized cells so theme changes can reflow
+the collection. An explicitly fixed outer layout still needs room to scroll.
+
+Delete commands also use `selectionFrom`, so selected records hidden by a
+filter remain part of the operation. Apply model commands such as color labels
+to selected IDs in the authoritative model. A row action on a selected item
+should use that selection; on an unselected item, it should use only that item.
+Renaming remains a single-record edit.
+
+On desktop, use click, Command/Ctrl-click and Shift-click with row highlights.
+Edit selection marks appear for touch and gamepad. Keep an Edit/Done command
+available for those inputs and bind its state to `editing`.
+
+`selectionIndicator = false` hides edit selection marks when composing your own
+indicator; it does not change selection behavior.
+
+Keep records and durable drafts in the model. Share selection or editing when
+wanted. Keep each view's sort, filter, column widths, scroll and focus separate.
+Create records through an application command that allocates a stable ID and
+updates `from`. Use the same command from a toolbar or a later drop handler.
+The Showcase File library demonstrates that recipe, including model-owned Undo.
 
 #### Editable collections
 
@@ -3131,13 +3217,15 @@ Table, VirtualList and VirtualGrid take the same model.
 `reorderable = true` with `onReorder(keys, insertionSlot)` moves rows, and
 `deletable = true` with `onDelete(keys)` removes them; both only propose, and
 the caller changes its rows. `movable(item)` and `rowDeletable(item)` refuse
-single rows. On a Table, a row that `rowDeletable` refuses also loses its
+single rows. In all three containers, a row that `rowDeletable` refuses also loses its
 destructive `rowActions`, so no swipe, menu or key can remove it. The paths per
 input:
 
 - Pointer: drag a row, or one of the selected rows to move them all, more than
-  6 pixels along the list. There is no handle. The drag shows an image of the
-  row, stacked two or three deep for a selection, and scrolls the list near its
+  6 pixels along a list, or in either direction in a grid. There is no handle.
+  The drag shows native copies of the selected cells, stacked up to three deep.
+  Grid previews retain tile dimensions and insertion positions use both axes.
+  The drag scrolls the collection near its
   edges unless `autoscroll = false`. Once the list can move no further that
   way, the nearest enclosing ScrollingFrame whose own 40 pixel edge band holds
   the pointer scrolls instead (innermost first), so a list inside a page hands
@@ -3150,7 +3238,9 @@ input:
   Edit mode shows, inside each row band, a round red minus at the leading
   edge (deletable, unless `selectionMode = "multiple"`) and a move handle at
   the trailing edge (reorderable); the row content slides to make room
-  (instantly with reduced motion). The minus reveals a `Delete` button at the
+  (instantly with reduced motion). Grid edit controls sit in a top strip,
+  preserving the full content width; measured tiles include the strip height.
+  Grid handles use native `UIDragDetector` plane movement. The minus reveals a `Delete` button at the
   trailing edge, which confirms. A handle
   drags, or Return or the A button starts a move that the arrows or D-pad
   place and Return, A or `Drop` ends. The X
@@ -3241,6 +3331,12 @@ or all lifetime. The collection measurement, status, controls, focus and
 follow options also apply.
 
 ### RowActions
+
+With `editing = true`, the swipe overlay is hidden so embedded fields and
+buttons receive native input. Visible edit actions and the context menu remain
+available. `swipeEnabled = false` suppresses swipe capture without showing edit
+actions. Collection `rowActions` use that option while the collection is editing.
+An action factory can still supply `editing` to show its own edit actions.
 
 `content` is native content or a factory. `leading` and `trailing` contain
 `{ id, label, icon, enabled, role, onActivate }` actions. `open` is `nil`,
@@ -3979,11 +4075,12 @@ onPurchaseConfirmed(true)
 ### draggable and dropTarget
 
 `UI.draggable(source, spec)` lets a player pick up the GuiObject `source`, and
-`UI.dropTarget(target, spec)` lets the GuiObject `target` receive it. Call both
+`UI.dropTarget(target, spec)` lets a GuiObject, BasePart, or Model receive it. Call both
 inside a component or a Compose owner; they stop when the owner ends. Every
 input ends in the same drop:
 
-- Pointer: press the source and move it 6 pixels. A release before that is a
+- Pointer: a native `UIDragDetector` with `CustomOffset` recognizes the drag.
+  Press the source and move it 6 pixels. A release before that is a
   click, and the source's own activation still happens.
 - Touch: a finger that moves first scrolls. Hold the finger still until the
   engine's long press (`TouchLongPress`) to pick the source up; the
@@ -3995,7 +4092,7 @@ input ends in the same drop:
 - Keyboard and gamepad: select the source and press Return or A to pick it up.
   Move the selection into a target and press Return or A to drop. Escape or B
   puts the source back. On a Facet Button source or target this is the
-  Button's own activation, so its `onActivate` also runs.
+  Button's activation is consumed. Its ordinary `onActivate` does not run.
 - `armOnTap = true`: a touch tap on the source picks it up, the list under it
   still scrolls, and a tap on a target drops it.
 
@@ -4026,15 +4123,69 @@ UI.dropTarget(slot, {
   up, and it stays selectable and activatable.
 - `armOnTap`: a touch tap picks the source up (above). Default `false`.
 
+The source also accepts `operations = { "copy", "move", "apply" }`, a
+`valid()` predicate, `onStart(payload, mode)`, and `onEnd(accepted, reason)`.
+`valid` is checked during the session and before completion. The game owns
+payload validation and model changes. Pointer previews preserve the proportional
+pickup point under the mouse or touch contact. Collection stacks use the grabbed
+cell as the front card and preserve its pickup point and UI scale.
+Failed pointer drops return the preview to
+the source with a theme-timed native tween. Accepted pointer drops shrink the preview at the drop position. Both use native TweenService and skip animation under reduced motion.
+Only accepted destinations show the native drop highlight; source-only
+collections show no insertion marker.
+
 `dropTarget` spec:
 
-- `onDrop(payload, info)`: required. `info` is `{ source, target, mode }`,
-  where `mode` is `"pointer"` or `"armed"`.
-- `accepts(payload) -> (legal, reason?)`: the game's rule. Without it the
-  target accepts everything. A refused drop calls `onReject(payload, reason)`
-  and puts the source back.
-- `onEnter(payload)` and `onLeave(payload)`: called once each time the aim
-  enters or leaves the target. A nested target wins over the one around it.
+- `operation`: `"move"` by default; also accepts `"copy"`, `"apply"`, or a
+  readable value. An explicit source operation list must include it.
+- `accepts(payload, info) -> (legal, reason?)`: checked during hover and at
+  release. Rejection calls `onReject(payload, reason)` without calling `onDrop`.
+- `onDrop(payload, info)`: required. Return `true` or nothing after a synchronous
+  command, `false` on rejection, or `"pending"` for an asynchronous command.
+  For pending work, call `info.complete(true)` **before** changing the model.
+  Change the model only if it returns true. It revalidates and succeeds once.
+  Call `info.complete(false, reason)` for rejection. Cancelled or late replies
+  return false. Keep server authority and durable requests in the game model.
+- `onEnter(payload)`, `onLeave(payload)`, and
+  `onUpdate(payload, info, accepted, reason)` report target feedback.
+- `focusTarget`: a GuiObject that chooses this destination with Return/A or a
+  tap. This gives world objects the same non-pointer drop command.
+- `passThrough(payload)`: explicitly routes unmatched payloads past this target
+  to an enclosing target. A rejected target otherwise blocks the drop.
+
+`info` contains `source`, `target`, `mode`, `operation`, `position`, `hit`,
+`insertion`, and `complete`. `mode` is `"pointer"` or `"armed"`; `hit` is the
+native world raycast result. Collection insertion includes `collection`,
+`beforeKey`, `afterKey`, and a zero-based `slot` among the remaining items.
+Pending insertions resolve their neighbor keys again before completion.
+
+Screen targets use `PlayerGui:GetGuiObjectsAtPosition` in native visual order.
+Ghosts are excluded. Visible blocking UI prevents world drops, including rejected
+UI targets. A decorative background can explicitly set `FacetDropPassThrough`.
+World targeting uses `CurrentCamera:ScreenPointToRay` and `Workspace:Raycast`;
+the first hit must belong to a registered target. Camera motion refreshes the
+ray. A part in front of a target blocks it. Native `Highlight` shows a world
+candidate; UI candidates get an outline. `FacetDropState` is `accepted`,
+`rejected`, or `pending`; `FacetDropReason` exposes the rejection reason.
+PluginGui has no native GUI hit query; its registered UI targets use clipped
+bounds and native ZIndex. Verify overlapping plugin surfaces in Studio.
+
+Escape/B, focus loss, owner disposal, or invalid source/target state cancels
+without committing. Collection sessions and preview snapshots outlive a
+recycled visual row. Native detectors own ordinary pointer gestures; captured
+input continues a drag only after its visual source is recycled. Touch uses
+native long-press recognition and captured touch continuation so an ordinary
+pan remains available to the ScrollingFrame. Edit handles use native detectors.
+
+All three data containers accept `collectionId`, `drag(items, keys)`, and `drop`.
+`drag` returns a draggable spec; `drop` uses the target spec above. Use the same
+`collectionId` in linked views and carry `{ collection, keys, items }` in the
+payload. A same-collection drop calls `onReorder` once. Other accepted drops
+call `drop.onDrop` with insertion metadata. The game creates IDs for copies and
+new records, preserves IDs for moves, and updates both models together.
+Sorted views reject positional insertion until sorting is cleared. Item apply
+wells can use `UI.dropTarget` in `render`, with explicit pass-through for file
+payloads that should insert into the containing collection.
 
 `UI.focusSection(group, { focusOnAppear?, returnFocus? })` also says where the
 selection goes when a branch appears and leaves. Call it in the component that

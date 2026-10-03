@@ -15,6 +15,7 @@ local InputTypes = require("./input_types")
 type Controls = {
 	VirtualList: CollectionTypes.CollectionConstructor,
 	VirtualGrid: CollectionTypes.CollectionConstructor,
+	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
 	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
 }
 local FLING_MINIMUM = 200
@@ -31,6 +32,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local gui = ctx.config.guiService
 	local behavior = {
 		"from",
+		"selectionFrom",
+		"selectionIndicator",
+		"minColumnWidth",
+		"rowActions",
 		"key",
 		"render",
 		"mode",
@@ -60,6 +65,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"selectionMode",
 		"selectable",
 		"reorderable",
+		"collectionId",
+		"drag",
+		"drop",
 		"onReorder",
 		"movable",
 		"deletable",
@@ -143,6 +151,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
+		local coordinator = Compose.cell(nil :: {}?)
 		local selectionMode: "none" | "single" | "multiple" = spec.selectionMode
 			or (if spec.selection or spec.onSelectionChange then "single" else "none")
 		local selectRow, extendSelection = createSelection(ctx, spec, source, keyOf, controls, selection, selectionMode)
@@ -220,8 +229,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 				writingOffset = false
 			end
 		end
+		local editor: reorder.Editor<V, K>?
 		local function select(key: K, current: ComposeTypes.Readable<V>, input: InputObject?, clicks: number?): ()
 			if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
+				return
+			end
+			if editor and editor.pickUp(key, input) then
 				return
 			end
 			local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
@@ -259,10 +272,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 				wireSelection(child, key)
 			end
 		end
-		local editor = if spec.reorderable or spec.deletable
+		editor = if spec.drag
+				or spec.drop
+				or spec.reorderable
+				or spec.deletable
+				or (spec.editing ~= nil and selectionMode ~= "none" and spec.selectionIndicator ~= false)
 			then reorder(ctx, UI, spec, source, keyOf, controls, function()
 				return root
-			end, selection, Compose.cell(nil :: CollectionTypes.Sort?), spec.editing)
+			end, selection, Compose.cell(nil :: CollectionTypes.Sort?), spec.editing, kind == "grid")
 			else nil
 		local overlayReorder = if editor then editor.overlay else nil
 		local function cardLayout(use: ComposeTypes.Use?): (number, number)
@@ -303,6 +320,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 				followThreshold = spec.followThreshold,
 				layout = function(use: ComposeTypes.Use)
 					local columns = if kind == "grid" then math.max(1, math.floor(read(spec.columns or 1, use))) else 1
+					if spec.minColumnWidth ~= nil then
+						local minimum = read(spec.minColumnWidth, use)
+						assert(
+							kind == "grid" and spec.columns == nil and minimum > 0 and minimum < math.huge,
+							"Facet minColumnWidth needs a grid, a positive width and no columns"
+						)
+						columns = adaptive.columnsFor(
+							math.max(0, use(cross) - 2 * crossEdge(use)),
+							minimum,
+							read(spec.crossGap or spec.gap or 0, use)
+						)
+					end
 					local gap: number = read(spec.gap or 0, use)
 					local crossGap: number = read(spec.crossGap or gap, use)
 					return {
@@ -353,6 +382,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end)
 					runtime.decorate(node, {
 						Name = tostring(key),
+						Interactable = function(use: ComposeTypes.Use)
+							return not policy.disabled(spec.disabled, use(current))
+						end,
 						LayoutOrder = function(use: ComposeTypes.Use)
 							return use(placement).index
 						end,
@@ -372,8 +404,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 					})
 					mounted[key] = node
 					placed[key] = placement
+					local measuredNode: GuiObject
 					local stop, mountedContent = runtime.mount(function(): Frame
 						local rendered = spec.render(current, placement, key)
+						measuredNode = rendered
+						rendered = policy.actions(ctx, spec, current, key, rendered, UI.RowActions, coordinator)
 						if editor then
 							rendered = editor.wrap(rendered, current, key)
 							local press = editor.press
@@ -430,12 +465,31 @@ return function(ctx: Types.Context, UI: Controls): ()
 							Compose.cleanup(activation.providePress(hit, pressed))
 							table.insert(children, 1, hit)
 						end
-						return Host.Frame(children)
+						local paintSelection = spec.selectionIndicator ~= false and selectionMode ~= "none"
+						if paintSelection then
+							children.BackgroundTransparency = nil
+						end
+						local content = Host.Frame(children)
+						if paintSelection then
+							ctx.styled(content, "TableRow")
+							ctx.skin(content, "control", {
+								selected = function(use: ComposeTypes.Use): boolean
+									return use(selection)[key] == true
+								end,
+							})
+							Compose.watch(function(use: ComposeTypes.Use)
+								if use(selection)[key] == true then
+									content:AddTag("facet-selected")
+								else
+									content:RemoveTag("facet-selected")
+								end
+							end)
+						end
+						return content
 					end, node)
 					local content = mountedContent :: Frame
 					wireSelection(content, key)
 					if spec.measure then
-						local measuredNode = content:GetChildren()[#content:GetChildren()] :: GuiObject
 						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
 						local slot: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(node)
 						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
@@ -448,6 +502,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							local ancestors = if rendered > 0 and assigned > 0 then rendered / assigned else 1
 							local scale = math.max(use(factor) * ancestors, 0.001)
 							local extent = (if horizontal then use(size).X else use(size).Y) / scale
+								+ (if editor and not horizontal then use(editor.header) else 0)
 							if extent > 0 and measured:peek()[key] ~= extent then
 								local nextSizes = table.clone(measured:peek())
 								nextSizes[key] = extent

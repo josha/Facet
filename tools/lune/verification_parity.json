@@ -12195,7 +12195,7 @@
       "class": "a",
       "candidateCases": [
         "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
-        "native_parity_weaker_rows::native parity weaker rows::collections-67 table edit mode leaves hosted row actions alone; they stay independent of it"
+        "native_parity_weaker_rows::native parity weaker rows::collections-67 table edit mode leaves action chrome independent and releases swipe capture"
       ]
     },
     {

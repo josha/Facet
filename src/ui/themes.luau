@@ -904,10 +904,17 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
-		local horizontal = if role == "button" then 12 elseif role == "badge" then 8 else 0
-		local vertical = if role == "badge" then 3 else 0
+		local horizontal = if role == "button"
+			then 12
+			elseif role == "badge" then 8
+			elseif role == "panel" then package.metrics.space.m
+			else 0
+		local vertical = if role == "badge" then 3 elseif role == "panel" then package.metrics.space.m else 0
 		local function side(face: number, carve: number?): UDim
-			return types.UDim.new(0, if role == "badge" then math.max(face, carve or 0) else face + (carve or 0))
+			return types.UDim.new(
+				0,
+				if role == "badge" or role == "panel" then math.max(face, carve or 0) else face + (carve or 0)
+			)
 		end
 		rule(".facet-" .. role .. "::UIPadding", {
 			PaddingLeft = side(horizontal, inset.left),
@@ -1347,6 +1354,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			else c("accent"),
 	})
 	rule(".facet-focus-ring::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	rule(".facet-drop-line", { BackgroundColor3 = c("accent") })
+	rule(".facet-drop-accepted", { Color = c("accent") })
+	rule(".facet-drop-rejected", { Color = c("danger") })
 	rule(".facet-avatar-ring", { Color = c("accent"), Transparency = 0 })
 	rule(".facet-avatar-hover", { Color = c("accent") })
 	rule(".facet-avatar-ring-gap", { Color = c("surface"), Transparency = 0 })

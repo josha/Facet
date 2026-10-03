@@ -41,7 +41,8 @@ Explicit native Instance properties take precedence over stylesheet values.
 This is intentional. Do not use them for default theme paint.
 
 Screen content can use the same rules. Add the tag, and do not set the painted
-property. `facet-panel` paints a rounded panel surface, `facet-pane` paints a
+property. `facet-panel` paints a rounded panel surface with content padding of at least
+the theme’s `space.m` on each side (or larger skin content insets), `facet-pane` paints a
 flush `surfaceStrong` pane with no corner or stroke, `facet-divider` paints a
 hairline, `facet-divider-strong` next to it paints a heavier rule, and
 `facet-path` paints a `Path2D` line in the accent color.

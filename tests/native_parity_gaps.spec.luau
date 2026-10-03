@@ -336,6 +336,9 @@ local function minimalSpecs(Host: any): { [string]: () -> { [string]: any } }
 				tabs = { { id = "a", label = "A", content = content } },
 			}
 		end,
+		CellEditor = function()
+			return { editor = "text", value = "Name", onChange = function() end }
+		end,
 		Table = function()
 			return {
 				from = {},

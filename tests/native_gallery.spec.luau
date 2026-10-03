@@ -440,3 +440,44 @@ t.describe("native gallery", function()
 		ctx.runtime:dispose()
 	end)
 end)
+
+t.describe("Lab container editing", function()
+	t.it("changes the model on every container page and restores deleted selections with Undo", function()
+		local build = require("../examples/facet-lab/src/collection_editing")
+		for _, kind in { "Table", "VirtualList", "VirtualGrid" } do
+			local ctx, engine, target = nativeContext()
+			local values = {}
+			local stop, root = ctx.runtime.mount(function()
+				return build({
+					UI = ctx.UI,
+					Compose = Compose,
+					ctx = ctx,
+					cell = function(name, initial)
+						values[name] = values[name] or Compose.cell(initial)
+						return values[name]
+					end,
+					log = function()
+						return function() end
+					end,
+				}, kind)
+			end, target)
+			local function press(name)
+				find(root, name).Activated.fire(nil, 1)
+			end
+			press("NewItem")
+			t.expect(#values.editingRows:peek()).toBe(7)
+			values.editingSelection:set({ ["1"] = true, ["3"] = true })
+			press("DeleteSelected")
+			t.expect(#values.editingRows:peek()).toBe(5)
+			t.expect(values.editingSelection:peek()["1"]).toBeNil()
+			press("UndoEdit")
+			t.expect(#values.editingRows:peek()).toBe(7)
+			t.expect(values.editingSelection:peek()["3"]).toBe(true)
+			values.editingEnabled:set(false)
+			press("DeleteSelected")
+			t.expect(#values.editingRows:peek()).toBe(7)
+			stop()
+			ctx.runtime:dispose()
+		end
+	end)
+end)

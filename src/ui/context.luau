@@ -1641,11 +1641,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		local state = ctx.observe.GuiState(node)
 		local stateOptions: Shared.SkinStateOptions = skinOptions or {}
+		local background = observeStyled(node, "BackgroundTransparency")
 		local dispose, art = runtime.mount(function()
 			return themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
-				shadowTransparency = if fades[node] then fades[node].transparency else nil,
+				shadowTransparency = function(use: ComposeTypes.Use)
+					local package = ctx.read(config.theme, use)
+					local recipe = package and (package.chrome or {})[slot]
+					local transparent = recipe and recipe.kind == "native" and use(background) == 1
+					return if transparent then 1 elseif fades[node] then fades[node].transparency(use) else 0
+				end,
 				label = if stateOptions.label ~= nil
 					then stateOptions.label
 					elseif node:IsA("TextButton") or node:IsA("TextLabel") then ctx.observe.Text(node)

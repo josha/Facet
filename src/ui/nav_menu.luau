@@ -3166,7 +3166,13 @@ return function(
 						local rung = if spec.controlSize ~= nil
 							then ctx.controlSize(spec.controlSize, "height", use)
 							else 44
-						return V2.new(0, if read(spec.axis, use) == "y" then 0 else rung + 2 * segmentMetrics.inset)
+						return V2.new(
+							0,
+							if read(spec.axis, use) == "y"
+								then 0
+								elseif spec.controlSize ~= nil then rung
+								else rung + 2 * segmentMetrics.inset
+						)
 					end, spec.axis, spec.controlSize, if spec.controlSize ~= nil then ctx.config.theme else nil),
 				},
 			})

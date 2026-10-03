@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -79,6 +80,44 @@ local function button(UI, current)
 end
 
 t.describe("Compose native collections", function()
+	t.it("paints list and grid selection on the cell owner and clears recycled state", function()
+		for _, kind in { "VirtualList", "VirtualGrid" } do
+			local engine, runtime, UI, target = setup()
+			local selected = Compose.cell({})
+			local stop, node = runtime.mount(function()
+				return UI[kind]({
+					from = Compose.cell(records(20)),
+					key = key,
+					selection = selected,
+					selectionMode = "multiple",
+					itemSize = 40,
+					overscan = 0,
+					render = function()
+						return runtime.constructors.Frame({ BackgroundTransparency = 1 })
+					end,
+				})
+			end, target)
+			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 80)
+			local hit = node:FindFirstChild("1", true):FindFirstChild("RowHit", true)
+			local painted = hit.Parent
+			t.expect(painted:HasTag("facet-tablerow")).toBe(true)
+			t.expect(painted.BackgroundTransparency).toBe(0)
+			t.expect(hit.BackgroundTransparency).toBe(1)
+			hit.Activated.fire()
+			t.expect(painted:HasTag("facet-selected")).toBe(true)
+			selected:set({ [2] = true })
+			t.expect(painted:HasTag("facet-selected")).toBe(false)
+			t.expect(node:FindFirstChild("2", true):FindFirstChild("RowHit", true).Parent:HasTag("facet-selected"))
+				.toBe(true)
+			node.CanvasPosition = engine.types.Vector2.new(0, 400)
+			for _, child in node:GetDescendants() do
+				t.expect(child:HasTag("facet-selected")).toBe(false)
+			end
+			stop()
+			runtime:dispose()
+		end
+	end)
+
 	t.it("selects on click zero and activates on click one for lists and grids", function()
 		for _, kind in { "VirtualList", "VirtualGrid" } do
 			local engine, runtime, UI, target = setup()
@@ -457,6 +496,52 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("measures original content through action and selection wrappers", function()
+		local engine, runtime, UI, target = setup()
+		local status = Compose.cell({
+			mode = "windowed",
+			direction = "vertical",
+			total = 0,
+			retained = 0,
+			first = 0,
+			last = 0,
+			firstRow = 0,
+			lastRow = 0,
+			rowCount = 0,
+			extent = 0,
+			following = false,
+			measured = 0,
+		} :: Compose.OrderedCollectionStatus)
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(5),
+				key = key,
+				itemSize = 20,
+				measure = true,
+				selectionMode = "multiple",
+				editing = true,
+				rowActions = function()
+					return { trailing = { { id = "open", label = "Open", onActivate = function() end } } }
+				end,
+				status = status,
+				render = function()
+					return runtime.constructors.Frame "Measured" {
+						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+						Size = engine.types.UDim2.new(1, 0, 0, 0),
+					}
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		local content = node:FindFirstChild("1", true):FindFirstChild("Measured", true)
+		content.AbsoluteSize = engine.types.Vector2.new(200, 60)
+		t.expect(status:peek().extent).toBe(140)
+		t.expect(content.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
+		t.expect(content.Size.Y.Offset).toBe(0)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("measures a row at its unscaled size while a lift scale grows it", function()
 		local engine, runtime, UI, target = setup()
 		local status = Compose.cell({
@@ -711,6 +796,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body, header = node:FindFirstChild("Body"), node:FindFirstChild("Header")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local original = body:FindFirstChild("1", true):FindFirstChild("Action", true)
 		local column = header:FindFirstChild("label")
 		column:FindFirstChild("Sort").Activated.fire()
@@ -854,6 +940,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local first, second = body:FindFirstChild("1", true), body:FindFirstChild("2", true)
 		t.expect(first:FindFirstChild("trailing", true):FindFirstChild("delete")).toBeNil()
 		t.expect(first:FindFirstChild("trailing", true):FindFirstChild("flag") ~= nil).toBe(true)
@@ -1057,12 +1144,12 @@ t.describe("Compose native collections", function()
 		t.expect(mark(1).Visible).toBe(true)
 		t.expect(mark(1):HasTag("facet-radio-mark")).toBe(true)
 		t.expect(mark(1).Selectable).toBe(false)
-		t.expect(mark(1):FindFirstChild("Dot").Visible).toBe(false)
-		t.expect(mark(2):FindFirstChild("Dot").Visible).toBe(true)
+		t.expect(mark(1):FindFirstChild("Check").Visible).toBe(false)
+		t.expect(mark(2):FindFirstChild("Check").Visible).toBe(true)
 		t.expect(node:FindFirstChild("Header").Position.X.Offset).toBe(44)
 		selection:set({ [1] = true })
-		t.expect(mark(1):FindFirstChild("Dot").Visible).toBe(true)
-		t.expect(mark(2):FindFirstChild("Dot").Visible).toBe(false)
+		t.expect(mark(1):FindFirstChild("Check").Visible).toBe(true)
+		t.expect(mark(2):FindFirstChild("Check").Visible).toBe(false)
 		editing:set(false)
 		t.expect(mark(1).Visible).toBe(false)
 		stop()
@@ -1212,7 +1299,9 @@ t.describe("Compose native collections", function()
 		action.InputBegan.fire(hold)
 		engine.heartbeat.fire(0.2)
 		t.expect(node:FindFirstChild("DragImage", true)).toBeNil()
-		engine.heartbeat.fire(0.2)
+		node:FindFirstChild("1", true)
+			:FindFirstChild("Reorderable", true).TouchLongPress
+			.fire({ engine.types.Vector2.new(50, 10) }, E.UserInputState.Begin)
 		t.expect(node:FindFirstChild("DragImage", true) ~= nil).toBe(true)
 		t.expect(node.ScrollingEnabled).toBe(false)
 		hold.Position = V3.new(50, 70, 0)
@@ -1243,11 +1332,11 @@ t.describe("Compose native collections", function()
 				})
 			end, target)
 			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
-			node:FindFirstChild("1", true):FindFirstChild("Action", true).InputBegan.fire({
+			nativeDrag.press(node:FindFirstChild("1", true):FindFirstChild("Action", true), {
 				UserInputType = E.UserInputType.MouseButton1,
 				Position = V3.new(50, 10, 0),
 			})
-			ctx.config.userInputService.InputChanged.fire({
+			nativeDrag.move(ctx.config.userInputService, {
 				UserInputType = E.UserInputType.MouseMovement,
 				Position = V3.new(50, 98, 0),
 			})
@@ -1278,11 +1367,11 @@ t.describe("Compose native collections", function()
 			})
 		end, page)
 		node.AbsoluteWindowSize = V2.new(200, 100)
-		node:FindFirstChild("1", true):FindFirstChild("Action", true).InputBegan.fire({
+		nativeDrag.press(node:FindFirstChild("1", true):FindFirstChild("Action", true), {
 			UserInputType = E.UserInputType.MouseButton1,
 			Position = V3.new(50, 10, 0),
 		})
-		ctx.config.userInputService.InputChanged.fire({
+		nativeDrag.move(ctx.config.userInputService, {
 			UserInputType = E.UserInputType.MouseMovement,
 			Position = V3.new(50, 98, 0),
 		})
@@ -1421,19 +1510,81 @@ t.describe("Compose native collections", function()
 			node:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(2, 2)
 			node.AbsoluteWindowSize = V2.new(400, 400)
 			local input = ctx.config.userInputService
-			node:FindFirstChild("1", true):FindFirstChild("Action", true).InputBegan.fire({
+			nativeDrag.press(node:FindFirstChild("1", true):FindFirstChild("Action", true), {
 				UserInputType = E.UserInputType.MouseButton1,
 				Position = V3.new(50, 20, 0),
 			})
 
-			input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(50, 130, 0) })
+			nativeDrag.move(input, { UserInputType = E.UserInputType.MouseMovement, Position = V3.new(50, 130, 0) })
 			t.expect(node:FindFirstChild("DragImage", true).Position.Y.Offset).toBe(65 - 10)
-			input.InputEnded.fire({ UserInputType = E.UserInputType.MouseButton1, Position = V3.new(50, 130, 0) })
+			nativeDrag.finish(input, { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(50, 130, 0) })
 			t.expect(moved).toBe("1@2")
 			stop()
 			runtime:dispose()
 		end
 	)
+
+	t.it("keeps grid drag cards at cell size and picks insertion slots across both axes", function()
+		for _, horizontal in { false, true } do
+			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+			local requests = {}
+			local stop, node = runtime.mount(function()
+				return UI.VirtualGrid({
+					from = records(6),
+					key = key,
+					columns = 3,
+					itemSize = 80,
+					gap = 10,
+					direction = if horizontal then "horizontal" else "vertical",
+					selection = Compose.cell({ [1] = true, [4] = true }),
+					selectionMode = "multiple",
+					reorderable = true,
+					onReorder = function(keys, slot)
+						table.insert(requests, { keys = keys, slot = slot })
+					end,
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+			node.AbsoluteSize = if horizontal then V2.new(300, 330) else V2.new(330, 300)
+			node.AbsoluteWindowSize = node.AbsoluteSize
+			local row = node:FindFirstChild("1", true)
+			row:FindFirstChild("Reorderable", true).AbsoluteSize = if horizontal
+				then V2.new(80, 100)
+				else V2.new(100, 80)
+			local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(20, 20, 0) }
+			nativeDrag.press(row:FindFirstChild("RowHit", true), press)
+			nativeDrag.move(ctx.config.userInputService, {
+				UserInputType = E.UserInputType.MouseMovement,
+				Position = if horizontal then V3.new(20, 300, 0) else V3.new(300, 20, 0),
+			})
+			local image = node:FindFirstChild("DragImage", true)
+			t.expect(image.Size)
+				.toBe(if horizontal then engine.types.UDim2.fromOffset(86, 106) else engine.types.UDim2.fromOffset(106, 86))
+			local labels = {}
+			for _, layer in image:GetChildren() do
+				if layer.Name == "Reorderable" then
+					table.insert(labels, layer:FindFirstChild("Action", true):GetAttribute("label"))
+					t.expect(layer.Size).toBe(
+						if horizontal
+							then engine.types.UDim2.fromOffset(80, 100)
+							else engine.types.UDim2.fromOffset(100, 80)
+					)
+				end
+			end
+			table.sort(labels)
+			t.expect(labels).toEqual({ "1", "4" })
+			local marker = node:FindFirstChild("DropLine", true)
+			t.expect(marker.Size)
+				.toBe(if horizontal then engine.types.UDim2.fromOffset(80, 2) else engine.types.UDim2.fromOffset(2, 80))
+			nativeDrag.finish(ctx.config.userInputService, press)
+			t.expect(requests).toEqual({ { keys = { 1, 4 }, slot = 2 } })
+			stop()
+			runtime:dispose()
+		end
+	end)
 
 	t.it("drags an image of the row, stacked two or three deep for a selection, from a press anywhere on it", function()
 		for _, count in { 1, 2, 4 } do
@@ -1462,8 +1613,8 @@ t.describe("Compose native collections", function()
 			local reorderable = row:FindFirstChild("Reorderable", true)
 			reorderable.AbsoluteSize = engine.types.Vector2.new(200, 20)
 			local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(50, 10, 0) }
-			row:FindFirstChild("Action", true).InputBegan.fire(press)
-			ctx.config.userInputService.InputChanged.fire({
+			nativeDrag.press(row:FindFirstChild("Action", true), press)
+			nativeDrag.move(ctx.config.userInputService, {
 				UserInputType = E.UserInputType.MouseMovement,
 				Position = V3.new(50, 40, 0),
 			})
@@ -1480,6 +1631,11 @@ t.describe("Compose native collections", function()
 			t.expect(table.concat(layers, ",")).toBe(if count == 1 then "0" elseif count == 2 then "0,6" else "0,6,12")
 			t.expect(reorderable.Interactable).toBe(true)
 			t.expect(image:FindFirstChild("DragLabel").Visible).toBe(count > 1)
+			local ghost = target:FindFirstChild("DragGhost")
+			local stack = math.min(count - 1, 2) * 6
+			t.expect(math.abs(ghost.AnchorPoint.X * ghost.Size.X.Offset - (200 - stack) / 4) < 0.001).toBe(true)
+			t.expect(math.abs(ghost.AnchorPoint.Y * ghost.Size.Y.Offset - 10) < 0.001).toBe(true)
+			t.expect(ghost.Position).toBe(engine.types.UDim2.fromOffset(50, 40))
 			stop()
 			runtime:dispose()
 		end
@@ -1805,6 +1961,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 60)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		body:FindFirstChild("2", true):FindFirstChild("RowHit", true).Activated.fire()
 		shifted = true
 		body.CanvasPosition = engine.types.Vector2.new(0, 180)
@@ -1840,6 +1997,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local handle = body:FindFirstChild("3", true):FindFirstChild("Move", true)
 		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 		detector.DragStart.fire(engine.types.Vector2.new(10, 40))
@@ -1904,6 +2062,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local handle = body:FindFirstChild("2", true):FindFirstChild("Move", true)
 		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 		local reorderable = handle.Parent
@@ -2152,6 +2311,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		body:FindFirstChild("1", true):FindFirstChild("RowHit", true).Activated.fire()
 		node:FindFirstChild("Sort", true).Activated.fire()
 		local resize = node:FindFirstChild("Resize", true):FindFirstChildWhichIsA("UIDragDetector")
@@ -2196,12 +2356,14 @@ t.describe("Compose native collections", function()
 		local row = body:FindFirstChild("1", true)
 		local cell = row:FindFirstChild("third", true)
 		body.AbsoluteWindowSize = engine.types.Vector2.new(250, 40)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		t.expect(cell.Visible).toBe(false)
 		local menu = row:FindFirstChild("Details", true)
 		menu.Activated.fire()
 		local fullValue = target:FindFirstChild("Popup", true):FindFirstChild("third", true)
 		t.expect(fullValue ~= nil).toBe(true)
 		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 40)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		t.expect(row:FindFirstChild("third", true)).toBe(cell)
 		t.expect(cell.Visible).toBe(true)
 		t.expect(builds).toBe(1)
@@ -2361,6 +2523,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local row = body:FindFirstChild("1", true)
 		t.expect(controls.placementOf(2).offset).toBe(40)
 		row:FindFirstChild("Value", true).TextBounds = engine.types.Vector2.new(100, 60)
@@ -2415,6 +2578,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(250, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local row = body:FindFirstChild("1", true)
 		t.expect(row:FindFirstChild("Details", true)).toBeNil()
 		row:FindFirstChild("Undisclosed", true).TextFits = false
@@ -2448,6 +2612,7 @@ t.describe("Compose native collections", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local handle = body:FindFirstChild("1", true):FindFirstChild("Move", true)
 		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 		local input = {
@@ -2831,6 +2996,7 @@ t.describe("Table compact width", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local row = body:FindFirstChild("1", true)
 		for _, id in { "name", "artist", "rating" } do
 			t.expect(row:FindFirstChild(id, true).Visible).toBe(true)
@@ -2868,6 +3034,7 @@ t.describe("Table under a scaled ancestor", function()
 		t.expect(unit ~= nil).toBe(true)
 		unit.AbsoluteSize = engine.types.Vector2.new(0.8, 0.8)
 		body.AbsoluteWindowSize = engine.types.Vector2.new(800, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		t.expect(node:FindFirstChild("Header").Size.X.Offset).toBe(1000)
 		stop()
 		runtime:dispose()
@@ -2911,6 +3078,7 @@ t.describe("Table row tap", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local function tap(rowKey: string, input: any?)
 			local rowNode = body:FindFirstChild("Items"):FindFirstChild(rowKey)
 			local grip = rowNode:FindFirstChild("SwipeGrip", true)
@@ -2960,6 +3128,7 @@ t.describe("Row actions under a reorder drag", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local rowNode = body:FindFirstChild("Items"):FindFirstChild("1")
 		local grip = rowNode:FindFirstChild("SwipeGrip", true)
 		local content = grip.Parent
@@ -2972,10 +3141,10 @@ t.describe("Row actions under a reorder drag", function()
 		local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(100, 20, 0) }
 		local dismiss = content:FindFirstChild("DismissTray")
 		t.expect(dismiss.Visible).toBe(true)
-		dismiss.InputBegan.fire(press)
+		nativeDrag.press(dismiss, press)
 		t.expect(opened:peek()).toBeNil()
 		local input = ctx.config.userInputService
-		input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(100, 60, 0) })
+		nativeDrag.move(input, { UserInputType = E.UserInputType.MouseMovement, Position = V3.new(100, 60, 0) })
 		local image = node:FindFirstChild("DragImage", true)
 		t.expect(image ~= nil).toBe(true)
 		local ghost = image:FindFirstChild("SwipeGrip", true).Parent
@@ -3018,6 +3187,7 @@ t.describe("Table selection after a pointer reorder", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(400, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local input = ctx.config.userInputService
 		local function grip(rowKey)
 			return body:FindFirstChild("Items"):FindFirstChild(rowKey):FindFirstChild("SwipeGrip", true)
@@ -3073,6 +3243,7 @@ t.describe("Table keyed reorder motion", function()
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 300)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		engine.heartbeat.fire(1 / 60)
 		local first = body:FindFirstChild("Items"):FindFirstChild("1")
 		local before = first.Position.Y.Offset
@@ -3147,6 +3318,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		end, target)
 		local body = if list then node else node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local function pressed(name)
 			target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed.fire()
 		end
@@ -3178,17 +3350,17 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			t.expect(w.row(2):FindFirstChild("Move", true).Visible).toBe(false)
 			t.expect(w.row(2):FindFirstChild("Cells", true).Position.X.Offset).toBe(0)
 			local hit = w.row(2):FindFirstChild("RowHit", true)
-			hit.InputBegan.fire({
+			nativeDrag.press(hit, {
 				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
 				Position = V2.new(10, 50),
 			})
-			w.service.InputChanged.fire({
+			nativeDrag.move(w.service, {
 				UserInputType = w.engine.types.Enum.UserInputType.MouseMovement,
 				UserInputState = w.engine.types.Enum.UserInputState.Change,
 				Position = V2.new(10, 52),
 			})
 			t.expect(w.node:FindFirstChild("DropLine", true)).toBeNil()
-			w.service.InputChanged.fire({
+			nativeDrag.move(w.service, {
 				UserInputType = w.engine.types.Enum.UserInputType.MouseMovement,
 				UserInputState = w.engine.types.Enum.UserInputState.Change,
 				Position = V2.new(10, 150),
@@ -3209,7 +3381,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 				t.expect(copy:FindFirstChild("Action", true).Text).toBe("2")
 				t.expect(copy:FindFirstChild("Action", true):HasTag("facet-button")).toBe(true)
 			end
-			w.service.InputEnded.fire({
+			nativeDrag.finish(w.service, {
 				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
 				UserInputState = w.engine.types.Enum.UserInputState.End,
 			})
@@ -3225,18 +3397,18 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		local V2, E = w.engine.types.Vector2, w.engine.types.Enum
 		local hit = w.row(2):FindFirstChild("RowHit", true)
 		local press = { UserInputType = E.UserInputType.MouseButton1, Position = V2.new(10, 50) }
-		hit.InputBegan.fire(press)
+		nativeDrag.press(hit, press)
 		for _, y in { 150, 50 } do
-			w.service.InputChanged.fire({
+			nativeDrag.move(w.service, {
 				UserInputType = E.UserInputType.MouseMovement,
 				UserInputState = E.UserInputState.Change,
 				Position = V2.new(10, y),
 			})
 		end
-		w.service.InputEnded.fire(press)
+		nativeDrag.finish(w.service, press)
 		hit.Activated.fire(press, 0)
 		t.expect(w.selection:peek()).toEqual({ [1] = true, [2] = true })
-		w.service.InputBegan.fire(press)
+		nativeDrag.press(w.service, press)
 		hit.Activated.fire(press, 0)
 		t.expect(w.selection:peek()).toEqual({ [2] = true })
 		w.stop()
@@ -3306,7 +3478,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			w.row(1):FindFirstChild("RowHit", true).Activated.fire(press, 1)
 			w.row(3):FindFirstChild("RowHit", true).Activated.fire(press, 1)
 			t.expect(w.selection:peek()).toEqual({ [1] = true, [3] = true })
-			t.expect(mark:FindFirstChild("Dot").Visible).toBe(true)
+			t.expect(mark:FindFirstChild("Check").Visible).toBe(true)
 			w.row(3):FindFirstChild("RowHit", true).Activated.fire(press, 1)
 			w.row(4):FindFirstChild("RowHit", true).Activated.fire(press, 1)
 			t.expect(w.selection:peek()).toEqual({ [1] = true, [4] = true })
@@ -3473,6 +3645,9 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		for _ = 1, 30 do
 			w.engine.heartbeat.fire(1 / 60)
 		end
+		w.row(2)
+			:FindFirstChild("Reorderable", true).TouchLongPress
+			.fire({ w.engine.types.Vector2.new(50, 60) }, E.UserInputState.Begin)
 		t.expect(w.node:FindFirstChild("DragImage", true) ~= nil).toBe(true)
 		w.stop()
 	end)
@@ -3499,6 +3674,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(359, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local header = node:FindFirstChild("Header")
 		t.expect(header.Size.X.Offset).toBe(359)
 		node:FindFirstChild("Edit", true).Activated.fire()
@@ -3534,6 +3710,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		end, target)
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 		local cell = body:FindFirstChild("1", true):FindFirstChild("name", true)
 		local value, word = cell:FindFirstChild("Value"), cell:FindFirstChild("LongestWord")
 		t.expect(word.Text).toBe("Neon\nStraightaway\nMMMM\nilllllll")
@@ -3610,5 +3787,537 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		end).toThrow()
 		runtime:dispose()
 		local _ = engine
+	end)
+end)
+
+t.describe("shared container editing", function()
+	t.it("preserves hidden selection across views and prunes only deleted records", function()
+		local engine, runtime, UI, target = setup()
+		local all, visible, selection = Compose.cell(records(3)), Compose.cell(records(3)), Compose.cell({ [2] = true })
+		local stops = {}
+		for _, kind in { "VirtualList", "VirtualGrid", "Table" } do
+			local stop = runtime.mount(function()
+				local spec = {
+					from = visible,
+					selectionFrom = all,
+					key = key,
+					selection = selection,
+					selectionMode = "multiple",
+					mode = "all",
+					render = function()
+						return runtime.constructors.Frame({})
+					end,
+				}
+				if kind == "Table" then
+					local column = {
+						id = "label",
+						value = function(item)
+							return item.label
+						end,
+					}
+					spec.columns = { column }
+					spec.mode, spec.render = nil, nil
+				end
+				return UI[kind](spec)
+			end, target)
+			table.insert(stops, stop)
+		end
+		visible:set({ all:peek()[1] })
+		t.expect(selection:peek()[2]).toBe(true)
+		all:set({ all:peek()[1], all:peek()[3] })
+		t.expect(selection:peek()[2]).toBe(nil)
+		for _, stop in stops do
+			stop()
+		end
+	end)
+
+	t.it("keeps rejected drafts through remount and cancels to the latest model value", function()
+		local engine, runtime, UI, target = setup()
+		local value, draft = Compose.cell("Alpha"), Compose.cell(nil)
+		local accept, commits = false, 0
+		local function mount()
+			local stop, node = runtime.mount(function()
+				return UI.CellEditor {
+					editor = "text",
+					value = value,
+					draft = draft,
+					validate = function(v)
+						return if v == "" then "Required" else nil
+					end,
+					onChange = function(v)
+						commits += 1
+						if accept then
+							value:set(v)
+						end
+					end,
+				}
+			end, target)
+			return stop, node:FindFirstChildWhichIsA("TextBox", true)
+		end
+		local stop, field = mount()
+		field.Focused.fire()
+		field.Text = "Beta"
+		field.FocusLost.fire(true)
+		t.expect(commits).toBe(1)
+		t.expect(value:peek()).toBe("Alpha")
+		t.expect(draft:peek().text).toBe("Beta")
+		t.expect(draft:peek().error ~= nil).toBe(true)
+		stop()
+		stop, field = mount()
+		t.expect(field.Text).toBe("Beta")
+		value:set("Remote")
+		t.expect(field.Text).toBe("Beta")
+		field.Focused.fire()
+		field.FocusLost.fire(false, { KeyCode = engine.types.Enum.KeyCode.Escape })
+		t.expect(draft:peek()).toBe(nil)
+		t.expect(field.Text).toBe("Remote")
+		accept = true
+		field.Focused.fire()
+		field.Text = "Saved"
+		field.FocusLost.fire(true)
+		t.expect(value:peek()).toBe("Saved")
+		t.expect(draft:peek()).toBe(nil)
+		stop()
+	end)
+
+	t.it("does not save an unfinished draft when its cell is removed", function()
+		local _, runtime, UI, target = setup()
+		local draft, commits = Compose.cell(nil), 0
+		local stop, node = runtime.mount(function()
+			return UI.CellEditor {
+				editor = "text",
+				value = "Alpha",
+				draft = draft,
+				onChange = function()
+					commits += 1
+				end,
+			}
+		end, target)
+		local field = node:FindFirstChildWhichIsA("TextBox", true)
+		field.Focused.fire()
+		field.Text = "Unfinished"
+		stop()
+		t.expect(commits).toBe(0)
+		t.expect(draft:peek().text).toBe("Unfinished")
+	end)
+
+	t.it("commits clamped numbers and keeps pending text until the model confirms it", function()
+		local _, runtime, UI, target = setup()
+		local value, draft, busy = Compose.cell(5), Compose.cell(nil), Compose.cell(false)
+		local proposed
+		local stop, node = runtime.mount(function()
+			return UI.CellEditor {
+				editor = "number",
+				value = value,
+				draft = draft,
+				busy = busy,
+				min = 0,
+				max = 10,
+				onChange = function(v)
+					proposed = v
+					busy:set(true)
+				end,
+			}
+		end, target)
+		local field = node:FindFirstChildWhichIsA("TextBox", true)
+		field.Focused.fire()
+		field.Text = "25"
+		field.FocusLost.fire(true)
+		t.expect(proposed).toBe(10)
+		t.expect(value:peek()).toBe(5)
+		t.expect(draft:peek().text).toBe("10")
+		value:set(10)
+		busy:set(false)
+		t.expect(draft:peek()).toBe(nil)
+		stop()
+	end)
+
+	t.it("disables swipe overlays while editing embedded controls", function()
+		local _, runtime, UI, target = setup()
+		local editing = Compose.cell(false)
+		local stop, list = runtime.mount(function()
+			return UI.VirtualList {
+				from = records(1),
+				key = key,
+				mode = "all",
+				editing = editing,
+				render = function()
+					return UI.CellEditor { editor = "text", value = "Name", onChange = function() end }
+				end,
+				rowActions = function()
+					return { trailing = { { id = "delete", label = "Delete", role = "destructive" } } }
+				end,
+			}
+		end, target)
+		local grip = list:FindFirstChild("SwipeGrip", true)
+		t.expect(grip.Visible).toBe(true)
+		editing:set(true)
+		t.expect(grip.Visible).toBe(false)
+		stop()
+	end)
+end)
+
+t.describe("container presentation and shared cells", function()
+	t.it("reflows minimum-width tiles as the viewport and bound size change", function()
+		local engine, runtime, UI, target = setup()
+		local controls = {}
+		local minimum = Compose.cell(150)
+		local stop, grid = runtime.mount(function()
+			return UI.VirtualGrid {
+				from = records(10),
+				key = key,
+				minColumnWidth = minimum,
+				gap = 10,
+				itemSize = 80,
+				controls = controls,
+				render = function()
+					return runtime.constructors.Frame({})
+				end,
+			}
+		end, target)
+		grid.AbsoluteSize = engine.types.Vector2.new(500, 300)
+		grid.AbsoluteWindowSize = engine.types.Vector2.new(500, 300)
+		t.expect(controls.placementOf(3).offset).toBe(0)
+		t.expect(controls.placementOf(4).offset > 0).toBe(true)
+		grid.AbsoluteSize = engine.types.Vector2.new(320, 300)
+		grid.AbsoluteWindowSize = engine.types.Vector2.new(320, 300)
+		t.expect(controls.placementOf(3).offset > 0).toBe(true)
+		t.expect(controls.placementOf(2).offset).toBe(0)
+		minimum:set(240)
+		t.expect(controls.placementOf(2).offset > 0).toBe(true)
+		minimum:set(150)
+		t.expect(controls.placementOf(2).offset).toBe(0)
+		stop()
+	end)
+
+	t.it("keeps grid edit controls above full-width content and measures their height", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V2, D2 = engine.types.Enum, engine.types.Vector2, engine.types.UDim2
+		ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+		local editing, controls = Compose.cell(true), {}
+		local stop, grid = runtime.mount(function()
+			return UI.VirtualGrid {
+				from = records(4),
+				key = key,
+				mode = "all",
+				columns = 2,
+				itemSize = 80,
+				measure = true,
+				controls = controls,
+				editing = editing,
+				selectionMode = "multiple",
+				reorderable = true,
+				onReorder = function() end,
+				render = function()
+					return runtime.constructors.Frame { Name = "Tile" }
+				end,
+			}
+		end, target)
+		grid.AbsoluteSize = V2.new(320, 300)
+		grid.AbsoluteWindowSize = V2.new(320, 300)
+		local row = grid:FindFirstChild("1", true)
+		local tile = row:FindFirstChild("Tile", true)
+		tile.AbsoluteSize = V2.new(160, 80)
+		local cells = row:FindFirstChild("Cells", true)
+		t.expect(cells.Position).toBe(D2.fromOffset(0, 44))
+		t.expect(cells.Size).toBe(D2.new(1, 0, 1, -44))
+		t.expect(controls.placementOf(1).size).toBe(124)
+		local handle = row:FindFirstChild("Move", true)
+		t.expect(handle.Size).toBe(D2.fromOffset(44, 44))
+		t.expect(handle:FindFirstChildWhichIsA("UIDragDetector").DragStyle)
+			.toBe(E.UIDragDetectorDragStyle.TranslatePlane)
+		t.expect(row:FindFirstChild("SelectMark", true).Position).toBe(D2.fromOffset(22, 22))
+		editing:set(false)
+		t.expect(cells.Position).toBe(D2.fromOffset(0, 44))
+		t.expect(cells.Size).toBe(D2.new(1, 0, 1, -44))
+		t.expect(controls.placementOf(1).size).toBe(124)
+		t.expect(handle.Visible).toBe(false)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("shares one draft between two native fields without duplicate proposals", function()
+		local _, runtime, UI, target = setup()
+		local value, draft, commits = Compose.cell("Alpha"), Compose.cell(nil), 0
+		local fields, stops = {}, {}
+		for _ = 1, 2 do
+			local stop, node = runtime.mount(function()
+				return UI.CellEditor {
+					editor = "text",
+					value = value,
+					draft = draft,
+					onChange = function(v)
+						commits += 1
+						value:set(v)
+					end,
+				}
+			end, target)
+			table.insert(stops, stop)
+			table.insert(fields, node:FindFirstChildWhichIsA("TextBox", true))
+		end
+		fields[1].Focused.fire()
+		fields[1].Text = "Shared"
+		t.expect(fields[2].Text).toBe("Shared")
+		t.expect(value:peek()).toBe("Alpha")
+		fields[1].FocusLost.fire(true)
+		t.expect(commits).toBe(1)
+		t.expect(value:peek()).toBe("Shared")
+		t.expect(draft:peek()).toBe(nil)
+		for _, stop in stops do
+			stop()
+		end
+	end)
+
+	t.it("keeps toggle and menu cells on their native controls", function()
+		local _, runtime, UI, target = setup()
+		local value = Compose.cell(false)
+		local stop, node = runtime.mount(function()
+			return UI.CellEditor {
+				editor = "toggle",
+				value = value,
+				onChange = function(v)
+					value:set(v)
+				end,
+			}
+		end, target)
+		local toggle = node:FindFirstChild("Editor")
+		t.expect(toggle:IsA("TextButton")).toBe(true)
+		toggle.Activated.fire()
+		t.expect(value:peek()).toBe(true)
+		stop()
+		local selected = Compose.cell("Blue")
+		stop, node = runtime.mount(function()
+			return UI.CellEditor {
+				editor = "menu",
+				value = selected,
+				options = { { value = "Blue", label = "Blue" }, { value = "Red", label = "Red" } },
+				onChange = function(v)
+					selected:set(v)
+				end,
+			}
+		end, target)
+		t.expect(node:FindFirstChild("Trigger", true) ~= nil).toBe(true)
+		t.expect(node:FindFirstChildWhichIsA("TextBox", true)).toBe(nil)
+		stop()
+	end)
+end)
+
+t.describe("input-aware collection commands", function()
+	t.it("routes a shared selection delete including hidden records only through the focused collection", function()
+		local engine, runtime, UI, target, gui = setup()
+		local rows, selection, proposals = Compose.cell(records(3)), Compose.cell({ [2] = true, [3] = true }), {}
+		local nodes, stops = {}, {}
+		for index = 1, 2 do
+			local stop, node = runtime.mount(function()
+				return UI.VirtualList {
+					from = { rows:peek()[1], rows:peek()[2] },
+					selectionFrom = rows,
+					key = key,
+					mode = "all",
+					selection = selection,
+					selectionMode = "multiple",
+					editing = true,
+					deletable = true,
+					onDelete = function(keys)
+						table.insert(proposals, { view = index, keys = keys })
+					end,
+					render = function()
+						return runtime.constructors.Frame({})
+					end,
+				}
+			end, target)
+			table.insert(nodes, node)
+			table.insert(stops, stop)
+		end
+		gui.SelectedObject = nodes[1]:FindFirstChild("2", true):FindFirstChild("RowHit", true)
+		for _, child in target:GetChildren() do
+			if child.Name == "FacetDeleteRows" then
+				child:FindFirstChild("DeleteRows").Pressed.fire()
+			end
+		end
+		t.expect(#proposals).toBe(1)
+		t.expect(proposals[1].view).toBe(1)
+		t.expect(proposals[1].keys).toEqual({ 2, 3 })
+		for _, stop in stops do
+			stop()
+		end
+	end)
+
+	t.it("shows edit checkmarks for touch and gamepad but uses highlights on desktop", function()
+		local engine = engineLib.new()
+		local input = engine.new("UserInputService")
+		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		local _, runtime, UI, target = setup({ userInputService = input })
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList {
+				from = records(2),
+				key = key,
+				mode = "all",
+				selectionMode = "multiple",
+				editing = true,
+				render = function()
+					return runtime.constructors.Frame({})
+				end,
+			}
+		end, target)
+		local mark = node:FindFirstChild("SelectMark", true)
+		t.expect(mark.Visible).toBe(false)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		t.expect(mark.Visible).toBe(true)
+		t.expect(mark:FindFirstChild("Check") ~= nil).toBe(true)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+		t.expect(mark.Visible).toBe(true)
+		stop()
+	end)
+end)
+
+t.describe("collection transfer sessions", function()
+	t.it("keyboard pickup carries selected hidden items and calls the source lifecycle once", function()
+		local engine, runtime, UI, target, _, ctx = setup()
+		local all = records(3)
+		local carried, starts, ends = nil, 0, 0
+		local stop, node = runtime.mount(function()
+			return UI.VirtualGrid {
+				from = { all[1], all[3] },
+				selectionFrom = all,
+				key = key,
+				selection = Compose.cell({ [1] = true, [2] = true }),
+				selectionMode = "multiple",
+				itemSize = 40,
+				columns = 2,
+				drag = function(items, keys)
+					carried = keys
+					return {
+						payload = items,
+						onStart = function(_, mode)
+							starts += 1
+							t.expect(mode).toBe("armed")
+						end,
+						onEnd = function()
+							ends += 1
+						end,
+					}
+				end,
+				render = function(current)
+					return button(UI, current)
+				end,
+			}
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		local hit = node:FindFirstChild("1", true):FindFirstChild("RowHit", true)
+		hit.Activated.fire({
+			UserInputType = engine.types.Enum.UserInputType.Keyboard,
+			KeyCode = engine.types.Enum.KeyCode.Return,
+		})
+		t.expect(carried).toEqual({ 1, 2 })
+		t.expect(node:FindFirstChild("FacetDropOutline")).toBe(nil)
+		t.expect(node:FindFirstChild("DropLine", true).Visible).toBe(false)
+		t.expect(starts).toBe(1)
+		require("../src/ui/drag_session")(ctx).finish(false)
+		t.expect(ends).toBe(1)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("rebases pending insertion against surviving neighbors and rejects removed neighbors", function()
+		local engine, runtime, UI, target, _, ctx = setup()
+		local rows = Compose.cell(records(3))
+		local pending
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList {
+				from = rows,
+				key = key,
+				itemSize = 40,
+				drop = {
+					operation = "copy",
+					onDrop = function(_, info)
+						pending = info
+						return "pending"
+					end,
+				},
+				render = function(current)
+					return button(UI, current)
+				end,
+			}
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 200)
+		nativeDrag.measure(node)
+		local session = require("../src/ui/drag_session")(ctx)
+		local source = engine.new("TextButton")
+		source.Parent = target
+		local function drop()
+			session.begin(source, { payload = "new", operations = { "copy" } }, "pointer", nil, false)
+			session.update(engine.types.Vector2.new(100, 45))
+			session.commit(node)
+		end
+		drop()
+		t.expect(pending.insertion.beforeKey).toBe(2)
+		local changed = records(3)
+		table.insert(changed, 1, { id = 4, label = "New" })
+		rows:set(changed)
+		t.expect(pending.complete(true)).toBe(true)
+		t.expect(pending.insertion.slot).toBe(2)
+		t.expect(pending.complete(true)).toBe(false)
+		rows:set(records(3))
+		drop()
+		rows:set({ { id = 3, label = "Only survivor" } })
+		t.expect(pending.complete(true)).toBe(false)
+		stop()
+		runtime:dispose()
+	end)
+end)
+
+t.describe("native collection detector taps", function()
+	t.it("selects a frame-backed card before and after a drag without selecting on the drop", function()
+		for _, kind in { "VirtualGrid", "VirtualList" } do
+			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+			local selection = Compose.cell({})
+			local stop, list = runtime.mount(function()
+				return UI[kind] {
+					from = records(3),
+					key = key,
+					mode = "all",
+					selection = selection,
+					reorderable = true,
+					onReorder = function() end,
+					render = function()
+						return runtime.constructors.Frame { Name = "Card" }
+					end,
+				}
+			end, target)
+			local input = ctx.config.userInputService
+			local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(20, 20, 0) }
+			local function tap(id, cancelled)
+				press.UserInputState = E.UserInputState.Begin
+				input.InputBegan.fire(press)
+				local card = list:FindFirstChild(tostring(id), true):FindFirstChild("Card", true)
+				card.InputBegan.fire(press)
+				local detector = card:FindFirstChild("FacetCollectionDrag")
+				detector.DragStart.fire(V2.new(20, 20))
+				press.UserInputState = if cancelled then E.UserInputState.Cancel else E.UserInputState.End
+				input.InputEnded.fire(press)
+				detector.DragEnd.fire()
+			end
+			tap(1)
+			t.expect(selection:peek()).toEqual({ [1] = true })
+			local card = list:FindFirstChild("1", true):FindFirstChild("Card", true)
+			press.UserInputState = E.UserInputState.Begin
+			input.InputBegan.fire(press)
+			card.InputBegan.fire(press)
+			local detector = card:FindFirstChild("FacetCollectionDrag")
+			detector.DragStart.fire(V2.new(20, 20))
+			detector.DragContinue.fire(V2.new(20, 140))
+			press.UserInputState = E.UserInputState.End
+			input.InputEnded.fire(press)
+			detector.DragEnd.fire()
+			t.expect(selection:peek()).toEqual({ [1] = true })
+			tap(2)
+			t.expect(selection:peek()).toEqual({ [2] = true })
+			tap(3, true)
+			t.expect(selection:peek()).toEqual({ [2] = true })
+			stop()
+			runtime:dispose()
+		end
 	end)
 end)

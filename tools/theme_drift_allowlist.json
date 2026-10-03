@@ -59,9 +59,9 @@
     {
       "path": "src/ui/collection_reorder.luau",
       "rule": "radius",
-      "match": "ctx.corner(9) :: Types.Child,",
+      "match": "ctx.corner(if mode == \"multiple\" then 3 else 9) :: Types.Child,",
       "status": "structural",
-      "reason": "The edit-mode selection mark reuses the 18 px radio indicator circle; radius 9 is half its size."
+      "reason": "The 18 px selection mark is square for multiple selection and a circle for single selection. ctx.corner removes rounding when the theme uses square corners."
     },
     {
       "path": "src/ui/collection_reorder.luau",

@@ -416,8 +416,8 @@ t.describe("Table editable cells", function()
 		local function editor(column: string): any
 			local found
 			local function walk(node: any)
-				if found == nil and node.Name == "Editor" and node.Parent and node.Parent.Name == column then
-					found = node
+				if found == nil and node.Name == "CellEditor" and node.Parent and node.Parent.Name == column then
+					found = node:FindFirstChild("Editor")
 				end
 				for _, child in node:GetChildren() do
 					walk(child)
@@ -449,7 +449,7 @@ t.describe("Table editable cells", function()
 		local tier = editor("tier")
 		local trigger = find(tier, "Trigger") or tier
 		expect(trigger:HasTag("facet-appearance-utility")).toBe(true)
-		expect(tier.Parent.ClipsDescendants).toBe(true)
+		expect(tier.Parent.Parent.ClipsDescendants).toBe(true)
 		trigger.Activated.fire()
 		w.step(10)
 		local option = find(w.screen, "silver")
@@ -579,8 +579,8 @@ t.describe("Table edit mode", function()
 	end
 	local function editorOf(w: any): any
 		for _, node in w.screen:GetDescendants() do
-			if node.Name == "Editor" and node.Parent and node.Parent.Name == "ready" then
-				return node
+			if node.Name == "CellEditor" and node.Parent and node.Parent.Name == "ready" then
+				return node:FindFirstChild("Editor")
 			end
 		end
 		return nil

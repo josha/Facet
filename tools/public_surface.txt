@@ -149,6 +149,7 @@ controls(runtime).Badge : function
 controls(runtime).Button : function
 controls(runtime).Callout : function
 controls(runtime).Card : function
+controls(runtime).CellEditor : function
 controls(runtime).Chip : function
 controls(runtime).CollapsibleView : function
 controls(runtime).ColorPicker : function
@@ -236,6 +237,8 @@ type CalloutSpec
 type CardControls
 type CardSpec
 type Cell
+type CellDraft
+type CellEditorSpec
 type ChipProps
 type CivilDate
 type CivilDateModule
@@ -256,7 +259,10 @@ type DialogSpec
 type DisclosureGroupSpec
 type DividerProps
 type DraggableSpec
+type DropDestination
 type DropInfo
+type DropInsertion
+type DropOperation
 type DropTargetSpec
 type Environment
 type ErrorBoundaryProps

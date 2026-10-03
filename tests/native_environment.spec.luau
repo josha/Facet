@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local engineLib = require("./lib/native_engine")
@@ -818,30 +819,60 @@ t.describe("draggable and dropTarget", function()
 
 	t.it("picks a source up after a pointer travels, shows a ghost and drops on the target under it", function()
 		local w, screen, card, _, _, log, stop = stage()
-		card.InputBegan.fire(pointer(w, "MouseButton1", 20))
-		w.input.InputChanged.fire(pointer(w, "MouseMovement", 23))
+		nativeDrag.press(card, pointer(w, "MouseButton1", 20))
+		nativeDrag.move(w.input, pointer(w, "MouseMovement", 23))
 		t.expect(screen:FindFirstChild("DragGhost")).toBeNil()
-		w.input.InputChanged.fire(pointer(w, "MouseMovement", 120))
+		nativeDrag.move(w.input, pointer(w, "MouseMovement", 120))
 		local ghost = screen:FindFirstChild("DragGhost")
 		t.expect(ghost ~= nil).toBe(true)
 		t.expect(ghost.Position.Y.Offset).toBe(120)
 		screen.AbsolutePosition = w.engine.types.Vector2.new(0, -58)
-		w.input.InputChanged.fire(pointer(w, "MouseMovement", 121))
+		nativeDrag.move(w.input, pointer(w, "MouseMovement", 121))
 
 		t.expect(ghost.Position.Y.Offset).toBe(121 + 58)
 		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
 		t.expect(card:HasTag("facet-drag-held")).toBe(true)
-		w.input.InputEnded.fire(pointer(w, "MouseButton1", 120))
-		t.expect(table.concat(log, "; ")).toBe("enter sponsor; leave sponsor; drop sponsor Open pointer")
+		nativeDrag.finish(w.input, pointer(w, "MouseButton1", 120))
+		t.expect(table.concat(log, "; ")).toBe("enter sponsor; drop sponsor Open pointer; leave sponsor")
 		t.expect(screen:FindFirstChild("DragGhost")).toBeNil()
 		t.expect(card:GetAttribute("FacetDragHeld")).toBeNil()
 		table.clear(log)
-		card.InputBegan.fire(pointer(w, "MouseButton1", 20))
-		w.input.InputChanged.fire(pointer(w, "MouseMovement", 220))
-		w.input.InputEnded.fire(pointer(w, "MouseButton1", 220))
+		nativeDrag.press(card, pointer(w, "MouseButton1", 20))
+		nativeDrag.move(w.input, pointer(w, "MouseMovement", 220))
+		nativeDrag.finish(w.input, pointer(w, "MouseButton1", 220))
 		t.expect(table.concat(log, "; ")).toBe("reject sponsor FULL")
 		stop()
 		w.stop()
+	end)
+
+	t.it("keeps the original mouse and touch pickup point as the preview moves", function()
+		for _, kind in { "MouseButton1", "Touch" } do
+			local w, screen, card, _, _, _, stop = stage()
+			local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
+			local value = pointer(w, kind, 30)
+			value.Position = V3.new(10, 30, 0)
+			value.UserInputState = w.Enum.UserInputState.Begin
+			nativeDrag.press(card, value)
+			if kind == "Touch" then
+				value.Position = V3.new(12, 31, 0)
+				card.TouchLongPress.fire({ V2.new(12, 31) }, w.Enum.UserInputState.Begin)
+				value.Position = V3.new(25, 32, 0)
+				w.input.InputChanged.fire(value)
+			else
+				value.Position = V3.new(25, 32, 0)
+				local movement = pointer(w, "MouseMovement", 32)
+				movement.Position = value.Position
+				nativeDrag.move(w.input, movement)
+			end
+			local ghost = screen:FindFirstChild("DragGhost")
+			t.expect(math.abs(ghost.AnchorPoint.X - 0.1) < 0.0001).toBe(true)
+			t.expect(ghost.AnchorPoint.Y).toBe(0.75)
+			t.expect(ghost.Position).toBe(w.engine.types.UDim2.fromOffset(25, 32))
+			t.expect(math.abs(ghost.Position.X.Offset - ghost.AnchorPoint.X * ghost.Size.X.Offset - 15) < 0.0001)
+				.toBe(true)
+			stop()
+			w.stop()
+		end
 	end)
 
 	t.it("arms from the keyboard or pad, drops on the selected target and cancels with B", function()
@@ -852,7 +883,7 @@ t.describe("draggable and dropTarget", function()
 		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
 		w.gui.SelectedObject = open
 		t.expect(press(screen, "DragDrop")).toBe(true)
-		t.expect(table.concat(log, "; ")).toBe("enter sponsor; leave sponsor; drop sponsor Open armed")
+		t.expect(table.concat(log, "; ")).toBe("enter sponsor; drop sponsor Open armed; leave sponsor")
 		table.clear(log)
 		w.gui.SelectedObject = card
 		press(screen, "DragPickUp")
@@ -915,6 +946,8 @@ t.describe("draggable and dropTarget", function()
 				return w.runtime.constructors.ScrollingFrame({ Name = "List", card, slot })
 			end, screen)
 			local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
+			root.AbsoluteWindowSize = V2.new(100, 200)
+			root.AbsoluteSize = V2.new(100, 200)
 			card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 0), V2.new(100, 40)
 			slot.AbsolutePosition, slot.AbsoluteSize = V2.new(0, 100), V2.new(100, 40)
 			local function finger(y: number): any
@@ -925,22 +958,22 @@ t.describe("draggable and dropTarget", function()
 				return value
 			end
 			local flick = finger(20)
-			card.InputBegan.fire(flick)
+			nativeDrag.press(card, flick)
 			flick.Position = V3.new(50, 120, 0)
-			w.input.InputChanged.fire(flick)
+			nativeDrag.move(w.input, flick)
 			t.expect(screen:FindFirstChild("DragGhost", true)).toBeNil()
 			flick.UserInputState = w.Enum.UserInputState.End
-			w.input.InputEnded.fire(flick)
+			nativeDrag.finish(w.input, flick)
 			t.expect(#log).toBe(0)
 			local hold = finger(20)
-			card.InputBegan.fire(hold)
+			nativeDrag.press(card, hold)
 			card.TouchLongPress.fire({ V2.new(50, 20) }, w.Enum.UserInputState.Begin)
 			t.expect(screen:FindFirstChild("DragGhost", true) ~= nil).toBe(true)
 			t.expect(root.ScrollingEnabled).toBe(false)
 			hold.Position = V3.new(50, 120, 0)
-			w.input.InputChanged.fire(hold)
+			nativeDrag.move(w.input, hold)
 			hold.UserInputState = w.Enum.UserInputState.End
-			w.input.InputEnded.fire(hold)
+			nativeDrag.finish(w.input, hold)
 			t.expect(table.concat(log, ";")).toBe("card pointer")
 			t.expect(root.ScrollingEnabled).toBe(true)
 			card.Activated.fire(hold)
@@ -950,13 +983,13 @@ t.describe("draggable and dropTarget", function()
 
 			local mouse = w.engine.new("InputObject")
 			mouse.UserInputType, mouse.Position = w.Enum.UserInputType.MouseButton1, V3.new(50, 20, 0)
-			card.InputBegan.fire(mouse)
-			w.input.InputChanged.fire({
+			nativeDrag.press(card, mouse)
+			nativeDrag.move(w.input, {
 				UserInputType = w.Enum.UserInputType.MouseMovement,
 				Position = V3.new(50, 120, 0),
 			})
 			mouse.UserInputState, mouse.Position = w.Enum.UserInputState.End, V3.new(50, 120, 0)
-			w.input.InputEnded.fire(mouse)
+			nativeDrag.finish(w.input, mouse)
 			card.Activated.fire(mouse)
 			t.expect(opened).toBe(1)
 			w.engine.heartbeat.fire(1 / 60)
@@ -970,10 +1003,10 @@ t.describe("draggable and dropTarget", function()
 	t.it("arms on a tap when armOnTap is set and places on the next tapped target", function()
 		local w, _, card, open, _, log, stop = stage()
 		local tap = pointer(w, "Touch", 20)
-		card.InputBegan.fire(tap)
-		w.input.InputEnded.fire(tap)
+		nativeDrag.press(card, tap)
+		nativeDrag.finish(w.input, tap)
 		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
-		open.InputBegan.fire(pointer(w, "Touch", 120))
+		nativeDrag.press(open, pointer(w, "Touch", 120))
 		t.expect(table.concat(log, "; ")).toBe("drop sponsor Open armed")
 		stop()
 		w.stop()
@@ -1429,4 +1462,89 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		end
 		w.stop()
 	end)
+end)
+
+t.describe("failed drop feedback", function()
+	t.it(
+		"returns a rejected preview with a native tween, skips motion when reduced, and cleans up on unmount",
+		function()
+			local created = {}
+			local tweens = {
+				Create = function(_, node, info, goal)
+					local playback = {
+						Completed = signal(),
+						node = node,
+						info = info,
+						goal = goal,
+						played = false,
+						cancelled = false,
+					}
+					function playback:Play()
+						self.played = true
+					end
+					function playback:Cancel()
+						self.cancelled = true
+					end
+					table.insert(created, playback)
+					return playback
+				end,
+			}
+			local w = world({ TweenService = tweens })
+			local screen = w.engine.new("ScreenGui")
+			local stop, source = w.runtime.mount(function()
+				local node = w.UI.Button { label = "Asset" }
+				w.UI.draggable(node, { payload = "asset" })
+				return node
+			end, screen)
+			source.AbsolutePosition, source.AbsoluteSize = Roblox.Vector2.new(20, 30), Roblox.Vector2.new(80, 40)
+			local function fail()
+				local press =
+					{ UserInputType = w.Enum.UserInputType.MouseButton1, Position = Roblox.Vector3.new(28, 60, 0) }
+				nativeDrag.press(source, press)
+				nativeDrag.move(
+					w.input,
+					{ UserInputType = w.Enum.UserInputType.MouseMovement, Position = Roblox.Vector3.new(300, 400, 0) }
+				)
+				press.Position, press.UserInputState = Roblox.Vector3.new(300, 400, 0), w.Enum.UserInputState.End
+				nativeDrag.finish(w.input, press)
+			end
+			fail()
+			t.expect(#created).toBe(1)
+			t.expect(created[1].played).toBe(true)
+			t.expect(created[1].goal.Position).toBe(Roblox.UDim2.fromOffset(28, 60))
+			t.expect(created[1].node.Parent).toBe(screen)
+			created[1].Completed.fire()
+			t.expect(screen:FindFirstChild("DragGhost")).toBe(nil)
+			local dropped = 0
+			local stopTarget, destination = w.runtime.mount(function()
+				local node = w.runtime.constructors.Frame {}
+				w.UI.dropTarget(node, {
+					onDrop = function()
+						dropped += 1
+					end,
+				})
+				return node
+			end, screen)
+			destination.AbsolutePosition = Roblox.Vector2.new(280, 380)
+			destination.AbsoluteSize = Roblox.Vector2.new(80, 80)
+			fail()
+			t.expect(dropped).toBe(1)
+			t.expect(created[2].node.ClassName).toBe("UIScale")
+			t.expect(created[2].goal.Scale).toBe(0)
+			t.expect(screen:FindFirstChild("DragGhost") ~= nil).toBe(true)
+			created[2].Completed.fire()
+			t.expect(screen:FindFirstChild("DragGhost")).toBe(nil)
+			stopTarget()
+			w.gui.ReducedMotionEnabled = true
+			fail()
+			t.expect(#created).toBe(2)
+			t.expect(screen:FindFirstChild("DragGhost")).toBe(nil)
+			w.gui.ReducedMotionEnabled = false
+			fail()
+			stop()
+			t.expect(created[3].cancelled).toBe(true)
+			t.expect(screen:FindFirstChild("DragGhost")).toBe(nil)
+			w.stop()
+		end
+	)
 end)

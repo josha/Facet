@@ -355,7 +355,35 @@ def settings() -> Image.Image:
     return img
 
 
+def view_grid() -> Image.Image:
+    img, d = _canvas()
+    for x in (20, 72):
+        for y in (20, 72):
+            d.rounded_rectangle((x * SS, y * SS, (x + 36) * SS, (y + 36) * SS), radius=6 * SS, outline=INK, width=8 * SS)
+    return img
+
+
+def view_list() -> Image.Image:
+    img, d = _canvas()
+    for y in (28, 64, 100):
+        _dot(d, 24, y, 7)
+        _stroke(d, [(48, y), (106, y)], w=8)
+    return img
+
+
+def view_table() -> Image.Image:
+    img, d = _canvas()
+    d.rounded_rectangle((18 * SS, 20 * SS, 110 * SS, 108 * SS), radius=6 * SS, outline=INK, width=8 * SS)
+    _stroke(d, [(52, 24), (52, 104)], w=7)
+    for y in (48, 78):
+        _stroke(d, [(22, y), (106, y)], w=7)
+    return img
+
+
 ICONS = {
+    "facet_icon_view_grid": view_grid,
+    "facet_icon_view_list": view_list,
+    "facet_icon_view_table": view_table,
     "facet_icon_chevron_left": lambda: chevron("left"),
     "facet_icon_chevron_right": lambda: chevron("right"),
     "facet_icon_chevron_up": lambda: chevron("up"),

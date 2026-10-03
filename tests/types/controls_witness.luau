@@ -41,6 +41,17 @@ local input: TextBox | Frame = UI.TextInput({
 		text:set(nextValue .. reason)
 	end,
 })
+local cellEditor: Frame = UI.CellEditor({
+	editor = "text" :: "text",
+	value = text,
+	draft = Compose.cell(nil :: Facet.CellDraft?),
+	validate = function(nextValue: unknown): string?
+		return if nextValue == "" then "Required" else nil
+	end,
+	onChange = function(nextValue: unknown)
+		text:set(tostring(nextValue))
+	end,
+})
 local slider: Frame = UI.Slider({
 	value = value,
 	min = 0,

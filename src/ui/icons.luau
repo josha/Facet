@@ -4,6 +4,21 @@ export type IconArt = { assetName: string, contentId: string, tintRole: string }
 local standard_icons = {}
 
 standard_icons.ART = table.freeze({
+	["view.grid"] = table.freeze({
+		assetName = "facet_icon_view_grid",
+		contentId = "rbxassetid://81137934612324",
+		tintRole = "content",
+	}),
+	["view.list"] = table.freeze({
+		assetName = "facet_icon_view_list",
+		contentId = "rbxassetid://71986932171552",
+		tintRole = "content",
+	}),
+	["view.table"] = table.freeze({
+		assetName = "facet_icon_view_table",
+		contentId = "rbxassetid://71955029916091",
+		tintRole = "content",
+	}),
 	["settings"] = table.freeze({
 		assetName = "facet_icon_settings",
 		contentId = "rbxassetid://78513807849201",

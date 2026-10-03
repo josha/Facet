@@ -71,7 +71,7 @@ function adapter.properties(node: document.Node): any
 	for _, key in adapter.stateKeys(definition) do
 		props[key] = state(key)
 	end
-	if node.kind == "Toggle" and props.mixed ~= nil then
+	if node.kind == "CellEditor" or (node.kind == "Toggle" and props.mixed ~= nil) then
 		props.onChange = setter("value")
 	end
 	if node.kind == "NumberInput" then

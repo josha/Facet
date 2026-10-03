@@ -243,6 +243,7 @@ t.describe("native lab audit: Vote and one rung plate height", function()
 					})
 				end, { theme = package(name) })
 				local button = w.find("B").Size.Y.Offset
+				t.expect(w.find("PS"):FindFirstChild("TargetFloor").MinSize.Y).toBe(button)
 				t.expect(`{rung} {button > 0}`).toBe(`{rung} true`)
 				local plated = {
 					menu = w.find("Trigger", w.find("PM")),
