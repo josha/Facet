@@ -1,9 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local ThemeTypes = require("../src/ui/theme_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type Harness = {
@@ -17,7 +23,7 @@ type Harness = {
 
 local function harness(options: { [string]: any }?): Harness
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
 	for key, value in (options or {}) :: { [string]: any } do
@@ -28,7 +34,7 @@ local function harness(options: { [string]: any }?): Harness
 		engine = engine,
 		runtime = runtime,
 		UI = UI,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		gui = gui,
 		dispose = function()
 			runtime:dispose()
@@ -110,7 +116,7 @@ end
 
 local function neutralColors(): ({ [string]: any }, { [string]: any })
 	local palette = themes.neutralPackage().style.themes[1]
-	return palette.colors, palette.extra
+	return palette.colors, assert(palette.extra)
 end
 
 local SHIPPED = {
@@ -154,14 +160,14 @@ local function scanTags(source: string, literals: { [string]: boolean }, prefixe
 			literals[literal] = true
 		end
 	end
-	for name in { styled = true, paintedPart = true } do
+	for name in { styled = true, paintedPart = true } :: { [string]: boolean } do
 		local position = 1
 		while true do
 			local start, finish = string.find(source, "[%.%s%(]" .. name .. "%(", position)
 			if not start then
 				break
 			end
-			local depth, index, args, current = 1, finish + 1, {}, ""
+			local depth, index, args, current = 1, assert(finish) + 1, {}, ""
 			while depth > 0 do
 				local char = string.sub(source, index, index)
 				if char == '"' then
@@ -185,7 +191,7 @@ local function scanTags(source: string, literals: { [string]: boolean }, prefixe
 			end
 			table.insert(args, current)
 			local argument = args[SCANNED_CALLS[name] or #args]
-			position = finish + 1
+			position = assert(finish) + 1
 			if argument == nil or string.sub(source, math.max(1, start - 8), start) == "function " then
 				continue
 			end
@@ -299,9 +305,9 @@ t.describe("native parity paint", function()
 		local role, appearance = Compose.cell("destructive"), Compose.cell("standard")
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Button({ Name = "Reactive", label = "Delete", role = role, appearance = appearance }),
-				h.UI.Button({ Name = "Pill", label = "Pill", corners = "pill" }),
-				h.UI.Button({ Name = "Square", label = "Square", corners = "square" }),
+				h.UI.Button({ Name = "Reactive", label = "Delete", role = role, appearance = appearance }) :: unknown,
+				h.UI.Button({ Name = "Pill", label = "Pill", corners = "pill" :: "pill" }),
+				h.UI.Button({ Name = "Square", label = "Square", corners = "square" :: "square" }),
 			})
 		end)
 		local button = find(root, "Reactive")
@@ -353,11 +359,16 @@ t.describe("native parity paint", function()
 			return h.Host.Frame({
 				h.Host.Frame({
 					Name = "Segmented",
-					h.UI.Picker({ selected = segmented, style = "segmented", indicator = indicator, options = options }),
-				}),
+					h.UI.Picker({
+						selected = segmented,
+						style = "segmented" :: "segmented",
+						indicator = indicator,
+						options = options,
+					}),
+				}) :: unknown,
 				h.Host.Frame({
 					Name = "Inline",
-					h.UI.Picker({ selected = inline, style = "inline", options = options }),
+					h.UI.Picker({ selected = inline, style = "inline" :: "inline", options = options }),
 				}),
 			})
 		end)
@@ -414,9 +425,12 @@ t.describe("native parity paint", function()
 		local _, stop = mount(h, function()
 			return h.UI.Picker({
 				selected = Compose.cell("a"),
-				style = "menu",
+				style = "menu" :: "menu",
 				isPresented = presented,
-				options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+				options = {
+					{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			})
 		end)
 		presented:set(true)
@@ -449,17 +463,17 @@ t.describe("native parity paint", function()
 					{
 						id = "one",
 						label = "One",
-						content = function()
+						content = function(): Instance
 							return h.Host.Frame({})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "two",
 						label = "Two",
-						content = function()
+						content = function(): Instance
 							return h.Host.Frame({})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -553,9 +567,14 @@ t.describe("native parity paint", function()
 		local function build(h: Harness)
 			return mount(h, function()
 				return h.Host.Frame({
-					h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
+					h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }) :: unknown,
 					h.UI.Toggle({ Name = "Switch", value = Compose.cell(true), label = "On" }),
-					h.UI.Toggle({ Name = "Box", value = Compose.cell(true), label = "Box", presentation = "checkbox" }),
+					h.UI.Toggle({
+						Name = "Box",
+						value = Compose.cell(true),
+						label = "Box",
+						presentation = "checkbox" :: "checkbox",
+					}),
 					h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
 					h.UI.ProgressView({ Name = "Progress", value = 0.5 }),
 				})
@@ -590,7 +609,7 @@ t.describe("native parity paint", function()
 		for _, slot in
 			{ "sliderTrack", "sliderThumb", "barFill", "barTrack", "toggleTrack", "toggleKnob", "stepperPlate" }
 		do
-			package.chrome[slot] = { kind = "fill", asset = "art" }
+			assert(package.chrome)[slot] = { kind = "fill" :: "fill", asset = "art" }
 		end
 		local skinned = harness({ theme = package })
 		local skinnedRoot, stopSkinned = build(skinned)
@@ -644,7 +663,9 @@ t.describe("native parity paint", function()
 		local count = #sheet:GetChildren()
 		t.expect(control:GetProperties().CornerRadius).toBe(UDim.new(0, 8))
 		t.expect(panel:GetProperties().CornerRadius).toBe(UDim.new(0, 12))
-		for _, role in { "surface", "control", "field", "button", "badge", "track", "skeleton", "avatar", "tab" } do
+		for _, role in
+			{ "surface", "control", "field", "button", "badge", "track", "skeleton", "avatar", "tab" } :: { "avatar" | "badge" | "button" | "control" | "field" | "skeleton" | "surface" | "tab" | "track" }
+		do
 			t.expect(style(sheet, ".facet-" .. role .. "::UICorner").CornerRadius).toBe(UDim.new(0, 8))
 		end
 		t.expect(style(sheet, ".facet-sheet::UICorner").CornerRadius).toBe(UDim.new(0, 12))
@@ -707,8 +728,11 @@ t.describe("native parity paint", function()
 		t.expect(style(sheet, ".facet-validation").TextSize).toBe(12)
 		t.expect(style(sheet, ".facet-shortcut-hint").TextSize).toBe(12)
 		local edited = themes.neutralPackage()
-		edited.metrics.typography.title =
-			{ size = 31, lineHeight = 1.4, font = { family = "rbxassetid://777", weight = "Heavy", style = "Italic" } }
+		edited.metrics.typography.title = {
+			size = 31,
+			lineHeight = 1.4,
+			font = { family = "rbxassetid://777", weight = "Heavy" :: "Heavy", style = "Italic" :: "Italic" } :: ThemeTypes.FontSpec,
+		}
 		edited.metrics.typography.caption.size = 11
 		package:set(edited)
 		local title = style(sheet, ".facet-type-title")
@@ -725,9 +749,9 @@ t.describe("native parity paint", function()
 		local role = Compose.cell("title")
 		local root, stopLabels = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Text({ Name = "Plain", text = "a" }),
+				h.UI.Text({ Name = "Plain", text = "a" }) :: unknown,
 				h.UI.Text({ Name = "Bound", text = "b", textRole = role }),
-				h.UI.Text({ Name = "Fixed", text = "c", textRole = "numeral" }),
+				h.UI.Text({ Name = "Fixed", text = "c", textRole = "numeral" :: "numeral" }),
 			})
 		end)
 		t.expect(find(root, "Plain"):HasTag("facet-type-body")).toBe(true)
@@ -753,8 +777,8 @@ t.describe("native parity paint", function()
 		local dark = package.style.themes[1]
 		local light = table.clone(dark)
 		light.name = "Light"
-		dark.extra = table.clone(dark.extra)
-		dark.extra.chromeGradient = {
+		dark.extra = table.clone(assert(dark.extra))
+		assert(dark.extra).chromeGradient = {
 			panel = {
 				rotation = 45,
 				stops = { { t = 0, r = 1, g = 0, b = 0 }, { t = 1, r = 0, g = 0, b = 1 } },
@@ -819,8 +843,11 @@ t.describe("native parity paint", function()
 		local h = harness()
 		local package = themes.neutralPackage()
 		package.rules = {
-			{ selector = ".game-x", properties = { BackgroundTransparency = 0.3 } },
-			{ selector = ".facet-button", properties = { BackgroundColor3 = h.engine.types.Color3.new(1, 0, 1) } },
+			{ selector = ".game-x", properties = { BackgroundTransparency = 0.3 } :: ThemeTypes.RuleProperties },
+			{
+				selector = ".facet-button",
+				properties = { BackgroundColor3 = h.engine.types.Color3.new(1, 0, 1) } :: ThemeTypes.RuleProperties,
+			},
 		}
 		local sheet, stop = sheetFor(h, package)
 		local previous = -1
@@ -866,7 +893,7 @@ t.describe("native parity paint", function()
 		local status, appearance = Compose.cell("neutral"), Compose.cell("status")
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Badge({ Name = "Iconic", label = "Ready", icon = "checkmark", status = status }),
+				h.UI.Badge({ Name = "Iconic", label = "Ready", icon = "checkmark", status = status }) :: unknown,
 				h.UI.Badge({ Name = "Live", label = "Live", status = "error", appearance = appearance }),
 			})
 		end)
@@ -894,14 +921,21 @@ t.describe("native parity paint", function()
 		t.expect(live:HasTag("facet-badge-standard")).toBe(true)
 		t.expect(live:HasTag("facet-badge-utility")).toBe(false)
 		local sheet, stopSheet = sheetFor(h, themes.neutralPackage())
-		local partners = {
-			neutral = { extra.contentSecondary, colors.surface },
-			info = { colors.accent, colors.onAccent },
-			success = { colors.success, colors.onSuccess },
-			warning = { colors.warning, colors.onWarning },
-			error = { colors.danger, colors.onDanger },
-			accent = { colors.accent, colors.onAccent },
-		}
+		local partners: {
+			[string]: { typeof(extra.contentSecondary) | typeof(colors.surface) }
+				| { typeof(colors.accent) | typeof(colors.onAccent) }
+				| { typeof(colors.success) | typeof(colors.onSuccess) }
+				| { typeof(colors.warning) | typeof(colors.onWarning) }
+				| { typeof(colors.danger) | typeof(colors.onDanger) },
+		} =
+			{
+				neutral = { extra.contentSecondary, colors.surface },
+				info = { colors.accent, colors.onAccent },
+				success = { colors.success, colors.onSuccess },
+				warning = { colors.warning, colors.onWarning },
+				error = { colors.danger, colors.onDanger },
+				accent = { colors.accent, colors.onAccent },
+			}
 		for name, pair in partners do
 			t.expect(style(sheet, ".facet-status-" .. name).BackgroundColor3).toBe(color(h.engine, pair[1]))
 			t.expect(style(sheet, ".facet-status-" .. name .. " > .facet-icon").ImageColor3)
@@ -926,8 +960,8 @@ t.describe("native parity paint", function()
 	t.it("skins the badge seal from the package badge slot and removes it with the package", function()
 		local package = themes.neutralPackage()
 		package.assets = { seal = { content = "rbxassetid://77" } }
-		package.chrome.badge = {
-			kind = "nineSlice",
+		assert(package.chrome).badge = {
+			kind = "nineSlice" :: "nineSlice",
 			asset = "seal",
 			contentInsets = { top = 5, right = 5, bottom = 5, left = 5 },
 		}
@@ -971,8 +1005,8 @@ t.describe("native parity paint", function()
 	t.it("lets per-view slider images replace the theme skin on that node only", function()
 		local package = themes.neutralPackage()
 		package.assets = { thumb = { content = "rbxassetid://5" }, rail = { content = "rbxassetid://6" } }
-		package.chrome.sliderThumb = { kind = "nineSlice", asset = "thumb" }
-		package.chrome.sliderTrack = { kind = "nineSlice", asset = "rail" }
+		assert(package.chrome).sliderThumb = { kind = "nineSlice" :: "nineSlice", asset = "thumb" }
+		assert(package.chrome).sliderTrack = { kind = "nineSlice" :: "nineSlice", asset = "rail" }
 		for _, theme in { package, themes.neutralPackage() } do
 			local h = harness({ theme = theme })
 			local root, stop = mount(h, function()
@@ -982,7 +1016,7 @@ t.describe("native parity paint", function()
 						value = Compose.cell(0.5),
 						thumbImage = "rbxassetid://9",
 						trackImage = "rbxassetid://8",
-					}),
+					}) :: unknown,
 					h.UI.Slider({ Name = "ThumbOnly", value = Compose.cell(0.5), thumbImage = "rbxassetid://9" }),
 				})
 			end)
@@ -1026,8 +1060,8 @@ t.describe("native parity paint", function()
 		end
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Label({ title = "Close", icon = "close" }),
-				h.UI.Button({ label = "Go", icon = "checkmark", role = "destructive" }),
+				h.UI.Label({ title = "Close", icon = "close" }) :: unknown,
+				h.UI.Button({ label = "Go", icon = "checkmark", role = "destructive" :: "destructive" }),
 				h.UI.Badge({ label = "New", icon = "checkmark", status = "success" }),
 			})
 		end)
@@ -1076,7 +1110,7 @@ t.describe("native parity paint", function()
 	end)
 
 	t.it("re-letters the icon on a status plate with the plate partner color as a direct child", function()
-		local partners = {
+		local partners: { [string]: string } = {
 			neutral = "surface",
 			info = "onAccent",
 			success = "onSuccess",
@@ -1104,11 +1138,11 @@ t.describe("native parity paint", function()
 		local status = Compose.cell("warning")
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Badge({ Name = "Warn", label = "!", icon = "status.warning", status = status }),
+				h.UI.Badge({ Name = "Warn", label = "!", icon = "status.warning", status = status }) :: unknown,
 				h.UI.Badge({ Name = "Fail", label = "!", icon = "status.error", status = "error" }),
 			})
 		end)
-		for name, tag in { Warn = "facet-status-warning", Fail = "facet-status-error" } do
+		for name, tag in { Warn = "facet-status-warning", Fail = "facet-status-error" } :: { [string]: string } do
 			local plate = find(root, name)
 			t.expect(plate:HasTag(tag)).toBe(true)
 			local icons = tagged(plate, "facet-icon")
@@ -1291,7 +1325,7 @@ t.describe("native parity paint", function()
 		local preference = Compose.cell(1 :: any)
 		local sheet, stop = sheetFor(h, themes.neutralPackage(), { preferredTransparency = preference })
 		local authored = style(sheet, ".facet-scrim").BackgroundTransparency
-		for _, value in { 0 / 0, "x", false, math.huge / math.huge } do
+		for _, value in { (0 / 0 :: any), "x", false, math.huge / math.huge } do
 			preference:set(value)
 			t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBe(authored)
 		end
@@ -1306,7 +1340,9 @@ t.describe("native parity paint", function()
 				isPresented = presented,
 				title = "Title",
 				message = "Message",
-				actions = { { id = "ok", label = "OK", role = "default" } },
+				actions = {
+					{ id = "ok", label = "OK", role = "default" :: "default" } :: FixtureNavigationTypes.AlertAction<any>,
+				},
 			})
 		end)
 		local catcher
@@ -1327,7 +1363,8 @@ t.describe("native parity paint", function()
 	t.it("scales only the scrim backdrop by the transparency preference", function()
 		local h = harness()
 		local package = themes.neutralPackage()
-		package.rules = { { selector = ".game-glass", properties = { BackgroundTransparency = 0.5 } } }
+		package.rules =
+			{ { selector = ".game-glass", properties = { BackgroundTransparency = 0.5 } :: ThemeTypes.RuleProperties } }
 		local preference = Compose.cell(1)
 		local sheet, stop = sheetFor(h, package, { preferredTransparency = preference })
 		local before: { [any]: any } = {}
@@ -1366,14 +1403,14 @@ t.describe("native parity paint", function()
 
 	t.it("insets and paints the recipe dividers from the installed theme", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local theme = Compose.cell(themes.neutralPackage())
 		local ctx: any = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = engine.new("Folder"),
@@ -1393,7 +1430,7 @@ t.describe("native parity paint", function()
 		}
 		local recipes: any = (require :: any)("../examples/gallery/scenarios/recipes_common")
 		local built
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			built = recipes.build(ctx)
 			return ctx.Host.ScreenGui("DemoScreen")({ built.screen() })
 		end, engine.new("Folder"))
@@ -1401,13 +1438,14 @@ t.describe("native parity paint", function()
 		local Vector2 = engine.types.Vector2
 		local function check(package: any, textAt: number)
 			local hairline = package.metrics.strokes.hairline
-			local expected = {
-				DividerFull = { 0, 0 },
-				DividerLeading = { textAt, 0 },
-				DividerTrailing = { 0, textAt },
-				DividerBoth = { textAt, textAt },
-				DividerHeavy = { 0, 0 },
-			}
+			local expected: { [string]: { number } | { typeof(textAt) | number } | { number | typeof(textAt) } | { typeof(textAt) } } =
+				{
+					DividerFull = { 0, 0 },
+					DividerLeading = { textAt, 0 },
+					DividerTrailing = { 0, textAt },
+					DividerBoth = { textAt, textAt },
+					DividerHeavy = { 0, 0 },
+				}
 			for name, sides in expected do
 				local divider = find(root, name)
 				local row = find(divider, "Row")
@@ -1445,14 +1483,14 @@ t.describe("native parity paint", function()
 	t.it("marks the active word row and pending crossword tiles without relying on color", function()
 		local function world(): any
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target = engine.new("Folder")
 			local viewport = Compose.cell({ width = 800, height = 600 })
 			return {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				inputTarget = target,
 				worldTarget = engine.new("Folder"),
@@ -1611,7 +1649,7 @@ t.describe("native parity paint", function()
 				literals[prefix .. value] = true
 			end
 		end
-		local hooks = {
+		local hooks: { [string]: boolean } = {
 			["facet-adjustable"] = true,
 			["facet-alert"] = true,
 			["facet-callout"] = true,
@@ -1641,24 +1679,35 @@ t.describe("native parity paint", function()
 		local h = harness()
 		local probes, stopProbes = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Slider({ value = Compose.cell(0.5) }),
+				h.UI.Slider({ value = Compose.cell(0.5) }) :: unknown,
 				h.UI.Toggle({ value = Compose.cell(true), label = "T" }),
-				h.UI.Toggle({ value = Compose.cell(false), label = "C", presentation = "checkbox" }),
+				h.UI.Toggle({ value = Compose.cell(false), label = "C", presentation = "checkbox" :: "checkbox" }),
 				h.UI.Stepper({ value = Compose.cell(2), min = 0, max = 5 }),
 				h.UI.ProgressView({ value = 0.5 }),
-				h.UI.ProgressView({ value = 0.5, presentation = "circular" }),
+				h.UI.ProgressView({ value = 0.5, presentation = "circular" :: "circular" }),
 				h.UI.Badge({ label = "B", icon = "checkmark", status = "warning", appearance = "status" }),
-				h.UI.Button({ label = "Go", appearance = "soft", role = "destructive", subtitle = "More" }),
-				h.UI.Text({ text = "L", textRole = "heading", role = "secondary" }),
+				h.UI.Button({
+					label = "Go",
+					appearance = "soft",
+					role = "destructive" :: "destructive",
+					subtitle = "More",
+				}),
+				h.UI.Text({ text = "L", textRole = "heading" :: "heading", role = "secondary" :: "secondary" }),
 				h.UI.Picker({
 					selected = Compose.cell("a"),
-					style = "segmented",
-					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+					style = "segmented" :: "segmented",
+					options = {
+						{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				}),
 				h.UI.Picker({
 					selected = Compose.cell("a"),
-					style = "inline",
-					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+					style = "inline" :: "inline",
+					options = {
+						{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				}),
 				h.UI.TextInput({ value = Compose.cell("") }),
 				h.UI.Chip({ label = "Chip", selected = Compose.cell(true) }),
@@ -1673,7 +1722,7 @@ t.describe("native parity paint", function()
 					expanded = Compose.cell(true),
 					appearance = "contained",
 					label = "More",
-					content = function()
+					content = function(): Instance
 						return h.Host.Frame({})
 					end,
 				}),

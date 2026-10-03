@@ -80,7 +80,7 @@ return function(
 				}) :: Types.Child,
 			}
 			for _, child in children do
-				table.insert(props, child)
+				props[#props + 1] = child
 			end
 			return ctx.styled(Host.Frame(props), "segmented")
 		end

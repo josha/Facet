@@ -39,7 +39,7 @@ function ambient_service.new(opts: any): any
 		return {
 			samples = samples,
 			bands = { { from = 0, to = lanternOut }, { from = lanternLit, to = 1 } },
-			marks = { { at = lanternOut, kind = "out" }, { at = lanternLit, kind = "lit" } },
+			marks = { { at = lanternOut, kind = "out" }, { at = lanternLit, kind = "lit" } } :: { { at: number, kind: string } },
 			damp = damp,
 			cloud = math.floor((1 - samples[math.ceil(SAMPLES / 2)]) * 100),
 		}

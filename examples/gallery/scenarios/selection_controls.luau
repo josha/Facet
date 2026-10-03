@@ -1,11 +1,20 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type VoteCell = typeof(require("@repo/tools/typecheck/aliases").VoteCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Choices and filters",
 	ledgerRows = { "CONTROL-SELECTION" },
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -67,7 +76,7 @@ return {
 				label = "Include night races and their full race results",
 				value = checked,
 				mixed = mixed,
-				presentation = "checkbox",
+				presentation = "checkbox" :: "checkbox",
 				enabled = enabled,
 			}
 		end
@@ -75,9 +84,9 @@ return {
 			return UI.Toggle "PlainCheckbox" {
 				label = "Reduced motion",
 				value = checked,
-				presentation = "checkbox",
+				presentation = "checkbox" :: "checkbox",
 				appearance = "plain",
-				controlSize = "compact",
+				controlSize = "compact" :: "compact",
 				textSize = "label",
 				enabled = enabled,
 			}
@@ -86,7 +95,7 @@ return {
 			return UI.Toggle "Boost" {
 				label = "Boost mode",
 				value = boost,
-				presentation = "button",
+				presentation = "button" :: "button",
 				enabled = enabled,
 			}
 		end
@@ -95,15 +104,18 @@ return {
 			return UI.Picker "Radio" {
 				selected = selected,
 				options = choices,
-				style = "radioGroup",
+				style = "radioGroup" :: "radioGroup",
 				enabled = enabled,
 			}
 		end
 		local function segmented()
 			return UI.Picker "Segments" {
 				selected = selected,
-				options = { { value = "open", label = "Open" }, { value = "club", label = "Club", enabled = club } },
-				style = "segmented",
+				options = {
+					{ value = "open", label = "Open" } :: PickerOption,
+					{ value = "club", label = "Club", enabled = club } :: PickerOption,
+				},
+				style = "segmented" :: "segmented",
 				enabled = enabled,
 			}
 		end
@@ -112,8 +124,8 @@ return {
 				label = "Race group",
 				selected = selected,
 				options = {
-					{ value = "open", label = "Open races" },
-					{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club },
+					{ value = "open", label = "Open races" } :: PickerOption,
+					{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club } :: PickerOption,
 				},
 				enabled = enabled,
 			}
@@ -137,17 +149,17 @@ return {
 					label = "Scenery filters",
 					enabled = enabled,
 					onActivate = function() end,
-				},
+				} :: GuiObject,
 				items = {
-					{ id = "coastal", label = "Coastal", checked = tagCoastal },
-					{ id = "forest", label = "Forest", checked = tagForest },
+					{ id = "coastal", label = "Coastal", checked = tagCoastal } :: MenuItem,
+					{ id = "forest", label = "Forest", checked = tagForest } :: MenuItem,
 					{
 						id = "snow",
 						label = "Snow",
 						checked = tagSnow,
 						enabled = false,
 						description = "Winter routes are closed.",
-					},
+					} :: MenuItem,
 				},
 			}
 		end
@@ -155,14 +167,19 @@ return {
 			return UI.ComboBox "Vehicle" {
 				value = comboValue,
 				text = comboText,
-				options = { { id = "road", label = "Road" }, { id = "rally", label = "Rally" } },
+				options = {
+					{ id = "road", label = "Road" } :: StringPickerOption,
+					{ id = "rally", label = "Rally" } :: StringPickerOption,
+				},
 				enabled = enabled,
 				acceptCustom = function(text)
 					return #text >= 3 and #text <= 24, "Use 3 to 24 characters."
 				end,
 			}
 		end
-		local vote = signal("none")
+		local vote = (function(value: "up" | "down" | "none"): VoteCell
+			return signal(value)
+		end)("none")
 		local function votes()
 			return Host.Frame "Votes" {
 				BackgroundTransparency = 1,
@@ -173,18 +190,23 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Vote "TrackVote" {
 					LayoutOrder = 1,
 					value = vote,
-					summary = function(use)
+					summary = function(use: Use)
 						return if use(vote) == "up" then "You and 98% liked this" else "98% liked this"
 					end,
-					onChange = function(nextValue)
+					onChange = function(nextValue: "down" | "none" | "up")
 						vote:set(nextValue)
 					end,
 				},
-				UI.Vote "PastVote" { LayoutOrder = 2, value = "down", readOnly = true, controlSize = "compact" },
+				UI.Vote "PastVote" {
+					LayoutOrder = 2,
+					value = "down" :: "down",
+					readOnly = true,
+					controlSize = "compact" :: "compact",
+				},
 				UI.Chip "VoteTag" { LayoutOrder = 3, label = "Rally", selected = signal(false) },
 			}
 		end
@@ -211,10 +233,10 @@ return {
 		local function driverField()
 			return UI.Picker "Driver" {
 				label = "Driver",
-				requiredMark = "required",
+				requiredMark = "required" :: "required",
 				hint = "Who takes the wheel for this race.",
 				errorText = driverError,
-				style = "menu",
+				style = "menu" :: "menu",
 				maxHeight = 220,
 				selected = driver,
 				options = DRIVERS,
@@ -224,32 +246,36 @@ return {
 		local function cards()
 			return UI.Picker "Mode" {
 				label = "Race mode",
-				style = "cards",
-				axis = "x",
+				style = "cards" :: "cards",
+				axis = "x" :: "x",
 				required = false,
 				selected = mode,
 				options = {
-					{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" },
-					{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" },
+					{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" } :: PickerOption,
+					{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" } :: PickerOption,
 					{
 						value = "night",
 						label = "Night",
 						description = "Unlocks at level 10",
 						meta = "Soon",
 						enabled = false,
-					},
+					} :: PickerOption,
 				},
 				enabled = enabled,
 			}
 		end
 		local function lapStrip()
 			return UI.Picker "Laps" {
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				appearance = "stroke",
-				corners = "pill",
-				controlSize = "compact",
+				corners = "pill" :: "pill",
+				controlSize = "compact" :: "compact",
 				selected = laps,
-				options = { { value = "3", label = "3" }, { value = "5", label = "5" }, { value = "10", label = "10" } },
+				options = {
+					{ value = "3", label = "3" } :: PickerOption,
+					{ value = "5", label = "5" } :: PickerOption,
+					{ value = "10", label = "10" } :: PickerOption,
+				},
 				enabled = enabled,
 			}
 		end
@@ -260,7 +286,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "heading",
+				textRole = "heading" :: "heading",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -275,7 +301,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "caption",
+				textRole = "caption" :: "caption",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -291,7 +317,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -299,7 +325,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Choices and filters",
-					textRole = "title",
+					textRole = "title" :: "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,

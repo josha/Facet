@@ -1,16 +1,24 @@
 --!strict
 local nativeDrag = require("./lib/native_drag")
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type ScrollingFrameConstructor = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameConstructor)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local engineLib = require("./lib/native_engine")
 local Roblox = require("@lune/roblox")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local adaptive = Facet.adaptive
 
 local function signal()
-	local handlers = {}
+	local handlers: { () -> () } = {}
 	return {
-		Connect = function(_, fn)
+		Connect = function(_, fn: () -> ())
 			table.insert(handlers, fn)
 			return {
 				Disconnect = function()
@@ -34,7 +42,7 @@ end
 
 local function world(services: { [string]: any }?, options: { [string]: any }?)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local frames = { Heartbeat = signal() }
@@ -44,10 +52,10 @@ local function world(services: { [string]: any }?, options: { [string]: any }?)
 		userInputService = input,
 		services = { GuiService = gui, UserInputService = input, RunService = frames },
 	}
-	for key, value in services or {} do
+	for key, value in (services or {} :: { [string]: any }) do
 		config.services[key] = value
 	end
-	for key, value in options or {} do
+	for key, value in (options or {} :: { [string]: any }) do
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config)
@@ -123,7 +131,7 @@ t.describe("adaptive: pure decisions with no device names", function()
 	t.it("homes app navigation by viewing distance, then shape, then primary input", function()
 		local function home(size: string, height: string, primary: string?, extra: { [string]: any }?): string
 			local facts: { [string]: any } = { sizeClass = size, heightClass = height, primary = primary }
-			for key, value in extra or {} do
+			for key, value in (extra or {} :: { [string]: any }) do
 				facts[key] = value
 			end
 			return adaptive.navPlacement(facts)
@@ -158,7 +166,7 @@ t.describe("environment: reactive facts from engine sources", function()
 		local reads = 0
 		local stop = owned(w.runtime, function()
 			env = w.UI.environment(screen)
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				use(env.sizeClass)
 				reads += 1
 			end)
@@ -326,7 +334,7 @@ t.describe("environment: reactive facts from engine sources", function()
 end)
 
 t.describe("environment: viewing distance, metric scale and overscan", function()
-	local function console(options: { [string]: any }?, touch: boolean?): (any, any, any)
+	local function console(options: { [string]: any }?, touch: boolean?): (any, any, any, any)
 		local w = world(nil, options)
 		local E = w.Enum
 		w.gui.ViewportDisplaySize = E.DisplaySize.Large
@@ -464,7 +472,7 @@ t.describe("worldAnchor: proximity anchors around world objects", function()
 		w.stop()
 	end)
 	t.it("uses relative padding at every distance and defaults to fifteen percent", function()
-		for _, padding in { false, 0, 0.15, 0.5, 1 } do
+		for _, padding in { false, 0, 0.15, 0.5, 1 } :: { false | number } do
 			local w, _, part = fixture()
 			local options: any = { target = part }
 			if padding ~= false then
@@ -475,7 +483,7 @@ t.describe("worldAnchor: proximity anchors around world objects", function()
 				part.CFrame = Roblox.CFrame.new(0, 0, -distance)
 				w.frames.Heartbeat.fire()
 				local radius = math.sqrt(200 ^ 2 + 100 ^ 2) / (distance - 1)
-				local fraction = if padding == false then 0.15 else padding
+				local fraction = if type(padding) == "number" then padding else 0.15
 				t.expect(math.abs(binding.anchor:peek().clearance / radius - (1 + fraction)) < 0.00001).toBe(true)
 			end
 			binding.dispose()
@@ -610,7 +618,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 	t.it("animates through TweenService and moves at once under reduced motion", function()
 		local created = {}
 		local tweens = {
-			Create = function(_, instance, info, goal)
+			Create = function(_, instance: any, info: TweenInfo, goal: { [string]: any })
 				local record = { instance = instance, info = info, goal = goal, played = 0, cancelled = 0 }
 				function record.Play()
 					record.played += 1
@@ -710,7 +718,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		local w = world(nil, { motionLevel = "none" })
 		local UI = w.UI
 		local node: any
-		local stop, root = w.runtime.mount(function()
+		local stop, root: any = w.runtime.mount(function()
 			node = UI.ScrollView "Feed" { UI.VStack "Rows" {} }
 			return node
 		end, w.engine.new("Folder"))
@@ -898,7 +906,7 @@ t.describe("draggable and dropTarget", function()
 		local w = world()
 		local screen = w.engine.new("ScreenGui")
 		local log = {}
-		local stop, root = w.runtime.mount(function()
+		local stop, root: any = w.runtime.mount(function()
 			local card = w.UI.Button "Card" { label = "Card" }
 			local slot = w.UI.Button "Slot" { label = "Slot" }
 			w.UI.draggable(card, { payload = "card" })
@@ -907,7 +915,7 @@ t.describe("draggable and dropTarget", function()
 					table.insert(log, `{payload} {info.mode}`)
 				end,
 			})
-			return w.runtime.constructors.Frame({ card, slot })
+			return ((w.runtime.constructors.Frame :: unknown) :: FrameConstructor)({ card :: unknown, slot })
 		end, screen)
 		local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
 
@@ -929,21 +937,25 @@ t.describe("draggable and dropTarget", function()
 			local screen = w.engine.new("ScreenGui")
 			local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
 			local log, opened = {}, 0
-			local stop, root = w.runtime.mount(function()
+			local stop, root: any = w.runtime.mount(function()
 				local card = w.UI.Button "Card" {
 					label = "Card",
 					onActivate = function()
 						opened += 1
 					end,
 				}
-				local slot = w.runtime.constructors.Frame({ Name = "Slot" })
+				local slot = ((w.runtime.constructors.Frame :: unknown) :: FrameConstructor)({ Name = "Slot" })
 				w.UI.draggable(card, { payload = "card" })
 				w.UI.dropTarget(slot, {
 					onDrop = function(payload, info)
 						table.insert(log, `{payload} {info.mode}`)
 					end,
 				})
-				return w.runtime.constructors.ScrollingFrame({ Name = "List", card, slot })
+				return ((w.runtime.constructors.ScrollingFrame :: unknown) :: ScrollingFrameConstructor)({
+					Name = "List",
+					card :: unknown,
+					slot,
+				})
 			end, screen)
 			local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
 			root.AbsoluteWindowSize = V2.new(100, 200)
@@ -1190,7 +1202,8 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 	end)
 
 	t.it("paints a glow theme as a native shadow that grows at ten feet", function()
-		local glowing = define({ kind = "glow", blurRadius = { scale = 0, offset = 26 }, transparency = 0.25 })
+		local glowing =
+			define({ kind = "glow" :: "glow", blurRadius = { scale = 0, offset = 26 }, transparency = 0.25 })
 		local distance = Compose.cell("near")
 		local _, template, stop = ring(glowing, { viewingDistance = distance, preferredInput = "Gamepad" })
 		local glow = template:FindFirstChild("Glow")
@@ -1205,7 +1218,7 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 	end)
 
 	t.it("stretches sliced focus art around the control with an outset", function()
-		local package = define({ kind = "nineSlice", asset = "bracket", outset = 4 }, {
+		local package = define({ kind = "nineSlice" :: "nineSlice", asset = "bracket", outset = 4 }, {
 			bracket = { content = "rbxassetid://5", sliceCenter = { x0 = 8, y0 = 8, x1 = 24, y1 = 24 } },
 		})
 		local distance = Compose.cell("near")
@@ -1253,7 +1266,7 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		t.expect(template.Size.Y.Scale).toBe(1)
 		t.expect(corner.CornerRadius.Scale).toBe(0)
 		stop()
-		local square = define({ kind = "ring", corner = "square", thickness = 3 })
+		local square = define({ kind = "ring" :: "ring", corner = "square", thickness = 3 })
 		w, template, stop = ring(square, { preferredInput = "Gamepad" })
 		w.gui.SelectedObject = chip
 		t.expect(template:FindFirstChildWhichIsA("UICorner").CornerRadius).toBe(D.new(0, 0))
@@ -1305,11 +1318,11 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 	t.it(
 		"pulses a theme that asks for it with an engine tween, only while shown and never under reduced motion",
 		function()
-			local package = define({ kind = "ring", pulse = true })
+			local package = define({ kind = "ring" :: "ring", pulse = true })
 			local motionOff = Compose.cell(false)
 			local created = {}
 			local tweens = {
-				Create = function(_, instance, info, goal)
+				Create = function(_, instance: any, info: TweenInfo, goal: { [string]: any })
 					local record = { instance = instance, info = info, goal = goal, played = 0, cancelled = 0 }
 					function record.Play()
 						record.played += 1
@@ -1323,9 +1336,9 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 			}
 			local w = world({ TweenService = tweens }, {
 				theme = package,
-				motionLevel = Compose.formula(function(use)
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if use(motionOff) then "none" else "normal"
-				end),
+				end) :: unknown) :: MotionLevel,
 				environment = { preferredInput = "Gamepad" },
 			})
 			local playerGui = w.engine.new("PlayerGui")
@@ -1445,7 +1458,7 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		local w = world()
 		local color
 		for _, package in { Facet.themes.neutralPackage(), ornate } do
-			local _, sheet = w.runtime.mount(function()
+			local _, sheet: any = w.runtime.mount(function()
 				return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types })
 			end, w.engine.new("Folder"))
 			for _, node in sheet:GetChildren() do
@@ -1468,7 +1481,7 @@ t.describe("failed drop feedback", function()
 	t.it(
 		"returns a rejected preview with a native tween, skips motion when reduced, and cleans up on unmount",
 		function()
-			local created = {}
+			local created: { any } = {}
 			local tweens = {
 				Create = function(_, node, info, goal)
 					local playback = {
@@ -1491,7 +1504,7 @@ t.describe("failed drop feedback", function()
 			}
 			local w = world({ TweenService = tweens })
 			local screen = w.engine.new("ScreenGui")
-			local stop, source = w.runtime.mount(function()
+			local stop, source: any = w.runtime.mount(function()
 				local node = w.UI.Button { label = "Asset" }
 				w.UI.draggable(node, { payload = "asset" })
 				return node
@@ -1516,7 +1529,7 @@ t.describe("failed drop feedback", function()
 			created[1].Completed.fire()
 			t.expect(screen:FindFirstChild("DragGhost")).toBe(nil)
 			local dropped = 0
-			local stopTarget, destination = w.runtime.mount(function()
+			local stopTarget, destination: any = w.runtime.mount(function()
 				local node = w.runtime.constructors.Frame {}
 				w.UI.dropTarget(node, {
 					onDrop = function()

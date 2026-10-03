@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type CollectionStatusCell = typeof(require("@repo/tools/typecheck/aliases").CollectionStatusCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local BADGES = { "Rally", "Drift", "Circuit", "Sprint", "Endurance" }
 local COPY = {
 	title = "Card rail — your racing collection",
@@ -11,8 +18,8 @@ local COPY = {
 return {
 	title = "Card rail (horizontal VirtualList)",
 	copy = COPY,
-	build = function(ctx)
-		local Compose, UI, Host = ctx.Compose, ctx.UI, ctx.Host
+	build = function(ctx: ExampleContext)
+		local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local copy = ctx.copy or COPY
 		local cards = {}
@@ -23,12 +30,12 @@ return {
 				badge = BADGES[(index - 1) % #BADGES + 1],
 			}
 		end
-		local items, selected = Compose.cell(cards), Compose.cell(nil)
+		local items, selected = Compose.cell(cards), Compose.cell(nil :: string | nil)
 		local rails = {}
-		local function observe(node, property)
-			local value = Compose.cell(node[property])
+		local function observe(node: GuiObject, property: string): VectorCell
+			local value = Compose.cell((node :: any)[property] :: Vector2)
 			local connection = node:GetPropertyChangedSignal(property):Connect(function()
-				value:set(node[property])
+				value:set((node :: any)[property])
 			end)
 			Compose.cleanup(function()
 				connection:Disconnect()
@@ -52,55 +59,57 @@ return {
 			local nameProbe = UI.Text "NameMeasure" {
 				Visible = false,
 				text = "Livery 000",
-				textRole = "label",
+				textRole = "label" :: "label",
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			}
 			local badgeProbe = UI.Text "BadgeMeasure" {
 				Visible = false,
 				text = "Endurance",
-				textRole = "caption",
+				textRole = "caption" :: "caption",
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			}
 			local nameBounds, badgeBounds = observe(nameProbe, "TextBounds"), observe(badgeProbe, "TextBounds")
-			local height = Compose.formula(function(use)
+			local height = Compose.formula(function(use: Use)
 				return math.ceil(math.max(1, use(cardWidth) - 16) * 9 / 16)
 					+ math.max(20, use(nameBounds).Y)
 					+ math.max(18, use(badgeBounds).Y)
 					+ 28
 			end)
-			local status = Compose.cell({
-				mode = "windowed",
-				direction = "horizontal",
-				total = 0,
-				retained = 0,
-				first = 0,
-				last = 0,
-				firstRow = 0,
-				lastRow = 0,
-				rowCount = 0,
-				extent = 0,
-				following = false,
-				measured = 0,
-			})
+			local status = (function(): CollectionStatusCell
+				return Compose.cell({
+					mode = "windowed" :: "windowed" | "all",
+					direction = "horizontal" :: "horizontal" | "vertical",
+					total = 0,
+					retained = 0,
+					first = 0,
+					last = 0,
+					firstRow = 0,
+					lastRow = 0,
+					rowCount = 0,
+					extent = 0,
+					following = false,
+					measured = 0,
+				})
+			end)()
 			local node = UI.VirtualList({
 				Name = name,
 				from = items,
 				key = function(item)
 					return item.id
 				end,
-				direction = "horizontal",
-				itemSize = "cards",
+				direction = "horizontal" :: "horizontal" | "vertical",
+				itemSize = "cards" :: "cards",
 				gap = 8,
 				overscan = 2,
 				status = status,
 				LayoutOrder = order,
-				Size = function(use)
+				Size = function(use: Use)
 					return D2.new(1, 0, 0, use(height))
 				end,
-				render = function(current, placement, key)
-					Compose.watch(function(use)
+				render = function(current, placement, key): GuiObject
+					Compose.watch(function(use: Use)
 						local extent = use(placement).size
 						if extent > 1 and cardWidth:peek() ~= extent then
 							cardWidth:set(extent)
@@ -127,7 +136,7 @@ return {
 							BackgroundTransparency = 1,
 							Size = D2.new(1, -16, 1, -16),
 							Position = D2.fromOffset(8, 8),
-							Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 2) }),
+							Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 2) }) :: unknown,
 							Host.Frame "Preview" {
 								LayoutOrder = 1,
 								Size = D2.new(1, 0, 0, 0),
@@ -135,14 +144,14 @@ return {
 								Host.UIAspectRatioConstraint({
 									AspectRatio = 16 / 9,
 									DominantAxis = E.DominantAxis.Width,
-								}),
+								}) :: unknown,
 								track,
 							},
 							UI.Text "Name" {
-								text = function(use)
+								text = function(use: Use)
 									return use(current).name
 								end,
-								textRole = "label",
+								textRole = "label" :: "label",
 								LayoutOrder = 2,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
@@ -151,10 +160,10 @@ return {
 								BackgroundTransparency = 1,
 							},
 							UI.Text "Badge" {
-								text = function(use)
+								text = function(use: Use)
 									return use(current).badge
 								end,
-								textRole = "caption",
+								textRole = "caption" :: "caption",
 								LayoutOrder = 3,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
@@ -165,7 +174,7 @@ return {
 						},
 					})
 				end,
-				nameProbe,
+				nameProbe :: unknown,
 				badgeProbe,
 			})
 			rails[name] = { node = node, cardWidth = cardWidth, status = status }
@@ -178,10 +187,10 @@ return {
 					gap = 8,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					label("Title", copy.title, 1, 24),
+					label("Title", copy.title, 1, 24) :: unknown,
 					label("Hint", copy.hint, 2, 14),
 					rail("Rail", 3),
-					label("Selected", function(use)
+					label("Selected", function(use: Use)
 						local key = use(selected)
 						for _, card in use(items) do
 							if card.id == key then
@@ -198,7 +207,7 @@ return {
 			end,
 			report = function()
 				local result =
-					{ axis = "x", shelves = 3, total = #items:peek(), selectedKey = selected:peek(), rails = {} }
+					{ axis = "x" :: "x", shelves = 3, total = #items:peek(), selectedKey = selected:peek(), rails = {} }
 				for name, value in rails do
 					result.rails[name] = {
 						itemExtent = value.cardWidth:peek(),

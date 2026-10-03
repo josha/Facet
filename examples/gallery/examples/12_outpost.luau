@@ -1,4 +1,6 @@
 --!strict
+
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local makeView = require("./showcase_view")
 local rules = require("./outpost_terminal/rules")
 return {
@@ -77,7 +79,11 @@ return {
 				})
 			)
 			table.insert(children, view.text("OutpostNotice", notice))
-			return UI.VStack "PowerControls" { width = "fill", gap = "m", table.unpack(children) }
+			return UI.VStack "PowerControls" {
+				width = "fill" :: "fill",
+				gap = "m",
+				table.unpack((children :: unknown) :: { unknown }),
+			}
 		end
 		local function model(offset: number)
 			local function position(x: number, y: number, z: number)
@@ -91,7 +97,7 @@ return {
 				end
 			end
 			return Host.Model "OutpostScene" {
-				view.part("Platform", V3.new(20, 0.5, 12), position(0, -0.4, 1), C3.fromRGB(49, 58, 77)),
+				view.part("Platform", V3.new(20, 0.5, 12), position(0, -0.4, 1), C3.fromRGB(49, 58, 77)) :: unknown,
 				view.part("Workshop", V3.new(5, 3.6, 3), position(5, 1.8, 3), C3.fromRGB(86, 106, 122)),
 				view.part(
 					"WorkshopLight",
@@ -216,23 +222,23 @@ return {
 					CanvasSize = canvas,
 					Active = true,
 					AlwaysOnTop = false,
-					style,
-					if style then Host.StyleLink { StyleSheet = C.static(style) } else nil,
+					style :: unknown,
+					if style then Host.StyleLink { StyleSheet = C.static(style) } else nil :: unknown,
 					UI.Screen "TerminalScreen" {
 						gap = "m",
-						view.text("TerminalTitle", "OUTPOST 07 / POWER", "title"),
-						UI.ScrollView "TerminalControls" { width = "fill", UI.fill(), panel() },
+						view.text("TerminalTitle", "OUTPOST 07 / POWER", "title") :: unknown,
+						UI.ScrollView "TerminalControls" { width = "fill" :: "fill", UI.fill() :: unknown, panel() },
 					},
 				}
 			end, ctx.inputTarget)
 			C.cleanup(stopSurface)
 			return UI.VStack "WorldView" {
-				width = "fill",
-				height = "fill",
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
 				padding = "m",
 				gap = "s",
 				UI.VStack "WorldCommands" {
-					width = "fill",
+					width = "fill" :: "fill",
 					view.actions({
 						view.button("LeaveWorld", "Back to overview", function()
 							worldMode:set(false)
@@ -243,7 +249,7 @@ return {
 							content = panel,
 						},
 					}),
-				},
+				} :: unknown,
 				terminalBounds,
 			}
 		end
@@ -271,41 +277,41 @@ return {
 						end),
 						UI.RadialMenu "PowerShortcuts" {
 							label = "Quick actions",
-							contentFit = "radial",
-							ringWidth = "wide",
-							center = "empty",
+							contentFit = "radial" :: "radial",
+							ringWidth = "wide" :: "wide",
+							center = "empty" :: "empty",
 							scrim = "dark",
 							items = {
 								{
 									id = "beacon",
 									label = "Beacon",
 									icon = "flag",
-									labelStyle = "icon",
+									labelStyle = "icon" :: "icon",
 									onSelect = function()
 										draft.beacon:set(1)
 										notice:set("Beacon power staged. Apply when ready.")
 									end,
-								},
+								} :: RadialItem,
 								{
 									id = "door",
 									label = "Door",
 									icon = "chevron.trailing",
-									labelStyle = "icon",
+									labelStyle = "icon" :: "icon",
 									onSelect = function()
 										draft.door:set(2)
 										notice:set("Door power staged. Apply when ready.")
 									end,
-								},
+								} :: RadialItem,
 								{
 									id = "workshop",
 									label = "Workshop",
 									icon = "settings",
-									labelStyle = "icon",
+									labelStyle = "icon" :: "icon",
 									onSelect = function()
 										draft.workshop:set(2)
 										notice:set("Workshop power staged. Apply when ready.")
 									end,
-								},
+								} :: RadialItem,
 							},
 						},
 					}),

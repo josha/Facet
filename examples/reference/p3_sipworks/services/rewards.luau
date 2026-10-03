@@ -1,12 +1,14 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local rewards = {}
 
 rewards.THRESHOLD = 10
 rewards.REDEEM_COST = 10
 
 function rewards.new(opts: any)
-	local Compose = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 
 	local batch = opts.batch
 

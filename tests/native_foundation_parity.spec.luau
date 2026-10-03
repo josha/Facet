@@ -1,11 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local requireDynamic = require :: (any) -> any
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local overlay = require("./lib/overlay_world")
 local engineLib = require("./lib/native_engine")
 local Roblox = require("@lune/roblox")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 local UDim2, Vector2, Enum = Roblox.UDim2, Roblox.Vector2, Roblox.Enum
 
@@ -129,8 +136,8 @@ end
 
 local function sheetOf(package: any): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
-	local stop, sheet = runtime.mount(function()
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+	local stop, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(
 			runtime,
 			package,
@@ -171,7 +178,7 @@ local function same(color: any, rgb: any): boolean
 end
 
 local function screen(package: any?, build: (any, any) -> any): any
-	return worlds.new(function(UI, Host)
+	return worlds.new(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), build(UI, Host) })
 	end, { motionLevel = "none", theme = package })
 end
@@ -225,29 +232,29 @@ t.describe("native optional palette roles", function()
 	t.it("a mounted Slider fill, tab underline and switch track resolve the authored ink", function()
 		local package = authored({ selection = INK, onSelection = ON_INK })
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI, Host)
+		local world = screen(package, function(UI: FacetControls, Host: RobloxHost)
 			return UI.VStack({
-				UI.Slider("Vol")({ value = Compose.cell(0.5), min = 0, max = 1 }),
+				UI.Slider("Vol")({ value = Compose.cell(0.5), min = 0, max = 1 }) :: unknown,
 				UI.Toggle("Sound")({ label = "Sound", value = Compose.cell(true) }),
 				UI.TabView("Pages")({
-					placement = "topBar",
-					indicator = "underline",
+					placement = "topBar" :: "topBar",
+					indicator = "underline" :: "underline",
 					selection = Compose.cell("a"),
 					tabs = {
 						{
 							id = "a",
 							label = "A",
-							content = function()
+							content = function(): Instance
 								return Host.Frame({ Name = "PA" })
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "b",
 							label = "B",
-							content = function()
+							content = function(): Instance
 								return Host.Frame({ Name = "PB" })
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				}),
 			})
@@ -274,10 +281,10 @@ t.describe("native selection marks", function()
 		local package = authored({ selection = INK, onSelection = ON_INK })
 		local sheet, stopSheet = sheetOf(package)
 		local checked = Compose.cell(false)
-		local world = screen(package, function(UI)
+		local world = screen(package, function(UI: FacetControls)
 			return UI.VStack({
-				UI.Chip("Pick")({ label = "Pick", selected = Compose.cell(true) }),
-				UI.Toggle("Check")({ label = "Check", presentation = "checkbox", value = checked }),
+				UI.Chip("Pick")({ label = "Pick", selected = Compose.cell(true) }) :: unknown,
+				UI.Toggle("Check")({ label = "Check", presentation = "checkbox" :: "checkbox", value = checked }),
 				UI.Button("Link")({ label = "Tracks", appearance = "link", selected = true }),
 			})
 		end)
@@ -307,11 +314,11 @@ t.describe("native selection marks", function()
 	t.it("without an authored selection a chosen Chip keeps the selected-row wash", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI)
+		local world = screen(package, function(UI: FacetControls)
 			return UI.Chip("Pick")({ label = "Pick", selected = Compose.cell(true) })
 		end)
 		local chip = world.find("Pick")
-		t.expect(same(resolve(sheet, chip, "BackgroundColor3"), package.style.themes[1].extra.controlSelected))
+		t.expect(same(resolve(sheet, chip, "BackgroundColor3"), assert(package.style.themes[1].extra).controlSelected))
 			.toBe(true)
 		world.stop()
 		stopSheet()
@@ -323,10 +330,10 @@ t.describe("native whole-control disabled dim", function()
 		local package = authored({ dimDisabledPlates = true, disabledContentOpacity = 0.5 })
 		local colors = package.style.themes[1].colors
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI)
+		local world = screen(package, function(UI: FacetControls)
 			return UI.VStack({
-				UI.Button("Go")({ label = "Go", appearance = "emphasis", enabled = false }),
-				UI.Button("Stop")({ label = "Stop", role = "destructive", enabled = false }),
+				UI.Button("Go")({ label = "Go", appearance = "emphasis", enabled = false }) :: unknown,
+				UI.Button("Stop")({ label = "Stop", role = "destructive" :: "destructive", enabled = false }),
 			})
 		end)
 		local function half(a: any, b: any): any
@@ -363,8 +370,8 @@ t.describe("native strong divider, pane and utility outline", function()
 		t.expect(resolve(authoredSheet, rule, "BackgroundTransparency")).toBe(0.6)
 		stopAuthored()
 		local engine2: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine2)
-		local stopDim, dimmed = runtime.mount(function()
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine2)
+		local stopDim, dimmed: any = runtime.mount(function()
 			return themes.createStyleSheet(
 				runtime,
 				themes.neutralPackage(),
@@ -376,8 +383,8 @@ t.describe("native strong divider, pane and utility outline", function()
 		stopDim()
 		runtime:dispose()
 		local neutralSheet, stopNeutral = sheetOf(themes.neutralPackage())
-		local strong = Compose.cell("strong")
-		local world = screen(themes.neutralPackage(), function(UI)
+		local strong = Compose.cell("strong" :: "standard" | "strong")
+		local world = screen(themes.neutralPackage(), function(UI: FacetControls)
 			return UI.VStack({ UI.Divider("Edge")({ appearance = strong }) })
 		end)
 		local edge = world.find("Edge")
@@ -394,9 +401,9 @@ t.describe("native strong divider, pane and utility outline", function()
 	t.it("the see-through backgrounds are a measured set, and the preference moves only the scrim", function()
 		local function census(preference: number): { [string]: number }
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local found: { [string]: number } = {}
-			local stop, sheet = runtime.mount(function()
+			local stop, sheet: any = runtime.mount(function()
 				return themes.createStyleSheet(
 					runtime,
 					themes.neutralPackage(),
@@ -477,7 +484,7 @@ t.describe("native inverse and underlined Buttons", function()
 		local package = themes.neutralPackage()
 		local colors = package.style.themes[1].colors
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI)
+		local world = screen(package, function(UI: FacetControls)
 			return UI.Button("Inv")({ label = "Invert", appearance = "inverse" })
 		end)
 		local button = world.find("Inv")
@@ -494,10 +501,18 @@ t.describe("native inverse and underlined Buttons", function()
 	end)
 
 	t.it("underline hover marks the escaped label while hovered or selected, and always marks it at rest", function()
-		local world = screen(nil, function(UI)
+		local world = screen(nil, function(UI: FacetControls)
 			return UI.VStack({
-				UI.Button("More")({ label = "Learn & more", appearance = "link", underline = "hover" }),
-				UI.Button("Always")({ label = "Terms", appearance = "link", underline = "always" }),
+				UI.Button("More")({
+					label = "Learn & more",
+					appearance = "link" :: "link",
+					underline = "hover" :: "hover",
+				}) :: unknown,
+				UI.Button("Always")({
+					label = "Terms",
+					appearance = "link" :: "link",
+					underline = "always" :: "always",
+				}),
 			})
 		end)
 		local more = world.find("More")
@@ -514,12 +529,12 @@ t.describe("native inverse and underlined Buttons", function()
 		t.expect(more.Text).toBe("Learn &amp; more")
 		world.stop()
 		t.expect(function()
-			screen(nil, function(UI)
-				return UI.Button({ label = "Go", icon = "close", underline = "always" })
+			screen(nil, function(UI: FacetControls)
+				return UI.Button({ label = "Go", icon = "close", underline = "always" } :: any)
 			end)
 		end).toThrow("underline belongs to a text button")
 		t.expect(function()
-			screen(nil, function(UI)
+			screen(nil, function(UI: FacetControls)
 				return UI.Button({ label = "Go", underline = "sometimes" :: any })
 			end)
 		end).toThrow("underline must be always or hover")
@@ -528,9 +543,14 @@ t.describe("native inverse and underlined Buttons", function()
 	t.it("textSize reaches the label beside an icon and the plain label, as a role or a number", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI)
+		local world = screen(package, function(UI: FacetControls)
 			return UI.VStack({
-				UI.Button("Browse")({ label = "Browse", icon = "close", textSize = "label", controlSize = "compact" }),
+				UI.Button("Browse")({
+					label = "Browse",
+					icon = "close",
+					textSize = "label",
+					controlSize = "compact" :: "compact",
+				}) :: unknown,
 				UI.Button("Plain")({ label = "Plain", textSize = "label" }),
 				UI.Button("Sized")({ label = "Sized", icon = "close", textSize = 22 }),
 			})
@@ -543,7 +563,7 @@ t.describe("native inverse and underlined Buttons", function()
 		world.stop()
 		stopSheet()
 		t.expect(function()
-			screen(nil, function(UI)
+			screen(nil, function(UI: FacetControls)
 				return UI.Button({ label = "Go", textSize = "huge" })
 			end)
 		end).toThrow("textSize must be a type role")
@@ -554,10 +574,14 @@ t.describe("native xsmall rung", function()
 	t.it(
 		"xsmall is one ladder step below compact unless the theme authors it, and a partial rung is refused",
 		function()
-			local world = screen(nil, function(UI)
+			local world = screen(nil, function(UI: FacetControls)
 				return UI.VStack({
-					UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" }),
-					UI.Chip("TinyChip")({ label = "Tag", selected = Compose.cell(false), controlSize = "xsmall" }),
+					UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" :: "xsmall" }) :: unknown,
+					UI.Chip("TinyChip")({
+						label = "Tag",
+						selected = Compose.cell(false),
+						controlSize = "xsmall" :: "xsmall",
+					}),
 				})
 			end)
 			for _, name in { "Tiny", "TinyChip" } do
@@ -568,13 +592,13 @@ t.describe("native xsmall rung", function()
 			world.stop()
 			local package =
 				assert((withMetrics({ controlSizes = { xsmall = { height = 24, paddingX = 8, iconSize = 12 } } })))
-			local themed = screen(package, function(UI)
-				return UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" })
+			local themed = screen(package, function(UI: FacetControls)
+				return UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" :: "xsmall" })
 			end)
 			t.expect(themed.find("Tiny").Size.Y.Offset).toBe(24)
 			themed.stop()
 			t.expect(function()
-				screen(nil, function(UI)
+				screen(nil, function(UI: FacetControls)
 					return UI.Button({ label = "Go", controlSize = "tiny" :: any })
 				end)
 			end).toThrow("xsmall, compact, regular or large")
@@ -596,16 +620,16 @@ t.describe("native dense pointer rows", function()
 	end)
 
 	local function menu(package: any): (any, () -> { string })
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "S",
 				Size = UDim2.fromOffset(800, 600),
 				UI.Menu("M")({
 					label = "Options",
 					items = {
-						{ id = "a", label = "Alpha", onSelect = function() end },
-						{ id = "b", label = "Beta", onSelect = function() end },
-						{ id = "c", label = "Gamma", onSelect = function() end },
+						{ id = "a", label = "Alpha", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+						{ id = "b", label = "Beta", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+						{ id = "c", label = "Gamma", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 					},
 				}),
 			})
@@ -646,17 +670,17 @@ t.describe("native dense pointer rows", function()
 
 	t.it("a Picker menu's rows take the pointer floor, and touch grows them back", function()
 		local package = assert((withMetrics({ targetSizes = { minimum = 44, pointer = 28 } })))
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "S",
 				Size = UDim2.fromOffset(800, 600),
 				UI.Picker("P")({
-					style = "menu",
+					style = "menu" :: "menu",
 					selected = Compose.cell("normal"),
 					options = {
-						{ value = "slow", label = "Slow" },
-						{ value = "normal", label = "Normal" },
-						{ value = "fast", label = "Fast" },
+						{ value = "slow", label = "Slow" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "normal", label = "Normal" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "fast", label = "Fast" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				}),
 			})
@@ -680,12 +704,12 @@ t.describe("native plain Toggle", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
 		local value = Compose.cell(false)
-		local world = screen(package, function(UI)
+		local world = screen(package, function(UI: FacetControls)
 			return UI.Toggle("Box")({
 				label = "Reduced motion",
-				presentation = "checkbox",
+				presentation = "checkbox" :: "checkbox",
 				appearance = "plain",
-				controlSize = "compact",
+				controlSize = "compact" :: "compact",
 				textSize = "label",
 				value = value,
 			})
@@ -701,10 +725,10 @@ t.describe("native plain Toggle", function()
 		world.stop()
 		stopSheet()
 		t.expect(function()
-			screen(nil, function(UI)
+			screen(nil, function(UI: FacetControls)
 				return UI.Toggle({
 					label = "B",
-					presentation = "button",
+					presentation = "button" :: "button",
 					appearance = "plain",
 					value = Compose.cell(false),
 				})
@@ -715,20 +739,20 @@ end)
 
 t.describe("native outline DisclosureGroup", function()
 	t.it("leads its header with the title, and a trailing chevron sits at the far edge", function()
-		local world = screen(nil, function(UI, Host)
+		local world = screen(nil, function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.DisclosureGroup("Lead")({
 					label = "Inputs",
 					expanded = Compose.cell(false),
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel({ Text = "Button" })
 					end,
-				}),
+				}) :: unknown,
 				UI.DisclosureGroup("Trail")({
 					label = "Inputs",
-					chevronPosition = "trailing",
+					chevronPosition = "trailing" :: "trailing",
 					expanded = Compose.cell(false),
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel({ Text = "Button" })
 					end,
 				}),
@@ -746,11 +770,11 @@ t.describe("native outline DisclosureGroup", function()
 	end)
 
 	t.it("keeps the gap above the body inside the clipped reveal, so a collapse ends without a step", function()
-		local world = screen(nil, function(UI, Host)
+		local world = screen(nil, function(UI: FacetControls, Host: RobloxHost)
 			return UI.DisclosureGroup("G")({
 				label = "Inputs",
 				expanded = Compose.cell(true),
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel({ Name = "Row", Text = "Button" })
 				end,
 			})
@@ -769,14 +793,14 @@ t.describe("native outline DisclosureGroup", function()
 	t.it("an outline group has no expanded wash, a chosen role and an indented body", function()
 		local package = themes.neutralPackage()
 		local sheet, stopSheet = sheetOf(package)
-		local world = screen(package, function(UI, Host)
+		local world = screen(package, function(UI: FacetControls, Host: RobloxHost)
 			return UI.DisclosureGroup("G")({
 				label = "Inputs",
-				appearance = "outline",
-				textSize = "label",
-				indent = "m",
+				appearance = "outline" :: "outline",
+				textSize = "label" :: "label",
+				indent = "m" :: "m",
 				expanded = Compose.cell(true),
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel({ Name = "Row", Text = "Button" })
 				end,
 			})
@@ -794,12 +818,12 @@ t.describe("native outline DisclosureGroup", function()
 		world.stop()
 		stopSheet()
 		t.expect(function()
-			screen(nil, function(UI)
+			screen(nil, function(UI: FacetControls)
 				return UI.DisclosureGroup({
 					label = "X",
 					indent = "huge" :: any,
 					expanded = Compose.cell(false),
-					content = function()
+					content = function(): Instance
 						return nil :: any
 					end,
 				})
@@ -810,26 +834,26 @@ end)
 
 t.describe("native TabView controlSize", function()
 	t.it("each tab paints at the rung height while the strip keeps the touch floor", function()
-		local world = screen(nil, function(UI, Host)
+		local world = screen(nil, function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView("Pages")({
-				placement = "topBar",
-				controlSize = "compact",
+				placement = "topBar" :: "topBar",
+				controlSize = "compact" :: "compact",
 				selection = Compose.cell("a"),
 				tabs = {
 					{
 						id = "a",
 						label = "Alpha",
-						content = function()
+						content = function(): Instance
 							return Host.Frame({ Name = "PA" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "b",
 						label = "Beta",
-						content = function()
+						content = function(): Instance
 							return Host.Frame({ Name = "PB" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -845,13 +869,13 @@ end)
 
 t.describe("native Sheet adaptive placement", function()
 	local function mount(placement: string, width: number, touch: boolean): any
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Sheet("Sheet")({
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("medium"),
 				placement = placement :: any,
 				title = "Inspector",
-				content = function()
+				content = function(): Instance
 					return Host.Frame({ Name = "Copy" })
 				end,
 			})
@@ -889,13 +913,13 @@ t.describe("native start-aligned Picker menu", function()
 	}
 
 	t.it("a start-aligned title sits on one line beside its value, and hug sizing hugs the pair", function()
-		local world = screen(nil, function(UI)
+		local world = screen(nil, function(UI: FacetControls)
 			return UI.Picker("P")({
 				label = "Motion",
-				style = "menu",
-				valueAlignment = "start",
-				sizing = "hug",
-				controlSize = "compact",
+				style = "menu" :: "menu",
+				valueAlignment = "start" :: "start",
+				sizing = "hug" :: "hug",
+				controlSize = "compact" :: "compact",
 				options = OPTIONS,
 				selected = Compose.cell("normal"),
 			})
@@ -914,18 +938,18 @@ t.describe("native start-aligned Picker menu", function()
 	end)
 
 	t.it("under touch the one-line trigger hugs its value, and end keeps the title above the trigger", function()
-		local world = screen(nil, function(UI)
+		local world = screen(nil, function(UI: FacetControls)
 			return UI.VStack({
 				UI.Picker("Start")({
 					label = "Motion",
-					style = "menu",
-					valueAlignment = "start",
+					style = "menu" :: "menu",
+					valueAlignment = "start" :: "start",
 					options = OPTIONS,
 					selected = Compose.cell("normal"),
-				}),
+				}) :: unknown,
 				UI.Picker("End")({
 					label = "Motion",
-					style = "menu",
+					style = "menu" :: "menu",
 					options = OPTIONS,
 					selected = Compose.cell("fast"),
 				}),
@@ -941,10 +965,10 @@ t.describe("native start-aligned Picker menu", function()
 		t.expect(stacked.FillDirection).toBe(Enum.FillDirection.Vertical)
 		world.stop()
 		t.expect(function()
-			screen(nil, function(UI)
+			screen(nil, function(UI: FacetControls)
 				return UI.Picker({
 					label = "M",
-					style = "menu",
+					style = "menu" :: "menu",
 					valueAlignment = "middle" :: any,
 					options = OPTIONS,
 					selected = Compose.cell("slow"),
@@ -956,7 +980,7 @@ end)
 
 local function scenario(name: string): any
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local guiService = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -966,7 +990,7 @@ local function scenario(name: string): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = engine.new("Folder"),
@@ -983,8 +1007,8 @@ local function scenario(name: string): any
 		),
 	}
 	local target = engine.new("ScreenGui")
-	local stop, node = runtime.mount(function()
-		local built = require("../examples/gallery/scenarios/" .. name).build(ctx)
+	local stop, node: any = runtime.mount(function()
+		local built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
 		if built.dispose then
 			Compose.cleanup(built.dispose)
 		end

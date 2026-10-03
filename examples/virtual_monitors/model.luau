@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local catalogModule = require("./catalog")
 local chatModule = require("./chat_model")
 local flapModule = require("./flap_model")
@@ -59,7 +61,7 @@ function model.new(Compose: any)
 		modeChosen = false,
 	}
 	local serial = 0
-	self.flapActive = function(use)
+	self.flapActive = function(use: Use)
 		local mode = use(self.mode)
 		local selected = if mode == "Screen" then use(self.selectedTab) else use(self.focused)
 		local presentation = self.presentations["Flap:" .. mode]
@@ -72,7 +74,7 @@ function model.new(Compose: any)
 			self.flap.flap()
 		end
 	end
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		if not self.flapActive(use) then
 			self.flap.pause()
 		end
@@ -87,13 +89,13 @@ function model.new(Compose: any)
 			self.toasts[app]:set(nil)
 		end
 	end
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		use(self.query)
 		use(self.genre)
 		use(self.sort)
 		self.discoveryScroll:set(0)
 	end)
-	self.visibleGames = Compose.formula(function(use)
+	self.visibleGames = Compose.formula(function(use: Use)
 		local query, genre, order = use(self.query):lower(), use(self.genre), use(self.sort)
 		local hidden, result = use(self.hidden), {}
 		for _, item in use(self.catalog.items) do
@@ -113,7 +115,7 @@ function model.new(Compose: any)
 		end
 		return result
 	end)
-	self.savedGames = Compose.formula(function(use)
+	self.savedGames = Compose.formula(function(use: Use)
 		local saved, byId, result = use(self.saved), {}, {}
 		for _, item in use(self.catalog.items) do
 			byId[item.id] = item
@@ -231,7 +233,7 @@ function model.new(Compose: any)
 	self.focus = function(name)
 		self.focused:set(if self.focused:peek() == name then "Overview" else name)
 	end
-	self.turn = function(direction)
+	self.turn = function(direction: number)
 		self.angle:set((self.angle:peek() + direction * self.turnStep:peek() + 180) % 360 - 180)
 	end
 	self.resetAvatar = function()
@@ -251,7 +253,7 @@ function model.new(Compose: any)
 			then self.selectedTab:peek() == "Chat"
 			else focused == "Chat" or focused == "Overview"
 	end
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		use(self.mode)
 		use(self.focused)
 		use(self.selectedTab)
@@ -260,7 +262,7 @@ function model.new(Compose: any)
 		end
 	end)
 	local answered = self.chat.completed:peek()
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		local completed = use(self.chat.completed)
 		if completed > answered and not chatVisible() then
 			self.chatUnread:set(self.chatUnread:peek() + completed - answered)

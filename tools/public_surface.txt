@@ -309,12 +309,14 @@ type RatingProps
 type Readable
 type RegionProps
 type RowAction
+type RowActionsOptions
 type RowActionsSpec
 type Runtime
 type SafeInsets
 type ScreenProps
 type ScrollOptions
 type ScrollViewProps
+type SheetDetent
 type SheetSpec
 type ShortcutHintProps
 type SkeletonProps

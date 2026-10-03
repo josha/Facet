@@ -72,6 +72,33 @@ return require("./actual")''')
         self.assertEqual(verify.missing_dependencies(path), [])
         self.assertEqual(verify.imports(path), ["./actual", "./actual"])
 
+    def test_typeof_imports_are_erased_but_runtime_imports_stay_checked(self):
+        path = self.write("tests/probe.spec.luau", '\n'.join([
+            'type Props = typeof(require("@repo/missing")("("))',
+            'local value: typeof(require("./missing")) = nil :: any',
+            'local text = "typeof(require(\\\"./missing\\\"))"',
+            'local runtimeKind = typeof(require("./actual"))',
+            'return typeof(require("./actual"))',
+        ]))
+        self.write("tests/actual.luau", "return {}")
+        self.assertEqual(verify.imports(path), ["./actual", "./actual"])
+        self.assertEqual(verify.missing_dependencies(path), [])
+        self.write("tests/probe.spec.luau", 'return require("@repo/missing")')
+        verify.imports.cache_clear()
+        self.assertTrue(verify.missing_dependencies(path))
+
+    def test_typed_require_alias_keeps_dynamic_dependency_checks(self):
+        path = self.write("tests/probe.spec.luau", '\n'.join([
+            'local requireDynamic = require :: (any) -> any',
+            'return requireDynamic("../examples/words/len" .. tostring(5))',
+        ]))
+        self.write("examples/words/len5.luau", "return {}")
+        self.assertEqual(verify.imports(path), ["dynamic:../examples/words/len"])
+        self.assertEqual(verify.missing_dependencies(path), [])
+        self.write("tests/probe.spec.luau", 'local load = require :: (any) -> any; return load("./missing")')
+        verify.imports.cache_clear()
+        self.assertTrue(verify.missing_dependencies(path))
+
     def test_retirement_requires_explicit_mapping_and_uncovered_behavior_stays_red(self):
         self.write("tests/native_control.spec.luau", "return {}")
         self.write("tools/lune/coverage_test.json", json.dumps({

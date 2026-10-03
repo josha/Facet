@@ -1,5 +1,24 @@
 --!strict
-local cases = {}
+type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 local TEXT = "Your selected driver is ready."
 
 local function visible(node: GuiObject, root: Instance): boolean
@@ -99,16 +118,16 @@ table.insert(cases, {
 	contracts = {},
 	run = function(t)
 		local factor, extent, label
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			factor, extent = Compose.cell(0.94), Compose.cell(80)
 			label = UI.Text { text = TEXT, TextSize = 24 }
 			return Host.Frame "Fault" {
 				Size = UDim2.fromOffset(300, 100),
-				Host.UIScale { Scale = factor },
+				Host.UIScale { Scale = factor } :: unknown,
 				label,
 				Host.ScrollingFrame {
 					Size = UDim2.fromOffset(300, 40),
-					CanvasSize = function(use)
+					CanvasSize = function(use: Use)
 						return UDim2.fromOffset(0, use(extent))
 					end,
 					ScrollBarThickness = 12,
@@ -150,7 +169,9 @@ table.insert(cases, {
 	end,
 })
 
-for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet", "CollapsibleView", "Toast" } do
+for _, kind in
+	{ "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet", "CollapsibleView", "Toast" } :: { "Alert" | "Callout" | "CollapsibleView" | "Dialog" | "Help" | "Menu" | "Popover" | "Sheet" | "Toast" }
+do
 	table.insert(cases, {
 		id = string.lower(kind) .. "-entrance-continuity",
 		contracts = {},
@@ -170,9 +191,9 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 							end
 						end
 						local open, trigger
-						local stage = t.mount(function(UI, Host, Compose)
+						local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 							open = Compose.cell(false)
-							local function content()
+							local function content(): Instance
 								return UI.Text "Copy" {
 									text = copy,
 									TextSize = if large then 36 else 24,
@@ -189,7 +210,7 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 								Position = UDim2.fromOffset(40, 100),
 								help = if kind == "Help" then copy else nil,
 							}
-							local overlay
+							local overlay: GuiObject?
 							if kind == "Alert" then
 								overlay = UI.Alert {
 									isPresented = open,
@@ -199,11 +220,11 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 										{
 											id = "Cancel",
 											label = "Cancel",
-											role = "cancel",
+											role = "cancel" :: "cancel",
 											onActivate = function()
 												open:set(false)
 											end,
-										},
+										} :: AlertAction,
 									},
 								}
 							elseif kind == "Dialog" then
@@ -216,11 +237,11 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 										{
 											id = "Cancel",
 											label = "Cancel",
-											role = "cancel",
+											role = "cancel" :: "cancel",
 											onActivate = function()
 												open:set(false)
 											end,
-										},
+										} :: DialogAction,
 									},
 								}
 							elseif kind == "Menu" then
@@ -228,21 +249,23 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 									isPresented = open,
 									label = "Options",
 									Position = UDim2.fromOffset(40, shape.Y - 80),
-									presentation = if shape.X < 600 then "sheet" else "menu",
-									items = { { id = "Start", label = copy, onSelect = function() end } },
+									presentation = if shape.X < 600 then "sheet" :: "sheet" else "menu" :: "menu",
+									items = {
+										{ id = "Start", label = copy, onSelect = function() end } :: MenuItem,
+									},
 								}
 							elseif kind == "Popover" then
 								overlay = UI.Popover {
 									isPresented = open,
 									onPresentedChange = change,
-									trigger = trigger,
+									trigger = trigger :: GuiButton,
 									content = content,
 									maxWidth = 340,
 								}
 							elseif kind == "Callout" then
 								overlay = UI.Callout {
 									isPresented = open,
-									anchor = trigger,
+									anchor = trigger :: GuiObject,
 									content = content,
 									onRetire = function()
 										open:set(false)
@@ -252,7 +275,7 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 								overlay = UI.Sheet {
 									isPresented = open,
 									detent = Compose.cell("hug"),
-									detents = { "hug" },
+									detents = { "hug" } :: { SheetDetent },
 									content = content,
 									title = "Details",
 								}
@@ -269,8 +292,8 @@ for _, kind in { "Alert", "Dialog", "Menu", "Popover", "Callout", "Help", "Sheet
 							return Host.Frame {
 								Size = UDim2.fromScale(1, 1),
 								BackgroundTransparency = 1,
-								overlay or trigger,
-								if kind ~= "Popover" and overlay then trigger else nil,
+								overlay or trigger :: unknown,
+								if kind ~= "Popover" and overlay then trigger else nil :: unknown,
 							}
 						end, {
 							size = shape,

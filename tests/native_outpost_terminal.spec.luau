@@ -1,19 +1,22 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local terminal = require("../examples/gallery/examples/outpost_terminal")
 local scenario = require("../examples/gallery/scenarios/outpost_terminal")
 
-local function mount(module, options, configure)
+local function mount(module: any, options: { [string]: any }?, configure: ((any, engineLib.Engine) -> ())?)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local ctx = {
 		Facet = Facet,
 		Compose = Facet.Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		UI = Facet.controls(runtime, { types = engine.types }),
 		types = engine.types,
 		inputTarget = engine.new("PlayerGui"),
@@ -26,7 +29,7 @@ local function mount(module, options, configure)
 		configure(ctx, engine)
 	end
 	local built
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		built = module.build(ctx, options)
 		return built.screen()
 	end, target)
@@ -38,7 +41,7 @@ end
 
 t.describe("native outpost terminal", function()
 	t.it("keeps draft separate until the matching server verdict and ignores stale replies", function()
-		local envelopes = {}
+		local envelopes: { { [string]: any } } = {}
 		local built, root, stop = mount(terminal, {
 			send = function(envelope)
 				table.insert(envelopes, envelope)
@@ -108,7 +111,8 @@ t.describe("native outpost terminal", function()
 		t.expect(#ctx.inputTarget:GetChildren()).toBe(0)
 	end)
 	t.it("carries native remote verdicts and retires the surface when the console disappears", function()
-		local sent, remote, console, heartbeat = {}, nil, nil, nil
+		local sent: { { [string]: any } } = {}
+		local remote, console, heartbeat = nil, nil, nil
 		local built, _, stop, ctx = mount(scenario, nil, function(context, engine)
 			remote = engine.new("RemoteEvent")
 			remote.OnClientEvent = engine.heartbeat
@@ -133,7 +137,7 @@ t.describe("native outpost terminal", function()
 		end)
 		t.expect(sent[1].kind).toBe("open")
 		remote.OnClientEvent.fire({
-			kind = "session",
+			kind = "session" :: "session",
 			token = "server-session",
 			revision = 1,
 			allocation = terminal.rules.START,
@@ -146,7 +150,7 @@ t.describe("native outpost terminal", function()
 		t.expect(sent[#sent].token).toBe("server-session")
 		t.expect(built.report().terminal.complete).toBe(false)
 		remote.OnClientEvent.fire({
-			kind = "verdict",
+			kind = "verdict" :: "verdict",
 			requestId = request.requestId,
 			ok = true,
 			revision = 2,

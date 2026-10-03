@@ -1,7 +1,21 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -34,11 +48,11 @@ local function paletteOf(package: any, name: string): any
 end
 
 add("skeleton-circle-round-sweep", { "themes-P1-87" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Holder" {
 			Size = UDim2.fromOffset(300, 300),
 			BackgroundTransparency = 1,
-			UI.Skeleton "Circle" { form = "circle" },
+			UI.Skeleton "Circle" { form = "circle" :: "circle" },
 		}
 	end, { size = Vector2.new(400, 400), motionLevel = "normal" })
 	local plate = t.find(stage, "Circle"):FindFirstChild("Placeholder1")
@@ -58,14 +72,14 @@ end)
 
 add("skeleton-band-contained", { "themes-P1-88" }, function(t)
 	local width
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(0.5)
 		return Host.Frame "Offer" {
 			Size = UDim2.fromOffset(500, 200),
 			BackgroundTransparency = 1,
 			UI.Skeleton "A" {
-				form = "box",
-				Size = function(use)
+				form = "box" :: "box",
+				Size = function(use: Use)
 					return UDim2.new(use(width), 0, 0, 0)
 				end,
 			},
@@ -101,12 +115,12 @@ end)
 
 add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
 	for _, align in { "center", "end", "start" } do
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: FacetControls)
 			return UI.VStack "Col" {
-				width = "fill",
-				align = align,
-				UI.Skeleton "One" { form = "line", Size = UDim2.fromOffset(120, 0) },
-				UI.Skeleton "Many" { form = "line", lines = 3, Size = UDim2.fromOffset(120, 0) },
+				width = "fill" :: "fill",
+				align = align :: "center" | "end" | "start" | "stretch",
+				UI.Skeleton "One" { form = "line" :: "line", Size = UDim2.fromOffset(120, 0) } :: unknown,
+				UI.Skeleton "Many" { form = "line" :: "line", lines = 3, Size = UDim2.fromOffset(120, 0) },
 			}
 		end, { size = Vector2.new(500, 400) })
 		local col = t.find(stage, "Col")
@@ -130,11 +144,11 @@ add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
 end)
 
 add("stage-not-selectable", { "themes-P1-105" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Form" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 			Host.Frame "OnlyStage" {
 				Size = UDim2.fromOffset(260, 200),
 				BackgroundTransparency = 1,
@@ -169,14 +183,14 @@ end)
 
 add("stage-panel-paint", { "themes-P1-107" }, function(t)
 	local env
-	local stage = t.mount(function(UI, _, _, e)
+	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
 		return UI.Stage "Scene" {}
 	end, { size = Vector2.new(400, 300) })
 	local scene = t.find(stage, "Scene")
 	local package = env.theme:peek()
 	t.check("the stage carries the panel style tag", scene:HasTag("facet-panel"))
-	local seen = {}
+	local seen: { Color3 } = {}
 	for _, entry in package.style.themes do
 		env.palette:set(entry.name)
 		t.settle(4)
@@ -194,12 +208,12 @@ add("explicit-gradient-wins-across-swap", { "themes-P3-11" }, function(t)
 	local env
 	local viewColor = ColorSequence.new(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255))
 	local viewAlpha = NumberSequence.new(0.1, 0.3)
-	local stage = t.mount(function(UI, Host, _, e)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, _, e)
 		env = e
 		return Host.Frame "Pair" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder },
+			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
 			UI.Stage "Card" {
 				LayoutOrder = 1,
 				Host.UIGradient "ViewGradient" { Color = viewColor, Rotation = 45, Transparency = viewAlpha },
@@ -249,7 +263,7 @@ end)
 
 add("skinned-selection-hugs-art", { "themes-P4-15" }, function(t)
 	local ornate = themeNamed(t, "fantasy_ornate")
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.VStack "Col" {
 			UI.Button "Skinned" { label = "Ornate" },
 		}
@@ -296,8 +310,10 @@ add("skinned-selection-hugs-art", { "themes-P4-15" }, function(t)
 		"selection does not move or resize the hit area",
 		after.x == rect.x and after.y == rect.y and after.w == rect.w and after.h == rect.h
 	)
-	local hits = game:GetService("Players").LocalPlayer.PlayerGui
-		:GetGuiObjectsAtPosition(rect.x + rect.w / 2, rect.y + rect.h / 2)
+	local hits = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):GetGuiObjectsAtPosition(
+		rect.x + rect.w / 2,
+		rect.y + rect.h / 2
+	)
 	local hitButton = false
 	for _, node in hits do
 		if node == button then
@@ -313,7 +329,7 @@ add("selection-corners-follow-control", { "themes-P5-43" }, function(t)
 	local env
 	local neutral = t.themes[1].package
 	local ornate = themeNamed(t, "fantasy_ornate")
-	local stage = t.mount(function(UI, _, _, e)
+	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
 		return UI.VStack "Col" {
 			UI.Button "Target" { label = "Target" },
@@ -336,7 +352,7 @@ add("status-count-authored-height", { "themes-P1-117" }, function(t)
 	for _, cutout in { false, true } do
 		for _, height in { UDim.new(0.5, 0), UDim.new(0, 20), UDim.new(0, 30) } do
 			local label = `{if cutout then "cutout" else "plain"} {height.Scale}+{height.Offset}`
-			local stage = t.mount(function(UI, Host)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame "Offer" {
 					Size = UDim2.fromOffset(100, 100),
 					BackgroundTransparency = 1,
@@ -394,14 +410,18 @@ add("status-round-containment", { "themes-P1-120" }, function(t)
 	for _, cutout in { false, true } do
 		for _, offer in OFFERS do
 			local label = `{if cutout then "cutout" else "plain"} {offer[1]}x{offer[2]}`
-			local stage = t.mount(function(UI, Host)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame "Box" {
 					Size = UDim2.fromOffset(100, 100),
 					BackgroundTransparency = 1,
 					Host.Frame "Offer" {
 						Size = UDim2.fromScale(offer[1] / 100, offer[2] / 100),
 						BackgroundTransparency = 1,
-						UI.StatusIndicator "Mark" { form = "ring", cutout = cutout, Size = UDim2.fromScale(1, 1) },
+						UI.StatusIndicator "Mark" {
+							form = "ring" :: "ring",
+							cutout = cutout,
+							Size = UDim2.fromScale(1, 1),
+						},
 					},
 				}
 			end, { size = Vector2.new(300, 300), frames = 6 })
@@ -416,16 +436,16 @@ add("status-round-containment", { "themes-P1-120" }, function(t)
 		end
 	end
 	local width, height
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width, height = Compose.cell(200), Compose.cell(100)
 		return Host.Frame "Offer" {
-			Size = function(use)
+			Size = function(use: Use)
 				return UDim2.fromOffset(use(width), use(height))
 			end,
 			BackgroundTransparency = 1,
-			UI.StatusIndicator "Dot" { form = "dot", Size = UDim2.fromScale(0.5, 0.5) },
+			UI.StatusIndicator "Dot" { form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) } :: unknown,
 			UI.StatusIndicator "Dash" {
-				form = "dash",
+				form = "dash" :: "dash",
 				Size = UDim2.fromScale(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
 			},
@@ -453,16 +473,23 @@ add("status-cutout-hairline", { "themes-P1-121" }, function(t)
 	local pixel = themeNamed(t, "pixel_quest")
 	local env
 	for _, size in { 8, 10, 11, 13, 16, 40 } do
-		for _, form in { "dot", "ring", "square", "dash" } do
+		for _, form in { "dot", "ring", "square", "dash" } :: { "dash" | "dot" | "ring" | "square" } do
 			local label = `{form} {size}`
-			local stage = t.mount(function(UI, Host, _, e)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, _, e)
 				env = e
 				return Host.Frame "Offer" {
 					Size = UDim2.fromOffset(size * 3, size),
 					BackgroundTransparency = 1,
-					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal },
-					UI.StatusIndicator "Mark" { form = form, diameter = size, cutout = true },
-					UI.StatusIndicator "Bare" { form = form, diameter = size },
+					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal } :: unknown,
+					UI.StatusIndicator "Mark" {
+						form = form :: "dash" | "dot" | "ring" | "square",
+						diameter = size,
+						cutout = true,
+					},
+					UI.StatusIndicator "Bare" {
+						form = form :: "dash" | "dot" | "ring" | "square",
+						diameter = size,
+					},
 				}
 			end, { size = Vector2.new(200, 200), theme = pixel, frames = 6 })
 			local mark = t.find(stage, "Mark")

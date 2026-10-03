@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Paging",
 	results = "Results",
@@ -15,8 +20,8 @@ return {
 	title = "Paging",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY
@@ -33,12 +38,19 @@ return {
 				end
 			end
 		end
-		local function caption(name: string, text, order: number, role: string?)
+		local function caption(
+			name: string,
+			text,
+			order: number,
+			role: (
+				"body" | "caption" | "control" | "heading" | "label" | "numeral" | "strong" | "title"
+			)?
+		)
 			return UI.Text({
 				Name = name,
 				LayoutOrder = order,
 				text = text,
-				textRole = role or "body",
+				textRole = role or "body" :: "body",
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
@@ -54,11 +66,11 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				caption("Title", copy.title, 1, "heading"),
 				UI.Toggle({ Name = "Refuse", LayoutOrder = 2, label = copy.refuse, value = refuse }),
 				caption("ResultsTitle", copy.results, 3, "label"),
-				caption("ResultsContext", function(use)
+				caption("ResultsContext", function(use: Use)
 					local page = use(results)
 					local first = (page - 1) * PER_PAGE + 1
 					return `{copy.showing} {first}–{math.min(TOTAL, page * PER_PAGE)} {copy.of} {TOTAL}`
@@ -72,17 +84,17 @@ return {
 					onChange = accept(results),
 				}),
 				caption("FeedTitle", copy.feed, 6, "label"),
-				caption("FeedContext", function(use)
+				caption("FeedContext", function(use: Use)
 					return `{copy.loaded} {use(feed)}`
 				end, 7),
 				UI.Pagination({
 					Name = "Feed",
 					LayoutOrder = 8,
 					page = feed,
-					hasPrevious = function(use)
+					hasPrevious = function(use: Use)
 						return use(feed) > 1
 					end,
-					hasNext = function(use)
+					hasNext = function(use: Use)
 						return use(feed) < 7
 					end,
 					onChange = accept(feed),
@@ -93,7 +105,7 @@ return {
 					LayoutOrder = 10,
 					page = label,
 					pageCount = 12,
-					form = "label",
+					form = "label" :: "label",
 					onChange = accept(label),
 				}),
 				caption("RtlTitle", copy.rtl, 11, "label"),
@@ -102,7 +114,7 @@ return {
 					LayoutOrder = 12,
 					page = rtl,
 					pageCount = 30,
-					direction = "rtl",
+					direction = "rtl" :: "rtl",
 					onChange = accept(rtl),
 				}),
 			}

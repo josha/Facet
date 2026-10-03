@@ -1,5 +1,14 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type CellFactory = typeof(require("@repo/tools/typecheck/aliases").CellFactory)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type Use = <T>(Readable<T>) -> T
+
 local catalog = {}
 
 catalog.NONE = table.freeze({})
@@ -9,7 +18,8 @@ catalog.DEFAULT = "(default)"
 local DEFAULT = catalog.DEFAULT
 
 local ART = "rbxassetid://75342910516929"
-local ROWS = {
+type Row = { id: string, name: string, laps: number }
+local ROWS: { Row } = {
 	{ id = "1", name = "Coastal Circuit", laps = 3 },
 	{ id = "2", name = "Canyon Run", laps = 5 },
 	{ id = "3", name = "City Loop", laps = 4 },
@@ -18,7 +28,7 @@ local ROWS = {
 	{ id = "6", name = "Desert Dunes", laps = 3 },
 }
 
-local function transferState(c)
+local function transferState(c: any): { [string]: any }
 	local rows = c.cell("transferRows", ROWS)
 	local serial = 0
 	return {
@@ -32,7 +42,7 @@ local function transferState(c)
 			accepts = function(payload)
 				return type(payload) == "table" and payload.items ~= nil
 			end,
-			onDrop = function(payload, info)
+			onDrop = function(payload: any, info: any)
 				local next = table.clone(rows:peek())
 				for index, item in payload.items do
 					serial += 1
@@ -50,8 +60,8 @@ end
 
 local function emptyStatus(c: any): any
 	return c.cell("status", {
-		mode = "windowed",
-		direction = "vertical",
+		mode = "windowed" :: "windowed",
+		direction = "vertical" :: "vertical",
 		total = 0,
 		retained = 0,
 		first = 0,
@@ -133,7 +143,13 @@ local function menuItems(c: any): { any }
 		{ id = "edit", label = "Edit", icon = "edit", onSelect = c.log("onSelect edit") },
 		{ id = "flag", label = "Report", icon = "flag", onSelect = c.log("onSelect flag") },
 		{ id = "d1", divider = true },
-		{ id = "delete", label = "Delete", icon = "trash", role = "destructive", onSelect = c.log("onSelect delete") },
+		{
+			id = "delete",
+			label = "Delete",
+			icon = "trash",
+			role = "destructive" :: "destructive",
+			onSelect = c.log("onSelect delete"),
+		},
 	}
 end
 
@@ -152,7 +168,7 @@ local function trigger(c: any, label: string, overlay: (open: any) -> any): any
 end
 
 local function fieldGroup(UI: any, p: any, c: any, presentation: string): any
-	local items: { any } = { gap = if p.layout == "wrap" then "s" else "xs", wrap = p.layout == "wrap" }
+	local items: { [any]: any } = { gap = if p.layout == "wrap" then "s" else "xs", wrap = p.layout == "wrap" }
 	for i, label in { "Tire wear", "Fuel use", "Damage" } do
 		table.insert(
 			items,
@@ -168,16 +184,35 @@ local function fieldGroup(UI: any, p: any, c: any, presentation: string): any
 			})
 		)
 	end
-	items.width = "fill"
+	items.width = "fill" :: "fill"
 	return UI.VStack({
 		width = 260,
 		gap = "xs",
-		UI.Text({ text = "Show in race", textRole = "label", role = "secondary" }),
-		if p.layout == "wrap" then UI.HStack(items) else UI.VStack(items),
+		UI.Text({ text = "Show in race", textRole = "label" :: "label", role = "secondary" :: "secondary" }) :: unknown,
+		if p.layout == "wrap" then UI.HStack(items) else UI.VStack(items) :: unknown,
 	})
 end
 
-local PAGE_DATA: { [string]: any } = {
+type Context = {
+	Compose: ComposeModule,
+	Host: RobloxHost,
+	logical: Readable<{ width: number, height: number }>,
+	cell: CellFactory,
+	log: (string) -> (...any) -> (),
+	UI: any,
+	[string]: any,
+}
+type Properties = { [any]: any }
+type Axis = { key: string, values: { any }, implies: { [string]: any }?, [string]: any }
+type State = { name: string, props: Properties | ((Context) -> Properties), [string]: any }
+type PageDefinition = {
+	family: string,
+	axes: { Axis }?,
+	states: { State }?,
+	base: ((Context) -> Properties)?,
+	[string]: any,
+}
+local PAGE_DATA: { [string]: PageDefinition } = {
 
 	Button = {
 		family = "actions",
@@ -185,38 +220,38 @@ local PAGE_DATA: { [string]: any } = {
 		purpose = "Starts an action. Appearance sets emphasis; role carries meaning (destructive).",
 		alternatives = "Toggle for an on/off setting; Picker for choosing one value; Menu for many actions.",
 		scenarios = { "action_controls", "shortcut_hint" },
-		snippet = 'UI.Button { label = "Save", appearance = "emphasis", onActivate = save }',
-		base = function(c)
+		snippet = 'UI.Button { label = "Save", appearance = "emphasis" :: string, onActivate = save }',
+		base = function(c: Context)
 			return { label = "Button", onActivate = c.log("onActivate") }
 		end,
 		axes = {
-			{ key = "appearance", values = { "standard", "emphasis", "soft", "utility", "link", "inverse" } },
-			SIZES,
-			CORNERS,
-			{ key = "role", values = { "default", "destructive", "cancel", "onIndicator" } },
+			{ key = "appearance", values = { "standard", "emphasis", "soft", "utility", "link", "inverse" } } :: Axis,
+			SIZES :: Axis,
+			CORNERS :: Axis,
+			{ key = "role", values = { "default", "destructive", "cancel", "onIndicator" } } :: Axis,
 
-			{ key = "shape", values = { DEFAULT, "rect", "circle" }, implies = { circle = { icon = "settings" } } },
+			{ key = "shape", values = { DEFAULT, "rect", "circle" }, implies = { circle = { icon = "settings" } } } :: Axis,
 		},
 		states = {
-			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
-			{ name = "fixed 140×64", props = fixed(140, 64) },
+			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) } :: State,
+			{ name = "fixed 140×64", props = fixed(140, 64) } :: State,
 			{
 				name = "compact label (short room)",
 				props = merged(fixed(110, 44), { label = LONG, compactLabel = "Save" }),
-			},
-			{ name = "image button", props = { image = ART, subtitle = "12 playing", imageAspectRatio = 16 / 9 } },
-			{ name = "image, crop framing", props = { image = ART, imageFraming = "crop", imageAspectRatio = 1 } },
+			} :: State,
+			{ name = "image button", props = { image = ART, subtitle = "12 playing", imageAspectRatio = 16 / 9 } } :: State,
+			{ name = "image, crop framing", props = { image = ART, imageFraming = "crop", imageAspectRatio = 1 } } :: State,
 			{
 				name = "settings row",
 				props = { row = { description = "Shown in the garage", icon = "settings", value = "On" } },
-			},
-			{ name = "hint line", props = { hint = "Saves your setup" } },
-			{ name = "pop on press", props = { pop = true } },
-			{ name = "haptic", props = { haptic = true } },
-			{ name = "hold repeats", props = { repeatDelay = 0.4, repeatInterval = 0.1 } },
-			{ name = "shortcut S", props = { shortcut = { keyCode = "S" } } },
-			{ name = "dialog default (Return)", props = { dialogAction = "default" } },
-			{ name = "help plate", props = { help = "Saves your setup" } },
+			} :: State,
+			{ name = "hint line", props = { hint = "Saves your setup" } } :: State,
+			{ name = "pop on press", props = { pop = true } } :: State,
+			{ name = "haptic", props = { haptic = true } } :: State,
+			{ name = "hold repeats", props = { repeatDelay = 0.4, repeatInterval = 0.1 } } :: State,
+			{ name = "shortcut S", props = { shortcut = { keyCode = "S" } } } :: State,
+			{ name = "dialog default (Return)", props = { dialogAction = "default" } } :: State,
+			{ name = "help plate", props = { help = "Saves your setup" } } :: State,
 			{
 				name = "help: title, shortcut, top edge",
 				props = {
@@ -224,34 +259,37 @@ local PAGE_DATA: { [string]: any } = {
 						title = "Save",
 						body = "Saves your setup",
 						shortcut = { { "Ctrl", "S" } },
-						edge = "top",
-						align = "start",
+						edge = "top" :: "top",
+						align = "start" :: "start",
 					},
 				},
-			},
+			} :: State,
 			{
 				name = "pointer reported",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						onPointerDown = c.log("onPointerDown"),
 						onPointerUp = c.log("onPointerUp"),
 						onPointerCancel = c.log("onPointerCancel"),
 					}
 				end,
-			},
-			{ name = "label text size", props = { textSize = "label" } },
-			{ name = "named icon (circle)", props = { icon = "settings", shape = "circle", name = "Settings" } },
-			DISABLED,
-			{ name = "disabled (alias)", props = { disabled = true } },
-			{ name = "selected", props = { selected = true } },
-			{ name = "busy", props = { busy = true } },
-			{ name = "icon", props = { icon = "settings" } },
-			{ name = "trailing icon", props = { trailingIcon = "chevron.trailing" } },
-			{ name = "underline always", props = { appearance = "link", underline = "always" } },
-			{ name = "underline on hover", props = { appearance = "link", underline = "hover" } },
-			{ name = "long text", props = { label = LONG } },
+			} :: State,
+			{ name = "label text size", props = { textSize = "label" } } :: State,
+			{
+				name = "named icon (circle)",
+				props = { icon = "settings", shape = "circle" :: "circle", name = "Settings" },
+			} :: State,
+			DISABLED :: State,
+			{ name = "disabled (alias)", props = { disabled = true } } :: State,
+			{ name = "selected", props = { selected = true } } :: State,
+			{ name = "busy", props = { busy = true } } :: State,
+			{ name = "icon", props = { icon = "settings" } } :: State,
+			{ name = "trailing icon", props = { trailingIcon = "chevron.trailing" } } :: State,
+			{ name = "underline always", props = { appearance = "link", underline = "always" } } :: State,
+			{ name = "underline on hover", props = { appearance = "link", underline = "hover" } } :: State,
+			{ name = "long text", props = { label = LONG } } :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			local forms = (if p.image then 1 else 0) + (if p.row then 1 else 0)
 			return not (p.shape == "circle" and (p.icon == nil or p.trailingIcon ~= nil or forms > 0))
 				and not (p.underline ~= nil and (p.icon or p.image or p.row or p.shape == "circle" or p.compactLabel))
@@ -266,16 +304,16 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Button when there is one action; Menu when no action is primary.",
 		scenarios = { "action_controls", "menu" },
 		snippet = 'UI.SplitButton { label = "Start", onActivate = start, items = { … } }',
-		base = function(c)
+		base = function(c: Context)
 			return { label = "Start race", onActivate = c.log("onActivate"), items = menuItems(c) }
 		end,
 		axes = {},
 		states = {
-			{ name = "menu label", props = { menuLabel = "More start options" } },
-			{ name = "shortcut R", props = { shortcut = { keyCode = "R" } } },
-			DISABLED,
-			{ name = "busy", props = { busy = true } },
-			{ name = "long text", props = { label = LONG } },
+			{ name = "menu label", props = { menuLabel = "More start options" } } :: State,
+			{ name = "shortcut R", props = { shortcut = { keyCode = "R" } } } :: State,
+			DISABLED :: State,
+			{ name = "busy", props = { busy = true } } :: State,
+			{ name = "long text", props = { label = LONG } } :: State,
 		},
 	},
 	Menu = {
@@ -286,19 +324,19 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Picker (menu) to choose a value; RadialMenu for quick gamepad actions.",
 		scenarios = { "menu" },
 		snippet = 'UI.Menu { label = "More", items = { { id = "edit", label = "Edit", onSelect = edit } } }',
-		base = function(c)
+		base = function(c: Context)
 			return { label = "Actions", items = menuItems(c) }
 		end,
 		axes = {
-			{ key = "edge", values = { "bottom", "top", "leading", "trailing" }, matrix = false },
-			{ key = "align", values = { "start", "center", "end" }, matrix = false },
-			{ key = "presentation", values = { "automatic", "menu", "sheet" }, matrix = false },
+			{ key = "edge", values = { "bottom", "top", "leading", "trailing" }, matrix = false } :: Axis,
+			{ key = "align", values = { "start", "center", "end" }, matrix = false } :: Axis,
+			{ key = "presentation", values = { "automatic", "menu", "sheet" }, matrix = false } :: Axis,
 		},
 		states = {
 			{
 				name = "diagnostics controls",
-				props = function(c)
-					local controls = {}
+				props = function(c: Context)
+					local controls: { [string]: any } = {}
 					return {
 						controls = controls,
 						onOpen = function()
@@ -308,32 +346,35 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "custom trigger",
-				props = function(c)
-					return { label = NONE, trigger = c.UI.Button({ label = "More", icon = "more", shape = "circle" }) }
+				props = function(c: Context)
+					return {
+						label = NONE,
+						trigger = c.UI.Button({ label = "More", icon = "more", shape = "circle" :: "circle" }),
+					}
 				end,
-			},
-			{ name = "disclosure chevron", props = { disclosure = true } },
-			{ name = "opens on activate + secondary only", props = { triggers = { "activate", "secondary" } } },
-			{ name = "sheet back label", props = { presentation = "sheet", backLabel = "Previous" } },
+			} :: State,
+			{ name = "disclosure chevron", props = { disclosure = true } } :: State,
+			{ name = "opens on activate + secondary only", props = { triggers = { "activate", "secondary" } } } :: State,
+			{ name = "sheet back label", props = { presentation = "sheet" :: "sheet", backLabel = "Previous" } } :: State,
 			{
 				name = "open / close reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onOpen = c.log("onOpen"), onClose = c.log("onClose") }
 				end,
-			},
+			} :: State,
 			{
 				name = "controlled open",
-				props = function(c)
+				props = function(c: Context)
 					return { isPresented = c.cell("menuOpen", false) }
 				end,
-			},
-			DISABLED,
+			} :: State,
+			DISABLED :: State,
 			{
 				name = "avatar, badge, meta, sections, disabled row",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						items = {
 							{
@@ -341,68 +382,68 @@ local PAGE_DATA: { [string]: any } = {
 								label = "Ada Quill",
 								avatar = { name = "Ada Quill" },
 								onSelect = c.log("ada"),
-							},
-							{ id = "d1", divider = true },
-							{ id = "inbox", label = "Inbox", icon = "flag", badge = 3, onSelect = c.log("inbox") },
+							} :: Properties,
+							{ id = "d1", divider = true } :: Properties,
+							{ id = "inbox", label = "Inbox", icon = "flag", badge = 3, onSelect = c.log("inbox") } :: Properties,
 							{
 								id = "size",
 								label = "Garage",
 								meta = "12 cars",
 								description = "Your saved builds",
 								onSelect = c.log("garage"),
-							},
+							} :: Properties,
 							{
 								id = "rename",
 								label = "Rename",
 								sectionTitle = "Edit",
 								icon = "edit",
 								onSelect = c.log("rename"),
-							},
+							} :: Properties,
 							{
 								id = "locked",
 								label = "Locked item",
 								icon = "settings",
 								enabled = false,
 								onSelect = c.log("locked"),
-							},
+							} :: Properties,
 						},
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "checked + selected items",
-				props = function(c)
+				props = function(c: Context)
 					local mode = c.cell("menuMode", "rally")
 					return {
 						items = {
-							{ id = "grid", label = "Show grid", checked = c.cell("menuGrid", true) },
-							{ id = "d1", divider = true },
-							{ id = "road", label = "Road", selected = mode, value = "road" },
-							{ id = "rally", label = "Rally", selected = mode, value = "rally" },
+							{ id = "grid", label = "Show grid", checked = c.cell("menuGrid", true) } :: Properties,
+							{ id = "d1", divider = true } :: Properties,
+							{ id = "road", label = "Road", selected = mode, value = "road" } :: Properties,
+							{ id = "rally", label = "Rally", selected = mode, value = "rally" } :: Properties,
 						},
 					}
 				end,
-			},
-			{ name = "width 320", props = { width = 320 } },
-			{ name = "maxHeight 140", props = { maxHeight = 140 } },
+			} :: State,
+			{ name = "width 320", props = { width = 320 } } :: State,
+			{ name = "maxHeight 140", props = { maxHeight = 140 } } :: State,
 			{
 				name = "searchable",
-				props = function(c)
+				props = function(c: Context)
 					return { query = c.cell("menuQuery", "") }
 				end,
-			},
+			} :: State,
 			{
 				name = "submenu + shortcuts",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						items = {
-							{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = c.log("copy") },
-							{ id = "paste", label = "Paste", shortcutLabel = "Ctrl+V", onSelect = c.log("paste") },
-							{ id = "share", label = "Share", children = menuItems(c) },
+							{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = c.log("copy") } :: Properties,
+							{ id = "paste", label = "Paste", shortcutLabel = "Ctrl+V", onSelect = c.log("paste") } :: Properties,
+							{ id = "share", label = "Share", children = menuItems(c) } :: Properties,
 						},
 					}
 				end,
-			},
+			} :: State,
 		},
 	},
 	RadialMenu = {
@@ -415,8 +456,8 @@ local PAGE_DATA: { [string]: any } = {
 		cellWidth = 240,
 		cellHeight = 480,
 		snippet = 'UI.RadialMenu { label = "Quick actions", items = { … } }',
-		base = function(c)
-			local items = {}
+		base = function(c: Context)
+			local items: Properties = {}
 			for _, name in { "settings", "edit", "flag", "trash", "person", "calendar" } do
 				table.insert(items, { id = name, label = name, icon = name, onSelect = c.log(`onSelect {name}`) })
 			end
@@ -434,11 +475,11 @@ local PAGE_DATA: { [string]: any } = {
 			return { label = "Quick actions", icon = "menu", items = items, launcher = true }
 		end,
 
-		make = function(UI, p)
+		make = function(UI: FacetControls, p: Properties): Instance
 			local style = p.labelStyle
 			p.labelStyle = nil
 			if style ~= nil then
-				local items = {}
+				local items: Properties = {}
 				for _, item in p.items do
 					local copy = table.clone(item)
 					copy.labelStyle = style
@@ -446,7 +487,7 @@ local PAGE_DATA: { [string]: any } = {
 				end
 				p.items = items
 			end
-			return UI.RadialMenu(p)
+			return UI.RadialMenu(p :: any)
 		end,
 		demonstrates = { "labelStyle" },
 		axes = {
@@ -454,15 +495,15 @@ local PAGE_DATA: { [string]: any } = {
 				key = "preset",
 				values = { "donut", "top-left", "top-right", "bottom-left", "bottom-right" },
 				matrix = false,
-			},
-			{ key = "appearance", values = { "wedges", "buttons" }, matrix = false },
+			} :: Axis,
+			{ key = "appearance", values = { "wedges", "buttons" }, matrix = false } :: Axis,
 			{
 				key = "distribution",
 				values = { "even", "compass" },
 				matrix = false,
 				implies = {
-					compass = function(c)
-						local items = {}
+					compass = function(c: Context)
+						local items: Properties = {}
 						for i, slot in { "N", "E", "S", "W", "NE", "SW" } do
 							local name = ({ "settings", "edit", "flag", "trash", "person", "calendar" })[i]
 							table.insert(items, {
@@ -476,30 +517,30 @@ local PAGE_DATA: { [string]: any } = {
 						return { items = items }
 					end,
 				},
-			},
-			{ key = "center", values = { "back", "root", "close", "content", "empty" }, matrix = false },
-			{ key = "ringWidth", values = { DEFAULT, "narrow", "regular", "wide" }, matrix = false },
-			{ key = "contentFit", values = { "radial", "both", "angular", "none" }, matrix = false },
-			{ key = "buttonSurface", values = { DEFAULT, "native", "none" }, matrix = false },
-			{ key = "labelStyle", values = { DEFAULT, "text", "icon" }, matrix = false },
-			{ key = "navigation", values = { "replace", "expand" }, matrix = false },
-			{ key = "expansion", values = { "fan", "ring" }, matrix = false },
-			{ key = "completion", values = { "close", "stay", "root", "back" }, matrix = false },
-			{ key = "gestureSelection", values = { "bounded", "direction" }, matrix = false },
-			{ key = "scrim", values = { "dark", "light", "none" }, matrix = false },
-			{ key = "follow", values = { "idle", "always", "fixed" }, matrix = false },
+			} :: Axis,
+			{ key = "center", values = { "back", "root", "close", "content", "empty" }, matrix = false } :: Axis,
+			{ key = "ringWidth", values = { DEFAULT, "narrow", "regular", "wide" }, matrix = false } :: Axis,
+			{ key = "contentFit", values = { "radial", "both", "angular", "none" }, matrix = false } :: Axis,
+			{ key = "buttonSurface", values = { DEFAULT, "native", "none" }, matrix = false } :: Axis,
+			{ key = "labelStyle", values = { DEFAULT, "text", "icon" }, matrix = false } :: Axis,
+			{ key = "navigation", values = { "replace", "expand" }, matrix = false } :: Axis,
+			{ key = "expansion", values = { "fan", "ring" }, matrix = false } :: Axis,
+			{ key = "completion", values = { "close", "stay", "root", "back" }, matrix = false } :: Axis,
+			{ key = "gestureSelection", values = { "bounded", "direction" }, matrix = false } :: Axis,
+			{ key = "scrim", values = { "dark", "light", "none" }, matrix = false } :: Axis,
+			{ key = "follow", values = { "idle", "always", "fixed" }, matrix = false } :: Axis,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return not (p.distribution == "compass" and p.preset ~= nil and p.preset ~= "donut")
 				and not (p.buttonSurface ~= nil and p.appearance ~= "buttons")
 				and not (p.center == "content" and p.centerContent == nil)
 		end,
 		states = {
-			DISABLED,
+			DISABLED :: State,
 			{
 				name = "list form (crowded ring)",
-				props = function(c)
-					local items = {}
+				props = function(c: Context)
+					local items: Properties = {}
 					for i = 1, 20 do
 						table.insert(
 							items,
@@ -508,48 +549,52 @@ local PAGE_DATA: { [string]: any } = {
 					end
 					return { items = items }
 				end,
-			},
-			{ name = "centre label", props = { centerLabel = "Pick one" } },
+			} :: State,
+			{ name = "centre label", props = { centerLabel = "Pick one" } } :: State,
 			{
 				name = "centre content",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						center = "content",
-						centerContent = c.UI.Label({ title = "Kart", icon = "person", presentation = "iconOnly" }),
+						center = "content" :: "content",
+						centerContent = c.UI.Label({
+							title = "Kart",
+							icon = "person",
+							presentation = "iconOnly" :: "iconOnly",
+						}),
 					}
 				end,
-			},
-			{ name = "centre passes presses through", props = { centerPassThrough = true } },
-			{ name = "clearance 40", props = { clearance = 40 } },
-			{ name = "no motion", props = { transition = false } },
+			} :: State,
+			{ name = "centre passes presses through", props = { centerPassThrough = true } } :: State,
+			{ name = "clearance 40", props = { clearance = 40 } } :: State,
+			{ name = "no motion", props = { transition = false } } :: State,
 			{
 				name = "no launcher (controlled)",
-				props = function(c)
+				props = function(c: Context)
 					return { launcher = false, isPresented = c.cell("radialOpen", true) }
 				end,
-			},
+			} :: State,
 			{
 				name = "open / close reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onOpen = c.log("onOpen"), onClose = c.log("onClose") }
 				end,
-			},
+			} :: State,
 			{
 				name = "hold action (InputAction)",
-				props = function(c)
+				props = function(c: Context)
 					local action = c.Host.InputAction({ Name = "LabRadialHold" })
-					c.Host.InputContext({ Name = "LabRadialContext", Parent = workspace, action })
+					c.Host.InputContext({ Name = "LabRadialContext", Parent = workspace :: Instance, action :: unknown })
 					return { holdAction = action }
 				end,
-			},
+			} :: State,
 			{
 				name = "anchored at a point",
 				props = { anchor = { x = 400, y = 300, visible = true } },
-			},
+			} :: State,
 			{
 				name = "skinned slots",
 				props = { skin = { item = { default = ART }, center = { default = ART } } },
-			},
+			} :: State,
 		},
 	},
 	ShortcutHint = {
@@ -562,30 +607,30 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return { keys = { { "Ctrl", "S" } } }
 		end,
-		axes = { SIZES },
+		axes = { SIZES :: Axis },
 		states = {
 			{
 				name = "action (device-adaptive)",
-				props = function(c)
+				props = function(c: Context)
 					local action = c.Host.InputAction({
 						Name = "LabSave",
 						c.Host.InputBinding({ KeyCode = Enum.KeyCode.F2, UIButton = nil }),
 					})
 					return { keys = NONE, action = action }
 				end,
-			},
-			{ name = "alternatives", props = { keys = { { "Ctrl", "S" }, { "F2" } }, separator = " or " } },
-			{ name = "label after", props = { label = "Save" } },
-			{ name = "label before", props = { label = "Save", labelPosition = "start" } },
+			} :: State,
+			{ name = "alternatives", props = { keys = { { "Ctrl", "S" }, { "F2" } }, separator = " or " } } :: State,
+			{ name = "label after", props = { label = "Save" } } :: State,
+			{ name = "label before", props = { label = "Save", labelPosition = "start" } } :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return not (p.action ~= nil and p.keys ~= nil)
 		end,
 	},
 
 	TextInput = {
 		family = "inputs",
-		valid = function(p)
+		valid = function(p: Properties)
 			return not (p.presentation == "number" and p.multiline)
 				and not (p.presentation == "search" and p.leading ~= nil)
 				and not (p.visibleLines ~= nil and not p.multiline)
@@ -597,7 +642,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "NumberInput for numbers; ComboBox to pick-or-type; Picker for a closed list.",
 		scenarios = { "text_controls" },
 		snippet = 'UI.TextInput { label = "Name", value = name, placeholder = "Your name" }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				label = "Label",
 				value = c.cell("value", "Value"),
@@ -606,51 +651,58 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			FIELD_APPEARANCE,
-			SIZES,
-			CORNERS,
+			FIELD_APPEARANCE :: Axis,
+			SIZES :: Axis,
+			CORNERS :: Axis,
 			{
 				key = "presentation",
 				values = { "plain", "search", "number" },
 				implies = {
-					number = function(c)
+					number = function(c: Context)
 						return { value = c.cell("draft", "42"), numericValue = c.cell("number", 42) }
 					end,
 				},
-			},
+			} :: Axis,
 		},
 		states = {
-			DISABLED,
-			{ name = "disabled (alias)", props = { disabled = true } },
-			{ name = "read only", props = { readOnly = true } },
-			{ name = "error", props = { errorText = "That name is taken" } },
+			DISABLED :: State,
+			{ name = "disabled (alias)", props = { disabled = true } } :: State,
+			{ name = "read only", props = { readOnly = true } } :: State,
+			{ name = "error", props = { errorText = "That name is taken" } } :: State,
 			{
 				name = "invalid (readable)",
-				props = function(c)
+				props = function(c: Context)
 					return { invalid = c.cell("invalid", true) }
 				end,
-			},
-			{ name = "hint + required", props = { hint = "Shown to other players", requiredMark = "required" } },
-			{ name = "optional mark", props = { requiredMark = "optional" } },
+			} :: State,
+			{
+				name = "hint + required",
+				props = { hint = "Shown to other players", requiredMark = "required" :: "required" },
+			} :: State,
+			{ name = "optional mark", props = { requiredMark = "optional" :: "optional" } } :: State,
 			{
 				name = "empty",
-				props = function(c)
+				props = function(c: Context)
 					return { value = c.cell("empty", "") }
 				end,
-			},
-			{ name = "clear button", props = { clearButton = true } },
-			{ name = "clear while editing", props = { clearButton = true, clearButtonMode = "whileEditing" } },
+			} :: State,
+			{ name = "clear button", props = { clearButton = true } } :: State,
+			{ name = "clear while editing", props = { clearButton = true, clearButtonMode = "whileEditing" } } :: State,
 			{
 				name = "leading + trailing",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						leading = c.UI.Label({ title = "Name", icon = "person", presentation = "iconOnly" }),
-						trailing = c.UI.Text({ text = "kg", role = "secondary" }),
+						leading = c.UI.Label({
+							title = "Name",
+							icon = "person",
+							presentation = "iconOnly" :: "iconOnly",
+						}),
+						trailing = c.UI.Text({ text = "kg", role = "secondary" :: "secondary" }),
 					}
 				end,
-			},
-			{ name = "select all on focus", props = { selectOnFocus = "all" } },
-			{ name = "max 10 characters", props = { maxLength = 10 } },
+			} :: State,
+			{ name = "select all on focus", props = { selectOnFocus = "all" } } :: State,
+			{ name = "max 10 characters", props = { maxLength = 10 } } :: State,
 			{
 				name = "validate: letters only",
 				props = {
@@ -658,19 +710,19 @@ local PAGE_DATA: { [string]: any } = {
 						return if string.find(text, "%d") then nil else text
 					end,
 				},
-			},
+			} :: State,
 			{
 				name = "change, commit, cancel reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onChange = c.log("onChange"), onCommit = c.log("onCommit"), onCancel = c.log("onCancel") }
 				end,
-			},
-			{ name = "multiline, 3 lines", props = { multiline = true, visibleLines = 3 } },
+			} :: State,
+			{ name = "multiline, 3 lines", props = { multiline = true, visibleLines = 3 } } :: State,
 			{
 				name = "number bounds + format",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						presentation = "number",
+						presentation = "number" :: "number",
 						value = c.cell("bounded", "5"),
 						numericValue = c.cell("boundedNumber", 5),
 						min = 0,
@@ -681,13 +733,13 @@ local PAGE_DATA: { [string]: any } = {
 						parse = tonumber,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "long text",
-				props = function(c)
+				props = function(c: Context)
 					return { value = c.cell("long", LONG), label = LONG }
 				end,
-			},
+			} :: State,
 		},
 	},
 	NumberInput = {
@@ -698,7 +750,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Stepper for small integer ranges; Slider for approximate values.",
 		scenarios = { "text_controls" },
 		snippet = "UI.NumberInput { value = draft, numericValue = speed, min = 0, max = 300, step = 5 }",
-		base = function(c)
+		base = function(c: Context)
 			return {
 				label = "Speed",
 				value = c.cell("draft", "120"),
@@ -709,27 +761,27 @@ local PAGE_DATA: { [string]: any } = {
 				Size = UDim2.fromScale(1, 0),
 			}
 		end,
-		axes = { FIELD_APPEARANCE, SIZES },
+		axes = { FIELD_APPEARANCE :: Axis, SIZES :: Axis },
 		states = {
-			DISABLED,
-			{ name = "step buttons", props = { stepButtons = true } },
-			{ name = "prefix/suffix", props = { prefix = "$", suffix = "km/h" } },
-			{ name = "error", props = { errorText = "Out of range" } },
-			{ name = "scrub (drag)", props = { scrub = true } },
-			{ name = "precision 2", props = { precision = 2, step = 0.25 } },
+			DISABLED :: State,
+			{ name = "step buttons", props = { stepButtons = true } } :: State,
+			{ name = "prefix/suffix", props = { prefix = "$", suffix = "km/h" } } :: State,
+			{ name = "error", props = { errorText = "Out of range" } } :: State,
+			{ name = "scrub (drag)", props = { scrub = true } } :: State,
+			{ name = "precision 2", props = { precision = 2, step = 0.25 } } :: State,
 			{
 				name = "arithmetic parse (Facet.recipes)",
-				props = function(c)
+				props = function(c: Context)
 					return { parse = c.Facet.recipes.arithmetic.parse, hint = "Try 2*60+5" }
 				end,
-			},
+			} :: State,
 			{
 				name = "commit reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onCommit = c.log("onCommit") }
 				end,
-			},
-			{ name = "select all on focus", props = { selectOnFocus = "all" } },
+			} :: State,
+			{ name = "select all on focus", props = { selectOnFocus = "all" } } :: State,
 		},
 	},
 	ComboBox = {
@@ -740,14 +792,14 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Picker (menu) when typing is not allowed.",
 		scenarios = { "selection_controls" },
 		snippet = "UI.ComboBox { value = id, text = text, options = { … }, acceptCustom = validate }",
-		base = function(c)
+		base = function(c: Context)
 			return {
 				value = c.cell("value", "road"),
 				text = c.cell("text", "Road"),
 				options = {
-					{ value = "road", label = "Road" },
-					{ value = "rally", label = "Rally" },
-					{ value = "kart", label = "Kart" },
+					{ value = "road", label = "Road" } :: Properties,
+					{ value = "rally", label = "Rally" } :: Properties,
+					{ value = "kart", label = "Kart" } :: Properties,
 				},
 				acceptCustom = function(text: string)
 					return #text >= 3, "Use at least 3 characters."
@@ -758,13 +810,13 @@ local PAGE_DATA: { [string]: any } = {
 		end,
 		axes = {},
 		states = {
-			DISABLED,
+			DISABLED :: State,
 			{
 				name = "change reported, commit on focus lost",
-				props = function(c)
+				props = function(c: Context)
 					return { onChange = c.log("onChange"), commitOnFocusLost = true }
 				end,
-			},
+			} :: State,
 		},
 	},
 	Slider = {
@@ -775,12 +827,12 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Stepper or NumberInput when exact values matter.",
 		scenarios = { "adaptive_controls" },
 		snippet = 'UI.Slider { label = "Volume", value = volume, min = 0, max = 100 }',
-		base = function(c)
+		base = function(c: Context)
 			return { label = "Volume", value = c.cell("value", 40), min = 0, max = 100, Size = UDim2.fromScale(1, 0) }
 		end,
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if (p.rotation or 0) % 180 == 0 then
-				return UI.Slider(p)
+				return UI.Slider(p :: any)
 			end
 			p.AnchorPoint = Vector2.new(0.5, 0.5)
 			p.Position = UDim2.fromScale(0.5, 0.5)
@@ -788,25 +840,25 @@ local PAGE_DATA: { [string]: any } = {
 				Name = "RotationStage",
 				Size = UDim2.fromScale(1, 0),
 				BackgroundTransparency = 1,
-				UI.Slider(p),
+				UI.Slider(p :: any),
 			})
 			local area = UI.environment(stage)
 			c.app.runtime.decorate(stage, {
-				Size = function(use)
+				Size = function(use: Use)
 					return UDim2.new(1, 0, 0, math.max(use(area.viewportSize).X, 240) + 64)
 				end,
 			})
 			return stage
 		end,
 		axes = {
-			SIZES,
-			{ key = "thumb", values = { "always", "auto", "none" } },
+			SIZES :: Axis,
+			{ key = "thumb", values = { "always", "auto", "none" } } :: Axis,
 
-			{ key = "contained", values = { false, true } },
-			{ key = "rotation", values = { 0, 15, 45, 90 } },
+			{ key = "contained", values = { false, true } } :: Axis,
+			{ key = "rotation", values = { 0, 15, 45, 90 } } :: Axis,
 		},
 		states = {
-			{ name = "settings row", props = { row = { description = "Master volume", icon = "settings" } } },
+			{ name = "settings row", props = { row = { description = "Master volume", icon = "settings" } } } :: State,
 			{
 				name = "percent format",
 				props = {
@@ -814,36 +866,36 @@ local PAGE_DATA: { [string]: any } = {
 						return `{math.round(v)}%`
 					end,
 				},
-			},
-			{ name = "no tap-to-position", props = { tapToPosition = false } },
+			} :: State,
+			{ name = "no tap-to-position", props = { tapToPosition = false } } :: State,
 			{
 				name = "change and commit reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onChange = c.log("onChange"), onCommit = c.log("onCommit") }
 				end,
-			},
+			} :: State,
 			{
 				name = "range, min gap 20",
-				props = function(c)
+				props = function(c: Context)
 					return { range = true, minGap = 20, value = c.cell("gapRange", { lower = 20, upper = 70 }) }
 				end,
-			},
-			{ name = "image knob and track", props = { thumbImage = ART, trackImage = ART } },
-			DISABLED,
-			{ name = "stepped", props = { step = 10 } },
+			} :: State,
+			{ name = "image knob and track", props = { thumbImage = ART, trackImage = ART } } :: State,
+			DISABLED :: State,
+			{ name = "stepped", props = { step = 10 } } :: State,
 			{
 				name = "custom knob",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						thumbContent = function()
 							return c.UI.Badge({ label = "♦", appearance = "status", status = "accent" })
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "colour track",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						trackContent = function()
 							return c.Host.Frame({
@@ -861,16 +913,16 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "range",
-				props = function(c)
+				props = function(c: Context)
 					return { range = true, value = c.cell("range", { lower = 20, upper = 70 }) }
 				end,
-			},
-			{ name = "vertical", props = { axis = "y", Size = UDim2.fromOffset(80, 200) } },
+			} :: State,
+			{ name = "vertical", props = { axis = "y" :: "y", Size = UDim2.fromOffset(80, 200) } } :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return not (p.thumbContent and p.thumbImage)
 				and not (p.trackContent and p.trackImage)
 				and not (p.axis == "y" and p.row ~= nil)
@@ -884,16 +936,16 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "NumberInput for typed values; StepIndicator for workflow steps (different control).",
 		scenarios = { "adaptive_controls", "level_picker" },
 		snippet = 'UI.Stepper { label = "Laps", value = laps, min = 1, max = 10 }',
-		base = function(c)
+		base = function(c: Context)
 			return { label = "Laps", value = c.cell("value", 3), min = 1, max = 10 }
 		end,
 		axes = {},
 		states = {
-			{ name = "step 2", props = { step = 2 } },
-			{ name = "slow repeat (1 s, then 0.5 s)", props = { repeatDelay = 1, repeatInterval = 0.5 } },
+			{ name = "step 2", props = { step = 2 } } :: State,
+			{ name = "slow repeat (1 s, then 0.5 s)", props = { repeatDelay = 1, repeatInterval = 0.5 } } :: State,
 			{
 				name = "format + change reported",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						format = function(v)
 							return `{v} laps`
@@ -904,14 +956,14 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			DISABLED,
+			} :: State,
+			DISABLED :: State,
 			{
 				name = "at minimum",
-				props = function(c)
+				props = function(c: Context)
 					return { value = c.cell("min", 1) }
 				end,
-			},
+			} :: State,
 		},
 	},
 	ColorPicker = {
@@ -922,7 +974,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "A Picker of named swatches for a small palette.",
 		scenarios = { "pickers" },
 		snippet = 'UI.ColorPicker { label = "Accent", value = color, onChange = function(v) color:set(v) end }',
-		base = function(c)
+		base = function(c: Context)
 			local value = c.cell("color", Color3.fromRGB(60, 94, 246))
 			return {
 				label = "Accent",
@@ -934,41 +986,45 @@ local PAGE_DATA: { [string]: any } = {
 				Size = UDim2.fromScale(1, 0),
 			}
 		end,
-		axes = { FIELD_APPEARANCE, SIZES, { key = "style", values = { "automatic", "inline" } } },
+		axes = {
+			FIELD_APPEARANCE :: Axis,
+			SIZES :: Axis,
+			{ key = "style", values = { "automatic", "inline" } } :: Axis,
+		},
 		states = {
 			{
 				name = "label, hint, required",
-				props = { label = "Team colour", hint = "Shown on your kart", requiredMark = "required" },
-			},
+				props = { label = "Team colour", hint = "Shown on your kart", requiredMark = "required" :: "required" },
+			} :: State,
 			{
 				name = "empty with placeholder",
-				props = function(c)
+				props = function(c: Context)
 					return { allowEmpty = true, placeholder = "No colour", value = c.cell("emptyColor", nil) }
 				end,
-			},
-			{ name = "square corners", props = { corners = "square" } },
+			} :: State,
+			{ name = "square corners", props = { corners = "square" :: "square" } } :: State,
 			{
 				name = "saved swatches",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						swatches = {
-							Color3.fromRGB(220, 60, 60),
+							Color3.fromRGB(220, 60, 60) :: Color3 | { color: Color3, label: string },
 							{ color = Color3.fromRGB(60, 160, 90), label = "Pit green" },
 						},
 						onSaveSwatch = c.log("onSaveSwatch"),
 						onRemoveSwatch = c.log("onRemoveSwatch"),
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "commit reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onCommit = c.log("onCommit") }
 				end,
-			},
+			} :: State,
 			{
 				name = "presented by the caller",
-				props = function(c)
+				props = function(c: Context)
 					local open = c.cell("pickerOpen", false)
 					return {
 						isPresented = open,
@@ -978,15 +1034,15 @@ local PAGE_DATA: { [string]: any } = {
 						onDismiss = c.log("onDismiss"),
 					}
 				end,
-			},
-			DISABLED,
-			{ name = "read only", props = { readOnly = true } },
-			{ name = "error", props = { errorText = "Too dark" } },
-			{ name = "draft (Cancel / Apply)", props = { draft = true } },
-			{ name = "brick colours", props = { modes = { "swatches", "brick" } } },
+			} :: State,
+			DISABLED :: State,
+			{ name = "read only", props = { readOnly = true } } :: State,
+			{ name = "error", props = { errorText = "Too dark" } } :: State,
+			{ name = "draft (Cancel / Apply)", props = { draft = true } } :: State,
+			{ name = "brick colours", props = { modes = { "swatches", "brick" } } } :: State,
 			{
 				name = "alpha",
-				props = function(c)
+				props = function(c: Context)
 					local alpha = c.cell("alpha", 0.8)
 					return {
 						alpha = alpha,
@@ -996,12 +1052,12 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 		},
 	},
 	DateTimePicker = {
 		family = "inputs",
-		valid = function(p)
+		valid = function(p: Properties)
 			return not (p.selection == "range" and p.time)
 		end,
 		cellWidth = 320,
@@ -1010,7 +1066,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "A Picker of preset dates when only a few days apply.",
 		scenarios = { "pickers" },
 		snippet = 'UI.DateTimePicker { label = "Race day", value = day, onChange = function(v) day:set(v) end }',
-		base = function(c)
+		base = function(c: Context)
 			local value = c.cell("date", { year = 2026, month = 9, day = 24 })
 			return {
 				label = "Race day",
@@ -1025,19 +1081,23 @@ local PAGE_DATA: { [string]: any } = {
 				Size = UDim2.fromScale(1, 0),
 			}
 		end,
-		axes = { FIELD_APPEARANCE, SIZES, { key = "style", values = { "automatic", "inline" } } },
+		axes = {
+			FIELD_APPEARANCE :: Axis,
+			SIZES :: Axis,
+			{ key = "style", values = { "automatic", "inline" } } :: Axis,
+		},
 		states = {
-			{ name = "day-first locale", props = { locale = { order = "dmy", separator = "." } } },
+			{ name = "day-first locale", props = { locale = { order = "dmy", separator = "." } } } :: State,
 			{
 				name = "commit reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onCommit = c.log("onCommit") }
 				end,
-			},
-			{ name = "24-hour time", props = { time = true, hourCycle = 24 } },
+			} :: State,
+			{ name = "24-hour time", props = { time = true, hourCycle = 24 } } :: State,
 			{
 				name = "weekends disabled",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						isDateDisabled = function(d)
 							local weekday = c.Facet.civilDate.weekday(d)
@@ -1045,8 +1105,8 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			{ name = "week starts Monday", props = { weekStart = 2 } },
+			} :: State,
+			{ name = "week starts Monday", props = { weekStart = 2 } } :: State,
 			{
 				name = "custom field format",
 				props = {
@@ -1054,10 +1114,10 @@ local PAGE_DATA: { [string]: any } = {
 						return `{d.day}/{d.month}/{d.year}`
 					end,
 				},
-			},
+			} :: State,
 			{
 				name = "presented by the caller",
-				props = function(c)
+				props = function(c: Context)
 					local open = c.cell("dateOpen", false)
 					return {
 						isPresented = open,
@@ -1067,14 +1127,14 @@ local PAGE_DATA: { [string]: any } = {
 						onDismiss = c.log("onDismiss"),
 					}
 				end,
-			},
-			{ name = "read only", props = { readOnly = true } },
-			{ name = "hint + required", props = { hint = "Pick a race day", requiredMark = "required" } },
-			{ name = "square corners", props = { corners = "square" } },
-			DISABLED,
+			} :: State,
+			{ name = "read only", props = { readOnly = true } } :: State,
+			{ name = "hint + required", props = { hint = "Pick a race day", requiredMark = "required" :: "required" } } :: State,
+			{ name = "square corners", props = { corners = "square" :: "square" } } :: State,
+			DISABLED :: State,
 			{
 				name = "time, 15-minute grid",
-				props = function(c)
+				props = function(c: Context)
 					local v = c.cell("datetime", { year = 2026, month = 9, day = 24, hour = 14, minute = 30 })
 					return {
 						time = true,
@@ -1085,31 +1145,31 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			{ name = "error", props = { errorText = "Pick a weekday" } },
+			} :: State,
+			{ name = "error", props = { errorText = "Pick a weekday" } } :: State,
 			{
 				name = "empty",
-				props = function(c)
+				props = function(c: Context)
 					return { value = c.cell("none", nil), placeholder = "No date" }
 				end,
-			},
+			} :: State,
 			{
 				name = "min/max (Sep 10–30)",
 				props = { min = { year = 2026, month = 9, day = 10 }, max = { year = 2026, month = 9, day = 30 } },
-			},
+			} :: State,
 			{
 				name = "empty, opens on March",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						value = c.cell("noneRef", nil),
 						placeholder = "No date",
 						referenceDate = { year = 2027, month = 3, day = 1 },
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "range presets + draft",
-				props = function(c)
+				props = function(c: Context)
 					local range = c.cell("presetRange", {
 						start = { year = 2026, month = 9, day = 20 },
 						finish = { year = 2026, month = 9, day = 27 },
@@ -1135,10 +1195,10 @@ local PAGE_DATA: { [string]: any } = {
 						onRangeCommit = c.log("onRangeCommit"),
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "range",
-				props = function(c)
+				props = function(c: Context)
 					local range = c.cell("range", {
 						start = { year = 2026, month = 9, day = 20 },
 						finish = { year = 2026, month = 9, day = 27 },
@@ -1154,7 +1214,7 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 		},
 	},
 
@@ -1168,25 +1228,25 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Button for a one-shot action; Picker for exclusive choices.",
 		scenarios = { "selection_controls" },
 		snippet = 'UI.Toggle { label = "Music", value = music }',
-		base = function(c)
+		base = function(c: Context)
 			return { label = "Label", value = c.cell("value", true) }
 		end,
 		axes = {
-			{ key = "presentation", values = { "switch", "checkbox", "button" } },
-			{ key = "controlSize", values = SIZES.values },
-			{ key = "indicatorPosition", values = { DEFAULT, "leading", "trailing" } },
-			{ key = "appearance", values = { DEFAULT, "plain" } },
+			{ key = "presentation", values = { "switch", "checkbox", "button" } } :: Axis,
+			{ key = "controlSize", values = SIZES.values } :: Axis,
+			{ key = "indicatorPosition", values = { DEFAULT, "leading", "trailing" } } :: Axis,
+			{ key = "appearance", values = { DEFAULT, "plain" } } :: Axis,
 		},
 		states = {
 			{
 				name = "fixed width 220",
 				props = { Size = UDim2.fromOffset(220, 0), AutomaticSize = Enum.AutomaticSize.Y },
-			},
-			{ name = "settings row", props = { row = { description = "Plays in menus", icon = "settings" } } },
-			{ name = "label text size", props = { textSize = "label" } },
+			} :: State,
+			{ name = "settings row", props = { row = { description = "Plays in menus", icon = "settings" } } } :: State,
+			{ name = "label text size", props = { textSize = "label" } } :: State,
 			{
 				name = "change reported",
-				props = function(c)
+				props = function(c: Context)
 					local value = c.cell("value", true)
 					return {
 						onChange = function(v)
@@ -1195,27 +1255,29 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			DISABLED,
+			} :: State,
+			DISABLED :: State,
 			{
 				name = "off",
-				props = function(c)
+				props = function(c: Context)
 					return { value = c.cell("off", false) }
 				end,
-			},
+			} :: State,
 			{
 				name = "mixed",
-				props = function(c)
-					return { presentation = "checkbox", mixed = c.cell("mixed", true) }
+				props = function(c: Context)
+					return { presentation = "checkbox" :: "checkbox", mixed = c.cell("mixed", true) }
 				end,
-			},
-			{ name = "hint", props = { hint = "Hint text" } },
-			{ name = "icon", props = { icon = "settings" } },
-			{ name = "long text", props = { label = LONG, Size = UDim2.fromScale(1, 0) } },
+			} :: State,
+			{ name = "hint", props = { hint = "Hint text" } } :: State,
+			{ name = "icon", props = { icon = "settings" } } :: State,
+			{ name = "long text", props = { label = LONG, Size = UDim2.fromScale(1, 0) } } :: State,
 		},
-		valid = function(p)
-			local shape = p.presentation or "switch"
-			return (p.mixed == nil or shape == "checkbox") and not (shape == "button" and p.appearance == "plain")
+		valid = function(p: Properties)
+			local shape: string = p.presentation or "switch"
+			local mixed = p.mixed == nil or shape == "checkbox"
+			local plainButton = shape == "button" and p.appearance == "plain"
+			return mixed and not plainButton
 		end,
 	},
 	Chip = {
@@ -1226,14 +1288,14 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Toggle for a labelled setting; Badge for read-only status.",
 		scenarios = { "selection_controls", "action_controls" },
 		snippet = 'UI.Chip { label = "Rally", selected = rally }',
-		base = function(c)
+		base = function(c: Context)
 			return { label = "Chip", selected = c.cell("selected", false) }
 		end,
-		axes = { { key = "appearance", values = { "standard", "utility" } }, SIZES, CORNERS },
+		axes = { { key = "appearance", values = { "standard", "utility" } } :: Axis, SIZES :: Axis, CORNERS :: Axis },
 		states = {
 			{
 				name = "toggle reported",
-				props = function(c)
+				props = function(c: Context)
 					local selected = c.cell("selected", false)
 					return {
 						onToggle = function(v)
@@ -1242,32 +1304,40 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			DISABLED,
+			} :: State,
+			DISABLED :: State,
 			{
 				name = "selected",
-				props = function(c)
+				props = function(c: Context)
 					return { selected = c.cell("on", true) }
 				end,
-			},
+			} :: State,
 			{
 				name = "leading + trailing",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						leading = c.UI.Label({ title = "Rally", icon = "flag", presentation = "iconOnly" }),
-						trailing = c.UI.Label({ title = "More", icon = "chevron.trailing", presentation = "iconOnly" }),
+						leading = c.UI.Label({
+							title = "Rally",
+							icon = "flag",
+							presentation = "iconOnly" :: "iconOnly",
+						}),
+						trailing = c.UI.Label({
+							title = "More",
+							icon = "chevron.trailing",
+							presentation = "iconOnly" :: "iconOnly",
+						}),
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "removable (always editing)",
-				props = function(c)
+				props = function(c: Context)
 					return { selected = NONE, onRemove = c.log("onRemove") }
 				end,
-			},
+			} :: State,
 			{
 				name = "selectable + removable in edit mode",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						onRemove = c.log("onRemove"),
 						editing = c.cell("editing", true),
@@ -1275,8 +1345,8 @@ local PAGE_DATA: { [string]: any } = {
 						removeFocusFallback = c.cell("fallback", nil),
 					}
 				end,
-			},
-			{ name = "long text", props = { label = LONG } },
+			} :: State,
+			{ name = "long text", props = { label = LONG } } :: State,
 		},
 	},
 	Picker = {
@@ -1287,14 +1357,14 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "ComboBox when typing is allowed; TabView for destination pages.",
 		scenarios = { "selection_controls", "pickers" },
 		snippet = 'UI.Picker { label = "Mode", selected = mode, style = "segmented", options = { … } }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				label = "Mode",
 				selected = c.cell("selected", "rally"),
 				options = {
-					{ value = "road", label = "Road" },
-					{ value = "rally", label = "Rally" },
-					{ value = "drift", label = "Drift" },
+					{ value = "road", label = "Road" } :: Properties,
+					{ value = "rally", label = "Rally" } :: Properties,
+					{ value = "drift", label = "Drift" } :: Properties,
 				},
 			}
 		end,
@@ -1302,16 +1372,19 @@ local PAGE_DATA: { [string]: any } = {
 			{
 				key = "style",
 				values = { "automatic", "segmented", "radioGroup", "menu", "inline", "navigationLink", "cards" },
-			},
-			{ key = "controlSize", values = SIZES.values, props = { style = "segmented" } },
+			} :: Axis,
+			{ key = "controlSize", values = SIZES.values, props = { style = "segmented" :: "segmented" } } :: Axis,
 			{
 				key = "appearance",
 				values = { DEFAULT, "standard", "contrast", "utility", "filled", "stroke" },
-				implies = { filled = { style = "segmented" }, stroke = { style = "segmented" } },
-			},
+				implies = {
+					filled = { style = "segmented" :: "segmented" },
+					stroke = { style = "segmented" :: "segmented" },
+				},
+			} :: Axis,
 		},
-		valid = function(p)
-			local style, word = p.style or "automatic", p.appearance
+		valid = function(p: Properties)
+			local style: string, word = p.style or "automatic", p.appearance
 			if p.iconOnly then
 				for _, option in p.options or {} do
 					if option.icon == nil then
@@ -1322,12 +1395,14 @@ local PAGE_DATA: { [string]: any } = {
 					return false
 				end
 			end
-			if
-				(p.maxHeight ~= nil and style ~= "menu" and style ~= "navigationLink" and style ~= "automatic")
-				or (p.required == false and style ~= "cards")
-				or (p.indicatorPosition ~= nil and style ~= "radioGroup")
-				or (p.valueAlignment ~= nil and style ~= "menu")
-			then
+			local badHeight = p.maxHeight ~= nil
+				and style ~= "menu"
+				and style ~= "navigationLink"
+				and style ~= "automatic"
+			local badRequired = p.required == false and style ~= "cards"
+			local badIndicator = p.indicatorPosition ~= nil and style ~= "radioGroup"
+			local badAlignment = p.valueAlignment ~= nil and style ~= "menu"
+			if badHeight or badRequired or badIndicator or badAlignment then
 				return false
 			end
 			if word == nil then
@@ -1342,7 +1417,7 @@ local PAGE_DATA: { [string]: any } = {
 		states = {
 			{
 				name = "change vetoed (Drift)",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						onChanging = function(new, old)
 							c.log("onChanging")(new, old)
@@ -1351,44 +1426,44 @@ local PAGE_DATA: { [string]: any } = {
 						onChange = c.log("onChange"),
 					}
 				end,
-			},
-			{ name = "menu value at start", props = { style = "menu", valueAlignment = "start" } },
+			} :: State,
+			{ name = "menu value at start", props = { style = "menu" :: "menu", valueAlignment = "start" :: "start" } } :: State,
 			{
 				name = "searchable",
-				props = function(c)
+				props = function(c: Context)
 					return { query = c.cell("pickerQuery", "") }
 				end,
-			},
+			} :: State,
 			{
 				name = "menu placeholder",
-				props = function(c)
-					return { style = "menu", placeholder = "Choose a mode", selected = c.cell("none", nil) }
+				props = function(c: Context)
+					return { style = "menu" :: "menu", placeholder = "Choose a mode", selected = c.cell("none", nil) }
 				end,
-			},
-			{ name = "text size 13", props = { textSize = 13 } },
-			{ name = "required mark", props = { requiredMark = "required" } },
-			{ name = "pill corners", props = { style = "segmented", corners = "pill" } },
-			DISABLED,
-			{ name = "error", props = { errorText = "Pick a mode" } },
-			{ name = "hint", props = { hint = "You can change this later" } },
-			{ name = "menu sizes", props = { style = "menu" }, across = "controlSize", matrixOnly = true },
-			{ name = "underline indicator", props = { indicator = "underline" } },
+			} :: State,
+			{ name = "text size 13", props = { textSize = 13 } } :: State,
+			{ name = "required mark", props = { requiredMark = "required" :: "required" } } :: State,
+			{ name = "pill corners", props = { style = "segmented" :: "segmented", corners = "pill" :: "pill" } } :: State,
+			DISABLED :: State,
+			{ name = "error", props = { errorText = "Pick a mode" } } :: State,
+			{ name = "hint", props = { hint = "You can change this later" } } :: State,
+			{ name = "menu sizes", props = { style = "menu" :: "menu" }, across = "controlSize", matrixOnly = true } :: State,
+			{ name = "underline indicator", props = { indicator = "underline" :: "underline" } } :: State,
 			{
 				name = "multiple",
-				props = function(c)
+				props = function(c: Context)
 					return { multiple = true, selected = c.cell("many", { road = true, drift = true }) }
 				end,
-			},
+			} :: State,
 			{
 				name = "controlled open",
-				props = function(c)
-					return { style = "menu", isPresented = c.cell("pickerOpen", false) }
+				props = function(c: Context)
+					return { style = "menu" :: "menu", isPresented = c.cell("pickerOpen", false) }
 				end,
-			},
+			} :: State,
 			{
 				name = "menu: bounded, rich rows",
 				props = {
-					style = "menu",
+					style = "menu" :: "menu",
 					maxHeight = 180,
 					options = {
 						{
@@ -1396,19 +1471,19 @@ local PAGE_DATA: { [string]: any } = {
 							label = "Ada Quill",
 							avatar = { name = "Ada Quill" },
 							sectionTitle = "Friends",
-						},
-						{ value = "rally", label = "Rally", badge = 2, indicator = { status = "success" } },
-						{ value = "road", label = "Road", meta = "12 km" },
-						{ value = "kart", label = "Kart (locked)", enabled = false, sectionTitle = "Locked" },
-						{ value = "drift", label = "Drift", description = "Hold the slide" },
+						} :: Properties,
+						{ value = "rally", label = "Rally", badge = 2, indicator = { status = "success" } } :: Properties,
+						{ value = "road", label = "Road", meta = "12 km" } :: Properties,
+						{ value = "kart", label = "Kart (locked)", enabled = false, sectionTitle = "Locked" } :: Properties,
+						{ value = "drift", label = "Drift", description = "Hold the slide" } :: Properties,
 					},
 				},
 				across = false,
-			},
+			} :: State,
 			{
 				name = "cards: meta, reselect clears",
 				props = {
-					style = "cards",
+					style = "cards" :: "cards",
 					required = false,
 					options = {
 						{
@@ -1418,34 +1493,39 @@ local PAGE_DATA: { [string]: any } = {
 							meta = "12 km",
 							description = "Smooth tarmac",
 							badge = "New",
-						},
-						{ value = "rally", label = "Rally", icon = "flag", meta = "8 km", description = "Gravel" },
+						} :: Properties,
+						{ value = "rally", label = "Rally", icon = "flag", meta = "8 km", description = "Gravel" } :: Properties,
 					},
 				},
 				across = false,
-			},
+			} :: State,
 			{
 				name = "radio mark trailing",
-				props = { style = "radioGroup", indicatorPosition = "trailing" },
+				props = { style = "radioGroup" :: "radioGroup", indicatorPosition = "trailing" :: "trailing" },
 				across = false,
-			},
-			{ name = "vertical", props = { axis = "y" } },
-			{ name = "hug", props = { sizing = "hug" } },
+			} :: State,
+			{ name = "vertical", props = { axis = "y" :: "y" } } :: State,
+			{ name = "hug", props = { sizing = "hug" :: "hug" } } :: State,
 			{
 				name = "icon only",
 				props = {
 					iconOnly = true,
 					options = {
-						{ value = "road", label = "Road", icon = "edit" },
-						{ value = "rally", label = "Rally", icon = "flag" },
-						{ value = "drift", label = "Drift", icon = "settings" },
+						{ value = "road", label = "Road", icon = "edit" } :: Properties,
+						{ value = "rally", label = "Rally", icon = "flag" } :: Properties,
+						{ value = "drift", label = "Drift", icon = "settings" } :: Properties,
 					},
 				},
-			},
+			} :: State,
 			{
 				name = "long text",
-				props = { options = { { value = "a", label = LONG }, { value = "rally", label = "Rally" } } },
-			},
+				props = {
+					options = {
+						{ value = "a", label = LONG } :: Properties,
+						{ value = "rally", label = "Rally" } :: Properties,
+					},
+				},
+			} :: State,
 		},
 		demonstrates = { "Style" },
 	},
@@ -1456,15 +1536,15 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Vote for up/down reactions.",
 		scenarios = { "selection_controls" },
 		snippet = "UI.Rating { value = stars, count = 5 }",
-		base = function(c)
+		base = function(c: Context)
 			return { value = c.cell("value", 3), count = 5 }
 		end,
-		axes = { { key = "starSize", values = { "small", "medium", "large" } } },
+		axes = { { key = "starSize", values = { "small", "medium", "large" } } :: Axis },
 		states = {
-			{ name = "custom glyphs", props = { glyphs = { filled = "♥", empty = "♡" } } },
+			{ name = "custom glyphs", props = { glyphs = { filled = "♥", empty = "♡" } } } :: State,
 			{
 				name = "change reported",
-				props = function(c)
+				props = function(c: Context)
 					local value = c.cell("value", 3)
 					return {
 						onChange = function(v)
@@ -1473,16 +1553,16 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			DISABLED,
-			{ name = "read only", props = { readOnly = true } },
+			} :: State,
+			DISABLED :: State,
+			{ name = "read only", props = { readOnly = true } } :: State,
 			{
 				name = "zero, no zero allowed",
-				props = function(c)
+				props = function(c: Context)
 					return { value = c.cell("zero", 1), allowZero = false }
 				end,
-			},
-			{ name = "ten stars", props = { count = 10 } },
+			} :: State,
+			{ name = "ten stars", props = { count = 10 } } :: State,
 		},
 	},
 	Vote = {
@@ -1492,7 +1572,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Rating for a scale.",
 		scenarios = { "selection_controls" },
 		snippet = "UI.Vote { value = vote, onChange = function(v) vote:set(v) end }",
-		base = function(c)
+		base = function(c: Context)
 			local value = c.cell("vote", "none")
 			return {
 				value = value,
@@ -1503,16 +1583,16 @@ local PAGE_DATA: { [string]: any } = {
 				end,
 			}
 		end,
-		axes = { SIZES },
+		axes = { SIZES :: Axis },
 		states = {
-			DISABLED,
-			{ name = "read only", props = { readOnly = true } },
+			DISABLED :: State,
+			{ name = "read only", props = { readOnly = true } } :: State,
 			{
 				name = "diagnostics table",
-				props = function(c)
+				props = function(c: Context)
 					return { controls = {} }
 				end,
-			},
+			} :: State,
 		},
 	},
 	LevelPicker = {
@@ -1523,7 +1603,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Slider for continuous values.",
 		scenarios = { "level_picker" },
 		snippet = "UI.LevelPicker { value = level, count = 5 }",
-		base = function(c)
+		base = function(c: Context)
 			return { value = c.cell("value", 3), count = 5 }
 		end,
 		axes = {
@@ -1531,21 +1611,21 @@ local PAGE_DATA: { [string]: any } = {
 				key = "segment",
 				values = { "bar", "glyph", "image" },
 				implies = { image = { images = { filled = ART, empty = ART } } },
-			},
-			{ key = "segmentSize", values = { "small", "medium", "large" }, props = { segment = "glyph" } },
+			} :: Axis,
+			{ key = "segmentSize", values = { "small", "medium", "large" }, props = { segment = "glyph" } } :: Axis,
 		},
 		states = {
-			DISABLED,
-			{ name = "read only", props = { readOnly = true } },
-			{ name = "custom glyphs", props = { segment = "glyph", glyphs = { filled = "●", empty = "○" } } },
+			DISABLED :: State,
+			{ name = "read only", props = { readOnly = true } } :: State,
+			{ name = "custom glyphs", props = { segment = "glyph", glyphs = { filled = "●", empty = "○" } } } :: State,
 			{
 				name = "tint pair",
 				props = { tint = { filled = Color3.fromRGB(63, 184, 113), empty = Color3.fromRGB(80, 80, 90) } },
-			},
-			{ name = "no zero", props = { allowZero = false } },
+			} :: State,
+			{ name = "no zero", props = { allowZero = false } } :: State,
 			{
 				name = "change reported",
-				props = function(c)
+				props = function(c: Context)
 					local value = c.cell("value", 3)
 					return {
 						onChange = function(v)
@@ -1554,9 +1634,9 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return (p.images == nil or p.segment == "image") and not (p.segment == "image" and p.images == nil)
 		end,
 	},
@@ -1572,22 +1652,22 @@ local PAGE_DATA: { [string]: any } = {
 			return { label = "Badge" }
 		end,
 		axes = {
-			{ key = "appearance", values = { "standard", "status", "utility" } },
-			SIZES,
-			{ key = "corners", values = { DEFAULT, "square", "rounded", "capsule", 4 } },
+			{ key = "appearance", values = { "standard", "status", "utility" } } :: Axis,
+			SIZES :: Axis,
+			{ key = "corners", values = { DEFAULT, "square", "rounded", "capsule", 4 } } :: Axis,
 		},
 		states = {
-			{ name = "icon only (named)", props = { label = "", icon = "checkmark", name = "Verified" } },
-			{ name = "success", props = { appearance = "status", status = "success" } },
-			{ name = "warning", props = { appearance = "status", status = "warning" } },
-			{ name = "error", props = { appearance = "status", status = "error" } },
-			{ name = "info", props = { appearance = "status", status = "info" } },
-			{ name = "accent", props = { appearance = "status", status = "accent" } },
-			{ name = "neutral", props = { appearance = "status", status = "neutral" } },
-			{ name = "voice", props = { appearance = "status", status = "voice" } },
-			{ name = "contrast", props = { appearance = "status", status = "contrast" } },
-			{ name = "icon", props = { icon = "checkmark" } },
-			{ name = "trailing icon", props = { icon = "checkmark", iconPosition = "trailing" } },
+			{ name = "icon only (named)", props = { label = "", icon = "checkmark", name = "Verified" } } :: State,
+			{ name = "success", props = { appearance = "status", status = "success" } } :: State,
+			{ name = "warning", props = { appearance = "status", status = "warning" } } :: State,
+			{ name = "error", props = { appearance = "status", status = "error" } } :: State,
+			{ name = "info", props = { appearance = "status", status = "info" } } :: State,
+			{ name = "accent", props = { appearance = "status", status = "accent" } } :: State,
+			{ name = "neutral", props = { appearance = "status", status = "neutral" } } :: State,
+			{ name = "voice", props = { appearance = "status", status = "voice" } } :: State,
+			{ name = "contrast", props = { appearance = "status", status = "contrast" } } :: State,
+			{ name = "icon", props = { icon = "checkmark" } } :: State,
+			{ name = "trailing icon", props = { icon = "checkmark", iconPosition = "trailing" } } :: State,
 		},
 	},
 	badged = {
@@ -1602,15 +1682,15 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {
-			{ key = "value", values = { 3, 120, "New", true, 0 } },
-			{ key = "host", values = { "icon button", "button", "avatar" } },
+			{ key = "value", values = { 3, 120, "New", true, 0 } } :: Axis,
+			{ key = "host", values = { "icon button", "button", "avatar" } } :: Axis,
 		},
-		states = { { name = "right to left", props = { direction = "rtl" } } },
-		make = function(UI, p)
+		states = { { name = "right to left", props = { direction = "rtl" :: "rtl" } } :: State },
+		make = function(UI: FacetControls, p: Properties): Instance
 			local host = if p.host == "button"
 				then UI.Button({ label = "Inbox" })
 				elseif p.host == "avatar" then UI.Avatar({ name = "Ada Quill" })
-				else UI.Button({ label = "Inbox", icon = "flag", shape = "circle" })
+				else UI.Button({ label = "Inbox", icon = "flag", shape = "circle" :: "circle" })
 			return UI.badged(host, p.value, p.direction)
 		end,
 	},
@@ -1625,18 +1705,18 @@ local PAGE_DATA: { [string]: any } = {
 			return { status = "success", name = "Online" }
 		end,
 		axes = {
-			{ key = "form", values = { "dot", "ring", "square", "dash" } },
-			SIZES,
+			{ key = "form", values = { "dot", "ring", "square", "dash" } } :: Axis,
+			SIZES :: Axis,
 			{
 				key = "status",
 				values = { "neutral", "info", "success", "warning", "error", "accent", "voice", "contrast" },
-			},
+			} :: Axis,
 		},
 		states = {
-			{ name = "diameter 28", props = { diameter = 28 } },
-			{ name = "count", props = { count = 7 } },
-			{ name = "count over max", props = { count = 150, max = 99 } },
-			{ name = "cutout", props = { cutout = true } },
+			{ name = "diameter 28", props = { diameter = 28 } } :: State,
+			{ name = "count", props = { count = 7 } } :: State,
+			{ name = "count over max", props = { count = 150, max = 99 } } :: State,
+			{ name = "cutout", props = { cutout = true } } :: State,
 		},
 		stateAxis = "status",
 	},
@@ -1656,14 +1736,14 @@ local PAGE_DATA: { [string]: any } = {
 				key = "presentation",
 				values = { "bar", "circular", "spinner" },
 				implies = { spinner = { value = NONE } },
-			},
-			{ key = "controlSize", values = { DEFAULT, "xsmall", "compact", "regular", "large" } },
+			} :: Axis,
+			{ key = "controlSize", values = { DEFAULT, "xsmall", "compact", "regular", "large" } } :: Axis,
 		},
 		states = {
-			{ name = "indeterminate", props = { value = NONE } },
-			{ name = "value shown", props = { showValue = true } },
-			{ name = "end label", props = { endLabel = "3 of 7 files" } },
-			{ name = "complete", props = { value = 1 } },
+			{ name = "indeterminate", props = { value = NONE } } :: State,
+			{ name = "value shown", props = { showValue = true } } :: State,
+			{ name = "end label", props = { endLabel = "3 of 7 files" } } :: State,
+			{ name = "complete", props = { value = 1 } } :: State,
 			{
 				name = "min/max 0–200, formatted",
 				props = {
@@ -1675,25 +1755,30 @@ local PAGE_DATA: { [string]: any } = {
 						return `{v} HP`
 					end,
 				},
-			},
-			{ name = "segments 5", props = { segments = 5 } },
-			{ name = "thickness 10", props = { thickness = 10 } },
-			{ name = "damage trail", props = { trail = { delay = 0.3, duration = 0.6 } } },
-			{ name = "ring sizes", props = { presentation = "circular" }, across = "controlSize", matrixOnly = true },
+			} :: State,
+			{ name = "segments 5", props = { segments = 5 } } :: State,
+			{ name = "thickness 10", props = { thickness = 10 } } :: State,
+			{ name = "damage trail", props = { trail = { delay = 0.3, duration = 0.6 } } } :: State,
 			{
-				name = "spinner sizes",
-				props = { presentation = "spinner", value = NONE },
+				name = "ring sizes",
+				props = { presentation = "circular" :: "circular" },
 				across = "controlSize",
 				matrixOnly = true,
-			},
+			} :: State,
+			{
+				name = "spinner sizes",
+				props = { presentation = "spinner" :: "spinner", value = NONE },
+				across = "controlSize",
+				matrixOnly = true,
+			} :: State,
 			{
 				name = "ring diameter 96, value shown",
-				props = { presentation = "circular", diameter = 96, showValue = true },
+				props = { presentation = "circular" :: "circular", diameter = 96, showValue = true },
 				across = false,
 				matrixOnly = true,
-			},
+			} :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			local shape = p.presentation or "bar"
 			return not (shape == "spinner" and p.value ~= nil)
 				and not (p.showValue and p.value == nil)
@@ -1718,15 +1803,15 @@ local PAGE_DATA: { [string]: any } = {
 				key = "form",
 				values = { "box", "line", "circle" },
 				implies = { circle = { Size = UDim2.fromOffset(64, 64) }, box = { Size = UDim2.fromOffset(200, 64) } },
-			},
-			SIZES,
-			{ key = "corners", values = { DEFAULT, "square", 4, "control", "panel", "pill" } },
+			} :: Axis,
+			SIZES :: Axis,
+			{ key = "corners", values = { DEFAULT, "square", 4, "control", "panel", "pill" } } :: Axis,
 		},
-		states = { { name = "3 lines", props = { lines = 3 } } },
+		states = { { name = "3 lines", props = { lines = 3 } } :: State },
 	},
 	Avatar = {
 		family = "status",
-		valid = function(p)
+		valid = function(p: Properties)
 			local faces = (if p.content ~= nil and p.content ~= "initials" then 1 else 0)
 				+ (if p.image ~= nil then 1 else 0)
 				+ (if p.resource ~= nil then 1 else 0)
@@ -1745,12 +1830,12 @@ local PAGE_DATA: { [string]: any } = {
 		end,
 		axes = {
 
-			{ key = "content", values = { "initials", "image", "icon", "userId", "failed" } },
-			{ key = "controlSize", values = { DEFAULT, "xsmall", "compact", "regular", "large" } },
-			{ key = "form", values = { "standard", "icon" } },
-			{ key = "presence", values = { DEFAULT, "online", "away", "busy", "offline", "inExperience" } },
+			{ key = "content", values = { "initials", "image", "icon", "userId", "failed" } } :: Axis,
+			{ key = "controlSize", values = { DEFAULT, "xsmall", "compact", "regular", "large" } } :: Axis,
+			{ key = "form", values = { "standard", "icon" } } :: Axis,
+			{ key = "presence", values = { DEFAULT, "online", "away", "busy", "offline", "inExperience" } } :: Axis,
 		},
-		make = function(UI, p)
+		make = function(UI: FacetControls, p: Properties): Instance
 			local content = p.content
 			p.content = nil
 			if content == "image" then
@@ -1762,25 +1847,25 @@ local PAGE_DATA: { [string]: any } = {
 			elseif content == "failed" then
 				p.image = "rbxassetid://999999999999999"
 			end
-			return UI.Avatar(p)
+			return UI.Avatar(p :: any)
 		end,
 		demonstrates = { "image", "userId", "icon" },
 		states = {
-			{ name = "diameter 72", props = { diameter = 72, controlSize = NONE } },
-			{ name = "localized presence", props = { presence = "online", presenceLabel = "En ligne" } },
-			{ name = "no presence mark", props = { presence = "online", presenceMark = false } },
-			{ name = "backplate", props = { backplate = true } },
-			{ name = "background: accent", props = { background = "accent" } },
-			{ name = "background: success", props = { background = "success" } },
+			{ name = "diameter 72", props = { diameter = 72, controlSize = NONE } } :: State,
+			{ name = "localized presence", props = { presence = "online", presenceLabel = "En ligne" } } :: State,
+			{ name = "no presence mark", props = { presence = "online", presenceMark = false } } :: State,
+			{ name = "backplate", props = { backplate = true } } :: State,
+			{ name = "background: accent", props = { background = "accent" } } :: State,
+			{ name = "background: success", props = { background = "success" } } :: State,
 			{
 				name = "activatable",
-				props = function(c)
+				props = function(c: Context)
 					return { onActivate = c.log("onActivate") }
 				end,
-			},
+			} :: State,
 			{
 				name = "custom loader + status",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						loader = function(source, resolve)
 							task.delay(0.5, resolve, source)
@@ -1790,17 +1875,17 @@ local PAGE_DATA: { [string]: any } = {
 						image = ART,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "shared resource",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						resource = c.Compose.createSharedResource(function()
 							return { value = c.Compose.cell(ART), state = c.Compose.cell("ready") }
 						end),
 					}
 				end,
-			},
+			} :: State,
 		},
 	},
 	AvatarGroup = {
@@ -1811,7 +1896,7 @@ local PAGE_DATA: { [string]: any } = {
 		scenarios = { "avatar_group" },
 		snippet = "UI.AvatarGroup { items = members, max = 3 }",
 		base = function()
-			local items = {}
+			local items: Properties = {}
 			for i, name in { "Ada", "Grace", "Linus", "Margaret", "Alan", "Barbara" } do
 				table.insert(items, { id = tostring(i), name = name })
 			end
@@ -1822,22 +1907,22 @@ local PAGE_DATA: { [string]: any } = {
 			return { items = items, max = 4 }
 		end,
 		axes = {
-			{ key = "layout", values = { "stacked", "spread" } },
-			{ key = "overflow", values = { "count", "ellipsis" } },
-			SIZES,
-			{ key = "form", values = { "standard", "icon" } },
+			{ key = "layout", values = { "stacked", "spread" } } :: Axis,
+			{ key = "overflow", values = { "count", "ellipsis" } } :: Axis,
+			SIZES :: Axis,
+			{ key = "form", values = { "standard", "icon" } } :: Axis,
 		},
 		states = {
-			{ name = "diameter 48", props = { diameter = 48 } },
-			{ name = "localized overflow", props = { overflowLabel = "et 2 autres" } },
+			{ name = "diameter 48", props = { diameter = 48 } } :: State,
+			{ name = "localized overflow", props = { overflowLabel = "et 2 autres" } } :: State,
 			{
 				name = "activatable overflow",
-				props = function(c)
+				props = function(c: Context)
 					return { onOverflow = c.log("onOverflow") }
 				end,
-			},
+			} :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return not (p.diameter ~= nil and p.controlSize ~= nil)
 		end,
 	},
@@ -1852,17 +1937,17 @@ local PAGE_DATA: { [string]: any } = {
 			return { title = "Settings", icon = "settings" }
 		end,
 		axes = {
-			{ key = "presentation", values = { "titleAndIcon", "titleOnly", "iconOnly" } },
-			{ key = "iconPosition", values = { "leading", "trailing" } },
+			{ key = "presentation", values = { "titleAndIcon", "titleOnly", "iconOnly" } } :: Axis,
+			{ key = "iconPosition", values = { "leading", "trailing" } } :: Axis,
 		},
 		states = {
-			{ name = "large icon", props = { iconSize = 32 } },
-			{ name = "wide gap", props = { gap = "m" } },
-			{ name = "long text", props = { title = LONG } },
-			{ name = "strong", props = { textSize = "strong" } },
-			{ name = "heading", props = { textSize = "heading" } },
+			{ name = "large icon", props = { iconSize = 32 } } :: State,
+			{ name = "wide gap", props = { gap = "m" } } :: State,
+			{ name = "long text", props = { title = LONG } } :: State,
+			{ name = "strong", props = { textSize = "strong" } } :: State,
+			{ name = "heading", props = { textSize = "heading" } } :: State,
 
-			{ name = "filled icon", props = { icon = "person.fill" } },
+			{ name = "filled icon", props = { icon = "person.fill" } } :: State,
 		},
 	},
 	Notice = {
@@ -1877,36 +1962,38 @@ local PAGE_DATA: { [string]: any } = {
 			return { title = "Update available", message = "A new track pack is ready.", Size = UDim2.fromScale(1, 0) }
 		end,
 		axes = {
-			{ key = "severity", values = { "info", "success", "warning", "error" } },
-			{ key = "appearance", values = { "standard", "emphasis" } },
-			{ key = "placement", values = { "inline", "affixed" }, matrix = false },
+			{ key = "severity", values = { "info", "success", "warning", "error" } } :: Axis,
+			{ key = "appearance", values = { "standard", "emphasis" } } :: Axis,
+			{ key = "placement", values = { "inline", "affixed" }, matrix = false } :: Axis,
 			{
 				key = "controlSize",
 				values = SIZES.values,
-				props = function(c)
-					return { actions = { { id = "install", label = "Install", onActivate = c.log("install") } } }
-				end,
-			},
-		},
-		states = {
-			{ name = "no icon", props = { icon = false } },
-			{ name = "custom icon", props = { icon = "flag" } },
-			{
-				name = "actions + link",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						link = { label = "Release notes", onActivate = c.log("link") },
-						actions = { { id = "install", label = "Install", onActivate = c.log("install") } },
+						actions = { { id = "install", label = "Install", onActivate = c.log("install") } :: Properties },
 					}
 				end,
-			},
+			} :: Axis,
+		},
+		states = {
+			{ name = "no icon", props = { icon = false } } :: State,
+			{ name = "custom icon", props = { icon = "flag" } } :: State,
+			{
+				name = "actions + link",
+				props = function(c: Context)
+					return {
+						link = { label = "Release notes", onActivate = c.log("link") },
+						actions = { { id = "install", label = "Install", onActivate = c.log("install") } :: Properties },
+					}
+				end,
+			} :: State,
 			{
 				name = "dismissable",
-				props = function(c)
+				props = function(c: Context)
 					return { onDismiss = c.log("onDismiss") }
 				end,
-			},
-			{ name = "long text", props = { message = LONG .. ". " .. LONG } },
+			} :: State,
+			{ name = "long text", props = { message = LONG .. ". " .. LONG } } :: State,
 		},
 	},
 	AsyncImage = {
@@ -1921,32 +2008,32 @@ local PAGE_DATA: { [string]: any } = {
 		end,
 		axes = {},
 		states = {
-			{ name = "fit mode (imageProperties)", props = { imageProperties = { ScaleType = Enum.ScaleType.Fit } } },
-			{ name = "dimmed", props = { dimmed = true } },
+			{ name = "fit mode (imageProperties)", props = { imageProperties = { ScaleType = Enum.ScaleType.Fit } } } :: State,
+			{ name = "dimmed", props = { dimmed = true } } :: State,
 			{
 				name = "unavailable + label",
 				props = { source = "rbxassetid://999999999999999", failureLabel = "Picture unavailable" },
-			},
-			{ name = "image key", props = { source = NONE, image = ART } },
+			} :: State,
+			{ name = "image key", props = { source = NONE, image = ART } } :: State,
 			{
 				name = "custom placeholder",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						source = "rbxassetid://999999999999998",
 						placeholder = function(stateNow)
 							return c.UI.Text({
-								text = function(use)
+								text = function(use: Use)
 									return `state: {use(stateNow)}`
 								end,
-								textRole = "caption",
+								textRole = "caption" :: "caption",
 							})
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "slow loader + status",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						loader = function(source, resolve)
 							task.delay(1, resolve, source)
@@ -1955,10 +2042,10 @@ local PAGE_DATA: { [string]: any } = {
 						onStatus = c.log("onStatus"),
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "shared resource",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						source = NONE,
 						resource = c.Compose.createSharedResource(function()
@@ -1966,7 +2053,7 @@ local PAGE_DATA: { [string]: any } = {
 						end),
 					}
 				end,
-			},
+			} :: State,
 		},
 	},
 	Image = {
@@ -1979,27 +2066,31 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return { image = ART, Size = UDim2.fromOffset(120, 80) }
 		end,
-		axes = { { key = "scaleMode", values = { "fit", "fill", "crop", "stretch" } } },
+		axes = { { key = "scaleMode", values = { "fit", "fill", "crop", "stretch" } } :: Axis },
 		states = {
-			{ name = "pixelated", props = { resample = "pixelated" } },
-			{ name = "tinted", props = { tint = Color3.fromRGB(60, 94, 246) } },
-			{ name = "circle", props = { shape = "circle", Size = UDim2.fromOffset(80, 80) }, across = false },
+			{ name = "pixelated", props = { resample = "pixelated" } } :: State,
+			{ name = "tinted", props = { tint = Color3.fromRGB(60, 94, 246) } } :: State,
+			{
+				name = "circle",
+				props = { shape = "circle" :: "circle", Size = UDim2.fromOffset(80, 80) },
+				across = false,
+			} :: State,
 			{
 				name = "tiled 40x40",
-				props = { scaleMode = "tile", tileSize = { width = 40, height = 40 } },
+				props = { scaleMode = "tile" :: "tile", tileSize = { width = 40, height = 40 } },
 				across = false,
-			},
+			} :: State,
 			{
 				name = "nine-slice",
 				props = {
-					scaleMode = "slice",
+					scaleMode = "slice" :: "slice",
 					sliceCenter = { x0 = 64, y0 = 64, x1 = 192, y1 = 192 },
 					sliceScale = 0.5,
 				},
 				across = false,
-			},
+			} :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return (p.tileSize ~= nil) == (p.scaleMode == "tile") and (p.sliceCenter ~= nil) == (p.scaleMode == "slice")
 		end,
 	},
@@ -2010,11 +2101,11 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Image for a flat picture.",
 		scenarios = { "cards", "card_rail" },
 		snippet = "UI.Stage { camera = CFrame.new(0, 2, 6), content = function(runtime, world, live) … end }",
-		base = function(c)
+		base = function(c: Context)
 			return {
 				Size = UDim2.fromOffset(240, 135),
 				camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero),
-				content = function(runtime, world, live)
+				content = function(runtime, world, live): (() -> ())?
 					local part = runtime.constructors.Part({
 						Size = Vector3.new(2, 2, 2),
 						Color = Color3.fromRGB(60, 94, 246),
@@ -2023,7 +2114,7 @@ local PAGE_DATA: { [string]: any } = {
 					part.Parent = world
 					local spin = game:GetService("RunService").Heartbeat:Connect(function(dt)
 						if live:peek() then
-							part.CFrame *= CFrame.Angles(0, dt, 0)
+							(part :: Part).CFrame *= CFrame.Angles(0, dt, 0)
 						end
 					end)
 					return function()
@@ -2032,8 +2123,8 @@ local PAGE_DATA: { [string]: any } = {
 				end,
 			}
 		end,
-		axes = { { key = "fieldOfView", values = { 40, 70 } } },
-		states = { { name = "lazy", props = { lazy = true } } },
+		axes = { { key = "fieldOfView", values = { 40, 70 } } :: Axis },
+		states = { { name = "lazy", props = { lazy = true } } :: State },
 	},
 
 	Alert = {
@@ -2044,80 +2135,80 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Dialog for richer content; Notice for non-blocking status.",
 		scenarios = { "alert" },
 		snippet = 'UI.Alert { isPresented = open, title = "Leave?", message = "…", actions = { … } }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				title = "Start this race?",
 				message = "Your selected driver is ready.",
 				actions = {
-					{ id = "Cancel", label = "Cancel", role = "cancel", onActivate = c.log("cancel") },
-					{ id = "Start", label = "Start", role = "default", onActivate = c.log("start") },
+					{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel", onActivate = c.log("cancel") } :: Properties,
+					{ id = "Start", label = "Start", role = "default" :: "default", onActivate = c.log("start") } :: Properties,
 				},
 			}
 		end,
 		axes = {
-			{ key = "severity", values = { "information", "warning", "critical" } },
+			{ key = "severity", values = { "information", "warning", "critical" } } :: Axis,
 
-			{ key = "form", values = { "isPresented", "item", "presenting" }, matrix = false },
+			{ key = "form", values = { "isPresented", "item", "presenting" }, matrix = false } :: Axis,
 		},
 		states = {
-			{ name = "icon", props = { icon = "status.warning" } },
+			{ name = "icon", props = { icon = "status.warning" } } :: State,
 			{
 				name = "custom content",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						content = function()
-							return c.UI.Text({ text = "3 laps · Coastal Circuit", role = "secondary" })
+						content = function(): Instance
+							return c.UI.Text({ text = "3 laps · Coastal Circuit", role = "secondary" :: "secondary" })
 						end,
 					}
 				end,
-			},
-			{ name = "narrow (maxWidth 280)", props = { maxWidth = 280 } },
-			{ name = "roomy padding 24", props = { padding = 24 } },
-			{ name = "full screen", props = { surface = "fullScreen" } },
-			{ name = "no motion", props = { transition = false } },
+			} :: State,
+			{ name = "narrow (maxWidth 280)", props = { maxWidth = 280 } } :: State,
+			{ name = "roomy padding 24", props = { padding = 24 } } :: State,
+			{ name = "full screen", props = { surface = "fullScreen" } } :: State,
+			{ name = "no motion", props = { transition = false } } :: State,
 			{
 				name = "error cell cleared on dismiss",
-				props = function(c)
+				props = function(c: Context)
 					return { error = c.cell("alertError", "Save failed") }
 				end,
-			},
+			} :: State,
 			{
 				name = "destructive + shortcut",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						actions = {
 							{
 								id = "Cancel",
 								label = "Cancel",
-								role = "cancel",
+								role = "cancel" :: "cancel",
 								shortcut = "cancelAction",
 								onActivate = c.log("cancel"),
-							},
+							} :: Properties,
 							{
 								id = "Delete",
 								label = "Delete",
-								role = "destructive",
+								role = "destructive" :: "destructive",
 								shortcut = "defaultAction",
 								onActivate = c.log("delete"),
-							},
+							} :: Properties,
 						},
 					}
 				end,
-			},
-			{ name = "long text", props = { message = LONG .. ". " .. LONG } },
+			} :: State,
+			{ name = "long text", props = { message = LONG .. ". " .. LONG } } :: State,
 			{
 				name = "don't ask again",
-				props = function(c)
+				props = function(c: Context)
 					return { suppression = { isSuppressed = c.cell("suppressed", false), label = "Don't ask again" } }
 				end,
-			},
+			} :: State,
 		},
 		demonstrates = { "isPresented", "item", "presenting" },
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = p.form or "isPresented"
 			p.form = nil
 			if form == "item" then
-				local item = c.Compose.cell(nil)
+				local item = c.Compose.cell(nil :: { name: string }?)
 				p.item = item
 				p.title = function(data)
 					return `Delete {data.name}?`
@@ -2129,8 +2220,8 @@ local PAGE_DATA: { [string]: any } = {
 						onActivate = function()
 							item:set({ name = "Coastal Circuit" })
 						end,
-					}),
-					UI.Alert(p),
+					}) :: unknown,
+					UI.Alert(p :: any),
 				})
 			end
 			return trigger(c, "Show alert", function(open)
@@ -2142,7 +2233,7 @@ local PAGE_DATA: { [string]: any } = {
 					end
 				end
 
-				return UI.Alert(p)
+				return UI.Alert(p :: any)
 			end)
 		end,
 	},
@@ -2155,10 +2246,10 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Alert for a short decision; Sheet for a task panel.",
 		scenarios = { "overlays" },
 		snippet = 'UI.Dialog { isPresented = open, title = "Terms", content = body, actions = { … } }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				title = "Leave the lobby?",
-				content = function()
+				content = function(): Instance
 					return c.UI.Text({
 						text = "Your spot will be given to another player.",
 						wrap = true,
@@ -2167,44 +2258,54 @@ local PAGE_DATA: { [string]: any } = {
 					})
 				end,
 				actions = {
-					{ id = "Stay", label = "Stay", role = "cancel", onActivate = c.log("stay") },
-					{ id = "Leave", label = "Leave", role = "destructive", onActivate = c.log("leave") },
+					{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = c.log("stay") } :: Properties,
+					{
+						id = "Leave",
+						label = "Leave",
+						role = "destructive" :: "destructive",
+						onActivate = c.log("leave"),
+					} :: Properties,
 				},
 				closeButton = false,
 			}
 		end,
 		axes = {
-			{ key = "width", values = { "automatic", "narrow", "wide" } },
-			{ key = "actionLayout", values = { "automatic", "row", "stacked" } },
+			{ key = "width", values = { "automatic", "narrow", "wide" } } :: Axis,
+			{ key = "actionLayout", values = { "automatic", "row", "stacked" } } :: Axis,
 		},
 		states = {
-			{ name = "close button", props = { closeButton = true } },
+			{ name = "close button", props = { closeButton = true } } :: State,
 
 			{
 				name = "Apply keeps it open",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						actions = {
-							{ id = "Stay", label = "Stay", role = "cancel", onActivate = c.log("stay") },
+							{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = c.log("stay") } :: Properties,
 							{
 								id = "Apply",
 								label = "Apply",
 								keepOpen = true,
 								onActivate = c.log("apply (stays open)"),
-							},
-							{ id = "Leave", label = "Leave", role = "destructive", onActivate = c.log("leave") },
+							} :: Properties,
+							{
+								id = "Leave",
+								label = "Leave",
+								role = "destructive" :: "destructive",
+								onActivate = c.log("leave"),
+							} :: Properties,
 						},
 					}
 				end,
-			},
-			{ name = "hero", props = { hero = { image = ART, aspectRatio = 2, scaleMode = "crop" } } },
-			{ name = "action label", props = { actionLabel = "Choose carefully: this cannot be undone." } },
+			} :: State,
+			{ name = "hero", props = { hero = { image = ART, aspectRatio = 2, scaleMode = "crop" :: "crop" } } } :: State,
+			{ name = "action label", props = { actionLabel = "Choose carefully: this cannot be undone." } } :: State,
 			{
 				name = "long rich body (selectable)",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						contentSelectable = true,
-						content = function()
+						content = function(): Instance
 							return c.UI.Text({
 								rich = true,
 								wrap = true,
@@ -2215,9 +2316,9 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 		},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return trigger(c, "Show dialog", function(open)
 				p.isPresented = open
 				p.onPresentedChange = function(v)
@@ -2225,7 +2326,7 @@ local PAGE_DATA: { [string]: any } = {
 					open:set(v)
 				end
 				p.onDismiss = c.log("onDismiss")
-				return UI.Dialog(p)
+				return UI.Dialog(p :: any)
 			end)
 		end,
 	},
@@ -2238,14 +2339,14 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Dialog for a short modal; Popover for anchored content.",
 		scenarios = { "sheet" },
 		snippet = 'UI.Sheet { title = "Filters", isPresented = open, detent = detent, content = body }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				title = "Filters",
 				detent = c.cell("detent", "medium"),
-				detents = { "medium", "large" },
-				content = function()
+				detents = { "medium", "large" } :: { SheetDetent },
+				content = function(): Instance
 					return c.UI.VStack({
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "s",
 						c.UI.Toggle({ label = "Only friends", value = c.cell("friends", false) }),
 						c.UI.Slider({
@@ -2261,58 +2362,67 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "placement", values = { "adaptive", "automatic", "bottom", "side", "center" } },
-			{ key = "width", values = { "automatic", "narrow", "wide" } },
-			{ key = "dragIndicator", values = { "automatic", "visible", "hidden" } },
+			{ key = "placement", values = { "adaptive", "automatic", "bottom", "side", "center" } } :: Axis,
+			{ key = "width", values = { "automatic", "narrow", "wide" } } :: Axis,
+			{ key = "dragIndicator", values = { "automatic", "visible", "hidden" } } :: Axis,
 		},
 		states = {
-			{ name = "no interactive dismiss", props = { interactiveDismissDisabled = true } },
+			{ name = "no interactive dismiss", props = { interactiveDismissDisabled = true } } :: State,
 			{
 				name = "stacked actions",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						actionLayout = "stacked",
 						actions = {
-							{ id = "Apply", label = "Apply", role = "default", onActivate = c.log("apply") },
-							{ id = "Reset", label = "Reset", onActivate = c.log("reset") },
+							{
+								id = "Apply",
+								label = "Apply",
+								role = "default" :: "default",
+								onActivate = c.log("apply"),
+							} :: Properties,
+							{ id = "Reset", label = "Reset", onActivate = c.log("reset") } :: Properties,
 						},
 					}
 				end,
-			},
-			{ name = "body pans the sheet", props = { scrollPolicy = "atLargestDetent" } },
-			{ name = "close button", props = { closeButton = true } },
-			{ name = "close label", props = { closeButton = "Close" } },
-			{ name = "no content inset", props = { contentInset = "none" } },
-			{ name = "full-bleed hero (sticky)", props = { hero = { image = ART, aspectRatio = 2, sticky = true } } },
+			} :: State,
+			{ name = "body pans the sheet", props = { scrollPolicy = "atLargestDetent" } } :: State,
+			{ name = "close button", props = { closeButton = true } } :: State,
+			{ name = "close label", props = { closeButton = "Close" } } :: State,
+			{ name = "no content inset", props = { contentInset = "none" } } :: State,
+			{ name = "full-bleed hero (sticky)", props = { hero = { image = ART, aspectRatio = 2, sticky = true } } } :: State,
 			{
 				name = "custom header",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						header = function()
-							return c.UI.Text({ text = "Custom header", textRole = "heading" })
+							return c.UI.Text({ text = "Custom header", textRole = "heading" :: "heading" })
 						end,
 					}
 				end,
-			},
-			{ name = "no header", props = { header = false } },
+			} :: State,
+			{ name = "no header", props = { header = false } } :: State,
 			{
 				name = "hug + fraction + fixed detents",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						detents = { "hug", { id = "third", fraction = 0.33 }, { id = "tall", height = 520 } },
+						detents = {
+							"hug" :: SheetDetent,
+							{ id = "third", fraction = 0.33 },
+							{ id = "tall", height = 520 },
+						} :: { SheetDetent },
 						detent = c.cell("hugDetent", "hug"),
 					}
 				end,
-			},
-			{ name = "left edge", props = { placement = "side", edge = "left" } },
+			} :: State,
+			{ name = "left edge", props = { placement = "side" :: "side", edge = "left" :: "left" } } :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return p.edge == nil or p.placement == "side" or p.placement == "adaptive"
 		end,
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return trigger(c, "Show sheet", function(open)
 				p.isPresented = open
-				return UI.Sheet(p)
+				return UI.Sheet(p :: any)
 			end)
 		end,
 	},
@@ -2324,7 +2434,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Callout for teaching; Menu for actions.",
 		scenarios = { "overlays" },
 		snippet = "UI.Popover { isPresented = open, trigger = button, content = body }",
-		base = function(c)
+		base = function(c: Context)
 			local open = c.cell("open", false)
 			return {
 				isPresented = open,
@@ -2332,7 +2442,7 @@ local PAGE_DATA: { [string]: any } = {
 					open:set(v)
 				end,
 				trigger = c.UI.Button({ label = "About" }),
-				content = function()
+				content = function(): Instance
 					return c.UI.Text({
 						text = "Anchored content with a tail.",
 						wrap = true,
@@ -2344,25 +2454,25 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "edge", values = { "bottom", "top", "leading", "trailing" } },
-			{ key = "align", values = { "start", "center", "end" } },
+			{ key = "edge", values = { "bottom", "top", "leading", "trailing" } } :: Axis,
+			{ key = "align", values = { "start", "center", "end" } } :: Axis,
 		},
 		states = {
-			{ name = "non-modal (no catcher, no Cancel)", props = { modal = false } },
-			{ name = "cancel policy none", props = { cancelPolicy = "none" } },
+			{ name = "non-modal (no catcher, no Cancel)", props = { modal = false } } :: State,
+			{ name = "cancel policy none", props = { cancelPolicy = "none" } } :: State,
 			{
 				name = "dismiss reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onDismiss = c.log("onDismiss") }
 				end,
-			},
-			{ name = "gap 24", props = { gap = 24 } },
+			} :: State,
+			{ name = "gap 24", props = { gap = 24 } } :: State,
 			{
 				name = "bounded height (scrolls)",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						maxHeight = 120,
-						content = function()
+						content = function(): Instance
 							return c.UI.Text({
 								text = string.rep("Anchored content with a tail. ", 12),
 								wrap = true,
@@ -2372,14 +2482,14 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			{ name = "no tail", props = { tail = false } },
-			{ name = "stays a popover on touch", props = { compact = "popover" } },
-			{ name = "sheet title (compact touch)", props = { title = "About scoring" } },
-			{ name = "cross offset 24", props = { crossOffset = 24 } },
+			} :: State,
+			{ name = "no tail", props = { tail = false } } :: State,
+			{ name = "stays a popover on touch", props = { compact = "popover" } } :: State,
+			{ name = "sheet title (compact touch)", props = { title = "About scoring" } } :: State,
+			{ name = "cross offset 24", props = { crossOffset = 24 } } :: State,
 			{
 				name = "rect source",
-				props = function(c)
+				props = function(c: Context)
 					local open = c.cell("open", false)
 					return {
 						trigger = NONE,
@@ -2387,9 +2497,9 @@ local PAGE_DATA: { [string]: any } = {
 						isPresented = open,
 					}
 				end,
-			},
+			} :: State,
 		},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if p.trigger == nil then
 				local open = p.isPresented
 				return UI.VStack({
@@ -2399,11 +2509,11 @@ local PAGE_DATA: { [string]: any } = {
 						onActivate = function()
 							open:set(true)
 						end,
-					}),
-					UI.Popover(p),
+					}) :: unknown,
+					UI.Popover(p :: any),
 				})
 			end
-			return UI.Popover(p)
+			return UI.Popover(p :: any)
 		end,
 		demonstrates = { "source" },
 	},
@@ -2416,59 +2526,64 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "help on a Button for a hover/focus tooltip; Popover for arbitrary content.",
 		scenarios = { "callout" },
 		snippet = 'UI.Callout { anchor = button, title = "New!", onRetire = retire }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				title = "New: lap counter",
-				content = function()
+				content = function(): Instance
 					return c.UI.Text({ text = "Press Plus to add a lap." })
 				end,
 				onRetire = c.log("onRetire"),
 			}
 		end,
 
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local anchor = UI.Button({ label = "Plus", onActivate = c.log("plus") })
 			p.anchor = anchor
-			return UI.VStack({ gap = "xs", padding = { top = 60, bottom = 60 }, anchor, UI.Callout(p) })
+			return UI.VStack({
+				gap = "xs",
+				padding = { top = 60, bottom = 60 },
+				anchor :: unknown,
+				UI.Callout(p :: any),
+			})
 		end,
 		demonstrates = { "anchor" },
 		axes = {
-			{ key = "edge", values = { "bottom", "top" } },
-			{ key = "align", values = { "leading", "center", "trailing" } },
+			{ key = "edge", values = { "bottom", "top" } } :: Axis,
+			{ key = "align", values = { "leading", "center", "trailing" } } :: Axis,
 		},
 		states = {
-			{ name = "dismiss label", props = { dismissLabel = "Got it!" } },
-			{ name = "priority 2", props = { priority = 2 } },
+			{ name = "dismiss label", props = { dismissLabel = "Got it!" } } :: State,
+			{ name = "priority 2", props = { priority = 2 } } :: State,
 			{
 				name = "show / hide reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onShow = c.log("onShow"), onHide = c.log("onHide") }
 				end,
-			},
-			{ name = "already seen (retired)", props = { seen = true } },
-			{ name = "after 2 sessions (not yet)", props = { sessions = 1, afterSessions = 2 } },
-			{ name = "feature used (retired)", props = { featureUsed = true } },
-			{ name = "steps", props = { steps = { index = 1, count = 3 } } },
-			{ name = "close button", props = { closeButton = true } },
-			{ name = "media", props = { media = { image = ART, aspectRatio = 2 } } },
+			} :: State,
+			{ name = "already seen (retired)", props = { seen = true } } :: State,
+			{ name = "after 2 sessions (not yet)", props = { sessions = 1, afterSessions = 2 } } :: State,
+			{ name = "feature used (retired)", props = { featureUsed = true } } :: State,
+			{ name = "steps", props = { steps = { index = 1, count = 3 } } } :: State,
+			{ name = "close button", props = { closeButton = true } } :: State,
+			{ name = "media", props = { media = { image = ART, aspectRatio = 2 } } } :: State,
 			{
 				name = "two actions",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						actions = {
-							{ id = "Try", label = "Try it", role = "default", onActivate = c.log("try") },
-							{ id = "Later", label = "Later", onActivate = c.log("later") },
+							{ id = "Try", label = "Try it", role = "default" :: "default", onActivate = c.log("try") } :: Properties,
+							{ id = "Later", label = "Later", onActivate = c.log("later") } :: Properties,
 						},
 					}
 				end,
-			},
-			{ name = "no tail", props = { tail = false } },
+			} :: State,
+			{ name = "no tail", props = { tail = false } } :: State,
 			{
 				name = "controlled presentation",
-				props = function(c)
+				props = function(c: Context)
 					return { isPresented = c.cell("calloutShown", true) }
 				end,
-			},
+			} :: State,
 		},
 	},
 
@@ -2481,7 +2596,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Picker (segmented) for a value inside a page; NavigationStack for drill-down.",
 		scenarios = { "containers", "all_controls" },
 		snippet = 'UI.TabView { selection = tab, tabs = { { id = "a", label = "A", content = pageA } } }',
-		base = function(c)
+		base = function(c: Context)
 			local function page(text)
 				return function()
 					return c.UI.Text({ text = text })
@@ -2504,31 +2619,38 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "indicator", values = { "automatic", "underline", "pill", "none" } },
-			SIZES,
-			{ key = "placement", values = { "automatic", "topBar", "bottomBar", "bottomBarCompact", "sidebar" } },
+			{ key = "indicator", values = { "automatic", "underline", "pill", "none" } } :: Axis,
+			SIZES :: Axis,
+			{ key = "placement", values = { "automatic", "topBar", "bottomBar", "bottomBarCompact", "sidebar" } } :: Axis,
 		},
 		states = {
 			{
 				name = "sidebar adaptable, expanded at ten feet",
-				props = function(c)
-					return { style = "sidebarAdaptable", sidebarExpanded = c.cell("expanded", true) }
+				props = function(c: Context)
+					return {
+						style = "sidebarAdaptable" :: "sidebarAdaptable",
+						sidebarExpanded = c.cell("expanded", true),
+					}
 				end,
 				across = false,
-			},
-			DISABLED,
-			{ name = "icon only", props = { iconOnly = true } },
-			{ name = "text size 12", props = { textSize = 12 } },
-			{ name = "sidebar adaptable", props = { style = "sidebarAdaptable", railWidth = 120 }, across = false },
-			{ name = "collapsible", props = { style = "collapsible" }, across = false },
-			{ name = "retain only the top page", props = { retention = "top" } },
-			{ name = "no motion", props = { transition = false } },
-			{ name = "slow crossfade", props = { transition = { seconds = 0.6 } } },
+			} :: State,
+			DISABLED :: State,
+			{ name = "icon only", props = { iconOnly = true } } :: State,
+			{ name = "text size 12", props = { textSize = 12 } } :: State,
+			{
+				name = "sidebar adaptable",
+				props = { style = "sidebarAdaptable" :: "sidebarAdaptable", railWidth = 120 },
+				across = false,
+			} :: State,
+			{ name = "collapsible", props = { style = "collapsible" :: "collapsible" }, across = false } :: State,
+			{ name = "retain only the top page", props = { retention = "top" } } :: State,
+			{ name = "no motion", props = { transition = false } } :: State,
+			{ name = "slow crossfade", props = { transition = { seconds = 0.6 } } } :: State,
 			{
 				name = "sections + customization",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						style = "sidebarAdaptable",
+						style = "sidebarAdaptable" :: "sidebarAdaptable",
 						sidebarPreference = "sidebar",
 						sections = { { id = "main", label = "Main" } },
 						customization = { order = { "three", "one", "two" }, hidden = {} },
@@ -2540,17 +2662,17 @@ local PAGE_DATA: { [string]: any } = {
 					}
 				end,
 				across = false,
-			},
-			{ name = "shoulders move the content", props = { shoulderNavigation = "content" } },
-			{ name = "no scroll/focus restore", props = { restoreScroll = false, restoreFocus = false } },
+			} :: State,
+			{ name = "shoulders move the content", props = { shoulderNavigation = "content" } } :: State,
+			{ name = "no scroll/focus restore", props = { restoreScroll = false, restoreFocus = false } } :: State,
 			{
 				name = "change reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onChange = c.log("onChange") }
 				end,
-			},
+			} :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			local placement = p.placement or "automatic"
 			return not ((p.style == "sidebarAdaptable" or p.style == "collapsible") and placement ~= "automatic")
 				and not (p.sidebarPreference ~= nil and p.style ~= "sidebarAdaptable")
@@ -2565,7 +2687,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "TabView for peers.",
 		scenarios = { "navigation_stack" },
 		snippet = 'UI.NavigationStack { path = path, root = { title = "Garage", content = list }, destinations = { … } }',
-		base = function(c)
+		base = function(c: Context)
 			local path = c.cell("path", {})
 			return {
 				path = path,
@@ -2573,7 +2695,7 @@ local PAGE_DATA: { [string]: any } = {
 				Size = UDim2.fromScale(1, 1),
 				root = {
 					title = "Garage",
-					content = function()
+					content = function(): Instance
 						return c.UI.Button({
 							label = "Open car",
 							onActivate = function()
@@ -2586,7 +2708,7 @@ local PAGE_DATA: { [string]: any } = {
 				destinations = {
 					car = {
 						title = "Car",
-						content = function(entry)
+						content = function(entry): Instance
 							return c.UI.Text({ text = `Car details: {entry and entry.value or "?"}` })
 						end,
 					},
@@ -2594,9 +2716,9 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "transition", values = { DEFAULT, false }, matrix = false },
+			{ key = "transition", values = { DEFAULT, false }, matrix = false } :: Axis,
 		},
-		states = { { name = "crossfade 0.3 s", props = { transition = { seconds = 0.3 } } } },
+		states = { { name = "crossfade 0.3 s", props = { transition = { seconds = 0.3 } } } :: State },
 	},
 	NavBar = {
 		family = "navigation",
@@ -2606,7 +2728,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "A plain HStack when there is no navigation.",
 		scenarios = { "overlays" },
 		snippet = 'UI.NavBar { title = "Garage", onBack = back, trailing = tools }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				title = "Garage",
 				onBack = c.log("onBack"),
@@ -2615,30 +2737,39 @@ local PAGE_DATA: { [string]: any } = {
 				Size = UDim2.fromScale(1, 0),
 			}
 		end,
-		axes = { { key = "surface", values = { DEFAULT, "surface", "panel", "pane" } } },
+		axes = { { key = "surface", values = { DEFAULT, "surface", "panel", "pane" } } :: Axis },
 		states = {
-			{ name = "heading title size", props = { titleSize = "heading" } },
-			{ name = "wide gap + padding", props = { gap = 24, padding = 16 } },
-			{ name = "long title", props = { title = LONG } },
-			{ name = "no back", props = { onBack = NONE } },
+			{ name = "heading title size", props = { titleSize = "heading" } } :: State,
+			{ name = "wide gap + padding", props = { gap = 24, padding = 16 } } :: State,
+			{ name = "long title", props = { title = LONG } } :: State,
+			{ name = "no back", props = { onBack = NONE } } :: State,
 			{
 				name = "leading slot",
-				props = function(c)
-					return { leading = c.UI.Label({ title = "Garage", icon = "settings", presentation = "iconOnly" }) }
-				end,
-			},
-			{
-				name = "centre slot",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						center = c.UI.Picker({
-							selected = c.cell("navSeg", "a"),
-							style = "segmented",
-							options = { { value = "a", label = "Cars" }, { value = "b", label = "Parts" } },
+						leading = c.UI.Label({
+							title = "Garage",
+							icon = "settings",
+							presentation = "iconOnly" :: "iconOnly",
 						}),
 					}
 				end,
-			},
+			} :: State,
+			{
+				name = "centre slot",
+				props = function(c: Context)
+					return {
+						center = c.UI.Picker({
+							selected = c.cell("navSeg", "a"),
+							style = "segmented" :: "segmented",
+							options = {
+								{ value = "a", label = "Cars" } :: Properties,
+								{ value = "b", label = "Parts" } :: Properties,
+							},
+						}),
+					}
+				end,
+			} :: State,
 		},
 	},
 	PageView = {
@@ -2650,13 +2781,13 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Pagination for result pages.",
 		scenarios = { "page_view" },
 		snippet = 'UI.PageView { selection = page, pages = { { id = "a", label = "A", content = view } } }',
-		base = function(c)
+		base = function(c: Context)
 			local pages = {}
 			for _, name in { "Coast", "Canyon", "City" } do
 				table.insert(pages, {
 					id = name,
 					label = name,
-					content = function()
+					content = function(): Instance
 						return c.UI.Text({ text = `{name} course` })
 					end,
 				})
@@ -2665,9 +2796,9 @@ local PAGE_DATA: { [string]: any } = {
 		end,
 		axes = {},
 		states = {
-			{ name = "no summary", props = { summary = false } },
-			{ name = "no controls", props = { controls = false } },
-			{ name = "no indicators", props = { indicators = false } },
+			{ name = "no summary", props = { summary = false } } :: State,
+			{ name = "no controls", props = { controls = false } } :: State,
+			{ name = "no indicators", props = { indicators = false } } :: State,
 		},
 	},
 	Pagination = {
@@ -2678,7 +2809,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "PageView for swiped content.",
 		scenarios = { "paging" },
 		snippet = "UI.Pagination { page = page, pageCount = 12, onChange = function(n) page:set(n) end }",
-		base = function(c)
+		base = function(c: Context)
 			local page = c.cell("page", 4)
 			return {
 				page = page,
@@ -2690,17 +2821,17 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "form", values = { "numbers", "arrows", "label" } },
-			SIZES,
-			{ key = "direction", values = { "ltr", "rtl" } },
+			{ key = "form", values = { "numbers", "arrows", "label" } } :: Axis,
+			SIZES :: Axis,
+			{ key = "direction", values = { "ltr", "rtl" } } :: Axis,
 		},
 		states = {
-			{ name = "two siblings, two at each end", props = { siblingCount = 2, boundaryCount = 2, pageCount = 20 } },
-			DISABLED,
-			{ name = "first/last", props = { showFirstLast = true } },
-			{ name = "unknown total", props = { pageCount = NONE, hasNext = true, hasPrevious = true } },
-			{ name = "no pages", props = { pageCount = 0 } },
-			{ name = "diagnostics table", props = { controls = {} } },
+			{ name = "two siblings, two at each end", props = { siblingCount = 2, boundaryCount = 2, pageCount = 20 } } :: State,
+			DISABLED :: State,
+			{ name = "first/last", props = { showFirstLast = true } } :: State,
+			{ name = "unknown total", props = { pageCount = NONE, hasNext = true, hasPrevious = true } } :: State,
+			{ name = "no pages", props = { pageCount = 0 } } :: State,
+			{ name = "diagnostics table", props = { controls = {} } } :: State,
 		},
 	},
 	StepIndicator = {
@@ -2711,12 +2842,19 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Stepper is a numeric control, not this.",
 		scenarios = { "steps" },
 		snippet = "UI.StepIndicator { steps = steps, current = current, onSelect = select }",
-		base = function(c)
+		base = function(c: Context)
 			local current = c.cell("current", "ship")
 			local logSelect = c.log("onSelect")
 			return {
 				steps = {
-					{ id = "cart", label = "Cart", state = "complete", navigable = true },
+					{ id = "cart", label = "Cart", state = "complete", navigable = true } :: {
+						id: string,
+						label: string,
+						state: string?,
+						navigable: boolean?,
+						description: string?,
+						enabled: boolean?,
+					},
 					{ id = "ship", label = "Shipping", description = "Address and speed", navigable = true },
 					{ id = "pay", label = "Payment", state = "error", navigable = true },
 					{ id = "review", label = "Review", enabled = false },
@@ -2729,11 +2867,11 @@ local PAGE_DATA: { [string]: any } = {
 				Size = UDim2.fromScale(1, 0),
 			}
 		end,
-		axes = { SIZES, { key = "sizing", values = { "fill", "hug" } } },
+		axes = { SIZES :: Axis, { key = "sizing", values = { "fill", "hug" } } :: Axis },
 		states = {
-			DISABLED,
-			{ name = "list label (narrow)", props = { listLabel = "All steps", Size = UDim2.fromOffset(200, 0) } },
-			{ name = "diagnostics table", props = { controls = {} } },
+			DISABLED :: State,
+			{ name = "list label (narrow)", props = { listLabel = "All steps", Size = UDim2.fromOffset(200, 0) } } :: State,
+			{ name = "diagnostics table", props = { controls = {} } } :: State,
 		},
 	},
 	DisclosureGroup = {
@@ -2745,13 +2883,13 @@ local PAGE_DATA: { [string]: any } = {
 		scenarios = { "containers", "collapsible_view" },
 		snippet = 'UI.DisclosureGroup { label = "Race rules", expanded = open, content = body }',
 
-		base = function(c)
+		base = function(c: Context)
 			return {
 				label = "Race rules",
 				expanded = c.cell("expanded", true),
-				content = function()
+				content = function(): Instance
 					return c.UI.VStack({
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "xs",
 						c.UI.Toggle({
 							label = "Collisions",
@@ -2765,7 +2903,7 @@ local PAGE_DATA: { [string]: any } = {
 						}),
 						c.UI.Text({
 							text = "Laps and items follow the track's defaults unless a host changes them.",
-							role = "secondary",
+							role = "secondary" :: "secondary",
 							wrap = true,
 							Size = UDim2.fromScale(1, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
@@ -2776,32 +2914,32 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "appearance", values = { "plain", "contained", "divided", "outline" } },
-			{ key = "chevronPosition", values = { "leading", "trailing" } },
+			{ key = "appearance", values = { "plain", "contained", "divided", "outline" } } :: Axis,
+			{ key = "chevronPosition", values = { "leading", "trailing" } } :: Axis,
 		},
 		states = {
-			DISABLED,
+			DISABLED :: State,
 			{
 				name = "collapsed",
-				props = function(c)
+				props = function(c: Context)
 					return { expanded = c.cell("shut", false) }
 				end,
-			},
-			{ name = "description", props = { description = "Three settings" } },
-			{ name = "icon", props = { icon = "settings" } },
-			{ name = "outline row type + indent", props = { textSize = "label", indent = "m" } },
+			} :: State,
+			{ name = "description", props = { description = "Three settings" } } :: State,
+			{ name = "icon", props = { icon = "settings" } } :: State,
+			{ name = "outline row type + indent", props = { textSize = "label", indent = "m" } } :: State,
 			{
 				name = "toggle reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onToggle = c.log("onToggle") }
 				end,
-			},
+			} :: State,
 
-			{ name = "single-open group", props = { singleOpen = true }, across = false },
+			{ name = "single-open group", props = { singleOpen = true }, across = false } :: State,
 		},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if not p.singleOpen then
-				return UI.DisclosureGroup(p)
+				return UI.DisclosureGroup(p :: any)
 			end
 			p.singleOpen = nil
 			local sections = { "Rules", "Rewards", "Credits" }
@@ -2809,7 +2947,7 @@ local PAGE_DATA: { [string]: any } = {
 			for _, name in sections do
 				cells[name] = c.cell(`open{name}`, name == "Rules")
 			end
-			local list: { any } = { width = "fill", gap = "xs" }
+			local list: Properties = { width = "fill" :: "fill", gap = "xs" }
 			for _, name in sections do
 				local spec = table.clone(p)
 				spec.label = name
@@ -2825,7 +2963,7 @@ local PAGE_DATA: { [string]: any } = {
 						end)
 					end
 				end
-				table.insert(list, UI.DisclosureGroup(spec))
+				table.insert(list, UI.DisclosureGroup(spec :: any))
 			end
 			return UI.VStack(list)
 		end,
@@ -2837,11 +2975,11 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "DisclosureGroup inside lists.",
 		scenarios = { "collapsible_view" },
 		snippet = 'UI.CollapsibleView { label = "Filters", expanded = open, content = body }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				label = "Filters",
 				expanded = c.cell("expanded", false),
-				content = function()
+				content = function(): Instance
 					return c.UI.VStack({
 						gap = "s",
 						padding = "m",
@@ -2851,19 +2989,19 @@ local PAGE_DATA: { [string]: any } = {
 				end,
 			}
 		end,
-		axes = { { key = "appearance", values = { "standard", "emphasis", "soft", "utility" } } },
+		axes = { { key = "appearance", values = { "standard", "emphasis", "soft", "utility" } } :: Axis },
 		states = {
-			DISABLED,
-			{ name = "icon", props = { icon = "settings" } },
-			{ name = "dismiss button", props = { dismissButton = true } },
-			{ name = "selected", props = { selected = true } },
-			{ name = "initial focus: Apply", props = { initialFocus = "Apply" } },
+			DISABLED :: State,
+			{ name = "icon", props = { icon = "settings" } } :: State,
+			{ name = "dismiss button", props = { dismissButton = true } } :: State,
+			{ name = "selected", props = { selected = true } } :: State,
+			{ name = "initial focus: Apply", props = { initialFocus = "Apply" } } :: State,
 			{
 				name = "activation reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onActivate = c.log("onActivate") }
 				end,
-			},
+			} :: State,
 		},
 	},
 
@@ -2875,7 +3013,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "Image Button for a single action.",
 		scenarios = { "cards", "card_rail" },
 		snippet = 'UI.Card { image = art, title = "Coast", primaryAction = { label = "Play", onActivate = play } }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				image = ART,
 				title = "Coastal Circuit",
@@ -2887,39 +3025,39 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "reveal", values = { "automatic", "always" } },
+			{ key = "reveal", values = { "automatic", "always" } } :: Axis,
 
-			{ key = "ringTarget", values = { "card", "media" } },
+			{ key = "ringTarget", values = { "card", "media" } } :: Axis,
 		},
 		states = {
-			DISABLED,
-			{ name = "long title", props = { title = LONG } },
-			{ name = "square artwork", props = { imageAspectRatio = 1 } },
-			{ name = "fit framing", props = { imageFraming = "fit" } },
-			{ name = "informational (no body action)", props = { onActivate = NONE } },
+			DISABLED :: State,
+			{ name = "long title", props = { title = LONG } } :: State,
+			{ name = "square artwork", props = { imageAspectRatio = 1 } } :: State,
+			{ name = "fit framing", props = { imageFraming = "fit" } } :: State,
+			{ name = "informational (no body action)", props = { onActivate = NONE } } :: State,
 			{
 				name = "3D artwork",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						artwork = function()
 							return c.UI.Stage({ camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero) })
 						end,
 					}
 				end,
-			},
-			{ name = "controls table", props = { controls = {} } },
+			} :: State,
+			{ name = "controls table", props = { controls = {} } } :: State,
 
-			{ name = "row of cards", props = { row = true }, across = false, cellWidth = 740 },
+			{ name = "row of cards", props = { row = true }, across = false, cellWidth = 740 } :: State,
 		},
 		demonstrates = { "browseTarget" },
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if not p.row then
-				return UI.Card(p)
+				return UI.Card(p :: any)
 			end
 			p.row = nil
-			local cards: { any } = {
+			local cards: Properties = {
 				gap = "m",
-				columns = function(use)
+				columns = function(use: Use)
 					return c.Facet.adaptive.columnsFor(use(c.logical).width - 400, 200, 16)
 				end,
 				cellHeight = 240,
@@ -2930,7 +3068,7 @@ local PAGE_DATA: { [string]: any } = {
 				spec.title = name
 				spec.onActivate = c.log(`open {i}`)
 				spec.primaryAction = { label = "Play", onActivate = c.log(`play {i}`) }
-				table.insert(cards, UI.Card(spec))
+				table.insert(cards, UI.Card(spec :: any))
 			end
 			return UI.Grid(cards)
 		end,
@@ -2943,7 +3081,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "TextInput for immediate text changes.",
 		scenarios = { "table_virtualized" },
 		snippet = 'UI.CellEditor { editor = "text", value = name, draft = draft, onChange = save }',
-		base = function(c)
+		base = function(c: Context)
 			local value = c.cell("value", "Coast")
 			return {
 				editor = "text",
@@ -2957,7 +3095,7 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		states = {
-			DISABLED,
+			DISABLED :: State,
 			{ name = "pending", props = { busy = true } },
 			{
 				name = "validation",
@@ -2969,7 +3107,7 @@ local PAGE_DATA: { [string]: any } = {
 			},
 			{
 				name = "number",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						editor = "number",
 						value = c.cell("number", 10),
@@ -2984,7 +3122,7 @@ local PAGE_DATA: { [string]: any } = {
 			},
 			{
 				name = "menu",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						editor = "menu",
 						draft = NONE,
@@ -2998,7 +3136,7 @@ local PAGE_DATA: { [string]: any } = {
 			},
 			{
 				name = "toggle",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						editor = "toggle",
 						draft = NONE,
@@ -3009,7 +3147,7 @@ local PAGE_DATA: { [string]: any } = {
 					}
 				end,
 			},
-		},
+		} :: { State },
 	},
 
 	Table = {
@@ -3032,7 +3170,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "VirtualList for a single column.",
 		scenarios = { "table_virtualized", "row_actions", "collections" },
 		snippet = 'UI.Table { from = rows, key = "id", columns = { { id = "name", label = "Track", value = … } } }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				from = c.cell("rows", ROWS),
 				key = "id",
@@ -3043,7 +3181,7 @@ local PAGE_DATA: { [string]: any } = {
 						value = function(r)
 							return r.name
 						end,
-					},
+					} :: Properties,
 					{
 						id = "laps",
 						label = "Laps",
@@ -3052,30 +3190,30 @@ local PAGE_DATA: { [string]: any } = {
 						value = function(r)
 							return r.laps
 						end,
-					},
+					} :: Properties,
 				},
 				Size = UDim2.fromScale(1, 1),
 			}
 		end,
-		axes = { { key = "selectionMode", values = { "none", "single", "multiple" }, matrix = false } },
+		axes = { { key = "selectionMode", values = { "none", "single", "multiple" }, matrix = false } :: Axis },
 		states = {
-			{ name = "copy rows by dragging into this collection", props = transferState },
+			{ name = "copy rows by dragging into this collection", props = transferState } :: State,
 			{
 				name = "custom cell render",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						columns = {
 							{
 								id = "name",
 								label = "Track",
-								render = function(current)
+								render = function(current): GuiObject
 									return c.UI.Text({
-										text = function(use)
+										text = function(use: Use)
 											return `▸ {use(current).name}`
 										end,
 									})
 								end,
-							},
+							} :: Properties,
 							{
 								id = "laps",
 								label = "Laps",
@@ -3083,16 +3221,16 @@ local PAGE_DATA: { [string]: any } = {
 								value = function(r)
 									return r.laps
 								end,
-							},
+							} :: Properties,
 						},
 					}
 				end,
-			},
-			{ name = "tall rows, header 56, gap 4", props = { itemSize = 56, headerHeight = 56, gap = 4 } },
+			} :: State,
+			{ name = "tall rows, header 56, gap 4", props = { itemSize = 56, headerHeight = 56, gap = 4 } } :: State,
 			{
 				name = "sorted (controlled)",
-				props = function(c)
-					local sort = c.cell("sort", { column = "laps", direction = "descending" })
+				props = function(c: Context)
+					local sort = c.cell("sort", { column = "laps", direction = "descending" :: "descending" })
 					return {
 						sort = sort,
 						onSortChange = function(s)
@@ -3101,10 +3239,10 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "widths (controlled)",
-				props = function(c)
+				props = function(c: Context)
 					local widths = c.cell("widths", { name = 220, laps = 90 })
 					return {
 						widths = widths,
@@ -3121,7 +3259,7 @@ local PAGE_DATA: { [string]: any } = {
 								value = function(r)
 									return r.name
 								end,
-							},
+							} :: Properties,
 							{
 								id = "laps",
 								label = "Laps",
@@ -3130,16 +3268,16 @@ local PAGE_DATA: { [string]: any } = {
 								value = function(r)
 									return r.laps
 								end,
-							},
+							} :: Properties,
 						},
 					}
 				end,
-			},
-			{ name = "page scrolls (all rows)", props = { scrolls = false, Size = UDim2.fromScale(1, 0) } },
-			{ name = "alternating rows", props = { alternatingRows = true } },
+			} :: State,
+			{ name = "page scrolls (all rows)", props = { scrolls = false, Size = UDim2.fromScale(1, 0) } } :: State,
+			{ name = "alternating rows", props = { alternatingRows = true } } :: State,
 			{
 				name = "reorderable (drag label)",
-				props = function(c)
+				props = function(c: Context)
 					local rows = c.cell("rows", ROWS)
 					return {
 						reorderable = true,
@@ -3153,14 +3291,14 @@ local PAGE_DATA: { [string]: any } = {
 						from = rows,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "reorder + delete (drag, Delete key; Edit on touch/pad)",
-				props = function(c)
+				props = function(c: Context)
 					local rows = c.cell("editRows", ROWS)
 					return {
 						from = rows,
-						selectionMode = "multiple",
+						selectionMode = "multiple" :: "multiple",
 						reorderable = true,
 						onReorder = c.log("onReorder"),
 						deletable = true,
@@ -3182,20 +3320,20 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "activation + edit mode",
-				props = function(c)
+				props = function(c: Context)
 					return {
-						selectionMode = "single",
+						selectionMode = "single" :: "single",
 						onActivate = c.log("onActivate"),
 						editing = c.cell("tableEditing", true),
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "row actions",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						rowActions = function()
 							return {
@@ -3204,7 +3342,7 @@ local PAGE_DATA: { [string]: any } = {
 										id = "delete",
 										label = "Delete",
 										icon = "trash",
-										role = "destructive",
+										role = "destructive" :: "destructive",
 										onActivate = c.log("delete"),
 									},
 								},
@@ -3212,13 +3350,13 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "selection (controlled), row 3 unselectable, row 4 disabled",
-				props = function(c)
+				props = function(c: Context)
 					local selection = c.cell("selected", { ["2"] = true })
 					return {
-						selectionMode = "multiple",
+						selectionMode = "multiple" :: "multiple",
 						selection = selection,
 						onSelectionChange = function(s)
 							selection:set(s)
@@ -3232,24 +3370,24 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
-			{ name = "no header", props = { header = false } },
-			{ name = "windowed, overscan 1", props = { mode = "windowed", overscan = 1 } },
-			{ name = "measured rows", props = { measure = true } },
-			{ name = "snap to rows", props = { snap = "item" } },
-			{ name = "follows the end", props = { follow = "end", followThreshold = 24 } },
+			} :: State,
+			{ name = "no header", props = { header = false } } :: State,
+			{ name = "windowed, overscan 1", props = { mode = "windowed" :: "windowed", overscan = 1 } } :: State,
+			{ name = "measured rows", props = { measure = true } } :: State,
+			{ name = "snap to rows", props = { snap = "item" } } :: State,
+			{ name = "follows the end", props = { follow = "end" :: "end", followThreshold = 24 } } :: State,
 			{
 				name = "status + controls + focus",
-				props = function(c)
+				props = function(c: Context)
 					return { status = emptyStatus(c), controls = {}, focus = {} }
 				end,
-			},
-			{ name = "measured map", props = { measured = { ["1"] = 72 } } },
-			{ name = "reduced motion", props = { reducedMotion = true } },
+			} :: State,
+			{ name = "measured map", props = { measured = { ["1"] = 72 } } } :: State,
+			{ name = "reduced motion", props = { reducedMotion = true } } :: State,
 
 			{
 				name = "editable cells",
-				props = function(c)
+				props = function(c: Context)
 					local rows = c.cell("editRows", {
 						{ id = "1", name = "Coastal Circuit", laps = 3, night = false, surface = "road" },
 						{ id = "2", name = "Canyon Run", laps = 5, night = true, surface = "dirt" },
@@ -3258,16 +3396,19 @@ local PAGE_DATA: { [string]: any } = {
 					return {
 						from = rows,
 						columns = {
-							{ id = "name", label = "Track", editor = "text" },
-							{ id = "laps", label = "Laps", width = 96, editor = "number", min = 1, max = 9, step = 1 },
-							{ id = "night", label = "Night", width = 64, editor = "toggle" },
+							{ id = "name", label = "Track", editor = "text" } :: Properties,
+							{ id = "laps", label = "Laps", width = 96, editor = "number", min = 1, max = 9, step = 1 } :: Properties,
+							{ id = "night", label = "Night", width = 64, editor = "toggle" } :: Properties,
 							{
 								id = "surface",
 								label = "Surface",
 								width = 110,
 								editor = "menu",
-								options = { { value = "road", label = "Road" }, { value = "dirt", label = "Dirt" } },
-							},
+								options = {
+									{ value = "road", label = "Road" } :: Properties,
+									{ value = "dirt", label = "Dirt" } :: Properties,
+								},
+							} :: Properties,
 						},
 						onCellChange = function(key, column, value)
 							local nextRows = {}
@@ -3283,13 +3424,13 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "empty",
-				props = function(c)
+				props = function(c: Context)
 					return { from = c.cell("none", {}) }
 				end,
-			},
+			} :: State,
 		},
 	},
 	VirtualList = {
@@ -3302,7 +3443,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "A plain VStack for a few rows.",
 		scenarios = { "collection_demo", "card_rail", "collections" },
 		snippet = 'UI.VirtualList { from = rows, key = "id", render = function(current) … end }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				from = c.cell("rows", ROWS),
 				key = "id",
@@ -3311,9 +3452,9 @@ local PAGE_DATA: { [string]: any } = {
 				onActivate = function(r)
 					c.log("onActivate")(r.name)
 				end,
-				render = function(current)
+				render = function(current): GuiObject
 					return c.UI.Text({
-						text = function(use)
+						text = function(use: Use)
 							return use(current).name
 						end,
 						Size = UDim2.new(1, 0, 0, 44),
@@ -3322,26 +3463,30 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "selectionMode", values = { "none", "single", "multiple" }, matrix = false },
-			{ key = "snap", values = { "none", "item" }, matrix = false },
-			{ key = "mode", values = { "windowed", "all" }, matrix = false },
+			{ key = "selectionMode", values = { "none", "single", "multiple" }, matrix = false } :: Axis,
+			{ key = "snap", values = { "none", "item" }, matrix = false } :: Axis,
+			{ key = "mode", values = { "windowed", "all" }, matrix = false } :: Axis,
 		},
 		states = {
-			{ name = "copy rows by dragging into this collection", props = transferState },
-			{ name = "no reorder autoscroll", props = { reorderable = true, autoscroll = false } },
-			{ name = "focus stays on the index", props = { focusPolicy = "index" } },
+			{ name = "copy rows by dragging into this collection", props = transferState } :: State,
+			{ name = "no reorder autoscroll", props = { reorderable = true, autoscroll = false } } :: State,
+			{ name = "focus stays on the index", props = { focusPolicy = "index" :: "index" } } :: State,
 			{
 				name = "cards rail",
-				props = { direction = "horizontal", itemSize = "cards", cards = { perView = 2, peek = 24 } },
+				props = {
+					direction = "horizontal" :: "horizontal",
+					itemSize = "cards",
+					cards = { perView = 2, peek = 24 },
+				},
 				across = false,
-			},
-			{ name = "horizontal", props = { direction = "horizontal", itemSize = 120 } },
-			{ name = "measured rows", props = { measure = true } },
-			{ name = "gap 8, overscan 3", props = { gap = 8, overscan = 3 } },
-			{ name = "follows the end", props = { follow = "end", followThreshold = 24 } },
+			} :: State,
+			{ name = "horizontal", props = { direction = "horizontal" :: "horizontal", itemSize = 120 } } :: State,
+			{ name = "measured rows", props = { measure = true } } :: State,
+			{ name = "gap 8, overscan 3", props = { gap = 8, overscan = 3 } } :: State,
+			{ name = "follows the end", props = { follow = "end" :: "end", followThreshold = 24 } } :: State,
 			{
 				name = "selection reported",
-				props = function(c)
+				props = function(c: Context)
 					local selection = c.cell("selection", {})
 					return {
 						selection = selection,
@@ -3351,10 +3496,10 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "reorder (row 1 fixed)",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						reorderable = true,
 						onReorder = c.log("onReorder"),
@@ -3366,14 +3511,14 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "reorder + delete (caller Edit)",
-				props = function(c)
+				props = function(c: Context)
 					local rows = c.cell("listEditRows", ROWS)
 					return {
 						from = rows,
-						selectionMode = "multiple",
+						selectionMode = "multiple" :: "multiple",
 						reorderable = true,
 						onReorder = c.log("onReorder"),
 						deletable = true,
@@ -3393,17 +3538,17 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "row focus + wrap",
-				props = function(c)
+				props = function(c: Context)
 					return { focus = {}, initialFocus = "2", autoFocus = false, wrapFocus = true }
 				end,
-			},
+			} :: State,
 			{
 				name = "row 3 unselectable, row 4 disabled",
 				props = {
-					selectionMode = "single",
+					selectionMode = "single" :: "single",
 					selectable = function(r)
 						return r.id ~= "3"
 					end,
@@ -3411,22 +3556,22 @@ local PAGE_DATA: { [string]: any } = {
 						return r.id == "4"
 					end,
 				},
-			},
+			} :: State,
 			{
 				name = "reach end reported",
-				props = function(c)
+				props = function(c: Context)
 					return { onReachEnd = c.log("onReachEnd") }
 				end,
-			},
+			} :: State,
 			{
 				name = "status + controls",
-				props = function(c)
+				props = function(c: Context)
 					return { status = emptyStatus(c), controls = {}, maxRetained = 8 }
 				end,
-			},
-			{ name = "measured map", props = { measured = { ["1"] = 72 } } },
-			{ name = "reduced motion", props = { reducedMotion = true } },
-			{ name = "cross gap 4", props = { crossGap = 4 } },
+			} :: State,
+			{ name = "measured map", props = { measured = { ["1"] = 72 } } } :: State,
+			{ name = "reduced motion", props = { reducedMotion = true } } :: State,
+			{ name = "cross gap 4", props = { crossGap = 4 } } :: State,
 		},
 	},
 	VirtualGrid = {
@@ -3439,7 +3584,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "UI.Grid for a few cells.",
 		scenarios = { "virtual_grid", "virtual_hgrid", "cards" },
 		snippet = 'UI.VirtualGrid { from = games, key = "id", columns = 3, itemSize = 208, render = … }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				from = c.cell("rows", ROWS),
 				key = "id",
@@ -3450,9 +3595,9 @@ local PAGE_DATA: { [string]: any } = {
 				onActivate = function(r)
 					c.log("onActivate")(r.name)
 				end,
-				render = function(current)
+				render = function(current): GuiObject
 					return c.UI.Button({
-						label = function(use)
+						label = function(use: Use)
 							return use(current).name
 						end,
 						Size = UDim2.fromScale(1, 1),
@@ -3461,13 +3606,17 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "columns", values = { 3, 2, 1 } },
-			{ key = "snap", values = { "none", "item" }, matrix = false },
+			{ key = "columns", values = { 3, 2, 1 } } :: Axis,
+			{ key = "snap", values = { "none", "item" }, matrix = false } :: Axis,
 		},
 		states = {
-			{ name = "copy rows by dragging into this collection", props = transferState },
-			{ name = "horizontal", props = { direction = "horizontal", columns = 2, itemSize = 140 }, across = false },
-			{ name = "cross gap 16", props = { crossGap = 16 } },
+			{ name = "copy rows by dragging into this collection", props = transferState } :: State,
+			{
+				name = "horizontal",
+				props = { direction = "horizontal" :: "horizontal", columns = 2, itemSize = 140 },
+				across = false,
+			} :: State,
+			{ name = "cross gap 16", props = { crossGap = 16 } } :: State,
 		},
 	},
 	RowActions = {
@@ -3479,9 +3628,9 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "A trailing More Menu button when there is one secondary action.",
 		scenarios = { "row_actions" },
 		snippet = 'UI.RowActions { content = row, trailing = { { id = "delete", label = "Delete", role = "destructive", onActivate = del } } }',
-		base = function(c)
+		base = function(c: Context)
 			return {
-				content = function()
+				content = function(): Instance
 					return c.UI.Button({
 						label = "Swipe or focus this row",
 						appearance = "utility",
@@ -3494,7 +3643,7 @@ local PAGE_DATA: { [string]: any } = {
 						id = "delete",
 						label = "Delete",
 						icon = "trash",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						onActivate = c.log("delete"),
 					},
 				},
@@ -3506,16 +3655,16 @@ local PAGE_DATA: { [string]: any } = {
 		states = {
 			{
 				name = "editing",
-				props = function(c)
+				props = function(c: Context)
 					return { editing = c.cell("editing", true) }
 				end,
-			},
-			{ name = "no full swipe", props = { fullSwipe = false } },
-			{ name = "full swipe trailing only", props = { fullSwipe = { leading = false, trailing = true } } },
-			{ name = "action width 120", props = { actionWidth = 120 } },
+			} :: State,
+			{ name = "no full swipe", props = { fullSwipe = false } } :: State,
+			{ name = "full swipe trailing only", props = { fullSwipe = { leading = false, trailing = true } } } :: State,
+			{ name = "action width 120", props = { actionWidth = 120 } } :: State,
 			{
 				name = "open (controlled)",
-				props = function(c)
+				props = function(c: Context)
 					local open = c.cell("open", "trailing")
 					return {
 						open = open,
@@ -3525,15 +3674,15 @@ local PAGE_DATA: { [string]: any } = {
 						end,
 					}
 				end,
-			},
+			} :: State,
 			{
 				name = "shared coordinator",
-				props = function(c)
+				props = function(c: Context)
 					return { coordinator = c.cell("coordinator", nil) }
 				end,
-			},
-			DISABLED,
-			{ name = "reduced motion", props = { reducedMotion = true } },
+			} :: State,
+			DISABLED :: State,
+			{ name = "reduced motion", props = { reducedMotion = true } } :: State,
 		},
 	},
 
@@ -3544,7 +3693,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "VirtualList for large data.",
 		scenarios = { "containers" },
 		snippet = 'UI.ScrollView { axis = "y", gap = "s", … }',
-		base = function(c)
+		base = function(c: Context)
 			local rows = {}
 			for i = 1, 12 do
 				table.insert(rows, c.UI.Button({ label = `Row {i}`, appearance = "utility" }))
@@ -3555,12 +3704,12 @@ local PAGE_DATA: { [string]: any } = {
 			return rows
 		end,
 		axes = {
-			{ key = "axis", values = { "y", "x", "xy" } },
-			{ key = "align", values = { "start", "center", "end" } },
+			{ key = "axis", values = { "y", "x", "xy" } } :: Axis,
+			{ key = "align", values = { "start", "center", "end" } } :: Axis,
 		},
 		states = {
-			{ name = "padding m", props = { padding = "m" } },
-			{ name = "spread (distribute)", props = { distribute = "spaceBetween" } },
+			{ name = "padding m", props = { padding = "m" } } :: State,
+			{ name = "spread (distribute)", props = { distribute = "spaceBetween" :: "spaceBetween" } } :: State,
 		},
 	},
 	focusRing = {
@@ -3572,10 +3721,10 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI)
+		make = function(UI: FacetControls): Instance
 			return UI.HStack({
 				gap = "s",
-				UI.Button({ label = "First" }),
+				UI.Button({ label = "First" }) :: unknown,
 				UI.Button({ label = "Second" }),
 				UI.Button({ label = "Third" }),
 			})
@@ -3590,18 +3739,18 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "entry", values = { "restore", "first", "nearest" } } },
+		axes = { { key = "entry", values = { "restore", "first", "nearest" } } :: Axis },
 		states = {
-			{ name = "preferred Row 3", props = { preferred = "Row 3" } },
+			{ name = "preferred Row 3", props = { preferred = "Row 3" } } :: State,
 			{
 				name = "takes the selection on appear, gives it back",
 				props = { focusOnAppear = true, returnFocus = true },
-			},
+			} :: State,
 		},
-		make = function(UI, p)
-			local rows: { any } = { Name = "Sidebar", gap = "xs", width = 140 }
+		make = function(UI: FacetControls, p: Properties): Instance
+			local rows: Properties = { Name = "Sidebar", gap = "xs", width = 140 }
 			for index = 1, 4 do
-				table.insert(rows, UI.Button({ Name = `Row {index}`, label = `Row {index}`, width = "fill" }))
+				table.insert(rows, UI.Button({ Name = `Row {index}`, label = `Row {index}`, width = "fill" :: "fill" }))
 			end
 			local sidebar = UI.VStack(rows)
 			UI.focusSection(sidebar, {
@@ -3612,11 +3761,11 @@ local PAGE_DATA: { [string]: any } = {
 			})
 			return UI.HStack({
 				gap = "m",
-				sidebar,
+				sidebar :: unknown,
 				UI.VStack({
 					Name = "Detail",
 					gap = "xs",
-					UI.Button({ label = "Detail one" }),
+					UI.Button({ label = "Detail one" }) :: unknown,
 					UI.Button({ label = "Detail two" }),
 				}),
 			})
@@ -3632,33 +3781,33 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI, _, c)
-			local selected = c.Compose.cell(nil)
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
+			local selected: Cell<GuiObject?> = c.Compose.cell(nil :: GuiObject?)
 			local function cell(name: string): any
 				local node = UI.Button({ Name = name, label = name })
 				node.SelectionGained:Connect(function()
-					selected:set(node)
+					selected:set(node :: GuiObject)
 				end)
 				return node
 			end
 
 			local angle = 0
-			local dial = UI.Text({ Name = "Dial", textRole = "label", text = "Dial 0°" })
+			local dial = UI.Text({ Name = "Dial", textRole = "label" :: "label", text = "Dial 0°" }) :: TextLabel
 			UI.adjustable(dial, {
-				axis = "horizontal",
+				axis = "horizontal" :: "horizontal",
 				onAdjust = function(direction)
 					angle += direction * 15
 					dial.Text = `Dial {angle}°`
 				end,
 			})
 			dial.SelectionGained:Connect(function()
-				selected:set(dial)
+				selected:set(dial :: GuiObject)
 			end)
 			local function row(direction: string): any
 				return UI.Text({
 					Name = direction,
-					textRole = "caption",
-					text = function(use)
+					textRole = "caption" :: "caption",
+					text = function(use: Use)
 						local from = use(selected)
 						if from == nil then
 							return `{direction}: —`
@@ -3672,11 +3821,11 @@ local PAGE_DATA: { [string]: any } = {
 				gap = "l",
 				UI.VStack({
 					gap = "xs",
-					UI.HStack({ gap = "xs", cell("A1"), cell("A2"), cell("A3") }),
-					UI.HStack({ gap = "xs", cell("B1"), dial, cell("B3") }),
-					UI.HStack({ gap = "xs", cell("C1"), cell("C2"), cell("C3") }),
-				}),
-				UI.VStack({ gap = "xs", row("Up"), row("Down"), row("Left"), row("Right") }),
+					UI.HStack({ gap = "xs", cell("A1") :: unknown, cell("A2"), cell("A3") }) :: unknown,
+					UI.HStack({ gap = "xs", cell("B1") :: unknown, dial, cell("B3") }),
+					UI.HStack({ gap = "xs", cell("C1") :: unknown, cell("C2"), cell("C3") }),
+				}) :: unknown,
+				UI.VStack({ gap = "xs", row("Up") :: unknown, row("Down"), row("Left"), row("Right") }),
 			})
 		end,
 	},
@@ -3709,10 +3858,10 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI, _, c)
-			local shown = c.Compose.cell({})
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
+			local shown = c.Compose.cell({} :: { { n: number, spec: Properties } })
 			local count = 0
-			local function add(spec)
+			local function add(spec: Properties)
 				count += 1
 				spec.onDismiss = c.log("onDismiss")
 				local list = table.clone(shown:peek())
@@ -3726,11 +3875,17 @@ local PAGE_DATA: { [string]: any } = {
 					onActivate = function()
 						add({ message = `Saved ({count + 1})`, duration = 3, readFloor = 1 })
 					end,
-				}),
+				}) :: unknown,
 				UI.Button({
 					label = "Priority toast (bottom, hug, fade)",
 					onActivate = function()
-						add({ message = "Level up", priority = 2, position = "bottom", width = "hug", fade = true })
+						add({
+							message = "Level up",
+							priority = 2,
+							position = "bottom" :: "bottom",
+							width = "hug" :: "hug",
+							fade = true,
+						})
 					end,
 				}),
 				UI.Button({
@@ -3764,7 +3919,7 @@ local PAGE_DATA: { [string]: any } = {
 					onActivate = function()
 						add({
 							key = "sync",
-							content = function()
+							content = function(): Instance
 								return UI.Text({ text = `Syncing… ({count + 1})` })
 							end,
 						})
@@ -3775,7 +3930,7 @@ local PAGE_DATA: { [string]: any } = {
 					key = function(entry)
 						return entry.n
 					end,
-					render = function(entry)
+					render = function(entry: Readable<{ n: number, spec: Properties }>): GuiObject
 						return UI.Toast(entry:peek().spec)
 					end,
 				}),
@@ -3793,14 +3948,14 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI, _, c)
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local card = UI.Button({ label = "Drag me" })
 			local slot = UI.Button({ label = "Drop here" })
 			UI.draggable(card, {
 				payload = "card",
 				armOnTap = true,
 				enabled = true,
-				operations = { "copy" },
+				operations = { "copy" :: "copy" },
 				valid = function()
 					return card.Parent ~= nil
 				end,
@@ -3809,11 +3964,11 @@ local PAGE_DATA: { [string]: any } = {
 			})
 			UI.dropTarget(slot, {
 				operation = "copy",
-				onDrop = function(payload, info)
+				onDrop = function(payload: any, info: any)
 					c.log("onDrop")(payload, info.mode)
 				end,
 			})
-			return UI.HStack({ gap = "l", card, slot })
+			return UI.HStack({ gap = "l", card :: unknown, slot })
 		end,
 	},
 	dropTarget = {
@@ -3837,7 +3992,7 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI, _, c)
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local card = UI.Button({ label = "Card" })
 			local open = UI.Button({ label = "Open slot" })
 			local full = UI.Button({ label = "Full slot" })
@@ -3860,7 +4015,7 @@ local PAGE_DATA: { [string]: any } = {
 				onDrop = c.log("onDrop"),
 				onReject = c.log("onReject"),
 			})
-			return UI.HStack({ gap = "l", card, open, full })
+			return UI.HStack({ gap = "l", card :: unknown, open, full })
 		end,
 	},
 	adjustable = {
@@ -3873,14 +4028,14 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "axis", values = { "horizontal", "vertical", "none" } } },
-		states = { { name = "repeats when held", props = { repeats = true } } },
-		make = function(UI, p, c)
+		axes = { { key = "axis", values = { "horizontal", "vertical", "none" } } :: Axis },
+		states = { { name = "repeats when held", props = { repeats = true } } :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local angle = 0
-			local readout = UI.Text({ text = "0°" })
+			local readout = UI.Text({ text = "0°" }) :: TextLabel
 			local row = UI.HStack({
 				gap = "xs",
-				UI.Button({ label = "Dial" }),
+				UI.Button({ label = "Dial" }) :: unknown,
 				readout,
 			})
 			UI.adjustable(row, {
@@ -3904,8 +4059,8 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "kind", values = { "selection", "impact", "success", "warning", "error" } } },
-		make = function(UI, p, c)
+		axes = { { key = "kind", values = { "selection", "impact", "success", "warning", "error" } } :: Axis },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local kind = p.kind or "success"
 			return UI.VStack({
 				gap = "xs",
@@ -3915,7 +4070,7 @@ local PAGE_DATA: { [string]: any } = {
 						UI.feedback(kind)
 						c.log("feedback")(kind)
 					end,
-				}),
+				}) :: unknown,
 				UI.Button({ label = `Press plays {kind}`, haptic = kind }),
 			})
 		end,
@@ -3930,10 +4085,10 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		make = function(UI, _, c)
+		make = function(UI: FacetControls, _: Properties, c: Context): Instance
 			local hud = UI.VStack({
 				gap = "xs",
-				UI.Button({ label = "Map" }),
+				UI.Button({ label = "Map" }) :: unknown,
 				UI.Button({ label = "Bag" }),
 			})
 			local responder = UI.responder(hud, { passive = true, gameplayGuard = true, traversalWrap = false })
@@ -3945,7 +4100,7 @@ local PAGE_DATA: { [string]: any } = {
 						responder.engage()
 						c.log("engaged")(true)
 					end,
-				}),
+				}) :: unknown,
 				hud,
 			})
 		end,
@@ -3960,10 +4115,10 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "position", values = { "top", "bottom" } } },
-		states = { { name = "instant", props = { animated = false } } },
-		make = function(UI, p)
-			local list: { any } = { Name = "List", width = 220, height = 140, gap = "xs" }
+		axes = { { key = "position", values = { "top", "bottom" } } :: Axis },
+		states = { { name = "instant", props = { animated = false } } :: State },
+		make = function(UI: FacetControls, p: Properties): Instance
+			local list: Properties = { Name = "List", width = 220, height = 140, gap = "xs" }
 			for i = 1, 20 do
 				table.insert(list, UI.Text({ text = `Line {i}` }))
 			end
@@ -3975,7 +4130,7 @@ local PAGE_DATA: { [string]: any } = {
 					onActivate = function()
 						UI.scrollTo(view, p.position or "top", { animated = p.animated })
 					end,
-				}),
+				}) :: unknown,
 				view,
 			})
 		end,
@@ -3990,11 +4145,11 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "target", values = { 5, 15, 20 } } },
-		states = { { name = "instant", props = { animated = false } } },
-		make = function(UI, p)
+		axes = { { key = "target", values = { 5, 15, 20 } } :: Axis },
+		states = { { name = "instant", props = { animated = false } } :: State },
+		make = function(UI: FacetControls, p: Properties): Instance
 			local target
-			local list: { any } = { width = 220, height = 140, gap = "xs" }
+			local list: Properties = { width = 220, height = 140, gap = "xs" }
 			for i = 1, 20 do
 				local line = UI.Text({ text = `Line {i}` })
 				if i == (p.target or 5) then
@@ -4009,7 +4164,7 @@ local PAGE_DATA: { [string]: any } = {
 					onActivate = function()
 						UI.scrollToVisible(target, nil, { animated = p.animated })
 					end,
-				}),
+				}) :: unknown,
 				UI.ScrollView(list),
 			})
 		end,
@@ -4028,23 +4183,27 @@ local PAGE_DATA: { [string]: any } = {
 			{
 				key = "textRole",
 				values = { "caption", "label", "body", "control", "strong", "numeral", "heading", "title" },
-			},
-			{ key = "role", values = { "content", "secondary" } },
+			} :: Axis,
+			{ key = "role", values = { "content", "secondary" } } :: Axis,
 		},
 		states = {
 			{
 				name = "reveal auto (marquee)",
 				props = { text = LONG, reveal = "auto", Size = UDim2.fromOffset(200, 24) },
-			},
+			} :: State,
 			{
 				name = "discloses a truncated value",
 				props = { text = LONG, disclose = true, Size = UDim2.fromOffset(200, 24) },
-			},
-			{ name = "accent tint", props = { tint = Color3.fromRGB(60, 94, 246) } },
+			} :: State,
+			{ name = "accent tint", props = { tint = Color3.fromRGB(60, 94, 246) } } :: State,
 			{
 				name = "centred",
-				props = { textAlign = "center", Size = UDim2.fromOffset(220, 0), AutomaticSize = Enum.AutomaticSize.Y },
-			},
+				props = {
+					textAlign = "center" :: "center",
+					Size = UDim2.fromOffset(220, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+				},
+			} :: State,
 			{
 				name = "wraps",
 				props = {
@@ -4053,7 +4212,7 @@ local PAGE_DATA: { [string]: any } = {
 					Size = UDim2.fromOffset(220, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 				},
-			},
+			} :: State,
 			{
 				name = "truncate end",
 				props = {
@@ -4062,12 +4221,12 @@ local PAGE_DATA: { [string]: any } = {
 					Size = UDim2.fromOffset(220, 24),
 					AutomaticSize = Enum.AutomaticSize.None,
 				},
-			},
-			{ name = "rich", props = { rich = true, text = "Plain, <b>bold</b> and <i>italic</i>" } },
+			} :: State,
+			{ name = "rich", props = { rich = true, text = "Plain, <b>bold</b> and <i>italic</i>" } } :: State,
 			{
 				name = "at most 2 lines",
 				props = { text = LONG .. ". " .. LONG, lines = 2, Size = UDim2.fromOffset(220, 0) },
-			},
+			} :: State,
 			{
 				name = "truncate middle",
 				props = {
@@ -4075,16 +4234,16 @@ local PAGE_DATA: { [string]: any } = {
 					truncate = "middle",
 					Size = UDim2.fromOffset(160, 0),
 				},
-			},
-			{ name = "size 22 px", props = { textSize = 22, textRole = NONE } },
+			} :: State,
+			{ name = "size 22 px", props = { textSize = 22, textRole = NONE } } :: State,
 			{
 				name = "fit to box",
 				props = { textSize = { fit = { cap = "title", floor = "caption" } }, Size = UDim2.fromOffset(160, 40) },
 				across = false,
-			},
-			{ name = "right to left", props = { text = "مرحبا بالعالم", direction = "rtl" } },
+			} :: State,
+			{ name = "right to left", props = { text = "مرحبا بالعالم", direction = "rtl" :: "rtl" } } :: State,
 		},
-		valid = function(p)
+		valid = function(p: Properties)
 			return not (p.textSize ~= nil and type(p.textSize) == "string" and p.textRole ~= nil)
 		end,
 	},
@@ -4099,30 +4258,30 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {
-			{ key = "appearance", values = { "standard", "strong" } },
-			{ key = "thickness", values = { DEFAULT, 3, "strokes.hairline" } },
+			{ key = "appearance", values = { "standard", "strong" } } :: Axis,
+			{ key = "thickness", values = { DEFAULT, 3, "strokes.hairline" } } :: Axis,
 		},
 		states = {
-			{ name = "vertical (in an HStack)", props = { vertical = true }, across = false },
-			{ name = "axis x forced", props = { axis = "x", Size = UDim2.fromOffset(1, 40) } },
+			{ name = "vertical (in an HStack)", props = { vertical = true }, across = false } :: State,
+			{ name = "axis x forced", props = { axis = "x" :: "x", Size = UDim2.fromOffset(1, 40) } } :: State,
 		},
-		make = function(UI, p)
+		make = function(UI: FacetControls, p: Properties): Instance
 			local vertical = p.vertical
 			p.vertical = nil
 			if vertical then
 				return UI.HStack({
 					height = 40,
 					gap = "s",
-					UI.Text({ text = "Left" }),
-					UI.Divider(p),
+					UI.Text({ text = "Left" }) :: unknown,
+					UI.Divider(p :: any),
 					UI.Text({ text = "Right" }),
 				})
 			end
 			return UI.VStack({
 				width = 200,
 				gap = "s",
-				UI.Text({ text = "Above" }),
-				UI.Divider(p),
+				UI.Text({ text = "Above" }) :: unknown,
+				UI.Divider(p :: any),
 				UI.Text({ text = "Below" }),
 			})
 		end,
@@ -4134,7 +4293,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "VirtualGrid for large data.",
 		scenarios = { "container_grid" },
 		snippet = 'UI.Grid { columns = 3, gap = "s", … }',
-		base = function(c)
+		base = function(c: Context)
 			local cells = { columns = 3, gap = "xs", Size = UDim2.fromOffset(300, 0) }
 			for i = 1, 6 do
 				table.insert(cells, c.UI.Button({ label = `Cell {i}`, Size = UDim2.fromScale(1, 1) }))
@@ -4142,16 +4301,16 @@ local PAGE_DATA: { [string]: any } = {
 			return cells
 		end,
 		axes = {
-			{ key = "columns", values = { 1, 2, 3, 4 } },
-			{ key = "align", values = { "start", "center", "end" } },
+			{ key = "columns", values = { 1, 2, 3, 4 } } :: Axis,
+			{ key = "align", values = { "start", "center", "end" } } :: Axis,
 		},
 		states = {
-			{ name = "row gap l", props = { rowGap = "l" } },
-			{ name = "cell height 64", props = { cellHeight = 64 } },
-			{ name = "square cells", props = { aspectRatio = 1 } },
-			{ name = "padding s", props = { padding = "s" } },
-			{ name = "width 200, height 160 (extents)", props = { Size = NONE, width = 200, height = 160 } },
-			{ name = "column flow", props = { flow = "column" } },
+			{ name = "row gap l", props = { rowGap = "l" } } :: State,
+			{ name = "cell height 64", props = { cellHeight = 64 } } :: State,
+			{ name = "square cells", props = { aspectRatio = 1 } } :: State,
+			{ name = "padding s", props = { padding = "s" } } :: State,
+			{ name = "width 200, height 160 (extents)", props = { Size = NONE, width = 200, height = 160 } } :: State,
+			{ name = "column flow", props = { flow = "column" } } :: State,
 		},
 	},
 	Path = {
@@ -4161,7 +4320,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "ProgressView circular for a progress ring.",
 		scenarios = { "progress_ring" },
 		snippet = 'UI.Path { points = Facet.pathShapes.ring({ radius = 0.4 }), closed = true, thickness = 4, role = "accent" }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				points = c.Facet.pathShapes.ring({ radius = 0.4 }),
 				closed = true,
@@ -4171,26 +4330,26 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "role", values = { "accent", "secondary", "content" } },
-			{ key = "thickness", values = { 2, 4, 8 } },
+			{ key = "role", values = { "accent", "secondary", "content" } } :: Axis,
+			{ key = "thickness", values = { 2, 4, 8 } } :: Axis,
 		},
 		states = {
 			{
 				name = "arc 250°",
-				props = function(c)
+				props = function(c: Context)
 					return { points = c.Facet.pathShapes.arc(0, 250, { radius = 0.4 }), closed = false }
 				end,
-			},
+			} :: State,
 			{
 				name = "needle at 45°",
-				props = function(c)
+				props = function(c: Context)
 					return {
 						points = c.Facet.pathShapes.needle(45, { innerRadius = 0.1, radius = 0.45 }),
 						closed = false,
 					}
 				end,
-			},
-			{ name = "tint", props = { tint = Color3.fromRGB(63, 184, 113) } },
+			} :: State,
+			{ name = "tint", props = { tint = Color3.fromRGB(63, 184, 113) } } :: State,
 		},
 	},
 	HStack = {
@@ -4200,11 +4359,13 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "VStack for a column; Grid for aligned columns.",
 		scenarios = { "flow_wrap" },
 		snippet = 'UI.HStack { gap = "s", align = "center", distribute = "spaceBetween", a, b, c }',
-		base = function(c)
+		base = function(c: Context)
 			return stackDemo(c, { width = 300, height = 80 })
 		end,
-		axes = { ALIGN, DISTRIBUTE, GAP },
-		states = { { name = "wrap (narrow)", props = { wrap = true, width = 120, height = "hug" }, across = false } },
+		axes = { ALIGN :: Axis, DISTRIBUTE :: Axis, GAP :: Axis },
+		states = {
+			{ name = "wrap (narrow)", props = { wrap = true, width = 120, height = "hug" :: "hug" }, across = false } :: State,
+		},
 	},
 	VStack = {
 		family = "layout",
@@ -4213,11 +4374,13 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "HStack for a row; ScrollView when the column can outgrow its box.",
 		scenarios = { "containers" },
 		snippet = 'UI.VStack { gap = "s", align = "start", a, b, c }',
-		base = function(c)
+		base = function(c: Context)
 			return stackDemo(c, { width = 160, height = 240 })
 		end,
-		axes = { ALIGN, DISTRIBUTE, GAP },
-		states = { { name = "wrap (short)", props = { wrap = true, height = 80, width = "hug" }, across = false } },
+		axes = { ALIGN :: Axis, DISTRIBUTE :: Axis, GAP :: Axis },
+		states = {
+			{ name = "wrap (short)", props = { wrap = true, height = 80, width = "hug" :: "hug" }, across = false } :: State,
+		},
 	},
 	ZStack = {
 		family = "layout",
@@ -4226,7 +4389,7 @@ local PAGE_DATA: { [string]: any } = {
 		alternatives = "A stack when the children should not overlap.",
 		scenarios = { "containers" },
 		snippet = 'UI.ZStack { alignH = "end", alignV = "start", plate, badge }',
-		base = function(c)
+		base = function(c: Context)
 			return {
 				width = 140,
 				height = 96,
@@ -4235,10 +4398,10 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "alignH", values = { "start", "center", "end" } },
-			{ key = "alignV", values = { "start", "center", "end" } },
+			{ key = "alignH", values = { "start", "center", "end" } } :: Axis,
+			{ key = "alignV", values = { "start", "center", "end" } } :: Axis,
 		},
-		states = { { name = "padding s", props = { padding = "s" } } },
+		states = { { name = "padding s", props = { padding = "s" } } :: State },
 	},
 	Spacer = {
 		family = "layout",
@@ -4250,17 +4413,20 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "minLength", values = { 0, 24, "l" } }, { key = "room", values = { "hug", 360 } } },
+		axes = {
+			{ key = "minLength", values = { 0, 24, "l" } } :: Axis,
+			{ key = "room", values = { "hug", 360 } } :: Axis,
+		},
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local room = p.room
 			p.room = nil
 			return UI.HStack({
-				align = "center",
-				width = if room == 360 then 360 else "hug",
-				UI.Button({ label = "Back", onActivate = c.log("back") }),
-				UI.Spacer(p),
-				UI.Button({ label = "Done", appearance = "emphasis", onActivate = c.log("done") }),
+				align = "center" :: "center",
+				width = (if room == 360 then 360 else "hug") :: number | "hug",
+				UI.Button({ label = "Back", onActivate = c.log("back") }) :: unknown,
+				UI.Spacer(p :: any),
+				UI.Button({ label = "Done", appearance = "emphasis" :: string, onActivate = c.log("done") }),
 			})
 		end,
 	},
@@ -4274,13 +4440,13 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "weight", values = { DEFAULT, 1, 3 } } },
+		axes = { { key = "weight", values = { DEFAULT, 1, 3 } } :: Axis },
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return UI.HStack({
 				width = 360,
 				gap = "s",
-				UI.Button({ label = "Grows", UI.fill(p.weight) }),
+				UI.Button({ label = "Grows", UI.fill(p.weight) }) :: unknown,
 				UI.Button({ label = "Weight 1", UI.fill(1) }),
 				UI.Button({ label = "Fixed" }),
 			})
@@ -4300,45 +4466,48 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {
-			{ key = "padding", values = { DEFAULT, 0, "xl" } },
-			{ key = "align", values = { DEFAULT, "start", "center", "end" } },
-			{ key = "distribute", values = { DEFAULT, "start", "center", "spaceBetween" } },
+			{ key = "padding", values = { DEFAULT, 0, "xl" } } :: Axis,
+			{ key = "align", values = { DEFAULT, "start", "center", "end" } } :: Axis,
+			{ key = "distribute", values = { DEFAULT, "start", "center", "spaceBetween" } } :: Axis,
 		},
 		states = {
-			{ name = "chrome band", props = { chrome = "band" } },
-			{ name = "chrome edge", props = { chrome = "edge" } },
-			{ name = "gap l", props = { gap = "l" } },
-			{ name = "fixed 300×200 (width/height)", props = { width = 300, height = 200 } },
+			{ name = "chrome band", props = { chrome = "band" } } :: State,
+			{ name = "chrome edge", props = { chrome = "edge" } } :: State,
+			{ name = "gap l", props = { gap = "l" } } :: State,
+			{ name = "fixed 300×200 (width/height)", props = { width = 300, height = 200 } } :: State,
 		},
 
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local env = UI.environment()
-			local facts = c.Compose.formula(function(use)
+			local facts = c.Compose.formula(function(use: Use)
 				local inset = use(env.safeInsets)
 				local size = use(env.viewportSize)
 				return `Environment: {math.floor(size.X)}×{math.floor(size.Y)} {use(env.sizeClass)}, input {use(
 					env.effectiveInput
 				)}; ` .. `safe insets top {inset.top} (the top bar) — the ScreenGui keeps the root below it`
 			end)
-			local rows: { any } = { width = "fill", gap = "xs", UI.fill() }
+			local rows: Properties = { width = "fill" :: "fill", gap = "xs", UI.fill() }
 			for i = 1, 8 do
 				table.insert(rows, UI.Text({ text = `Body row {i} — scrolls inside the remaining height` }))
 			end
 			local plain = { wrap = true, Size = UDim2.fromScale(1, 0), AutomaticSize = Enum.AutomaticSize.Y }
-			table.insert(p, UI.Text(merged(plain, { text = "Screen title (first child)", textRole = "heading" })))
-			table.insert(p, UI.Text(merged(plain, { text = facts, textRole = "caption" })))
+			table.insert(
+				p,
+				UI.Text(merged(plain, { text = "Screen title (first child)", textRole = "heading" :: "heading" }))
+			)
+			table.insert(p, UI.Text(merged(plain, { text = facts, textRole = "caption" :: "caption" })))
 			table.insert(p, UI.ScrollView(rows))
 			table.insert(p, UI.Button({ label = "Continue (last child, stays pinned)", appearance = "emphasis" }))
-			local screen = UI.Screen(p)
+			local screen = UI.Screen(p :: any)
 			screen:AddTag("facet-panel")
 			return UI.VStack({
 				gap = "xs",
-				width = "fill",
+				width = "fill" :: "fill",
 				UI.Text(merged(plain, {
 					text = "The plate is the Screen's box (it fills this cell as it fills a ScreenGui); its padding is the gap to the plate edge.",
-					textRole = "caption",
-				})),
-				UI.VStack({ width = "fill", height = 260, screen }),
+					textRole = "caption" :: "caption",
+				})) :: unknown,
+				UI.VStack({ width = "fill" :: "fill", height = 260, screen :: unknown }),
 			})
 		end,
 	},
@@ -4352,8 +4521,8 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {},
-		states = { { name = "view fails", props = { fails = true } } },
-		make = function(UI, p, c)
+		states = { { name = "view fails", props = { fails = true } } :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local fail = c.Compose.cell(p.fails == true)
 			return UI.ErrorBoundary({
 				view = function()
@@ -4365,7 +4534,7 @@ local PAGE_DATA: { [string]: any } = {
 				fallback = function(err, retry)
 					return UI.VStack({
 						gap = "xs",
-						UI.Text({ text = `Fallback: {tostring(err)}` }),
+						UI.Text({ text = `Fallback: {tostring(err)}` }) :: unknown,
 						UI.Button({
 							label = "Retry (succeeds)",
 							onActivate = function()
@@ -4393,9 +4562,9 @@ local PAGE_DATA: { [string]: any } = {
 		scenarios = { "hud" },
 		snippet = 'UI.AdaptiveStack { gap = "s", start, garage, leaderboard }',
 		cellWidth = 380,
-		base = function(c)
+		base = function(c: Context)
 			return {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
 				c.UI.Button({ label = "Start race", appearance = "emphasis" }),
 				c.UI.Button({ label = "Garage" }),
@@ -4404,15 +4573,15 @@ local PAGE_DATA: { [string]: any } = {
 			}
 		end,
 		axes = {
-			{ key = "width", values = { "fill", 460, 240 } },
-			{ key = "axis", values = { DEFAULT, "x", "y" } },
-			{ key = "gap", values = { "xs", "s", "l" } },
+			{ key = "width", values = { "fill", 460, 240 } } :: Axis,
+			{ key = "axis", values = { DEFAULT, "x", "y" } } :: Axis,
+			{ key = "gap", values = { "xs", "s", "l" } } :: Axis,
 		},
 		states = {
-			{ name = "padding s", props = { padding = "s" } },
-			{ name = "align center", props = { align = "center" } },
-			{ name = "distribute spaceBetween", props = { distribute = "spaceBetween" } },
-			{ name = "height 160", props = { height = 160 } },
+			{ name = "padding s", props = { padding = "s" } } :: State,
+			{ name = "align center", props = { align = "center" :: "center" } } :: State,
+			{ name = "distribute spaceBetween", props = { distribute = "spaceBetween" :: "spaceBetween" } } :: State,
+			{ name = "height 160", props = { height = 160 } } :: State,
 		},
 	},
 	ViewThatFits = {
@@ -4425,27 +4594,27 @@ local PAGE_DATA: { [string]: any } = {
 		scenarios = { "hud" },
 		snippet = "UI.ViewThatFits { fullToolbar, shortToolbar, menuButton }",
 		cellWidth = 380,
-		base = function(c)
+		base = function(c: Context)
 			local UI = c.UI
 			return {
-				width = "fill",
+				width = "fill" :: "fill",
 				UI.HStack({
 					gap = "s",
-					UI.Button({ label = "Start race", appearance = "emphasis" }),
+					UI.Button({ label = "Start race", appearance = "emphasis" }) :: unknown,
 					UI.Button({ label = "Garage" }),
 					UI.Button({ label = "Leaderboard" }),
 					UI.Button({ label = "Settings" }),
 				}),
 				UI.HStack({
 					gap = "s",
-					UI.Button({ label = "Start", appearance = "emphasis" }),
+					UI.Button({ label = "Start", appearance = "emphasis" }) :: unknown,
 					UI.Button({ label = "More" }),
 				}),
 				UI.Button({ label = "Menu" }),
 			}
 		end,
-		axes = { { key = "width", values = { "fill", 360, 200, 110 } } },
-		states = { { name = "height 32 (too short for any)", props = { height = 32 } } },
+		axes = { { key = "width", values = { "fill", 360, 200, 110 } } :: Axis },
+		states = { { name = "height 32 (too short for any)", props = { height = 32 } } :: State },
 	},
 	Composition = {
 		family = "layout",
@@ -4469,18 +4638,18 @@ local PAGE_DATA: { [string]: any } = {
 			return { topbar = false }
 		end,
 		axes = {
-			{ key = "room", values = { "fill", 300, 200 } },
-			{ key = "gap", values = { DEFAULT, "xs", "m" } },
-			{ key = "padding", values = { DEFAULT, 0, "l" } },
+			{ key = "room", values = { "fill", 300, 200 } } :: Axis,
+			{ key = "gap", values = { DEFAULT, "xs", "m" } } :: Axis,
+			{ key = "padding", values = { DEFAULT, 0, "l" } } :: Axis,
 
-			{ key = "topbar", values = { false, true }, matrix = false },
+			{ key = "topbar", values = { false, true }, matrix = false } :: Axis,
 		},
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local room = p.room or "fill"
 			p.room = nil
 			local forms, names = {}, {}
-			local function region(name, zone, rank, mayDrop, ...)
+			local function region(name: string, zone, rank, mayDrop, ...)
 				local form = c.cell("form" .. name, 1)
 				table.insert(forms, form)
 				table.insert(names, name)
@@ -4491,7 +4660,7 @@ local PAGE_DATA: { [string]: any } = {
 					mayDrop = mayDrop,
 					form = form,
 					expand = if name == "Round"
-						then function()
+						then function(): Instance
 							return UI.Text({ text = "Round 3 · Capture the flag · 2:14 left" })
 						end
 						else nil,
@@ -4520,7 +4689,11 @@ local PAGE_DATA: { [string]: any } = {
 					"topRight",
 					3,
 					true,
-					UI.HStack({ gap = "xs", UI.Badge({ label = "Rifle 24/90" }), UI.Badge({ label = "Pistol 7/21" }) })
+					UI.HStack({
+						gap = "xs",
+						UI.Badge({ label = "Rifle 24/90" }) :: unknown,
+						UI.Badge({ label = "Pistol 7/21" }),
+					})
 				)
 			)
 			table.insert(p, region("Strip", "topbar", 5, true, UI.Badge({ label = "Top bar strip" })))
@@ -4528,16 +4701,19 @@ local PAGE_DATA: { [string]: any } = {
 				p,
 				region("Ready", "bottom", 1, false, UI.Button({ label = "Ready up", appearance = "emphasis" }))
 			)
-			table.insert(p, region("Fps", "bottomRight", 4, true, UI.Text({ text = "60 FPS", textRole = "caption" })))
-			local composition = UI.Composition(p)
-			local plate = UI.VStack({ width = room, height = "fill", composition })
+			table.insert(
+				p,
+				region("Fps", "bottomRight", 4, true, UI.Text({ text = "60 FPS", textRole = "caption" :: "caption" }))
+			)
+			local composition = UI.Composition(p :: any)
+			local plate = UI.VStack({ width = room, height = "fill" :: "fill", composition :: unknown })
 			plate:AddTag("facet-panel")
 			return UI.VStack({
-				width = "fill",
+				width = "fill" :: "fill",
 				height = 260,
 				gap = "xs",
 				UI.Text({
-					text = function(use)
+					text = function(use: Use)
 						local parts = {}
 						for i, form in forms do
 							local shown = use(form)
@@ -4548,11 +4724,11 @@ local PAGE_DATA: { [string]: any } = {
 						end
 						return "Showing now — " .. table.concat(parts, " · ")
 					end,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					wrap = true,
 					Size = UDim2.fromScale(1, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-				}),
+				}) :: unknown,
 				plate,
 			})
 		end,
@@ -4593,25 +4769,25 @@ local PAGE_DATA: { [string]: any } = {
 					"bottomRight",
 					"topbar",
 				},
-			},
-			{ key = "rank", values = { 1, 2, 3 } },
-			{ key = "room", values = { "fill", 200 } },
+			} :: Axis,
+			{ key = "rank", values = { 1, 2, 3 } } :: Axis,
+			{ key = "room", values = { "fill", 200 } } :: Axis,
 		},
 		states = {
-			{ name = "mayDrop", props = { mayDrop = true } },
-			{ name = "noReveal", props = { mayDrop = true, reveal = false } },
+			{ name = "mayDrop", props = { mayDrop = true } } :: State,
+			{ name = "noReveal", props = { mayDrop = true, reveal = false } } :: State,
 		},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = c.cell("form", 1)
 			local room = p.room or "fill"
 			local composition = UI.Composition({
 				topbar = false,
 				UI.Region({
 					Name = "Neighbour",
-					zone = "top",
+					zone = "top" :: "top",
 					rank = 1,
 					UI.Badge({ label = "Neighbour · rank 1 · top" }),
-				}),
+				}) :: unknown,
 				UI.Region({
 					Name = "UnderTest",
 					zone = p.zone,
@@ -4619,32 +4795,32 @@ local PAGE_DATA: { [string]: any } = {
 					mayDrop = p.mayDrop,
 					reveal = p.reveal,
 					form = form,
-					expand = function()
+					expand = function(): Instance
 						return UI.Text({ text = "Region under test — the full form, disclosed in place" })
 					end,
-					UI.Badge({ label = "Region under test (full form)" }),
+					UI.Badge({ label = "Region under test (full form)" }) :: unknown,
 					UI.Badge({ label = "Short form" }),
 				}),
 			})
-			local plate = UI.VStack({ width = room, height = "fill", composition })
+			local plate = UI.VStack({ width = room, height = "fill" :: "fill", composition :: unknown })
 			plate:AddTag("facet-panel")
 			return UI.VStack({
-				width = "fill",
+				width = "fill" :: "fill",
 				height = 200,
 				gap = "xs",
 				UI.Text({
-					text = function(use)
+					text = function(use: Use)
 						local shown = use(form)
 						return `Showing now: {if shown == 0
 							then "hidden (form 0)"
 							elseif shown == 1 then "full form (form 1)"
 							else "short form (form 2) — tap it to expand"}`
 					end,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					wrap = true,
 					Size = UDim2.fromScale(1, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-				}),
+				}) :: unknown,
 				plate,
 			})
 		end,
@@ -4661,9 +4837,9 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "source", values = { "viewport", "this box" } } },
+		axes = { { key = "source", values = { "viewport", "this box" } } :: Axis },
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local text = c.Compose.cell("")
 			local label = UI.Text({
 				text = text,
@@ -4672,7 +4848,7 @@ local PAGE_DATA: { [string]: any } = {
 				AutomaticSize = Enum.AutomaticSize.Y,
 			})
 			local env = if p.source == "this box" then UI.environment(label) else UI.environment()
-			c.Compose.watch(function(use)
+			c.Compose.watch(function(use: Use)
 				local size = use(env.viewportSize)
 				local ic = use(env.interactionClasses)
 				local inset = use(env.safeInsets)
@@ -4700,12 +4876,12 @@ local PAGE_DATA: { [string]: any } = {
 			local atLeast = env.atLeast("regular")
 			return UI.VStack({
 				gap = "xs",
-				label,
+				label :: unknown,
 				UI.Text({
-					text = function(use)
+					text = function(use: Use)
 						return `atLeast("regular") = {tostring(use(atLeast))}`
 					end,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 				}),
 			})
 		end,
@@ -4722,23 +4898,23 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "offscreen", values = { "hide", "retain" } } },
+		axes = { { key = "offscreen", values = { "hide", "retain" } } :: Axis },
 		states = {
-			{ name = "occlusion ray", props = { occlusion = true } },
-			{ name = "padding 0.5", props = { padding = 0.5 } },
+			{ name = "occlusion ray", props = { occlusion = true } } :: State,
+			{ name = "padding 0.5", props = { padding = 0.5 } } :: State,
 		},
-		make = function(UI, p, c)
-			local part = workspace:FindFirstChild("LabAnchorPart")
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			local part: Part? = workspace:FindFirstChild("LabAnchorPart") :: Part?
 			if part == nil then
 				part = Instance.new("Part")
-				part.Name = "LabAnchorPart"
-				part.Anchored = true
-				part.Size = Vector3.new(4, 4, 4)
-				part.Position = Vector3.new(0, 4, -20)
-				part.Parent = workspace
+				assert(part).Name = "LabAnchorPart"
+				assert(part).Anchored = true
+				assert(part).Size = Vector3.new(4, 4, 4)
+				assert(part).Position = Vector3.new(0, 4, -20)
+				assert(part).Parent = workspace
 			end
 			local binding = UI.worldAnchor({
-				target = part,
+				target = assert(part) :: BasePart,
 				offscreen = p.offscreen,
 				occlusion = p.occlusion,
 				padding = p.padding,
@@ -4746,9 +4922,9 @@ local PAGE_DATA: { [string]: any } = {
 			})
 			c.Compose.cleanup(binding.dispose)
 			return UI.Text({
-				text = function(use)
+				text = function(use: Use)
 					local a = use(binding.anchor)
-					return `x {math.floor(a.x)} y {math.floor(a.y)} clearance {math.floor(a.clearance or 0)} visible {tostring(
+					return `x {math.floor(a.x or 0)} y {math.floor(a.y or 0)} clearance {math.floor(a.clearance or 0)} visible {tostring(
 						a.visible
 					)} onscreen {tostring(a.onscreen)}`
 				end,
@@ -4768,21 +4944,21 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "structure", values = { "show", "switch", "keyed", "presence" } } },
+		axes = { { key = "structure", values = { "show", "switch", "keyed", "presence" } } :: Axis },
 		states = {},
-		make = function(UI, p, c)
-			local Compose = c.Compose
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			local Compose: ComposeModule = c.Compose
 			local kind = p.structure or "show"
 			if kind == "show" then
 				local loaded = Compose.cell(false)
 				return UI.VStack({
 					gap = "s",
-					UI.Toggle({ label = "Loaded", value = loaded }),
+					UI.Toggle({ label = "Loaded", value = loaded }) :: unknown,
 					Compose.show(loaded, function()
 						return UI.Text({ text = "Coastal Circuit · 3 laps" })
 					end, function()
 						return UI.Skeleton({
-							form = "line",
+							form = "line" :: "line",
 							Size = UDim2.fromOffset(180, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 						})
@@ -4794,15 +4970,22 @@ local PAGE_DATA: { [string]: any } = {
 					gap = "s",
 					UI.Picker({
 						selected = mode,
-						style = "segmented",
-						options = { { value = "road", label = "Road" }, { value = "rally", label = "Rally" } },
-					}),
+						style = "segmented" :: "segmented",
+						options = {
+							{ value = "road", label = "Road" } :: Properties,
+							{ value = "rally", label = "Rally" } :: Properties,
+						},
+					}) :: unknown,
 					Compose.switch(mode, {
 						road = function()
 							return UI.Text({ text = "Smooth tarmac" })
 						end,
 						rally = function()
-							return UI.Badge({ label = "Gravel", appearance = "status", status = "warning" })
+							return UI.Badge({
+								label = "Gravel",
+								appearance = "status" :: "status",
+								status = "warning" :: "warning",
+							})
 						end,
 					}),
 				})
@@ -4812,22 +4995,22 @@ local PAGE_DATA: { [string]: any } = {
 					gap = "xs",
 					UI.Button({
 						label = "Rotate",
-						controlSize = "compact",
+						controlSize = "compact" :: "compact",
 						onActivate = function()
 							local list = table.clone(items:peek())
-							table.insert(list, table.remove(list, 1))
+							table.insert(list, assert(table.remove(list, 1)))
 							items:set(list)
 						end,
-					}),
+					}) :: unknown,
 					Compose.keyed({
 						from = items,
 						key = function(item)
 							return item.id
 						end,
-						render = function(value, index)
+						render = function(value: Readable<Row>, index: Readable<number>): GuiObject
 							return UI.Text({
 								LayoutOrder = index,
-								text = function(use)
+								text = function(use: Use)
 									return `{use(value).name} · {use(value).laps} laps`
 								end,
 							})
@@ -4838,9 +5021,9 @@ local PAGE_DATA: { [string]: any } = {
 			local open = Compose.cell(true)
 			return UI.VStack({
 				gap = "s",
-				UI.Toggle({ label = "Shown", value = open }),
+				UI.Toggle({ label = "Shown", value = open }) :: unknown,
 				Compose.presence(open, function(phase)
-					local fade = c.app.runtime.tween(function(use)
+					local fade = c.app.runtime.tween(function(use: Use)
 						return if use(phase.exiting) then 1 else 0
 					end, { seconds = 0.3 })
 					return UI.Text({ text = "I fade out before I leave", TextTransparency = fade })
@@ -4868,12 +5051,15 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "kind", values = { "tween", "spring" } }, { key = "reducedMotion", values = { false, true } } },
+		axes = {
+			{ key = "kind", values = { "tween", "spring" } } :: Axis,
+			{ key = "reducedMotion", values = { false, true } } :: Axis,
+		},
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local runtime = c.app.runtime
 			local at = c.Compose.cell(false)
-			local body = function(use)
+			local body = function(use: Use)
 				return if use(at) then 1 else 0
 			end
 			local reduced = c.Compose.cell(p.reducedMotion == true)
@@ -4885,13 +5071,13 @@ local PAGE_DATA: { [string]: any } = {
 				)
 			local dot = UI.Badge({
 				label = "●",
-				appearance = "status",
-				status = "accent",
-				Position = function(use)
+				appearance = "status" :: "status",
+				status = "accent" :: "accent",
+				Position = function(use: Use)
 					return UDim2.new(use(motion) * 0.8, 0, 0, 0)
 				end,
 			})
-			local track = UI.ZStack({ width = 300, height = 40, dot })
+			local track = UI.ZStack({ width = 300, height = 40, dot :: unknown })
 			track:AddTag("facet-track")
 			return UI.VStack({
 				gap = "s",
@@ -4900,7 +5086,7 @@ local PAGE_DATA: { [string]: any } = {
 					onActivate = function()
 						at:set(not at:peek())
 					end,
-				}),
+				}) :: unknown,
 				track,
 			})
 		end,
@@ -4916,9 +5102,9 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "width", values = { 360, 700, 1200 } } },
+		axes = { { key = "width", values = { 360, 700, 1200 } } :: Axis },
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local a = c.Facet.adaptive
 			local w = p.width or 360
 			return UI.Text({
@@ -4945,9 +5131,9 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "order", values = { "mdy", "dmy", "ymd" } } },
+		axes = { { key = "order", values = { "mdy", "dmy", "ymd" } } :: Axis },
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local civil = c.Facet.civilDate
 			local d = { year = 2026, month = 2, day = 27 }
 			local locale = { order = p.order or "mdy", separator = "/" }
@@ -4987,32 +5173,32 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {
-			{ key = "axis", values = { "x", "y" } },
-			{ key = "sizing", values = { "fit", "fill" } },
-			{ key = "count", values = { 2, 3 } },
+			{ key = "axis", values = { "x", "y" } } :: Axis,
+			{ key = "sizing", values = { "fit", "fill" } } :: Axis,
+			{ key = "count", values = { 2, 3 } } :: Axis,
 		},
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local grow = p.sizing == "fill"
 			local function button(spec)
 				if grow then
 					table.insert(spec, UI.fill())
 				end
-				return UI.Button(spec)
+				return UI.Button(spec :: any)
 			end
-			local group: { any } = {
+			local group: Properties = {
 				gap = "s",
 				width = if grow then 320 else "hug",
 				align = if grow and p.axis == "y" then "stretch" else nil,
 				button({ label = "Cancel", onActivate = c.log("cancel") }),
-				button({ label = "Save", appearance = "emphasis", onActivate = c.log("save") }),
+				button({ label = "Save", appearance = "emphasis" :: string, onActivate = c.log("save") }),
 			}
 			if p.count == 3 then
 				table.insert(
 					group,
 					button({
 						label = "Delete",
-						role = "destructive",
+						role = "destructive" :: "destructive",
 						appearance = "utility",
 						onActivate = c.log("delete"),
 					})
@@ -5032,12 +5218,12 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {
-			{ key = "controlSize", values = SIZES.values },
-			{ key = "indicatorPosition", values = { "leading", "trailing" } },
-			{ key = "layout", values = { "column", "wrap" } },
+			{ key = "controlSize", values = SIZES.values } :: Axis,
+			{ key = "indicatorPosition", values = { "leading", "trailing" } } :: Axis,
+			{ key = "layout", values = { "column", "wrap" } } :: Axis,
 		},
-		states = { DISABLED, { name = "hints", props = { hints = true } } },
-		make = function(UI, p, c)
+		states = { DISABLED :: State, { name = "hints", props = { hints = true } } :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return fieldGroup(UI, p, c, "checkbox")
 		end,
 	},
@@ -5052,12 +5238,12 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {
-			{ key = "controlSize", values = SIZES.values },
-			{ key = "indicatorPosition", values = { "leading", "trailing" } },
-			{ key = "layout", values = { "column", "wrap" } },
+			{ key = "controlSize", values = SIZES.values } :: Axis,
+			{ key = "indicatorPosition", values = { "leading", "trailing" } } :: Axis,
+			{ key = "layout", values = { "column", "wrap" } } :: Axis,
 		},
-		states = { DISABLED, { name = "hints", props = { hints = true } } },
-		make = function(UI, p, c)
+		states = { DISABLED :: State, { name = "hints", props = { hints = true } } :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return fieldGroup(UI, p, c, "switch")
 		end,
 	},
@@ -5071,10 +5257,10 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "layout", values = { "wrap", "scroll" } }, SIZES },
-		states = { DISABLED },
-		make = function(UI, p, c)
-			local chips: { any } = { gap = "s" }
+		axes = { { key = "layout", values = { "wrap", "scroll" } } :: Axis, SIZES :: Axis },
+		states = { DISABLED :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			local chips: { [any]: any } = { gap = "s" }
 			for _, tag in { "Rain", "Night", "Mirror", "Reverse", "Traffic", "Fog" } do
 				table.insert(
 					chips,
@@ -5087,7 +5273,7 @@ local PAGE_DATA: { [string]: any } = {
 				)
 			end
 			if p.layout == "scroll" then
-				chips.axis = "x"
+				chips.axis = "x" :: "x"
 				chips.width = 240
 				chips.height = 56
 				return UI.ScrollView(chips)
@@ -5109,10 +5295,10 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "count", values = { 1, 2, 3 } } },
+		axes = { { key = "count", values = { 1, 2, 3 } } :: Axis },
 		states = {},
-		make = function(UI, p, c)
-			local row: { any } = { gap = "xs" }
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			local row: Properties = { gap = "xs" }
 			for i, icon in { "settings", "edit", "flag" } do
 				if i <= (p.count or 1) then
 					table.insert(
@@ -5120,14 +5306,14 @@ local PAGE_DATA: { [string]: any } = {
 						UI.Button({
 							label = icon,
 							icon = icon,
-							shape = "circle",
+							shape = "circle" :: "circle",
 							appearance = "utility",
 							onActivate = c.log(`action {icon}`),
 						})
 					)
 				end
 			end
-			return UI.NavBar({ title = "Garage", trailing = UI.HStack(row), Size = UDim2.fromScale(1, 0) })
+			return UI.NavBar({ title = "Garage", trailing = UI.HStack(row) :: GuiObject, Size = UDim2.fromScale(1, 0) })
 		end,
 	},
 	Empty = {
@@ -5141,25 +5327,25 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { { key = "kind", values = { "empty", "no results", "failed" } } },
+		axes = { { key = "kind", values = { "empty", "no results", "failed" } } :: Axis },
 		states = {},
-		make = function(UI, p, c)
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local copy = ({
 				empty = { "flag", "No tracks yet", "Create one to race it with friends.", "Create" },
 				["no results"] = { "menu", "No matches", "Nothing matches your filters.", "Clear search" },
 				failed = { "status.warning", "Couldn't load", "Check your connection and try again.", "Retry" },
 			})[p.kind or "empty"]
 			return UI.VStack({
-				width = "fill",
-				align = "center",
+				width = "fill" :: "fill",
+				align = "center" :: "center",
 				gap = "s",
 				padding = "m",
-				UI.Label({ title = copy[2], icon = copy[1], presentation = "iconOnly", iconSize = 32 }),
-				UI.Text({ text = copy[2], textRole = "strong", textAlign = "center" }),
+				UI.Label({ title = copy[2], icon = copy[1], presentation = "iconOnly" :: "iconOnly", iconSize = 32 }) :: unknown,
+				UI.Text({ text = copy[2], textRole = "strong" :: "strong", textAlign = "center" :: "center" }),
 				UI.Text({
 					text = copy[3],
-					role = "secondary",
-					textAlign = "center",
+					role = "secondary" :: "secondary",
+					textAlign = "center" :: "center",
 					wrap = true,
 					Size = UDim2.fromScale(1, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -5179,11 +5365,11 @@ local PAGE_DATA: { [string]: any } = {
 			return {}
 		end,
 		axes = {
-			{ key = "edge", values = { "bottom", "top", "leading", "trailing" } },
-			{ key = "align", values = { "start", "center", "end" } },
+			{ key = "edge", values = { "bottom", "top", "leading", "trailing" } } :: Axis,
+			{ key = "align", values = { "start", "center", "end" } } :: Axis,
 		},
-		states = { { name = "one sentence", props = { plain = true }, across = false } },
-		make = function(UI, p, c)
+		states = { { name = "one sentence", props = { plain = true }, across = false } :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			if p.plain then
 				return UI.Button({ label = "Plus", help = "Adds a lap", onActivate = c.log("plus") })
 			end
@@ -5213,32 +5399,32 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { FIELD_APPEARANCE, SIZES, CORNERS },
-		states = { DISABLED },
-		make = function(UI, p, c)
+		axes = { FIELD_APPEARANCE :: Axis, SIZES :: Axis, CORNERS :: Axis },
+		states = { DISABLED :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local query = c.cell("query", "")
-			local function matches(use, row): boolean
+			local function matches(use: Use, row): boolean
 				local q = string.lower(use(query))
 				return q == "" or string.find(string.lower(row.name), q, 1, true) ~= nil
 			end
 
-			local list: { any } = { width = "fill", gap = "xs" }
+			local list: Properties = { width = "fill" :: "fill", gap = "xs" }
 			for _, row in ROWS do
 				table.insert(
 					list,
 					UI.Text({
 						text = `{row.name} · {row.laps} laps`,
-						Visible = function(use)
+						Visible = function(use: Use)
 							return matches(use, row)
 						end,
 					})
 				)
 			end
 			return UI.VStack({
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
 				UI.TextInput({
-					presentation = "search",
+					presentation = "search" :: "search",
 					value = query,
 					placeholder = "Search tracks",
 					clearButton = true,
@@ -5248,9 +5434,9 @@ local PAGE_DATA: { [string]: any } = {
 					corners = p.corners,
 					enabled = p.enabled,
 					Size = UDim2.fromScale(1, 0),
-				}),
+				}) :: unknown,
 				UI.VStack(list),
-				c.Compose.show(function(use)
+				c.Compose.show(function(use: Use)
 					for _, row in ROWS do
 						if matches(use, row) then
 							return false
@@ -5258,7 +5444,7 @@ local PAGE_DATA: { [string]: any } = {
 					end
 					return true
 				end, function()
-					return UI.Text({ text = "No tracks match", role = "secondary" })
+					return UI.Text({ text = "No tracks match", role = "secondary" :: "secondary" })
 				end),
 			})
 		end,
@@ -5275,11 +5461,11 @@ local PAGE_DATA: { [string]: any } = {
 		base = function()
 			return {}
 		end,
-		axes = { SIZES },
-		states = { DISABLED },
-		make = function(UI, p, c)
+		axes = { SIZES :: Axis },
+		states = { DISABLED :: State },
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return UI.VStack({
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = 0,
 				UI.Button({
 					label = "Garage",
@@ -5287,7 +5473,7 @@ local PAGE_DATA: { [string]: any } = {
 					onActivate = c.log("garage"),
 					enabled = p.enabled,
 					controlSize = p.controlSize,
-				}),
+				}) :: unknown,
 				UI.Divider({}),
 				UI.Toggle({
 					label = "Music",
@@ -5314,7 +5500,7 @@ local PAGE_DATA: { [string]: any } = {
 for _, name in
 	{ "Screen", "VStack", "HStack", "ZStack", "ScrollView", "Grid", "AdaptiveStack", "ViewThatFits", "ErrorBoundary" }
 do
-	table.insert(PAGE_DATA[name].states, {
+	table.insert(assert(PAGE_DATA[name].states), {
 		name = "width 480 capped at 280",
 		props = { width = 480, maxWidth = 280, Size = NONE },
 	})

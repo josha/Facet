@@ -1,8 +1,17 @@
+--!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+local requireDynamic = require :: (any) -> any
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
-local function find(root, name)
+local Compose: ComposeModule = Facet.Compose
+local function find(root: any, name: string): any
 	if root.Name == name then
 		return root
 	end
@@ -14,15 +23,15 @@ local function find(root, name)
 	end
 	return nil
 end
-local function mount(name)
+local function mount(name: string)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local gui = engine.new("GuiService")
 	local ctx = {
 		Facet = Facet,
 		Compose = Compose,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		runtime = runtime,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
@@ -39,13 +48,13 @@ local function mount(name)
 		guiService = gui,
 		services = { GuiService = gui },
 		inputParent = target,
-		motionLevel = Compose.formula(function(use)
+		motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 			return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-		end),
+		end) :: unknown) :: MotionLevel,
 	})
 	local built
-	local stop, node = runtime.mount(function()
-		built = require("../examples/gallery/scenarios/" .. name).build(ctx)
+	local stop, node: any = runtime.mount(function()
+		built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
 		return ctx.Host.ScreenGui({ built.screen() })
 	end, target)
 	return built,
@@ -58,7 +67,7 @@ local function mount(name)
 			t.expect(#target:GetChildren()).toBe(0)
 		end
 end
-local function near(a, b)
+local function near(a: number, b)
 	assert(math.abs(a - b) < 0.001, string.format("expected %.8f near %.8f", a, b))
 end
 

@@ -1,11 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local requireDynamic = require :: (any) -> any
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
 local Facet = require("../../src")
 local engineLib = require("../../tests/lib/native_engine")
-local themes, Compose = Facet.themes, Facet.Compose
-local failures, checks = {}, 0
+local themes, Compose: ComposeModule = Facet.themes, Facet.Compose
+local failures: { string } = {}
+local checks = 0
 local function check(ok, message)
 	checks += 1
 	if not ok then
@@ -17,9 +23,9 @@ if not fs.isFile("installed/expected.json") then
 	process.exit(2)
 end
 local expected = serde.decode("json", fs.readFile("installed/expected.json"))
-local function inspect(entry)
+local function inspect(entry: any)
 	local name = entry.artifact
-	local module = require("../../installed/" .. name)
+	local module = requireDynamic("../../installed/" .. name)
 	assert(type(module) == "table" and type(module.build) == "function", name .. ": artifact exposes no build(themes)")
 	local package, report = module.build(themes)
 	assert(package and report.ok, name .. ": build() refused the theme package")
@@ -39,15 +45,16 @@ local function inspect(entry)
 	check(not missing.ok and missing.missing[1].name == "probe:dial", name .. ": missing contribution was accepted")
 	for _, palette in entry.themes do
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
-		local Host = runtime.constructors
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local UI = Facet.controls(runtime, { types = engine.types, theme = package })
-		local sheet, button
+		local sheet: any
+		local button: any
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types, theme = palette })
 			button = UI.Button({ label = "Play" })
 			return Host.Frame({
-				sheet,
+				sheet :: unknown,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				UI.Text({ text = "Theme artifact" }),
 				button,
@@ -71,7 +78,10 @@ local function inspect(entry)
 	end
 end
 for _, entry in expected.packages do
-	local ok, failure = pcall(inspect, entry)
+	local ok, failure = pcall(function(): boolean
+		inspect(entry)
+		return true
+	end)
 	if not ok then
 		table.insert(failures, entry.artifact .. ": " .. tostring(failure))
 	end

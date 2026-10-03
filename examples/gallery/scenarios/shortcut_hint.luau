@@ -1,28 +1,41 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+
 return {
 	title = "Keys and labels",
-	build = function(ctx)
-		local Facet, UI, Compose = ctx.Facet, ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local Facet, UI, Compose: ComposeModule = ctx.Facet, ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local rung, separator, title = Compose.cell("regular"), Compose.cell("or"), Compose.cell("Saved")
+		local rung: ControlSize, separator, title =
+			Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall"),
+			Compose.cell("or"),
+			Compose.cell("Saved")
 		local guide = Compose.cell(false)
-		local key = Compose.cell(nil)
+		local function bindingCell(value: string?): OptionalStringCell
+			return Compose.cell(value)
+		end
+		local key = bindingCell(nil)
 		local liveAction = Host.InputAction "Activate" {
 			Type = Enum.InputActionType.Bool,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.Return }),
+			Host.InputBinding({ KeyCode = Enum.KeyCode.Return }) :: unknown,
 			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonA }),
 		}
 		local customAction = Host.InputAction "RecipeCommand" {
 			Type = Enum.InputActionType.Bool,
 			Compose.show(key, function()
 				return Host.InputBinding({
-					KeyCode = function(use)
-						return Enum.KeyCode[use(key)]
+					KeyCode = function(use: Use)
+						return assert(Enum.KeyCode:FromName(assert(use(key))))
 					end,
 				})
 			end),
@@ -30,7 +43,7 @@ return {
 		Host.InputContext "ShortcutRecipe" {
 			Parent = ctx.inputTarget,
 			Enabled = true,
-			liveAction,
+			liveAction :: unknown,
 			customAction,
 		}
 		local function report()
@@ -49,7 +62,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text({
 					LayoutOrder = 1,
 					Name = "Title",
@@ -58,7 +71,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Keys and labels",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -86,7 +99,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.Button({
 						LayoutOrder = 1,
 						Name = "Compact",
@@ -120,7 +133,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "This surface's action",
-					textRole = "body",
+					textRole = "body" :: "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -139,7 +152,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Alternatives, with a localized joining word",
-					textRole = "body",
+					textRole = "body" :: "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -167,7 +180,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "A binding can arrive after its hint",
-					textRole = "body",
+					textRole = "body" :: "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -189,7 +202,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.Button({
 						LayoutOrder = 1,
 						Name = "Bind",

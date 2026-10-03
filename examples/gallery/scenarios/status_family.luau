@@ -1,12 +1,14 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 return {
 	title = "Status",
 	ledgerRows = {},
 	build = function(ctx: any)
 		local UI = ctx.UI
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -44,7 +46,7 @@ return {
 				local frame = Host.Frame "StatusFamily" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					padding,
+					padding :: unknown,
 					UI.ScrollView "Content" {
 						gap = 24,
 						BackgroundTransparency = 1,
@@ -53,7 +55,7 @@ return {
 						UI.Button "Reset" {
 							label = "Reset status",
 							onActivate = reset,
-						},
+						} :: unknown,
 						notices.section(2),
 						marks.section(),
 						badges.section(),
@@ -90,7 +92,7 @@ return {
 				return Host.Frame "StatusPage" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					frame,
+					frame :: unknown,
 					notices.affixed(),
 				}
 			end,

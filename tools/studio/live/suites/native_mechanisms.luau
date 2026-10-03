@@ -1,9 +1,24 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -20,7 +35,7 @@ end
 
 local function box(Host: any, name: string, w: number, h: number, extra: { [string]: any }?): Frame
 	local props: { [string]: any } = { Name = name, Size = UDim2.fromOffset(w, h) }
-	for key, value in extra or {} do
+	for key, value in (extra or {} :: { [string]: any }) do
 		props[key] = value
 	end
 	return Host.Frame(props)
@@ -28,7 +43,7 @@ end
 
 local function mountModule(t: any, kind: string, name: string, size: Vector2, theme: any?): (any, any, string?)
 	local built, problem
-	local ok, stage = pcall(t.mount, function(UI, Host, Compose, env)
+	local ok, stage = pcall(t.mount, function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local context = t.context(UI, Host, Compose, env)
 		local module = context.load(kind, name)
 		local result = module.build(context)
@@ -145,14 +160,14 @@ end)
 
 add("scroll-gutter-and-window", { "mech3-29", "mech3-32", "apps2-109", "apps-230", "mech3-21" }, function(t)
 	local count
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		count = Compose.cell(20)
 		return UI.ScrollView "Scroll" {
 			width = 240,
 			height = 200,
-			align = "stretch",
+			align = "stretch" :: "stretch",
 			Compose.keyed({
-				from = function(use)
+				from = function(use: Use)
 					local list = {}
 					for index = 1, use(count) do
 						list[index] = { id = tostring(index) }
@@ -221,7 +236,7 @@ end)
 
 add("grid-hugs-its-lines", { "mech2-03" }, function(t)
 	for _, count in { 1, 3, 4, 7, 9 } do
-		local stage = t.mount(function(UI, Host)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			local cells = {}
 			for index = 1, count do
 				table.insert(cells, box(Host, "Cell" .. index, 0, 0))
@@ -231,7 +246,7 @@ add("grid-hugs-its-lines", { "mech2-03" }, function(t)
 				gap = 8,
 				cellHeight = 40,
 				Size = UDim2.fromOffset(316, 0),
-				table.unpack(cells),
+				table.unpack((cells :: unknown) :: { unknown }),
 			}
 		end, { size = Vector2.new(400, 600) })
 		local grid = t.find(stage, "Grid")
@@ -250,17 +265,17 @@ add(
 	{ "mech3-66", "inputs-64", "inputs-208", "paint-149", "themes-P5-06", "mech2-45", "paint-134" },
 	function(t)
 		local width
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			width = Compose.cell(360)
 			return Host.Frame "Column" {
-				Size = function(use)
+				Size = function(use: Use)
 					return UDim2.fromOffset(use(width), 400)
 				end,
 				BackgroundTransparency = 1,
 				Host.UIListLayout({
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					HorizontalFlex = Enum.UIFlexAlignment.Fill,
-				}),
+				}) :: unknown,
 				UI.Text({
 					Name = "Wrap",
 					text = string.rep("Wrap this sentence. ", 6),
@@ -333,7 +348,9 @@ add(
 	"safe-area-and-topbar",
 	{ "mech1-09", "inputs-142", "mech3-16", "apps2-96", "apps-216", "apps-207", "navigation-1-68" },
 	function(t)
-		local gui = Players.LocalPlayer.PlayerGui:FindFirstChild("FacetGallery") :: ScreenGui?
+		local gui = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):FindFirstChild(
+				"FacetGallery"
+			) :: ScreenGui?
 		t.check("the gallery ScreenGui is live", gui ~= nil)
 		if not gui then
 			return
@@ -374,7 +391,7 @@ add(
 	"sibling-order-and-hit-testing",
 	{ "paint-81", "mech2-83", "navigation-2-64", "themes-P4-04", "themes-P4-17", "paint-124" },
 	function(t)
-		local playerGui = Players.LocalPlayer.PlayerGui
+		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 		local inset = GuiService:GetGuiInset()
 		local function top(at: Vector2): { string }
 			local names = {}
@@ -383,7 +400,7 @@ add(
 			end
 			return names
 		end
-		local stage = t.mount(function(UI, Host)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Pair" {
 				Size = UDim2.fromOffset(400, 300),
 				BackgroundTransparency = 1,
@@ -392,7 +409,7 @@ add(
 					Position = UDim2.fromOffset(20, 20),
 					Size = UDim2.fromOffset(160, 60),
 					ZIndex = 1,
-				},
+				} :: unknown,
 				UI.Button "High" {
 					label = "High",
 					Position = UDim2.fromOffset(80, 40),
@@ -410,15 +427,17 @@ add(
 			hits
 		)
 		t.cleanup()
-		stage = t.mount(function(UI, Host, Compose)
+		stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return Host.Frame "Base" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) },
+				UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
 				UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "On top",
-					actions = { { id = "ok", label = "OK" } },
+					actions = {
+						{ id = "ok", label = "OK" } :: AlertAction,
+					},
 				}),
 			}
 		end, { size = Vector2.new(800, 600), frames = 20 })
@@ -451,7 +470,7 @@ add(
 			end
 		end
 		if skinned then
-			stage = t.mount(function(UI)
+			stage = t.mount(function(UI: FacetControls)
 				return UI.Button "Art" { label = "Art", Size = UDim2.fromOffset(200, 60) }
 			end, { size = Vector2.new(800, 600), theme = skinned.package, frames = 12 })
 			local art = t.find(stage, "Art")
@@ -474,14 +493,14 @@ add(
 		end
 		local sizes = {}
 		for _, shadow in { false, true } do
-			stage = t.mount(function(_, Host)
+			stage = t.mount(function(_, Host: RobloxHost)
 				return Host.Frame "Row" {
 					Size = UDim2.fromOffset(400, 100),
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }),
+					Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
 					Host.Frame "Plate" {
 						Size = UDim2.fromOffset(120, 60),
-						table.unpack(if shadow then { Host.UIShadow({}) } else {}),
+						table.unpack((if shadow then { Host.UIShadow({}) } else {} :: unknown) :: { unknown }),
 					},
 					box(Host, "Next", 40, 40),
 				}

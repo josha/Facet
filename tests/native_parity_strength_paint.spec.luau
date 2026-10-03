@@ -1,11 +1,19 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureRadialTypes = require("../src/ui/radial_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local FixtureThemeTypes = require("../src/ui/theme_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local transitionOf = require("./lib/transition")
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type Harness = {
@@ -20,7 +28,7 @@ type Harness = {
 
 local function harness(options: { [string]: any }?): Harness
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -36,7 +44,7 @@ local function harness(options: { [string]: any }?): Harness
 		engine = engine,
 		runtime = runtime,
 		UI = UI,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		gui = gui,
 		input = input,
 		dispose = function()
@@ -121,7 +129,7 @@ end
 
 local function neutralColors(): ({ [string]: any }, { [string]: any })
 	local palette = themes.neutralPackage().style.themes[1]
-	return palette.colors, palette.extra
+	return palette.colors, assert(palette.extra)
 end
 
 local SHIPPED = {
@@ -268,8 +276,8 @@ local function skinPackage(slots: { [string]: any }): any
 	local package = themes.neutralPackage()
 	package.assets = package.assets or {}
 	for slot, asset in slots do
-		package.assets[slot .. "Art"] = { content = asset }
-		package.chrome[slot] = { kind = "nineSlice", asset = slot .. "Art" }
+		assert(package.assets)[slot .. "Art"] = { content = asset }
+		assert(package.chrome)[slot] = { kind = "nineSlice" :: "nineSlice", asset = slot .. "Art" }
 	end
 	return package
 end
@@ -337,7 +345,7 @@ t.describe("native paint strength: button content", function()
 					appearance = appearance,
 					selected = selected,
 					enabled = enabled,
-				}),
+				}) :: unknown,
 				h.UI.Button({
 					Name = "Rich",
 					label = "Go",
@@ -419,7 +427,12 @@ t.describe("native paint strength: button content", function()
 		local colors = neutralColors()
 		local sheet, stopSheet = sheetFor(h, themes.neutralPackage())
 		local root, stop = mount(h, function()
-			return h.UI.Button({ Name = "Delete", label = "Delete", icon = "trash", role = "destructive" })
+			return h.UI.Button({
+				Name = "Delete",
+				label = "Delete",
+				icon = "trash",
+				role = "destructive" :: "destructive",
+			})
 		end)
 		local row = find(root, "Delete")
 		row:AddTag("facet-menu-item")
@@ -446,9 +459,11 @@ t.describe("native paint strength: button content", function()
 			return h.UI.Chip({ Name = "Tag", label = "Rain", selected = Compose.cell(false) })
 		end)
 		local tag = find(root, "Tag")
-		for _, case in { { themes.neutralPackage(), 999 }, { (shipped("pixel_quest")), 0 } } do
-			local sheet, stopSheet = sheetFor(h, case[1])
-			t.expect(resolve(sheet, tag, "CornerRadius", "UICorner")).toBe(h.engine.types.UDim.new(0, case[2]))
+		for _, case in
+			{ { package = themes.neutralPackage(), radius = 999 }, { package = shipped("pixel_quest"), radius = 0 } }
+		do
+			local sheet, stopSheet = sheetFor(h, case.package)
+			t.expect(resolve(sheet, tag, "CornerRadius", "UICorner")).toBe(h.engine.types.UDim.new(0, case.radius))
 			stopSheet()
 		end
 		stop()
@@ -583,12 +598,12 @@ t.describe("native paint strength: button content", function()
 					selected = selected,
 					busy = busy,
 					enabled = enabled,
-				}),
+				}) :: unknown,
 				h.UI.Toggle({ Name = "Switch", value = value, label = "On" }),
 				h.UI.LevelPicker({ Name = "Level", value = level, count = 5 }),
 				h.Host.Frame({
 					Name = "Segmented",
-					h.UI.Picker({ selected = pick, style = "segmented", options = options }),
+					h.UI.Picker({ selected = pick, style = "segmented" :: "segmented", options = options }),
 				}),
 				h.UI.TabView({
 					selection = tab,
@@ -599,14 +614,14 @@ t.describe("native paint strength: button content", function()
 							content = function()
 								return h.Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "two",
 							label = "Two",
 							content = function()
 								return h.Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				}),
 			})
@@ -679,12 +694,17 @@ t.describe("native paint strength: button content", function()
 			return h.Host.Frame({
 				h.Host.Frame({
 					Name = "Segmented",
-					h.UI.Picker({ selected = segmented, style = "segmented", indicator = indicator, options = options }),
-				}),
+					h.UI.Picker({
+						selected = segmented,
+						style = "segmented" :: "segmented",
+						indicator = indicator,
+						options = options,
+					}),
+				}) :: unknown,
 				h.UI.TabView({
 					selection = selection,
 					indicator = tabIndicator,
-					placement = "topBar",
+					placement = "topBar" :: "topBar",
 					tabs = {
 						{
 							id = "one",
@@ -692,14 +712,14 @@ t.describe("native paint strength: button content", function()
 							content = function()
 								return h.Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "two",
 							label = "Two",
 							content = function()
 								return h.Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				}),
 			})
@@ -765,7 +785,7 @@ t.describe("native paint strength: button content", function()
 					slot = id,
 					label = id,
 					icon = if id == "N" then "checkmark" else nil,
-					completion = "stay",
+					completion = "stay" :: "stay",
 					onSelect = function() end,
 				})
 			end
@@ -774,7 +794,7 @@ t.describe("native paint strength: button content", function()
 					isPresented = Compose.cell(true),
 					appearance = "buttons",
 					buttonSurface = if surface == "none" then "none" else nil,
-					distribution = "compass",
+					distribution = "compass" :: "compass",
 					items = items,
 				})
 			end)
@@ -807,8 +827,16 @@ t.describe("native paint strength: button content", function()
 		local root, stop = mount(h, function()
 			return h.UI.RadialMenu({
 				isPresented = Compose.cell(true),
-				distribution = "compass",
-				items = { { id = "N", slot = "N", label = "N", completion = "stay", onSelect = function() end } },
+				distribution = "compass" :: "compass",
+				items = {
+					{
+						id = "N",
+						slot = "N" :: "N",
+						label = "N",
+						completion = "stay" :: "stay",
+						onSelect = function() end,
+					} :: FixtureRadialTypes.RadialItem<any>,
+				},
 			})
 		end)
 		t.expect(find(root.Parent, "N").BackgroundTransparency).toBe(1)
@@ -819,8 +847,10 @@ t.describe("native paint strength: button content", function()
 			mount(bad, function()
 				return bad.UI.RadialMenu({
 					isPresented = Compose.cell(true),
-					buttonSurface = "plate",
-					items = { { id = "N", label = "N", onSelect = function() end } },
+					buttonSurface = "plate" :: "plate",
+					items = {
+						{ id = "N", label = "N", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
+					},
 				})
 			end)
 		end).toThrow()
@@ -875,7 +905,9 @@ t.describe("native paint strength: button content", function()
 					return h.UI.RadialMenu({
 						isPresented = Compose.cell(true),
 						scrim = "dark",
-						items = { { id = "alpha", label = "Alpha", onSelect = function() end } },
+						items = {
+							{ id = "alpha", label = "Alpha", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
+						},
 					})
 				end)
 				local scrim = find(root.Parent, "DismissOutside")
@@ -905,8 +937,8 @@ t.describe("native paint strength: button content", function()
 					return h.UI.RadialMenu({
 						isPresented = Compose.cell(true),
 						items = {
-							{ id = "alpha", label = "Alpha", onSelect = function() end },
-							{ id = "beta", label = "Beta", onSelect = function() end },
+							{ id = "alpha", label = "Alpha", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
+							{ id = "beta", label = "Beta", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
 						},
 					})
 				end)
@@ -934,11 +966,13 @@ end)
 t.describe("native paint strength: skins", function()
 	t.it("drives the control skin art from the button's own interaction state", function()
 		local package = themes.neutralPackage()
-		for name, id in { rest = 11, hot = 12, press = 13, chosen = 14, off = 15, bare = 16, pushed = 17 } do
-			package.assets[name] = { content = "rbxassetid://" .. id }
+		for name, id in
+			{ rest = 11, hot = 12, press = 13, chosen = 14, off = 15, bare = 16, pushed = 17 } :: { [string]: number }
+		do
+			assert(package.assets)[name] = { content = "rbxassetid://" .. id }
 		end
-		package.chrome.control = {
-			kind = "nineSlice",
+		assert(package.chrome).control = {
+			kind = "nineSlice" :: "nineSlice",
 			asset = { default = "rest", hover = "hot", pressed = "press", selected = "chosen", disabled = "off" },
 		}
 		local h = harness({ theme = package })
@@ -975,16 +1009,17 @@ t.describe("native paint strength: skins", function()
 		stopSheet()
 		h.dispose()
 		local partial = themes.neutralPackage()
-		partial.assets.bare = { content = "rbxassetid://16" }
-		partial.assets.pushed = { content = "rbxassetid://17" }
-		partial.chrome.control = { kind = "nineSlice", asset = { default = "bare", pressed = "pushed" } }
+		assert(partial.assets).bare = { content = "rbxassetid://16" }
+		assert(partial.assets).pushed = { content = "rbxassetid://17" }
+		assert(partial.chrome).control =
+			{ kind = "nineSlice" :: "nineSlice", asset = { default = "bare", pressed = "pushed" } }
 		local other = harness({ theme = partial })
 		local otherRoot, stopOther = mount(other, function()
 			return other.UI.Button({ Name = "Go", label = "Go", selected = true })
 		end)
 		local plate = find(otherRoot, "Go")
 		local image = ownArt(plate, "control")
-		for state, id in { Idle = 16, Hover = 16, Press = 17 } do
+		for state, id in { Idle = 16, Hover = 16, Press = 17 } :: { [string]: number } do
 			setState(other, plate, state)
 			t.expect(image.Image).toBe("rbxassetid://" .. id)
 		end
@@ -998,7 +1033,7 @@ t.describe("native paint strength: skins", function()
 		local clear = Compose.cell(1)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Button({ Name = "Hit", label = "", BackgroundTransparency = 1 }),
+				h.UI.Button({ Name = "Hit", label = "", BackgroundTransparency = 1 }) :: unknown,
 				h.UI.Button({ Name = "Bound", label = "Go", BackgroundTransparency = clear }),
 				h.UI.Button({ Name = "Plate", label = "Go" }),
 			})
@@ -1024,7 +1059,7 @@ t.describe("native paint strength: skins", function()
 			local h = harness({ theme = package })
 			local root, stop = mount(h, function()
 				return h.Host.Frame({
-					h.UI.Button({ Name = "Delete", label = "Delete", role = "destructive" }),
+					h.UI.Button({ Name = "Delete", label = "Delete", role = "destructive" :: "destructive" }) :: unknown,
 					h.UI.Button({ Name = "Save", label = "Save", appearance = "emphasis" }),
 					h.UI.Button({ Name = "Reset", label = "Reset" }),
 				})
@@ -1037,7 +1072,9 @@ t.describe("native paint strength: skins", function()
 					t.expect(resolve(sheet, art, "ImageColor3"))
 						.toBe(if extra.artTint then color(h.engine, extra.artTint) else nil)
 					local shapes = {}
-					for button, pair in { Delete = { "danger", "onDanger" }, Save = { "accent", "onAccent" } } do
+					for button, pair in
+						{ Delete = { "danger", "onDanger" }, Save = { "accent", "onAccent" } } :: { [string]: { string } }
+					do
 						local node, tint = find(root, button), colors[pair[1]]
 						local plateArt = ownArt(node, "control")
 						local tinted = resolve(sheet, plateArt, "ImageColor3")
@@ -1100,21 +1137,21 @@ t.describe("native paint strength: skins", function()
 
 	t.it("maps hover and press on each skinned part to that part's state art", function()
 		local package = themes.neutralPackage()
-		local ids = { default = 1, hover = 2, pressed = 3, selected = 4 }
+		local ids: { [string]: number } = { default = 1, hover = 2, pressed = 3, selected = 4 }
 		for _, slot in { "field", "stepperPlate", "toggleTrack", "toggleKnob", "sliderThumb" } do
 			local variants = {}
 			for state, id in ids do
 				local name = slot .. "-" .. state
-				package.assets[name] = { content = "rbxassetid://" .. slot .. id }
+				assert(package.assets)[name] = { content = "rbxassetid://" .. slot .. id }
 				variants[state] = name
 			end
-			package.chrome[slot] = { kind = "nineSlice", asset = variants }
+			assert(package.chrome)[slot] = { kind = "nineSlice" :: "nineSlice", asset = variants }
 		end
 		local h = harness({ theme = package })
 		local value = Compose.cell(false)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada"), label = "Name" }),
+				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada"), label = "Name" }) :: unknown,
 				h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
 				h.UI.Toggle({ Name = "Switch", value = value, label = "On" }),
 				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
@@ -1133,9 +1170,16 @@ t.describe("native paint strength: skins", function()
 			local art = ownArt(node, slot)
 			t.expect(art ~= nil).toBe(true)
 			t.expect(node:HasTag("facet-skinned")).toBe(true)
-			for _, step in { { "Idle", 1 }, { "Hover", 2 }, { "Press", 3 }, { "Idle", 1 } } do
-				setState(h, node, step[1])
-				t.expect(art.Image).toBe("rbxassetid://" .. slot .. step[2])
+			for _, step in
+				{
+					{ state = "Idle", asset = 1 },
+					{ state = "Hover", asset = 2 },
+					{ state = "Press", asset = 3 },
+					{ state = "Idle", asset = 1 },
+				}
+			do
+				setState(h, node, step.state)
+				t.expect(art.Image).toBe("rbxassetid://" .. slot .. step.asset)
 			end
 		end
 		value:set(true)
@@ -1173,7 +1217,7 @@ t.describe("native paint strength: skins", function()
 		local h = harness({ theme = package })
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Button({ Name = "Action", label = "Go" }),
+				h.UI.Button({ Name = "Action", label = "Go" }) :: unknown,
 				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada"), label = "Name" }),
 				h.UI.Toggle({ Name = "Switch", value = Compose.cell(true), label = "On" }),
 				h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
@@ -1183,7 +1227,9 @@ t.describe("native paint strength: skins", function()
 				h.UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Leave?",
-					actions = { { id = "stay", label = "Stay", role = "cancel" } },
+					actions = {
+						{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
 				}),
 			})
 		end)
@@ -1236,15 +1282,20 @@ t.describe("native paint strength: skins", function()
 		local options = { { value = "a", label = "A" }, { value = "b", label = "B" } }
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Button({ Name = "Soft", label = "Soft", appearance = "soft" }),
+				h.UI.Button({ Name = "Soft", label = "Soft", appearance = "soft" }) :: unknown,
 				h.UI.Button({ Name = "Utility", label = "Utility", appearance = "utility" }),
 				h.UI.Button({ Name = "Primary", label = "Primary", appearance = "emphasis", selected = true }),
-				h.UI.Button({ Name = "Danger", label = "Danger", role = "destructive" }),
+				h.UI.Button({ Name = "Danger", label = "Danger", role = "destructive" :: "destructive" }),
 				h.Host.Frame({
 					Name = "Segmented",
-					h.UI.Picker({ selected = Compose.cell("a"), style = "segmented", options = options }),
+					h.UI.Picker({ selected = Compose.cell("a"), style = "segmented" :: "segmented", options = options }),
 				}),
-				h.UI.Toggle({ Name = "Box", value = Compose.cell(true), label = "Box", presentation = "checkbox" }),
+				h.UI.Toggle({
+					Name = "Box",
+					value = Compose.cell(true),
+					label = "Box",
+					presentation = "checkbox" :: "checkbox",
+				}),
 				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
 			})
 		end)
@@ -1315,17 +1366,20 @@ t.describe("native paint strength: skins", function()
 	t.it("drops the skinned tag from a field and a button when the package stops drawing their art", function()
 		local art = skinPackage({ field = "rbxassetid://701", control = "rbxassetid://702" })
 		local missing = themes.neutralPackage()
-		missing.chrome.field = { kind = "layered", layers = { { kind = "fill", asset = "absent" } } }
-		missing.chrome.control = { kind = "native" }
+		assert(missing.chrome).field = {
+			kind = "layered" :: "layered",
+			layers = { { kind = "fill" :: "fill", asset = "absent" } :: FixtureThemeTypes.SkinLayer },
+		}
+		assert(missing.chrome).control = { kind = "native" :: "native" }
 		local none = themes.neutralPackage()
-		none.chrome.field = { kind = "none" }
-		none.chrome.control = { kind = "none" }
+		assert(none.chrome).field = { kind = "none" :: "none" }
+		assert(none.chrome).control = { kind = "none" :: "none" }
 		local selected = Compose.cell(art)
 		local h = harness({ theme = selected })
 		local sheet, stopSheet = sheetFor(h, selected)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.TextInput({ Name = "Framed", value = Compose.cell("Ada"), label = "Name" }),
+				h.UI.TextInput({ Name = "Framed", value = Compose.cell("Ada"), label = "Name" }) :: unknown,
 				h.UI.Button({ Name = "Action", label = "Go" }),
 			})
 		end)
@@ -1367,7 +1421,7 @@ t.describe("native paint strength: skins", function()
 		local sheet, stopSheet = sheetFor(h, package)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
+				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }) :: unknown,
 				h.UI.Toggle({ Name = "Switch", value = Compose.cell(true), label = "On" }),
 				h.UI.ProgressView({ Name = "Progress", value = 0.5 }),
 				h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
@@ -1523,16 +1577,16 @@ t.describe("native paint strength: skins", function()
 			},
 			raised = { blurRadius = { offset = 30 }, transparency = 0.6, color = { r = 0.2, g = 0, b = 0 } },
 		}
-		definition.chrome.control = { kind = "native", shadow = "overlay" }
-		definition.chrome.panel = { kind = "native", shadow = "lifted" }
-		definition.chrome.field = { kind = "native", shadow = "raised" }
+		assert(definition.chrome).control = { kind = "native" :: "native", shadow = "overlay" }
+		assert(definition.chrome).panel = { kind = "native" :: "native", shadow = "lifted" }
+		assert(definition.chrome).field = { kind = "native" :: "native", shadow = "raised" }
 		local package, report = themes.define(definition)
 		t.expect(report.ok).toBe(true)
 		local h = harness({ theme = package })
 		local UDim, UDim2 = h.engine.types.UDim, h.engine.types.UDim2
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Button({ Name = "Action", label = "Go" }),
+				h.UI.Button({ Name = "Action", label = "Go" }) :: unknown,
 				h.UI.TextInput({ Name = "Field", value = Compose.cell("") }),
 			})
 		end)
@@ -1562,7 +1616,7 @@ t.describe("native paint strength: skins", function()
 		stopPanel()
 		h.dispose()
 		local live = themes.neutralPackage()
-		live.chrome.control = { kind = "native", shadow = "overlay" }
+		assert(live.chrome).control = { kind = "native" :: "native", shadow = "overlay" }
 		local selected = Compose.cell(live)
 		local reactive = harness({ theme = selected })
 		local reactiveRoot, stopReactive = mount(reactive, function()
@@ -1572,7 +1626,7 @@ t.describe("native paint strength: skins", function()
 		t.expect(shadow.BlurRadius).toBe(UDim.new(0, 24))
 		local named = themes.neutralPackage()
 		named.style.shadows = { lifted = { blurRadius = { offset = 9 }, transparency = 0.2 } }
-		named.chrome.control = { kind = "native", shadow = "lifted" }
+		assert(named.chrome).control = { kind = "native" :: "native", shadow = "lifted" }
 		selected:set(named)
 		t.expect(find(reactiveRoot, "Action"):FindFirstChild("ChromeShadow")).toBe(shadow)
 		t.expect(shadow.BlurRadius).toBe(UDim.new(0, 9))
@@ -1580,7 +1634,7 @@ t.describe("native paint strength: skins", function()
 		stopReactive()
 		reactive.dispose()
 		local unknown = themes.neutralPackage()
-		unknown.chrome.control = { kind = "native", shadow = "floaty" }
+		assert(unknown.chrome).control = { kind = "native" :: "native", shadow = "floaty" }
 		local rejected, failure = themes.define(unknown)
 		t.expect(rejected).toBe(nil)
 		t.expect(failure.errors[1].field).toBe("chrome.control.shadow")
@@ -1621,7 +1675,8 @@ t.describe("native paint strength: theme sheets", function()
 				end,
 			}
 			local package = themes.neutralPackage()
-			package.metrics.motion = nil
+			local absentMotionMetrics = package.metrics :: any
+			absentMotionMetrics.motion = nil
 			local stop, sheet = h.runtime.mount(function()
 				return themes.createStyleSheet(h.runtime, package, { types = h.engine.types })
 			end, h.engine.new("Folder"))
@@ -1646,7 +1701,8 @@ t.describe("native paint strength: theme sheets", function()
 			t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
 			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
 			local halfDeclared = themes.neutralPackage()
-			halfDeclared.metrics.motion = { fast = 0.1 }
+			local partialMotionMetrics = halfDeclared.metrics :: any
+			partialMotionMetrics.motion = { fast = 0.1 }
 			local second, stopSecond = sheetFor(h, halfDeclared)
 			t.expect(transitionOf(ruleNode(second, ".facet-text"), "TextColor3").Time).toBe(0.2)
 			stopSecond()
@@ -1679,9 +1735,9 @@ t.describe("native paint strength: theme sheets", function()
 		package:set(themes.neutralPackage())
 		t.expect(next(writes)).toBe(nil)
 		local inset = themes.neutralPackage()
-		inset.assets.plate = { content = "rbxassetid://9" }
-		inset.chrome.control = {
-			kind = "nineSlice",
+		assert(inset.assets).plate = { content = "rbxassetid://9" }
+		assert(inset.chrome).control = {
+			kind = "nineSlice" :: "nineSlice",
 			asset = "plate",
 			contentInsets = { left = 20, right = 14, top = 6, bottom = 9 },
 		}
@@ -1699,9 +1755,9 @@ t.describe("native paint strength: theme sheets", function()
 		t.expect(writes[ruleNode(sheet, ".facet-button::UICorner")]).toBe(nil)
 		table.clear(writes)
 		local same = themes.neutralPackage()
-		same.assets.plate = { content = "rbxassetid://9" }
-		same.chrome.control = {
-			kind = "nineSlice",
+		assert(same.assets).plate = { content = "rbxassetid://9" }
+		assert(same.chrome).control = {
+			kind = "nineSlice" :: "nineSlice",
 			asset = "plate",
 			contentInsets = { left = 20, right = 14, top = 6, bottom = 9 },
 		}
@@ -1709,7 +1765,8 @@ t.describe("native paint strength: theme sheets", function()
 		t.expect(next(writes)).toBe(nil)
 		local narrow = table.clone(same)
 		narrow.chrome = table.clone(same.chrome)
-		narrow.chrome.control = { kind = "nineSlice", asset = "plate", contentInsets = { left = 4, top = 2 } }
+		assert(narrow.chrome).control =
+			{ kind = "nineSlice" :: "nineSlice", asset = "plate", contentInsets = { left = 4, top = 2 } }
 		package:set(narrow)
 		t.expect(padding(".facet-button::UIPadding")).toEqual({ 16, 12, 2, 0 })
 		table.clear(writes)
@@ -1777,8 +1834,8 @@ t.describe("native paint strength: theme sheets", function()
 		t.expect(style(sheet, ".facet-selected >> .facet-icon").ImageColor3).toBe(color(h.engine, colors.content))
 		stop()
 		local authored = themes.neutralPackage()
-		authored.style.themes[1].extra.controlSelected = { r = 0.1, g = 0.3, b = 0.8 }
-		authored.style.themes[1].extra.onSelected = { r = 1, g = 1, b = 1 }
+		assert(authored.style.themes[1].extra).controlSelected = { r = 0.1, g = 0.3, b = 0.8 }
+		assert(authored.style.themes[1].extra).onSelected = { r = 1, g = 1, b = 1 }
 		local package, report = themes.define(authored)
 		t.expect(report.ok).toBe(true)
 		local pairs = {}
@@ -1793,8 +1850,12 @@ t.describe("native paint strength: theme sheets", function()
 		for index = 2, #pairs do
 			local palette = authored.style.themes[index]
 			t.expect(pairs[index].ok).toBe(true)
-			t.expect(pairs[index].ratio)
-				.toBeCloseTo(contrast(palette.extra.onSelected or palette.colors.content, palette.extra.controlSelected))
+			t.expect(pairs[index].ratio).toBeCloseTo(
+				contrast(
+					assert(palette.extra).onSelected or palette.colors.content,
+					assert(palette.extra).controlSelected
+				)
+			)
 		end
 		local authoredSheet, stopAuthored = sheetFor(h, package)
 		local white = h.engine.types.Color3.new(1, 1, 1)
@@ -1808,13 +1869,13 @@ t.describe("native paint strength: theme sheets", function()
 		stopMount()
 		stopAuthored()
 		local unreadable = themes.neutralPackage()
-		unreadable.style.themes[1].extra.onSelected = unreadable.style.themes[1].extra.controlSelected
+		assert(unreadable.style.themes[1].extra).onSelected = assert(unreadable.style.themes[1].extra).controlSelected
 		local rejected, failure = themes.define(unreadable)
 		t.expect(rejected).toBe(nil)
 		t.expect(failure.errors[1].field).toBe("style.Dark")
 		t.expect(failure.errors[1].message).toBe("onSelected contrast is below 4.5:1")
 		local dark = themes.neutralPackage()
-		dark.style.themes[1].extra.controlSelected = { r = 0.85, g = 0.88, b = 0.92 }
+		assert(dark.style.themes[1].extra).controlSelected = { r = 0.85, g = 0.88, b = 0.92 }
 		local noPartner = themes.define(dark)
 		t.expect(noPartner).toBe(nil)
 		t.expect(extra.onSelected).toBe(nil)
@@ -2024,7 +2085,7 @@ t.describe("native paint strength: theme sheets", function()
 					{ r = ink.R, g = ink.G, b = ink.B },
 					{ r = track.R, g = track.G, b = track.B }
 				)
-				local art = entry.package.chrome.toggleKnob
+				local art = assert(entry.package.chrome).toggleKnob
 				if measured < 3 and (art == nil or art.kind == "native" or art.kind == "none") then
 					table.insert(weak, `{entry.id}/{palette.name}`)
 				end
@@ -2046,7 +2107,7 @@ t.describe("native paint strength: theme sheets", function()
 			local h = harness()
 			local root, stopProbes = mount(h, function()
 				return h.Host.Frame({
-					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Search" },
+					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Search" } :: unknown,
 					h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
 				})
 			end)
@@ -2102,11 +2163,16 @@ t.describe("native paint strength: theme sheets", function()
 				onReorder = function() end,
 				deletable = true,
 				onDelete = function() end,
-				columns = { { id = "name", label = "Name" } },
+				columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
 				rowActions = function()
 					return {
 						trailing = {
-							{ id = "remove", label = "Remove", role = "destructive", onActivate = function() end },
+							{
+								id = "remove",
+								label = "Remove",
+								role = "destructive" :: "destructive",
+								onActivate = function() end,
+							} :: FixtureCollectionTypes.RowAction,
 						},
 					}
 				end,
@@ -2164,12 +2230,18 @@ t.describe("native paint strength: theme sheets", function()
 		for _, entry in entries do
 			for _, palette in entry.package.style.themes do
 				local colors, extra = paletteOf(palette)
-				local pairs = {
-					row = { colors.content, extra.tableRow or extra.control },
-					alternate = { colors.content, extra.tableRowAlternate or extra.controlHover },
-					header = { colors.content, extra.tableHeader or extra.control },
-					selected = { extra.onSelected or colors.content, extra.controlSelected },
-				}
+				local pairs: {
+					[string]: { typeof(colors.content) | typeof(extra.tableRow or extra.control) }
+						| { typeof(colors.content) | typeof(extra.tableRowAlternate or extra.controlHover) }
+						| { typeof(colors.content) | typeof(extra.tableHeader or extra.control) }
+						| { typeof(extra.onSelected or colors.content) | typeof(extra.controlSelected) },
+				} =
+					{
+						row = { colors.content, extra.tableRow or extra.control },
+						alternate = { colors.content, extra.tableRowAlternate or extra.controlHover },
+						header = { colors.content, extra.tableHeader or extra.control },
+						selected = { extra.onSelected or colors.content, extra.controlSelected },
+					}
 				for name, pair in pairs do
 					if pair[1] and pair[2] and contrast(pair[1], pair[2]) < 4.5 then
 						table.insert(weak, `{entry.id}/{palette.name}:{name}`)
@@ -2247,8 +2319,12 @@ t.describe("native paint strength: theme sheets", function()
 			local h = harness({ theme = (shipped(name)) })
 			local root, stop = mount(h, function()
 				return h.Host.Frame({
-					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Name" },
-					h.UI.TextInput "Search" { value = Compose.cell(""), presentation = "search", placeholder = "Filter" },
+					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Name" } :: unknown,
+					h.UI.TextInput "Search" {
+						value = Compose.cell(""),
+						presentation = "search" :: "search",
+						placeholder = "Filter",
+					},
 					h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
 				})
 			end)
@@ -2282,13 +2358,15 @@ t.describe("native paint strength: theme sheets", function()
 		local root, stop = mount(h, function()
 			source = h.Host.Frame({ Name = "Source" })
 			return h.Host.Frame({
-				source,
+				source :: unknown,
 				h.UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Map",
 					surface = "fullScreen",
 					transition = { source = source },
-					actions = { { id = "close", label = "Close", role = "cancel" } },
+					actions = {
+						{ id = "close", label = "Close", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
 				}),
 			})
 		end)
@@ -2323,11 +2401,21 @@ t.describe("native paint strength: value and status paint", function()
 		local diameter = Compose.cell(32)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.ProgressView({ Name = "Ring", presentation = "circular", value = 0.5, diameter = diameter }),
-				h.UI.ProgressView({ Name = "Authored", presentation = "circular", value = 0.5, thickness = 5 }),
+				h.UI.ProgressView({
+					Name = "Ring",
+					presentation = "circular" :: "circular",
+					value = 0.5,
+					diameter = diameter,
+				}) :: unknown,
+				h.UI.ProgressView({
+					Name = "Authored",
+					presentation = "circular" :: "circular",
+					value = 0.5,
+					thickness = 5,
+				}),
 				h.UI.ProgressView({ Name = "Bar", value = 0.5 }),
 				h.UI.ProgressView({ Name = "Thin", value = 0.5, thickness = 4 }),
-				h.UI.ProgressView({ Name = "Spinner", presentation = "spinner" }),
+				h.UI.ProgressView({ Name = "Spinner", presentation = "spinner" :: "spinner" }),
 			})
 		end)
 		local ring = find(root, "Ring")
@@ -2376,7 +2464,7 @@ t.describe("native paint strength: value and status paint", function()
 					value = bars,
 					count = 10,
 					tint = { filled = filledTint, empty = green },
-				}),
+				}) :: unknown,
 				h.UI.LevelPicker({
 					Name = "Glyphs",
 					value = glyphs,
@@ -2437,7 +2525,7 @@ t.describe("native paint strength: value and status paint", function()
 		local h = harness()
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Badge({ Name = "Plain", label = "New" }),
+				h.UI.Badge({ Name = "Plain", label = "New" }) :: unknown,
 				h.UI.Badge({ Name = "Iconic", label = "New", icon = "checkmark" }),
 				h.UI.Badge({ Name = "Neutral", label = "New", status = Compose.cell("neutral") }),
 			})
@@ -2486,7 +2574,7 @@ t.describe("native paint strength: value and status paint", function()
 
 	t.it("paints every status with its shared palette pair and caps the count at the authored max", function()
 		local h = harness()
-		local pairs = {
+		local pairs: { [string]: { string } } = {
 			neutral = { "contentSecondary", "surface" },
 			info = { "accent", "onAccent" },
 			success = { "success", "onSuccess" },
@@ -2498,7 +2586,7 @@ t.describe("native paint strength: value and status paint", function()
 		local status = Compose.cell("neutral")
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.StatusIndicator({ Name = "Count", status = status, count = count }),
+				h.UI.StatusIndicator({ Name = "Count", status = status, count = count }) :: unknown,
 				h.UI.StatusIndicator({ Name = "Capped", status = status, count = capped, max = 9 }),
 				h.UI.StatusIndicator({ Name = "Ring", status = status, form = "ring", diameter = 16 }),
 			})
@@ -2506,13 +2594,28 @@ t.describe("native paint strength: value and status paint", function()
 		local node, cappedNode = find(root, "Count"), find(root, "Capped")
 		local ring = find(root, "Ring"):FindFirstChildWhichIsA("UIStroke")
 		t.expect(node:FindFirstChildWhichIsA("UISizeConstraint").MinSize).toBe(h.engine.types.Vector2.new(24, 24))
-		for _, entry in { { 0, "0" }, { 9, "9" }, { 99, "99" }, { 100, "99+" }, { 1000, "99+" } } do
-			count:set(entry[1])
-			t.expect(node.Text).toBe(entry[2])
+		for _, entry in
+			{
+				{ value = 0, label = "0" },
+				{ value = 9, label = "9" },
+				{ value = 99, label = "99" },
+				{ value = 100, label = "99+" },
+				{ value = 1000, label = "99+" },
+			}
+		do
+			count:set(entry.value)
+			t.expect(node.Text).toBe(entry.label)
 		end
-		for _, entry in { { 0, "0" }, { 9, "9" }, { 10, "9+" }, { 1000, "9+" } } do
-			capped:set(entry[1])
-			t.expect(cappedNode.Text).toBe(entry[2])
+		for _, entry in
+			{
+				{ value = 0, label = "0" },
+				{ value = 9, label = "9" },
+				{ value = 10, label = "9+" },
+				{ value = 1000, label = "9+" },
+			}
+		do
+			capped:set(entry.value)
+			t.expect(cappedNode.Text).toBe(entry.label)
 		end
 		local packages = { themes.neutralPackage() }
 		for _, name in SHIPPED do
@@ -2551,11 +2654,13 @@ t.describe("native paint strength: split button", function()
 	local function split(h: Harness): (any, () -> ())
 		return mount(h, function()
 			return h.Host.Frame({
-				h.UI.Button({ Name = "Plain", label = "Plain" }),
+				h.UI.Button({ Name = "Plain", label = "Plain" }) :: unknown,
 				h.UI.SplitButton "Split" {
 					label = "Start race",
 					onActivate = function() end,
-					items = { { id = "practice", label = "Practice", onSelect = function() end } },
+					items = {
+						{ id = "practice", label = "Practice", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+					},
 				},
 			})
 		end)
@@ -2666,17 +2771,28 @@ t.describe("native paint strength: pixel quest selected plate", function()
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
 				h.UI.Picker({
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
-				}),
+					options = {
+						{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				}) :: unknown,
 				h.UI.Picker({
-					style = "inline",
+					style = "inline" :: "inline",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+					options = {
+						{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				}),
 				h.UI.Chip({ Name = "Chip", label = "Rain", selected = Compose.cell(true) }),
-				h.UI.Toggle({ Name = "Toggle", label = "On", presentation = "button", value = Compose.cell(true) }),
+				h.UI.Toggle({
+					Name = "Toggle",
+					label = "On",
+					presentation = "button" :: "button",
+					value = Compose.cell(true),
+				}),
 				h.UI.Button({ Name = "Row", label = "Row", selected = true }),
 			})
 		end)
@@ -2711,7 +2827,8 @@ t.describe("native paint strength: pixel quest selected plate", function()
 	t.it("rejects a state link that turns a plate a quarter or tints outside zero to one", function()
 		local function withLink(selected: any): boolean
 			local definition: any = { identity = { id = "x" }, assets = { art = { content = "rbxassetid://1" } } }
-			definition.chrome = { control = { kind = "nineSlice", asset = { default = "art", selected = selected } } }
+			definition.chrome =
+				{ control = { kind = "nineSlice" :: "nineSlice", asset = { default = "art", selected = selected } } }
 			local package = themes.define(definition)
 			return package ~= nil
 		end
@@ -2745,12 +2862,12 @@ t.describe("native paint strength: pixel quest selected plate", function()
 				local tint = color(h.engine, link.tint or { r = 1, g = 1, b = 1 })
 				local function picker(style: string, extra: { [string]: any }?): any
 					local props: { [string]: any } = {
-						Name = style .. ((extra or {}).axis or ""),
+						Name = style .. ((extra or ({} :: { [string]: any })).axis or ""),
 						style = style,
 						selected = Compose.cell("a"),
 						options = { { value = "a", label = "Rally" }, { value = "b", label = "Road" } },
 					}
-					for key, value in extra or {} do
+					for key, value in extra or ({} :: { [string]: any }) do
 						props[key] = value
 					end
 					return h.UI.Picker(props)
@@ -2762,23 +2879,23 @@ t.describe("native paint strength: pixel quest selected plate", function()
 				end
 				local root, stop = mount(h, function()
 					return h.Host.Frame({
-						picker("segmented"),
+						picker("segmented") :: unknown,
 						picker("inline"),
 						picker("radioGroup"),
 						picker("cards"),
-						picker("cards", { axis = "x" }),
+						picker("cards", { axis = "x" :: "x" }),
 						h.UI.Chip({ Name = "ChipOn", label = "Rain", selected = Compose.cell(true) }),
 						h.UI.Chip({ Name = "ChipOff", label = "Snow", selected = Compose.cell(false) }),
 						h.UI.Toggle({
 							Name = "ToggleOn",
 							label = "On",
-							presentation = "button",
+							presentation = "button" :: "button",
 							value = Compose.cell(true),
 						}),
 						h.UI.Toggle({
 							Name = "ToggleOff",
 							label = "Off",
-							presentation = "button",
+							presentation = "button" :: "button",
 							value = Compose.cell(false),
 						}),
 						row("RowOn", true),
@@ -2840,7 +2957,7 @@ t.describe("native paint strength: table rows", function()
 				key = "id",
 				scrolls = false,
 				alternatingRows = true,
-				columns = { { id = "id" } },
+				columns = { { id = "id" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		local alternate = tagged(root, "facet-tablerow-alternate")[1]
@@ -2873,7 +2990,7 @@ t.describe("native paint strength: table rows", function()
 				scrolls = false,
 				deletable = true,
 				onDelete = function() end,
-				columns = { { id = "id" } },
+				columns = { { id = "id" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		local button = find(root, "Edit")
@@ -2909,7 +3026,7 @@ t.describe("native paint strength: calendar day", function()
 			local root, stop = mount(h, function()
 				return h.UI.DateTimePicker("P")({
 					selection = "range",
-					style = "inline",
+					style = "inline" :: "inline",
 					range = range,
 					onRangeChange = function(r: any)
 						range:set(r)
@@ -2942,7 +3059,7 @@ t.describe("native paint strength: calendar day", function()
 			local root, stop = mount(h, function()
 				return h.UI.DateTimePicker("P")({
 					selection = "range",
-					style = "inline",
+					style = "inline" :: "inline",
 					range = range,
 					onRangeChange = function(r: any)
 						range:set(r)
@@ -2976,7 +3093,8 @@ end)
 
 t.describe("native paint strength: skinned control carve", function()
 	t.it("insets every skinned control's content past its art carve on every side at every rung", function()
-		local SIDES = { left = "PaddingLeft", right = "PaddingRight", top = "PaddingTop", bottom = "PaddingBottom" }
+		local SIDES: { [string]: string } =
+			{ left = "PaddingLeft", right = "PaddingRight", top = "PaddingTop", bottom = "PaddingBottom" }
 		local function effective(sheet: any, node: any, property: string): number
 			local own = node:FindFirstChildWhichIsA("UIPadding")
 			if own and own[property].Offset ~= 0 then
@@ -2990,38 +3108,51 @@ t.describe("native paint strength: skinned control carve", function()
 			local package = shipped(name)
 			local h = harness({ theme = package })
 			local sheet, stopSheet = sheetFor(h, package)
-			for _, rung in { "xsmall", "compact", "regular", "large" } do
+			for _, rung in { "xsmall", "compact", "regular", "large" } :: { "compact" | "large" | "regular" | "xsmall" } do
 				local options = { { value = "a", label = "(default)" }, { value = "b", label = "Other" } }
 				local root, stop = mount(h, function()
 					return h.Host.Frame({
-						h.UI.Button({ Name = "Button", label = "Go", controlSize = rung }),
-						h.UI.Chip({ Name = "Chip", label = "Chip", selected = Compose.cell(false), controlSize = rung }),
+						h.UI.Button({
+							Name = "Button",
+							label = "Go",
+							controlSize = rung :: "compact" | "large" | "regular" | "xsmall",
+						}) :: unknown,
+						h.UI.Chip({
+							Name = "Chip",
+							label = "Chip",
+							selected = Compose.cell(false),
+							controlSize = rung :: "compact" | "large" | "regular" | "xsmall",
+						}),
 						h.UI.Picker({
 							Name = "Menu",
-							style = "menu",
-							controlSize = rung,
+							style = "menu" :: "menu",
+							controlSize = rung :: "compact" | "large" | "regular" | "xsmall",
 							selected = Compose.cell("a"),
 							options = options,
 						}),
 						h.UI.Picker({
 							Name = "Segmented",
-							style = "segmented",
-							controlSize = rung,
+							style = "segmented" :: "segmented",
+							controlSize = rung :: "compact" | "large" | "regular" | "xsmall",
 							selected = Compose.cell("a"),
 							options = options,
 						}),
-						h.UI.TextInput({ Name = "Field", value = Compose.cell("x"), controlSize = rung }),
+						h.UI.TextInput({
+							Name = "Field",
+							value = Compose.cell("x"),
+							controlSize = rung :: "compact" | "large" | "regular" | "xsmall",
+						}),
 					})
 				end)
 				local controls = {
-					{ "Button", find(root, "Button"), "control", 1 },
-					{ "Chip", find(root, "Chip"), "control", 1 },
-					{ "Trigger", find(find(root, "Menu"), "Trigger"), "control", 1 },
-					{ "Segment", find(find(root, "Segmented"), "a"), "control", 1 },
-					{ "Field", find(find(root, "Field"), "Input"), "field", 1 },
+					{ name = "Button", node = find(root, "Button"), skin = "control", scale = 1 },
+					{ name = "Chip", node = find(root, "Chip"), skin = "control", scale = 1 },
+					{ name = "Trigger", node = find(find(root, "Menu"), "Trigger"), skin = "control", scale = 1 },
+					{ name = "Segment", node = find(find(root, "Segmented"), "a"), skin = "control", scale = 1 },
+					{ name = "Field", node = find(find(root, "Field"), "Input"), skin = "field", scale = 1 },
 				}
 				for _, entry in controls do
-					local label, node, slot = entry[1], entry[2], entry[3]
+					local label, node, slot = entry.name, entry.node, entry.skin
 					local carve = package.chrome[slot].contentInsets
 					for side, property in SIDES do
 						local face = if side == "left" or side == "right" then 1 else 0

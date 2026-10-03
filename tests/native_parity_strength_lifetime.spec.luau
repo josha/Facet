@@ -1,9 +1,20 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureRadialTypes = require("../src/ui/radial_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local FixtureThemeTypes = require("../src/ui/theme_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local InspectState = require("../src/vendor/compose/core/ownership/inspect")
 
 type Census = { live: number, connections: number, owners: number, holding: number, mounts: number }
@@ -53,7 +64,10 @@ local function inspected(body: () -> ())
 	Compose.inspect.start({ maxOwners = 1000000, maxNodes = 1000000 })
 
 	setmetatable((InspectState.__state() :: any).records, nil)
-	local ok, failure = pcall(body)
+	local ok, failure = pcall(function(): boolean
+		body()
+		return true
+	end)
 	Compose.inspect.stop()
 	if not ok then
 		error(failure, 0)
@@ -81,16 +95,16 @@ local function controlsFor(ctx: any): any
 			viewport = ctx.viewport,
 			guiService = ctx.guiService,
 			services = { GuiService = ctx.guiService },
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		} :: any
 	)
 	return ctx
 end
 
 local function exampleContext(engine: any, extra: { [string]: any }?): any
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
@@ -98,7 +112,7 @@ local function exampleContext(engine: any, extra: { [string]: any }?): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -149,7 +163,7 @@ local function radialWorld(animated: boolean): any
 	engine.clock = function()
 		return now
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local UI = Facet.controls(
 		runtime,
 		{
@@ -164,7 +178,7 @@ local function radialWorld(animated: boolean): any
 		input = input,
 		runtime = runtime,
 		UI = UI,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		target = engine.new("Folder"),
 		step = function(seconds: number)
 			for _ = 1, math.ceil(seconds * 60) do
@@ -185,7 +199,7 @@ end
 
 local function controlWorld(options: { [string]: any }?): any
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -211,7 +225,7 @@ local function controlWorld(options: { [string]: any }?): any
 		engine = engine,
 		runtime = runtime,
 		UI = UI,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		gui = gui,
 		input = input,
 		root = root,
@@ -258,19 +272,19 @@ local function skinnedPackage(content: any?): any
 		plate = { content = "rbxassetid://5" },
 	}
 	package.chrome.control = {
-		kind = "layered",
+		kind = "layered" :: "layered",
 		layers = {
-			{ kind = "fill", asset = "rest" },
-			{ kind = "corners", asset = "corner", topLeft = "corner", topRight = "corner", size = 12 },
+			{ kind = "fill" :: "fill", asset = "rest" } :: FixtureThemeTypes.SkinLayer,
+			{ kind = "corners" :: "corners", asset = "corner", topLeft = "corner", topRight = "corner", size = 12 } :: FixtureThemeTypes.SkinLayer,
 			{
-				kind = "plaque",
+				kind = "plaque" :: "plaque",
 				asset = "plate",
-				edge = "top",
+				edge = "top" :: "top",
 				overhang = 6,
 				size = { w = 80, h = 24 },
 				text = true,
 				textInsets = { left = 4, right = 4 },
-			},
+			} :: FixtureThemeTypes.SkinLayer,
 		},
 	}
 	if content then
@@ -291,7 +305,7 @@ end
 
 t.describe("lifetime parity strength", function()
 	t.it("returns every game to its instance connection and owner baseline after play", function()
-		local plays: { [string]: (any, any) -> () } = {
+		local plays: { [string]: (any, any, any) -> () } = {
 			["05_word_game"] = function(game)
 				game.restart(1)
 				for _, key in { "R", "E", "A", "C", "T", "Return", "R", "U", "L", "E", "S", "Return" } do
@@ -526,7 +540,7 @@ t.describe("lifetime parity strength", function()
 			t.expect(header ~= nil).toBe(true)
 			find(node, "Body").AbsoluteWindowSize = engine.types.Vector2.new(600, 400)
 			built.ratingFor("neon"):set(5)
-			built.sort:set({ column = "rating", direction = "descending" })
+			built.sort:set({ column = "rating", direction = "descending" :: "descending" })
 			built.filterText:set("Drift")
 			t.expect(#built.from:peek()).toBe(1)
 			built.filterText:set("")
@@ -535,7 +549,7 @@ t.describe("lifetime parity strength", function()
 			built.columnWidths:set({ name = 290, artist = 150 })
 			find(node, "RowHit").Activated.fire({
 				UserInputType = engine.types.Enum.UserInputType.MouseButton1,
-				KeyCode = engine.types.Enum.KeyCode.Unknown,
+				KeyCode = engine.types.Enum.KeyCode:FromValue(0),
 			}, 2)
 			t.expect(built.nowPlaying:peek() ~= nil).toBe(true)
 			built.restore()
@@ -591,17 +605,17 @@ t.describe("lifetime parity strength", function()
 				return w.Host.ScreenGui({
 					w.UI.RadialMenu({
 						isPresented = Compose.cell(true),
-						distribution = "compass",
+						distribution = "compass" :: "compass",
 						items = {
 							{
 								id = "N",
-								slot = "N",
+								slot = "N" :: "N",
 								label = "Go",
 								onSelect = function()
 									calls += 1
 									stop()
 								end,
-							},
+							} :: FixtureRadialTypes.RadialItem<any>,
 						},
 					}),
 				})
@@ -628,7 +642,7 @@ t.describe("lifetime parity strength", function()
 			local shown, calls = Compose.cell(true), 0
 			local stop, node = w.runtime.mount(function()
 				return w.Host.ScreenGui({
-					w.Host.Frame "Base" {},
+					w.Host.Frame "Base" {} :: unknown,
 					Compose.show(shown, function()
 						return w.UI.RadialMenu({
 							isPresented = Compose.cell(true),
@@ -640,7 +654,7 @@ t.describe("lifetime parity strength", function()
 										calls += 1
 										shown:set(false)
 									end,
-								},
+								} :: FixtureRadialTypes.RadialItem<any>,
 							},
 						})
 					end),
@@ -667,19 +681,22 @@ t.describe("lifetime parity strength", function()
 			local stop, node = w.runtime.mount(function()
 				return w.Host.ScreenGui({
 					Compose.keyed({
-						from = function(use)
+						from = function(use: Use)
 							return { { id = use(which) } }
 						end,
 						key = function(row)
 							return row.id
 						end,
-						render = function(current)
+						render = function(current): GuiObject
 							local opened = Compose.cell(false)
 							presented[current:peek().id] = opened
 							return w.UI.RadialMenu({
 								label = "Quick",
 								isPresented = opened,
-								items = { { id = "One", label = "One" }, { id = "Two", label = "Two" } },
+								items = {
+									{ id = "One", label = "One" } :: FixtureRadialTypes.RadialItem<any>,
+									{ id = "Two", label = "Two" } :: FixtureRadialTypes.RadialItem<any>,
+								},
 							})
 						end,
 					}),
@@ -718,14 +735,14 @@ t.describe("lifetime parity strength", function()
 				return w.Host.ScreenGui({
 					w.UI.RadialMenu({
 						isPresented = opened,
-						center = "empty",
+						center = "empty" :: "empty",
 						items = {
 							{
 								id = "Gear",
 								label = "Gear",
-								navigation = "expand",
+								navigation = "expand" :: "expand",
 								children = { { id = "Tool", label = "Tool", onSelect = function() end } },
-							},
+							} :: FixtureRadialTypes.RadialItem<any>,
 						},
 					}),
 				})
@@ -755,19 +772,19 @@ t.describe("lifetime parity strength", function()
 			local picked, menuOpen, pickerOpen = Compose.cell("easy"), Compose.cell(false), Compose.cell(false)
 			local stop = w.runtime.mount(function()
 				return w.Host.Frame({
-					w.Host.Frame "Base" {},
+					w.Host.Frame "Base" {} :: unknown,
 					Compose.show(shown, function()
 						return w.Host.Frame "Surface" {
 							w.UI.Picker({
 								selected = picked,
-								style = "menu",
+								style = "menu" :: "menu",
 								isPresented = pickerOpen,
 								options = {
-									{ value = "easy", label = "Easy" },
-									{ value = "normal", label = "Normal" },
-									{ value = "hard", label = "Hard" },
+									{ value = "easy", label = "Easy" } :: FixtureNavigationTypes.PickerOption<any>,
+									{ value = "normal", label = "Normal" } :: FixtureNavigationTypes.PickerOption<any>,
+									{ value = "hard", label = "Hard" } :: FixtureNavigationTypes.PickerOption<any>,
 								},
-							}),
+							}) :: unknown,
 							w.UI.Menu({
 								label = "More",
 								isPresented = menuOpen,
@@ -776,7 +793,7 @@ t.describe("lifetime parity strength", function()
 										id = "Nested",
 										label = "Nested",
 										children = { { id = "Run", label = "Run", onSelect = function() end } },
-									},
+									} :: FixtureNavigationTypes.MenuItem<any>,
 								},
 							}),
 						}
@@ -819,21 +836,21 @@ t.describe("lifetime parity strength", function()
 		inspected(function()
 			local hud = require("../examples/gallery/scenarios/hud") :: any
 			local engine = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local viewport = Compose.cell({ width = 1079, height = 809 })
 			local target = engine.new("ScreenGui")
 			local ctx = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types, viewport = viewport } :: any),
 				types = engine.types,
 				viewport = viewport,
 			}
 			local before = census(engine)
 			local built
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				built = hud.build(ctx)
 				return built.screen()
 			end, target)
@@ -879,7 +896,7 @@ t.describe("lifetime parity strength", function()
 									onActivate = function()
 										invoked += 1
 									end,
-								},
+								} :: FixtureCollectionTypes.RowAction,
 							},
 						}
 					end),
@@ -929,7 +946,9 @@ t.describe("lifetime parity strength", function()
 					onReorder = function(keys, slot)
 						table.insert(requests, { keys = keys, slot = slot })
 					end,
-					columns = { { id = "label", label = "Label", width = 100 } },
+					columns = {
+						{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					},
 				})
 			end, w.root)
 			local body = node:FindFirstChild("Body")
@@ -980,19 +999,24 @@ t.describe("lifetime parity strength", function()
 					key = byId,
 					itemSize = 40,
 					overscan = 0,
-					render = function(current)
+					render = function(current): GuiObject
 						local id = current:peek().id
 						opens[id] = opens[id] or Compose.cell(nil :: string?)
 						return w.UI.RowActions "Actions" {
 							open = opens[id],
 							content = w.UI.Text({
-								text = function(use)
+								text = function(use: Use)
 									return use(current).label
 								end,
 							}),
 							trailing = {
-								{ id = "Archive", label = "Archive", onActivate = function() end },
-								{ id = "Delete", label = "Delete", role = "destructive", onActivate = function() end },
+								{ id = "Archive", label = "Archive", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+								{
+									id = "Delete",
+									label = "Delete",
+									role = "destructive" :: "destructive",
+									onActivate = function() end,
+								} :: FixtureCollectionTypes.RowAction,
 							},
 						}
 					end,
@@ -1034,13 +1058,13 @@ t.describe("lifetime parity strength", function()
 						onChange = function(text)
 							value:set(text)
 						end,
-					},
+					} :: unknown,
 					w.UI.Table "Rows" {
 						from = rows,
 						key = byId,
-						columns = { { id = "label", label = "Label" } },
+						columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 						selection = selection,
-						selectionMode = "single",
+						selectionMode = "single" :: "single",
 						editing = editing,
 						reorderable = true,
 						onReorder = function() end,
@@ -1051,7 +1075,7 @@ t.describe("lifetime parity strength", function()
 			rows:set(records(3))
 			find(node, "RowHit").Activated.fire({
 				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
-				KeyCode = w.engine.types.Enum.KeyCode.Unknown,
+				KeyCode = w.engine.types.Enum.KeyCode:FromValue(0),
 			}, 0)
 			t.expect(next(selection:peek()) ~= nil).toBe(true)
 			editing:set(true)
@@ -1088,7 +1112,7 @@ t.describe("lifetime parity strength", function()
 								oldCalls += 1
 							end,
 						}
-					end),
+					end) :: unknown,
 					Compose.show(newShown, function()
 						return w.UI.Button "New" {
 							label = "New",
@@ -1107,7 +1131,7 @@ t.describe("lifetime parity strength", function()
 			t.expect(oldCalls).toBe(1)
 			oldButton.InputBegan.fire({
 				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
-				KeyCode = w.engine.types.Enum.KeyCode.Unknown,
+				KeyCode = w.engine.types.Enum.KeyCode:FromValue(0),
 			})
 			w.engine.heartbeat.fire(0.4)
 			t.expect(oldCalls).toBe(2)
@@ -1182,7 +1206,7 @@ t.describe("lifetime parity strength", function()
 			local parent = Compose.createOwner()
 			local base = parent.size()
 			local child = parent.createChild()
-			local unwatch = child.watch(function(use)
+			local unwatch = child.watch(function(use: Use)
 				use(source)
 				seen += 1
 			end)
@@ -1196,7 +1220,7 @@ t.describe("lifetime parity strength", function()
 			child.dispose()
 			t.expect(parent.size()).toBe(base)
 			local second, runs = parent.createChild(), 0
-			second.watch(function(use)
+			second.watch(function(use: Use)
 				use(source)
 				runs += 1
 			end)
@@ -1238,11 +1262,11 @@ t.describe("lifetime parity strength", function()
 				Compose.cleanup(function()
 					error("component cleanup failed")
 				end)
-				Compose.watch(function(use)
+				Compose.watch(function(use: Use)
 					use(source)
 					calls += 1
 				end)
-				local child = Compose.currentOwner().createChild()
+				local child = assert(Compose.currentOwner()).createChild()
 				child.own(function()
 					released += 1
 				end)
@@ -1276,11 +1300,11 @@ t.describe("lifetime parity strength", function()
 			local source, watched, cleaned = Compose.cell(0), 0, 0
 			local node
 			local stop = w.runtime.mount(function()
-				Compose.watch(function(use)
+				Compose.watch(function(use: Use)
 					use(source)
 					watched += 1
 				end)
-				local child = Compose.currentOwner().createChild()
+				local child = assert(Compose.currentOwner()).createChild()
 				child.own(function()
 					cleaned += 1
 				end)
@@ -1316,7 +1340,7 @@ t.describe("lifetime parity strength", function()
 				local stop: () -> ()
 				local stopped = 0
 				local function watch()
-					observer.watch(function(use)
+					observer.watch(function(use: Use)
 						if use(flag) then
 							stopped += 1
 							stop()
@@ -1360,7 +1384,7 @@ t.describe("lifetime parity strength", function()
 				local before = census(w.engine)
 				local leaving, staying, present = Compose.cell(true), Compose.cell(true), Compose.cell(true)
 				local cleaned = {}
-				local function region(name)
+				local function region(name: string)
 					return function()
 						Compose.cleanup(function()
 							cleaned[name] = (cleaned[name] or 0) + 1
@@ -1373,13 +1397,13 @@ t.describe("lifetime parity strength", function()
 						w.UI.Alert({
 							isPresented = leaving,
 							title = "Leaving",
-							actions = { { id = "ok", label = "OK" } },
+							actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
 							transition = { seconds = 0.4 },
-						}),
+						}) :: unknown,
 						w.UI.Alert({
 							isPresented = staying,
 							title = "Staying",
-							actions = { { id = "ok", label = "OK" } },
+							actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
 							transition = { seconds = 0.4 },
 						}),
 						Compose.presence(present, region("Region"), {
@@ -1425,14 +1449,14 @@ t.describe("lifetime parity strength", function()
 			end
 			local stop, node = w.runtime.mount(function()
 				return w.Host.Frame({
-					Compose.show(flag, slot("Alpha"), slot("Beta")),
+					Compose.show(flag, slot("Alpha"), slot("Beta")) :: unknown,
 					w.Host.Frame "Keyed" {
 						Compose.keyed({
-							from = function(use)
+							from = function(use: Use)
 								return { { id = use(which) } }
 							end,
 							key = byId,
-							render = function(current)
+							render = function(current): GuiObject
 								return w.Host.Frame "Slot" { w.Host.TextLabel(current:peek().id) { Text = "row" } }
 							end,
 						}),
@@ -1598,7 +1622,7 @@ t.describe("lifetime parity strength", function()
 	)
 
 	t.it("disposes icon-only vertical indicated segmented pickers to the registry baseline after switching", function()
-		for _, indicator in { "pill", "underline" } do
+		for _, indicator in { "pill", "underline" } :: { "pill" | "underline" } do
 			inspected(function()
 				local w = controlWorld({ motionLevel = "normal" })
 				local before = census(w.engine)
@@ -1606,14 +1630,14 @@ t.describe("lifetime parity strength", function()
 				local stop, node = w.runtime.mount(function()
 					return w.UI.Picker({
 						selected = selected,
-						style = "segmented",
-						axis = "y",
+						style = "segmented" :: "segmented",
+						axis = "y" :: "y",
 						iconOnly = true,
-						indicator = indicator,
+						indicator = indicator :: "pill" | "underline",
 						options = {
-							{ value = "grid", label = "Grid", icon = "edit" },
-							{ value = "list", label = "Listing", icon = "edit" },
-							{ value = "cards", label = "Cards", icon = "edit" },
+							{ value = "grid", label = "Grid", icon = "edit" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "list", label = "Listing", icon = "edit" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "cards", label = "Cards", icon = "edit" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
 						onChange = function()
 							changes += 1
@@ -1654,12 +1678,12 @@ t.describe("lifetime parity strength", function()
 				return w.Host.Frame({
 					w.UI.Picker "Difficulty" {
 						selected = selected,
-						style = "menu",
+						style = "menu" :: "menu",
 						isPresented = opened,
 						options = {
-							{ value = "easy", label = "Easy" },
-							{ value = "normal", label = "Normal" },
-							{ value = "hard", label = "Hard" },
+							{ value = "easy", label = "Easy" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "normal", label = "Normal" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "hard", label = "Hard" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
 						onChange = function()
 							changes += 1
@@ -1702,7 +1726,7 @@ t.describe("lifetime parity strength", function()
 						title = "Details",
 						isPresented = shown,
 						detent = detent,
-						content = function()
+						content = function(): Instance
 							live += 1
 							visits += 1
 							Compose.cleanup(function()
@@ -1754,10 +1778,10 @@ t.describe("lifetime parity strength", function()
 						{
 							id = "home",
 							label = "Home",
-							content = function()
+							content = function(): Instance
 								entries += 1
 								for _ = 1, 5 do
-									local memo = Compose.formula(function(use)
+									local memo = Compose.formula(function(use: Use)
 										return use(draft) .. "!"
 									end)
 									Compose.cleanup(function()
@@ -1770,14 +1794,14 @@ t.describe("lifetime parity strength", function()
 								end)
 								return w.Host.TextLabel "HomeBody" { Text = draft }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "feed",
 							label = "Feed",
-							content = function()
+							content = function(): Instance
 								return w.Host.TextLabel "FeedBody" { Text = "feed" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end, w.root)
@@ -1813,7 +1837,7 @@ t.describe("lifetime parity strength", function()
 				end)
 				return w.Host.Frame({})
 			end
-			local function page(name)
+			local function page(name: string)
 				return function()
 					return w.Host.TextLabel(name .. "Body") { Text = name }
 				end
@@ -1821,15 +1845,15 @@ t.describe("lifetime parity strength", function()
 			local stop, node = w.runtime.mount(function()
 				return w.UI.TabView({
 					selection = selection,
-					style = "sidebarAdaptable",
-					placement = "sidebar",
+					style = "sidebarAdaptable" :: "sidebarAdaptable",
+					placement = "sidebar" :: "sidebar",
 					transition = false,
 					sections = { { id = "main", label = "Main", tabs = { "a", "b", "c" } } },
 					accessories = { head = accessory, foot = accessory },
 					tabs = {
-						{ id = "a", label = "A", badge = "2", content = page("a") },
-						{ id = "b", label = "B", content = page("b") },
-						{ id = "c", label = "C", content = page("c") },
+						{ id = "a", label = "A", badge = "2", content = page("a") } :: FixtureNavigationTypes.Tab,
+						{ id = "b", label = "B", content = page("b") } :: FixtureNavigationTypes.Tab,
+						{ id = "c", label = "C", content = page("c") } :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end, w.root)
@@ -1859,15 +1883,15 @@ t.describe("lifetime parity strength", function()
 			local stop, node = w.runtime.mount(function()
 				return w.UI.TabView({
 					selection = Compose.cell("one"),
-					style = "sidebarAdaptable",
+					style = "sidebarAdaptable" :: "sidebarAdaptable",
 					tabs = {
 						{
 							id = "one",
 							label = "One",
-							content = function()
+							content = function(): Instance
 								return w.Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 					accessories = {
 						head = function()
@@ -1903,7 +1927,10 @@ t.describe("lifetime parity strength", function()
 			local w = controlWorld({ theme = theme })
 			local before = census(w.engine)
 			local stop = w.runtime.mount(function()
-				return w.Host.Frame({ w.UI.Button "First" { label = "One" }, w.UI.Button "Second" { label = "Two" } })
+				return w.Host.Frame({
+					w.UI.Button "First" { label = "One" } :: unknown,
+					w.UI.Button "Second" { label = "Two" },
+				})
 			end, w.root)
 			local initial = images(w.root)
 			t.expect(#initial >= 8).toBe(true)
@@ -1996,9 +2023,13 @@ t.describe("lifetime parity strength", function()
 				start = { content = "rbxassetid://2" },
 				finish = { content = "rbxassetid://3" },
 			}
-			package.chrome.barFill = { kind = "nineSlice", asset = "fill" }
-			package.chrome.barCap =
-				{ kind = "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 6, h = 6 } }
+			package.chrome.barFill = { kind = "nineSlice" :: "nineSlice", asset = "fill" }
+			package.chrome.barCap = {
+				kind = "nineSlice" :: "nineSlice",
+				startAsset = "start",
+				endAsset = "finish",
+				size = { w = 6, h = 6 },
+			}
 			local w = controlWorld({ theme = package })
 			local before = census(w.engine)
 			local value = Compose.cell(0.25)
@@ -2045,9 +2076,9 @@ t.describe("lifetime parity strength", function()
 					key = byId,
 					itemSize = 20,
 					overscan = 0,
-					render = function(current)
+					render = function(current): GuiObject
 						return w.UI.Button "Action" {
-							label = function(use)
+							label = function(use: Use)
 								return use(current).label
 							end,
 							onActivate = function()
@@ -2110,14 +2141,14 @@ t.describe("lifetime parity strength", function()
 				workloads = require("../examples/performance/lab/workloads"),
 			}
 			local engine = engineLib.new({ cacheDefaults = true })
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target = engine.new("Folder")
 			local probe
 			local world = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types } :: any),
 				engine = engine,
 				target = target,
@@ -2131,7 +2162,7 @@ t.describe("lifetime parity strength", function()
 						sourceStamp = "test",
 						placeName = "headless",
 						viewport = "800x600",
-						orientation = "landscape",
+						orientation = "landscape" :: "landscape",
 						graphicsQualityLevel = "n/a",
 						frameTarget = "n/a",
 						studioVersion = "n/a",

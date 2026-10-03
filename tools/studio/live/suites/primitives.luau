@@ -1,5 +1,16 @@
 --!strict
-local cases = {}
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, {
@@ -7,7 +18,7 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 		contracts = contracts,
 		run = function(t)
 			local present = false
-			t.mount(function(UI, Host)
+			t.mount(function(UI: FacetControls, Host: RobloxHost)
 				present = UI.VStack ~= nil
 				return Host.Frame({})
 			end)
@@ -20,36 +31,47 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	})
 end
 
-local function box(Host: any, name: string, w: number, h: number, extra: { [string]: any }?): Frame
-	local props: { [string]: any } = { Name = name, Size = UDim2.fromOffset(w, h) }
-	for key, value in extra or {} do
+local function box(Host: any, name: string, w: number, h: number, extra: { [any]: unknown }?): Frame
+	local props: { [any]: unknown } = { Name = name, Size = UDim2.fromOffset(w, h) }
+	local entries: { [any]: unknown } = extra or {}
+	for key, value in entries do
 		props[key] = value
 	end
 	return Host.Frame(props)
 end
 
 add("screen-padding-and-gap", { "themes-P3-24", "mech2-36" }, function(t)
-	local stage = t.mount(function(UI, Host)
-		return UI.Screen "Screen" { padding = "m", gap = "s", box(Host, "A", 10, 10), box(Host, "B", 10, 10) }
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return UI.Screen "Screen" {
+			padding = "m",
+			gap = "s",
+			box(Host, "A", 10, 10) :: unknown,
+			box(Host, "B", 10, 10),
+		}
 	end, { size = Vector2.new(400, 300) })
 	local screen, a, b = t.find(stage, "Screen"), t.find(stage, "A"), t.find(stage, "B")
 	t.near("A is inset by 16", a.AbsolutePosition.X - screen.AbsolutePosition.X, 16, 0.5)
 	t.near("B follows A by 10 + 8", b.AbsolutePosition.Y - a.AbsolutePosition.Y, 18, 0.5)
 	t.near("the screen fills its parent width", screen.AbsoluteSize.X, 400, 0.5)
 	t.cleanup()
-	stage = t.mount(function(UI, Host)
-		return UI.VStack "Stack" { gap = "s", padding = "m", box(Host, "A", 20, 20), box(Host, "B", 20, 20) }
+	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return UI.VStack "Stack" {
+			gap = "s",
+			padding = "m",
+			box(Host, "A", 20, 20) :: unknown,
+			box(Host, "B", 20, 20),
+		}
 	end, { size = Vector2.new(400, 300) })
 	t.near("stack height is children plus gap plus padding", t.find(stage, "Stack").AbsoluteSize.Y, 80, 0.5)
 end)
 
 add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.Grid "Grid" {
 			columns = 2,
 			gap = 4,
 			cellHeight = 30,
-			box(Host, "A", 0, 30),
+			box(Host, "A", 0, 30) :: unknown,
 			box(Host, "B", 0, 30),
 			box(Host, "C", 0, 30),
 		}
@@ -64,7 +86,7 @@ add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
 	t.check("C starts the second row", c.AbsolutePosition.Y > a.AbsolutePosition.Y, c.AbsolutePosition.Y)
 	t.near("C is in the first column", c.AbsolutePosition.X, a.AbsolutePosition.X, 0.5)
 	t.cleanup()
-	stage = t.mount(function(UI, Host)
+	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local cells = {}
 		for index = 1, 4 do
 			table.insert(cells, box(Host, "Cell" .. index, 0, 30))
@@ -74,7 +96,7 @@ add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
 			gap = 6,
 			cellHeight = 30,
 			Size = UDim2.fromOffset(210, 0),
-			table.unpack(cells),
+			table.unpack((cells :: unknown) :: { unknown }),
 		}
 	end, { size = Vector2.new(400, 300) })
 	local grid = t.find(stage, "Grid")
@@ -83,7 +105,7 @@ add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
 	t.near("cell 4 at x 0", c4.AbsolutePosition.X - grid.AbsolutePosition.X, 0, 1)
 	t.near("row pitch is cell height plus gap", c4.AbsolutePosition.Y - c1.AbsolutePosition.Y, 36, 1)
 	t.cleanup()
-	stage = t.mount(function(UI, Host)
+	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local cells = {}
 		for index = 1, 6 do
 			table.insert(cells, box(Host, "Cell" .. index, 0, 30))
@@ -94,7 +116,7 @@ add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
 			padding = { left = "xs" },
 			aspectRatio = 1.5,
 			Size = UDim2.fromOffset(300, 0),
-			table.unpack(cells),
+			table.unpack((cells :: unknown) :: { unknown }),
 		}
 	end, { size = Vector2.new(400, 400) })
 	grid = t.find(stage, "Grid")
@@ -105,12 +127,24 @@ add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
 end)
 
 add("zstack-alignment", { "mech2-40" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Pair" {
 			Size = UDim2.fromOffset(200, 100),
 			BackgroundTransparency = 1,
-			UI.ZStack "End" { width = 200, height = 100, alignH = "end", alignV = "start", box(Host, "E", 20, 20) },
-			UI.ZStack "Mid" { width = 200, height = 100, alignH = "center", alignV = "center", box(Host, "M", 50, 30) },
+			UI.ZStack "End" {
+				width = 200,
+				height = 100,
+				alignH = "end" :: "end",
+				alignV = "start" :: "start",
+				box(Host, "E", 20, 20),
+			} :: unknown,
+			UI.ZStack "Mid" {
+				width = 200,
+				height = 100,
+				alignH = "center" :: "center",
+				alignV = "center" :: "center",
+				box(Host, "M", 50, 30),
+			},
 		}
 	end, { size = Vector2.new(400, 300) })
 	local z, e, m = t.find(stage, "End"), t.find(stage, "E"), t.find(stage, "M")
@@ -121,13 +155,13 @@ add("zstack-alignment", { "mech2-40" }, function(t)
 end)
 
 add("stack-distribution", { "mech3-47" }, function(t)
-	local expected = { spaceBetween = { 0, 250, 500 }, spaceEvenly = { 75, 250, 425 } }
+	local expected: { [string]: { number } } = { spaceBetween = { 0, 250, 500 }, spaceEvenly = { 75, 250, 425 } }
 	for mode, xs in expected do
-		local stage = t.mount(function(UI, Host)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return UI.HStack "Row" {
 				width = 600,
-				distribute = mode,
-				box(Host, "A", 100, 20),
+				distribute = mode :: "center" | "end" | "spaceAround" | "spaceBetween" | "spaceEvenly" | "start",
+				box(Host, "A", 100, 20) :: unknown,
 				box(Host, "B", 100, 20),
 				box(Host, "C", 100, 20),
 			}
@@ -138,8 +172,13 @@ add("stack-distribution", { "mech3-47" }, function(t)
 		end
 		t.cleanup()
 	end
-	local stage = t.mount(function(UI, Host)
-		return UI.VStack "Column" { height = 300, distribute = "end", box(Host, "A", 20, 20), box(Host, "B", 20, 20) }
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return UI.VStack "Column" {
+			height = 300,
+			distribute = "end" :: "end",
+			box(Host, "A", 20, 20) :: unknown,
+			box(Host, "B", 20, 20),
+		}
 	end, { size = Vector2.new(300, 400) })
 	local column, b = t.find(stage, "Column"), t.find(stage, "B")
 	t.near(
@@ -151,10 +190,10 @@ add("stack-distribution", { "mech3-47" }, function(t)
 end)
 
 add("fill-and-extents", { "mech2-36", "mech1-100" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.HStack "Row" {
 			width = 600,
-			box(Host, "Fixed", 100, 20),
+			box(Host, "Fixed", 100, 20) :: unknown,
 			box(Host, "One", 0, 20, { UI.fill() }),
 			box(Host, "Two", 0, 20, { UI.fill(2) }),
 		}
@@ -163,8 +202,10 @@ add("fill-and-extents", { "mech2-36", "mech1-100" }, function(t)
 	t.near("fill(2) takes twice fill()", two.AbsoluteSize.X / math.max(1, one.AbsoluteSize.X), 2, 0.05)
 	t.near("fills share the leftover width", one.AbsoluteSize.X + two.AbsoluteSize.X, 500, 1)
 	t.cleanup()
-	for _, case in { { width = "fill", expected = 400 }, { width = 120, expected = 120 } } do
-		stage = t.mount(function(UI, Host)
+	for _, case: { width: "fill" | number, expected: number } in
+		{ { width = "fill" :: "fill", expected = 400 }, { width = 120, expected = 120 } } :: { { width: "fill" | number, expected: number } }
+	do
+		stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Parent" {
 				Size = UDim2.fromOffset(400, 200),
 				UI.VStack "Stack" { width = case.width, box(Host, "A", 50, 20) },
@@ -173,17 +214,17 @@ add("fill-and-extents", { "mech2-36", "mech1-100" }, function(t)
 		t.near(`width {case.width}`, t.find(stage, "Stack").AbsoluteSize.X, case.expected, 0.5)
 		t.cleanup()
 	end
-	stage = t.mount(function(UI, Host)
+	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Parent" {
 			Size = UDim2.fromOffset(400, 200),
-			UI.VStack "Stack" { width = "hug", box(Host, "A", 50, 20) },
+			UI.VStack "Stack" { width = "hug" :: "hug", box(Host, "A", 50, 20) },
 		}
 	end, { size = Vector2.new(500, 300) })
 	t.near("width hug", t.find(stage, "Stack").AbsoluteSize.X, 50, 0.5)
 end)
 
 add("scroll-view-canvas-and-stretch", { "mech2-36" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local children = {}
 		for index = 1, 12 do
 			table.insert(
@@ -191,7 +232,12 @@ add("scroll-view-canvas-and-stretch", { "mech2-36" }, function(t)
 				UI.Text({ Name = "Line" .. index, text = string.rep("Wrapped text ", 6), TextWrapped = true })
 			)
 		end
-		return UI.ScrollView "Scroll" { width = 240, height = 200, align = "stretch", table.unpack(children) }
+		return UI.ScrollView "Scroll" {
+			width = 240,
+			height = 200,
+			align = "stretch" :: "stretch",
+			table.unpack((children :: unknown) :: { unknown }),
+		}
 	end, { size = Vector2.new(400, 400) })
 	local scroll, line = t.find(stage, "Scroll"), t.find(stage, "Line1")
 	t.check("content is taller than the window", scroll.AbsoluteCanvasSize.Y > scroll.AbsoluteWindowSize.Y, {

@@ -1,4 +1,7 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
@@ -38,7 +41,7 @@ end
 
 local function replay(atlas: any): (any, { [string]: any }, (offsets: any) -> (), () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -56,8 +59,8 @@ local function replay(atlas: any): (any, { [string]: any }, (offsets: any) -> ()
 	)
 	local Vector2 = engine.types.Vector2
 	local byPath: { [string]: any } = {}
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({})
+	local stop, screen: any = runtime.mount(function()
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({})
 	end, parent)
 	screen.AbsoluteSize = Vector2.new(atlas.viewport[1], atlas.viewport[2])
 	local frames: { [string]: any } = {}

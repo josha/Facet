@@ -1,8 +1,20 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -49,11 +61,11 @@ local function centre(node: GuiObject): Vector2
 	return node.AbsolutePosition + node.AbsoluteSize / 2
 end
 
-add("mail-row-grip", { "collections-101" }, function(t)
+add("mail-row-grip", { "collections-101" }, function(t: any)
 	local mouse = pointer(t)
 	local value = {}
 	local demo = t.scenario("collection_demo")
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local seed = {}
 		for index = 1, 30 do
 			seed[index] = {
@@ -89,7 +101,10 @@ add("mail-row-grip", { "collections-101" }, function(t)
 	t.check("the grip is not a selection stop", grip.Selectable == false, grip.Selectable)
 	t.check("the content Button stays a selection stop", mail.Selectable == true, mail.Selectable)
 	local at = centre(row)
-	local hits = (game:GetService("Players").LocalPlayer.PlayerGui :: any):GetGuiObjectsAtPosition(at.X, at.Y)
+	local hits = ((game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(
+		at.X,
+		at.Y
+	)
 	t.check("a press on the row lands on the grip first", hits[1] == grip, hits[1] and hits[1]:GetFullName())
 	local x = row.AbsolutePosition.X
 	local w = row.AbsoluteSize.X
@@ -123,12 +138,12 @@ add("mail-row-grip", { "collections-101" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("mail-row-touch-pan", { "collections-101" }, function(t)
+add("mail-row-touch-pan", { "collections-101" }, function(t: any)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 	local mouse = pointer(t)
 	local value = {}
 	local demo = t.scenario("collection_demo")
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local seed = {}
 		for index = 1, 30 do
 			seed[index] = {
@@ -154,7 +169,7 @@ add("mail-row-touch-pan", { "collections-101" }, function(t)
 	local function read(): { [string]: boolean }
 		return value.built.report().read
 	end
-	local kinds = {}
+	local kinds: { string } = {}
 	local watch = UserInputService.InputBegan:Connect(function(input)
 		table.insert(kinds, input.UserInputType.Name)
 	end)
@@ -208,7 +223,10 @@ add("mail-row-touch-pan", { "collections-101" }, function(t)
 	t.check("the closing touch tap does not mark m3 read", read().m3 ~= true, read())
 	local fourth = t.find(stage, "Row_m4")
 	local spot = centre(fourth)
-	local top = (game:GetService("Players").LocalPlayer.PlayerGui :: any):GetGuiObjectsAtPosition(spot.X, spot.Y)[1]
+	local top = ((game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(
+		spot.X,
+		spot.Y
+	)[1]
 	t.check("the tap point on m4 is its grip", top == t.find(fourth, "SwipeGrip"), top and top:GetFullName())
 	mouse.click(spot)
 	t.settle(10)
@@ -216,10 +234,10 @@ add("mail-row-touch-pan", { "collections-101" }, function(t)
 	watch:Disconnect()
 end)
 
-add("range-knobs-flush", { "post-pickers-127" }, function(t)
+add("range-knobs-flush", { "post-pickers-127" }, function(t: any)
 	local mouse = pointer(t)
 	local value = {}
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.range = Compose.cell({ lower = 0, upper = 100 })
 		value.single = Compose.cell(0)
 		value.vertical = Compose.cell(0)
@@ -236,11 +254,11 @@ add("range-knobs-flush", { "post-pickers-127" }, function(t)
 			Size = UDim2.fromOffset(420, 600),
 			Position = UDim2.fromOffset(100, 60),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }),
+			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 			UI.Slider "Band" {
 				LayoutOrder = 1,
 				value = value.range,
-				range = true,
+				range = true :: true,
 				minGap = 10,
 				min = 0,
 				max = 100,
@@ -261,7 +279,7 @@ add("range-knobs-flush", { "post-pickers-127" }, function(t)
 			UI.Slider "Tall" {
 				LayoutOrder = 3,
 				value = value.vertical,
-				axis = "y",
+				axis = "y" :: "y",
 				min = 0,
 				max = 100,
 				step = 1,

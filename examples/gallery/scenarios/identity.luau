@@ -1,12 +1,14 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 return {
 	title = "Identity",
 	ledgerRows = {},
 	build = function(ctx: any)
 		local UI = ctx.UI
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -32,7 +34,7 @@ return {
 						UI.Button "Reset" {
 							label = "Reset identity",
 							onActivate = reset,
-						},
+						} :: unknown,
 						avatar.section(),
 						group.section(),
 					},
@@ -43,11 +45,13 @@ return {
 				return if face and roster then { avatar = face, group = roster } else nil
 			end,
 			dispose = function()
-				if avatar.dispose then
-					avatar.dispose()
+				local avatarCleanup = (avatar :: unknown) :: { dispose: (() -> ())? }
+				local groupCleanup = (group :: unknown) :: { dispose: (() -> ())? }
+				if avatarCleanup.dispose then
+					avatarCleanup.dispose()
 				end
-				if group.dispose then
-					group.dispose()
+				if groupCleanup.dispose then
+					groupCleanup.dispose()
 				end
 			end,
 		}

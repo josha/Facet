@@ -1,12 +1,19 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
 local demoTabs = require("../examples/gallery/scenarios/demo_tabs")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
-local function find(root, name, class)
+local function find(root: any, name: string, class: string?): any
 	if root.Name == name and (not class or root:IsA(class)) and not root:GetAttribute("FacetTabPage") then
 		return root
 	end
@@ -51,7 +58,7 @@ end
 
 local function fixture(build)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -62,7 +69,7 @@ local function fixture(build)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = target,
@@ -72,8 +79,8 @@ local function fixture(build)
 		theme = Compose.cell(Facet.themes.neutralPackage()),
 		themeMode = Compose.cell("light"),
 	}
-	ctx.packages = { Neutral = ctx.theme:peek() }
-	local stop, root = runtime.mount(function()
+	ctx.packages = { Neutral = ctx.theme:peek() } :: { [string]: Facet.ThemePackage }
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = Facet.controls(runtime, {
 			types = engine.types,
@@ -81,9 +88,9 @@ local function fixture(build)
 			inputParent = target,
 			services = { GuiService = gui, UserInputService = input },
 			theme = ctx.theme,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 			environment = ctx.environment,
 			overlayParent = ctx.overlayParent,
 		})
@@ -107,7 +114,7 @@ end
 t.describe("native gallery shell parity", function()
 	t.it("reports the selected retained leaf and propagates ancestor page visibility", function()
 		local built, contexts, counts = nil, {}, {}
-		local function entry(id)
+		local function entry(id: string)
 			return {
 				id = id,
 				label = id,
@@ -166,7 +173,7 @@ t.describe("native gallery shell parity", function()
 	t.it("previews a phone, tablet or TV as a device frame that feeds the gallery environment", function()
 		local env
 		local ctx, root, stop = fixture(function(context)
-			context.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
+			context.demos = { { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } }
 			context.load = function(_, name)
 				return {
 					build = function(page)
@@ -235,7 +242,7 @@ t.describe("native gallery shell parity", function()
 
 	t.it("toggles the combined menu with one bumper and keeps the chosen section", function()
 		local ctx, root, stop = fixture(function(context)
-			context.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
+			context.demos = { { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } }
 			context.load = function()
 				return {
 					build = function(page)
@@ -348,8 +355,8 @@ t.describe("native gallery shell parity", function()
 			second.style.themes[1].name = "evening"
 			context.packages.Second = second
 			context.demos = {
-				{ id = "first", title = "First", kind = "fixture", module = "first" },
-				{ id = "second", title = "Second", kind = "fixture", module = "second" },
+				{ id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" },
+				{ id = "second", title = "Second", kind = "fixture" :: "fixture", module = "second" },
 			}
 			context.load = function(_, name)
 				return {

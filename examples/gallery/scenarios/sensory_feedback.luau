@@ -1,21 +1,26 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Sensory feedback per control",
 	ledgerRows = {},
-	build = function(ctx)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local playHaptics, selected, strength = Compose.cell(true), Compose.cell(false), Compose.cell(0.6)
 		local requests, historyText, state =
 			Compose.cell(0), Compose.cell("No feedback requested yet."), Compose.cell("Ready")
 		local history = {}
-		local effects = {
+		local effects: { [string]: HapticEffect } = {
 			press = Host.HapticEffect "PressEffect" { Type = E.HapticEffectType.UIClick },
 			release = Host.HapticEffect "ReleaseEffect" { Type = E.HapticEffectType.UIClick },
 			selection = Host.HapticEffect "SelectionEffect" { Type = E.HapticEffectType.UIHover },
 			custom = Host.HapticEffect "CustomEffect" { Type = E.HapticEffectType.Custom },
 		}
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			local amplitude = use(strength)
 			local Key = ctx.types.FloatCurveKey
 			effects.custom:SetWaveformKeys({
@@ -31,14 +36,14 @@ return {
 				effect:Stop()
 			end
 		end
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			if not use(playHaptics) then
 				stopEffects()
 				state:set("Feedback is off")
 			end
 		end)
 		Compose.cleanup(stopEffects)
-		local function record(kind, nativePress)
+		local function record(kind: string, nativePress: boolean?)
 			if not playHaptics:peek() then
 				state:set("Feedback is off")
 				return
@@ -73,7 +78,7 @@ return {
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				text("Title", title, "strong"),
 				text("Description", description, "caption"),
 				control,
@@ -121,7 +126,7 @@ return {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					ScrollBarThickness = 6,
-					effects.press,
+					effects.press :: unknown,
 					effects.release,
 					effects.selection,
 					effects.custom,

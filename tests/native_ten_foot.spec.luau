@@ -1,14 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local engineLib = require("./lib/native_engine")
 local styleRules = require("./lib/style_rules")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function world(options: { [string]: any }?, distant: boolean?)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local T = engine.types
@@ -25,7 +29,7 @@ local function world(options: { [string]: any }?, distant: boolean?)
 		userInputService = input,
 		services = { GuiService = gui, UserInputService = input },
 	}
-	for key, value in options or {} do
+	for key, value in (options or {} :: { [string]: any }) do
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config)
@@ -199,16 +203,16 @@ t.describe("ten-foot overscan margins on a Screen", function()
 			local w = world(nil, distant)
 			local root = w.mount(function()
 				return w.UI.TabView {
-					style = "collapsible",
+					style = "collapsible" :: "collapsible",
 					selection = Compose.cell("a"),
 					tabs = {
 						{
 							id = "a",
 							label = "A",
-							content = function()
+							content = function(): Instance
 								return w.UI.Text { text = "A" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				}
 			end)

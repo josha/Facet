@@ -1,7 +1,33 @@
 --!strict
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local demoTabs = require("./demo_tabs")
 
-local groups = {
+type Scenario =
+	typeof(require("./adaptive_controls"))
+	| typeof(require("./text_controls"))
+	| typeof(require("./leaf_capabilities"))
+	| typeof(require("./selection_controls"))
+	| typeof(require("./pickers"))
+	| typeof(require("./action_controls"))
+	| typeof(require("./shortcut_hint"))
+	| typeof(require("./recipes_common"))
+	| typeof(require("./menu"))
+	| typeof(require("./alert"))
+	| typeof(require("./sheet"))
+	| typeof(require("./overlays"))
+	| typeof(require("./callout"))
+	| typeof(require("./progress_ring"))
+	| typeof(require("./identity"))
+	| typeof(require("./status_family"))
+	| typeof(require("./sponsor_toast"))
+	| typeof(require("./level_picker"))
+	| typeof(require("./sensory_feedback"))
+	| typeof(require("./navigation_stack"))
+	| typeof(require("./page_view"))
+	| typeof(require("./paging"))
+	| typeof(require("./steps"))
+	| typeof(require("./collapsible_view"))
+local groups: { { id: string, label: string, tabs: { { id: string, label: string, scenario: Scenario } } } } = {
 	{
 		id = "inputs",
 		label = "Inputs",
@@ -56,7 +82,7 @@ return {
 	title = "All controls",
 	ledgerRows = {},
 	groups = groups,
-	build = function(ctx)
+	build = function(ctx: ExampleContext)
 		return demoTabs(ctx, "AllControls", groups)
 	end,
 }

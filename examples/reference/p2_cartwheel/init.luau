@@ -1,4 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local data = require("@self/content/data")
 local strings = require("@self/content/strings")
 local clockService = require("@self/services/clock")
@@ -10,8 +19,8 @@ local identityService = require("@self/services/identity_service")
 local commandsService = require("@self/services/commands")
 local referenceView = require("./view")
 local Cartwheel = { title = "Cartwheel" }
-function Cartwheel.build(ctx)
-	local Compose, UI, Host = ctx.Compose, ctx.UI, ctx.Host
+function Cartwheel.build(ctx: ExampleContext)
+	local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 	local D2 = ctx.types.UDim2
 	local view = referenceView(ctx)
 	local S = strings.new("en")
@@ -56,7 +65,7 @@ function Cartwheel.build(ctx)
 		celebration:set(true)
 		notice:set(`Brew #{brew.id} collected · {brew.bottles} bottles`)
 	end)
-	local function brewCommand(id, verb)
+	local function brewCommand(id: number, verb: string)
 		local previous = orders.snapshotOf(id)
 		return commands.submit({
 			id = verb .. ":" .. id,
@@ -104,7 +113,7 @@ function Cartwheel.build(ctx)
 		selectedBrew:set(id)
 		detailOpen:set(true)
 	end
-	local rows = Compose.formula(function(use)
+	local rows = Compose.formula(function(use: Use)
 		local result, q = {}, string.lower(use(query))
 		for _, brew in use(orders.brews) do
 			if string.find(string.lower(orders.searchText(brew)), q, 1, true) then
@@ -113,27 +122,27 @@ function Cartwheel.build(ctx)
 		end
 		return result
 	end)
-	local function brewRow(current)
+	local function brewRow(current: Readable<any>): GuiObject
 		local brew = current:peek()
 		return view.column(tostring(brew.id), {
-			view.action("Open", function(use)
+			view.action("Open", function(use: Use)
 				local row = use(current)
 				return `Brew #{row.id} · {row.bottles} bottles · {row.status}`
 			end, function()
 				openBrew(brew.id)
 			end),
-			view.action("Advance", function(use)
+			view.action("Advance", function(use: Use)
 				return if use(current).status == "ready" then "Collect brew" else "Start brewing"
 			end, function()
 				brewCommand(brew.id, if orders.statusOf(brew.id) == "ready" then "finish" else "start")
-			end, function(use)
+			end, function(use: Use)
 				local status = use(current).status
 				return status == "new" and use(commands.status("start:" .. brew.id)) ~= "pending"
 					or status == "ready" and use(commands.status("finish:" .. brew.id)) ~= "pending"
 			end),
 		})
 	end
-	local function brewsPage()
+	local function brewsPage(): Instance
 		return Host.Frame "Brews" {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -142,7 +151,7 @@ function Cartwheel.build(ctx)
 				placeholder = "Search brews",
 				Size = D2.new(1, -32, 0, 44),
 				Position = D2.fromOffset(16, 8),
-			},
+			} :: unknown,
 			UI.VirtualList "BrewList" {
 				from = rows,
 				key = function(item)
@@ -180,11 +189,11 @@ function Cartwheel.build(ctx)
 		end
 		return Host.Frame(p)
 	end
-	local function dashboard()
+	local function dashboard(): Instance
 		return view.page("Dashboard", {
 			view.text("Cartwheel", 30),
 			view.text("Brew potions, serve the waiting cart, and choose your next market pitch."),
-			view.text(function(use)
+			view.text(function(use: Use)
 				use(orders.brews)
 				use(stats.version)
 				return `{orders.count()} brews · {stats.collectedBottles()} bottles collected`
@@ -196,15 +205,15 @@ function Cartwheel.build(ctx)
 			UI.Picker "Timeframe" {
 				selected = timeframe,
 				options = {
-					{ value = "today", label = "Today" },
-					{ value = "week", label = "Week" },
-					{ value = "month", label = "Month" },
-					{ value = "year", label = "Year" },
+					{ value = "today", label = "Today" } :: PickerOption,
+					{ value = "week", label = "Week" } :: PickerOption,
+					{ value = "month", label = "Month" } :: PickerOption,
+					{ value = "year", label = "Year" } :: PickerOption,
 				},
 			},
 			view.text("Top five", 24),
 			view.column("TopFive", {
-				view.list(function(use)
+				view.list(function(use: Use)
 					use(stats.version)
 					local result = {}
 					for _, row in stats.topFive(use(timeframe)) do
@@ -212,7 +221,7 @@ function Cartwheel.build(ctx)
 					end
 					return result
 				end, function(current)
-					return view.text(function(use)
+					return view.text(function(use: Use)
 						local row = use(current)
 						return row.name .. " · " .. row.bottles .. " bottles"
 					end)
@@ -239,14 +248,14 @@ function Cartwheel.build(ctx)
 			garnish:set(record.garnish)
 		end)
 	end
-	local function pickerOptions(items, optional)
+	local function pickerOptions(items, optional): { StringPickerOption }
 		local options = if optional then { { value = "", label = "None" } } else {}
 		for _, item in items do
 			table.insert(options, { value = item.id, label = item.name })
 		end
 		return options
 	end
-	local function workbench()
+	local function workbench(): Instance
 		return view.page("Workbench", {
 			view.text("Workbench", 28),
 			UI.TextInput "PotionName" { value = draftName, placeholder = "Potion name" },
@@ -256,7 +265,7 @@ function Cartwheel.build(ctx)
 			UI.Picker "Base" { selected = base, options = pickerOptions(data.bases, false) },
 			UI.Picker "Essence" { selected = essence, options = pickerOptions(data.essences, true) },
 			UI.Picker "Garnish" { selected = garnish, options = pickerOptions(data.garnishes, true) },
-			view.text(function(use)
+			view.text(function(use: Use)
 				local values = data.attributesOf(use(base), use(essence), use(garnish))
 				local parts = {}
 				for index, name in data.ATTRIBUTES do
@@ -282,38 +291,38 @@ function Cartwheel.build(ctx)
 			}),
 		})
 	end
-	local function ledger()
+	local function ledger(): Instance
 		return view.page("Ledger", {
 			view.text("Ledger", 28),
 			UI.Picker "LedgerTimeframe" {
 				selected = ledgerTimeframe,
 				options = {
-					{ value = "twoWeeks", label = "Two weeks" },
-					{ value = "month", label = "Month · Full Ledger" },
-					{ value = "year", label = "Year · Full Ledger" },
+					{ value = "twoWeeks", label = "Two weeks" } :: PickerOption,
+					{ value = "month", label = "Month · Full Ledger" } :: PickerOption,
+					{ value = "year", label = "Year · Full Ledger" } :: PickerOption,
 				},
 			},
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return use(ledgerTimeframe) ~= "twoWeeks" and not use(entitlement.fullLedger)
 			end, function()
 				return view.column("Unlock", {
 					view.text("Unlock the Full Ledger to inspect all trading history."),
 					view.action("Buy", `Unlock Full Ledger · {data.fullLedgerCredits} Credits`, function()
 						purchase("ledger")
-					end, function(use)
+					end, function(use: Use)
 						return use(commands.status("buy:ledger")) ~= "pending"
 					end),
 				})
 			end, function()
 				return view.column("Trading", {
 					Compose.keyed({
-						from = function(use)
+						from = function(use: Use)
 							return { use(ledgerTimeframe) }
 						end,
 						key = function(id)
 							return id
 						end,
-						render = function(current)
+						render = function(current): GuiObject
 							local period = current:peek()
 							local rows = {}
 							for _, plaza in data.plazas do
@@ -337,11 +346,11 @@ function Cartwheel.build(ctx)
 			view.text("Chatter", 28),
 			view.action("Subscribe", "Join Chatter+ · 9 Credits monthly", function()
 				purchase("chatter")
-			end, function(use)
+			end, function(use: Use)
 				return not use(entitlement.chatterPlus) and use(commands.status("buy:chatter")) ~= "pending"
 			end),
 			view.column("Posts", {
-				view.list(function(use)
+				view.list(function(use: Use)
 					local result = table.clone(data.chatterPosts)
 					if use(entitlement.chatterPlus) then
 						for _, post in data.chatterBonusPosts do
@@ -357,7 +366,9 @@ function Cartwheel.build(ctx)
 					end
 					return view.column(post.id, {
 						view.text(post.who, 22),
-						view.text(data.potionById(post.potion).name .. " · " .. tostring(post.minutes) .. " min ago"),
+						view.text(
+							assert(data.potionById(post.potion)).name .. " · " .. tostring(post.minutes) .. " min ago"
+						),
 						view.text(table.concat(tags, " · ")),
 					})
 				end),
@@ -369,7 +380,7 @@ function Cartwheel.build(ctx)
 		return UI.Stage "MarketScene" {
 			Size = D2.new(1, 0, 0, 220),
 			camera = CF.lookAt(V3.new(6, 4, 9), V3.new(0, 1, 0)),
-			content = function(sceneRuntime, world)
+			content = function(sceneRuntime, world): (() -> ())?
 				return sceneRuntime.mount(function()
 					return Host.Model({
 						Name = plaza.name,
@@ -378,7 +389,7 @@ function Cartwheel.build(ctx)
 							Size = V3.new(16, 0.3, 12),
 							CFrame = CF.new(0, -0.2, 0),
 							Color = ctx.types.Color3.fromRGB(87, 103, 83),
-						},
+						} :: unknown,
 						Host.Part "Cart" {
 							Anchored = true,
 							Size = V3.new(4, 1.5, 2),
@@ -411,7 +422,7 @@ function Cartwheel.build(ctx)
 							key = function(value)
 								return value
 							end,
-							render = function(current)
+							render = function(current): Instance
 								local index = current:peek()
 								return Host.Part({
 									Name = "Potion" .. index,
@@ -435,18 +446,18 @@ function Cartwheel.build(ctx)
 			UI.Picker "Market" { selected = selectedPlaza, options = pickerOptions(data.plazas, false) },
 			view.column("Conditions", {
 				Compose.keyed({
-					from = function(use)
+					from = function(use: Use)
 						return { use(selectedPlaza) }
 					end,
 					key = function(id)
 						return id
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						local id = current:peek()
 						local plaza = data.plazaById(id)
 						local weather = ambient.forPlaza(id)
 						return view.column(id, {
-							view.text(plaza.name, 24),
+							view.text(assert(plaza).name, 24),
 							view.text(plaza.pitch),
 							marketStage(plaza),
 							view.text(
@@ -466,19 +477,19 @@ function Cartwheel.build(ctx)
 			BackgroundTransparency = 1,
 			UI.TabView "Destinations" {
 				selection = section,
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -112),
 				tabs = {
-					{ id = "dashboard", label = "Dashboard", content = dashboard },
-					{ id = "brews", label = "Brews", content = brewsPage },
-					{ id = "workbench", label = "Workbench", content = workbench },
-					{ id = "ledger", label = "Ledger", content = ledger },
-					{ id = "chatter", label = "Chatter", content = chatter },
-					{ id = "plazas", label = "Plazas", content = plazas },
+					{ id = "dashboard", label = "Dashboard", content = dashboard } :: Tab,
+					{ id = "brews", label = "Brews", content = brewsPage } :: Tab,
+					{ id = "workbench", label = "Workbench", content = workbench } :: Tab,
+					{ id = "ledger", label = "Ledger", content = ledger } :: Tab,
+					{ id = "chatter", label = "Chatter", content = chatter } :: Tab,
+					{ id = "plazas", label = "Plazas", content = plazas } :: Tab,
 				},
-			},
+			} :: unknown,
 			UI.Button "Guild" {
-				label = function(use)
+				label = function(use: Use)
 					return if use(identity.signedIn)
 						then "Sign out of " .. use(identity.guildName)
 						else "Join the guild"
@@ -503,15 +514,18 @@ function Cartwheel.build(ctx)
 				title = "Brew",
 				isPresented = detailOpen,
 				detent = Compose.cell("large"),
-				content = function()
+				content = function(): Instance
 					local brew = orders.byId(selectedBrew:peek())
 					local parts = { view.text(`Brew #{brew.id}`, 28) }
 					for _, item in brew.items do
-						table.insert(parts, view.text(data.potionById(item.potion).name .. " × " .. item.bottles))
+						table.insert(
+							parts,
+							view.text(assert(data.potionById(item.potion)).name .. " × " .. item.bottles)
+						)
 					end
 					table.insert(
 						parts,
-						view.text(function(use)
+						view.text(function(use: Use)
 							use(clock.nowSignal)
 							use(orders.brews)
 							return "Status: "
@@ -527,7 +541,7 @@ function Cartwheel.build(ctx)
 						parts,
 						view.action("Start", "Start brewing", function()
 							brewCommand(brew.id, "start")
-						end, function(use)
+						end, function(use: Use)
 							use(orders.brews)
 							return orders.statusOf(brew.id) == "new"
 								and use(commands.status("start:" .. brew.id)) ~= "pending"
@@ -537,7 +551,7 @@ function Cartwheel.build(ctx)
 						parts,
 						view.action("Collect", "Collect brew", function()
 							brewCommand(brew.id, "finish")
-						end, function(use)
+						end, function(use: Use)
 							use(orders.brews)
 							return orders.statusOf(brew.id) == "ready"
 								and use(commands.status("finish:" .. brew.id)) ~= "pending"
@@ -550,7 +564,7 @@ function Cartwheel.build(ctx)
 				title = "Join the guild",
 				isPresented = signupOpen,
 				detent = Compose.cell("medium"),
-				content = function()
+				content = function(): Instance
 					return view.column("Form", {
 						UI.TextInput "GuildName" {
 							value = guild,
@@ -564,7 +578,7 @@ function Cartwheel.build(ctx)
 							maxLength = 32,
 						},
 						view.text(commands.reason("signup")),
-						view.action("Submit", "Join", signup, function(use)
+						view.action("Submit", "Join", signup, function(use: Use)
 							return use(guild) ~= ""
 								and use(watchword) ~= ""
 								and use(commands.status("signup")) ~= "pending"
@@ -576,7 +590,9 @@ function Cartwheel.build(ctx)
 				isPresented = celebration,
 				title = "Brew collected!",
 				message = notice,
-				actions = { { id = "done", label = "Keep brewing" } },
+				actions = {
+					{ id = "done", label = "Keep brewing" } :: AlertAction,
+				},
 			},
 		}
 	end

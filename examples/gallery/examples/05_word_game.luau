@@ -1,8 +1,12 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+
 local words = require("./words")
 
-type Use = (any) -> any
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local example = {}
 example.title = "Word Guess"
@@ -155,10 +159,10 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 end
 
 function example.build(ctx: any)
-	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 
-	local theme = Compose.formula(function(use)
+	local theme = Compose.formula(function(use: Use)
 		local source = if Compose.isReadable(ctx.theme) then use(ctx.theme) else ctx.theme
 		source = source or ctx.Facet.themes.neutralPackage()
 		local package = table.clone(source)
@@ -189,10 +193,10 @@ function example.build(ctx: any)
 	local phaseSig = Compose.cell("playing")
 	local noticeSig = Compose.cell("")
 	local seedSig = Compose.cell(1)
-	local solutionSig = Compose.formula(function(use)
+	local solutionSig = Compose.formula(function(use: Use)
 		return rules.solutionForSeed(use(seedSig))
 	end)
-	local playingSig = Compose.formula(function(use)
+	local playingSig = Compose.formula(function(use: Use)
 		return use(phaseSig) == "playing"
 	end)
 	local resultOpen = Compose.cell(false)
@@ -298,7 +302,7 @@ function example.build(ctx: any)
 	local keyPathByLetter: { [string]: any } = {}
 	local function statusTag(node: Instance, state: any): Instance
 		local previous: string? = nil
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			local status = STATUS[use(state)]
 			local tag = if status ~= nil then `facet-status-{status}` else nil
 			if tag == previous then
@@ -365,28 +369,28 @@ function example.build(ctx: any)
 				tileStateOf[`{rr}:{cc}`] = state
 				local fill = Host.Frame "fill" {
 					Size = UDim2.fromScale(1, 1),
-					Host.UICorner({}),
+					Host.UICorner({}) :: unknown,
 					UI.Text "ch" {
-						text = function(use)
+						text = function(use: Use)
 							return use(rowsSig)[rr].letters:sub(cc, cc)
 						end,
 						TextSize = 24,
 						AutomaticSize = Enum.AutomaticSize.None,
-						Size = function(use)
+						Size = function(use: Use)
 							return UDim2.new(1, 0, 1, -use(markHeight))
 						end,
 						TextXAlignment = Enum.TextXAlignment.Center,
 					},
 					UI.Text "mark" {
-						text = function(use)
+						text = function(use: Use)
 							return TILE_MARK[use(state)]
 						end,
 						TextSize = 12,
 						AutomaticSize = Enum.AutomaticSize.None,
-						Position = function(use)
+						Position = function(use: Use)
 							return UDim2.new(0, 0, 1, -use(markHeight))
 						end,
-						Size = function(use)
+						Size = function(use: Use)
 							return UDim2.new(1, 0, 0, use(markHeight))
 						end,
 						TextXAlignment = Enum.TextXAlignment.Center,
@@ -397,7 +401,7 @@ function example.build(ctx: any)
 				local outline = Host.UIStroke "Cursor" {
 					Thickness = 1,
 					Transparency = 0.35,
-					Enabled = function(use)
+					Enabled = function(use: Use)
 						return use(playingSig) and use(state) == "caret"
 					end,
 				}
@@ -407,29 +411,35 @@ function example.build(ctx: any)
 				local typed = Host.Frame "Typed" {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					Visible = function(use)
+					Visible = function(use: Use)
 						return use(state) == "filled"
 					end,
-					Host.UICorner({}),
+					Host.UICorner({}) :: unknown,
 					typedRing,
 				}
 				typed:AddTag("facet-status-neutral")
-				local tile = UI.ZStack(`tile{r}_{c}`) { width = "fill", height = "fill", fill, typed, outline }
+				local tile = UI.ZStack(`tile{r}_{c}`) {
+					width = "fill" :: "fill",
+					height = "fill" :: "fill",
+					fill :: unknown,
+					typed,
+					outline,
+				}
 				tile:AddTag("facet-status-accent")
 				table.insert(board, tile)
 			end
 		end
-		local keyboard: { any } = { width = "fill", gap = "s" }
+		local keyboard: { any } = { width = "fill" :: "fill", gap = "s" }
 		for ri, keys in KEYBOARD do
 			local units = #keys
-			local row: { any } = { width = "fill", gap = "xs" }
+			local row: { any } = { width = "fill" :: "fill", gap = "xs" }
 			for _, key in keys do
 				local isCommand = key == "Enter" or key == "Back"
-				local state = Compose.formula(function(use)
+				local state = Compose.formula(function(use: Use)
 					return if isCommand then nil else use(keysSig)[key] or "unknown"
 				end)
 				local button = UI.Button("key_" .. key) {
-					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill(),
+					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill() :: unknown,
 					Size = if ri == 3
 						then UDim2.fromOffset(0, 44)
 						else UDim2.new(1 / units, -math.ceil(4 * (units - 1) / units), 0, 44),
@@ -439,8 +449,8 @@ function example.build(ctx: any)
 					label = if key == "Enter"
 						then "Enter"
 						elseif key == "Back" then "Delete"
-						else function(use)
-							return key .. (KEY_MARK[use(state)] or "")
+						else function(use: Use)
+							return key .. (KEY_MARK[assert(use(state))] or "")
 						end,
 					onActivate = function()
 						if key == "Enter" then
@@ -467,10 +477,10 @@ function example.build(ctx: any)
 		end)
 		return UI.ScrollView "page" {
 			gap = "s",
-			align = "center",
-			sheet,
+			align = "center" :: "center",
+			sheet :: unknown,
 			Host.StyleLink { StyleSheet = Compose.static(sheet) },
-			UI.Text "Title" { text = "Word Guess", textRole = "title" },
+			UI.Text "Title" { text = "Word Guess", textRole = "title" :: "title" },
 			UI.Text "Status" {
 				text = statusSig,
 				Size = UDim2.fromScale(1, 0),
@@ -481,7 +491,7 @@ function example.build(ctx: any)
 			UI.Grid "board"(board),
 			letterProbe,
 			markProbe,
-			UI.Text "Legend" { text = "v exact spot   ~ different spot   x absent", textRole = "caption" },
+			UI.Text "Legend" { text = "v exact spot   ~ different spot   x absent", textRole = "caption" :: "caption" },
 			UI.VStack "kb"(keyboard),
 			UI.Button "Restart" {
 				label = "New game",
@@ -527,21 +537,21 @@ function example.build(ctx: any)
 		Parent = ctx.inputTarget,
 		Priority = 2000,
 		Sink = true,
-		table.unpack(bindings),
+		table.unpack((bindings :: unknown) :: { unknown }),
 	}
 
 	return {
 		title = example.title,
 		screen = function()
 			return UI.Screen "WordGuess" {
-				WordGame(),
+				WordGame() :: unknown,
 				UI.Alert "WordGuessResult" {
 					isPresented = resultOpen,
 					title = resultTitle,
 					message = resultMessage,
 					actions = {
-						{ id = "Again", label = "New game", onActivate = restart },
-						{ id = "Close", label = "Close", role = "cancel", onActivate = closeResults },
+						{ id = "Again", label = "New game", onActivate = restart } :: AlertAction,
+						{ id = "Close", label = "Close", role = "cancel" :: "cancel", onActivate = closeResults } :: AlertAction,
 					},
 				},
 			}

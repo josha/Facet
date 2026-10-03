@@ -1,8 +1,20 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(
 	id: string,
@@ -48,7 +60,7 @@ end
 
 add("list-keyboard-and-dpad", { "collections-262" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.VirtualList "List" {
 			from = rows(100),
 			key = function(item)
@@ -56,7 +68,7 @@ add("list-keyboard-and-dpad", { "collections-262" }, function(t)
 			end,
 			itemSize = 40,
 			Size = UDim2.fromOffset(300, 200),
-			render = function(current)
+			render = function(current): GuiObject
 				return UI.Button({
 					Name = "Row" .. current:peek().id,
 					label = "Row " .. current:peek().id,
@@ -86,8 +98,8 @@ end, {
 
 add("scroll-into-view-by-gamepad", { "mech3-31" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, Host)
-		local children = {
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		local children: { unknown } = {
 			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 		}
 		for index = 1, 20 do
@@ -97,7 +109,7 @@ add("scroll-into-view-by-gamepad", { "mech3-31" }, function(t)
 			Size = UDim2.fromOffset(300, 200),
 			CanvasSize = UDim2.new(),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			table.unpack(children),
+			table.unpack((children :: unknown) :: { unknown }),
 		}
 	end, { frames = 12 })
 	value.frame = t.find(stage, "Plain")
@@ -130,11 +142,11 @@ add("sidebar-dpad-to-collections", { "apps-193" }, function(t)
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
 	api:Invoke("show", "all-controls")
 	t.settle(10)
-	local gui = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
-	local tabs = gui:FindFirstChild("Gallery")
-		and gui.Gallery:FindFirstChild("Demos")
-		and gui.Gallery.Demos:FindFirstChild("Tabs")
-	local tab = tabs and tabs:FindFirstChild("all-controls", true)
+	local gui = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
+	local gallery = gui:FindFirstChild("Gallery")
+	local demos = gallery and gallery:FindFirstChild("Demos")
+	local tabs = demos and demos:FindFirstChild("Tabs")
+	local tab = (tabs and tabs:FindFirstChild("all-controls", true)) :: GuiObject?
 	t.check("all-controls tab found", tab ~= nil)
 	GuiService.SelectedObject = tab
 	t.settle(2)
@@ -142,7 +154,7 @@ add("sidebar-dpad-to-collections", { "apps-193" }, function(t)
 	local peer = tabs and tabs:FindFirstChild("collections", true)
 	local across = tab ~= nil
 		and peer ~= nil
-		and peer.AbsolutePosition.X > tab.AbsolutePosition.X + tab.AbsoluteSize.X / 2
+		and (peer :: GuiObject).AbsolutePosition.X > tab.AbsolutePosition.X + tab.AbsoluteSize.X / 2
 	t.note("demo strip axis", if across then "horizontal: press DPadRight" else "vertical: press DPadDown")
 	return {}
 end, {
@@ -162,7 +174,7 @@ end, {
 
 add("power-off-traversal", { "mech2-25" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		value.built = t.scenario("inherited_subtree").build(t.context(UI, Host, Compose, env))
 		return value.built.screen()
 	end, { frames = 12 })
@@ -204,7 +216,7 @@ end, {
 
 add("touch-drag-scrolls-reorderable-list", { "collections-11" }, function(t)
 	local value = { reorders = 0 }
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.VirtualList "Sortable" {
 			from = rows(50),
 			key = function(item)
@@ -240,7 +252,7 @@ end, {
 add("mail-swipe-and-tap", { "collections-101" }, function(t)
 	local value = {}
 	local demo = t.scenario("collection_demo")
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local seed = {}
 		for index = 1, 6 do
 			seed[index] = {
@@ -279,11 +291,18 @@ end, {
 
 add("tray-grows-with-text-size", { "collections-53" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RowActions "Row" {
 			content = UI.Text({ text = "Message", Size = UDim2.fromScale(1, 1) }),
-			open = Compose.cell("trailing"),
-			trailing = { { id = "delete", label = "Delete", role = "destructive", onActivate = function() end } },
+			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
+			trailing = {
+				{
+					id = "delete",
+					label = "Delete",
+					role = "destructive" :: "destructive",
+					onActivate = function() end,
+				},
+			},
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 12 })
@@ -316,26 +335,26 @@ local function within(node: Instance?, ancestor: Instance?): boolean
 end
 
 local function modalFixture(t: any, withSheet: boolean, actions: { any })
-	local value = { visited = {} }
-	local stage = t.mount(function(UI, Host, Compose)
+	local value = { visited = {}, panel = nil :: GuiObject? }
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.sheet = Compose.cell(withSheet)
 		value.alert = Compose.cell(not withSheet)
 		return Host.Frame "Base" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
 			UI.Button "Background" { label = "Background", LayoutOrder = 1 },
 			UI.Button "Background2" { label = "Background two", LayoutOrder = 2 },
 			UI.Sheet({
 				isPresented = value.sheet,
 				detent = Compose.cell("medium"),
 				title = "Loadout",
-				content = function()
+				content = function(): Instance
 					return Host.Frame "SheetList" {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
 						UI.Button "First" { label = "First", LayoutOrder = 1 },
 						UI.Button "Second" { label = "Second", LayoutOrder = 2 },
 						UI.Button "Third" { label = "Third", LayoutOrder = 3 },
@@ -351,7 +370,7 @@ local function modalFixture(t: any, withSheet: boolean, actions: { any })
 	return value
 end
 
-local function panelOf(value: any): Instance?
+local function panelOf(value: any): GuiObject?
 	for _, name in { "AlertPanel", "SheetPanel" } do
 		for _, node in value.gui:GetDescendants() do
 			if node.Name == name and node:IsA("GuiObject") and t_visible(node) then
@@ -426,9 +445,9 @@ end, {
 
 add("alert-selection-stays-inside", { "mech2-104", "navigation-1-14", "mech1-120" }, function(t)
 	local value = modalFixture(t, true, {
-		{ id = "stay", label = "Stay", role = "cancel" },
+		{ id = "stay", label = "Stay", role = "cancel" :: "cancel" },
 		{ id = "save", label = "Save and leave" },
-		{ id = "leave", label = "Leave without saving", role = "destructive" },
+		{ id = "leave", label = "Leave without saving", role = "destructive" :: "destructive" },
 	})
 	GuiService.SelectedObject = t.find(value.stage, "Background")
 	t.settle(6)
@@ -478,7 +497,7 @@ end, {
 
 add("confirm-dialog-left-right", { "apps2-44" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		ctx.load = function() end
 		local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
@@ -525,7 +544,7 @@ end, {
 
 add("return-and-space-activate-once", { "apps-162", "apps-163" }, function(t)
 	local value = { count = 0 }
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.enabled = Compose.cell(true)
 		return UI.Button "Counter" {
 			label = "Count",
@@ -557,7 +576,7 @@ end, {
 
 add("shift-return-opens-row-menu", { "collections-84" }, function(t)
 	local value = { count = 0 }
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.RowActions "Row" {
 			content = UI.Button "Content" {
 				label = "Message",
@@ -566,7 +585,9 @@ add("shift-return-opens-row-menu", { "collections-84" }, function(t)
 					value.count += 1
 				end,
 			},
-			trailing = { { id = "delete", label = "Delete", role = "destructive", onActivate = function() end } },
+			trailing = {
+				{ id = "delete", label = "Delete", role = "destructive" :: "destructive", onActivate = function() end },
+			},
 			Size = UDim2.fromOffset(360, 56),
 		}
 	end, { frames = 10 })
@@ -603,11 +624,11 @@ end, {
 
 add("skinned-part-hover-state", { "themes-P4-51" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Column" {
 			Size = UDim2.fromOffset(360, 300),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
 			UI.Toggle "Toggle" { value = Compose.cell(false), label = "On", LayoutOrder = 1 },
 			UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
 			UI.Slider "Slider" { value = Compose.cell(0.5), LayoutOrder = 3 },
@@ -620,7 +641,7 @@ add("skinned-part-hover-state", { "themes-P4-51" }, function(t)
 		Thumb = t.find(t.find(stage, "Slider"), "Thumb"),
 	}
 	local paths = {}
-	for name, node in value.parts do
+	for name, node in value.parts :: { [string]: Instance? } do
 		paths[name] = node and node:GetFullName()
 	end
 	t.note("parts", paths)

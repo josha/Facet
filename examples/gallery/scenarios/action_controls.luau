@@ -1,15 +1,35 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type ControlSize = "xsmall" | "compact" | "regular" | "large"
+type Report = {
+	tokenCount: number,
+	editingTags: boolean,
+	controlSize: ControlSize?,
+	count: number,
+	settings: { assistance: boolean, music: number },
+	scrollProgress: number,
+	heroVisible: boolean,
+	busy: boolean,
+	status: string,
+}
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Actions and menus",
 	ledgerRows = { "CONTROL-ACTIONS" },
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local sceneViewport = ctx.sceneViewport or ctx.viewport
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local function frame(properties)
+		local function frame(properties: { [any]: any }): Frame
 			local index = 0
 			for _, child in ipairs(properties) do
 				if
@@ -23,10 +43,10 @@ return {
 			end
 			return Host.Frame(properties)
 		end
-		local function wide(use)
+		local function wide(use: Use)
 			return use(sceneViewport).width >= 1000
 		end
-		local function sectionWidth(use)
+		local function sectionWidth(use: Use)
 			return if wide(use) then UDim2.new(0.5, -12, 0, 0) else UDim2.new(1, 0, 0, 0)
 		end
 		local signal = Compose.cell
@@ -36,7 +56,7 @@ return {
 		local status = signal("Ready to race.")
 		local favorites = signal(false)
 		local weather = signal("any")
-		local scrollTarget = signal(nil)
+		local scrollTarget: Cell<string?> = signal(nil :: string?)
 		local scrollProgress = signal(0)
 		local heroVisible = signal(true)
 		local rowVolume = signal(60)
@@ -45,39 +65,39 @@ return {
 		local tokens = signal({ "Rain", "No assists", "Friends" })
 		local editingTags = signal(false)
 		local chosenTags = signal({} :: { [string]: boolean })
-		local driver = signal(nil :: string?)
+		local driver: Cell<string?> = signal(nil :: string?)
 		local mounted = false
 		local seconds = 0
-		local readRung = function(): string?
+		local readRung = function(): ControlSize?
 			return nil
 		end
-		local setRung = function(_rung: string) end
+		local setRung = function(_rung: ControlSize) end
 		local function VocabularySection()
-			local rung = Compose.cell("compact")
-			readRung = function()
+			local rung: Cell<ControlSize> = Compose.cell("compact" :: "xsmall" | "compact" | "regular" | "large")
+			readRung = function(): ControlSize?
 				return rung:peek()
 			end
-			setRung = function(value)
+			setRung = function(value: ControlSize)
 				rung:set(value)
 			end
 			Compose.cleanup(function()
-				readRung = function()
+				readRung = function(): ControlSize?
 					return nil
 				end
 				setRung = function(_value) end
 			end)
 			local ladder, looks, chips = {}, {}, {}
-			for _, step in { "xsmall", "compact", "regular", "large" } do
+			for _, step in { "xsmall", "compact", "regular", "large" } :: { "xsmall" | "compact" | "regular" | "large" } do
 				table.insert(
 					ladder,
 					UI.Button({
 						Name = "Rung" .. step:sub(1, 1):upper() .. step:sub(2),
 						label = step,
-						controlSize = step,
+						controlSize = step :: ControlSize,
 						appearance = if step == "large" then "emphasis" else "standard",
 						enabled = enabled,
 						onActivate = function()
-							rung:set(step)
+							rung:set(step :: ControlSize)
 							status:set(step .. " size chosen.")
 						end,
 					})
@@ -90,9 +110,9 @@ return {
 						Name = "Look" .. word:sub(1, 1):upper() .. word:sub(2),
 						label = word,
 						appearance = word,
-						underline = if word == "link" then "hover" else nil,
-						controlSize = function(use)
-							return use(rung)
+						underline = (if word == "link" then "hover" else nil) :: "hover"?,
+						controlSize = function(use: Use): ControlSize
+							return use(rung) :: ControlSize
 						end,
 						enabled = enabled,
 						onActivate = function()
@@ -108,7 +128,7 @@ return {
 						Name = "Chip" .. entry[1],
 						label = entry[1],
 						selected = Compose.cell(entry[1] == "Dry"),
-						controlSize = entry[2],
+						controlSize = entry[2] :: ControlSize,
 						appearance = if entry[1] == "Snow" then "utility" else "standard",
 					})
 				)
@@ -128,10 +148,10 @@ return {
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					text = function(use)
+					text = function(use: Use)
 						return `The appearance row uses the {use(rung)} size. Compact plates keep full-size tap targets.`
 					end,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -202,7 +222,7 @@ return {
 					UI.Button "IconOnly" {
 						icon = "close",
 						name = "Dismiss the race card",
-						corners = "pill",
+						corners = "pill" :: "pill",
 						controlSize = rung,
 						enabled = enabled,
 						onActivate = function()
@@ -211,9 +231,9 @@ return {
 					},
 					UI.Button "SquareAction" {
 						label = "Square",
-						corners = "square",
+						corners = "square" :: "square",
 						controlSize = rung,
-						appearance = "utility",
+						appearance = "utility" :: "utility",
 						enabled = enabled,
 						onActivate = function()
 							status:set("Square action chosen.")
@@ -227,7 +247,7 @@ return {
 					ScaleType = Enum.ScaleType.Crop,
 					UI.Button "OverMediaAction" {
 						label = "Play this replay",
-						controlSize = "large",
+						controlSize = "large" :: "large",
 						enabled = enabled,
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						Position = UDim2.fromScale(0.5, 0.5),
@@ -326,10 +346,10 @@ return {
 				end,
 			}
 			local items = {
-				{ id = "favorites", label = "Favorites only", checked = favorites },
-				{ divider = true },
-				{ id = "any", label = "Any weather", selected = weather, value = "any" },
-				{ id = "dry", label = "Dry weather", selected = weather, value = "dry" },
+				{ id = "favorites", label = "Favorites only", checked = favorites } :: MenuItem,
+				{ divider = true } :: MenuItem,
+				{ id = "any", label = "Any weather", selected = weather, value = "any" } :: MenuItem,
+				{ id = "dry", label = "Dry weather", selected = weather, value = "dry" } :: MenuItem,
 				{
 					id = "snow",
 					label = "Snow",
@@ -337,15 +357,15 @@ return {
 					value = "snow",
 					enabled = false,
 					description = "Winter races are closed.",
-				},
-				{ divider = true },
+				} :: MenuItem,
+				{ divider = true } :: MenuItem,
 				{
 					id = "done",
 					label = "Apply filters",
 					onSelect = function()
 						status:set("Filters applied.")
 					end,
-				},
+				} :: MenuItem,
 			}
 			local menu = UI.Menu "Filters" {
 				label = "Race filters",
@@ -364,14 +384,14 @@ return {
 						onSelect = function()
 							status:set("Practice started.")
 						end,
-					},
+					} :: MenuItem,
 					{
 						id = "time",
 						label = "Time trial",
 						onSelect = function()
 							status:set("Time trial started.")
 						end,
-					},
+					} :: MenuItem,
 				},
 			}
 			local dialog = UI.Alert "RaceConfirmation" {
@@ -382,19 +402,19 @@ return {
 					{
 						id = "Cancel",
 						label = "Cancel",
-						role = "cancel",
+						role = "cancel" :: "cancel",
 						onActivate = function()
 							status:set("Race cancelled.")
 						end,
-					},
+					} :: AlertAction,
 					{
 						id = "Accept",
 						label = "Start",
-						role = "default",
+						role = "default" :: "default",
 						onActivate = function()
 							status:set("Race confirmed.")
 						end,
-					},
+					} :: AlertAction,
 				},
 			}
 			local function heading(text)
@@ -404,7 +424,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = text,
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -422,9 +442,9 @@ return {
 					subtitle = "Choose for the next race",
 					image = `rbxthumb://type=AvatarHeadShot&id={i}&w=420&h=420`,
 					imageAspectRatio = 1,
-					imageFraming = "crop",
+					imageFraming = "crop" :: "crop",
 					enabled = enabled,
-					selected = function(use)
+					selected = function(use: Use)
 						return use(driver) == name
 					end,
 					onActivate = function()
@@ -440,7 +460,7 @@ return {
 				BackgroundTransparency = 1,
 				AutomaticSize = Enum.AutomaticSize.Y,
 				Host.UIGridLayout({
-					CellSize = function(use)
+					CellSize = function(use: Use)
 						local columns = if use(sceneViewport).width < 650 then 1 else 2
 						return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 240)
 					end,
@@ -450,7 +470,7 @@ return {
 			})
 
 			local previews: { [any]: any } = {}
-			for _, mode in { "crop", "none" } do
+			for _, mode in { "crop", "none" } :: { "crop" | "none" } do
 				table.insert(
 					previews,
 					frame({
@@ -500,7 +520,7 @@ return {
 				ClipsDescendants = true,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UICorner({ CornerRadius = UDim.new(0, 12) }),
+				Host.UICorner({ CornerRadius = UDim.new(0, 12) }) :: unknown,
 				Host.UISizeConstraint({ MinSize = Vector2.new(0, 240) }),
 				Host.Frame "Scrim" {
 					Size = UDim2.fromScale(1, 1),
@@ -523,7 +543,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Padding = UDim.new(0, 12),
-					}),
+					}) :: unknown,
 					Host.UIPadding({
 						PaddingLeft = UDim.new(0, 24),
 						PaddingRight = UDim.new(0, 12),
@@ -535,13 +555,13 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Your next race starts here",
-						textRole = "title",
+						textRole = "title" :: "title",
 						TextWrapped = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 					UI.Text "HeroBody" {
 						LayoutOrder = 2,
-						role = "secondary",
+						role = "secondary" :: "secondary",
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Choose your driver. Tune your ride. Find your next challenge.",
@@ -580,7 +600,7 @@ return {
 					BackgroundTransparency = 1,
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Host.UIGridLayout({
-						CellSize = function(use)
+						CellSize = function(use: Use)
 							local width = use(sceneViewport).width
 							local columns = if width < 650 or (wide(use) and width < 1080) then 1 else 2
 							return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 260)
@@ -622,24 +642,24 @@ return {
 						FillDirection = Enum.FillDirection.Horizontal,
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						SortOrder = Enum.SortOrder.LayoutOrder,
-					}),
+					}) :: unknown,
 					UI.Text({
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(0, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Race tags",
-						textRole = "heading",
+						textRole = "heading" :: "heading",
 						TextXAlignment = Enum.TextXAlignment.Left,
 						Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
 					}),
 					UI.Button "EditTags" {
 						LayoutOrder = 2,
-						label = function(use)
+						label = function(use: Use)
 							return if use(editingTags) then "Done" else "Edit"
 						end,
 						appearance = "soft",
-						controlSize = "compact",
+						controlSize = "compact" :: "compact",
 						onActivate = function()
 							editingTags:set(not editingTags:peek())
 						end,
@@ -669,12 +689,12 @@ return {
 							key = function(item)
 								return item
 							end,
-							render = function(current, placement, key)
+							render = function(current: Readable<string>, placement, key: string): GuiObject
 								local item = current:peek()
 								return UI.Chip "Token" {
 									label = item,
-									controlSize = "compact",
-									selected = function(use)
+									controlSize = "compact" :: "compact",
+									selected = function(use: Use)
 										return use(chosenTags)[item] == true
 									end,
 									onToggle = function(value)
@@ -716,7 +736,7 @@ return {
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					text = Compose.formula(function(use)
+					text = Compose.formula(function(use: Use)
 						return tostring(use(count)) .. " laps"
 					end),
 					TextWrapped = true,
@@ -731,7 +751,7 @@ return {
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					text = Compose.formula(function(use)
+					text = Compose.formula(function(use: Use)
 						return (if use(favorites) then "Favorites" else "All races")
 							.. " · "
 							.. use(weather)
@@ -748,7 +768,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -766,7 +786,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				Host.UIListLayout({
-					FillDirection = function(use)
+					FillDirection = function(use: Use)
 						return if wide(use) then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
 					end,
 					VerticalAlignment = Enum.VerticalAlignment.Top,
@@ -791,7 +811,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Actions and menus",
-					textRole = "title",
+					textRole = "title" :: "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -825,7 +845,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Size and emphasis",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -838,15 +858,15 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				ScrollBarThickness = 6,
-				page,
+				page :: unknown,
 			}
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				local selected = use(scrollTarget)
 				local node = selected and scroller:FindFirstChild(selected, true)
 				if node then
 					scroller.CanvasPosition = Vector2.new(
 						0,
-						node.AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y
+						(node :: GuiObject).AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y
 					)
 				end
 			end)
@@ -868,11 +888,11 @@ return {
 
 		return {
 			screen = Example,
-			states = function()
+			states = function(): { { id: string, kind: "dialog" | "busy", open: () -> boolean } }
 				return {
 					{
 						id = "confirmation",
-						kind = "dialog",
+						kind = "dialog" :: "dialog",
 						open = function()
 							openDialog()
 							return true
@@ -880,7 +900,7 @@ return {
 					},
 					{
 						id = "busy",
-						kind = "busy",
+						kind = "busy" :: "busy",
 						open = function()
 							busy:set(true)
 							return true
@@ -919,7 +939,7 @@ return {
 					seconds = 1.5
 				end,
 			},
-			report = function()
+			report = function(): Report?
 				if not mounted then
 					return nil
 				end

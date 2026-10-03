@@ -35,8 +35,8 @@ for idx, entry in ipairs(manifest.files) do
 	end
 	if inst == nil then
 		inst = Instance.new(wantClass)
-		inst.Name = leaf
-		inst.Parent = parent
+		assert(inst).Name = leaf
+		assert(inst).Parent = parent
 		created += 1
 	end
 
@@ -83,7 +83,10 @@ if #refused + #failed == 0 then
 		and modern.RunContext == Enum.RunContext.Client
 		and legacy
 		and (legacy:IsA("LocalScript") or legacy:IsA("Script"))
-		and (string.find(legacy.Source, "FacetScenarios", 1, true) or legacy.Source == modern.Source)
+		and (
+			string.find((legacy :: Script).Source, "FacetScenarios", 1, true)
+			or (legacy :: Script).Source == modern.Source
+		)
 	then
 		legacy:Destroy()
 		migratedBootstrap = true

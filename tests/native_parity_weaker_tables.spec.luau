@@ -1,11 +1,22 @@
 --!strict
 local nativeDrag = require("./lib/native_drag")
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local playlistExample = require("../examples/gallery/examples/02_playlist_table")
 local themePackages = require("../tools/lune/theme_packages")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type Stage = {
 	engine: any,
@@ -33,7 +44,7 @@ end
 
 local function stage(build: (any, any) -> any, config: { [string]: any }?): Stage
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	local options: { [string]: any } = {
 		types = engine.types,
@@ -42,12 +53,12 @@ local function stage(build: (any, any) -> any, config: { [string]: any }?): Stag
 		services = { GuiService = gui, UserInputService = input },
 		motionLevel = "none",
 	}
-	for key, value in config or {} do
+	for key, value in (config or {} :: { [string]: any }) do
 		options[key] = value
 	end
 	local UI = Facet.controls(runtime, options :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host) })
 	end, engine.new("Folder"))
 	return {
@@ -188,7 +199,7 @@ type Playlist = {
 
 local function playlist(): Playlist
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	local target = engine.new("Folder")
 	local viewport = Compose.cell({ width = 1280, height = 720 })
@@ -196,7 +207,7 @@ local function playlist(): Playlist
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -215,7 +226,7 @@ local function playlist(): Playlist
 		),
 	}
 	local built: any
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		built = playlistExample.build(ctx)
 		return ctx.Host.ScreenGui("DemoScreen")({ built.screen() })
 	end, target)
@@ -320,16 +331,16 @@ t.describe("native parity weaker tables", function()
 		t.expect(renderedOrder(p.tracks)).toBe(shipped)
 		local nameSort = p.tracks:FindFirstChild("Header"):FindFirstChild("name"):FindFirstChild("Sort")
 		nameSort.Activated.fire()
-		t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" })
+		t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" :: "ascending" })
 		t.expect(ids(p.built.from:peek())).toBe("apex,drift,neon,photo,pit,turbo")
 		t.expect(renderedOrder(p.tracks)).toBe("apex,drift,neon,photo,pit,turbo")
 		t.expect(ids(p.built.baseRows:peek())).toBe(shipped)
 		nameSort.Activated.fire()
-		t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "descending" })
+		t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "descending" :: "descending" })
 		t.expect(ids(p.built.from:peek())).toBe("turbo,pit,photo,neon,drift,apex")
 		t.expect(renderedOrder(p.tracks)).toBe("turbo,pit,photo,neon,drift,apex")
 		nameSort.Activated.fire()
-		t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" })
+		t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" :: "ascending" })
 		p.built.filterText:set("i")
 		t.expect(ids(p.built.from:peek())).toBe("drift,neon,photo,pit")
 		t.expect(renderedOrder(p.tracks)).toBe("drift,neon,photo,pit")
@@ -360,16 +371,16 @@ t.describe("native parity weaker tables", function()
 			local before = ids(p.built.baseRows:peek())
 			p.built.moveToTop("not-in-the-playlist")
 			p.built.reorder({}, 3)
-			t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" })
+			t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" :: "ascending" })
 			t.expect(ids(p.built.baseRows:peek())).toBe(before)
 			p.built.removeTrack("neon")
-			t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" })
+			t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" :: "ascending" })
 			t.expect(ids(p.built.from:peek())).toBe("apex,drift,photo,pit,turbo")
 			p.built.filterText:set("i")
 			local filtered = ids(p.built.baseRows:peek())
 			p.built.reorder({ "photo" }, 0)
 			t.expect(ids(p.built.baseRows:peek())).toBe(filtered)
-			t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" })
+			t.expect(p.built.sort:peek()).toEqual({ column = "name", direction = "ascending" :: "ascending" })
 			p.built.ratingFor("neon"):set(1)
 			p.built.nowPlaying:set("Photo Finish")
 			find(p.node, "Restore").Activated.fire()
@@ -385,13 +396,13 @@ t.describe("native parity weaker tables", function()
 	)
 
 	t.it("apps2-175 the resize grip keeps one trailing edge and sizes its target per input paradigm", function()
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(2),
 				key = id,
 				columns = {
-					{ id = "name", label = "Name", width = 200 },
-					{ id = "laps", label = "Laps", width = 64, resizable = false },
+					{ id = "name", label = "Name", width = 200 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "laps", label = "Laps", width = 64, resizable = false } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end)
@@ -420,22 +431,22 @@ t.describe("native parity weaker tables", function()
 	end)
 
 	t.it("apps-242 touch and gamepad table rows clear the 44 floor with no wiring and a pinned height wins", function()
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
 				controls = {},
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end, { theme = { metrics = { controlSizes = { regular = { height = 32 } } } } })
 		local pinnedControls: any = {}
-		local pinned = stage(function(UI)
+		local pinned = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
 				itemSize = 52,
 				controls = pinnedControls,
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end)
 		local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
@@ -468,7 +479,7 @@ t.describe("native parity weaker tables", function()
 		"collections-36 Table keeps cell state, windows large data, prunes selection and releases action rows",
 		function()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui, input = services(engine)
 			local UI = Facet.controls(
 				runtime,
@@ -485,16 +496,16 @@ t.describe("native parity weaker tables", function()
 			local baseline = engine.census()
 			local rows = Compose.cell({ { id = "a", name = "First" }, { id = "b", name = "Second" } })
 			local selected, sort, editing, widths =
-				Compose.cell({}), Compose.cell(nil), Compose.cell(false), Compose.cell({})
+				Compose.cell({}), require("./lib/cells").sort(nil), Compose.cell(false), Compose.cell({})
 			local factories, released = 0, 0
 			local counts: { [string]: any } = {}
-			local stop, node = runtime.mount(function()
-				return runtime.constructors.ScreenGui({
+			local stop, node: any = runtime.mount(function()
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 					UI.Table("Records")({
 						from = rows,
 						key = id,
 						selection = selected,
-						selectionMode = "single",
+						selectionMode = "single" :: "single",
 						sort = sort,
 						widths = widths,
 						editing = editing,
@@ -505,12 +516,12 @@ t.describe("native parity weaker tables", function()
 								value = function(item)
 									return item.name
 								end,
-							},
+							} :: FixtureCollectionTypes.TableColumn<any, any>,
 							{
 								id = "counter",
 								label = "Count",
 								width = 100,
-								render = function(current, _, rowKey)
+								render = function(current, _, rowKey): GuiObject
 									factories += 1
 									local count = Compose.cell(0)
 									counts[rowKey] = count
@@ -518,7 +529,7 @@ t.describe("native parity weaker tables", function()
 										released += 1
 									end)
 									return UI.Button("Counter")({
-										label = function(use)
+										label = function(use: Use)
 											return `{use(current).name}: {use(count)}`
 										end,
 										onActivate = function()
@@ -528,17 +539,17 @@ t.describe("native parity weaker tables", function()
 										end,
 									})
 								end,
-							},
+							} :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
-						rowActions = function()
+						rowActions = function(): RowActions?
 							return {
 								trailing = {
 									{
 										id = "delete",
 										label = "Delete",
-										role = "destructive",
+										role = "destructive" :: "destructive",
 										onActivate = function() end,
-									},
+									} :: FixtureCollectionTypes.RowAction,
 								},
 							}
 						end,
@@ -561,9 +572,9 @@ t.describe("native parity weaker tables", function()
 			t.expect(rowA:FindFirstChild("Value", true).Text).toBe("Updated")
 			t.expect(factories).toBe(2)
 			table_:FindFirstChild("Header"):FindFirstChild("name"):FindFirstChild("Sort").Activated.fire()
-			t.expect(sort:peek()).toEqual({ column = "name", direction = "ascending" })
+			t.expect(sort:peek()).toEqual({ column = "name", direction = "ascending" :: "ascending" })
 			table_:FindFirstChild("Header"):FindFirstChild("name"):FindFirstChild("Sort").Activated.fire()
-			t.expect(sort:peek()).toEqual({ column = "name", direction = "descending" })
+			t.expect(sort:peek()).toEqual({ column = "name", direction = "descending" :: "descending" })
 			local nameColumn = table_:FindFirstChild("Header"):FindFirstChild("name")
 			nameColumn.AbsoluteSize = V2.new(200, 40)
 			local drag = nameColumn:FindFirstChild("Resize"):FindFirstChildWhichIsA("UIDragDetector")
@@ -601,8 +612,8 @@ t.describe("native parity weaker tables", function()
 			end
 			local large = Compose.cell(many)
 			local status: any = Compose.cell({
-				mode = "windowed",
-				direction = "vertical",
+				mode = "windowed" :: "windowed",
+				direction = "vertical" :: "vertical",
 				total = 0,
 				retained = 0,
 				first = 0,
@@ -622,8 +633,8 @@ t.describe("native parity weaker tables", function()
 					itemSize = 40,
 					status = status,
 					selection = chosen,
-					selectionMode = "multiple",
-					columns = { { id = "name", label = "Name" } },
+					selectionMode = "multiple" :: "multiple",
+					columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
 				})
 			end)
 			local largeBody = w.node:FindFirstChild("Body")
@@ -647,14 +658,14 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-37 a focused grip widens narrows clamps and releases its keys", function()
 		local widths = Compose.cell({})
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
 				widths = widths,
 				columns = {
-					{ id = "name", label = "Name", width = 200, minWidth = 80, maxWidth = 224 },
-					{ id = "laps", label = "Laps", width = 64, resizable = false },
+					{ id = "name", label = "Name", width = 200, minWidth = 80, maxWidth = 224 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "laps", label = "Laps", width = 64, resizable = false } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end)
@@ -700,7 +711,7 @@ t.describe("native parity weaker tables", function()
 		"collections-133 fill and fixed columns align in every row, rows take variable heights, dispose frees",
 		function()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui, input = services(engine)
 			local UI = Facet.controls(
 				runtime,
@@ -715,9 +726,9 @@ t.describe("native parity weaker tables", function()
 			local V2 = engine.types.Vector2
 			local host = engine.new("Folder")
 			local baseline = engine.census()
-			local controls: any = {}
-			local stop, screen = runtime.mount(function()
-				return runtime.constructors.ScreenGui({
+			local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
+			local stop, screen: any = runtime.mount(function()
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 					UI.Table({
 						from = {
 							{ id = "razz", name = "Razz Raccoon", laps = 3 },
@@ -728,8 +739,8 @@ t.describe("native parity weaker tables", function()
 						controls = controls,
 						itemSize = 40,
 						columns = {
-							{ id = "name", label = "Name" },
-							{ id = "laps", label = "Laps", width = 64 },
+							{ id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any>,
+							{ id = "laps", label = "Laps", width = 64 } :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
 					}),
 				})
@@ -746,8 +757,8 @@ t.describe("native parity weaker tables", function()
 				.toBe(engine.types.Enum.UIFlexMode.Fill)
 			local items = body:FindFirstChild("Items")
 			items:FindFirstChild("bolt"):FindFirstChild("Value", true).TextBounds = V2.new(100, 56)
-			t.expect(controls.placementOf(1).size).toBe(40)
-			t.expect(controls.placementOf(2).size).toBe(72)
+			t.expect(assert(controls.placementOf)(1).size).toBe(40)
+			t.expect(assert(controls.placementOf)(2).size).toBe(72)
 			t.expect(items:FindFirstChild("bolt").Position.Y.Offset).toBe(40)
 			t.expect(items:FindFirstChild("josh").Position.Y.Offset).toBe(112)
 			t.expect(items:FindFirstChild("bolt").Size.Y.Offset).toBe(72)
@@ -766,7 +777,7 @@ t.describe("native parity weaker tables", function()
 		local editing = Compose.cell(false)
 		for _, reorderable in { true, false } do
 			editing:set(false)
-			local w = stage(function(UI)
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(3),
 					key = id,
@@ -774,16 +785,21 @@ t.describe("native parity weaker tables", function()
 					editing = editing,
 					reorderable = reorderable,
 					onReorder = function() end,
-					rowActions = function()
+					rowActions = function(): RowActions?
 						return {
 							trailing = {
-								{ id = "remove", label = "Remove", role = "destructive", onActivate = function() end },
+								{
+									id = "remove",
+									label = "Remove",
+									role = "destructive" :: "destructive",
+									onActivate = function() end,
+								} :: FixtureCollectionTypes.RowAction,
 							},
 						}
 					end,
 					columns = {
-						{ id = "a", width = 100 },
-						{ id = "b" },
+						{ id = "a", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "b" } :: FixtureCollectionTypes.TableColumn<any, any>,
 					},
 				})
 			end)
@@ -826,14 +842,16 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-137 single replaces, multi toggles additively and keyboard focus walks and selects", function()
 		local single = Compose.cell({})
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,
 				itemSize = 40,
 				selection = single,
-				selectionMode = "single",
-				columns = { { id = "label", label = "Label", width = 100 } },
+				selectionMode = "single" :: "single",
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
@@ -844,7 +862,7 @@ t.describe("native parity weaker tables", function()
 		local function hit(rowKey: string): any
 			return items:FindFirstChild(rowKey):FindFirstChild("RowHit", true)
 		end
-		local touch = { UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode.Unknown }
+		local touch = { UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }
 		local rowTwo, rowThree = items:FindFirstChild("2"), items:FindFirstChild("3")
 		hit("2").Activated.fire(touch, 1)
 		t.expect(single:peek()).toEqual({ [2] = true })
@@ -867,14 +885,16 @@ t.describe("native parity weaker tables", function()
 		t.expect(single:peek()).toEqual({ [2] = true })
 		w.stop()
 		local multi = Compose.cell({})
-		local m = stage(function(UI)
+		local m = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,
 				itemSize = 40,
 				selection = multi,
-				selectionMode = "multiple",
-				columns = { { id = "label", label = "Label", width = 100 } },
+				selectionMode = "multiple" :: "multiple",
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local multiBody = m.node:FindFirstChild("Body")
@@ -893,9 +913,9 @@ t.describe("native parity weaker tables", function()
 	end)
 
 	t.it("collections-142 columns own value and render cells, coerce numbers and cycle the header sort", function()
-		local sort = Compose.cell(nil)
-		local controls: any = {}
-		local w = stage(function(UI)
+		local sort = require("./lib/cells").sort(nil)
+		local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = {
 					{ id = "razz", name = "Razz Raccoon", laps = 3 },
@@ -911,14 +931,14 @@ t.describe("native parity weaker tables", function()
 						id = "name",
 						label = "Racer",
 						sortable = false,
-						render = function(current)
+						render = function(current): GuiObject
 							return UI.Text("Custom")({
-								text = function(use)
+								text = function(use: Use)
 									return use(current).name
 								end,
 							})
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 					{
 						id = "laps",
 						label = "Laps",
@@ -926,7 +946,7 @@ t.describe("native parity weaker tables", function()
 						value = function(item)
 							return item.laps
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end)
@@ -947,31 +967,31 @@ t.describe("native parity weaker tables", function()
 		t.expect(lapsSort.Text).toBe("Laps")
 		t.expect(lapsSort.Selectable).toBe(true)
 		lapsSort.Activated.fire()
-		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" })
+		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" :: "ascending" })
 		t.expect(lapsSort.Text).toBe("Laps ↑")
-		t.expect(controls.indexOfKey("razz")).toBe(1)
-		t.expect(controls.indexOfKey("josh")).toBe(2)
-		t.expect(controls.indexOfKey("bolt")).toBe(3)
+		t.expect(assert(controls.indexOfKey)("razz")).toBe(1)
+		t.expect(assert(controls.indexOfKey)("josh")).toBe(2)
+		t.expect(assert(controls.indexOfKey)("bolt")).toBe(3)
 		t.expect(renderedOrder(w.node)).toBe("razz,josh,bolt")
 		lapsSort.Activated.fire()
-		t.expect(sort:peek()).toEqual({ column = "laps", direction = "descending" })
+		t.expect(sort:peek()).toEqual({ column = "laps", direction = "descending" :: "descending" })
 		t.expect(lapsSort.Text).toBe("Laps ↓")
 		t.expect(renderedOrder(w.node)).toBe("bolt,josh,razz")
 		t.expect(items:FindFirstChild("razz")).toBe(razz)
 		lapsSort.Activated.fire()
-		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" })
+		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" :: "ascending" })
 		t.expect(nameSort.Selectable).toBe(false)
 		t.expect(nameSort.Interactable).toBe(false)
 		nameSort.Activated.fire()
-		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" })
+		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" :: "ascending" })
 		t.expect(nameSort.Text).toBe("Racer")
 		w.stop()
 	end)
 
 	t.it("collections-144 a Table row gap spaces the rows and the drop line follows the gap", function()
-		local controls: any = {}
+		local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
 		local requests = {}
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(3),
 				key = id,
@@ -983,7 +1003,9 @@ t.describe("native parity weaker tables", function()
 				onReorder = function(keys, slot)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local V2 = w.engine.types.Vector2
@@ -1010,8 +1032,8 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-164 a numeric Table gap drives row pitch and the drop slot arithmetic", function()
 		local function pitch(gap: number?): (number, number)
-			local controls: any = {}
-			local w = stage(function(UI)
+			local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(4),
 					key = id,
@@ -1019,13 +1041,15 @@ t.describe("native parity weaker tables", function()
 					gap = gap,
 					header = false,
 					controls = controls,
-					columns = { { id = "label", label = "Label", width = 100 } },
+					columns = {
+						{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					},
 				})
 			end)
 			w.node:FindFirstChild("Body").AbsoluteWindowSize = w.engine.types.Vector2.new(300, 400)
-			local first, second = controls.placementOf(1), controls.placementOf(2)
+			local first, second = assert(controls.placementOf)(1), assert(controls.placementOf)(2)
 			local between = second.offset - (first.offset + first.size)
-			local extent = controls.placementOf(4).offset + controls.placementOf(4).size
+			local extent = assert(controls.placementOf)(4).offset + assert(controls.placementOf)(4).size
 			w.stop()
 			return between, extent
 		end
@@ -1033,7 +1057,7 @@ t.describe("native parity weaker tables", function()
 		t.expect(select(1, pitch(6))).toBe(6)
 		t.expect(select(2, pitch(6))).toBe(178)
 		local requests = {}
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,
@@ -1044,7 +1068,9 @@ t.describe("native parity weaker tables", function()
 				onReorder = function(keys, slot)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local V2 = w.engine.types.Vector2
@@ -1066,15 +1092,15 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-151 only resizable columns grow a grip that resizes and clamps both bounds", function()
 		local widths = Compose.cell({})
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(2),
 				key = id,
 				widths = widths,
 				columns = {
-					{ id = "name", label = "Name", width = 200, minWidth = 80, maxWidth = 260 },
-					{ id = "laps", label = "Laps", width = 64, resizable = false },
-					{ id = "note", label = "Note" },
+					{ id = "name", label = "Name", width = 200, minWidth = 80, maxWidth = 260 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "laps", label = "Laps", width = 64, resizable = false } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "note", label = "Note" } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end)
@@ -1113,7 +1139,7 @@ t.describe("native parity weaker tables", function()
 
 	t.it("collections-203 every collapsed width carries a More disclosure on each row that opens", function()
 		local widths = Compose.cell({ a = 150, b = 150, c = 150 })
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = {
 					{ id = 1, a = "Alpha", b = "Bravo", c = "Charlie one" },
@@ -1123,9 +1149,9 @@ t.describe("native parity weaker tables", function()
 				itemSize = 40,
 				widths = widths,
 				columns = {
-					{ id = "a", label = "A" },
-					{ id = "b", label = "B", priority = 2 },
-					{ id = "c", label = "C", priority = 3 },
+					{ id = "a", label = "A" } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "b", label = "B", priority = 2 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "c", label = "C", priority = 3 } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 		end)
@@ -1197,7 +1223,7 @@ t.describe("native parity weaker tables", function()
 		local checked = 0
 		for _, package in packages do
 			for _, shape in shapes do
-				local w = stage(function(UI)
+				local w = stage(function(UI: FacetControls)
 					return UI.Table({
 						from = records(3),
 						key = id,
@@ -1206,9 +1232,9 @@ t.describe("native parity weaker tables", function()
 						reorderable = shape == "reorder",
 						onReorder = function() end,
 						columns = {
-							{ id = "fixed", width = 120, minWidth = 80, maxWidth = 200 },
-							{ id = "fill" },
-							{ id = "tail", width = 90, priority = 9 },
+							{ id = "fixed", width = 120, minWidth = 80, maxWidth = 200 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							{ id = "fill" } :: FixtureCollectionTypes.TableColumn<any, any>,
+							{ id = "tail", width = 90, priority = 9 } :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
 					})
 				end, if package then { theme = package } else nil)
@@ -1228,7 +1254,7 @@ t.describe("native parity weaker tables", function()
 
 	t.it("inputs-06 a gamepad grab moves a row with the D-pad and drops it with A", function()
 		local requests = {}
-		local w = stage(function(UI)
+		local w = stage(function(UI: FacetControls)
 			return UI.Table({
 				from = records(4),
 				key = id,
@@ -1238,7 +1264,9 @@ t.describe("native parity weaker tables", function()
 				onReorder = function(keys, slot)
 					table.insert(requests, { keys = keys, slot = slot })
 				end,
-				columns = { { id = "label", label = "Label", width = 100 } },
+				columns = {
+					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end)
 		local E, V2 = w.engine.types.Enum, w.engine.types.Vector2

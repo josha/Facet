@@ -1,8 +1,20 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function interactive(
 	id: string,
@@ -50,14 +62,14 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = { commits = {} }
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.gap = Compose.cell({ lower = 20, upper = 60 })
 			value.pile = Compose.cell({ lower = 20, upper = 60 })
 			return Host.Frame "Column" {
 				Size = UDim2.fromOffset(600, 420),
 				Position = UDim2.fromOffset(100, 100),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 40) }),
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 40) }) :: unknown,
 				UI.Slider "Gap" {
 					LayoutOrder = 1,
 					Size = UDim2.fromOffset(420, 0),
@@ -65,7 +77,7 @@ interactive(
 					min = 0,
 					max = 100,
 					step = 5,
-					range = true,
+					range = true :: true,
 					minGap = 10,
 					onCommit = function(range: any, info: any)
 						table.insert(value.commits, `{info.thumb}:{range.lower}-{range.upper}`)
@@ -78,7 +90,7 @@ interactive(
 					min = 0,
 					max = 100,
 					step = 5,
-					range = true,
+					range = true :: true,
 					minGap = 0,
 				},
 			}
@@ -155,7 +167,7 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = { commits = {}, changes = 0 }
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.cell = Compose.cell(Color3.fromHSV(0.5, 0.5, 0.5))
 			return Host.Frame "Box" {
 				BackgroundTransparency = 1,
@@ -164,8 +176,8 @@ interactive(
 				AutomaticSize = Enum.AutomaticSize.Y,
 				UI.ColorPicker "Accent" {
 					label = "Accent",
-					style = "inline",
-					modes = { "spectrum" },
+					style = "inline" :: "inline",
+					modes = { "spectrum" :: "spectrum" },
 					value = value.cell,
 					onChange = function(next: Color3)
 						value.changes += 1
@@ -228,14 +240,14 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = {}
-		local stage = t.mount(function(UI, Host)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Column" {
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(400, 200),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 24) }),
-				UI.Button "Link" { label = "Read more", underline = "hover", LayoutOrder = 1 },
-				UI.Button "Always" { label = "Terms", underline = "always", LayoutOrder = 2 },
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 24) }) :: unknown,
+				UI.Button "Link" { label = "Read more", underline = "hover" :: "hover", LayoutOrder = 1 },
+				UI.Button "Always" { label = "Terms", underline = "always" :: "always", LayoutOrder = 2 },
 			}
 		end, { frames = 12 })
 		value.link = t.find(stage, "Link")
@@ -295,13 +307,13 @@ interactive(
 	function(t)
 		host(t)
 		local value: any = {}
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.toggle = Compose.cell(false)
 			return Host.Frame "Column" {
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(360, 300),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
 				UI.Toggle "Toggle" { value = value.toggle, label = "On", LayoutOrder = 1 },
 				UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
 			}

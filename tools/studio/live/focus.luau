@@ -65,7 +65,8 @@ function focus.lint(root: Instance): { string }
 end
 
 function focus.paths(root: Instance, stops: { GuiObject }): { [Instance]: string }
-	local paths, seen = {}, {}
+	local paths: { [Instance]: string } = {}
+	local seen: { [string]: number } = {}
 	for _, node in stops do
 		local path = pathOf(node, root)
 		seen[path] = (seen[path] or 0) + 1
@@ -139,7 +140,7 @@ function focus.atlas(
 			local behavior = nil
 			if at.SelectionGroup then
 				behavior = {}
-				for _, direction in { "Up", "Down", "Left", "Right" } do
+				for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 					behavior[direction] = ((at :: any)["SelectionBehavior" .. direction] :: EnumItem).Name
 				end
 			end
@@ -170,7 +171,7 @@ function focus.atlas(
 	end
 	for _, node in stops do
 		local links = {}
-		for _, direction in { "Up", "Down", "Left", "Right" } do
+		for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 			local link = (node :: any)["NextSelection" .. direction]
 			if link then
 				links[direction] = named(paths, link, root)
@@ -363,8 +364,9 @@ function focus.opened(
 	local start = if report.landedInside then report.landed else report.trigger
 	local reached, queue, head = { [start] = true }, { start }, 1
 	while queue[head] do
-		for _, target in moves[queue[head]] or {} do
-			if members[target] and not reached[target] then
+		local destinations: { [string]: string? } = moves[queue[head]] or {}
+		for _, target in destinations do
+			if target and members[target] and not reached[target] then
 				reached[target] = true
 				table.insert(queue, target)
 			end

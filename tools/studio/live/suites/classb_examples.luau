@@ -1,7 +1,19 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -27,7 +39,7 @@ end
 
 local function example(t: any, name: string, size: Vector2, patch: ((any) -> ())?, theme: any?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
@@ -41,7 +53,7 @@ end
 
 local function scenario(t: any, name: string, size: Vector2, patch: ((any) -> ())?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		if patch then
 			patch(ctx)
@@ -70,7 +82,7 @@ end
 add("consumer-blurb-grows-with-text-size", { "apps2-05" }, function(t)
 	local module = storage:WaitForChild("FacetConsumerScreen")
 	local screen = (require :: any)(module)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return screen.build(t.Facet, UI)
 	end, { size = Vector2.new(390, 844), frames = 20 })
 	local blurb, count = t.find(stage, "Blurb"), t.find(stage, "Count")
@@ -376,7 +388,7 @@ end)
 add("outpost-terminal-holds-canvas-every-text-size", { "apps2-131" }, function(t)
 	for _, offset in OFFSETS do
 		local built
-		local stage = t.mount(function(UI, Host, Compose, env)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 			local ctx = t.context(UI, Host, Compose, env)
 			built = ctx.load("example", "outpost_terminal").build(ctx)
 			return built.screen()

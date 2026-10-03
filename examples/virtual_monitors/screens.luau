@@ -1,9 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local screens = { CANVAS = { w = 920, h = 640 }, SHORT_HEIGHT = 500 }
 screens.APPS = table.freeze({ "Discover", "Avatar", "Chat", "Flap" })
 
 function screens.create(Facet: any, runtime: any, actions: any)
-	local Compose, Host, civil = Facet.Compose, runtime.constructors, Facet.civilDate
+	local Compose: ComposeModule, Host, civil = Facet.Compose, runtime.constructors, Facet.civilDate
 	local model = actions.model
 	local types = actions.types or getfenv(0)
 	local D, D2, V2, C3, CF, E = types.UDim, types.UDim2, types.Vector2, types.Color3, types.CFrame, types.Enum
@@ -26,21 +35,22 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		end))
 	end
 	local clock = actions.clock or civil.systemClock()
-	local selectedCard = Compose.cell(nil)
-	local function rounded(radius)
+	local selectedCard = Compose.cell(nil :: any)
+	local function rounded(radius: number?)
 		return Host.UICorner({ CornerRadius = D.new(0, radius or 12) })
 	end
-	local function merged(spec, props)
-		for key, value in props or {} do
+	local function merged(spec: { [any]: any }, props: { [any]: any }?)
+		local additions: { [any]: any } = props or {}
+		for key, value in additions do
 			if type(key) == "number" then
-				table.insert(spec, value)
+				spec[#spec + 1] = value
 			else
 				spec[key] = value
 			end
 		end
 		return spec
 	end
-	local function words(name, value, role, props)
+	local function words(name: string, value: any, role: string?, props: { [any]: any }?)
 		return UI.Text(merged({
 			Name = name,
 			text = value,
@@ -51,11 +61,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			AutomaticSize = E.AutomaticSize.Y,
 		}, props))
 	end
-	local function quiet(name, value, role, props)
-		local spec = merged({ role = "secondary" }, props)
+	local function quiet(name: string, value: any, role: string?, props: { [any]: any }?)
+		local spec = merged({ role = "secondary" :: "secondary" }, props)
 		return words(name, value, role or "caption", spec)
 	end
-	local function button(name, label, activate, props)
+	local function button(name: string, label: any, activate: () -> (), props: { [any]: any }?)
 		return UI.Button(
 			merged({ Name = name, label = label, onActivate = activate, Size = D2.fromOffset(0, 36) }, props)
 		)
@@ -75,9 +85,9 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		measure(node, value)
 		return value
 	end
-	local function collection(kind, spec, source)
+	local function collection(kind: string, spec: { [any]: any }, source: typeof(Compose.cell(nil :: number?)))
 		if source:peek() ~= nil then
-			spec.CanvasPosition = function(use)
+			spec.CanvasPosition = function(use: Use)
 				use(model.mode)
 				return V2.new(0, source:peek())
 			end
@@ -95,7 +105,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		end))
 		return node
 	end
-	local function stage(name, contentBuilder, props)
+	local function stage(name: string, contentBuilder: any, props: { [any]: any }?)
 		local spec = merged({
 			Name = name,
 			Size = D2.fromScale(1, 1),
@@ -114,8 +124,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			return UI.Text({
 				Name = name .. "Unavailable",
 				text = "Preview unavailable",
-				textRole = "label",
-				role = "secondary",
+				textRole = "label" :: "label",
+				role = "secondary" :: "secondary",
 				Size = spec.Size,
 				Position = spec.Position,
 				AutomaticSize = E.AutomaticSize.None,
@@ -125,19 +135,20 @@ function screens.create(Facet: any, runtime: any, actions: any)
 	local function panelShadow()
 		return Facet.themes.skin(runtime, actions.theme, "monitorPanel", { types = types })
 	end
-	local function toastFor(app)
-		local source = model.toasts[app]
+	local function toastFor(app: string)
+		type Toast = { serial: number, message: string, undo: (() -> ())? }
+		local source: Readable<Toast?> = model.toasts[app]
 		return Compose.keyed({
-			from = function(use)
+			from = function(use: Use)
 				local toast = use(source)
 				return if toast then { toast } else {}
 			end,
 			key = function(toast)
 				return toast.serial
 			end,
-			render = function(current)
+			render = function(current: Readable<Toast>): GuiObject
 				local toast = current:peek()
-				local presented = Compose.formula(function(use)
+				local presented = Compose.formula(function(use: Use)
 					local live = use(source)
 					return live ~= nil and live.serial == toast.serial
 				end)
@@ -163,7 +174,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			end,
 		})
 	end
-	local function shell(name, build, collapsed)
+	local function shell(name: string, build: (any) -> (unknown, unknown?), collapsed: Readable<boolean>?)
 		local about = Compose.cell(false)
 		local statusOpen = Compose.cell(false)
 		local presentationKey = name .. (if actions.spatial then ":Spatial" else ":Screen")
@@ -175,7 +186,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			end
 		end)
 		local region = Compose.cell(V2.new(screens.CANVAS.w, screens.CANVAS.h))
-		local function wide(use)
+		local function wide(use: Use)
 			return use(region).X >= 860
 		end
 		local function switchAppearance()
@@ -183,11 +194,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				return not value
 			end)
 		end
-		local chrome = { Name = "Chrome", gap = "s", align = "center", Visible = wide }
+		local chrome = { Name = "Chrome", gap = "s", align = "center" :: "center", Visible = wide }
 		if actions.spatial then
 			table.insert(
 				chrome,
-				button("Focus", function(use)
+				button("Focus", function(use: Use)
 					return if use(model.focused) == name then "All monitors" else "Focus"
 				end, function()
 					model.focus(name)
@@ -196,13 +207,13 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		end
 		table.insert(
 			chrome,
-			button("Presentation", function(use)
+			button("Presentation", function(use: Use)
 				return if use(model.mode) == "Spatial" then "Screen mode" else "Spatial mode"
 			end, model.toggleMode)
 		)
 		table.insert(
 			chrome,
-			button("Appearance", function(use)
+			button("Appearance", function(use: Use)
 				return if use(model.dark) then "Light mode" else "Dark mode"
 			end, switchAppearance)
 		)
@@ -226,8 +237,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		local presenceWords = { online = "Online", away = "Away", busy = "Busy" }
 		local menuShown = Compose.cell(false)
 		local root = UI.ZStack(name)({
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			SelectionGroup = true,
 			ClipsDescendants = true,
 			UI.Screen "Page" {
@@ -236,22 +247,22 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				UI.NavBar "Header" {
 					title = if name == "Chat" then "Assistant" elseif name == "Flap" then "Facet Flap" else name,
 					titleSize = "heading",
-					Visible = function(use)
+					Visible = function(use: Use)
 						return use(menuShown) or not (collapsed and use(collapsed))
 					end,
 					trailing = UI.AdaptiveStack "HeaderActions" {
-						axis = "x",
+						axis = "x" :: "x",
 						gap = "s",
-						align = "center",
-						UI.ViewThatFits "ChromeFit" { width = "hug", UI.HStack(chrome) },
+						align = "center" :: "center",
+						UI.ViewThatFits "ChromeFit" { width = "hug" :: "hug", UI.HStack(chrome) } :: unknown,
 						UI.Menu {
 							trigger = UI.Button "ActionsMenu" {
 								icon = "more",
 								name = "Menu",
-								shape = "circle",
+								shape = "circle" :: "circle",
 								appearance = "utility",
 							},
-							Visible = function(use)
+							Visible = function(use: Use)
 								return not wide(use)
 							end,
 							onOpen = function()
@@ -260,56 +271,69 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							onClose = function()
 								menuShown:set(false)
 							end,
-							items = {
-								{ id = "Presentation", label = "Switch presentation", onSelect = model.toggleMode },
-								{ id = "Appearance", label = "Switch appearance", onSelect = switchAppearance },
-								{
-									id = "About",
-									label = "About",
-									onSelect = function()
-										about:set(true)
-									end,
-								},
-								if actions.spatial
-									then {
-										id = "Focus",
-										label = function(use)
-											return if use(model.focused) == name then "All monitors" else "Focus"
-										end,
-										onSelect = function()
-											model.focus(name)
-										end,
-									}
-									else nil,
-							},
+							items = (
+									{
+										{
+											id = "Presentation",
+											label = "Switch presentation",
+											onSelect = model.toggleMode,
+										} :: MenuItem?,
+										{ id = "Appearance", label = "Switch appearance", onSelect = switchAppearance } :: MenuItem?,
+										{
+											id = "About",
+											label = "About",
+											onSelect = function()
+												about:set(true)
+											end,
+										} :: MenuItem?,
+										if actions.spatial
+											then {
+												id = "Focus",
+												label = function(use: Use)
+													return if use(model.focused) == name
+														then "All monitors"
+														else "Focus"
+												end,
+												onSelect = function()
+													model.focus(name)
+												end,
+											}
+											else nil,
+									} :: unknown
+								) :: { MenuItem },
 						},
 						profile,
 					},
-				},
+				} :: unknown,
 				Host.Frame "Content" {
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 0),
-					Interactable = function(use)
+					Interactable = function(use: Use)
 						return not actions.spatial or use(model.focused) == name
 					end,
-					UI.fill(),
+					UI.fill() :: unknown,
 					UI.ErrorBoundary "AppBoundary" {
-						width = "fill",
-						height = "fill",
+						width = "fill" :: "fill",
+						height = "fill" :: "fill",
 						view = function()
 							local body, extra = build(region)
-							return UI.ZStack "AppContent" { width = "fill", height = "fill", body, extra }
+							return UI.ZStack "AppContent" {
+								width = "fill" :: "fill",
+								height = "fill" :: "fill",
+								body :: unknown,
+								extra,
+							}
 						end,
 						fallback = function(_, retry)
 							return UI.VStack "AppFailure" {
-								width = "fill",
+								width = "fill" :: "fill",
 								gap = "s",
 								padding = "l",
 								words(
 									"FailureTitle",
 									`{if name == "Chat" then "Assistant" else name} stopped`,
 									"heading"
-								),
+								) :: unknown,
 								quiet(
 									"FailureMessage",
 									"Something in this app failed. Your saved games, notes and messages are safe.",
@@ -320,7 +344,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						end,
 					},
 				},
-			},
+			} :: unknown,
 			button("WakeMonitor", "", function()
 				model.focus(name)
 			end, {
@@ -329,7 +353,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				TextTransparency = 1,
 				ZIndex = 100,
 				AutomaticSize = E.AutomaticSize.None,
-				Visible = function(use)
+				Visible = function(use: Use)
 					return actions.spatial == true and use(model.focused) ~= name
 				end,
 			}),
@@ -340,43 +364,43 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				onPresentedChange = function(value)
 					statusOpen:set(value)
 				end,
-				edge = "bottom",
-				align = "end",
+				edge = "bottom" :: "bottom",
+				align = "end" :: "end",
 				maxWidth = 280,
-				content = function()
+				content = function(): Instance
 					return UI.VStack "PresenceCard" {
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "s",
 						UI.HStack "Identity" {
 							gap = "s",
-							align = "center",
+							align = "center" :: "center",
 							UI.StatusIndicator "PresenceDot" {
-								status = function(use)
+								status = function(use: Use)
 									local presence = use(model.presence)
 									return if presence == "online"
 										then "success"
 										elseif presence == "away" then "warning"
 										else "error"
 								end,
-								name = function(use)
+								name = function(use: Use)
 									return presenceWords[use(model.presence)]
 								end,
-							},
+							} :: unknown,
 							UI.Text "DisplayName" {
 								text = "Signed in as <b>" .. Facet.richText.escape(displayName) .. "</b>",
 								rich = true,
 							},
-						},
+						} :: unknown,
 						UI.Picker "Presence" {
 							selected = model.presence,
 							onChange = function()
 								statusOpen:set(false)
 							end,
-							style = "radioGroup",
+							style = "radioGroup" :: "radioGroup",
 							options = {
-								{ value = "online", label = "Online" },
-								{ value = "away", label = "Away" },
-								{ value = "busy", label = "Busy" },
+								{ value = "online", label = "Online" } :: PickerOption,
+								{ value = "away", label = "Away" } :: PickerOption,
+								{ value = "busy", label = "Busy" } :: PickerOption,
 							},
 						},
 					}
@@ -388,11 +412,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					about:set(value)
 				end,
 				title = "About Virtual Monitors",
-				content = function()
+				content = function(): Instance
 					return UI.VStack "AboutCopy" {
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "s",
-						stage("AboutScene", actions.discoveryContent, { Size = D2.new(1, 0, 0, 150) }),
+						stage("AboutScene", actions.discoveryContent, { Size = D2.new(1, 0, 0, 150) }) :: unknown,
 						words(
 							"AboutMessage",
 							"Four apps, shared between a spatial desktop and a flat screen. Compose owns every scene and lifetime; Facet supplies controls; Roblox supplies layout and rendering."
@@ -408,11 +432,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					{
 						id = "done",
 						label = "Done",
-						role = "cancel",
+						role = "cancel" :: "cancel",
 						onActivate = function()
 							about:set(false)
 						end,
-					},
+					} :: OverlayAction,
 				},
 			},
 		})
@@ -420,13 +444,13 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		measure(root, region)
 		return root
 	end
-	local function saveAction(current)
+	local function saveAction(current: Readable<{ [string]: any }?>)
 		return {
-			label = function(use)
-				return if use(model.saved)[use(current).id] then "Saved" else "Save"
+			label = function(use: Use)
+				return if use(model.saved)[assert(use(current)).id] then "Saved" else "Save"
 			end,
-			icon = function(use)
-				return if use(model.saved)[use(current).id] then "checkmark" else "increment"
+			icon = function(use: Use)
+				return if use(model.saved)[assert(use(current)).id] then "checkmark" else "increment"
 			end,
 			onActivate = function()
 				model.save(current:peek())
@@ -442,23 +466,23 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					onSelect = function()
 						model.notify("Discover", `Link to {current:peek().title} copied`)
 					end,
-				},
+				} :: MenuItem,
 				{
 					id = "Hide",
 					label = "Not interested",
 					onSelect = function()
 						model.hide(current:peek())
 					end,
-				},
-				{ divider = true },
+				} :: MenuItem,
+				{ divider = true } :: MenuItem,
 				{
 					id = "Report",
 					label = "Report",
-					role = "destructive",
+					role = "destructive" :: "destructive",
 					onSelect = function()
 						model.notify("Discover", `Thanks. We will review {current:peek().title}.`)
 					end,
-				},
+				} :: MenuItem,
 			},
 		}
 	end
@@ -470,20 +494,20 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			model.selectGame(current:peek())
 		end
 		card = UI.Card("Game_" .. item.id)({
-			title = function(use)
+			title = function(use: Use)
 				return use(current).title
 			end,
-			caption = function(use)
+			caption = function(use: Use)
 				local game = use(current)
 				return game.rating .. "  ·  " .. game.players
 			end,
 			artwork = function()
 				local decorated = runtime.timeline({ duration = (1 + item.index % 3) / 60 }).completed
 				preview = UI.ZStack "Preview" {
-					width = "fill",
-					height = "fill",
+					width = "fill" :: "fill",
+					height = "fill" :: "fill",
 					ClipsDescendants = true,
-					rounded(),
+					rounded() :: unknown,
 					stage("Scene", if actions.gameContent then actions.gameContent(current) else nil, {
 						Active = false,
 						lazy = true,
@@ -496,11 +520,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							Position = D2.fromOffset(10, 10),
 						}
 					end),
-					Compose.show(function(use)
+					Compose.show(function(use: Use)
 						return use(decorated) and #use(current).friends > 0
 					end, function()
 						return UI.AvatarGroup "Friends" {
-							items = function(use)
+							items = function(use: Use)
 								return use(current).friends
 							end,
 							max = 3,
@@ -531,7 +555,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		{ id = "load", label = "Load world" },
 		{ id = "join", label = "Join" },
 	}
-	local function detailContent(current)
+	local function detailContent(current: Readable<{ [string]: any }?>)
 		local selected = current:peek()
 		if not selected then
 			return Host.Frame({ BackgroundTransparency = 1 })
@@ -550,27 +574,27 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				)
 			end
 			return UI.HStack "Sparkline" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
-				align = "center",
+				align = "center" :: "center",
 				UI.Path "TrendLine" {
 					points = points,
-					role = "accent",
+					role = "accent" :: "accent",
 					thickness = 3,
 					Size = D2.new(1, -52, 0, 40),
-				},
+				} :: unknown,
 				UI.Path "RatingArc" {
 					points = Facet.pathShapes.arc(0, selected.percent * 3.6, { radius = 0.8 }),
-					role = "secondary",
+					role = "secondary" :: "secondary",
 					thickness = 4,
 					width = 40,
 				},
 			}
 		end
-		local tab = function(use)
+		local tab = function(use: Use)
 			return use(model.detailTab)
 		end
-		local function launching(use)
+		local function launching(use: Use)
 			local launch = use(model.launch)
 			return if launch and launch.id == selected.id then launch else nil
 		end
@@ -583,17 +607,17 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		local perPage = 6
 		local pageCount = math.max(1, math.ceil(#similar / perPage))
 		return UI.VStack "GameDetails" {
-			width = "fill",
+			width = "fill" :: "fill",
 			gap = "s",
 			stage(
 				"DetailScene",
 				if actions.gameContent then actions.gameContent(current) else nil,
 				{ Size = D2.new(1, 0, 0, 180) }
-			),
+			) :: unknown,
 			UI.HStack "PlayRow" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
-				align = "center",
+				align = "center" :: "center",
 				UI.SplitButton "Play" {
 					label = "Play",
 					menuLabel = "More ways to play",
@@ -610,17 +634,17 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							onSelect = function()
 								model.launchGame(selected.id, "Joining your friends")
 							end,
-						},
+						} :: MenuItem,
 						{
 							id = "Private",
 							label = "Start a private server",
 							onSelect = function()
 								model.launchGame(selected.id, "Starting a private server")
 							end,
-						},
+						} :: MenuItem,
 					},
-				},
-				quiet("LaunchStatus", function(use)
+				} :: unknown,
+				quiet("LaunchStatus", function(use: Use)
 					local launch = launching(use)
 					return if launch == nil
 						then ""
@@ -628,11 +652,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						else `{launch.mode}… (simulated)`
 				end, "label", { Size = D2.fromOffset(0, 0), TextWrapped = false, UI.fill() }),
 			},
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return launching(use) ~= nil
 			end, function()
 				return UI.StepIndicator "LaunchSteps" {
-					steps = function(use)
+					steps = function(use: Use)
 						local stage = launching(use).stage
 						local steps = {}
 						for index, step in launchSteps do
@@ -647,7 +671,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						end
 						return steps
 					end,
-					current = function(use)
+					current = function(use: Use)
 						local launch = launching(use)
 						return if launch and launch.stage <= 3 then launchSteps[launch.stage].id else nil
 					end,
@@ -661,13 +685,13 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				clock = clock,
 				min = civil.dateOf(clock()),
 				placeholder = "Not scheduled",
-				value = function(use)
+				value = function(use: Use)
 					return use(model.sessions)[selected.id]
 				end,
 				onChange = function(date)
 					model.schedule(selected.id, date)
 				end,
-				hint = function(use)
+				hint = function(use: Use)
 					local session = use(model.sessions)[selected.id]
 					return if session
 						then `Friends see {civil.format(session)} at {civil.formatTime(session, 12)}.`
@@ -677,9 +701,9 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			words("Description", selected.description),
 			UI.Divider "CreatorRule" {},
 			UI.HStack "Creator" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
-				align = "center",
+				align = "center" :: "center",
 				UI.AsyncImage "CreatorAvatar" {
 					source = selected.creatorImage,
 					loader = actions.creatorImageLoader,
@@ -691,44 +715,44 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							AutomaticSize = E.AutomaticSize.None,
 						}
 					end,
-				},
-				UI.Text "CreatorName" { text = selected.creator, textRole = "label", UI.fill() },
+				} :: unknown,
+				UI.Text "CreatorName" { text = selected.creator, textRole = "label" :: "label", UI.fill() },
 			},
 			UI.HStack "DetailsTabs" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
 				UI.Picker "DetailSection" {
 					selected = model.detailTab,
 					onChange = function(value)
 						model.detailTab:set(value)
 					end,
-					style = "segmented",
-					sizing = "hug",
+					style = "segmented" :: "segmented",
+					sizing = "hug" :: "hug",
 					Size = D2.fromOffset(0, 44),
 					AutomaticSize = E.AutomaticSize.X,
 					options = {
-						{ value = "about", label = "About" },
-						{ value = "similar", label = "Similar games" },
+						{ value = "about", label = "About" } :: PickerOption,
+						{ value = "similar", label = "Similar games" } :: PickerOption,
 					},
-				},
+				} :: unknown,
 				UI.Spacer "TabsGap" { minLength = "s" },
 				button("SaveDetail", saveAction(current).label, function()
 					model.save(current:peek())
 				end),
 			},
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return tab(use) == "about"
 			end, function()
 				return UI.VStack "AboutGame" {
-					width = "fill",
+					width = "fill" :: "fill",
 					gap = "s",
-					ratingAnchor,
+					ratingAnchor :: unknown,
 					Compose.show(ratingPresented, function()
 						return UI.Callout "RatingPopover" {
 							priority = 10,
 							anchor = ratingAnchor,
 							isPresented = ratingPresented,
-							content = function()
+							content = function(): Instance
 								return words(
 									"RatingMeaning",
 									"The rating is the share of players who would recommend this game to a friend.",
@@ -745,7 +769,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					quiet("Rating", selected.rating .. " recommend this game · " .. selected.players, "label"),
 					words("YourRating", "Your rating", "label"),
 					UI.Rating "Stars" {
-						value = function(use)
+						value = function(use: Use)
 							return use(model.ratings)[selected.id] or selected.stars
 						end,
 						count = 5,
@@ -762,14 +786,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					),
 				}
 			end),
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return tab(use) == "similar"
 			end, function()
-				local function similarRow(candidate)
+				local function similarRow(candidate: { [string]: any })
 					return UI.RowActions({
 						Name = "SimilarRow_" .. candidate.id,
 						Size = D2.new(1, 0, 0, 42),
-						content = function()
+						content = function(): Instance
 							return button(
 								"Similar_" .. candidate.id,
 								candidate.title .. "  ·  " .. candidate.rating,
@@ -791,18 +815,18 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					})
 				end
 				return UI.VStack "SimilarGames" {
-					width = "fill",
+					width = "fill" :: "fill",
 					gap = "s",
-					Compose.switch(function(use)
+					Compose.switch(function(use: Use)
 						return math.clamp(use(model.similarPage), 1, pageCount)
 					end, {}, function()
 						local page = math.clamp(model.similarPage:peek(), 1, pageCount)
-						local rows = { Name = "SimilarPage", width = "fill", gap = "s" }
+						local rows = { Name = "SimilarPage", width = "fill" :: "fill", gap = "s" }
 						for index = (page - 1) * perPage + 1, math.min(#similar, page * perPage) do
 							table.insert(rows, similarRow(similar[index]))
 						end
 						return UI.VStack(rows)
-					end),
+					end) :: unknown,
 					Compose.show(function()
 						return pageCount > 1
 					end, function()
@@ -820,13 +844,13 @@ function screens.create(Facet: any, runtime: any, actions: any)
 	end
 	local function discoverContent(region, collapsed)
 		local dimensions = Compose.cell(V2.new(screens.CANVAS.w, screens.CANVAS.h))
-		local function short(use)
+		local function short(use: Use)
 			return use(region).Y < screens.SHORT_HEIGHT
 		end
-		local function compact(use)
+		local function compact(use: Use)
 			return use(dimensions).X < (if short(use) then 480 else 620)
 		end
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			local offset = use(model.discoveryScroll) or 0
 			local browsing = short(use) and use(model.shelf) == "browse"
 			if not browsing or offset < 8 then
@@ -835,7 +859,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				collapsed:set(true)
 			end
 		end)
-		local function featured(use)
+		local function featured(use: Use)
 			return not compact(use) and use(dimensions).Y >= 682 and use(model.shelf) == "browse"
 		end
 		local genreOptions = { { value = "all", label = "All" } }
@@ -845,7 +869,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		local body
 		local focusSearch = Host.InputAction "FocusSearch" {
 			Type = E.InputActionType.Bool,
-			Enabled = function(use)
+			Enabled = function(use: Use)
 				return if actions.spatial then use(model.mode) == "Spatial" else use(model.mode) == "Screen"
 			end,
 			Released = function()
@@ -858,10 +882,10 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		}
 		local chips = {
 			Name = "Genres",
-			axis = "x",
+			axis = "x" :: "x",
 			gap = "s",
 			ScrollBarThickness = 2,
-			Visible = function(use)
+			Visible = function(use: Use)
 				return not use(collapsed)
 			end,
 		}
@@ -872,7 +896,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				UI.Chip({
 					Name = "Genre_" .. value,
 					label = option.label,
-					selected = function(use)
+					selected = function(use: Use)
 						return use(model.genre) == value
 					end,
 					onToggle = function()
@@ -884,34 +908,34 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		local savedShelf = button("Saved", "Saved", function()
 			model.shelf:set("saved")
 		end, {
-			selected = function(use)
+			selected = function(use: Use)
 				return use(model.shelf) == "saved"
 			end,
 		})
 		local shelves = UI.HStack "Shelves" {
-			width = function(use)
+			width = function(use: Use)
 				return if short(use) and not compact(use) then "hug" else "fill"
 			end,
 			gap = "s",
-			align = "center",
+			align = "center" :: "center",
 			button("Browse", "Browse", function()
 				model.shelf:set("browse")
 			end, {
-				selected = function(use)
+				selected = function(use: Use)
 					return use(model.shelf) == "browse"
 				end,
-			}),
-			UI.badged(savedShelf, function(use)
+			}) :: unknown,
+			UI.badged(savedShelf, function(use: Use)
 				return #use(model.savedGames)
 			end),
 			UI.Text "Count" {
-				text = function(use)
+				text = function(use: Use)
 					return `{#use(model.visibleGames)} games`
 				end,
-				textRole = "caption",
-				role = "secondary",
+				textRole = "caption" :: "caption",
+				role = "secondary" :: "secondary",
 				TextXAlignment = E.TextXAlignment.Right,
-				Visible = function(use)
+				Visible = function(use: Use)
 					return not short(use)
 				end,
 				UI.fill(),
@@ -927,19 +951,19 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			return Host.Frame "Feed" {
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 0),
-				UI.fill(),
+				UI.fill() :: unknown,
 				child,
 			}
 		end
 		body = UI.VStack "DiscoverBody" {
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			gap = "s",
-			Host.InputContext "DiscoverShortcuts" { focusSearch },
+			Host.InputContext "DiscoverShortcuts" { focusSearch :: unknown } :: unknown,
 			UI.HStack "SearchControls" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
-				align = "center",
+				align = "center" :: "center",
 				wrap = true,
 				UI.ComboBox "Search" {
 					value = model.searchSelection,
@@ -947,7 +971,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					acceptCustom = function()
 						return true
 					end,
-					options = function(use)
+					options = function(use: Use)
 						local query, choices = use(model.query):lower(), {}
 						if query ~= "" then
 							for _, item in use(model.catalog.items) do
@@ -970,19 +994,19 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						end
 					end,
 					placeholder = "Search games",
-					Size = function(use)
+					Size = function(use: Use)
 						return if compact(use) then D2.new(1, 0, 0, 44) else D2.fromOffset(0, 44)
 					end,
 					AutomaticSize = E.AutomaticSize.None,
 					Host.UIFlexItem({
-						FlexMode = function(use)
+						FlexMode = function(use: Use)
 							return if compact(use) then E.UIFlexMode.None else E.UIFlexMode.Fill
 						end,
 					}),
-				},
+				} :: unknown,
 				UI.ShortcutHint "SearchShortcut" {
 					action = focusSearch,
-					Visible = function(use)
+					Visible = function(use: Use)
 						return not compact(use) and not use(touchEnabled)
 					end,
 				},
@@ -992,12 +1016,12 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						model.sort:set(value)
 					end,
 					options = {
-						{ value = "recommended", label = "Recommended" },
-						{ value = "rating", label = "Top rated" },
-						{ value = "playing", label = "Most playing" },
+						{ value = "recommended", label = "Recommended" } :: PickerOption,
+						{ value = "rating", label = "Top rated" } :: PickerOption,
+						{ value = "playing", label = "Most playing" } :: PickerOption,
 					},
-					style = "menu",
-					Size = function(use)
+					style = "menu" :: "menu",
+					Size = function(use: Use)
 						return if compact(use)
 							then D2.new(1, 0, 0, 44)
 							else D2.fromOffset(if short(use) then 150 else 180, 44)
@@ -1014,7 +1038,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					table.insert(pages, {
 						id = item.id,
 						label = item.title,
-						content = function()
+						content = function(): Instance
 							local card
 							card = button("ExploreFeatured_" .. item.id, "", function()
 								selectedCard:set(card)
@@ -1035,20 +1059,20 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									Position = D2.new(0.42, 8, 0, 18),
 									Size = D2.new(0.58, -28, 0, 0),
 									AutomaticSize = E.AutomaticSize.Y,
-									Host.UISizeConstraint({ MaxSize = V2.new(520, 1000000) }),
+									Host.UISizeConstraint({ MaxSize = V2.new(520, 1000000) }) :: unknown,
 									quiet("FeaturedGenre", item.genre),
 									words("FeaturedTitle", item.title, "heading"),
 									quiet("FeaturedDescription", item.description, "body"),
 									quiet("FeaturedFacts", item.rating .. " recommend  ·  " .. item.players),
 									UI.HStack "FeaturedCreator" {
 										gap = "xs",
-										align = "center",
+										align = "center" :: "center",
 										UI.Image "FeaturedCreatorImage" {
 											image = item.creatorImage,
-											shape = "circle",
-											scaleMode = "crop",
+											shape = "circle" :: "circle",
+											scaleMode = "crop" :: "crop",
 											Size = D2.fromOffset(24, 24),
-										},
+										} :: unknown,
 										quiet("FeaturedCreatorName", item.creator, "label", {
 											Size = D2.fromOffset(0, 0),
 											AutomaticSize = E.AutomaticSize.XY,
@@ -1075,7 +1099,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					Size = D2.new(1, 0, 0, 284),
 				}
 			end),
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return use(model.shelf) == "browse" and #use(model.visibleGames) == 0
 			end, function()
 				return UI.Notice "NoResults" {
@@ -1094,28 +1118,28 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					},
 				}
 			end),
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return use(model.shelf) == "saved" and #use(model.savedGames) == 0
 			end, function()
 				return UI.VStack "Empty" {
-					width = "fill",
+					width = "fill" :: "fill",
 					gap = "xs",
 					padding = "m",
-					words("EmptyTitle", "Nothing saved yet", "heading"),
+					words("EmptyTitle", "Nothing saved yet", "heading") :: unknown,
 					quiet("EmptyMessage", "Save a game from its page, or drag a card onto Saved.", "label"),
 				}
 			end),
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return use(model.shelf) == "browse"
 			end, function()
-				return feedFrame(Compose.switch(function(use)
+				return feedFrame(Compose.switch(function(use: Use)
 					return use(model.query) .. "\0" .. use(model.genre) .. "\0" .. use(model.sort)
 				end, {}, function()
 					return collection("VirtualGrid", {
 						Name = "Games",
 						from = model.visibleGames,
 						key = "id",
-						columns = function(use)
+						columns = function(use: Use)
 							return math.max(1, math.floor((use(dimensions).X + 16) / 280))
 						end,
 						itemSize = 250,
@@ -1129,14 +1153,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					}, model.discoveryScroll)
 				end))
 			end),
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return use(model.shelf) == "saved" and #use(model.savedGames) > 0
 			end, function()
 				return feedFrame(UI.Table "SavedGames" {
 					from = model.savedGames,
 					key = "id",
 					selection = model.savedSelection,
-					selectionMode = "single",
+					selectionMode = "single" :: "single",
 					sort = model.savedSort,
 					widths = model.savedWidths,
 					itemSize = 60,
@@ -1158,7 +1182,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							value = function(item)
 								return item.title
 							end,
-						},
+						} :: TableColumn,
 						{
 							id = "genre",
 							label = "Genre",
@@ -1166,7 +1190,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							value = function(item)
 								return item.genre
 							end,
-						},
+						} :: TableColumn,
 						{
 							id = "session",
 							label = "Session",
@@ -1175,7 +1199,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 								local session = model.sessions:peek()[item.id]
 								return if session then civil.format(session) else "—"
 							end,
-						},
+						} :: TableColumn,
 						{
 							id = "rating",
 							label = "Rating",
@@ -1183,14 +1207,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							value = function(item)
 								return item.rating
 							end,
-						},
+						} :: TableColumn,
 						{
 							id = "note",
 							label = "Note",
 							width = 160,
 							sortable = false,
 							priority = "always",
-							render = function(current)
+							render = function(current): GuiObject
 								local id = current:peek().id
 								local draft = Compose.cell(model.notes:peek()[id] or "")
 								return UI.TextInput({
@@ -1207,7 +1231,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									end,
 								})
 							end,
-						},
+						} :: TableColumn,
 					},
 				})
 			end),
@@ -1215,15 +1239,15 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		measure(body, dimensions)
 		return body,
 			UI.ZStack "Overlays" {
-				width = "fill",
-				height = "fill",
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
 				UI.Alert "GameDetail" {
 					surface = "fullScreen",
 					transition = { source = selectedCard, seconds = 0.32, ease = Compose.easing.outCubic },
 					item = model.selectedGame,
 					title = function(payload)
 						local title = Compose.cell(payload.title)
-						Compose.watch(function(use)
+						Compose.watch(function(use: Use)
 							local selected = use(model.selectedGame)
 							if selected then
 								title:set(selected.title)
@@ -1231,9 +1255,9 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						end)
 						return title
 					end,
-					content = function(payload)
+					content = function(payload): Instance
 						local presentedGame = Compose.cell(payload)
-						Compose.watch(function(use)
+						Compose.watch(function(use: Use)
 							local selected = use(model.selectedGame)
 							if selected then
 								presentedGame:set(selected)
@@ -1244,7 +1268,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							Size = D2.new(1, 0, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
 							Compose.keyed({
-								from = function(use)
+								from = function(use: Use)
 									return { use(presentedGame) }
 								end,
 								key = function(item)
@@ -1254,8 +1278,10 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							}),
 						}
 					end,
-					actions = { { id = "close", label = "Done", role = "cancel" } },
-				},
+					actions = {
+						{ id = "close", label = "Done", role = "cancel" :: "cancel" } :: AlertAction,
+					},
+				} :: unknown,
 				toastFor("Discover"),
 			}
 	end

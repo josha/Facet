@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Steps",
 	refuse = "Refuse changes",
@@ -15,14 +20,16 @@ return {
 	title = "Steps",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY
 		local refuse = Compose.cell(false)
-		local current = Compose.cell("ship" :: string?)
-		local steps = {
+		local current = (function(value: string?): OptionalStringCell
+			return Compose.cell(value)
+		end)("ship")
+		local steps: { Step } = {
 			{ id = "cart", label = copy.cart, state = "complete" :: "complete", navigable = true },
 			{ id = "ship", label = copy.shipping, description = copy.shippingNote, navigable = true },
 			{
@@ -48,12 +55,12 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text({
 					Name = "Title",
 					LayoutOrder = 1,
 					text = copy.title,
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -70,7 +77,7 @@ return {
 					Name = "NarrowTitle",
 					LayoutOrder = 4,
 					text = copy.narrow,
-					textRole = "label",
+					textRole = "label" :: "label",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextXAlignment = Enum.TextXAlignment.Left,

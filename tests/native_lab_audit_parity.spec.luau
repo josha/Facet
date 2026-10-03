@@ -1,9 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function package(name: string): any
@@ -31,7 +37,7 @@ end
 
 local function sheetFor(theme: any): (any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local sheet
 	local stop = runtime.mount(function()
 		sheet = themes.createStyleSheet(runtime, theme, { types = engine.types })
@@ -52,16 +58,16 @@ end
 t.describe("native lab audit: menu submenu rows", function()
 	t.it("a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none", function()
 		local opened = Compose.cell(false)
-		local w = worlds.new(function(UI)
+		local w = worlds.new(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = opened,
 				items = {
-					{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = function() end },
+					{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 					{
 						id = "share",
 						label = "Share",
 						children = { { id = "mail", label = "Mail", onSelect = function() end } },
-					},
+					} :: FixtureNavigationTypes.MenuItem<any>,
 				},
 			})
 		end)
@@ -76,8 +82,8 @@ t.describe("native lab audit: menu submenu rows", function()
 end)
 
 t.describe("native lab audit: Slider rung thumb and track floor", function()
-	local function cell(axis: string, size: string?): (any, number)
-		local w = worlds.new(function(UI, Host, engine)
+	local function cell(axis: "x" | "y", size: ("xsmall" | "compact" | "regular" | "large")?): (any, number)
+		local w = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame({
 				Name = "Cell",
 				AutomaticSize = engine.types.Enum.AutomaticSize.XY,
@@ -98,7 +104,7 @@ t.describe("native lab audit: Slider rung thumb and track floor", function()
 	end
 	for _, axis in { "x", "y" } do
 		t.it(`axis {axis}: the track keeps one target of travel in a hugging cell`, function()
-			local w = cell(axis, nil)
+			local w = cell(axis :: "x" | "y", nil)
 			local floor = w.find("Track"):FindFirstChildWhichIsA("UISizeConstraint")
 			t.expect(floor ~= nil).toBe(true)
 			t.expect(if axis == "y" then floor.MinSize.Y else floor.MinSize.X).toBe(44)
@@ -107,8 +113,9 @@ t.describe("native lab audit: Slider rung thumb and track floor", function()
 	end
 	t.it("compact and large thumbs differ, and regular is the theme's thumb", function()
 		local sizes: { [string]: number } = {}
-		for _, rung in { "compact", "regular", "large", "none" } do
-			local w, size = cell("y", if rung == "none" then nil else rung)
+		for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
+			local w, size =
+				cell("y", if rung == "none" then nil else rung :: "xsmall" | "compact" | "regular" | "large")
 			sizes[rung] = size
 			w.stop()
 		end
@@ -120,20 +127,23 @@ end)
 t.describe("native lab audit: ProgressView rungs", function()
 	t.it("a bar spends its rung on track thickness: small rungs thin, regular and large the theme track", function()
 		for rung, px in { xsmall = 4, compact = 4, regular = 6, large = 6, none = 6 } :: { [string]: number } do
-			local w = worlds.new(function(UI)
-				return UI.ProgressView("P")({ value = 0.5, controlSize = if rung == "none" then nil else rung })
+			local w = worlds.new(function(UI: FacetControls)
+				return UI.ProgressView("P")({
+					value = 0.5,
+					controlSize = if rung == "none" then nil else rung :: "xsmall" | "compact" | "regular" | "large",
+				})
 			end)
 			t.expect(`{rung}={w.find("Track").Size.Y.Offset}`).toBe(`{rung}={px}`)
 			w.stop()
 		end
 	end)
 	t.it("a large ring shows its value in the gauge", function()
-		local w = worlds.new(function(UI)
+		local w = worlds.new(function(UI: FacetControls)
 			return UI.ProgressView("P")({
 				value = 0.65,
-				presentation = "circular",
+				presentation = "circular" :: "circular",
 				showValue = true,
-				controlSize = "large",
+				controlSize = "large" :: "large",
 				format = function(value: number): string
 					return tostring(value)
 				end,
@@ -146,25 +156,30 @@ t.describe("native lab audit: ProgressView rungs", function()
 	end)
 	t.it("refuses a bar rung with a thickness", function()
 		local ok, err = pcall(function()
-			worlds.new(function(UI)
-				return UI.ProgressView("P")({ value = 0.5, controlSize = "compact", thickness = 8 })
+			worlds.new(function(UI: FacetControls)
+				return UI.ProgressView("P")({ value = 0.5, controlSize = "compact" :: "compact", thickness = 8 })
 			end)
 		end)
 		t.expect(ok).toBe(false)
 		t.expect(string.find(tostring(err), "not both", 1, true) ~= nil).toBe(true)
 		for _, spec in
 			{
-				{ presentation = "circular", value = 0.5, diameter = 64, controlSize = "regular" },
-				{ presentation = "spinner", controlSize = "huge" },
+				{
+					presentation = "circular" :: "circular",
+					value = 0.5,
+					diameter = 64,
+					controlSize = "regular" :: "regular",
+				},
+				{ presentation = "spinner" :: "spinner", controlSize = "huge" :: "huge" },
 				{ value = 0.5, endLabel = 7 },
 				{ value = 0.5, endLabel = Compose.cell(7 :: any) },
 			} :: { { [string]: any } }
 		do
-			t.expect(worlds.mountError(function(UI)
-				return UI.ProgressView("P")(spec)
+			t.expect(worlds.mountError(function(UI: FacetControls)
+				return UI.ProgressView("P")(spec :: any)
 			end) ~= nil).toBe(true)
 		end
-		t.expect(worlds.mountError(function(UI)
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.ProgressView("P")({ value = 0.5, endLabel = "Done" })
 		end)).toBeNil()
 	end)
@@ -174,12 +189,12 @@ t.describe("native lab audit: Vote and one rung plate height", function()
 	t.it("a readOnly vote keeps the interactive strip's rung height", function()
 		local heights: { [string]: number } = {}
 		for _, readOnly in { false, true } do
-			for _, rung in { "compact", "large" } do
-				local w = worlds.new(function(UI)
+			for _, rung in { "compact", "large" } :: { "compact" | "large" } do
+				local w = worlds.new(function(UI: FacetControls)
 					return UI.Vote("V")({
-						value = "up",
+						value = "up" :: "up",
 						readOnly = readOnly,
-						controlSize = rung,
+						controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 						onChange = function() end,
 					})
 				end)
@@ -206,40 +221,50 @@ t.describe("native lab audit: Vote and one rung plate height", function()
 	do
 		t.it(`{name}: a Button, the segmented track and a checkbox land on one rung height`, function()
 			local boxes: { number } = {}
-			for _, rung in { "xsmall", "compact", "regular", "large" } do
+			for _, rung in { "xsmall", "compact", "regular", "large" } :: { "compact" | "large" | "regular" | "xsmall" } do
 				local options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } }
-				local w = worlds.new(function(UI, Host)
+				local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Row",
-						UI.Button("B")({ label = "Settings", controlSize = rung }),
+						UI.Button("B")({
+							label = "Settings",
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
+						}) :: unknown,
 						UI.Picker("PM")({
 							label = "Theme:",
-							style = "menu",
-							controlSize = rung,
+							style = "menu" :: "menu",
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 							selected = Compose.cell("a"),
 							options = options,
 						}),
 						UI.Picker("PS")({
-							style = "segmented",
-							controlSize = rung,
+							style = "segmented" :: "segmented",
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 							selected = Compose.cell("a"),
 							options = options,
 						}),
-						UI.TextInput("TI")({ value = Compose.cell("x"), controlSize = rung }),
+						UI.TextInput("TI")({
+							value = Compose.cell("x"),
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
+						}),
 						UI.Toggle("TK")({
 							label = "Motion",
-							presentation = "checkbox",
-							controlSize = rung,
+							presentation = "checkbox" :: "checkbox",
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 							value = Compose.cell(false),
 						}),
 						UI.Toggle("TC")({
 							label = "Reduced Motion",
-							presentation = "checkbox",
-							appearance = "plain",
-							controlSize = rung,
+							presentation = "checkbox" :: "checkbox",
+							appearance = "plain" :: "plain",
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 							value = Compose.cell(false),
 						}),
-						UI.Toggle("TS")({ label = "Music", controlSize = rung, value = Compose.cell(false) }),
+						UI.Toggle("TS")({
+							label = "Music",
+							controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
+							value = Compose.cell(false),
+						}),
 					})
 				end, { theme = package(name) })
 				local button = w.find("B").Size.Y.Offset
@@ -251,7 +276,7 @@ t.describe("native lab audit: Vote and one rung plate height", function()
 					field = w.find("Input", w.find("TI")),
 					checkbox = w.find("TK"),
 				}
-				for key, node in plated do
+				for key, node in plated :: { [string]: GuiObject } do
 					t.expect(`{rung} {key} {node.Size.Y.Offset}`).toBe(`{rung} {key} {button}`)
 				end
 				for _, key in { "TC", "TS" } do
@@ -271,9 +296,15 @@ end)
 t.describe("native lab audit: Badge status mark", function()
 	t.it("the status mark has no page-colour ring and reads against the badge plate", function()
 		for _, name in { "neutral", "pixel_quest", "fantasy_ornate" } do
-			for _, status in { "warning", "error", "accent", "neutral" } do
-				local w = worlds.new(function(UI)
-					return UI.Badge("B")({ label = "Ready", appearance = "status", status = status })
+			for _, status in
+				{ "warning", "error", "accent", "neutral" } :: { "accent" | "error" | "neutral" | "warning" }
+			do
+				local w = worlds.new(function(UI: FacetControls)
+					return UI.Badge("B")({
+						label = "Ready",
+						appearance = "status" :: "status",
+						status = status :: "accent" | "error" | "neutral" | "warning",
+					})
 				end, { theme = package(name) })
 				t.expect(w.find("Status") ~= nil).toBe(true)
 				t.expect(w.find("Cutout")).toBe(nil)
@@ -282,7 +313,9 @@ t.describe("native lab audit: Badge status mark", function()
 			end
 			local sheet, stop = sheetFor(package(name))
 			local plate = assert(rule(sheet, ".facet-badge-status")):GetProperties().BackgroundColor3
-			for _, status in { "warning", "error", "accent", "neutral" } do
+			for _, status in
+				{ "warning", "error", "accent", "neutral" } :: { "accent" | "error" | "neutral" | "warning" }
+			do
 				local mark = assert(rule(sheet, ".facet-status-" .. status)):GetProperties().BackgroundColor3
 				t.expect(`{name} {status} {mark == plate}`).toBe(`{name} {status} false`)
 			end
@@ -290,8 +323,12 @@ t.describe("native lab audit: Badge status mark", function()
 		end
 	end)
 	t.it("an unplated utility badge draws no status mark", function()
-		local w = worlds.new(function(UI)
-			return UI.Badge("B")({ label = "Ready", appearance = "utility", status = "success" })
+		local w = worlds.new(function(UI: FacetControls)
+			return UI.Badge("B")({
+				label = "Ready",
+				appearance = "utility" :: "utility",
+				status = "success" :: "success",
+			})
 		end)
 		t.expect(w.find("Status")).toBe(nil)
 		w.stop()
@@ -326,8 +363,8 @@ end)
 t.describe("native lab audit: StepIndicator rung marker", function()
 	t.it("the rung sizes the step marker, and regular is the theme's medium icon", function()
 		local sizes: { [string]: number } = {}
-		for _, rung in { "compact", "regular", "large", "none" } do
-			local w = worlds.new(function(UI)
+		for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
+			local w = worlds.new(function(UI: FacetControls)
 				return UI.StepIndicator("S")({
 					steps = {
 						{ id = "cart", label = "Cart" },
@@ -335,7 +372,7 @@ t.describe("native lab audit: StepIndicator rung marker", function()
 						{ id = "ship", label = "Ship" },
 					},
 					current = "ship",
-					controlSize = if rung == "none" then nil else rung,
+					controlSize = if rung == "none" then nil else rung :: "xsmall" | "compact" | "regular" | "large",
 				})
 			end)
 			sizes[rung] = w.find("Cue").Size.Y.Offset
@@ -351,12 +388,12 @@ t.describe("native lab audit: Notice plate carve", function()
 		for _, name in { "neutral", "pixel_quest", "fantasy_ornate", "glossy_mobile" } do
 			local theme = package(name)
 			local carve = ((theme.chrome or {}).panel or {}).contentInsets or {}
-			for _, appearance in { "standard", "emphasis" } do
-				local w = worlds.new(function(UI)
+			for _, appearance in { "standard", "emphasis" } :: { "emphasis" | "standard" } do
+				local w = worlds.new(function(UI: FacetControls)
 					return UI.Notice("Conn")({
 						title = "Update available",
 						message = "A new track pack is ready.",
-						appearance = appearance,
+						appearance = appearance :: "emphasis" | "standard",
 						actions = { { id = "Install", label = "Install", onActivate = function() end } },
 						onDismiss = function() end,
 					})

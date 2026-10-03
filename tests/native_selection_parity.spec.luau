@@ -1,8 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -17,7 +25,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local shift = { down = false }
@@ -37,8 +45,8 @@ local function setup(build: (any, any, any, any) -> any): World
 			services = { GuiService = gui, UserInputService = input },
 		} :: any
 	)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, parent)
 	return {
@@ -100,7 +108,7 @@ end
 
 local function form(UI: any, Host: any, E: any, shown: any?, order: any?)
 	return Host.Frame("Form")({
-		Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+		Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 		UI.Button("Music")({ label = "Music", LayoutOrder = 1 }),
 		Compose.show(shown or function()
 			return true
@@ -110,7 +118,7 @@ local function form(UI: any, Host: any, E: any, shown: any?, order: any?)
 		UI.Button("Haptics")({
 			label = "Haptics",
 			LayoutOrder = if order
-				then function(use)
+				then function(use: Use)
 					return use(order)
 				end
 				else 3,
@@ -121,7 +129,7 @@ end
 
 t.describe("native selection parity with the main focus graph", function()
 	t.it("enters the screen at its first control on the first D-pad press and never moves a live selection", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return form(UI, Host, engine.types.Enum)
 		end)
 		t.expect(world.gui.SelectedObject).toBe(nil)
@@ -138,14 +146,16 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("enters at the first eligible control and inside an open modal", function()
 		local presented, enabled = Compose.cell(false), Compose.cell(false)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame("Screen")({
-				UI.Button("Off")({ label = "Off", enabled = enabled }),
+				UI.Button("Off")({ label = "Off", enabled = enabled }) :: unknown,
 				UI.Button("On")({ label = "On" }),
 				UI.Alert({
 					isPresented = presented,
 					title = "Leave race?",
-					actions = { { id = "stay", label = "Stay", role = "cancel" } },
+					actions = {
+						{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
 				}),
 			})
 		end)
@@ -160,7 +170,7 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("walks Tab forward and Shift+Tab back in layout order and wraps at both ends", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return form(UI, Host, engine.types.Enum)
 		end)
 		tab(world)
@@ -184,7 +194,7 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("skips hidden, disabled and removed controls and rereads the order on the next press", function()
 		local shown, order = Compose.cell(true), Compose.cell(3)
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return form(UI, Host, engine.types.Enum, shown, order)
 		end)
 		find(world.screen, "Haptics").Visible = false
@@ -207,15 +217,15 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("traps Tab inside a modal and restores the launching control when it closes", function()
 		local presented = Compose.cell(false)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame("Screen")({
-				UI.Button("Opener")({ label = "Open" }),
+				UI.Button("Opener")({ label = "Open" }) :: unknown,
 				UI.Alert({
 					isPresented = presented,
 					title = "Replace this save?",
 					actions = {
-						{ id = "keep", label = "Keep", role = "cancel" },
-						{ id = "replace", label = "Replace", role = "destructive" },
+						{ id = "keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "replace", label = "Replace", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				}),
 			})
@@ -236,7 +246,7 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("falls to the nearest surviving neighbour when the selected control is removed", function()
 		local shown = Compose.cell(true)
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return form(UI, Host, engine.types.Enum, shown)
 		end)
 		world.gui.SelectedObject = find(world.screen, "Sfx")
@@ -249,9 +259,9 @@ t.describe("native selection parity with the main focus graph", function()
 		t.expect(world.gui.SelectedObject).toBe(nil)
 		world.stop()
 		local last = Compose.cell(true)
-		local tail = setup(function(UI, Host, engine)
+		local tail = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame("Row")({
-				Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }) :: unknown,
 				UI.Button("First")({ label = "First", LayoutOrder = 1 }),
 				Compose.show(last, function()
 					return UI.Button("Last")({ label = "Last", LayoutOrder = 2 })
@@ -266,16 +276,16 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("moves a removed collection row's selection to the following key, then the preceding one", function()
 		local rows = Compose.cell({ { id = "r1" }, { id = "r2" }, { id = "r3" }, { id = "r4" } })
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.VirtualList("Rows")({
 				from = rows,
 				key = function(item)
 					return item.id
 				end,
 				itemSize = 20,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.Button("Row")({
-						label = function(use)
+						label = function(use: Use)
 							return use(current).id
 						end,
 					})
@@ -302,18 +312,18 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("takes the selection back from an engine fallback when the selected row's key is removed", function()
 		local rows = Compose.cell({ { id = "r1" }, { id = "r2" }, { id = "r3" } })
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Toolbar")({ label = "Jump" }),
+				UI.Button("Toolbar")({ label = "Jump" }) :: unknown,
 				UI.VirtualList("Rows")({
 					from = rows,
 					key = function(item)
 						return item.id
 					end,
 					itemSize = 20,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.Button("Row")({
-							label = function(use)
+							label = function(use: Use)
 								return use(current).id
 							end,
 						})
@@ -337,9 +347,9 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("adjusts a selected slider with the D-pad while the other axis still navigates", function()
 		local value = Compose.cell(0.5)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Slider("Volume")({ value = value, step = 0.1 }),
+				UI.Slider("Volume")({ value = value, step = 0.1 }) :: unknown,
 				UI.Button("Next")({ label = "Next" }),
 			})
 		end)
@@ -364,12 +374,12 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("enters a submenu with Right and returns to its row with Left while selection is native", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = Compose.cell(true),
-				presentation = "menu",
+				presentation = "menu" :: "menu",
 				items = {
-					{ id = "first", label = "First", onSelect = function() end },
+					{ id = "first", label = "First", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 					{
 						id = "layering",
 						label = "Layering",
@@ -377,7 +387,7 @@ t.describe("native selection parity with the main focus graph", function()
 							{ id = "clothing", label = "Clothing", onSelect = function() end },
 							{ id = "makeup", label = "Makeup", onSelect = function() end },
 						},
-					},
+					} :: FixtureNavigationTypes.MenuItem<any>,
 				},
 			})
 		end)
@@ -393,34 +403,34 @@ t.describe("native selection parity with the main focus graph", function()
 
 	t.it("enters a tab strip on its selected tab", function()
 		local selection = Compose.cell("two")
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Above")({ label = "Above" }) :: unknown,
 				UI.TabView("Tabs")({
 					selection = selection,
-					transition = false,
+					transition = false :: false,
 					tabs = {
 						{
 							id = "one",
 							label = "One",
-							content = function()
+							content = function(): Instance
 								return Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "two",
 							label = "Two",
-							content = function()
+							content = function(): Instance
 								return Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "three",
 							label = "Three",
-							content = function()
+							content = function(): Instance
 								return Host.Frame({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				}),
 			})
@@ -438,9 +448,9 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("passes through a scroll container with no controls to the next control in the direction of travel", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Above")({ label = "Above" }) :: unknown,
 				Host.ScrollingFrame("Empty")({
 					Host.TextLabel({ Text = "Beginner tasks" }),
 				}),
@@ -465,9 +475,9 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("passes through an empty scroll container to the in-beam control with the nearest leading edge", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Above")({ label = "Above" }) :: unknown,
 				Host.ScrollingFrame("Empty")({
 					Host.TextLabel({ Text = "Beginner tasks" }),
 				}),
@@ -492,9 +502,9 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("never stops on a scroll container and forwards to its nearest child", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Above")({ label = "Above" }) :: unknown,
 				Host.ScrollingFrame("Page")({
 					UI.Button("Inside")({ label = "Inside" }),
 				}),
@@ -507,9 +517,9 @@ t.describe("native selection parity with the main focus graph", function()
 	end)
 
 	t.it("a move that lands on the scroll container around the selection keeps the selection", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.ScrollingFrame("Page")({
-				UI.Button("First")({ label = "First" }),
+				UI.Button("First")({ label = "First" }) :: unknown,
 				UI.Button("Edge")({ label = "Edge" }),
 			})
 		end)

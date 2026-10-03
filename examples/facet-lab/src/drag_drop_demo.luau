@@ -11,7 +11,7 @@ return function(ctx: any)
 		None = C3.fromRGB(180, 180, 180),
 	}
 	local function assets(onStart, onEnd)
-		local records =
+		local records: { any } =
 			{ { id = "portrait", kind = "image", assetId = "rbxassetid://75342910516929", name = "Portrait" } }
 		for _, name in { "Red", "Green", "Blue" } do
 			table.insert(records, { id = name, kind = "color", value = palette[name], label = name, name = name })
@@ -169,12 +169,12 @@ return function(ctx: any)
 		return {
 			operation = "apply",
 			focusTarget = focus,
-			accepts = function(payload)
+			accepts = function(payload: any): (boolean, string?)
 				if type(payload) ~= "table" then
 					return false, "Choose a color or an image"
 				end
 				if payload.kind == "color" then
-					return true
+					return true, nil
 				end
 				local image = payload.kind == "image"
 					or (payload.kind == "files" and #payload.items == 1 and payload.items[1].kind == "Image")

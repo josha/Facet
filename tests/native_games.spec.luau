@@ -1,11 +1,36 @@
+--!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
+local ComposeTypes = require("../src/vendor/compose/core/reactive/types")
 local words = require("../examples/gallery/examples/words")
-local function find(root, name)
+type World = {
+	Facet: typeof(Facet),
+	Compose: typeof(Compose),
+	runtime: Facet.Runtime,
+	Host: RobloxHost,
+	types: RobloxTypes,
+	viewport: typeof(Compose.cell({ width = 0, height = 0 })),
+	engine: engineLib.Engine,
+	node: any,
+	target: any,
+	guiService: any,
+	inputTarget: any,
+	worldTarget: any,
+	runService: { Heartbeat: typeof(engineLib.new().heartbeat) },
+	[string]: any,
+}
+local function find(root: any, name: string): any
 	if root.Name == name then
 		return root
 	end
@@ -15,8 +40,9 @@ local function find(root, name)
 			return hit
 		end
 	end
+	return nil
 end
-local function findPath(root, path)
+local function findPath(root: any, path: string): any
 	local cursor = root
 	for name in string.gmatch(path, "[^/]+") do
 		local hit = find(cursor, name)
@@ -26,20 +52,21 @@ local function findPath(root, path)
 	end
 	return if cursor.Name == path:match("([^/]+)$") then cursor else nil
 end
-local function tap(ctx, path)
+local function tap(ctx: World, path: string)
 	local node = findPath(ctx.node, path)
 	node.Activated.fire()
 end
-local function makeWorld()
+local function makeWorld(): World
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local viewport = Compose.cell({ width = 800, height = 600 })
 	return {
+		node = nil,
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		inputTarget = target,
 		worldTarget = engine.new("Folder"),
@@ -50,16 +77,25 @@ local function makeWorld()
 		engine = engine,
 	}
 end
-local function mountGame(ctx, definition)
+local function mountGame(ctx: World, definition: any): any
 	local game
 	local stop, node = ctx.runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = Facet.controls(ctx.runtime, {
 			types = ctx.types,
-			viewport = ctx.viewport,
-			motionLevel = Compose.formula(function(use)
-				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end),
+			environment = {
+				viewportSize = Compose.formula(function(use: Use): Vector2?
+					local v = use(ctx.viewport)
+					return ctx.types.Vector2.new(v.width, v.height)
+				end),
+			},
+			motionLevel = (
+					Compose.formula(function(use: Use): "normal" | "limited" | "none"
+						return (
+							if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+						) :: "none" | "normal" | "limited"
+					end) :: unknown
+				) :: ComposeTypes.Formula<"none" | "normal" | "limited">,
 		})
 		game = definition.build(ctx)
 		return ctx.Host.ScreenGui "GameScreen" { game.screen() }
@@ -83,7 +119,7 @@ do
 		error("example_word_game.spec: no seed in 1..100000 plays READER — the answer set no longer holds it", 0)
 	end)()
 
-	local function newGame(ctx)
+	local function newGame(ctx: World)
 		local game = mountGame(ctx, wordGame)
 		game.restart(READER_SEED)
 		return game
@@ -365,7 +401,7 @@ do
 			expect(key("E"):HasTag("facet-status-warning")).toBe(true)
 			expect(key("U"):HasTag("facet-status-neutral")).toBe(true)
 			expect(key("U"):HasTag("facet-status-success")).toBe(false)
-			for _, status in { "success", "warning", "neutral" } do
+			for _, status in { "success", "warning", "neutral" } :: { "neutral" | "success" | "warning" } do
 				expect(key("Z"):HasTag("facet-status-" .. status)).toBe(false)
 			end
 			local function fill(r, c)
@@ -697,7 +733,7 @@ end
 do
 	local tileGame = require("../examples/gallery/examples/06_tile_game")
 	local rules = tileGame.rules
-	local function newGame(ctx)
+	local function newGame(ctx: World)
 		return mountGame(ctx, tileGame)
 	end
 	local function boardOf(rows: { string }): { [string]: string }
@@ -1472,7 +1508,7 @@ do
 		{ "e", "a", "b", "c", "d", "e" },
 		{ "a", "b", "c", "d", "e", "a" },
 	}
-	local function newGame(board, reduced)
+	local function newGame(board: { { string } }?, reduced: boolean?)
 		local ctx = makeWorld()
 		ctx.guiService.ReducedMotionEnabled = reduced == true
 		local game = mountGame(ctx, match3)

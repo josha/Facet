@@ -129,12 +129,12 @@ function classic_desktop.definition(themes: any): any
 		},
 
 		chrome = {
-			panel = { kind = "native" },
-			control = { kind = "native" },
-			field = { kind = "native" },
-			selection = { kind = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			panel = { kind = "native" :: "native" },
+			control = { kind = "native" :: "native" },
+			field = { kind = "native" :: "native" },
+			selection = { kind = "native" :: "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 		assets = {},
 		compatibility = { requiresSchema = themes.SCHEMA },

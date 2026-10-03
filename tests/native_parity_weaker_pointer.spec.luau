@@ -1,11 +1,23 @@
 --!strict
 local nativeDrag = require("./lib/native_drag")
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FolderConstructor = typeof(require("@repo/tools/typecheck/aliases").FolderConstructor)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local transitionOf = require("./lib/transition")
 local fs = require("@lune/fs")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function find(root: any, name: string): any
 	if root.Name == name then
@@ -50,7 +62,7 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 	if settings.clock then
 		engine.clock = settings.clock
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -77,8 +89,8 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, node = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, gui, runtime)
 	end, root)
 	return {
@@ -127,7 +139,7 @@ local function compass(picked: { string }): { any }
 			id = id,
 			slot = id,
 			label = id,
-			completion = "stay",
+			completion = "stay" :: "stay",
 			onSelect = function()
 				table.insert(picked, id)
 			end,
@@ -180,14 +192,14 @@ t.describe("pointer, touch and drag strength", function()
 		}
 		for _, case in cases do
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target = engine.new("Folder")
 			local viewport = Compose.cell({ width = 800, height = 600 })
 			local ctx: any = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				inputTarget = target,
 				worldTarget = engine.new("Folder"),
@@ -199,16 +211,16 @@ t.describe("pointer, touch and drag strength", function()
 			}
 			ctx.guiService.ReducedMotionEnabled = true
 			local game: any
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				gallery.configure(ctx)
 				ctx.UI = Facet.controls(
 					runtime,
 					{
 						types = engine.types,
 						viewport = viewport,
-						motionLevel = Compose.formula(function(use)
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				game = match3.build(ctx)
@@ -269,7 +281,7 @@ t.describe("pointer, touch and drag strength", function()
 	t.it("latches a launcher tap open without a commit and keeps every ring target at the touch floor", function()
 		local picked = {}
 		local opened = Compose.cell(false)
-		local world = radial({ isPresented = opened, distribution = "compass", items = compass(picked) })
+		local world = radial({ isPresented = opened, distribution = "compass" :: "compass", items = compass(picked) })
 		local launcher = find(world.root, "Launcher")
 		for _, point in { { 0, 0 }, { 320, 240 } } do
 			local press = touch(world, point[1], point[2])
@@ -330,14 +342,14 @@ t.describe("pointer, touch and drag strength", function()
 			local opened = Compose.cell(false)
 			local items = compass(picked)
 			for _, item in items do
-				item.icon, item.labelStyle = "flag", "icon"
+				item.icon, item.labelStyle = "flag" :: "flag", "icon"
 			end
-			local world = radial({ isPresented = opened, distribution = "compass", items = items })
+			local world = radial({ isPresented = opened, distribution = "compass" :: "compass", items = items })
 			local launcher = find(world.root, "Launcher")
 			world.input.GetLastInputType = function()
 				return world.engine.types.Enum.UserInputType.MouseMovement
 			end
-			for _, kind in { "Touch", "MouseButton1" } do
+			for _, kind in { "Touch", "MouseButton1" } :: { "MouseButton1" | "Touch" } do
 				local press = touch(world, 320, 240)
 				press.UserInputType = world.engine.types.Enum.UserInputType[kind]
 				nativeDrag.press(launcher, press)
@@ -390,7 +402,11 @@ t.describe("pointer, touch and drag strength", function()
 		"commits once when native Activated arrives before the release and when a list launcher echoes a touch",
 		function()
 			local picked = {}
-			local world = radial({ distribution = "compass", completion = "stay", items = compass(picked) })
+			local world = radial({
+				distribution = "compass" :: "compass",
+				completion = "stay" :: "stay",
+				items = compass(picked),
+			})
 			local north = find(world.root, "N")
 			local press = touch(world, 320, 110)
 			nativeDrag.press(north, press)
@@ -406,7 +422,8 @@ t.describe("pointer, touch and drag strength", function()
 			world.stop()
 			local listPicked = {}
 			local opened = Compose.cell(false)
-			local listWorld = radial({ isPresented = opened, distribution = "compass", items = compass(listPicked) })
+			local listWorld =
+				radial({ isPresented = opened, distribution = "compass" :: "compass", items = compass(listPicked) })
 			local launcher = find(listWorld.root, "Launcher")
 			local tap = touch(listWorld, 0, 0)
 			nativeDrag.press(launcher, tap)
@@ -427,9 +444,13 @@ t.describe("pointer, touch and drag strength", function()
 	)
 
 	t.it("keeps the radial ring in a short viewport when gestures select by direction and commits beyond it", function()
-		for _, mode in { "direction", "bounded" } do
+		for _, mode in { "direction", "bounded" } :: { "bounded" | "direction" } do
 			local picked = {}
-			local world = radial({ distribution = "compass", gestureSelection = mode, items = compass(picked) })
+			local world = radial({
+				distribution = "compass" :: "compass",
+				gestureSelection = mode :: "bounded" | "direction",
+				items = compass(picked),
+			})
 			find(world.root, "Modal").AbsoluteSize = V2(world, 420, 200)
 			t.expect(presentation(world)).toBe(if mode == "direction" then "radial" else "list")
 			if mode == "direction" then
@@ -449,17 +470,17 @@ t.describe("pointer, touch and drag strength", function()
 	t.it("cuts the pass-through aperture around a moved anchor and restores capture in the list fallback", function()
 		local picked = {}
 		local world = radial({
-			center = "empty",
+			center = "empty" :: "empty",
 			centerPassThrough = true,
 			anchor = { x = 200, y = 150 },
-			distribution = "compass",
+			distribution = "compass" :: "compass",
 			items = compass(picked),
 		})
 		local panel = find(world.root, "RadialPanel")
 		t.expect(panel.Active).toBe(false)
 		t.expect(find(world.root, "DismissOutside").Visible).toBe(false)
 		local covered = 0
-		for _, edge in { "Top", "Bottom", "Left", "Right" } do
+		for _, edge in { "Top", "Bottom", "Left", "Right" } :: { "Bottom" | "Left" | "Right" | "Top" } do
 			local catcher = find(world.root, "Dismiss" .. edge)
 			t.expect(catcher.Visible).toBe(true)
 			local x, y = catcher.Position.X.Offset, catcher.Position.Y.Offset
@@ -481,15 +502,16 @@ t.describe("pointer, touch and drag strength", function()
 		t.expect(presentation(world)).toBe("list")
 		t.expect(panel.Active).toBe(true)
 		t.expect(find(world.root, "DismissOutside").Visible).toBe(true)
-		for _, edge in { "Top", "Bottom", "Left", "Right" } do
+		for _, edge in { "Top", "Bottom", "Left", "Right" } :: { "Bottom" | "Left" | "Right" | "Top" } do
 			t.expect(find(world.root, "Dismiss" .. edge).Visible).toBe(false)
 		end
 		world.stop()
 	end)
 
 	t.it("settles row action trays at half the tray width and snaps every repeated short swipe closed", function()
-		for _, edge in { "trailing", "leading" } do
-			local open = Compose.cell(nil :: string?)
+		for _, edge in { "trailing", "leading" } :: { "leading" | "trailing" } do
+			local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+				Compose.cell(nil :: ("leading" | "trailing")?)
 			local invoked = 0
 			local actions = {
 				{
@@ -552,7 +574,8 @@ t.describe("pointer, touch and drag strength", function()
 		function()
 			local policies: { any } = { true, { trailing = false } }
 			for _, policy in policies do
-				local open = Compose.cell(nil :: string?)
+				local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+					Compose.cell(nil :: ("leading" | "trailing")?)
 				local invoked = { trailing = 0, leading = 0 }
 				local function actionFor(edge: string): any
 					return {
@@ -647,7 +670,9 @@ t.describe("pointer, touch and drag strength", function()
 					return item.id
 				end,
 				widths = widths,
-				columns = { { id = "label", label = "Name", width = 100, minWidth = 60, maxWidth = 160 } },
+				columns = {
+					{ id = "label", label = "Name", width = 100, minWidth = 60, maxWidth = 160 } :: FixtureCollectionTypes.TableColumn<any, any>,
+				},
 			})
 		end, { preferredInput = "Touch" })
 		local column = world.node:FindFirstChild("Header"):FindFirstChild("label")
@@ -710,7 +735,7 @@ t.describe("pointer, touch and drag strength", function()
 		"autoscrolls a reorder only from the edge bands, stops on retraction and release, and clamps both ends",
 		function()
 			local requests = {}
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				local rows = {}
 				for index = 1, 100 do
 					rows[index] = { id = index, label = tostring(index) }
@@ -726,7 +751,9 @@ t.describe("pointer, touch and drag strength", function()
 					onReorder = function(keys: any, slot: number)
 						table.insert(requests, { keys = keys, slot = slot })
 					end,
-					columns = { { id = "label", label = "Label", width = 100 } },
+					columns = {
+						{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					},
 				})
 			end)
 			local engine = world.engine
@@ -783,13 +810,16 @@ t.describe("pointer, touch and drag strength", function()
 	)
 
 	t.it("gives a disabled row no drag session and restores the session when it is enabled again", function()
-		local enabled, open = Compose.cell(false), Compose.cell(nil :: string?)
-		local world = setup(function(UI, Host)
+		local enabled, open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+			Compose.cell(false), Compose.cell(nil :: ("leading" | "trailing")?)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.RowActions({
 				open = open,
 				enabled = enabled,
-				content = Host.TextLabel({ Text = "Row" }),
-				trailing = { { id = "Save", label = "Save", onActivate = function() end } },
+				content = Host.TextLabel({ Text = "Row" }) :: GuiObject,
+				trailing = {
+					{ id = "Save", label = "Save", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+				},
 			})
 		end, {
 			clock = function()
@@ -815,7 +845,7 @@ t.describe("pointer, touch and drag strength", function()
 		world.stop()
 		local value = Compose.cell(2)
 		local levelEnabled = Compose.cell(false)
-		local level = setup(function(UI)
+		local level = setup(function(UI: FacetControls)
 			return UI.LevelPicker({ value = value, count = 10, enabled = levelEnabled })
 		end)
 		level.node.AbsoluteSize = V2(level, 100, 44)
@@ -834,12 +864,21 @@ t.describe("pointer, touch and drag strength", function()
 	t.it("opens a plain menu when a touch long press begins and only then", function()
 		for _, triggers in { false, true } do
 			local opened = Compose.cell(false)
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.Menu({
 					label = "Options",
 					isPresented = opened,
-					triggers = if triggers then { "activate", "secondary", "keyboard", "gamepad" } else nil,
-					items = { { id = "Rename", label = "Rename", onSelect = function() end } },
+					triggers = if triggers
+						then {
+							"activate",
+							"secondary",
+							"keyboard",
+							"gamepad",
+						} :: { "activate" | "secondary" | "keyboard" | "gamepad" }
+						else nil,
+					items = {
+						{ id = "Rename", label = "Rename", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+					},
 				})
 			end, { preferredInput = "Touch" })
 			local trigger = find(world.node, "Trigger")
@@ -860,12 +899,12 @@ t.describe("pointer, touch and drag strength", function()
 
 	t.it("resizes a sheet live while its handle is dragged up and snaps to the nearest detent", function()
 		local detent = Compose.cell("medium")
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = detent,
 				title = "Sheet",
-				content = function()
+				content = function(): Instance
 					return Host.Frame("Body")({})
 				end,
 			})
@@ -1003,8 +1042,8 @@ t.describe("adaptive environment strength", function()
 			local tenFoot = name == "consoleTenFoot"
 			t.expect(profile.displaySize).toBe(if tenFoot then "Large" else profile.displaySize)
 			t.expect(profile.overscanInsets.left > 0).toBe(tenFoot)
-			local controls: any = {}
-			local world = setup(function(UI, Host)
+			local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					UI.Table({
 						from = { { id = 1, label = "A" }, { id = 2, label = "B" } },
@@ -1012,16 +1051,18 @@ t.describe("adaptive environment strength", function()
 							return item.id
 						end,
 						controls = controls,
-						columns = { { id = "label", label = "Label" } },
-					}),
+						columns = {
+							{ id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any>,
+						},
+					}) :: unknown,
 					UI.Picker("Choice")({
 						selected = Compose.cell("1"),
 						options = {
-							{ value = "1", label = "One" },
-							{ value = "2", label = "Two" },
-							{ value = "3", label = "Three" },
-							{ value = "4", label = "Four" },
-							{ value = "5", label = "Five" },
+							{ value = "1", label = "One" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "2", label = "Two" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "3", label = "Three" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "4", label = "Four" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "5", label = "Five" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
 					}),
 				})
@@ -1035,16 +1076,16 @@ t.describe("adaptive environment strength", function()
 					else world.engine.types.Enum.PreferredInput.KeyboardAndMouse
 			)
 			find(world.node, "Body").AbsoluteWindowSize = V2(world, 200, 100)
-			t.expect(controls.placementOf(2).offset).toBe(if tenFoot then 44 else 40)
+			t.expect(assert(controls.placementOf)(2).offset).toBe(if tenFoot then 44 else 40)
 			local picker = find(world.node, "Choice")
 			picker.AbsoluteSize = V2(world, profile.viewport.w / 2, 44)
 			t.expect(find(picker, "Trigger") == nil).toBe(tenFoot)
 			t.expect(find(picker, "5") ~= nil).toBe(tenFoot)
 			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
-			t.expect(controls.placementOf(2).offset).toBe(40)
+			t.expect(assert(controls.placementOf)(2).offset).toBe(40)
 			t.expect(find(picker, "Trigger") ~= nil).toBe(true)
 			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
-			t.expect(controls.placementOf(2).offset).toBe(44)
+			t.expect(assert(controls.placementOf)(2).offset).toBe(44)
 			t.expect(find(picker, "Trigger")).toBeNil()
 			world.stop()
 		end
@@ -1059,7 +1100,7 @@ t.describe("adaptive environment strength", function()
 				table.insert(items, {
 					id = id,
 					label = "Item " .. id,
-					completion = "stay",
+					completion = "stay" :: "stay",
 					onSelect = function()
 						table.insert(picked, id)
 					end,
@@ -1105,7 +1146,7 @@ t.describe("adaptive environment strength", function()
 		local modelModule = require("../examples/virtual_monitors/model")
 		local screens = require("../examples/virtual_monitors/screens")
 		local engine: any = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -1181,7 +1222,7 @@ t.describe("adaptive environment strength", function()
 				return { value = Compose.cell(false), label = "Music" }
 			end,
 			TextInput = function()
-				return { value = Compose.cell("Query"), presentation = "search", clearButtonMode = "always" }
+				return { value = Compose.cell("Query"), presentation = "search" :: "search", clearButtonMode = "always" }
 			end,
 			Stepper = function()
 				return { value = Compose.cell(1), min = 0, max = 10, label = "Count" }
@@ -1207,40 +1248,40 @@ t.describe("adaptive environment strength", function()
 			Picker = function()
 				return {
 					selected = Compose.cell("a"),
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 				}
 			end,
 			SplitButton = function()
 				return { label = "Action", onActivate = function() end, items = { item("Alpha") } }
 			end,
-			DisclosureGroup = function(Host)
+			DisclosureGroup = function(Host: RobloxHost)
 				return {
 					label = "Details",
 					expanded = Compose.cell(true),
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel({ Text = "Body" })
 					end,
 				}
 			end,
-			TabView = function(Host)
+			TabView = function(Host: RobloxHost)
 				local function tab(id: string): any
 					return {
 						id = id,
 						label = id,
-						content = function()
+						content = function(): Instance
 							return Host.TextLabel({ Text = id })
 						end,
 					}
 				end
 				return { selection = Compose.cell("a"), tabs = { tab("a"), tab("b") } }
 			end,
-			PageView = function(Host)
+			PageView = function(Host: RobloxHost)
 				local function page(id: string): any
 					return {
 						id = id,
 						title = id,
-						content = function()
+						content = function(): Instance
 							return Host.TextLabel({ Text = id })
 						end,
 					}
@@ -1252,26 +1293,34 @@ t.describe("adaptive environment strength", function()
 					title = "Confirm",
 					message = "Continue?",
 					isPresented = Compose.cell(true),
-					actions = { { id = "ok", label = "OK" }, { id = "cancel", label = "Cancel", role = "cancel" } },
+					actions = {
+						{ id = "ok", label = "OK" },
+						{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" },
+					},
 				}
 			end,
-			Sheet = function(Host)
+			Sheet = function(Host: RobloxHost)
 				return {
 					title = "Sheet",
 					detent = Compose.cell("medium"),
 					isPresented = Compose.cell(true),
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel({ Text = "Body" })
 					end,
 				}
 			end,
-			RowActions = function(Host)
+			RowActions = function(Host: RobloxHost)
 				return {
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel({ Text = "Row" })
 					end,
 					trailing = {
-						{ id = "delete", label = "Delete", role = "destructive", onActivate = function() end },
+						{
+							id = "delete",
+							label = "Delete",
+							role = "destructive" :: "destructive",
+							onActivate = function() end,
+						} :: FixtureCollectionTypes.RowAction,
 					},
 					open = Compose.cell("trailing"),
 				}
@@ -1284,10 +1333,10 @@ t.describe("adaptive environment strength", function()
 		table.sort(names)
 		local failures = {}
 		for _, name in names do
-			for _, kind in { "Touch", "Gamepad" } do
-				local world = setup(function(UI, Host)
+			for _, kind in { "Touch", "Gamepad" } :: { "Gamepad" | "Touch" } do
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({ UI[name](fixtures[name](Host)) })
-				end, { preferredInput = kind })
+				end, { preferredInput = kind :: "Gamepad" | "Touch" })
 				for _, child in world.node:GetChildren() do
 					if child:IsA("GuiObject") then
 						child.AbsoluteSize = V2(world, 300, 44)
@@ -1325,7 +1374,7 @@ t.describe("adaptive environment strength", function()
 					return low + state % (high - low + 1)
 				end
 				local value = Compose.cell(0.5)
-				local controls: any = {}
+				local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
 				local sheet: any
 				local current: any
 				local services = {
@@ -1335,7 +1384,7 @@ t.describe("adaptive environment strength", function()
 				}
 				local world: World
 				withGame(services, function()
-					world = setup(function(UI, Host, engine, gui, runtime)
+					world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui, runtime)
 						current = gui
 						sheet = Facet.themes.createStyleSheet(
 							runtime,
@@ -1343,21 +1392,23 @@ t.describe("adaptive environment strength", function()
 							{ types = engine.types }
 						)
 						return Host.Frame({
-							sheet,
+							sheet :: unknown,
 							UI.Table({
 								from = { { id = 1, label = "A" }, { id = 2, label = "B" }, { id = 3, label = "C" } },
 								key = function(item: any)
 									return item.id
 								end,
 								controls = controls,
-								columns = { { id = "label", label = "Label" } },
+								columns = {
+									{ id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any>,
+								},
 							}),
 							UI.Slider("Volume")({ value = value }),
 							UI.Alert({
 								title = "Confirm",
 								message = "Continue?",
 								isPresented = Compose.cell(true),
-								actions = { { id = "ok", label = "OK" } },
+								actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
 							}),
 						})
 					end, { config = { theme = compactTheme() } })
@@ -1395,7 +1446,7 @@ t.describe("adaptive environment strength", function()
 						then 56
 						elseif kind == world.engine.types.Enum.PreferredInput.Gamepad then 44
 						else 40
-					t.expect(controls.placementOf(2).offset).toBe(expected)
+					t.expect(assert(controls.placementOf)(2).offset).toBe(expected)
 					for index = 1, 3 do
 						t.expect(body:FindFirstChild(tostring(index), true)).toBe(rows[index])
 					end
@@ -1409,7 +1460,7 @@ t.describe("adaptive environment strength", function()
 				end
 				world.stop()
 				local picked = {}
-				local ring = radial({ distribution = "compass", items = compass(picked) })
+				local ring = radial({ distribution = "compass" :: "compass", items = compass(picked) })
 				local modal = find(ring.root, "Modal")
 				local north = find(ring.root, "N")
 				for _ = 1, 10 do
@@ -1481,7 +1532,7 @@ t.describe("adaptive environment strength", function()
 		}
 		for _, case in cases do
 			local selected = Compose.cell("1")
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.Picker({ selected = selected, options = options(case[1], case[2]) })
 			end, { preferredInput = case[4] })
 			find(world.node, "LabelMeasure").TextBounds = V2(world, case[1] * 60, 18)
@@ -1499,7 +1550,7 @@ t.describe("adaptive environment strength", function()
 			end
 			world.stop()
 		end
-		local query = setup(function(UI)
+		local query = setup(function(UI: FacetControls)
 			return UI.Picker({ selected = Compose.cell("1"), query = Compose.cell(""), options = options(2, false) })
 		end, { preferredInput = "Gamepad" })
 		query.node.AbsoluteSize = V2(query, 400, 44)
@@ -1512,7 +1563,7 @@ t.describe("adaptive environment strength", function()
 		"follows GuiService transparency from attach and live without wiring, and keeps paint fades under Reduce Motion",
 		function()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			gui.PreferredTransparency = 0.5
 			gui.ReducedMotionEnabled = true
@@ -1527,7 +1578,7 @@ t.describe("adaptive environment strength", function()
 				stop = runtime.mount(function()
 					sheet =
 						Facet.themes.createStyleSheet(runtime, Facet.themes.neutralPackage(), { types = engine.types })
-					return runtime.constructors.Folder({ sheet })
+					return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({ sheet :: unknown })
 				end, engine.new("Folder"))
 			end)
 			local scrim = scrimOf(sheet)
@@ -1553,7 +1604,7 @@ t.describe("adaptive environment strength", function()
 						Facet.themes.neutralPackage(),
 						{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" }
 					)
-					return runtime.constructors.Folder({ explicit })
+					return ((runtime.constructors.Folder :: unknown) :: FolderConstructor)({ explicit :: unknown })
 				end, engine.new("Folder"))
 				t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
 				gui.PreferredTransparency = 0

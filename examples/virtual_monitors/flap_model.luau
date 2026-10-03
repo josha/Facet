@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local flap = {
 	WIDTH = 768,
 	HEIGHT = 448,
@@ -47,7 +49,7 @@ function flap.tileAt(column: number, row: number): string?
 end
 
 local function initial(): State
-	return { phase = "ready", x = 0, y = 192, velocity = 0, score = 0 }
+	return { phase = "ready" :: "ready", x = 0, y = 192, velocity = 0, score = 0 }
 end
 
 local function collision(state: State): boolean
@@ -66,7 +68,7 @@ local function collision(state: State): boolean
 	return false
 end
 
-function flap.new(Compose: any)
+function flap.new(Compose: ComposeModule)
 	local state, best = Compose.cell(initial()), Compose.cell(0)
 	local disposed = false
 	local function flapPress()
@@ -74,10 +76,10 @@ function flap.new(Compose: any)
 			return
 		end
 		local current = state:peek()
-		local nextState = if current.phase == "ready" or current.phase == "over"
+		local nextState: State = if current.phase == "ready" or current.phase == "over"
 			then initial()
 			else table.clone(current)
-		nextState.phase = "playing"
+		nextState.phase = "playing" :: "playing"
 		nextState.velocity = flap.IMPULSE
 		state:set(nextState)
 	end
@@ -86,7 +88,7 @@ function flap.new(Compose: any)
 			return
 		end
 		local nextState = table.clone(state:peek())
-		nextState.phase = "paused"
+		nextState.phase = "paused" :: "paused"
 		state:set(nextState)
 	end
 	local function togglePause()
@@ -95,7 +97,7 @@ function flap.new(Compose: any)
 		end
 		if state:peek().phase == "paused" then
 			local nextState = table.clone(state:peek())
-			nextState.phase = "playing"
+			nextState.phase = "playing" :: "playing"
 			state:set(nextState)
 		else
 			pause()
@@ -114,7 +116,7 @@ function flap.new(Compose: any)
 			nextState.y += nextState.velocity * delta + flap.GRAVITY * delta * delta / 2
 			nextState.velocity += flap.GRAVITY * delta
 			if collision(nextState) then
-				nextState.phase = "over"
+				nextState.phase = "over" :: "over"
 				break
 			end
 			local passed = (nextState.x + flap.BIRD_X - flap.BIRD_RADIUS) / flap.TILE

@@ -52,7 +52,7 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }): string
 						if right > cell.AbsolutePosition.X + cell.AbsoluteSize.X + 4 then
 							table.insert(
 								lines,
-								`text past its cell "{string.sub(label.Text, 1, 30)}": {cell.Parent.Parent.Name}/{cell.Name}`
+								`text past its cell "{string.sub(label.Text, 1, 30)}": {assert(cell.Parent.Parent).Name}/{cell.Name}`
 							)
 						end
 					end

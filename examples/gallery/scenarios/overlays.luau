@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+
 local COPY = {
 	title = "Overlays on request",
 	intro = "These surfaces open only when asked. The screen owns whether a popover or a dialog is open: it can accept or refuse every close.",
@@ -43,7 +47,7 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local aboutOpen = Compose.cell(false)
@@ -106,14 +110,14 @@ return {
 				from = function(use: any)
 					return { `{use(tourSession)}:{use(tourStep)}` }
 				end,
-				render = function()
+				render = function(): GuiObject
 					local step = tourStep:peek()
 					return UI.Callout({
 						Name = if step == 1 then "Tour" else `Tour{step}`,
 						anchor = anchor,
 						isPresented = tourAsked,
 						title = COPY.coachTitle,
-						media = { image = ART, aspectRatio = 2, scaleMode = "crop" },
+						media = { image = ART, aspectRatio = 2, scaleMode = "crop" :: "crop" },
 						content = body(COPY.coachBody),
 						steps = { index = step, count = TOUR_STEPS },
 						closeButton = true,
@@ -128,7 +132,7 @@ return {
 							{
 								id = "Go",
 								label = if step < TOUR_STEPS then COPY.coachGo else COPY.coachDone,
-								role = "default",
+								role = "default" :: "default",
 								onActivate = function()
 									if step < TOUR_STEPS then
 										advancing = true
@@ -172,7 +176,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
 					ScrollBarThickness = 6,
-					label("Title", COPY.title, 1, "title"),
+					label("Title", COPY.title, 1, "title") :: unknown,
 					label("Intro", COPY.intro, 2),
 					label("Status", status, 3),
 					UI.Button "Reset" { LayoutOrder = 4, label = COPY.reset, onActivate = reset },
@@ -185,9 +189,9 @@ return {
 								filterOpen:set(nextValue)
 							end,
 							trigger = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
-							content = function()
+							content = function(): Instance
 								return UI.Picker "FilterBy" {
-									style = "radioGroup",
+									style = "radioGroup" :: "radioGroup",
 									selected = filterBy,
 									onChange = function(value: string)
 										filterBy:set(value)
@@ -195,9 +199,9 @@ return {
 										filterOpen:set(false)
 									end,
 									options = {
-										{ value = "all", label = "All races" },
-										{ value = "friends", label = "Friends" },
-										{ value = "ranked", label = "Ranked" },
+										{ value = "all", label = "All races" } :: PickerOption,
+										{ value = "friends", label = "Friends" } :: PickerOption,
+										{ value = "ranked", label = "Ranked" } :: PickerOption,
 									},
 								}
 							end,
@@ -233,7 +237,7 @@ return {
 							end
 						end,
 						trigger = UI.Button "LockedButton" { label = COPY.locked },
-						content = function()
+						content = function(): Instance
 							return Host.Frame "Body" {
 								BackgroundTransparency = 1,
 								Size = UDim2.fromOffset(280, 0),
@@ -242,7 +246,7 @@ return {
 									FillDirection = Enum.FillDirection.Vertical,
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									Padding = UDim.new(0, 8),
-								}),
+								}) :: unknown,
 								label("Line", COPY.lockedBody, 1),
 								UI.Toggle "Allow" { LayoutOrder = 2, label = COPY.allow, value = allowClose },
 								UI.Button "Close" {
@@ -271,8 +275,8 @@ return {
 							sourceOpen:set(nextValue)
 						end,
 						source = { node = sourceRow },
-						edge = "bottom",
-						align = "start",
+						edge = "bottom" :: "bottom",
+						align = "start" :: "start",
 						content = body(COPY.sourceBody),
 					},
 					Host.Frame "TourRow" {
@@ -283,7 +287,7 @@ return {
 						Host.UIListLayout({
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
-						}),
+						}) :: unknown,
 						tourButton,
 						tour(tourButton),
 					},
@@ -302,7 +306,7 @@ return {
 						onDismiss = function(reason: string)
 							note(`Last: dialog closed ({reason})`)
 						end,
-						hero = { image = ART, aspectRatio = 2, scaleMode = "crop" },
+						hero = { image = ART, aspectRatio = 2, scaleMode = "crop" :: "crop" },
 						title = COPY.dialogTitle,
 						content = body(COPY.dialogBody),
 						actionLabel = COPY.dialogLabel,
@@ -310,19 +314,19 @@ return {
 							{
 								id = "Stay",
 								label = COPY.stay,
-								role = "cancel",
+								role = "cancel" :: "cancel",
 								onActivate = function()
 									note("Last: stayed in the race")
 								end,
-							},
+							} :: OverlayAction,
 							{
 								id = "Leave",
 								label = COPY.leave,
-								role = "destructive",
+								role = "destructive" :: "destructive",
 								onActivate = function()
 									note("Last: left the race")
 								end,
-							},
+							} :: OverlayAction,
 						},
 					},
 					UI.Button "TermsButton" {
@@ -345,8 +349,8 @@ return {
 							note(`Last: terms closed ({reason})`)
 						end,
 						title = COPY.lockedDialogTitle,
-						width = "narrow",
-						content = function()
+						width = "narrow" :: "narrow",
+						content = function(): Instance
 							return UI.Toggle "Read" { label = COPY.accept, value = termsRead }
 						end,
 					},

@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local GuiService = game:GetService("GuiService")
 
 local cases: { any } = {}
@@ -69,7 +71,7 @@ local COASTAL = "Coastal circuit reverse night lap 14"
 local function labelHolder(t: any, text: any, width: any, extra: { [string]: any }?, options: { [string]: any }?): any
 	return t.mount(function(UI: any, Host: any, Compose: any)
 		local spec: { [any]: any } = { Name = "Cut", text = text, truncate = "middle" }
-		for key, value in extra or {} do
+		for key, value in (extra or {} :: { [string]: any }) do
 			spec[key] = value
 		end
 		return Host.Frame({
@@ -85,7 +87,7 @@ local function labelHolder(t: any, text: any, width: any, extra: { [string]: any
 end
 
 add("label-middle-truncation-real-bounds", { "mech2-46" }, function(t)
-	local Compose = t.Facet.Compose
+	local Compose: ComposeModule = t.Facet.Compose
 	local width = Compose.cell(60)
 	local stage = labelHolder(t, COASTAL, width)
 	local label = t.find(stage, "Cut")
@@ -158,7 +160,7 @@ add("label-middle-truncation-real-bounds", { "mech2-46" }, function(t)
 end)
 
 add("label-middle-truncation-follows-a-theme-text-change", { "mech2-46" }, function(t)
-	local Compose = t.Facet.Compose
+	local Compose: ComposeModule = t.Facet.Compose
 	local base = t.themes[1].package
 	local themeCell: any
 	local stage = t.mount(function(UI: any, Host: any, _: any, env: any)

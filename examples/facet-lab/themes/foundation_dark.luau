@@ -1,6 +1,6 @@
 --!strict
 
-local foundation = require(script.Parent.foundation) :: any
+local foundation = require(assert(script.Parent).foundation) :: any
 return {
 	id = foundation.id,
 	displayName = foundation.displayName,

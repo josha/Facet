@@ -1,8 +1,20 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureRadialTypes = require("../src/ui/radial_types")
+local NavigationFixtures = require("../src/ui/navigation_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -15,7 +27,7 @@ type World = {
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -33,8 +45,8 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
 	return {
@@ -90,7 +102,7 @@ end
 
 local function galleryFixture(build: (any) -> any): (any, any, () -> (), any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -104,7 +116,7 @@ local function galleryFixture(build: (any) -> any): (any, any, () -> (), any)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 800 }),
 		inputTarget = target,
@@ -119,7 +131,7 @@ local function galleryFixture(build: (any) -> any): (any, any, () -> (), any)
 	}
 	ctx.packages = { Neutral = ctx.theme:peek() }
 	local gallery = require("../examples/gallery/client/screen")
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = Facet.controls(
 			runtime,
@@ -131,9 +143,9 @@ local function galleryFixture(build: (any) -> any): (any, any, () -> (), any)
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				motionLevel = Compose.formula(function(use)
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end),
+				end) :: unknown) :: MotionLevel,
 			} :: any
 		)
 		return ctx.Host.ScreenGui("GalleryTest")({ build(ctx) })
@@ -157,7 +169,7 @@ end
 
 local function journeyFixture(theme: any, input: string): (any, any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local service = engine.new("UserInputService")
 	service.PreferredInput = (engine.types.Enum.PreferredInput :: any)[input]
@@ -170,7 +182,7 @@ local function journeyFixture(theme: any, input: string): (any, any, any, () -> 
 	local ctx: any = {
 		Facet = Facet,
 		Compose = Compose,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		runtime = runtime,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
@@ -191,14 +203,14 @@ local function journeyFixture(theme: any, input: string): (any, any, any, () -> 
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = service },
 			inputParent = target,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 			theme = theme,
 		} :: any
 	)
 	local built
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		built = require("../examples/gallery/scenarios/navigation_stack").build(ctx)
 		return ctx.Host.ScreenGui({ built.screen() })
 	end, target)
@@ -218,16 +230,16 @@ end
 t.describe("native parity weaker navigation", function()
 	t.it("places the empty-center ring Back in the south-west compass slot and closes from the root", function()
 		local opened = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = opened,
-				distribution = "compass",
-				center = "empty",
+				distribution = "compass" :: "compass",
+				center = "empty" :: "empty",
 				items = {
-					{ id = "N", slot = "N", label = "N" },
-					{ id = "E", slot = "E", label = "E" },
-					{ id = "S", slot = "S", label = "S" },
-					{ id = "W", slot = "W", label = "W" },
+					{ id = "N", slot = "N" :: "N", label = "N" } :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "E", slot = "E" :: "E", label = "E" } :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "S", slot = "S" :: "S", label = "S" } :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "W", slot = "W" :: "W", label = "W" } :: FixtureRadialTypes.RadialItem<any>,
 				},
 			})
 		end, { motionLevel = "none" })
@@ -249,14 +261,14 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("keeps the empty-center corner Close on the corner and returns one level from a branch", function()
 		local opened = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = opened,
-				preset = "bottom-left",
-				center = "empty",
+				preset = "bottom-left" :: "bottom-left",
+				center = "empty" :: "empty",
 				items = {
-					{ id = "Gear", label = "Gear", children = { { id = "Use", label = "Use" } } },
-					{ id = "Map", label = "Map" },
+					{ id = "Gear", label = "Gear", children = { { id = "Use", label = "Use" } } } :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "Map", label = "Map" } :: FixtureRadialTypes.RadialItem<any>,
 				},
 			})
 		end, { motionLevel = "none" })
@@ -281,10 +293,10 @@ t.describe("native parity weaker navigation", function()
 	t.it("backs a radial branch out with ButtonB and returns the selection to the parent item", function()
 		for _, navigation in { "replace", "expand" } do
 			local opened = Compose.cell(true)
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.RadialMenu({
 					isPresented = opened,
-					navigation = navigation,
+					navigation = navigation :: "replace" | "expand",
 					items = {
 						{
 							id = "Gear",
@@ -293,12 +305,12 @@ t.describe("native parity weaker navigation", function()
 								{
 									id = "Tools",
 									label = "Tools",
-									navigation = "expand",
-									children = { { id = "Use", label = "Use", completion = "stay" } },
+									navigation = "expand" :: "expand",
+									children = { { id = "Use", label = "Use", completion = "stay" :: "stay" } },
 								},
 							},
-						},
-						{ id = "Map", label = "Map" },
+						} :: FixtureRadialTypes.RadialItem<any>,
+						{ id = "Map", label = "Map" } :: FixtureRadialTypes.RadialItem<any>,
 					},
 				})
 			end, { motionLevel = "none" })
@@ -324,11 +336,11 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("leaves the selection on the disclosure header when the header expands the group", function()
 		local expanded = Compose.cell(false)
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.DisclosureGroup({
 				expanded = expanded,
 				label = "Advanced",
-				content = function()
+				content = function(): Instance
 					return UI.Button("Inner")({ label = "Inner" })
 				end,
 			})
@@ -348,10 +360,10 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("selects pages from the indicators and summarizes the current page", function()
 		local selection = Compose.cell("one")
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			local pages = {}
 			for _, id in { "one", "two", "three" } do
-				table.insert(pages, { id = id, title = id, content = Host.Frame(id .. "Body")({}) })
+				table.insert(pages, { id = id, label = id, content = Host.Frame(id .. "Body")({}) })
 			end
 			return UI.PageView("Pager")({ selection = selection, pages = pages })
 		end)
@@ -380,10 +392,10 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("sizes every page to the pager viewport and moves the page with owner-held selection", function()
 		local selection = Compose.cell("one")
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			local pages = {}
 			for _, id in { "one", "two", "three" } do
-				table.insert(pages, { id = id, title = id, content = Host.Frame(id .. "Body")({}) })
+				table.insert(pages, { id = id, label = id, content = Host.Frame(id .. "Body")({}) })
 			end
 			return UI.PageView("Pager")({ selection = selection, pages = pages })
 		end)
@@ -410,10 +422,10 @@ t.describe("native parity weaker navigation", function()
 	end)
 
 	t.it("repeats push and Back from page content and releases each popped page", function()
-		local path = Compose.cell({})
+		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 		local live, built = 0, {}
-		local world = setup(function(UI)
-			local function content(entry)
+		local world = setup(function(UI: FacetControls)
+			local function content(entry: FixtureNavigationTypes.NavigationEntry<any>?): Instance
 				local name = if entry then "detail" else "root"
 				live += 1
 				built[name] = (built[name] or 0) + 1
@@ -431,8 +443,10 @@ t.describe("native parity weaker navigation", function()
 			end
 			return UI.NavigationStack("Nav")({
 				path = path,
-				root = { title = "Home", content = content },
-				destinations = { detail = { title = "Detail", content = content } },
+				root = { title = "Home", content = content } :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					detail = { title = "Detail", content = content } :: NavigationFixtures.NavigationDestination<any>,
+				},
 				backLabel = "Back",
 			})
 		end)
@@ -462,10 +476,10 @@ t.describe("native parity weaker navigation", function()
 	end)
 
 	t.it("keeps the caller path through repeated routes and pop to root and releases every page", function()
-		local path = Compose.cell({})
+		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 		local live, built, released = 0, 0, 0
-		local world = setup(function(UI, Host)
-			local function content(entry)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local function content(entry: FixtureNavigationTypes.NavigationEntry<any>?): Instance
 				live += 1
 				built += 1
 				Compose.cleanup(function()
@@ -476,8 +490,10 @@ t.describe("native parity weaker navigation", function()
 			end
 			return UI.NavigationStack("Nav")({
 				path = path,
-				root = { content = content },
-				destinations = { step = { title = "Step", content = content } },
+				root = { content = content } :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					step = { title = "Step", content = content } :: NavigationFixtures.NavigationDestination<any>,
+				},
 			})
 		end)
 		local first = { id = "step", value = 1 }
@@ -591,7 +607,7 @@ t.describe("native parity weaker navigation", function()
 	t.it("adapts showcase category navigation while keeping the page and its inner top tabs", function()
 		for _, name in { "all_controls", "collections", "motion_layout" } do
 			local scenario = require("../examples/gallery/scenarios/" .. name) :: any
-			local placement = Compose.cell("automatic")
+			local placement = Compose.cell("automatic" :: string)
 			local layout = Compose.cell(nil :: any)
 			local ctx, root, stop = galleryFixture(function(context)
 				context.pageVisible = Compose.cell(true)
@@ -650,7 +666,7 @@ t.describe("native parity weaker navigation", function()
 		local gallery = require("../examples/gallery/client/screen")
 		local ctx, root, stop = galleryFixture(function(context)
 			context.demos = {
-				{ id = "all-controls", title = "All controls", kind = "fixture", module = "all_controls" },
+				{ id = "all-controls", title = "All controls", kind = "fixture" :: "fixture", module = "all_controls" },
 			}
 			context.load = function(_, module)
 				return require("../examples/gallery/scenarios/" .. module) :: any
@@ -727,8 +743,8 @@ t.describe("native parity weaker navigation", function()
 		function()
 			local current, builds = nil, 0
 			local selection = Compose.cell("a")
-			local world = setup(function(UI, Host)
-				local function probe(placement)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				local function probe(placement: FixtureNavigationTypes.Placement): Instance?
 					current = placement
 					return Host.Frame("Probe")({})
 				end
@@ -739,18 +755,18 @@ t.describe("native parity weaker navigation", function()
 						{
 							id = "a",
 							label = "A",
-							content = function()
+							content = function(): Instance
 								builds += 1
 								return Host.Frame("aBody")({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "b",
 							label = "B",
-							content = function()
+							content = function(): Instance
 								return Host.Frame("bBody")({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end)
@@ -798,33 +814,37 @@ t.describe("native parity weaker navigation", function()
 			t.expect(builds).toBe(1)
 			world.stop()
 			local adaptable, placed = nil, nil
-			local wide = setup(function(UI, Host)
+			local wide = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					UI.TabView("Adaptable")({
 						selection = Compose.cell("a"),
-						style = "sidebarAdaptable",
+						style = "sidebarAdaptable" :: "sidebarAdaptable",
 						accessories = {
-							head = function(placement)
+							head = function(placement: FixtureNavigationTypes.Placement): Instance?
 								adaptable = placement
 								return Host.Frame({})
 							end,
-							trailing = function(placement)
+							trailing = function(placement: FixtureNavigationTypes.Placement): Instance?
 								adaptable = placement
 								return Host.Frame({})
 							end,
 						},
-						tabs = { { id = "a", label = "A", content = page(Host, "a") } },
-					}),
+						tabs = {
+							{ id = "a", label = "A", content = page(Host, "a") } :: FixtureNavigationTypes.Tab,
+						},
+					}) :: unknown,
 					UI.TabView("Declared")({
 						selection = Compose.cell("a"),
-						placement = "topBar",
+						placement = "topBar" :: "topBar",
 						accessories = {
-							trailing = function(placement)
+							trailing = function(placement: FixtureNavigationTypes.Placement): Instance?
 								placed = placement
 								return Host.Frame({})
 							end,
 						},
-						tabs = { { id = "a", label = "A", content = page(Host, "a") } },
+						tabs = {
+							{ id = "a", label = "A", content = page(Host, "a") } :: FixtureNavigationTypes.Tab,
+						},
 					}),
 				})
 			end)
@@ -847,36 +867,36 @@ t.describe("native parity weaker navigation", function()
 	)
 
 	t.it("pops back to the control that pushed, found by path when the root rebuilt it", function()
-		local path = Compose.cell({})
+		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 		local version = Compose.cell(1)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.NavigationStack({
 				path = path,
-				transition = false,
+				transition = false :: false,
 				root = {
-					content = function()
+					content = function(): Instance
 						return Host.Frame("Root")({
 							Compose.keyed({
-								from = function(use)
+								from = function(use: Use)
 									return { use(version) }
 								end,
-								render = function()
+								render = function(): GuiObject
 									return Host.Frame("Strip")({
-										UI.Button("First")({ label = "First" }),
+										UI.Button("First")({ label = "First" }) :: unknown,
 										UI.Button("Open")({ label = "Open" }),
 									})
 								end,
 							}),
 						})
 					end,
-				},
+				} :: NavigationFixtures.NavigationDestination<any>,
 				destinations = {
 					detail = {
 						title = "Detail",
-						content = function()
+						content = function(): Instance
 							return UI.Button("Inside")({ label = "Inside" })
 						end,
-					},
+					} :: NavigationFixtures.NavigationDestination<any>,
 				},
 			})
 		end)
@@ -890,24 +910,24 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("a TabView inside a bar-less outer TabView (placement none) takes the full home policy", function()
 		for _, outerPlacement in { "none", "topBar" } do
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return UI.TabView("Outer")({
 					selection = Compose.cell("shell"),
-					placement = outerPlacement,
+					placement = outerPlacement :: FixtureNavigationTypes.Placement,
 					tabs = {
 						{
 							id = "shell",
 							label = "Shell",
-							content = function()
+							content = function(): Instance
 								return UI.TabView("Inner")({
 									selection = Compose.cell("a"),
 									tabs = {
-										{ id = "a", label = "A", content = page(Host, "a") },
-										{ id = "b", label = "B", content = page(Host, "b") },
+										{ id = "a", label = "A", content = page(Host, "a") } :: FixtureNavigationTypes.Tab,
+										{ id = "b", label = "B", content = page(Host, "b") } :: FixtureNavigationTypes.Tab,
 									},
 								})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end)
@@ -921,20 +941,20 @@ t.describe("native parity weaker navigation", function()
 	end)
 
 	t.it("moves the selection from a vanished accessory to the current tab when the home changes", function()
-		local preference = Compose.cell("topBar")
-		local world = setup(function(UI, Host)
+		local preference = Compose.cell("topBar" :: "automatic" | "sidebar" | "topBar")
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView("Apps")({
 				selection = Compose.cell("a"),
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				sidebarPreference = preference,
 				accessories = {
-					trailing = function()
+					trailing = function(): Instance?
 						return Host.TextButton("Switch")({ Selectable = true })
 					end,
 				},
 				tabs = {
-					{ id = "a", label = "A", content = page(Host, "a") },
-					{ id = "b", label = "B", content = page(Host, "b") },
+					{ id = "a", label = "A", content = page(Host, "a") } :: FixtureNavigationTypes.Tab,
+					{ id = "b", label = "B", content = page(Host, "b") } :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -948,30 +968,30 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("expands a distant sidebar on command and ButtonB collapses it back to the top bar", function()
 		local expanded = Compose.cell(false)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			local outer = UI.TabView("Outer")({
 				selection = Compose.cell("shell"),
 				tabs = {
 					{
 						id = "shell",
 						label = "Shell",
-						content = function()
+						content = function(): Instance
 							return UI.TabView("Apps")({
 								selection = Compose.cell("a"),
-								style = "sidebarAdaptable",
+								style = "sidebarAdaptable" :: "sidebarAdaptable",
 								sidebarExpanded = expanded,
 								accessories = {
-									trailing = function()
+									trailing = function(): Instance?
 										return Host.TextButton("Expand")({ Selectable = true })
 									end,
 								},
 								tabs = {
-									{ id = "a", label = "A", content = page(Host, "a") },
-									{ id = "b", label = "B", content = page(Host, "b") },
+									{ id = "a", label = "A", content = page(Host, "a") } :: FixtureNavigationTypes.Tab,
+									{ id = "b", label = "B", content = page(Host, "b") } :: FixtureNavigationTypes.Tab,
 								},
 							})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 			return outer
@@ -1010,11 +1030,13 @@ t.describe("native parity weaker navigation", function()
 	end)
 
 	t.it("keeps page owners and the strip across every declared home and evicts only on selection", function()
-		for _, style in { "automatic", "sidebarAdaptable" } do
-			local selected, placement = Compose.cell("games"), Compose.cell("topBar")
+		for _, style in { "automatic", "sidebarAdaptable" } :: { "automatic" | "sidebarAdaptable" } do
+			local selected, placement: FixtureComposeTypes.Cell<"automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar"> =
+				Compose.cell("games"),
+				Compose.cell("topBar" :: "automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar")
 			local mounted, released = {}, {}
-			local world = setup(function(UI, Host)
-				local function content(id)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				local function content(id: string)
 					return function()
 						mounted[id] = (mounted[id] or 0) + 1
 						Compose.cleanup(function()
@@ -1025,13 +1047,13 @@ t.describe("native parity weaker navigation", function()
 				end
 				return UI.TabView({
 					selection = selected,
-					style = style,
+					style = style :: "automatic" | "sidebarAdaptable",
 					placement = placement,
-					retention = "top",
-					transition = false,
+					retention = "top" :: "top",
+					transition = false :: false,
 					tabs = {
-						{ id = "games", label = "Games", content = content("games") },
-						{ id = "avatar", label = "Avatar", content = content("avatar") },
+						{ id = "games", label = "Games", content = content("games") } :: FixtureNavigationTypes.Tab,
+						{ id = "avatar", label = "Avatar", content = content("avatar") } :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end)
@@ -1041,7 +1063,7 @@ t.describe("native parity weaker navigation", function()
 			local avatar = find(strip, "avatar", "TextButton")
 			local page = find(world.screen, "gamesPage")
 			for _, home in { "sidebar", "bottomBar", "topBar", "bottomBarCompact", "sidebar", "topBar" } do
-				placement:set(home)
+				placement:set(home :: FixtureNavigationTypes.Placement)
 				t.expect(mounted.games).toBe(1)
 				t.expect(released.games).toBeNil()
 				t.expect(mounted.avatar).toBeNil()
@@ -1066,11 +1088,12 @@ t.describe("native parity weaker navigation", function()
 	end)
 
 	t.it("retires tab accessories per home through Compose ownership in every placement", function()
-		local placement = Compose.cell("sidebar")
+		local placement: FixtureComposeTypes.Cell<"automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar"> =
+			Compose.cell("sidebar" :: "automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar")
 		local live, built, released = {}, 0, 0
-		local world = setup(function(UI, Host)
-			local function accessory(slot)
-				return function(home)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			local function accessory(slot: string)
+				return function(home: FixtureNavigationTypes.Placement): Instance
 					built += 1
 					local key = slot .. ":" .. home
 					live[key] = (live[key] or 0) + 1
@@ -1083,14 +1106,16 @@ t.describe("native parity weaker navigation", function()
 			end
 			return UI.TabView({
 				selection = Compose.cell("home"),
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				placement = placement,
 				accessories = {
 					head = accessory("head"),
 					trailing = accessory("trailing"),
 					aboveBar = accessory("aboveBar"),
 				},
-				tabs = { { id = "home", label = "Home", content = page(Host, "home") } },
+				tabs = {
+					{ id = "home", label = "Home", content = page(Host, "home") } :: FixtureNavigationTypes.Tab,
+				},
 			})
 		end)
 		local slots = {
@@ -1100,7 +1125,7 @@ t.describe("native parity weaker navigation", function()
 			bottomBarCompact = { trailing = true, aboveBar = true },
 		}
 		for _, home in { "sidebar", "topBar", "bottomBar", "bottomBarCompact", "sidebar" } do
-			placement:set(home)
+			placement:set(home :: FixtureNavigationTypes.Placement)
 			for key, count in live do
 				local slot, at = string.match(key, "^(%w+):(%w+)$")
 				t.expect(count).toBe(if at == home and slots[home][slot :: string] then 1 else 0)
@@ -1116,13 +1141,13 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("reopens collapsed tabs through their menu and selects each destination in turn", function()
 		local selected = Compose.cell("games")
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView("Collapsed")({
-				style = "collapsible",
+				style = "collapsible" :: "collapsible",
 				selection = selected,
 				tabs = {
-					{ id = "games", label = "Games", content = page(Host, "games") },
-					{ id = "avatar", label = "Avatar", content = page(Host, "avatar") },
+					{ id = "games", label = "Games", content = page(Host, "games") } :: FixtureNavigationTypes.Tab,
+					{ id = "avatar", label = "Avatar", content = page(Host, "avatar") } :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -1143,15 +1168,19 @@ t.describe("native parity weaker navigation", function()
 	t.it("moves selection into the collapsed tab menu and returns it to the trigger after a choice", function()
 		for _, variant in { "default", "customized" } do
 			local selected = Compose.cell("one")
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return UI.TabView("Collapsed")({
-					style = "collapsible",
-					indicator = if variant == "customized" then "none" else nil,
-					customization = if variant == "customized" then Compose.cell({ order = {}, hidden = {} }) else nil,
+					style = "collapsible" :: "collapsible",
+					indicator = if variant == "customized" then "none" :: "none" else nil,
+					customization = if variant == "customized"
+						then Compose.cell(
+							{ order = {} :: { string }, hidden = {} :: { string } } :: { order: { string }?, hidden: { string }? }
+						)
+						else nil,
 					selection = selected,
 					tabs = {
-						{ id = "one", label = "First", content = page(Host, "one") },
-						{ id = "two", label = "Second", content = page(Host, "two") },
+						{ id = "one", label = "First", content = page(Host, "one") } :: FixtureNavigationTypes.Tab,
+						{ id = "two", label = "Second", content = page(Host, "two") } :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end)
@@ -1177,22 +1206,23 @@ t.describe("native parity weaker navigation", function()
 	end)
 
 	t.it("binds the sidebar preference without rebuilding pages or moving focus off page content", function()
-		local selection, preference = Compose.cell("garage"), Compose.cell("topBar")
+		local selection, preference =
+			Compose.cell("garage"), Compose.cell("topBar" :: "automatic" | "sidebar" | "topBar")
 		local builds = 0
-		local world = setup(function(UI)
-			local function content(id, label)
+		local world = setup(function(UI: FacetControls)
+			local function content(id: string, label: string)
 				return function()
 					builds += 1
 					return UI.Button(id)({ label = label })
 				end
 			end
 			return UI.TabView({
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				sidebarPreference = preference,
 				selection = selection,
 				tabs = {
-					{ id = "garage", label = "Garage", content = content("Tune", "Tune car") },
-					{ id = "races", label = "Races", content = content("Race", "Start race") },
+					{ id = "garage", label = "Garage", content = content("Tune", "Tune car") } :: FixtureNavigationTypes.Tab,
+					{ id = "races", label = "Races", content = content("Race", "Start race") } :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -1228,13 +1258,13 @@ t.describe("native parity weaker navigation", function()
 	end)
 
 	t.it("shows a persistent sidebar by default on a wide pointer viewport without a toggle", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView({
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				selection = Compose.cell("garage"),
 				tabs = {
-					{ id = "garage", label = "Garage", content = page(Host, "garage") },
-					{ id = "races", label = "Races", content = page(Host, "races") },
+					{ id = "garage", label = "Garage", content = page(Host, "garage") } :: FixtureNavigationTypes.Tab,
+					{ id = "races", label = "Races", content = page(Host, "races") } :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -1258,24 +1288,25 @@ t.describe("native parity weaker navigation", function()
 	t.it(
 		"centres the top bar beside a tall trailing accessory and anchors rail accessories to the rail ends",
 		function()
-			local placement = Compose.cell("topBar")
-			local world = setup(function(UI, Host, engine)
+			local placement: FixtureComposeTypes.Cell<"automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar"> =
+				Compose.cell("topBar" :: "automatic" | "bottomBar" | "bottomBarCompact" | "none" | "sidebar" | "topBar")
+			local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 				return UI.TabView({
 					selection = Compose.cell("a"),
-					style = "sidebarAdaptable",
+					style = "sidebarAdaptable" :: "sidebarAdaptable",
 					placement = placement,
 					accessories = {
-						trailing = function()
+						trailing = function(): Instance?
 							return Host.Frame("Trailing")({ Size = engine.types.UDim2.fromOffset(80, 120) })
 						end,
-						head = function()
+						head = function(): Instance?
 							return Host.Frame("Head")({})
 						end,
-						foot = function()
+						foot = function(): Instance?
 							return Host.Frame("Foot")({})
 						end,
 					},
-					tabs = { { id = "a", label = "A", content = page(Host, "a") } },
+					tabs = { { id = "a", label = "A", content = page(Host, "a") } :: FixtureNavigationTypes.Tab },
 				})
 			end)
 			local UDim2 = world.engine.types.UDim2
@@ -1324,26 +1355,26 @@ t.describe("native parity weaker navigation", function()
 	t.it("remembers a tab's focus after its page is evicted and lets a direct selection override it", function()
 		local selected = Compose.cell("gear")
 		local builds, released = 0, 0
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			local function content()
 				builds += 1
 				Compose.cleanup(function()
 					released += 1
 				end)
 				return Host.Frame("Page")({
-					Host.UIListLayout({}),
+					Host.UIListLayout({}) :: unknown,
 					UI.Button("A")({ label = "A" }),
 					UI.Button("B")({ label = "B" }),
 				})
 			end
 			return UI.TabView({
 				selection = selected,
-				placement = "topBar",
-				retention = "top",
-				transition = false,
+				placement = "topBar" :: "topBar",
+				retention = "top" :: "top",
+				transition = false :: false,
 				tabs = {
-					{ id = "gear", label = "Gear", content = content },
-					{ id = "options", label = "Options", content = content },
+					{ id = "gear", label = "Gear", content = content } :: FixtureNavigationTypes.Tab,
+					{ id = "options", label = "Options", content = content } :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -1373,17 +1404,17 @@ t.describe("native parity weaker navigation", function()
 	t.it("fits nested horizontal tabs at a large text size without mounting section headings", function()
 		local textSize = Compose.cell(18)
 		local sections = { { id = "game", label = "Game" }, { id = "system", label = "System" } }
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView("Outer")({
 				selection = Compose.cell("pages"),
-				placement = "sidebar",
+				placement = "sidebar" :: "sidebar",
 				sections = sections,
 				tabs = {
 					{
 						id = "pages",
 						label = "Pages",
 						section = "game",
-						content = function()
+						content = function(): Instance
 							return UI.TabView("Inner")({
 								selection = Compose.cell("avatars"),
 								sections = sections,
@@ -1394,24 +1425,24 @@ t.describe("native parity weaker navigation", function()
 										label = "Avatars",
 										section = "game",
 										content = page(Host, "avatars"),
-									},
+									} :: FixtureNavigationTypes.Tab,
 									{
 										id = "badges",
 										label = "Badges",
 										section = "game",
 										content = page(Host, "badges"),
-									},
+									} :: FixtureNavigationTypes.Tab,
 									{
 										id = "privacy",
 										label = "Privacy",
 										section = "system",
 										content = page(Host, "privacy"),
-									},
+									} :: FixtureNavigationTypes.Tab,
 								},
 							})
 						end,
-					},
-					{ id = "about", label = "About", section = "system", content = page(Host, "about") },
+					} :: FixtureNavigationTypes.Tab,
+					{ id = "about", label = "About", section = "system", content = page(Host, "about") } :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -1468,21 +1499,21 @@ t.describe("native parity weaker navigation", function()
 				)),
 			}
 		local views = {
-			{ 390, 844, "Touch" },
-			{ 844, 390, "Touch" },
-			{ 1024, 768, "Touch" },
-			{ 1280, 800, "KeyboardAndMouse" },
-			{ 1920, 1080, "Gamepad" },
+			{ width = 390, height = 844, input = "Touch" },
+			{ width = 844, height = 390, input = "Touch" },
+			{ width = 1024, height = 768, input = "Touch" },
+			{ width = 1280, height = 800, input = "KeyboardAndMouse" },
+			{ width = 1920, height = 1080, input = "Gamepad" },
 		}
 		for _, package in packages do
 			for _, view in views do
-				local built, node, ctx, close = journeyFixture(package, view[3])
-				find(node, "NavigationFlow").AbsoluteSize = ctx.types.Vector2.new(view[1], view[2])
-				t.expect(built.report().axis).toBe(if view[1] < 600 then "y" else "x")
+				local built, node, ctx, close = journeyFixture(package, view.input)
+				find(node, "NavigationFlow").AbsoluteSize = ctx.types.Vector2.new(view.width, view.height)
+				t.expect(built.report().axis).toBe(if view.width < 600 then "y" else "x")
 				find(node, "Continue", "TextButton").Activated.fire()
 				t.expect(built.report().navigation.depth).toBe(1)
 				t.expect(find(node, "Columns"):FindFirstChildWhichIsA("UIListLayout").FillDirection).toBe(
-					if view[1] < 600
+					if view.width < 600
 						then ctx.types.Enum.FillDirection.Vertical
 						else ctx.types.Enum.FillDirection.Horizontal
 				)
@@ -1582,7 +1613,7 @@ t.describe("native parity weaker navigation", function()
 
 	t.it("lists only same-genre matches under More like this, opens one on its info and toggles Save off", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()

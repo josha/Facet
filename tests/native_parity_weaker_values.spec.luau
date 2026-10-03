@@ -1,8 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -19,7 +28,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -40,8 +49,8 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, node = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine, runtime)
 	end, root)
 	return {
@@ -95,11 +104,11 @@ end
 
 local function mountError(build: (any, any) -> any): string?
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI =
 		Facet.controls(runtime, { types = engine.types, guiService = gui, services = { GuiService = gui } } :: any)
-	local Host = runtime.constructors
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local ok, message = pcall(function()
 		local stop = runtime.mount(function()
 			return Host.Frame({ build(UI, Host) })
@@ -130,9 +139,9 @@ local INPUTS = { "pointer", "touch", "keyboard", "gamepad" }
 local function press(world: World, node: any, input: string)
 	local E = world.types.Enum
 	if input == "pointer" then
-		node.Activated.fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode.Unknown }, 1)
+		node.Activated.fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }, 1)
 	elseif input == "touch" then
-		node.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode.Unknown }, 1)
+		node.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
 	elseif input == "keyboard" then
 		world.gui.SelectedObject = node
 		local activate = assert(action(world.root, "Activate"), "Activate action is bound on the selected control")
@@ -207,7 +216,7 @@ t.describe("native parity weaker values", function()
 		local value = Compose.cell(2)
 		local world = setup(function(UI, Host)
 			return Host.Frame({
-				UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }),
+				UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }) :: unknown,
 				UI.LevelPicker("Quality")({ value = value, count = 10 }),
 			})
 		end)
@@ -285,7 +294,7 @@ t.describe("native parity weaker values", function()
 		local value = Compose.cell(3)
 		local world = setup(function(UI, Host)
 			return Host.Frame({
-				UI.Rating("Stars")({ value = value }),
+				UI.Rating("Stars")({ value = value }) :: unknown,
 				UI.LevelPicker("Plain")({ value = Compose.cell(1), segment = "glyph" }),
 			})
 		end)
@@ -319,7 +328,7 @@ t.describe("native parity weaker values", function()
 		local value = Compose.cell(2)
 		local world = setup(function(UI, Host)
 			return Host.Frame({
-				UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }),
+				UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }) :: unknown,
 				UI.Rating("Stars")({ value = value }),
 			})
 		end)
@@ -397,7 +406,7 @@ t.describe("native parity weaker values", function()
 		return selected
 	end
 
-	for _, presentation in { "switch", "checkbox", "button" } do
+	for _, presentation in { "switch", "checkbox", "button" } :: { "button" | "checkbox" | "switch" } do
 		t.it(presentation .. " toggle flips once through every input and refuses input when disabled", function()
 			for _, input in INPUTS do
 				local value, enabled = Compose.cell(false), Compose.cell(true)
@@ -409,7 +418,7 @@ t.describe("native parity weaker values", function()
 							label = "Receive race updates with detailed results",
 							value = value,
 							mixed = mixed,
-							presentation = presentation,
+							presentation = presentation :: "button" | "checkbox" | "switch",
 							enabled = enabled,
 							onChange = function(nextValue)
 								changes += 1
@@ -442,7 +451,7 @@ t.describe("native parity weaker values", function()
 		end)
 	end
 
-	for _, presentation in { "switch", "checkbox", "button", "row" } do
+	for _, presentation in { "switch", "checkbox", "button", "row" } :: { "button" | "checkbox" | "row" | "switch" } do
 		t.it(presentation .. " toggle waits for model approval through every input", function()
 			for _, input in INPUTS do
 				local value, mixed, enabled = Compose.cell(false), Compose.cell(false), Compose.cell(true)
@@ -524,11 +533,11 @@ t.describe("native parity weaker values", function()
 			local accept = false
 			local function binding(cell: any): any
 				if source == "formula" then
-					return Compose.formula(function(use)
+					return Compose.formula(function(use: Use)
 						return use(cell)
 					end)
 				elseif source == "function" then
-					return function(use)
+					return function(use: Use)
 						return use(cell)
 					end
 				end
@@ -540,7 +549,7 @@ t.describe("native parity weaker values", function()
 						label = "Select all",
 						value = binding(value),
 						mixed = binding(mixed),
-						presentation = "checkbox",
+						presentation = "checkbox" :: "checkbox",
 						onChange = function(nextValue)
 							if accept then
 								value:set(nextValue)
@@ -571,7 +580,7 @@ t.describe("native parity weaker values", function()
 	t.it(
 		"toggle edits writable cells without a callback in every presentation and refuses read-only sources",
 		function()
-			for _, presentation in { "switch", "checkbox", "button" } do
+			for _, presentation in { "switch", "checkbox", "button" } :: { "button" | "checkbox" | "switch" } do
 				local value, mixed = Compose.cell(false), Compose.cell(true)
 				local world = setup(function(UI, Host)
 					return Host.Frame({
@@ -579,7 +588,7 @@ t.describe("native parity weaker values", function()
 							label = "Music",
 							value = value,
 							mixed = if presentation == "checkbox" then mixed else nil,
-							presentation = presentation,
+							presentation = presentation :: "button" | "checkbox" | "switch",
 						}),
 					})
 				end)
@@ -595,8 +604,11 @@ t.describe("native parity weaker values", function()
 			end
 			for _, field in { "value", "mixed" } do
 				t.expect(refuses("requires onChange", function(UI)
-					local spec: any =
-						{ value = Compose.cell(false), mixed = Compose.cell(false), presentation = "checkbox" }
+					local spec: any = {
+						value = Compose.cell(false),
+						mixed = Compose.cell(false),
+						presentation = "checkbox" :: "checkbox",
+					}
 					spec[field] = Compose.formula(function()
 						return false
 					end)
@@ -635,18 +647,18 @@ t.describe("native parity weaker values", function()
 
 	for _, side in { "leading", "trailing" } do
 		t.it("row indicator on the " .. side .. " side requests model approval through every input", function()
-			for _, presentation in { "switch", "checkbox" } do
+			for _, presentation in { "switch", "checkbox" } :: { "checkbox" | "switch" } do
 				for _, input in INPUTS do
 					local value, enabled, requests, accept = Compose.cell(false), Compose.cell(true), 0, false
 					local world = setup(function(UI, Host)
 						return Host.Frame({
-							UI.Button("Other")({ label = "Other", onActivate = function() end }),
+							UI.Button("Other")({ label = "Other", onActivate = function() end }) :: unknown,
 							UI.Toggle("T")({
 								label = "Music",
 								value = value,
 								enabled = enabled,
-								presentation = presentation,
-								indicatorPosition = side,
+								presentation = presentation :: "checkbox" | "switch",
+								indicatorPosition = side :: "leading" | "trailing",
 								row = { description = "Play race music" },
 								onChange = function(wanted)
 									requests += 1
@@ -718,7 +730,7 @@ t.describe("native parity weaker values", function()
 						onActivate = function()
 							hits += 1
 						end,
-					}),
+					}) :: unknown,
 					UI.Toggle("Toggle")({
 						label = "Camera assistance",
 						row = { description = "Keep the route in view", icon = "settings" },
@@ -781,7 +793,7 @@ t.describe("native parity weaker values", function()
 		for _, input in INPUTS do
 			local selected, requests = Compose.cell(false), {}
 			local free = Compose.cell(false)
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					UI.Chip("Controlled")({
 						label = "Rain",
@@ -789,7 +801,7 @@ t.describe("native parity weaker values", function()
 						onToggle = function(nextValue)
 							table.insert(requests, nextValue)
 						end,
-					}),
+					}) :: unknown,
 					UI.Chip("Free")({ label = "Snow", selected = free }),
 				})
 			end)
@@ -822,9 +834,9 @@ t.describe("native parity weaker values", function()
 		"stepper step buttons are not stops; a click on them and the Adjust keys on the stepper step the value",
 		function()
 			local value = Compose.cell(3)
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
-					UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }),
+					UI.Button("Elsewhere")({ label = "Elsewhere", onActivate = function() end }) :: unknown,
 					UI.Stepper("Qty")({ value = value, min = 0, max = 10, step = 1 }),
 				})
 			end)
@@ -859,9 +871,9 @@ t.describe("native parity weaker values", function()
 
 	t.it("stepper value label follows the value and a custom format in place", function()
 		local value = Compose.cell(5)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Stepper("Plain")({ value = value, label = "Volume", min = 0, max = 10, step = 1 }),
+				UI.Stepper("Plain")({ value = value, label = "Volume", min = 0, max = 10, step = 1 }) :: unknown,
 				UI.Stepper("Loud")({
 					value = value,
 					min = 0,
@@ -892,18 +904,18 @@ t.describe("native parity weaker values", function()
 
 	t.it("slider refuses a literal non-positive step and a live step that turns non-positive", function()
 		for _, bad in { 0, -1, 0 / 0, math.huge } do
-			t.expect(refuses("step must be positive", function(UI)
+			t.expect(refuses("step must be positive", function(UI: FacetControls)
 				return UI.Slider({ value = Compose.cell(0), min = 0, max = 10, step = bad })
 			end)).toBe(true)
-			t.expect(refuses("step must be positive", function(UI)
+			t.expect(refuses("step must be positive", function(UI: FacetControls)
 				return UI.Stepper({ value = Compose.cell(0), min = 0, max = 10, step = bad })
 			end)).toBe(true)
 		end
-		t.expect(mountError(function(UI)
+		t.expect(mountError(function(UI: FacetControls)
 			return UI.Slider({ value = Compose.cell(0), min = 0, max = 10, step = 2 })
 		end)).toBeNil()
 		local angle, step = Compose.cell(0), Compose.cell(15)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Slider("Angle")({ value = angle, min = -180, max = 180, step = step }) })
 		end)
 		local slider = find(world.node, "Angle")
@@ -941,8 +953,11 @@ t.describe("native parity weaker values", function()
 
 	t.it("value controls format without negative zero and land non-integer grids on the bounds", function()
 		local make = require("../src/ui/input_value")
-		local function read(source: any): any
-			return if Compose.isReadable(source) then source:peek() else source
+		local function read<T>(
+			source: T | FixtureComposeTypes.Readable<T> | FixtureComposeTypes.Formula<T> | FixtureComposeTypes.Body<T>,
+			use: Use?
+		): T
+			return (if Compose.isReadable(source) then (source :: any):peek() else source) :: T
 		end
 		local signed = make({ min = -5, max = 5 }, read)
 		t.expect(signed.format(3)).toBe("3")
@@ -976,9 +991,9 @@ t.describe("native parity weaker values", function()
 		t.expect(mid.stepped(5, 1) > 5).toBe(true)
 		t.expect(mid.stepped(5, -1) < 5).toBe(true)
 		local value = Compose.cell(-0.001)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Slider("Balance")({ value = value, min = -1, max = 1 }),
+				UI.Slider("Balance")({ value = value, min = -1, max = 1 }) :: unknown,
 				UI.Slider("Quarter")({ value = Compose.cell(0), min = 0, max = 1, step = 0.25 }),
 			})
 		end)
@@ -993,7 +1008,7 @@ t.describe("native parity weaker values", function()
 		t.expect(find(quarterNode, "ThumbStop").Position.X.Scale).toBe(1)
 		world.stop()
 		for _, bounds in { { 10, 10 }, { 0 / 0, 1 }, { 0, math.huge } } do
-			t.expect(refuses("finite min must be below max", function(UI)
+			t.expect(refuses("finite min must be below max", function(UI: FacetControls)
 				return UI.Stepper({ value = Compose.cell(0), min = bounds[1], max = bounds[2] })
 			end)).toBe(true)
 		end
@@ -1001,7 +1016,7 @@ t.describe("native parity weaker values", function()
 
 	t.it("playlist rating inside a table cell sets that track by tap and scrub without remount", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local viewport = Compose.cell({ width = 1280, height = 720 })
 		local target = engine.new("Folder")
 		local guiService = engine.new("GuiService")
@@ -1009,7 +1024,7 @@ t.describe("native parity weaker values", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = viewport,
 			inputTarget = target,
@@ -1019,7 +1034,7 @@ t.describe("native parity weaker values", function()
 			UI = Facet.controls(runtime, { types = engine.types, viewport = viewport, guiService = guiService } :: any),
 		}
 		local built: any
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			built = (require("../examples/gallery/examples/02_playlist_table") :: any).build(ctx)
 			return built.screen()
 		end, target)
@@ -1068,7 +1083,7 @@ t.describe("native parity weaker values", function()
 		local modelModule: any = require("../examples/virtual_monitors/model")
 		local screens: any = require("../examples/virtual_monitors/screens")
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -1086,7 +1101,7 @@ t.describe("native parity weaker values", function()
 				services = { GuiService = gui, UserInputService = input },
 				motionLevel = "none",
 			})
-			local stopAvatar, avatar = runtime.mount(views.Avatar, target)
+			local stopAvatar, avatar: any = runtime.mount(views.Avatar, target)
 			find(find(avatar, "SettingsDisclosure"), "Header").Activated.fire()
 			find(avatar, "MotionRow").Activated.fire()
 			local levels = find(avatar, "AutoSpin")
@@ -1127,14 +1142,14 @@ t.describe("native parity weaker values", function()
 
 	t.it("picker badge on an unselected option stays live and an empty badge hides", function()
 		local selected, count = Compose.cell("grid"), Compose.cell(3 :: any)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Picker("View")({
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = selected,
 					options = {
-						{ value = "grid", label = "Grid" },
-						{ value = "list", label = "Listing", badge = count },
+						{ value = "grid", label = "Grid" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "list", label = "Listing", badge = count } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				}),
 			})
@@ -1165,31 +1180,34 @@ t.describe("native parity weaker values", function()
 		t.expect(shown(list)).toBe("Listing [2]")
 		t.expect(find(picker, "list")).toBe(list)
 		world.stop()
-		t.expect(refuses("badge must be text or a number", function(UI)
+		t.expect(refuses("badge must be text or a number", function(UI: FacetControls)
 			return UI.Picker({
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				selected = Compose.cell("a"),
 				options = { { value = "a", label = "A", badge = true } },
-			})
+			} :: any)
 		end)).toBe(true)
 	end)
 
 	t.it("picker readable option label updates the text and announced label in place", function()
 		local selected, name = Compose.cell("list"), Compose.cell("Listing")
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Picker("View")({
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = selected,
-					options = { { value = "grid", label = "Grid" }, { value = "list", label = name } },
-				}),
+					options = {
+						{ value = "grid", label = "Grid" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "list", label = name } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				}) :: unknown,
 				UI.Picker("Icons")({
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					iconOnly = true,
 					selected = selected,
 					options = {
-						{ value = "grid", label = "Grid", icon = "menu" },
-						{ value = "list", label = name, icon = "settings" },
+						{ value = "grid", label = "Grid", icon = "menu" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "list", label = name, icon = "settings" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				}),
 			})
@@ -1208,11 +1226,11 @@ t.describe("native parity weaker values", function()
 		t.expect(find(find(world.node, "Icons"), "list")).toBe(icon)
 		t.expect(icon:GetAttribute("FacetLabel")).toBe("Rows")
 		world.stop()
-		t.expect(refuses("nonempty labels", function(UI)
+		t.expect(refuses("nonempty labels", function(UI: FacetControls)
 			return UI.Picker({
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				selected = Compose.cell("a"),
-				options = { { value = "a", label = Compose.cell("") } },
+				options = { { value = "a", label = Compose.cell("") } :: FixtureNavigationTypes.PickerOption<any> },
 			})
 		end)).toBe(true)
 	end)
@@ -1220,16 +1238,16 @@ t.describe("native parity weaker values", function()
 	t.it("picker indicator paints the initial selection at first paint and follows every change", function()
 		for _, skin in { "underline", "pill", "automatic" } do
 			local selected = Compose.cell("b")
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					UI.Picker("View")({
-						style = "segmented",
-						indicator = skin,
+						style = "segmented" :: "segmented",
+						indicator = skin :: "underline" | "pill" | "automatic",
 						selected = selected,
 						options = {
-							{ value = "a", label = "Alpha" },
-							{ value = "b", label = "Beta" },
-							{ value = "c", label = "Gamma" },
+							{ value = "a", label = "Alpha" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "b", label = "Beta" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "c", label = "Gamma" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
 					}),
 				})
@@ -1277,14 +1295,17 @@ t.describe("native parity weaker values", function()
 	end)
 
 	t.it("picker indicator none keeps the ordinary selection paint without a bar", function()
-		local selected, indicator = Compose.cell("grid"), Compose.cell("none")
-		local world = setup(function(UI, Host)
+		local selected, indicator = Compose.cell("grid"), require("./lib/cells").indicator("none")
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Picker("View")({
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					indicator = indicator,
 					selected = selected,
-					options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+					options = {
+						{ value = "grid", label = "Grid" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "list", label = "Listing" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				}),
 			})
 		end)
@@ -1307,21 +1328,21 @@ t.describe("native parity weaker values", function()
 		t.expect(find(picker, "SelectionIndicator")).toBeNil()
 		t.expect(list:HasTag("facet-selected")).toBe(true)
 		world.stop()
-		t.expect(refuses("Invalid Picker.indicator", function(UI)
+		t.expect(refuses("Invalid Picker.indicator", function(UI: FacetControls)
 			return UI.Picker({
 				style = "segmented",
 				indicator = "glow",
 				selected = Compose.cell("a"),
 				options = { { value = "a", label = "A" } },
-			})
+			} :: any)
 		end)).toBe(true)
 	end)
 
 	t.it("progress bar maps clamps and repaints the same fill with track and fill paint tags", function()
 		local value = Compose.cell(0.25)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.ProgressView("Load")({ value = value }),
+				UI.ProgressView("Load")({ value = value }) :: unknown,
 				UI.ProgressView("Range")({ value = 15, min = 10, max = 30 }),
 			})
 		end)
@@ -1349,7 +1370,7 @@ t.describe("native parity weaker values", function()
 		t.expect(fill.isDestroyed()).toBe(true)
 		t.expect(track.isDestroyed()).toBe(true)
 		t.expect(world.engine.heartbeat.count()).toBe(0)
-		t.expect(refuses("max must exceed min", function(UI)
+		t.expect(refuses("max must exceed min", function(UI: FacetControls)
 			return UI.ProgressView({ value = 1, min = 2, max = 2 })
 		end)).toBe(true)
 	end)
@@ -1360,12 +1381,24 @@ t.describe("native parity weaker values", function()
 			local diameter = Compose.cell(200 :: any)
 			local themes: any = Facet.themes
 			local package = Compose.cell(themes.neutralPackage())
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
-					UI.ProgressView("Ring")({ presentation = "circular", value = 0.5, diameter = diameter }),
-					UI.ProgressView("Spin")({ presentation = "spinner" }),
-					UI.ProgressView("Compact")({ presentation = "circular", value = 0.5, controlSize = "compact" }),
-					UI.ProgressView("Large")({ presentation = "circular", value = 0.5, controlSize = "large" }),
+					UI.ProgressView("Ring")({
+						presentation = "circular" :: "circular",
+						value = 0.5,
+						diameter = diameter,
+					}) :: unknown,
+					UI.ProgressView("Spin")({ presentation = "spinner" :: "spinner" }),
+					UI.ProgressView("Compact")({
+						presentation = "circular" :: "circular",
+						value = 0.5,
+						controlSize = "compact" :: "compact",
+					}),
+					UI.ProgressView("Large")({
+						presentation = "circular" :: "circular",
+						value = 0.5,
+						controlSize = "large" :: "large",
+					}),
 				})
 			end, { theme = package })
 			local ring = find(find(world.node, "Ring"), "Indicator")
@@ -1406,8 +1439,10 @@ t.describe("native parity weaker values", function()
 
 	t.it("circular progress at a quarter ends at three o'clock", function()
 		local value = Compose.cell(0.25)
-		local world = setup(function(UI, Host)
-			return Host.Frame({ UI.ProgressView("Ring")({ presentation = "circular", value = value }) })
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.ProgressView("Ring")({ presentation = "circular" :: "circular", value = value }),
+			})
 		end)
 		local fill = find(find(world.node, "Ring"), "RingFill")
 		local radius = 1 - 3 / 32
@@ -1425,9 +1460,9 @@ t.describe("native parity weaker values", function()
 
 	t.it("badge caption and control size rung stay live through invalid captions", function()
 		local label, size = Compose.cell("New" :: any), Compose.cell("compact" :: any)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Badge("Plain")({ label = label, controlSize = size }),
+				UI.Badge("Plain")({ label = label, controlSize = size }) :: unknown,
 				UI.Badge("Iconic")({ label = label, icon = "checkmark", controlSize = size }),
 			})
 		end)
@@ -1471,14 +1506,14 @@ t.describe("native parity weaker values", function()
 			{ "invalid status", { label = "New", status = false } },
 		}
 		for _, case in cases do
-			t.expect(refuses(case[1], function(UI)
+			t.expect(refuses(case[1], function(UI: FacetControls)
 				return UI.Badge(case[2])
 			end)).toBe(true)
 		end
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Badge("Named")({ icon = "checkmark", name = "Verified" }),
-				UI.Badge("Trailing")({ label = "New", icon = "checkmark", iconPosition = "trailing" }),
+				UI.Badge("Named")({ icon = "checkmark", name = "Verified" }) :: unknown,
+				UI.Badge("Trailing")({ label = "New", icon = "checkmark", iconPosition = "trailing" :: "trailing" }),
 			})
 		end)
 		local named = find(world.node, "Named")
@@ -1492,7 +1527,7 @@ t.describe("native parity weaker values", function()
 
 	t.it("badge quarantines an empty unnamed caption and a false status then recovers", function()
 		local label, status = Compose.cell("Ready" :: any), Compose.cell("error" :: any)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Badge("Tag")({ label = label, status = status }) })
 		end)
 		local badge = find(world.node, "Tag")
@@ -1517,10 +1552,10 @@ t.describe("native parity weaker values", function()
 	end)
 
 	t.it("status indicator is a compact twelve pixel dot with a readable name and no focus stop", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.StatusIndicator("Mark")({ name = "Connected" }),
-				UI.StatusIndicator("Plain")({ status = "error" }),
+				UI.StatusIndicator("Mark")({ name = "Connected" }) :: unknown,
+				UI.StatusIndicator("Plain")({ status = "error" :: "error" }),
 			})
 		end)
 		local mark = find(world.node, "Mark")
@@ -1542,9 +1577,14 @@ t.describe("native parity weaker values", function()
 	t.it("status indicator forms stay distinguishable at ten thirteen and sixteen pixels", function()
 		for _, size in { 10, 13, 16 } do
 			local signatures = {}
-			for _, form in { "dot", "ring", "square", "dash" } do
-				local world = setup(function(UI, Host)
-					return Host.Frame({ UI.StatusIndicator("Mark")({ form = form, diameter = size }) })
+			for _, form in { "dot", "ring", "square", "dash" } :: { "dash" | "dot" | "ring" | "square" } do
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame({
+						UI.StatusIndicator("Mark")({
+							form = form :: "dash" | "dot" | "ring" | "square",
+							diameter = size,
+						}),
+					})
 				end)
 				local mark = find(world.node, "Mark")
 				local corner = mark:FindFirstChildWhichIsA("UICorner").CornerRadius
@@ -1587,22 +1627,22 @@ t.describe("native parity weaker values", function()
 			{ "max must be a nonnegative integer", { count = 1, max = 2.5 } },
 		}
 		for _, case in cases do
-			t.expect(refuses(case[1], function(UI)
+			t.expect(refuses(case[1], function(UI: FacetControls)
 				return UI.StatusIndicator(case[2])
 			end)).toBe(true)
 		end
-		t.expect(mountError(function(UI)
-			return UI.StatusIndicator({ count = 3, form = "square", max = 9 })
+		t.expect(mountError(function(UI: FacetControls)
+			return UI.StatusIndicator({ count = 3, form = "square", max = 9 } :: any)
 		end)).toBeNil()
 	end)
 
 	t.it("skeleton forms are inert placeholders with a sixty percent final paragraph line", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Skeleton("Box")({}),
-				UI.Skeleton("Circle")({ form = "circle" }),
-				UI.Skeleton("Paragraph")({ form = "line", lines = 3 }),
-				UI.Skeleton("Line")({ form = "line" }),
+				UI.Skeleton("Box")({}) :: unknown,
+				UI.Skeleton("Circle")({ form = "circle" :: "circle" }),
+				UI.Skeleton("Paragraph")({ form = "line" :: "line", lines = 3 }),
+				UI.Skeleton("Line")({ form = "line" :: "line" }),
 			})
 		end)
 		local box = find(find(world.node, "Box"), "Placeholder1")
@@ -1629,9 +1669,11 @@ t.describe("native parity weaker values", function()
 			end
 		end
 		world.stop()
-		for _, spec in { { form = "blob" }, { form = "box", lines = 2 }, { form = "circle", corners = "pill" } } do
-			t.expect(mountError(function(UI)
-				return UI.Skeleton(spec)
+		for _, spec in
+			{ { form = "blob" }, { form = "box", lines = 2 }, { form = "circle", corners = "pill" :: "pill" } }
+		do
+			t.expect(mountError(function(UI: FacetControls)
+				return UI.Skeleton(spec :: any)
 			end) ~= nil).toBe(true)
 		end
 	end)
@@ -1660,14 +1702,14 @@ t.describe("native parity weaker values", function()
 			center = { content = "rbxassetid://42" },
 		}
 		for _, slot in { "barTrack", "barFill", "stepperPlate", "toggleTrack", "toggleKnob" } do
-			package.chrome[slot] = { kind = "nineSlice", asset = "plate" }
+			package.chrome[slot] = { kind = "nineSlice" :: "nineSlice", asset = "plate" }
 		end
-		package.chrome.barCap = { kind = "nineSlice", asset = "cap", size = { w = 20, h = 24 } }
-		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 30, h = 18 } }
+		package.chrome.barCap = { kind = "nineSlice" :: "nineSlice", asset = "cap", size = { w = 20, h = 24 } }
+		package.chrome.barCenter = { kind = "nineSlice" :: "nineSlice", asset = "center", size = { w = 30, h = 18 } }
 		local value = Compose.cell(0.4)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.ProgressView("Bar")({ value = value, thickness = 24 }),
+				UI.ProgressView("Bar")({ value = value, thickness = 24 }) :: unknown,
 				UI.Toggle("Switch")({ value = Compose.cell(true), label = "Music" }),
 				UI.Stepper("Count")({ value = Compose.cell(2), min = 0, max = 10 }),
 			})
@@ -1714,14 +1756,14 @@ t.describe("native parity weaker values", function()
 		local package = themes.neutralPackage()
 		package.assets = { off = { content = "rbxassetid://50" }, on = { content = "rbxassetid://51" } }
 		for _, slot in { "toggleTrack", "toggleKnob" } do
-			package.chrome[slot] = { kind = "nineSlice", asset = { default = "off", selected = "on" } }
+			package.chrome[slot] = { kind = "nineSlice" :: "nineSlice", asset = { default = "off", selected = "on" } }
 		end
-		for _, presentation in { "switch" } do
+		for _, presentation in { "switch" } :: { "switch" } do
 			local value = Compose.cell(false)
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
-					UI.Toggle("T")({ value = value, label = "Music", presentation = presentation }),
-					UI.Toggle("B")({ value = value, label = "Music", presentation = "button" }),
+					UI.Toggle("T")({ value = value, label = "Music", presentation = presentation :: "switch" }) :: unknown,
+					UI.Toggle("B")({ value = value, label = "Music", presentation = "button" :: "button" }),
 				})
 			end, { theme = package })
 			local node, indicator = find(world.node, "T"), find(find(world.node, "T"), "Indicator")
@@ -1743,8 +1785,8 @@ t.describe("native parity weaker values", function()
 			world.stop()
 		end
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
-		local stop, sheet = runtime.mount(function()
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local stop, sheet: any = runtime.mount(function()
 			return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 		end, engine.new("Folder"))
 		local priorities, properties = {}, {}
@@ -1771,17 +1813,17 @@ t.describe("native parity weaker values", function()
 		local withPlate = themes.neutralPackage()
 		withPlate.assets = { art = { content = "rbxassetid://60" }, button = { content = "rbxassetid://61" } }
 		for _, slot in { "stepperPlate", "sliderTrack", "sliderThumb", "barFill", "barTrack" } do
-			withPlate.chrome[slot] = { kind = "nineSlice", asset = "art" }
+			withPlate.chrome[slot] = { kind = "nineSlice" :: "nineSlice", asset = "art" }
 		end
-		withPlate.chrome.control = { kind = "nineSlice", asset = "button" }
+		withPlate.chrome.control = { kind = "nineSlice" :: "nineSlice", asset = "button" }
 		local controlOnly = themes.neutralPackage()
 		controlOnly.assets = { button = { content = "rbxassetid://61" } }
-		controlOnly.chrome.control = { kind = "nineSlice", asset = "button" }
+		controlOnly.chrome.control = { kind = "nineSlice" :: "nineSlice", asset = "button" }
 		for _, package in { withPlate, controlOnly } do
 			local value = Compose.cell(0.25)
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
-					UI.Stepper("Count")({ value = Compose.cell(2), min = 0, max = 10 }),
+					UI.Stepper("Count")({ value = Compose.cell(2), min = 0, max = 10 }) :: unknown,
 					UI.Slider("Volume")({ value = value, min = 0, max = 1 }),
 					UI.ProgressView("Load")({ value = value }),
 				})
@@ -1824,16 +1866,16 @@ t.describe("native parity weaker values", function()
 			local package = reference(name)
 			local skin = package.chrome and package.chrome.control
 			local insets = if skin then skin.contentInsets or {} else {}
-			for _, presentation in { "switch", "checkbox" } do
+			for _, presentation in { "switch", "checkbox" } :: { "checkbox" | "switch" } do
 				for _, side in { "leading", "trailing" } do
 					local label = Compose.cell("Rain")
-					local world = setup(function(UI, Host)
+					local world = setup(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
 							UI.Toggle("T")({
 								label = label,
 								value = Compose.cell(true),
-								presentation = presentation,
-								indicatorPosition = side,
+								presentation = presentation :: "checkbox" | "switch",
+								indicatorPosition = side :: "leading" | "trailing",
 							}),
 						})
 					end, { theme = package })

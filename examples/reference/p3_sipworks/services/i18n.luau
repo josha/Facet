@@ -1,5 +1,7 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local strings = require("../content/strings")
 
 local i18n = {}
@@ -43,9 +45,9 @@ local function pluralForm(entry: any, n: number?): string
 end
 
 function i18n.new(opts: any)
-	local Compose = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 
-	local locale = Compose.cell(opts.locale or "en")
+	local locale = Compose.cell((opts.locale or "en") :: string)
 
 	local nameCache: { [string]: string } = {}
 

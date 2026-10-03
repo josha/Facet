@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+
 local catalog = require("./catalog")
 local loader = require("./loader")
 local profiles = require("./profiles")
@@ -9,7 +13,7 @@ local chrome = require("./chrome")
 local workbench = {}
 
 function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
-	local Compose = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local defaults = {
 		device = "Phone",
 		input = "Automatic",
@@ -21,7 +25,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 		rotated = false,
 		live = true,
 		inspect = false,
-		selected = nil,
+		selected = nil :: ModuleScript?,
 		state = "",
 		states = {},
 		entries = {},
@@ -147,7 +151,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 		else
 			table.insert(requests, { profile = profile, preview = preview })
 		end
-		local runtime = Facet.Roblox.createRuntime()
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 		local owner = Compose.createOwner(runtime.reactor)
 		local group = {
 			cards = {},
@@ -159,11 +163,11 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 			end,
 		}
 		pendingGroup = group
-		local Host = runtime.constructors
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local ok, err = xpcall(function()
 			local _, root = Compose.withOwner(owner, function()
 				return runtime.mount(function()
-					local children = {
+					local children: { Instance } = {
 						Host.UIListLayout {
 							FillDirection = Enum.FillDirection.Horizontal,
 							Padding = UDim.new(0, 16),
@@ -204,7 +208,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 								then Color3.fromRGB(255, 255, 255)
 								else Color3.fromRGB(27, 32, 43),
 							BorderSizePixel = 0,
-							Host.UICorner { CornerRadius = UDim.new(0, 10) },
+							Host.UICorner { CornerRadius = UDim.new(0, 10) } :: unknown,
 							outline,
 							label,
 							canvas,
@@ -253,7 +257,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 						AutomaticSize = Enum.AutomaticSize.XY,
 						BackgroundTransparency = 1,
 						Visible = false,
-						table.unpack(children),
+						table.unpack((children :: unknown) :: { unknown }),
 					}
 				end, shell.canvas)
 			end)
@@ -270,7 +274,8 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 		return group
 	end
 	local function install(nextDefinition: any): boolean
-		local ok, group = pcall(build, nextDefinition)
+		local ok, result = pcall(build, nextDefinition)
+		local group: any = result
 		if not ok then
 			patch({ error = tostring(group), status = "Refresh failed. The last working preview is retained." })
 			return false
@@ -333,7 +338,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 			local ok, result = xpcall(function()
 				pendingSnapshot = if dependencies.load
 					then dependencies.load(selected)
-					else loader.prepare(selected, dependencies.editor)
+					else loader.prepare(assert(selected), dependencies.editor)
 				local snapshot = pendingSnapshot
 				local nextDefinition = snapshot.evaluate()
 				if disposed or mine ~= epoch then
@@ -456,7 +461,7 @@ function workbench.mount(Facet: any, widget: Instance, dependencies: any): any
 		if disposed or not module or not model:peek().live or not model:peek().selected then
 			return
 		end
-		local scope = catalog.scope(model:peek().selected)
+		local scope = assert(catalog.scope(assert(model:peek().selected)))
 		if module ~= scope and not module:IsDescendantOf(scope) then
 			return
 		end

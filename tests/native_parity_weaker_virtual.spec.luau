@@ -1,8 +1,23 @@
 --!strict
+type Attributes = typeof(require("@repo/tools/typecheck/aliases").Attributes)
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type UIStrokeConstructor = typeof(require("@repo/tools/typecheck/aliases").UIStrokeConstructor)
+type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
+type UIPaddingConstructor = typeof(require("@repo/tools/typecheck/aliases").UIPaddingConstructor)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local requireDynamic = require :: (any) -> any
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Media = require("../src/ui/media_types")
+local Compose: ComposeModule = Facet.Compose
 
 local ComposeCore = require("../src/vendor/compose/core")
 type Status = ComposeCore.OrderedCollectionStatus
@@ -30,8 +45,8 @@ end
 
 local function status(): any
 	return Compose.cell({
-		mode = "windowed",
-		direction = "vertical",
+		mode = "windowed" :: "windowed",
+		direction = "vertical" :: "vertical",
 		total = 0,
 		retained = 0,
 		first = 0,
@@ -153,7 +168,7 @@ end
 
 local function label(UI: any, current: any): any
 	return UI.Button "Action" {
-		label = function(use)
+		label = function(use: Use)
 			return use(current).label
 		end,
 	}
@@ -168,7 +183,7 @@ local function gallery(name: string): (any, any, () -> (), any)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		guiService = guiService,
@@ -186,8 +201,8 @@ local function gallery(name: string): (any, any, () -> (), any)
 		),
 	}
 	local built: any
-	local stop, node = runtime.mount(function()
-		built = require("../examples/gallery/scenarios/" .. name).build(ctx)
+	local stop, node: any = runtime.mount(function()
+		built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
 		return ctx.Host.ScreenGui({ built.screen() })
 	end, target)
 	return built, node, function()
@@ -207,7 +222,8 @@ t.describe("native parity weaker virtual", function()
 				local report = built.report()
 				t.expect(report.status.retained > 0).toBe(true)
 				t.expect(report.status.retained < 20).toBe(true)
-				local heights, distinct, previous = {}, 0, nil
+				local heights, distinct = {}, 0
+				local previous: Frame? = nil
 				for _, index in mountedKeys(body) do
 					local row = rowHost(body, index)
 					local top, height = row.Position.Y.Offset, row.Size.Y.Offset
@@ -273,14 +289,14 @@ t.describe("native parity weaker virtual", function()
 				local engine, runtime, UI, root = setup()
 				local source, state = Compose.cell(records(count)), status()
 				local rendered, released = 0, 0
-				local stop, node = runtime.mount(function()
+				local stop, node: any = runtime.mount(function()
 					return UI.VirtualList({
 						from = source,
 						key = key,
 						mode = mode,
 						itemSize = 56,
 						status = state,
-						render = function(current)
+						render = function(current): GuiObject
 							rendered += 1
 							Compose.cleanup(function()
 								released += 1
@@ -405,7 +421,7 @@ t.describe("native parity weaker virtual", function()
 			local engine, runtime, UI, root = setup()
 			local source, selection = Compose.cell(records(20)), Compose.cell({})
 			local renders, selections = {}, {}
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
@@ -416,7 +432,7 @@ t.describe("native parity weaker virtual", function()
 						table.insert(selections, nextSelection)
 						selection:set(nextSelection)
 					end,
-					render = function(current, _, rowKey)
+					render = function(current, _, rowKey: number): GuiObject
 						renders[rowKey] = (renders[rowKey] or 0) + 1
 						return label(UI, current)
 					end,
@@ -467,17 +483,17 @@ t.describe("native parity weaker virtual", function()
 		local _, runtime, UI, root = setup()
 		local items = Compose.cell({ { id = "a", name = "Axe" }, { id = "b", name = "Bow" } })
 		local built, equipped = 0, nil
-		local stop, node = runtime.mount(function()
-			return runtime.constructors.Frame "List" {
+		local stop, node: any = runtime.mount(function()
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "List" {
 				Compose.keyed({
 					from = items,
 					key = function(item)
 						return item.id
 					end,
-					render = function(item)
+					render = function(item: Readable<{ id: string, name: string }>): GuiObject
 						built += 1
 						return UI.Button("Row-" .. item:peek().id)({
-							label = function(use)
+							label = function(use: Use)
 								return use(item).name
 							end,
 							onActivate = function()
@@ -513,18 +529,18 @@ t.describe("native parity weaker virtual", function()
 			narrow.metrics.space.xs = wide.metrics.space.xs * 2
 			local theme = Compose.cell(wide)
 			local engine, runtime, UI, root = setup({ theme = theme })
-			local controls, state, rendered = {}, status(), 0
-			local stop, node = runtime.mount(function()
+			local controls: FixtureComposeTypes.OrderedCollectionControls<any>, state, rendered = {}, status(), 0
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(8),
 					key = key,
 					itemSize = 40,
-					gap = function(use)
+					gap = function(use: Use)
 						return use(theme).metrics.space.xs
 					end,
 					status = state,
 					controls = controls,
-					render = function(current)
+					render = function(current): GuiObject
 						rendered += 1
 						return label(UI, current)
 					end,
@@ -532,12 +548,12 @@ t.describe("native parity weaker virtual", function()
 			end, root)
 			window(node, engine, 200, 600)
 			local xs = wide.metrics.space.xs
-			t.expect(controls.placementOf(3).offset).toBe(2 * (40 + xs))
+			t.expect(assert(controls.placementOf)(3).offset).toBe(2 * (40 + xs))
 			local before, second, count = state:peek().extent, rowHost(node, 2), rendered
 			t.expect(before).toBe(8 * 40 + 7 * xs)
 			theme:set(narrow)
 			t.expect(state:peek().extent - before).toBe(7 * xs)
-			t.expect(controls.placementOf(3).offset).toBe(2 * (40 + 2 * xs))
+			t.expect(assert(controls.placementOf)(3).offset).toBe(2 * (40 + 2 * xs))
 			t.expect(rowHost(node, 2)).toBe(second)
 			t.expect(second.Position.Y.Offset).toBe(40 + 2 * xs)
 			t.expect(node.CanvasSize.Y.Offset).toBe(8 * 40 + 14 * xs)
@@ -552,12 +568,12 @@ t.describe("native parity weaker virtual", function()
 		function()
 			local engine, runtime, UI, root = setup()
 			local activated = 0
-			local stopPlain, plain = runtime.mount(function()
+			local stopPlain, plain: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(5),
 					key = key,
 					itemSize = 40,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -570,7 +586,7 @@ t.describe("native parity weaker virtual", function()
 				rowHost(plain, index):FindFirstChild("Action", true).Activated.fire()
 			end
 			stopPlain()
-			local stopActivate, activate = runtime.mount(function()
+			local stopActivate, activate: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(5),
 					key = key,
@@ -578,7 +594,7 @@ t.describe("native parity weaker virtual", function()
 					onActivate = function()
 						activated += 1
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -590,13 +606,13 @@ t.describe("native parity weaker virtual", function()
 			t.expect(rowHit:GetAttribute("FacetSelected")).toBe(false)
 			stopActivate()
 			local source, selection = Compose.cell(records(5)), Compose.cell({})
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 40,
 					selection = selection,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -628,8 +644,9 @@ t.describe("native parity weaker virtual", function()
 
 	t.it("collections-19 a readable itemSize and a resized viewport re-window in place", function()
 		local engine, runtime, UI, root = setup()
-		local itemSize, state, controls, rendered = Compose.cell(40), status(), {}, 0
-		local stop, node = runtime.mount(function()
+		local itemSize, state, controls: FixtureComposeTypes.OrderedCollectionControls<any>, rendered =
+			Compose.cell(40), status(), {}, 0
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(60),
 				key = key,
@@ -638,7 +655,7 @@ t.describe("native parity weaker virtual", function()
 				overscan = 0,
 				status = state,
 				controls = controls,
-				render = function(current)
+				render = function(current): GuiObject
 					rendered += 1
 					return label(UI, current)
 				end,
@@ -646,12 +663,12 @@ t.describe("native parity weaker virtual", function()
 		end, root)
 		window(node, engine, 200, 400)
 		t.expect(mountedKeys(node)).toEqual(range(1, 9))
-		t.expect(controls.placementOf(4).offset).toBe(180)
+		t.expect(assert(controls.placementOf)(4).offset).toBe(180)
 		t.expect(state:peek().extent).toBe(59 * 40 + 100)
 		local first = rowHost(node, 1)
 		itemSize:set(80)
 		t.expect(mountedKeys(node)).toEqual(range(1, 5))
-		t.expect(controls.placementOf(4).offset).toBe(260)
+		t.expect(assert(controls.placementOf)(4).offset).toBe(260)
 		t.expect(rowHost(node, 3).Size.Y.Offset).toBe(100)
 		t.expect(rowHost(node, 2).Size.Y.Offset).toBe(80)
 		t.expect(state:peek().extent).toBe(59 * 80 + 100)
@@ -674,12 +691,12 @@ t.describe("native parity weaker virtual", function()
 		function()
 			local engine, runtime, UI, root = setup()
 			local plainRows = Compose.cell(records(40))
-			local stopPlain, plain = runtime.mount(function()
+			local stopPlain, plain: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = plainRows,
 					key = key,
 					itemSize = 40,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -693,15 +710,15 @@ t.describe("native parity weaker virtual", function()
 			t.expect(plain.CanvasPosition.Y).toBe(43 * 40 - 400)
 			stopPlain()
 			local source, state = Compose.cell(records(40)), status()
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 40,
-					follow = "end",
+					follow = "end" :: "end",
 					followThreshold = 8,
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -733,7 +750,7 @@ t.describe("native parity weaker virtual", function()
 					end,
 				})
 				local builds = 0
-				local stop, node = runtime.mount(function()
+				local stop, node: any = runtime.mount(function()
 					return UI.Table({
 						from = records(count),
 						key = key,
@@ -746,11 +763,11 @@ t.describe("native parity weaker virtual", function()
 								id = "label",
 								label = "Label",
 								width = 100,
-								render = function(current)
+								render = function(current): GuiObject
 									builds += 1
 									return label(UI, current)
 								end,
-							},
+							} :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
 					})
 				end, root)
@@ -801,7 +818,7 @@ t.describe("native parity weaker virtual", function()
 		function()
 			local engine, runtime, UI, root = setup()
 			local state = status()
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualGrid({
 					from = records(400),
 					key = key,
@@ -811,7 +828,7 @@ t.describe("native parity weaker virtual", function()
 					crossGap = 4,
 					overscan = 0,
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -833,7 +850,7 @@ t.describe("native parity weaker virtual", function()
 			for index = 5, 8 do
 				tall[index] = 249
 			end
-			local stopTall, ragged = runtime.mount(function()
+			local stopTall, ragged: any = runtime.mount(function()
 				return UI.VirtualGrid({
 					from = records(80),
 					key = key,
@@ -841,7 +858,7 @@ t.describe("native parity weaker virtual", function()
 					itemSize = 40,
 					measured = tall,
 					overscan = 0,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -852,7 +869,7 @@ t.describe("native parity weaker virtual", function()
 			t.expect(rowHost(ragged, 5).Size.Y.Offset).toBe(249)
 			stopTall()
 			local shortState = status()
-			local stopShort, short = runtime.mount(function()
+			local stopShort, short: any = runtime.mount(function()
 				return UI.VirtualGrid({
 					from = records(9),
 					key = key,
@@ -861,7 +878,7 @@ t.describe("native parity weaker virtual", function()
 					gap = 6,
 					crossGap = 4,
 					status = shortState,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -886,14 +903,14 @@ t.describe("native parity weaker virtual", function()
 			local function buildsFor(count: number, jump: number?): (number, number)
 				local engine, runtime, UI, root = setup()
 				local built = 0
-				local stop, node = runtime.mount(function()
+				local stop, node: any = runtime.mount(function()
 					return UI.VirtualGrid({
 						from = records(count),
 						key = key,
 						columns = 4,
 						itemSize = 40,
 						overscan = 2,
-						render = function(current)
+						render = function(current): GuiObject
 							built += 1
 							return label(UI, current)
 						end,
@@ -921,17 +938,17 @@ t.describe("native parity weaker virtual", function()
 		function()
 			local engine, runtime, UI, root = setup()
 			local state, built = status(), 0
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualGrid({
 					from = records(1000),
 					key = key,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					columns = 4,
 					itemSize = 120,
 					gap = 6,
 					overscan = 0,
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						built += 1
 						return label(UI, current)
 					end,
@@ -955,15 +972,15 @@ t.describe("native parity weaker virtual", function()
 			t.expect(mountedKeys(node)).toEqual(range(401, 416))
 			t.expect(built).toBe(32)
 			stop()
-			local stopShort, short = runtime.mount(function()
+			local stopShort, short: any = runtime.mount(function()
 				return UI.VirtualGrid({
 					from = records(18),
 					key = key,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					columns = 4,
 					itemSize = 120,
 					gap = 6,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -981,18 +998,19 @@ t.describe("native parity weaker virtual", function()
 		"collections-249 a horizontal list sizes its x canvas, windows on the pitch and keeps focus visible along x",
 		function()
 			local engine, runtime, UI, root = setup()
-			local source, focus, state = Compose.cell(records(200)), {}, status()
-			local stop, node = runtime.mount(function()
+			local source, focus: FixtureCollectionTypes.FocusControls<any>, state =
+				Compose.cell(records(200)), {}, status()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					itemSize = 120,
 					gap = 6,
 					overscan = 0,
 					focus = focus,
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -1008,9 +1026,9 @@ t.describe("native parity weaker virtual", function()
 			t.expect(second.Position.Y.Offset).toBe(0)
 			node.CanvasPosition = engine.types.Vector2.new(10 * 126, 999)
 			t.expect(mountedKeys(node)).toEqual({ 11, 12 })
-			focus.focus(20)
+			assert(focus.focus)(20)
 			t.expect(node.CanvasPosition.X).toBe(19 * 126 + 120 - 252)
-			focus.focus(1)
+			assert(focus.focus)(1)
 			t.expect(node.CanvasPosition.X).toBe(0)
 			source:set(records(1000))
 			t.expect(node.CanvasSize.X.Offset).toBe(1000 * 120 + 999 * 6)
@@ -1024,14 +1042,14 @@ t.describe("native parity weaker virtual", function()
 
 	t.it("collections-258 a list that declares no direction is vertical end to end", function()
 		local engine, runtime, UI, root, gui = setup()
-		local focus = {}
-		local stop, node = runtime.mount(function()
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(100),
 				key = key,
 				itemSize = 40,
 				focus = focus,
-				render = function(current)
+				render = function(current): GuiObject
 					return label(UI, current)
 				end,
 			})
@@ -1044,19 +1062,19 @@ t.describe("native parity weaker virtual", function()
 		t.expect(rowHost(node, 3).Position.Y.Offset).toBe(80)
 		t.expect(rowHost(node, 3).Position.X.Offset).toBe(0)
 		t.expect(rowHost(node, 3).Size.X.Offset).toBe(200)
-		focus.focus(1)
+		assert(focus.focus)(1)
 		t.expect(gui.SelectedObject.Text).toBe("1")
 		local function press(name: string)
 			root:FindFirstChild("FacetCollection" .. name):FindFirstChild("Collection" .. name).Pressed.fire()
 		end
 		press("Down")
-		t.expect(focus.current:peek()).toBe(2)
+		t.expect(assert(focus.current):peek()).toBe(2)
 		press("Right")
-		t.expect(focus.current:peek()).toBe(2)
+		t.expect(assert(focus.current):peek()).toBe(2)
 		for _ = 1, 12 do
 			press("Down")
 		end
-		t.expect(focus.current:peek()).toBe(14)
+		t.expect(assert(focus.current):peek()).toBe(14)
 		t.expect(node.CanvasPosition.Y).toBe(14 * 40 - 400)
 		t.expect(node.CanvasPosition.X).toBe(0)
 		stop()
@@ -1066,16 +1084,16 @@ t.describe("native parity weaker virtual", function()
 	t.it("collections-274 a horizontal measured list sizes each item from its native width and shrinks back", function()
 		local engine, runtime, UI, root = setup()
 		local state = status()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.VirtualList({
 				from = records(3),
 				key = key,
-				direction = "horizontal",
+				direction = "horizontal" :: "horizontal",
 				itemSize = 40,
 				measure = true,
 				status = state,
-				render = function()
-					return runtime.constructors.Frame "Measured" {
+				render = function(): GuiObject
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Measured" {
 						AutomaticSize = engine.types.Enum.AutomaticSize.X,
 						Size = engine.types.UDim2.new(0, 0, 1, 0),
 					}
@@ -1102,8 +1120,8 @@ t.describe("native parity weaker virtual", function()
 		"collections-296 a gap stays out of the row for keep-visible, drop hit tests and the bounded window",
 		function()
 			local engine, runtime, UI, root = setup()
-			local focus, requests = {}, {}
-			local stop, node = runtime.mount(function()
+			local focus: FixtureCollectionTypes.FocusControls<any>, requests = {}, {}
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(100),
 					key = key,
@@ -1114,15 +1132,15 @@ t.describe("native parity weaker virtual", function()
 					onReorder = function(keys, slot)
 						table.insert(requests, { keys = keys, slot = slot })
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
 			end, root)
 			window(node, engine, 200, 600)
-			focus.focus(20)
+			assert(focus.focus)(20)
 			t.expect(node.CanvasPosition.Y).toBe(19 * 62 + 56 - 600)
-			focus.focus(1)
+			assert(focus.focus)(1)
 			t.expect(node.CanvasPosition.Y).toBe(0)
 			local detector = rowHost(node, 1):FindFirstChildWhichIsA("UIDragDetector", true)
 			detector.DragStart.fire(engine.types.Vector2.new(10, 10))
@@ -1137,14 +1155,14 @@ t.describe("native parity weaker virtual", function()
 			t.expect(requests).toEqual({ { keys = { 1 }, slot = 3 } })
 			stop()
 			local state = status()
-			local stopBounded, bounded = runtime.mount(function()
+			local stopBounded, bounded: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(1000),
 					key = key,
 					itemSize = 56,
 					gap = 6,
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -1168,8 +1186,8 @@ t.describe("native parity weaker virtual", function()
 			for index = 1, 8 do
 				extents[index] = ragged[(index - 1) % 4 + 1]
 			end
-			local focus, state = {}, status()
-			local stop, node = runtime.mount(function()
+			local focus: FixtureCollectionTypes.FocusControls<any>, state = {}, status()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(8),
 					key = key,
@@ -1178,7 +1196,7 @@ t.describe("native parity weaker virtual", function()
 					gap = 6,
 					focus = focus,
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -1195,22 +1213,22 @@ t.describe("native parity weaker virtual", function()
 				offset += extents[index] + 6
 			end
 			stop()
-			local stopPlain, plain = runtime.mount(function()
+			local stopPlain, plain: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(8),
 					key = key,
 					itemSize = 40,
 					measured = extents,
 					focus = focus,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
 			end, root)
 			window(plain, engine, 200, 300)
-			focus.focus(6)
+			assert(focus.focus)(6)
 			t.expect(plain.CanvasPosition.Y).toBe(621 + 249 - 300)
-			focus.focus(1)
+			assert(focus.focus)(1)
 			t.expect(plain.CanvasPosition.Y).toBe(0)
 			stopPlain()
 			runtime:dispose()
@@ -1229,14 +1247,14 @@ t.describe("native parity weaker virtual", function()
 				end
 				return values
 			end
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(40),
 					key = key,
 					itemSize = 40,
 					measured = extents(40),
 					overscan = 0,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -1246,14 +1264,14 @@ t.describe("native parity weaker virtual", function()
 			t.expect(mountedKeys(node)).toEqual({ 2 })
 			stop()
 			local built, state = 0, status()
-			local stopLarge, large = runtime.mount(function()
+			local stopLarge, large: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(10000),
 					key = key,
 					itemSize = 40,
 					measured = extents(10000),
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						built += 1
 						return label(UI, current)
 					end,
@@ -1281,18 +1299,18 @@ t.describe("native parity weaker virtual", function()
 			})
 			local source, state = Compose.cell(records(100)), status()
 			local rendered, loads, cancels, resolvers = 0, 0, 0, {}
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 40,
 					status = state,
-					render = function(current, _, rowKey)
+					render = function(current, _, rowKey: number): GuiObject
 						rendered += 1
 						local opened = Compose.cell(false)
-						return runtime.constructors.Frame "Row" {
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Row" {
 							Size = engine.types.UDim2.fromScale(1, 1),
-							label(UI, current),
+							label(UI, current) :: unknown,
 							UI.Toggle "Open" { value = opened, label = "Open" },
 							UI.AsyncImage({
 								image = "rbxassetid://" .. tostring(rowKey),
@@ -1356,7 +1374,7 @@ t.describe("native parity weaker virtual", function()
 					from = records(300),
 					key = key,
 					itemSize = 40,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(stormUI, current)
 					end,
 				})
@@ -1395,7 +1413,7 @@ t.describe("native parity weaker virtual", function()
 						end
 					end
 					local function feed(position: any, known: any): (() -> (), any)
-						local stop, node = runtime.mount(function()
+						local stop, node: any = runtime.mount(function()
 							return UI.VirtualList({
 								from = records(24, "Message "),
 								key = key,
@@ -1404,8 +1422,8 @@ t.describe("native parity weaker virtual", function()
 								measure = true,
 								measured = known,
 								CanvasPosition = position,
-								render = function(current)
-									return runtime.constructors.Frame "Message" {
+								render = function(current): GuiObject
+									return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Message" {
 										AutomaticSize = engine.types.Enum.AutomaticSize.Y,
 										Size = engine.types.UDim2.fromScale(1, 0),
 										label(UI, current),
@@ -1452,16 +1470,16 @@ t.describe("native parity weaker virtual", function()
 			local engine, runtime, UI, root = setup()
 			local source, measured, state = Compose.cell(records(40)), Compose.cell({}), status()
 			local rendered, released = 0, 0
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
 					itemSize = 48,
 					measured = measured,
-					follow = "end",
+					follow = "end" :: "end",
 					followThreshold = 8,
 					status = state,
-					render = function(current)
+					render = function(current): GuiObject
 						rendered += 1
 						Compose.cleanup(function()
 							released += 1
@@ -1484,8 +1502,9 @@ t.describe("native parity weaker virtual", function()
 			t.expect(rendered - released < 12).toBe(true)
 			stop()
 			t.expect(released).toBe(rendered)
-			local columns, gridState, controls = Compose.cell(3), status(), {}
-			local stopGrid, grid = runtime.mount(function()
+			local columns, gridState, controls: FixtureComposeTypes.OrderedCollectionControls<any> =
+				Compose.cell(3), status(), {}
+			local stopGrid, grid: any = runtime.mount(function()
 				return UI.VirtualGrid({
 					from = records(1000),
 					key = key,
@@ -1494,7 +1513,7 @@ t.describe("native parity weaker virtual", function()
 					overscan = 0,
 					status = gridState,
 					controls = controls,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -1506,7 +1525,7 @@ t.describe("native parity weaker virtual", function()
 			t.expect(anchor.Position.Y.Offset).toBe(640)
 			columns:set(2)
 			t.expect(rowHost(grid, anchorKey)).toBe(anchor)
-			t.expect(grid.CanvasPosition.Y).toBe(controls.placementOf(anchorKey).offset)
+			t.expect(grid.CanvasPosition.Y).toBe(assert(controls.placementOf)(anchorKey).offset)
 			t.expect(anchor.Position.Y.Offset).toBe(24 * 40)
 			t.expect(anchor.Size.X.Offset).toBe(300)
 			stopGrid()
@@ -1519,9 +1538,11 @@ t.describe("native parity weaker virtual", function()
 		function()
 			local engine, runtime, UI, root = setup()
 			local frame
-			local controls, rendered = {}, 0
+			local controls: FixtureComposeTypes.OrderedCollectionControls<any>, rendered = {}, 0
 			local stop = runtime.mount(function()
-				frame = runtime.constructors.Frame({ Size = engine.types.UDim2.fromScale(1, 1) })
+				frame = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+					Size = engine.types.UDim2.fromScale(1, 1),
+				})
 				local bounds = Compose.cell(frame.AbsoluteSize)
 				local connection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 					bounds:set(frame.AbsoluteSize)
@@ -1534,12 +1555,12 @@ t.describe("native parity weaker virtual", function()
 						Name = "Cards",
 						from = records(40),
 						key = key,
-						columns = function(use)
+						columns = function(use: Use)
 							return math.max(1, math.floor(use(bounds).X / 240))
 						end,
 						itemSize = 180,
 						controls = controls,
-						render = function(current)
+						render = function(current): GuiObject
 							rendered += 1
 							return label(UI, current)
 						end,
@@ -1555,9 +1576,9 @@ t.describe("native parity weaker virtual", function()
 				local width = math.max(case[1], 1)
 				frame.AbsoluteSize = engine.types.Vector2.new(case[1], 720)
 				window(grid, engine, width, 720)
-				t.expect(controls.placementOf(case[2] + 1).row).toBe(2)
-				t.expect(controls.placementOf(case[2]).row).toBe(1)
-				t.expect(controls.placementOf(2).crossSize).toBe(width / case[2])
+				t.expect(assert(controls.placementOf)(case[2] + 1).row).toBe(2)
+				t.expect(assert(controls.placementOf)(case[2]).row).toBe(1)
+				t.expect(assert(controls.placementOf)(2).crossSize).toBe(width / case[2])
 				first = first or rowHost(grid, 1)
 				t.expect(rowHost(grid, 1)).toBe(first)
 			end
@@ -1604,7 +1625,7 @@ t.describe("native parity weaker virtual", function()
 			local function world(maxRetained: number): any
 				local engine, runtime, UI, root = setup()
 				local hosts, state = {}, status()
-				local stop, node = runtime.mount(function()
+				local stop, node: any = runtime.mount(function()
 					return UI.VirtualList({
 						from = records(300),
 						key = key,
@@ -1612,12 +1633,14 @@ t.describe("native parity weaker virtual", function()
 						gap = 4,
 						maxRetained = maxRetained,
 						status = state,
-						render = function(current, _, rowKey)
+						render = function(current, _, rowKey: number): GuiObject
 							if rowKey % 3 == 0 then
-								return runtime.constructors.Frame "Wide" {
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Wide" {
 									Size = engine.types.UDim2.fromScale(1, 1),
-									label(UI, current),
-									runtime.constructors.UIStroke({ Thickness = 2 }),
+									label(UI, current) :: unknown,
+									((runtime.constructors.UIStroke :: unknown) :: UIStrokeConstructor)({
+										Thickness = 2,
+									}),
 								}
 							end
 							return label(UI, current)
@@ -1696,29 +1719,33 @@ t.describe("native parity weaker virtual", function()
 		"mech3-03 a reused row container never carries the previous row's children, tags, attributes or props",
 		function()
 			local engine, runtime, UI, root = setup()
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(200),
 					key = key,
 					itemSize = 40,
 					overscan = 0,
-					render = function(current, _, rowKey)
+					render = function(current, _, rowKey: number): GuiObject
 						if rowKey % 2 == 1 then
-							local odd = runtime.constructors.TextButton "Odd" {
-								Text = function(use)
+							local odd = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Odd" {
+								Text = function(use: Use)
 									return use(current).label
 								end,
 								Interactable = false,
 								Size = engine.types.UDim2.fromScale(1, 1),
-								Attributes = { Odd = true },
-								runtime.constructors.UIStroke({ Thickness = 3 }),
-								runtime.constructors.UIPadding({ PaddingLeft = engine.types.UDim.new(0, 12) }),
+								Attributes = { Odd = true } :: Attributes,
+								((runtime.constructors.UIStroke :: unknown) :: UIStrokeConstructor)({
+									Thickness = 3,
+								}) :: unknown,
+								((runtime.constructors.UIPadding :: unknown) :: UIPaddingConstructor)({
+									PaddingLeft = engine.types.UDim.new(0, 12),
+								}),
 							}
 							odd:AddTag("odd-row")
 							return odd
 						end
-						return runtime.constructors.TextButton "Even" {
-							Text = function(use)
+						return ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Even" {
+							Text = function(use: Use)
 								return use(current).label
 							end,
 							Size = engine.types.UDim2.fromScale(1, 1),
@@ -1775,8 +1802,9 @@ t.describe("native parity weaker virtual", function()
 		"mech3-97 degenerate collections answer without error and a past-the-end offset windows the last rows",
 		function()
 			local engine, runtime, UI, root = setup()
-			local source, state, controls = Compose.cell({}), status(), {}
-			local stop, node = runtime.mount(function()
+			local source, state, controls: FixtureComposeTypes.OrderedCollectionControls<any> =
+				Compose.cell({}), status(), {}
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = key,
@@ -1784,7 +1812,7 @@ t.describe("native parity weaker virtual", function()
 					overscan = 0,
 					status = state,
 					controls = controls,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -1799,7 +1827,7 @@ t.describe("native parity weaker virtual", function()
 			source:set(records(1))
 			t.expect(mountedKeys(node)).toEqual({ 1 })
 			t.expect(state:peek().extent).toBe(40)
-			t.expect(controls.placementOf(1).offset).toBe(0)
+			t.expect(assert(controls.placementOf)(1).offset).toBe(0)
 			source:set(records(10))
 			t.expect(mountedKeys(node)).toEqual(range(1, 10))
 			source:set(records(100))
@@ -1814,19 +1842,19 @@ t.describe("native parity weaker virtual", function()
 			for index = 1, 50 do
 				equal[index] = 40
 			end
-			local stopUniform, uniform = runtime.mount(function()
+			local stopUniform, uniform: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(50),
 					key = key,
 					itemSize = 40,
 					gap = 6,
 					status = uniformState,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
 			end, root)
-			local stopEqual, measured = runtime.mount(function()
+			local stopEqual, measured: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = records(50),
 					key = key,
@@ -1834,7 +1862,7 @@ t.describe("native parity weaker virtual", function()
 					gap = 6,
 					measured = equal,
 					status = equalState,
-					render = function(current)
+					render = function(current): GuiObject
 						return label(UI, current)
 					end,
 				})
@@ -1863,34 +1891,34 @@ t.describe("native parity weaker virtual", function()
 			local engine, runtime, UI, root = setup()
 			local source, selected, state = Compose.cell(records(100)), Compose.cell("a"), status()
 			local list, builds = nil, 0
-			local stop, tabs = runtime.mount(function()
+			local stop, tabs: any = runtime.mount(function()
 				return UI.TabView({
 					selection = selected,
 					tabs = {
 						{
 							id = "a",
 							label = "List",
-							content = function()
+							content = function(): Instance
 								list = UI.VirtualList({
 									from = source,
 									key = key,
 									itemSize = 100,
 									status = state,
-									render = function(current)
+									render = function(current): GuiObject
 										builds += 1
 										return label(UI, current)
 									end,
 								})
 								return list
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "b",
 							label = "Other",
-							content = function()
-								return runtime.constructors.Frame({})
+							content = function(): Instance
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end, root)
@@ -1922,17 +1950,17 @@ t.describe("native parity weaker virtual", function()
 		function()
 			local engine, runtime, UI, root = setup()
 			local acquired, released = 0, 0
-			local function resource()
+			local function resource(): Media.ImageResource
 				acquired += 1
 				Compose.cleanup(function()
 					released += 1
 				end)
-				return { state = Compose.cell("ready"), value = Compose.cell("rbxassetid://7") }
+				return { state = Compose.cell("ready" :: Media.ImageState), value = Compose.cell("rbxassetid://7") }
 			end
-			local a = { id = "a", name = "Ada", resource = resource, presence = "online" }
+			local a = { id = "a", name = "Ada", resource = resource, presence = "online" :: "online" }
 			local b = { id = "b", name = "Bo", image = "rbxassetid://1" }
-			local roster = Compose.cell({ a, b })
-			local stop, group = runtime.mount(function()
+			local roster = Compose.cell({ a, b } :: { Media.AvatarMember })
+			local stop, group: any = runtime.mount(function()
 				return UI.AvatarGroup({ items = roster, layout = "spread" })
 			end, root)
 			t.expect(acquired).toBe(1)
@@ -1940,7 +1968,7 @@ t.describe("native parity weaker virtual", function()
 			local imageB = faceB:FindFirstChild("Image", true)
 			t.expect(faceA:FindFirstChild("Image", true).Image).toBe("rbxassetid://7")
 			t.expect(imageB.Image).toBe("rbxassetid://1")
-			roster:set({ b, { id = "a", name = "Alice Quill", resource = resource, presence = "away" } })
+			roster:set({ b, { id = "a", name = "Alice Quill", resource = resource, presence = "away" :: "away" } })
 			t.expect(group:FindFirstChild("a")).toBe(faceA)
 			t.expect(group:FindFirstChild("b")).toBe(faceB)
 			t.expect(faceB.LayoutOrder < faceA.LayoutOrder).toBe(true)
@@ -1953,9 +1981,9 @@ t.describe("native parity weaker virtual", function()
 			t.expect(imageB.Image).toBe("rbxassetid://2")
 			t.expect(acquired).toBe(1)
 			local replaced = 0
-			local function replacement()
+			local function replacement(): Media.ImageResource
 				replaced += 1
-				return { state = Compose.cell("ready"), value = Compose.cell("rbxassetid://9") }
+				return { state = Compose.cell("ready" :: Media.ImageState), value = Compose.cell("rbxassetid://9") }
 			end
 			roster:set({ roster:peek()[1], { id = "a", name = "Alice Quill", resource = replacement } })
 			t.expect(replaced).toBe(1)

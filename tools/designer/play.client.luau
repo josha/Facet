@@ -1,12 +1,13 @@
 --!strict
 
-game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 local storage = game:GetService("ReplicatedStorage")
 local Facet = require(storage.Facet)
 local designer = require(storage.FacetDesignModules.designer)
-local runtime = Facet.Roblox.createRuntime()
-local Host = runtime.constructors
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 local stopBackground = runtime.mount(function()
 	return Host.ScreenGui "FacetDesignBackground" {
@@ -23,7 +24,8 @@ end, playerGui)
 local stop, screen = runtime.mount(function()
 	return Host.ScreenGui "FacetDesignPlay" {
 		ResetOnSpawn = false,
-		ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
+		ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets,
+		SafeAreaCompatibility = Enum.SafeAreaCompatibility.None,
 		DisplayOrder = 1,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	}

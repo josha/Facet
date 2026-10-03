@@ -1,5 +1,19 @@
 --!strict
-local cases = {}
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -19,7 +33,7 @@ end
 
 local function hud(t: any, size: any): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario("hud").build(t.context(UI, Host, Compose, env))
 		return built.screen()
 	end, { size = size, frames = 12 })
@@ -181,7 +195,7 @@ end)
 add("hud-heights-keep-zones-apart", { "apps-214" }, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1079, 809))
 	local stage = hud(t, size)
-	local lanes = {
+	local lanes: { [string]: { string } } = {
 		Left = { "Tasks", "Health", "Feed" },
 		Center = { "Clock" },
 		Right = { "Rail", "Readout", "Weapon", "Actions" },
@@ -236,8 +250,13 @@ add("hud-notice-clear-of-zones", { "apps-221" }, function(t)
 end)
 
 add("circular-value-inside-gauge", { "themes-P1-11" }, function(t)
-	local stage = t.mount(function(UI)
-		return UI.ProgressView "Ring" { value = 0.75, presentation = "circular", diameter = 120, showValue = true }
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.ProgressView "Ring" {
+			value = 0.75,
+			presentation = "circular" :: "circular",
+			diameter = 120,
+			showValue = true,
+		}
 	end, { size = Vector2.new(300, 300) })
 	local value, gauge = t.find(stage, "Value"), t.find(stage, "Gauge")
 	if not (value and gauge) then
@@ -257,10 +276,10 @@ end)
 
 add("large-text-gauge-value-below-ring", { "themes-P1-14" }, function(t)
 	t.note("preferred text size", t.environment.preferredTextSize)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.ProgressView "Ring" {
 			value = 1,
-			presentation = "circular",
+			presentation = "circular" :: "circular",
 			diameter = 80,
 			showValue = true,
 			format = function()
@@ -337,7 +356,7 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 	for _, theme in t.themes do
 		for _, shape in shapes do
 			local editing, rows
-			local stage = t.mount(function(UI, _, Compose)
+			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 				editing = Compose.cell(shape.options.editing == true)
 				rows = Compose.cell(table.clone(LAPS))
 				return UI.Table "Grid" {
@@ -345,14 +364,14 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 					key = function(item)
 						return item.id
 					end,
-					columns = {
+					columns = ({
 						{
 							id = "name",
 							label = "Name",
 							value = function(item)
 								return item.name
 							end,
-						},
+						} :: TableColumn?,
 						{
 							id = "laps",
 							label = "Laps",
@@ -360,7 +379,7 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 							value = function(item)
 								return item.laps
 							end,
-						},
+						} :: TableColumn?,
 						if shape.options.narrow
 							then {
 								id = "team",
@@ -372,18 +391,18 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 								end,
 							}
 							else nil,
-					},
+					} :: unknown) :: { TableColumn },
 					scrolls = shape.options.scrolls,
 					reorderable = shape.options.reorderable,
 					editing = editing,
 					rowActions = if shape.options.actions
-						then function()
+						then function(): RowActions
 							return {
 								trailing = {
 									{
 										id = "delete",
 										label = "Delete",
-										role = "destructive",
+										role = "destructive" :: "destructive",
 										onActivate = function() end,
 									},
 								},
@@ -420,7 +439,7 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 end)
 
 add("collapsed-column-details-target", { "collections-203" }, function(t)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Grid" {
 			from = LAPS,
 			key = function(item)
@@ -434,7 +453,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function(item)
 						return item.name
 					end,
-				},
+				} :: TableColumn,
 				{
 					id = "b",
 					label = "Beta",
@@ -443,7 +462,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function(item)
 						return item.laps
 					end,
-				},
+				} :: TableColumn,
 				{
 					id = "c",
 					label = "Gamma",
@@ -452,7 +471,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 					value = function()
 						return "Glade"
 					end,
-				},
+				} :: TableColumn,
 			},
 			Size = UDim2.fromScale(1, 1),
 		}
@@ -474,7 +493,9 @@ add("playlist-resize-grip-touch-target", { "apps2-175" }, function(t)
 	local result = api:Invoke("show", "ex02")
 	t.settle(20)
 	t.check("gallery shows the playlist", result.ok == true, result)
-	local gui = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+	local gui = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild(
+		"FacetGallery"
+	)
 	local header
 	for _ = 1, 120 do
 		for _, node in gui:GetDescendants() do
@@ -503,7 +524,9 @@ end)
 
 add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
-	local gui = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+	local gui = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild(
+		"FacetGallery"
+	)
 	local function check(where: string)
 		local shell = gui:FindFirstChild("Gallery")
 		local demos = shell and shell:FindFirstChild("Demos")
@@ -517,8 +540,8 @@ add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
 		t.check(where .. " tab is tagged filled", tab:HasTag("facet-tab-filled"), tab:GetTags())
 		t.check(
 			where .. " tab has a non-empty size",
-			tab.AbsoluteSize.X > 0 and tab.AbsoluteSize.Y > 0,
-			tab.AbsoluteSize
+			(tab :: GuiObject).AbsoluteSize.X > 0 and (tab :: GuiObject).AbsoluteSize.Y > 0,
+			(tab :: GuiObject).AbsoluteSize
 		)
 		local transparency = (tab :: any):GetStyled("BackgroundTransparency")
 		t.check(where .. " tab shows its fill", transparency < 1, transparency)
@@ -536,7 +559,7 @@ end)
 
 add("coach-mark-clear-of-share-and-reset-floor", { "navigation-1-65" }, function(t)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario("callout").build(t.context(UI, Host, Compose, env))
 		return built.screen()
 	end, { frames = 12 })

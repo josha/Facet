@@ -188,7 +188,7 @@ return function(
 	end
 
 	local function sideChrome(
-		controlSize: Types.Value<Types.ControlSize>?,
+		controlSize: Types.Value<Types.ControlSize?>?,
 		use: ComposeTypes.Use?,
 		glyph: boolean?
 	): number
@@ -202,7 +202,7 @@ return function(
 
 	local function wrapCaptions(
 		button: GuiObject,
-		controlSize: Types.Value<Types.ControlSize>?,
+		controlSize: Types.Value<Types.ControlSize?>?,
 		across: (ComposeTypes.Use) -> number,
 		peers: ((ComposeTypes.Use) -> number)?
 	)
@@ -3146,7 +3146,7 @@ return function(
 		}
 		local p = if spec.label == nil then ctx.props(source, pickerKeys, defaults) else defaults
 		for _, child in children do
-			table.insert(p, child)
+			table.insert((p :: unknown) :: { unknown }, child)
 		end
 		local picker = Host.Frame(p)
 		if not labelled then

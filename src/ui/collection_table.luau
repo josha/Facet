@@ -98,23 +98,25 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local sort: ComposeTypes.Cell<CollectionTypes.Sort?> = spec.sort or Compose.cell(nil :: CollectionTypes.Sort?)
 		local widths: ComposeTypes.Cell<{ [string]: number }> = spec.widths or Compose.cell({})
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
-		local status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus> = spec.status
-			or Compose.cell((nil :: unknown) :: ComposeTypes.OrderedCollectionStatus)
+		local emptyStatus: ComposeTypes.OrderedCollectionStatus = {
+			mode = "windowed",
+			direction = "vertical",
+			total = 0,
+			retained = 0,
+			first = 0,
+			last = 0,
+			firstRow = 0,
+			lastRow = 0,
+			rowCount = 0,
+			extent = 0,
+			following = false,
+			measured = 0,
+		}
+		local status = (
+			spec.status or Compose.cell(emptyStatus)
+		) :: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>
 		if status:peek() == nil then
-			status:set({
-				mode = "windowed",
-				direction = "vertical",
-				total = 0,
-				retained = 0,
-				first = 0,
-				last = 0,
-				firstRow = 0,
-				lastRow = 0,
-				rowCount = 0,
-				extent = 0,
-				following = false,
-				measured = 0,
-			} :: ComposeTypes.OrderedCollectionStatus)
+			status:set(emptyStatus)
 		end
 		local contentExtent = Compose.formula(function(use: ComposeTypes.Use): number
 			local current = use(status)

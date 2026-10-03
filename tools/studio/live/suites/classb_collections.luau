@@ -1,9 +1,24 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type SideCell = typeof(require("@repo/tools/typecheck/aliases").SideCell)
+type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -37,7 +52,7 @@ local function selectedName(): string
 end
 
 local function selectedRow(): string
-	local node = GuiService.SelectedObject
+	local node: Instance? = GuiService.SelectedObject
 	while node do
 		if node.Parent and node.Parent.Name == "Items" then
 			return node.Name
@@ -50,15 +65,15 @@ end
 local function watchSelection(value: any)
 	value.visited = {}
 	value.connection = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
-		local node = GuiService.SelectedObject
+		local node: Instance? = GuiService.SelectedObject
 		if node then
 			table.insert(value.visited, node)
 		end
 	end)
 end
 
-local function hitOrder(at: Vector2): { Instance }
-	return Players.LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(at.X, at.Y)
+local function hitOrder(at: Vector2): { GuiObject }
+	return (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):GetGuiObjectsAtPosition(at.X, at.Y)
 end
 
 local function theme(t: any, pattern: string): any
@@ -71,7 +86,7 @@ local function theme(t: any, pattern: string): any
 end
 
 add("cross-axis-fills-the-window", { "collections-29" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Panes" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -82,12 +97,12 @@ add("cross-axis-fills-the-window", { "collections-29" }, function(t)
 					from = rows(40),
 					key = "id",
 					itemSize = 120,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					render = function(current)
 						return UI.Text({ text = current:peek().name })
 					end,
 				},
-			},
+			} :: unknown,
 			Host.Frame "Column" {
 				Position = UDim2.fromOffset(640, 0),
 				Size = UDim2.fromOffset(320, 400),
@@ -130,11 +145,11 @@ end)
 add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
 	local function mount(width: number, columns: { any }, widths: any?): any
 		t.cleanup()
-		return t.mount(function(UI, _, Compose)
+		return t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Table "Racers" {
 				from = rows(6),
 				key = "id",
-				selectionMode = "single",
+				selectionMode = "single" :: "single",
 				widths = widths or Compose.cell({}),
 				columns = columns,
 			}
@@ -184,12 +199,12 @@ add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
 	t.near("wide, the fills grow equally from their floors", width(wide, "name") - width(wide, "artist"), 20, 1)
 	t.check("wide, both fills are above their floors", width(wide, "artist") > 150, width(wide, "artist"))
 	local widths
-	local sorted = t.mount(function(UI, _, Compose)
+	local sorted = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		widths = Compose.cell({})
 		return UI.Table "Hits" {
 			from = rows(6),
 			key = "id",
-			selectionMode = "single",
+			selectionMode = "single" :: "single",
 			widths = widths,
 			columns = {
 				{ id = "name", label = "Name" },
@@ -220,7 +235,7 @@ add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
 end)
 
 add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Racers" {
 			from = rows(4),
 			key = "id",
@@ -290,12 +305,12 @@ add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
 end)
 
 add("page-scroll-moves-the-table-body", { "collections-182" }, function(t)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.ScrollingFrame "Page" {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.fromOffset(0, 1600),
 			BackgroundTransparency = 1,
-			Host.Frame "Spacer" { Size = UDim2.fromOffset(10, 200), BackgroundTransparency = 1 },
+			Host.Frame "Spacer" { Size = UDim2.fromOffset(10, 200), BackgroundTransparency = 1 } :: unknown,
 			Host.Frame "Holder" {
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(500, 600),
@@ -327,8 +342,8 @@ add("page-scroll-moves-the-table-body", { "collections-182" }, function(t)
 	t.near("the body kept its canvas offset", body.CanvasPosition.Y, 0, 0.01)
 end)
 
-local function clampCase(t: any, direction: string, kind: string)
-	local stage = t.mount(function(UI)
+local function clampCase(t: any, direction: "horizontal" | "vertical", kind: string)
+	local stage = t.mount(function(UI: FacetControls)
 		local spec = {
 			from = rows(200),
 			key = "id",
@@ -422,14 +437,14 @@ add("partial-lines-crop-and-offsets-clamp", { "collections-233", "collections-24
 end)
 
 add("tray-actions-meet-the-touch-floor", { "collections-60" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RowActions "Row" {
-			open = Compose.cell("trailing"),
+			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			Size = UDim2.new(0, 400, 0, 44),
 			content = UI.Text({ text = "Row" }),
 			trailing = {
 				{ id = "flag", label = "Flag" },
-				{ id = "delete", label = "Delete", role = "destructive" },
+				{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
 			},
 		}
 	end, { size = Vector2.new(600, 300), frames = 30 })
@@ -471,11 +486,11 @@ end)
 
 local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	local fired = 0
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local action = {
 			id = "delete",
 			label = "Delete",
-			role = "destructive",
+			role = "destructive" :: "destructive",
 			onActivate = function()
 				fired += 1
 			end,
@@ -485,7 +500,7 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 			Size = UDim2.new(1, 0, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 			Host.UIPadding({
 				PaddingLeft = UDim.new(0, 17),
 				PaddingRight = UDim.new(0, 17),
@@ -596,7 +611,7 @@ add("departure-clears-before-reflow", { "collections-98" }, function(t)
 	t.check("an ornate package is available", ornate ~= nil)
 	for _, entry in list do
 		for _, scroll in { true, false } do
-			for _, edge in { "leading", "trailing" } do
+			for _, edge in { "leading", "trailing" } :: { "leading" | "trailing" } do
 				departureCase(t, entry, edge, scroll)
 				t.cleanup()
 			end
@@ -612,15 +627,17 @@ add("plate-decoration-stays-inside-the-band", { "collections-98" }, function(t)
 	end
 	for _, entry in list do
 		local open
-		local stage = t.mount(function(UI, _, Compose)
-			open = Compose.cell(nil)
+		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+			open = (function(value: ("leading" | "trailing")?): SideCell
+				return Compose.cell(value)
+			end)(nil)
 			return UI.RowActions "Row" {
 				open = open,
 				Size = UDim2.new(0, 500, 0, 56),
 				content = UI.Button({ label = "Row", Size = UDim2.fromScale(1, 1) }),
 				trailing = {
 					{ id = "flag", label = "Flag" },
-					{ id = "delete", label = "Delete", role = "destructive" },
+					{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
 				},
 			}
 		end, { size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 })
@@ -681,8 +698,10 @@ end
 
 interactive("tray-keys-and-hover", { "collections-60" }, function(t)
 	local value = { fired = {} }
-	value.stage = t.mount(function(UI, _, Compose)
-		value.open = Compose.cell(nil)
+	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		value.open = (function(value: ("leading" | "trailing")?): SideCell
+			return Compose.cell(value)
+		end)(nil)
 		return UI.RowActions "Row" {
 			open = value.open,
 			Size = UDim2.new(0, 500, 0, 56),
@@ -746,13 +765,15 @@ end, {
 
 interactive("header-sort-keys", { "collections-174" }, function(t)
 	local value = {}
-	value.stage = t.mount(function(UI, _, Compose)
-		value.sort = Compose.cell(nil)
+	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		value.sort = (function(value: { column: string, direction: "ascending" | "descending" }?): SortCell
+			return Compose.cell(value)
+		end)(nil)
 		return UI.Table "Racers" {
 			from = rows(8),
 			key = "id",
 			sort = value.sort,
-			selectionMode = "single",
+			selectionMode = "single" :: "single",
 			columns = {
 				{ id = "name", label = "Name", resizable = false },
 				{ id = "laps", label = "Laps", width = 140, resizable = false },
@@ -811,20 +832,20 @@ end, {
 
 interactive("left-reaches-this-rows-minus", { "collections-189" }, function(t)
 	local value = { fired = {} }
-	value.stage = t.mount(function(UI, _, Compose)
+	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
-			selectionMode = "single",
+			selectionMode = "single" :: "single",
 			editing = Compose.cell(true),
 			columns = { { id = "name", label = "Name" }, { id = "laps", label = "Laps", width = 120 } },
-			rowActions = function(_, key)
+			rowActions = function(_, key): RowActions?
 				return {
 					trailing = {
 						{
 							id = "delete",
 							label = "Delete",
-							role = "destructive",
+							role = "destructive" :: "destructive",
 							onActivate = function()
 								table.insert(value.fired, "delete:" .. key)
 							end,
@@ -853,11 +874,11 @@ end, {
 
 interactive("collapsed-column-leaves-the-ring", { "collections-192" }, function(t)
 	local value = {}
-	value.stage = t.mount(function(UI)
+	value.stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
-			selectionMode = "single",
+			selectionMode = "single" :: "single",
 			columns = {
 				{ id = "name", label = "Name", minWidth = 200 },
 				{ id = "laps", label = "Laps", width = 120, minWidth = 120 },
@@ -907,13 +928,13 @@ end, {
 
 interactive("return-toggles-multi-selection", { "collections-197" }, function(t)
 	local value = {}
-	value.stage = t.mount(function(UI, _, Compose)
+	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.selection = Compose.cell({})
 		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
 			selection = value.selection,
-			selectionMode = "multiple",
+			selectionMode = "multiple" :: "multiple",
 			editing = Compose.cell(true),
 			columns = { { id = "name", label = "Name" } },
 		}
@@ -946,15 +967,15 @@ end, {
 
 interactive("horizontal-list-keys", { "collections-254" }, function(t)
 	local value = { activations = {} }
-	value.stage = t.mount(function(UI)
+	value.stage = t.mount(function(UI: FacetControls)
 		return UI.VirtualList "Strip" {
 			from = rows(40),
 			key = "id",
 			itemSize = 140,
-			direction = "horizontal",
+			direction = "horizontal" :: "horizontal",
 			Size = UDim2.fromOffset(600, 120),
-			onActivate = function(item, _, input)
-				table.insert(value.activations, { item.id, if input then input.KeyCode.Name else "nil" })
+			onActivate = function(item: any, _, input: InputObject?)
+				table.insert(value.activations, { item.id, if input then assert(input).KeyCode.Name else "nil" })
 			end,
 			render = function(current)
 				return UI.Text({ text = current:peek().name })
@@ -985,7 +1006,7 @@ end, {
 
 interactive("drag-across-rows-after-page-scroll", { "collections-154", "collections-182" }, function(t)
 	local value = { reorders = {} }
-	value.stage = t.mount(function(UI, Host)
+	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.ScrollingFrame "Page" {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.fromOffset(0, 1400),

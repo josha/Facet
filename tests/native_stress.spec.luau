@@ -1,14 +1,23 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local process = require("@lune/process")
 local t = require("./lib/testkit")
+local cells = require("./lib/cells")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local terminal = require("../examples/gallery/examples/outpost_terminal")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function world()
 	local engine = engineLib.new({ cacheDefaults = true })
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local root = engine.new("ScreenGui")
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -23,7 +32,7 @@ local function world()
 	return engine, runtime, root, UI, input, gui
 end
 
-local function find(node, name)
+local function find(node: any, name: string): any
 	if node.Name == name then
 		return node
 	end
@@ -53,8 +62,8 @@ local function sameCensus(engine, baseline, label)
 	assert(now.connections == baseline.connections, `{label}: connections {baseline.connections} -> {now.connections}`)
 end
 
-local function random(seed)
-	return function(low, high)
+local function random(seed: number)
+	return function(low: number, high: number)
 		seed = (seed * 48271) % 2147483647
 		return low + seed % (high - low + 1)
 	end
@@ -93,9 +102,13 @@ t.describe("native stress invariants", function()
 			local before = engine.census()
 			local shown = Compose.cell(false)
 			local stop = runtime.mount(function()
-				return runtime.constructors.Frame({
-					UI.Button "Base" { label = "Open" },
-					UI.Alert({ isPresented = shown, title = "Confirm", actions = { { id = "ok", label = "OK" } } }),
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+					UI.Button "Base" { label = "Open" } :: unknown,
+					UI.Alert({
+						isPresented = shown,
+						title = "Confirm",
+						actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
+					}),
 				})
 			end, root)
 			local baseline = engine.census()
@@ -117,7 +130,7 @@ t.describe("native stress invariants", function()
 			local before = engine.census()
 			local initial = { { id = "a" }, { id = "b" }, { id = "c" } }
 			local source = Compose.cell(initial)
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = function(item)
@@ -125,9 +138,9 @@ t.describe("native stress invariants", function()
 					end,
 					itemSize = 20,
 					overscan = 0,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.Button({
-							label = function(use)
+							label = function(use: Use)
 								return use(current).id
 							end,
 						})
@@ -156,8 +169,8 @@ t.describe("native stress invariants", function()
 			for index = 1, 80 do
 				rows[index] = { id = index, label = tostring(index) }
 			end
-			local nextId, source, status = 80, Compose.cell(rows), Compose.cell({ total = 0 })
-			local stop, node = runtime.mount(function()
+			local nextId, source, status = 80, Compose.cell(rows), cells.collectionStatus()
+			local stop, node: any = runtime.mount(function()
 				return UI.VirtualList({
 					from = source,
 					key = function(item)
@@ -166,9 +179,9 @@ t.describe("native stress invariants", function()
 					itemSize = 20,
 					overscan = 0,
 					status = status,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.Button "Value" {
-							label = function(use)
+							label = function(use: Use)
 								return use(current).label
 							end,
 						}
@@ -223,7 +236,7 @@ t.describe("native stress invariants", function()
 					Facet = Facet,
 					Compose = Compose,
 					runtime = runtime,
-					Host = runtime.constructors,
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
 					UI = UI,
 					types = engine.types,
 				}, { send = function() end })
@@ -255,11 +268,11 @@ t.describe("native stress invariants", function()
 			local rng = random(611001 + seed)
 			local engine, runtime, root, UI = world()
 			local before = engine.census()
-			local source, requests, changes = Compose.cell("initial"), {}, 0
-			local stop, node = runtime.mount(function()
+			local source, requests, changes = Compose.cell("initial" :: string?), {}, 0
+			local stop, node: any = runtime.mount(function()
 				return UI.AsyncImage({
 					source = source,
-					loader = function(content, resolve, reject)
+					loader = function(content: string, resolve: (string?) -> (), reject: (unknown) -> ())
 						local request = { resolve = resolve, reject = reject, cancelled = 0 }
 						table.insert(requests, request)
 						return function()
@@ -312,8 +325,8 @@ t.describe("native stress invariants", function()
 			local before = engine.census()
 			local text, size, enabled = Compose.cell("Initial"), Compose.cell(16), Compose.cell(true)
 			local activations, field, button = 0, nil, nil
-			local stop, panel = runtime.mount(function()
-				field = UI.TextInput({ value = text, TextSize = size })
+			local stop, panel: any = runtime.mount(function()
+				field = UI.TextInput({ value = text, TextSize = size }) :: TextBox
 				button = UI.Button({
 					label = text,
 					TextSize = size,
@@ -322,7 +335,7 @@ t.describe("native stress invariants", function()
 						activations += 1
 					end,
 				})
-				return runtime.constructors.Frame({ field, button })
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ field :: unknown, button })
 			end, root)
 			field:CaptureFocus()
 			for step = 1, 40 do
@@ -342,7 +355,8 @@ t.describe("native stress invariants", function()
 				panel.Visible = rng(0, 1) == 1
 				root.Enabled = rng(0, 1) == 1
 				local prior = activations
-				button.Activated.fire()
+				local activated = button.Activated :: any
+				activated.fire()
 				local expected = if enabled:peek() and panel.Visible and root.Enabled then 1 else 0
 				assert(activations == prior + expected, `seed={seed} step={step}: action eligibility stale`)
 			end
@@ -358,15 +372,15 @@ t.describe("native stress invariants", function()
 			local engine, runtime, root, UI, input, gui = world()
 			local before = engine.census()
 			local builds, activations, value = 0, 0, Compose.cell(3)
-			local stop, panel = runtime.mount(function()
+			local stop, panel: any = runtime.mount(function()
 				builds += 1
-				return runtime.constructors.Frame({
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 					UI.Button "A" {
 						label = "A",
 						onActivate = function()
 							activations += 1
 						end,
-					},
+					} :: unknown,
 					UI.Button "B" { label = "B" },
 					UI.Stepper "Stepper" { value = value, max = 10 },
 				})
@@ -416,8 +430,8 @@ t.describe("native stress invariants", function()
 		sameCensus(engine, before, "dispose with a pending change, then again")
 		local flag = Compose.cell(false)
 		local disposed = 0
-		local stopNotify, panel = runtime.mount(function()
-			return runtime.constructors.Frame({
+		local stopNotify, panel: any = runtime.mount(function()
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				Compose.show(flag, function()
 					return UI.Text "On" { text = "on" }
 				end),
@@ -441,19 +455,22 @@ t.describe("native stress invariants", function()
 		local before = engine.census()
 		local sheet, alert = Compose.cell(false), Compose.cell(false)
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Button "Base" { label = "Base" },
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				UI.Button "Base" { label = "Base" } :: unknown,
 				UI.Sheet({
 					isPresented = sheet,
 					detent = Compose.cell("medium"),
-					content = function()
+					content = function(): Instance
 						return UI.Button "SheetAction" { label = "Sheet" }
 					end,
 				}),
 				UI.Alert({
 					isPresented = alert,
 					title = "Confirm",
-					actions = { { id = "ok", label = "OK" }, { id = "cancel", label = "Cancel", role = "cancel" } },
+					actions = {
+						{ id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
 				}),
 			})
 		end, root)

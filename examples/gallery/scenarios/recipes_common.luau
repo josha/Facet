@@ -1,3 +1,10 @@
+--!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local WRAP_TAGS = { "Rain", "Dust", "Night", "Mirror", "Reverse", "Elimination" }
 local RAIL_TAGS = {
 	"Sprint",
@@ -15,16 +22,16 @@ local RAIL_TAGS = {
 return {
 	title = "Recipes",
 	build = function(ctx: any)
-		local Facet, UI, Compose = ctx.Facet, ctx.UI, ctx.Compose
+		local Facet, UI, Compose: ComposeModule = ctx.Facet, ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local actionsCap = Compose.cell(700)
 		local actionsWidth = Compose.cell(0)
 		local actionWidths = { Compose.cell(0), Compose.cell(0), Compose.cell(0) }
-		local actionsHorizontal = Compose.formula(function(use)
+		local actionsHorizontal = Compose.formula(function(use: Use)
 			local required = 16
 			for _, width in actionWidths do
 				local measured = use(width)
@@ -47,8 +54,9 @@ return {
 			railSelected[tag] = Compose.cell(false)
 		end
 		local retryCount, createCount, clearCount = Compose.cell(0), Compose.cell(0), Compose.cell(0)
-		local expanded = { Rules = Compose.cell(false), Setup = Compose.cell(false), Rewards = Compose.cell(false) }
-		local function selected(cells)
+		local expanded: { [string]: typeof(Compose.cell(false)) } =
+			{ Rules = Compose.cell(false), Setup = Compose.cell(false), Rewards = Compose.cell(false) }
+		local function selected(cells: { [string]: typeof(Compose.cell(false)) })
 			local result = {}
 			for id, cell in cells do
 				result[id] = cell:peek()
@@ -85,7 +93,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "title",
+				textRole = "title" :: "title",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -99,7 +107,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "caption",
+				textRole = "caption" :: "caption",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -123,7 +131,7 @@ return {
 					UI.Label "Icon" {
 						title = opts.iconLabel or opts.title,
 						icon = opts.icon,
-						presentation = "iconOnly",
+						presentation = "iconOnly" :: "iconOnly",
 						iconSize = 32,
 					}
 				)
@@ -136,7 +144,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = opts.title,
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextXAlignment = Enum.TextXAlignment.Center,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
@@ -173,7 +181,7 @@ return {
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
+				}) :: unknown,
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
@@ -183,14 +191,14 @@ return {
 				table.unpack(children),
 			})
 		end
-		local function metrics(use)
-			local package = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
+		local function metrics(use: Use)
+			local package: ThemePackage = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
 			return package.metrics
 		end
-		local function observe(node, property)
-			local value = Compose.cell(node[property])
+		local function observe(node: GuiObject, property: string): VectorCell
+			local value = Compose.cell((node :: any)[property] :: Vector2)
 			local connection = node:GetPropertyChangedSignal(property):Connect(function()
-				value:set(node[property])
+				value:set((node :: any)[property])
 			end)
 			Compose.cleanup(function()
 				connection:Disconnect()
@@ -203,7 +211,7 @@ return {
 			local rowAt = observe(row, "AbsolutePosition")
 			local titleAt = if title then observe(title, "AbsolutePosition") else rowAt
 			local function inset(side: string)
-				return function(use)
+				return function(use: Use)
 					if type(sides) ~= "table" or not sides[side] then
 						return UDim.new(0, 0)
 					end
@@ -213,7 +221,7 @@ return {
 			local line = Host.Frame({
 				LayoutOrder = 1,
 				Name = "Line",
-				Size = function(use)
+				Size = function(use: Use)
 					return UDim2.new(1, 0, 0, (thickness or 1) * metrics(use).strokes.hairline)
 				end,
 			})
@@ -227,7 +235,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}),
+				}) :: unknown,
 				row,
 				Host.Frame({
 					LayoutOrder = 2,
@@ -239,7 +247,7 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 0),
-					}),
+					}) :: unknown,
 					Host.UIPadding({
 						PaddingLeft = inset("left"),
 						PaddingRight = inset("right"),
@@ -254,7 +262,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BorderSizePixel = 0,
-				Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) }),
+				Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) }) :: unknown,
 				Host.UIListLayout({
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
@@ -281,10 +289,10 @@ return {
 				local button = UI.Button({
 					Name = id,
 					LayoutOrder = index,
-					Size = function(use)
+					Size = function(use: Use)
 						return if use(actionsHorizontal) then UDim2.fromOffset(0, 44) else UDim2.new(1, 0, 0, 44)
 					end,
-					AutomaticSize = function(use)
+					AutomaticSize = function(use: Use)
 						return if use(actionsHorizontal) then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y
 					end,
 					TextWrapped = true,
@@ -341,12 +349,12 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Host.UISizeConstraint({
-						MaxSize = function(use)
+						MaxSize = function(use: Use)
 							return Vector2.new(use(actionsCap), math.huge)
 						end,
-					}),
+					}) :: unknown,
 					Host.UIListLayout({
-						FillDirection = function(use)
+						FillDirection = function(use: Use)
 							return if use(actionsHorizontal)
 								then Enum.FillDirection.Horizontal
 								else Enum.FillDirection.Vertical
@@ -385,7 +393,7 @@ return {
 							end)
 						end
 					end,
-					content = function()
+					content = function(): Instance
 						return UI.Text "Body" {
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
@@ -402,16 +410,16 @@ return {
 			local function checkItem(id: string, label: string, width: any?): any
 				return UI.Toggle({
 					Name = id,
-					Size = function(use)
+					Size = function(use: Use)
 						return if width then UDim2.new(width.Scale, width.Offset, 0, 0) else UDim2.new(1, 0, 0, 0)
 					end,
 					AutomaticSize = Enum.AutomaticSize.XY,
 					label = label,
-					presentation = "checkbox",
-					controlSize = "compact",
-					indicatorPosition = "leading",
+					presentation = "checkbox" :: "checkbox",
+					controlSize = "compact" :: "compact",
+					indicatorPosition = "leading" :: "leading",
 					enabled = enabled,
-					value = function(use)
+					value = function(use: Use)
 						return use(checks)[id] == true
 					end,
 					onChange = function(next)
@@ -442,7 +450,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 24),
-				}),
+				}) :: unknown,
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
@@ -468,7 +476,7 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 4),
-					}),
+					}) :: unknown,
 					checkItem("tires", "Tire wear"),
 					checkItem("fuel", "Fuel use"),
 					checkItem("damage", "Damage"),
@@ -483,7 +491,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					checkItem("tires", "Tire wear", UDim.new(0, 0)),
 					checkItem("fuel", "Fuel use", UDim.new(0, 0)),
 					checkItem("damage", "Damage", UDim.new(0, 0)),
@@ -500,17 +508,17 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					Compose.OrderedCollection({
 						from = wrapTags,
 						key = function(tag: string)
 							return tag
 						end,
-						render = function(current, placement, key)
+						render = function(current, placement, key): GuiObject
 							local tag = current:peek()
 							local node = chipItem(tag, wrapSelected)
 							ctx.runtime.decorate(node, {
-								LayoutOrder = function(use)
+								LayoutOrder = function(use: Use)
 									return use(placement).index
 								end,
 							})
@@ -537,13 +545,13 @@ return {
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}),
+						}) :: unknown,
 						Compose.OrderedCollection({
 							from = railTags,
 							key = function(tag: string)
 								return tag
 							end,
-							render = function(current, placement, key)
+							render = function(current, placement, key): GuiObject
 								local tag = current:peek()
 								return chipItem(tag, railSelected)
 							end,
@@ -596,7 +604,7 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 0),
-					}),
+					}) :: unknown,
 					accordionItem("Rules", "Race rules", "Standard lap count, no shortcuts, collisions on."),
 					accordionItem("Setup", "Car setup", "Tire compound, gear ratio and ride height for this track."),
 					accordionItem("Rewards", "Rewards", "Podium finishes bank currency toward the next kart unlock."),

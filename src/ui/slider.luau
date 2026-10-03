@@ -257,13 +257,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			native.BackgroundTransparency = 1
 			native.Size = D2.fromOffset(0, 0)
 			native.AutomaticSize = E.AutomaticSize.XY
-			table.insert(native, Host.UISizeConstraint({ MinSize = knobFloor }))
-			table.insert(native, mark)
+			native[#native + 1] = Host.UISizeConstraint({ MinSize = knobFloor })
+			native[#native + 1] = mark
 			return Host.Frame(native)
 		end
 		native.BackgroundTransparency = 1
-		table.insert(native, mark)
-		table.insert(native, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
+		native[#native + 1] = mark
+		native[#native + 1] = Host.UICorner({ CornerRadius = D.new(0.5, 0) })
 		return Host.Frame(native)
 	end
 
@@ -669,7 +669,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				else nil,
 		}
 		for _, child in trackChildren do
-			table.insert(trackProps, child)
+			trackProps[#trackProps + 1] = child
 		end
 		track = ctx.styled(Host.Frame(trackProps), "slider-track")
 		local trackSlot = track

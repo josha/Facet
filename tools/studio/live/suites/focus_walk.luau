@@ -3,7 +3,15 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function api(command: string, argument: any): any
 	return (workspace:WaitForChild("FacetShowcaseAPI") :: any):Invoke(command, argument)
@@ -12,7 +20,7 @@ end
 local function pages(): { { id: string, tab: string? } }
 	local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
 	local scenarios = storage:WaitForChild("FacetScenarios")
-	local out = {}
+	local out: { { id: string, tab: string? } } = {}
 	for _, entry in screen.list() do
 		local module = if entry.kind == "fixture" then scenarios:FindFirstChild(entry.module) else nil
 		local fixture = if module then (require :: any)(module) else nil
@@ -35,7 +43,7 @@ table.insert(cases, {
 	run = function(t: any)
 		local live = (require :: any)(storage.FacetLive)
 		local focus = (require :: any)(storage.FacetLive.focus)
-		local layer = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+		local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
 		local options = shared.FacetFocusWalk or {}
 		local prefix = if options.device then `{options.device}--` else ""
 		api("device", options.device or "automatic")

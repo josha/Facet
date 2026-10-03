@@ -1,8 +1,27 @@
 --!strict
+type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -64,7 +83,7 @@ end
 
 add("billboard-nameplate", { "mech3-08" }, function(t)
 	local Facet = t.Facet
-	local Compose = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local camera = workspace.CurrentCamera
 	local part = Instance.new("Part")
 	part.Name = "ClassbNameplateAnchor"
@@ -74,8 +93,8 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 	part.Size = Vector3.new(1, 1, 1)
 	part.CFrame = camera.CFrame * CFrame.new(0, 0, -12)
 	part.Parent = workspace
-	local runtime = Facet.Roblox.createRuntime()
-	local Host = runtime.constructors
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local UI = Facet.controls(runtime)
 	local health = Compose.cell("100")
 	local billboard
@@ -86,14 +105,14 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 			AlwaysOnTop = true,
 			Size = UDim2.fromOffset(300, 96),
 			ResetOnSpawn = false,
-			sheet,
+			sheet :: unknown,
 			Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 			UI.VStack "Plate" {
 				padding = 8,
 				gap = 4,
-				width = "fill",
-				height = "fill",
-				UI.Text "Name" { text = "Razz Raccoon", TextSize = 18 },
+				width = "fill" :: "fill",
+				height = "fill" :: "fill",
+				UI.Text "Name" { text = "Razz Raccoon", TextSize = 18 } :: unknown,
 				UI.Text "Health" { text = health, TextSize = 14 },
 			},
 		}
@@ -101,8 +120,8 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 	end, Players.LocalPlayer:WaitForChild("PlayerGui"))
 	t.settle(10)
 	local plate = billboard:FindFirstChild("Plate")
-	local name = plate and plate:FindFirstChild("Name")
-	local label = plate and plate:FindFirstChild("Health")
+	local name = (plate and plate:FindFirstChild("Name")) :: TextLabel?
+	local label = (plate and plate:FindFirstChild("Health")) :: TextLabel?
 	t.check("the nameplate mounts in a BillboardGui", name ~= nil and label ~= nil)
 	if name and label then
 		local origin = billboard.AbsolutePosition
@@ -130,7 +149,7 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 		t.settle(4)
 		connection:Disconnect()
 		t.check("the health update writes the text", label.ContentText == "87", label.ContentText)
-		t.check("the same label instance shows the new value", plate:FindFirstChild("Health") == label)
+		t.check("the same label instance shows the new value", (plate :: Instance):FindFirstChild("Health") == label)
 		t.check(
 			"the update creates no instance",
 			created == 0 and #billboard:GetDescendants() == before,
@@ -148,22 +167,22 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 	part:Destroy()
 end)
 
-local function strip(t: any, control: number, corners: string?): (any, any)
+local function strip(t: any, control: number, corners: ("pill" | "square")?): (any, any)
 	local Facet = t.Facet
 	local package = assert(Facet.themes.define({
 		identity = { id = `classb-radius-{control}` },
 		metrics = { radii = { control = control, panel = 12, pill = 999 } },
 	} :: any))
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Picker "View" {
 			selected = Compose.cell("a"),
-			style = "segmented",
+			style = "segmented" :: "segmented",
 			corners = corners,
 			Size = UDim2.fromOffset(360, 44),
 			options = {
-				{ value = "a", label = "One" },
-				{ value = "b", label = "Two" },
-				{ value = "c", label = "Tri" },
+				{ value = "a", label = "One" } :: PickerOption,
+				{ value = "b", label = "Two" } :: PickerOption,
+				{ value = "c", label = "Tri" } :: PickerOption,
 			},
 		}
 	end, { size = Vector2.new(600, 300), theme = package, frames = 12 })
@@ -255,14 +274,14 @@ add("collapsible-safe-edges", { "navigation-2-06" }, function(t)
 	for _, size in { Vector2.new(320, 300), Vector2.new(390, 844), Vector2.new(1280, 720) } do
 		local where = `{size.X}x{size.Y}`
 		local expanded
-		local stage = t.mount(function(UI, _, Compose)
+		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			expanded = Compose.cell(false)
 			return UI.Screen "S" {
 				UI.CollapsibleView "View" {
 					label = "Settings",
 					expanded = expanded,
 					Size = UDim2.new(1, 0, 0, 44),
-					content = function()
+					content = function(): Instance
 						return UI.Text {
 							text = string.rep("Course details ", 30),
 							TextWrapped = true,
@@ -301,26 +320,26 @@ end)
 
 interactive("navigation-back-pointer", { "navigation-3-19" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
-		value.path = Compose.cell({ { id = "step", value = 1 } })
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+		value.path = Compose.cell({ { id = "step", value = 1 } } :: { NavigationEntry })
 		return UI.NavigationStack "Nav" {
 			path = value.path,
 			root = {
 				title = "Start",
-				content = function()
+				content = function(): Instance
 					return UI.Text { text = "Root" }
 				end,
 			},
 			destinations = {
 				step = {
 					title = "Step",
-					content = function()
+					content = function(): Instance
 						return UI.Button "Other" { label = "Other" }
 					end,
-				},
+				} :: Destination,
 			},
 			backLabel = "Back",
-			transition = false,
+			transition = false :: false,
 		}
 	end, { size = Vector2.new(800, 600), frames = 20 })
 	local back
@@ -353,14 +372,14 @@ end, {
 
 local function pager(t: any, size: any, reduced: boolean): (any, any)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.selection = Compose.cell("one")
 		local pages = {}
 		for _, id in { "one", "two", "three" } do
 			table.insert(pages, {
 				id = id,
-				title = id,
-				content = function()
+				label = id,
+				content = function(): Instance
 					return UI.Button "Play" { label = "Play " .. id }
 				end,
 			})
@@ -406,10 +425,10 @@ add("pageview-resize-during-travel", { "navigation-3-44" }, function(t)
 end)
 
 add("pageview-fixed-in-scroller", { "navigation-3-48" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.ScrollView "Outer" {
-			width = "fill",
-			height = "fill",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
 			UI.PageView "Pager" {
 				selection = Compose.cell("one"),
 				Size = UDim2.new(1, 0, 0, 360),
@@ -417,10 +436,10 @@ add("pageview-fixed-in-scroller", { "navigation-3-48" }, function(t)
 					{
 						id = "one",
 						title = "One",
-						content = function()
+						content = function(): Instance
 							return UI.Text { text = "Course details" }
 						end,
-					},
+					} :: Tab,
 				},
 			},
 		}
@@ -446,12 +465,15 @@ end)
 
 add("segment-accent-plate-image-themes", { "navigation-3-51" }, function(t)
 	for _, entry in t.themes do
-		local stage = t.mount(function(UI, _, Compose)
+		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Picker "Motion" {
 				selected = Compose.cell("full"),
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				Size = UDim2.fromOffset(360, 44),
-				options = { { value = "full", label = "Full" }, { value = "reduced", label = "Reduced" } },
+				options = {
+					{ value = "full", label = "Full" } :: PickerOption,
+					{ value = "reduced", label = "Reduced" } :: PickerOption,
+				},
 			}
 		end, { size = Vector2.new(600, 200), theme = entry.package, frames = 10 })
 		local current = tagged(stage, "facet-segment-current")
@@ -510,24 +532,27 @@ end)
 
 add("underline-follows-rehomed-strip", { "navigation-4-26" }, function(t)
 	local atTop, selected
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		atTop = Compose.cell(true)
 		selected = Compose.cell("a")
 		local function strip()
 			return UI.Picker "Tabs" {
 				selected = selected,
-				style = "inline",
-				indicator = "underline",
-				axis = "x",
-				options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+				style = "inline" :: "inline",
+				indicator = "underline" :: "underline",
+				axis = "x" :: "x",
+				options = {
+					{ value = "a", label = "Alpha" } :: PickerOption,
+					{ value = "b", label = "Beta" } :: PickerOption,
+				},
 			}
 		end
 		return UI.VStack "Page" {
 			gap = 0,
-			width = "fill",
-			Compose.show(atTop, strip),
+			width = "fill" :: "fill",
+			Compose.show(atTop, strip) :: unknown,
 			UI.VStack "Body" { Size = UDim2.new(1, 0, 0, 100) },
-			Compose.show(function(use)
+			Compose.show(function(use: Use)
 				return not use(atTop)
 			end, strip),
 		}
@@ -573,42 +598,42 @@ end)
 
 add("tab-reorder-keeps-page-geometry", { "navigation-4-58" }, function(t)
 	local order, builds = nil, 0
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		order = Compose.cell({ "home", "feed", "me" })
 		return UI.TabView "Tabs" {
 			selection = Compose.cell("home"),
-			style = "sidebarAdaptable",
-			placement = "bottomBar",
-			customization = function(use)
+			style = "sidebarAdaptable" :: "sidebarAdaptable",
+			placement = "bottomBar" :: "bottomBar",
+			customization = function(use: Use): { order: { string }?, hidden: { string }? }
 				return { order = use(order) }
 			end,
 			tabs = {
 				{
 					id = "home",
 					label = "Home",
-					content = function()
+					content = function(): Instance
 						builds += 1
 						return UI.VStack "HomeBody" {
-							width = "fill",
-							UI.Button "First" { label = "First" },
+							width = "fill" :: "fill",
+							UI.Button "First" { label = "First" } :: unknown,
 							UI.Button "Second" { label = "Second" },
 						}
 					end,
-				},
+				} :: Tab,
 				{
 					id = "feed",
 					label = "Feed",
-					content = function()
+					content = function(): Instance
 						return UI.Text { text = "Feed" }
 					end,
-				},
+				} :: Tab,
 				{
 					id = "me",
 					label = "Me",
-					content = function()
+					content = function(): Instance
 						return UI.Text { text = "Me" }
 					end,
-				},
+				} :: Tab,
 			},
 		}
 	end, { size = Vector2.new(390, 700), frames = 15 })
@@ -666,28 +691,28 @@ end)
 add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
 	for _, size in { Vector2.new(390, 844), Vector2.new(1280, 720) } do
 		local where = `{size.X}x{size.Y}`
-		local stage = t.mount(function(UI, _, Compose)
+		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.TabView "Tabs" {
 				selection = Compose.cell("home"),
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				tabs = {
 					{
 						id = "home",
 						label = "Home",
-						content = function()
+						content = function(): Instance
 							return UI.HStack "HomeBody" {
-								UI.Text { text = "a considerably wider body than a phone offers" },
+								UI.Text { text = "a considerably wider body than a phone offers" } :: unknown,
 								UI.Text { text = "and a second one after it, for good measure" },
 							}
 						end,
-					},
+					} :: Tab,
 					{
 						id = "feed",
 						label = "Feed",
-						content = function()
+						content = function(): Instance
 							return UI.Text { text = "Feed" }
 						end,
-					},
+					} :: Tab,
 				},
 			}
 		end, { size = size, frames = 15 })
@@ -726,11 +751,11 @@ add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
 end)
 
 add("progress-track-centring", { "paint-35" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.VStack "Column" {
-			width = "fill",
+			width = "fill" :: "fill",
 			gap = 16,
-			UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true },
+			UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true } :: unknown,
 			UI.Text "Cap" { text = "Save changes" },
 		}
 	end, { size = Vector2.new(400, 400), frames = 12 })
@@ -766,7 +791,17 @@ end)
 add("progress-track-beside-trailing-copy", { "paint-43" }, function(t)
 	local package = themed(t, "fantasy_ornate") or t.themes[1].package
 	for _, width in { 280, 200 } do
-		for _, spec in
+		for
+			_,
+			spec: {
+			key: string,
+			value: number?,
+			segments: number?,
+			showValue: boolean?,
+			endLabel: string,
+			label: string?,
+		}
+		in
 			{
 				{ key = "segmented", value = 0.4, segments = 5, showValue = true, endLabel = "2 of 5" },
 				{ key = "ordinary", value = 0.4, showValue = true, endLabel = "Waiting for the next checkpoint" },
@@ -778,19 +813,30 @@ add("progress-track-beside-trailing-copy", { "paint-43" }, function(t)
 					showValue = true,
 					endLabel = "Waiting for the next checkpoint",
 				},
+			} :: {
+				{
+					key: string,
+					value: number?,
+					segments: number?,
+					showValue: boolean?,
+					endLabel: string,
+					label: string?,
+				}
 			}
 		do
 			if spec.key == "labelled" and width < 280 then
 				continue
 			end
 			local where = `{width} {spec.key}`
-			local stage = t.mount(function(UI, _, Compose)
-				local props = table.clone(spec)
-				props.key = nil
-				if props.value ~= nil then
-					props.value = Compose.cell(props.value)
-				end
-				return UI.VStack "Column" { width = "fill", UI.ProgressView "Progress"(props) }
+			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+				local props = {
+					value = if spec.value ~= nil then Compose.cell(spec.value) else nil,
+					label = spec.label,
+					segments = spec.segments,
+					showValue = spec.showValue,
+					endLabel = spec.endLabel,
+				}
+				return UI.VStack "Column" { width = "fill" :: "fill", UI.ProgressView "Progress"(props) }
 			end, { size = Vector2.new(width, 500), theme = package, frames = 12 })
 			local root = t.find(stage, "Progress")
 			local track = tagged(root, "facet-track")[1]
@@ -841,15 +887,32 @@ end)
 
 add("icon-inside-content-box", { "paint-51" }, function(t)
 	for _, entry in t.themes do
-		for _, case in
+		for
+			_,
+			case: {
+			key: string,
+			size: typeof(UDim2.fromOffset(52, 44))
+				| typeof(UDim2.fromOffset(220, 60))
+				| typeof(UDim2.fromOffset(20, 20)),
+			label: string?,
+		}
+		in
 			{
 				{ key = "tight", size = UDim2.fromOffset(52, 44), label = "Go" },
 				{ key = "room", size = UDim2.fromOffset(220, 60), label = "Continue" },
 				{ key = "icon-only", size = UDim2.fromOffset(20, 20) },
+			} :: {
+				{
+					key: string,
+					size: typeof(UDim2.fromOffset(52, 44))
+						| typeof(UDim2.fromOffset(220, 60))
+						| typeof(UDim2.fromOffset(20, 20)),
+					label: string?,
+				}
 			}
 		do
 			local where = `{entry.name} {case.key}`
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: FacetControls)
 				return UI.Button "Back" {
 					icon = "chevron.leading",
 					label = case.label,
@@ -898,7 +961,7 @@ end)
 
 interactive("path-clipped-in-scroll", { "paint-86" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		local rows = {}
 		for index = 1, 6 do
 			table.insert(
@@ -906,7 +969,7 @@ interactive("path-clipped-in-scroll", { "paint-86" }, function(t)
 				UI.HStack("Row" .. index) {
 					Size = UDim2.new(1, 0, 0, 60),
 					UI.ProgressView "Ring" {
-						presentation = "circular",
+						presentation = "circular" :: "circular",
 						value = Compose.cell(0.75),
 						diameter = 56,
 						thickness = 8,
@@ -917,7 +980,7 @@ interactive("path-clipped-in-scroll", { "paint-86" }, function(t)
 		return UI.ScrollView "List" {
 			Size = UDim2.fromOffset(300, 150),
 			gap = 0,
-			table.unpack(rows),
+			table.unpack((rows :: unknown) :: { unknown }),
 		}
 	end, { size = Vector2.new(600, 400), frames = 15 })
 	value.list = t.find(stage, "List")

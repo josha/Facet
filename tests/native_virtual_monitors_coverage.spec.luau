@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local Compose = require("../src/vendor/compose/core")
@@ -143,7 +145,7 @@ t.describe("native virtual monitors coverage", function()
 	t.it("uses every public Facet field, control and theme function in the showcase and file library", function()
 		local tracked, used = tracker()
 		local engine = engineModule.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
@@ -168,11 +170,11 @@ t.describe("native virtual monitors coverage", function()
 			end
 			for _, name in screens.APPS do
 				local views = screens.create(tracked, runtime, config(name, true))
-				local _, node = runtime.mount(views[name], target)
+				local _, node: any = runtime.mount(views[name], target)
 				world[name] = node
 			end
 			local flat = screens.create(tracked, runtime, config("Discover", false))
-			local _, root = runtime.mount(
+			local _, root: any = runtime.mount(
 				desktop.create(
 					tracked,
 					runtime,

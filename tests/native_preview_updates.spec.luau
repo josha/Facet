@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureOverlayTypes = require("../src/ui/overlay_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engines = require("./lib/native_engine")
@@ -8,7 +13,7 @@ local C = Facet.Compose
 
 local function fixture(build)
 	local engine = engines.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 	input.GetFocusedTextBox = function()
@@ -18,13 +23,13 @@ local function fixture(build)
 		Compose = C,
 		Facet = Facet,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		guiService = gui,
 		viewport = C.cell({ width = 1440, height = 900 }),
 	}
 	local settings, UI
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		settings = labSettings.new(ctx, input)
 		UI = Facet.controls(runtime, {
@@ -34,7 +39,7 @@ local function fixture(build)
 			overlayParent = ctx.overlayParent,
 			motionLevel = "none",
 		})
-		return ctx.Host.ScreenGui { ctx.overlayParent, build(UI, ctx.Host, engine.types) }
+		return ctx.Host.ScreenGui { ctx.overlayParent :: unknown, build(UI, ctx.Host, engine.types) }
 	end, engine.new("Folder"))
 	root.AbsoluteSize = engine.types.Vector2.new(1440, 900)
 	ctx.overlayParent.AbsoluteSize = engine.types.Vector2.new(389, 762)
@@ -57,7 +62,7 @@ end
 
 t.describe("settings update mounted controls and their presentation bounds", function()
 	t.it("automatic lab input follows the device, explicit input wins, and reset restores native facts", function()
-		local w = fixture(function(UI)
+		local w = fixture(function(UI: FacetControls)
 			return UI.Text { text = "Preview" }
 		end)
 		local env
@@ -83,10 +88,10 @@ t.describe("settings update mounted controls and their presentation bounds", fun
 		w.stop()
 	end)
 
-	for _, kind in { "color", "date" } do
+	for _, kind in { "color", "date" } :: { "color" | "date" } do
 		t.it(kind .. " picker adapts in place to touch, console and pointer inside the preview bounds", function()
 			local opened = C.cell(false)
-			local w = fixture(function(UI, _, T)
+			local w = fixture(function(UI: FacetControls, _, T)
 				return if kind == "color"
 					then UI.ColorPicker "Picker" { value = C.cell(T.Color3.new(1, 0, 0)), isPresented = opened }
 					else UI.DateTimePicker "Picker" {
@@ -139,14 +144,16 @@ t.describe("settings update mounted controls and their presentation bounds", fun
 
 	t.it("dialog width follows a resized overlay parent rather than the desktop window", function()
 		local opened = C.cell(false)
-		local w = fixture(function(UI)
+		local w = fixture(function(UI: FacetControls)
 			return UI.Dialog {
 				isPresented = opened,
 				title = "Preview",
-				content = function()
+				content = function(): Instance
 					return UI.Text { text = "Keep this inside the preview." }
 				end,
-				actions = { { id = "close", label = "Close", onActivate = function() end } },
+				actions = {
+					{ id = "close", label = "Close", onActivate = function() end } :: FixtureOverlayTypes.DialogAction,
+				},
 			}
 		end)
 		opened:set(true)

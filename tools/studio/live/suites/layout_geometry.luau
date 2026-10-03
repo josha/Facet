@@ -1,5 +1,21 @@
 --!strict
-local cases = {}
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -10,7 +26,7 @@ local function anchored(UI: any, Host: any, Compose: any, at: UDim2, edge: strin
 	return Host.Frame "Surface" {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		anchor,
+		anchor :: unknown,
 		UI.Callout({
 			anchor = anchor,
 			edge = edge,
@@ -23,17 +39,33 @@ local function anchored(UI: any, Host: any, Compose: any, at: UDim2, edge: strin
 	}
 end
 
-local SPOTS = {
-	{ name = "centre", at = UDim2.fromScale(0.5, 0.6), edge = "top", pivot = Vector2.new(0.5, 0.5) },
-	{ name = "left", at = UDim2.new(0, 8, 0.6, 0), edge = "top", pivot = Vector2.new(0, 0.5) },
-	{ name = "right", at = UDim2.new(1, -8, 0.6, 0), edge = "top", pivot = Vector2.new(1, 0.5) },
-	{ name = "top-left", at = UDim2.fromOffset(8, 12), edge = "top", pivot = Vector2.zero },
-	{ name = "bottom-right", at = UDim2.new(1, -8, 1, -8), edge = nil, pivot = Vector2.one },
-}
+local SPOTS: {
+	{
+		name: string,
+		at: typeof(UDim2.fromScale(0.5, 0.6))
+			| typeof(UDim2.new(0, 8, 0.6, 0))
+			| typeof(UDim2.new(1, -8, 0.6, 0))
+			| typeof(UDim2.fromOffset(8, 12))
+			| typeof(UDim2.new(1, -8, 1, -8)),
+		edge: "top" | nil,
+		pivot: typeof(Vector2.new(0.5, 0.5))
+			| typeof(Vector2.new(0, 0.5))
+			| typeof(Vector2.new(1, 0.5))
+			| typeof(Vector2.zero)
+			| typeof(Vector2.one),
+	}
+} =
+	{
+		{ name = "centre", at = UDim2.fromScale(0.5, 0.6), edge = "top" :: "top", pivot = Vector2.new(0.5, 0.5) },
+		{ name = "left", at = UDim2.new(0, 8, 0.6, 0), edge = "top" :: "top", pivot = Vector2.new(0, 0.5) },
+		{ name = "right", at = UDim2.new(1, -8, 0.6, 0), edge = "top" :: "top", pivot = Vector2.new(1, 0.5) },
+		{ name = "top-left", at = UDim2.fromOffset(8, 12), edge = "top" :: "top", pivot = Vector2.zero },
+		{ name = "bottom-right", at = UDim2.new(1, -8, 1, -8), edge = nil, pivot = Vector2.one },
+	}
 
 add("callout-edge-gap-shift-clamp", { "navigation-1-39", "navigation-1-67" }, function(t)
 	for _, spot in SPOTS do
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
 		end)
 		local anchor, panel = t.find(stage, "Anchor"), t.find(stage.Parent, "CalloutPanel")
@@ -73,7 +105,7 @@ end)
 
 add("callout-tail-centre-border-corners", { "navigation-1-42" }, function(t)
 	for _, spot in SPOTS do
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
 		end)
 		local screen = stage.Parent
@@ -107,22 +139,22 @@ end)
 
 add("navigation-stack-root-box-and-back-chrome", { "navigation-3-27" }, function(t)
 	local path
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		path = Compose.cell({})
 		return UI.NavigationStack({
 			path = path,
 			root = {
-				content = function()
+				content = function(): Instance
 					return UI.Text "RootLabel" { text = "Root" }
 				end,
 			},
 			destinations = {
 				detail = {
 					title = "Detail",
-					content = function()
+					content = function(): Instance
 						return UI.Text "DetailLabel" { text = "Detail" }
 					end,
-				},
+				} :: Destination,
 			},
 		})
 	end, { size = Vector2.new(480, 320) })
@@ -148,15 +180,15 @@ add("navigation-stack-root-box-and-back-chrome", { "navigation-3-27" }, function
 end)
 
 add("vertical-segments-stack-share-width-floor", { "navigation-3-59" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Picker "Rail" {
-			style = "segmented",
-			axis = "y",
+			style = "segmented" :: "segmented",
+			axis = "y" :: "y",
 			selected = Compose.cell("a"),
 			options = {
-				{ value = "a", label = "Alpha" },
-				{ value = "b", label = "Beta with a longer label" },
-				{ value = "c", label = "C" },
+				{ value = "a", label = "Alpha" } :: PickerOption,
+				{ value = "b", label = "Beta with a longer label" } :: PickerOption,
+				{ value = "c", label = "C" } :: PickerOption,
 			},
 		}
 	end, { size = Vector2.new(480, 400) })
@@ -183,11 +215,11 @@ add("vertical-segments-stack-share-width-floor", { "navigation-3-59" }, function
 end)
 
 add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return UI.TabView({
 			selection = Compose.cell("one"),
-			style = "sidebarAdaptable",
-			placement = "sidebar",
+			style = "sidebarAdaptable" :: "sidebarAdaptable",
+			placement = "sidebar" :: "sidebar",
 			tabs = {
 				{
 					id = "one",
@@ -195,20 +227,20 @@ add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
 					content = function()
 						return Host.Frame({ BackgroundTransparency = 1 })
 					end,
-				},
+				} :: Tab,
 				{
 					id = "two",
 					label = "Two",
 					content = function()
 						return Host.Frame({ BackgroundTransparency = 1 })
 					end,
-				},
+				} :: Tab,
 			},
 			accessories = {
-				head = function()
+				head = function(): Instance?
 					return UI.Text "HeadLabel" { text = "Profile header" }
 				end,
-				foot = function()
+				foot = function(): Instance?
 					return UI.Button "FootButton" { label = "Settings" }
 				end,
 			},
@@ -238,9 +270,14 @@ add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
 end)
 
 add("circle-button-authored-axes", { "paint-14" }, function(t)
-	for _, rung in { "compact", "regular", "large" } do
-		local stage = t.mount(function(UI)
-			return UI.Button "Circle" { label = "Close", icon = "close", shape = "circle", controlSize = rung }
+	for _, rung in { "compact", "regular", "large" } :: { "compact" | "large" | "regular" } do
+		local stage = t.mount(function(UI: FacetControls)
+			return UI.Button "Circle" {
+				label = "Close",
+				icon = "close",
+				shape = "circle" :: "circle",
+				controlSize = rung :: "compact" | "large" | "regular",
+			}
 		end, { size = Vector2.new(300, 200) })
 		local node = t.find(stage, "Circle")
 		local r = t.rect(node)
@@ -251,12 +288,12 @@ add("circle-button-authored-axes", { "paint-14" }, function(t)
 	end
 	for _, axis in { "width", "height" } do
 		local size = if axis == "width" then UDim2.fromOffset(32, 0) else UDim2.fromOffset(0, 72)
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: FacetControls)
 			return UI.Button "Circle" {
 				label = "Close",
 				icon = "close",
-				shape = "circle",
-				controlSize = "compact",
+				shape = "circle" :: "circle",
+				controlSize = "compact" :: "compact",
 				Size = size,
 			}
 		end, { size = Vector2.new(300, 200) })
@@ -270,8 +307,8 @@ end)
 
 add("circular-progress-stroke-inside-box", { "themes-P1-71" }, function(t)
 	for _, theme in t.themes do
-		local stage = t.mount(function(UI)
-			return UI.ProgressView "Ring" { presentation = "circular", value = 1 }
+		local stage = t.mount(function(UI: FacetControls)
+			return UI.ProgressView "Ring" { presentation = "circular" :: "circular", value = 1 }
 		end, { theme = theme.package, size = Vector2.new(200, 200) })
 		local indicator = t.find(stage, "Indicator")
 		local fill = indicator and indicator:FindFirstChild("RingFill")
@@ -313,11 +350,11 @@ end
 
 add("chrome-insets-reserve-native-padding", { "themes-P2-20", "themes-P2-26" }, function(t)
 	for _, theme in t.themes do
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return Host.Frame "Column" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 				UI.Button "Plain" { label = "Continue the long journey", LayoutOrder = 1 },
 				UI.Toggle "Switch" { label = "Notifications", value = Compose.cell(true), LayoutOrder = 2 },
 			}
@@ -365,12 +402,15 @@ add("panel-insets-reserve-native-padding", { "themes-P2-20" }, function(t)
 	for _, theme in t.themes do
 		local recipe = theme.package.chrome and theme.package.chrome.panel
 		local inset = if recipe then recipe.contentInsets or {} else {}
-		local stage = t.mount(function(UI, _, Compose)
+		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Alert({
 				isPresented = Compose.cell(true),
 				title = "Replace the save?",
 				message = "Your changes to this slot are not saved yet.",
-				actions = { { id = "stay", label = "Stay", role = "cancel" }, { id = "go", label = "Replace" } },
+				actions = {
+					{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: AlertAction,
+					{ id = "go", label = "Replace" } :: AlertAction,
+				},
 			})
 		end, { theme = theme.package, size = Vector2.new(800, 600) })
 		local panel
@@ -420,7 +460,7 @@ add("chrome-zero-inset-full-bleed", { "themes-P2-26" }, function(t)
 		local bare = table.clone(control)
 		bare.contentInsets = { left = 0, right = 0, top = 0, bottom = 0 }
 		package.chrome.control = bare
-		local stage = t.mount(function(UI)
+		local stage = t.mount(function(UI: FacetControls)
 			return UI.Button "Plain" { label = "Continue", Size = UDim2.fromOffset(240, 44) }
 		end, { theme = package, size = Vector2.new(420, 300) })
 		local node = t.find(stage, "Plain")
@@ -447,12 +487,12 @@ end)
 
 add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 	for _, theme in t.themes do
-		t.mount(function(UI, Host, Compose)
+		t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("medium"),
 				title = "Loadout",
-				content = function()
+				content = function(): Instance
 					return UI.Text "SheetBody" {
 						text = "Choose a loadout for the next round.",
 						TextWrapped = true,
@@ -462,7 +502,7 @@ add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 				end,
 			})
 		end, { theme = theme.package })
-		local gui = game:GetService("Players").LocalPlayer.PlayerGui
+		local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 		local panel
 		for _, node in gui:GetDescendants() do
 			if node.Name == "SheetPanel" and node:IsA("GuiObject") and t.visible(node) then
@@ -492,8 +532,8 @@ add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 			t.near(theme.name .. " art starts at the panel origin", art.x, p.x, 1.5)
 			t.check(
 				theme.name .. " art boundary is not a layout item",
-				not boundary.Parent:IsA("GuiObject"),
-				boundary.Parent.ClassName
+				not assert(assert(boundary).Parent):IsA("GuiObject"),
+				assert(boundary.Parent).ClassName
 			)
 		end
 		t.note(theme.name .. " content offset", { offset = offset, skinned = skin ~= nil })
@@ -507,7 +547,7 @@ add("grid-cell-width-arithmetic", { "collections-226" }, function(t)
 		for index = 1, 12 do
 			rows[index] = { id = tostring(index) }
 		end
-		local stage = t.mount(function(UI, Host)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return UI.VirtualGrid "Grid" {
 				from = rows,
 				key = function(item)
@@ -518,7 +558,7 @@ add("grid-cell-width-arithmetic", { "collections-226" }, function(t)
 				gap = 8,
 				crossGap = 10,
 				Size = UDim2.fromOffset(400, 300),
-				render = function(current)
+				render = function(current): GuiObject
 					return Host.Frame({
 						Name = "Cell" .. current:peek().id,
 						Size = UDim2.fromScale(1, 1),
@@ -553,7 +593,7 @@ end)
 add("image-button-caption-clear-of-artwork", { "navigation-1-06" }, function(t)
 	for _, theme in t.themes do
 		for _, width in { 180, 240, 320 } do
-			local stage = t.mount(function(UI)
+			local stage = t.mount(function(UI: FacetControls)
 				return UI.Button "Card" {
 					label = "A driver with a descriptive title",
 					subtitle = "A longer description that must wrap inside the card.",

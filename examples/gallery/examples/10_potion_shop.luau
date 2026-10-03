@@ -163,7 +163,7 @@ return {
 						)
 					)
 				end
-				return Host.Model "PotionWorkbench" { table.unpack(parts) }
+				return Host.Model "PotionWorkbench" { table.unpack((parts :: unknown) :: { unknown }) }
 			end, ctx.types.CFrame.lookAt(V3.new(7, 7, 10), V3.new(0, 0.8, 0)), 260)
 		end
 		local function shop()
@@ -172,7 +172,7 @@ return {
 				table.insert(
 					tickets,
 					UI.VStack("Ticket" .. index) {
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "xs",
 						padding = "s",
 						view.text("Customer", function(use: any)
@@ -180,7 +180,7 @@ return {
 								then "✓ "
 								elseif use(customer) == index then "→ "
 								else ""}{order.name}`
-						end, "heading"),
+						end, "heading") :: unknown,
 						view.text("Request", `{order.quantity} × {byId[order.recipe].label}`, "caption"),
 					}
 				)
@@ -196,7 +196,10 @@ return {
 						addIngredient(recipe.id)
 					end,
 				}
-				UI.draggable(ingredient, { payload = { kind = "ingredient", id = recipe.id }, armOnTap = false })
+				UI.draggable(
+					ingredient,
+					{ payload = { kind = "ingredient" :: "ingredient", id = recipe.id }, armOnTap = false }
+				)
 				table.insert(ingredients, ingredient)
 			end
 			local cauldron = counter()
@@ -211,8 +214,13 @@ return {
 			local serveButton = view.button("Serve", "Hand over the order", serve, function(use: any)
 				return use(phase) == "ready"
 			end)
-			UI.draggable(serveButton, { payload = { kind = "order" }, armOnTap = false })
-			local rail = UI.Grid "OrderRail" { columns = 3, gap = "m", cellHeight = 104, table.unpack(tickets) }
+			UI.draggable(serveButton, { payload = { kind = "order" :: "order" }, armOnTap = false })
+			local rail = UI.Grid "OrderRail" {
+				columns = 3,
+				gap = "m",
+				cellHeight = 104,
+				table.unpack((tickets :: unknown) :: { unknown }),
+			}
 			UI.dropTarget(rail, {
 				accepts = function(payload)
 					return payload.kind == "order" and phase:peek() == "ready"
@@ -222,7 +230,7 @@ return {
 			return UI.ScrollView "PotionShop" {
 				padding = "l",
 				gap = "m",
-				view.text("ShopTitle", "The potion counter", "title"),
+				view.text("ShopTitle", "The potion counter", "title") :: unknown,
 				rail,
 				view.text("Order", function(use: any)
 					local order = orders[use(customer)]
@@ -236,7 +244,12 @@ return {
 						then "Empty cauldron · Add ingredients from the shelf below"
 						else `{use(quantity)} portions of {byId[use(selected)].ingredient}`
 				end),
-				UI.Grid "IngredientShelf" { columns = 3, gap = "s", cellHeight = 76, table.unpack(ingredients) },
+				UI.Grid "IngredientShelf" {
+					columns = 3,
+					gap = "s",
+					cellHeight = 76,
+					table.unpack((ingredients :: unknown) :: { unknown }),
+				},
 				C.show(function(use: any)
 					return use(phase) == "brewing"
 				end, function()
@@ -274,9 +287,9 @@ return {
 				table.insert(
 					children,
 					UI.VStack {
-						width = "fill",
+						width = "fill" :: "fill",
 						gap = "s",
-						view.text(recipe.id .. "Title", recipe.label, "heading"),
+						view.text(recipe.id .. "Title", recipe.label, "heading") :: unknown,
 						view.text(
 							recipe.id .. "Recipe",
 							recipe.ingredient .. " + spring water\n" .. recipe.price .. " coins per bottle"
@@ -319,7 +332,7 @@ return {
 						key = function(item)
 							return item.id
 						end,
-						render = function(current)
+						render = function(current): GuiObject
 							return view.text("Sale" .. current:peek().id, function(use: any)
 								local sale = use(current)
 								return `{sale.name} · {sale.quantity} × {sale.recipe} · +{sale.earned}`
@@ -335,7 +348,7 @@ return {
 				return Host.Frame "PotionShopRoot" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					shop(),
+					shop() :: unknown,
 					UI.Sheet "RecipeBookSheet" {
 						title = "Recipe book",
 						isPresented = bookOpen,

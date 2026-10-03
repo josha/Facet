@@ -424,7 +424,23 @@ end
 
 function perf_runner.checkBudgets(report: any, budgets: any): any
 	local ref = budgets.referenceProfile
-	local violations = {}
+	local violations: {
+		{
+			kind: "foreign-reference-row"
+				| "trend"
+				| "frame-ceiling"
+				| "class-mismatch"
+				| "unmeasured-device-row"
+				| "device",
+			scene: string,
+			device: string,
+			requirement: string,
+			observedMs: number,
+			budgetMs: number,
+			hint: string,
+		}
+	} =
+		{}
 	local skipped = {}
 
 	local byScene: { [string]: any } = {}
@@ -441,7 +457,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 
 	for _, d in displaced do
 		table.insert(violations, {
-			kind = "foreign-reference-row",
+			kind = "foreign-reference-row" :: "foreign-reference-row",
 			scene = d.scene,
 			device = ref,
 			requirement = "UI-PERF-002",
@@ -456,7 +472,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 		local run = byScene[scene]
 		if run == nil then
 			table.insert(violations, {
-				kind = "trend",
+				kind = "trend" :: "trend",
 				scene = scene,
 				device = ref,
 				requirement = budget.requirement,
@@ -468,7 +484,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 			local observed = run.phases.total.p95_ms
 			if observed > budget.total_p95_ms then
 				table.insert(violations, {
-					kind = "trend",
+					kind = "trend" :: "trend",
 					scene = scene,
 					device = ref,
 					requirement = budget.requirement,
@@ -480,7 +496,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 
 			if budget.ceilingMs ~= nil and observed > budget.ceilingMs then
 				table.insert(violations, {
-					kind = "frame-ceiling",
+					kind = "frame-ceiling" :: "frame-ceiling",
 					scene = scene,
 					device = ref,
 					requirement = budget.requirement,
@@ -510,7 +526,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 			})
 		elseif #rows == 0 then
 			table.insert(violations, {
-				kind = "class-mismatch",
+				kind = "class-mismatch" :: "class-mismatch",
 				scene = "*",
 				device = className,
 				requirement = budget.requirement or "UI-PERF-002",
@@ -534,7 +550,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 				end
 				if type(observed) ~= "number" then
 					table.insert(violations, {
-						kind = "unmeasured-device-row",
+						kind = "unmeasured-device-row" :: "unmeasured-device-row",
 						scene = r.scene or "*",
 						device = className,
 						requirement = budget.requirement or "UI-PERF-002",
@@ -547,7 +563,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 					})
 				elseif observed > budget.budgetMs then
 					table.insert(violations, {
-						kind = "device",
+						kind = "device" :: "device",
 						scene = r.scene,
 						device = className,
 						requirement = budget.requirement or "UI-PERF-002",

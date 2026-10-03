@@ -1,8 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -17,7 +27,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local shift = { down = false }
@@ -37,8 +47,8 @@ local function setup(build: (any, any, any, any) -> any): World
 			services = { GuiService = gui, UserInputService = input },
 		} :: any
 	)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, parent)
 	return {
@@ -118,7 +128,7 @@ end
 local function mountExample(name: string, folder: string?): (World, any)
 	local built
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local shift = { down = false }
@@ -133,7 +143,7 @@ local function mountExample(name: string, folder: string?): (World, any)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = parent,
@@ -141,7 +151,7 @@ local function mountExample(name: string, folder: string?): (World, any)
 		guiService = gui,
 		runService = { Heartbeat = engine.heartbeat },
 	}
-	local stop, screen = runtime.mount(function()
+	local stop, screen: any = runtime.mount(function()
 		require("../examples/gallery/client/screen").configure(ctx)
 		ctx.UI = Facet.controls(
 			runtime,
@@ -149,9 +159,9 @@ local function mountExample(name: string, folder: string?): (World, any)
 				types = engine.types,
 				viewport = ctx.viewport,
 				guiService = gui,
-				motionLevel = Compose.formula(function(use)
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end),
+				end) :: unknown) :: MotionLevel,
 				inputParent = parent,
 				services = { GuiService = gui, UserInputService = input },
 			} :: any
@@ -160,7 +170,7 @@ local function mountExample(name: string, folder: string?): (World, any)
 		if built.dispose then
 			Compose.cleanup(built.dispose)
 		end
-		return runtime.constructors.ScreenGui({ built.screen() })
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ built.screen() })
 	end, parent)
 	return {
 		engine = engine,
@@ -180,14 +190,14 @@ end
 
 t.describe("native parity weaker selection", function()
 	t.it("moves the selection out of a subtree whose ancestor stops being interactable and keeps it out", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			return Host.Frame("Screen")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				UI.Button("Before")({ label = "Before", LayoutOrder = 1 }),
 				Host.Frame("Panel")({
 					LayoutOrder = 2,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 					UI.Button("Inner")({ label = "Inner", LayoutOrder = 1 }),
 					UI.Button("Deep")({ label = "Deep", LayoutOrder = 2 }),
 				}),
@@ -208,14 +218,14 @@ t.describe("native parity weaker selection", function()
 
 	t.it("keeps entry, Tab, activation and value keys out of a subtree whose ancestor is not interactable", function()
 		local value, activated = Compose.cell(0.5), 0
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			return Host.Frame("Screen")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				Host.Frame("Panel")({
 					LayoutOrder = 1,
 					Interactable = false,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 					UI.Button("Inner")({
 						label = "Inner",
 						LayoutOrder = 1,
@@ -262,10 +272,10 @@ t.describe("native parity weaker selection", function()
 	end)
 
 	t.it("reports each Tab move as one observable change of the native selection", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			return Host.Frame("Form")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				UI.Button("Music")({ label = "Music", LayoutOrder = 1 }),
 				UI.Button("Sfx")({ label = "Sfx", LayoutOrder = 2 }),
 				UI.Button("Haptics")({ label = "Haptics", LayoutOrder = 3 }),
@@ -287,7 +297,7 @@ t.describe("native parity weaker selection", function()
 
 	t.it("adds a control mounted by a condition to the walk, activates it and hands a removed one on", function()
 		local shown, activated = Compose.cell(false), {}
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			local function button(name: string, order: number)
 				return UI.Button(name)({
@@ -299,7 +309,7 @@ t.describe("native parity weaker selection", function()
 				})
 			end
 			return Host.Frame("Screen")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				button("A", 1),
 				Compose.show(shown, function()
 					return button("B", 2)
@@ -327,7 +337,7 @@ t.describe("native parity weaker selection", function()
 
 	t.it("walks and activates the selection through its input actions only", function()
 		local activated = {}
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			local function button(name: string, order: number)
 				return UI.Button(name)({
@@ -339,7 +349,7 @@ t.describe("native parity weaker selection", function()
 				})
 			end
 			return Host.Frame("Settings")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				button("Music", 1),
 				button("Sfx", 2),
 				button("Save", 3),
@@ -374,18 +384,18 @@ t.describe("native parity weaker selection", function()
 
 	t.it("keeps the selection and an open modal through every input class flip", function()
 		local presented = Compose.cell(false)
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			return Host.Frame("Screen")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				UI.Button("A")({ label = "A", LayoutOrder = 1 }),
 				UI.Button("B")({ label = "B", LayoutOrder = 2 }),
 				UI.Alert({
 					isPresented = presented,
 					title = "Quit?",
 					actions = {
-						{ id = "Stay", label = "Stay", role = "cancel" },
-						{ id = "Quit", label = "Quit", role = "destructive" },
+						{ id = "Stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Quit", label = "Quit", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				}),
 			})
@@ -424,25 +434,25 @@ t.describe("native parity weaker selection", function()
 
 	t.it("selects a Picker option and toggles a DisclosureGroup with Return and with the engine activation", function()
 		local choice, expanded = Compose.cell("a"), Compose.cell(false)
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			return Host.Frame("Screen")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				UI.Picker("Mode")({
 					LayoutOrder = 1,
 					selected = choice,
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					options = {
-						{ value = "a", label = "Alpha" },
-						{ value = "b", label = "Beta" },
-						{ value = "c", label = "Gamma" },
+						{ value = "a", label = "Alpha" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Beta" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "c", label = "Gamma" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				}),
 				UI.DisclosureGroup({
 					LayoutOrder = 2,
 					expanded = expanded,
 					label = "Details",
-					content = function()
+					content = function(): Instance
 						return Host.Frame("Details")({})
 					end,
 				}),
@@ -464,10 +474,10 @@ t.describe("native parity weaker selection", function()
 	end)
 
 	t.it("keeps a card revealed while Tab walks its body and actions and ends it when Tab leaves", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			return Host.Frame("Row")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				UI.Card("C")({
 					LayoutOrder = 1,
 					image = "rbxassetid://1",
@@ -608,10 +618,10 @@ t.describe("native parity weaker selection", function()
 	end)
 
 	t.it("keeps the selection on the only eligible control when Tab and Shift+Tab have nowhere else to go", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local E = engine.types.Enum
 			return Host.Frame("Screen")({
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
 				UI.Button("Off")({ label = "Off", LayoutOrder = 1, enabled = false }),
 				UI.Button("Only")({ label = "Only", LayoutOrder = 2 }),
 				UI.Button("Hidden")({ label = "Hidden", LayoutOrder = 3, Visible = false }),

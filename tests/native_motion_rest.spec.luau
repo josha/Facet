@@ -1,4 +1,8 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
@@ -10,7 +14,7 @@ local FRAME = 1 / 60
 
 t.describe("present at rest: help tooltip", function()
 	local function hovered(): any
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Screen",
 				UI.Button "Post" { label = "Post", help = "Posts this avatar to the Marketplace" },
@@ -80,15 +84,15 @@ end)
 
 t.describe("present at rest: callout", function()
 	local function presented(): any
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			local anchor = UI.Button "Plus" { label = "+" }
 			return Host.Frame({
 				Name = "Editor",
-				Host.Frame({ Name = "Bar", anchor }),
+				Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
 				UI.Callout "Tip" {
-					anchor = anchor,
+					anchor = anchor :: GuiObject,
 					isPresented = true,
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel "Body" { Text = "Post Avatars to Marketplace" }
 					end,
 					onRetire = function() end,
@@ -125,18 +129,18 @@ t.describe("present at rest: callout", function()
 end)
 
 t.describe("present at rest: anchored popover", function()
-	for _, edge in { "top", "bottom", "leading", "trailing" } do
+	for _, edge in { "top", "bottom", "leading", "trailing" } :: { "bottom" | "leading" | "top" | "trailing" } do
 		t.it(`keeps the {edge} pointer and border attached through entry and exit`, function()
 			local open = Compose.cell(true)
-			local w = overlay.new(function(UI, Host)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				local anchor = UI.Button "Anchor" { label = "Save" }
 				return Host.Frame {
-					anchor,
+					anchor :: unknown,
 					UI.Popover "Pop" {
 						isPresented = open,
-						source = { node = anchor },
-						edge = edge,
-						content = function()
+						source = { node = anchor :: GuiObject },
+						edge = edge :: "bottom" | "leading" | "top" | "trailing",
+						content = function(): Instance
 							return UI.Button "Save" {
 								label = "Save",
 								onActivate = function()
@@ -225,13 +229,13 @@ t.describe("present at rest: anchored popover", function()
 		end)
 	end
 	t.it("placement reads the rested size while the panel scales in", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Popover "Pop" {
 				isPresented = Compose.cell(true),
 				source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
-				edge = "bottom",
-				align = "center",
-				content = function()
+				edge = "bottom" :: "bottom",
+				align = "center" :: "center",
+				content = function(): Instance
 					return Host.TextLabel "Body" { Text = "Details" }
 				end,
 			}
@@ -254,7 +258,7 @@ end)
 
 t.describe("rest tracker", function()
 	t.it("reduced motion also waits for the plate's size to hold, then shows it whole", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
 		end, { motionLevel = "none" })
 		local post = w.find("Post")
@@ -275,7 +279,7 @@ t.describe("rest tracker", function()
 	end)
 
 	t.it("reduced motion switched on during the wait fades the plate in at scale 1 once its size holds", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
 		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -295,7 +299,7 @@ t.describe("rest tracker", function()
 	end)
 
 	t.it("rest waits for a size that holds for a frame, not merely a filled one", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
 		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -315,7 +319,7 @@ t.describe("rest tracker", function()
 	end)
 
 	t.it("a layout that never stops moving still enters after 0.25 seconds", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
 		end)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -336,7 +340,7 @@ local lune = require("@lune/roblox")
 local UDim2 = lune.UDim2
 
 local NESTED = {
-	{ id = "plain", label = "Plain", onSelect = function() end },
+	{ id = "plain", label = "Plain", onSelect = function() end } :: MenuItem,
 	{
 		id = "adjust",
 		label = "Adjust",
@@ -344,12 +348,12 @@ local NESTED = {
 			{ id = "head", label = "Head", onSelect = function() end },
 			{ id = "body", label = "Body", onSelect = function() end },
 		},
-	},
+	} :: MenuItem,
 }
 
-local function menu(spec: { [string]: any }): any
+local function menu(spec: { [any]: any }): any
 	spec.label = spec.label or "Options"
-	return worlds.new(function(UI, Host)
+	return worlds.new(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
 	end, {})
 end
@@ -368,7 +372,8 @@ end
 
 t.describe("present at rest: menu", function()
 	t.it("waits for rest at scale 1, then scales about the rested corner", function()
-		local world = menu({ edge = "top", align = "end", items = NESTED, presentation = "menu" })
+		local world =
+			menu({ edge = "top" :: "top", align = "end" :: "end", items = NESTED, presentation = "menu" :: "menu" })
 		world.find("Trigger").Activated.fire()
 		local panel = world.find("MenuPanel", world.screen.Parent)
 		lay(world, panel, Vector2.new(220, 200))
@@ -386,7 +391,7 @@ t.describe("present at rest: menu", function()
 	end)
 
 	t.it("a submenu is measured at rest before its level animates", function()
-		local world = menu({ items = NESTED, presentation = "menu" })
+		local world = menu({ items = NESTED, presentation = "menu" :: "menu" })
 		world.find("Trigger").Activated.fire()
 		local panel = world.find("MenuPanel", world.screen.Parent)
 		lay(world, panel, Vector2.new(220, 120))

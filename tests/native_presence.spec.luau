@@ -1,4 +1,11 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local NavigationFixtures = require("../src/ui/navigation_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
@@ -6,14 +13,14 @@ local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 
 local function dialog(shown: any, options: any?, unsized: boolean?): any
-	local w = overlay.new(function(UI, Host)
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 		return UI.Dialog "D" {
 			isPresented = shown,
 			onPresentedChange = function(value: boolean)
 				shown:set(value)
 			end,
 			title = "Quit race?",
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel "Body" { Text = "Progress is lost." }
 			end,
 		}
@@ -129,12 +136,12 @@ t.describe("presence: motion level limited cross-fades", function()
 
 	t.it("under limited a sheet never slides and its panel fades in over motion.reducedFade", function()
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Sheet "S" {
 				isPresented = shown,
 				detent = Compose.cell("medium"),
 				title = "Race details",
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel "Copy" { Text = "Lap times" }
 				end,
 			}
@@ -176,10 +183,10 @@ t.describe("presence: limited cross-fades the toast, tabs, stack and disclosure"
 
 	t.it("a toast row fades in over reducedFade and never moves", function()
 		local shown = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "S",
-				Compose.show(function(use)
+				Compose.show(function(use: Use)
 					return use(shown)
 				end, function()
 					return UI.Toast "T" { message = "Saved" }
@@ -198,12 +205,12 @@ t.describe("presence: limited cross-fades the toast, tabs, stack and disclosure"
 
 	t.it("a TabView page fades in over reducedFade", function()
 		local selected = Compose.cell("one")
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView {
 				selection = selected,
 				tabs = {
-					{ id = "one", label = "One", content = Host.Frame "PageOne" {} },
-					{ id = "two", label = "Two", content = Host.Frame "PageTwo" {} },
+					{ id = "one", label = "One", content = Host.Frame "PageOne" {} } :: FixtureNavigationTypes.Tab,
+					{ id = "two", label = "Two", content = Host.Frame "PageTwo" {} } :: FixtureNavigationTypes.Tab,
 				},
 			}
 		end, LIMITED)
@@ -219,12 +226,14 @@ t.describe("presence: limited cross-fades the toast, tabs, stack and disclosure"
 	end)
 
 	t.it("a NavigationStack push has no travel and the new page fades in over reducedFade", function()
-		local path = Compose.cell({})
-		local w = overlay.new(function(UI, Host)
+		local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.NavigationStack {
 				path = path,
-				root = { title = "Root", content = Host.Frame "RootBody" {} },
-				destinations = { detail = { title = "Detail", content = Host.Frame "DetailBody" {} } },
+				root = { title = "Root", content = Host.Frame "RootBody" {} } :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					detail = { title = "Detail", content = Host.Frame "DetailBody" {} } :: NavigationFixtures.NavigationDestination<any>,
+				},
 			}
 		end, LIMITED)
 		w.advance(0.5, 30)
@@ -239,11 +248,11 @@ t.describe("presence: limited cross-fades the toast, tabs, stack and disclosure"
 
 	t.it("a DisclosureGroup's height lands at once and its content fades over reducedFade", function()
 		local expanded = Compose.cell(false)
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.DisclosureGroup "Settings" {
 				label = "Appearance",
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Button "Palette" { label = "Palette" }
 				end,
 			}

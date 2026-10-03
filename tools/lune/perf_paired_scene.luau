@@ -1,4 +1,4 @@
---!nocheck
+--!strict
 local process = require("@lune/process")
 local serde = require("@lune/serde")
 local perf_runner = require("../../bench/perf_runner")

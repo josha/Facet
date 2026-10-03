@@ -27,8 +27,8 @@ export type ButtonVisualOptions = EnabledOptions & {
 	name: Shared.ValueString?,
 	compactLabel: Shared.ValueString?,
 	pop: boolean?,
-	appearance: Shared.ValueString?,
-	controlSize: Value<Shared.ControlSize>?,
+	appearance: (Shared.ValueString | Shared.Value<string?>)?,
+	controlSize: Value<Shared.ControlSize?>?,
 	corners: Value<ButtonCorners>?,
 	shape: ("rect" | "circle")?,
 	role: Value<ButtonRole>?,
@@ -77,7 +77,7 @@ export type NumberValue = Shared.ValueNumber
 export type TextBinding = ValueBinding<string>
 export type NumberCell = ComposeTypes.Cell<number>
 export type FlagValue = Shared.ValueBoolean
-export type SizeValue = Value<Shared.ControlSize>
+export type SizeValue = Value<Shared.ControlSize?>
 export type FieldAppearanceValue = Value<FieldAppearance>
 export type SelectOnFocusValue = Value<SelectOnFocus>
 export type RequiredMark = "required" | "optional"
@@ -270,7 +270,7 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & {
 	action: InputAction?,
 	keys: Value<{ { string } }>?,
 	separator: Shared.ValueString?,
-	controlSize: Value<Shared.ControlSize>?,
+	controlSize: Value<Shared.ControlSize?>?,
 	label: Shared.ValueString?,
 	labelPosition: ("start" | "end")?,
 }

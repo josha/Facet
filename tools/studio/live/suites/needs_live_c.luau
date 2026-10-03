@@ -1,8 +1,24 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -39,7 +55,7 @@ end
 
 local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
 		return if type(built) == "function" then built() else built.screen()
 	end, { size = size, theme = theme, frames = 20 })
@@ -110,7 +126,7 @@ local function radialItems(count: number, long: boolean): { any }
 end
 
 add("radial-list-fallback-fits", { "apps2-191" }, function(t)
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RadialMenu "Quick" {
 			isPresented = Compose.cell(true),
 			clearance = 100,
@@ -142,7 +158,7 @@ end)
 
 interactive("radial-list-scrolls-selection-into-view", { "apps2-191" }, function(t)
 	local value = {}
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RadialMenu "Quick" {
 			isPresented = Compose.cell(true),
 			items = radialItems(12, false),
@@ -235,12 +251,29 @@ add("quick-actions-ring-fits-phones", { "apps2-194" }, function(t)
 end)
 
 add("character-commands-ring-or-list", { "apps2-224" }, function(t)
-	for _, entry in
+	for
+		_,
+		entry: {
+		size: typeof(Vector2.new(1280, 720))
+			| typeof(Vector2.new(960, 540))
+			| typeof(Vector2.new(800, 600))
+			| typeof(Vector2.new(677, 338)),
+		kind: "radial" | "list",
+	}
+	in
 		{
-			{ size = Vector2.new(1280, 720), kind = "radial" },
-			{ size = Vector2.new(960, 540), kind = "radial" },
-			{ size = Vector2.new(800, 600), kind = "radial" },
-			{ size = Vector2.new(677, 338), kind = "list" },
+			{ size = Vector2.new(1280, 720), kind = "radial" :: "radial" },
+			{ size = Vector2.new(960, 540), kind = "radial" :: "radial" },
+			{ size = Vector2.new(800, 600), kind = "radial" :: "radial" },
+			{ size = Vector2.new(677, 338), kind = "list" :: "list" },
+		} :: {
+			{
+				size: typeof(Vector2.new(1280, 720))
+					| typeof(Vector2.new(960, 540))
+					| typeof(Vector2.new(800, 600))
+					| typeof(Vector2.new(677, 338)),
+				kind: "radial" | "list",
+			}
 		}
 	do
 		local where = `{entry.size.X}x{entry.size.Y}`
@@ -291,8 +324,8 @@ end, {
 })
 
 add("gallery-previews-keep-page-and-pad-routes", { "apps2-225" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
-	local Compose = t.Facet.Compose
+	local live = (require :: any)(assert(script.Parent).Parent)
+	local Compose: ComposeModule = t.Facet.Compose
 	local size = Compose.cell(Vector2.new(1280, 800))
 	local stage, context = t.gallery({ size = size, demo = "all-controls" })
 	t.settle(20)
@@ -331,7 +364,7 @@ add("gallery-previews-keep-page-and-pad-routes", { "apps2-225" }, function(t)
 end)
 
 add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
+	local live = (require :: any)(assert(script.Parent).Parent)
 	local http = game:GetService("HttpService")
 	local results = {}
 	for _, run in
@@ -411,8 +444,8 @@ local PICKER_SIZES = {
 }
 
 add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
-	local stage = t.mount(function(UI, _, Compose)
+	local live = (require :: any)(assert(script.Parent).Parent)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RadialMenu({
 			isPresented = Compose.cell(true),
 			items = {
@@ -420,11 +453,11 @@ add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
 					id = "Branch",
 					label = "Branch",
 					children = {
-						{ id = "Leaf", label = "Leaf", completion = "stay" },
-						{ id = "Twig", label = "Twig", completion = "stay" },
+						{ id = "Leaf", label = "Leaf", completion = "stay" :: "stay" },
+						{ id = "Twig", label = "Twig", completion = "stay" :: "stay" },
 					},
-				},
-				{ id = "Other", label = "Other", completion = "stay" },
+				} :: RadialItem,
+				{ id = "Other", label = "Other", completion = "stay" :: "stay" } :: RadialItem,
 			},
 		})
 	end, { size = Vector2.new(900, 700), motionLevel = "normal", frames = 30 })
@@ -466,7 +499,7 @@ add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
 end)
 
 add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
-	local live = (require :: any)(script.Parent.Parent)
+	local live = (require :: any)(assert(script.Parent).Parent)
 	local UserInputService = game:GetService("UserInputService")
 	local virtual = (UserInputService :: any):CreateVirtualInput()
 	local inset = GuiService:GetGuiInset()
@@ -483,7 +516,7 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 		t.settle(4)
 	end
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
 		local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
 		built = (require :: any)(folder:WaitForChild("02_playlist_table")).build(ctx)
@@ -556,7 +589,7 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-local SHORT_OPTIONS = {
+local SHORT_OPTIONS: { StringPickerOption } = {
 	{ value = "a", label = "Open" },
 	{ value = "b", label = "Club" },
 }
@@ -573,16 +606,18 @@ add("picker-style-sweep", { "navigation-3-85" }, function(t)
 			for _, style in PICKER_STYLES do
 				local where = `{theme.name} {size.X}x{size.Y} {style}`
 				local opened
-				local stage = t.mount(function(UI, Host, Compose)
+				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 					opened = Compose.cell(false)
 					return Host.Frame "Column" {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
 						UI.Picker "Handling" {
 							label = "Handling",
-							style = style,
+							style = style :: (
+								"automatic" | "segmented" | "inline" | "radioGroup" | "navigationLink" | "menu"
+							),
 							selected = Compose.cell("b"),
 							options = if style == "segmented" then SHORT_OPTIONS else options,
 							isPresented = opened,
@@ -634,19 +669,19 @@ end)
 
 interactive("grabber-activation-cycles-detents", { "navigation-4-38" }, function(t)
 	local value = { detents = {} }
-	t.mount(function(UI, _, Compose)
+	t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.detent = Compose.cell("medium")
 		return UI.Sheet({
 			isPresented = Compose.cell(true),
 			detent = value.detent,
-			detents = { "medium", "large", { id = "short", height = 260 } },
+			detents = { "medium", "large", { id = "short", height = 260 } } :: { SheetDetent },
 			title = "Loadout",
-			content = function()
+			content = function(): Instance
 				return UI.Text({ text = "Pick a loadout" })
 			end,
 		})
 	end, { frames = 20 })
-	local gui = game:GetService("Players").LocalPlayer.PlayerGui
+	local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	value.grabber = visibleNamed(t, gui, "Grabber")
 	t.check("the grabber shows", value.grabber ~= nil)
 	GuiService.SelectedObject = value.grabber
@@ -685,7 +720,7 @@ end)
 
 add("virtual-list-clamps-across-tabs", { "navigation-4-68" }, function(t)
 	local rows, selection
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		rows = Compose.cell((function()
 			local list = {}
 			for index = 1, 100 do
@@ -714,14 +749,14 @@ add("virtual-list-clamps-across-tabs", { "navigation-4-68" }, function(t)
 							end,
 						}
 					end,
-				},
+				} :: Tab,
 				{
 					id = "b",
 					label = "Other",
 					content = function()
 						return Host.Frame({ Size = UDim2.fromOffset(10, 10) })
 					end,
-				},
+				} :: Tab,
 			},
 		}
 	end, { size = Vector2.new(600, 500), frames = 20 })
@@ -760,14 +795,18 @@ add("type-roles-compile-to-native-fonts", { "paint-148" }, function(t)
 	local roles = t.Facet.themes.TYPE_ROLES
 	for _, theme in t.themes do
 		local labels = {}
-		local stage = t.mount(function(UI, Host)
-			local children = { Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) }
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			local children: { unknown } = { Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) }
 			for index, role in roles do
 				local label = UI.Text({ Name = role, text = "Sample " .. role, textRole = role, LayoutOrder = index })
 				labels[role] = label
 				table.insert(children, label)
 			end
-			return Host.Frame { Size = UDim2.fromOffset(600, 600), BackgroundTransparency = 1, table.unpack(children) }
+			return Host.Frame {
+				Size = UDim2.fromOffset(600, 600),
+				BackgroundTransparency = 1,
+				table.unpack((children :: unknown) :: { unknown }),
+			}
 		end, { theme = theme.package, size = Vector2.new(600, 600), frames = 10 })
 		local typography = theme.package.metrics.typography
 		for _, role in roles do
@@ -784,8 +823,8 @@ add("type-roles-compile-to-native-fonts", { "paint-148" }, function(t)
 				t.check(`{theme.name} {role} FontFace weight`, face.Weight.Name ~= "", tostring(face))
 				t.check(
 					`{theme.name} {role} TextBounds follow the size`,
-					label.TextBounds.Y >= spec.size * 0.9,
-					label.TextBounds
+					(label :: TextLabel).TextBounds.Y >= spec.size * 0.9,
+					(label :: TextLabel).TextBounds
 				)
 			end
 		end

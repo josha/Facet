@@ -1,10 +1,15 @@
 --!strict
+
+type DemoTabs = typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+local loadTabs = require :: (string) -> DemoTabs
 return function(ctx: any)
-	local demoTabs = if ctx.load then ctx.load("fixture", "demo_tabs") else require("../scenarios/demo_tabs")
-	local UI, Host, Compose = ctx.UI, ctx.Host, ctx.Compose
+	local demoTabs = if ctx.load then ctx.load("fixture", "demo_tabs") else loadTabs("../scenarios/demo_tabs")
+	local UI, Host, Compose: ComposeModule = ctx.UI, ctx.Host, ctx.Compose
 	local D2, V3, CF, C3, E = ctx.types.UDim2, ctx.types.Vector3, ctx.types.CFrame, ctx.types.Color3, ctx.types.Enum
 	local view: any = {}
-	function view.text(name, text, role)
+	function view.text(name: string, text, role)
 		return UI.Text(name)({
 			text = text,
 			textRole = role or "body",
@@ -13,22 +18,27 @@ return function(ctx: any)
 			AutomaticSize = E.AutomaticSize.Y,
 		})
 	end
-	function view.page(name, title, subtitle, children)
+	function view.page(name: string, title, subtitle, children)
 		return UI.ScrollView(name)({
 			padding = "l",
 			gap = "m",
-			view.text("Title", title, "title"),
+			view.text("Title", title, "title") :: unknown,
 			view.text("Subtitle", subtitle),
 			table.unpack(children),
 		})
 	end
 	function view.actions(children)
-		return UI.HStack { width = "fill", wrap = true, gap = "s", table.unpack(children) }
+		return UI.HStack {
+			width = "fill" :: "fill",
+			wrap = true,
+			gap = "s",
+			table.unpack((children :: unknown) :: { unknown }),
+		}
 	end
-	function view.button(name, label, action, enabled)
+	function view.button(name: string, label, action, enabled)
 		return UI.Button(name)({ label = label, onActivate = action, enabled = enabled })
 	end
-	function view.part(name, size, position, color, extra)
+	function view.part(name: string, size, position, color, extra)
 		local props = {
 			Anchored = true,
 			CanCollide = false,
@@ -42,7 +52,7 @@ return function(ctx: any)
 		end
 		return Host.Part(name)(props)
 	end
-	function view.stage(name, content, camera, height)
+	function view.stage(name: string, content, camera, height)
 		return UI.Stage(name)({
 			Size = D2.new(1, 0, 0, height or 260),
 			BackgroundColor3 = C3.fromRGB(22, 29, 43),
@@ -52,7 +62,7 @@ return function(ctx: any)
 			LightDirection = V3.new(-1, -2, -1),
 			camera = camera or CF.lookAt(V3.new(8, 6, 10), V3.new(0, 1, 0)),
 			fieldOfView = 40,
-			content = function(runtime, world)
+			content = function(runtime, world): (() -> ())?
 				return runtime.mount(content, world)
 			end,
 		})

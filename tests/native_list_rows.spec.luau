@@ -1,8 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 local expect = t.expect
 
@@ -18,7 +24,7 @@ end
 
 local function world(theme: any, build: (any) -> any): (any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -33,11 +39,11 @@ local function world(theme: any, build: (any) -> any): (any, any, () -> ())
 			services = { GuiService = gui, UserInputService = input },
 		} :: any
 	)
-	local _, sheet = runtime.mount(function()
+	local _, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(runtime, theme, { types = engine.types } :: any)
 	end, engine.new("Folder"))
-	local stop, root = runtime.mount(function()
-		return runtime.constructors.Frame({ build(UI) })
+	local stop, root: any = runtime.mount(function()
+		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ build(UI) })
 	end, engine.new("ScreenGui"))
 	return root, sheet, function()
 		stop()
@@ -82,8 +88,8 @@ local function padding(sheet: any, node: any, property: string): any
 	return value
 end
 
-local FORMS: { [string]: (any, any, string?) -> any } = {
-	Button = function(UI, name, rung)
+local FORMS: { [string]: (any, string, ("xsmall" | "compact" | "regular" | "large")?) -> any } = {
+	Button = function(UI: FacetControls, name: string, rung: ("xsmall" | "compact" | "regular" | "large")?)
 		return UI.Button(name)({
 			label = "Manage equipment",
 			controlSize = rung,
@@ -91,7 +97,7 @@ local FORMS: { [string]: (any, any, string?) -> any } = {
 			onActivate = function() end,
 		})
 	end,
-	Toggle = function(UI, name, rung)
+	Toggle = function(UI: FacetControls, name: string, rung: ("xsmall" | "compact" | "regular" | "large")?)
 		return UI.Toggle(name)({
 			label = "Driving assistance",
 			controlSize = rung,
@@ -99,7 +105,7 @@ local FORMS: { [string]: (any, any, string?) -> any } = {
 			row = { description = "Keep the car stable", icon = "settings" },
 		})
 	end,
-	Slider = function(UI, name, rung)
+	Slider = function(UI: FacetControls, name: string, rung: ("xsmall" | "compact" | "regular" | "large")?)
 		return UI.Slider(name)({
 			label = "Music volume",
 			controlSize = rung,
@@ -115,11 +121,11 @@ t.describe("native settings rows share one list row", function()
 	t.it("every row form takes its minimum height and padding from the controlSize rung of the theme", function()
 		local theme = package()
 		for form, build in FORMS do
-			for _, rung in { "compact", "regular", "large", "none" } do
+			for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
 				local step = if rung == "none" then nil else rung
 				local metrics = theme.metrics.controlSizes[step or "regular"]
-				local root, sheet, stop = world(theme, function(UI)
-					return build(UI, "Row", step)
+				local root, sheet, stop = world(theme, function(UI: FacetControls)
+					return build(UI, "Row", step :: ("compact" | "large" | "regular" | "xsmall")?)
 				end)
 				local row = find(root, "Row")
 				local label = `{form} {rung}`
@@ -135,7 +141,7 @@ t.describe("native settings rows share one list row", function()
 						PaddingBottom = vertical,
 					}
 				do
-					local value = padding(sheet, row, side)
+					local value = padding(sheet, row, tostring(side))
 					expect(`{label} {side}: {if value then value.Offset else "none"}`).toBe(`{label} {side}: {pixels}`)
 				end
 				stop()
@@ -145,7 +151,7 @@ t.describe("native settings rows share one list row", function()
 
 	t.it("every row form is the same list row: tag, leading icon, filling captions, secondary description", function()
 		for form, build in FORMS do
-			local root, _, stop = world(themes.neutralPackage(), function(UI)
+			local root, _, stop = world(themes.neutralPackage(), function(UI: FacetControls)
 				return build(UI, "Row", nil)
 			end)
 			local row = find(root, "Row")
@@ -177,7 +183,7 @@ t.describe("native settings rows share one list row", function()
 
 	t.it("a row Button in a hugging parent takes its natural width instead of collapsing its captions", function()
 		local worlds = require("./lib/content_world")
-		local w = worlds.new(function(UI, Host, engine)
+		local w = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame({
 				Name = "Cell",
 				AutomaticSize = engine.types.Enum.AutomaticSize.XY,

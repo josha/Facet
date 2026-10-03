@@ -1,7 +1,10 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local document = require("./document")
 local library = require("./library")
+local literal = require("./value").literal
 
 local source = {}
 
@@ -64,19 +67,19 @@ local function tokenize(code: string): { any }
 				table.insert(pieces, current)
 			end
 			assert(closed, "Unclosed string in component source")
-			table.insert(tokens, { kind = "literal", value = table.concat(pieces) })
+			table.insert(tokens, { kind = "literal" :: "literal", value = table.concat(pieces) })
 		elseif string.match(char, "[%a_]") then
 			local value = assert(string.match(string.sub(code, index), "^[%a_][%w_]*"))
-			table.insert(tokens, { kind = "word", value = value })
+			table.insert(tokens, { kind = "word" :: "word", value = value })
 			index += #value
 		elseif
 			string.match(char, "%d") or (char == "-" and string.match(string.sub(code, index + 1, index + 1), "%d"))
 		then
 			local value = assert(string.match(string.sub(code, index), "^%-?%d+%.?%d*[eE]?[%+%-]?%d*"))
-			table.insert(tokens, { kind = "literal", value = assert(tonumber(value), "Invalid number") })
+			table.insert(tokens, { kind = "literal" :: "literal", value = assert(tonumber(value), "Invalid number") })
 			index += #value
 		else
-			table.insert(tokens, { kind = "symbol", value = char })
+			table.insert(tokens, { kind = "symbol" :: "symbol", value = char })
 			index += 1
 		end
 	end
@@ -131,6 +134,9 @@ function source.parse(code: string, name: string): document.Document
 	if peek() == ":" then
 		sequence({ ":", "Facet", ".", "Controls" })
 	end
+	if peek() == "," then
+		sequence({ ",", "data", ":", "{", "[", "string", "]", ":", "any", "}", "?" })
+	end
 	take(")")
 	if peek() == ":" then
 		sequence({ ":", "GuiObject" })
@@ -141,7 +147,15 @@ function source.parse(code: string, name: string): document.Document
 		local start, nesting = cursor, 0
 		repeat
 			local word = take().value
-			if word == "function" then
+			if
+				word == "function"
+				or (
+					word == "if"
+					and tokens[cursor - 2].value ~= "("
+					and tokens[cursor - 2].value ~= "return"
+					and tokens[cursor - 2].value ~= "="
+				)
+			then
 				nesting += 1
 			elseif word == "end" then
 				nesting -= 1
@@ -163,10 +177,88 @@ function source.parse(code: string, name: string): document.Document
 			end
 			return true
 		end
+		local keys, literals = {}, {}
+		for index, token in actual do
+			if token.kind == "literal" then
+				table.insert(literals, token.value)
+			end
+			if
+				token.value == "data"
+				and actual[index + 1]
+				and actual[index + 1].value == "["
+				and actual[index + 2]
+				and actual[index + 2].kind == "literal"
+			then
+				keys[actual[index + 2].value] = true
+			end
+		end
+		for key in keys do
+			local lookup = "data[" .. literal(key) .. "]"
+			if
+				matches(
+					"function(item: any, key: any, input: any, clickCount: any) if data and "
+						.. lookup
+						.. " then "
+						.. lookup
+						.. "(item, key, input, clickCount) end end"
+				)
+			then
+				return { __facetActivation = key }
+			elseif matches("function() if data and " .. lookup .. " then " .. lookup .. "(current:peek()) end end") then
+				return { __facetHandler = key }
+			end
+		end
+		for _, key in literals do
+			for _, fallback in literals do
+				for _, conversion in { "tostring", "tonumber" } do
+					local tail = if conversion == "tonumber" then " or " .. literal(fallback) else ""
+					local lookup = "use(current)[" .. literal(key) .. "]"
+					if
+						matches(
+							"function(use: any) return "
+								.. conversion
+								.. "(if "
+								.. lookup
+								.. " == nil then "
+								.. literal(fallback)
+								.. " else "
+								.. lookup
+								.. ")"
+								.. tail
+								.. " end"
+						)
+					then
+						return {
+							__facetField = {
+								key = key,
+								fallback = fallback,
+								conversion = if conversion == "tonumber" then "number" else "string",
+							},
+						}
+					end
+				end
+			end
+		end
+		if
+			#actual == 12
+			and actual[3].value == "row"
+			and actual[10].kind == "literal"
+			and matches("function(row: any) return row[" .. literal(actual[10].value) .. "] end")
+		then
+			return { __facetColumnField = actual[10].value }
+		end
+		if
+			#actual == 10
+			and actual[3].value == "row"
+			and actual[8].kind == "literal"
+			and matches("function(row) return row[" .. literal(actual[8].value) .. "] end")
+		then
+			return { __facetColumnField = actual[8].value }
+		end
 		local allowed = matches("function() end")
 			or matches("function(value) return true, value end")
 			or matches(
-				'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, wrap = true } end'
+				'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
 			)
 		if
 			not allowed
@@ -193,7 +285,58 @@ function source.parse(code: string, name: string): document.Document
 	expression = function(depth: number?): any
 		local level = depth or 0
 		assert(level <= 40, "Component expressions exceed 40 levels")
+		if peek() == "if" then
+			sequence({ "if", "data", "and", "data", "[" })
+			local key = take()
+			assert(key.kind == "literal" and type(key.value) == "string", "Use a literal data input")
+			sequence({ "]", "then", "data", "[" })
+			local repeated = take()
+			assert(repeated.kind == "literal" and repeated.value == key.value, "Use the same literal data input")
+			sequence({ "]", "else" })
+			return { __facetData = { key = key.value, initial = expression(level + 1) } }
+		end
 		if peek() == "function" then
+			if peek(1) == "(" and peek(2) == "current" and peek(3) == ":" then
+				sequence({ "function", "(", "current", ":", "any", ")" })
+				if peek() == ":" then
+					sequence({ ":", "Facet", ".", "RowActionsOptions" })
+				end
+				while peek() == "local" do
+					take("local")
+					local identifier = take().value
+					assert(
+						string.match(identifier, "^state_n%d+_?%w*$")
+							or string.match(identifier, "^columns_n%d+$")
+							or string.match(identifier, "^anchor_n%d+$"),
+						"Use generated row-local state"
+					)
+					if string.match(identifier, "^columns_n%d+$") then
+						sequence({ ":", "{", "Facet", ".", "TableColumn", "<", "any", ",", "any", ">", "}" })
+					end
+					take("=")
+					if string.match(identifier, "^anchor_n%d+$") then
+						anchors[identifier] = node(level + 1)
+					else
+						states[identifier] = expression(level + 1)
+					end
+				end
+				take("return")
+				if peek() == "UI" then
+					local template = node(level + 1)
+					take("end")
+					return { __facetRowTemplate = template }
+				end
+				local actions = expression(level + 1)
+				take("end")
+				assert(
+					type(actions) == "table" and type(actions.trailing) == "table" and actions.fullSwipe == false,
+					"Use generated row actions"
+				)
+				for key in actions do
+					assert(key == "trailing" or key == "fullSwipe", "Use generated row actions")
+				end
+				return { __facetRowActions = actions.trailing }
+			end
 			if peek(1) == "(" and peek(2) == ")" and peek(3) == "return" and peek(4) == "UI" then
 				sequence({ "function", "(", ")", "return" })
 				local body = node(level + 1)
@@ -229,7 +372,16 @@ function source.parse(code: string, name: string): document.Document
 			take("}")
 			return result
 		elseif peek() == "UDim2" then
-			sequence({ "UDim2", ".", "fromOffset", "(" })
+			sequence({ "UDim2", "." })
+			local method = take().value
+			if method == "new" then
+				sequence({ "(", 1, ",", 0, ",", 0, "," })
+				local height = expression()
+				take(")")
+				return { __facetSize = true, width = "fill", height = height }
+			end
+			assert(method == "fromOffset", "Use a visual width or fixed size")
+			take("(")
 			local width = expression()
 			take(",")
 			local height = expression()
@@ -259,6 +411,11 @@ function source.parse(code: string, name: string): document.Document
 		end
 		local token = take()
 		if token.kind == "literal" then
+			if peek() == ":" and peek(1) == ":" then
+				sequence({ ":", ":" })
+				local annotation = take()
+				assert(annotation.kind == "literal" and annotation.value == token.value, "Use the same literal type")
+			end
 			return token.value
 		end
 		if token.value == "true" then
@@ -296,6 +453,18 @@ function source.parse(code: string, name: string): document.Document
 			if type(item) ~= "table" then
 				return item
 			end
+			if item.__facetRowTemplate then
+				table.insert(result.children, item.__facetRowTemplate)
+				return nil
+			elseif item.__facetRowActions then
+				return collect(item.__facetRowActions)
+			elseif item.__facetActivation then
+				result.props.activationKey = item.__facetActivation
+				return nil
+			elseif item.__facetData then
+				result.props.dataKey = item.__facetData.key
+				return collect(item.__facetData.initial)
+			end
 			if item.__facetContent then
 				for _, child in item.__facetContent do
 					table.insert(result.children, child)
@@ -325,7 +494,19 @@ function source.parse(code: string, name: string): document.Document
 				return type(a) == "number"
 			end)
 			for _, key in keys do
-				cleaned[key] = collect(item[key])
+				if key == "render" and type(item[key]) == "table" and item[key].__facetRowTemplate then
+					local template = item[key].__facetRowTemplate
+					template.props.columnId = item.id
+					table.insert(result.children, template)
+				elseif type(item[key]) == "table" and item[key].__facetHandler then
+					cleaned.handler = item[key].__facetHandler
+				elseif type(item[key]) == "table" and item[key].__facetColumnField then
+					if item.id ~= item[key].__facetColumnField then
+						cleaned.field = item[key].__facetColumnField
+					end
+				else
+					cleaned[key] = collect(item[key])
+				end
 			end
 			return cleaned
 		end
@@ -338,7 +519,17 @@ function source.parse(code: string, name: string): document.Document
 			else
 				local key = take().value
 				take("=")
-				local property = collect(expression(depth + 1))
+				local raw = expression(depth + 1)
+				local property
+				if type(raw) == "table" and raw.__facetField then
+					local descriptor =
+						assert(library.descriptor(kind, key .. "Field"), "This property cannot bind to a row")
+					assert(descriptor.conversion == raw.__facetField.conversion, "Use the property binding type")
+					result.props[key .. "Field"] = raw.__facetField.key
+					property = raw.__facetField.fallback
+				else
+					property = collect(raw)
+				end
 				if property ~= nil and not (kind == "NumberInput" and key == "value") then
 					assert(result.props[key] == nil, "Duplicate component property")
 					result.props[key] = library.parse(
@@ -362,12 +553,15 @@ function source.parse(code: string, name: string): document.Document
 	while peek() == "local" do
 		take("local")
 		local identifier = take().value
+		if string.match(identifier, "^columns_n%d+$") then
+			sequence({ ":", "{", "Facet", ".", "TableColumn", "<", "any", ",", "any", ">", "}" })
+		end
 		take("=")
 		if string.match(identifier, "^anchor_n%d+$") then
 			anchors[identifier] = node(1)
 		else
 			assert(
-				string.match(identifier, "^state_n%d+_?%w*$"),
+				string.match(identifier, "^state_n%d+_?%w*$") or string.match(identifier, "^columns_n%d+$"),
 				"Only generated state and anchor declarations are supported"
 			)
 			states[identifier] = expression()

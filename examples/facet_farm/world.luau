@@ -1,4 +1,10 @@
 --!strict
+type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
+type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
+
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local modelModule = require("./model")
 local theme = require("./theme")
 
@@ -58,7 +64,7 @@ function world.fitFrame(free: Rect, project: (CFrame, Vector3) -> Vector2): CFra
 end
 
 function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): () -> ()
-	local Host = runtime.constructors
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local function paint(name: string): Color3
 		return theme.color(Color3, name)
 	end
@@ -73,16 +79,16 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 		for key, value in props do
 			native[key] = value
 		end
-		return Host.Part(native)
+		return Host.Part((native :: unknown) :: PartNativeProps)
 	end
 
 	local function crop(index: number, key: string)
 		local crop, state = string.match(key, "^(%w+):(%w+)$")
 		local base = world.plotPosition(index) + Vector3.new(0, 0.2, 0)
-		local plot = function(use): any
+		local plot = function(use: Use): any
 			return use(farm.plots)[index]
 		end
-		local function grown(use): number
+		local function grown(use: Use): number
 			return 0.35 + 0.65 * modelModule.progress(plot(use), use(farm.now))
 		end
 		local parts: { any } = {}
@@ -102,21 +108,21 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 			}))
 		elseif state == "growing" then
 			add(part("Stem", {
-				Size = function(use)
+				Size = function(use: Use)
 					return Vector3.new(0.18, 1.4 * grown(use), 0.18)
 				end,
-				CFrame = function(use)
+				CFrame = function(use: Use)
 					return CFrame.new(base + Vector3.new(0, 0.7 * grown(use), 0))
 				end,
 				Color = paint("sprout"),
 			}))
 			for side = -1, 1, 2 do
 				add(part("Leaf", {
-					Size = function(use)
+					Size = function(use: Use)
 						local scale = grown(use)
 						return Vector3.new(0.8 * scale, 0.08, 0.45 * scale)
 					end,
-					CFrame = function(use)
+					CFrame = function(use: Use)
 						local scale = grown(use)
 						return CFrame.new(base + Vector3.new(0.35 * side * scale, 1.1 * scale, 0))
 							* CFrame.Angles(0, 0, math.rad(20 * side))
@@ -190,22 +196,22 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 				Color = paint("stalk"),
 			}))
 		end
-		return Host.Model(crop .. state)(parts)
+		return Host.Model(assert(crop) .. assert(state))((parts :: unknown) :: ModelNativeProps)
 	end
 
 	local function tile(index: number)
 		local position = world.plotPosition(index)
-		local function stage(use): string
+		local function stage(use: Use): string
 			return modelModule.stateAt(use(farm.plots)[index], use(farm.now))
 		end
 		local ground = part("Plot" .. index, {
 			Size = Vector3.new(TILE, 0.4, TILE),
 			CFrame = CFrame.new(position),
-			Color = function(use)
+			Color = function(use: Use)
 				local state = stage(use)
 				return paint(if state == "grass" then "grass" elseif state == "withered" then "withered" else "plowed")
 			end,
-			Material = function(use)
+			Material = function(use: Use)
 				return if stage(use) == "grass" then Enum.Material.Grass else Enum.Material.Ground
 			end,
 		})
@@ -222,24 +228,24 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 					Size = Vector3.new(TILE * 0.8, 0.12, 0.28),
 					CFrame = CFrame.new(position + Vector3.new(0, 0.24, (row - 2) * 1.2)),
 					Color = paint("furrow"),
-					Transparency = function(use)
+					Transparency = function(use: Use)
 						return if stage(use) == "grass" then 1 else 0
 					end,
 				})
 			)
 		end
 		return Host.Model("Tile" .. index)({
-			ground,
+			ground :: unknown,
 			table.unpack(furrows),
 			Compose.keyed({
-				from = function(use)
+				from = function(use: Use)
 					local state = stage(use)
 					if state == "grass" or state == "plowed" then
 						return {}
 					end
 					return { use(farm.plots)[index].crop .. ":" .. state }
 				end,
-				render = function(current)
+				render = function(current): Model
 					return crop(index, current:peek())
 				end,
 			}),
@@ -294,7 +300,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 				Color = paint("grass"),
 				Material = Enum.Material.Grass,
 				CastShadow = false,
-			}),
+			}) :: unknown,
 			part("Field", {
 				Size = Vector3.new(width, 0.3, depth),
 				CFrame = CFrame.new(0, -0.1, 0),

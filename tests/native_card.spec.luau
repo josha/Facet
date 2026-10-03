@@ -1,13 +1,19 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local UDim2 = require("@lune/roblox").UDim2
 
-local function cardSpec(log: { string }, extra: { [string]: any }?): { [string]: any }
-	local spec: { [string]: any } = {
+local function cardSpec(log: { string }, extra: { [any]: any }?): { [any]: any }
+	local spec: { [any]: any } = {
 		image = "rbxassetid://1",
 		title = "Nebula Racers",
 		caption = "Friends playing",
@@ -32,23 +38,20 @@ local function cardSpec(log: { string }, extra: { [string]: any }?): { [string]:
 			},
 		},
 	}
-	for key, value in extra or {} do
+	local additions: { [any]: any } = extra or {}
+	for key, value in additions do
 		spec[key] = value
 	end
 	return spec
 end
 
-local function mount(
-	spec: { [string]: any },
-	options: { [string]: any }?,
-	touch: boolean?
-): (any, any, { [string]: any })
-	local controls: { [string]: any } = {}
+local function mount(spec: { [any]: any }, options: { [string]: any }?, touch: boolean?): (any, any, { [any]: any })
+	local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
 	spec.controls = controls
-	local world = worlds.new(function(UI, Host)
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame({
 			Name = "Row",
-			UI.Card("C")(spec),
+			UI.Card("C")(spec) :: unknown,
 			UI.Button({ Name = "Next", label = "Next" }),
 		})
 	end, options or { motionLevel = "none" })
@@ -104,7 +107,7 @@ local function gridWorld(count: number, twoGrids: boolean?, reduced: boolean?): 
 		end)()),
 		B = Compose.cell({ { id = "i1", title = "Other 1" }, { id = "i2", title = "Other 2" } }),
 	}
-	local world = worlds.new(function(UI, Host)
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 		local function grid(name: string)
 			local controls, cards = controlsByGrid[name], cardsByGrid[name]
 			return UI.VirtualGrid({
@@ -120,7 +123,7 @@ local function gridWorld(count: number, twoGrids: boolean?, reduced: boolean?): 
 						entry.enterActions()
 					end
 				end,
-				render = function(current: any, _placement: any, key: string)
+				render = function(current: any, _placement: any, key: string): GuiObject
 					local entry = {}
 					controls[key] = entry
 					local card = UI.Card({
@@ -168,7 +171,7 @@ local function gridWorld(count: number, twoGrids: boolean?, reduced: boolean?): 
 		if twoGrids then
 			table.insert(children, grid("B"))
 		end
-		return Host.Frame({ Name = "Page", table.unpack(children) })
+		return Host.Frame({ Name = "Page", table.unpack((children :: unknown) :: { unknown }) })
 	end, { motionLevel = if reduced ~= false then "none" else "normal" })
 	for _, name in (if twoGrids then { "A", "B" } else { "A" }) :: { string } do
 		local node = world.find(name)
@@ -207,7 +210,7 @@ t.describe("native Card", function()
 			{ image = "", title = "T", artwork = function() end },
 		}
 		for _, spec in bad do
-			t.expect(worlds.mountError(function(UI)
+			t.expect(worlds.mountError(function(UI: FacetControls)
 				return UI.Card(spec)
 			end) ~= nil).toBe(true)
 		end
@@ -231,19 +234,19 @@ t.describe("native Card", function()
 	end)
 
 	t.it("draws live artwork in the artwork frame and forwards the activating input to the body", function()
-		local inputs: { any } = {}
+		local inputs: { InputObject | string } = {}
 		local released = 0
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Card "C" {
 				title = "Afterlight",
-				artwork = function()
+				artwork = function(): GuiObject
 					Compose.cleanup(function()
 						released += 1
 					end)
 					return Host.ViewportFrame({ Name = "Preview" })
 				end,
-				onActivate = function(input)
-					table.insert(inputs, input or "none")
+				onActivate = function(input: InputObject?)
+					table.insert(inputs, (input or "none") :: any)
 				end,
 			}
 		end, { motionLevel = "none" })
@@ -290,11 +293,11 @@ t.describe("native Card", function()
 		local world, _, controls = mount(spec)
 		world.find("Body").Activated.fire()
 		t.expect(#log).toBe(0)
-		t.expect(controls.enterActions()).toBe(false)
+		t.expect(assert(controls.enterActions)()).toBe(false)
 		enabled:set(true)
-		t.expect(controls.enterActions()).toBe(false)
+		t.expect(assert(controls.enterActions)()).toBe(false)
 		busy:set(false)
-		t.expect(controls.enterActions()).toBe(true)
+		t.expect(assert(controls.enterActions)()).toBe(true)
 		t.expect(world.gui.SelectedObject).toBe(primary(world))
 		world.stop()
 	end)
@@ -307,7 +310,7 @@ t.describe("native Card", function()
 		image:set("")
 		t.expect(world.find("Title").Text).toBe("First")
 		t.expect(world.find("Artwork").Image).toBe("rbxassetid://1")
-		t.expect(#controls.diagnostics()).toBe(2)
+		t.expect(#assert(controls.diagnostics)()).toBe(2)
 		title:set("Second")
 		image:set("rbxassetid://2")
 		t.expect(world.find("Title").Text).toBe("Second")
@@ -316,13 +319,13 @@ t.describe("native Card", function()
 			title:set("")
 			title:set(`T{index}`)
 		end
-		t.expect(#controls.diagnostics()).toBe(16)
+		t.expect(#assert(controls.diagnostics)()).toBe(16)
 		world.stop()
 	end)
 
 	t.it("leaves nothing behind when a callback removes its own card", function()
 		local show = Compose.cell(true)
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Row",
 				Compose.show(show, function()
@@ -331,7 +334,7 @@ t.describe("native Card", function()
 							show:set(false)
 						end,
 					}))
-				end),
+				end) :: unknown,
 				UI.Button({ Name = "Next", label = "Next" }),
 			})
 		end)
@@ -737,7 +740,7 @@ t.describe("native Card", function()
 	t.it("keeps a half gutter at the outer edges of a grid so a lifted corner card is not clipped", function()
 		local scenario = require("../examples/gallery/scenarios/cards") :: any
 		local built: any
-		local world = worlds.new(function(UI, Host, engine)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
 			built = scenario.build({
 				UI = UI,
 				Compose = Compose,
@@ -781,7 +784,7 @@ t.describe("native Card", function()
 
 	t.it("centres a count seal on the top-right corner of its host without changing the host", function()
 		local unread = Compose.cell(120 :: any)
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "S",
 				UI.badged(UI.Button({ Name = "Inbox", label = "Inbox", LayoutOrder = 3 }), unread),
@@ -810,44 +813,44 @@ t.describe("native Card", function()
 	end)
 
 	t.it("mirrors the seal to the top-left in rtl and shows true as a dot", function()
-		local world = worlds.new(function(UI)
+		local world = worlds.new(function(UI: FacetControls)
 			return UI.badged(UI.Button({ Name = "Inbox", label = "Inbox" }), true, "rtl")
 		end)
 		local wrapper = world.find("Inbox+badge")
 		t.expect(world.find("Corner", wrapper).Position).toBe(UDim2.fromScale(0, 0))
 		t.expect(world.find("CornerBadge", wrapper).Text).toBe("•")
 		world.stop()
-		t.expect(worlds.mountError(function(UI)
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.badged(UI.Button({ label = "Inbox" }), 1, "up" :: any)
 		end) ~= nil).toBe(true)
-		t.expect(worlds.mountError(function(UI)
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.badged(UI.Button({ label = "Inbox" }), 1.5)
 		end) ~= nil).toBe(true)
 	end)
 
 	t.it("puts an icon tab count on the icon corner and a text tab count in a trailing pill", function()
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView({
 				selection = Compose.cell("inbox"),
-				placement = "topBar",
+				placement = "topBar" :: "topBar",
 				tabs = {
 					{
 						id = "inbox",
 						label = "Inbox",
 						icon = "menu",
 						badge = 3,
-						content = function()
+						content = function(): Instance
 							return Host.Frame({})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "sent",
 						label = "Sent",
 						badge = 2,
-						content = function()
+						content = function(): Instance
 							return Host.Frame({})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -861,20 +864,23 @@ t.describe("native Card", function()
 		t.expect(sent:FindFirstChild("Count", true).Text).toBe("2")
 		t.expect(sent:GetAttribute("label")).toBe("Sent (2)")
 		world.stop()
-		local pickers = worlds.new(function(UI, Host)
+		local pickers = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Picker("Icons")({
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
 					options = {
-						{ value = "a", label = "Inbox", icon = "menu", badge = 3 },
-						{ value = "b", label = "Sent", icon = "flag" },
+						{ value = "a", label = "Inbox", icon = "menu", badge = 3 } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Sent", icon = "flag" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
-				}),
+				}) :: unknown,
 				UI.Picker("Words")({
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("a"),
-					options = { { value = "a", label = "Inbox", badge = 3 }, { value = "b", label = "Sent" } },
+					options = {
+						{ value = "a", label = "Inbox", badge = 3 } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Sent" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				}),
 			})
 		end)

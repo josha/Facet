@@ -1,10 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local Roblox = require("@lune/roblox")
 local engineLib = require("./lib/native_engine")
 local styleRules = require("./lib/style_rules")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local expect = t.expect
 local Color3 = Roblox.Color3
 local V2 = Roblox.Vector2.new
@@ -60,7 +67,7 @@ local function world(spec: any, options: any?): any
 	local o = options or {}
 	local engine: any = engineLib.new()
 	local E = engine.types.Enum
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	if o.tenFoot then
 		gui.IsTenFootInterface = function()
@@ -97,11 +104,11 @@ local function world(spec: any, options: any?): any
 		{ types = types, services = { GuiService = gui, UserInputService = proxy }, guiService = gui, theme = o.theme } :: any
 	)
 	local target = engine.new("Folder")
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({
 			Host.Frame "Col" {
-				if o.build then o.build(UI, Host) else UI.ColorPicker("P")(spec),
+				if o.build then o.build(UI, Host) else UI.ColorPicker("P")(spec) :: unknown,
 				UI.Button("Other")({ label = "Other" }),
 			},
 		})
@@ -169,7 +176,7 @@ local function world(spec: any, options: any?): any
 	end
 	function w.stop()
 		stop()
-		runtime.dispose()
+		runtime:dispose()
 	end
 	return w
 end
@@ -182,11 +189,11 @@ t.describe("native ColorPicker colour values", function()
 		c, a = colorValue.parseHex("ff000080", true)
 		expect(hex(c)).toBe("#FF0000")
 		expect(math.floor((a :: number) * 255 + 0.5)).toBe(128)
-		c, _, why = colorValue.parseHex("#ff000080", false)
+		c, a, why = colorValue.parseHex("#ff000080", false)
 		expect(c).toBeNil()
 		expect(why ~= nil).toBe(true)
 		for _, bad in { "", "#12", "#GGGGGG", " #ABCDEF", "#abcdef " } do
-			expect(`{bad}:{tostring(colorValue.parseHex(bad, true))}`).toBe(`{bad}:nil`)
+			expect(`{bad}:{tostring((colorValue.parseHex(bad, true)))}`).toBe(`{bad}:nil`)
 		end
 		expect(colorValue.hex(Color3.new(0.5, 0.5, 0.5))).toBe("#808080")
 		expect(colorValue.hex(Color3.new(1, 0, 0), 0)).toBe("#FF000000")
@@ -205,7 +212,7 @@ t.describe("native ColorPicker colour values", function()
 	t.it("a saturation round trip through the Sliders tab returns to the hue the player set", function()
 		local set = Color3.fromHSV(200 / 360, 1, 1)
 		local cell, _, change = caller(set)
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "sliders" } })
+		local w = world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "sliders" } })
 		w.gui.SelectedObject = w.find("Saturation")
 		expect(w.press("DecreaseArrow", 100)).toBe(100)
 		expect(hex(cell:peek())).toBe("#FFFFFF")
@@ -223,7 +230,7 @@ t.describe("native ColorPicker colour values", function()
 
 	t.it("the readout format segments fill a fixed row height, so the row cannot grow with its own segments", function()
 		local cell, _, change = caller(Color3.new(1, 0, 0))
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "sliders" } })
+		local w = world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "sliders" } })
 		local format = w.find("Format")
 		expect(format.AutomaticSize.Name).toBe("X")
 		expect(format.Size.Y.Scale).toBe(0)
@@ -236,7 +243,7 @@ t.describe("native ColorPicker colour values", function()
 	t.it("switching the readout twenty times never moves canonical, and a hex commit is the only write", function()
 		local start = Color3.fromHSV(0.61, 0.37, 0.83)
 		local cell, seen, change = caller(start)
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "sliders" } })
+		local w = world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "sliders" } })
 		local before = `{w.attr("hue")},{w.attr("saturation")},{w.attr("brightness")}`
 		for _ = 1, 20 do
 			for _, word in { "hsv", "hex", "rgb" } do
@@ -713,7 +720,7 @@ t.describe("native ColorPicker spectrum plane", function()
 		local w = world({
 			value = cell,
 			onChange = change,
-			style = "inline",
+			style = "inline" :: "inline",
 			modes = { "spectrum" },
 			onCommit = function(c: any)
 				table.insert(commits, hex(c))
@@ -765,7 +772,8 @@ t.describe("native ColorPicker spectrum plane", function()
 
 	t.it("the native drag detector follows the plane through a tab round trip", function()
 		local cell, _, change = caller(Color3.fromHSV(0.5, 0.5, 0.5))
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "spectrum", "sliders" } })
+		local w =
+			world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "spectrum", "sliders" } })
 		local surface = w.find("Plane/Surface")
 		w.size(surface, 200, 176)
 		local function driveTo(fx: number)
@@ -805,7 +813,9 @@ t.describe("native ColorPicker spectrum plane", function()
 		local Touch = probe.E.PreferredInput.Touch
 		probe.stop()
 		for _, view in { { w = 390, h = 844 }, { w = 844, h = 390 } } do
-			for _, mode in { "swatches", "spectrum", "sliders", "brick" } do
+			for _, mode in
+				{ "swatches", "spectrum", "sliders", "brick" } :: { "brick" | "sliders" | "spectrum" | "swatches" }
+			do
 				local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
 				local w = world(
 					{ value = cell, onChange = change, draft = true, modes = { mode } },
@@ -1014,7 +1024,7 @@ t.describe("native ColorPicker composed in a screen", function()
 			{ color = Color3.fromRGB(0, 170, 140), label = "Teal" },
 		} :: { any })
 		local w = world({}, {
-			build = function(UI, Host)
+			build = function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame "Pickers" {
 					UI.ColorPicker("P")({
 						label = "Trim",
@@ -1033,9 +1043,9 @@ t.describe("native ColorPicker composed in a screen", function()
 							table.insert(nextList, c)
 							team:set(nextList)
 						end,
-					}),
+					}) :: unknown,
 					Host.TextLabel "Committed" {
-						Text = function(use)
+						Text = function(use: Use)
 							return "Committed: " .. use(committed)
 						end,
 					},
@@ -1113,7 +1123,7 @@ t.describe("native ColorPicker alpha, empty, disabled and refusals", function()
 
 	t.it("the Bricks tab names the chosen brick in a field above its grid", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "brick" } })
+		local w = world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "brick" } })
 		local cells = w.cells("BrickGrid")
 		expect(#cells).toBe(128)
 		cells[1].Activated.fire()
@@ -1132,7 +1142,7 @@ t.describe("native ColorPicker alpha, empty, disabled and refusals", function()
 			local w = world({
 				value = cell,
 				onChange = change,
-				style = "inline",
+				style = "inline" :: "inline",
 				modes = { "spectrum" },
 				alpha = a,
 				onAlphaChange = function(n: number)
@@ -1222,20 +1232,24 @@ t.describe("native ColorPicker alpha, empty, disabled and refusals", function()
 		).toBe(true)
 		expect(
 			string.find(
-				build({ value = red, onChange = noop, style = "inline", isPresented = true }),
+				build({ value = red, onChange = noop, style = "inline" :: "inline", isPresented = true }),
 				"inline",
 				1,
 				true
 			) ~= nil
 		).toBe(true)
 		expect(
-			string.find(build({ value = red, onChange = noop, shape = "circle" }), "unknown option 'shape'", 1, true)
-				~= nil
+			string.find(
+				build({ value = red, onChange = noop, shape = "circle" :: "circle" }),
+				"unknown option 'shape'",
+				1,
+				true
+			) ~= nil
 		).toBe(true)
 		expect(build({ value = Compose.cell(red) })).toBe("ok")
 		local source = Compose.cell(red :: any)
 		local m = world({
-			value = function(use)
+			value = function(use: Use)
 				return use(source)
 			end,
 			onChange = noop,
@@ -1336,7 +1350,7 @@ t.describe("native ColorPicker phone sheet", function()
 		expect(format:HasTag("facet-segmented")).toBe(true)
 		local formatGrows = format.AutomaticSize == E.AutomaticSize.Y or format.AutomaticSize == E.AutomaticSize.XY
 		expect(`format {format.Size.Y.Scale} {format.Size.Y.Offset} {formatGrows}`).toBe("format 0 44 false")
-		for _, mode in { "swatches", "spectrum" } do
+		for _, mode in { "swatches", "spectrum" } :: { "spectrum" | "swatches" } do
 			local segment = w.find("Modes/" .. mode)
 			local grows = segment.AutomaticSize == E.AutomaticSize.Y or segment.AutomaticSize == E.AutomaticSize.XY
 			expect(`{mode} {grows}`).toBe(`{mode} false`)
@@ -1362,7 +1376,11 @@ end)
 t.describe("native ColorPicker cells, tabs and readout", function()
 	local function sheetFor(w: any, package: any): any
 		local _, sheet = w.runtime.mount(function()
-			return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types } :: any)
+			return Facet.themes.createStyleSheet(
+				w.runtime,
+				package :: Facet.ThemePackage,
+				{ types = w.engine.types } :: any
+			)
 		end, w.engine.new("Folder"))
 		return sheet
 	end
@@ -1376,7 +1394,7 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 		local w = world({
 			value = cell,
 			onChange = change,
-			style = "inline",
+			style = "inline" :: "inline",
 			modes = { "swatches", "brick" },
 			swatches = { Color3.fromRGB(0, 0, 255) },
 			onSaveSwatch = function() end,
@@ -1406,8 +1424,13 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 
 	t.it("the checker and color share one clipping edge at the preview's themed corner radius", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-		local w =
-			world({ value = cell, onChange = change, style = "inline", alpha = 0.5, onAlphaChange = function() end })
+		local w = world({
+			value = cell,
+			onChange = change,
+			style = "inline" :: "inline",
+			alpha = 0.5,
+			onAlphaChange = function() end,
+		})
 		local preview = w.find("Readout/Head/Preview")
 		local paint = preview:FindFirstChild("Paint")
 		local checker, plate = paint:FindFirstChild("Checker"), paint:FindFirstChild("Plate")
@@ -1430,7 +1453,7 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 
 	t.it("the Bricks technique is a default tab when the engine has BrickColor", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-		local w = world({ value = cell, onChange = change, style = "inline" })
+		local w = world({ value = cell, onChange = change, style = "inline" :: "inline" })
 		expect(w.find("Modes/brick") ~= nil).toBe(true)
 		expect(#w.cells("BrickGrid")).toBe(128)
 		w.stop()
@@ -1438,7 +1461,8 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 
 	t.it("the readout leads with a wide preview and lays its fields out in equal columns", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		local w =
+			world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "swatches", "brick" } })
 		local E = w.E
 		local preview = w.find("Readout/Head/Preview")
 		expect(preview.Size.X.Offset > preview.Size.Y.Offset).toBe(true)
@@ -1458,7 +1482,8 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 
 	t.it("the technique centres its grids in the panel", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		local w =
+			world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "swatches", "brick" } })
 		for _, column in { "Saved", "Brick" } do
 			local layout = w.find(column):FindFirstChildWhichIsA("UIListLayout")
 			expect(`{column} {layout.HorizontalAlignment}`).toBe(`{column} {w.E.HorizontalAlignment.Center}`)
@@ -1491,8 +1516,8 @@ t.describe("native ColorPicker panel fit", function()
 
 	t.it("the Sliders tracks start at one x: the labels share the widest label's column", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "sliders" } })
-		local widths = { Hue = 24, Saturation = 70, Brightness = 76 }
+		local w = world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "sliders" } })
+		local widths: { [string]: number } = { Hue = 24, Saturation = 70, Brightness = 76 }
 		for name, width in widths do
 			w.find(`Sliders/{name}/Label`).TextBounds = V2(width, 18)
 		end
@@ -1554,11 +1579,16 @@ t.describe("native ColorPicker panel fit", function()
 			return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05)
 		end
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		local w =
+			world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "swatches", "brick" } })
 		local segment = w.find("Modes/brick")
 		for name, package in { neutral = Facet.themes.neutralPackage(), pixel = pixel() } do
 			local _, sheet = w.runtime.mount(function()
-				return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types } :: any)
+				return Facet.themes.createStyleSheet(
+					w.runtime,
+					package :: Facet.ThemePackage,
+					{ types = w.engine.types } :: any
+				)
 			end, w.engine.new("Folder"))
 			local ink = styleRules.resolve(sheet, segment, "TextColor3")
 			local track = styleRules.resolve(sheet, w.find("Modes/Presentation"), "BackgroundColor3")

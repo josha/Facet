@@ -357,7 +357,7 @@ return function(
 						} :: Types.Attributes,
 					}
 					for _, child in content(id) do
-						table.insert(props, child)
+						props[#props + 1] = child
 					end
 					node = Host.Frame(props)
 					Compose.watch(function(use: ComposeTypes.Use)

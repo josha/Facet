@@ -1,8 +1,12 @@
+--!strict
+
+type FacetModule = typeof(require("@repo/src"))
+local requireDynamic = require :: (any) -> any
 local s = assert(_G.FacetDesignSmoke)
 local m = s.modules
-local Facet = require(game.ReplicatedStorage.Facet)
-local document, library = require(m.document), require(m.library)
-local session, render = require(m.session), require(m.design_render)
+local Facet = (requireDynamic(game:GetService("ReplicatedStorage"):WaitForChild("Facet")) :: unknown) :: FacetModule
+local document, library = requireDynamic(m.document), requireDynamic(m.library)
+local session, render = requireDynamic(m.session), requireDynamic(m.design_render)
 local probe = { presets = 0, structured = 0, matrix = 0, fields = 0, failures = {}, done = false }
 _G.FacetDesignGapProbe = probe
 
@@ -59,10 +63,10 @@ task.spawn(function()
 			end
 		end
 	end
-	for _, template in require(m.templates) do
+	for _, template in requireDynamic(m.templates) do
 		local edited =
 			document.change(template, template.root.id, "padding", { top = "m", right = 20, bottom = "l", left = 20 })
-		for _, profile in require(m.profiles) do
+		for _, profile in requireDynamic(m.profiles) do
 			for _, palette in { "Light", "Dark" } do
 				for _, textSize in { "Medium", "Largest" } do
 					local c = table.clone(profile)

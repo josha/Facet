@@ -1,13 +1,22 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local cells = require("./lib/cells")
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function make(options: { [string]: any }?): (any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
 	for key, value in (options or {}) :: { [string]: any } do
@@ -90,11 +99,11 @@ t.describe("native maximum layout width", function()
 			}
 		do
 			local maximum = Compose.cell(480)
-			local root, engine, stop = build(nil, function(UI, Host)
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				local spec = {
-					width = "fill",
+					width = "fill" :: "fill",
 					height = 120,
-					maxWidth = function(use)
+					maxWidth = function(use: Use)
 						return use(maximum)
 					end,
 				}
@@ -127,11 +136,11 @@ t.describe("native maximum layout width", function()
 
 	t.it("keeps fixed width semantics and does not add a cap unless requested", function()
 		local maximum = Compose.cell(480)
-		local root, engine, stop = build(nil, function(UI)
+		local root, engine, stop = build(nil, function(UI: FacetControls)
 			return UI.VStack {
 				width = 600,
-				UI.HStack { width = 600, maxWidth = maximum },
-				UI.ZStack { width = "fill", maxWidth = 0 },
+				UI.HStack { width = 600, maxWidth = maximum } :: unknown,
+				UI.ZStack { width = "fill" :: "fill", maxWidth = 0 },
 			}
 		end)
 		t.expect(root.Size.X.Offset).toBe(600)
@@ -151,10 +160,10 @@ t.describe("native maximum layout width", function()
 	end)
 
 	t.it("rejects invalid maximum widths before passing them to Roblox", function()
-		for _, maximum in { -1, math.huge, 0 / 0, "fill", false } do
+		for _, maximum in { -1 :: any, math.huge, 0 / 0, "fill", false } :: { unknown } do
 			t.expect(mentions(
-				refusal(function(UI)
-					return UI.VStack { maxWidth = maximum }
+				refusal(function(UI: FacetControls)
+					return UI.VStack({ maxWidth = maximum } :: any)
 				end),
 				"maxWidth must be a finite number"
 			)).toBe(true)
@@ -165,9 +174,9 @@ end)
 t.describe("native layout primitives", function()
 	t.describe("VStack and HStack", function()
 		t.it("build a plain Frame with a list layout and number the children in declaration order", function()
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.VStack {
-					UI.Text { text = "One" },
+					UI.Text { text = "One" } :: unknown,
 					UI.Text { text = "Two" },
 					UI.Button { label = "Three", onActivate = function() end },
 				}
@@ -194,7 +203,7 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("lays an HStack out horizontally and accepts a constructor name", function()
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.HStack "Toolbar" { gap = 4, UI.Text { text = "A" } }
 			end)
 			t.expect(root.Name).toBe("Toolbar")
@@ -204,7 +213,7 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("resolves gap and padding spacing steps from the theme package", function()
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.VStack { gap = "s", padding = "m", UI.Text { text = "A" } }
 			end)
 			local space = themes.neutralPackage().metrics.space
@@ -217,7 +226,7 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("pads each side on its own and keeps literal pixel values", function()
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.VStack { gap = 7, padding = { left = "xs", top = 3 } }
 			end)
 			local padding = child(root, "UIPadding")
@@ -232,7 +241,7 @@ t.describe("native layout primitives", function()
 
 		t.it("moves gap and padding when the theme package changes", function()
 			local theme = Compose.cell(themes.neutralPackage())
-			local root, engine, stop = build({ theme = theme }, function(UI)
+			local root, engine, stop = build({ theme = theme }, function(UI: FacetControls)
 				return UI.VStack { gap = "s", padding = { left = "m" }, UI.Text { text = "A" } }
 			end)
 			local D = engine.types.UDim
@@ -247,9 +256,9 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("maps align and distribute to the native list alignment and flex", function()
-			local align = Compose.cell("center")
-			local root, engine, stop = build(nil, function(UI)
-				return UI.HStack { align = align, distribute = "spaceBetween", UI.Text { text = "A" } }
+			local align = Compose.cell("center" :: "center" | "end" | "start" | "stretch")
+			local root, engine, stop = build(nil, function(UI: FacetControls)
+				return UI.HStack { align = align, distribute = "spaceBetween" :: "spaceBetween", UI.Text { text = "A" } }
 			end)
 			local E = engine.types.Enum
 			local layout = child(root, "UIListLayout")
@@ -267,8 +276,8 @@ t.describe("native layout primitives", function()
 			t.expect(layout.VerticalAlignment).toBe(E.VerticalAlignment.Bottom)
 			t.expect(layout.VerticalFlex).toBe(E.UIFlexAlignment.None)
 			stop()
-			local column = build(nil, function(UI)
-				return UI.VStack { align = "end", distribute = "center" }
+			local column = build(nil, function(UI: FacetControls)
+				return UI.VStack { align = "end" :: "end", distribute = "center" :: "center" }
 			end)
 			local list = child(column, "UIListLayout")
 			t.expect(list.HorizontalAlignment).toBe(E.HorizontalAlignment.Right)
@@ -285,19 +294,19 @@ t.describe("native layout primitives", function()
 					spaceEvenly = E.UIFlexAlignment.SpaceEvenly,
 				}
 			do
-				local row, _, stopRow = build(nil, function(UI)
-					return UI.HStack { distribute = name }
+				local row, _, stopRow = build(nil, function(UI: FacetControls)
+					return UI.HStack { distribute = name :: "spaceBetween" | "spaceAround" | "spaceEvenly" }
 				end)
 				t.expect(child(row, "UIListLayout").HorizontalFlex).toBe(flex)
 				stopRow()
-				local column, _, stopColumn = build(nil, function(UI)
-					return UI.VStack { distribute = name }
+				local column, _, stopColumn = build(nil, function(UI: FacetControls)
+					return UI.VStack { distribute = name :: "spaceBetween" | "spaceAround" | "spaceEvenly" }
 				end)
 				t.expect(child(column, "UIListLayout").VerticalFlex).toBe(flex)
 				stopColumn()
 			end
-			local screen, _, stopScreen = build(nil, function(UI)
-				return UI.Screen { distribute = "end" }
+			local screen, _, stopScreen = build(nil, function(UI: FacetControls)
+				return UI.Screen { distribute = "end" :: "end" }
 			end)
 			t.expect(child(screen, "UIListLayout").VerticalAlignment).toBe(E.VerticalAlignment.Bottom)
 			stopScreen()
@@ -305,24 +314,24 @@ t.describe("native layout primitives", function()
 
 		t.it("accepts distribute only on the list containers", function()
 			t.expect(mentions(
-				refusal(function(UI)
-					return UI.ZStack { distribute = "center" }
+				refusal(function(UI: FacetControls)
+					return UI.ZStack { distribute = "center" :: "center" }
 				end),
 				"distribute"
 			)).toBe(true)
 			t.expect(mentions(
-				refusal(function(UI)
-					return UI.Grid { columns = 2, distribute = "center" }
+				refusal(function(UI: FacetControls)
+					return UI.Grid { columns = 2, distribute = "center" :: "center" }
 				end),
 				"distribute"
 			)).toBe(true)
-			t.expect(refusal(function(UI)
-				return UI.ScrollView { distribute = "center" }
+			t.expect(refusal(function(UI: FacetControls)
+				return UI.ScrollView { distribute = "center" :: "center" }
 			end)).toBeNil()
 		end)
 
 		t.it("writes no alignment property that the author did not ask for", function()
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.VStack {}
 			end)
 			local E = engine.types.Enum
@@ -338,7 +347,7 @@ t.describe("native layout primitives", function()
 
 		t.it("sizes by fill, hug and pixels on each axis", function()
 			local width = Compose.cell("fill" :: any)
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.VStack { width = width, height = 40 }
 			end)
 			local E, D2 = engine.types.Enum, engine.types.UDim2
@@ -353,7 +362,7 @@ t.describe("native layout primitives", function()
 
 		t.it("passes native properties through and lets them win over the defaults", function()
 			local D2 = engineLib.new().types.UDim2
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.VStack { BackgroundTransparency = 0.25, Size = D2.fromOffset(10, 10) }
 			end)
 			t.expect(root.BackgroundTransparency).toBe(0.25)
@@ -363,9 +372,9 @@ t.describe("native layout primitives", function()
 
 		t.it("numbers the nodes that a Compose directive child adds later", function()
 			local shown = Compose.cell(false)
-			local root, _, stop = build(nil, function(UI)
+			local root, _, stop = build(nil, function(UI: FacetControls)
 				return UI.VStack {
-					UI.Text { text = "First" },
+					UI.Text { text = "First" } :: unknown,
 					Compose.show(shown, function()
 						return UI.Text { text = "Middle" }
 					end),
@@ -381,12 +390,12 @@ t.describe("native layout primitives", function()
 			"keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
 			function()
 				local items = Compose.cell({ "A", "B", "C" })
-				local root, _, stop = build(nil, function(UI)
+				local root, _, stop = build(nil, function(UI: FacetControls)
 					return UI.VStack {
-						UI.Text { text = "Top" },
+						UI.Text { text = "Top" } :: unknown,
 						Compose.keyed({
 							from = items,
-							render = function(value, index)
+							render = function(value, index): GuiObject
 								return UI.Text {
 									text = value,
 									LayoutOrder = index,
@@ -395,9 +404,9 @@ t.describe("native layout primitives", function()
 						}),
 						Compose.keyed({
 							from = items,
-							render = function(value)
+							render = function(value): GuiObject
 								return UI.Text {
-									text = function(use)
+									text = function(use: Use)
 										return string.lower(use(value))
 									end,
 								}
@@ -434,13 +443,13 @@ t.describe("native layout primitives", function()
 				return UI.VStack { padding = { left = "enormous" } }
 			end, "enormous")
 			refused(function()
-				return UI.HStack { align = "middle" }
+				return UI.HStack { align = "middle" :: "middle" }
 			end, "start, center, end or stretch")
 			refused(function()
-				return UI.VStack { distribute = "around" }
+				return UI.VStack { distribute = "around" :: "around" }
 			end, "spaceBetween")
 			refused(function()
-				return UI.VStack { width = "stretch" }
+				return UI.VStack { width = "stretch" :: "stretch" }
 			end, "fill, hug")
 			refused(function()
 				return UI.VStack { gpa = "s" }
@@ -452,13 +461,13 @@ t.describe("native layout primitives", function()
 	t.describe("fill", function()
 		t.it("refuses a weight that is not a positive number", function()
 			t.expect(mentions(
-				refusal(function(UI)
+				refusal(function(UI: FacetControls)
 					return UI.HStack { UI.Text { text = "A", UI.fill(0) } }
 				end),
 				"positive"
 			)).toBe(true)
 			t.expect(mentions(
-				refusal(function(UI)
+				refusal(function(UI: FacetControls)
 					return UI.HStack { UI.Text { text = "A", UI.fill(-1) } }
 				end),
 				"positive"
@@ -466,9 +475,9 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("makes a native flex item that fills the main axis, by weight when given", function()
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.HStack {
-					UI.Text { text = "A", UI.fill() },
+					UI.Text { text = "A", UI.fill() } :: unknown,
 					UI.Text { text = "B", UI.fill(2) },
 				}
 			end)
@@ -489,7 +498,7 @@ t.describe("native layout primitives", function()
 
 	t.describe("Screen", function()
 		t.it("fills its parent, pads the content by the m step and stacks vertically", function()
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.Screen "Home" { gap = "s", UI.Text { text = "A" } }
 			end)
 			local E = engine.types.Enum
@@ -501,7 +510,7 @@ t.describe("native layout primitives", function()
 			t.expect(child(root, "UIListLayout").FillDirection).toBe(E.FillDirection.Vertical)
 			t.expect(child(root, "UIListLayout").Padding).toBe(engine.types.UDim.new(0, 8))
 			stop()
-			local bare = build(nil, function(UI)
+			local bare = build(nil, function(UI: FacetControls)
 				return UI.Screen { padding = 0 }
 			end)
 			t.expect(child(bare, "UIPadding").PaddingLeft).toBe(engine.types.UDim.new(0, 0))
@@ -510,7 +519,7 @@ t.describe("native layout primitives", function()
 		t.it("keeps its content below the engine top bar, the background still fills", function()
 			for _, ignoresInset in { true, false } do
 				local engine: any = engineLib.new()
-				local runtime = Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local gui = engine.new("GuiService")
 				local T = engine.types
 				local insetTop = if ignoresInset then 58 else 36
@@ -543,7 +552,7 @@ t.describe("native layout primitives", function()
 
 		t.it("chrome band rides the free top-bar band, and edge also drops the overscan", function()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			local T = engine.types
@@ -566,7 +575,7 @@ t.describe("native layout primitives", function()
 			local roots = {}
 			for _, chrome in { "device", "band", "edge" } do
 				runtime.mount(function()
-					roots[chrome] = UI.Screen { chrome = chrome }
+					roots[chrome] = UI.Screen { chrome = chrome :: "band" | "device" | "edge" }
 					return roots[chrome]
 				end, layer)
 				roots[chrome].AbsolutePosition = T.Vector2.new(0, -58)
@@ -580,7 +589,7 @@ t.describe("native layout primitives", function()
 			t.expect(child(roots.edge, "UIPadding").PaddingLeft).toBe(T.UDim.new(0, 24))
 			t.expect(pcall(function()
 				runtime.mount(function()
-					return UI.Screen { chrome = "glass" }
+					return UI.Screen({ chrome = "glass" } :: any)
 				end, layer)
 			end)).toBe(false)
 			runtime:dispose()
@@ -588,10 +597,10 @@ t.describe("native layout primitives", function()
 
 		t.it("clears only the remaining overscan at each edge, including nested screens", function()
 			local engine = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local T = engine.types
-			local margins = Compose.cell(nil)
-			local distance = Compose.cell("ten-foot")
+			local margins = cells.overscan(nil)
+			local distance = Compose.cell("ten-foot" :: ("automatic" | "near" | "ten-foot")?)
 			local UI = Facet.controls(runtime, {
 				types = T,
 				environment = { viewingDistance = distance, overscanInsets = margins },
@@ -599,9 +608,9 @@ t.describe("native layout primitives", function()
 			local layer = engine.new("ScreenGui")
 			layer.AbsoluteSize = T.Vector2.new(1920, 1080)
 			local nested
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				nested = UI.Screen { padding = 0 }
-				return UI.Screen { padding = 0, nested }
+				return UI.Screen { padding = 0, nested :: unknown }
 			end, layer)
 			root.AbsoluteSize = layer.AbsoluteSize
 			nested.AbsoluteSize = T.Vector2.new(1700, 900)
@@ -627,7 +636,7 @@ t.describe("native layout primitives", function()
 
 		t.it("ignores the top bar on a SurfaceGui", function()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local T = engine.types
 			gui.GetGuiInset = function()
@@ -647,9 +656,9 @@ t.describe("native layout primitives", function()
 
 	t.describe("ZStack", function()
 		t.it("layers later children above earlier ones and keeps an authored ZIndex", function()
-			local root, _, stop = build(nil, function(UI, Host)
+			local root, _, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				return UI.ZStack {
-					Host.Frame { Name = "Back" },
+					Host.Frame { Name = "Back" } :: unknown,
 					Host.Frame { Name = "Front" },
 					Host.Frame { Name = "Pinned", ZIndex = 9 },
 				}
@@ -663,21 +672,21 @@ t.describe("native layout primitives", function()
 
 		t.it("refuses an alignment outside start, center and end", function()
 			t.expect(mentions(
-				refusal(function(UI, Host)
-					return UI.ZStack { alignH = "stretch", Host.Frame {} }
+				refusal(function(UI: FacetControls, Host: RobloxHost)
+					return UI.ZStack({ alignH = "stretch" :: "stretch", Host.Frame {} } :: any)
 				end),
 				"start, center or end"
 			)).toBe(true)
 		end)
 
 		t.it("aligns every child by anchor point and scale position", function()
-			local horizontal = Compose.cell("center")
-			local root, engine, stop = build(nil, function(UI, Host)
+			local horizontal = Compose.cell("center" :: "center" | "end" | "start")
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				return UI.ZStack {
-					width = "fill",
-					height = "fill",
+					width = "fill" :: "fill",
+					height = "fill" :: "fill",
 					alignH = horizontal,
-					alignV = "end",
+					alignV = "end" :: "end",
 					Host.Frame { Name = "Badge" },
 				}
 			end)
@@ -691,12 +700,12 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("aligns children by offset along a hugging axis", function()
-			local root, engine, stop = build(nil, function(UI, Host)
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				return UI.ZStack {
 					width = 60,
-					alignH = "end",
-					alignV = "end",
-					Host.Frame { Name = "Card" },
+					alignH = "end" :: "end",
+					alignV = "end" :: "end",
+					Host.Frame { Name = "Card" } :: unknown,
 					Host.Frame { Name = "Dot" },
 				}
 			end)
@@ -716,8 +725,13 @@ t.describe("native layout primitives", function()
 
 	t.describe("ScrollView", function()
 		t.it("sizes vertical content to the scroll window with a list layout and automatic canvas", function()
-			local root, engine, stop = build(nil, function(UI)
-				return UI.ScrollView "Page" { gap = "s", padding = "m", UI.Text { text = "A" }, UI.Text { text = "B" } }
+			local root, engine, stop = build(nil, function(UI: FacetControls)
+				return UI.ScrollView "Page" {
+					gap = "s",
+					padding = "m",
+					UI.Text { text = "A" } :: unknown,
+					UI.Text { text = "B" },
+				}
 			end)
 			local E, D2 = engine.types.Enum, engine.types.UDim2
 			t.expect(root.ClassName).toBe("ScrollingFrame")
@@ -744,7 +758,7 @@ t.describe("native layout primitives", function()
 
 		t.it("gives a fill-height child the padded window as a floor so its bottom stays reachable", function()
 			local roblox = require("@lune/roblox")
-			local root, engine, stop = build(nil, function(UI, Host)
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				return UI.ScrollView "Page" {
 					padding = 16,
 					Host.Frame {
@@ -765,7 +779,7 @@ t.describe("native layout primitives", function()
 		t.it("lets a grown fill-height child shrink back when the padded window shrinks", function()
 			local roblox = require("@lune/roblox")
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local UI = Facet.controls(
 				runtime,
@@ -779,7 +793,7 @@ t.describe("native layout primitives", function()
 			runtime.mount(function()
 				root = UI.ScrollView "Page" {
 					padding = 16,
-					runtime.constructors.Frame {
+					((runtime.constructors.Frame :: unknown) :: FrameConstructor) {
 						Name = "Body",
 						Size = roblox.UDim2.fromScale(1, 1),
 						AutomaticSize = roblox.Enum.AutomaticSize.Y,
@@ -806,7 +820,7 @@ t.describe("native layout primitives", function()
 		t.it("a fill-height child's shrink keeps the scroll, its own size constraint and a bound size", function()
 			local roblox = require("@lune/roblox")
 			local height = Compose.cell(0)
-			local root, engine, stop = build(nil, function(UI, Host)
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				return UI.ScrollView "Page" {
 					padding = 16,
 					Host.Frame {
@@ -814,10 +828,10 @@ t.describe("native layout primitives", function()
 						Size = roblox.UDim2.fromScale(1, 1),
 						AutomaticSize = roblox.Enum.AutomaticSize.Y,
 						Host.UISizeConstraint { MinSize = roblox.Vector2.new(10, 700) },
-					},
+					} :: unknown,
 					Host.Frame {
 						Name = "Bound",
-						Size = function(use)
+						Size = function(use: Use)
 							return roblox.UDim2.new(1, 0, if use(height) > 0 then 0 else 1, use(height))
 						end,
 						AutomaticSize = roblox.Enum.AutomaticSize.Y,
@@ -852,8 +866,8 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("stretches the children across the scroll window when align is stretch", function()
-			local root, engine, stop = build(nil, function(UI)
-				return UI.ScrollView { align = "stretch", UI.Text { text = "A" } }
+			local root, engine, stop = build(nil, function(UI: FacetControls)
+				return UI.ScrollView { align = "stretch" :: "stretch", UI.Text { text = "A" } }
 			end)
 			local layout = child(root, "UIListLayout")
 			t.expect(layout.ItemLineAlignment).toBe(engine.types.Enum.ItemLineAlignment.Stretch)
@@ -862,8 +876,8 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("runs a horizontal axis as a horizontal list with a horizontal canvas", function()
-			local root, engine, stop = build(nil, function(UI)
-				return UI.ScrollView { axis = "x" }
+			local root, engine, stop = build(nil, function(UI: FacetControls)
+				return UI.ScrollView { axis = "x" :: "x" }
 			end)
 			local E = engine.types.Enum
 			t.expect(child(root, "UIListLayout").FillDirection).toBe(E.FillDirection.Horizontal)
@@ -873,13 +887,16 @@ t.describe("native layout primitives", function()
 			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.Y)
 			t.expect(root.Size.Y.Scale == 0 and root.Size.X.Scale == 1).toBe(true)
 			stop()
-			local filled = build(nil, function(UI)
-				return UI.ScrollView { axis = "x", UI.VStack { height = "fill", UI.Text { text = "A" } } }
+			local filled = build(nil, function(UI: FacetControls)
+				return UI.ScrollView {
+					axis = "x" :: "x",
+					UI.VStack { height = "fill" :: "fill", UI.Text { text = "A" } },
+				}
 			end)
 			t.expect(filled.AutomaticSize).toBe(E.AutomaticSize.None)
 			t.expect(filled.Size.Y.Scale).toBe(1)
-			local both = build(nil, function(UI)
-				return UI.ScrollView { axis = "xy" }
+			local both = build(nil, function(UI: FacetControls)
+				return UI.ScrollView { axis = "xy" :: "xy" }
 			end)
 			t.expect(both.AutomaticCanvasSize).toBe(E.AutomaticSize.XY)
 			t.expect(both.ScrollingDirection).toBe(E.ScrollingDirection.XY)
@@ -888,11 +905,11 @@ t.describe("native layout primitives", function()
 
 	t.describe("Grid", function()
 		t.it("divides the width into columns with a native grid layout", function()
-			local root, engine, stop = build(nil, function(UI, Host)
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				return UI.Grid "Tiles" {
 					columns = 3,
 					gap = "s",
-					Host.Frame { Name = "A" },
+					Host.Frame { Name = "A" } :: unknown,
 					Host.Frame { Name = "B" },
 					Host.Frame { Name = "C" },
 					Host.Frame { Name = "D" },
@@ -919,11 +936,11 @@ t.describe("native layout primitives", function()
 		end)
 
 		t.it("fills columns first with flow column and follows the child count", function()
-			local root, engine, stop = build(nil, function(UI, Host)
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 				return UI.Grid "Board" {
 					columns = 2,
-					flow = "column",
-					Host.Frame { Name = "A" },
+					flow = "column" :: "column",
+					Host.Frame { Name = "A" } :: unknown,
 					Host.Frame { Name = "B" },
 					Host.Frame { Name = "C" },
 					Host.Frame { Name = "D" },
@@ -945,7 +962,7 @@ t.describe("native layout primitives", function()
 			t.expect(grid.FillDirectionMaxCells).toBe(3)
 			stop()
 			t.expect(mentions(
-				refusal(function(UI)
+				refusal(function(UI: FacetControls)
 					return UI.Grid { columns = 2, flow = "diagonal" :: any }
 				end),
 				"flow must be row or column"
@@ -954,7 +971,7 @@ t.describe("native layout primitives", function()
 
 		t.it("takes a separate row gap, a cell height and an aspect ratio", function()
 			local columns = Compose.cell(2)
-			local root, engine, stop = build(nil, function(UI)
+			local root, engine, stop = build(nil, function(UI: FacetControls)
 				return UI.Grid { columns = columns, gap = 4, rowGap = "m", cellHeight = 60, aspectRatio = 1.5 }
 			end)
 			local grid = child(root, "UIGridLayout")
@@ -970,7 +987,7 @@ t.describe("native layout primitives", function()
 
 		t.it("moves the row gap with the theme and keeps the column count", function()
 			local theme = Compose.cell(themes.neutralPackage())
-			local root, engine, stop = build({ theme = theme }, function(UI)
+			local root, engine, stop = build({ theme = theme }, function(UI: FacetControls)
 				return UI.Grid { columns = 3, gap = 4, rowGap = "s" }
 			end)
 			local grid = child(root, "UIGridLayout")
@@ -1006,34 +1023,34 @@ t.describe("native layout primitives", function()
 			return if ruled == nil then default else ruled
 		end
 		local primitives: { [string]: (any, any) -> any } = {
-			VStack = function(UI)
+			VStack = function(UI: FacetControls)
 				return UI.VStack { UI.Text { text = "A" } }
 			end,
-			HStack = function(UI)
+			HStack = function(UI: FacetControls)
 				return UI.HStack { UI.Text { text = "A" } }
 			end,
-			ZStack = function(UI)
+			ZStack = function(UI: FacetControls)
 				return UI.ZStack { UI.Text { text = "A" } }
 			end,
-			Screen = function(UI)
+			Screen = function(UI: FacetControls)
 				return UI.Screen { UI.Text { text = "A" } }
 			end,
-			ScrollView = function(UI)
+			ScrollView = function(UI: FacetControls)
 				return UI.ScrollView { UI.Text { text = "A" } }
 			end,
-			Grid = function(UI)
+			Grid = function(UI: FacetControls)
 				return UI.Grid { columns = 2, UI.Text { text = "A" } }
 			end,
-			AdaptiveStack = function(UI)
+			AdaptiveStack = function(UI: FacetControls)
 				return UI.AdaptiveStack { UI.Text { text = "A" } }
 			end,
-			ViewThatFits = function(UI)
+			ViewThatFits = function(UI: FacetControls)
 				return UI.ViewThatFits { UI.Text { text = "A" } }
 			end,
-			Spacer = function(UI)
+			Spacer = function(UI: FacetControls)
 				return UI.Spacer {}
 			end,
-			ErrorBoundary = function(UI)
+			ErrorBoundary = function(UI: FacetControls)
 				return UI.ErrorBoundary {
 					view = function()
 						return UI.Text { text = "A" }
@@ -1043,11 +1060,11 @@ t.describe("native layout primitives", function()
 					end,
 				}
 			end,
-			Region = function(UI)
-				return UI.Region { zone = "center", rank = 1, UI.Text { text = "A" } }
+			Region = function(UI: FacetControls)
+				return UI.Region { zone = "center" :: "center", rank = 1, UI.Text { text = "A" } }
 			end,
-			Composition = function(UI)
-				return UI.Composition { UI.Region { zone = "center", rank = 1, UI.Text { text = "A" } } }
+			Composition = function(UI: FacetControls)
+				return UI.Composition { UI.Region { zone = "center" :: "center", rank = 1, UI.Text { text = "A" } } }
 			end,
 		}
 
@@ -1056,7 +1073,7 @@ t.describe("native layout primitives", function()
 			local panel = package.style.themes[1].colors.surfaceStrong
 			for name, body in primitives do
 				local root, engine, stop, runtime = build(nil, body)
-				local _, sheet = runtime.mount(function()
+				local _, sheet: any = runtime.mount(function()
 					return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
 				end, engine.new("Folder"))
 				t.expect(`{name} plain {painted(engine, sheet, root, "BackgroundTransparency")}`).toBe(`{name} plain 1`)
@@ -1071,10 +1088,10 @@ t.describe("native layout primitives", function()
 		t.it("a caller's own BackgroundTransparency still owns the paint, even the default 0", function()
 			local package = themes.neutralPackage()
 			for _, value in { 0, 0.25 } do
-				local root, engine, stop, runtime = build(nil, function(UI)
+				local root, engine, stop, runtime = build(nil, function(UI: FacetControls)
 					return UI.VStack { BackgroundTransparency = value }
 				end)
-				local _, sheet = runtime.mount(function()
+				local _, sheet: any = runtime.mount(function()
 					return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
 				end, engine.new("Folder"))
 				t.expect(painted(engine, sheet, root, "BackgroundTransparency")).toBe(value)

@@ -1,8 +1,23 @@
 --!strict
+type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -86,7 +101,7 @@ end
 
 local function scenario(t: any, name: string, size: any, theme: any?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
 		return if type(built) == "function" then built() else built.screen()
 	end, { size = size, theme = theme, frames = 20 })
@@ -154,7 +169,7 @@ local function longContent(UI: any, Host: any, width: number?): any
 		BackgroundTransparency = 1,
 		Size = if width then UDim2.fromOffset(width, 0) else UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 		UI.Text({
 			Name = "Copy",
 			LayoutOrder = 1,
@@ -193,8 +208,8 @@ local function longDialog(UI: any, Host: any, Compose: any, opened: any?): any
 			end,
 			actionLabel = "Leaving now forfeits this heat.",
 			actions = {
-				{ id = "Stay", label = "Stay", role = "cancel", onActivate = function() end },
-				{ id = "Leave", label = "Leave", role = "destructive", onActivate = function() end },
+				{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = function() end } :: OverlayAction,
+				{ id = "Leave", label = "Leave", role = "destructive" :: "destructive", onActivate = function() end } :: OverlayAction,
 			},
 		},
 	}
@@ -257,7 +272,7 @@ interactive(
 	function(t)
 		local value = { visits = {} }
 		device(t, { device = "xbox" })
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return longDialog(UI, Host, Compose)
 		end, { frames = 30 })
 		local gui = layerOf(stage)
@@ -325,7 +340,7 @@ interactive(
 add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012", "post-overlays-013" }, function(t)
 	local viewport = device(t, { device = "xbox", width = 1280, height = 720 })
 	t.note("desktop viewport", viewport)
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return longDialog(UI, Host, Compose)
 	end, { frames = 30 })
 	local gui = layerOf(stage)
@@ -378,7 +393,7 @@ add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012
 	t.note("short viewport", short)
 	t.note("short window", "320x220 asked so the layer under the 87 px inset keeps a room taller than one 44 px action")
 	t.check("the short window applied", short ~= nil and short.Y <= 260, short)
-	stage = t.mount(function(UI, Host, Compose)
+	stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return longDialog(UI, Host, Compose)
 	end, { frames = 30 })
 	gui = layerOf(stage)
@@ -477,7 +492,7 @@ add("help-plate-edges-and-shrinking-window", { "post-overlays-113", "post-overla
 			Position = position,
 			Size = UDim2.fromOffset(0, 0),
 			AutomaticSize = Enum.AutomaticSize.XY,
-			button,
+			button :: unknown,
 		})
 	end
 	local function help(edge: string?, align: string?): any
@@ -489,11 +504,11 @@ add("help-plate-edges-and-shrinking-window", { "post-overlays-113", "post-overla
 			align = align,
 		}
 	end
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			spot(UI, Host, "Below", UDim2.fromOffset(200, 200), Vector2.zero, help("bottom")),
+			spot(UI, Host, "Below", UDim2.fromOffset(200, 200), Vector2.zero, help("bottom")) :: unknown,
 			spot(UI, Host, "Beside", UDim2.fromOffset(600, 200), Vector2.zero, help("trailing", "start")),
 			spot(UI, Host, "Corner", UDim2.new(1, -4, 1, -4), Vector2.one, help("trailing")),
 		}
@@ -662,7 +677,12 @@ end)
 
 add("notice-layout-and-emphasis-paint", { "post-overlays-082", "post-overlays-083" }, function(t)
 	local colors = {}
-	for _, entry in { { "desktop", Vector2.new(1280, 720), "beside" }, { "phone", Vector2.new(390, 844), "below" } } do
+	for _, entry in
+		{
+			{ "desktop" :: unknown, Vector2.new(1280, 720), "beside" },
+			{ "phone" :: unknown, Vector2.new(390, 844), "below" },
+		}
+	do
 		local where, size, expected = entry[1] :: any, entry[2] :: any, entry[3] :: any
 		local stage = scenario(t, "notice", size)
 		local update = visibleNamed(t, stage, "Update")
@@ -728,9 +748,9 @@ add("notice-layout-and-emphasis-paint", { "post-overlays-082", "post-overlays-08
 		count += 1
 	end
 	t.check("each severity paints its own color", count == 4, colors)
-	local stage = t.mount(function(UI)
+	local stage = t.mount(function(UI: FacetControls)
 		return UI.Notice "Plain" {
-			severity = "info",
+			severity = "info" :: "info",
 			message = "A new track pack is ready to install.",
 			link = { label = "Release notes", onActivate = function() end },
 		}
@@ -794,11 +814,11 @@ add("popover-caps-and-side-hang", { "post-overlays-033", "post-overlays-166" }, 
 			}),
 		})
 	end
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			pop(UI, Host, Compose, "TopLeft", Vector2.zero, UDim2.fromOffset(8, 8), nil, true),
+			pop(UI, Host, Compose, "TopLeft", Vector2.zero, UDim2.fromOffset(8, 8), nil, true) :: unknown,
 			pop(UI, Host, Compose, "TopRight", Vector2.new(1, 0), UDim2.new(1, -8, 0, 8), nil, true),
 			pop(UI, Host, Compose, "BottomLeft", Vector2.new(0, 1), UDim2.new(0, 8, 1, -8), nil, true),
 			pop(UI, Host, Compose, "BottomRight", Vector2.one, UDim2.new(1, -8, 1, -8), nil, true),
@@ -927,7 +947,7 @@ add(
 			"flick projection, settle speed, drag slop, input-class cancel and the downward pull at the tallest detent all need a drag or touch, which the runner cannot send"
 		)
 		local detent
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			detent = Compose.cell("medium")
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
@@ -936,8 +956,8 @@ add(
 					title = "Race rules",
 					isPresented = Compose.cell(true),
 					detent = detent,
-					detents = { "medium", "large" },
-					scrollPolicy = "atLargestDetent",
+					detents = { "medium", "large" } :: { SheetDetent },
+					scrollPolicy = "atLargestDetent" :: "atLargestDetent",
 					content = function()
 						return longContent(UI, Host)
 					end,
@@ -986,7 +1006,9 @@ add(
 	{ "post-overlays-144", "post-overlays-146", "post-overlays-148", "post-overlays-150" },
 	function(t)
 		t.note("not checked", "the on-screen keyboard lift (the runner has no on-screen keyboard)")
-		for _, entry in { { "desktop", Vector2.new(1280, 720) }, { "phone", Vector2.new(390, 844) } } do
+		for _, entry in
+			{ { "desktop" :: unknown, Vector2.new(1280, 720) }, { "phone" :: unknown, Vector2.new(390, 844) } }
+		do
 			local where, size = entry[1] :: any, entry[2] :: any
 			local stage, built = scenario(t, "sheet", size)
 			built.steps.lobby()
@@ -1100,7 +1122,7 @@ add("snackbar-art-carve", { "post-overlays-070" }, function(t)
 			t.note(key, "theme not installed; skipped")
 			continue
 		end
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			local shown = Compose.cell(true)
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
@@ -1161,7 +1183,7 @@ end)
 add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 	local calloutOn, dialogOn
 	local trigger
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		calloutOn, dialogOn = Compose.cell(false), Compose.cell(false)
 		trigger = UI.Button "HelpTrigger" {
 			label = "Boost",
@@ -1177,16 +1199,16 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 24) }),
+				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 24) }) :: unknown,
 				trigger,
 				anchor,
-			},
+			} :: unknown,
 			UI.Callout {
-				anchor = anchor,
+				anchor = anchor :: GuiObject,
 				isPresented = calloutOn,
-				edge = "bottom",
+				edge = "bottom" :: "bottom",
 				title = "Welcome to the garage",
-				content = function()
+				content = function(): Instance
 					return UI.Text({ text = "Tune your car here before a race." })
 				end,
 				onRetire = function() end,
@@ -1201,10 +1223,12 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 				isPresented = dialogOn,
 				closeButton = false,
 				title = "Leave the race?",
-				content = function()
+				content = function(): Instance
 					return UI.Text({ text = "Your lap will not count." })
 				end,
-				actions = { { id = "Stay", label = "Stay", role = "cancel", onActivate = function() end } },
+				actions = {
+					{ id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = function() end } :: DialogAction,
+				},
 			},
 		}
 	end, { frames = 20 })
@@ -1264,14 +1288,14 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 		"Offline: your lap times will upload when you reconnect to the race servers. Keep driving; nothing is lost."
 	for _, entry in
 		{
-			{ "desktop", { device = "xbox", width = 1280, height = 720 } },
-			{ "phone", { device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait } },
+			{ "desktop" :: unknown, { device = "xbox", width = 1280, height = 720 } },
+			{ "phone" :: unknown, { device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait } },
 		}
 	do
 		local where = entry[1] :: any
 		t.note(where .. " viewport", device(t, entry[2] :: any))
 		local cells = {}
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			local function cell(name: string): any
 				local value = Compose.cell(false)
 				cells[name] = value
@@ -1290,10 +1314,10 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 				UI.Toast "Plain" {
 					isPresented = cell("Plain"),
 					message = "Saved to your garage.",
-					width = "hug",
+					width = "hug" :: "hug",
 					duration = 60,
 					onPresentedChange = answer("Plain"),
-				},
+				} :: unknown,
 				UI.Toast "WithAction" {
 					isPresented = cell("WithAction"),
 					message = "Kart sold.",
@@ -1311,7 +1335,7 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 				UI.Toast "LongPlain" {
 					isPresented = cell("LongPlain"),
 					message = long,
-					width = "hug",
+					width = "hug" :: "hug",
 					duration = 60,
 					onPresentedChange = answer("LongPlain"),
 				},
@@ -1442,7 +1466,7 @@ end
 local function lowestAction(root: Instance, names: { string }): any
 	local last
 	for _, name in names do
-		local action = root:FindFirstChild(name, true)
+		local action = root:FindFirstChild(name, true) :: GuiObject?
 		if action and (last == nil or action.AbsolutePosition.Y >= last.AbsolutePosition.Y) then
 			last = action
 		end
@@ -1456,7 +1480,7 @@ interactive(
 	"with the Options trigger selected: ButtonA, step opened; ButtonB, step closed; ButtonA, step opened; ButtonB, step closed",
 	function(t)
 		local value: { [string]: any } = {}
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.presented = Compose.cell(false)
 			local items = {}
 			for index = 1, 3 do
@@ -1509,7 +1533,7 @@ interactive(
 	"with Open selected: ButtonA, step opened; ButtonB, step cancelled; step reopen; click the trigger path it notes with the mouse; step clicked",
 	function(t)
 		local value: { [string]: any } = { dismissed = {}, changes = {} }
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.open = Compose.cell(false)
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
@@ -1525,16 +1549,16 @@ interactive(
 							table.insert(value.changes, nextValue)
 							value.open:set(nextValue)
 						end,
-						onDismiss = function(reason: string)
+						onDismiss = function(reason: "anchorLost" | "cancel" | "outside" | "trigger")
 							table.insert(value.dismissed, reason)
 						end,
 						trigger = UI.Button "Open" { label = "Open" },
-						content = function()
+						content = function(): Instance
 							return Host.Frame "Card" {
 								BackgroundTransparency = 1,
 								Size = UDim2.fromOffset(0, 0),
 								AutomaticSize = Enum.AutomaticSize.XY,
-								Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+								Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 								UI.Text({ Name = "Line", text = "Popover body", LayoutOrder = 1 }),
 								UI.Button "Inner" { label = "Inner", LayoutOrder = 2 },
 							}
@@ -1604,7 +1628,7 @@ interactive(
 		local value: { [string]: any } = {}
 		local short = device(t, { device = "xbox", width = 320, height = 220 })
 		t.note("short viewport", short)
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return longDialog(UI, Host, Compose)
 		end, { frames = 30 })
 		value.gui = layerOf(stage)
@@ -1664,7 +1688,7 @@ interactive(
 add("popover-capped-follows-a-shrinking-window", { "post-overlays-033" }, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
 	local opened
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		opened = Compose.cell(false)
 		local rows = {}
 		for index = 1, 30 do
@@ -1686,12 +1710,12 @@ add("popover-capped-follows-a-shrinking-window", { "post-overlays-033" }, functi
 					trigger = UI.Button "CappedButton" { label = "Rows" },
 					maxWidth = 220,
 					maxHeight = 180,
-					content = function()
+					content = function(): Instance
 						return Host.Frame "Rows" {
 							BackgroundTransparency = 1,
 							Size = UDim2.fromOffset(0, 0),
 							AutomaticSize = Enum.AutomaticSize.XY,
-							Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+							Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 							table.unpack(rows),
 						}
 					end,
@@ -1751,7 +1775,7 @@ end
 
 add("sheet-hug-follows-live-copy", { "post-overlays-150" }, function(t)
 	local copy, builds, themeCell = nil, 0, nil
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		themeCell = env.theme
 		copy = Compose.cell("Two short lines.")
 		return Host.Frame "Board" {
@@ -1761,8 +1785,8 @@ add("sheet-hug-follows-live-copy", { "post-overlays-150" }, function(t)
 				title = "Lobby",
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("hug"),
-				detents = { "hug", "large" },
-				content = function()
+				detents = { "hug", "large" } :: { SheetDetent },
+				content = function(): Instance
 					builds += 1
 					return UI.Text({
 						Name = "Copy",
@@ -1772,7 +1796,9 @@ add("sheet-hug-follows-live-copy", { "post-overlays-150" }, function(t)
 						AutomaticSize = Enum.AutomaticSize.Y,
 					})
 				end,
-				actions = { { id = "Go", label = "Go", onActivate = function() end } },
+				actions = {
+					{ id = "Go", label = "Go", onActivate = function() end } :: OverlayAction,
+				},
 			},
 		}
 	end, { size = Vector2.new(1280, 720), frames = 30 })

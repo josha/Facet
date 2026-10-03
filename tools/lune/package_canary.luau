@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
@@ -142,7 +146,10 @@ local distribution = modelRoot:FindFirstChild("Distribution")
 if distribution == nil then
 	fail("the model carries no Facet.Distribution folder")
 end
-check(distribution.ClassName == "Folder", `Facet.Distribution is a Folder (read {distribution.ClassName})`)
+check(
+	assert(distribution).ClassName == "Folder",
+	`Facet.Distribution is a Folder (read {assert(distribution).ClassName})`
+)
 local stampedVersion = distribution:GetAttribute("Version")
 local stampedSchema = distribution:GetAttribute("BuildSchema")
 check(
@@ -159,9 +166,9 @@ end
 
 local Facet = require("../../build/.canary/Facet") :: any
 local engine = require("../../tests/lib/native_engine").new()
-local Compose = Facet.Compose
-local runtime = Facet.Roblox.createRuntime(engine)
-local Host = runtime.constructors
+local Compose: ComposeModule = Facet.Compose
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+local Host = (runtime.constructors :: unknown) :: RobloxHost
 local UI = Facet.controls(runtime, { types = engine.types })
 check(Facet.VERSION == stampedVersion, "artifact version matches its distribution stamp")
 local title = Compose.cell("Hello")
@@ -171,7 +178,7 @@ local function screen()
 	local sheet = Facet.themes.createStyleSheet(runtime, Facet.themes.neutralPackage(), { types = engine.types })
 	return Host.Frame({
 		Name = "Canary",
-		sheet,
+		sheet :: unknown,
 		Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 		UI.Text("Title")({ text = title }),
 		UI.Button("Go")({
@@ -183,7 +190,7 @@ local function screen()
 	})
 end
 for lap = 1, 3 do
-	local close, node = runtime.mount(screen, target)
+	local close, node: any = runtime.mount(screen, target)
 	local label = node:FindFirstChild("Title")
 	local button = node:FindFirstChild("Go")
 	check(label ~= nil and button ~= nil, `lap {lap}: native control tree mounts`)
@@ -200,7 +207,7 @@ for lap = 1, 3 do
 	check(#target:GetChildren() == 0, `lap {lap}: owned scene is removed`)
 	check(button.Activated.count() == 0, `lap {lap}: owned input connection is released`)
 end
-runtime.dispose()
+runtime:dispose()
 if #failures > 0 then
 	for _, message in failures do
 		print(`  - {message}`)

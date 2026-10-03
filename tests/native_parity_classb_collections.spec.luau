@@ -1,9 +1,16 @@
 --!strict
 local nativeDrag = require("./lib/native_drag")
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -20,7 +27,7 @@ type World = {
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -42,8 +49,8 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[field] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, node = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, node: any = runtime.mount(function()
 		return build(UI, Host, engine)
 	end, root)
 	return {
@@ -104,7 +111,7 @@ local function inputOf(world: World, kind: string, keyCode: string?): any
 	local enum = E(world)
 	return {
 		UserInputType = (enum.UserInputType :: any)[kind],
-		KeyCode = if keyCode then (enum.KeyCode :: any)[keyCode] else enum.KeyCode.Unknown,
+		KeyCode = if keyCode then (enum.KeyCode :: any)[keyCode] else enum.KeyCode:FromValue(0),
 		UserInputState = enum.UserInputState.Begin,
 		Position = world.engine.types.Vector3.new(0, 0, 0),
 	}
@@ -212,13 +219,13 @@ local function resolve(sheet: any, node: any, property: string, pseudo: string?)
 end
 
 local function tableWorld(spec: { [string]: any }, options: { [string]: any }?): (World, any)
-	local world = setup(function(UI)
-		local base: { [string]: any } = {
+	local world = setup(function(UI: FacetControls)
+		local base: { [any]: any } = {
 			from = rows(20),
 			key = "id",
 			columns = {
-				{ id = "name", label = "Name" },
-				{ id = "laps", label = "Laps", width = 80 },
+				{ id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any>,
+				{ id = "laps", label = "Laps", width = 80 } :: FixtureCollectionTypes.TableColumn<any, any>,
 			},
 		}
 		for field, value in spec do
@@ -240,14 +247,14 @@ end
 
 t.describe("native parity classb collections", function()
 	t.it("collections-29 the cross axis of each row fills the collection window by default", function()
-		for _, direction in { "vertical", "horizontal" } do
-			local world = setup(function(UI)
+		for _, direction in { "vertical", "horizontal" } :: { "horizontal" | "vertical" } do
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(30),
 					key = "id",
 					itemSize = 60,
-					direction = direction,
-					render = function(current)
+					direction = direction :: "horizontal" | "vertical",
+					render = function(current): GuiObject
 						return UI.Text({ text = current:peek().name })
 					end,
 				})
@@ -275,13 +282,13 @@ t.describe("native parity classb collections", function()
 			end
 			world.stop()
 		end
-		local grid = setup(function(UI)
+		local grid = setup(function(UI: FacetControls)
 			return UI.VirtualGrid({
 				from = rows(30),
 				key = "id",
 				columns = 4,
 				itemSize = 60,
-				render = function(current)
+				render = function(current): GuiObject
 					return UI.Text({ text = current:peek().name })
 				end,
 			})
@@ -294,7 +301,8 @@ t.describe("native parity classb collections", function()
 	end)
 
 	t.it("collections-42 a table keeps its engine scroll position when the input class flips", function()
-		local world, body = tableWorld({ reorderable = true, onReorder = function() end, selectionMode = "multiple" })
+		local world, body =
+			tableWorld({ reorderable = true, onReorder = function() end, selectionMode = "multiple" :: "multiple" })
 		local enum = E(world)
 		world.input.PreferredInput = enum.PreferredInput.Touch
 		world.input.TouchEnabled = true
@@ -326,14 +334,15 @@ t.describe("native parity classb collections", function()
 		world.stop()
 	end)
 	t.it("collections-54 a destructive tray action and a default tray action resolve different paint", function()
-		local open = Compose.cell("trailing" :: string?)
-		local world = setup(function(UI)
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+			Compose.cell("trailing" :: ("leading" | "trailing")?)
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({
 				open = open,
 				content = UI.Text({ text = "Row" }),
 				trailing = {
-					{ id = "delete", label = "Delete", role = "destructive" },
-					{ id = "flag", label = "Flag" },
+					{ id = "delete", label = "Delete", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
+					{ id = "flag", label = "Flag" } :: FixtureCollectionTypes.RowAction,
 				},
 			})
 		end)
@@ -363,12 +372,13 @@ t.describe("native parity classb collections", function()
 	t.it(
 		"collections-60 a revealed tray action keeps the button idioms of pointer, touch, keyboard and gamepad",
 		function()
-			local open = Compose.cell(nil :: string?)
+			local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> =
+				Compose.cell(nil :: ("leading" | "trailing")?)
 			local fired = {}
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.RowActions({
 					open = open,
-					content = UI.Button({ Name = "Body", label = "Row" }),
+					content = UI.Button({ Name = "Body", label = "Row" }) :: GuiObject,
 					trailing = {
 						{
 							id = "flag",
@@ -376,14 +386,14 @@ t.describe("native parity classb collections", function()
 							onActivate = function()
 								table.insert(fired, "flag")
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 						{
 							id = "delete",
 							label = "Delete",
 							onActivate = function()
 								table.insert(fired, "delete")
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 					},
 				})
 			end)
@@ -424,12 +434,12 @@ t.describe("native parity classb collections", function()
 	)
 
 	t.it("collections-73 a re-grab mid snap-open flight starts from the painted offset and never drifts", function()
-		local open = Compose.cell(nil :: string?)
-		local world = setup(function(UI)
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> = Compose.cell(nil :: ("leading" | "trailing")?)
+		local world = setup(function(UI: FacetControls)
 			return UI.RowActions({
 				open = open,
 				content = UI.Text({ text = "Row" }),
-				trailing = { { id = "flag", label = "Flag" } },
+				trailing = { { id = "flag", label = "Flag" } :: FixtureCollectionTypes.RowAction },
 			})
 		end, { motionLevel = "normal" })
 		local row = world.node
@@ -466,17 +476,17 @@ t.describe("native parity classb collections", function()
 	t.it(
 		"collections-98 a destructive departure shows its action across the tray and leaves the row box before it collapses",
 		function()
-			for _, edge in { "leading", "trailing" } do
+			for _, edge in { "leading", "trailing" } :: { "leading" | "trailing" } do
 				local fired = 0
 				local destructive = {
 					id = "delete",
 					label = "Delete",
-					role = "destructive",
+					role = "destructive" :: "destructive",
 					onActivate = function()
 						fired += 1
 					end,
 				}
-				local world = setup(function(UI)
+				local world = setup(function(UI: FacetControls)
 					return UI.RowActions({
 						content = UI.Text({ Name = "Body", text = "Row" }),
 						leading = if edge == "leading" then { destructive } else nil,
@@ -522,11 +532,11 @@ t.describe("native parity classb collections", function()
 		local widths = Compose.cell({} :: { [string]: number })
 		local world, body = tableWorld({
 			widths = widths,
-			selectionMode = "single",
+			selectionMode = "single" :: "single",
 			columns = {
-				{ id = "name", label = "Name", minWidth = 120, priority = "always" },
-				{ id = "artist", label = "Artist", minWidth = 100, priority = "always" },
-				{ id = "laps", label = "Laps", width = 96, priority = "always" },
+				{ id = "name", label = "Name", minWidth = 120, priority = "always" } :: FixtureCollectionTypes.TableColumn<any, any>,
+				{ id = "artist", label = "Artist", minWidth = 100, priority = "always" } :: FixtureCollectionTypes.TableColumn<any, any>,
+				{ id = "laps", label = "Laps", width = 96, priority = "always" } :: FixtureCollectionTypes.TableColumn<any, any>,
 			},
 		})
 		local enum = E(world)
@@ -601,7 +611,7 @@ t.describe("native parity classb collections", function()
 		local world, body = tableWorld({
 			reorderable = true,
 			editing = editing,
-			selectionMode = "none",
+			selectionMode = "none" :: "none",
 			onActivate = function()
 				activations += 1
 			end,
@@ -685,12 +695,12 @@ t.describe("native parity classb collections", function()
 		t.expect(nameSort.Interactable and lapsSort.Interactable).toBe(true)
 		select(world, nameSort)
 		nameSort.Activated.fire(inputOf(world, "Keyboard", "Return"), 1)
-		t.expect(sort:peek()).toEqual({ column = "name", direction = "ascending" })
+		t.expect(sort:peek()).toEqual({ column = "name", direction = "ascending" :: "ascending" })
 		nameSort.Activated.fire(inputOf(world, "Keyboard", "Return"), 1)
-		t.expect(sort:peek()).toEqual({ column = "name", direction = "descending" })
+		t.expect(sort:peek()).toEqual({ column = "name", direction = "descending" :: "descending" })
 		select(world, lapsSort)
 		lapsSort.Activated.fire(inputOf(world, "Gamepad1", "ButtonA"), 1)
-		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" })
+		t.expect(sort:peek()).toEqual({ column = "laps", direction = "ascending" :: "ascending" })
 		t.expect(string.find(lapsSort.Text .. (find(lapsSort, "Caption") or lapsSort).Text, "↑", 1, true) ~= nil)
 			.toBe(true)
 		world.stop()
@@ -701,8 +711,8 @@ t.describe("native parity classb collections", function()
 		function()
 			local world, body = tableWorld({
 				columns = {
-					{ id = "name", label = "Name", minWidth = 200 },
-					{ id = "laps", label = "Laps", width = 120, minWidth = 120, priority = 2 },
+					{ id = "name", label = "Name", minWidth = 200 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					{ id = "laps", label = "Laps", width = 120, minWidth = 120, priority = 2 } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			})
 			local header = find(world.node, "Header")
@@ -744,7 +754,7 @@ t.describe("native parity classb collections", function()
 			local selection = Compose.cell({} :: { [string]: boolean })
 			local world, body = tableWorld({
 				selection = selection,
-				selectionMode = "multiple",
+				selectionMode = "multiple" :: "multiple",
 				editing = Compose.cell(editing),
 			})
 			local function press(key: string)
@@ -766,7 +776,7 @@ t.describe("native parity classb collections", function()
 		"collections-233 a virtual grid clips partial lines, slides on engine scroll without activating and clamps a negative offset",
 		function()
 			local activations = {}
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = rows(200),
 					key = "id",
@@ -776,7 +786,7 @@ t.describe("native parity classb collections", function()
 					onActivate = function(item)
 						table.insert(activations, item.id)
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.Text({ text = current:peek().name })
 					end,
 				})
@@ -806,15 +816,15 @@ t.describe("native parity classb collections", function()
 	)
 
 	t.it("collections-243 a horizontal virtual grid clamps a negative engine offset to its leading line", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.VirtualGrid({
 				from = rows(200),
 				key = "id",
 				columns = 4,
 				itemSize = 100,
 				overscan = 0,
-				direction = "horizontal",
-				render = function(current)
+				direction = "horizontal" :: "horizontal",
+				render = function(current): GuiObject
 					return UI.Text({ text = current:peek().name })
 				end,
 			})
@@ -837,17 +847,17 @@ t.describe("native parity classb collections", function()
 		"collections-254 a horizontal list slides on a sideways engine scroll without activating, and Return or ButtonA activate",
 		function()
 			local activations = {}
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(100),
 					key = "id",
 					itemSize = 120,
 					overscan = 0,
-					direction = "horizontal",
-					onActivate = function(item, _, input)
+					direction = "horizontal" :: "horizontal",
+					onActivate = function(item: any, _, input: InputObject?)
 						table.insert(activations, { id = item.id, key = input and input.KeyCode.Name })
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.Text({ text = current:peek().name })
 					end,
 				})
@@ -877,7 +887,7 @@ t.describe("native parity classb collections", function()
 		"collections-264 a vertical list clips partial rows, slides on engine scroll and clamps a negative offset",
 		function()
 			local activations = {}
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(100),
 					key = "id",
@@ -886,7 +896,7 @@ t.describe("native parity classb collections", function()
 					onActivate = function(item)
 						table.insert(activations, item.id)
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.Text({ text = current:peek().name })
 					end,
 				})
@@ -915,7 +925,7 @@ t.describe("native parity classb collections", function()
 		"collections-291 a vertical drag on a row with swipe actions opens nothing and does not activate the row",
 		function()
 			local activations, fired = {}, {}
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = rows(40),
 					key = "id",
@@ -924,7 +934,7 @@ t.describe("native parity classb collections", function()
 					onActivate = function(item)
 						table.insert(activations, item.id)
 					end,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.RowActions({
 							content = UI.Text({ text = current:peek().name }),
 							leading = {
@@ -934,7 +944,7 @@ t.describe("native parity classb collections", function()
 									onActivate = function()
 										table.insert(fired, "pin")
 									end,
-								},
+								} :: FixtureCollectionTypes.RowAction,
 							},
 							trailing = {
 								{
@@ -943,7 +953,7 @@ t.describe("native parity classb collections", function()
 									onActivate = function()
 										table.insert(fired, "delete")
 									end,
-								},
+								} :: FixtureCollectionTypes.RowAction,
 							},
 						})
 					end,
@@ -983,7 +993,7 @@ t.describe("native parity classb collections", function()
 			local editing = Compose.cell(true)
 			local world, body = tableWorld({
 				editing = editing,
-				selectionMode = "single",
+				selectionMode = "single" :: "single",
 				deletable = true,
 				onDelete = function(keys)
 					table.insert(deleted, table.concat(keys, ","))

@@ -1,8 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -17,7 +23,7 @@ type World = {
 
 local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -36,8 +42,8 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, root = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, root: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
 	return {
@@ -126,16 +132,20 @@ local function withSpacing(step: number): any
 end
 
 t.describe("native parity weak3 h1", function()
-	for _, style in { "radioGroup", "inline" } do
+	for _, style in { "radioGroup", "inline" } :: { "inline" | "radioGroup" } do
 		t.it(`repaints a live {style} option icon in place and keeps the row and its focus`, function()
 			local selected = Compose.cell("a")
 			local icon = Compose.cell("checkmark")
 			local options = Compose.cell({
-				{ id = "one", value = "a", label = "Alpha", icon = icon :: any, badge = 3 },
-				{ id = "two", value = "b", label = "Beach" },
+				{ id = "one", value = "a", label = "Alpha", icon = icon :: any, badge = 3 } :: PickerOption,
+				{ id = "two", value = "b", label = "Beach" } :: PickerOption,
 			})
-			local world = setup(function(UI)
-				return UI.Picker "Routes" { style = style, selected = selected, options = options }
+			local world = setup(function(UI: FacetControls)
+				return UI.Picker "Routes" {
+					style = style :: "inline" | "radioGroup",
+					selected = selected,
+					options = options,
+				}
 			end)
 			local picker = find(world.root, "Routes")
 			local row = find(picker, "one")
@@ -152,13 +162,16 @@ t.describe("native parity weak3 h1", function()
 					description = "A mountain route",
 					icon = "edit",
 					badge = 7,
-				},
-				{ id = "two", value = "b", label = "Beach" },
+				} :: PickerOption,
+				{ id = "two", value = "b", label = "Beach" } :: PickerOption,
 			})
 			t.expect(find(picker, "one")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
 			t.expect(paintedIcon(row)).toBe(glyph("edit"))
-			options:set({ { id = "one", value = "a", label = "Alpine" }, { id = "two", value = "b", label = "Beach" } })
+			options:set({
+				{ id = "one", value = "a", label = "Alpine" } :: PickerOption,
+				{ id = "two", value = "b", label = "Beach" } :: PickerOption,
+			})
 			t.expect(find(picker, "one")).toBe(row)
 			t.expect(world.gui.SelectedObject).toBe(row)
 			t.expect(paintedIcon(row)).toBeNil()
@@ -174,10 +187,10 @@ t.describe("native parity weak3 h1", function()
 		local rung = Compose.cell(nil :: string?)
 		local theme = Compose.cell(themes.neutralPackage() :: any)
 		local builds = 0
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			builds += 1
 			return Host.Frame({
-				UI.Button "Other" { label = "Other" },
+				UI.Button "Other" { label = "Other" } :: unknown,
 				UI.Button "Live" { label = "Go", controlSize = rung },
 				UI.Chip "Tag" { label = "Tag", selected = Compose.cell(false), controlSize = rung },
 			})
@@ -191,7 +204,7 @@ t.describe("native parity weak3 h1", function()
 		end
 		local first = { xsmall = 4, compact = 8, regular = 12, large = 16 }
 		for _, name in { "xsmall", "compact", "regular", "large" } do
-			rung:set(name)
+			rung:set(name :: "compact" | "large" | "regular" | "xsmall")
 			for _, node in { live, chip } do
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingLeft")}`).toBe(`{name} {first[name]}`)
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingRight")}`).toBe(`{name} {first[name]}`)
@@ -200,7 +213,7 @@ t.describe("native parity weak3 h1", function()
 		local second = { xsmall = 6, compact = 14, regular = 18, large = 22 }
 		theme:set(withRungPadding(second))
 		for _, name in { "xsmall", "compact", "regular", "large" } do
-			rung:set(name)
+			rung:set(name :: "compact" | "large" | "regular" | "xsmall")
 			for _, node in { live, chip } do
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingLeft")}`).toBe(`{name} {second[name]}`)
 				t.expect(`{name} {styledPadding(sheet, node, "PaddingRight")}`).toBe(`{name} {second[name]}`)
@@ -217,15 +230,15 @@ t.describe("native parity weak3 h1", function()
 
 	t.it("keeps the coach mark inside the theme spacing step at both lateral edges and inside the safe area", function()
 		local theme = Compose.cell(themes.neutralPackage() :: any)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			local anchor = UI.Button "Anchor" { label = "Anchor" }
 			return Host.Frame({
-				anchor,
+				anchor :: unknown,
 				UI.Callout({
-					anchor = anchor,
+					anchor = anchor :: GuiObject,
 					isPresented = Compose.cell(true),
 					onRetire = function() end,
-					content = function()
+					content = function(): Instance
 						return UI.Button({ label = "Tip" })
 					end,
 				}),

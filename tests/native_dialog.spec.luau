@@ -1,4 +1,9 @@
 --!strict
+
+type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -30,29 +35,29 @@ local function standard(open: any, log: Log, change: any, extra: { [string]: any
 				table.insert(log.dismissed, reason)
 			end,
 			title = "Leave the race?",
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel "Line" { Text = "Your lap will not count." }
 			end,
 			actions = {
 				{
 					id = "Stay",
 					label = "Stay",
-					role = "cancel",
+					role = "cancel" :: "cancel",
 					onActivate = function()
 						table.insert(log.pressed, "Stay")
 					end,
-				},
+				} :: DialogAction,
 				{
 					id = "Leave",
 					label = "Leave",
-					role = "default",
+					role = "default" :: "default",
 					onActivate = function()
 						table.insert(log.pressed, "Leave")
 					end,
-				},
+				} :: DialogAction,
 			},
 		}
-		for key, value in extra or {} do
+		for key, value in (extra or {} :: { [string]: any }) do
 			spec[key] = value
 		end
 		return spec
@@ -60,10 +65,10 @@ local function standard(open: any, log: Log, change: any, extra: { [string]: any
 end
 
 local function mount(specOf: (any, any) -> any, options: any?): any
-	return overlay.new(function(UI, Host, _, gui)
+	return overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 		local opener = UI.Button "Opener" { label = "Open" }
 		gui.SelectedObject = opener
-		return Host.Frame({ opener, UI.Dialog "Confirm"(specOf(UI, Host)) })
+		return Host.Frame({ opener :: unknown, UI.Dialog "Confirm"(specOf(UI, Host)) })
 	end, options)
 end
 
@@ -76,11 +81,11 @@ t.describe("native Dialog: one Back press closes one modal", function()
 		local outerOpen, outerLog, outerChange = caller()
 		local innerOpen, innerLog, innerChange = caller()
 		local held = true
-		local w = overlay.new(function(UI, Host, _, gui)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local opener = UI.Button "Opener" { label = "Open" }
 			gui.SelectedObject = opener
 			return Host.Frame({
-				opener,
+				opener :: unknown,
 				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
 				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
 			})
@@ -141,11 +146,11 @@ t.describe("native Dialog: Tab and Escape arrive through UserInputService", func
 	t.it("one Escape closes only the top of two stacked dialogs", function()
 		local outerOpen, outerLog, outerChange = caller()
 		local innerOpen, innerLog, innerChange = caller()
-		local w = overlay.new(function(UI, Host, _, gui)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local opener = UI.Button "Opener" { label = "Open" }
 			gui.SelectedObject = opener
 			return Host.Frame({
-				opener,
+				opener :: unknown,
 				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
 				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
 			})
@@ -184,7 +189,7 @@ t.describe("native Dialog: Tab and Escape arrive through UserInputService", func
 			motionLevel = "none",
 		})
 		local stop = w.runtime.mount(function()
-			return w.runtime.constructors.ScreenGui({
+			return ((w.runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 				other.Dialog "Second"(standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors)),
 			})
 		end, target)
@@ -369,8 +374,14 @@ t.describe("native Dialog: the caller's fact decides", function()
 		local open2, log2, change2 = caller()
 		local w2 = mount(standard(open2, log2, change2, {
 			actions = {
-				{ id = "Stay", label = "Stay", role = "cancel", enabled = false, onActivate = function() end },
-				{ id = "Leave", label = "Leave", onActivate = function() end },
+				{
+					id = "Stay",
+					label = "Stay",
+					role = "cancel" :: "cancel",
+					enabled = false,
+					onActivate = function() end,
+				} :: DialogAction,
+				{ id = "Leave", label = "Leave", onActivate = function() end } :: DialogAction,
 			},
 		}))
 		w2.find("ModalBack").Pressed.fire()
@@ -386,11 +397,11 @@ t.describe("native Dialog: the caller's fact decides", function()
 				{
 					id = "Leave",
 					label = "Leave",
-					role = "default",
+					role = "default" :: "default",
 					onActivate = function()
 						open:set(false)
 					end,
-				},
+				} :: DialogAction,
 			},
 		}))
 		actionButton(w, "Leave").Activated.fire()
@@ -410,14 +421,14 @@ t.describe("native Dialog: the caller's fact decides", function()
 					onActivate = function()
 						table.insert(log.pressed, "Apply")
 					end,
-				},
+				} :: DialogAction,
 				{
 					id = "Leave",
 					label = "Leave",
 					onActivate = function()
 						table.insert(log.pressed, "Leave")
 					end,
-				},
+				} :: DialogAction,
 			},
 		}))
 		actionButton(w, "Apply").Activated.fire()
@@ -455,7 +466,7 @@ t.describe("native Dialog: the caller's fact decides", function()
 					onActivate = function()
 						error("caller bug")
 					end,
-				},
+				} :: DialogAction,
 			},
 		}))
 		local ok, failure = pcall(actionButton(w, "Boom").Activated.fire)
@@ -488,12 +499,12 @@ t.describe("native Dialog: the caller's fact decides", function()
 		t.expect(table.concat(log.dismissed, ",")).toBe("outside")
 		w.stop()
 		local fact = Compose.cell(true)
-		local w2 = mount(function(_, Host)
+		local w2 = mount(function(_, Host: RobloxHost)
 			return {
 				isPresented = fact,
 				closeButton = false,
 				title = "Read this",
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel "Line" { Text = "Body" }
 				end,
 			}
@@ -520,21 +531,21 @@ t.describe("native Dialog: the caller's fact decides", function()
 				{
 					id = "Go",
 					label = "Go",
-					role = "default",
+					role = "default" :: "default",
 					busy = true,
 					onActivate = function()
 						table.insert(log2.pressed, "Go")
 					end,
-				},
+				} :: DialogAction,
 				{
 					id = "Stop",
 					label = "Stop",
-					role = "cancel",
+					role = "cancel" :: "cancel",
 					busy = true,
 					onActivate = function()
 						table.insert(log2.pressed, "Stop")
 					end,
-				},
+				} :: DialogAction,
 			},
 		}))
 		t.expect(w2.action("Shortcut")).toBe(nil)
@@ -555,10 +566,14 @@ t.describe("native Dialog: composition, layout and the height budget", function(
 				{ content = true },
 				{ hero = { image = "rbxassetid://75342910516929", aspectRatio = 2 } },
 				{ actionLabel = "Pick one" },
-				{ actions = { { id = "Ok", label = "Ok", onActivate = function() end } } },
+				{
+					actions = {
+						{ id = "Ok", label = "Ok", onActivate = function() end } :: DialogAction,
+					},
+				},
 			}
 		do
-			local w = mount(function(_, Host)
+			local w = mount(function(_, Host: RobloxHost)
 				local spec: any = { isPresented = Compose.cell(true), closeButton = false }
 				for key, value in extra do
 					spec[key] = if key == "content"
@@ -590,23 +605,23 @@ t.describe("native Dialog: composition, layout and the height budget", function(
 		refuses({ isPresented = fact, title = "T" }, "onPresentedChange")
 		refuses({ isPresented = fact, closeButton = false }, "nothing to show")
 		refuses({ isPresented = fact, closeButton = false, title = "T", widht = "wide" }, "widht")
-		refuses({ isPresented = fact, closeButton = false, title = "T", width = "huge" }, "width")
+		refuses({ isPresented = fact, closeButton = false, title = "T", width = "huge" :: "huge" }, "width")
 		refuses({ isPresented = fact, closeButton = false, title = "T", actionLayout = "grid" }, "actionLayout")
 		refuses({ isPresented = fact, closeButton = false, title = "T", hero = { image = "x" } }, "aspectRatio")
 		refuses({
 			isPresented = fact,
 			closeButton = false,
 			actions = {
-				{ id = "A", label = "A", role = "default", onActivate = function() end },
-				{ id = "B", label = "B", role = "default", onActivate = function() end },
+				{ id = "A", label = "A", role = "default" :: "default", onActivate = function() end } :: DialogAction,
+				{ id = "B", label = "B", role = "default" :: "default", onActivate = function() end } :: DialogAction,
 			},
 		}, "role default")
 		refuses({
 			isPresented = fact,
 			closeButton = false,
 			actions = {
-				{ id = "A", label = "A", onActivate = function() end },
-				{ id = "A", label = "B", onActivate = function() end },
+				{ id = "A", label = "A", onActivate = function() end } :: DialogAction,
+				{ id = "A", label = "B", onActivate = function() end } :: DialogAction,
 			},
 		}, "unique")
 		refuses({ isPresented = fact, closeButton = false, content = "text" }, "content")
@@ -857,7 +872,7 @@ t.describe("native Dialog: a plain overflowing body is one pad stop that scrolls
 
 	t.it("interactive content keeps its own stops inside the body", function()
 		local open, log, change = caller()
-		local w = mount(function(UI, Host)
+		local w = mount(function(UI: FacetControls, Host: RobloxHost)
 			local spec = standard(open, log, change)(UI, Host)
 			spec.content = function()
 				return UI.Button "Inner" { label = "Inner", onActivate = function() end }
@@ -877,7 +892,7 @@ t.describe("native Dialog: lifetime", function()
 	t.it("owner disposal releases physically and reports cancel once; reopen cycles return to baseline", function()
 		local open, log, change = caller()
 		local shown = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Compose.show(shown, function()
 					return UI.Dialog "Confirm"(standard(open, log, change, { closeButton = true })(UI, Host))

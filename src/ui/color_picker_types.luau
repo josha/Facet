@@ -11,7 +11,7 @@ export type ColorValue = Value<Color3?>
 export type NumberValue = Shared.ValueNumber
 export type FlagValue = Shared.ValueBoolean
 export type WordsValue = Shared.ValueString
-export type SizeValue = Value<Shared.ControlSize>
+export type SizeValue = Value<Shared.ControlSize?>
 export type SwatchesValue = Value<{ Swatch }>
 export type ColorPickerOptions = {
 	value: ColorValue,

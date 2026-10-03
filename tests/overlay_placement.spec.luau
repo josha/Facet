@@ -15,20 +15,20 @@ t.describe("anchored placement", function()
 
 	t.it("every edge and align pair moves by exactly the signed offset, and absent equals 0", function()
 		local source = { x = 300, y = 250, w = 60, h = 40 }
-		for _, edge in { "top", "bottom", "leading", "trailing" } do
+		for _, edge in { "top", "bottom", "leading", "trailing" } :: { "bottom" | "leading" | "top" | "trailing" } do
 			for _, align in { "start", "center", "end" } do
 				local base = placement.solve({
 					source = source,
 					size = { w = 100, h = 60 },
 					safe = SAFE,
-					edge = edge,
+					edge = edge :: "bottom" | "leading" | "top" | "trailing",
 					align = align,
 				})
 				local zero = placement.solve({
 					source = source,
 					size = { w = 100, h = 60 },
 					safe = SAFE,
-					edge = edge,
+					edge = edge :: "bottom" | "leading" | "top" | "trailing",
 					align = align,
 					crossOffset = 0,
 				})
@@ -39,7 +39,7 @@ t.describe("anchored placement", function()
 						source = source,
 						size = { w = 100, h = 60 },
 						safe = SAFE,
-						edge = edge,
+						edge = edge :: "bottom" | "leading" | "top" | "trailing",
 						align = align,
 						crossOffset = offset,
 					})
@@ -58,8 +58,8 @@ t.describe("anchored placement", function()
 			source = source,
 			size = { w = 100, h = 80 },
 			safe = SAFE,
-			edge = "bottom",
-			align = "start",
+			edge = "bottom" :: "bottom",
+			align = "start" :: "start",
 			crossOffset = 10,
 		})
 		t.expect(result.edge).toBe("top")
@@ -74,7 +74,7 @@ t.describe("anchored placement", function()
 			source = source,
 			size = { w = 180, h = 300 },
 			safe = SAFE,
-			edge = "bottom",
+			edge = "bottom" :: "bottom",
 			gap = 8,
 		})
 		t.expect(result.edge).toBe("right")
@@ -85,7 +85,7 @@ t.describe("anchored placement", function()
 			source = { x = 600, y = 250, w = 60, h = 100 },
 			size = { w = 180, h = 300 },
 			safe = SAFE,
-			edge = "bottom",
+			edge = "bottom" :: "bottom",
 			gap = 8,
 		})
 		t.expect(left.edge).toBe("left")
@@ -94,7 +94,7 @@ t.describe("anchored placement", function()
 			source = { x = 300, y = 250, w = 200, h = 100 },
 			size = { w = 400, h = 300 },
 			safe = SAFE,
-			edge = "bottom",
+			edge = "bottom" :: "bottom",
 			gap = 8,
 		})
 		t.expect(nowhere.edge).toBe("bottom")
@@ -107,8 +107,8 @@ t.describe("anchored placement", function()
 			source = { x = 740, y = 100, w = 40, h = 40 },
 			size = { w = 100, h = 60 },
 			safe = SAFE,
-			edge = "bottom",
-			align = "start",
+			edge = "bottom" :: "bottom",
+			align = "start" :: "start",
 			crossOffset = 30,
 		})
 		t.expect(result.x).toBe(700)
@@ -133,7 +133,7 @@ t.describe("anchored placement", function()
 			source = { x = 700, y = 100, w = 40, h = 40 },
 			size = { w = 200, h = 60 },
 			safe = SAFE,
-			edge = "bottom",
+			edge = "bottom" :: "bottom",
 		}
 		t.expect(placement.solve(request).x + 200 <= 800).toBe(true)
 		request.safe = { x = 0, y = 0, w = 500, h = 600 }
@@ -146,7 +146,7 @@ t.describe("anchored placement", function()
 			source = { x = 300, y = 100, w = 100, h = 40 },
 			size = { w = 160, h = 80 },
 			safe = SAFE,
-			edge = "bottom",
+			edge = "bottom" :: "bottom",
 			tail = 10,
 			tailInset = 8,
 		})
@@ -157,7 +157,7 @@ t.describe("anchored placement", function()
 			source = { x = 790, y = 100, w = 10, h = 40 },
 			size = { w = 160, h = 80 },
 			safe = { x = 0, y = 0, w = 760, h = 600 },
-			edge = "bottom",
+			edge = "bottom" :: "bottom",
 			tail = 10,
 			tailInset = 8,
 		})
@@ -169,7 +169,7 @@ t.describe("anchored placement", function()
 			source = { x = 300, y = 300, w = 44, h = 44 },
 			size = { w = 200, h = 30 },
 			safe = SAFE,
-			edge = "trailing",
+			edge = "trailing" :: "trailing",
 			tail = 16 * math.sqrt(2),
 			tailInset = 8,
 		})

@@ -89,7 +89,7 @@ return function(c: any, kind: string)
 					if not enabled:peek() then
 						return false
 					end
-					local nextRows = table.clone(rows:peek())
+					local nextRows: { any } = table.clone(rows:peek())
 					for index, item in nextRows do
 						if item.id == key then
 							nextRows[index] = table.clone(item)
@@ -121,8 +121,8 @@ return function(c: any, kind: string)
 			return enabled:peek()
 		end,
 		onDelete = remove,
-		onReorder = function(moved, slot)
-			local kept, carried = {}, {}
+		onReorder = function(moved: { string }, slot: number)
+			local kept: { any }, carried: { any } = {}, {}
 			for _, item in rows:peek() do
 				table.insert(if table.find(moved, item.id) then carried else kept, item)
 			end
@@ -138,7 +138,7 @@ return function(c: any, kind: string)
 		gap = 8,
 	}
 	if kind == "Table" then
-		spec.columns = {
+		local columns: { any } = {
 			{ id = "name", label = "Name", render = cell, minWidth = 160 },
 			{
 				id = "kind",
@@ -149,6 +149,7 @@ return function(c: any, kind: string)
 				end,
 			},
 		}
+		spec.columns = columns
 	else
 		spec.render = cell
 		if kind == "VirtualGrid" then
@@ -192,7 +193,7 @@ return function(c: any, kind: string)
 				enabled = enabled,
 				onActivate = function()
 					serial:set(serial:peek() + 1)
-					local nextRows = table.clone(rows:peek())
+					local nextRows: { any } = table.clone(rows:peek())
 					table.insert(
 						nextRows,
 						1,

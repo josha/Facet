@@ -1,11 +1,16 @@
 --!strict
 local nativeDrag = require("./lib/native_drag")
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local requireDynamic = require :: (any) -> any
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
-local function find(node, name)
+local function find(node: any, name: string): any
 	if node.Name == name then
 		return node
 	end
@@ -18,9 +23,9 @@ local function find(node, name)
 	return nil
 end
 
-local function mount(name, size)
+local function mount(name: string, size: { width: number, height: number }?)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, guiService = engine.new("Folder"), engine.new("GuiService")
 	local inputService = engine.new("UserInputService")
 	inputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -36,7 +41,7 @@ local function mount(name, size)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		guiService = guiService,
@@ -52,8 +57,8 @@ local function mount(name, size)
 	}
 	local built
 	local baseline = engine.census()
-	local stop, node = runtime.mount(function()
-		built = require("../examples/gallery/scenarios/" .. name).build(ctx)
+	local stop, node: any = runtime.mount(function()
+		built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
 		return ctx.Host.ScreenGui({ built.screen() })
 	end, target)
 	return built,
@@ -73,7 +78,7 @@ local function mount(name, size)
 		}
 end
 
-local function action(root, name)
+local function action(root, name: string)
 	for _, child in root:GetChildren() do
 		if child:IsA("InputContext") and child.Name == "Facet" .. name and child.Enabled then
 			return child:FindFirstChild(name)
@@ -475,7 +480,7 @@ t.describe("native gallery collections", function()
 		t.expect(tall.report().surfaces.list.count).toBe(6)
 		stopTall()
 		local built, node, stop, engine, world = mount("row_actions", { width = 844, height = 390 })
-		for _, kind in { "list", "table", "virtual" } do
+		for _, kind in { "list", "table", "virtual" } :: { "list" | "table" | "virtual" } do
 			find(node, kind).Activated.fire()
 			local page = find(node, "Mail_" .. kind)
 			local title = find(find(page, "Toolbar"), "Title")
@@ -497,7 +502,7 @@ t.describe("file library workbench", function()
 	t.it("edits desktop cells directly and uses Edit on coarse inputs with one permission toggle", function()
 		local built, node, stop, engine, world = mount("collection_workbench")
 		for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
-			world.input.PreferredInput = engine.types.Enum.PreferredInput[input]
+			world.input.PreferredInput = (engine.types.Enum.PreferredInput :: any)[input]
 			for _, mode in { "icons", "list", "details" } do
 				find(find(node, "ViewMode"), mode).Activated.fire()
 				local collection = find(node, "primary")

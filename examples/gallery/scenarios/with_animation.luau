@@ -1,10 +1,16 @@
+--!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "State-driven motion",
-	build = function(ctx)
-		local Host, UI, Compose, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, V2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local target, reduced, runs = Compose.cell(0), Compose.cell(false), Compose.cell(0)
-		local effectiveReduced = Compose.formula(function(use)
+		local effectiveReduced = Compose.formula(function(use: Use)
 			return use(reduced) or (ctx.reducedMotion ~= nil and use(ctx.reducedMotion))
 		end)
 		UI = ctx.Facet.controls(runtime, {
@@ -13,7 +19,7 @@ return {
 			viewport = ctx.viewport,
 			guiService = ctx.guiService,
 			inputParent = ctx.inputTarget,
-			motionLevel = function(use)
+			motionLevel = function(use: Use): ("normal" | "limited" | "none")?
 				if use(reduced) then
 					return "none"
 				end
@@ -24,13 +30,13 @@ return {
 			end,
 		})
 		local order = Compose.cell({ "Alpha", "Bravo", "Charlie" })
-		local flight = runtime.spring(function(use)
+		local flight = runtime.spring(function(use: Use)
 			return use(target)
 		end, { period = 0.5, damping = 0.8 })
-		local amount = Compose.formula(function(use)
+		local amount = Compose.formula(function(use: Use)
 			return if use(effectiveReduced) then use(target) else use(flight)
 		end)
-		local charge = runtime.tween(function(use)
+		local charge = runtime.tween(function(use: Use)
 			return use(target)
 		end, { seconds = 1.2, ease = Compose.easing.linear })
 		local function animate()
@@ -40,7 +46,7 @@ return {
 			next[1], next[3] = next[3], next[1]
 			order:set(next)
 		end
-		local function color(use, role)
+		local function color(use: Use, role)
 			local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
 			local mode = if ctx.themeMode then use(ctx.themeMode) else package.style.defaultTheme
 			local palette = package.style.themes[1]
@@ -67,7 +73,7 @@ return {
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				label("Title", "One action, one shared motion"),
+				label("Title", "One action, one shared motion") :: unknown,
 				UI.Toggle "Reduced" { label = "Reduce decorative motion", value = reduced },
 				UI.Button "Animate" { label = "Animate", onActivate = animate },
 				label(
@@ -80,11 +86,11 @@ return {
 					Host.Frame "Puck" {
 						Size = D2.fromOffset(40, 40),
 						BorderSizePixel = 0,
-						Position = function(use)
+						Position = function(use: Use)
 							local v = use(amount)
 							return D2.new(v, -40 * v, 0, 8)
 						end,
-						BackgroundColor3 = function(use)
+						BackgroundColor3 = function(use: Use)
 							return color(use, "contentSecondary"):Lerp(
 								color(use, "accent"),
 								math.clamp(use(amount), 0, 1)
@@ -95,10 +101,10 @@ return {
 				},
 				Host.Frame "GrowingCard" {
 					BorderSizePixel = 0,
-					Size = function(use)
+					Size = function(use: Use)
 						return D2.new(1, 0, 0, 64 + 64 * use(amount))
 					end,
-					BackgroundColor3 = function(use)
+					BackgroundColor3 = function(use: Use)
 						return color(use, "accent")
 					end,
 					Host.Frame "Pip" {
@@ -106,7 +112,7 @@ return {
 						Position = D2.fromOffset(12, 12),
 						BackgroundColor3 = C3.new(1, 1, 1),
 						BorderSizePixel = 0,
-					},
+					} :: unknown,
 					UI.Text "CardCaption" {
 						text = "The card grows; this pip keeps its size.",
 						Position = D2.fromOffset(40, 8),
@@ -120,17 +126,17 @@ return {
 					Host.CanvasGroup "Badge" {
 						Position = D2.fromScale(0.5, 0.5),
 						AnchorPoint = V2.new(0.5, 0.5),
-						Size = function(use)
+						Size = function(use: Use)
 							local side = 76 - 28 * use(amount)
 							return D2.fromOffset(side, side)
 						end,
-						Rotation = function(use)
+						Rotation = function(use: Use)
 							return 90 * use(amount)
 						end,
-						GroupTransparency = function(use)
+						GroupTransparency = function(use: Use)
 							return 0.65 * math.clamp(use(amount), 0, 1)
 						end,
-						BackgroundColor3 = function(use)
+						BackgroundColor3 = function(use: Use)
 							return color(use, "accent")
 						end,
 						UI.Text({ text = "GO", Size = D2.fromScale(1, 1), TextXAlignment = E.TextXAlignment.Center }),
@@ -139,10 +145,10 @@ return {
 				Host.CanvasGroup "WrappedFade" {
 					Size = D2.new(1, 0, 0, 84),
 					BackgroundTransparency = 1,
-					GroupTransparency = function(use)
+					GroupTransparency = function(use: Use)
 						return 0.65 * math.clamp(use(amount), 0, 1)
 					end,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
 					label("FadedLabel", "A group fades its label and controls together"),
 					UI.Button "Locked" { label = "Locked", enabled = false },
 				},
@@ -150,11 +156,11 @@ return {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Compose.presence(function(use)
+					Compose.presence(function(use: Use)
 						return use(target) == 1
 					end, function(phase)
 						local arrived = Compose.cell(false)
-						local opacity = runtime.tween(function(use)
+						local opacity = runtime.tween(function(use: Use)
 							return if use(arrived) and not use(phase.exiting) then 1 else 0
 						end, { seconds = 0.2 })
 						arrived:set(true)
@@ -162,7 +168,7 @@ return {
 							BackgroundTransparency = 1,
 							Size = D2.new(1, 0, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
-							GroupTransparency = function(use)
+							GroupTransparency = function(use: Use)
 								return if use(effectiveReduced) then 0 else 1 - use(opacity)
 							end,
 							label(
@@ -185,10 +191,10 @@ return {
 					BackgroundTransparency = 1,
 					Compose.OrderedCollection({
 						from = order,
-						key = function(name)
+						key = function(name: string)
 							return name
 						end,
-						render = function(current, placement)
+						render = function(current: Readable<string>, placement): GuiObject
 							local origin = if current:peek() == "Alpha"
 								then 0
 								elseif current:peek() == "Bravo" then 1
@@ -196,11 +202,11 @@ return {
 							return UI.Button({
 								Name = current:peek(),
 								label = current,
-								LayoutOrder = function(use)
+								LayoutOrder = function(use: Use)
 									return use(placement).index
 								end,
 								Size = D2.new(1, 0, 0, 40),
-								Position = function(use)
+								Position = function(use: Use)
 									return D2.fromOffset(0, (origin + (2 - 2 * origin) * use(amount)) * 48)
 								end,
 							})
@@ -213,8 +219,8 @@ return {
 				),
 				UI.ProgressView "Charge" { label = "Charge", value = charge, showValue = true },
 				UI.ProgressView "Busy" { label = "No terminus" },
-				UI.ProgressView "Spinner" { label = "Spinner", presentation = "spinner" },
-				label("Status", function(use)
+				UI.ProgressView "Spinner" { label = "Spinner", presentation = "spinner" :: "spinner" },
+				label("Status", function(use: Use)
 					return "Animations: " .. use(runs)
 				end),
 			}

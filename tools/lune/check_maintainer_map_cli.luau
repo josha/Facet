@@ -6,7 +6,7 @@ local checker = require("./check_maintainer_map")
 local MAP = "docs/MAINTAINERS.md"
 local USAGE = "usage: lune run tools/lune/check_maintainer_map_cli [--list | --counts | --selftest]"
 
-local mode = "check"
+local mode = "check" :: "check"
 for _, arg in process.args do
 	if arg == "--list" or arg == "--counts" or arg == "--selftest" then
 		mode = string.sub(arg, 3)

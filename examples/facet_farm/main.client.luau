@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
@@ -14,7 +18,7 @@ for _ = 1, 10 do
 end
 pcall(starterGui.SetCore, starterGui, "ResetButtonCallback", false)
 local Facet = require(storage:WaitForChild("Facet"))
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local farmFolder = storage:WaitForChild("FacetFarm")
 local modelModule = require(farmFolder:WaitForChild("model"))
 local screens = require(farmFolder:WaitForChild("screens"))
@@ -91,7 +95,7 @@ app.mount(function()
 	Compose.cleanup(function()
 		changed:Disconnect()
 	end)
-	farm.blend = app.runtime.tween(function(use)
+	farm.blend = app.runtime.tween(function(use: Use)
 		return if use(farm.view) == "3d" then 1 else 0
 	end, {
 		seconds = function()
@@ -99,8 +103,8 @@ app.mount(function()
 		end,
 		ease = Compose.easing.inOutCubic,
 	})
-	Compose.watch(function(use)
-		local blend = use(farm.blend)
+	Compose.watch(function(use: Use)
+		local blend = use(assert(farm.blend))
 		if blend <= 0 then
 			camera.CameraType = Enum.CameraType.Custom
 			camera.FieldOfView = 70
@@ -126,21 +130,21 @@ app.mount(function()
 	end)
 	return view
 end)
-local SOUNDS = {
-	plow = { "rbxassetid://9114083746", 0.5 },
-	plant = { "rbxassetid://9118685574", 0.45 },
-	harvest = { "rbxassetid://109359226723492", 0.5 },
-	coins = { "rbxassetid://1169806635", 0.4 },
+local SOUNDS: { [string]: { asset: string, volume: number } } = {
+	plow = { asset = "rbxassetid://9114083746", volume = 0.5 },
+	plant = { asset = "rbxassetid://9118685574", volume = 0.45 },
+	harvest = { asset = "rbxassetid://109359226723492", volume = 0.5 },
+	coins = { asset = "rbxassetid://1169806635", volume = 0.4 },
 }
-local effects = {}
+local effects: { [string]: Sound } = {}
 backdrop.runtime.mount(function()
 	local players = {}
 	for name, sound in SOUNDS do
-		local player = backdrop.runtime.constructors.Sound(name)({ SoundId = sound[1], Volume = sound[2] })
-		effects[name] = player
+		local player = backdrop.runtime.constructors.Sound(name)({ SoundId = sound.asset, Volume = sound.volume })
+		effects[name] = player :: Sound
 		table.insert(players, player)
 	end
-	Compose.watch(function(use)
+	Compose.watch(function(use: Use)
 		local cue = use(farm.cue)
 		if not cue then
 			return
@@ -159,7 +163,7 @@ backdrop.runtime.mount(function()
 		SoundId = MUSIC,
 		Looped = true,
 		Volume = 0.35,
-		Playing = function(use)
+		Playing = function(use: Use)
 			return use(farm.music)
 		end,
 	}

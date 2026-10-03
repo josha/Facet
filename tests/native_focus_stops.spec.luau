@@ -1,12 +1,23 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local requireDynamic = require :: (any) -> any
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function setup(build: (any, any) -> any, options: { [string]: any }?): any
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -23,12 +34,12 @@ local function setup(build: (any, any) -> any, options: { [string]: any }?): any
 		motionLevel = "none",
 		services = { GuiService = gui, UserInputService = input },
 	}
-	for key, value in options or {} do
+	for key, value in (options or {} :: { [string]: any }) do
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config)
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ build(UI, runtime.constructors) })
+	local stop, screen: any = runtime.mount(function()
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ build(UI, runtime.constructors) })
 	end, parent)
 	local world = { engine = engine, gui = gui, input = input, screen = screen, parent = parent, UI = UI }
 	function world.find(name: string, root: any?): any
@@ -97,7 +108,7 @@ end
 t.describe("an adjustable claims its axis on its own stop only", function()
 	t.it("a selected child of a Stepper does not pin its own links", function()
 		local value = Compose.cell(6)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 		end)
 		local stepper = w.find("Volume")
@@ -113,9 +124,9 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("a fresh press at a limit passes to the next control that way; a held press stops at the limit", function()
 		local left, right = Compose.cell(8), Compose.cell(3)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Stepper("A")({ value = left, max = 10 }),
+				UI.Stepper("A")({ value = left, max = 10 }) :: unknown,
 				UI.Stepper("B")({ value = right, max = 10 }),
 			})
 		end)
@@ -159,9 +170,9 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("R1 and Period at the maximum keep the selection and the value; only a direction passes on", function()
 		local left, right = Compose.cell(10), Compose.cell(3)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Stepper("A")({ value = left, max = 10 }),
+				UI.Stepper("A")({ value = left, max = 10 }) :: unknown,
 				UI.Stepper("B")({ value = right, max = 10 }),
 			})
 		end)
@@ -175,9 +186,9 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 	end)
 
 	t.it("at a limit the hand-off follows the game's own NextSelection link, as focusQuery reports", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Stepper("A")({ value = Compose.cell(10), max = 10 }),
+				UI.Stepper("A")({ value = Compose.cell(10), max = 10 }) :: unknown,
 				UI.Stepper("B")({ value = Compose.cell(3), max = 10 }),
 				UI.Button("C")({ label = "C" }),
 			})
@@ -196,7 +207,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("the stick, like the D-pad, leaves a stop under a non-interactable ancestor alone", function()
 		local value = Compose.cell(3)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Holder" { UI.Stepper("A")({ value = value, max = 10 }) }
 		end)
 		w.gui.SelectedObject = w.find("A")
@@ -209,7 +220,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("a press whose release was lost does not block the D-pad after the action switches off and on", function()
 		local value = Compose.cell(3)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Holder" { UI.Stepper("A")({ value = value, max = 10 }) }
 		end)
 		w.gui.SelectedObject = w.find("A")
@@ -224,7 +235,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("only a navigation gamepad's stick adjusts the selection", function()
 		local value = Compose.cell(3)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("A")({ value = value, max = 10 }) })
 		end)
 		local E = w.engine.types.Enum
@@ -263,7 +274,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("keeps the axis at a bound: Left at the minimum stays and changes nothing", function()
 		local value = Compose.cell(0)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 		end)
 		local stepper = w.find("Volume")
@@ -281,7 +292,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 	end)
 	t.it("the stick adjusts on the control's axis and repeats only while held", function()
 		local value = Compose.cell(5)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 		end)
 		w.gui.SelectedObject = w.find("Volume")
@@ -302,8 +313,10 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("a vertical adjustable takes the stick's Y axis", function()
 		local value = Compose.cell(50)
-		local w = setup(function(UI, Host)
-			return Host.Frame({ UI.Slider("Rear")({ value = value, min = 0, max = 100, step = 10, axis = "y" }) })
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Slider("Rear")({ value = value, min = 0, max = 100, step = 10, axis = "y" :: "y" }),
+			})
 		end)
 		w.gui.SelectedObject = w.find("Rear")
 		w.stick(0, 0.9)
@@ -313,7 +326,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("a held push that wobbles around half-way steps once, then repeats on the repeat timer", function()
 		local value = Compose.cell(5)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
 		end)
 		w.gui.SelectedObject = w.find("Volume")
@@ -337,7 +350,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("a stick already pushed when the selection lands waits for a release first", function()
 		local value = Compose.cell(5)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
 		end)
 		local E = w.engine.types.Enum
@@ -356,7 +369,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("a stick that arrived mostly across the axis adjusts once it rolls onto the axis, without centring", function()
 		local value = Compose.cell(5)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
 		end)
 		local E = w.engine.types.Enum
@@ -373,7 +386,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 
 	t.it("a busy UI.adjustable keeps its stop and ignores presses until it is idle", function()
 		local steps, busy = {}, Compose.cell(false)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			local dial = Host.Frame({ Name = "Dial" })
 			UI.adjustable(dial, {
 				busy = busy,
@@ -399,7 +412,7 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		"the stick is read from UserInputService: no input context, other sticks and unselected stops ignored",
 		function()
 			local value = Compose.cell(5)
-			local w = setup(function(UI, Host)
+			local w = setup(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 			end)
 			w.stick(-1, 0)
@@ -422,14 +435,14 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 	t.it(
 		"every value control's stop listens for SelectionGained, so the engine's D-pad ranks it with buttons",
 		function()
-			local w = setup(function(UI, Host)
+			local w = setup(function(UI: FacetControls, Host: RobloxHost)
 				local dial = Host.Frame({ Name = "Dial" })
 				UI.adjustable(dial, { onAdjust = function() end })
 				return Host.Frame({
-					UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }),
+					UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }) :: unknown,
 					UI.Slider("Two")({
 						value = Compose.cell({ lower = 2, upper = 8 }),
-						range = true,
+						range = true :: true,
 						min = 0,
 						max = 10,
 					}),
@@ -449,10 +462,12 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 	)
 
 	t.it("a row's swipe detector switches off while the gamepad is the preferred input", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.RowActions({
-				content = Host.TextLabel({ Text = "Row" }),
-				trailing = { { id = "Save", label = "Save", onActivate = function() end } },
+				content = Host.TextLabel({ Text = "Row" }) :: GuiObject,
+				trailing = {
+					{ id = "Save", label = "Save", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+				},
 			})
 		end)
 		local detector = w.screen:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
@@ -467,10 +482,12 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 	end)
 
 	t.it("a row swipe ends without opening its tray when the detector switches off mid-drag", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.RowActions({
-				content = Host.TextLabel({ Text = "Row" }),
-				trailing = { { id = "Save", label = "Save", onActivate = function() end } },
+				content = Host.TextLabel({ Text = "Row" }) :: GuiObject,
+				trailing = {
+					{ id = "Save", label = "Save", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+				},
 			})
 		end)
 		local E, V = w.engine.types.Enum, w.engine.types.Vector2
@@ -486,10 +503,15 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 	end)
 
 	t.it("slider drag detectors switch off while the gamepad is the preferred input", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }),
-				UI.Slider("Two")({ value = Compose.cell({ lower = 2, upper = 8 }), range = true, min = 0, max = 10 }),
+				UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }) :: unknown,
+				UI.Slider("Two")({
+					value = Compose.cell({ lower = 2, upper = 8 }),
+					range = true :: true,
+					min = 0,
+					max = 10,
+				}),
 			})
 		end)
 		local function detectors(): { boolean }
@@ -512,13 +534,13 @@ end)
 
 t.describe("focus ring part", function()
 	local function ringWorld(scaled: boolean)
-		local w = setup(function(_, Host)
+		local w = setup(function(_, Host: RobloxHost)
 			local row = Host.Frame({
 				Name = "Row",
 				Selectable = true,
 				Host.Frame({ Name = "Track", Host.Frame({ Name = "Knob" }) }),
 			})
-			return if scaled then Host.Frame({ Host.UIScale({ Scale = 0.5 }), row }) else row
+			return if scaled then Host.Frame({ Host.UIScale({ Scale = 0.5 }) :: unknown, row }) else row
 		end)
 		local playerGui = w.engine.new("PlayerGui")
 		local stopRing = Facet.Roblox.createRuntime(w.engine).mount(function()
@@ -568,11 +590,11 @@ t.describe("focus ring part", function()
 	end)
 
 	t.it("a framed field's text box rings its whole plate, icon and all", function()
-		local w = setup(function(UI)
+		local w = setup(function(UI: FacetControls)
 			return UI.TextInput({
 				value = Compose.cell(""),
-				presentation = "search",
-				controlSize = "compact",
+				presentation = "search" :: "search",
+				controlSize = "compact" :: "compact",
 				clearButton = true,
 			})
 		end)
@@ -610,23 +632,23 @@ t.describe("focus ring part", function()
 end)
 
 t.describe("the Slider is one stop", function()
-	for _, variant in
+	for _, variant: { label: string?, thumb: string?, row: { title: string }?, axis: "y"? } in
 		{
 			{ label = "Boost" },
 			{ label = "Boost", thumb = "auto" },
 			{ row = { title = "Boost" } },
-			{ axis = "y", label = "Rear" },
-		}
+			{ axis = "y" :: "y", label = "Rear" },
+		} :: { { label: string?, thumb: string?, row: { title: string }?, axis: "y"? } }
 	do
 		t.it(
 			`one stop for {variant.axis or "horizontal"} {if variant.row then "row" else variant.thumb or "always"}`,
 			function()
 				local value = Compose.cell(30)
-				local spec: { [string]: any } = { value = value, min = 0, max = 100, step = 5 }
+				local spec: { [any]: any } = { value = value, min = 0, max = 100, step = 5 }
 				for key, field in variant do
 					spec[key] = field
 				end
-				local w = setup(function(UI, Host)
+				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({ UI.Slider("S")(spec) })
 				end)
 				local slider = w.find("S")
@@ -648,7 +670,7 @@ end)
 t.describe("M1: the Stepper", function()
 	t.it("M1 is one stop: Left and the stick change it, the buttons are not stops, Up and Down leave", function()
 		local value = Compose.cell(6)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 		end)
 		local stepper = w.find("Volume")
@@ -670,11 +692,11 @@ end)
 
 t.describe("the range Slider is one stop", function()
 	t.it("Return does not switch the handle while a TextBox has the keyboard", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Slider("Tilt")({
 					value = Compose.cell({ lower = 20, upper = 60 }),
-					range = true,
+					range = true :: true,
 					min = 0,
 					max = 100,
 				}),
@@ -697,15 +719,19 @@ t.describe("the range Slider is one stop", function()
 	end)
 
 	t.it("Return switches the handle even beside a dialog's default button", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Slider("Tilt")({
 					value = Compose.cell({ lower = 20, upper = 60 }),
-					range = true,
+					range = true :: true,
 					min = 0,
 					max = 100,
+				}) :: unknown,
+				UI.Button("Save")({
+					label = "Save",
+					dialogAction = "default" :: "default",
+					onActivate = function() end,
 				}),
-				UI.Button("Save")({ label = "Save", dialogAction = "default", onActivate = function() end }),
 			})
 		end)
 		w.gui.SelectedObject = w.find("Tilt")
@@ -730,8 +756,10 @@ t.describe("the range Slider is one stop", function()
 
 	t.it("lands on the lower handle, A switches, arrows and stick move the adjusted handle", function()
 		local value = Compose.cell({ lower = 20, upper = 60 })
-		local w = setup(function(UI, Host)
-			return Host.Frame({ UI.Slider("Tilt")({ value = value, range = true, min = 0, max = 100, step = 5 }) })
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({
+				UI.Slider("Tilt")({ value = value, range = true :: true, min = 0, max = 100, step = 5 }),
+			})
 		end)
 		local slider = w.find("Tilt")
 		t.expect(slider.Selectable).toBe(true)
@@ -765,9 +793,9 @@ end)
 
 t.describe("other adjustables are one stop", function()
 	t.it("Rating and LevelPicker hold no selectable part", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Rating("Stars")({ value = Compose.cell(2), count = 5 }),
+				UI.Rating("Stars")({ value = Compose.cell(2), count = 5 }) :: unknown,
 				UI.LevelPicker("Level")({ value = Compose.cell(1), count = 4 }),
 			})
 		end)
@@ -781,7 +809,7 @@ t.describe("other adjustables are one stop", function()
 
 	t.it("UI.adjustable makes its node the stop", function()
 		local steps = {}
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			local node = Host.Frame({ Name = "Dial" })
 			UI.adjustable(node, {
 				onAdjust = function(direction)
@@ -804,10 +832,13 @@ end)
 t.describe("a disabled value control is not a stop, and the stop carries the name", function()
 	t.it("a disabled Stepper or UI.adjustable is not selectable and becomes a stop when enabled", function()
 		local on = Compose.cell(false)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			local dial = Host.Frame({ Name = "Dial" })
 			UI.adjustable(dial, { enabled = on, onAdjust = function() end })
-			return Host.Frame({ UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, enabled = on }), dial })
+			return Host.Frame({
+				UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, enabled = on }) :: unknown,
+				dial,
+			})
 		end)
 		t.expect(`{w.find("Volume").Selectable} {w.find("Dial").Selectable}`).toBe("false false")
 		on:set(true)
@@ -816,9 +847,9 @@ t.describe("a disabled value control is not a stop, and the stop carries the nam
 	end)
 
 	t.it("the Slider and Stepper stops carry their accessible label", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Slider("Boost")({ value = Compose.cell(3), min = 0, max = 9, label = "Boost" }),
+				UI.Slider("Boost")({ value = Compose.cell(3), min = 0, max = 9, label = "Boost" }) :: unknown,
 				UI.Slider("Row")({ value = Compose.cell(3), min = 0, max = 9, row = { title = "Music" } }),
 				UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, label = "Volume" }),
 			})
@@ -830,20 +861,20 @@ t.describe("a disabled value control is not a stop, and the stop carries the nam
 	end)
 end)
 
-local function controlsFor(ctx)
+local function controlsFor(ctx: any)
 	return Facet.controls(ctx.runtime, {
 		types = ctx.types,
 		viewport = ctx.viewport,
 		guiService = ctx.guiService,
-		motionLevel = Compose.formula(function(use)
+		motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 			return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-		end),
+		end) :: unknown) :: MotionLevel,
 	})
 end
 
 local function nativeContext()
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
@@ -851,7 +882,7 @@ local function nativeContext()
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -863,8 +894,8 @@ local function nativeContext()
 	return ctx, engine, target
 end
 
-local function load(kind, name)
-	return require("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
+local function load(kind, name: string)
+	return requireDynamic("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
 end
 
 local catalogue = require("../examples/gallery/client/demo_picker")
@@ -901,11 +932,11 @@ end
 
 t.describe("the stop lint and disabled value controls", function()
 	t.it("a disabled Slider, Stepper or UI.adjustable is correctly not a stop", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			local dial = Host.Frame({ Name = "Dial" })
 			UI.adjustable(dial, { enabled = false, onAdjust = function() end })
 			return Host.Frame({
-				UI.Slider("S")({ value = Compose.cell(3), min = 0, max = 9, enabled = false }),
+				UI.Slider("S")({ value = Compose.cell(3), min = 0, max = 9, enabled = false }) :: unknown,
 				UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, enabled = false }),
 				dial,
 			})

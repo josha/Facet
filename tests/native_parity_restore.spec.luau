@@ -1,9 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local Roblox = require("@lune/roblox")
-local Compose = Facet.Compose
+type Readable<T> = { peek: (Readable<T>) -> T }
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -18,7 +25,7 @@ type World = {
 
 local function world(build: (any, any, any) -> any, options: { [string]: any }?, engineOptions: any?): World
 	local engine: any = engineLib.new(engineOptions)
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -37,8 +44,8 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?,
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine) })
 	end, engine.new("Folder"))
 	return {
@@ -93,7 +100,7 @@ t.describe("native parity restore: ErrorBoundary", function()
 		local reported: { string } = {}
 		local w = world(function(UI, Host)
 			return Host.Frame "Column" {
-				Host.TextLabel "Sibling" { Text = "alive" },
+				Host.TextLabel "Sibling" { Text = "alive" } :: unknown,
 				UI.ErrorBoundary({
 					Name = "EB",
 					view = function()
@@ -129,7 +136,7 @@ t.describe("native parity restore: ErrorBoundary", function()
 					return Host.Frame "V" {
 						Compose.show(explode, function()
 							error("branch exploded", 0)
-						end),
+						end) :: unknown,
 						Host.TextLabel "Content" { Text = "fine" },
 					}
 				end,
@@ -214,7 +221,7 @@ t.describe("native parity restore: ErrorBoundary", function()
 							key = function(row)
 								return row.id
 							end,
-							render = function(row)
+							render = function(row: Readable<{ id: string }>): GuiObject
 								if row:peek().id == "c" then
 									error("row factory throws for c", 0)
 								end
@@ -247,8 +254,8 @@ t.describe("native parity restore: ErrorBoundary", function()
 
 	t.it("leaves a failure outside any boundary a hard mount error", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
-		local Host = runtime.constructors
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local ok, message = pcall(function()
 			runtime.mount(function()
 				return Host.Frame({
@@ -274,7 +281,7 @@ t.describe("native parity restore: ErrorBoundary", function()
 					fallback = function()
 						return Host.TextLabel "HealthyFallback" {}
 					end,
-				}),
+				}) :: unknown,
 				UI.ErrorBoundary "Broken" {
 					view = function(): any
 						error("factory exploded", 0)
@@ -336,7 +343,7 @@ t.describe("native parity restore: Facet Neutral Light", function()
 		t.expect(dark.name).toBe("Dark")
 		t.expect(light.name).toBe("Light")
 		t.expect(sortedKeys(light.colors)).toEqual(sortedKeys(dark.colors))
-		t.expect(sortedKeys(light.extra)).toEqual(sortedKeys(dark.extra))
+		t.expect(sortedKeys(assert(light.extra))).toEqual(sortedKeys(assert(dark.extra)))
 		local defined, report = themes.define(neutral)
 		t.expect(defined ~= nil).toBe(true)
 		t.expect(report.ok).toBe(true)
@@ -347,9 +354,9 @@ t.describe("native parity restore: Facet Neutral Light", function()
 		for _, pair in { { "content", "surface" }, { "contentStrong", "surfaceStrong" }, { "onAccent", "accent" } } do
 			t.expect(ratio(light.colors[pair[1]], light.colors[pair[2]]) >= 4.5).toBe(true)
 		end
-		t.expect(ratio(light.colors.content, light.extra.controlSelected) >= 4.5).toBe(true)
-		t.expect(ratio(light.extra.contentSecondary, light.colors.surface) >= 4.5).toBe(true)
-		t.expect(ratio(light.colors.content, light.extra.control) >= 4.5).toBe(true)
+		t.expect(ratio(light.colors.content, assert(light.extra).controlSelected) >= 4.5).toBe(true)
+		t.expect(ratio(assert(light.extra).contentSecondary, light.colors.surface) >= 4.5).toBe(true)
+		t.expect(ratio(light.colors.content, assert(light.extra).control) >= 4.5).toBe(true)
 		t.expect(ratio(light.colors.surface, dark.colors.surface) > 10).toBe(true)
 	end)
 
@@ -376,10 +383,10 @@ t.describe("native parity restore: Facet Neutral Light", function()
 	t.it("paints each Neutral palette through the native sheet and follows a palette change", function()
 		local themes = Facet.themes
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local neutral = themes.neutralPackage()
 		local selected = Compose.cell("Dark")
-		local stop, sheet = runtime.mount(function()
+		local stop, sheet: any = runtime.mount(function()
 			return themes.createStyleSheet(runtime, neutral, { types = engine.types, theme = selected } :: any)
 		end, engine.new("Folder"))
 		local function textColor(): any
@@ -414,18 +421,18 @@ t.describe("native parity restore: Table multi-select keys", function()
 			{ id = "nova", name = "Nova" },
 		}
 	end
-	local function tableWorld(mode: string?): (World, any, any)
+	local function tableWorld(mode: ("single" | "multiple" | "none")?): (World, any, any)
 		table.clear(held)
 		local selection = Compose.cell({})
-		local focus: any = {}
-		local w = world(function(UI)
+		local focus: FixtureCollectionTypes.FocusControls<any> = {}
+		local w = world(function(UI: FacetControls)
 			return UI.Table "Racers" {
 				from = racers(),
 				key = "id",
 				itemSize = 40,
 				focus = focus,
 				selection = selection,
-				selectionMode = mode or "multiple",
+				selectionMode = mode or ("multiple" :: "multiple"),
 				columns = {
 					{
 						id = "name",
@@ -433,7 +440,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 						value = function(item)
 							return item.name
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			}
 		end)
@@ -562,31 +569,31 @@ t.describe("native parity restore: Table multi-select keys", function()
 
 	t.it("extends the selection from the anchor with Shift and an arrow, and moves focus with it", function()
 		local w, selection, focus = tableWorld()
-		focus.focus("bolt")
+		assert(focus.focus)("bolt")
 		t.expect(w.gui.SelectedObject).toBe(hit(w, "bolt"))
 		returnKey(w, "bolt")
 		t.expect(selected(selection)).toEqual({ "bolt" })
 		held.LeftShift = true
 		arrow(w, "Down")
 		arrow(w, "Down")
-		t.expect(focus.current:peek()).toBe("mint")
+		t.expect(assert(focus.current):peek()).toBe("mint")
 		t.expect(selected(selection)).toEqual({ "bolt", "josh", "mint" })
 		arrow(w, "Up")
 		t.expect(selected(selection)).toEqual({ "bolt", "josh" })
 		arrow(w, "Up")
 		arrow(w, "Up")
-		t.expect(focus.current:peek()).toBe("razz")
+		t.expect(assert(focus.current):peek()).toBe("razz")
 		t.expect(selected(selection)).toEqual({ "bolt", "razz" })
 		w.stop()
 	end)
 
 	t.it("extends to the first and the last row with Shift and Home or End", function()
 		local w, selection, focus = tableWorld()
-		focus.focus("josh")
+		assert(focus.focus)("josh")
 		returnKey(w, "josh")
 		held.LeftShift = true
 		arrow(w, "Last")
-		t.expect(focus.current:peek()).toBe("nova")
+		t.expect(assert(focus.current):peek()).toBe("nova")
 		t.expect(selected(selection)).toEqual({ "josh", "mint", "nova" })
 		arrow(w, "First")
 		t.expect(selected(selection)).toEqual({ "bolt", "josh", "razz" })
@@ -595,7 +602,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 
 	t.it("starts a keyboard range at the focused row when nothing anchors it", function()
 		local w, selection, focus = tableWorld()
-		focus.focus("josh")
+		assert(focus.focus)("josh")
 		held.RightShift = true
 		arrow(w, "Down")
 		t.expect(selected(selection)).toEqual({ "josh", "mint" })
@@ -604,16 +611,16 @@ t.describe("native parity restore: Table multi-select keys", function()
 
 	t.it("moves focus with Ctrl and an arrow and with a plain arrow without changing the selection", function()
 		local w, selection, focus = tableWorld()
-		focus.focus("razz")
+		assert(focus.focus)("razz")
 		returnKey(w, "razz")
 		held.LeftControl = true
 		arrow(w, "Down")
 		arrow(w, "Down")
-		t.expect(focus.current:peek()).toBe("josh")
+		t.expect(assert(focus.current):peek()).toBe("josh")
 		t.expect(selected(selection)).toEqual({ "razz" })
 		table.clear(held)
 		arrow(w, "Down")
-		t.expect(focus.current:peek()).toBe("mint")
+		t.expect(assert(focus.current):peek()).toBe("mint")
 		t.expect(selected(selection)).toEqual({ "razz" })
 		w.stop()
 	end)
@@ -625,7 +632,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 		t.expect(selected(selection)).toEqual({ "josh" })
 		click(w, "mint", "LeftShift")
 		t.expect(selected(selection)).toEqual({ "mint" })
-		focus.focus("mint")
+		assert(focus.focus)("mint")
 		held.LeftShift = true
 		arrow(w, "Down")
 		t.expect(selected(selection)).toEqual({ "mint" })
@@ -642,14 +649,14 @@ t.describe("native parity restore: RowActions outside tap", function()
 			fired = {},
 			outside = 0,
 		}
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			local function row(name: string)
 				return UI.RowActions({
 					Name = name,
 					open = state.open[name],
 					onOpenChange = settings.onOpenChange,
 					coordinator = state.coordinator,
-					content = function()
+					content = function(): GuiObject
 						return Host.TextButton "Content" { Text = name }
 					end,
 					trailing = {
@@ -660,12 +667,12 @@ t.describe("native parity restore: RowActions outside tap", function()
 							onActivate = function()
 								table.insert(state.fired, name)
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 					},
 				})
 			end
 			return Host.Frame "List" {
-				row("a"),
+				row("a") :: unknown,
 				row("b"),
 				Host.TextButton "Outside" {
 					Text = "Outside",
@@ -746,7 +753,7 @@ t.describe("native parity restore: RowActions outside tap", function()
 	end)
 
 	t.it("lets a commit in flight finish once when an outside tap arrives", function()
-		local w, state = rowsWorld({ role = "destructive", motionLevel = "normal" })
+		local w, state = rowsWorld({ role = "destructive" :: "destructive", motionLevel = "normal" })
 		state.open.a:set("trailing")
 		w.engine.heartbeat.fire(0.3)
 		find(find(w.screen, "a"), "Delete").Activated.fire()
@@ -799,8 +806,8 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		measures += 1
 		return Roblox.Vector2.new(glyphWidth(node.Text, node.TextSize), node.TextSize)
 	end
-	local function labelWorld(spec: { [string]: any }, options: { [string]: any }?): (World, any)
-		local w = world(function(UI)
+	local function labelWorld(spec: { [any]: any }, options: { [string]: any }?): (World, any)
+		local w = world(function(UI: FacetControls)
 			return UI.Text(spec)
 		end, options, { measureText = measure })
 		local label = w.screen:FindFirstChildWhichIsA("TextLabel", true)
@@ -812,7 +819,7 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 
 	t.it("keeps the head and the tail and fits the width at three widths", function()
 		for _, width in { 60, 120, 200 } do
-			local w, label = labelWorld({ text = VALUE, truncate = "middle", TextSize = 16 })
+			local w, label = labelWorld({ text = VALUE, truncate = "middle" :: "middle", TextSize = 16 })
 			resize(w, label, width)
 			local painted = label.Text
 			t.expect(glyphWidth(painted, label.TextSize) <= width).toBe(true)
@@ -852,10 +859,10 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 	end)
 
 	t.it("cuts the middle to the padded text area, not the outer box", function()
-		local w = world(function(UI, Host, engine)
+		local w = world(function(UI: FacetControls, Host: RobloxHost, engine)
 			return UI.Text {
 				text = VALUE,
-				truncate = "middle",
+				truncate = "middle" :: "middle",
 				TextSize = 16,
 				Host.UIPadding {
 					PaddingLeft = engine.types.UDim.new(0, 20),
@@ -896,7 +903,7 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 	t.it("recomputes on a width or text change and on nothing else, and restores the whole value", function()
 		local value = Compose.cell(VALUE)
 		local order = Compose.cell(1)
-		local w, label = labelWorld({ text = value, truncate = "middle", LayoutOrder = order })
+		local w, label = labelWorld({ text = value, truncate = "middle" :: "middle", LayoutOrder = order })
 		resize(w, label, 120)
 		local narrow = label.Text
 		local before = measures
@@ -916,7 +923,7 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 
 	t.it("re-derives the cut when the painted size changes", function()
 		local size = Compose.cell(16)
-		local w, label = labelWorld({ text = VALUE, truncate = "middle", TextSize = size })
+		local w, label = labelWorld({ text = VALUE, truncate = "middle" :: "middle", TextSize = size })
 		resize(w, label, 160)
 		local at16 = label.Text
 		size:set(8)
@@ -935,8 +942,8 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		t.expect(ended.TextTruncate).toBe(endWorld.engine.types.Enum.TextTruncate.AtEnd)
 		for _, spec in
 			{
-				{ text = "<b>x</b>", truncate = "middle", RichText = true },
-				{ text = VALUE, truncate = "middle", TextWrapped = true },
+				{ text = "<b>x</b>", truncate = "middle" :: "middle", RichText = true },
+				{ text = VALUE, truncate = "middle" :: "middle", TextWrapped = true },
 				{ text = VALUE, truncate = "centre" },
 			} :: { any }
 		do
@@ -955,7 +962,7 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		t.expect(constraint.MaxTextSize).toBe(16)
 		t.expect(constraint.MinTextSize).toBe(12)
 		w.stop()
-		local _, titled = labelWorld({ text = "Go", textRole = "title", textSize = "fit" })
+		local _, titled = labelWorld({ text = "Go", textRole = "title" :: "title", textSize = "fit" })
 		t.expect(titled:FindFirstChildWhichIsA("UITextSizeConstraint").MaxTextSize).toBe(24)
 	end)
 
@@ -995,7 +1002,7 @@ t.describe("native parity restore: Path", function()
 
 	t.it("strokes pathShapes points on a native Path2D and follows new points without a remount", function()
 		local points = Compose.cell(shapes.arc(0, 90))
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.Path "Gauge" { points = points, width = 64 }
 		end)
 		local frame = w.screen:FindFirstChild("Gauge")
@@ -1013,10 +1020,10 @@ t.describe("native parity restore: Path", function()
 	end)
 
 	t.it("takes its colour from a theme role or a tint, and its thickness from pixels or a metric", function()
-		local role = Compose.cell("accent")
-		local w = world(function(UI, Host, engine)
+		local role = Compose.cell("accent" :: "accent" | "content" | "secondary")
+		local w = world(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame {
-				UI.Path "Role" { points = shapes.ring(), role = role, thickness = 3, closed = true },
+				UI.Path "Role" { points = shapes.ring(), role = role, thickness = 3, closed = true } :: unknown,
 				UI.Path "Plain" { points = shapes.ring() },
 				UI.Path "Tinted" {
 					points = shapes.ring(),
@@ -1043,10 +1050,10 @@ t.describe("native parity restore: Path", function()
 	end)
 
 	t.it("refuses missing points, more than the engine's 100 points and an unknown role", function()
-		t.expect(pcall(world, function(UI)
+		t.expect(pcall(world, function(UI: FacetControls)
 			return UI.Path({} :: any)
 		end)).toBe(false)
-		t.expect(pcall(world, function(UI)
+		t.expect(pcall(world, function(UI: FacetControls)
 			return UI.Path { points = shapes.arc(0, 360, { segments = 99 }), role = "danger" :: any }
 		end)).toBe(false)
 		t.expect(pcall(shapes.arc, 0, 360, { segments = 100 })).toBe(false)

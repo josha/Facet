@@ -5,7 +5,7 @@ local clock = {}
 export type Scheduled = { at: number, seq: number, fn: () -> (), cancelled: boolean }
 
 function clock.new(Compose: any, opts: { start: number? }?): any
-	local options = opts or {}
+	local options: { start: number? } = opts or {}
 	local nowSignal = Compose.cell(options.start or 0)
 	local scheduled: { Scheduled } = {}
 	local seq = 0

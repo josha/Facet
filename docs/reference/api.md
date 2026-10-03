@@ -41,7 +41,8 @@ The exported Luau types include `Facet`, `ComposeModule`, `ComposeRobloxModule`,
 `Controls`, `ControlOptions`, `App`, `AppOptions`, `Component`, `ThemePackage`,
 `CivilDate`, `CivilRange`, `CivilLocale`, `CivilDateModule`,
 and the `Props` and `Spec` contracts of each control. The layout types include
-`Space`, `Padding` and `Extent`. `Cell<T>`, `Readable<T>`,
+`Space`, `Padding` and `Extent`. `RowActionsOptions` types collection row action
+callbacks. `SheetDetent` types a sheet detent entry. `Cell<T>`, `Readable<T>`,
 `Runtime`, `Owner` and `Use` are the Compose types. Collection, menu and picker
 contracts keep the item and value types through callbacks. Native properties use
 the Roblox property types. For example, `Size` accepts a `UDim2` or a reactive
@@ -57,18 +58,19 @@ Literal options can need singleton annotations, such as
 `presentation = "number" :: "number"`. These annotations keep the contract
 without `any`.
 
-Native Instance properties also accept `Compose.static(instance)`. The pinned
+Native Instance properties accept reactive `nil` values to clear the property.
+They also accept `Compose.static(instance)`. The pinned
 Compose release types the payload of this marker as `unknown`. Thus Luau cannot
 check the class of the wrapped Instance. Ordinary property values and reactive
 sources keep their native types.
 
-Run `python3 tools/check_types.py` to check the Facet runtime source and the
-positive and compile-fail public API witnesses. The checker uses pinned Roblox
-definitions and the default analyzer limits, so the full `Facet` type checks
-the same way in a consumer's editor. It runs the old Luau type solver and then
-the new type solver. The new solver pass must stay within the diagnostic budget
-in `tools/typecheck/solver_v2_budget.json`. It reports vendor diagnostics separately. It does not accept a
-`--!strict` directive alone as proof of a typed API.
+Run `python3 tools/check_types.py` to check every Luau file in the repository and
+the public API witnesses. The checker compiles each file with the pinned runtime,
+then checks strict types with pinned Roblox and Lune declarations. It uses the old
+Luau solver by default. `--solver new` and `--solver both` select other solver runs.
+Every selected solver must report zero type errors. Each invalid public probe must
+be rejected. The checker increases the analyzer graph limit to check the complete
+control types. A `--!strict` directive alone does not prove that a file is typed.
 
 ### Mounting
 
@@ -960,7 +962,8 @@ Presentation options:
   `facet-appearance-inverse` tag. A `utility` or `link` Button has no plate:
   a theme's `control` chrome art paints only the other appearances. A Button
   whose `BackgroundTransparency` is 1 has no plate art either, so a
-  transparent hit target never covers the content beneath it.
+  transparent hit target never covers the content beneath it. A bound
+  `nil` appearance restores `standard`.
   A destructive or `emphasis` Button keeps its role on skinned art. When the
   label (`onDanger` or `onAccent`) is lighter than the fill (`danger` or
   `accent`), the art is tinted with the fill. When `onAccent` is darker than
@@ -2027,7 +2030,8 @@ cannot be hidden.
 
 A sidebar is as wide as its widest tab label plus the tab padding and icon, and
 its labels are centred. Before the labels are measured it is 20 percent of the
-TabView width, from 200 to 280 pixels. `railWidth` sets the width and aligns
+TabView width, from 200 to 280 pixels. A bound `railWidth` can return `nil`
+to restore this default. `railWidth` sets the width and aligns
 the labels to the leading edge. The tabs of a top bar are centred in it.
 
 `onChange(id)` reports a user selection. A programmatic selection change does
@@ -2361,7 +2365,8 @@ their own padding. The padding follows a live theme change.
 Supply a writable boolean `isPresented`, or a writable `item` cell where `nil`
 means hidden. Also supply `title`, `message` and `actions`. The alert captures
 the item payload for the active presentation and gives it to the content and
-callback factories.
+callback factories. `title` and `message` accept a string, a readable string,
+a string formula, or a callback that returns a string for the item payload.
 
 Actions have `id`, `label` and `role`, and an optional `enabled`, `shortcut` and
 `onActivate(payload)`. Dismissal occurs before the action callback.
@@ -3401,7 +3406,7 @@ press.
 | `Skeleton` | A loading placeholder with a configurable form and line count. `corners` rounds a box or a line: `square`, a number of pixels, `control` (or `rounded`) and `panel` for the radii of the theme, or `pill`. A circle refuses `corners`. |
 | `AsyncImage` | An image or source, an optional resource or loader, a placeholder, a failure label and a status callback. `imageProperties` forwards native properties and children to the inner ImageLabel. |
 | `Avatar` | `name`; one face: image, userId, resource or `icon` (an icon name, such as `"person"` for a guest, drawn in place of the initials); loader and onStatus; presence online, away, busy, offline or `inExperience`; presence label and mark; diameter or controlSize; standard or icon form; `background`, a palette role (`surface`, `surfaceStrong`, `control`, `contentStrong`, `accent`, `success`, `warning` or `danger`) for the plate, with its partner color on the initials and the icon; optional activation. `inExperience` draws an `accent` ring with a `surface` gap inside the edge of the face in place of a corner mark. Each band is twice `strokes.hairline` wide. An Avatar without an activation takes no input. With one, a `HoverRing` stroke in `accent` lights only the avatar under the pointer. |
-| `AvatarGroup` | `items` with id, name, image, userId, icon and presence, and an optional `resource` shared-resource acquire function. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. The faces take no input. The overflow chip is the only target: an `OverflowGap` keeps it clear of the overlapping faces, and with touch or a gamepad it is at least `targetSizes.minimum` on both axes. The group binds no gamepad button, so ButtonB reaches the screen. |
+| `AvatarGroup` | `items` with id, name, image, userId, icon and presence, and an optional `resource` function that returns an `ImageResource`. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. The faces take no input. The overflow chip is the only target: an `OverflowGap` keeps it clear of the overlapping faces, and with touch or a gamepad it is at least `targetSizes.minimum` on both axes. The group binds no gamepad button, so ButtonB reaches the screen. |
 | `Stage` | A native ViewportFrame. A `camera` CFrame or a borrowed Camera, `fieldOfView`, `content(runtime, world, live)` for 3D content that Compose owns, and `lazy`. |
 
 ### Text
@@ -3484,7 +3489,10 @@ Role sizes come from the theme package and follow a theme change. Another
 The AsyncImage loader receives `(source, resolve, reject)`. It can return a
 cancellation. A superseded result cannot replace the current image. Loading and
 failure stay observable. The control does not invent successful assets.
-Resource lifetime uses Compose ownership and shared resources.
+`resource` is a function that returns an `ImageResource`. The resource contains
+`value` and either `state` or `status`. The function can register cleanup with
+`Compose.cleanup`. A Compose shared resource acquire function also fits this
+contract. Resource lifetime uses Compose ownership.
 
 The Stage content callback mounts into its WorldModel. It can return a teardown
 function. The third argument, `live`, is a readable boolean. It is false while
@@ -3571,7 +3579,9 @@ weight. The derived role keeps the family, style, size and line height.
   declares two palettes, `Dark` (the default) and `Light`. Both palettes pass
   the contrast gate of `define`.
 - `define(definition)` derives from `base` (neutral by default) and returns
-  `package?, report`. Check `report.ok` before use. An accepted theme package is
+  `package?, report`. It also accepts a theme package as its input. A chrome
+  override can omit `kind` when the base supplies it. Check `report.ok` before
+  use. An accepted theme package is
   recursively frozen. Callbacks, cycles and malformed definitions are rejected.
   A type role needs a positive size. Each `metrics.space` step needs a pixel
   size of 0 or more. A chrome shadow name must be a

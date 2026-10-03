@@ -174,7 +174,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return style
 	end
 	function ctx.controlSize(
-		source: Shared.Value<Shared.ControlSize>?,
+		source: Shared.Value<Shared.ControlSize?>?,
 		field: "height" | "paddingX" | "iconSize",
 		use: ComposeTypes.Use?
 	): number
@@ -1064,7 +1064,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			Position = types.UDim2.fromScale(0, if parts.described then 0 else 0.5),
 		})
 		assert(content:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = Enum.VerticalAlignment.Center
-		local rung: Shared.Value<Shared.ControlSize>? = parts.controlSize
+		local rung: Shared.Value<Shared.ControlSize?>? = parts.controlSize
 		local function height(use: ComposeTypes.Use?): UDim2
 			return types.UDim2.new(1, 0, 0, ctx.controlSize(rung, "height", use))
 		end
@@ -1387,16 +1387,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				})
 		end
 		for _, binding in keyCodes :: { Shared.ActionBinding } do
-			table.insert(p, bind(binding))
+			p[#p + 1] = bind(binding)
 		end
 		local conditional = settings.conditional
 		if conditional then
-			table.insert(
-				p,
-				Compose.show(conditional.when, function()
-					return bind(conditional.binding)
-				end)
-			)
+			p[#p + 1] = Compose.show(conditional.when, function()
+				return bind(conditional.binding)
+			end)
 		end
 		local action = Host.InputAction(p)
 		local enabled = Compose.formula(function(use: ComposeTypes.Use): boolean

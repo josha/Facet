@@ -313,7 +313,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 				Selectable = false,
 			}
-			table.insert(bodyProps, limit)
+			bodyProps[#bodyProps + 1] = limit
 			local body, _, _, extent, bodyRested = parts.scroller(
 				ctx,
 				bodyProps,

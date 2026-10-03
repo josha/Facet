@@ -1,8 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedControls)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type Row = { [string]: any, id: string, label: string }
 return function(ctx: any, options: any)
-	local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+	local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 	local D, D2, E, V2 = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum, ctx.types.Vector2
-	local initial = options.rows or {}
+	local initial: { Row } = options.rows or {}
 	for index = 1, if options.rows then 0 else options.count do
 		initial[index] = {
 			id = tostring(index),
@@ -13,13 +23,16 @@ return function(ctx: any, options: any)
 				else string.rep(`A sentence about post {index}. `, (index * 3) % 7 + 1),
 		}
 	end
-	local rows, selection, selected = Compose.cell(initial), Compose.cell({}), Compose.cell(nil)
+	local rows, selection, selected =
+		Compose.cell(initial), Compose.cell({}), (function(value: string?): OptionalStringCell
+			return Compose.cell(value)
+		end)(nil)
 	local columns, textOffset, variable = Compose.cell(4), Compose.cell(0), Compose.cell(true)
 	local editing, moves = Compose.cell(false), Compose.cell(0)
 	local mounted, built = Compose.cell(0), Compose.cell(0)
 	local status = Compose.cell({
-		mode = "windowed",
-		direction = "vertical",
+		mode = "windowed" :: "windowed",
+		direction = "vertical" :: "vertical",
 		total = 0,
 		retained = 0,
 		first = 0,
@@ -31,10 +44,11 @@ return function(ctx: any, options: any)
 		following = false,
 		measured = 0,
 	})
-	local controls, coordinator = {}, Compose.cell(nil)
+	local controls: OrderedControls = {}
+	local coordinator = Compose.cell(nil :: string?)
 	local titleLine, bodyLine = Compose.cell(21), Compose.cell(18)
 	local readRows, flaggedRows = Compose.cell({}), Compose.cell({})
-	local body
+	local body: ScrollingFrame?
 	local function seedFlags()
 		local reads, flags = {}, {}
 		for _, item in initial do
@@ -44,7 +58,7 @@ return function(ctx: any, options: any)
 		flaggedRows:set(flags)
 	end
 	seedFlags()
-	local function markRead(key)
+	local function markRead(key: string)
 		local value = table.clone(readRows:peek())
 		value[key] = true
 		readRows:set(value)
@@ -63,8 +77,9 @@ return function(ctx: any, options: any)
 		end
 		rows:set(nextRows)
 	end
-	local function reorder(keys, slot)
-		local carried, remaining = {}, {}
+	local function reorder(keys: { string }, slot: number)
+		local carried: { Row } = {}
+		local remaining: { Row } = {}
 		for _, item in rows:peek() do
 			table.insert(if table.find(keys, item.id) then carried else remaining, item)
 		end
@@ -77,7 +92,7 @@ return function(ctx: any, options: any)
 	local function edit()
 		editing:set(not editing:peek())
 	end
-	local function actions(key)
+	local function actions(key: string): RowActions
 		return {
 			Name = "Row_" .. key,
 			coordinator = coordinator,
@@ -89,7 +104,7 @@ return function(ctx: any, options: any)
 					label = "Mark read",
 					icon = "checkmark",
 					onActivate = function()
-						markRead(key)
+						markRead(assert(key))
 					end,
 				},
 			},
@@ -98,11 +113,11 @@ return function(ctx: any, options: any)
 					id = "delete",
 					label = "Delete",
 					icon = "trash",
-					role = "destructive",
+					role = "destructive" :: "destructive",
 					onActivate = function()
 						remove(key)
 					end,
-				},
+				} :: RowAction,
 				{
 					id = "flag",
 					label = "Flag",
@@ -114,17 +129,17 @@ return function(ctx: any, options: any)
 			},
 		}
 	end
-	local function observe(node, property)
-		local value = Compose.cell(node[property])
+	local function observe(node: ScrollingFrame, property: string)
+		local value = Compose.cell((node :: any)[property])
 		local connection = node:GetPropertyChangedSignal(property):Connect(function()
-			value:set(node[property])
+			value:set((node :: any)[property])
 		end)
 		Compose.cleanup(function()
 			connection:Disconnect()
 		end)
 		return value
 	end
-	local extents = Compose.formula(function(use)
+	local extents = Compose.formula(function(use: Use)
 		local result = {}
 		if options.variable then
 			local titleHeight = math.max(use(titleLine), math.ceil((15 + use(textOffset)) * 1.35))
@@ -135,9 +150,9 @@ return function(ctx: any, options: any)
 		end
 		return result
 	end)
-	local function mailBody(current, key, sender)
+	local function mailBody(current: Readable<Row>, key: string, sender: boolean): GuiObject
 		local function words(field)
-			return function(use)
+			return function(use: Use)
 				return use(current)[field]
 			end
 		end
@@ -157,7 +172,7 @@ return function(ctx: any, options: any)
 				form = "dot",
 				status = "accent",
 				name = "Unread",
-				Visible = function(use)
+				Visible = function(use: Use)
 					return not use(readRows)[key]
 				end,
 			},
@@ -166,7 +181,7 @@ return function(ctx: any, options: any)
 				LayoutOrder = 2,
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(0, 1),
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: unknown,
 				Host.UIListLayout({
 					SortOrder = E.SortOrder.LayoutOrder,
 					VerticalAlignment = E.VerticalAlignment.Center,
@@ -176,15 +191,20 @@ return function(ctx: any, options: any)
 					LayoutOrder = 1,
 					Visible = sender,
 					text = words("from"),
-					textRole = "body",
+					textRole = "body" :: "body",
 					truncate = "end",
 				},
-				UI.Text "Subject" { LayoutOrder = 2, text = words("subject"), textRole = "label", truncate = "end" },
+				UI.Text "Subject" {
+					LayoutOrder = 2,
+					text = words("subject"),
+					textRole = "label" :: "label",
+					truncate = "end",
+				},
 				UI.Text "Preview" {
 					LayoutOrder = 3,
 					text = words("preview"),
-					textRole = "caption",
-					role = "secondary",
+					textRole = "caption" :: "caption",
+					role = "secondary" :: "secondary",
 					truncate = "end",
 				},
 			}),
@@ -192,17 +212,17 @@ return function(ctx: any, options: any)
 				LayoutOrder = 3,
 				Size = D2.fromOffset(16, 16),
 				tint = ctx.types.Color3.fromRGB(214, 64, 56),
-				image = function(use)
+				image = function(use: Use)
 					local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
 					return ctx.Facet.themes.resolveIcon(package, "flag") or ""
 				end,
-				Visible = function(use)
+				Visible = function(use: Use)
 					return use(flaggedRows)[key] == true
 				end,
 			},
 		})
 	end
-	local function row(current, placement, key)
+	local function row(current: Readable<Row>, placement: unknown, key: string): GuiObject
 		mounted:set(mounted:peek() + 1)
 		built:set(built:peek() + 1)
 		Compose.cleanup(function()
@@ -223,10 +243,10 @@ return function(ctx: any, options: any)
 				Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
 				UI.Text "PostTitle" {
 					LayoutOrder = 1,
-					text = function(use)
+					text = function(use: Use)
 						return use(current).label
 					end,
-					TextSize = function(use)
+					TextSize = function(use: Use)
 						return 15 + use(textOffset)
 					end,
 					TextWrapped = false,
@@ -237,10 +257,10 @@ return function(ctx: any, options: any)
 				},
 				UI.Text "PostBody" {
 					LayoutOrder = 2,
-					text = function(use)
+					text = function(use: Use)
 						return use(current).description
 					end,
-					TextSize = function(use)
+					TextSize = function(use: Use)
 						return 13 + use(textOffset)
 					end,
 					TextWrapped = options.measure == true,
@@ -254,23 +274,23 @@ return function(ctx: any, options: any)
 			then UI.Button({
 				Name = "Item_" .. key,
 				label = "",
-				name = function(use)
+				name = function(use: Use)
 					return use(current).subject .. " from " .. use(current).from
 				end,
 				Size = D2.fromScale(1, 1),
 				AutomaticSize = E.AutomaticSize.None,
 				onActivate = function()
 					selected:set(key)
-					markRead(key)
+					markRead(assert(key))
 				end,
 				mailBody(current, key, true),
 			})
 			else UI.Button({
 				Name = "Item_" .. key,
-				label = function(use)
+				label = function(use: Use)
 					return use(current).label
 				end,
-				TextSize = function(use)
+				TextSize = function(use: Use)
 					return 16 + use(textOffset)
 				end,
 				TextWrapped = true,
@@ -282,8 +302,16 @@ return function(ctx: any, options: any)
 			})
 		if options.actions then
 			local spec = actions(key)
-			spec.Size, spec.content = D2.fromScale(1, 1), button
-			return UI.RowActions(spec)
+			return UI.RowActions({
+				Name = spec.Name,
+				coordinator = spec.coordinator,
+				editing = spec.editing,
+				fullSwipe = spec.fullSwipe,
+				leading = spec.leading,
+				trailing = spec.trailing,
+				Size = D2.fromScale(1, 1),
+				content = button,
+			})
 		end
 		return button
 	end
@@ -337,14 +365,14 @@ return function(ctx: any, options: any)
 	local function page()
 		local collection
 		local side = Compose.cell(false)
-		local common = {
+		local common: { [any]: any } = {
 			Name = "Collection",
 			from = rows,
 			key = function(item)
 				return item.id
 			end,
 			LayoutOrder = 2,
-			Size = function(use)
+			Size = function(use: Use)
 				return if use(side) then D2.new(0, 0, 1, 0) else D2.new(1, 0, 0, 0)
 			end,
 			status = status,
@@ -364,7 +392,7 @@ return function(ctx: any, options: any)
 			common.onActivate = function(item, key)
 				selected:set(key)
 				if options.mail then
-					markRead(key)
+					markRead(assert(key))
 				end
 			end
 			common.itemSize = if options.mail then 76 else nil
@@ -376,7 +404,7 @@ return function(ctx: any, options: any)
 			if options.editable then
 				common.alternatingRows = true
 				common.onCellChange = function(key, column, value)
-					local nextRows = table.clone(rows:peek())
+					local nextRows: { Row } = table.clone(rows:peek())
 					for index, item in nextRows do
 						if item.id == key then
 							local nextItem = table.clone(item)
@@ -402,11 +430,11 @@ return function(ctx: any, options: any)
 						id = "subject",
 						label = "Subject",
 						minWidth = 160,
-						render = function(current, _, key)
+						render = function(current, _, key): GuiObject
 							return mailBody(current, key, false)
 						end,
 					},
-				}
+				} :: { TableColumn }
 			collection = UI.Table(common)
 			body = collection:FindFirstChild("Body")
 		else
@@ -415,7 +443,7 @@ return function(ctx: any, options: any)
 				then 160
 				elseif options.mail then 76
 				elseif options.measure then 76
-				else function(use)
+				else function(use: Use)
 					return 64 + use(textOffset) * 2
 				end
 			common.mode = if options.list then "all" else "windowed"
@@ -426,7 +454,7 @@ return function(ctx: any, options: any)
 			collection = if options.grid then UI.VirtualGrid(common) else UI.VirtualList(common)
 			body = collection
 		end
-		local nativePosition = observe(body, "CanvasPosition")
+		local nativePosition = observe(assert(body), "CanvasPosition")
 		local buttons = {}
 		local function command(name, label, callback, visible)
 			table.insert(
@@ -455,11 +483,11 @@ return function(ctx: any, options: any)
 			local env = UI.environment()
 			command(
 				"Edit",
-				function(use)
+				function(use: Use)
 					return if use(editing) then "Done" else "Edit"
 				end,
 				edit,
-				function(use)
+				function(use: Use)
 					return use(env.effectiveInput) ~= "KeyboardAndMouse" or use(editing)
 				end
 			)
@@ -471,7 +499,7 @@ return function(ctx: any, options: any)
 			end)
 		end
 		if options.variable then
-			command("Mode", function(use)
+			command("Mode", function(use: Use)
 				return if use(variable) then "Variable heights" else "Uniform 84px"
 			end, function()
 				variable:set(not variable:peek())
@@ -503,12 +531,12 @@ return function(ctx: any, options: any)
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			table.unpack(buttons),
+			table.unpack((buttons :: unknown) :: { unknown }),
 		}
 		local titleProbe = UI.Text "TitleLineMeasure" {
 			Visible = false,
 			text = "Ag",
-			TextSize = function(use)
+			TextSize = function(use: Use)
 				return 15 + use(textOffset)
 			end,
 			AutomaticSize = E.AutomaticSize.XY,
@@ -517,14 +545,14 @@ return function(ctx: any, options: any)
 		local bodyProbe = UI.Text "BodyLineMeasure" {
 			Visible = false,
 			text = "Ag",
-			TextSize = function(use)
+			TextSize = function(use: Use)
 				return 13 + use(textOffset)
 			end,
 			AutomaticSize = E.AutomaticSize.XY,
 			Size = D2.fromOffset(0, 0),
 		}
 		local titleBounds, bodyBounds = observe(titleProbe, "TextBounds"), observe(bodyProbe, "TextBounds")
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			titleLine:set(use(titleBounds).Y)
 			bodyLine:set(use(bodyBounds).Y)
 		end)
@@ -541,22 +569,22 @@ return function(ctx: any, options: any)
 			Host.UIListLayout({
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 8),
-				FillDirection = function(use)
+				FillDirection = function(use: Use)
 					return if use(side) then E.FillDirection.Horizontal else E.FillDirection.Vertical
 				end,
 			}),
 			Host.ScrollingFrame "ToolbarScroll" {
 				LayoutOrder = 1,
-				Size = function(use)
+				Size = function(use: Use)
 					return if use(side) then D2.new(0.4, 0, 1, 0) else D2.new(1, 0, 0, 0)
 				end,
-				AutomaticSize = function(use)
+				AutomaticSize = function(use: Use)
 					return if use(side) then E.AutomaticSize.None else E.AutomaticSize.Y
 				end,
 				CanvasSize = D2.new(0, 0, 0, 0),
 				AutomaticCanvasSize = E.AutomaticSize.Y,
 				ScrollingDirection = E.ScrollingDirection.Y,
-				ScrollBarThickness = function(use)
+				ScrollBarThickness = function(use: Use)
 					return if use(side) then 4 else 0
 				end,
 				BackgroundTransparency = 1,
@@ -566,15 +594,15 @@ return function(ctx: any, options: any)
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
 					UI.Text "Title" {
 						LayoutOrder = 1,
-						Visible = function(use)
+						Visible = function(use: Use)
 							local viewport = ctx.viewport and use(ctx.viewport)
 							return viewport == nil or viewport.height <= 0 or viewport.height >= 480
 						end,
 						text = options.title,
-						textRole = "title",
+						textRole = "title" :: "title",
 						TextWrapped = true,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
@@ -583,7 +611,7 @@ return function(ctx: any, options: any)
 					actionsFrame,
 					UI.Text "Status" {
 						LayoutOrder = 3,
-						text = function(use)
+						text = function(use: Use)
 							local snapshot, count = use(status), 0
 							for _, on in use(selection) do
 								if on then
@@ -609,7 +637,7 @@ return function(ctx: any, options: any)
 			bodyProbe,
 		})
 		local area = observe(root, "AbsoluteSize")
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			local size = use(area)
 			side:set(size.Y > 0 and size.Y < 360 and size.X >= 480)
 		end)

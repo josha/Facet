@@ -1,4 +1,7 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
@@ -10,7 +13,7 @@ local function dialog(UI: any, Host: any, name: string, open: any): any
 			open:set(value)
 		end,
 		title = name,
-		content = function()
+		content = function(): Instance
 			return Host.TextLabel "Line" { Text = name }
 		end,
 	})
@@ -32,7 +35,7 @@ end
 t.describe("native modal: the scrim sinks input", function()
 	t.it("the modal root and its full-screen scrim are Active", function()
 		local open = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ dialog(UI, Host, "About", open) })
 		end)
 		local modal = modalOf(w, "About")
@@ -44,9 +47,9 @@ t.describe("native modal: the scrim sinks input", function()
 	t.it("stacked modals hold every scroller outside the top one and restore each exact value", function()
 		local first, second = Compose.cell(false), Compose.cell(false)
 		local late = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
+				Host.ScrollingFrame "Grid" { ScrollingEnabled = true } :: unknown,
 				Host.ScrollingFrame "Frozen" { ScrollingEnabled = false },
 				Compose.show(late, function()
 					return Host.ScrollingFrame "Late" { ScrollingEnabled = true }
@@ -82,11 +85,11 @@ t.describe("native modal: the scrim sinks input", function()
 	t.it("a scroller that leaves while held gets its value back, and closing out of order restores", function()
 		local first, second = Compose.cell(true), Compose.cell(false)
 		local kept = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Compose.show(kept, function()
 					return Host.ScrollingFrame "Feed" { ScrollingEnabled = true }
-				end),
+				end) :: unknown,
 				Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
 				dialog(UI, Host, "First", first),
 				dialog(UI, Host, "Second", second),
@@ -107,13 +110,13 @@ t.describe("native modal: the scrim sinks input", function()
 
 	t.it("an exiting modal gives scrolling back at once, and a second layer is never touched", function()
 		local open = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
+				Host.ScrollingFrame "Grid" { ScrollingEnabled = true } :: unknown,
 				dialog(UI, Host, "About", open),
 			})
 		end)
-		local other = overlay.new(function(_, Host)
+		local other = overlay.new(function(_, Host: RobloxHost)
 			return Host.ScrollingFrame "Elsewhere" { ScrollingEnabled = true }
 		end)
 		local grid = w.find("Grid")

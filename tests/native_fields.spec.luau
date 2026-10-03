@@ -1,4 +1,13 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type TextLabelConstructor = typeof(require("@repo/tools/typecheck/aliases").TextLabelConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -10,7 +19,7 @@ local expect = t.expect
 
 local function world(build: (any, any, any) -> any, options: any?): any
 	local engine: any = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = {}
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	local config: any = options or {}
@@ -20,7 +29,7 @@ local function world(build: (any, any, any) -> any, options: any?): any
 	local ctx = context(Compose, runtime, config)
 	register(ctx, UI)
 	local screen = engine.new("ScreenGui")
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		return build(UI, engine, runtime)
 	end, screen)
 	return {
@@ -68,7 +77,7 @@ end
 
 local function refused(build: (any) -> any): string?
 	local ok, err = pcall(function()
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return build(UI)
 		end)
 		w.stop()
@@ -96,7 +105,7 @@ end
 
 t.describe("native field chrome", function()
 	t.it("a field with no chrome keys keeps its native TextBox root", function()
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell(""), placeholder = "Your name" })
 		end)
 		expect(w.node.ClassName).toBe("TextBox")
@@ -110,7 +119,7 @@ t.describe("native field chrome", function()
 
 	t.it("the label sits above its field, and a tap or a finger on it puts the caret in the field", function()
 		for _, route in { "pointer", "touch" } do
-			local w = world(function(UI)
+			local w = world(function(UI: FacetControls)
 				return UI.TextInput("Name")({ value = Compose.cell(""), label = "Display name" })
 			end)
 			local label, plate = find(w.node, "Label"), find(w.node, "Input")
@@ -129,7 +138,7 @@ t.describe("native field chrome", function()
 
 	t.it("a disabled field's label follows it: no press or hover affordance, live both ways", function()
 		local enabled = Compose.cell(false)
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell(""), label = "Display name", enabled = enabled })
 		end)
 		local label, field = find(w.node, "Label"), find(w.node, "Input/Field")
@@ -145,7 +154,7 @@ t.describe("native field chrome", function()
 	end)
 
 	t.it("the label fits its text and adds no focus stop", function()
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell(""), label = "Display name" })
 		end)
 		expect(table.concat(selectable(w.node), " ")).toBe("Field")
@@ -160,20 +169,24 @@ t.describe("native field chrome", function()
 
 	t.it("the required mark is part of the label's words, bound or static; optional paints no word", function()
 		local words = Compose.cell("Display name")
-		local w = world(function(UI, _, runtime)
-			return runtime.constructors.Frame({
-				UI.TextInput("Static")({ value = Compose.cell(""), label = "Display name", requiredMark = "required" }),
+		local w = world(function(UI: FacetControls, _, runtime)
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				UI.TextInput("Static")({
+					value = Compose.cell(""),
+					label = "Display name",
+					requiredMark = "required" :: "required",
+				}) :: unknown,
 				UI.TextInput("Bound")({
 					value = Compose.cell(""),
-					label = function(use)
+					label = function(use: Use)
 						return use(words)
 					end,
-					requiredMark = "required",
+					requiredMark = "required" :: "required",
 				}),
 				UI.TextInput("Optional")({
 					value = Compose.cell(""),
 					label = "Display name",
-					requiredMark = "optional",
+					requiredMark = "optional" :: "optional",
 				}),
 			})
 		end)
@@ -191,7 +204,7 @@ end)
 t.describe("native field message line", function()
 	t.it("an error replaces the hint, in the danger role, beside a mark, and the field holds still", function()
 		local failure = Compose.cell("")
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({
 				value = Compose.cell(""),
 				hint = "Shown to other players",
@@ -220,7 +233,7 @@ t.describe("native field message line", function()
 	end)
 
 	t.it("the error mark is floored at the icon rung and painted the message's colour", function()
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({
 				value = Compose.cell(""),
 				hint = "Shown to other players",
@@ -237,7 +250,7 @@ t.describe("native field message line", function()
 		expect(mark:HasTag("facet-icon-error")).toBe(true)
 		local sheet = nil
 		local e: any = engineLib.new()
-		local runtime = Roblox.createRuntime(e)
+		local runtime: ComposeRuntime = Roblox.createRuntime(e)
 		local rules: { [string]: any } = {}
 		local stop = runtime.mount(function()
 			sheet = themes(Compose).createStyleSheet(runtime, nil, { types = e.types })
@@ -255,11 +268,11 @@ t.describe("native field message line", function()
 
 	t.it("the caller's error outranks the numeric field's own rejection line", function()
 		local failure = Compose.cell("")
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Laps")({
 				value = Compose.cell("3"),
 				numericValue = Compose.cell(3),
-				presentation = "number",
+				presentation = "number" :: "number",
 				min = 1,
 				max = 9,
 				errorText = failure,
@@ -280,11 +293,14 @@ end)
 
 t.describe("native field accessories", function()
 	local function accessories(pasted: { count: number }, value: any): any
-		return world(function(UI, _, runtime)
+		return world(function(UI: FacetControls, _, runtime)
 			return UI.TextInput("Name")({
 				value = value,
-				clearButtonMode = "always",
-				leading = runtime.constructors.TextLabel({ Name = "Mark", Text = "@" }),
+				clearButtonMode = "always" :: "always",
+				leading = ((runtime.constructors.TextLabel :: unknown) :: TextLabelConstructor)({
+					Name = "Mark",
+					Text = "@",
+				}),
 				trailing = UI.Button("Paste")({
 					label = "Paste",
 					onActivate = function()
@@ -343,8 +359,8 @@ t.describe("native field accessories", function()
 	end)
 
 	t.it("a plain search field draws its leading search mark", function()
-		local w = world(function(UI)
-			return UI.TextInput("Find")({ value = Compose.cell(""), presentation = "search" })
+		local w = world(function(UI: FacetControls)
+			return UI.TextInput("Find")({ value = Compose.cell(""), presentation = "search" :: "search" })
 		end)
 		local glyph = w.node:FindFirstChild("SearchIcon", true)
 		expect(glyph ~= nil).toBe(true)
@@ -353,10 +369,10 @@ t.describe("native field accessories", function()
 	end)
 
 	t.it("a search field keeps its leading mark beside a trailing action, and refuses a second one", function()
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Find")({
 				value = Compose.cell("rally"),
-				presentation = "search",
+				presentation = "search" :: "search",
 				trailing = UI.Button("Filter")({ label = "Filter", onActivate = function() end }),
 			})
 		end)
@@ -367,11 +383,11 @@ t.describe("native field accessories", function()
 		expect(glyph.Selectable).toBe(false)
 		w.stop()
 		local ok, err = pcall(function()
-			local nested = world(function(UI, _, runtime)
+			local nested = world(function(UI: FacetControls, _, runtime)
 				return UI.TextInput("Twice")({
 					value = Compose.cell(""),
-					presentation = "search",
-					leading = runtime.constructors.TextLabel({ Text = "@" }),
+					presentation = "search" :: "search",
+					leading = ((runtime.constructors.TextLabel :: unknown) :: TextLabelConstructor)({ Text = "@" }),
 				})
 			end)
 			nested.stop()
@@ -384,15 +400,17 @@ end)
 
 t.describe("native field vocabulary", function()
 	t.it("appearance paints the plate a published surface; a bound word repaints in place", function()
-		for word, tag in { standard = "facet-field", contrast = "facet-control", utility = "facet-appearance-utility" } do
-			local w = world(function(UI)
+		for word, tag in
+			{ standard = "facet-field", contrast = "facet-control", utility = "facet-appearance-utility" } :: { [string]: string }
+		do
+			local w = world(function(UI: FacetControls)
 				return UI.TextInput("Name")({ value = Compose.cell(""), appearance = word })
 			end)
 			expect(`{word}: {find(w.node, "Input"):HasTag(tag)}`).toBe(`{word}: true`)
 			w.stop()
 		end
 		local word = Compose.cell("standard")
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell(""), appearance = word })
 		end)
 		local plate = find(w.node, "Input")
@@ -412,8 +430,8 @@ t.describe("native field vocabulary", function()
 	end)
 
 	t.it("corners ride a native UICorner, and square is a radius of zero", function()
-		local function corner(word: string?): any
-			local w = world(function(UI)
+		local function corner(word: ("pill" | "square")?): any
+			local w = world(function(UI: FacetControls)
 				return UI.TextInput("Name")({ value = Compose.cell(""), corners = word, label = "Name" })
 			end)
 			local found = find(w.node, "Input/Corners")
@@ -428,8 +446,12 @@ t.describe("native field vocabulary", function()
 	end)
 
 	t.it("a named rung shrinks the plate, reserves a whole target, and the label still focuses", function()
-		local w = world(function(UI)
-			return UI.TextInput("Name")({ value = Compose.cell(""), controlSize = "compact", label = "Name" })
+		local w = world(function(UI: FacetControls)
+			return UI.TextInput("Name")({
+				value = Compose.cell(""),
+				controlSize = "compact" :: "compact",
+				label = "Name",
+			})
 		end)
 		local target = find(w.node, "Input+target")
 		local plate = find(target, "Input")
@@ -443,11 +465,17 @@ t.describe("native field vocabulary", function()
 
 	t.it("an unknown chrome word is a build error that names the key", function()
 		for key, bad in
-			{ appearance = "emphasis", corners = "rounded", requiredMark = "maybe", hint = 4, controlSize = "tiny" } :: {
+			{
+				appearance = "emphasis",
+				corners = "rounded" :: "rounded",
+				requiredMark = "maybe" :: "maybe",
+				hint = 4,
+				controlSize = "tiny" :: "tiny",
+			} :: {
 				[string]: any,
 			}
 		do
-			local err = refused(function(UI)
+			local err = refused(function(UI: FacetControls)
 				local spec: any = { value = Compose.cell("") }
 				spec[key] = bad
 				return UI.TextInput("Name")(spec)
@@ -459,7 +487,7 @@ t.describe("native field vocabulary", function()
 
 	t.it("closing the screen leaves no field node or connection behind", function()
 		local engine: any = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI: any = {}
 		local input = engine.new("UserInputService")
 		local ctx = context(Compose, runtime, { types = engine.types, services = { UserInputService = input } })
@@ -473,7 +501,7 @@ t.describe("native field vocabulary", function()
 				label = "Fee",
 				hint = "Per lap",
 				errorText = "Wrong",
-				controlSize = "compact",
+				controlSize = "compact" :: "compact",
 				stepButtons = true,
 				prefix = "$",
 				scrub = true,
@@ -494,11 +522,11 @@ end)
 t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function()
 	t.it("a read-only field keeps its stop and contrast, refuses every edit and commits nothing", function()
 		local value, commits = Compose.cell("Ada"), 0
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({
 				value = value,
 				readOnly = true,
-				clearButtonMode = "always",
+				clearButtonMode = "always" :: "always",
 				onCommit = function()
 					commits += 1
 				end,
@@ -521,10 +549,10 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 
 	t.it("a function readOnly flips live on the same editor, keeping the draft and the edit", function()
 		local lock, value = Compose.cell(false), Compose.cell("Ada")
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({
 				value = value,
-				readOnly = function(use)
+				readOnly = function(use: Use)
 					return use(lock)
 				end,
 			})
@@ -548,7 +576,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 
 	t.it("enabled and readOnly compose onto TextEditable in either order and recover", function()
 		local enabled, lock = Compose.cell(true), Compose.cell(true)
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell(""), enabled = enabled, readOnly = lock })
 		end)
 		local field = w.node
@@ -568,14 +596,14 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 	end)
 
 	t.it("readOnly refuses anything but a boolean", function()
-		expect(refused(function(UI)
-			return UI.TextInput("Name")({ value = Compose.cell(""), readOnly = "yes" })
+		expect(refused(function(UI: FacetControls)
+			return UI.TextInput("Name")({ value = Compose.cell(""), readOnly = "yes" :: any })
 		end) ~= nil).toBe(true)
 	end)
 
 	t.it("the selectOnFocus policy lands on the same editor, live, and an illegal live word keeps the last", function()
-		local policy = Compose.cell("all")
-		local w = world(function(UI)
+		local policy = Compose.cell("all" :: "all" | "end" | "none")
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell("12.5 km"), selectOnFocus = policy })
 		end)
 		local field = w.node
@@ -584,7 +612,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 		expect(field:GetAttribute("selectOnFocus")).toBe("end")
 		expect(w.node == field).toBe(true)
 		local ok, err = pcall(function()
-			policy:set("everything")
+			policy:set("everything" :: any)
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "selectOnFocus: one of none | all | end", 1, true) ~= nil).toBe(true)
@@ -592,7 +620,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 		field:CaptureFocus()
 		expect(`{field.CursorPosition} {field.SelectionStart}`).toBe("8 -1")
 		w.stop()
-		local plain = world(function(UI)
+		local plain = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell("") })
 		end)
 		expect(plain.node:GetAttribute("selectOnFocus")).toBeNil()
@@ -601,8 +629,8 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 
 	t.it("an unknown initial selectOnFocus word fails before mount", function()
 		for _, word in { "everything", 1 :: any } do
-			local err = refused(function(UI)
-				return UI.TextInput("Name")({ value = Compose.cell(""), selectOnFocus = word })
+			local err = refused(function(UI: FacetControls)
+				return UI.TextInput("Name")({ value = Compose.cell(""), selectOnFocus = word :: any })
 			end)
 			expect(`{tostring(word)} {err ~= nil}`).toBe(`{tostring(word)} true`)
 		end
@@ -611,7 +639,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 	t.it("the box is the count of lines it was told; one line is shorter and still multiline", function()
 		local heights = {}
 		for _, count in { 1, 3, 5 } do
-			local w = world(function(UI)
+			local w = world(function(UI: FacetControls)
 				return UI.TextInput("Name")({ value = Compose.cell(""), multiline = true, visibleLines = count })
 			end)
 			local viewport = find(w.node, "Input/Viewport")
@@ -624,7 +652,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 
 	t.it("past the count the box holds still while the editor grows inside it, on the same editor", function()
 		local value = Compose.cell("")
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = value, multiline = true, visibleLines = 3 })
 		end)
 		local viewport = find(w.node, "Input/Viewport")
@@ -646,7 +674,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 
 	t.it("the caret line stays in view: at the end the box shows the last line, back at the top the first", function()
 		local value = Compose.cell(string.rep("a line of notes\n", 20))
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = value, multiline = true, visibleLines = 3 })
 		end)
 		local V = w.engine.types.Vector2
@@ -679,7 +707,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 				end,
 			},
 		}
-		local w = world(function(UI)
+		local w = world(function(UI: FacetControls)
 			return UI.TextInput("Name")({ value = Compose.cell(""), label = "Handle" })
 		end, { runService = frames })
 		local V = w.engine.types.Vector2
@@ -702,7 +730,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 	end)
 
 	t.it("an authored root size wins over the line count", function()
-		local w = world(function(UI, engine)
+		local w = world(function(UI: FacetControls, engine)
 			return UI.TextInput("Name")({
 				value = Compose.cell(""),
 				multiline = true,
@@ -718,7 +746,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 		for _, bad in
 			{ { visibleLines = 3 }, { multiline = true, visibleLines = 0 }, { multiline = true, visibleLines = 1.5 } }
 		do
-			local err = refused(function(UI)
+			local err = refused(function(UI: FacetControls)
 				local spec: any = { value = Compose.cell("") }
 				for key, entry in bad do
 					spec[key] = entry
@@ -731,7 +759,7 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 
 	t.it("a focused field scrolls its page up out from under the touch keyboard", function()
 		local worlds = require("./lib/content_world")
-		local w = worlds.new(function(UI, Host)
+		local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.ScrollingFrame({
 				Name = "Page",
 				UI.TextInput("Name")({ value = Compose.cell("Ada") }),

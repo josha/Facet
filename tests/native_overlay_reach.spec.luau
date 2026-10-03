@@ -1,4 +1,8 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local worlds = require("./lib/content_world")
 local Compose = require("../src/vendor/compose/core")
@@ -28,15 +32,15 @@ local function act(label: string): any
 end
 
 local function menuNotes(items: { any }): { string }
-	local controls: any = {}
-	local world = worlds.new(function(UI, Host)
+	local controls: { diagnostics: (() -> { string })? } = {}
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame({
 			Name = "S",
 			Size = UDim2.fromOffset(800, 600),
 			UI.Menu { label = "Options", items = items, controls = controls },
 		})
 	end, { motionLevel = "none" })
-	local notes = controls.diagnostics()
+	local notes = assert(controls.diagnostics)()
 	world.stop()
 	return notes
 end
@@ -73,7 +77,7 @@ t.describe("Menu diagnostics (restored from 0.11)", function()
 
 	t.it("a destructive item that is not last is diagnosed", function()
 		local delete = act("Delete")
-		delete.role = "destructive"
+		delete.role = "destructive" :: "destructive"
 		local notes = table.concat(menuNotes({ delete, act("Keep") }), " | ")
 		t.expect(string.find(notes, "at the end of the menu", 1, true) ~= nil).toBe(true)
 		t.expect(#menuNotes({ act("Keep"), delete })).toBe(0)
@@ -83,7 +87,7 @@ end)
 t.describe("help reachability: every input class can open every help", function()
 	local function helped(): (any, { number })
 		local count = { 0 }
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Screen",
 				UI.Button "Post" {
@@ -138,8 +142,8 @@ t.describe("help reachability: every input class can open every help", function(
 end)
 
 t.describe("full-value disclosure of truncated text", function()
-	local function label(spec: { [string]: any }): any
-		local w = overlay.new(function(UI, Host)
+	local function label(spec: { [any]: any }): any
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({ Name = "Screen", UI.Text "Name"(spec) })
 		end, { motionLevel = "none" })
 		place(w.find("Name"))
@@ -147,7 +151,7 @@ t.describe("full-value disclosure of truncated text", function()
 	end
 
 	t.it("a pointer resting on a truncated label reads the whole value", function()
-		local w = label({ text = LONG, truncate = "end", disclose = true })
+		local w = label({ text = LONG, truncate = "end" :: "end", disclose = true })
 		local name = w.find("Name")
 		name.TextFits = false
 		name.GuiState = w.Enum.GuiState.Hover
@@ -161,7 +165,7 @@ t.describe("full-value disclosure of truncated text", function()
 	end)
 
 	t.it("a label that fits discloses nothing", function()
-		local w = label({ text = "Short", truncate = "end", disclose = true })
+		local w = label({ text = "Short", truncate = "end" :: "end", disclose = true })
 		local name = w.find("Name")
 		name.TextFits = true
 		name.GuiState = w.Enum.GuiState.Hover
@@ -173,7 +177,7 @@ t.describe("full-value disclosure of truncated text", function()
 	t.it(
 		"touch long-press on a truncated label shows it until the next tap (the label is not Active, so the engine long-press is hit-tested)",
 		function()
-			local w = label({ text = LONG, truncate = "end", disclose = true })
+			local w = label({ text = LONG, truncate = "end" :: "end", disclose = true })
 			w.input.PreferredInput = w.Enum.PreferredInput.Touch
 			local name = w.find("Name")
 			name.TextFits = false
@@ -192,12 +196,12 @@ t.describe("full-value disclosure of truncated text", function()
 	)
 
 	t.it("a keyboard or gamepad selection on the row that holds the label discloses it", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Screen",
 				UI.Button "Row" {
 					label = "",
-					UI.Text "Name" { text = LONG, truncate = "end", disclose = true },
+					UI.Text "Name" { text = LONG, truncate = "end" :: "end", disclose = true },
 				},
 			})
 		end, { motionLevel = "none" })
@@ -211,7 +215,7 @@ t.describe("full-value disclosure of truncated text", function()
 	end)
 
 	t.it("a truncated Button label outranks its help on the same engagement", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Screen",
 				UI.Button "Post" { label = LONG, disclose = true, help = "Posts it" },
@@ -238,7 +242,7 @@ t.describe("full-value disclosure of truncated text", function()
 	end)
 
 	t.it("a middle cut discloses the whole value", function()
-		local w = label({ text = LONG, truncate = "middle", disclose = true })
+		local w = label({ text = LONG, truncate = "middle" :: "middle", disclose = true })
 		local name = w.find("Name")
 		name.Text = "Coastal…fourteen"
 		name.GuiState = w.Enum.GuiState.Hover
@@ -248,8 +252,10 @@ t.describe("full-value disclosure of truncated text", function()
 	end)
 
 	t.it("a Toggle's truncated label discloses its whole value; without disclose it stays plate-less", function()
-		for _, case in { { disclose = true }, { disclose = true, hint = "Shown on the HUD" }, {} } do
-			local w = overlay.new(function(UI, Host)
+		for _, case: { disclose: boolean?, hint: string? } in
+			{ { disclose = true }, { disclose = true, hint = "Shown on the HUD" }, {} } :: { { disclose: boolean?, hint: string? } }
+		do
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					Name = "Screen",
 					UI.Toggle "Music" {
@@ -279,7 +285,7 @@ t.describe("full-value disclosure of truncated text", function()
 	end)
 
 	t.it("a disclosing Button or Toggle with an authored width keeps one line that truncates", function()
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Screen",
 				UI.Toggle "Music" {
@@ -287,7 +293,7 @@ t.describe("full-value disclosure of truncated text", function()
 					value = Compose.cell(false),
 					disclose = true,
 					Size = UDim2.fromOffset(200, 44),
-				},
+				} :: unknown,
 				UI.Button "Post" { label = LONG, disclose = true, Size = UDim2.fromOffset(120, 44) },
 			})
 		end, { motionLevel = "none" })
@@ -307,12 +313,12 @@ end)
 
 t.describe("auto reveal of truncated text (restored from 0.11)", function()
 	local function revealing(count: number, reduced: boolean): any
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			local children: { any } = {}
 			for index = 1, count do
-				table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" }))
+				table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" :: "auto" }))
 			end
-			return Host.Frame({ Name = "Screen", table.unpack(children) })
+			return Host.Frame({ Name = "Screen", table.unpack((children :: unknown) :: { unknown }) })
 		end, { motionLevel = if reduced then "none" else "normal" })
 		for index = 1, count do
 			local name = w.find("Name" .. index)
@@ -374,12 +380,17 @@ t.describe("auto reveal of truncated text (restored from 0.11)", function()
 	end)
 
 	t.it("reveal is auto and needs one line", function()
-		for _, bad in { { reveal = "yes" }, { reveal = "auto", wrap = true }, { reveal = "auto", truncate = "middle" } } do
+		local badCases: { { [string]: any } } = {
+			{ reveal = "yes" },
+			{ reveal = "auto" :: "auto", wrap = true },
+			{ reveal = "auto" :: "auto", truncate = "middle" :: "middle" },
+		}
+		for _, bad in badCases do
 			bad.text = LONG
 			t.expect(pcall(function()
 				overlay
-					.new(function(UI, Host)
-						return Host.Frame({ UI.Text "Name"(bad) })
+					.new(function(UI: FacetControls, Host: RobloxHost)
+						return Host.Frame({ UI.Text "Name"(bad :: any) })
 					end, { motionLevel = "none" })
 					.stop()
 			end)).toBe(false)

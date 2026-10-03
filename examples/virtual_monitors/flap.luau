@@ -1,8 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local flight = require("./flap_model")
 
 return function(ctx: any)
-	local Compose, Host, UI = ctx.Compose, ctx.Host, ctx.UI
+	local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 	local D2, D, V2, C3, E = ctx.D2, ctx.D, ctx.V2, ctx.C3, ctx.E
 	local gameModel = ctx.model.flap
 	local state = gameModel.state
@@ -14,7 +18,7 @@ return function(ctx: any)
 		pipe = C3.fromRGB(64, 151, 117),
 		cap = C3.fromRGB(99, 191, 139),
 	}
-	local function text(name, content, size, position, bounds, color)
+	local function text(name: string, content, size, position, bounds, color)
 		return Host.TextLabel(name)({
 			Text = content,
 			Font = E.Font.GothamBold,
@@ -30,7 +34,7 @@ return function(ctx: any)
 	local function press()
 		ctx.model.flapPress()
 	end
-	local function controlLabel(use)
+	local function controlLabel(use: Use)
 		local phase = use(state).phase
 		return if phase == "ready"
 			then "Play"
@@ -45,7 +49,7 @@ return function(ctx: any)
 		BackgroundColor3 = C3.fromRGB(180, 222, 232),
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		Host.UIAspectRatioConstraint { AspectRatio = width / height, AspectType = E.AspectType.FitWithinMaxSize },
+		Host.UIAspectRatioConstraint { AspectRatio = width / height, AspectType = E.AspectType.FitWithinMaxSize } :: unknown,
 		Host.Frame "Sun" {
 			Position = D2.fromScale(0.77, 0.13),
 			Size = D2.fromScale(0.10, 0.17),
@@ -70,24 +74,24 @@ return function(ctx: any)
 		Host.Frame "TileWorld" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
-			Position = function(use)
+			Position = function(use: Use)
 				return D2.fromScale(-use(state).x / width, 0)
 			end,
 			Compose.TileCollection {
-				viewport = function(use)
+				viewport = function(use: Use): { x: number, y: number, width: number, height: number }
 					return { x = use(state).x, y = 0, width = width, height = height }
 				end,
 				tileSize = { width = tile, height = tile },
 				overscan = 1,
-				read = function(_use, column, row)
+				read = function(_use: Use, column: number, row: number): string?
 					return flight.tileAt(column, row)
 				end,
-				render = function(value, placement)
+				render = function(value, placement): GuiObject
 					return Host.Frame(`Tile_{placement.column}_{placement.row}`)({
 						Position = D2.fromScale(placement.x / width, placement.y / height),
 						Size = D2.fromScale(tile / width, tile / height),
 						BorderSizePixel = 0,
-						BackgroundColor3 = function(use)
+						BackgroundColor3 = function(use: Use)
 							return colors[use(value)]
 						end,
 						Host.Frame "TileHighlight" {
@@ -103,14 +107,14 @@ return function(ctx: any)
 		},
 		Host.Frame "Bird" {
 			AnchorPoint = V2.new(0.5, 0.5),
-			Position = function(use)
+			Position = function(use: Use)
 				return D2.fromScale(flight.BIRD_X / width, use(state).y / height)
 			end,
 			Size = D2.fromScale(28 / width, 24 / height),
 			BackgroundColor3 = C3.fromRGB(255, 207, 79),
 			BorderSizePixel = 0,
 			ZIndex = 3,
-			Host.UICorner { CornerRadius = D.new(0.3, 0) },
+			Host.UICorner { CornerRadius = D.new(0.3, 0) } :: unknown,
 			Host.Frame "Wing" {
 				Position = D2.fromScale(-0.18, 0.42),
 				Size = D2.fromScale(0.55, 0.42),
@@ -131,10 +135,10 @@ return function(ctx: any)
 				BorderSizePixel = 0,
 			},
 		},
-		text("FlapScore", function(use)
+		text("FlapScore", function(use: Use)
 			return tostring(use(state).score)
 		end, 52, D2.fromScale(0.44, 0.055), D2.fromScale(0.12, 0.14)),
-		text("FlapBest", function(use)
+		text("FlapBest", function(use: Use)
 			return `BEST {use(gameModel.best)}`
 		end, 16, D2.fromScale(0.76, 0.05), D2.fromScale(0.2, 0.06)),
 		Host.Frame "FlightMessage" {
@@ -144,18 +148,18 @@ return function(ctx: any)
 			BackgroundColor3 = C3.fromRGB(249, 245, 225),
 			BorderSizePixel = 0,
 			ZIndex = 6,
-			Visible = function(use)
+			Visible = function(use: Use)
 				return use(state).phase ~= "playing"
 			end,
-			Host.UICorner { CornerRadius = D.new(0.08, 0) },
-			text("FlightTitle", function(use)
+			Host.UICorner { CornerRadius = D.new(0.08, 0) } :: unknown,
+			text("FlightTitle", function(use: Use)
 				local phase = use(state).phase
 				return if phase == "over"
 					then "Nice flight!"
 					elseif phase == "paused" then "Take a breather."
 					else "Facet Flap"
 			end, 32, D2.fromScale(0.06, 0.16), D2.fromScale(0.88, 0.3)),
-			text("FlightHint", function(use)
+			text("FlightHint", function(use: Use)
 				local phase = use(state).phase
 				return if phase == "over"
 					then `Score {use(state).score}  ·  Tap to try again`
@@ -174,28 +178,28 @@ return function(ctx: any)
 		},
 	}
 	return UI.VStack "FlapBody" {
-		width = "fill",
-		height = "fill",
+		width = "fill" :: "fill",
+		height = "fill" :: "fill",
 		gap = "s",
 		Host.Frame "FlightStage" {
 			Size = D2.fromScale(1, 0),
 			BackgroundTransparency = 1,
-			UI.fill(),
+			UI.fill() :: unknown,
 			scene,
-		},
+		} :: unknown,
 		UI.HStack "FlightControls" {
-			width = "fill",
+			width = "fill" :: "fill",
 			gap = "s",
-			align = "center",
-			ctx.button("FlapAction", controlLabel, press),
+			align = "center" :: "center",
+			ctx.button("FlapAction", controlLabel, press) :: unknown,
 			ctx.button(
 				"FlapPause",
-				function(use)
+				function(use: Use)
 					return if use(state).phase == "paused" then "Resume" else "Pause"
 				end,
 				gameModel.togglePause,
 				{
-					enabled = function(use)
+					enabled = function(use: Use)
 						local phase = use(state).phase
 						return phase == "playing" or phase == "paused"
 					end,
@@ -203,8 +207,8 @@ return function(ctx: any)
 			),
 			UI.Text "FlightInstructions" {
 				text = "Tap / Space · Fly through the gaps",
-				textRole = "caption",
-				role = "secondary",
+				textRole = "caption" :: "caption",
+				role = "secondary" :: "secondary",
 				TextWrapped = true,
 				UI.fill(),
 			},

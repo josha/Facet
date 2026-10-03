@@ -28,12 +28,17 @@ local textFields = {
 }
 local definitions: { [string]: any } = {
 	Screen = { category = "Layout", container = true, defaults = { gap = "m" }, fields = layout },
-	VStack = { category = "Layout", container = true, defaults = { gap = "s", width = "fill" }, fields = layout },
+	VStack = {
+		category = "Layout",
+		container = true,
+		defaults = { gap = "s", width = "fill" :: "fill" },
+		fields = layout,
+	},
 	HStack = { category = "Layout", container = true, defaults = { gap = "s" }, fields = layout },
 	ZStack = {
 		category = "Layout",
 		container = true,
-		defaults = { width = "fill", height = 160 },
+		defaults = { width = "fill" :: "fill", height = 160 },
 		fields = {
 			field("width", "Width", "extent"),
 			field("height", "Height", "extent"),
@@ -46,7 +51,7 @@ local definitions: { [string]: any } = {
 	ScrollView = {
 		category = "Layout",
 		container = true,
-		defaults = { gap = "s", width = "fill", height = 240 },
+		defaults = { gap = "s", width = "fill" :: "fill", height = 240 },
 		fields = layout,
 	},
 	Grid = {
@@ -61,7 +66,7 @@ local definitions: { [string]: any } = {
 	},
 	Text = {
 		category = "Content",
-		defaults = { text = "A little possibility", textRole = "body", wrap = true },
+		defaults = { text = "A little possibility", textRole = "body" :: "body", wrap = true },
 		fields = textFields,
 	},
 	Label = {
@@ -71,7 +76,7 @@ local definitions: { [string]: any } = {
 	},
 	Image = {
 		category = "Content",
-		defaults = { image = "rbxassetid://0", width = 240, height = 140, scaleMode = "crop" },
+		defaults = { image = "rbxassetid://0", width = 240, height = 140, scaleMode = "crop" :: "crop" },
 		fields = {
 			field("image", "Asset URI", "string"),
 			field("width", "Width", "number"),
@@ -193,7 +198,7 @@ local definitions: { [string]: any } = {
 	},
 	ProgressView = {
 		category = "Status",
-		defaults = { value = 0.65, label = "Getting ready", presentation = "bar" },
+		defaults = { value = 0.65, label = "Getting ready", presentation = "bar" :: "bar" },
 		fields = {
 			field("value", "Progress", "number"),
 			field("label", "Label", "string"),
@@ -248,18 +253,18 @@ local sizes = { "xsmall", "compact", "regular", "large" }
 local options = { { value = "first", label = "First option" }, { value = "second", label = "Second option" } }
 local items = { { id = "first", label = "Explore" }, { id = "second", label = "Save for later" } }
 local pages = { { id = "first", label = "Discover" }, { id = "second", label = "Favorites" } }
-local seed = { { kind = "Text", props = { text = "Make this content yours", wrap = true } } }
+local seed = { { kind = "Text" :: "Text", props = { text = "Make this content yours", wrap = true } } }
 add(
 	"ViewThatFits",
 	"Layout",
-	{ width = "fill", height = 80 },
+	{ width = "fill" :: "fill", height = 80 },
 	{ field("width", "Width", "extent"), field("height", "Height", "extent") },
 	{ container = true, seeds = seed }
 )
 add(
 	"ErrorBoundary",
 	"Layout",
-	{ width = "fill" },
+	{ width = "fill" :: "fill" },
 	{ field("width", "Width", "extent") },
 	{ container = true, seeds = seed }
 )
@@ -267,7 +272,10 @@ add("Composition", "Layout", { gap = "m", padding = "m" }, {
 	field("gap", "Gap", "spacing", spacing),
 	field("padding", "Padding", "padding", spacing),
 	flag("topbar", "Top bar"),
-}, { container = true, seeds = { { kind = "Region", props = { zone = "center", rank = 1 }, children = seed } } })
+}, {
+	container = true,
+	seeds = { { kind = "Region" :: "Region", props = { zone = "center", rank = 1 }, children = seed } },
+})
 add("Region", "Layout", { zone = "center", rank = 1 }, {
 	choice(
 		"zone",
@@ -297,7 +305,7 @@ add("ShortcutHint", "Input", { keys = { { "Ctrl", "S" } }, label = "Save" }, {
 	text("label", "Label"),
 	choice("labelPosition", "Label position", { "start", "end" }),
 })
-add("ColorPicker", "Input", { value = "#3B82F6", label = "Accent color", style = "automatic" }, {
+add("ColorPicker", "Input", { value = "#3B82F6", label = "Accent color", style = "automatic" :: "automatic" }, {
 	field("value", "Initial color", "color"),
 	text("label", "Label"),
 	choice("style", "Presentation", { "automatic", "inline" }),
@@ -306,24 +314,22 @@ add("ColorPicker", "Input", { value = "#3B82F6", label = "Accent color", style =
 	flag("readOnly", "Read only"),
 	json("modes", "Modes"),
 }, { state = "value" })
-add(
-	"DateTimePicker",
-	"Input",
-	{ value = { year = 2026, month = 9, day = 30, hour = 0, minute = 0 }, label = "Date", style = "automatic" },
-	{
-		json("value", "Initial civil date"),
-		text("label", "Label"),
-		choice("style", "Presentation", { "automatic", "inline" }),
-		flag("time", "Include time"),
-		flag("draft", "Apply and cancel"),
-		number("minuteStep", "Minute step"),
-		number("weekStart", "Week starts"),
-		json("min", "Earliest date"),
-		json("max", "Latest date"),
-	},
-	{ state = "value" }
-)
-add("Picker", "Navigation", { selected = "first", options = options, style = "segmented" }, {
+add("DateTimePicker", "Input", {
+	value = { year = 2026, month = 9, day = 30, hour = 0, minute = 0 },
+	label = "Date",
+	style = "automatic" :: "automatic",
+}, {
+	json("value", "Initial civil date"),
+	text("label", "Label"),
+	choice("style", "Presentation", { "automatic", "inline" }),
+	flag("time", "Include time"),
+	flag("draft", "Apply and cancel"),
+	number("minuteStep", "Minute step"),
+	number("weekStart", "Week starts"),
+	json("min", "Earliest date"),
+	json("max", "Latest date"),
+}, { state = "value" })
+add("Picker", "Navigation", { selected = "first", options = options, style = "segmented" :: "segmented" }, {
 	text("selected", "Initial selection"),
 	json("options", "Options"),
 	choice(
@@ -346,7 +352,7 @@ add("Menu", "Navigation", { label = "Actions", items = items }, {
 add(
 	"RadialMenu",
 	"Navigation",
-	{ label = "Actions", items = items, preset = "donut", appearance = "wedges", isPresented = false },
+	{ label = "Actions", items = items, preset = "donut" :: "donut", appearance = "wedges", isPresented = false },
 	{
 		text("label", "Label"),
 		json("items", "Radial items"),
@@ -391,7 +397,7 @@ add("CollapsibleView", "Navigation", { label = "Expand content", expanded = fals
 	flag("dismissButton", "Dismiss button"),
 	choice("appearance", "Appearance", { "standard", "emphasis", "soft", "utility" }),
 }, { state = "expanded", container = true, seeds = seed, content = "content" })
-add("TabView", "Navigation", { selection = "first", tabs = pages, placement = "topBar" }, {
+add("TabView", "Navigation", { selection = "first", tabs = pages, placement = "topBar" :: "topBar" }, {
 	text("selection", "Initial tab"),
 	json("tabs", "Tabs"),
 	choice("placement", "Placement", { "automatic", "topBar", "sidebar", "bottomBar", "bottomBarCompact", "none" }),
@@ -585,19 +591,18 @@ add("Table", "Collections", {
 	number("width", "Width"),
 	number("height", "Height"),
 }, { nativeSize = true })
-add(
-	"RowActions",
-	"Collections",
-	{ trailing = { { id = "archive", label = "Archive" }, { id = "delete", label = "Delete", role = "destructive" } } },
-	{
-		json("leading", "Leading actions"),
-		json("trailing", "Trailing actions"),
-		number("actionWidth", "Action width"),
-		flag("fullSwipe", "Full swipe"),
-		flag("editing", "Editing"),
+add("RowActions", "Collections", {
+	trailing = {
+		{ id = "archive", label = "Archive" },
+		{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
 	},
-	{ container = true, content = "content", seeds = seed }
-)
+}, {
+	json("leading", "Leading actions"),
+	json("trailing", "Trailing actions"),
+	number("actionWidth", "Action width"),
+	flag("fullSwipe", "Full swipe"),
+	flag("editing", "Editing"),
+}, { container = true, content = "content", seeds = seed })
 add("Alert", "Overlays", {
 	isPresented = true,
 	title = "Ready to continue?",
@@ -639,7 +644,7 @@ add(
 add(
 	"Popover",
 	"Overlays",
-	{ isPresented = false, title = "Details", anchorLabel = "Show details", edge = "bottom", tail = true },
+	{ isPresented = false, title = "Details", anchorLabel = "Show details", edge = "bottom" :: "bottom", tail = true },
 	{
 		flag("isPresented", "Presented"),
 		text("title", "Title"),
@@ -650,7 +655,7 @@ add(
 		number("gap", "Gap"),
 		choice("compact", "Compact form", { "sheet", "popover" }),
 	},
-	{ state = "isPresented", container = true, content = "content", seeds = seed, anchor = "trigger" }
+	{ state = "isPresented", container = true, content = "content", seeds = seed, anchor = "trigger" :: "trigger" }
 )
 add(
 	"Callout",
@@ -664,7 +669,7 @@ add(
 		choice("edge", "Edge", { "top", "bottom" }),
 		choice("align", "Alignment", { "leading", "center", "trailing" }),
 	},
-	{ state = "isPresented", container = true, content = "content", seeds = seed, anchor = "anchor" }
+	{ state = "isPresented", container = true, content = "content", seeds = seed, anchor = "anchor" :: "anchor" }
 )
 add("Toast", "Overlays", {
 	message = "Saved. You’re all set.",
@@ -1045,6 +1050,48 @@ for _, definition in definitions do
 	end
 end
 
+for _, kind in { "VirtualList", "VirtualGrid", "Table" } do
+	definitions[kind].container = true
+	table.insert(definitions[kind].fields, field("dataKey", "Live rows input", "string"))
+	table.insert(definitions[kind].fields, field("activationKey", "Row activation callback", "string"))
+end
+table.insert(definitions.Table.fields, field("rowActions", "Row actions", "json"))
+
+for _, kind in { "Table", "VirtualList", "VirtualGrid" } do
+	for _, descriptor in definitions[kind].fields do
+		if descriptor.key == "width" then
+			descriptor.kind = "nativeWidth"
+		end
+	end
+end
+local bindings: { [string]: { [string]: string } } = {
+	Text = { text = "string" },
+	Label = { title = "string", icon = "string" },
+	Badge = { label = "string" },
+	Image = { image = "string" },
+	Avatar = { name = "string", image = "string" },
+	StatusIndicator = { name = "string", count = "number" },
+	ProgressView = { value = "number", label = "string" },
+}
+for kind, targets in bindings do
+	local keys = {}
+	for key in targets do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	for _, key in keys do
+		local conversion = targets[key]
+		local descriptor = field(key .. "Field", "Bind " .. key .. " to row", "binding")
+		descriptor.target, descriptor.conversion = key, conversion
+		table.insert(definitions[kind].fields, descriptor)
+	end
+end
+
+for kind, definition in definitions do
+	if kind ~= "Screen" then
+		table.insert(definition.fields, field("columnId", "Table column", "column"))
+	end
+end
 local library = { definitions = definitions }
 
 function library.names(): { string }
@@ -1096,16 +1143,56 @@ function library.visible(kind: string, key: string, props: any): boolean
 end
 
 function library.parse(descriptor: any, value: any): any
-	if descriptor.kind == "padding" then
+	if descriptor.kind == "nativeWidth" then
+		return if value == "fill" then value else library.parse({ kind = "number" }, value)
+	elseif descriptor.kind == "binding" or descriptor.kind == "column" then
+		assert(type(value) == "string" and #value > 0 and #value <= 120, "Choose a row field")
+		return value
+	elseif descriptor.kind == "padding" then
 		if type(value) ~= "table" then
-			return library.parse({ kind = "spacing", options = spacing }, value)
+			return library.parse({ kind = "spacing" :: "spacing", options = spacing }, value)
 		end
 		for key, side in value do
 			assert(table.find({ "top", "right", "bottom", "left" }, key), "Choose a padding side")
-			assert(library.parse({ kind = "spacing", options = spacing }, side) == side, "Use a spacing step or pixels")
+			assert(
+				library.parse({ kind = "spacing" :: "spacing", options = spacing }, side) == side,
+				"Use a spacing step or pixels"
+			)
 		end
 		return value
 	elseif descriptor.kind == "json" then
+		if descriptor.key == "rowActions" then
+			assert(type(value) == "table" and #value <= 12, "Use at most 12 row actions")
+			local seen = {}
+			for index, action in value do
+				assert(
+					type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #value,
+					"Use a dense row action array"
+				)
+				assert(
+					type(action) == "table" and type(action.id) == "string" and action.id ~= "" and not seen[action.id],
+					"Use unique row action IDs"
+				)
+				seen[action.id] = true
+				assert(type(action.label) == "string" and action.label ~= "", "A row action needs a label")
+				assert(
+					action.handler == nil or (type(action.handler) == "string" and action.handler ~= ""),
+					"Use a named row callback"
+				)
+				assert(
+					action.role == nil or table.find({ "default", "cancel", "destructive", "onIndicator" }, action.role),
+					"Choose a row action role"
+				)
+				assert(action.enabled == nil or type(action.enabled) == "boolean", "Use a boolean action state")
+				assert(action.icon == nil or type(action.icon) == "string", "Use an icon name")
+				for key in action do
+					assert(
+						table.find({ "id", "label", "handler", "role", "enabled", "icon" }, key),
+						"Unsupported row action property"
+					)
+				end
+			end
+		end
 		return values.validate(value)
 	elseif descriptor.kind == "color" then
 		values.color(value)

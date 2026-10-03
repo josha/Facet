@@ -1,12 +1,33 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type CenterCell = typeof(require("@repo/tools/typecheck/aliases").CenterCell)
+type DimCell = typeof(require("@repo/tools/typecheck/aliases").DimCell)
+type RadialSpec = typeof(require("@repo/tools/typecheck/aliases").RadialSpec)
+type RegionZone = typeof(require("@repo/tools/typecheck/aliases").RegionZone)
+type Radial = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type Scene = {
+	id: string,
+	kind: string,
+	skin: boolean,
+	separate: boolean,
+	fit: "both" | "radial" | "angular" | "none",
+	corner: "bottom-left" | "bottom-right" | "top-right" | "top-left",
+	center: "empty" | "back",
+	passThrough: boolean,
+	scrim: "none" | "dark" | "light",
+}
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+
 return {
 	title = "Quick actions",
 	ledgerRows = {},
-	build = function(ctx)
+	build = function(ctx: ExampleContext)
 		local UI = ctx.UI
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -16,55 +37,62 @@ return {
 		local moving = Compose.cell(false)
 		local skinned = Compose.cell(false)
 		local separate = Compose.cell(false)
-		local corner = Compose.cell("bottom-left")
-		local corners = { "bottom-left", "bottom-right", "top-right", "top-left" }
-		local fitting = Compose.cell("radial")
-		local fitModes = { "both", "radial", "angular", "none" }
+		local corner = Compose.cell("bottom-left" :: "bottom-left" | "bottom-right" | "top-right" | "top-left")
+		local corners: { "bottom-left" | "bottom-right" | "top-right" | "top-left" } =
+			{ "bottom-left", "bottom-right", "top-right", "top-left" }
+		local fitting = Compose.cell("radial" :: "both" | "radial" | "angular" | "none")
+		local fitModes: { "both" | "radial" | "angular" | "none" } = { "both", "radial", "angular", "none" }
 		local fitNames = { both = "Hug content", radial = "Slim band", angular = "Short arcs", none = "Full arcs" }
 		local advanced = Compose.cell(false)
 		local passThrough = Compose.cell(false)
-		local centerPolicy = Compose.cell("empty")
-		local dim = Compose.cell("none")
+		local centerPolicy = (function(value: "empty" | "back"): CenterCell
+			return Compose.cell(value)
+		end)("empty")
+		local dim = (function(value: "none" | "dark" | "light"): DimCell
+			return Compose.cell(value)
+		end)("none")
 		local lastAction = Compose.cell("ready")
-		local current, currentPresented = nil, nil
-		local worldState = nil
-		local function action(id, text)
+		local current: Frame? = nil
+		local currentPresented: typeof(Compose.cell(false))? = nil
+		local worldState: (() -> { angle: number, unpacked: boolean, taken: boolean })? = nil
+		local function action(id: string, text: string)
 			return function()
 				lastAction:set(id)
 				status:set(text)
 			end
 		end
-		local scenes = Compose.formula(function(use)
+		local scenes = Compose.formula(function(use: Use): { Scene }
 			return {
 				{
 					id = use(selected) .. ":" .. tostring(use(skinned)) .. ":" .. use(centerPolicy) .. ":" .. tostring(
 						use(passThrough)
-					) .. ":" .. tostring(use(separate)) .. ":" .. use(fitting) .. ":" .. use(corner) .. ":" .. use(
-						dim
-					),
+					) .. ":" .. tostring(use(separate)) .. ":" .. tostring(use(fitting)) .. ":" .. tostring(
+						use(corner)
+					) .. ":" .. use(dim),
 					kind = use(selected),
 					skin = use(skinned),
 					separate = use(separate),
 					fit = use(fitting),
 					corner = use(corner),
-					center = use(centerPolicy),
+					center = use(centerPolicy) :: "empty" | "back",
 					passThrough = use(passThrough),
-					scrim = use(dim),
+					scrim = use(dim) :: "none" | "dark" | "light",
 				},
 			}
 		end)
-		local function scene(itemReadable)
+		local function scene(itemReadable: Readable<Scene>)
 			local item = itemReadable:peek()
-			local items
+			local items: { Radial }
 			local menu = nil
 			local presented = Compose.cell(false)
 			local turnAngle, unpacked, taken = Compose.cell(0), Compose.cell(false), Compose.cell(false)
-			local stage
+			local stage: GuiObject?
 			local Vector3, CFrame = ctx.types.Vector3, ctx.types.CFrame
-			local spec = {
+			local spec: RadialSpec = {
 				Name = "Commands",
+				items = {},
 
-				center = "empty",
+				center = "empty" :: "empty",
 				contentFit = item.fit,
 				scrim = item.scrim,
 				isPresented = presented,
@@ -78,23 +106,23 @@ return {
 					Position = UDim2.fromScale(0.5, 0.5),
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
-					Visible = function(use)
+					Visible = function(use: Use)
 						return not use(taken)
 					end,
-					content = function(runtime, world)
+					content = function(runtime, world): (() -> ())?
 						return runtime.mount(function()
 							return Host.Model "TrailPack" {
 								Host.Part "Bag" {
 									Anchored = true,
 									CanCollide = false,
 									Color = Color3.fromRGB(91, 121, 80),
-									Size = function(use)
+									Size = function(use: Use)
 										return Vector3.new(1.7, if use(unpacked) then 2.5 else 1.8, 0.9)
 									end,
-									CFrame = function(use)
+									CFrame = function(use: Use)
 										return CFrame.Angles(0, math.rad(use(turnAngle)), 0)
 									end,
-								},
+								} :: unknown,
 								Host.Part "Pocket" {
 									Anchored = true,
 									CanCollide = false,
@@ -109,35 +137,35 @@ return {
 				worldState = function()
 					return { angle = turnAngle:peek(), unpacked = unpacked:peek(), taken = taken:peek() }
 				end
-				spec.preset, spec.center = "donut", "empty"
+				spec.preset, spec.center = "donut" :: "donut", "empty"
 				spec.anchor = stage
-				spec.ringWidth = "narrow"
+				spec.ringWidth = "narrow" :: "narrow"
 				spec.appearance = if item.separate then "buttons" else "wedges"
 				items = {
 					{
 						id = "inspect",
 						label = "Inspect",
 						icon = "facet:search",
-						completion = "stay",
+						completion = "stay" :: "stay",
 						onSelect = function()
 							turnAngle:update(function(value)
 								return value + 45
 							end)
 							action("inspect", "A sturdy trail pack. Turn it to inspect the pocket.")()
 						end,
-					},
+					} :: Radial,
 					{
 						id = "resize",
 						label = "Unpack",
 						icon = "menu",
-						completion = "stay",
+						completion = "stay" :: "stay",
 						onSelect = function()
 							unpacked:update(function(value)
 								return not value
 							end)
 							action("resize", "The pack expands. The menu adjusts around it.")()
 						end,
-					},
+					} :: Radial,
 					{
 						id = "take",
 						label = "Pick up",
@@ -146,7 +174,7 @@ return {
 							taken:set(true)
 							action("take", "Pack collected. Switch tabs and return to try again.")()
 						end,
-					},
+					} :: Radial,
 				}
 			elseif item.kind == "corner" then
 				spec.preset = item.corner
@@ -156,175 +184,174 @@ return {
 						id = "look",
 						label = "Look",
 						icon = "facet:search",
-						labelStyle = "both",
 						onSelect = action("look", "You spotted a trail beyond the trees."),
-					},
+					} :: Radial,
 					{
 						id = "pack",
 						label = "Pack",
 						icon = "menu",
-						navigation = "replace",
+						navigation = "replace" :: "replace",
 						children = {
 							{
 								id = "map",
 								label = "Map",
 								compactLabel = { icon = "flag" },
 								onSelect = action("map", "Map opened. The lookout is just ahead."),
-							},
+							} :: Radial,
 							{
 								id = "snack",
 								label = "Snack",
 								compactLabel = { icon = "checkmark" },
 								onSelect = action("snack", "A quick snack. Ready to keep exploring."),
-							},
+							} :: Radial,
 						},
-					},
+					} :: Radial,
 					{
 						id = "wave",
 						label = "Wave",
 						icon = "flag",
 						onSelect = action("wave", "You wave hello to a friend."),
-					},
+					} :: Radial,
 				}
 			elseif item.kind == "gestures" then
-				spec.preset = "circle"
-				spec.distribution = "compass"
-				spec.gestureSelection = "direction"
-				spec.center = "back"
+				spec.preset = "donut" :: "donut"
+				spec.distribution = "compass" :: "compass"
+				spec.gestureSelection = "direction" :: "direction"
+				spec.center = "back" :: "back"
 				spec.appearance = "wedges"
 				items = {
 					{
 						id = "wave",
 						label = "Wave",
-						slot = "N",
+						slot = "N" :: "N",
 						icon = "flag",
 						onSelect = action("wave", "You wave hello to a friend."),
-					},
+					} :: Radial,
 					{
 						id = "cheer",
 						label = "Cheer",
-						slot = "NE",
+						slot = "NE" :: "NE",
 						icon = "increment",
 						onSelect = action("cheer", "A cheer for the next adventure!"),
-					},
+					} :: Radial,
 					{
 						id = "point",
 						label = "Point",
-						slot = "E",
+						slot = "E" :: "E",
 						icon = "chevron.trailing",
 						onSelect = action("point", "You point toward the lookout."),
-					},
+					} :: Radial,
 					{
 						id = "sit",
 						label = "Sit",
-						slot = "SW",
+						slot = "SW" :: "SW",
 						icon = "chevron.down",
 						onSelect = action("sit", "You take a seat and enjoy the view."),
-					},
+					} :: Radial,
 					{
 						id = "inspect",
 						label = "Inspect",
-						slot = "W",
+						slot = "W" :: "W",
 						icon = "facet:search",
 						onSelect = action("inspect", "Trail guide · explorer · ready to help"),
-					},
+					} :: Radial,
 				}
 			else
-				spec.preset = "donut"
+				spec.preset = "donut" :: "donut"
 				spec.appearance = if item.separate then "buttons" else "wedges"
 				spec.center = item.center
 				spec.centerPassThrough = item.passThrough
 				spec.clearance = 82
-				spec.ringWidth = "narrow"
+				spec.ringWidth = "narrow" :: "narrow"
 				items = {
 					{
 						id = "equipment",
 						label = "Equipment",
 						compactLabel = { icon = "menu", prefer = true },
 						icon = "menu",
-						navigation = "replace",
+						navigation = "replace" :: "replace",
 						children = {
 							{
 								id = "tools",
 								label = "Tools",
 								icon = "edit",
-								navigation = "expand",
-								expansion = "fan",
+								navigation = "expand" :: "expand",
+								expansion = "fan" :: "fan",
 								children = {
 									{
 										id = "lantern",
 										label = "Lantern",
-										compactLabel = { icon = "increment" },
+										compactLabel = { icon = "increment" :: string },
 										checked = glow,
-										onChange = function(on)
+										onChange = function(on: boolean)
 											status:set(
 												if on
 													then "Lantern on. A little light for the trail."
 													else "Lantern off."
 											)
 										end,
-									},
+									} :: Radial,
 									{
 										id = "stow",
 										label = "Stow",
 										compactLabel = { icon = "chevron.leading" },
-										completion = "back",
+										completion = "back" :: "back",
 										onSelect = action("stow", "Tools tucked away. Back to equipment."),
-									},
+									} :: Radial,
 									{
 										id = "ready",
 										label = "Ready",
 										compactLabel = { icon = "checkmark" },
-										completion = "root",
+										completion = "root" :: "root",
 										onSelect = action("ready", "All set. Back to your main commands."),
-									},
+									} :: Radial,
 								},
-							},
+							} :: Radial,
 							{
 								id = "wear",
 								label = "Wear",
-								completion = "back",
+								completion = "back" :: "back",
 								onSelect = action("wear", "Your adventure gear is on."),
-							},
+							} :: Radial,
 						},
-					},
+					} :: Radial,
 					{
 						id = "wave",
 						label = "Wave",
 						icon = "flag",
-						labelStyle = "icon",
-						completion = "close",
+						labelStyle = "icon" :: "icon",
+						completion = "close" :: "close",
 						onSelect = action("wave", "You wave, then return to exploring."),
-					},
+					} :: Radial,
 					{
 						id = "inspect",
 						label = "Inspect",
 						compactLabel = { icon = "facet:search", prefer = true },
-						completion = "stay",
+						completion = "stay" :: "stay",
 						onSelect = action(
 							"inspect",
 							"Trail guide · explorer · lantern " .. (if glow:peek() then "on" else "off")
 						),
-					},
+					} :: Radial,
 				}
 			end
 			spec.items = items
 			if item.skin then
 				spec.appearance = "buttons"
-				spec.buttonSurface = "none"
+				spec.buttonSurface = "none" :: "none"
 
 				spec.skin =
 					{ item = { default = "rbxassetid://75192659975960", pressed = "rbxassetid://119648517302972" } }
 			end
-			local armAngle = Compose.formula(function(use)
+			local armAngle = Compose.formula(function(use: Use)
 				local a = use(lastAction)
 				return if a == "wave" or a == "cheer" then -55 elseif a == "point" then -90 else 12
 			end)
-			local bodyY = Compose.formula(function(use)
+			local bodyY = Compose.formula(function(use: Use)
 				return if use(lastAction) == "sit" then 14 else 0
 			end)
 			local orbit = ctx.runtime.timeline({ duration = 4, repeats = math.huge, autoplay = false })
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				if use(moving) then
 					orbit:play()
 				else
@@ -335,7 +362,7 @@ return {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(0, 76, 0, 110),
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = function(use)
+				Position = function(use: Use)
 					return UDim2.new(0.5, 32 * math.sin(use(orbit.progress) * math.pi * 2), 0.5, use(bodyY))
 				end,
 				Host.Frame "Head" {
@@ -343,7 +370,7 @@ return {
 					Size = UDim2.new(0, 32, 0, 32),
 					AnchorPoint = Vector2.new(0.5, 0),
 					Position = UDim2.new(0.5, 0, 0, 0),
-				},
+				} :: unknown,
 				Host.Frame "Coat" {
 					BackgroundColor3 = Color3.fromRGB(80, 135, 93),
 					Size = UDim2.new(0, 40, 0, 46),
@@ -381,22 +408,22 @@ return {
 			return UI.Composition "Scene" {
 				LayoutOrder = 3,
 				Size = UDim2.new(1, 0, 0, 260),
-				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }),
+				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }) :: unknown,
 				UI.Region "Subject" {
-					zone = "center",
+					zone = "center" :: "center",
 					rank = 1,
 					if item.kind == "world"
 						then stage
 						else Host.Frame "Orbit" {
 							BackgroundTransparency = 1,
 							Size = UDim2.fromOffset(140, 120),
-							silhouette,
-						},
+							silhouette :: unknown,
+						} :: unknown,
 				},
 				UI.Region "LauncherCorner" {
-					zone = if item.kind == "corner" then corner else "bottomLeft",
+					zone = if item.kind == "corner" then corner :: RegionZone else "bottomLeft" :: RegionZone,
 					rank = 2,
-					menuNode,
+					menuNode :: unknown,
 				},
 			}
 		end
@@ -406,7 +433,7 @@ return {
 			{ value = "character", label = "Character commands" },
 			{ value = "world", label = "Nearby item" },
 		}
-		local instruction = Compose.formula(function(use)
+		local instruction = Compose.formula(function(use: Use)
 			local tab = use(selected)
 			return if tab == "gestures"
 				then "Tap •••, then choose. Or press, slide to an action, and release."
@@ -418,7 +445,7 @@ return {
 			LayoutOrder = 5,
 			label = "More options",
 			expanded = advanced,
-			content = function()
+			content = function(): Instance
 				return Host.Frame({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -427,9 +454,9 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					}) :: unknown,
 					UI.Button "ContentFit" {
-						label = Compose.formula(function(use)
+						label = Compose.formula(function(use: Use)
 							return "Arc shape: " .. fitNames[use(fitting)]
 						end),
 						onActivate = function()
@@ -437,7 +464,7 @@ return {
 						end,
 					},
 					UI.Button "CornerPosition" {
-						label = Compose.formula(function(use)
+						label = Compose.formula(function(use: Use)
 							return "Corner: " .. use(corner)
 						end),
 						onActivate = function()
@@ -461,16 +488,16 @@ return {
 						value = passThrough,
 					},
 					UI.Button "Scrim" {
-						label = Compose.formula(function(use)
+						label = Compose.formula(function(use: Use)
 							return "Page dim: " .. use(dim)
 						end),
 						onActivate = function()
-							local order = { "none", "dark", "light" }
+							local order: { "none" | "dark" | "light" } = { "none", "dark", "light" }
 							dim:set(order[(table.find(order, dim:peek()) :: number) % #order + 1])
 						end,
 					},
 					UI.Button "CenterPolicy" {
-						label = Compose.formula(function(use)
+						label = Compose.formula(function(use: Use)
 							return "Center: " .. use(centerPolicy)
 						end),
 						onActivate = function()
@@ -482,14 +509,16 @@ return {
 		}
 		local function sceneRows()
 			return Compose.OrderedCollection({
-				from = scenes,
+				from = function(use: Use)
+					return use(scenes)
+				end,
 				key = function(s)
 					return s.id
 				end,
 				render = scene,
 			})
 		end
-		local function controls()
+		local function controls(): { unknown }
 			return {
 				UI.Picker "Tabs" {
 					LayoutOrder = 1,
@@ -507,7 +536,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = instruction,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -524,7 +553,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = status,
-						textRole = "body",
+						textRole = "body" :: "body",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -549,7 +578,7 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 12),
-					}),
+					}) :: unknown,
 					table.unpack(content),
 				},
 			}

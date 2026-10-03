@@ -1,5 +1,15 @@
 --!strict
 
+type Need = {
+	name: string,
+	kind: string,
+	section: string,
+	fields: { string }?,
+	authority: string,
+	capability: string,
+	fallback: number | { [string]: number },
+}
+
 local custom_control = {}
 
 custom_control.namespace = "demo"
@@ -8,17 +18,18 @@ custom_control.control = "Gauge"
 custom_control.needs = table.freeze({
 	table.freeze({
 		name = "demo:gauge",
-		kind = "controlSize",
+		kind = "controlSize" :: string,
 		section = "metrics.controlSizes",
-		fields = table.freeze({ "height", "paddingX", "iconSize" }),
+		fields = table.freeze({ "height", "paddingX", "iconSize" }) :: { string }?,
 		authority = "layout",
 		capability = "none",
-		fallback = table.freeze({ height = 24, paddingX = 8, iconSize = 14 }),
+		fallback = table.freeze({ height = 24, paddingX = 8, iconSize = 14 }) :: number | { [string]: number },
 	}),
 	table.freeze({
 		name = "demo:gaugeTint",
-		kind = "color",
+		kind = "color" :: string,
 		section = "style.themes[].extra",
+		fields = nil :: { string }?,
 		authority = "paint",
 		capability = "none",
 		fallback = table.freeze({ r = 0.35, g = 0.7, b = 0.9 }),
@@ -132,8 +143,12 @@ function custom_control.blueprint(UI: any, core: any, resolved: any, id: string?
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
-		UI.Text(name .. "Label")({ text = "Custom gauge (demo:gauge)", textRole = "caption", LayoutOrder = 1 }),
+		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }) :: unknown,
+		UI.Text(name .. "Label")({
+			text = "Custom gauge (demo:gauge)",
+			textRole = "caption" :: "caption",
+			LayoutOrder = 1,
+		}),
 		track,
 	})
 end

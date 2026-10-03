@@ -1,4 +1,5 @@
---!nocheck
+--!strict
+local requireDynamic = require :: (any) -> any
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -34,7 +35,10 @@ testkit.it = function(name: string, fn: () -> ())
 	table.insert(cases, record)
 	originalIt(name, function()
 		local t0 = os.clock()
-		local ok, err = pcall(fn)
+		local ok, err = pcall(function(): any
+			fn()
+			return nil
+		end)
 		local dt = os.clock() - t0
 		record.ms = dt * 1000
 		caseClock[owner] = (caseClock[owner] or 0) + dt
@@ -58,7 +62,7 @@ local wallStart = os.clock()
 for _, rel in order do
 	current = rel
 	local t0 = os.clock()
-	require("../../tests/" .. rel)
+	requireDynamic("../../tests/" .. rel)
 	loadClock[rel] = os.clock() - t0
 end
 current = "<run>"

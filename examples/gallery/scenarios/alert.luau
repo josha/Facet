@@ -1,11 +1,15 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Alerts and confirmations",
 	ledgerRows = {},
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -36,11 +40,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Alerts and confirmations",
-						textRole = "title",
+						textRole = "title" :: "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					}) :: unknown,
 					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
@@ -76,10 +80,10 @@ return {
 						label = "Reset",
 						onActivate = reset,
 					}),
-				},
+				} :: unknown,
 				UI.Alert "ReplaceSave" {
 					title = "Replace this save?",
-					severity = "critical",
+					severity = "critical" :: "critical",
 					message = "Your current progress will replace the previous checkpoint.",
 					isPresented = presented,
 					suppression = { isSuppressed = Compose.cell(false), label = "Do not ask again" },
@@ -87,19 +91,19 @@ return {
 						{
 							id = "Cancel",
 							label = "Keep previous",
-							role = "cancel",
+							role = "cancel" :: "cancel",
 							onActivate = function()
 								status:set("Previous save kept.")
 							end,
-						},
+						} :: AlertAction,
 						{
 							id = "Replace",
 							label = "Replace save",
-							role = "destructive",
+							role = "destructive" :: "destructive",
 							onActivate = function()
 								status:set("Checkpoint replaced.")
 							end,
-						},
+						} :: AlertAction,
 					},
 				},
 			}
@@ -108,7 +112,7 @@ return {
 			screen = Example,
 			steps = { open = open, reset = reset },
 			states = function()
-				return { { id = "confirmation", kind = "dialog", open = open } }
+				return { { id = "confirmation", kind = "dialog" :: "dialog", open = open } }
 			end,
 			report = function()
 				return { status = status:peek(), alert = { presented = presented:peek() } }

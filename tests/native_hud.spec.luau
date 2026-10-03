@@ -1,10 +1,13 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local hud = require("../examples/gallery/scenarios/hud")
 
-local function mount(width, height)
+local function mount(width: number?, height: number?)
 	local engine = engineLib.new()
 	local create = engine.new
 	engine.new = function(className)
@@ -19,20 +22,20 @@ local function mount(width, height)
 		end
 		return node
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Facet.Compose.cell({ width = width or 1079, height = height or 809 })
 	local target = engine.new("ScreenGui")
 	local ctx = {
 		Facet = Facet,
 		Compose = Facet.Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		UI = Facet.controls(runtime, { types = engine.types, viewport = viewport }),
 		types = engine.types,
 		viewport = viewport,
 	}
 	local built
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		built = hud.build(ctx)
 		return built.screen()
 	end, target)
@@ -47,7 +50,7 @@ local function mount(width, height)
 		engine
 end
 
-local function find(root, name)
+local function find(root: any, name: string): any
 	return root:FindFirstChild(name, true)
 end
 

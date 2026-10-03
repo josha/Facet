@@ -1,4 +1,6 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local t = require("./lib/testkit")
 local scenarios = require("../bench/scenarios")
 local scenes = require("../bench/perf_scenes")
@@ -24,7 +26,7 @@ t.describe("native benchmark workload contract", function()
 
 	t.it("preserves binding counts, one-hot style mutation and exact collection records", function()
 		local function check(name, callback)
-			local scene = registered[name]
+			local scene = registered[tostring(name)]
 			local state = scene.setup(profiles.get("floorAndroid"))
 			callback(state.workload, function()
 				return scene.run(state)
@@ -73,7 +75,7 @@ t.describe("native benchmark workload contract", function()
 
 	t.it("preserves twelve plain burst images and retained async-grid owners", function()
 		for _, name in { "async-image-burst", "async-image-grid" } do
-			local scene = registered[name]
+			local scene = registered[tostring(name)]
 			local state = scene.setup(profiles.get("floorAndroid"))
 			local w = state.workload
 			scene.run(state)
@@ -125,7 +127,7 @@ t.describe("native benchmark workload contract", function()
 
 	t.it("retains selected image cards across navigation events and sixty-frame settling", function()
 		for _, name in { "adaptive-navigation-images", "navigation-customization" } do
-			local scene = registered[name]
+			local scene = registered[tostring(name)]
 			local state = scene.setup(profiles.get("floorAndroid"))
 			local w = state.workload
 			t.expect(#w.nodes).toBe(24)
@@ -150,7 +152,7 @@ t.describe("native benchmark workload contract", function()
 
 	t.it("uses actual theme packages and preserves mounted fixture identities", function()
 		for _, name in { "theme-swap-flat", "theme-swap-metrics", "theme-swap-assets" } do
-			local scene = registered[name]
+			local scene = registered[tostring(name)]
 			local state = scene.setup(profiles.get("floorAndroid"))
 			local w, first = state.workload, state.workload.themeControls[2]
 			t.expect(#w.themeControls).toBe(4)
@@ -215,7 +217,7 @@ t.describe("native benchmark workload contract", function()
 
 	t.it("preserves transient frame cadence and stable text-size workload copy", function()
 		for _, name in { "alert-present-dismiss", "picker-menu-open-close", "radial-menu-open-close" } do
-			local scene = registered[name]
+			local scene = registered[tostring(name)]
 			local state = scene.setup(profiles.get("floorAndroid"))
 			local before = state.engine.clock()
 			state.workload.presented:set(true)
@@ -254,7 +256,7 @@ t.describe("native benchmark workload contract", function()
 		for name, items in
 			{ ["alert-present-dismiss"] = 3, ["picker-menu-open-close"] = 6, ["radial-menu-open-close"] = 6 }
 		do
-			local scene = registered[name]
+			local scene = registered[tostring(name)]
 			local state = scene.setup(profiles.get("floorAndroid"))
 			for _ = 1, 3 do
 				scene.run(state)
@@ -297,13 +299,13 @@ t.describe("native benchmark workload contract", function()
 
 	t.it("retains default async placeholders while custom content follows loading ownership", function()
 		local world = require("../bench/native_app")()
-		local Compose = world.Compose
+		local Compose: ComposeModule = world.Compose
 		local source, requests = Compose.cell("one"), {}
 		local built, disposed = 0, 0
 		local function loader(content, resolve, reject)
 			requests[content] = { resolve = resolve, reject = reject }
 		end
-		local _, root = world.runtime.mount(function()
+		local _, root: any = world.runtime.mount(function()
 			return world.UI.AsyncImage({ source = source, loader = loader, failureLabel = "Unavailable" })
 		end, world.target)
 		local placeholder, image = root:FindFirstChild("Placeholder"), root:FindFirstChild("Image")
@@ -326,7 +328,7 @@ t.describe("native benchmark workload contract", function()
 			return world.UI.AsyncImage({
 				source = customSource,
 				loader = loader,
-				placeholder = function()
+				placeholder = function(): Instance
 					built += 1
 					Compose.cleanup(function()
 						disposed += 1
@@ -382,7 +384,7 @@ t.describe("native benchmark workload contract", function()
 	t.it("preserves subscribed ancestry ordering and cleanup after unobserved moves", function()
 		for _, cached in { false, true } do
 			local engine = require("./lib/native_engine").new({ cacheDefaults = cached, recordCreated = false })
-			local first, second, root, child, leaf =
+			local first, second, root: any, child, leaf =
 				engine.new("Folder"),
 				engine.new("Folder"),
 				engine.new("Frame"),

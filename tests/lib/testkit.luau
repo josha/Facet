@@ -22,7 +22,9 @@ local currentSuite: Suite? = nil
 
 local function callerSpec(): string
 	for level = 2, 16 do
-		local ok, src = pcall(debug.info, level, "s")
+		local ok, src = pcall(function(): string
+			return debug.info(level, "s")
+		end)
 		if not ok or src == nil or src == "" then
 			break
 		end
@@ -57,12 +59,12 @@ end
 function testkit.it(name: string, fn: () -> (), options: CaseOptions?)
 	assert(currentSuite, "it() must be called inside describe()")
 	local tier = if options then options.tier else nil
-	assert(tier == nil or tier == "full" or tier == "release", 'it() tier must be "full" or "release"')
+	assert(tier == nil or tier == "full" or tier == ("release" :: string), 'it() tier must be "full" or "release"')
 	table.insert((currentSuite :: Suite).cases, {
 		name = name,
 		fn = fn,
 		id = if options then options.id else nil,
-		tier = tier,
+		tier = tier :: string?,
 	})
 end
 
@@ -86,7 +88,7 @@ local function deepEq(a: any, b: any): boolean
 	return true
 end
 
-function testkit.expect(value: any)
+function testkit.expect(value: any, context: any?, ...: any)
 	local negated = false
 	local exp = {}
 
@@ -95,7 +97,12 @@ function testkit.expect(value: any)
 			ok = not ok
 		end
 		if not ok then
-			error((negated and "[never] " or "") .. msg, 3)
+			error(
+				(negated and "[never] " or "")
+					.. msg
+					.. (if context == nil then "" else " (" .. tostring(context) .. ")"),
+				3
+			)
 		end
 	end
 
@@ -147,8 +154,15 @@ function testkit.expect(value: any)
 		check(value <= expected, string.format("expected %s to be <= %s", tostring(value), tostring(expected)))
 		return exp
 	end
-	exp.toThrow = function()
-		check(not (pcall(value)), "expected function to throw")
+	exp.toThrow = function(expected: string?)
+		local ok, message = pcall(value)
+		check(not ok, "expected function to throw")
+		if expected then
+			check(
+				string.find(tostring(message), expected, 1, true) ~= nil,
+				`expected error to contain {expected}; got {tostring(message)}`
+			)
+		end
 		return exp
 	end
 
@@ -209,7 +223,10 @@ function testkit.run(options: RunOptions?): boolean
 			end)
 
 			for _, hook in afterEachHooks do
-				local hookOk, hookErr = pcall(hook)
+				local hookOk, hookErr = pcall(function(): boolean
+					hook()
+					return true
+				end)
 				if not hookOk and ok then
 					ok, err = false, hookErr
 				end

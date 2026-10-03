@@ -26,7 +26,7 @@ return {
 		end
 
 		local creating, newName, refuse = Compose.cell(false), Compose.cell(""), Compose.cell(false)
-		local focuses = { primary = {}, linked = {} }
+		local focuses: { [string]: any } = { primary = {}, linked = {} }
 		local query, state, message = Compose.cell(""), Compose.cell("ready"), Compose.cell("")
 		local drafts, undo, serial = {}, Compose.cell(nil), 0
 		local sorts = { primary = Compose.cell(nil), linked = Compose.cell(nil) }
@@ -104,7 +104,7 @@ return {
 				return
 			end
 			local keys = if field == "color" then targets(key) else { key }
-			local nextRows = table.clone(rows:peek())
+			local nextRows: { any } = table.clone(rows:peek())
 			for i, item in nextRows do
 				if table.find(keys, item.id) then
 					local nextItem = table.clone(item)
@@ -172,7 +172,7 @@ return {
 			end
 			serial += 1
 			local key = tostring(serial)
-			local nextRows = table.clone(rows:peek())
+			local nextRows: { any } = table.clone(rows:peek())
 			table.insert(nextRows, 1, {
 				id = key,
 				name = name or `Untitled {serial}`,
@@ -191,7 +191,7 @@ return {
 			end
 			message:set("New file created. Edit its name in either view.")
 		end
-		local filtered = Compose.formula(function(use)
+		local filtered = Compose.formula(function(use: any)
 			local visible, filter = {}, string.lower(use(query))
 			for _, item in use(rows) do
 				if string.find(string.lower(item.name), filter, 1, true) then
@@ -200,11 +200,11 @@ return {
 			end
 			return visible
 		end)
-		local function reorder(keys, slot, source)
+		local function reorder(keys: { string }, slot: number, source: any)
 			if not editingEnabled:peek() or refuse:peek() then
 				return
 			end
-			local carried, remaining, visible = {}, {}, {}
+			local carried: { any }, remaining: { any }, visible: { string } = {}, {}, {}
 			for _, item in rows:peek() do
 				table.insert(if table.find(keys, item.id) then carried else remaining, item)
 			end
@@ -325,8 +325,8 @@ return {
 				movable = function()
 					return editingEnabled:peek() and not refuse:peek()
 				end,
-				onReorder = function(keys, slot)
-					local kept, carried = {}, {}
+				onReorder = function(keys: { string }, slot: number)
+					local kept: { any }, carried: { any } = {}, {}
 					for _, item in inbox:peek() do
 						table.insert(if table.find(keys, item.id) then carried else kept, item)
 					end
@@ -388,7 +388,7 @@ return {
 				return use(current)[field]
 			end
 		end
-		local function cell(current, _placement, key, icon, tableCell)
+		local function cell(current: any, _placement: any, key: any, icon: boolean, tableCell: boolean?)
 			local node = UI.VStack {
 				Name = "FileCell",
 				width = "fill",
@@ -404,7 +404,7 @@ return {
 						image = function(use)
 							return use(current).assetId or "rbxassetid://75342910516929"
 						end,
-						Size = function(use)
+						Size = function(use: any)
 							local side = if icon then math.floor(use(gridSize) * 0.4) else 28
 							return D2.fromOffset(side, side)
 						end,
@@ -508,7 +508,7 @@ return {
 				movable = function()
 					return editingEnabled:peek() and not refuse:peek()
 				end,
-				onReorder = function(keys, slot)
+				onReorder = function(keys: { string }, slot: number)
 					reorder(keys, slot, source)
 				end,
 				onDelete = remove,
@@ -537,7 +537,7 @@ return {
 			if kind == "details" then
 				spec.itemSize = 200
 				spec.sort = sorts[id]
-				spec.columns = {
+				local columns: { any } = {
 					{
 						id = "name",
 						label = "File",
@@ -572,6 +572,7 @@ return {
 						end,
 					},
 				}
+				spec.columns = columns
 				return UI.Table(spec)
 			end
 			spec.measure = true
@@ -608,7 +609,7 @@ return {
 						label = if option.value == "None" then "×" else "",
 						appearance = "utility",
 						shape = "circle",
-						Size = function(use)
+						Size = function(use: any)
 							local side = if coarse(use) then 44 else 32
 							return D2.fromOffset(side, side)
 						end,
@@ -633,7 +634,7 @@ return {
 								Name = "Swatch",
 								AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
 								Position = D2.fromScale(0.5, 0.5),
-								Size = function(use)
+								Size = function(use: any)
 									local side = if coarse(use) then 24 else 20
 									return D2.fromOffset(side, side)
 								end,
@@ -690,6 +691,7 @@ return {
 						{
 							id = "create",
 							label = "Create",
+							role = "default",
 							enabled = function(use)
 								return validName(use(newName)) == nil
 							end,
@@ -979,7 +981,7 @@ return {
 					min = 140,
 					max = 300,
 					step = 10,
-					format = function(value)
+					format = function(value: number)
 						return `{math.round(value / 150 * 100)}%`
 					end,
 					Size = D2.new(1, 0, 0, 0),

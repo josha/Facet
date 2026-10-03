@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -22,7 +29,7 @@ local checkLinks = require("../tools/lune/check_links")
 local luau = require("@lune/luau")
 local process = require("@lune/process")
 local catalogue = require("../examples/gallery/client/demo_picker")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	built: any,
@@ -36,7 +43,7 @@ type World = {
 
 local function world(module: any): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -45,12 +52,12 @@ local function world(module: any): World
 	local screen = engine.new("ScreenGui")
 	local baseline = engine.census()
 	local built
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		built = module.build({
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(
 				runtime,
 				{
@@ -200,7 +207,7 @@ end
 
 local function shell(demo: any, load: (string, string) -> any): (any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -211,7 +218,7 @@ local function shell(demo: any, load: (string, string) -> any): (any, any, () ->
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = target,
@@ -225,7 +232,7 @@ local function shell(demo: any, load: (string, string) -> any): (any, any, () ->
 		load = load,
 	}
 	ctx.packages = { Neutral = ctx.theme:peek() }
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = Facet.controls(
 			runtime,
@@ -235,9 +242,9 @@ local function shell(demo: any, load: (string, string) -> any): (any, any, () ->
 				inputParent = target,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				motionLevel = Compose.formula(function(use)
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end),
+				end) :: unknown) :: MotionLevel,
 			} :: any
 		)
 		return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -1085,7 +1092,7 @@ t.describe("Documentation and tooling", function()
 
 	local function run(code: string, suffix: string): (any, any, any, any, any)
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local facade = table.clone(Facet) :: any
 		facade.Roblox = table.clone(Facet.Roblox)
 		facade.themes = table.clone(Facet.themes)
@@ -1188,7 +1195,7 @@ t.describe("Documentation and tooling", function()
 	t.it("mech1-76 runs both component guide snippets and releases their Compose state and nodes", function()
 		local factory, env, engine, runtime, state =
 			run(snippet("docs/guide/15-components.md", 1), "\nreturn Settings()")
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return factory(env)
 		end, state.host)
 		local toggle = assert(button(root, "Notifications"))
@@ -1234,7 +1241,9 @@ t.describe("Documentation and tooling", function()
 		for _, name in { "Bad Name/../x", "PopupButton", "popupButton", "1probe", "_probe", "a-b", "", "x/../y", "a b" } do
 			t.expect(`{name}: {pcall(scaffold.plan, "control", name)}`).toBe(`{name}: false`)
 		end
-		for _, kind in { "wizard", "adapter", "primitive", "target", "mode", "Control" } do
+		for _, kind in
+			{ "wizard", "adapter", "primitive", "target", "mode", "Control" } :: { "Control" | "adapter" | "mode" | "primitive" | "target" | "wizard" }
+		do
 			t.expect(`{kind}: {pcall(scaffold.plan, kind, "probe")}`).toBe(`{kind}: false`)
 		end
 		local plan = scaffold.plan("control", "extremely_long_probe_name_for_width")

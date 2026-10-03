@@ -1,8 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureRadialTypes = require("../src/ui/radial_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -18,7 +23,7 @@ local function setup(build: (any) -> any, animated: boolean): World
 	engine.clock = function()
 		return now
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -77,13 +82,13 @@ end
 
 t.describe("radial ring arrival motion", function()
 	t.it("a replacement branch slides out from its parent and settles on its own slot", function()
-		for _, appearance in { "buttons", "wedges" } do
-			local world = setup(function(UI)
+		for _, appearance in { "buttons", "wedges" } :: { "buttons" | "wedges" } do
+			local world = setup(function(UI: FacetControls)
 				return UI.RadialMenu({
 					isPresented = Compose.cell(true),
-					appearance = appearance,
+					appearance = appearance :: "buttons" | "wedges",
 					items = {
-						{ id = "Wave", label = "Wave", onSelect = function() end },
+						{ id = "Wave", label = "Wave", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
 						{
 							id = "Gear",
 							label = "Gear",
@@ -91,7 +96,7 @@ t.describe("radial ring arrival motion", function()
 								{ id = "Tool", label = "Tool", onSelect = function() end },
 								{ id = "Lamp", label = "Lamp", onSelect = function() end },
 							},
-						},
+						} :: FixtureRadialTypes.RadialItem<any>,
 					},
 				})
 			end, true)
@@ -124,15 +129,15 @@ t.describe("radial ring arrival motion", function()
 	end)
 
 	t.it("a held D-pad stays on one ring stop because the ring pins engine selection", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
-				appearance = "buttons",
+				appearance = "buttons" :: "buttons",
 				items = {
-					{ id = "North", label = "North" },
-					{ id = "East", label = "East" },
-					{ id = "South", label = "South" },
-					{ id = "West", label = "West" },
+					{ id = "North", label = "North" } :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "East", label = "East" } :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "South", label = "South" } :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "West", label = "West" } :: FixtureRadialTypes.RadialItem<any>,
 				},
 			})
 		end, false)
@@ -140,7 +145,7 @@ t.describe("radial ring arrival motion", function()
 		local north = find(world.root, "North")
 		world.gui.SelectedObject = north
 		world.step(0.05)
-		for _, direction in { "Up", "Down", "Left", "Right" } do
+		for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 			t.expect(`{direction}: {tostring(north["NextSelection" .. direction] == north)}`).toBe(`{direction}: true`)
 		end
 		world.stop()
@@ -151,8 +156,12 @@ t.describe("radial ring arrival motion", function()
 			{ id = "Wave", label = "Wave", onSelect = function() end },
 			{ id = "Point", label = "Point", onSelect = function() end },
 		} :: { any })
-		local world = setup(function(UI)
-			return UI.RadialMenu({ isPresented = Compose.cell(true), appearance = "buttons", items = items })
+		local world = setup(function(UI: FacetControls)
+			return UI.RadialMenu({
+				isPresented = Compose.cell(true),
+				appearance = "buttons" :: "buttons",
+				items = items,
+			})
 		end, true)
 		arena(world)
 		world.step(0.3)
@@ -174,16 +183,16 @@ t.describe("radial ring arrival motion", function()
 	end)
 
 	t.it("reduced motion places a replacement branch on its slot at once", function()
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
-				appearance = "buttons",
+				appearance = "buttons" :: "buttons",
 				items = {
 					{
 						id = "Gear",
 						label = "Gear",
 						children = { { id = "Tool", label = "Tool", onSelect = function() end } },
-					},
+					} :: FixtureRadialTypes.RadialItem<any>,
 				},
 			})
 		end, false)
@@ -224,7 +233,7 @@ end
 t.describe("value repeat under gameplay arbitration", function()
 	t.it("a higher priority gameplay binding cancels value repeat and receives the next press", function()
 		local value = Compose.cell(1)
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Slider("Control")({ value = value, min = 0, max = 10, step = 1 })
 		end, false)
 		local R1 = world.engine.types.Enum.KeyCode.ButtonR1

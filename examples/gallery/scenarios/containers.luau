@@ -1,9 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Containers",
 	sizing = "Sizing: fixed, a quarter, fill",
 	ratios = "Aspect ratios in the same 96 x 96 offer",
-	align = "Alignment moves a child through spare room",
+	align = "Alignment moves a child through spare room" :: "Alignment moves a child through spare room",
 	spacing = "Gap and a left-heavy padding",
 	wrap = "Wrap, or no wrap inside a sideways scroller",
 	style = "Rounding, stroke and shadow",
@@ -19,8 +24,8 @@ return {
 	title = "Containers (View recipes)",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY
@@ -28,14 +33,14 @@ return {
 		local reserved = Compose.cell(true)
 		local presses = Compose.cell(0)
 		local function heading(name: string, text: string)
-			return UI.Text({ Name = name, text = text, textRole = "label" })
+			return UI.Text({ Name = name, text = text, textRole = "label" :: "label" })
 		end
 		local function tile(name: string, width: number?, height: number?, extra: any?)
 			local node = Host.Frame({
 				Name = name,
 				BorderSizePixel = 0,
 				Size = UDim2.fromOffset(width or 24, height or 24),
-				extra,
+				extra :: unknown,
 			})
 			node:AddTag("facet-fill")
 			return node
@@ -49,8 +54,8 @@ return {
 						Name = `Offer{index}`,
 						width = 96,
 						height = 96,
-						alignH = "center",
-						alignV = "center",
+						alignH = "center" :: "center",
+						alignV = "center" :: "center",
 						tile("Subject", 96 * math.min(1, ratio), 96 / math.max(1, ratio)),
 					})
 				)
@@ -64,8 +69,8 @@ return {
 							Name = `{h}-{v}`,
 							width = 48,
 							height = 48,
-							alignH = h,
-							alignV = v,
+							alignH = h :: "center" | "end" | "start",
+							alignV = v :: "start" | "center" | "end",
 							tile("Dot", 16, 16),
 						})
 					)
@@ -83,9 +88,9 @@ return {
 						Name = `Scale{index}`,
 						width = 48,
 						height = 48,
-						alignH = "center",
-						alignV = "center",
-						scaled,
+						alignH = "center" :: "center",
+						alignV = "center" :: "center",
+						scaled :: unknown,
 					})
 				)
 			end
@@ -102,7 +107,7 @@ return {
 						UI.VStack({
 							Name = "Inner",
 							gap = "xs",
-							UI.Text({ Name = "Child", text = copy.child }),
+							UI.Text({ Name = "Child", text = copy.child }) :: unknown,
 							tile("Bar", 40),
 						}),
 					})
@@ -117,7 +122,7 @@ return {
 					TopRightRadius = UDim.new(0, 0),
 					BottomLeftRadius = UDim.new(0, 0),
 					BottomRightRadius = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				Host.UIStroke({ Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
 				Host.UIShadow({ Name = "Shadow" }),
 			})
@@ -133,7 +138,7 @@ return {
 					PaddingBottom = UDim.new(0, 8),
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
-				}),
+				}) :: unknown,
 				UI.Button({
 					Name = "Activate",
 					label = copy.group,
@@ -149,16 +154,16 @@ return {
 				Name = "Containers",
 				gap = "m",
 				padding = "m",
-				UI.Text({ Name = "Title", text = copy.title, textRole = "heading" }),
+				UI.Text({ Name = "Title", text = copy.title, textRole = "heading" :: "heading" }) :: unknown,
 				heading("GroupTitle", copy.group),
 				group,
 				UI.Toggle({ Name = "GroupEnabled", label = copy.disable, value = groupEnabled }),
 				heading("SizingTitle", copy.sizing),
 				UI.HStack({
 					Name = "Sizing",
-					width = "fill",
+					width = "fill" :: "fill",
 					gap = "s",
-					tile("Fixed", 64),
+					tile("Fixed", 64) :: unknown,
 					(function()
 						local quarter = tile("Quarter")
 						quarter.Size = UDim2.new(0.25, 0, 0, 24)
@@ -176,11 +181,17 @@ return {
 					end)(),
 				}),
 				heading("RatiosTitle", copy.ratios),
-				UI.HStack({ Name = "Ratios", gap = "s", wrap = true, table.unpack(ratios) }),
+				UI.HStack({ Name = "Ratios", gap = "s", wrap = true, table.unpack((ratios :: unknown) :: { unknown }) }),
 				heading("AlignTitle", copy.align),
-				UI.HStack({ Name = "Align", gap = "xs", wrap = true, width = "fill", table.unpack(spots) }),
+				UI.HStack({
+					Name = "Align",
+					gap = "xs",
+					wrap = true,
+					width = "fill" :: "fill",
+					table.unpack((spots :: unknown) :: { unknown }),
+				}),
 				heading("SpacingTitle", copy.spacing),
-				UI.HStack({ Name = "Gap", gap = "xl", tile("A"), tile("B"), tile("C") }),
+				UI.HStack({ Name = "Gap", gap = "xl", tile("A") :: unknown, tile("B"), tile("C") }),
 				(function()
 					local padded = UI.VStack({
 						Name = "Padding",
@@ -191,21 +202,27 @@ return {
 					return padded
 				end)(),
 				heading("WrapTitle", copy.wrap),
-				UI.HStack({ Name = "Wrap", width = 180, wrap = true, gap = "xs", table.unpack(three()) }),
+				UI.HStack({
+					Name = "Wrap",
+					width = 180,
+					wrap = true,
+					gap = "xs",
+					table.unpack((three() :: unknown) :: { unknown }),
+				}),
 				UI.ScrollView({
 					Name = "NoWrap",
-					axis = "x",
+					axis = "x" :: "x",
 					width = 180,
 					height = 32,
 					gap = "xs",
-					table.unpack(three()),
+					table.unpack((three() :: unknown) :: { unknown }),
 				}),
 				heading("StyleTitle", copy.style),
 				styled,
 				heading("ScaleTitle", copy.scale),
-				UI.HStack({ Name = "Scales", gap = "xl", table.unpack(scales) }),
+				UI.HStack({ Name = "Scales", gap = "xl", table.unpack((scales :: unknown) :: { unknown }) }),
 				heading("FadeTitle", copy.fade),
-				UI.HStack({ Name = "Fades", gap = "s", wrap = true, table.unpack(fades) }),
+				UI.HStack({ Name = "Fades", gap = "s", wrap = true, table.unpack((fades :: unknown) :: { unknown }) }),
 				heading("KeepTitle", copy.keep),
 				UI.Toggle({ Name = "Reserved", label = copy.keep, value = reserved }),
 				UI.HStack({
@@ -215,12 +232,12 @@ return {
 						Name = "Kept",
 						BackgroundTransparency = 1,
 						Size = UDim2.fromOffset(48, 24),
-						GroupTransparency = function(use)
+						GroupTransparency = function(use: Use)
 							return if use(reserved) then 0 else 1
 						end,
 						Interactable = reserved,
 						tile("KeptTile", 48),
-					}),
+					}) :: unknown,
 					Compose.show(reserved, function()
 						return tile("Removed", 48)
 					end),

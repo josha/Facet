@@ -1,6 +1,10 @@
 --!strict
 
-type Use = (any) -> any
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
+
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 type Column = {
 	id: string,
 	label: string,
@@ -24,7 +28,7 @@ local TRACKS = {
 	{ id = "apex", name = "Apex Bloom", artist = "Nine Volt", length = 176, rating = 3 },
 }
 function example.build(ctx: any)
-	local UI, Compose = ctx.UI, ctx.Compose
+	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 	local UDim2, Enum = ctx.types.UDim2, ctx.types.Enum
 	local built: any = {}
 
@@ -34,13 +38,15 @@ function example.build(ctx: any)
 	local baseRows = Compose.cell(table.clone(TRACKS))
 	local filterText = Compose.cell("")
 	local nowPlaying = Compose.cell(nil :: string?)
-	local sortOrder = Compose.cell(nil :: { column: string, direction: string }?)
+	local sortOrder = (function(value: { column: string, direction: "ascending" | "descending" }?): SortCell
+		return Compose.cell(value)
+	end)(nil)
 	local columnWidths = Compose.cell({})
 	local ratings: { [string]: any } = {}
 	for _, track in TRACKS do
 		ratings[track.id] = Compose.cell(track.rating)
 	end
-	local sortedRows = Compose.formula(function(use)
+	local sortedRows = Compose.formula(function(use: Use)
 		local all = use(baseRows) :: { any }
 		local order = use(sortOrder)
 		if order == nil then
@@ -207,7 +213,7 @@ function example.build(ctx: any)
 			key = "id",
 
 			sort = sortOrder,
-			selectionMode = "multiple",
+			selectionMode = "multiple" :: "multiple",
 			selection = Compose.cell({}),
 			onActivate = function(item: any, _key: string, input: InputObject?, clickCount: number?)
 				if input and input.UserInputType == Enum.UserInputType.MouseButton1 and (clickCount or 0) < 1 then
@@ -241,7 +247,7 @@ function example.build(ctx: any)
 							id = "remove",
 							label = "Remove",
 							icon = "trash",
-							role = "destructive",
+							role = "destructive" :: "destructive",
 							onActivate = function()
 								removeTrack(id)
 							end,
@@ -267,7 +273,7 @@ function example.build(ctx: any)
 			{ id = "artist", label = "Artist", resizable = true },
 			{ id = "rating", label = "Rating", resizable = false },
 		}
-		local widthsText = Compose.formula(function(use)
+		local widthsText = Compose.formula(function(use: Use)
 			local overrides = use(columnWidths) :: { [string]: number }
 			local parts = {}
 			for _, column in COLUMN_LABELS do
@@ -282,7 +288,7 @@ function example.build(ctx: any)
 		end)
 		local hintText =
 			"Type to filter · tap a heading to sort · drag a divider to resize · drag a row to move it · Delete removes the selected rows · swipe a row for its actions"
-		local nowPlayingText = function(use)
+		local nowPlayingText = function(use: Use)
 			local track = use(nowPlaying)
 			if track == nil then
 				return "Nothing playing — double-click a row, or press Return on a focused one"
@@ -292,16 +298,16 @@ function example.build(ctx: any)
 		local screen = UI.Screen "Playlist" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch",
-				UI.Text "Title" { text = "Playlist", textRole = "title" },
+				align = "stretch" :: "stretch",
+				UI.Text "Title" { text = "Playlist", textRole = "title" :: "title" } :: unknown,
 				UI.TextInput "Filter" {
 					value = filterText,
-					presentation = "search",
+					presentation = "search" :: "search",
 					placeholder = "Filter tracks",
 				},
-				UI.Text "Hint" { text = hintText, textRole = "caption", TextWrapped = true },
-				UI.Text "NowPlaying" { text = nowPlayingText, textRole = "caption", TextWrapped = true },
-				UI.Text "Widths" { text = widthsText, textRole = "caption", TextWrapped = true },
+				UI.Text "Hint" { text = hintText, textRole = "caption" :: "caption", TextWrapped = true },
+				UI.Text "NowPlaying" { text = nowPlayingText, textRole = "caption" :: "caption", TextWrapped = true },
+				UI.Text "Widths" { text = widthsText, textRole = "caption" :: "caption", TextWrapped = true },
 				tracks,
 				UI.Button "Restore" {
 					label = "Restore the original playlist",

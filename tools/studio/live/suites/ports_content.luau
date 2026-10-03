@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -146,7 +148,7 @@ add("pagination-fit-narrows-in-order", { "post-pagination-08" }, function(t)
 		local page = Compose.cell(5000)
 		return Host.Frame "Holder" {
 			BackgroundTransparency = 1,
-			Size = function(use)
+			Size = function(use: Use)
 				return UDim2.fromOffset(use(width), 60)
 			end,
 			UI.Pagination "Results" {
@@ -283,7 +285,7 @@ add("pagination-hug-matches-fill", { "post-pagination-09" }, function(t)
 			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
 		}
 		for index, w in { 360, 330, 240, 190 } do
-			for _, kind in { "Fill", "Hug" } do
+			for _, kind in { "Fill", "Hug" } :: { "Fill" | "Hug" } do
 				local page = Compose.cell(5000)
 				local pagination = UI.Pagination({
 					Name = `{kind}{w}`,
@@ -302,7 +304,7 @@ add("pagination-hug-matches-fill", { "post-pagination-09" }, function(t)
 						BackgroundTransparency = 1,
 						Size = if kind == "Fill" then UDim2.fromOffset(w, 44) else UDim2.fromOffset(w, 0),
 						AutomaticSize = if kind == "Fill" then Enum.AutomaticSize.None else Enum.AutomaticSize.XY,
-						pagination,
+						pagination :: unknown,
 					})
 				)
 			end
@@ -325,7 +327,7 @@ add("pagination-hug-matches-fill", { "post-pagination-09" }, function(t)
 				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
-				hugZero,
+				hugZero :: unknown,
 			})
 		)
 		local props: { [any]: any } = { Name = "Column", BackgroundTransparency = 1, Size = UDim2.fromOffset(600, 700) }
@@ -362,7 +364,7 @@ interactive(
 						BackgroundTransparency = 1,
 						Position = UDim2.fromOffset(700, 40),
 						Size = UDim2.fromOffset(500, 300),
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
 						UI.Button({ Name = "Before", label = "Before", LayoutOrder = 1 }),
 						UI.Pagination({
 							Name = "Zero",
@@ -485,9 +487,19 @@ end)
 add("pagination-arrows-hold-still", { "post-pagination-15" }, function(t)
 	local specs: { any } = {
 		{ name = "KnownLtr", extra = { pageCount = 12, form = "label" }, from = 9, to = 10 },
-		{ name = "KnownRtl", extra = { pageCount = 12, form = "label", direction = "rtl" }, from = 9, to = 10 },
+		{
+			name = "KnownRtl",
+			extra = { pageCount = 12, form = "label", direction = "rtl" :: "rtl" },
+			from = 9,
+			to = 10,
+		},
 		{ name = "UnknownLtr", extra = { hasNext = true, hasPrevious = true }, from = 9, to = 10 },
-		{ name = "UnknownRtl", extra = { hasNext = true, hasPrevious = true, direction = "rtl" }, from = 99, to = 100 },
+		{
+			name = "UnknownRtl",
+			extra = { hasNext = true, hasPrevious = true, direction = "rtl" :: "rtl" },
+			from = 99,
+			to = 100,
+		},
 	}
 	local pages = {}
 	local stage = t.mount(function(UI: any, Host: any, Compose: any)
@@ -795,19 +807,19 @@ add("steps-form-fits-the-offer", { "post-step-10", "post-step-11" }, function(t)
 		local children = {
 			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
 		}
-		for index, kind in { "Fill", "Hug" } do
+		for index, kind in { "Fill", "Hug" } :: { "Fill" | "Hug" } do
 			table.insert(
 				children,
 				Host.Frame({
 					Name = kind .. "Holder",
 					LayoutOrder = index,
 					BackgroundTransparency = 1,
-					Size = function(use)
+					Size = function(use: Use)
 						return UDim2.fromOffset(use(width), if kind == "Fill" then 120 else 0)
 					end,
 					AutomaticSize = if kind == "Fill" then Enum.AutomaticSize.None else Enum.AutomaticSize.XY,
 					UI.StepIndicator({
-						Name = kind,
+						Name = kind :: "Fill" | "Hug",
 						steps = checkoutSteps(),
 						current = current,
 						onSelect = function(id: string)
@@ -823,12 +835,12 @@ add("steps-form-fits-the-offer", { "post-step-10", "post-step-11" }, function(t)
 				Name = "SizedHolder",
 				LayoutOrder = 3,
 				BackgroundTransparency = 1,
-				Size = function(use)
+				Size = function(use: Use)
 					return UDim2.fromOffset(use(width), 120)
 				end,
 				UI.StepIndicator({
 					Name = "Sized",
-					sizing = "hug",
+					sizing = "hug" :: "hug",
 					steps = checkoutSteps(),
 					current = current,
 					onSelect = function(id: string)
@@ -843,7 +855,7 @@ add("steps-form-fits-the-offer", { "post-step-10", "post-step-11" }, function(t)
 				Name = "ProbeHolder",
 				LayoutOrder = 4,
 				BackgroundTransparency = 1,
-				Size = function(use)
+				Size = function(use: Use)
 					return UDim2.fromOffset(use(probe), 120)
 				end,
 				UI.StepIndicator({
@@ -869,7 +881,7 @@ add("steps-form-fits-the-offer", { "post-step-10", "post-step-11" }, function(t)
 	if not (fill and hug and sized and probed) then
 		return
 	end
-	local seen = {}
+	local seen: { string } = {}
 	for _, w in { 900, 250, 900 } do
 		width:set(w)
 		t.settle(12)
@@ -1273,11 +1285,11 @@ local function menuItems(count: number, prefix: string): { any }
 	return list
 end
 
-local PLACEMENTS = {
-	{ name = "Trailing", edge = "trailing", x = 200, y = 300, expect = "trailing" },
-	{ name = "Top", edge = "top", x = 600, y = 400, expect = "top" },
-	{ name = "TrailingFlip", edge = "trailing", x = 1170, y = 300, expect = "leading" },
-	{ name = "TopFlip", edge = "top", x = 600, y = 12, expect = "bottom" },
+local PLACEMENTS: { { name: string, edge: "trailing" | "top", x: number, y: number, expect: string } } = {
+	{ name = "Trailing", edge = "trailing" :: "trailing", x = 200, y = 300, expect = "trailing" },
+	{ name = "Top", edge = "top" :: "top", x = 600, y = 400, expect = "top" },
+	{ name = "TrailingFlip", edge = "trailing" :: "trailing", x = 1170, y = 300, expect = "leading" },
+	{ name = "TopFlip", edge = "top" :: "top", x = 600, y = 12, expect = "bottom" },
 }
 
 add("menu-edge-and-align-place-the-panel", { "post-menu-02" }, function(t)
@@ -1294,7 +1306,7 @@ add("menu-edge-and-align-place-the-panel", { "post-menu-02" }, function(t)
 					label = entry.name,
 					items = menuItems(3, entry.name),
 					edge = entry.edge,
-					align = "center",
+					align = "center" :: "center",
 					isPresented = open,
 					Position = UDim2.fromOffset(entry.x, entry.y),
 				})
@@ -1420,7 +1432,7 @@ interactive(
 					items = years,
 					isPresented = yearOpen,
 					Position = UDim2.fromOffset(200, 60),
-				}),
+				}) :: unknown,
 				UI.Menu({
 					Name = "Bounded",
 					label = "Options",
@@ -1497,7 +1509,7 @@ interactive(
 )
 
 local CATEGORIES: { [string]: string } =
-	{ inputs = "Inputs", actions = "Actions", indicators = "Status", navigation = "Menus" }
+	{ inputs = "Inputs", actions = "Actions", indicators = "Status", navigation = "Menus" :: "Menus" }
 local INNER = { "basics", "writing", "leaves", "choices", "pickers" }
 
 add("category-bar-fits-phone-words", { "post-showcase-01", "post-showcase-04" }, function(t)
@@ -1881,7 +1893,7 @@ add("containers-recipes-draw-as-described", {
 		return Host.Frame "Fixtures" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(600, 400),
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
 			UI.HStack({
 				Name = "FixedRow",
 				LayoutOrder = 1,
@@ -1892,8 +1904,8 @@ add("containers-recipes-draw-as-described", {
 			UI.ZStack({
 				Name = "HugZ",
 				LayoutOrder = 2,
-				alignH = "end",
-				alignV = "end",
+				alignH = "end" :: "end",
+				alignV = "end" :: "end",
 				Host.Frame({ Name = "Dot", Size = UDim2.fromOffset(16, 16), BorderSizePixel = 0 }),
 			}),
 			Host.CanvasGroup({

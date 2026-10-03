@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local process = require("@lune/process")
 local serde = require("@lune/serde")
 local nativeApp = require("./native_app")
@@ -8,7 +12,7 @@ local samples = tonumber(process.args[3]) or 150
 assert(workload == "children" or workload == "keyed-churn" or workload == "keyed-reverse", "unknown workload")
 assert(size > 0 and size % 1 == 0 and samples > 0 and samples % 1 == 0, "invalid sample dimensions")
 local world = nativeApp()
-local Compose, Host = world.Compose, world.Host
+local Compose: ComposeModule, Host = world.Compose, world.Host
 local owner = Compose.createOwner(world.runtime.reactor)
 local children = {}
 local stop, root, items
@@ -27,13 +31,15 @@ else
 		return Host.Folder({
 			Compose.keyed({
 				from = items,
-				key = "id",
-				render = function(current)
+				key = function(row: { id: string, text: string }): string
+					return row.id
+				end,
+				render = function(current: Readable<{ id: string, text: string }>)
 					return Host.TextLabel({
-						Name = function(use)
+						Name = function(use: Use)
 							return use(current).id
 						end,
-						Text = function(use)
+						Text = function(use: Use)
 							return use(current).text
 						end,
 					})
@@ -77,12 +83,12 @@ for index = 1, samples do
 end
 if root then
 	local byName = {}
-	for _, node in root:GetChildren() do
+	for _, node in (root :: Folder):GetChildren() do
 		byName[node.Name] = node
 	end
-	assert(#root:GetChildren() == size)
+	assert(#(root :: Folder):GetChildren() == size)
 	for _, item in items:peek() do
-		assert(byName[item.id].Text == item.text, `incorrect row {item.id}`)
+		assert((byName[item.id] :: TextLabel).Text == item.text, `incorrect row {item.id}`)
 	end
 else
 	assert(owner.size() == size, "incorrect live child owner count")

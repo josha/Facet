@@ -1,8 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureCollectionTypes = require("../src/ui/collection_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -15,7 +21,7 @@ type World = {
 
 local function world(build: (any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -34,8 +40,8 @@ local function world(build: (any, any) -> any, options: { [string]: any }?): Wor
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host) })
 	end, engine.new("Folder"))
 	return {
@@ -73,13 +79,13 @@ t.describe("weak3 RowActions outside tap", function()
 			content = { a = 0, b = 0 },
 			hud = 0,
 		}
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			local function row(name: string)
 				return UI.RowActions({
 					Name = name,
 					open = state.open[name],
 					coordinator = state.coordinator,
-					content = function()
+					content = function(): GuiObject
 						return Host.TextButton "Body" {
 							Text = name,
 							Activated = function()
@@ -95,12 +101,12 @@ t.describe("weak3 RowActions outside tap", function()
 							onActivate = function()
 								table.insert(state.fired, name)
 							end,
-						},
+						} :: FixtureCollectionTypes.RowAction,
 					},
 				})
 			end
 			return Host.Frame "Hud" {
-				row("a"),
+				row("a") :: unknown,
 				row("b"),
 				Host.TextButton "Boost" {
 					Text = "Boost",

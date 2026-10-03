@@ -42,7 +42,7 @@ end
 function checker.check(
 	opts: Options?
 ): { ok: boolean, violations: { Violation }, counts: { files: number, requiresChecked: number } }
-	local options = opts or {}
+	local options: Options = opts or {}
 	local entries = studio_tree.entries("gallery")
 
 	local existing: { [string]: boolean } = {}

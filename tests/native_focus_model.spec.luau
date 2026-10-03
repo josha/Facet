@@ -1,12 +1,19 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function setup(build: (any, any) -> any, options: { [string]: any }?): any
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -23,12 +30,12 @@ local function setup(build: (any, any) -> any, options: { [string]: any }?): any
 		inputParent = parent,
 		services = { GuiService = gui, UserInputService = input },
 	}
-	for key, value in options or {} do
+	for key, value in (options or {} :: { [string]: any }) do
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host) })
 	end, parent)
 	local world = { engine = engine, runtime = runtime, gui = gui, input = input, screen = screen, parent = parent }
@@ -71,9 +78,9 @@ end
 
 t.describe("Tab traversal priority and the keyboard opt-in", function()
 	t.it("walks Tab by SelectionOrder tier, then document order within a tier", function()
-		local w = setup(function(UI)
+		local w = setup(function(UI: FacetControls)
 			return UI.Screen "Page" {
-				UI.Button "A" { label = "A" },
+				UI.Button "A" { label = "A" } :: unknown,
 				UI.Button "Late" { label = "Late", SelectionOrder = 5 },
 				UI.Button "B" { label = "B" },
 				UI.Button "First" { label = "First", SelectionOrder = -1 },
@@ -90,7 +97,7 @@ t.describe("Tab traversal priority and the keyboard opt-in", function()
 		w.stop()
 	end)
 	t.it("binds Tab only while a keyboard is live and keyboardNavigation is not false", function()
-		local w = setup(function(UI)
+		local w = setup(function(UI: FacetControls)
 			return UI.Button "A" { label = "A" }
 		end)
 		local context = w.find("FacetTraversal", w.parent)
@@ -100,7 +107,7 @@ t.describe("Tab traversal priority and the keyboard opt-in", function()
 		w.input.KeyboardEnabled = true
 		t.expect(context.Enabled).toBe(true)
 		w.stop()
-		local off = setup(function(UI)
+		local off = setup(function(UI: FacetControls)
 			return UI.Button "A" { label = "A" }
 		end, { keyboardNavigation = false })
 		t.expect(off.find("FacetTraversal", off.parent).Enabled).toBe(false)
@@ -110,8 +117,8 @@ end)
 
 t.describe("stick entry", function()
 	t.it("a left-stick push enters the selection like a D-pad press; a drift does not", function()
-		local w = setup(function(UI)
-			return UI.Screen "Page" { UI.Button "A" { label = "A" }, UI.Button "B" { label = "B" } }
+		local w = setup(function(UI: FacetControls)
+			return UI.Screen "Page" { UI.Button "A" { label = "A" } :: unknown, UI.Button "B" { label = "B" } }
 		end)
 		local V2 = w.engine.types.Vector2
 		local context = w.find("FacetEntry", w.parent)
@@ -129,8 +136,8 @@ t.describe("leaving the gamepad", function()
 	t.it(
 		"drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD",
 		function()
-			local w = setup(function(UI)
-				return UI.Screen "Page" { UI.Button "Q" { label = "Q" }, UI.Button "W" { label = "W" } }
+			local w = setup(function(UI: FacetControls)
+				return UI.Screen "Page" { UI.Button "Q" { label = "Q" } :: unknown, UI.Button "W" { label = "W" } }
 			end)
 			local E = w.engine.types.Enum
 			local last = E.UserInputType.Gamepad1
@@ -153,8 +160,8 @@ t.describe("leaving the gamepad", function()
 	)
 
 	t.it("keeps a first Tab that lands before the preferred input leaves the gamepad", function()
-		local w = setup(function(UI)
-			return UI.Screen "Page" { UI.Button "Q" { label = "Q" }, UI.Button "W" { label = "W" } }
+		local w = setup(function(UI: FacetControls)
+			return UI.Screen "Page" { UI.Button "Q" { label = "Q" } :: unknown, UI.Button "W" { label = "W" } }
 		end)
 		local E = w.engine.types.Enum
 		w.input.GetLastInputType = function()
@@ -170,9 +177,9 @@ t.describe("leaving the gamepad", function()
 
 	t.it("leaves a game's own pad selection outside Facet alone", function()
 		local own: any
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			own = Host.TextButton { Name = "GameMenu", Selectable = true }
-			return Host.Frame { Name = "Legacy", own, UI.Screen "Page" { UI.Button "Q" { label = "Q" } } }
+			return Host.Frame { Name = "Legacy", own :: unknown, UI.Screen "Page" { UI.Button "Q" { label = "Q" } } }
 		end)
 		local E = w.engine.types.Enum
 		w.input.GetLastInputType = function()
@@ -189,15 +196,15 @@ end)
 t.describe("focusSection entry rules", function()
 	local function sections(options: { [string]: any }?)
 		local shelf: any
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			shelf = UI.HStack "Shelf" {
-				UI.Button "One" { label = "One" },
+				UI.Button "One" { label = "One" } :: unknown,
 				UI.Button "Two" { label = "Two" },
 				UI.Button "Three" { label = "Three" },
 			}
 			UI.focusSection(shelf, options)
 			return Host.Frame "Page" {
-				UI.Button "Outside" { label = "Outside" },
+				UI.Button "Outside" { label = "Outside" } :: unknown,
 				shelf,
 			}
 		end)
@@ -232,7 +239,7 @@ t.describe("focusSection entry rules", function()
 		nearest.stop()
 	end)
 	t.it("refuses an unknown option, entry or a missing group", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI, Host: RobloxHost)
 			local group = Host.Frame {}
 			t.expect(pcall(UI.focusSection, group, { entry = "random" })).toBe(false)
 			t.expect(pcall(UI.focusSection, group, { enter = "first" })).toBe(false)
@@ -246,12 +253,12 @@ end)
 t.describe("focusSection focusOnAppear and returnFocus", function()
 	t.it("lands on the appearing branch and returns to the row that opened it", function()
 		local open = Compose.cell(false)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Page" {
-				UI.Button "Row" { label = "Row" },
+				UI.Button "Row" { label = "Row" } :: unknown,
 				Compose.show(open, function()
 					local detail = UI.VStack "Detail" {
-						UI.Button "Title" { label = "Title" },
+						UI.Button "Title" { label = "Title" } :: unknown,
 						UI.Button "Back" { label = "Back" },
 					}
 					UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
@@ -268,9 +275,9 @@ t.describe("focusSection focusOnAppear and returnFocus", function()
 	end)
 	t.it("does not take the selection when nothing is selected (a touch or mouse player)", function()
 		local open = Compose.cell(false)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Page" {
-				UI.Button "Row" { label = "Row" },
+				UI.Button "Row" { label = "Row" } :: unknown,
 				Compose.show(open, function()
 					local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back" } }
 					UI.focusSection(detail, { focusOnAppear = true, returnFocus = true })
@@ -286,9 +293,9 @@ t.describe("focusSection focusOnAppear and returnFocus", function()
 	end)
 	t.it("without the keys the selection stays where the engine left it", function()
 		local open = Compose.cell(false)
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Page" {
-				UI.Button "Row" { label = "Row" },
+				UI.Button "Row" { label = "Row" } :: unknown,
 				Compose.show(open, function()
 					local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back" } }
 					UI.focusSection(detail)
@@ -307,14 +314,14 @@ t.describe("responder: engage, resign and the gameplay guard (DK-13/DK-15)", fun
 	local function form(options: { [string]: any }?)
 		local responder: any
 		local presses: { [string]: number } = {}
-		local w = setup(function(UI)
+		local w = setup(function(UI: FacetControls)
 			local hud = UI.Screen "Hud" {
 				UI.Button "One" {
 					label = "One",
 					onActivate = function()
 						presses.one = (presses.one or 0) + 1
 					end,
-				},
+				} :: unknown,
 				UI.Button "Two" {
 					label = "Two",
 					onActivate = function()
@@ -341,7 +348,7 @@ t.describe("responder: engage, resign and the gameplay guard (DK-13/DK-15)", fun
 			local E = w.engine.types.Enum
 			w.input.InputBegan.fire({
 				UserInputType = if kind == "touch" then E.UserInputType.Touch else E.UserInputType.MouseButton1,
-				KeyCode = E.KeyCode.Unknown,
+				KeyCode = E.KeyCode:FromValue(0),
 				Position = w.engine.types.Vector3.new(10, 10, 0),
 			}, true)
 		end
@@ -415,7 +422,7 @@ t.describe("responder: engage, resign and the gameplay guard (DK-13/DK-15)", fun
 		w.stop()
 	end)
 	t.it("refuses an unknown option and a missing root", function()
-		local w = setup(function(UI, Host)
+		local w = setup(function(UI, Host: RobloxHost)
 			local root = Host.Frame {}
 			t.expect(pcall(UI.responder, root, { pasive = true })).toBe(false)
 			t.expect(pcall(UI.responder, nil)).toBe(false)
@@ -427,9 +434,9 @@ end)
 
 t.describe("traversalWrap (DK-3)", function()
 	t.it("traversalWrap = false stops Tab at the last control and Shift+Tab at the first", function()
-		local w = setup(function(UI)
+		local w = setup(function(UI: FacetControls)
 			local page = UI.Screen "Page" {
-				UI.Button "A" { label = "A" },
+				UI.Button "A" { label = "A" } :: unknown,
 				UI.Button "B" { label = "B" },
 			}
 			UI.responder(page, { passive = false, traversalWrap = false })
@@ -453,7 +460,7 @@ end)
 
 t.describe("keyboardNavigation = false", function()
 	t.it("binds no Tab and no Space; Return still activates", function()
-		local w = setup(function(UI)
+		local w = setup(function(UI: FacetControls)
 			return UI.Screen "Page" { UI.Button "A" { label = "A" } }
 		end, { keyboardNavigation = false })
 		w.gui.SelectedObject = w.find("A")
@@ -463,7 +470,7 @@ t.describe("keyboardNavigation = false", function()
 	end)
 	t.it("true (and the default) binds Tab, and Space next to Return on a selected Button", function()
 		for _, options in { {}, { keyboardNavigation = true } } do
-			local w = setup(function(UI)
+			local w = setup(function(UI: FacetControls)
 				return UI.Screen "Page" { UI.Button "A" { label = "A" } }
 			end, options)
 			t.expect(w.find("FacetTraversal", w.parent).Enabled).toBe(true)
@@ -475,24 +482,24 @@ t.describe("keyboardNavigation = false", function()
 end)
 
 t.describe("Grid: a ragged last line has an answer (native NextSelection)", function()
-	local function grid(count: number, flow: string?)
+	local function grid(count: number, flow: ("row" | "column")?)
 		local cells = Compose.cell(count)
-		local w = setup(function(UI)
+		local w = setup(function(UI: FacetControls)
 			return UI.Grid "Cells" {
 				columns = 4,
 				flow = flow,
 				Compose.keyed({
-					from = Compose.formula(function(use)
-						local list = {}
+					from = function(use: Use): { number }
+						local list: { number } = {}
 						for index = 1, use(cells) do
 							table.insert(list, index)
 						end
 						return list
-					end),
-					key = function(value)
+					end,
+					key = function(value: number)
 						return value
 					end,
-					render = function(_, position, key)
+					render = function(_, position, key: number): GuiObject
 						return UI.Button("c" .. key)({ label = tostring(key), LayoutOrder = position })
 					end,
 				}),

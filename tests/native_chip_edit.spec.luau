@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -23,7 +27,7 @@ end
 
 local function world(build: (any, any) -> any, theme: any?): any
 	local engine: any = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = {}
 	local gui = engine.new("GuiService")
 	local held: { [string]: boolean } = {}
@@ -80,9 +84,9 @@ local function action(w: any, name: string): any
 	return nil
 end
 
-local function tagWorld(theme: any?, rung: string?): any
+local function tagWorld(theme: any?, rung: ("xsmall" | "compact" | "regular" | "large")?): any
 	local state = { selected = Compose.cell(false), editing = Compose.cell(false), removes = 0 }
-	local w = world(function(UI)
+	local w = world(function(UI: FacetControls)
 		return UI.Chip("Tag")({
 			label = "Rain",
 			selected = state.selected,
@@ -176,12 +180,12 @@ t.describe("native Chip edit mode", function()
 	end)
 
 	t.it("a selectable tag that can be removed must say when it is editing", function()
-		local ok, err = pcall(world, function(UI)
+		local ok, err = pcall(world, function(UI: FacetControls)
 			return UI.Chip("Tag")({ label = "Rain", selected = Compose.cell(false), onRemove = function() end })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "editing", 1, true) ~= nil).toBe(true)
-		local okEditing = pcall(world, function(UI)
+		local okEditing = pcall(world, function(UI: FacetControls)
 			return UI.Chip("Tag")({ label = "Rain", selected = Compose.cell(false), editing = true })
 		end)
 		expect(okEditing).toBe(false)
@@ -192,12 +196,12 @@ t.describe("native Chip edit mode", function()
 			for _, n in { 3, 2 } do
 				local all = { "A", "B", "C" }
 				local items = Compose.cell(table.move(all, 1, n, 1, {}))
-				local w = world(function(UI, Host)
+				local w = world(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Tokens",
 						Compose.keyed({
 							from = items,
-							render = function(current, index)
+							render = function(current, index): GuiObject
 								local id = current:peek()
 								return UI.Chip({
 									Name = id,
@@ -232,7 +236,7 @@ t.describe("native Chip edit mode", function()
 
 	t.it("a held removal does not repeat after an input change, and inherited disabled refuses it", function()
 		local calls, enabled = 0, Compose.cell(true)
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Holder",
 				UI.Chip("Token")({

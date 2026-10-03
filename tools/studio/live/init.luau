@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
@@ -168,10 +175,10 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 		return current ~= nil
 	end
 	function t.mount(build: (any, any, any, any) -> any, options: { [string]: any }?): any
-		local config = options or {}
-		local Compose = Facet.Compose
-		local runtime = Facet.Roblox.createRuntime()
-		local Host = runtime.constructors
+		local config: { [string]: any } = options or {}
+		local Compose: ComposeModule = Facet.Compose
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local package = config.theme or themes[1].package
 		local root
 		local emulate = config.size ~= nil and config.emulate ~= false
@@ -182,7 +189,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 			local theme = Compose.cell(package)
 			local palette = Compose.cell(config.palette or package.style.defaultTheme)
 			local viewport = if emulate
-				then Compose.formula(function(use)
+				then Compose.formula(function(use: Use)
 					local size = config.size
 					local value = if Compose.isReadable(size) then use(size) else size
 					return { width = value.X, height = value.Y }
@@ -197,7 +204,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 			})
 			local sheet = Facet.themes.createStyleSheet(runtime, theme, { theme = palette, transition = false })
 			local stage = Host.Frame "Stage" {
-				Size = function(use)
+				Size = function(use: Use)
 					local size = config.size
 					if size == nil then
 						return UDim2.fromScale(1, 1)
@@ -241,7 +248,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 				ResetOnSpawn = false,
 				DisplayOrder = 50,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-				sheet,
+				sheet :: unknown,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				Host.Frame "Backdrop" {
 					Size = UDim2.fromScale(1, 1),
@@ -298,7 +305,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 		return { x = x, y = y, w = r - x, h = b - y, r = r, b = b }
 	end
 	function t.offenders(root: Instance, bounds: any, options: { [string]: any }?): { [string]: any }
-		local config = options or {}
+		local config: { [string]: any } = options or {}
 		local limit = if typeof(bounds) == "Instance" then t.rect(bounds) else bounds
 		local margin = config.margin or 0.5
 		local out = { lateral = {}, vertical = {}, clipped = {} }
@@ -312,10 +319,10 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 				local seen = t.clipped(node)
 				if seen then
 					if seen.x < limit.x - margin or seen.r > limit.r + margin then
-						table.insert(out.lateral, { node.Name, seen.x, seen.r })
+						table.insert(out.lateral, { node.Name :: unknown, seen.x, seen.r })
 					end
 					if seen.y < limit.y - margin or seen.b > limit.b + margin then
-						table.insert(out.vertical, { node.Name, seen.y, seen.b })
+						table.insert(out.vertical, { node.Name :: unknown, seen.y, seen.b })
 					end
 					if
 						(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
@@ -326,7 +333,10 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 						) == true))
 						and node:GetStyled("TextTruncate") == Enum.TextTruncate.None
 					then
-						table.insert(out.clipped, { node.Name, node.ContentText, node.TextBounds, node.AbsoluteSize })
+						table.insert(
+							out.clipped,
+							{ node.Name :: unknown, node.ContentText, node.TextBounds, node.AbsoluteSize }
+						)
 					end
 				end
 			end
@@ -334,9 +344,9 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 		return out
 	end
 	function t.gallery(options: { [string]: any }?): (any, any)
-		local config = options or {}
+		local config: { [string]: any } = options or {}
 		local context
-		local stage = t.mount(function(UI, Host, Compose, env)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 			local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
 			local folder = storage:FindFirstChild("FacetThemes")
 			local packages = screen.themePackages(
@@ -445,7 +455,7 @@ function live.cases(suite: string): { any }
 end
 
 function live.run(suite: string, options: { [string]: any }?): string
-	local config = options or {}
+	local config: { [string]: any } = options or {}
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local themes = themeModules(Facet)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -464,7 +474,7 @@ function live.run(suite: string, options: { [string]: any }?): string
 		if not case.run or (config.only and not string.find(case.id, config.only, 1, true)) then
 			continue
 		end
-		local record = { id = case.id, contracts = case.contracts or {}, checks = {}, notes = {} }
+		local record: { [string]: any } = { id = case.id, contracts = case.contracts or {}, checks = {}, notes = {} }
 		local t = newCase(Facet, themes, record)
 		local ok, problem = xpcall(case.run, debug.traceback, t)
 		if not record.held then
@@ -660,7 +670,9 @@ end
 
 function live.record(tag: string, suites: { string }?): string
 	local lines = {}
-	for _, suite in suites or { "layout_geometry", "gallery", "needs_live", "motion_continuity", "table_resize" } do
+	local selectedSuites: { string } = suites
+		or { "layout_geometry", "gallery", "needs_live", "motion_continuity", "table_resize" }
+	for _, suite in selectedSuites do
 		local json = live.run(suite, { keepGallery = suite ~= "layout_geometry" })
 		live.save(`{suite}-{tag}`, json)
 		table.insert(lines, live.summary(json))

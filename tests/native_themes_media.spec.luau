@@ -1,4 +1,18 @@
 --!strict
+type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
+type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local requireDynamic = require :: (any) -> any
+local FixtureMediaTypes = require("../src/ui/media_types")
+local FixtureThemeTypes = require("../src/ui/theme_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local transitionOf = require("./lib/transition")
 local Compose = require("../src/vendor/compose/core")
@@ -12,7 +26,7 @@ local fs = require("@lune/fs")
 
 local function setup()
 	local engine = engineLib.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI = media(context(Compose, runtime, { types = engine.types }))
 	return engine, runtime, UI
 end
@@ -30,12 +44,12 @@ t.describe("native themes and media", function()
 	t.it("keeps native theme rules reactive without writing instance paint", function()
 		local engine, runtime, UI = setup()
 		local selected = Compose.cell(themes.neutralPackage())
-		local sheet, label
+		local sheet: any, label: any
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, selected, { types = engine.types })
 			label = UI.Text({ text = "Themed" })
-			return runtime.constructors.Frame({
-				sheet,
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				sheet :: unknown,
 				runtime.constructors.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				label,
 			})
@@ -53,7 +67,7 @@ t.describe("native themes and media", function()
 	t.it("scales translucent theme surfaces by the player's background transparency preference", function()
 		local engine, runtime = setup()
 		local preference = Compose.cell(1)
-		local sheet
+		local sheet: any
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(
 				runtime,
@@ -87,17 +101,18 @@ t.describe("native themes and media", function()
 		light.colors.surface = { r = 0.9, g = 0.9, b = 0.9 }
 		light.colors.content = { r = 0.1, g = 0.1, b = 0.1 }
 		light.extra = table.clone(light.extra or {})
-		light.extra.onSelected = { r = 1, g = 1, b = 1 }
+		assert(light.extra).onSelected = { r = 1, g = 1, b = 1 }
 		package.style.themes = { package.style.themes[1], light }
-		package = themes.define(package)
-		local selection, reduced, explicit = Compose.cell("Dark"), Compose.cell(false), Compose.cell(nil)
-		local stop, sheet = runtime.mount(function()
+		package = assert(themes.define(package))
+		local selection, reduced, explicit: FixtureComposeTypes.Cell<(TweenInfo | false)?> =
+			Compose.cell("Dark"), Compose.cell(false), Compose.cell(nil :: TweenInfo | false | nil)
+		local stop, sheet: any = runtime.mount(function()
 			return themes.createStyleSheet(runtime, package, {
 				types = engine.types,
 				theme = selection,
-				motionLevel = Compose.formula(function(use)
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if use(reduced) then "none" else "normal"
-				end),
+				end) :: unknown) :: MotionLevel,
 				transition = explicit,
 			})
 		end, engine.new("Folder"))
@@ -134,7 +149,7 @@ t.describe("native themes and media", function()
 		local override = engine.types.TweenInfo.new(0.6, engine.types.Enum.EasingStyle.Linear)
 		explicit:set(override)
 		t.expect(transitionOf(surfaceRule, "BackgroundColor3")).toBe(override)
-		explicit:set(false)
+		explicit:set(false :: false)
 		t.expect(transitionOf(textRule, "TextColor3").Time).toBe(0)
 		stop()
 		t.expect(textRule.isDestroyed()).toBe(true)
@@ -147,18 +162,18 @@ t.describe("native themes and media", function()
 	t.it("adds and removes native rules through Compose while shallow-frozen packages stay reactive", function()
 		local engine, runtime = setup()
 		local package = themes.neutralPackage()
-		local contributed = { BackgroundTransparency = 0.25 }
+		local contributed: FixtureThemeTypes.RuleProperties = { BackgroundTransparency = 0.25 }
 		package.rules = {}
 		table.freeze(package)
 		local revision = Compose.cell(0)
-		local stop, sheet = runtime.mount(function()
-			return themes.createStyleSheet(runtime, function(use)
+		local stop, sheet: any = runtime.mount(function()
+			return themes.createStyleSheet(runtime, function(use: Use)
 				use(revision)
 				return package
 			end, { types = engine.types })
 		end, engine.new("Folder"))
 		local initial = sheet:GetChildren()
-		table.insert(package.rules, { selector = ".game-added", properties = contributed })
+		table.insert(assert(package.rules), { selector = ".game-added", properties = contributed })
 		revision:set(1)
 		t.expect(#sheet:GetChildren()).toBe(#initial + 1)
 		local added = sheet:GetChildren()[#initial + 1]
@@ -169,7 +184,7 @@ t.describe("native themes and media", function()
 		revision:set(2)
 		t.expect(added:GetProperties().BackgroundTransparency).toBe(0.75)
 		t.expect(sheet:GetChildren()[#initial + 1]).toBe(added)
-		table.clear(package.rules)
+		table.clear(assert(package.rules))
 		revision:set(3)
 		t.expect(added.isDestroyed()).toBe(true)
 		t.expect(#sheet:GetChildren()).toBe(#initial)
@@ -191,15 +206,15 @@ t.describe("native themes and media", function()
 			pressed = { content = "rbxassetid://2" },
 			corner = { content = "rbxassetid://3" },
 		}
-		package.chrome.control = {
-			kind = "layered",
+		assert(package.chrome).control = {
+			kind = "layered" :: "layered",
 			layers = {
-				{ kind = "fill", asset = { default = "rest", pressed = "pressed" } },
-				{ kind = "corners", asset = "corner", topLeft = "corner", topRight = "corner", size = 12 },
+				{ kind = "fill" :: "fill", asset = { default = "rest", pressed = "pressed" } } :: FixtureThemeTypes.SkinLayer,
+				{ kind = "corners" :: "corners", asset = "corner", topLeft = "corner", topRight = "corner", size = 12 } :: FixtureThemeTypes.SkinLayer,
 			},
 		}
-		local state = Compose.cell("default")
-		local stop, node = runtime.mount(function()
+		local state = Compose.cell("default" :: FixtureThemeTypes.SkinState)
+		local stop, node: any = runtime.mount(function()
 			return themes.skin(runtime, package, "control", { types = engine.types, state = state })
 		end, engine.new("Folder"))
 		t.expect(#node:GetChildren()).toBe(5)
@@ -220,11 +235,14 @@ t.describe("native themes and media", function()
 		local acquired, released = 0, 0
 		local resource = Compose.createSharedResource(function()
 			acquired += 1
-			return { state = Compose.cell("ready"), value = Compose.cell("rbxassetid://7") }, function()
+			return {
+				state = Compose.cell("ready" :: "loading" | "ready" | "failed"),
+				value = Compose.cell("rbxassetid://7"),
+			}, function()
 				released += 1
 			end
 		end)
-		local first = runtime.mount(function()
+		local first: any = runtime.mount(function()
 			return UI.AsyncImage({ resource = resource })
 		end, engine.new("Folder"))
 		local second = runtime.mount(function()
@@ -253,10 +271,10 @@ t.describe("native themes and media", function()
 				"layered_test",
 			}
 		do
-			local module = require("../examples/themes/" .. name)
+			local module = requireDynamic("../examples/themes/" .. name)
 			local package, report = module.build(themes)
 			t.expect(report.ok).toBe(true)
-			local stop, sheet = runtime.mount(function()
+			local stop, sheet: any = runtime.mount(function()
 				return themes.createStyleSheet(runtime, package, { types = engine.types })
 			end, engine.new("Folder"))
 			t.expect(#sheet:GetChildren() > 30).toBe(true)
@@ -267,9 +285,9 @@ t.describe("native themes and media", function()
 
 	t.it("keeps async completions stale after a source change or disposal", function()
 		local engine, runtime, UI = setup()
-		local source, requests, states = Compose.cell("first"), {}, {}
+		local source, requests, states = Compose.cell("first" :: string?), {}, {}
 		local cancellations = 0
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.AsyncImage({
 				source = source,
 				loader = function(content, resolve, reject)
@@ -299,8 +317,8 @@ t.describe("native themes and media", function()
 
 	t.it("exposes failure content and retries when the source changes", function()
 		local engine, runtime, UI = setup()
-		local source = Compose.cell("broken")
-		local stop, root = runtime.mount(function()
+		local source = Compose.cell("broken" :: string?)
+		local stop, root: any = runtime.mount(function()
 			return UI.AsyncImage({
 				source = source,
 				failureLabel = "Unavailable",
@@ -329,33 +347,35 @@ t.describe("native themes and media", function()
 	t.it("clamps progress, counts badges and releases stage scenes with Compose", function()
 		local engine, runtime, UI = setup()
 		local progress = Compose.cell(0.25)
-		local count = Compose.cell(120)
+		local count = Compose.cell(120 :: number?)
 		local stage, bar, badge, released = nil, nil, nil, 0
 		local stop = runtime.mount(function()
 			bar = UI.ProgressView({ value = progress })
-			badge = UI.StatusIndicator({ count = count, status = "success" })
+			badge = UI.StatusIndicator({ count = count, status = "success" :: "success" })
 			stage = UI.Stage({
-				content = function(sceneRuntime, world)
-					return sceneRuntime.mount(function()
-						return sceneRuntime.constructors.Part "Model" {}
+				content = function(sceneRuntime: FixtureComposeTypes.Runtime, world: WorldModel): (() -> ())?
+					local Host = (sceneRuntime.constructors :: unknown) :: RobloxHost
+					local stop = sceneRuntime.mount(function(): Part
+						return Host.Part "Model" {}
 					end, world)
+					return stop
 				end,
 			})
 			Compose.cleanup(function()
 				released += 1
 			end)
-			return runtime.constructors.Frame({ bar, badge, stage })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ bar :: unknown, badge, stage })
 		end, engine.new("Folder"))
-		t.expect(bar:FindFirstChild("Fill1", true).Size.X.Scale).toBe(0.25)
+		t.expect((bar:FindFirstChild("Fill1", true) :: any).Size.X.Scale).toBe(0.25)
 		progress:set(2)
-		t.expect(bar:FindFirstChild("Fill1", true).Size.X.Scale).toBe(1)
+		t.expect((bar:FindFirstChild("Fill1", true) :: any).Size.X.Scale).toBe(1)
 		t.expect(badge.Text).toBe("99+")
 		t.expect(badge.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.X)
-		t.expect(badge:FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(24)
+		t.expect(assert(badge:FindFirstChildWhichIsA("UISizeConstraint")).MinSize.X).toBe(24)
 		t.expect(badge:FindFirstChildWhichIsA("UIAspectRatioConstraint")).toBe(nil)
 		count:set(3)
 		t.expect(badge.Text).toBe("3")
-		local model = stage:FindFirstChild("Model", true)
+		local model: any = stage:FindFirstChild("Model", true)
 		t.expect(model.ClassName).toBe("Part")
 		stop()
 		t.expect(model.isDestroyed()).toBe(true)
@@ -364,7 +384,9 @@ t.describe("native themes and media", function()
 	end)
 	t.it("preserves avatar initials presence rung changes and keyed roster identity", function()
 		local engine, runtime, UI = setup()
-		local rung, presence = Compose.cell("compact"), Compose.cell("online")
+		local rung: FixtureComposeTypes.Cell<"compact" | "large" | "regular" | "xsmall">, presence =
+			Compose.cell("compact" :: "compact" | "large" | "regular" | "xsmall"),
+			Compose.cell("online" :: ("away" | "busy" | "inExperience" | "offline" | "online")?)
 		local roster = Compose.cell({
 			{ id = "a", name = "Émile Noël" },
 			{ id = "b", name = "Bo Lane" },
@@ -380,29 +402,35 @@ t.describe("native themes and media", function()
 					selected += 1
 				end,
 			})
-			return runtime.constructors.Frame({ avatar, group })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ avatar :: unknown, group })
 		end, engine.new("Folder"))
-		t.expect(avatar:FindFirstChild("Initials").Text).toBe("ÉN")
+		t.expect((avatar:FindFirstChild("Initials") :: any).Text).toBe("ÉN")
 		t.expect(avatar.Size.X.Offset).toBe(36)
-		t.expect(avatar:FindFirstChild("Initials"):FindFirstChildWhichIsA("UITextSizeConstraint").MaxTextSize).toBe(14)
+		t.expect(
+			((avatar:FindFirstChild("Initials") :: any):FindFirstChildWhichIsA("UITextSizeConstraint") :: any).MaxTextSize
+		)
+			.toBe(14)
 		t.expect(avatar.Selectable).toBe(false)
 		presence:set("busy")
 		rung:set("large")
 		t.expect(avatar:GetAttribute("AccessibleLabel")).toBe("Émile Noël, busy")
 		t.expect(avatar.Size.X.Offset).toBe(56)
-		t.expect(avatar:FindFirstChild("Initials"):FindFirstChildWhichIsA("UITextSizeConstraint").MaxTextSize).toBe(22)
-		t.expect(avatar:FindFirstChild("Presence"):HasTag("facet-status-error")).toBe(true)
+		t.expect(
+			((avatar:FindFirstChild("Initials") :: any):FindFirstChildWhichIsA("UITextSizeConstraint") :: any).MaxTextSize
+		)
+			.toBe(22)
+		t.expect((avatar:FindFirstChild("Presence") :: any):HasTag("facet-status-error") :: any).toBe(true)
 		t.expect(group:HasTag("facet-avatar-stack")).toBe(true)
-		local first = group:FindFirstChild("a")
+		local first: any = group:FindFirstChild("a")
 		roster:set({
 			{ id = "b", name = "Bo Lane" },
 			{ id = "a", name = "Émile Changed" },
 			{ id = "c", name = "Ada Quill" },
 		})
 		t.expect(group:FindFirstChild("a")).toBe(first)
-		t.expect(first:FindFirstChild("Initials").Text).toBe("ÉC")
+		t.expect((first:FindFirstChild("Initials") :: any).Text).toBe("ÉC")
 		t.expect(first.LayoutOrder).toBe(2)
-		local overflow = group:FindFirstChild("Overflow")
+		local overflow: any = group:FindFirstChild("Overflow")
 		t.expect(overflow.Text).toBe("+1")
 		overflow.Activated.fire()
 		t.expect(selected).toBe(1)
@@ -412,20 +440,20 @@ t.describe("native themes and media", function()
 
 	t.it("animates skeletons with one shared Compose clock and honors reduced motion", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local reduced = Compose.cell(false)
 		local UI = media(context(Compose, runtime, {
 			types = engine.types,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		}))
-		local first, one = runtime.mount(function()
-			return UI.Skeleton({ form = "line", lines = 3 })
+		local first: any, one: any = runtime.mount(function()
+			return UI.Skeleton({ form = "line" :: "line", lines = 3 })
 		end, engine.new("Folder"))
 		local listeners = engine.heartbeat.count()
-		local second, two = runtime.mount(function()
-			return UI.Skeleton({ form = "circle" })
+		local second, two: any = runtime.mount(function()
+			return UI.Skeleton({ form = "circle" :: "circle" })
 		end, engine.new("Folder"))
 		t.expect(engine.heartbeat.count()).toBe(listeners)
 		t.expect(one:FindFirstChild("Placeholder3").Size.X.Scale).toBeCloseTo(0.6)
@@ -451,22 +479,22 @@ t.describe("native themes and media", function()
 
 	t.it("keeps indeterminate progress stepping and trails determinate decreases", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, motionLevel = "none" }))
 		local value, bar, busy = Compose.cell(0.8), nil, nil
 		local stop = runtime.mount(function()
 			bar = UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.4 } })
-			busy = UI.ProgressView({ presentation = "spinner" })
-			return runtime.constructors.Frame({ bar, busy })
+			busy = UI.ProgressView({ presentation = "spinner" :: "spinner" })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ bar :: unknown, busy })
 		end, engine.new("Folder"))
-		local dot = busy:FindFirstChild("Segment1", true)
+		local dot: any = busy:FindFirstChild("Segment1", true)
 		local before = dot.BackgroundTransparency
 		engine.heartbeat.fire(0.1)
 		t.expect(dot.BackgroundTransparency).toBe(before)
 		engine.heartbeat.fire(0.2)
 		t.expect(dot.BackgroundTransparency ~= before).toBe(true)
 		value:set(0.2)
-		t.expect(bar:FindFirstChild("Trail", true).Size.X.Scale).toBeCloseTo(0.2)
+		t.expect((bar:FindFirstChild("Trail", true) :: any).Size.X.Scale).toBeCloseTo(0.2)
 		stop()
 		runtime:dispose()
 		t.expect(engine.heartbeat.count()).toBe(0)
@@ -474,12 +502,17 @@ t.describe("native themes and media", function()
 
 	t.it("keeps badges and status shapes reactive without creating focus targets", function()
 		local engine, runtime, UI = setup()
-		local label, status, form = Compose.cell("Online"), Compose.cell("success"), Compose.cell("dot")
-		local badge, indicator
+		local label, status, form =
+			Compose.cell("Online"),
+			Compose.cell(
+				"success" :: "accent" | "contrast" | "error" | "info" | "neutral" | "success" | "voice" | "warning"
+			),
+			Compose.cell("dot" :: "dash" | "dot" | "ring" | "square")
+		local badge: any, indicator
 		local stop = runtime.mount(function()
 			badge = UI.Badge({ label = label, status = status })
 			indicator = UI.StatusIndicator({ status = status, form = form, diameter = 16 })
-			return runtime.constructors.Frame({ badge, indicator })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ badge :: unknown, indicator })
 		end, engine.new("Folder"))
 		t.expect(badge.Selectable).toBe(false)
 		t.expect(indicator.Selectable).toBe(false)
@@ -490,7 +523,7 @@ t.describe("native themes and media", function()
 		t.expect(indicator:HasTag("facet-status-warning")).toBe(true)
 		t.expect(indicator.Size.Y.Offset < indicator.Size.X.Offset).toBe(true)
 		form:set("ring")
-		local ring = indicator:FindFirstChild("Ring")
+		local ring: any = indicator:FindFirstChild("Ring")
 		t.expect(ring:HasTag("facet-status-ring")).toBe(true)
 		t.expect(ring.BorderStrokePosition).toBe(engine.types.Enum.BorderStrokePosition.Inner)
 		t.expect(ring.Thickness).toBe(3)
@@ -504,7 +537,7 @@ t.describe("native themes and media", function()
 
 	t.it("lets the skinned tag outrank every built-in control fill", function()
 		local engine, runtime = setup()
-		local stop, sheet = runtime.mount(function()
+		local stop, sheet: any = runtime.mount(function()
 			return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 		end, engine.new("Folder"))
 		local skinned, highest = nil, 0
@@ -530,16 +563,17 @@ t.describe("native themes and media", function()
 			b = { content = "rbxassetid://2" },
 			c = { content = "rbxassetid://3" },
 		}
-		basis.chrome.control = { kind = "fill", asset = { default = "a", pressed = "b" } }
-		local base = themes.define(basis)
-		local derived = themes.define({
+		assert(basis.chrome).control = { kind = "fill" :: "fill", asset = { default = "a", pressed = "b" } }
+		local base = assert(themes.define(basis))
+		local definition: FixtureThemeTypes.ThemeDefinition = {
 			base = base,
 			identity = { id = "derived" },
 			chrome = { control = { asset = { default = "c" } } },
-		})
-		t.expect(derived.chrome.control.asset.default).toBe("c")
-		t.expect(derived.chrome.control.asset.pressed).toBe(nil)
-		t.expect(derived.chrome.control.kind).toBe("fill")
+		}
+		local derived = themes.define(definition)
+		t.expect((assert(assert(derived).chrome).control.asset :: FixtureThemeTypes.AssetVariants).default).toBe("c")
+		t.expect((assert(assert(derived).chrome).control.asset :: FixtureThemeTypes.AssetVariants).pressed).toBe(nil)
+		t.expect(assert(assert(derived).chrome).control.kind).toBe("fill")
 	end)
 
 	t.it("rejects malformed type roles, unknown shadow presets and unreadable selected labels", function()
@@ -548,14 +582,14 @@ t.describe("native themes and media", function()
 		roles.body = 5
 		t.expect((select(2, themes.define(typed))).ok).toBe(false)
 		local shadowed = themes.neutralPackage()
-		shadowed.chrome = { control = { kind = "native", shadow = "floating" } }
+		shadowed.chrome = { control = { kind = "native" :: "native", shadow = "floating" } }
 		t.expect((select(2, themes.define(shadowed))).ok).toBe(false)
 		local selected = themes.neutralPackage()
 		selected.style.themes[1].extra = table.clone(selected.style.themes[1].extra or {})
-		selected.style.themes[1].extra.controlSelected = { r = 0.9, g = 0.9, b = 0.92 }
+		assert(selected.style.themes[1].extra).controlSelected = { r = 0.9, g = 0.9, b = 0.92 }
 		t.expect((select(2, themes.define(selected))).ok).toBe(false)
 		local valid = themes.neutralPackage()
-		valid.chrome = { control = { kind = "native", shadow = "raised" } }
+		valid.chrome = { control = { kind = "native" :: "native", shadow = "raised" } }
 		t.expect((select(2, themes.define(valid))).ok).toBe(true)
 	end)
 
@@ -565,7 +599,7 @@ t.describe("native themes and media", function()
 		local package, report = themes.define(bad)
 		t.expect(package).toBe(nil)
 		t.expect(report.ok).toBe(false)
-		local needs = { { name = "custom:knob", section = "metrics.radii", kind = "number" } }
+		local needs = { { name = "custom:knob", section = "metrics.radii", kind = "number" :: "number" } }
 		t.expect(themes.checkCoverage(themes.neutralPackage(), needs).ok).toBe(false)
 		local good = themes.neutralPackage()
 		good.metrics.radii["custom:knob"] = 4
@@ -574,17 +608,18 @@ t.describe("native themes and media", function()
 	t.it("keeps compiled theme data immutable and rejects callbacks or malformed values", function()
 		local definition = themes.neutralPackage()
 		local package = themes.define(definition)
-		t.expect(table.isfrozen(package.metrics.typography)).toBe(true)
+		t.expect(table.isfrozen(assert(package).metrics.typography)).toBe(true)
 		definition.metrics.typography.body.size = 23
-		t.expect(package.metrics.typography.body.size).toBe(16)
-		definition.rules =
+		t.expect(assert(package).metrics.typography.body.size).toBe(16)
+		local malformedDefinition = definition :: any
+		malformedDefinition.rules =
 			{ { selector = ".bad", properties = {
 				Text = function()
 					return "not data"
 				end,
 			} } }
 		t.expect(select(2, themes.define(definition)).ok).toBe(false)
-		t.expect(select(2, themes.define(false)).ok).toBe(false)
+		t.expect(select(2, themes.define(false :: any)).ok).toBe(false)
 	end)
 
 	t.it("preserves external cameras and forwards native viewport lighting", function()
@@ -593,7 +628,7 @@ t.describe("native themes and media", function()
 		local original = engine.new("Folder")
 		camera.Parent = original
 		local ambient = engine.types.Color3.new(0.2, 0.3, 0.4)
-		local stop, stage = runtime.mount(function()
+		local stop, stage: any = runtime.mount(function()
 			return UI.Stage({ camera = camera, Ambient = ambient, LightDirection = engine.types.Vector3.new(1, -1, 0) })
 		end, engine.new("Folder"))
 		t.expect(stage.CurrentCamera).toBe(camera)
@@ -606,7 +641,7 @@ t.describe("native themes and media", function()
 
 	t.it("uses native image framing and rounded avatar images", function()
 		local engine, runtime, UI = setup()
-		local avatar, image
+		local avatar: any, image: any
 		local stop = runtime.mount(function()
 			avatar = UI.Avatar({ name = "Ada", image = "rbxassetid://1" })
 			image = UI.AsyncImage({
@@ -616,11 +651,14 @@ t.describe("native themes and media", function()
 					ResampleMode = engine.types.Enum.ResamplerMode.Pixelated,
 				},
 			})
-			return runtime.constructors.Frame({ avatar, image })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ avatar :: unknown, image })
 		end, engine.new("Folder"))
-		t.expect(avatar:FindFirstChild("Image", true):FindFirstChildWhichIsA("UICorner").CornerRadius.Scale).toBe(1)
-		t.expect(image:FindFirstChild("Image").ScaleType).toBe(engine.types.Enum.ScaleType.Crop)
-		t.expect(image:FindFirstChild("Image").ResampleMode).toBe(engine.types.Enum.ResamplerMode.Pixelated)
+		t.expect(
+			((avatar:FindFirstChild("Image", true) :: any):FindFirstChildWhichIsA("UICorner") :: any).CornerRadius.Scale
+		)
+			.toBe(1)
+		t.expect((image:FindFirstChild("Image") :: any).ScaleType).toBe(engine.types.Enum.ScaleType.Crop)
+		t.expect((image:FindFirstChild("Image") :: any).ResampleMode).toBe(engine.types.Enum.ResamplerMode.Pixelated)
 		stop()
 		runtime:dispose()
 	end)
@@ -629,15 +667,21 @@ t.describe("native themes and media", function()
 		local engine, runtime = setup()
 		local package = themes.neutralPackage()
 		package.identity.rendering = "pixel"
-		package.assets.art = { content = "rbxassetid://10" }
-		package.chrome.control = {
-			kind = "layered",
+		assert(package.assets).art = { content = "rbxassetid://10" }
+		assert(package.chrome).control = {
+			kind = "layered" :: "layered",
 			contentInsets = { top = 4, right = 20, bottom = 6, left = 20 },
 			layers = {
-				{ kind = "tile", asset = "art", tileSize = { w = 8, h = 8 } },
-				{ kind = "edges", asset = "art", sides = { "top", "bottom" }, thickness = 4, margin = 8 },
+				{ kind = "tile" :: "tile", asset = "art", tileSize = { w = 8, h = 8 } } :: FixtureThemeTypes.SkinLayer,
 				{
-					kind = "plaque",
+					kind = "edges" :: "edges",
+					asset = "art",
+					sides = { "top", "bottom" } :: { "top" | "right" | "bottom" | "left" },
+					thickness = 4,
+					margin = 8,
+				} :: FixtureThemeTypes.SkinLayer,
+				{
+					kind = "plaque" :: "plaque",
 					asset = "art",
 					size = { w = 80, h = 20 },
 					text = true,
@@ -645,23 +689,28 @@ t.describe("native themes and media", function()
 						left = 4,
 						right = 4,
 					},
-				},
+				} :: FixtureThemeTypes.SkinLayer,
 			},
 		}
-		local target, skin, sheet
+		local target, skin: any, sheet: any
 		local stop = runtime.mount(function()
-			target = runtime.constructors.TextButton({ Text = "Captain" })
-			skin =
-				themes.skin(runtime, package, "control", { types = engine.types, target = target, label = "Captain" })
+			target = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({ Text = "Captain" })
+			skin = themes.skin(
+				runtime,
+				package,
+				"control",
+				{ types = engine.types, target = target :: GuiObject, label = "Captain" }
+			)
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-			return runtime.constructors.Frame({ target, skin, sheet })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ target :: unknown, skin, sheet })
 		end, engine.new("Folder"))
 		t.expect(target:HasTag("facet-skin-caption")).toBe(true)
-		t.expect(skin:FindFirstChild("PlaqueCaption", true).Text).toBe("Captain")
-		t.expect(skin:FindFirstChild("control1", true).ScaleType).toBe(engine.types.Enum.ScaleType.Tile)
-		t.expect(skin:FindFirstChild("control1", true).TileSize.X.Offset).toBe(8)
-		t.expect(skin:FindFirstChild("control2bottom", true).AnchorPoint.Y).toBe(1)
-		t.expect(skin:FindFirstChild("control1", true).ResampleMode).toBe(engine.types.Enum.ResamplerMode.Pixelated)
+		t.expect((skin:FindFirstChild("PlaqueCaption", true) :: any).Text).toBe("Captain")
+		t.expect((skin:FindFirstChild("control1", true) :: any).ScaleType).toBe(engine.types.Enum.ScaleType.Tile)
+		t.expect((skin:FindFirstChild("control1", true) :: any).TileSize.X.Offset).toBe(8)
+		t.expect((skin:FindFirstChild("control2bottom", true) :: any).AnchorPoint.Y).toBe(1)
+		t.expect((skin:FindFirstChild("control1", true) :: any).ResampleMode)
+			.toBe(engine.types.Enum.ResamplerMode.Pixelated)
 		t.expect(style(sheet, ".facet-button::UIPadding").PaddingLeft.Offset).toBe(32)
 		stop()
 		runtime:dispose()
@@ -671,15 +720,18 @@ t.describe("native themes and media", function()
 		local loaded, released, activated = 0, 0, 0
 		local resource = Compose.createSharedResource(function()
 			loaded += 1
-			return { state = Compose.cell("ready"), value = Compose.cell("rbxassetid://21") }, function()
+			return {
+				state = Compose.cell("ready" :: "loading" | "ready" | "failed"),
+				value = Compose.cell("rbxassetid://21" :: string?),
+			}, function()
 				released += 1
 			end
 		end)
-		local avatar, group, badge, mark
+		local avatar: any, group: any, badge: any, mark: any
 		local stop = runtime.mount(function()
 			avatar = UI.Avatar({
 				name = "Ada",
-				presence = "online",
+				presence = "online" :: "online",
 				presenceLabel = "Disponible",
 				diameter = 52,
 				onActivate = function()
@@ -688,28 +740,37 @@ t.describe("native themes and media", function()
 			})
 			group = UI.AvatarGroup({
 				items = {
-					{ id = "a", name = "Ada", resource = resource },
-					{ id = "b", name = "Bo", resource = resource },
-					{ id = "c", name = "Cleo" },
+					{ id = "a", name = "Ada", resource = resource } :: FixtureMediaTypes.AvatarMember,
+					{ id = "b", name = "Bo", resource = resource } :: FixtureMediaTypes.AvatarMember,
+					{ id = "c", name = "Cleo" } :: FixtureMediaTypes.AvatarMember,
 				},
 				max = 2,
-				overflow = "ellipsis",
+				overflow = "ellipsis" :: "ellipsis",
 				overflowLabel = "Otra persona",
 			})
 			badge = UI.Badge({ icon = "checkmark", name = "Verified" })
-			mark = UI.StatusIndicator({ form = "dash", cutout = true, Size = engine.types.UDim2.fromOffset(80, 12) })
-			return runtime.constructors.Frame({ avatar, group, badge, mark })
+			mark = UI.StatusIndicator({
+				form = "dash" :: "dash",
+				cutout = true,
+				Size = engine.types.UDim2.fromOffset(80, 12),
+			})
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				avatar :: unknown,
+				group,
+				badge,
+				mark,
+			})
 		end, engine.new("Folder"))
 		t.expect(avatar:GetAttribute("AccessibleLabel")).toBe("Ada, Disponible")
 		t.expect(avatar.Size.X.Offset).toBe(52)
 		t.expect(avatar.Selectable).toBe(true)
 		avatar.Activated.fire()
 		t.expect(activated).toBe(1)
-		t.expect(group:FindFirstChild("Overflow"):GetAttribute("AccessibleLabel")).toBe("Otra persona")
-		t.expect(group:FindFirstChild("Overflow").Text).toBe("…")
+		t.expect((group:FindFirstChild("Overflow") :: any):GetAttribute("AccessibleLabel") :: any).toBe("Otra persona")
+		t.expect((group:FindFirstChild("Overflow") :: any).Text).toBe("…")
 		t.expect(loaded).toBe(1)
-		t.expect(group:FindFirstChild("a"):FindFirstChild("Initials").Visible).toBe(false)
-		t.expect(avatar:FindFirstChild("Initials").Visible).toBe(true)
+		t.expect(((group:FindFirstChild("a") :: any):FindFirstChild("Initials") :: any).Visible).toBe(false)
+		t.expect((avatar:FindFirstChild("Initials") :: any).Visible).toBe(true)
 		t.expect(badge:FindFirstChildWhichIsA("TextLabel"):GetAttribute("AccessibleLabel")).toBe("Verified")
 		t.expect(badge:HasTag("facet-badge")).toBe(true)
 		t.expect(badge:FindFirstChildWhichIsA("TextLabel"):HasTag("facet-badge")).toBe(false)
@@ -718,7 +779,8 @@ t.describe("native themes and media", function()
 		local constraint = mark:FindFirstChildWhichIsA("UIAspectRatioConstraint")
 		t.expect(constraint.AspectRatio).toBe(3)
 		t.expect(constraint.AspectType).toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
-		t.expect(mark:FindFirstChild("Cutout").BorderStrokePosition).toBe(engine.types.Enum.BorderStrokePosition.Inner)
+		t.expect((mark:FindFirstChild("Cutout") :: any).BorderStrokePosition)
+			.toBe(engine.types.Enum.BorderStrokePosition.Inner)
 		stop()
 		t.expect(released).toBe(1)
 		runtime:dispose()
@@ -726,8 +788,8 @@ t.describe("native themes and media", function()
 
 	t.it("follows a bound badge corner radius", function()
 		local engine, runtime, UI = setup()
-		local corners = Compose.cell("rounded")
-		local badge
+		local corners = Compose.cell("rounded" :: "capsule" | "rounded" | "square" | number)
+		local badge: any
 		local stop = runtime.mount(function()
 			badge = UI.Badge({ label = "New", corners = corners })
 			return badge
@@ -743,19 +805,19 @@ t.describe("native themes and media", function()
 	t.it("rejects malformed media policy and retains valid reactive captions", function()
 		for _, build in
 			{
-				function(UI)
-					return UI.Badge({ label = 3 })
+				function(UI: typeof(media(nil :: any)))
+					return UI.Badge({ label = 3 } :: any)
 				end,
-				function(UI)
+				function(UI: typeof(media(nil :: any)))
 					return UI.Badge({ icon = "checkmark" })
 				end,
-				function(UI)
-					return UI.AvatarGroup({ items = {}, overflow = "unexpected" })
+				function(UI: typeof(media(nil :: any)))
+					return UI.AvatarGroup({ items = {}, overflow = "unexpected" } :: any)
 				end,
-				function(UI)
+				function(UI: typeof(media(nil :: any)))
 					return UI.AvatarGroup({ items = { { id = "a", name = "A" }, { id = "a", name = "B" } } })
 				end,
-				function(UI)
+				function(UI: typeof(media(nil :: any)))
 					return UI.StatusIndicator({ count = 1, max = -1 })
 				end,
 			}
@@ -771,11 +833,11 @@ t.describe("native themes and media", function()
 		end
 		local engine, runtime, UI = setup()
 		local caption = Compose.cell("Ready")
-		local stop, badge = runtime.mount(function()
+		local stop, badge: any = runtime.mount(function()
 			return UI.Badge({ label = caption })
 		end, engine.new("Folder"))
 		t.expect(pcall(function()
-			caption:set(3)
+			caption:set(3 :: any)
 		end)).toBe(false)
 		caption:set("Recovered")
 		t.expect(badge.Text).toBe("Recovered")
@@ -785,12 +847,12 @@ t.describe("native themes and media", function()
 
 	t.it("keeps circular progress endpoints bounded and theme metrics reactive", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = Compose.cell(themes.neutralPackage())
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
 		local value = Compose.cell(0)
-		local stop, node = runtime.mount(function()
-			return UI.ProgressView({ presentation = "circular", value = value })
+		local stop, node: any = runtime.mount(function()
+			return UI.ProgressView({ presentation = "circular" :: "circular", value = value })
 		end, engine.new("Folder"))
 		local circle = node:FindFirstChild("Indicator", true)
 		local fill, track = circle:FindFirstChild("RingFill"), circle:FindFirstChild("RingTrack")
@@ -826,19 +888,19 @@ t.describe("native themes and media", function()
 	end)
 	t.it("keeps native semantic icons reactive with pixel resampling and metric sizing", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = Compose.cell(themes.neutralPackage())
 		local ctx = context(Compose, runtime, { types = engine.types, theme = package })
 		local UI = media(ctx)
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.Label({ title = "Find", icon = "facet:search" })
 		end, engine.new("Folder"))
 		local icon = root:FindFirstChildWhichIsA("ImageLabel")
 		t.expect(string.match(icon.Image, "^rbxassetid://") ~= nil).toBe(true)
 		local nextPackage = themes.neutralPackage()
-		nextPackage.icons["facet:search"] = { default = "search", disabled = "dim" }
-		nextPackage.assets.search = { content = "rbxassetid://23" }
-		nextPackage.assets.dim = { content = "rbxassetid://24" }
+		assert(nextPackage.icons)["facet:search"] = { default = "search", disabled = "dim" }
+		assert(nextPackage.assets).search = { content = "rbxassetid://23" }
+		assert(nextPackage.assets).dim = { content = "rbxassetid://24" }
 		nextPackage.metrics.controlSizes.regular.iconSize = 28
 		nextPackage.identity.rendering = "pixel"
 		package:set(nextPackage)
@@ -852,7 +914,7 @@ t.describe("native themes and media", function()
 
 	t.it("preserves full size progress art endcaps centers and fill direction", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = themes.neutralPackage()
 		package.assets = {
 			fill = { content = "rbxassetid://1" },
@@ -860,14 +922,16 @@ t.describe("native themes and media", function()
 			finish = { content = "rbxassetid://3" },
 			center = { content = "rbxassetid://4" },
 		}
-		package.chrome.barFill = { kind = "nineSlice", asset = "fill", direction = "rtl" }
-		package.chrome.barCap =
-			{ kind = "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 28, h = 36 } }
-		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 36, h = 28 } }
+		assert(package.chrome).barFill =
+			{ kind = "nineSlice" :: "nineSlice", asset = "fill", direction = "rtl" :: "rtl" }
+		assert(package.chrome).barCap =
+			{ kind = "nineSlice" :: "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 28, h = 36 } }
+		assert(package.chrome).barCenter =
+			{ kind = "nineSlice" :: "nineSlice", asset = "center", size = { w = 36, h = 28 } }
 		local selected = Compose.cell(package)
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = selected }))
 		local value = Compose.cell(0.25)
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.ProgressView({ value = value, thickness = 36 })
 		end, engine.new("Folder"))
 		local fill = root:FindFirstChild("Fill1", true)
@@ -887,7 +951,8 @@ t.describe("native themes and media", function()
 		t.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset).toBe(50)
 		local nextPackage = table.clone(package)
 		nextPackage.chrome = table.clone(package.chrome)
-		nextPackage.chrome.barFill = { kind = "nineSlice", asset = "fill", direction = "btt" }
+		assert(nextPackage.chrome).barFill =
+			{ kind = "nineSlice" :: "nineSlice", asset = "fill", direction = "btt" :: "btt" }
 		selected:set(nextPackage)
 		t.expect(fill.AnchorPoint.Y).toBe(1)
 		t.expect(fill.Size.Y.Scale).toBe(0.5)
@@ -897,21 +962,27 @@ t.describe("native themes and media", function()
 	end)
 	t.it("applies rich native skin slots to editable fields toggles steppers and sliders", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = themes.neutralPackage()
 		package.assets = { art = { content = "rbxassetid://30" }, selected = { content = "rbxassetid://31" } }
 		for _, slot in { "field", "toggleTrack", "toggleKnob", "stepperPlate", "sliderTrack", "sliderThumb", "barFill" } do
-			package.chrome[slot] = { kind = "nineSlice", asset = { default = "art", selected = "selected" } }
+			assert(package.chrome)[slot] =
+				{ kind = "nineSlice" :: "nineSlice", asset = { default = "art", selected = "selected" } }
 		end
 		local UI = require("../src").controls(runtime, { types = engine.types, theme = package })
 		local active = Compose.cell(false)
-		local field, toggle, stepper, slider
+		local field: any, toggle: any, stepper, slider
 		local stop = runtime.mount(function()
 			field = UI.TextInput({ value = Compose.cell("Ada"), label = "Name" })
 			toggle = UI.Toggle({ value = active })
 			stepper = UI.Stepper({ value = Compose.cell(2), min = 0, max = 10 })
 			slider = UI.Slider({ value = Compose.cell(0.5), min = 0, max = 1 })
-			return runtime.constructors.Frame({ field, toggle, stepper, slider })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				field :: unknown,
+				toggle,
+				stepper,
+				slider,
+			})
 		end, engine.new("Folder"))
 		for slot, root in
 			{
@@ -924,13 +995,14 @@ t.describe("native themes and media", function()
 				barFill = slider,
 			}
 		do
-			t.expect(root:FindFirstChild(slot .. "1", true).Image).toBe("rbxassetid://30")
+			t.expect((assert((root :: GuiObject):FindFirstChild((slot :: string) .. "1", true)) :: ImageLabel).Image)
+				.toBe("rbxassetid://30")
 		end
-		t.expect(field:FindFirstChild("Field", true).Text).toBe("Ada")
-		t.expect(field:FindFirstChild("Input", true):HasTag("facet-skinned")).toBe(true)
+		t.expect((field:FindFirstChild("Field", true) :: any).Text).toBe("Ada")
+		t.expect((field:FindFirstChild("Input", true) :: any):HasTag("facet-skinned") :: any).toBe(true)
 		active:set(true)
-		t.expect(toggle:FindFirstChild("toggleTrack1", true).Image).toBe("rbxassetid://31")
-		t.expect(toggle:FindFirstChild("toggleKnob1", true).Image).toBe("rbxassetid://31")
+		t.expect((toggle:FindFirstChild("toggleTrack1", true) :: any).Image).toBe("rbxassetid://31")
+		t.expect((toggle:FindFirstChild("toggleKnob1", true) :: any).Image).toBe("rbxassetid://31")
 		stop()
 		runtime:dispose()
 	end)
@@ -938,23 +1010,23 @@ t.describe("native themes and media", function()
 	t.it("uses native shadows with reactive theme parameters and Compose disposal", function()
 		local engine, runtime = setup()
 		local package = themes.neutralPackage()
-		package.chrome.control = { kind = "native", shadow = "raised" }
+		assert(package.chrome).control = { kind = "native" :: "native", shadow = "raised" }
 		local selected = Compose.cell(package)
 		local target
 		local stop = runtime.mount(function()
-			target = runtime.constructors.TextButton({ Text = "Play" })
+			target = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({ Text = "Play" })
 			runtime.mount(function()
-				return themes.skin(runtime, selected, "control", { types = engine.types, target = target })
+				return themes.skin(runtime, selected, "control", { types = engine.types, target = target :: GuiObject })
 			end, target)
 			return target
 		end, engine.new("Folder"))
-		local shadow = target:FindFirstChild("ChromeShadow")
+		local shadow = target:FindFirstChild("ChromeShadow") :: FixtureShadow
 		t.expect(shadow.ClassName).toBe("UIShadow")
 		t.expect(shadow.BlurRadius.Offset).toBe(14)
 		t.expect(shadow.Offset.Y.Offset).toBe(3)
 		local nextPackage = themes.neutralPackage()
-		nextPackage.chrome.control = {
-			kind = "native",
+		assert(nextPackage.chrome).control = {
+			kind = "native" :: "native",
 			shadow = { blurRadius = { offset = 16 }, transparency = 0.28, color = { r = 0.05, g = 0.42, b = 0.5 } },
 		}
 		selected:set(nextPackage)
@@ -974,7 +1046,7 @@ t.describe("native themes and media", function()
 		local engine, runtime = setup()
 		Compose.setWorkCounters(true)
 		Compose.resetWorkCounters()
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return themes.skin(runtime, nil, "control", { types = engine.types })
 		end, engine.new("Folder"))
 		local counters = Compose.readWorkCounters()
@@ -984,7 +1056,7 @@ t.describe("native themes and media", function()
 		t.expect(#root:GetChildren()).toBe(0)
 		stop()
 		local static = themes.neutralPackage()
-		static.chrome.control = { kind = "native", shadow = "raised" }
+		assert(static.chrome).control = { kind = "native" :: "native", shadow = "raised" }
 		Compose.setWorkCounters(true)
 		Compose.resetWorkCounters()
 		stop, root = runtime.mount(function()
@@ -1002,8 +1074,8 @@ t.describe("native themes and media", function()
 		end, engine.new("Folder"))
 		t.expect(#root:GetChildren()).toBe(0)
 		local art = themes.neutralPackage()
-		art.assets.image = { content = "rbxassetid://30" }
-		art.chrome.control = { kind = "nineSlice", asset = "image", shadow = "raised" }
+		assert(art.assets).image = { content = "rbxassetid://30" }
+		assert(art.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "image", shadow = "raised" }
 		selected:set(art)
 		t.expect(root:FindFirstChild("control1").Image).toBe("rbxassetid://30")
 		t.expect(root:FindFirstChild("ChromeShadow") ~= nil).toBe(true)
@@ -1018,14 +1090,14 @@ t.describe("native themes and media", function()
 	t.it("uses Button interaction state for semantic icon variants", function()
 		local engine, runtime = setup()
 		local package = themes.neutralPackage()
-		package.icons["facet:search"] =
+		assert(package.icons)["facet:search"] =
 			{ default = "rest", hover = "hot", pressed = "press", selected = "selected", disabled = "disabled" }
-		for name, id in { rest = 1, hot = 2, press = 3, selected = 4, disabled = 5 } do
-			package.assets[name] = { content = "rbxassetid://" .. id }
+		for name, id in { rest = 1, hot = 2, press = 3, selected = 4, disabled = 5 } :: { [string]: number } do
+			assert(package.assets)[name] = { content = "rbxassetid://" .. id }
 		end
 		local UI = require("../src").controls(runtime, { types = engine.types, theme = package })
 		local selected, enabled = Compose.cell(false), Compose.cell(true)
-		local stop, button = runtime.mount(function()
+		local stop, button: any = runtime.mount(function()
 			return UI.Button({ icon = "facet:search", label = "Find", selected = selected, enabled = enabled })
 		end, engine.new("Folder"))
 		local icon = button:FindFirstChild("LeadingIcon", true)
@@ -1044,7 +1116,7 @@ t.describe("native themes and media", function()
 	end)
 	t.it("preloads the Compose owned ImageLabel after its source binding settles", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local environment = getfenv(media)
 		local originalTask = environment.task
 		local pending = {}
@@ -1063,15 +1135,15 @@ t.describe("native themes and media", function()
 			types = engine.types,
 			services = {
 				ContentProvider = {
-					PreloadAsync = function(_, instances, callback)
+					PreloadAsync = function(_, instances, callback: (string, any) -> ())
 						table.insert(preloaded, instances[1])
 						callback(instances[1].Image, engine.types.Enum.AssetFetchStatus.Success)
 					end,
-				},
+				} :: any,
 			},
 		}))
-		local source = Compose.cell("rbxassetid://10")
-		local stop, root = runtime.mount(function()
+		local source = Compose.cell("rbxassetid://10" :: string?)
+		local stop, root: any = runtime.mount(function()
 			return UI.AsyncImage({ source = source })
 		end, engine.new("Folder"))
 		t.expect(#preloaded).toBe(0)
@@ -1093,7 +1165,7 @@ t.describe("native themes and media", function()
 	t.it("preserves fractional segmented meter fill and mounted identities", function()
 		local engine, runtime, UI = setup()
 		local value = Compose.cell(0.625)
-		local stop, meter = runtime.mount(function()
+		local stop, meter: any = runtime.mount(function()
 			return UI.ProgressView({ value = value, segments = 4 })
 		end, engine.new("Folder"))
 		local third = meter:FindFirstChild("Fill3", true)
@@ -1109,7 +1181,7 @@ t.describe("native themes and media", function()
 	t.it("holds damage trails then settles and snaps immediately on healing", function()
 		local engine, runtime, UI = setup()
 		local value = Compose.cell(1)
-		local stop, meter = runtime.mount(function()
+		local stop, meter: any = runtime.mount(function()
 			return UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.3 } })
 		end, engine.new("Folder"))
 		local trail = meter:FindFirstChild("Trail", true)
@@ -1137,8 +1209,13 @@ t.describe("native themes and media", function()
 	t.it("centers circular readouts when native text bounds fit the ring", function()
 		local engine, runtime, UI = setup()
 		local value = Compose.cell(0.75)
-		local stop, meter = runtime.mount(function()
-			return UI.ProgressView({ value = value, presentation = "circular", diameter = 120, showValue = true })
+		local stop, meter: any = runtime.mount(function()
+			return UI.ProgressView({
+				value = value,
+				presentation = "circular" :: "circular",
+				diameter = 120,
+				showValue = true,
+			})
 		end, engine.new("Folder"))
 		local readout, gauge = meter:FindFirstChild("Value", true), meter:FindFirstChild("Gauge", true)
 		readout.TextBounds = engine.types.Vector2.new(38, 20)
@@ -1155,14 +1232,31 @@ t.describe("native themes and media", function()
 	end)
 
 	t.it("rejects incompatible meter options before creating native nodes", function()
-		for _, spec in
+		for
+			_,
+			spec: {
+			value: number,
+			segments: number?,
+			presentation: "circular"?,
+			diameter: number?,
+			trail: { delay: typeof(-1)?, duration: number? }?,
+		}
+		in
 			{
 				{ value = 1, segments = 0 },
 				{ value = 1, segments = 2.5 },
-				{ value = 1, presentation = "circular", segments = 4 },
+				{ value = 1, presentation = "circular" :: "circular", segments = 4 },
 				{ value = 1, diameter = 120 },
 				{ value = 1, trail = { delay = -1 } },
 				{ value = 1, trail = { duration = 0 } },
+			} :: {
+				{
+					value: number,
+					segments: number?,
+					presentation: "circular"?,
+					diameter: number?,
+					trail: { delay: typeof(-1)?, duration: number? }?,
+				}
 			}
 		do
 			local engine, runtime, UI = setup()
@@ -1170,7 +1264,7 @@ t.describe("native themes and media", function()
 			local count = #engine.made
 			t.expect(function()
 				runtime.mount(function()
-					return UI.ProgressView(spec)
+					return UI.ProgressView(spec :: any)
 				end, parent)
 			end).toThrow()
 			t.expect(#engine.made).toBe(count)
@@ -1181,15 +1275,15 @@ t.describe("native themes and media", function()
 
 	t.it("cancels pending damage trails for reduced motion and releases their clock", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local reduced, value = Compose.cell(false), Compose.cell(1)
 		local UI = media(context(Compose, runtime, {
 			types = engine.types,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		}))
-		local stop, meter = runtime.mount(function()
+		local stop, meter: any = runtime.mount(function()
 			return UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.3 } })
 		end, engine.new("Folder"))
 		local trail = meter:FindFirstChild("Trail", true)
@@ -1211,10 +1305,10 @@ t.describe("native themes and media", function()
 
 	t.it("moves oversized circular readouts below the ring using native text bounds", function()
 		local engine, runtime, UI = setup()
-		local stop, meter = runtime.mount(function()
+		local stop, meter: any = runtime.mount(function()
 			return UI.ProgressView({
 				value = 1,
-				presentation = "circular",
+				presentation = "circular" :: "circular",
 				diameter = 80,
 				showValue = true,
 				label = "Shield",
@@ -1268,19 +1362,19 @@ t.describe("native themes and media", function()
 		local defaults = create("ImageLabel")
 		local tiled = themes.neutralPackage()
 		tiled.identity.rendering = "pixel"
-		tiled.assets.plate = { content = "rbxassetid://1" }
-		tiled.chrome.control = { kind = "tile", asset = "plate", tileSize = { w = 24, h = 32 } }
+		assert(tiled.assets).plate = { content = "rbxassetid://1" }
+		assert(tiled.chrome).control = { kind = "tile" :: "tile", asset = "plate", tileSize = { w = 24, h = 32 } }
 		local sliced = themes.neutralPackage()
-		sliced.assets.plate =
+		assert(sliced.assets).plate =
 			{ content = "rbxassetid://2", sliceCenter = { x0 = 3, y0 = 4, x1 = 30, y1 = 40 }, sliceScale = 2 }
-		sliced.chrome.control = { kind = "nineSlice", asset = "plate" }
+		assert(sliced.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "plate" }
 		local plain = themes.neutralPackage()
-		plain.assets.plate = { content = "rbxassetid://3" }
-		plain.chrome.control = { kind = "fill", asset = "plate" }
+		assert(plain.assets).plate = { content = "rbxassetid://3" }
+		assert(plain.chrome).control = { kind = "fill" :: "fill", asset = "plate" }
 		local selected = Compose.cell(tiled)
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local ctx = context(Compose, runtime, { types = engine.types, theme = selected })
-		local skin, icon
+		local skin: any, icon
 		local stop = runtime.mount(function()
 			skin = themes.skin(runtime, selected, "control", { types = engine.types })
 			icon = ctx.icon("facet:search")
@@ -1301,7 +1395,7 @@ t.describe("native themes and media", function()
 			do
 				table.insert(children, themes.skin(runtime, selected, slot, { types = engine.types }))
 			end
-			return runtime.constructors.Frame(children)
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)(children)
 		end, create("Folder"))
 		local plate = skin:FindFirstChild("control1", true)
 		t.expect(plate.ResampleMode).toBe(engine.types.Enum.ResamplerMode.Pixelated)
@@ -1333,7 +1427,7 @@ t.describe("native themes and media", function()
 				"fantasy_parchment",
 			}
 		do
-			local package = require("../examples/themes/" .. name).build(themes)
+			local package = requireDynamic("../examples/themes/" .. name).build(themes)
 			selected:set(package)
 			t.expect(icon.ResampleMode).toBe(
 				if package.identity.rendering == "pixel"
@@ -1348,25 +1442,25 @@ t.describe("native themes and media", function()
 
 	t.it("rotates a smooth native circular arc with reduced motion and themed stroke colors", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local reduced, package = Compose.cell(false), Compose.cell(themes.neutralPackage())
 		local UI = media(context(Compose, runtime, {
 			types = engine.types,
 			theme = package,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		}))
-		local sheet, meter
+		local sheet: any, meter: any
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-			meter = UI.ProgressView({ presentation = "circular", diameter = 120, thickness = 4 })
-			return runtime.constructors.Frame({ sheet, meter })
+			meter = UI.ProgressView({ presentation = "circular" :: "circular", diameter = 120, thickness = 4 })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ sheet :: unknown, meter })
 		end, engine.new("Folder"))
 		local arc = meter:FindFirstChild("RingFill", true)
 		t.expect(arc.Thickness).toBe(4)
 		t.expect(#arc:GetControlPoints()).toBe(3)
-		t.expect(#meter:FindFirstChild("Indicator"):GetDescendants()).toBe(2)
+		t.expect(#((meter:FindFirstChild("Indicator") :: any):GetDescendants() :: any)).toBe(2)
 		local before = arc:GetControlPoints()[1].Position
 		engine.heartbeat.fire(0.1)
 		t.expect(arc:GetControlPoints()[1].Position ~= before).toBe(true)
@@ -1419,12 +1513,12 @@ t.describe("native themes and media", function()
 			end
 			return node
 		end
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local package = themes.neutralPackage()
-		local contributed = { ImageTransparency = 0.2 }
+		local contributed: FixtureThemeTypes.RuleProperties = { ImageTransparency = 0.2 }
 		package.rules = { { selector = ".game-icon", properties = contributed } }
 		local selected = Compose.cell(package)
-		local stop, sheet = runtime.mount(function()
+		local stop, sheet: any = runtime.mount(function()
 			return themes.createStyleSheet(runtime, selected, { types = engine.types })
 		end, create("Folder"))
 		local contributedRule, typeRule, textRule
@@ -1475,10 +1569,10 @@ t.describe("native themes and media", function()
 	t.it("uses authored selected contrast for native buttons and their mirrored captions", function()
 		local engine, runtime = setup()
 		local package = themes.neutralPackage()
-		package.style.themes[1].extra.controlSelected = { r = 45 / 255, g = 86 / 255, b = 65 / 255 }
-		package.style.themes[1].extra.onSelected = { r = 1, g = 1, b = 1 }
+		assert(package.style.themes[1].extra).controlSelected = { r = 45 / 255, g = 86 / 255, b = 65 / 255 }
+		assert(package.style.themes[1].extra).onSelected = { r = 1, g = 1, b = 1 }
 		local selected = Compose.cell(package)
-		local stop, sheet = runtime.mount(function()
+		local stop, sheet: any = runtime.mount(function()
 			return themes.createStyleSheet(runtime, selected, { types = engine.types })
 		end, engine.new("Folder"))
 		t.expect(style(sheet, ".facet-selected").BackgroundColor3)
@@ -1486,7 +1580,7 @@ t.describe("native themes and media", function()
 		t.expect(style(sheet, ".facet-selected").TextColor3).toBe(engine.types.Color3.new(1, 1, 1))
 		t.expect(style(sheet, ".facet-selected >> .facet-text").TextColor3).toBe(engine.types.Color3.new(1, 1, 1))
 		local dark = themes.neutralPackage()
-		dark.style.themes[1].extra.onSelected = { r = 0.1, g = 0.2, b = 0.1 }
+		assert(dark.style.themes[1].extra).onSelected = { r = 0.1, g = 0.2, b = 0.1 }
 		selected:set(dark)
 		t.expect(style(sheet, ".facet-selected").TextColor3).toBe(engine.types.Color3.new(0.1, 0.2, 0.1))
 		local fallback = themes.neutralPackage()
@@ -1502,24 +1596,24 @@ t.describe("native themes and media", function()
 		local package = factory.create(require("../src"), "Avatar")
 		local palette, expanded = Compose.cell("Dark"), Compose.cell(false)
 		local UI = controls(Compose, runtime, { types = engine.types, theme = package })
-		local sheet, disclosure
+		local sheet: any, disclosure
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types, theme = palette })
 			disclosure = UI.DisclosureGroup({
 				label = "Appearance",
 				description = "Choose an avatar color",
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Text({ text = "Controls" })
 				end,
 			})
-			return runtime.constructors.Frame({ sheet, disclosure })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ sheet :: unknown, disclosure })
 		end, engine.new("Folder"))
-		local header = disclosure:FindFirstChild("Header")
+		local header: any = disclosure:FindFirstChild("Header")
 		t.expect(header:HasTag("facet-selected")).toBe(false)
-		t.expect(header:FindFirstChild("Title", true):HasTag("facet-text")).toBe(true)
-		t.expect(header:FindFirstChild("Description", true):HasTag("facet-text")).toBe(true)
-		t.expect(header:FindFirstChild("LeadingIcon", true):HasTag("facet-icon")).toBe(true)
+		t.expect((header:FindFirstChild("Title", true) :: any):HasTag("facet-text") :: any).toBe(true)
+		t.expect((header:FindFirstChild("Description", true) :: any):HasTag("facet-text") :: any).toBe(true)
+		t.expect((header:FindFirstChild("LeadingIcon", true) :: any):HasTag("facet-icon") :: any).toBe(true)
 		expanded:set(true)
 		t.expect(header:HasTag("facet-selected")).toBe(true)
 		for _, name in { "Dark", "Light" } do
@@ -1538,14 +1632,14 @@ t.describe("native themes and media", function()
 	t.it("bounds idle skin slots and disposes every retained native owner", function()
 		local engine, runtime = setup()
 		local package = themes.neutralPackage()
-		package.assets.image = { content = "rbxassetid://99" }
+		assert(package.assets).image = { content = "rbxassetid://99" }
 		local layers = {}
 		for _ = 1, 24 do
-			table.insert(layers, { kind = "fill", asset = "image" })
+			table.insert(layers, { kind = "fill" :: "fill", asset = "image" })
 		end
-		package.chrome.control = { kind = "layered", layers = layers }
+		assert(package.chrome).control = { kind = "layered" :: "layered", layers = layers }
 		local selected = Compose.cell(package)
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return themes.skin(runtime, selected, "control", { types = engine.types })
 		end, engine.new("Folder"))
 		local initial = root:GetChildren()
@@ -1587,13 +1681,13 @@ t.describe("native themes and media", function()
 	t.it("retains bounded skin slots across frozen recipes while mutable art stays reactive", function()
 		local engine, runtime = setup()
 		local package = themes.neutralPackage()
-		package.assets.image = { content = "rbxassetid://99" }
-		package.chrome.control = { kind = "fill", asset = "image" }
+		assert(package.assets).image = { content = "rbxassetid://99" }
+		assert(package.chrome).control = { kind = "fill" :: "fill", asset = "image" }
 		local frozen = assert(themes.define(package))
 		local neutral = themes.neutralPackage()
 		local selected, revision = Compose.cell(frozen), Compose.cell(0)
-		local stop, root = runtime.mount(function()
-			return themes.skin(runtime, function(use)
+		local stop, root: any = runtime.mount(function()
+			return themes.skin(runtime, function(use: Use)
 				use(revision)
 				return use(selected)
 			end, "control", { types = engine.types })
@@ -1609,9 +1703,9 @@ t.describe("native themes and media", function()
 		t.expect(#root:GetChildren()).toBe(1)
 		table.freeze(package)
 		selected:set(package)
-		package.assets.image.content = "rbxassetid://100"
-		package.chrome.control.kind = "tile"
-		package.chrome.control.tileSize = { w = 11, h = 12 }
+		assert(package.assets).image.content = "rbxassetid://100"
+		assert(package.chrome).control.kind = "tile" :: "tile"
+		assert(package.chrome).control.tileSize = { w = 11, h = 12 }
 		revision:set(1)
 		t.expect(image.Image).toBe("rbxassetid://100")
 		t.expect(image.ScaleType).toBe(engine.types.Enum.ScaleType.Tile)
@@ -1633,11 +1727,11 @@ t.describe("native themes and media", function()
 			t.expect(package.chrome.monitorPanel.kind).toBe("native")
 			t.expect(package.chrome.monitorPanel.shadow).toBe("raised")
 			t.expect(table.isfrozen(package)).toBe(true)
-			local sheet
+			local sheet: any
 			local stop = runtime.mount(function()
 				sheet = themes.createStyleSheet(runtime, package, { types = engine.types, theme = "Light" })
-				return runtime.constructors.Frame({
-					sheet,
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+					sheet :: unknown,
 					themes.skin(runtime, package, "control", { types = engine.types }),
 				})
 			end, engine.new("Folder"))
@@ -1650,7 +1744,7 @@ t.describe("native themes and media", function()
 
 	t.it("shows the showValue readout beside a ProgressView endLabel", function()
 		local engine, runtime, UI = setup()
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return UI.ProgressView "Upload" { value = 0.5, showValue = true, endLabel = "End" }
 		end, engine.new("Folder"))
 		local texts = {}
@@ -1667,9 +1761,9 @@ t.describe("native themes and media", function()
 
 	t.it("returns the Label root that api.md states, with and without an icon", function()
 		local engine, runtime, UI = setup()
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Text "Plain" { text = "Plain" },
+		local stop, root: any = runtime.mount(function()
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				UI.Text "Plain" { text = "Plain" } :: unknown,
 				UI.Label "Iconic" { title = "Iconic", icon = "rbxassetid://1" },
 			})
 		end, engine.new("Folder"))
@@ -1703,11 +1797,14 @@ t.describe("native themes and media", function()
 		t.expect(track.height).toBe(28)
 		t.expect(custom.resolve(nil).usedFallback.size).toBe(true)
 		local UI = Facet.controls(runtime, { types = engine.types })
-		local core = { Host = runtime.constructors, types = engine.types }
+		local core = {
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			types = engine.types,
+		}
 		local fraction = Compose.cell(0.25)
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({
-				gauge.blueprint(UI, core, dial, { id = "Boiler", fraction = fraction }),
+		local stop, root: any = runtime.mount(function()
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				gauge.blueprint(UI, core, dial, { id = "Boiler", fraction = fraction }) :: unknown,
 				custom.blueprint(UI, core, track, "Meter"),
 			})
 		end, engine.new("Folder"))
@@ -1726,10 +1823,10 @@ t.describe("native themes and media", function()
 
 	t.it("skin art follows a host inset that code writes, not only one a style rule writes", function()
 		local engine = engineLib.new({ styleOnlySignals = true })
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local decorate = require("../src/ui/native_decoration")
-		local Host = runtime.constructors
-		local stop, host = runtime.mount(function()
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local stop, host: any = runtime.mount(function()
 			return Host.Frame({ Name = "Panel", Host.UIPadding({}) })
 		end, engine.new("Folder"))
 		local boundary
@@ -1741,7 +1838,7 @@ t.describe("native themes and media", function()
 		boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
 		host:FindFirstChildWhichIsA("UIPadding").PaddingRight = engine.types.UDim.new(0, 24)
 		host:FindFirstChildWhichIsA("UIPadding").PaddingBottom = engine.types.UDim.new(0, 24)
-		local bounds = boundary:FindFirstChild("SkinBounds")
+		local bounds: any = boundary:FindFirstChild("SkinBounds")
 		t.expect(`{bounds.Position.X.Offset} {bounds.Position.Y.Offset}`).toBe("25 25")
 		stop()
 		runtime:dispose()
@@ -1749,10 +1846,10 @@ t.describe("native themes and media", function()
 
 	t.it("skin art on a scrolling host stays pinned to the window, not the scrolled canvas", function()
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local decorate = require("../src/ui/native_decoration")
-		local Host = runtime.constructors
-		local stop, host = runtime.mount(function()
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local stop, host: any = runtime.mount(function()
 			return Host.ScrollingFrame({ Name = "Surface" })
 		end, engine.new("Folder"))
 		local boundary
@@ -1773,7 +1870,7 @@ end)
 t.describe("native Avatar and AvatarGroup per-input rules", function()
 	local function inputWorld(touch: boolean)
 		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.TouchEnabled = touch
 		input.MouseEnabled = not touch
@@ -1802,8 +1899,8 @@ t.describe("native Avatar and AvatarGroup per-input rules", function()
 		local engine, runtime, UI = inputWorld(false)
 		local screen = engine.new("ScreenGui")
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Avatar "Passive" { name = "Pat Lane" },
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				UI.Avatar "Passive" { name = "Pat Lane" } :: unknown,
 				UI.Avatar "Ada" { name = "Ada Quill", onActivate = function() end },
 				UI.Avatar "Bo" { name = "Bo Lane", onActivate = function() end },
 			})
@@ -1830,7 +1927,12 @@ t.describe("native Avatar and AvatarGroup per-input rules", function()
 			roster[index] = { id = `p{index}`, name = `Player {index}` }
 		end
 		local stop = runtime.mount(function()
-			return UI.AvatarGroup "Team" { items = roster, max = 3, controlSize = "compact", onOverflow = function() end }
+			return UI.AvatarGroup "Team" {
+				items = roster,
+				max = 3,
+				controlSize = "compact" :: "compact",
+				onOverflow = function() end,
+			}
 		end, screen)
 		local group = find(screen, "Team")
 		local chip, gap = group:FindFirstChild("Overflow"), group:FindFirstChild("OverflowGap")

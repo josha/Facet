@@ -1,0 +1,161 @@
+{
+  "name": "Facet Home",
+  "emitLegacyScripts": true,
+  "globIgnorePaths": [
+    "**/*.json",
+    "author.luau"
+  ],
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$properties": {
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      },
+      "Ground": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Size": [
+            800,
+            2,
+            800
+          ],
+          "Color": [
+            0.46,
+            0.58,
+            0.4
+          ],
+          "Material": "Grass",
+          "CFrame": [
+            0,
+            -1.5,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      },
+      "Spawn": {
+        "$className": "SpawnLocation",
+        "$properties": {
+          "Anchored": true,
+          "Size": [
+            6,
+            1,
+            6
+          ],
+          "Neutral": true,
+          "Transparency": 1,
+          "CFrame": [
+            0,
+            0,
+            -18,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "ClockTime": 15.4,
+        "Brightness": 2.4,
+        "Ambient": [
+          0.32,
+          0.31,
+          0.29
+        ],
+        "OutdoorAmbient": [
+          0.5,
+          0.52,
+          0.55
+        ],
+        "GlobalShadows": true,
+        "EnvironmentDiffuseScale": 0.65,
+        "EnvironmentSpecularScale": 0.8,
+        "Technology": "Future",
+        "LightingStyle": "Realistic",
+        "PrioritizeLightingQuality": true
+      },
+      "Atmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.22,
+          "Offset": 0.2,
+          "Color": [
+            0.9,
+            0.94,
+            1
+          ],
+          "Decay": [
+            0.7,
+            0.76,
+            0.85
+          ],
+          "Glare": 0.1,
+          "Haze": 1
+        }
+      },
+      "ColorGrade": {
+        "$className": "ColorCorrectionEffect",
+        "$properties": {
+          "Contrast": 0.06,
+          "Saturation": -0.08,
+          "TintColor": [
+            1,
+            0.98,
+            0.95
+          ]
+        }
+      }
+    },
+    "ReplicatedStorage": {
+      "Facet": {
+        "$path": "../../src"
+      },
+      "FacetHome": {
+        "model": {
+          "$path": "model.luau"
+        },
+        "world": {
+          "$path": "world.luau"
+        },
+        "designs": {
+          "$path": "designs"
+        },
+        "$className": "Folder"
+      }
+    },
+    "ServerScriptService": {
+      "FacetHomeServer": {
+        "$path": "server.server.luau"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "FacetHomeClient": {
+          "$path": "client.client.luau"
+        }
+      }
+    },
+    "ServerStorage": {
+      "FurnitureAssets": {
+        "$path": "furniture.rbxm"
+      }
+    }
+  }
+}

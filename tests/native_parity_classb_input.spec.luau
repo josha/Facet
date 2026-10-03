@@ -1,8 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -16,7 +22,7 @@ type World = {
 
 local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local held: { [string]: boolean } = {}
@@ -45,8 +51,8 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		end
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, engine.new("Folder"))
 	return {
@@ -151,7 +157,7 @@ t.describe("native parity classb input", function()
 		local effect
 		local world = setup(function(UI, Host)
 			return Host.Frame({
-				UI.Button("Boost")({ label = "Boost", haptic = true, enabled = enabled }),
+				UI.Button("Boost")({ label = "Boost", haptic = true, enabled = enabled }) :: unknown,
 				UI.Toggle("Music")({ label = "Music", value = toggled, enabled = enabled }),
 				UI.Stepper("Qty")({ value = stepped, min = 0, max = 5, step = 1, enabled = enabled }),
 				UI.Rating("Stars")({ value = rated, enabled = enabled }),
@@ -227,12 +233,12 @@ t.describe("native parity classb input", function()
 			return Host.Frame({
 				UI.ColorPicker("Paint")({
 					value = color,
-					style = "inline",
+					style = "inline" :: "inline",
 					modes = { "spectrum" },
 					onCommit = function()
 						commits += 1
 					end,
-				}),
+				}) :: unknown,
 				UI.Button("Other")({ label = "Other" }),
 			})
 		end)
@@ -269,8 +275,8 @@ t.describe("native parity classb input", function()
 				UI.Menu("Actions")({
 					isPresented = opened,
 					items = {
-						{ id = "Run", label = "Run", onSelect = function() end },
-						{ id = "Walk", label = "Walk", onSelect = function() end },
+						{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+						{ id = "Walk", label = "Walk", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 					},
 				}),
 			})
@@ -306,10 +312,10 @@ t.describe("native parity classb input", function()
 	end)
 
 	t.it("lets a saturated value control consume the shoulders without paging its tab view", function()
-		for _, kind in { "Slider", "Stepper", "Rating" } do
+		for _, kind in { "Slider", "Stepper", "Rating" } :: { "Rating" | "Slider" | "Stepper" } do
 			local selected = Compose.cell("a")
 			local value = Compose.cell(5)
-			local world = setup(function(UI, Host)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
 				local spec: { [string]: any } = { value = value }
 				if kind ~= "Rating" then
 					spec.min = 0
@@ -318,10 +324,10 @@ t.describe("native parity classb input", function()
 				end
 				return UI.TabView("Tabs")({
 					selection = selected,
-					shoulderNavigation = "content",
+					shoulderNavigation = "content" :: "content",
 					tabs = {
-						{ id = "a", label = "A", content = UI[kind]("Value")(spec) },
-						{ id = "b", label = "B", content = UI.Button("Next")({ label = "Next" }) },
+						{ id = "a", label = "A", content = UI[kind]("Value")(spec) } :: FixtureNavigationTypes.Tab,
+						{ id = "b", label = "B", content = UI.Button("Next")({ label = "Next" }) } :: FixtureNavigationTypes.Tab,
 					},
 				})
 			end)
@@ -364,11 +370,18 @@ t.describe("native parity classb input", function()
 		local opened = Compose.cell(false)
 		local items = {}
 		for _, def in { { "wave", "N" }, { "point", "E" }, { "call", "S" }, { "hide", "W" } } do
-			table.insert(items, { id = def[1], label = def[1], slot = def[2], onSelect = function() end })
+			table.insert(
+				items,
+				{ id = def[1], label = def[1], slot = def[2] :: "N" | "E" | "S" | "W", onSelect = function() end }
+			)
 		end
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.RadialMenu("Ring")({ isPresented = opened, distribution = "compass", items = items }),
+				UI.RadialMenu("Ring")({
+					isPresented = opened,
+					distribution = "compass" :: "compass",
+					items = items,
+				}) :: unknown,
 				UI.Button("Outside")({ label = "Outside" }),
 			})
 		end, { motionLevel = "none" })

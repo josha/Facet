@@ -843,18 +843,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 				}
-				table.insert(
-					row,
-					Host.UIListLayout({
-						FillDirection = E.FillDirection.Horizontal,
-						HorizontalAlignment = E.HorizontalAlignment.Right,
-						VerticalAlignment = E.VerticalAlignment.Center,
-						SortOrder = E.SortOrder.LayoutOrder,
-						Padding = ctx.types.UDim.new(0, 8),
-					})
-				)
+				row[#row + 1] = Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
+					HorizontalAlignment = E.HorizontalAlignment.Right,
+					VerticalAlignment = E.VerticalAlignment.Center,
+					SortOrder = E.SortOrder.LayoutOrder,
+					Padding = ctx.types.UDim.new(0, 8),
+				})
 				for _, child in header do
-					table.insert(row, child)
+					row[#row + 1] = child
 				end
 				table.insert(regions, Host.Frame(row))
 			end
@@ -875,9 +872,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 			}
-			table.insert(inner, Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }))
-			table.insert(inner, ctx.padding(inset, inset))
-			table.insert(inner, content)
+			inner[#inner + 1] = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
+			inner[#inner + 1] = ctx.padding(inset, inset)
+			inner[#inner + 1] = content
 			table.insert(bodyChildren, Host.Frame(inner))
 		else
 			table.insert(bodyChildren, bodyPadding)
@@ -1000,7 +997,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 		}
 		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
-			table.insert(panelProps, child)
+			panelProps[#panelProps + 1] = child
 		end
 		local panel = ctx.fade(panelProps)
 		ctx.styled(panel, "sheet")

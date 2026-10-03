@@ -1,30 +1,36 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local ThemeTypes = require("../src/ui/theme_types")
+local FixtureEngineTypes = require("../src/ui/engine_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local context = require("../src/ui/context")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 t.describe("native public surface", function()
 	t.it("exposes controls over the unwrapped Compose Roblox runtime", function()
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
-		local Host = runtime.constructors
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local UI = Facet.controls(runtime, { types = engine.types })
-		t.expect(Facet.new).toBeNil()
+		t.expect(((Facet :: unknown) :: { [string]: unknown }).new).toBeNil()
 		t.expect(type(UI.Screen)).toBe("function")
-		t.expect(UI.ForEach).toBeNil()
-		t.expect(UI.When).toBeNil()
+		t.expect(((UI :: unknown) :: { [string]: unknown }).ForEach).toBeNil()
+		t.expect(((UI :: unknown) :: { [string]: unknown }).When).toBeNil()
 		local shown, label = Compose.cell(true), Compose.cell("Before")
 		local root = engine.new("ScreenGui")
-		local reference, calls
+		local reference: any, calls
 		calls = 0
-		local stop, frame = runtime.mount(function()
+		local stop, frame: any = runtime.mount(function()
 			return Host.Frame({
 				Compose.show(shown, function()
 					return UI.Button("Action")({
 						label = label,
-						Attributes = { meaning = "test" },
+						Attributes = { meaning = "test" } :: FixtureEngineTypes.Attributes,
 						ref = function(node)
 							reference = node
 							calls += 1
@@ -50,17 +56,17 @@ t.describe("native public surface", function()
 
 	t.it("gates native actions through retained ancestors and detaches observations", function()
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
-		local Host = runtime.constructors
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local ctx = context(Facet.Compose, runtime, { types = engine.types })
 		local root = engine.new("ScreenGui")
-		local action, input, button, activated = nil, nil, nil, 0
-		local stop, panel = runtime.mount(function()
+		local action: any, input: any, button: any, activated: number = nil, nil, nil, 0
+		local stop, panel: any = runtime.mount(function()
 			button = Host.TextButton({})
 			action, input = ctx.action(button, "Test", { engine.types.Enum.KeyCode.X }, true, function()
 				activated += 1
 			end)
-			return Host.Frame({ button })
+			return Host.Frame({ button :: unknown })
 		end, root)
 		t.expect(input.Enabled).toBe(true)
 		action.Pressed.fire()
@@ -84,17 +90,17 @@ t.describe("native public surface", function()
 
 	t.it("resolves named icons reactively without a second theme runtime", function()
 		local engine = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local first = Facet.themes.neutralPackage()
-		first.icons = { test = "rbxassetid://1" }
+		first.icons = { test = "rbxassetid://1" } :: { [string]: ThemeTypes.IconEntry }
 		local package = Compose.cell(first)
 		local ctx = context(Facet.Compose, runtime, { types = engine.types, theme = package })
-		local stop, icon = runtime.mount(function()
+		local stop, icon: any = runtime.mount(function()
 			return ctx.icon("test")
 		end, engine.new("ScreenGui"))
 		t.expect(icon.Image).toBe("rbxassetid://1")
 		local second = table.clone(first)
-		second.icons = { test = "rbxassetid://2" }
+		second.icons = { test = "rbxassetid://2" } :: { [string]: ThemeTypes.IconEntry }
 		package:set(second)
 		t.expect(icon.Image).toBe("rbxassetid://2")
 		stop()

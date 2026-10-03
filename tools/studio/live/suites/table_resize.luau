@@ -1,4 +1,9 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 return {
 	{
 		id = "table-scrollbar-and-large-heading-resize",
@@ -10,7 +15,7 @@ return {
 				end
 				for _, scale in { 0.75, 1.5 } do
 					local widths, runtime, Host, container
-					local stage = t.mount(function(UI, constructors, Compose, env)
+					local stage = t.mount(function(UI: FacetControls, constructors, Compose: ComposeModule, env)
 						runtime, Host = env.runtime, constructors
 						widths = Compose.cell({ name = 140, laps = 72 })
 						local rows = {}
@@ -19,7 +24,7 @@ return {
 						end
 						container = Host.Frame {
 							Size = UDim2.fromOffset(460, 300),
-							Host.UIScale { Scale = scale },
+							Host.UIScale { Scale = scale } :: unknown,
 							UI.Table "Results" {
 								from = rows,
 								key = function(row)
@@ -32,7 +37,7 @@ return {
 										label = "Driver",
 										render = function(row)
 											return UI.Text {
-												text = function(use)
+												text = function(use: Use)
 													return use(row).name
 												end,
 											}
@@ -43,7 +48,7 @@ return {
 										label = "Laps completed",
 										render = function(row)
 											return UI.Text {
-												text = function(use)
+												text = function(use: Use)
 													return tostring(use(row).laps)
 												end,
 											}
@@ -66,7 +71,7 @@ return {
 					local body, header = tableNode.Body, tableNode.Header
 					body.VerticalScrollBarInset = Enum.ScrollBarInset.Always
 					body.ScrollBarThickness = 12
-					local heading = header.laps.Sort
+					local heading = header.laps.Sort :: TextButton
 					heading.TextSize = 48
 					for _, width in { 72, 230, 90, 520, 300 } do
 						widths:set({ name = 140, laps = width })
@@ -123,7 +128,7 @@ return {
 										PaddingTop = padding:GetStyled("PaddingTop"),
 										PaddingBottom = padding:GetStyled("PaddingBottom"),
 									}
-									else nil,
+									else nil :: unknown,
 							}
 						end, container)
 						t.settle(3)

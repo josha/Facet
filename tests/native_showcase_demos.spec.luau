@@ -1,19 +1,27 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local requireDynamic = require :: (any) -> any
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
 local C = Facet.Compose
 
-local function mount(name, run, prepare)
+local function mount(
+	name: string,
+	run: (any, any, any, engineLib.Engine) -> (),
+	prepare: ((any, engineLib.Engine) -> ())?
+)
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local ctx = {
 		Facet = Facet,
 		Compose = C,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = C.cell({ width = 1280, height = 720 }),
 		inputTarget = target,
@@ -25,9 +33,9 @@ local function mount(name, run, prepare)
 		prepare(ctx, engine)
 	end
 	local built
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
-		built = require("../examples/gallery/examples/" .. name).build(ctx)
+		built = requireDynamic("../examples/gallery/examples/" .. name).build(ctx)
 		return built.screen()
 	end, target)
 	run(built, root, ctx, engine)
@@ -90,11 +98,11 @@ t.describe("showcase demos", function()
 	t.it("rejects the wrong batch and pays exactly once for each of three orders", function()
 		mount("10_potion_shop", function(built)
 			t.expect(built.brew()).toBe(false)
-			for _, order in { { "sun", 2 }, { "moon", 1 }, { "moss", 3 } } do
-				for _ = 1, order[2] do
-					t.expect(built.addIngredient(order[1])).toBe(true)
+			for _, order in { { id = "sun", order = 2 }, { id = "moon", order = 1 }, { id = "moss", order = 3 } } do
+				for _ = 1, order.order do
+					t.expect(built.addIngredient(order.id)).toBe(true)
 				end
-				t.expect(built.addIngredient(if order[1] == "sun" then "moon" else "sun")).toBe(false)
+				t.expect(built.addIngredient(if order.id == "sun" then "moon" else "sun")).toBe(false)
 				t.expect(built.brew()).toBe(true)
 				t.expect(built.serve()).toBe(false)
 				built.advance(3)
@@ -150,7 +158,7 @@ t.describe("showcase demos", function()
 		end)
 	end)
 	t.it("fits the world terminal to its native page bounds through rotation and restores the camera", function()
-		local camera, previous
+		local camera: any, previous: any
 		mount("12_outpost", function(built, root, ctx, engine)
 			local V2, V3 = engine.types.Vector2, engine.types.Vector3
 			built.model.worldMode:set(true)
@@ -191,7 +199,7 @@ t.describe("showcase demos", function()
 			camera.Parent = ctx.worldTarget
 			ctx.worldTarget.CurrentCamera = camera
 			camera.ViewportSize = engine.types.Vector2.new(1280, 720)
-			camera.ScreenPointToRay = function(self, x, y)
+			camera.ScreenPointToRay = function(self: any, x: number, y: number)
 				local size = self.ViewportSize
 				local tangent = math.tan(math.rad(self.FieldOfView / 2))
 				local direction = engine.types.Vector3.new(

@@ -108,7 +108,7 @@ function theme_packages.check(extraFiles: { string }?): { ok: boolean, problems:
 	for _, name in theme_packages.files() do
 		onDisk[name] = true
 	end
-	for _, name in extraFiles or {} do
+	for _, name in extraFiles or ({} :: { string }) do
 		onDisk[name] = true
 	end
 

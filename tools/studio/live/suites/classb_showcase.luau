@@ -1,8 +1,20 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -62,7 +74,7 @@ local function monitors(t: any, size: Vector2, app: string, options: { [string]:
 	local modelModule = (require :: any)(folder:WaitForChild("model"))
 	local package = theme.create(t.Facet, if app == "Desktop" then "Discover" else app)
 	local value: any = {}
-	value.stage = t.mount(function(_, _, Compose, env)
+	value.stage = t.mount(function(_, _, Compose: ComposeModule, env)
 		local model = modelModule.new(Compose)
 		Compose.cleanup(model.dispose)
 		value.model = model
@@ -75,9 +87,9 @@ local function monitors(t: any, size: Vector2, app: string, options: { [string]:
 		}
 		local views = screens.create(t.Facet, env.runtime, actions)
 		if app == "Desktop" then
-			value.progress = Compose.cell(config.progress or 1)
+			value.progress = Compose.cell((config :: any).progress or 1)
 			model.mode:set("Screen")
-			model.selectedTab:set(config.tab or "Discover")
+			model.selectedTab:set((config :: any).tab or "Discover")
 			return desktop.create(
 				t.Facet,
 				env.runtime,
@@ -150,7 +162,7 @@ end
 
 local function scenario(t: any, name: string, size: any, frames: number?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
 		return if type(built) == "function" then built() else built.screen()
 	end, { size = size, frames = frames or 20 })
@@ -255,7 +267,9 @@ end, {
 })
 
 add("vm-phone-avatar-and-assistant", { "apps2-279" }, function(t)
-	for app, names in { Avatar = { "Palette", "Hat", "MotionRow", "Reset" }, Chat = { "Draft", "Send" } } do
+	for app, names in
+		{ Avatar = { "Palette", "Hat", "MotionRow", "Reset" }, Chat = { "Draft", "Send" } } :: { [string]: { string } }
+	do
 		local value = monitors(t, Vector2.new(393, 740), app)
 		local stage = value.stage
 		local stops = selectables(t, stage)
@@ -468,7 +482,9 @@ end, {
 			value.built.report().selected.Categories == "actions",
 			value.built.report().selected
 		)
-		for id, word in { buttons = "Buttons", recipes = "Recipes", menus = "Menus", sheets = "Sheets", help = "Help" } do
+		for id, word in
+			{ buttons = "Buttons", recipes = "Recipes", menus = "Menus", sheets = "Sheets", help = "Help" } :: { [string]: string }
+		do
 			local button = tabButton(t, value.stage, id)
 			t.check(`{word} tab shows`, button ~= nil)
 			if button then

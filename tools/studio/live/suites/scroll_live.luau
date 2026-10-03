@@ -1,5 +1,16 @@
 --!strict
-local cases = {}
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -10,11 +21,11 @@ local function cell(Host: any, name: string, size: UDim2): any
 end
 
 add("scroll-view-canvas-covers-rows-and-gaps", { "apps-224" }, function(t: any)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.ScrollView "List" {
 			gap = 10,
 			Size = UDim2.fromOffset(300, 100),
-			cell(Host, "A", UDim2.fromOffset(300, 40)),
+			cell(Host, "A", UDim2.fromOffset(300, 40)) :: unknown,
 			cell(Host, "B", UDim2.fromOffset(300, 40)),
 			cell(Host, "C", UDim2.fromOffset(300, 40)),
 		}
@@ -32,16 +43,16 @@ add("scroll-view-canvas-covers-rows-and-gaps", { "apps-224" }, function(t: any)
 end)
 
 add("horizontal-scroll-view-steps-along-x", { "apps-226" }, function(t: any)
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local cells = {}
 		for index = 1, 5 do
 			table.insert(cells, cell(Host, "Cell" .. index, UDim2.new(0, 60, 1, 0)))
 		end
 		return UI.ScrollView "Rail" {
-			axis = "x",
+			axis = "x" :: "x",
 			gap = 10,
 			Size = UDim2.fromOffset(200, 120),
-			table.unpack(cells),
+			table.unpack((cells :: unknown) :: { unknown }),
 		}
 	end, { size = Vector2.new(400, 400) })
 	t.settle(10)

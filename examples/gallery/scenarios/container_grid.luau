@@ -1,4 +1,11 @@
-local CELLS = {
+--!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+local CELLS: { { id: string, label: string, spans: { number }? } } = {
 	{ id = "Standings", label = "Standings", spans = { 3, 4, 6 } },
 	{ id = "Lap", label = "Lap times", spans = { 3, 2, 3 } },
 	{ id = "Media", label = "Replays" },
@@ -6,23 +13,23 @@ local CELLS = {
 }
 return {
 	title = "Measured container grid",
-	build = function(ctx)
-		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local sidebarWidth, guides, media = Compose.cell(360), Compose.cell(false), Compose.cell(true)
 		local panels = {}
-		local function observe(node, property, cell)
-			cell:set(node[property])
+		local function observe(node: Frame, property: string, cell: VectorCell)
+			cell:set((node :: any)[property])
 			local connection = node:GetPropertyChangedSignal(property):Connect(function()
-				cell:set(node[property])
+				cell:set((node :: any)[property])
 			end)
 			Compose.cleanup(function()
 				connection:Disconnect()
 			end)
 		end
-		local function panel(name, scale, maxWidth)
+		local function panel(name: string, scale: number, maxWidth: Readable<number>?)
 			local extent = Compose.cell(V2.zero)
-			local geometry = Compose.formula(function(use)
+			local geometry = Compose.formula(function(use: Use)
 				local width = use(extent).X
 				local band = if width >= 960 then 3 elseif width >= 600 then 2 else 1
 				local columns = ({ 3, 6, 12 })[band]
@@ -35,7 +42,7 @@ return {
 			end)
 			panels[name] = geometry
 			local bodySize = Compose.cell(V2.zero)
-			local children = {
+			local children: { unknown } = {
 				Host.UIListLayout({
 					SortOrder = E.SortOrder.LayoutOrder,
 					FillDirection = E.FillDirection.Horizontal,
@@ -48,16 +55,16 @@ return {
 					Name = item.id,
 					LayoutOrder = index,
 					BackgroundTransparency = 0,
-					Visible = function(use)
+					Visible = function(use: Use)
 						return item.id ~= "Media" or use(media)
 					end,
-					Size = function(use)
+					Size = function(use: Use)
 						local g = use(geometry)
 						local span = if item.spans then item.spans[g.band] else math.min(4, g.columns)
 						return D2.fromOffset(span * g.lane + (span - 1) * 8, 0)
 					end,
 					AutomaticSize = E.AutomaticSize.Y,
-					Host.UISizeConstraint({ MinSize = V2.new(0, 44) }),
+					Host.UISizeConstraint({ MinSize = V2.new(0, 44) }) :: unknown,
 					Host.UIPadding({
 						PaddingLeft = D.new(0, 8),
 						PaddingRight = D.new(0, 8),
@@ -78,7 +85,7 @@ return {
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				table.unpack(children),
+				table.unpack((children :: unknown) :: { unknown }),
 			}
 			observe(cells, "AbsoluteSize", bodySize)
 			local lanes = {}
@@ -89,13 +96,13 @@ return {
 						Name = "Lane" .. index,
 						BorderSizePixel = 0,
 						BackgroundTransparency = 0.82,
-						Visible = function(use)
+						Visible = function(use: Use)
 							return use(guides) and index <= use(geometry).columns
 						end,
-						Size = function(use)
+						Size = function(use: Use)
 							return D2.fromOffset(use(geometry).lane, use(bodySize).Y)
 						end,
-						Position = function(use)
+						Position = function(use: Use)
 							return D2.fromOffset((index - 1) * (use(geometry).lane + 8), 0)
 						end,
 					})
@@ -106,7 +113,7 @@ return {
 				Size = D2.new(scale, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UISizeConstraint({ MaxSize = V2.new(maxWidth and maxWidth:peek() or 100000, 100000) }),
+				Host.UISizeConstraint({ MaxSize = V2.new(maxWidth and maxWidth:peek() or 100000, 100000) }) :: unknown,
 				Host.UIPadding({
 					PaddingLeft = D.new(0, 16),
 					PaddingRight = D.new(0, 16),
@@ -115,7 +122,7 @@ return {
 				}),
 				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
 				UI.Text "Heading" {
-					text = function(use)
+					text = function(use: Use)
 						local g = use(geometry)
 						return string.format("%s · %d px · %d columns", name, g.width, g.columns)
 					end,
@@ -125,21 +132,21 @@ return {
 				},
 				Host.Frame "Grid" {
 					BackgroundTransparency = 1,
-					Size = function(use)
+					Size = function(use: Use)
 						return D2.new(1, 0, 0, use(bodySize).Y)
 					end,
-					cells,
+					cells :: unknown,
 					Host.Frame "Guides" {
 						BackgroundTransparency = 1,
 						Size = D2.fromScale(1, 1),
 						ZIndex = 2,
-						table.unpack(lanes),
+						table.unpack((lanes :: unknown) :: { unknown }),
 					},
 				},
 			})
 			if maxWidth then
 				ctx.runtime.decorate(root:FindFirstChildWhichIsA("UISizeConstraint"), {
-					MaxSize = function(use)
+					MaxSize = function(use: Use)
 						return V2.new(use(maxWidth), 100000)
 					end,
 				})
@@ -155,7 +162,7 @@ return {
 					gap = 12,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text({ text = "One screen, three containers", textRole = "title" }),
+					UI.Text({ text = "One screen, three containers", textRole = "title" :: "title" }) :: unknown,
 					UI.Text({
 						text = "Each panel reads its own width; its cells use the actual space inside the frame.",
 						TextWrapped = true,
@@ -169,7 +176,7 @@ return {
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
 							Padding = D.new(0, 8),
-						}),
+						}) :: unknown,
 						UI.Button "Resize" {
 							label = "Resize sidebar",
 							onActivate = function()

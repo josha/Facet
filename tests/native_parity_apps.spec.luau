@@ -1,4 +1,18 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local NavigationFixtures = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
@@ -45,7 +59,7 @@ local themePackages = require("../tools/lune/theme_packages")
 local ornateGauge = require("../examples/themes/ornate_gauge")
 local customControl = require("../examples/themes/custom_control")
 local fantasyOrnate = require("../examples/themes/fantasy_ornate")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	built: any,
@@ -85,7 +99,7 @@ local helpers: { [string]: boolean } = {
 local function world(module: any, options: Options?): World
 	local settings: Options = options or {}
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	gui.ReducedMotionEnabled = settings.reducedMotion == true
 	local input = engine.new("UserInputService")
@@ -94,12 +108,12 @@ local function world(module: any, options: Options?): World
 	end
 	local screen = engine.new("ScreenGui")
 	local built
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		built = module.build({
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(
 				runtime,
 				{
@@ -748,7 +762,7 @@ t.describe("native parity reference applications", function()
 		t.it("borrows only shipped framework art for its potion marks", function()
 			local neutral = Facet.themes.neutralPackage()
 			local count = 0
-			for name, mark in cartArt.marks do
+			for name, mark in cartArt.marks :: { [string]: { iconName: string, image: string, label: string } } do
 				count += 1
 				t.expect(Facet.themes.resolveIcon(neutral, mark.iconName)).toBe(mark.image)
 				t.expect(table.find(cartArt.cycle, name) ~= nil).toBe(true)
@@ -1091,16 +1105,16 @@ t.describe("native parity reference applications", function()
 			a.stop()
 			b.stop()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local host = engine.new("ScreenGui")
 			local baseline = engine.census()
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				return cartwheel
 					.build({
 						Facet = Facet,
 						Compose = Compose,
 						runtime = runtime,
-						Host = runtime.constructors,
+						Host = (runtime.constructors :: unknown) :: RobloxHost,
 						UI = Facet.controls(runtime, { types = engine.types } :: any),
 						types = engine.types,
 						viewport = Compose.cell({ width = 1000, height = 720 }),
@@ -1363,7 +1377,7 @@ t.describe("native parity reference applications", function()
 				t.expect(i18n.at("en", "rewards.away", { n = 4 })).toBe("You are 4 stamps from a free pour!")
 				t.expect(i18n.at("xa", "recipe.batches", { n = 1 })).toBe(xa["recipe.batches"].one)
 				t.expect(i18n.at("xa", "recipe.batches", { n = 3 }))
-					.toBe(string.gsub(xa["recipe.batches"].other, "{n}", "3"))
+					.toBe((string.gsub(xa["recipe.batches"].other, "{n}", "3")))
 				t.expect(i18n.listAt("en", { "a", "b" })).toBe("a and b")
 				t.expect(i18n.listAt("en", { "a", "b", "c" })).toBe("a, b, and c")
 				t.expect(i18n.listAt("xa", { "a", "b" }) ~= "a and b").toBe(true)
@@ -1440,16 +1454,16 @@ t.describe("native parity reference applications", function()
 			moving.stop()
 			still.stop()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local host = engine.new("ScreenGui")
 			local baseline = engine.census()
 			local built
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				built = sipworks.build({
 					Facet = Facet,
 					Compose = Compose,
 					runtime = runtime,
-					Host = runtime.constructors,
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
 					UI = Facet.controls(runtime, { types = engine.types } :: any),
 					types = engine.types,
 					viewport = Compose.cell({ width = 1000, height = 720 }),
@@ -1786,7 +1800,7 @@ t.describe("native parity reference applications", function()
 				local friends = assert(within(pages(w), "crews", "Friends"))
 				for _, friend in foyerSeed.friends do
 					local portrait = assert(within(friends, friend.id, "Artwork"))
-					t.expect(find(portrait, "Image").Visible).toBe(foyerSeed.assetFor(friend.portraitKey))
+					t.expect(find(portrait, "Image").Visible).toBe((foyerSeed.assetFor(friend.portraitKey)))
 				end
 				press(pages(w), "crews", "Invite")
 				local invite = assert(modal(w.screen))
@@ -1834,7 +1848,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery examples", function()
 		local function nativeContext(): (any, any, any)
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local viewport = Compose.cell({ width = 1280, height = 720 })
 			local target = engine.new("Folder")
 			local guiService = engine.new("GuiService")
@@ -1842,7 +1856,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = viewport,
 				inputTarget = target,
@@ -1866,9 +1880,9 @@ t.describe("native parity reference applications", function()
 						types = engine.types,
 						viewport = ctx.viewport,
 						guiService = ctx.guiService,
-						motionLevel = Compose.formula(function(use)
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				built = (require :: any)("../examples/gallery/" .. path .. name).build(ctx)
@@ -2144,7 +2158,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery shell", function()
 		local function shell(demos: { any }, load: (string, string) -> any, native: boolean?): (any, any, () -> ())
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target, gui = engine.new("Folder"), engine.new("GuiService")
 			gui.ReducedMotionEnabled = native == true
 			local input = engine.new("UserInputService")
@@ -2156,7 +2170,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = Compose.cell({ width = 1280, height = 720 }),
 				inputTarget = target,
@@ -2169,7 +2183,7 @@ t.describe("native parity reference applications", function()
 				load = load,
 			}
 			ctx.packages = { Neutral = ctx.theme:peek() }
-			local stop, root = runtime.mount(function()
+			local stop, root: any = runtime.mount(function()
 				gallery.configure(ctx)
 				ctx.UI = Facet.controls(
 					runtime,
@@ -2179,9 +2193,9 @@ t.describe("native parity reference applications", function()
 						inputParent = target,
 						services = { GuiService = gui, UserInputService = input },
 						theme = ctx.theme,
-						motionLevel = Compose.formula(function(use)
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -2194,8 +2208,8 @@ t.describe("native parity reference applications", function()
 
 		local function two(): { any }
 			return {
-				{ id = "first", title = "First", kind = "fixture", module = "first" },
-				{ id = "second", title = "Second", kind = "fixture", module = "second" },
+				{ id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" },
+				{ id = "second", title = "Second", kind = "fixture" :: "fixture", module = "second" },
 			}
 		end
 
@@ -2203,15 +2217,15 @@ t.describe("native parity reference applications", function()
 			t.expect(gallery.boot).toBe(catalogue.boot)
 			local id, extra = catalogue.boot("hud", "outpost_terminal", 2)
 			t.expect(id).toBe("outpost_terminal")
-			t.expect(extra.kind).toBe("fixture")
-			t.expect(extra.module).toBe("outpost_terminal")
+			t.expect(assert(extra).kind).toBe("fixture")
+			t.expect(assert(extra).module).toBe("outpost_terminal")
 			id, extra = catalogue.boot("hud", nil, 5)
 			t.expect(id).toBe("05_word_game")
-			t.expect(extra.kind).toBe("example")
-			t.expect(extra.module).toBe("05_word_game")
+			t.expect(assert(extra).kind).toBe("example")
+			t.expect(assert(extra).module).toBe("05_word_game")
 			id, extra = catalogue.boot("hud", "", 2)
 			t.expect(id).toBe("02_playlist_table")
-			t.expect(extra.kind).toBe("example")
+			t.expect(assert(extra).kind).toBe("example")
 			id, extra = catalogue.boot("hud", nil, nil)
 			t.expect(id).toBe("hud")
 			t.expect(extra).toBeNil()
@@ -2252,7 +2266,7 @@ t.describe("native parity reference applications", function()
 					}
 				end
 				return {
-					build = function(page)
+					build = function(page: ExampleContext)
 						return {
 							screen = function()
 								return page.Host.Frame({ Name = name })
@@ -2288,7 +2302,7 @@ t.describe("native parity reference applications", function()
 			local pages = {}
 			local ctx, root, stop = shell(two(), function(_, name)
 				return {
-					build = function(page)
+					build = function(page: ExampleContext)
 						pages[name] = page
 						return {
 							screen = function()
@@ -2323,7 +2337,7 @@ t.describe("native parity reference applications", function()
 			local tree: any = nil
 			local ctx, root, stop = shell(two(), function(_, name)
 				return {
-					build = function(page)
+					build = function(page: ExampleContext)
 						if name ~= "first" then
 							return {
 								screen = function()
@@ -2340,7 +2354,9 @@ t.describe("native parity reference applications", function()
 										isPresented = Compose.cell(true),
 										title = "Notice",
 										message = "Presented by the demo",
-										actions = { { id = "ok", label = "OK", role = "cancel" } },
+										actions = {
+											{ id = "ok", label = "OK", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+										},
 										ref = function()
 											panel = true
 										end,
@@ -2398,7 +2414,7 @@ t.describe("native parity reference applications", function()
 			t.expect(listed).toBe(true)
 			local ctx, _, stop = shell(two(), function(_, name)
 				return {
-					build = function(page)
+					build = function(page: ExampleContext)
 						return {
 							screen = function()
 								return page.Host.Frame({ Name = name })
@@ -2418,7 +2434,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery recipes", function()
 		local function recipe(name: string): (any, any, () -> (), any, any)
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local target, gui = engine.new("Folder"), engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -2428,7 +2444,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = Compose.cell({ width = 1280, height = 720 }),
 				inputTarget = target,
@@ -2437,7 +2453,7 @@ t.describe("native parity reference applications", function()
 				runService = { Heartbeat = engine.heartbeat },
 			}
 			local built
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				gallery.configure(ctx)
 				ctx.UI = Facet.controls(
 					runtime,
@@ -2446,9 +2462,9 @@ t.describe("native parity reference applications", function()
 						viewport = ctx.viewport,
 						guiService = gui,
 						services = { GuiService = gui, UserInputService = input },
-						motionLevel = Compose.formula(function(use)
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-						end),
+						end) :: unknown) :: MotionLevel,
 					} :: any
 				)
 				built = (require :: any)("../examples/gallery/scenarios/" .. name).build(ctx)
@@ -2516,7 +2532,7 @@ t.describe("native parity reference applications", function()
 				state = "ready",
 				imageMounted = true,
 				presence = "online",
-				controlSize = "regular",
+				controlSize = "regular" :: "regular",
 				activations = 0,
 			})).toBe(true)
 			t.expect(portrait.Size.X.Offset > 36 and portrait.Size.X.Offset < 56).toBe(true)
@@ -2714,13 +2730,13 @@ t.describe("native parity reference applications", function()
 	t.describe("Gallery layouts", function()
 		local function scenario(name: string): (any, any, () -> (), any)
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local viewport = Compose.cell({ width = 1280, height = 720 })
 			local ctx: { [string]: any } = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = viewport,
 				inputTarget = engine.new("Folder"),
@@ -2729,7 +2745,7 @@ t.describe("native parity reference applications", function()
 				UI = Facet.controls(runtime, { types = engine.types, viewport = viewport } :: any),
 			}
 			local built
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				built = (require :: any)("../examples/gallery/scenarios/" .. name).build(ctx)
 				return built.screen()
 			end, engine.new("ScreenGui"))
@@ -2805,17 +2821,17 @@ t.describe("native parity reference applications", function()
 	t.describe("Outpost terminal", function()
 		local function terminalWorld(options: any): (any, any, () -> ())
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local ctx = {
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				UI = Facet.controls(runtime, { types = engine.types } :: any),
 				types = engine.types,
 			}
 			local built
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				built = outpost.build(ctx, options)
 				return built.screen()
 			end, engine.new("ScreenGui"))
@@ -2921,7 +2937,7 @@ t.describe("native parity reference applications", function()
 					sourceStamp = "test",
 					placeName = "headless",
 					viewport = "800x600",
-					orientation = "landscape",
+					orientation = "landscape" :: "landscape",
 					graphicsQualityLevel = "n/a",
 					frameTarget = "n/a",
 					studioVersion = "n/a",
@@ -2987,12 +3003,24 @@ t.describe("native parity reference applications", function()
 		end
 
 		t.it("calls only Facet exports that exist from every shipped client entry point", function()
+			local publicTypes: { [string]: boolean } = {}
+			for name in string.gmatch(fs.readFile("src/init.luau"), "export type ([%a_][%w_]*)") do
+				publicTypes[name] = true
+			end
 			local function missing(source: string): { string }
-				local out = {}
-				for name in string.gmatch(source, "Facet%.([%a_][%w_]*)") do
-					if (Facet :: any)[name] == nil then
+				local out, cursor = {}, 1
+				while true do
+					local first, last, found = string.find(source, "Facet%.([%a_][%w_]*)", cursor)
+					if not first then
+						break
+					end
+					local name = assert(found)
+					local annotation = publicTypes[name]
+						and string.match(string.sub(source, 1, first - 1), ":%s*[%{%(%s]*$") ~= nil
+					if (Facet :: any)[name] == nil and not annotation then
 						table.insert(out, name)
 					end
+					cursor = assert(last) + 1
 				end
 				return out
 			end
@@ -3010,6 +3038,9 @@ t.describe("native parity reference applications", function()
 			t.expect(table.concat(missing("Facet.controls(runtime) Facet.nonexistentExport()"), ","))
 				.toBe("nonexistentExport")
 			t.expect(#missing("local x = game.ReplicatedStorage.Facet")).toBe(0)
+			t.expect(#missing("local x: Facet.Controls local y: { Facet.TableColumn<number,string> } = {} ")).toBe(0)
+			t.expect(table.concat(missing("Facet.Controls() local x: Facet.nonexistentExport"), ","))
+				.toBe("Controls,nonexistentExport")
 		end)
 
 		t.it("keeps every shipped document from claiming virtual-reality support", function()
@@ -3074,7 +3105,7 @@ t.describe("native parity reference applications", function()
 		end
 
 		local function controlsFor(engine: any, target: any, extra: { [string]: any }?): (any, any, any, any)
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
 				return nil
@@ -3101,7 +3132,7 @@ t.describe("native parity reference applications", function()
 			local engine = engineLib.new()
 			local target = engine.new("ScreenGui")
 			local runtime, UI = controlsFor(engine, target)
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				return UI.Table(spec)
 			end, target)
 			return {
@@ -3126,7 +3157,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = viewport,
 				guiService = gui,
@@ -3134,7 +3165,7 @@ t.describe("native parity reference applications", function()
 				UI = UI,
 			}
 			local built
-			local stop, node = runtime.mount(function()
+			local stop, node: any = runtime.mount(function()
 				built = module.build(ctx)
 				if built.dispose then
 					Compose.cleanup(built.dispose)
@@ -3185,8 +3216,8 @@ t.describe("native parity reference applications", function()
 					key = recordKey,
 					widths = widths,
 					columns = {
-						{ id = "first", width = 100 },
-						{ id = "second", width = 100, resizable = false },
+						{ id = "first", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "second", width = 100, resizable = false } :: FixtureCollectionTypes.TableColumn<any, any>,
 					},
 				})
 				world.body.AbsoluteWindowSize = vector(world.engine, 400, 200)
@@ -3218,7 +3249,10 @@ t.describe("native parity reference applications", function()
 					from = records(3),
 					key = recordKey,
 					widths = widths,
-					columns = { { id = "first", width = 100 }, { id = "second", width = 100 } },
+					columns = {
+						{ id = "first", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "second", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					},
 				})
 				world.body.AbsoluteWindowSize = vector(world.engine, 400, 200)
 				local column = world.header:FindFirstChild("first")
@@ -3273,7 +3307,10 @@ t.describe("native parity reference applications", function()
 					widths = widths,
 					itemSize = 40,
 					status = status,
-					columns = { { id = "first", width = 100 }, { id = "second", width = 120 } },
+					columns = {
+						{ id = "first", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "second", width = 120 } :: FixtureCollectionTypes.TableColumn<any, any>,
+					},
 				})
 				world.body.AbsoluteWindowSize = vector(world.engine, 400, 400)
 				local function mountedCells(id: string): { any }
@@ -3330,9 +3367,9 @@ t.describe("native parity reference applications", function()
 						itemSize = 40,
 						reorderable = reorderable,
 						columns = {
-							{ id = "first", width = 120 },
-							{ id = "second", width = 140 },
-							{ id = "third", width = 160, priority = 3 },
+							{ id = "first", width = 120 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							{ id = "second", width = 140 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							{ id = "third", width = 160, priority = 3 } :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
 					})
 					local gutter, trail = 0, if reorderable then 44 else 0
@@ -3395,7 +3432,7 @@ t.describe("native parity reference applications", function()
 						then E.UserInputType.MouseButton1
 						elseif kind == "touch" then E.UserInputType.Touch
 						else E.UserInputType.Keyboard,
-					KeyCode = if kind == "key" then E.KeyCode.Return else E.KeyCode.Unknown,
+					KeyCode = if kind == "key" then E.KeyCode.Return else E.KeyCode:FromValue(0),
 					UserInputState = E.UserInputState.End,
 				},
 					count or 1
@@ -3463,12 +3500,12 @@ t.describe("native parity reference applications", function()
 				local body = prepare(world)
 				local header = find(world.node, "Header")
 				press(header, "artist", "Sort")
-				t.expect(world.built.sort:peek()).toEqual({ column = "artist", direction = "ascending" })
+				t.expect(world.built.sort:peek()).toEqual({ column = "artist", direction = "ascending" :: "ascending" })
 				t.expect(ids(world.built.sortedRows:peek())).toBe("photo,neon,drift,apex,turbo,pit")
 				t.expect(find(header, "artist"):FindFirstChild("Sort").Text).toBe("Artist ↑")
 				press(header, "artist", "Sort")
 				t.expect(ids(world.built.sortedRows:peek())).toBe("pit,turbo,drift,apex,neon,photo")
-				world.built.sort:set({ column = "rating", direction = "descending" })
+				world.built.sort:set({ column = "rating", direction = "descending" :: "descending" })
 				t.expect(ids(world.built.sortedRows:peek())).toBe("turbo,neon,drift,apex,pit,photo")
 				local photo = find(body, "photo")
 				local stars = find(photo, "Rating")
@@ -3495,24 +3532,24 @@ t.describe("native parity reference applications", function()
 					detector.DragContinue.fire(vector(world.engine, 400 + distance, 20))
 					detector.DragEnd.fire()
 				end
-				world.built.sort:set({ column = "name", direction = "descending" })
+				world.built.sort:set({ column = "name", direction = "descending" :: "descending" })
 				t.expect(ids(world.built.sortedRows:peek())).toBe("turbo,pit,photo,neon,drift,apex")
 				press(find(body, "neon"), "top")
-				t.expect(world.built.sort:peek()).toEqual({ column = "name", direction = "descending" })
+				t.expect(world.built.sort:peek()).toEqual({ column = "name", direction = "descending" :: "descending" })
 				swipe("neon", 120)
 				press(find(body, "neon"), "top")
 				t.expect(world.built.sort:peek()).toBeNil()
 				t.expect(ids(world.built.baseRows:peek())).toBe("neon,turbo,pit,photo,drift,apex")
 				t.expect(ids(world.built.from:peek())).toBe("neon,turbo,pit,photo,drift,apex")
-				world.built.sort:set({ column = "name", direction = "descending" })
+				world.built.sort:set({ column = "name", direction = "descending" :: "descending" })
 				world.built.nowPlaying:set("Pit Lane Shuffle")
 				swipe("drift", -120)
 				press(find(body, "drift"), "remove")
-				t.expect(world.built.sort:peek()).toEqual({ column = "name", direction = "descending" })
+				t.expect(world.built.sort:peek()).toEqual({ column = "name", direction = "descending" :: "descending" })
 				t.expect(ids(world.built.sortedRows:peek())).toBe("turbo,pit,photo,neon,apex")
 				t.expect(world.built.nowPlaying:peek()).toBe("Pit Lane Shuffle")
 				swipe("pit", -700)
-				t.expect(world.built.sort:peek()).toEqual({ column = "name", direction = "descending" })
+				t.expect(world.built.sort:peek()).toEqual({ column = "name", direction = "descending" :: "descending" })
 				t.expect(ids(world.built.sortedRows:peek())).toBe("turbo,photo,neon,apex")
 				t.expect(world.built.nowPlaying:peek()).toBeNil()
 				t.expect(find(body, "pit")).toBeNil()
@@ -3526,8 +3563,8 @@ t.describe("native parity reference applications", function()
 			local runtime, UI, gui, input = controlsFor(engine, target, extra)
 			local opened = spec.isPresented or Compose.cell(true)
 			spec.isPresented = opened
-			local stop, screen = runtime.mount(function()
-				return runtime.constructors.ScreenGui({ UI.RadialMenu(spec) })
+			local stop, screen: any = runtime.mount(function()
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.RadialMenu(spec) })
 			end, target)
 			return {
 				engine = engine,
@@ -3561,7 +3598,7 @@ t.describe("native parity reference applications", function()
 					id = id,
 					slot = id,
 					label = id,
-					completion = "stay",
+					completion = "stay" :: "stay",
 					enabled = if id == "N" then enabled else nil,
 					onSelect = function()
 						table.insert(record, id)
@@ -3586,8 +3623,8 @@ t.describe("native parity reference applications", function()
 					local world = openRadial({
 						anchor = Compose.cell({ x = 320, y = 240, clearance = anchorClearance }),
 						clearance = clearance,
-						follow = "fixed",
-						distribution = "compass",
+						follow = "fixed" :: "fixed",
+						distribution = "compass" :: "compass",
 						items = compassItems({}),
 					})
 					local measured = distance(world.find("N"), 320, 240)
@@ -3602,8 +3639,8 @@ t.describe("native parity reference applications", function()
 				local world = openRadial({
 					anchor = anchor,
 					clearance = 50,
-					follow = "fixed",
-					distribution = "compass",
+					follow = "fixed" :: "fixed",
+					distribution = "compass" :: "compass",
 					items = compassItems({}),
 				})
 				local north = world.find("N")
@@ -3628,7 +3665,7 @@ t.describe("native parity reference applications", function()
 				local anchor = Compose.cell({ x = 320, y = 240, clearance = 70 })
 				local world = openRadial({
 					anchor = anchor,
-					distribution = "compass",
+					distribution = "compass" :: "compass",
 					items = compassItems(picked),
 				})
 				local north = world.find("N")
@@ -3647,7 +3684,9 @@ t.describe("native parity reference applications", function()
 			end)
 
 			t.it("keeps corner rings of round buttons inside short and tall surfaces", function()
-				for _, preset in { "bottom-left", "bottom-right", "top-right", "top-left" } do
+				for _, preset in
+					{ "bottom-left", "bottom-right", "top-right", "top-left" } :: { "bottom-left" | "bottom-right" | "top-left" | "top-right" }
+				do
 					for _, size in { { 469, 209 }, { 800, 650 } } do
 						local picked = {}
 						local items = {}
@@ -3660,7 +3699,11 @@ t.describe("native parity reference applications", function()
 								end,
 							})
 						end
-						local world = openRadial({ preset = preset, appearance = "buttons", items = items })
+						local world = openRadial({
+							preset = preset :: "bottom-left" | "bottom-right" | "top-left" | "top-right",
+							appearance = "buttons",
+							items = items,
+						})
 						world.find("Modal").AbsoluteSize = vector(world.engine, size[1], size[2])
 						t.expect(world.find("RadialPanel"):GetAttribute("Presentation")).toBe("radial")
 						local boxes = {}
@@ -3761,7 +3804,7 @@ t.describe("native parity reference applications", function()
 					world.stop()
 				end
 				local world = openRadial({
-					center = "empty",
+					center = "empty" :: "empty",
 					items = {
 						{
 							id = "Branch",
@@ -3812,7 +3855,8 @@ t.describe("native parity reference applications", function()
 				for _, disable in { false, true } do
 					local picked = {}
 					local enabled = Compose.cell(true)
-					local world = openRadial({ distribution = "compass", items = compassItems(picked, enabled) })
+					local world =
+						openRadial({ distribution = "compass" :: "compass", items = compassItems(picked, enabled) })
 					local x, y = centerOf(world.find("N"))
 					local hold = touch(world, x, y)
 					world.find("RadialPanel").InputBegan.fire(hold)
@@ -3828,7 +3872,7 @@ t.describe("native parity reference applications", function()
 			t.it("leaves no built-in trigger when the launcher is off", function()
 				local shown = openRadial({
 					isPresented = Compose.cell(false),
-					distribution = "compass",
+					distribution = "compass" :: "compass",
 					items = compassItems({}),
 				})
 				t.expect(shown.find("Launcher") ~= nil).toBe(true)
@@ -3863,9 +3907,9 @@ t.describe("native parity reference applications", function()
 				for _, passThrough in { false, true } do
 					local picked = {}
 					local world = openRadial({
-						center = "empty",
+						center = "empty" :: "empty",
 						centerPassThrough = passThrough,
-						distribution = "compass",
+						distribution = "compass" :: "compass",
 						items = compassItems(picked),
 					})
 					local panel = world.find("RadialPanel")
@@ -3873,7 +3917,7 @@ t.describe("native parity reference applications", function()
 					t.expect(world.find("DismissOutside").Visible).toBe(not passThrough)
 					if passThrough then
 						local covered = 0
-						for _, edge in { "Top", "Bottom", "Left", "Right" } do
+						for _, edge in { "Top", "Bottom", "Left", "Right" } :: { "Bottom" | "Left" | "Right" | "Top" } do
 							local catcher = world.find("Dismiss" .. edge)
 							t.expect(catcher.Visible).toBe(true)
 							local x, y = catcher.Position.X.Offset, catcher.Position.Y.Offset
@@ -4002,9 +4046,9 @@ t.describe("native parity reference applications", function()
 
 		local function controlNames(): { string }
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local names = {}
-			for name in Facet.controls(runtime, { types = engine.types } :: any) do
+			for name in (Facet.controls(runtime, { types = engine.types } :: any) :: unknown) :: { [string]: unknown } do
 				if not helpers[name] then
 					table.insert(names, name :: string)
 				end
@@ -4187,7 +4231,7 @@ t.describe("native parity reference applications", function()
 	t.describe("Menu scenario copy", function()
 		t.it("takes every player-visible string from its exported copy", function()
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -4197,7 +4241,7 @@ t.describe("native parity reference applications", function()
 				Facet = Facet,
 				Compose = Compose,
 				runtime = runtime,
-				Host = runtime.constructors,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
 				types = engine.types,
 				viewport = Compose.cell({ width = 1280, height = 720 }),
 				inputTarget = engine.new("Folder"),
@@ -4292,7 +4336,7 @@ t.describe("native parity reference applications", function()
 					return node
 				end
 			end
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -4310,8 +4354,8 @@ t.describe("native parity reference applications", function()
 				config[key] = value
 			end
 			local UI = Facet.controls(runtime, config :: any)
-			local Host = runtime.constructors
-			local stop, screen = runtime.mount(function()
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local stop, screen: any = runtime.mount(function()
 				return Host.ScreenGui({ build(UI, Host) })
 			end, engine.new("Folder"))
 			return {
@@ -4363,7 +4407,7 @@ t.describe("native parity reference applications", function()
 		local function labelled(UI: any): (any) -> any
 			return function(current)
 				return UI.Button("Action")({
-					label = function(use)
+					label = function(use: Use)
 						return use(current).label
 					end,
 				})
@@ -4390,7 +4434,7 @@ t.describe("native parity reference applications", function()
 
 		local function mountFailure(build: (any, any) -> any): string?
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local UI = Facet.controls(
 				runtime,
@@ -4398,7 +4442,9 @@ t.describe("native parity reference applications", function()
 			)
 			local ok, message = pcall(function()
 				local stop = runtime.mount(function()
-					return runtime.constructors.ScreenGui({ build(UI, runtime.constructors) })
+					return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+						build(UI, runtime.constructors),
+					})
 				end, engine.new("Folder"))
 				stop()
 			end)
@@ -4410,13 +4456,13 @@ t.describe("native parity reference applications", function()
 			"resumes following within followThreshold and rejoins the tail after the reader returns to the end",
 			function()
 				local source, status = Compose.cell(records(10)), newStatus()
-				local w = stage(function(UI, Host)
+				local w = stage(function(UI: FacetControls, Host: RobloxHost)
 					return UI.VirtualList({
 						from = source,
 						key = id,
 						itemSize = 20,
 						overscan = 0,
-						follow = "end",
+						follow = "end" :: "end",
 						followThreshold = 30,
 						status = status,
 						render = plain(Host),
@@ -4441,13 +4487,13 @@ t.describe("native parity reference applications", function()
 				t.expect(list.CanvasPosition.Y).toBe(160)
 				w.stop()
 				local strict, strictStatus = Compose.cell(records(10)), newStatus()
-				local d = stage(function(UI, Host)
+				local d = stage(function(UI: FacetControls, Host: RobloxHost)
 					return UI.VirtualList({
 						from = strict,
 						key = id,
 						itemSize = 20,
 						overscan = 0,
-						follow = "end",
+						follow = "end" :: "end",
 						status = strictStatus,
 						render = plain(Host),
 					})
@@ -4468,12 +4514,12 @@ t.describe("native parity reference applications", function()
 
 		t.it("settles the last page to the end and leaves it only after a decisive drag back", function()
 			local now = 0
-			local w = stage(function(UI, Host)
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
 				return UI.VirtualList({
 					from = records(10),
 					key = id,
 					itemSize = 40,
-					snap = "item",
+					snap = "item" :: "item",
 					reducedMotion = true,
 					render = plain(Host),
 				})
@@ -4515,12 +4561,12 @@ t.describe("native parity reference applications", function()
 
 		t.it("releases the snap frame hook once settled and writes nothing while idle", function()
 			local now = 0
-			local w = stage(function(UI, Host)
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
 				return UI.VirtualList({
 					from = records(20),
 					key = id,
 					itemSize = 40,
-					snap = "item",
+					snap = "item" :: "item",
 					reducedMotion = false,
 					render = plain(Host),
 				})
@@ -4554,7 +4600,7 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("offsets the header by the reorder gutter and the scroll and matches the row cell span", function()
-			local w = stage(function(UI)
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(3),
 					key = id,
@@ -4562,8 +4608,8 @@ t.describe("native parity reference applications", function()
 					reorderable = true,
 					onReorder = function() end,
 					columns = {
-						{ id = "a", width = 100 },
-						{ id = "b", width = 120, priority = 2 },
+						{ id = "a", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "b", width = 120, priority = 2 } :: FixtureCollectionTypes.TableColumn<any, any>,
 					},
 				})
 			end)
@@ -4610,7 +4656,7 @@ t.describe("native parity reference applications", function()
 		t.it("removes the header band and sizes a non-scrolling table to its rows when header is false", function()
 			for _, shown in { false, true } do
 				local status = newStatus()
-				local w = stage(function(UI)
+				local w = stage(function(UI: FacetControls)
 					return UI.Table({
 						from = records(3),
 						key = id,
@@ -4618,7 +4664,7 @@ t.describe("native parity reference applications", function()
 						scrolls = false,
 						header = if shown then nil else false,
 						status = status,
-						columns = { { id = "label", width = 100 } },
+						columns = { { id = "label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any> },
 					})
 				end)
 				local node = w.screen:FindFirstChildWhichIsA("Frame")
@@ -4632,15 +4678,15 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("keeps every column when their widths exactly fill the room and collapses one pixel narrower", function()
-			local w = stage(function(UI)
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(2),
 					key = id,
 					itemSize = 40,
 					columns = {
-						{ id = "a", width = 100 },
-						{ id = "b", width = 100, priority = 2 },
-						{ id = "c", width = 100, priority = 3 },
+						{ id = "a", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "b", width = 100, priority = 2 } :: FixtureCollectionTypes.TableColumn<any, any>,
+						{ id = "c", width = 100, priority = 3 } :: FixtureCollectionTypes.TableColumn<any, any>,
 					},
 				})
 			end)
@@ -4663,16 +4709,16 @@ t.describe("native parity reference applications", function()
 
 		t.it("activates the keyboard or gamepad selected table row with that row key and input", function()
 			local activated: { any } = {}
-			local focus: any = {}
+			local focus: FixtureCollectionTypes.FocusControls<any> = {}
 			local selection = Compose.cell({})
-			local w = stage(function(UI)
+			local w = stage(function(UI: FacetControls)
 				return UI.Table({
 					from = records(5),
 					key = id,
 					itemSize = 40,
 					focus = focus,
 					selection = selection,
-					columns = { { id = "label", width = 100 } },
+					columns = { { id = "label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any> },
 					onActivate = function(item, key, input)
 						table.insert(activated, { item = item, key = key, input = input })
 					end,
@@ -4681,7 +4727,7 @@ t.describe("native parity reference applications", function()
 			local E = w.engine.types.Enum
 			local body = w.screen:FindFirstChildWhichIsA("Frame"):FindFirstChild("Body")
 			body.AbsoluteWindowSize = w.engine.types.Vector2.new(300, 200)
-			focus.focus(2)
+			assert(focus.focus)(2)
 			t.expect(w.gui.SelectedObject).toBe(rowHit(body, "2"))
 			t.expect(w.gui.SelectedObject.Selectable).toBe(true)
 			press(w, "CollectionDown")
@@ -4702,7 +4748,7 @@ t.describe("native parity reference applications", function()
 			t.expect(selection:peek()).toEqual({ [2] = true })
 			w.stop()
 			local listActivated: { any } = {}
-			local l = stage(function(UI, Host)
+			local l = stage(function(UI: FacetControls, Host: RobloxHost)
 				return UI.VirtualList({
 					from = records(5),
 					key = id,
@@ -4729,7 +4775,7 @@ t.describe("native parity reference applications", function()
 			local ornate = fantasyOrnate.build(Facet.themes)
 			t.expect(ornate.identity ~= nil).toBe(true)
 			for _, package in { false, ornate } do
-				local w = stage(function(UI)
+				local w = stage(function(UI: FacetControls)
 					return UI.Table({
 						from = records(2),
 						key = id,
@@ -4737,8 +4783,8 @@ t.describe("native parity reference applications", function()
 						reorderable = true,
 						onReorder = function() end,
 						columns = {
-							{ id = "fixed", width = 120, minWidth = 80, maxWidth = 200 },
-							{ id = "fill" },
+							{ id = "fixed", width = 120, minWidth = 80, maxWidth = 200 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							{ id = "fill" } :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
 					})
 				end, { config = if package then { theme = package } else {} })
@@ -4778,7 +4824,7 @@ t.describe("native parity reference applications", function()
 
 		local function shrinkAtEnd(useTable: boolean)
 			local measured, status = Compose.cell({}), newStatus()
-			local w = stage(function(UI, Host)
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
 				if useTable then
 					return UI.Table({
 						from = records(20),
@@ -4786,7 +4832,7 @@ t.describe("native parity reference applications", function()
 						itemSize = 40,
 						measured = measured,
 						status = status,
-						columns = { { id = "label", width = 100 } },
+						columns = { { id = "label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any> },
 					})
 				end
 				return UI.VirtualList({
@@ -4830,7 +4876,7 @@ t.describe("native parity reference applications", function()
 
 		t.it("keeps the grid anchor item at the top when the column count and a line extent change", function()
 			local columns, measured, controls = Compose.cell(4), Compose.cell({}), {} :: { [string]: any }
-			local w = stage(function(UI, Host)
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
 				return UI.VirtualGrid({
 					from = records(100),
 					key = id,
@@ -4855,8 +4901,8 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("gives grid cells a focus readable that follows the focus ring", function()
-			local focus: any = {}
-			local w = stage(function(UI)
+			local focus: FixtureCollectionTypes.FocusControls<any> = {}
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(12),
 					key = id,
@@ -4867,14 +4913,14 @@ t.describe("native parity reference applications", function()
 				})
 			end)
 			collectionOf(w).AbsoluteWindowSize = w.engine.types.Vector2.new(200, 100)
-			local third, second = focus.isFocused(3), focus.isFocused(2)
+			local third, second = assert(focus.isFocused)(3), assert(focus.isFocused)(2)
 			t.expect(third:peek()).toBe(false)
-			focus.focus(3)
-			t.expect(focus.current:peek()).toBe(3)
+			assert(focus.focus)(3)
+			t.expect(assert(focus.current):peek()).toBe(3)
 			t.expect(third:peek()).toBe(true)
 			t.expect(second:peek()).toBe(false)
 			t.expect(w.gui.SelectedObject.Text).toBe("3")
-			focus.focus(2)
+			assert(focus.focus)(2)
 			t.expect(third:peek()).toBe(false)
 			t.expect(second:peek()).toBe(true)
 			t.expect(w.gui.SelectedObject.Text).toBe("2")
@@ -4882,15 +4928,15 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("activates a vertical or horizontal grid cell from pointer and touch with its key", function()
-			for _, direction in { "vertical", "horizontal" } do
+			for _, direction in { "vertical", "horizontal" } :: { "horizontal" | "vertical" } do
 				local activated: { any } = {}
-				local w = stage(function(UI, Host)
+				local w = stage(function(UI: FacetControls, Host: RobloxHost)
 					return UI.VirtualGrid({
 						from = records(12),
 						key = id,
 						itemSize = 20,
 						columns = 3,
-						direction = direction,
+						direction = direction :: "horizontal" | "vertical",
 						onActivate = function(item, key, input, clickCount)
 							table.insert(activated, { item = item, key = key, input = input, clickCount = clickCount })
 						end,
@@ -4916,8 +4962,8 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("steps grid focus cell by cell with Left and Right and stops at the line edge", function()
-			local focus: any = {}
-			local w = stage(function(UI)
+			local focus: FixtureCollectionTypes.FocusControls<any> = {}
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(12),
 					key = id,
@@ -4928,57 +4974,57 @@ t.describe("native parity reference applications", function()
 				})
 			end)
 			collectionOf(w).AbsoluteWindowSize = w.engine.types.Vector2.new(200, 100)
-			focus.focus(2)
+			assert(focus.focus)(2)
 			press(w, "CollectionRight")
-			t.expect(focus.current:peek()).toBe(3)
+			t.expect(assert(focus.current):peek()).toBe(3)
 			t.expect(w.gui.SelectedObject.Text).toBe("3")
 			press(w, "CollectionLeft")
-			t.expect(focus.current:peek()).toBe(2)
-			focus.focus(4)
+			t.expect(assert(focus.current):peek()).toBe(2)
+			assert(focus.focus)(4)
 			press(w, "CollectionRight")
-			t.expect(focus.current:peek()).toBe(4)
+			t.expect(assert(focus.current):peek()).toBe(4)
 			press(w, "CollectionDown")
-			t.expect(focus.current:peek()).toBe(8)
+			t.expect(assert(focus.current):peek()).toBe(8)
 			w.stop()
 		end)
 
 		t.it("transposes horizontal grid navigation and scrolls a focused cell into view on X", function()
-			local focus: any = {}
-			local w = stage(function(UI)
+			local focus: FixtureCollectionTypes.FocusControls<any> = {}
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(30),
 					key = id,
 					itemSize = 20,
 					columns = 3,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					focus = focus,
 					render = labelled(UI),
 				})
 			end)
 			local grid = collectionOf(w)
 			grid.AbsoluteWindowSize = w.engine.types.Vector2.new(100, 300)
-			focus.focus(1)
+			assert(focus.focus)(1)
 			press(w, "CollectionDown")
-			t.expect(focus.current:peek()).toBe(2)
+			t.expect(assert(focus.current):peek()).toBe(2)
 			press(w, "CollectionUp")
-			t.expect(focus.current:peek()).toBe(1)
+			t.expect(assert(focus.current):peek()).toBe(1)
 			press(w, "CollectionRight")
-			t.expect(focus.current:peek()).toBe(4)
+			t.expect(assert(focus.current):peek()).toBe(4)
 			t.expect(grid.CanvasPosition).toBe(w.engine.types.Vector2.new(0, 0))
-			focus.focus(28)
+			assert(focus.focus)(28)
 			t.expect(grid.CanvasPosition).toBe(w.engine.types.Vector2.new(100, 0))
 			t.expect(w.gui.SelectedObject.Text).toBe("28")
 			w.stop()
 		end)
 
 		t.it("steps a horizontal list with Left and Right, ignores Up and Down and keeps focus visible on X", function()
-			local focus: any = {}
-			local w = stage(function(UI)
+			local focus: FixtureCollectionTypes.FocusControls<any> = {}
+			local w = stage(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = records(20),
 					key = id,
 					itemSize = 20,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					focus = focus,
 					render = labelled(UI),
 				})
@@ -4986,20 +5032,22 @@ t.describe("native parity reference applications", function()
 			local V2 = w.engine.types.Vector2
 			local list = collectionOf(w)
 			list.AbsoluteWindowSize = V2.new(100, 50)
-			focus.focus(3)
+			assert(focus.focus)(3)
 			press(w, "CollectionRight")
-			t.expect(focus.current:peek()).toBe(4)
+			t.expect(assert(focus.current):peek()).toBe(4)
 			press(w, "CollectionDown")
-			t.expect(focus.current:peek()).toBe(4)
+			t.expect(assert(focus.current):peek()).toBe(4)
 			press(w, "CollectionUp")
-			t.expect(focus.current:peek()).toBe(4)
+			t.expect(assert(focus.current):peek()).toBe(4)
 			press(w, "CollectionLeft")
-			t.expect(focus.current:peek()).toBe(3)
+			t.expect(assert(focus.current):peek()).toBe(3)
 			t.expect(list.CanvasPosition).toBe(V2.new(0, 0))
-			focus.focus(7)
+			assert(focus.focus)(7)
 			t.expect(list.CanvasPosition).toBe(V2.new(40, 0))
 			t.expect(w.gui.SelectedObject.Text).toBe("7")
-			for name, keys in { CollectionRight = { "Right", "DPadRight" }, CollectionLeft = { "Left", "DPadLeft" } } do
+			for name, keys in
+				{ CollectionRight = { "Right", "DPadRight" }, CollectionLeft = { "Left", "DPadLeft" } } :: { [string]: { string } }
+			do
 				local bound = {}
 				for _, binding in w.screen:FindFirstChild("Facet" .. name):FindFirstChild(name):GetChildren() do
 					bound[binding.KeyCode.Name] = true
@@ -5013,12 +5061,12 @@ t.describe("native parity reference applications", function()
 
 		t.it("activates a horizontal list item from pointer and touch with its key", function()
 			local activated: { any } = {}
-			local w = stage(function(UI, Host)
+			local w = stage(function(UI: FacetControls, Host: RobloxHost)
 				return UI.VirtualList({
 					from = records(10),
 					key = id,
 					itemSize = 20,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					onActivate = function(item, key, input)
 						table.insert(activated, { item = item, key = key, input = input })
 					end,
@@ -5039,8 +5087,8 @@ t.describe("native parity reference applications", function()
 
 		t.it("wraps arrow and D-pad focus at both ends only when wrapFocus is set", function()
 			for _, wrap in { true, false } do
-				local focus: any = {}
-				local w = stage(function(UI)
+				local focus: FixtureCollectionTypes.FocusControls<any> = {}
+				local w = stage(function(UI: FacetControls)
 					return UI.VirtualList({
 						from = records(5),
 						key = id,
@@ -5051,22 +5099,22 @@ t.describe("native parity reference applications", function()
 					})
 				end)
 				collectionOf(w).AbsoluteWindowSize = w.engine.types.Vector2.new(200, 100)
-				focus.focus(5)
+				assert(focus.focus)(5)
 				press(w, "CollectionDown")
-				t.expect(focus.current:peek()).toBe(if wrap then 1 else 5)
+				t.expect(assert(focus.current):peek()).toBe(if wrap then 1 else 5)
 				t.expect(w.gui.SelectedObject.Text).toBe(if wrap then "1" else "5")
-				focus.focus(1)
+				assert(focus.focus)(1)
 				press(w, "CollectionUp")
-				t.expect(focus.current:peek()).toBe(if wrap then 5 else 1)
-				focus.focus(3)
+				t.expect(assert(focus.current):peek()).toBe(if wrap then 5 else 1)
+				assert(focus.focus)(3)
 				press(w, "CollectionDown")
-				t.expect(focus.current:peek()).toBe(4)
+				t.expect(assert(focus.current):peek()).toBe(4)
 				press(w, "CollectionRight")
-				t.expect(focus.current:peek()).toBe(4)
+				t.expect(assert(focus.current):peek()).toBe(4)
 				w.stop()
 			end
 			local gridFocus: any = {}
-			local g = stage(function(UI)
+			local g = stage(function(UI: FacetControls)
 				return UI.VirtualGrid({
 					from = records(12),
 					key = id,
@@ -5091,12 +5139,12 @@ t.describe("native parity reference applications", function()
 			t.expect(gridFocus.current:peek()).toBe(8)
 			g.stop()
 			local rowFocus: any = {}
-			local h = stage(function(UI)
+			local h = stage(function(UI: FacetControls)
 				return UI.VirtualList({
 					from = records(5),
 					key = id,
 					itemSize = 20,
-					direction = "horizontal",
+					direction = "horizontal" :: "horizontal",
 					wrapFocus = true,
 					focus = rowFocus,
 					render = labelled(UI),
@@ -5117,8 +5165,8 @@ t.describe("native parity reference applications", function()
 			"wraps next and previous focus past disabled rows and enters automatically once geometry exists",
 			function()
 				for _, wrap in { true, false } do
-					local focus: any = {}
-					local w = stage(function(UI)
+					local focus: FixtureCollectionTypes.FocusControls<any> = {}
+					local w = stage(function(UI: FacetControls)
 						return UI.VirtualList({
 							from = records(5),
 							key = id,
@@ -5129,16 +5177,16 @@ t.describe("native parity reference applications", function()
 						})
 					end)
 					collectionOf(w).AbsoluteWindowSize = w.engine.types.Vector2.new(200, 100)
-					focus.focus(5)
-					focus.next()
-					t.expect(focus.current:peek()).toBe(if wrap then 1 else 5)
+					assert(focus.focus)(5)
+					assert(focus.next)()
+					t.expect(assert(focus.current):peek()).toBe(if wrap then 1 else 5)
 					t.expect(w.gui.SelectedObject.Text).toBe(if wrap then "1" else "5")
-					focus.previous()
-					t.expect(focus.current:peek()).toBe(if wrap then 5 else 4)
+					assert(focus.previous)()
+					t.expect(assert(focus.current):peek()).toBe(if wrap then 5 else 4)
 					w.stop()
 				end
 				local skipFocus: any = {}
-				local s = stage(function(UI)
+				local s = stage(function(UI: FacetControls)
 					return UI.VirtualList({
 						from = records(5),
 						key = id,
@@ -5158,7 +5206,7 @@ t.describe("native parity reference applications", function()
 				t.expect(s.gui.SelectedObject.Text).toBe("2")
 				s.stop()
 				for _, auto in { true, false } do
-					local a = stage(function(UI)
+					local a = stage(function(UI: FacetControls)
 						return UI.VirtualList({
 							from = records(5),
 							key = id,
@@ -5193,7 +5241,7 @@ t.describe("native parity reference applications", function()
 
 		local function world(build: (any, any) -> any, options: { [string]: any }?): StackWorld
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
@@ -5213,8 +5261,8 @@ t.describe("native parity reference applications", function()
 			local target = engine.new("Folder")
 			local baseline = engine.census()
 			local UI = Facet.controls(runtime, config :: any)
-			local Host = runtime.constructors
-			local stop, screen = runtime.mount(function()
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local stop, screen: any = runtime.mount(function()
 				return Host.ScreenGui({ build(UI, Host) })
 			end, target)
 			return {
@@ -5265,16 +5313,16 @@ t.describe("native parity reference applications", function()
 		end
 
 		t.it("fades a pushed page in over its transition and still fades it under reduced motion", function()
-			local path = Compose.cell({})
+			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 			local counts = { built = 0, disposed = 0 }
-			local w = world(function(UI, Host)
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
 				return UI.NavigationStack({
 					path = path,
 					transition = { seconds = 0.2 },
-					root = { title = "Root", content = counted(Host, "RootBody", counts) },
+					root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
 					destinations = {
-						detail = { title = "Detail", content = counted(Host, "DetailBody", counts) },
-						more = { title = "More", content = counted(Host, "MoreBody", counts) },
+						detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+						more = { title = "More", content = counted(Host, "MoreBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
 					},
 				})
 			end)
@@ -5321,14 +5369,16 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("leaves one opaque interactive root page after rapid pushes and pops under a fade", function()
-			local path = Compose.cell({})
+			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 			local counts = { built = 0, disposed = 0 }
-			local w = world(function(UI, Host)
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
 				return UI.NavigationStack({
 					path = path,
 					transition = { seconds = 0.2 },
-					root = { title = "Root", content = counted(Host, "RootBody", counts) },
-					destinations = { detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } },
+					root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					destinations = {
+						detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					},
 				})
 			end)
 			local stack = find(w.screen, "NavigationStack")
@@ -5358,26 +5408,26 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("restores the remembered page focus when surviving chrome holds selection during a pop", function()
-			local path = Compose.cell({})
-			local w = world(function(UI, Host)
+			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
-					UI.Button "Chrome" { label = "Chrome" },
+					UI.Button "Chrome" { label = "Chrome" } :: unknown,
 					UI.NavigationStack({
 						path = path,
 						root = {
-							content = function()
+							content = function(): Instance
 								return Host.Frame({
-									UI.Button "First" { label = "First" },
+									UI.Button "First" { label = "First" } :: unknown,
 									UI.Button "RootAction" { label = "Root" },
 								})
 							end,
-						},
+						} :: NavigationFixtures.NavigationDestination<any>,
 						destinations = {
 							detail = {
-								content = function()
+								content = function(): Instance
 									return UI.Button "DetailAction" { label = "Detail" }
 								end,
-							},
+							} :: NavigationFixtures.NavigationDestination<any>,
 						},
 					}),
 				})
@@ -5417,24 +5467,25 @@ t.describe("native parity reference applications", function()
 		t.it(
 			"falls back to the first selectable control when the remembered control was disabled while away",
 			function()
-				local path, enabled = Compose.cell({}), Compose.cell(true)
-				local w = world(function(UI, Host)
+				local path, enabled =
+					Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> }), Compose.cell(true)
+				local w = world(function(UI: FacetControls, Host: RobloxHost)
 					return UI.NavigationStack({
 						path = path,
 						root = {
-							content = function()
+							content = function(): Instance
 								return Host.Frame({
-									UI.Button "First" { label = "First" },
+									UI.Button "First" { label = "First" } :: unknown,
 									UI.Button "Remember" { label = "Remember", enabled = enabled },
 								})
 							end,
-						},
+						} :: NavigationFixtures.NavigationDestination<any>,
 						destinations = {
 							detail = {
-								content = function()
+								content = function(): Instance
 									return UI.Button "DetailAction" { label = "Detail" }
 								end,
-							},
+							} :: NavigationFixtures.NavigationDestination<any>,
 						},
 					})
 				end)
@@ -5464,17 +5515,17 @@ t.describe("native parity reference applications", function()
 		)
 
 		t.it("refuses malformed specs, paths and transitions before building any page", function()
-			local function attempt(mutate: (spec: { [string]: any }) -> ()): (string?, number)
+			local function attempt(mutate: (spec: { [any]: any }) -> ()): (string?, number)
 				local built = 0
 				local engine: any = engineLib.new()
-				local runtime = Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local gui = engine.new("GuiService")
 				local UI = Facet.controls(runtime, { types = engine.types, services = { GuiService = gui } } :: any)
 				local function content()
 					built += 1
-					return runtime.constructors.Frame({})
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 				end
-				local spec: { [string]: any } = {
+				local spec: { [any]: any } = {
 					path = Compose.cell({}),
 					root = { title = "Root", content = content },
 					destinations = { detail = { title = "Detail", content = content } },
@@ -5493,7 +5544,7 @@ t.describe("native parity reference applications", function()
 			t.expect(accepted).toBeNil()
 			t.expect(acceptedBuilt).toBe(1)
 			local required = "NavigationStack requires path, root and destinations"
-			local cases: { { mutate: (spec: { [string]: any }) -> (), expected: string } } = {
+			local cases: { { mutate: (spec: { [any]: any }) -> (), expected: string } } = {
 				{
 					mutate = function(spec)
 						spec.unknown = true
@@ -5541,16 +5592,18 @@ t.describe("native parity reference applications", function()
 		end)
 
 		t.it("keeps the mounted page through viewport theme input and reduced motion changes", function()
-			local path = Compose.cell({})
+			local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 			local counts = { built = 0, disposed = 0 }
 			local theme = Compose.cell(Facet.themes.neutralPackage())
 			local viewport = Compose.cell({ width = 1280, height = 720 })
-			local w = world(function(UI, Host)
+			local w = world(function(UI: FacetControls, Host: RobloxHost)
 				return UI.NavigationStack({
 					path = path,
 					transition = { seconds = 0.2 },
-					root = { title = "Root", content = counted(Host, "RootBody", counts) },
-					destinations = { detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } },
+					root = { title = "Root", content = counted(Host, "RootBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					destinations = {
+						detail = { title = "Detail", content = counted(Host, "DetailBody", counts) } :: NavigationFixtures.NavigationDestination<any>,
+					},
 				})
 			end, { theme = theme, viewport = viewport })
 			local Enum, V2 = w.engine.types.Enum, w.engine.types.Vector2
@@ -5581,12 +5634,12 @@ t.describe("native parity reference applications", function()
 
 		t.it("releases an expanded collapsible surface across open close cycles and on unmount", function()
 			local expanded, image = Compose.cell(false), Compose.cell("rbxassetid://1")
-			local w = world(function(UI)
+			local w = world(function(UI: FacetControls)
 				return UI.CollapsibleView "Summary" {
 					label = "Summary",
 					image = image,
 					expanded = expanded,
-					content = function()
+					content = function(): Instance
 						return UI.Button "DetailsAction" { label = "Details" }
 					end,
 				}

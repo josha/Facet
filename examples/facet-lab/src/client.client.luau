@@ -1,5 +1,10 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
@@ -12,18 +17,18 @@ local UserInputService = game:GetService("UserInputService")
 
 local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
 local showcase = require(ReplicatedStorage:WaitForChild("FacetShowcase"):WaitForChild("screen")) :: any
-local lab_settings = require(script.Parent.lab_settings) :: any
-local catalog = require(script.Parent.catalog) :: any
-local browser = require(script.Parent.browser) :: any
-local lab_audit = require(script.Parent.lab_audit) :: any
-local Compose = Facet.Compose
+local lab_settings = require(assert(script.Parent).lab_settings) :: any
+local catalog = require(assert(script.Parent).catalog) :: any
+local browser = require(assert(script.Parent).browser) :: any
+local lab_audit = require(assert(script.Parent).lab_audit) :: any
+local Compose: ComposeModule = Facet.Compose
 
 pcall(function()
 	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 end)
 
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-local runtime = Facet.Roblox.createRuntime()
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 
 local modules = {}
 for _, folder in { ReplicatedStorage:WaitForChild("FacetThemes"), ReplicatedStorage:WaitForChild("LabThemes") } do
@@ -44,7 +49,7 @@ local owner = Compose.createRootOwner(function()
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		viewport = viewport,
 		guiService = GuiService,
 		runService = game:GetService("RunService"),
@@ -101,7 +106,7 @@ local owner = Compose.createRootOwner(function()
 	})
 	Compose.cleanup(backdrop.dispose)
 	backdrop.mount(function()
-		local fill = runtime.constructors.Frame({
+		local fill = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 			Name = "Backdrop",
 			Size = UDim2.fromScale(1, 1),
 			BorderSizePixel = 0,

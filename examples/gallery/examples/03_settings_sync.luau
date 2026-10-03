@@ -1,7 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local example = { title = "Settings Sync" }
 function example.build(ctx: any)
-	local UI, Compose = ctx.UI, ctx.Compose
+	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 	local server = Compose.cell({ music = false, volume = 10, revision = 1 })
 	local draft = Compose.cell({ music = false, volume = 10 })
 	local status = Compose.cell("idle")
@@ -22,7 +26,7 @@ function example.build(ctx: any)
 			return
 		end
 		pending = { music = music, volume = volume }
-		draft:set(pending)
+		draft:set(assert(pending))
 		status:set("pending")
 		log("Sent settings. Waiting for the server.")
 	end
@@ -52,7 +56,7 @@ function example.build(ctx: any)
 		status:set("idle")
 		history:set({ "Reset. Nothing sent yet." })
 	end
-	local function text(name, value, role)
+	local function text(name: string, value, role)
 		return UI.Text(name)({ text = value, textRole = role, TextWrapped = true })
 	end
 	return {
@@ -60,25 +64,25 @@ function example.build(ctx: any)
 			return UI.ScrollView "SettingsSync" {
 				gap = 12,
 				padding = "m",
-				align = "stretch",
-				text("Title", "Settings sync", "title"),
+				align = "stretch" :: "stretch",
+				text("Title", "Settings sync", "title") :: unknown,
 				text(
 					"Explanation",
 					"Send a change, inspect the optimistic draft, then deliver the server reply.",
 					"caption"
 				),
-				text("Draft", function(use)
+				text("Draft", function(use: Use)
 					local value = use(draft)
 					return `What you see now: music {if value.music then "on" else "off"}, volume {value.volume}`
 				end),
-				text("Confirmed", function(use)
+				text("Confirmed", function(use: Use)
 					local value = use(server)
 					return `Server confirmed: music {if value.music then "on" else "off"}, volume {value.volume} (revision {value.revision})`
 				end),
 				UI.Toggle "Music" {
 					label = "Music",
-					indicatorPosition = "trailing",
-					value = function(use)
+					indicatorPosition = "trailing" :: "trailing",
+					value = function(use: Use)
 						return use(draft).music
 					end,
 					onChange = function(value)
@@ -89,7 +93,7 @@ function example.build(ctx: any)
 					label = "Volume",
 					min = 0,
 					max = 10,
-					value = function(use)
+					value = function(use: Use)
 						return use(draft).volume
 					end,
 					onChange = function(value)
@@ -105,7 +109,7 @@ function example.build(ctx: any)
 				UI.Button "Deliver" { label = "Deliver server reply", appearance = "emphasis", onActivate = deliver },
 				UI.Button "Reset" { label = "Reset demo", appearance = "link", onActivate = reset },
 				text("Status", status, "caption"),
-				text("History", function(use)
+				text("History", function(use: Use)
 					return table.concat(use(history), "\n")
 				end, "caption"),
 			}

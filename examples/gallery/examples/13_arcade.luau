@@ -1,8 +1,11 @@
 --!strict
+
+type DemoTabs = typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+local loadTabs = require :: (string) -> DemoTabs
 return {
 	title = "Arcade",
 	build = function(ctx: any)
-		local demoTabs = if ctx.load then ctx.load("fixture", "demo_tabs") else require("../scenarios/demo_tabs")
+		local demoTabs = if ctx.load then ctx.load("fixture", "demo_tabs") else loadTabs("../scenarios/demo_tabs")
 		local games: { any } = {
 			{ id = "word", label = "Word Guess", scenario = require("./05_word_game") },
 			{ id = "crossword", label = "Crossword", scenario = require("./06_tile_game") },

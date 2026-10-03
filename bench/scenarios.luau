@@ -1,8 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local Facet = require("../src")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local nativeApp = require("./native_app")
 local authoringMotion = require("./authoring_motion")
+type BenchRow = { id: string, name: string }
 
 export type Scenario = {
 	name: string,
@@ -14,9 +20,22 @@ export type Scenario = {
 	warmup: number?,
 }
 
-local scenarios = {}
-local function add(name, setup, run, options)
-	local scenario = options or {}
+local scenarios: { Scenario } = {}
+local function add(
+	name: string,
+	setup: () -> any,
+	run: (any) -> (),
+	options: { requirement: string?, teardown: ((any) -> ())?, samples: number?, warmup: number? }?
+)
+	local scenario: Scenario = {
+		name = name,
+		requirement = if options and options.requirement then options.requirement else "UI-PERF-001",
+		setup = setup,
+		run = run,
+		teardown = options and options.teardown,
+		samples = options and options.samples,
+		warmup = options and options.warmup,
+	}
 	scenario.name = name
 	scenario.requirement = scenario.requirement or "UI-PERF-001"
 	scenario.setup = setup
@@ -27,8 +46,8 @@ local function add(name, setup, run, options)
 	table.insert(scenarios, scenario)
 end
 
-local function reactive(setup)
-	local state = {}
+local function reactive(setup: ({ [string]: any }) -> ()): { [string]: any }
+	local state: { [string]: any } = {}
 	local root = Compose.createRootOwner(function(owner)
 		state.owner = owner
 		setup(state)
@@ -40,10 +59,10 @@ end
 add("hud-binding-storm", function()
 	return reactive(function(state)
 		state.speed, state.n, state.renders = Compose.cell(0), 0, 0
-		local rounded = Compose.formula(function(use)
+		local rounded = Compose.formula(function(use: Use)
 			return math.floor(use(state.speed))
 		end)
-		local label = Compose.formula(function(use)
+		local label = Compose.formula(function(use: Use)
 			return `{use(rounded)} sps`
 		end)
 		state.owner.watchStatic(label, function()
@@ -63,7 +82,7 @@ end, function(state)
 	local owner = state.owner.createChild()
 	Compose.withOwner(owner, function()
 		local draft, status = Compose.cell(false), Compose.cell("idle")
-		local label = Compose.formula(function(use)
+		local label = Compose.formula(function(use: Use)
 			return `music: {use(draft) and "on" or "off"} ({use(status)})`
 		end)
 		owner.watchStatic(label, function() end)
@@ -115,7 +134,7 @@ add("sparse-update-under-load", function()
 		state.signals, state.n = {}, 0
 		for index = 1, 200 do
 			local value = Compose.cell(index)
-			local doubled = Compose.formula(function(use)
+			local doubled = Compose.formula(function(use: Use)
 				return use(value) * 2
 			end)
 			state.owner.watchStatic(doubled, function() end)
@@ -133,11 +152,11 @@ add("mounted-slice-update-storm", function()
 	world.runtime.mount(function()
 		return world.Host.ScreenGui({
 			world.Host.TextLabel({
-				Text = function(use)
+				Text = function(use: Use)
 					return `{use(world.speed)} sps`
 				end,
 				TextSize = 18,
-			}),
+			}) :: unknown,
 			world.UI.Button({ label = "Boost", onActivate = function() end }),
 		})
 	end, world.target)
@@ -150,11 +169,11 @@ end, function(state)
 	state.frame()
 end)
 
-local function rampTree(Host, depth, index)
+local function rampTree(Host: RobloxHost, depth: number, index: number): GuiObject
 	if depth == 0 then
 		return Host.TextLabel({ Name = `T{index}`, Text = "leaf" })
 	end
-	local children = { Name = `V{index}`, Host.UIListLayout({}) }
+	local children = { Name = `V{index}`, Host.UIListLayout({}) :: unknown }
 	for child = 1, 3 do
 		table.insert(children, rampTree(Host, depth - 1, child))
 	end
@@ -190,7 +209,7 @@ local function tableState(resizing)
 	world.runtime.mount(function()
 		local tableNode = world.UI.Table({
 			from = world.rows,
-			key = function(item)
+			key = function(item: BenchRow): string
 				return item.id
 			end,
 			columns = {
@@ -199,37 +218,37 @@ local function tableState(resizing)
 					label = "Racer",
 					minWidth = 80,
 					resizable = true,
-					render = function(current)
+					render = function(current: Readable<BenchRow>): GuiObject
 						return world.Host.TextLabel({
 							TextSize = 14,
-							Text = function(use)
+							Text = function(use: Use)
 								return use(current).name
 							end,
 						})
 					end,
-				},
+				} :: Facet.TableColumn<BenchRow, string>,
 				{
 					id = "n",
 					label = "N",
 					width = 48,
-					render = function(current)
+					render = function(current: Readable<BenchRow>): GuiObject
 						return world.Host.TextLabel({
 							TextSize = 14,
-							Text = function(use)
+							Text = function(use: Use)
 								return use(current).name
 							end,
 						})
 					end,
-				},
+				} :: Facet.TableColumn<BenchRow, string>,
 			},
 			itemSize = 40,
 			header = resizing == true,
-			selectionMode = if resizing then "none" else "multiple",
+			selectionMode = (if resizing then "none" else "multiple") :: "none" | "multiple",
 			selection = world.selected,
 			widths = world.widths,
 		})
 		world.tableNode = tableNode
-		return world.Host.ScreenGui({ tableNode })
+		return world.Host.ScreenGui({ tableNode :: unknown })
 	end, world.target)
 	world.tableNode.AbsoluteSize = world.types.Vector2.new(800, 600)
 	for _, child in world.tableNode:GetChildren() do
@@ -294,7 +313,7 @@ add("billboard-nameplate-storm", function()
 	world.runtime.mount(function()
 		return world.Host.BillboardGui({
 			Size = world.types.UDim2.fromOffset(300, 96),
-			world.Host.TextLabel({ Text = "Racer", TextSize = 18 }),
+			world.Host.TextLabel({ Text = "Racer", TextSize = 18 }) :: unknown,
 			world.Host.TextLabel({ Text = world.health, TextSize = 14 }),
 		})
 	end, world.target)

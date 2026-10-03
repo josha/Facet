@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+
 local rewardsService = require("./rewards")
 
 local task = {}
@@ -17,7 +21,7 @@ export type Opts = {
 }
 
 function task.new(opts: Opts): any
-	local Compose = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 
 	local batch = opts.batch
 	local rewards = opts.rewards
@@ -34,10 +38,10 @@ function task.new(opts: Opts): any
 	self.firstBlendId = task.FIRST_BLEND
 	self.freePourBlendId = task.FREE_POUR_BLEND
 
-	local stamps = Compose.formula(function(use)
+	local stamps = Compose.formula(function(use: Use)
 		return math.clamp(use(rewards.earned) - use(rewards.spent), 0, rewardsService.THRESHOLD)
 	end)
-	local phase = Compose.formula(function(use)
+	local phase = Compose.formula(function(use: Use)
 		if use(redeemed) then
 			return "done"
 		end
@@ -53,7 +57,7 @@ function task.new(opts: Opts): any
 		return "order"
 	end)
 
-	local ctaBlendId = Compose.formula(function(use)
+	local ctaBlendId = Compose.formula(function(use: Use)
 		return if use(phase) == "redeem" then task.FREE_POUR_BLEND else task.FIRST_BLEND
 	end)
 	self.stamps = stamps

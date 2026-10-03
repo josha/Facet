@@ -1,7 +1,23 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local Players = game:GetService("Players")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -24,7 +40,7 @@ end
 
 local function scenario(t: any, name: string, size: Vector2?): (any, any)
 	local built
-	local stage = t.mount(function(UI, Host, Compose, env)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
 		return if type(built) == "function" then built() else built.screen()
 	end, { size = size, frames = 16 })
@@ -32,7 +48,7 @@ local function scenario(t: any, name: string, size: Vector2?): (any, any)
 end
 
 local function alertCase(t: any, where: string, size: Vector2, message: string, actions: { any }, theme: any?)
-	local stage = t.mount(function(UI, _, Compose)
+	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Alert({
 			isPresented = Compose.cell(true),
 			title = "Replace the save?",
@@ -80,7 +96,7 @@ end
 add("alert-actions-inside-card", { "navigation-1-18" }, function(t)
 	local long = string.rep("Your changes to this slot are not saved yet. ", 40)
 	local panel = alertCase(t, "640x320 long", Vector2.new(640, 320), long, {
-		{ id = "cancel", label = "Cancel", role = "cancel" },
+		{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" },
 		{ id = "continue", label = "Continue" },
 	})
 	local message = panel and t.find(panel, "AlertMessage")
@@ -92,8 +108,8 @@ add("alert-actions-inside-card", { "navigation-1-18" }, function(t)
 	end
 	t.cleanup()
 	panel = alertCase(t, "749x235 short", Vector2.new(749, 235), "The older save is lost.", {
-		{ id = "keep", label = "Keep previous", role = "cancel" },
-		{ id = "replace", label = "Replace save", role = "destructive" },
+		{ id = "keep", label = "Keep previous", role = "cancel" :: "cancel" },
+		{ id = "replace", label = "Replace save", role = "destructive" :: "destructive" },
 	})
 	message = panel and t.find(panel, "AlertMessage")
 	if message and message:IsA("ScrollingFrame") then
@@ -108,9 +124,9 @@ add("alert-themes-and-viewports", { "navigation-1-17" }, function(t)
 	for _, theme in t.themes do
 		for _, size in { Vector2.new(375, 667), Vector2.new(667, 375), Vector2.new(1280, 720) } do
 			alertCase(t, `{theme.name} {size.X}x{size.Y}`, size, string.rep("Leave the match now? ", 6), {
-				{ id = "stay", label = "Stay", role = "cancel" },
+				{ id = "stay", label = "Stay", role = "cancel" :: "cancel" },
 				{ id = "save", label = "Save and leave" },
-				{ id = "leave", label = "Leave without saving", role = "destructive" },
+				{ id = "leave", label = "Leave without saving", role = "destructive" :: "destructive" },
 			}, theme.package)
 			t.cleanup()
 		end
@@ -120,30 +136,30 @@ end)
 
 add("disclosure-description-header", { "navigation-2-17" }, function(t)
 	local description
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		description = Compose.cell("Configure the current race")
 		return Host.Frame "Column" {
 			Size = UDim2.fromOffset(390, 400),
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
 			UI.DisclosureGroup "With" {
 				LayoutOrder = 1,
 				label = "Details",
 				description = description,
-				chevronPosition = "trailing",
-				appearance = "contained",
+				chevronPosition = "trailing" :: "trailing",
+				appearance = "contained" :: "contained",
 				expanded = Compose.cell(false),
-				content = function()
+				content = function(): Instance
 					return UI.Text({ text = "Body" })
 				end,
 			},
 			UI.DisclosureGroup "Without" {
 				LayoutOrder = 2,
 				label = "Details",
-				chevronPosition = "trailing",
-				appearance = "contained",
+				chevronPosition = "trailing" :: "trailing",
+				appearance = "contained" :: "contained",
 				expanded = Compose.cell(false),
-				content = function()
+				content = function(): Instance
 					return UI.Text({ text = "Body" })
 				end,
 			},
@@ -174,16 +190,16 @@ end)
 
 add("toggle-sizes-around-label", { "mech3-14" }, function(t)
 	for _, theme in t.themes do
-		for _, presentation in { "switch", "checkbox" } do
-			for _, position in { "leading", "trailing" } do
+		for _, presentation in { "switch", "checkbox" } :: { "checkbox" | "switch" } do
+			for _, position in { "leading", "trailing" } :: { "leading" | "trailing" } do
 				local label
-				local stage = t.mount(function(UI, _, Compose)
+				local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 					label = Compose.cell("Rain")
 					return UI.Toggle "Toggle" {
 						label = label,
 						value = Compose.cell(true),
-						presentation = presentation,
-						indicatorPosition = position,
+						presentation = presentation :: "checkbox" | "switch",
+						indicatorPosition = position :: "leading" | "trailing",
 					}
 				end, { theme = theme.package, size = Vector2.new(600, 200) })
 				local where = `{theme.name} {presentation} {position}`
@@ -228,16 +244,16 @@ end)
 
 add("step-and-clear-targets", { "mech1-88" }, function(t)
 	for _, theme in t.themes do
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return Host.Frame "Column" {
 				Size = UDim2.fromOffset(360, 300),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
 				UI.Stepper "Stepper" { value = Compose.cell(2), max = 5, LayoutOrder = 1 },
 				UI.TextInput "Search" {
 					value = Compose.cell("racers"),
 					clearButton = true,
-					clearButtonMode = "always",
+					clearButtonMode = "always" :: "always",
 					LayoutOrder = 2,
 				},
 			}
@@ -255,7 +271,7 @@ add("step-and-clear-targets", { "mech1-88" }, function(t)
 end)
 
 add("picker-long-labels", { "apps-237" }, function(t)
-	local sets = {
+	local sets: { [string]: { StringPickerOption } } = {
 		long = {
 			{ value = "a", label = "Automatic transmission mode" },
 			{ value = "b", label = "Manual transmission override" },
@@ -271,7 +287,7 @@ add("picker-long-labels", { "apps-237" }, function(t)
 	}
 	for name, options in sets do
 		for _, width in { 360, 380, 400 } do
-			local stage = t.mount(function(UI, _, Compose)
+			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 				return UI.Picker "Auto" {
 					selected = Compose.cell("a"),
 					Size = UDim2.fromOffset(width, 0),
@@ -401,14 +417,14 @@ end)
 
 add("compact-label-single-line", { "inputs-63" }, function(t)
 	local width
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(300)
 		return Host.Frame "Box" {
-			Size = function(use)
+			Size = function(use: Use)
 				return UDim2.fromOffset(use(width), 60)
 			end,
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }),
+			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
 			UI.Button "Go" {
 				label = "Continue to checkout",
 				compactLabel = "Continue",
@@ -446,11 +462,11 @@ add("progress-skin-under-scale", { "themes-P5-38" }, function(t)
 	t.note("packages with barFill art", #packages)
 	for _, theme in packages do
 		for _, factor in { 2, 0.5 } do
-			local stage = t.mount(function(UI, Host)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame "Scaled" {
 					Size = UDim2.fromOffset(200, 60),
 					BackgroundTransparency = 1,
-					Host.UIScale({ Scale = factor }),
+					Host.UIScale({ Scale = factor }) :: unknown,
 					UI.ProgressView "Bar" { value = 0.5, Size = UDim2.fromOffset(180, 12) },
 				}
 			end, { theme = theme.package, size = Vector2.new(500, 300) })
@@ -478,14 +494,15 @@ add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
 	neutral.assets = neutral.assets or {}
 	neutral.assets.boxArt = { content = "rbxasset://textures/ui/GuiImagePlaceholder.png" }
 	neutral.chrome = neutral.chrome or {}
-	neutral.chrome.toggleTrack = { kind = "nineSlice", asset = "boxArt" }
-	neutral.chrome.panel = { kind = "nineSlice", asset = "boxArt" }
+	neutral.chrome.toggleTrack = { kind = "nineSlice" :: "nineSlice", asset = "boxArt" }
+	neutral.chrome.panel = { kind = "nineSlice" :: "nineSlice", asset = "boxArt" }
 	local skinned = assert(t.Facet.themes.define(neutral))
 	local function rules(stage: Instance): { [string]: StyleRule }
 		local found = {}
 		local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 		local sheet = gui and gui:FindFirstChildWhichIsA("StyleSheet")
-		for _, node in if sheet then sheet:GetDescendants() else {} do
+		local descendants: { Instance } = if sheet then sheet:GetDescendants() else {}
+		for _, node in descendants do
 			if node:IsA("StyleRule") then
 				found[node.Selector] = node
 			end
@@ -498,24 +515,30 @@ add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
 			{ name = "plain", package = t.themes[1].package, hidden = false },
 		}
 	do
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return Host.Frame {
 				Size = UDim2.fromOffset(400, 300),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
-				UI.Toggle "Box" { value = Compose.cell(true), label = "Box", presentation = "checkbox" },
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				UI.Toggle "Box" {
+					value = Compose.cell(true),
+					label = "Box",
+					presentation = "checkbox" :: "checkbox",
+				},
 				UI.Menu "Actions" {
 					label = "Actions",
 					isPresented = Compose.cell(true),
-					items = { { id = "a", label = "Archive", onSelect = function() end } },
+					items = {
+						{ id = "a", label = "Archive", onSelect = function() end } :: MenuItem,
+					},
 				},
 			}
 		end, { theme = entry.package, size = Vector2.new(400, 300), frames = 20 })
 		local indicator = t.find(stage, "Indicator")
 		local found = rules(stage)
-		local base = found[".facet-toggle-checkbox::UIStroke"]
-		local over = found[".facet-toggle-checkbox.facet-skinned::UIStroke"]
-		local menuOver = found[".facet-menu.facet-skinned::UIStroke"]
+		local base: StyleRule? = found[".facet-toggle-checkbox::UIStroke"]
+		local over: StyleRule? = found[".facet-toggle-checkbox.facet-skinned::UIStroke"]
+		local menuOver: StyleRule? = found[".facet-menu.facet-skinned::UIStroke"]
 		t.check(entry.name .. " checkbox indicator found", indicator ~= nil)
 		t.check(
 			entry.name .. " base stroke rule shows an outline",

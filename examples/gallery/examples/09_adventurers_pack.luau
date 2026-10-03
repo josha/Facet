@@ -1,4 +1,6 @@
 --!strict
+
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 local items = {
@@ -88,7 +90,7 @@ return {
 		local function portrait()
 			return view.stage("Explorer", function()
 				return Host.Model "ExplorerModel" {
-					view.part("Snow", V3.new(6, 0.2, 5), V3.new(0, -0.1, 0), C3.fromRGB(208, 224, 232)),
+					view.part("Snow", V3.new(6, 0.2, 5), V3.new(0, -0.1, 0), C3.fromRGB(208, 224, 232)) :: unknown,
 					view.part("Coat", V3.new(1.9, 2.1, 1), V3.new(0, 2.3, 0), function(use: any)
 						return C3.fromRGB(table.unpack(byId[use(equipped).coat].color))
 					end),
@@ -132,7 +134,7 @@ return {
 		local function equipmentArt(item: any)
 			return UI.Image "EquipmentArt" {
 				image = art.equipment,
-				scaleMode = "fit",
+				scaleMode = "fit" :: "fit",
 				Size = D2.fromScale(1, 1),
 				ImageRectSize = ctx.types.Vector2.new(256, 256),
 				ImageRectOffset = ctx.types.Vector2.new(item.artIndex % 4 * 256, math.floor(item.artIndex / 4) * 256),
@@ -144,25 +146,25 @@ return {
 				Size = D2.fromScale(1, 1),
 				root = {
 					title = "Adventurer's Pack",
-					content = function()
+					content = function(): Instance
 						local measuredWidth = C.cell(600)
 						local metricScale = UI.environment().metricScale
 						return UI.Screen "BagPage" {
 							gap = "m",
-							view.text("Objective", "Prepare for the frost cave", "title"),
+							view.text("Objective", "Prepare for the frost cave", "title") :: unknown,
 							UI.ProgressView "Warmth" { label = "Warmth", value = warmth, max = 10, showValue = true },
 							UI.TextInput "SearchEquipment" {
-								presentation = "search",
+								presentation = "search" :: "search",
 								value = query,
 								placeholder = "Find equipment…",
 							},
 							UI.Picker "EquipmentCategory" {
 								selected = filter,
 								options = {
-									{ value = "all", label = "All equipment" },
-									{ value = "coat", label = "Coats" },
-									{ value = "boots", label = "Boots" },
-									{ value = "tool", label = "Tools" },
+									{ value = "all", label = "All equipment" } :: PickerOption,
+									{ value = "coat", label = "Coats" } :: PickerOption,
+									{ value = "boots", label = "Boots" } :: PickerOption,
+									{ value = "tool", label = "Tools" } :: PickerOption,
 								},
 							},
 							C.show(function(use: any)
@@ -182,9 +184,9 @@ return {
 									return math.max(1, math.floor(use(measuredWidth) / (230 * use(metricScale))))
 								end,
 								Size = D2.new(1, 0, 0, 310),
-								UI.fill(),
+								UI.fill() :: unknown,
 								ref = view.observeWidth(measuredWidth),
-								render = function(current)
+								render = function(current): GuiObject
 									local item: any = current:peek()
 									local card = UI.Card("Item_" .. item.id)({
 										title = item.name,
@@ -207,7 +209,7 @@ return {
 									if item.slot == "tool" then
 										UI.draggable(
 											card,
-											{ payload = { kind = "tool", id = item.id }, armOnTap = true }
+											{ payload = { kind = "tool" :: "tool", id = item.id }, armOnTap = true }
 										)
 									end
 									return card
@@ -260,14 +262,19 @@ return {
 				table.insert(slots, target)
 			end
 			return UI.VStack "HotbarDock" {
-				width = "fill",
+				width = "fill" :: "fill",
 				gap = "s",
 				view.text(
 					"HotbarHint",
 					"HOTBAR · Drag a tool here to rearrange it. Select a slot to equip.",
 					"caption"
-				),
-				UI.Grid "HotbarSlots" { columns = 3, gap = "s", cellHeight = 52, table.unpack(slots) },
+				) :: unknown,
+				UI.Grid "HotbarSlots" {
+					columns = 3,
+					gap = "s",
+					cellHeight = 52,
+					table.unpack((slots :: unknown) :: { unknown }),
+				},
 			}
 		end
 		local function screen()
@@ -276,14 +283,14 @@ return {
 				gap = "s",
 				ref = view.observeWidth(width),
 				UI.HStack {
-					width = "fill",
+					width = "fill" :: "fill",
 					gap = "s",
 					wrap = true,
 					view.button("ShowLoadout", "Inspect loadout", function()
 						loadoutOpen:set(true)
-					end),
+					end) :: unknown,
 					view.button("ResetInventory", "Start over", reset),
-				},
+				} :: unknown,
 				Host.Frame "EquipmentWorkbench" {
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 560),
@@ -293,7 +300,7 @@ return {
 							return D2.new(if use(wide) then 0.66 else 1, if use(wide) then -12 else 0, 1, 0)
 						end,
 						bag(),
-					},
+					} :: unknown,
 					C.show(wide, function()
 						return Host.Frame "CharacterPanel" {
 							BackgroundTransparency = 1,

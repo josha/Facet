@@ -1,4 +1,17 @@
 --!strict
+type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
+type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+local FixtureThemeTypes = require("../src/ui/theme_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local Facet = require("../src")
@@ -7,7 +20,7 @@ local gallery = require("../examples/gallery/client/screen")
 local themePackages = require("../tools/lune/theme_packages")
 local customControl = require("../examples/themes/custom_control")
 local ornateGauge = require("../examples/themes/ornate_gauge")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local REFERENCE: { string } = themePackages.REFERENCE_ORDER
@@ -26,7 +39,7 @@ end
 
 local function world(options: { [string]: any }?): (any, any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -46,7 +59,7 @@ local function sheetFor(engine: any, runtime: any, package: any, options: { [str
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
-	local stop, sheet = runtime.mount(function()
+	local stop, sheet: any = runtime.mount(function()
 		return themes.createStyleSheet(runtime, package, settings :: any)
 	end, engine.new("Folder"))
 	return sheet, stop
@@ -169,7 +182,7 @@ local function skinOf(
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		return themes.skin(runtime, package, slot, settings :: any)
 	end, engine.new("Folder"))
 	return node, stop
@@ -203,10 +216,10 @@ t.describe("shipped theme contrast", function()
 		end
 		for _, entry in packages do
 			local package = entry.package
-			local _, report = themes.define(package)
+			local _, report = themes.define(assert(package))
 			local entries = contrastEntries(report, "onDanger/danger")
-			t.expect(#entries).toBe(#package.style.themes)
-			for index, palette in package.style.themes do
+			t.expect(#entries).toBe(#assert(package).style.themes)
+			for index, palette in assert(package).style.themes do
 				local colors = palette.colors
 				t.expect(contrast(colors.onDanger, colors.danger) >= 4.5).toBe(true)
 				t.expect(entries[index].ok).toBe(true)
@@ -238,10 +251,10 @@ t.describe("shipped theme contrast", function()
 		end
 		for _, entry in packages do
 			local package = entry.package
-			local _, report = themes.define(package)
+			local _, report = themes.define(assert(package))
 			local entries = contrastEntries(report, "onAccent/accent")
-			t.expect(#entries).toBe(#package.style.themes)
-			for index, palette in package.style.themes do
+			t.expect(#entries).toBe(#assert(package).style.themes)
+			for index, palette in assert(package).style.themes do
 				local colors = palette.colors
 				local ratio = contrast(colors.onAccent, colors.accent)
 				t.expect(`{entry.id}/{palette.name}: {if ratio >= 4.5 then "readable" else "unreadable"}`)
@@ -302,7 +315,9 @@ t.describe("shipped theme contrast", function()
 		local lowest, worst = math.huge, ""
 		for _, variant in variants do
 			local colors = variant.colors
-			for _, role in { "success", "onSuccess", "warning", "onWarning" } do
+			for _, role in
+				{ "success", "onSuccess", "warning", "onWarning" } :: { "onSuccess" | "onWarning" | "success" | "warning" }
+			do
 				if type(colors[role]) ~= "table" then
 					table.insert(missing, `{variant.name}.{role}`)
 				end
@@ -468,11 +483,11 @@ end)
 t.describe("theme coverage", function()
 	t.it("names each missing need with its message and fix and lists the covered ones", function()
 		local needs: { any } = {
-			{ name = "custom:knob", section = "metrics.radii", kind = "number" },
-			{ name = "custom:tint", kind = "color" },
+			{ name = "custom:knob", section = "metrics.radii", kind = "number" :: "number" },
+			{ name = "custom:tint", kind = "color" :: "color" },
 			{ name = "custom:row", section = "metrics.controlSizes", fields = { "height", "paddingX" } },
 			{ name = "body", section = "metrics.typography", fields = { "size" } },
-			{ name = "accent", kind = "color" },
+			{ name = "accent", kind = "color" :: "color" },
 		}
 		local neutral = themes.neutralPackage()
 		local report = themes.checkCoverage(neutral, needs)
@@ -518,8 +533,13 @@ t.describe("theme coverage", function()
 			local documented = themes.checkCoverage(
 				package,
 				{
-					{ kind = "color", name = "accent" },
-					{ section = "metrics.typography", name = "body", fields = { "size" } },
+					{
+						kind = "color" :: string?,
+						name = "accent",
+						section = nil :: string?,
+						fields = nil :: { string }?,
+					},
+					{ section = "metrics.typography", name = "body", fields = { "size" }, kind = nil :: string? },
 				} :: any
 			)
 			t.expect(`{name}: {documented.ok}`).toBe(`{name}: true`)
@@ -547,7 +567,8 @@ t.describe("theme coverage", function()
 		t.expect(customControl.resolve(glossy).height).toBe(28)
 		t.expect(customControl.resolve(glossy).usedFallback.size).toBe(false)
 		t.expect(customControl.resolve(classic).usedFallback.size).toBe(true)
-		t.expect(customControl.resolve(classic).height).toBe(customControl.needs[1].fallback.height)
+		t.expect(customControl.resolve(classic).height)
+			.toBe((customControl.needs[1].fallback :: { [string]: number }).height)
 		for _, name in { "fantasy_ornate", "pixel_quest" } do
 			local report = ornateGauge.check(themes, built(name))
 			t.expect(report.ok).toBe(true)
@@ -711,7 +732,9 @@ t.describe("reference art packages", function()
 				t.expect(layer.tile).toBe(64)
 			end
 		end
-		for _, kind in { "tile", "fill", "frame", "edges", "corners", "plaque" } do
+		for _, kind in
+			{ "tile", "fill", "frame", "edges", "corners", "plaque" } :: { "corners" | "edges" | "fill" | "frame" | "plaque" | "tile" }
+		do
 			t.expect(`{kind}: {kinds[kind] == true}`).toBe(`{kind}: true`)
 		end
 		local art: { [string]: boolean } = {}
@@ -777,7 +800,7 @@ t.describe("reference art packages", function()
 		t.expect(finish.Position).toBe(D2(engine, 1, 0, 0.5, 0))
 		stopCap()
 		local _, _, UI = world({ theme = package })
-		local stop, bar = runtime.mount(function()
+		local stop, bar: any = runtime.mount(function()
 			return UI.ProgressView({ value = 0.5 })
 		end, engine.new("Folder"))
 		t.expect(find(bar, "Track").Size.Y.Offset).toBe(package.metrics.controls.progress.trackHeight)
@@ -834,11 +857,16 @@ t.describe("reference art packages", function()
 		local package = built("fantasy_ornate")
 		local assets = package.assets :: any
 		local target
-		local stop, skin = runtime.mount(function()
-			target = runtime.constructors.Frame({})
-			return runtime.constructors.Frame({
-				target,
-				themes.skin(runtime, package, "panel", { types = engine.types, target = target, label = "Quest Log" }),
+		local stop, skin: any = runtime.mount(function()
+			target = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				target :: unknown,
+				themes.skin(
+					runtime,
+					package,
+					"panel",
+					{ types = engine.types, target = target :: GuiObject, label = "Quest Log" }
+				),
 			})
 		end, engine.new("Folder"))
 		skin = find(skin, "Skin")
@@ -862,7 +890,7 @@ t.describe("reference art packages", function()
 		local frame = skin:FindFirstChild("panel3")
 		t.expect(frame.Image).toBe(assets.ornate_panel_frame.content)
 		t.expect(frame.SliceCenter).toBe(T.Rect.new(40, 40, 120, 120))
-		for _, edge in { "top", "bottom" } do
+		for _, edge in { "top", "bottom" } :: { "bottom" | "top" } do
 			local rail = skin:FindFirstChild("panel4" .. edge)
 			t.expect(rail.Image).toBe(assets.ornate_edge_rail.content)
 			t.expect(rail.ScaleType).toBe(T.Enum.ScaleType.Tile)
@@ -897,7 +925,7 @@ t.describe("reference art packages", function()
 		t.expect(padding.PaddingLeft.Offset).toBe(16)
 		t.expect(target:HasTag("facet-skinned")).toBe(true)
 		t.expect(target:HasTag("facet-skin-caption")).toBe(true)
-		local shadow = target:FindFirstChild("ChromeShadow")
+		local shadow = target:FindFirstChild("ChromeShadow") :: FixtureShadow
 		t.expect(shadow ~= nil).toBe(true)
 		t.expect(shadow.BlurRadius).toBe(T.UDim.new(0, 14))
 		t.expect(shadow.Transparency).toBe(0.35)
@@ -920,29 +948,53 @@ local function layeredPackage(layers: { any }): any
 		ornament = { content = "rbxassetid://17" },
 		banner = { content = "rbxassetid://18" },
 	} :: any
-	package.chrome.panel = { kind = "layered", layers = layers } :: any
+	assert(package.chrome).panel = { kind = "layered", layers = layers } :: any
 	return package
 end
 
-local FULL_STACK = {
-	{ kind = "fill", asset = "plate" },
-	{ kind = "frame", asset = "frame" },
-	{ kind = "tile", asset = "pattern", tileSize = { w = 32, h = 24 } },
-	{ kind = "edges", asset = "rail", sides = { "top", "bottom" }, thickness = 8, margin = 24 },
-	{ kind = "edges", asset = "side", sides = { "left", "right" }, thickness = 6, margin = 12 },
-	{ kind = "corners", asset = "ornament", size = 24, topLeft = "gold" },
+local FULL_STACK: { FixtureThemeTypes.SkinLayer } = {
+	{ kind = "fill" :: "fill", asset = "plate" },
+	{ kind = "frame" :: "frame", asset = "frame" },
+	{ kind = "tile" :: "tile", asset = "pattern", tileSize = { w = 32, h = 24 } },
 	{
-		kind = "plaque",
+		kind = "edges" :: "edges",
+		asset = "rail",
+		sides = { "top", "bottom" } :: { "top" | "bottom" | "left" | "right" },
+		thickness = 8,
+		margin = 24,
+	},
+	{
+		kind = "edges" :: "edges",
+		asset = "side",
+		sides = { "left", "right" } :: { "top" | "bottom" | "left" | "right" },
+		thickness = 6,
+		margin = 12,
+	},
+	{ kind = "corners" :: "corners", asset = "ornament", size = 24, topLeft = "gold" },
+	{
+		kind = "plaque" :: "plaque",
 		asset = "banner",
 		size = { w = 140, h = 36 },
-		edge = "top",
+		edge = "top" :: "top",
 		overhang = 18,
 		text = true,
 		textInsets = { top = 6, right = 12, bottom = 4, left = 10 },
 	},
-	{ kind = "plaque", asset = "banner", size = { w = 60, h = 20 }, edge = "bottom", overhang = 10 },
-	{ kind = "plaque", asset = "banner", size = { w = 20, h = 60 }, edge = "left", overhang = 5 },
-	{ kind = "plaque", asset = "banner", size = { w = 20, h = 60 }, edge = "right", overhang = 7 },
+	{
+		kind = "plaque" :: "plaque",
+		asset = "banner",
+		size = { w = 60, h = 20 },
+		edge = "bottom" :: "bottom",
+		overhang = 10,
+	},
+	{ kind = "plaque" :: "plaque", asset = "banner", size = { w = 20, h = 60 }, edge = "left" :: "left", overhang = 5 },
+	{
+		kind = "plaque" :: "plaque",
+		asset = "banner",
+		size = { w = 20, h = 60 },
+		edge = "right" :: "right",
+		overhang = 7,
+	},
 }
 
 local function expectBox(engine: any, image: any, size: { number }, position: { number }, anchor: { number })
@@ -1019,27 +1071,39 @@ t.describe("theme layer boxes", function()
 		local engine, runtime = world()
 		local T = engine.types
 		local shapeA = layeredPackage({
-			{ kind = "fill", asset = "plate" },
-			{ kind = "corners", asset = "ornament", size = 12 },
+			{ kind = "fill" :: "fill", asset = "plate" },
+			{ kind = "corners" :: "corners", asset = "ornament", size = 12 },
 		})
 		local shapeB = layeredPackage({
-			{ kind = "edges", asset = "side", sides = { "left", "right" }, thickness = 6, margin = 12 },
-			{ kind = "plaque", asset = "banner", size = { w = 60, h = 20 }, edge = "bottom", overhang = 10 },
+			{
+				kind = "edges" :: "edges",
+				asset = "side",
+				sides = { "left", "right" } :: { "top" | "bottom" | "left" | "right" },
+				thickness = 6,
+				margin = 12,
+			},
+			{
+				kind = "plaque" :: "plaque",
+				asset = "banner",
+				size = { w = 60, h = 20 },
+				edge = "bottom" :: "bottom",
+				overhang = 10,
+			},
 		})
 		local shapeC = layeredPackage({
-			{ kind = "tile", asset = "pattern", tileSize = { w = 16, h = 16 } },
-			{ kind = "frame", asset = "frame" },
-			{ kind = "corners", asset = "ornament", size = 20 },
-			{ kind = "edges", asset = "rail", thickness = 4, margin = 2 },
+			{ kind = "tile" :: "tile", asset = "pattern", tileSize = { w = 16, h = 16 } },
+			{ kind = "frame" :: "frame", asset = "frame" },
+			{ kind = "corners" :: "corners", asset = "ornament", size = 20 },
+			{ kind = "edges" :: "edges", asset = "rail", thickness = 4, margin = 2 },
 		})
 		local native = themes.neutralPackage()
-		native.chrome.panel = { kind = "native" } :: any
+		assert(native.chrome).panel = { kind = "native" } :: any
 		local selected = Compose.cell(shapeA)
 		local target, skin
 		local stop = runtime.mount(function()
-			target = runtime.constructors.Frame({})
-			skin = themes.skin(runtime, selected, "panel", { types = engine.types, target = target })
-			return runtime.constructors.Frame({ target, skin })
+			target = ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+			skin = themes.skin(runtime, selected, "panel", { types = engine.types, target = target :: GuiObject })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ target :: unknown, skin })
 		end, engine.new("Folder"))
 		skin = find(skin, "Skin")
 		local first = images(skin)
@@ -1146,9 +1210,9 @@ t.describe("theme layer values and states", function()
 		package.chrome.control = {
 			kind = "layered",
 			layers = {
-				{ kind = "fill", asset = { default = "a", pressed = "b" } },
-				{ kind = "frame", asset = "c" },
-				{ kind = "tile", asset = "d", tileSize = { w = 16, h = 8 } },
+				{ kind = "fill", asset = { default = "a", pressed = "b" } } :: FixtureThemeTypes.SkinLayer,
+				{ kind = "frame" :: "frame", asset = "c" },
+				{ kind = "tile" :: "tile", asset = "d", tileSize = { w = 16, h = 8 } },
 				{ kind = "corners", asset = { default = "e", pressed = "f" }, size = 10 },
 			},
 		} :: any
@@ -1156,7 +1220,7 @@ t.describe("theme layer values and states", function()
 		local theme = Compose.cell(package)
 		local engine, runtime, UI = world({ theme = theme })
 		local T = engine.types
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Button({ label = "Save" })
 		end, engine.new("Folder"))
 		local skin = find(node, "Skin")
@@ -1230,11 +1294,11 @@ t.describe("theme layer values and states", function()
 			selected = "rbxassetid://24",
 			disabled = "rbxassetid://25",
 		}
-		for _, map in { full, partial } do
+		for _, map in { full, partial } :: { { [string]: string } } do
 			local package = stateArt()
 			package.chrome.control = { kind = "nineSlice", asset = map } :: any
 			package.chrome.field = { kind = "layered", layers = { { kind = "fill", asset = map } } } :: any
-			local definedPackage, report = themes.define(package)
+			local definedPackage, report = themes.define(assert(package))
 			t.expect(report.ok).toBe(true)
 			for _, state in STATES do
 				local want = if map == full
@@ -1291,11 +1355,11 @@ t.describe("theme layer values and states", function()
 		local bare, bareReport = themes.define(bareDefinition)
 		local mapped = themes.define(variant({ default = "a" }))
 		t.expect(bareReport.ok).toBe(true)
-		t.expect((bare.chrome :: any).control.asset).toBe("a")
-		t.expect(type((bare.chrome :: any).field.layers[1].asset)).toBe("string")
-		t.expect((bare.chrome :: any).control.contentInsets.left).toBe(4)
-		t.expect((bare.assets :: any).a.sliceScale).toBe(2)
-		t.expect((bare.assets :: any).a.content).toBe("rbxassetid://21")
+		t.expect((assert(bare).chrome :: any).control.asset).toBe("a")
+		t.expect(type((assert(bare).chrome :: any).field.layers[1].asset)).toBe("string")
+		t.expect((assert(bare).chrome :: any).control.contentInsets.left).toBe(4)
+		t.expect((assert(bare).assets :: any).a.sliceScale).toBe(2)
+		t.expect((assert(bare).assets :: any).a.content).toBe("rbxassetid://21")
 		for _, slot in { "control", "field" } do
 			for _, state in STATES do
 				local left, stopLeft = skinOf(engine, runtime, bare, slot, { state = state })
@@ -1338,9 +1402,9 @@ t.describe("theme layer values and states", function()
 		local T = engine.types
 		local circle, rect
 		local stop = runtime.mount(function()
-			circle = UI.Button({ label = "...", shape = "circle" })
+			circle = UI.Button({ label = "...", shape = "circle" :: "circle" })
 			rect = UI.Button({ label = "Save" })
-			return runtime.constructors.Frame({ circle, rect })
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ circle :: unknown, rect })
 		end, engine.new("Folder"))
 		for _, node in { circle, rect } do
 			local skin = find(node, "Skin")
@@ -1390,12 +1454,14 @@ t.describe("theme sheet paint", function()
 				stop()
 			end
 			local presented = Compose.cell(true)
-			local stop, screen = runtime.mount(function()
-				return runtime.constructors.ScreenGui({
+			local stop, screen: any = runtime.mount(function()
+				return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 					UI.Alert({
 						isPresented = presented,
 						title = "Leave?",
-						actions = { { id = "stay", label = "Stay", role = "cancel" } },
+						actions = {
+							{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						},
 					}),
 				})
 			end, engine.new("Folder"))
@@ -1461,7 +1527,7 @@ t.describe("theme sheet paint", function()
 		package.chrome.control =
 			{ kind = "nineSlice", asset = "c", contentInsets = { top = 12, right = 9, bottom = 13, left = 18 } } :: any
 		local sheet, stop = sheetFor(engine, runtime, package)
-		local expected = {
+		local expected: { [string]: { number } } = {
 			panel = { 16, 16, 16, 16 },
 			field = { 16, 14, 3, 5 },
 			badge = { 8, 11, 3, 6 },
@@ -1516,11 +1582,11 @@ t.describe("theme package data", function()
 		t.expect(themes.neutralPackage().metrics.typography.body.size).toBe(16)
 		t.expect(themes.neutralPackage().metrics.controlSizes.regular.height).toBe(44)
 		local fromDefault = themes.define({ identity = { id = "fresh" } } :: any)
-		t.expect(fromDefault.metrics.typography.body.size).toBe(16)
-		t.expect(fromDefault.metrics.controlSizes.regular.height).toBe(44)
+		t.expect(assert(fromDefault).metrics.typography.body.size).toBe(16)
+		t.expect(assert(fromDefault).metrics.controlSizes.regular.height).toBe(44)
 		local definition = themes.neutralPackage()
 		definition.rules = { { selector = ".game", properties = { BackgroundTransparency = 0.5 } } } :: any
-		definition.chrome.panel = { kind = "native", contentInsets = { top = 4 } } :: any
+		assert(definition.chrome).panel = { kind = "native", contentInsets = { top = 4 } } :: any
 		local package = themes.define(definition)
 		t.expect(frozenPath(package, "package", {}) or "frozen").toBe("frozen")
 		t.expect(themes.define(definition) ~= package).toBe(true)
@@ -1530,16 +1596,16 @@ t.describe("theme package data", function()
 					(package :: any).identity.id = "changed"
 				end,
 				function()
-					(package.style.themes[1].colors :: any).accent = { r = 1, g = 0, b = 0 }
+					(assert(package).style.themes[1].colors :: any).accent = { r = 1, g = 0, b = 0 }
 				end,
 				function()
-					(package.rules :: any)[1].properties.BackgroundTransparency = 0
+					(assert(package).rules :: any)[1].properties.BackgroundTransparency = 0
 				end,
 				function()
-					(package.chrome :: any).panel.contentInsets.top = 9
+					(assert(package).chrome :: any).panel.contentInsets.top = 9
 				end,
 				function()
-					table.insert(package.style.themes, package.style.themes[1])
+					table.insert(assert(package).style.themes, assert(package).style.themes[1])
 				end,
 			}
 		do
@@ -1548,14 +1614,14 @@ t.describe("theme package data", function()
 		(definition.rules :: any)[1].properties.BackgroundTransparency = 0.9
 		(definition.chrome :: any).panel.contentInsets.top = 20
 		definition.style.themes[1].colors.content = { r = 0.5, g = 0.5, b = 0.5 }
-		t.expect((package.rules :: any)[1].properties.BackgroundTransparency).toBe(0.5)
-		t.expect((package.chrome :: any).panel.contentInsets.top).toBe(4)
-		t.expect(package.style.themes[1].colors.content.r).toBe(236 / 255)
+		t.expect((assert(package).rules :: any)[1].properties.BackgroundTransparency).toBe(0.5)
+		t.expect((assert(package).chrome :: any).panel.contentInsets.top).toBe(4)
+		t.expect(assert(package).style.themes[1].colors.content.r).toBe(236 / 255)
 		local derived = themes.define({ base = package, identity = { id = "derived" } } :: any)
-		t.expect(derived.identity.id).toBe("derived")
-		t.expect(package.identity.id).toBe("facet-neutral")
+		t.expect(assert(derived).identity.id).toBe("derived")
+		t.expect(assert(package).identity.id).toBe("facet-neutral")
 		t.expect(frozenPath(derived, "derived", {}) or "frozen").toBe("frozen")
-		t.expect(derived.rules ~= package.rules).toBe(true)
+		t.expect(assert(derived).rules ~= assert(package).rules).toBe(true)
 	end)
 end)
 
@@ -1571,22 +1637,22 @@ t.describe("theme package install and swap", function()
 		(definition.style.themes[1].colors :: any).surface = { r = 0.05, g = 0.1, b = 0.2 }
 		local package = themes.define(definition)
 		local engine, runtime, UI = world({ theme = package })
-		local Host = runtime.constructors
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local baseline = engine.census()
-		local outerSheet, outerLink
-		local stopOuter, outer = runtime.mount(function()
+		local outerSheet: any, outerLink
+		local stopOuter, outer: any = runtime.mount(function()
 			outerSheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 			outerLink = Host.StyleLink({ StyleSheet = Compose.static(outerSheet) })
-			return Host.Frame({ outerSheet, outerLink })
+			return Host.Frame({ outerSheet :: unknown, outerLink })
 		end, engine.new("Folder"))
 		local outerRules = outerSheet:GetChildren()
 		local before = engine.census()
-		local sheet, link, button
-		local stop, root = runtime.mount(function()
+		local sheet: any, link, button
+		local stop, root: any = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types, name = "FacetTheme harbor" })
 			link = Host.StyleLink({ StyleSheet = Compose.static(sheet) })
 			button = UI.Button({ label = "Continue" })
-			return Host.Frame({ sheet, link, button })
+			return Host.Frame({ sheet :: unknown, link, button })
 		end, engine.new("Folder"))
 		local links = {}
 		for _, node in root:GetDescendants() do
@@ -1605,13 +1671,13 @@ t.describe("theme package install and swap", function()
 		t.expect(outerLink.StyleSheet).toBe(outerSheet)
 		stop()
 		t.expect(sheet.isDestroyed()).toBe(true)
-		t.expect(link.isDestroyed()).toBe(true)
+		t.expect(((link :: unknown) :: Destroyable).isDestroyed()).toBe(true)
 		t.expect(button.isDestroyed()).toBe(true)
 		for _, rule in rules do
 			t.expect(rule.isDestroyed()).toBe(true)
 		end
 		t.expect(outerSheet.isDestroyed()).toBe(false)
-		t.expect(outerLink.isDestroyed()).toBe(false)
+		t.expect(((outerLink :: unknown) :: Destroyable).isDestroyed()).toBe(false)
 		t.expect(outerLink.StyleSheet).toBe(outerSheet)
 		t.expect(outerSheet.Parent).toBe(outer)
 		t.expect(#outerSheet:GetChildren()).toBe(#outerRules)
@@ -1637,15 +1703,15 @@ t.describe("theme package install and swap", function()
 		local text = Compose.cell("Initial")
 		local on = Compose.cell(true)
 		local setups = 0
-		local sheet, button, field, scroller
-		local stop, root = runtime.mount(function()
+		local sheet: any, button, field, scroller
+		local stop, root: any = runtime.mount(function()
 			setups += 1
 			sheet = themes.createStyleSheet(runtime, theme, { types = T, motionLevel = "none" })
 			button = UI.Button({ label = "Save" })
 			field = UI.TextInput({ value = text })
 			scroller = Host.ScrollingFrame({ CanvasSize = T.UDim2.fromOffset(0, 2000) })
 			return Host.Frame({
-				sheet,
+				sheet :: unknown,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				button,
 				field,
@@ -1748,7 +1814,7 @@ end)
 
 local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target, gui = engine.new("Folder"), engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -1783,7 +1849,7 @@ local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
 		inputTarget = target,
@@ -1792,7 +1858,7 @@ local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 		selection = Compose.cell("first"),
 		theme = Compose.cell(themes.neutralPackage()),
 		themeMode = Compose.cell("Dark"),
-		demos = { { id = "first", title = "First", kind = "fixture", module = "first" } },
+		demos = { { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } },
 	}
 	local loaded = {}
 	for name, package in packages do
@@ -1817,8 +1883,8 @@ local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 			end,
 		}
 	end
-	local sheet
-	local stop, root = runtime.mount(function()
+	local sheet: any
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = Facet.controls(runtime, {
 			types = engine.types,
@@ -1826,13 +1892,13 @@ local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 			inputParent = target,
 			services = { GuiService = gui, UserInputService = input },
 			theme = ctx.theme,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		})
 		sheet = themes.createStyleSheet(runtime, ctx.theme, { types = engine.types, theme = ctx.themeMode })
 		return ctx.Host.ScreenGui "GalleryTest" {
-			sheet,
+			sheet :: unknown,
 			ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 			gallery.build(ctx),
 		}
@@ -1981,7 +2047,7 @@ t.describe("gallery theme packages", function()
 			if art and art.kind ~= "native" and art.kind ~= "none" then
 				checked += 1
 				local engine, runtime, UI = world({ theme = package })
-				local stop, node = runtime.mount(function()
+				local stop, node: any = runtime.mount(function()
 					return UI.Notice("Update")({ title = "Update", message = "A new track pack is ready." })
 				end, engine.new("Folder"))
 				local dressed = false

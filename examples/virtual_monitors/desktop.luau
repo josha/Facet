@@ -1,8 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local desktop = {}
 local screens = require("./screens")
 function desktop.create(Facet: any, runtime: any, views: any, model: any, progress: any, options: any?)
-	local Host, Compose = runtime.constructors, Facet.Compose
+	local Host, Compose: ComposeModule = runtime.constructors, Facet.Compose
 	options = options or {}
 	local types = options.types or getfenv(0)
 	local UDim2 = types.UDim2
@@ -21,7 +25,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				icon = icons[name],
 				content = views[name],
 				badge = if name == "Chat"
-					then function(use)
+					then function(use: Use)
 						local unread = use(model.chatUnread)
 						return if unread > 0 then unread else nil
 					end
@@ -29,11 +33,11 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			})
 		end
 		local steps = { "Find server", "Load world", "Join" }
-		local function launching(use)
+		local function launching(use: Use)
 			local launch = use(model.launch)
 			return if launch and launch.stage <= 3 then launch else nil
 		end
-		local function title(use)
+		local function title(use: Use)
 			local launch = launching(use)
 			for _, item in if launch then use(model.catalog.items) else {} do
 				if item.id == launch.id then
@@ -42,7 +46,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			end
 			return ""
 		end
-		local function stage(use)
+		local function stage(use: Use)
 			local launch = launching(use)
 			return if launch then launch.stage else 1
 		end
@@ -53,7 +57,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 		end
 		local overlay = UI.Composition "LaunchOverlay" {
 			ZIndex = 4,
-			Visible = function(use)
+			Visible = function(use: Use)
 				return launching(use) ~= nil
 			end,
 			UI.Region "Launch" {
@@ -63,21 +67,21 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				panel(
 					UI.VStack,
 					"LaunchCard",
-					UI.Text "LaunchTitle" { text = title, textRole = "label" },
+					UI.Text "LaunchTitle" { text = title, textRole = "label" :: "label" },
 					UI.Text "LaunchStage" {
-						role = "secondary",
-						textRole = "caption",
-						text = function(use)
+						role = "secondary" :: "secondary",
+						textRole = "caption" :: "caption",
+						text = function(use: Use)
 							return `{steps[stage(use)]}, step {stage(use)} of 3 (simulated)`
 						end,
 					}
-				),
+				) :: unknown,
 				panel(
 					UI.HStack,
 					"LaunchChip",
 					UI.Text "LaunchChipText" {
-						textRole = "caption",
-						text = function(use)
+						textRole = "caption" :: "caption",
+						text = function(use: Use)
 							return `Joining {stage(use)}/3`
 						end,
 					}
@@ -88,24 +92,24 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
-			GroupTransparency = function(use)
+			GroupTransparency = function(use: Use)
 				local t = math.clamp((use(progress) - 0.55) / 0.45, 0, 1)
 				return 1 - t * t * (3 - 2 * t)
 			end,
 			UI.TabView "Apps" {
 				selection = model.selectedTab,
 				tabs = tabs,
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				sidebarPreference = "sidebar",
 				shoulderNavigation = "content",
-				railWidth = function(use)
+				railWidth = function(use: Use)
 					return if adaptive.sizeClassAtLeast(use(env.sizeClass), "wide") then 176 else 148
 				end,
 				restoreScroll = false,
 				transition = { seconds = 0.18 },
 				retention = "top",
 				Size = UDim2.fromScale(1, 1),
-			},
+			} :: unknown,
 			overlay,
 			Host.TextLabel "YouMarker" {
 				Text = "You",
@@ -113,11 +117,11 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				AnchorPoint = Vector2.new(0.5, 1),
 				BackgroundTransparency = 1,
 				ZIndex = 5,
-				Visible = function(use)
+				Visible = function(use: Use)
 					local point = use(you.anchor)
 					return point.visible and point.onscreen == true and use(progress) < 1
 				end,
-				Position = function(use)
+				Position = function(use: Use)
 					local point, insets = use(you.anchor), use(env.safeInsets)
 					return UDim2.fromOffset((point.x or 0) - insets.left, (point.y or 0) - insets.top)
 				end,

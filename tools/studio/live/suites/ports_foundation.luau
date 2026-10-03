@@ -1,8 +1,22 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local cases = {}
+type Case = {
+	id: string,
+	contracts: { string },
+	run: ((any) -> ())?,
+	setup: ((any) -> any)?,
+	steps: { [string]: (any, any) -> () }?,
+	keepGallery: boolean?,
+}
+local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
@@ -137,7 +151,8 @@ local function rulesOf(stage: Instance): { [string]: any }
 	local found = {}
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local sheet = gui and gui:FindFirstChildWhichIsA("StyleSheet")
-	for _, node in if sheet then sheet:GetDescendants() else {} do
+	local descendants: { Instance } = if sheet then sheet:GetDescendants() else {}
+	for _, node in descendants do
 		if node:IsA("StyleRule") then
 			found[(node :: any).Selector] = node
 		end
@@ -208,11 +223,11 @@ interactive(
 		"post-port26-020",
 	},
 	"setup opens the Menu under mouse-only input; step pointer; click the middle of row b; step clicked; step touch; step gamepad; step desktop; click the Picker trigger; step picker; step pickertouch",
-	function(t)
+	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = { chosen = nil }
 		local dense = define(t, "Dense", { metrics = { targetSizes = { minimum = 44, pointer = 28 } } })
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.open = Compose.cell(true)
 			local function item(id: string, label: string): any
 				return {
@@ -232,15 +247,15 @@ interactive(
 					items = { item("a", "Alpha"), item("b", "Beta"), item("c", "Gamma") },
 					isPresented = value.open,
 					Position = UDim2.fromOffset(120, 80),
-				}),
+				}) :: unknown,
 				UI.Picker({
 					Name = "Speed",
-					style = "menu",
+					style = "menu" :: "menu",
 					selected = Compose.cell("normal"),
 					options = {
-						{ value = "slow", label = "Slow" },
-						{ value = "normal", label = "Normal" },
-						{ value = "fast", label = "Fast" },
+						{ value = "slow", label = "Slow" } :: PickerOption,
+						{ value = "normal", label = "Normal" } :: PickerOption,
+						{ value = "fast", label = "Fast" } :: PickerOption,
 					},
 					Position = UDim2.fromOffset(480, 80),
 					Size = UDim2.fromOffset(200, 44),
@@ -253,7 +268,7 @@ interactive(
 		return value
 	end,
 	{
-		pointer = function(t, value)
+		pointer = function(t: any, value: any)
 			t.note("pointer input", inputFacts())
 			t.check(
 				"the input is pointer-only",
@@ -265,13 +280,13 @@ interactive(
 			value.target = if row then point(row) else nil
 			t.note("row b click point", value.target)
 		end,
-		clicked = function(t, value)
+		clicked = function(t: any, value: any)
 			t.check("the click on row b chose b", value.chosen == "b", value.chosen)
 			value.open:set(true)
 			t.settle(20)
 			value.panel = visibleNamed(t, value.stage, "MenuPanel")
 		end,
-		touch = function(t, value)
+		touch = function(t: any, value: any)
 			t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 			t.note("touch input", inputFacts())
 			t.check("touch is available", UserInputService.TouchEnabled, inputFacts())
@@ -281,13 +296,13 @@ interactive(
 				value.panel ~= nil and value.panel.Parent ~= nil and t.visible(value.panel)
 			)
 		end,
-		gamepad = function(t, value)
+		gamepad = function(t: any, value: any)
 			t.device({ device = "xbox", input = Enum.PreferredInput.Gamepad })
 			t.note("gamepad input", inputFacts())
 			t.check("a gamepad is available", UserInputService.GamepadEnabled, inputFacts())
 			checkRows(t, "gamepad menu (same panel)", value.panel, MENU_ROWS, 44)
 		end,
-		desktop = function(t, value)
+		desktop = function(t: any, value: any)
 			desktop(t)
 			t.note("desktop input", inputFacts())
 			checkRows(t, "back to pointer menu (same panel)", value.panel, MENU_ROWS, 28)
@@ -298,11 +313,11 @@ interactive(
 			value.trigger = if trigger then point(trigger) else nil
 			t.note("picker trigger point", value.trigger)
 		end,
-		picker = function(t, value)
+		picker = function(t: any, value: any)
 			value.pickerPanel = visibleNamed(t, value.stage, "MenuPanel")
 			checkRows(t, "pointer picker", value.pickerPanel, PICKER_ROWS, 28)
 		end,
-		pickertouch = function(t, value)
+		pickertouch = function(t: any, value: any)
 			t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 			checkRows(t, "touch picker (same panel)", value.pickerPanel, PICKER_ROWS, 44)
 		end,
@@ -316,29 +331,29 @@ local OPTIONS = {
 }
 
 local function startPicker(t: any, size: Vector2): any
-	return t.mount(function(UI, Host, Compose)
+	return t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Toolbar" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
 			UI.HStack "Bar" {
 				gap = "s",
-				align = "center",
+				align = "center" :: "center",
 				UI.Picker "Motion" {
 					label = "Motion",
-					style = "menu",
-					valueAlignment = "start",
-					sizing = "hug",
-					controlSize = "compact",
+					style = "menu" :: "menu",
+					valueAlignment = "start" :: "start",
+					sizing = "hug" :: "hug",
+					controlSize = "compact" :: "compact",
 					options = OPTIONS,
 					selected = Compose.cell("normal"),
-				},
+				} :: unknown,
 				UI.Button "Reset" { label = "Reset" },
 			},
 		}
 	end, { size = size, frames = 20 })
 end
 
-add("picker-start-inline", { "post-port26-018" }, function(t)
+add("picker-start-inline", { "post-port26-018" }, function(t: any)
 	desktop(t)
 	local stage = startPicker(t, Vector2.new(1280, 700))
 	local picker = t.find(stage, "Motion")
@@ -359,7 +374,7 @@ add("picker-start-inline", { "post-port26-018" }, function(t)
 	t.note("preferred text size", tostring(GuiService.PreferredTextSize))
 end)
 
-add("picker-touch-row", { "post-port26-019" }, function(t)
+add("picker-touch-row", { "post-port26-019" }, function(t: any)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 	local stage = startPicker(t, Vector2.new(390, 400))
 	local picker = t.find(stage, "Motion")
@@ -404,12 +419,12 @@ add("picker-touch-row", { "post-port26-019" }, function(t)
 	t.check("the value text is drawn", shown > 0)
 end)
 
-add("tab-rung", { "post-port26-025" }, function(t)
+add("tab-rung", { "post-port26-025" }, function(t: any)
 	desktop(t)
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return UI.TabView "Pages" {
-			placement = "topBar",
-			controlSize = "compact",
+			placement = "topBar" :: "topBar",
+			controlSize = "compact" :: "compact",
 			selection = Compose.cell("a"),
 			tabs = {
 				{
@@ -418,14 +433,14 @@ add("tab-rung", { "post-port26-025" }, function(t)
 					content = function()
 						return Host.Frame { Name = "PA", BackgroundTransparency = 1 }
 					end,
-				},
+				} :: Tab,
 				{
 					id = "b",
 					label = "Beta",
 					content = function()
 						return Host.Frame { Name = "PB", BackgroundTransparency = 1 }
 					end,
-				},
+				} :: Tab,
 			},
 		}
 	end, { size = Vector2.new(600, 400), frames = 20 })
@@ -461,18 +476,18 @@ interactive(
 	"sheet-adaptive",
 	{ "post-port26-024" },
 	"setup presents the adaptive Sheet at 1200x800 with the mouse and samples the slide; step phone; step narrow",
-	function(t)
+	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = {}
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.size = Compose.cell(Vector2.new(1200, 800))
 			value.presented = Compose.cell(false)
 			return UI.Sheet "Sheet" {
 				isPresented = value.presented,
 				detent = Compose.cell("medium"),
-				placement = "adaptive",
+				placement = "adaptive" :: "adaptive",
 				title = "Inspector",
-				content = function()
+				content = function(): Instance
 					return Host.Frame { Name = "Copy", BackgroundTransparency = 1, Size = UDim2.fromOffset(200, 120) }
 				end,
 			}
@@ -514,7 +529,7 @@ interactive(
 		return value
 	end,
 	{
-		phone = function(t, value)
+		phone = function(t: any, value: any)
 			t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 			local panel = visibleNamed(t, value.stage, "SheetPanel")
 			t.check("the sheet is shown", panel ~= nil)
@@ -530,17 +545,21 @@ interactive(
 				t.near("the panel is centred", p.x + p.w / 2, room.x + room.w / 2, 1)
 			end
 		end,
-		narrow = function(t, value)
+		narrow = function(t: any, value: any)
 			desktop(t)
 			t.cleanup()
-			local stage = t.mount(function(UI, Host, Compose)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 				return UI.Sheet "Sheet" {
 					isPresented = Compose.cell(true),
 					detent = Compose.cell("medium"),
-					placement = "adaptive",
+					placement = "adaptive" :: "adaptive",
 					title = "Inspector",
-					content = function()
-						return Host.Frame { Name = "Copy", BackgroundTransparency = 1, Size = UDim2.fromOffset(200, 120) }
+					content = function(): Instance
+						return Host.Frame {
+							Name = "Copy",
+							BackgroundTransparency = 1,
+							Size = UDim2.fromOffset(200, 120),
+						}
 					end,
 				}
 			end, { size = Vector2.new(390, 800), frames = 20 })
@@ -561,20 +580,20 @@ interactive(
 	}
 )
 
-add("outline-indent", { "post-port26-014" }, function(t)
+add("outline-indent", { "post-port26-014" }, function(t: any)
 	desktop(t)
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
 			UI.DisclosureGroup "G" {
 				label = "Components",
-				appearance = "outline",
-				textSize = "label",
-				indent = "m",
+				appearance = "outline" :: "outline",
+				textSize = "label" :: "label",
+				indent = "m" :: "m",
 				expanded = Compose.cell(true),
 				Size = UDim2.fromOffset(320, 0),
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel {
 						Name = "Row",
 						Text = "Button",
@@ -610,19 +629,23 @@ add("outline-indent", { "post-port26-014" }, function(t)
 	end
 end)
 
-add("selection-marks", { "post-port26-026", "post-port26-027", "post-port26-028", "post-port26-030" }, function(t)
+add("selection-marks", { "post-port26-026", "post-port26-027", "post-port26-028", "post-port26-030" }, function(t: any)
 	desktop(t)
 	local package = authored(t, "Ink", { selection = rgb(INK), onSelection = rgb(ON_INK) })
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return UI.VStack "Board" {
 			gap = "s",
-			UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true) },
-			UI.Toggle "Check" { label = "Check", presentation = "checkbox", value = Compose.cell(true) },
+			UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true) } :: unknown,
+			UI.Toggle "Check" {
+				label = "Check",
+				presentation = "checkbox" :: "checkbox",
+				value = Compose.cell(true),
+			},
 			UI.Toggle "Sound" { label = "Sound", value = Compose.cell(true) },
 			UI.Slider "Vol" { value = Compose.cell(0.5), min = 0, max = 1 },
 			UI.TabView "Pages" {
-				placement = "topBar",
-				indicator = "underline",
+				placement = "topBar" :: "topBar",
+				indicator = "underline" :: "underline",
 				selection = Compose.cell("a"),
 				Size = UDim2.fromOffset(400, 120),
 				tabs = {
@@ -632,14 +655,14 @@ add("selection-marks", { "post-port26-026", "post-port26-027", "post-port26-028"
 						content = function()
 							return Host.Frame { Name = "PA", BackgroundTransparency = 1 }
 						end,
-					},
+					} :: Tab,
 					{
 						id = "b",
 						label = "B",
 						content = function()
 							return Host.Frame { Name = "PB", BackgroundTransparency = 1 }
 						end,
-					},
+					} :: Tab,
 				},
 			},
 		}
@@ -679,15 +702,19 @@ interactive(
 	"selection-mark-hover",
 	{ "post-port26-029", "post-port26-030" },
 	"setup mounts a chosen Chip under an authored selection; move the mouse over the chip; step hovered",
-	function(t)
+	function(t: any)
 		desktop(t)
 		local package = authored(t, "InkHover", { selection = rgb(INK), onSelection = rgb(ON_INK) })
 		local value: { [string]: any } = {}
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true), Position = UDim2.fromOffset(200, 200) },
+				UI.Chip "Pick" {
+					label = "Pick",
+					selected = Compose.cell(true),
+					Position = UDim2.fromOffset(200, 200),
+				},
 			}
 		end, { theme = package, size = Vector2.new(800, 600), frames = 20 })
 		value.chip = t.find(stage, "Pick")
@@ -696,7 +723,7 @@ interactive(
 		return value
 	end,
 	{
-		hovered = function(t, value)
+		hovered = function(t: any, value: any)
 			local chip = value.chip
 			t.check(
 				"the chip is hovered",
@@ -713,23 +740,23 @@ interactive(
 	"underline-live",
 	{ "post-port26-008" },
 	"setup mounts hover and always link Buttons; step rest; move the mouse over More; step hovered; move the mouse to 20,500; step left; step selected",
-	function(t)
+	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = {}
-		local stage = t.mount(function(UI, Host)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
 				UI.Button "More" {
 					label = "Learn more",
-					appearance = "link",
-					underline = "hover",
+					appearance = "link" :: "link",
+					underline = "hover" :: "hover",
 					Position = UDim2.fromOffset(200, 200),
-				},
+				} :: unknown,
 				UI.Button "Always" {
 					label = "Terms",
-					appearance = "link",
-					underline = "always",
+					appearance = "link" :: "link",
+					underline = "always" :: "always",
 					Position = UDim2.fromOffset(200, 300),
 				},
 			}
@@ -741,7 +768,7 @@ interactive(
 		return value
 	end,
 	{
-		rest = function(t, value)
+		rest = function(t: any, value: any)
 			t.check(
 				"hover link has no underline at rest",
 				value.more and value.more.Text == "Learn more",
@@ -753,15 +780,15 @@ interactive(
 				value.always and value.always.Text
 			)
 		end,
-		hovered = function(t, value)
+		hovered = function(t: any, value: any)
 			t.check("More is hovered", value.more.GuiState == Enum.GuiState.Hover, tostring(value.more.GuiState))
 			t.check("hover underlines the label", value.more.Text == "<u>Learn more</u>", value.more.Text)
 		end,
-		left = function(t, value)
+		left = function(t: any, value: any)
 			t.check("More is idle", value.more.GuiState == Enum.GuiState.Idle, tostring(value.more.GuiState))
 			t.check("leaving clears the underline", value.more.Text == "Learn more", value.more.Text)
 		end,
-		selected = function(t, value)
+		selected = function(t: any, value: any)
 			GuiService.SelectedObject = value.more
 			t.settle(4)
 			t.check("More holds the selection", selectedName() == "More", selectedName())
@@ -777,7 +804,7 @@ interactive(
 	"inverse-paint",
 	{ "post-port26-036" },
 	"setup mounts the inverse Button in Neutral Dark and Light; move the mouse over Dark; step darkhover; mouse down; step darkpress; mouse up and move over Light; step lighthover",
-	function(t)
+	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = {}
 		local neutral = t.themes[1].package
@@ -790,7 +817,7 @@ interactive(
 		value.colors = { Dark = paletteNamed(neutral, dark).colors, Light = paletteNamed(neutral, light).colors }
 		value.buttons = {}
 		for index, name in { dark, light } do
-			local stage = t.mount(function(UI, Host)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame "Board" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
@@ -816,7 +843,7 @@ interactive(
 	end,
 	(function()
 		local function stateCheck(name: string, state: Enum.GuiState, label: string)
-			return function(t, value)
+			return function(t: any, value: any)
 				local button = value.buttons[name]
 				t.check(`{name} is {label}`, button.GuiState == state, tostring(button.GuiState))
 				local plate, text = styled(button, "BackgroundColor3"), styled(button, "TextColor3")
@@ -839,9 +866,9 @@ interactive(
 	end)()
 )
 
-add("strong-divider-and-pane", { "post-port26-021", "post-port26-033", "post-port26-035" }, function(t)
+add("strong-divider-and-pane", { "post-port26-021", "post-port26-033", "post-port26-035" }, function(t: any)
 	desktop(t)
-	local stage = t.mount(function(_, Host)
+	local stage = t.mount(function(_, Host: RobloxHost)
 		local hairline = Host.Frame "Hairline" { Size = UDim2.fromOffset(400, 1), Position = UDim2.fromOffset(20, 40) }
 		hairline:AddTag("facet-divider")
 		local strong = Host.Frame "Strong" { Size = UDim2.fromOffset(400, 1), Position = UDim2.fromOffset(20, 80) }
@@ -852,7 +879,7 @@ add("strong-divider-and-pane", { "post-port26-021", "post-port26-033", "post-por
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			hairline,
+			hairline :: unknown,
 			strong,
 			pane,
 		}
@@ -885,7 +912,7 @@ add("strong-divider-and-pane", { "post-port26-021", "post-port26-033", "post-por
 	)
 end)
 
-add("dim-disabled-plates", { "post-port26-032" }, function(t)
+add("dim-disabled-plates", { "post-port26-032" }, function(t: any)
 	desktop(t)
 	local package = authored(t, "Dim", { dimDisabledPlates = true })
 	local colors = package.style.themes[1].colors
@@ -894,9 +921,9 @@ add("dim-disabled-plates", { "post-port26-032" }, function(t)
 		{ name = "Emphasis", props = { appearance = "emphasis" } },
 		{ name = "Soft", props = { appearance = "soft" } },
 		{ name = "Inverse", props = { appearance = "inverse" } },
-		{ name = "Destructive", props = { role = "destructive" } },
+		{ name = "Destructive", props = { role = "destructive" :: "destructive" } },
 	}
-	local stage = t.mount(function(UI, Host, Compose)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local rows = { Name = "Board", gap = "s" }
 		for _, look in looks do
 			for _, on in { true, false } do
@@ -907,10 +934,18 @@ add("dim-disabled-plates", { "post-port26-032" }, function(t)
 				table.insert(rows, UI.Button(props))
 			end
 		end
-		table.insert(rows, UI.Toggle "BoxOn" { label = "Box", presentation = "checkbox", value = Compose.cell(true) })
 		table.insert(
 			rows,
-			UI.Toggle "BoxOff" { label = "Box", presentation = "checkbox", value = Compose.cell(true), enabled = false }
+			UI.Toggle "BoxOn" { label = "Box", presentation = "checkbox" :: "checkbox", value = Compose.cell(true) }
+		)
+		table.insert(
+			rows,
+			UI.Toggle "BoxOff" {
+				label = "Box",
+				presentation = "checkbox" :: "checkbox",
+				value = Compose.cell(true),
+				enabled = false,
+			}
 		)
 		return UI.VStack(rows)
 	end, { theme = package, size = Vector2.new(800, 900), frames = 30 })
@@ -953,10 +988,10 @@ interactive(
 	"xsmall-rung",
 	{ "post-port26-004", "post-port26-005", "post-port26-006" },
 	"setup mounts an xsmall Button with an icon and an xsmall Chip; click the button; step button; click the chip; step chip",
-	function(t)
+	function(t: any)
 		desktop(t)
 		local value: { [string]: any } = { clicks = 0 }
-		local stage = t.mount(function(UI, Host, Compose)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.chosen = Compose.cell(false)
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
@@ -964,15 +999,15 @@ interactive(
 				UI.Button "Tiny" {
 					label = "Go",
 					icon = "close",
-					controlSize = "xsmall",
+					controlSize = "xsmall" :: "xsmall",
 					Position = UDim2.fromOffset(200, 200),
 					onActivate = function()
 						value.clicks += 1
 					end,
-				},
+				} :: unknown,
 				UI.Chip "TinyChip" {
 					label = "Tag",
-					controlSize = "xsmall",
+					controlSize = "xsmall" :: "xsmall",
 					selected = value.chosen,
 					onToggle = function(next)
 						value.chosen:set(next)
@@ -1009,23 +1044,23 @@ interactive(
 		return value
 	end,
 	{
-		button = function(t, value)
+		button = function(t: any, value: any)
 			t.check("the mouse click activated the xsmall button", value.clicks == 1, value.clicks)
 		end,
-		chip = function(t, value)
+		chip = function(t: any, value: any)
 			t.check("the mouse click toggled the xsmall chip", value.chosen:peek() == true, value.chosen:peek())
 		end,
 	}
 )
 
-add("utility-stroke", { "post-port26-034" }, function(t)
+add("utility-stroke", { "post-port26-034" }, function(t: any)
 	desktop(t)
 	local package = define(t, "Utility", { metrics = { strokes = { hairline = 1, utility = 2 } } })
-	local stage = t.mount(function(UI, Host)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			UI.Button "Util" { label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) },
+			UI.Button "Util" { label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) } :: unknown,
 			UI.Button "Plain" { label = "Standard", Position = UDim2.fromOffset(400, 200) },
 		}
 	end, { theme = package, size = Vector2.new(800, 600), frames = 20 })

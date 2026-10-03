@@ -1,6 +1,12 @@
 --!strict
 
-local function initialMembers()
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+
+type Member = { id: string, name: string, image: string?, presence: ("online" | "away" | "busy" | "offline")? }
+local function initialMembers(): { Member }
 	return {
 		{ id = "ada", name = "Ada Quill", image = "rbxassetid://75342910516929", presence = "online" },
 		{ id = "bo", name = "Bo Lane", image = "rbxassetid://75342910516929", presence = "away" },
@@ -14,7 +20,7 @@ return {
 	title = "Player groups",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
@@ -34,7 +40,7 @@ return {
 		local function reorder()
 			local nextItems = table.clone(items:peek())
 			local first = table.remove(nextItems, 1)
-			table.insert(nextItems, first)
+			table.insert(nextItems, assert(first))
 			items:set(nextItems)
 			return report()
 		end
@@ -81,14 +87,14 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Players together",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -104,13 +110,13 @@ return {
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
 				Compose.OrderedCollection({
-					from = function(use)
+					from = function(use: Use)
 						return { use(variant) }
 					end,
 					key = function(value)
 						return value
 					end,
-					render = function(current, placement, key)
+					render = function(current, placement, key): GuiObject
 						local value = current:peek()
 						return UI.AvatarGroup "Team" {
 							items = items,
@@ -135,7 +141,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.Button({
 						LayoutOrder = 1,
 						Name = "Reorder",
@@ -165,18 +171,18 @@ return {
 					label = "Layout",
 					selected = variant,
 					options = {
-						{ value = "stacked", label = "Stacked" },
-						{ value = "spread", label = "Spread" },
-						{ value = "ellipsis", label = "Ellipsis" },
+						{ value = "stacked", label = "Stacked" } :: PickerOption,
+						{ value = "spread", label = "Spread" } :: PickerOption,
+						{ value = "ellipsis", label = "Ellipsis" } :: PickerOption,
 					},
 				},
 				UI.Picker "Size" {
 					label = "Size",
 					selected = size,
 					options = {
-						{ value = "compact", label = "Compact" },
-						{ value = "regular", label = "Regular" },
-						{ value = "large", label = "Large" },
+						{ value = "compact", label = "Compact" } :: PickerOption,
+						{ value = "regular", label = "Regular" } :: PickerOption,
+						{ value = "large", label = "Large" } :: PickerOption,
 					},
 				},
 				UI.Text "Activations" {
@@ -184,10 +190,10 @@ return {
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					text = function(use)
+					text = function(use: Use)
 						return `Selected the group {use(activations)} times`
 					end,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,

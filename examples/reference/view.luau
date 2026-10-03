@@ -1,9 +1,13 @@
 --!strict
-return function(ctx)
-	local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Readable<T> = { peek: (Readable<T>) -> T }
+return function(ctx: ExampleContext)
+	local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 	local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local view = {}
-	function view.text(label, size)
+	function view.text(label: any, size: number?): GuiObject
 		return UI.Text({
 			text = label,
 			TextSize = size or 16,
@@ -12,8 +16,8 @@ return function(ctx)
 			AutomaticSize = E.AutomaticSize.Y,
 		})
 	end
-	function view.column(name, children, spacing)
-		local props = {
+	function view.column(name: string, children: { any }, spacing: number?): Frame
+		local props: { [any]: any } = {
 			Name = name,
 			BackgroundTransparency = 1,
 			Size = D2.new(1, 0, 0, 0),
@@ -26,13 +30,13 @@ return function(ctx)
 		}
 		for i, child in children do
 			if typeof(child) == "Instance" or type(child) == "table" and child.ClassName then
-				child.LayoutOrder = i
+				(child :: any).LayoutOrder = i
 			end
 			table.insert(props, child)
 		end
 		return Host.Frame(props)
 	end
-	function view.page(name, children)
+	function view.page(name: string, children: { any }): ScrollingFrame
 		return Host.ScrollingFrame({
 			Name = name,
 			BackgroundTransparency = 1,
@@ -46,12 +50,12 @@ return function(ctx)
 				PaddingBottom = D.new(0, 16),
 				PaddingLeft = D.new(0, 16),
 				PaddingRight = D.new(0, 16),
-			}),
+			}) :: unknown,
 			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 			view.column("Content", children, 16),
 		})
 	end
-	function view.action(name, label, command, enabled)
+	function view.action(name: string, label: any, command: () -> (), enabled: any?): TextButton
 		return UI.Button({
 			Name = name,
 			label = label,
@@ -61,7 +65,7 @@ return function(ctx)
 			AutomaticSize = E.AutomaticSize.None,
 		})
 	end
-	function view.list(source, render)
+	function view.list(source: any, render: (any, string) -> GuiObject)
 		return Compose.keyed({
 			from = if Compose.isReadable(source) or type(source) == "function"
 				then source
@@ -71,7 +75,7 @@ return function(ctx)
 			key = function(item)
 				return item.id
 			end,
-			render = function(current, index, key)
+			render = function(current, index, key): GuiObject
 				local node = render(current, key)
 				ctx.runtime.decorate(node, { LayoutOrder = index })
 				return node

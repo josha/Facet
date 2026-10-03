@@ -1,11 +1,19 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local glade = require("../examples/reference/p1_glade")
 local sipworks = require("../examples/reference/p3_sipworks")
 local foyer = require("../examples/reference/p4_foyer")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -57,17 +65,17 @@ end
 
 local function referenceWorld(module: any, preferred: string): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	input.PreferredInput = (engine.types.Enum.PreferredInput :: any)[preferred]
 	local parent = engine.new("Folder")
 	local built
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		built = module.build({
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			UI = Facet.controls(
 				runtime,
 				{
@@ -130,14 +138,14 @@ end
 
 local function galleryWorld(configure: ((any) -> ())?): any
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, input = services(engine)
 	local parent = engine.new("Folder")
 	local ctx: any = {
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 800 }),
 		inputTarget = parent,
@@ -148,7 +156,9 @@ local function galleryWorld(configure: ((any) -> ())?): any
 		selection = Compose.cell("all-controls"),
 		theme = Compose.cell(Facet.themes.neutralPackage()),
 		themeMode = Compose.cell("light"),
-		demos = { { id = "all-controls", title = "All controls", kind = "fixture", module = "all_controls" } },
+		demos = {
+			{ id = "all-controls", title = "All controls", kind = "fixture" :: "fixture", module = "all_controls" },
+		},
 		load = function(_, module)
 			return (require :: any)("../examples/gallery/scenarios/" .. module)
 		end,
@@ -158,7 +168,7 @@ local function galleryWorld(configure: ((any) -> ())?): any
 		configure(ctx)
 	end
 	local gallery = require("../examples/gallery/client/screen")
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.UI = Facet.controls(
 			runtime,
@@ -170,9 +180,9 @@ local function galleryWorld(configure: ((any) -> ())?): any
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				motionLevel = Compose.formula(function(use)
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-				end),
+				end) :: unknown) :: MotionLevel,
 			} :: any
 		)
 		return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -218,9 +228,9 @@ end
 local function input(w: any, kind: string): any
 	local E = w.engine.types.Enum
 	if kind == "mouse" then
-		return { UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode.Unknown }
+		return { UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }
 	elseif kind == "touch" then
-		return { UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode.Unknown }
+		return { UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }
 	elseif kind == "gamepad" then
 		return { UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }
 	end
@@ -230,7 +240,7 @@ end
 local function scenarioWorld(name: string, options: any?): (any, any, any)
 	local opts = options or {}
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui, service = services(engine)
 	if opts.input then
 		service.PreferredInput = (engine.types.Enum.PreferredInput :: any)[opts.input]
@@ -244,7 +254,7 @@ local function scenarioWorld(name: string, options: any?): (any, any, any)
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = Compose.cell(opts.viewport or { width = 1280, height = 720 }),
 		inputTarget = parent,
@@ -266,7 +276,7 @@ local function scenarioWorld(name: string, options: any?): (any, any, any)
 	local definition = (require :: any)("../examples/gallery/scenarios/" .. name)
 	local built
 	local gallery = require("../examples/gallery/client/screen")
-	local stop, root = runtime.mount(function()
+	local stop, root: any = runtime.mount(function()
 		gallery.configure(ctx)
 		ctx.motionPreference:set("none")
 		ctx.UI = Facet.controls(
@@ -288,7 +298,7 @@ local function scenarioWorld(name: string, options: any?): (any, any, any)
 			Compose.cleanup(built.dispose)
 		end
 		return ctx.Host.ScreenGui "Screen" {
-			sheet,
+			sheet :: unknown,
 			ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 			built.screen(),
 		}
@@ -433,14 +443,14 @@ t.describe("native parity weaker showcase", function()
 		"apps2-225 links each showcase strip tab to its declared neighbours at every stage size and preview so DPadRight cannot skip",
 		function()
 			local sizes = {
-				{ "phone", 390, 844 },
-				{ "tablet", 1024, 768 },
-				{ "desktop", 1440, 900 },
-				{ "tv", 1920, 1080 },
+				{ device = "phone", width = 390, height = 844 },
+				{ device = "tablet", width = 1024, height = 768 },
+				{ device = "desktop", width = 1440, height = 900 },
+				{ device = "tv", width = 1920, height = 1080 },
 			}
 			for _, size in sizes do
 				local w = galleryWorld(function(ctx)
-					ctx.viewport:set({ width = size[2], height = size[3] })
+					ctx.viewport:set({ width = size.width, height = size.height })
 				end)
 				local scale = find(w.root, "ViewingDistance", "UIScale")
 				for _, distance in { "automatic", "near", "ten-foot" } do
@@ -451,7 +461,7 @@ t.describe("native parity weaker showcase", function()
 						w.input.PreferredInput = (w.engine.types.Enum.PreferredInput :: any)[input]
 						for _, view in { { "inputs", "basics", "writing" }, { "Categories", "inputs", "actions" } } do
 							local buttons = strip(w.root, view[1])
-							local label = `{size[1]} {distance} {input} {view[1]}`
+							local label = `{size.device} {distance} {input} {view[1]}`
 							t.expect(`{label} {buttons[1].Name} {buttons[2].Name}`).toBe(`{label} {view[2]} {view[3]}`)
 							for index, button in buttons do
 								t.expect(
@@ -484,16 +494,16 @@ t.describe("native parity weaker showcase", function()
 
 	t.it("apps2-225 relinks a strip when a tab is disabled or hidden and in a sidebar links vertically", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui, input = services(engine)
 		local UI = Facet.controls(
 			runtime,
 			{ types = engine.types, guiService = gui, services = { GuiService = gui, UserInputService = input } } :: any
 		)
-		local Host = runtime.constructors
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local selection, enabled = Compose.cell("a"), Compose.cell(true)
 		local customization = Compose.cell(nil :: any)
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			return Host.ScreenGui {
 				UI.TabView "Strip" {
 					selection = selection,
@@ -505,7 +515,7 @@ t.describe("native parity weaker showcase", function()
 							content = function()
 								return Host.Frame "APage" {}
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "b",
 							label = "B",
@@ -513,14 +523,14 @@ t.describe("native parity weaker showcase", function()
 							content = function()
 								return Host.Frame "BPage" {}
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "c",
 							label = "C",
 							content = function()
 								return Host.Frame "CPage" {}
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				},
 			}
@@ -605,7 +615,9 @@ t.describe("native parity weaker showcase", function()
 		function()
 			local w, built, root = scenarioWorld("sensory_feedback")
 			local release = find(root, "Release")
-			for index, kind in { "mouse", "touch", "gamepad", "keyboard" } do
+			for index, kind in
+				{ "mouse", "touch", "gamepad", "keyboard" } :: { "gamepad" | "keyboard" | "mouse" | "touch" }
+			do
 				release.Activated.fire(input(w, kind))
 				t.expect(built.requests:peek()).toBe(index)
 				t.expect(built.effects.release.PlayCount).toBe(index)
@@ -617,7 +629,7 @@ t.describe("native parity weaker showcase", function()
 			t.expect(built.effects.custom.PlayCount).toBe(1)
 			t.expect(built.report().motorConfirmed).toBe(false)
 			built.steps.setPlayHaptics(false)
-			for _, kind in { "mouse", "touch", "gamepad", "keyboard" } do
+			for _, kind in { "mouse", "touch", "gamepad", "keyboard" } :: { "gamepad" | "keyboard" | "mouse" | "touch" } do
 				release.Activated.fire(input(w, kind))
 			end
 			t.expect(built.requests:peek()).toBe(5)
@@ -631,17 +643,17 @@ t.describe("native parity weaker showcase", function()
 	)
 
 	local HUD_VIEWS = {
-		{ "compact-phone-portrait", 359, 718, "Touch" },
-		{ "compact-phone-landscape", 705, 338, "Touch" },
-		{ "tablet-landscape", 1079, 809, "Touch" },
-		{ "desktop-standard", 1232, 1067, "KeyboardAndMouse" },
-		{ "console-ten-foot", 1920, 1078, "Gamepad" },
-		{ "handheld-gamepad", 960, 540, "Gamepad" },
-		{ "compact-gamepad", 390, 844, "Gamepad" },
-		{ "narrow-portrait", 320, 640, "Touch" },
-		{ "narrow-landscape", 640, 320, "Touch" },
-		{ "desktop-studio-1320", 1320, 742, "KeyboardAndMouse" },
-		{ "phone-390x844", 390, 844, "Touch" },
+		{ device = "compact-phone-portrait", width = 359, height = 718, input = "Touch" },
+		{ device = "compact-phone-landscape", width = 705, height = 338, input = "Touch" },
+		{ device = "tablet-landscape", width = 1079, height = 809, input = "Touch" },
+		{ device = "desktop-standard", width = 1232, height = 1067, input = "KeyboardAndMouse" },
+		{ device = "console-ten-foot", width = 1920, height = 1078, input = "Gamepad" },
+		{ device = "handheld-gamepad", width = 960, height = 540, input = "Gamepad" },
+		{ device = "compact-gamepad", width = 390, height = 844, input = "Gamepad" },
+		{ device = "narrow-portrait", width = 320, height = 640, input = "Touch" },
+		{ device = "narrow-landscape", width = 640, height = 320, input = "Touch" },
+		{ device = "desktop-studio-1320", width = 1320, height = 742, input = "KeyboardAndMouse" },
+		{ device = "phone-390x844", width = 390, height = 844, input = "Touch" },
 	}
 	local HUD_ZONES = { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon" }
 
@@ -675,16 +687,16 @@ t.describe("native parity weaker showcase", function()
 		function()
 			local fresh = {}
 			local function box(view: any): { number }
-				return { view[2] - 16, view[3] - 150 }
+				return { view.width - 16, view.height - 150 }
 			end
 			for _, view in HUD_VIEWS do
 				local w, built, root = scenarioWorld("hud", {
-					viewport = { width = view[2], height = view[3] },
-					input = view[4],
+					viewport = { width = view.width, height = view.height },
+					input = view.input,
 				})
 				measured.measure(root, w.engine, box(view))
 				local forms, unshown = built.report().forms, built.report().unshown
-				local label = `{view[1]} {view[2]}x{view[3]}`
+				local label = `{view.device} {view.width}x{view.height}`
 				for _, zone in HUD_ZONES do
 					local regions = 0
 					for _, node in root:GetDescendants() do
@@ -703,7 +715,7 @@ t.describe("native parity weaker showcase", function()
 				if #unshown == 0 then
 					t.expect(find(root.Parent, "OverflowEmpty") ~= nil).toBe(true)
 				end
-				fresh[view[1]] = forms
+				fresh[view.device] = forms
 				w.stop()
 				t.expect(#w.parent:GetChildren()).toBe(0)
 			end
@@ -717,10 +729,10 @@ t.describe("native parity weaker showcase", function()
 				table.insert(order, HUD_VIEWS[index])
 			end
 			for _, view in order do
-				w.ctx.viewport:set({ width = view[2], height = view[3] })
+				w.ctx.viewport:set({ width = view.width, height = view.height })
 				measured.measure(root, w.engine, box(view))
-				t.expect(`{view[1]} rotated {same(built.report().forms, fresh[view[1]])}`)
-					.toBe(`{view[1]} rotated true`)
+				t.expect(`{view.device} rotated {same(built.report().forms, fresh[view.device])}`)
+					.toBe(`{view.device :: unknown} rotated true`)
 				for _, zone in HUD_ZONES do
 					t.expect(find(root, zone)).toBe(regions[zone])
 				end
@@ -766,7 +778,7 @@ t.describe("native parity weaker showcase", function()
 		function()
 			for _, canvas in { { 1024, 768 }, { 640, 480 }, { 320, 640 } } do
 				local engine: any = engineLib.new()
-				local runtime = Facet.Roblox.createRuntime(engine)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local gui, service = services(engine)
 				local part, holder = engine.new("Part"), engine.new("Folder")
 				local viewport = Compose.cell({ width = canvas[1], height = canvas[2] })
@@ -774,7 +786,7 @@ t.describe("native parity weaker showcase", function()
 					Facet = Facet,
 					Compose = Compose,
 					runtime = runtime,
-					Host = runtime.constructors,
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
 					types = engine.types,
 					viewport = viewport,
 					guiService = gui,
@@ -792,7 +804,7 @@ t.describe("native parity weaker showcase", function()
 				)
 				local hud = require("../examples/gallery/scenarios/hud") :: any
 				local built
-				local stop, surface = runtime.mount(function()
+				local stop, surface: any = runtime.mount(function()
 					built = hud.build(ctx)
 					return ctx.Host.SurfaceGui "HudSurface" {
 						Adornee = part,

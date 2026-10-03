@@ -1,6 +1,9 @@
 --!strict
-return function(ctx)
-	local Compose, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+return function(ctx: ExampleContext)
+	local Compose: ComposeModule, Host, UI, T = ctx.Facet.Compose, ctx.Host, ctx.UI, ctx.types
 	local enabled, readout = Compose.cell(false), Compose.cell("Haptics off; no effects constructed")
 	local anchor = Host.Frame({ Size = T.UDim2.new(1, 0, 1, -80), Position = T.UDim2.fromOffset(0, 80) })
 	local counters =
@@ -9,7 +12,7 @@ return function(ctx)
 	function state.build()
 		return Host.Frame({
 			Size = T.UDim2.fromScale(1, 1),
-			UI.Toggle "PerformanceHaptics" { label = "Request native haptics", value = enabled },
+			UI.Toggle "PerformanceHaptics" { label = "Request native haptics", value = enabled } :: unknown,
 			UI.Text({ text = readout, Position = T.UDim2.fromOffset(0, 40), Size = T.UDim2.new(1, 0, 0, 40) }),
 			anchor,
 		})
@@ -34,7 +37,7 @@ return function(ctx)
 					return node
 				end
 				local shared = if counters.enabled and name == "sharedEffect" then effect() else nil
-				local children =
+				local children: { [any]: any } =
 					{ Size = T.UDim2.fromScale(1, 1), Host.UIGridLayout({ CellSize = T.UDim2.fromOffset(100, 40) }) }
 				if shared then
 					table.insert(children, shared)

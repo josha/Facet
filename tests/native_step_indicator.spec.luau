@@ -1,8 +1,13 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local function workflow(): { any }
 	return {
@@ -14,7 +19,7 @@ local function workflow(): { any }
 end
 
 local function mount(spec: any, width: number?, options: { [string]: any }?): (any, any)
-	local world = worlds.new(function(UI)
+	local world = worlds.new(function(UI: FacetControls)
 		return UI.StepIndicator("Steps")(spec)
 	end, options)
 	local root = world.find("Steps")
@@ -78,7 +83,7 @@ t.describe("native StepIndicator", function()
 		local strip = world.find("Strip")
 		strip.AbsolutePosition = world.V2(10, 0)
 		world.resize(strip, 900, 80)
-		local positions = { cart = 10, ship = 200, pay = 400, done = 600 }
+		local positions: { [string]: number } = { cart = 10, ship = 200, pay = 400, done = 600 }
 		for id, x in positions do
 			cell(world, id).AbsolutePosition = world.V2(x, 0)
 			world.resize(cell(world, id), 150, 60)
@@ -143,15 +148,15 @@ t.describe("native StepIndicator", function()
 	t.it(
 		"insets every cell by the control inset, and its marker off the top edge, whether or not it is a Button",
 		function()
-			for _, pair in { { "regular", 12 }, { "large", 16 } } do
+			for _, pair in { { size = "regular", height = 12 }, { size = "large", height = 16 } } do
 				local world =
-					mount({ steps = workflow(), current = "ship", controlSize = pair[1], onSelect = function() end })
+					mount({ steps = workflow(), current = "ship", controlSize = pair.size, onSelect = function() end })
 				for _, id in { "cart", "ship", "pay", "done" } do
 					local padding = cell(world, id):FindFirstChildWhichIsA("UIPadding")
 					local sides = if padding
 						then `{padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset} {padding.PaddingBottom.Offset}`
 						else "none"
-					t.expect(`{pair[1]} {id} {sides}`).toBe(`{pair[1]} {id} {pair[2]} {pair[2]} 4 4`)
+					t.expect(`{pair.size} {id} {sides}`).toBe(`{pair.size} {id} {pair.height} {pair.height} 4 4`)
 				end
 				world.stop()
 			end
@@ -252,28 +257,28 @@ t.describe("native StepIndicator", function()
 			{ steps = { { id = "a", label = "" } } },
 			{ steps = { { id = "a", label = "A", state = "done" } } },
 			{ steps = { { id = "a", label = "A", extra = 1 } } },
-			{ steps = {}, sizing = "wide" },
+			{ steps = {}, sizing = "wide" :: "wide" },
 			{ steps = {}, extra = true },
 		}
 		for _, spec in bad do
-			t.expect(worlds.mountError(function(UI)
+			t.expect(worlds.mountError(function(UI: FacetControls)
 				return UI.StepIndicator(spec)
 			end) ~= nil).toBe(true)
 		end
-		t.expect(worlds.mountError(function(UI)
+		t.expect(worlds.mountError(function(UI: FacetControls)
 			return UI.StepIndicator({
 				steps = { { id = "r1", label = "Review" }, { id = "r2", label = "Review" } },
 				current = "r1",
 			})
 		end)).toBeNil()
-		local controls: { [string]: any } = {}
+		local controls: { diagnostics: (() -> { string })? } = {}
 		local steps = Compose.cell(workflow())
 		local world, root = mount({ steps = steps, current = "ship", controls = controls })
 		local broken = workflow()
 		broken[1].state = "current"
 		steps:set(broken)
 		t.expect(root:GetAttribute("FacetCurrent")).toBe("ship")
-		t.expect(#controls.diagnostics()).toBe(1)
+		t.expect(#assert(controls.diagnostics)()).toBe(1)
 		world.stop()
 	end)
 
@@ -324,8 +329,8 @@ t.describe("native StepIndicator", function()
 		end
 		local steps = workflow()
 		steps[2].label = "A much longer shipping label"
-		local fill, fillRoot = mount({ steps = steps, current = "ship", sizing = "fill" }, 640)
-		local hug, hugRoot = mount({ steps = steps, current = "ship", sizing = "hug" }, 640)
+		local fill, fillRoot = mount({ steps = steps, current = "ship", sizing = "fill" :: "fill" }, 640)
+		local hug, hugRoot = mount({ steps = steps, current = "ship", sizing = "hug" :: "hug" }, 640)
 		for _, pair in { { fill, fillRoot }, { hug, hugRoot } } do
 			for _, node in pair[2]:GetDescendants() do
 				if node.Name == "Measure" then
@@ -342,7 +347,7 @@ t.describe("native StepIndicator", function()
 
 	t.it("switches a hug row to the summary when the laid-out row is wider than its offer", function()
 		local world, root =
-			mount({ steps = workflow(), current = "ship", sizing = "hug", onSelect = function() end }, 400)
+			mount({ steps = workflow(), current = "ship", sizing = "hug" :: "hug", onSelect = function() end }, 400)
 		measureAll(world, root, 10)
 		local layout = world.find("Row"):FindFirstChildWhichIsA("UIListLayout")
 		layout.AbsoluteContentSize = world.V2(520, 60)
@@ -374,7 +379,7 @@ t.describe("native StepIndicator", function()
 
 	t.it("leaves nothing open when a callback removes the control", function()
 		local show = Compose.cell(true)
-		local world = worlds.new(function(UI)
+		local world = worlds.new(function(UI: FacetControls)
 			return Compose.show(show, function()
 				return UI.StepIndicator("Steps")({
 					steps = workflow(),
@@ -392,7 +397,7 @@ t.describe("native StepIndicator", function()
 
 	t.it("moves the narrow summary with a row selection in the Steps scenario and refuses both", function()
 		local scenario = require("../examples/gallery/scenarios/steps") :: any
-		local world = worlds.new(function(UI, Host, engine)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
 			return scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types }).screen()
 		end)
 		local checkout, compact = world.find("Checkout"), world.find("Compact")

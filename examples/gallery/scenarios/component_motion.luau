@@ -1,12 +1,16 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+
 return {
 	title = "Automatic motion",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -24,7 +28,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
+				}) :: unknown,
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -32,7 +36,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = props.title,
-					textRole = "body",
+					textRole = "body" :: "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -41,7 +45,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
 					table.unpack(rows),
 				},
 				props.footer,
@@ -54,7 +58,7 @@ return {
 				return 1
 			end
 			local shown = Compose.cell(0)
-			local fade = runtime.tween(function(use)
+			local fade = runtime.tween(function(use: Use)
 				return use(shown)
 			end, { seconds = 0.2 })
 			shown:set(1)
@@ -73,11 +77,11 @@ return {
 
 			local runtime = ctx.runtime
 			local displayedBalance = if runtime
-				then runtime.tween(function(use)
+				then runtime.tween(function(use: Use)
 					return use(balance)
 				end, { seconds = 0.35 })
 				else balance
-			local item = Compose.formula(function(use)
+			local item = Compose.formula(function(use: Use)
 				local list = use(items)
 				for _, candidate in list do
 					if candidate.id == use(selected) then
@@ -86,7 +90,7 @@ return {
 				end
 				return list[1]
 			end)
-			local affordable = Compose.formula(function(use)
+			local affordable = Compose.formula(function(use: Use)
 				return use(balance) >= use(item).price
 			end)
 			local function buy()
@@ -108,7 +112,7 @@ return {
 			commands.reset = function()
 				balance:set(100)
 			end
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				latest = {
 					expanded = use(expanded),
 					selected = use(selected),
@@ -120,7 +124,7 @@ return {
 			local function ItemRow(current, placement)
 				return Host.Frame({
 					Name = "Card-" .. current:peek().id,
-					LayoutOrder = function(use)
+					LayoutOrder = function(use: Use)
 						return use(placement).index
 					end,
 					BackgroundTransparency = 1,
@@ -128,7 +132,7 @@ return {
 					AutomaticSize = Enum.AutomaticSize.Y,
 					UI.Button "Select" {
 						row = {
-							title = function(use)
+							title = function(use: Use)
 								return use(current).name
 							end,
 							value = `{current:peek().price} credits`,
@@ -155,7 +159,7 @@ return {
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							text = function(use)
+							text = function(use: Use)
 								return `Balance: {math.floor(use(displayedBalance) + 0.5)} credits`
 							end,
 							TextWrapped = true,
@@ -168,21 +172,21 @@ return {
 								key = function(entry)
 									return entry.id
 								end,
-								mode = "all",
+								mode = "all" :: "all",
 								measure = true,
 								itemSize = 56,
 								gap = 8,
 								status = rowStatus,
 								ScrollingEnabled = false,
 								ScrollBarThickness = 0,
-								Size = function(use)
+								Size = function(use: Use)
 									local current = use(rowStatus)
 									return UDim2.new(1, 0, 0, if current then current.extent else 0)
 								end,
 								render = ItemRow,
 							},
 						},
-					}),
+					}) :: unknown,
 					UI.Toggle "DetailsToggle" {
 						label = "Show details",
 						value = expanded,
@@ -194,7 +198,7 @@ return {
 						Compose.show(expanded, function()
 							local alpha = arrival()
 							return Host.CanvasGroup({
-								GroupTransparency = function(use)
+								GroupTransparency = function(use: Use)
 									return 1 - use(alpha)
 								end,
 								Name = "Panel",
@@ -206,13 +210,13 @@ return {
 									PaddingBottom = UDim.new(0, 8),
 									PaddingLeft = UDim.new(0, 8),
 									PaddingRight = UDim.new(0, 8),
-								}),
+								}) :: unknown,
 								UI.Text({
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),
 									AutomaticSize = Enum.AutomaticSize.Y,
-									text = function(use)
+									text = function(use: Use)
 										return `{use(item).name} costs {use(item).price} credits. Its row stays the same when reordered.`
 									end,
 									TextWrapped = true,

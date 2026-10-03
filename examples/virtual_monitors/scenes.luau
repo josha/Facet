@@ -1,26 +1,41 @@
 --!strict
-local Compose = require(game:GetService("ReplicatedStorage").Facet).Compose
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Timeline = typeof(require("@repo/tools/typecheck/aliases").Timeline)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+local Compose: ComposeModule = require(game:GetService("ReplicatedStorage").Facet).Compose
 local scenes = {}
 
-function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: any, active: any)
-	local Host = runtime.constructors
+function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: Readable<string>, active: any)
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	return runtime.mount(function()
 		local nodes: any = { Name = item.title }
 		local accent = Color3.new(item.color.r, item.color.g, item.color.b)
 		local variant = (item.index - 1) % 6
-		local clock = runtime.timeline({ duration = 10 + item.index % 4, repeats = math.huge, autoplay = false })
-		runtime:watch(function(use)
+		local clock: Timeline =
+			runtime.timeline({ duration = 10 + item.index % 4, repeats = math.huge, autoplay = false })
+		runtime:watch(function(use: Use)
 			if use(motionPolicy) ~= "reduced" and (not active or active(use)) then
 				clock:play()
 			else
 				clock:pause()
 			end
 		end)
-		local function phase(use)
+		local function phase(use: Use)
 			return (use(clock.progress) + (item.index % 7) / 7) * math.pi * 2
 		end
 		local random = Random.new(item.index * 7919)
-		local function part(name, size, position, color, shape, yaw, material)
+		local function part(
+			name: string,
+			size: Vector3,
+			position: Vector3 | CFrame | ((Use) -> CFrame),
+			color: Color3,
+			shape: Enum.PartType?,
+			yaw: number?,
+			material: Enum.Material?
+		)
 			local instance = Host.Part({
 				Name = name,
 				Anchored = true,
@@ -37,7 +52,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 			table.insert(nodes, instance)
 			return instance
 		end
-		local function wedge(name, size, cframe, color)
+		local function wedge(name: string, size: Vector3, cframe: CFrame, color: Color3)
 			table.insert(
 				nodes,
 				Host.WedgePart({
@@ -51,7 +66,14 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 				})
 			)
 		end
-		local function pillar(name, radius, height, position, color, material)
+		local function pillar(
+			name: string,
+			radius: number,
+			height: number,
+			position: Vector3,
+			color: Color3,
+			material: Enum.Material?
+		)
 			return part(
 				name,
 				Vector3.new(height, radius * 2, radius * 2),
@@ -62,7 +84,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 				material
 			)
 		end
-		local function jitter(amount)
+		local function jitter(amount: number)
 			return (random:NextNumber() - 0.5) * 2 * amount
 		end
 		local round = random:NextNumber() < 0.5
@@ -112,7 +134,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 				end
 				part("Roof", Vector3.new(2, 0.25, 2), Vector3.new(x, height + 0.12, z), Color3.fromRGB(39, 48, 67))
 			end
-			part("Glider", Vector3.new(1.6, 0.1, 0.6), function(use)
+			part("Glider", Vector3.new(1.6, 0.1, 0.6), function(use: Use)
 				local angle = phase(use)
 				return CFrame.new(math.cos(angle) * 4.5, 6.5 + math.sin(angle * 2) * 0.5, math.sin(angle) * 3.5)
 					* CFrame.Angles(0, -angle, math.sin(angle) * 0.3)
@@ -120,7 +142,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 		elseif variant == 1 then
 			local rx, rz = 3.6 + jitter(0.5), 2.8 + jitter(0.4)
 			local figure = random:NextNumber() < 0.4
-			local function track(angle)
+			local function track(angle: number)
 				if figure then
 					return Vector3.new(math.sin(angle) * rx, 0, math.sin(angle * 2) * rz * 0.8)
 				end
@@ -148,7 +170,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 			)
 			for car = 0, 2 do
 				local tint = ({ accent, Color3.fromRGB(235, 90, 80), Color3.fromRGB(250, 205, 70) })[car + 1]
-				part("Racer", Vector3.new(0.7, 0.45, 1.3), function(use)
+				part("Racer", Vector3.new(0.7, 0.45, 1.3), function(use: Use)
 					local angle = phase(use) * (1 + car * 0.08) + car * 0.6
 					local position = track(angle) + Vector3.new(0, 0.4, 0)
 					return CFrame.lookAt(position, track(angle + 0.05) + Vector3.new(0, 0.4, 0))
@@ -162,13 +184,13 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 			for level = 1, floors do
 				local size = 3.2 - level * 0.18
 				local tone = accent:Lerp(Color3.fromRGB(240, 200, 120), level / floors)
-				part("Block", Vector3.new(size, 0.8, size), function(use)
+				part("Block", Vector3.new(size, 0.8, size), function(use: Use)
 					local lift = if level == floors then (math.sin(phase(use) * 2) + 1) * 0.6 else 0
 					return CFrame.new(-1.2, level * 0.82 - 0.2 + lift, 0) * CFrame.Angles(0, level * 0.18, 0)
 				end, tone)
 			end
 			pillar("Mast", 0.18, 7, Vector3.new(3, 0, 1.5), Color3.fromRGB(250, 190, 60))
-			part("Jib", Vector3.new(6, 0.22, 0.22), function(use)
+			part("Jib", Vector3.new(6, 0.22, 0.22), function(use: Use)
 				local angle = phase(use) * 0.5
 				return CFrame.new(3, 7, 1.5) * CFrame.Angles(0, angle, 0) * CFrame.new(-2, 0, 0)
 			end, Color3.fromRGB(250, 190, 60))
@@ -203,10 +225,10 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 				end
 			end
 			pillar("Lighthouse", 0.5, 4.5, Vector3.new(-3.5, 0, 3), Color3.fromRGB(235, 235, 240))
-			part("Lamp", Vector3.new(0.3, 0.3, 3), function(use)
+			part("Lamp", Vector3.new(0.3, 0.3, 3), function(use: Use)
 				return CFrame.new(-3.5, 4.8, 3) * CFrame.Angles(0, phase(use) * 2, 0) * CFrame.new(0, 0, 1.4)
 			end, Color3.fromRGB(255, 236, 170), nil, nil, Enum.Material.Neon)
-			part("Boat", Vector3.new(0.6, 0.35, 1.4), function(use)
+			part("Boat", Vector3.new(0.6, 0.35, 1.4), function(use: Use)
 				local angle = phase(use)
 				local position =
 					Vector3.new(math.cos(angle) * 4.5, 0.05 + math.sin(angle * 5) * 0.06, math.sin(angle) * 4.5)
@@ -239,7 +261,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 				part(
 					"Villager",
 					Vector3.new(0.35, 0.7, 0.35),
-					function(use)
+					function(use: Use)
 						local angle = phase(use) * (if walker % 2 == 0 then 1 else -1) + walker * 1.6
 						return CFrame.new(math.cos(angle) * 1.8, 0.35, math.sin(angle) * 1.6)
 					end,
@@ -276,7 +298,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 					Color3.fromRGB(96, 66, 46)
 				)
 			end
-			part("Fire", Vector3.new(0.6, 0.9, 0.6), function(use)
+			part("Fire", Vector3.new(0.6, 0.9, 0.6), function(use: Use)
 				local flicker = 0.85 + math.abs(math.sin(phase(use) * 9)) * 0.3
 				return CFrame.new(0, 0.5 * flicker, 0) * CFrame.Angles(0, phase(use) * 4, 0)
 			end, Color3.fromRGB(255, 150, 60), nil, nil, Enum.Material.Neon)
@@ -291,7 +313,7 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 					accent:Lerp(Color3.new(0, 0, 0), 0.2)
 				)
 			end
-			part("Drone", Vector3.new(0.6, 0.2, 0.6), function(use)
+			part("Drone", Vector3.new(0.6, 0.2, 0.6), function(use: Use)
 				local angle = phase(use)
 				return CFrame.new(math.cos(angle) * 3, 4 + math.sin(angle * 3) * 0.3, math.sin(angle) * 2.5)
 					* CFrame.Angles(0, angle * 3, 0)
@@ -302,10 +324,17 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 end
 
 function scenes.discovery(runtime: any, target: Instance)
-	local Host = runtime.constructors
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	return runtime.mount(function()
 		local children: any = { Name = "Afterlight" }
-		local function part(name, size, frame, color, material, shape)
+		local function part(
+			name: string,
+			size: Vector3,
+			frame: CFrame,
+			color: Color3,
+			material: Enum.Material?,
+			shape: Enum.PartType?
+		)
 			table.insert(
 				children,
 				Host.Part({
@@ -323,7 +352,7 @@ function scenes.discovery(runtime: any, target: Instance)
 		local stone = Color3.fromRGB(65, 82, 97)
 		local grass = Color3.fromRGB(100, 163, 149)
 		local glow = Color3.fromRGB(117, 242, 237)
-		local function island(center, radius)
+		local function island(center: Vector3, radius: number)
 			for tier = 0, 3 do
 				local diameter = radius * 2 * (1 - tier * 0.16)
 				part(
@@ -410,59 +439,65 @@ end
 function scenes.staticAvatar(
 	runtime: any,
 	target: Instance,
-	angle: any,
-	palette: any,
-	hat: any,
-	motionPolicy: any,
-	hatTint: any
+	angle: Readable<number>,
+	palette: Readable<string>,
+	hat: Readable<boolean>,
+	motionPolicy: Readable<string>,
+	hatTint: Readable<{ number }>
 )
-	local Host = runtime.constructors
-	local animatedAngle: any
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local animatedAngle: Readable<number>
 	local colors = {
 		sage = Color3.fromRGB(130, 158, 126),
 		clay = Color3.fromRGB(195, 121, 94),
 		iris = Color3.fromRGB(146, 124, 191),
 	}
 	local skin = Color3.fromRGB(234, 183, 138)
-	local function piece(name, size, position, color, extra)
+	local function piece(
+		name: string,
+		size: Vector3,
+		position: Vector3,
+		color: Color3 | ((Use) -> Color3),
+		extra: { [string]: any }?
+	)
 		local props: any = {
 			Name = name,
 			Anchored = true,
 			CanCollide = false,
 			Size = size,
-			CFrame = function(use)
+			CFrame = function(use: Use)
 				local rotation = if use(motionPolicy) == "reduced" then use(angle) else use(animatedAngle)
 				return CFrame.Angles(0, math.rad(rotation), 0) * CFrame.new(position)
 			end,
 			Color = color,
 			Material = Enum.Material.SmoothPlastic,
 		}
-		for key, value in extra or {} do
+		for key, value in (extra or {} :: { [string]: any }) do
 			props[key] = value
 		end
 		return Host.Part(props)
 	end
-	local function outfit(use)
+	local function outfit(use: Use)
 		return colors[use(palette)]
 	end
-	local function visibility(use)
+	local function visibility(use: Use)
 		return if use(hat) then 0 else 1
 	end
-	local function crown(use)
+	local function crown(use: Use)
 		local tint = use(hatTint)
 		return Color3.fromRGB(tint[1], tint[2], tint[3])
 	end
-	local function brim(use)
+	local function brim(use: Use)
 		local tint = use(hatTint)
 		return Color3.fromRGB(tint[1] * 0.85, tint[2] * 0.85, tint[3] * 0.85)
 	end
 	return runtime.mount(function()
-		animatedAngle = runtime.spring(function(use)
+		animatedAngle = runtime.spring(function(use: Use)
 			return use(angle)
 		end, { period = 0.55, damping = 0.9 })
 		return Host.Model "Explorer" {
 
-			piece("Shirt", Vector3.new(0.62, 1.55, 0.12), Vector3.new(0, 2.52, -0.49), Color3.fromRGB(238, 226, 202)),
+			piece("Shirt", Vector3.new(0.62, 1.55, 0.12), Vector3.new(0, 2.52, -0.49), Color3.fromRGB(238, 226, 202)) :: unknown,
 			piece("JacketZip", Vector3.new(0.045, 1.52, 0.04), Vector3.new(0, 2.50, -0.58), Color3.fromRGB(79, 80, 67)),
 			piece("LeftPocket", Vector3.new(0.49, 0.46, 0.10), Vector3.new(-0.54, 2.55, -0.51), outfit),
 			piece("RightPocket", Vector3.new(0.49, 0.46, 0.10), Vector3.new(0.54, 2.55, -0.51), outfit),
@@ -543,7 +578,7 @@ function scenes.staticAvatar(
 		}
 	end, target)
 end
-local avatarTemplate
+local avatarTemplate: Model?
 local avatarIsPlayer = false
 function scenes.prepareAvatar()
 	if avatarTemplate then
@@ -567,7 +602,9 @@ function scenes.prepareAvatar()
 		warn("Avatar preview: " .. tostring(rig))
 		return
 	end
-	local idle = rig.Animate.idle.Animation1:Clone()
+	local animate = assert(rig:FindFirstChild("Animate"))
+	local idleSet = assert(animate:FindFirstChild("idle"))
+	local idle = assert(idleSet:FindFirstChild("Animation1")):Clone()
 	idle.Name = "PreviewIdle"
 	idle.Parent = rig
 	for _, node in rig:GetDescendants() do
@@ -581,7 +618,7 @@ function scenes.prepareAvatar()
 		end
 	end
 	rig.Name = "Explorer"
-	rig.Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	assert(rig:FindFirstChildWhichIsA("Humanoid")).DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	avatarTemplate = rig
 end
 function scenes.disposeAvatar()
@@ -590,11 +627,11 @@ function scenes.disposeAvatar()
 		avatarTemplate = nil
 	end
 end
-function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, active, hatTint)
+function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, active: ((Use) -> boolean)?, hatTint)
 	if not avatarTemplate then
 		return scenes.staticAvatar(runtime, target, angle, palette, hat, motionPolicy, hatTint)
 	end
-	local Host = runtime.constructors
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
 	local colors = {
 		sage = Color3.fromRGB(130, 158, 126),
 		clay = Color3.fromRGB(195, 121, 94),
@@ -602,11 +639,11 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 	}
 	local stop, rig = runtime.mount(function()
 		local model = runtime.adopt(avatarTemplate:Clone())
-		local rotation = runtime.spring(function(use)
+		local rotation = runtime.spring(function(use: Use)
 			return use(angle)
 		end, { period = 0.55, damping = 1 })
 		runtime.decorate(model.HumanoidRootPart, {
-			CFrame = function(use)
+			CFrame = function(use: Use)
 				local degrees = if use(motionPolicy) == "reduced" then use(angle) else use(rotation)
 				return CFrame.new(0, 3, 0) * CFrame.Angles(0, math.rad(degrees), 0)
 			end,
@@ -616,7 +653,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 			if handle and accessory.AccessoryType == Enum.AccessoryType.Hat then
 				local resting = handle.Transparency
 				runtime.decorate(handle, {
-					Transparency = function(use)
+					Transparency = function(use: Use)
 						return if use(hat) then 1 else resting
 					end,
 				})
@@ -626,7 +663,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 			if not avatarIsPlayer and part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
 				local name = part.Name
 				runtime.decorate(part, {
-					Color = function(use)
+					Color = function(use: Use)
 						if name == "Head" or name:find("Hand") then
 							return Color3.fromRGB(234, 183, 138)
 						end
@@ -643,29 +680,34 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 		local crownBase = if anchor and anchor:IsA("Attachment") then anchor.CFrame else CFrame.new(0, 0.6, 0)
 		local fit = math.clamp(head.Size.X / 1.2, 0.55, 1.3)
 		runtime.mountFragment(function()
-			local pieces = {}
-			for _, spec in
+			local pieces: { Instance } = {}
+			for _, spec: { name: string, size: Vector3, height: number, color: string | Color3 } in
 				{
-					{ "Brim", Vector3.new(2.1, 0.13, 1.9), -0.16, "shade" },
-					{ "Crown", Vector3.new(1.25, 0.55, 1.1), 0.12, "tint" },
-					{ "Band", Vector3.new(1.28, 0.14, 1.14), -0.08, Color3.fromRGB(105, 74, 55) },
-				}
+					{ name = "Brim", size = Vector3.new(2.1, 0.13, 1.9), height = -0.16, color = "shade" },
+					{ name = "Crown", size = Vector3.new(1.25, 0.55, 1.1), height = 0.12, color = "tint" },
+					{
+						name = "Band",
+						size = Vector3.new(1.28, 0.14, 1.14),
+						height = -0.08,
+						color = Color3.fromRGB(105, 74, 55),
+					},
+				} :: { { name: string, size: Vector3, height: number, color: string | Color3 } }
 			do
-				local fixed = spec[4]
+				local fixed = spec.color
 				local part = Host.Part({
-					Name = "Hat" .. spec[1],
-					Size = spec[2] * fit,
+					Name = "Hat" .. spec.name,
+					Size = spec.size * fit,
 					Color = if fixed == "tint" or fixed == "shade"
-						then function(use)
+						then function(use: Use)
 							local tint = use(hatTint)
 							local k = if fixed == "shade" then 0.85 else 1
 							return Color3.fromRGB(tint[1] * k, tint[2] * k, tint[3] * k)
 						end
-						else fixed,
-					CFrame = head.CFrame * crownBase * CFrame.new(0, spec[3] * fit, 0),
+						else fixed :: Color3,
+					CFrame = head.CFrame * crownBase * CFrame.new(0, spec.height * fit, 0),
 					CanCollide = false,
 					Massless = true,
-					Transparency = function(use)
+					Transparency = function(use: Use)
 						return if use(hat) then 0 else 1
 					end,
 				})
@@ -675,7 +717,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 					Host.Weld({
 						Part0 = Compose.static(head),
 						Part1 = Compose.static(part),
-						C0 = crownBase * CFrame.new(0, spec[3] * fit, 0),
+						C0 = crownBase * CFrame.new(0, spec.height * fit, 0),
 					})
 				)
 			end
@@ -691,7 +733,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 		track.Looped = true
 		track.Priority = Enum.AnimationPriority.Idle
 		track:Play(0.2)
-		runtime:watch(function(use)
+		runtime:watch(function(use: Use)
 			local moving = use(motionPolicy) ~= "reduced" and (not active or active(use))
 			track:AdjustSpeed(if moving then 1 else 0)
 		end)

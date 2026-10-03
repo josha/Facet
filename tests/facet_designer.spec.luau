@@ -1,4 +1,6 @@
 --!strict
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local t = require("./lib/testkit")
 local Facet = require("../src")
@@ -79,18 +81,18 @@ t.describe("Facet Design documents and source", function()
 		t.expect(document.reorder(moved, "n2", 1).root.children[1].id).toBe("n2")
 		local subtree = document.reorder(value, "n5", 8)
 		t.expect(subtree.root.children[#subtree.root.children].id).toBe("n5")
-		t.expect(#document.find(subtree.root, "n5").children).toBe(3)
+		t.expect(#assert(document.find(subtree.root, "n5")).children).toBe(3)
 		t.expect(document.reorder(value, "n5", 4)).toBe(value)
 		local nested = document.reorder(value, "n2", 5)
-		t.expect(select(2, document.find(nested.root, "n2")).id).toBe("n5")
+		t.expect(assert(select(2, document.find(nested.root, "n2"))).id).toBe("n5")
 		t.expect(function()
 			document.reorder(value, "n1", 1)
 		end).toThrow()
 		local stack = history.new(value)
 		stack.commit(document.change(value, "n3", "name", "Trail heading"), "n3")
-		t.expect(document.find(stack.current().root, "n3").name).toBe("Trail heading")
+		t.expect(assert(document.find(stack.current().root, "n3")).name).toBe("Trail heading")
 		stack.undo()
-		t.expect(document.find(stack.current().root, "n3").name).toBe("Heading")
+		t.expect(assert(document.find(stack.current().root, "n3")).name).toBe("Heading")
 	end)
 
 	t.it("restores selection with undo and invalidates redo after a new edit", function()
@@ -101,7 +103,7 @@ t.describe("Facet Design documents and source", function()
 		stack.undo()
 		local reverted, selected = stack.current()
 		t.expect(selected).toBe(id)
-		t.expect(document.find(reverted.root, id).props.text).toBe("A little possibility")
+		t.expect(assert(assert(document.find(reverted.root, id)).props).text).toBe("A little possibility")
 		stack.undo()
 		t.expect(select(2, stack.current())).toBe("n1")
 		stack.redo()
@@ -115,18 +117,18 @@ t.describe("Facet Design documents and source", function()
 		stack.commit(document.change(value, id, "text", "Edited title"), id)
 		stack.commit(document.change(stack.current(), id, "text", nil), id)
 		local reset = stack.current()
-		t.expect(document.find(reset.root, id).props.text).toBe(nil)
+		t.expect(assert(assert(document.find(reset.root, id)).props).text).toBe(nil)
 		t.expect(string.find(exporter.component(reset), 'text = "A little possibility"', 1, true) ~= nil).toBe(true)
 		stack.undo()
-		t.expect(document.find(stack.current().root, id).props.text).toBe("Edited title")
+		t.expect(assert(assert(document.find(stack.current().root, id)).props).text).toBe("Edited title")
 		stack.redo()
-		t.expect(document.find(stack.current().root, id).props.text).toBe(nil)
+		t.expect(assert(assert(document.find(stack.current().root, id)).props).text).toBe(nil)
 	end)
 
 	t.it("renders every inspector preset and keeps its export stable", function()
 		local failures = {}
 		for _, kind in library.names() do
-			local value, id
+			local value: any, id
 			if kind == "Screen" then
 				value, id = document.new(), "n1"
 			else
@@ -186,7 +188,7 @@ t.describe("Facet Design documents and source", function()
 			document.validate(value)
 		end).toThrow()
 		value = document.new()
-		value.root.children[2] = { id = "n2", kind = "Text", name = "Text", props = {}, children = {} }
+		value.root.children[2] = { id = "n2", kind = "Text" :: "Text", name = "Text", props = {}, children = {} }
 		t.expect(function()
 			document.validate(value)
 		end).toThrow()
@@ -289,9 +291,9 @@ t.describe("Facet Design browsing and transfer", function()
 				stack.redo()
 			end
 		end
-		t.expect(document.find(stack.current().root, id).props.text).toBe("Revision 150")
+		t.expect(assert(assert(document.find(stack.current().root, id)).props).text).toBe("Revision 150")
 		stack.undo()
-		t.expect(document.find(stack.current().root, id).props.text).toBe("Revision 149")
+		t.expect(assert(assert(document.find(stack.current().root, id)).props).text).toBe("Revision 149")
 		stack.commit(document.change(stack.current(), id, "text", "New branch"), id)
 		t.expect(stack.canRedo()).toBe(false)
 	end)
@@ -326,7 +328,8 @@ t.describe("Facet Design agent edits", function()
 				{ op = "set", node = "Heading", property = "unknown", value = true },
 			})
 		end).toThrow()
-		t.expect(document.find(value.root, "n3").props.text).toBe(templates[1].root.children[2].props.text)
+		t.expect(assert(assert(document.find(value.root, "n3")).props).text)
+			.toBe(templates[1].root.children[2].props.text)
 		local code = exporter.component(value)
 		t.expect(function()
 			agent.patch(code .. "\ncustomGameLogic()", { { op = "remove", node = "Heading" } })
@@ -337,7 +340,7 @@ end)
 t.describe("Facet Design sessions", function()
 	t.it("updates device facts without remounting local state or native content", function()
 		local builds, cleanup = 0, 0
-		local value, env
+		local value: any, env
 		local mounted = fixture(function(ctx)
 			builds += 1
 			value = ctx.Compose.cell(7)
@@ -346,7 +349,7 @@ t.describe("Facet Design sessions", function()
 				cleanup += 1
 			end)
 			return ctx.UI.Text {
-				text = function(use)
+				text = function(use: Use)
 					return tostring(use(value))
 				end,
 			}
@@ -371,12 +374,12 @@ t.describe("Facet Design sessions", function()
 	end)
 
 	t.it("gives comparison canvases independent state", function()
-		local cells = {}
+		local cells: { Facet.Cell<number> } = {}
 		local function render(ctx)
 			local value = ctx.Compose.cell(1)
 			table.insert(cells, value)
 			return ctx.UI.Text {
-				text = function(use)
+				text = function(use: Use)
 					return tostring(use(value))
 				end,
 			}
@@ -422,7 +425,7 @@ t.describe("Facet Design sessions", function()
 						presented:set(value)
 					end,
 					isPresented = presented,
-					content = function()
+					content = function(): Instance
 						return ctx.UI.Text { text = "Hello" }
 					end,
 				},

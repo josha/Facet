@@ -1,5 +1,9 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+
 local COPY = {
 	title = "Level pickers",
 	intro = "A run of discrete segments that reads as one value. The plus and minus beside each one are a separate stepper sharing the same signal — not part of the picker.",
@@ -26,9 +30,9 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -50,7 +54,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}),
+				}) :: unknown,
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
@@ -65,7 +69,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = label,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -78,7 +82,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = hint,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -94,7 +98,7 @@ return {
 						Wraps = true,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}),
+					}) :: unknown,
 					UI.LevelPicker(pickerId)(spec),
 					UI.Stepper({
 
@@ -135,7 +139,7 @@ return {
 			}
 		end
 
-		local readout = Compose.formula(function(use)
+		local readout = Compose.formula(function(use: Use)
 			return `{COPY.balanced}: {use(balanced)} of 10  ·  {COPY.fidelity}: {use(fidelity)} of 3  ·  `
 				.. `{COPY.difficulty}: {use(difficulty)} of 5  ·  {COPY.trophies}: {use(trophies)} of 3  ·  `
 				.. `{COPY.tinted}: {use(tinted)} of 10`
@@ -150,7 +154,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = COPY.title,
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -161,7 +165,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = COPY.intro,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -180,7 +184,7 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 4),
-					}),
+					}) :: unknown,
 					Host.UIPadding({
 						PaddingTop = UDim.new(0, 8),
 						PaddingBottom = UDim.new(0, 8),
@@ -195,7 +199,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.readoutTitle,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -208,7 +212,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = readout,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -223,7 +227,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = COPY.note,
-					textRole = "caption",
+					textRole = "caption" :: "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -238,7 +242,7 @@ return {
 					gap = 8,
 					Size = UDim2.new(1, 0, 1, 0),
 					BackgroundTransparency = 1,
-					table.unpack(page),
+					table.unpack((page :: unknown) :: { unknown }),
 				},
 			}
 		end

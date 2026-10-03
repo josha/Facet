@@ -1,5 +1,7 @@
 --!strict
 
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 
@@ -37,7 +39,7 @@ local function surface(): { string }
 		end
 	end
 	local engine = engines.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local controls = Facet.controls(runtime, { types = engine.types })
 	for _, key in sortedKeys(controls) do
 		table.insert(lines, `controls(runtime).{key} : {kind(controls[key])}`)

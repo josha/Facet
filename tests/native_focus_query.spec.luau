@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 
@@ -64,7 +69,7 @@ local engineLib = require("./lib/native_engine")
 
 local function world(build: (any, any) -> any): any
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -83,8 +88,10 @@ local function world(build: (any, any) -> any): any
 			services = { GuiService = gui, UserInputService = input },
 		} :: any
 	)
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ build(UI, runtime.constructors, engine.types.Enum) })
+	local stop, screen: any = runtime.mount(function()
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+			(build :: (any, any, any) -> any)(UI, runtime.constructors, engine.types.Enum),
+		})
 	end, parent)
 	local w = { engine = engine, gui = gui, UI = UI, screen = screen, parent = parent }
 	function w.place(name: string, x: number, y: number, width: number, height: number)
@@ -102,9 +109,9 @@ end
 
 t.describe("UI.focusQuery", function()
 	t.it("reports the beam for free moves, capture on an adjusted axis, and a set link", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Top")({ label = "Top" }),
+				UI.Button("Top")({ label = "Top" }) :: unknown,
 				UI.Stepper("Mid")({ value = Facet.Compose.cell(3), max = 9 }),
 				UI.Button("Bottom")({ label = "Bottom" }),
 				UI.Button("Side")({ label = "Side" }),
@@ -129,13 +136,13 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("searches an enclosing SelectionGroup first and honours Stop", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Outside")({ label = "Outside" }),
+				UI.Button("Outside")({ label = "Outside" }) :: unknown,
 				Host.Frame({
 					Name = "Group",
 					SelectionGroup = true,
-					UI.Button("A")({ label = "A" }),
+					UI.Button("A")({ label = "A" }) :: unknown,
 					UI.Button("B")({ label = "B" }),
 				}),
 			})
@@ -153,11 +160,11 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("reports capture on an adjustable's own axis before it is selected", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("L")({ label = "L" }),
+				UI.Button("L")({ label = "L" }) :: unknown,
 				UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9 }),
-				UI.Slider("Rear")({ value = Facet.Compose.cell(3), min = 0, max = 9, axis = "y" }),
+				UI.Slider("Rear")({ value = Facet.Compose.cell(3), min = 0, max = 9, axis = "y" :: "y" }),
 				UI.Button("Below")({ label = "Below" }),
 			})
 		end)
@@ -176,9 +183,9 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("does not report capture for a disabled value control", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("L")({ label = "L" }),
+				UI.Button("L")({ label = "L" }) :: unknown,
 				UI.Stepper("Volume")({ value = Facet.Compose.cell(3), max = 9, enabled = false }),
 			})
 		end)
@@ -189,13 +196,13 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("searches nested SelectionGroups inside out and honours an outer Stop", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Out")({ label = "Out" }),
+				UI.Button("Out")({ label = "Out" }) :: unknown,
 				Host.Frame({
 					Name = "Outer",
 					SelectionGroup = true,
-					UI.Button("Sibling")({ label = "Sibling" }),
+					UI.Button("Sibling")({ label = "Sibling" }) :: unknown,
 					Host.Frame({ Name = "Inner", SelectionGroup = true, UI.Button("A")({ label = "A" }) }),
 				}),
 			})
@@ -213,9 +220,9 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("ignores a link to a hidden or unselectable target, zero-size and off-screen candidates", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("From")({ label = "From" }),
+				UI.Button("From")({ label = "From" }) :: unknown,
 				UI.Button("Hidden")({ label = "Hidden" }),
 				UI.Button("Flat")({ label = "Flat" }),
 				UI.Button("Away")({ label = "Away" }),
@@ -238,12 +245,12 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a scroll child is a candidate off its window only from inside the same scroll container", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Above")({ label = "Above" }) :: unknown,
 				Host.ScrollingFrame("Scroller")({
 					Selectable = false,
-					UI.Button("Row1")({ label = "Row1" }),
+					UI.Button("Row1")({ label = "Row1" }) :: unknown,
 					UI.Button("Row2")({ label = "Row2" }),
 				}),
 				UI.Button("Far")({ label = "Far" }),
@@ -263,10 +270,10 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a multi-line text field below the screen is reached through its viewport (F6c)", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.ScrollingFrame("Page")({
 				Selectable = false,
-				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Above")({ label = "Above" }) :: unknown,
 				UI.TextInput("Notes")({ value = Facet.Compose.cell(""), multiline = true, visibleLines = 3 }),
 			})
 		end)
@@ -283,9 +290,9 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a selectable scroll container ranks by its own rectangle, like a control (F16)", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Above")({ label = "Above" }) :: unknown,
 				UI.Button("Right")({ label = "Right" }),
 				Host.ScrollingFrame("Scroller")({
 					Selectable = true,
@@ -305,14 +312,14 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("a SelectionGroup counts through a Folder between it and the control", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("Near")({ label = "Near" }),
+				UI.Button("Near")({ label = "Near" }) :: unknown,
 				Host.Frame({
 					Name = "Group",
 					SelectionGroup = true,
 					Host.Folder({
-						UI.Button("Top")({ label = "Top" }),
+						UI.Button("Top")({ label = "Top" }) :: unknown,
 						UI.Button("Low")({ label = "Low" }),
 					}),
 				}),
@@ -327,9 +334,9 @@ t.describe("UI.focusQuery", function()
 
 	t.it("at a limit a value control's axis reports the control beyond it", function()
 		local value = Facet.Compose.cell(0)
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button("L")({ label = "L" }),
+				UI.Button("L")({ label = "L" }) :: unknown,
 				UI.Stepper("Volume")({ value = value, max = 9 }),
 				UI.Button("R")({ label = "R" }),
 			})
@@ -343,8 +350,8 @@ t.describe("UI.focusQuery", function()
 	end)
 
 	t.it("adds no per-frame work", function()
-		local w = world(function(UI, Host)
-			return Host.Frame({ UI.Button("A")({ label = "A" }), UI.Button("B")({ label = "B" }) })
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame({ UI.Button("A")({ label = "A" }) :: unknown, UI.Button("B")({ label = "B" }) })
 		end)
 		local before = w.engine.heartbeat.count()
 		w.gui.SelectedObject = w.place("A", 0, 0, 100, 44)

@@ -1,5 +1,7 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local seedData = require("../content/seed")
 local strings = require("../content/strings")
 
@@ -23,7 +25,7 @@ local function isKnownReason(reason: string): boolean
 end
 
 function commerce.new(opts: Opts): any
-	local Compose = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 	local now = opts.now
 
 	local satchel: { [string]: any } = {}

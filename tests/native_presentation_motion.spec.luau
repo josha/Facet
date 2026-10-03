@@ -1,4 +1,10 @@
 --!strict
+
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+local FixtureOverlayTypes = require("../src/ui/overlay_types")
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local fadeKit = require("./lib/fade")
@@ -21,29 +27,29 @@ end
 
 local function dialogWorld(options: any?): (any, any)
 	local open = Compose.cell(false)
-	local w = overlay.new(function(UI, Host, _, gui)
+	local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 		local opener = UI.Button "Opener" { label = "About" }
 		gui.SelectedObject = opener
 		return Host.Frame({
-			opener,
+			opener :: unknown,
 			UI.Dialog "About" {
 				isPresented = open,
 				onPresentedChange = function(value: boolean)
 					open:set(value)
 				end,
 				title = "About",
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel "Line" { Text = "Three apps." }
 				end,
 				actions = {
 					{
 						id = "Done",
 						label = "Done",
-						role = "cancel",
+						role = "cancel" :: "cancel",
 						onActivate = function()
 							open:set(false)
 						end,
-					},
+					} :: FixtureOverlayTypes.DialogAction,
 				},
 			},
 		})
@@ -127,16 +133,16 @@ end)
 t.describe("CollapsibleView in place", function()
 	local function tipsWorld(options: any?): (any, any)
 		local expanded = Compose.cell(false)
-		local w = overlay.new(function(UI, Host, _, gui)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local view = UI.CollapsibleView "Tips" {
 				label = "Turn step sets the increment for Rotation and both Turn buttons.",
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Button "Detail" { label = "Detail" }
 				end,
 			}
 			gui.SelectedObject = view
-			return Host.Frame({ view, UI.Button "Other" { label = "Other" } })
+			return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Other" } })
 		end, options)
 		return w, expanded
 	end
@@ -254,11 +260,11 @@ end)
 t.describe("presentation motion: DisclosureGroup", function()
 	local function disclosureWorld(options: any?): (any, any)
 		local expanded = Compose.cell(false)
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.DisclosureGroup "Settings" {
 				label = "Appearance",
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Button "Palette" { label = "Palette" }
 				end,
 			}
@@ -267,11 +273,11 @@ t.describe("presentation motion: DisclosureGroup", function()
 	end
 
 	t.it("keeps a fade node's outline stroke painted out whenever no fade runs, from its first frame", function()
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.DisclosureGroup "Settings" {
 				label = "Appearance",
 				expanded = Compose.cell(true),
-				content = function()
+				content = function(): Instance
 					return UI.Button "Palette" { label = "Palette" }
 				end,
 			}
@@ -370,7 +376,7 @@ end)
 t.describe("presentation motion: Toast with an action, and Notice", function()
 	t.it("an action toast row slides up and fades in, then slides down and fades out", function()
 		local shown = Compose.cell(false)
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: FacetControls)
 			return UI.Toast "Saved" {
 				isPresented = shown,
 				message = "Saved",
@@ -406,7 +412,7 @@ t.describe("presentation motion: Toast with an action, and Notice", function()
 	local function noticeWorld(options: any?): (any, any, { number })
 		local shown = Compose.cell(true)
 		local closes: { number } = {}
-		local w = overlay.new(function(UI)
+		local w = overlay.new(function(UI: FacetControls)
 			return Compose.show(shown, function()
 				return UI.Notice "Offline" {
 					message = "You are offline",
@@ -501,7 +507,7 @@ end)
 t.describe("presentation motion: the Popover compact sheet", function()
 	t.it("titles the sheet, hugs the content and slides up on a portrait phone", function()
 		local open = Compose.cell(false)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Popover "Status" {
 				source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
 				isPresented = open,
@@ -509,7 +515,7 @@ t.describe("presentation motion: the Popover compact sheet", function()
 					open:set(value)
 				end,
 				title = "Status",
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel "Presence" { Text = "Online" }
 				end,
 			}
@@ -542,14 +548,14 @@ t.describe("presentation motion: the Popover compact sheet", function()
 
 	t.it("an untitled popover still shows an empty title beside Done", function()
 		local open = Compose.cell(true)
-		local w = overlay.new(function(UI, Host)
+		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Popover "Plain" {
 				source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
 				isPresented = open,
 				onPresentedChange = function(value: boolean)
 					open:set(value)
 				end,
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel "Presence" { Text = "Online" }
 				end,
 			}
@@ -568,15 +574,19 @@ t.describe("ctx.fade group warm-up", function()
 	local engines = require("./lib/native_engine")
 	local function world(theme: any?)
 		local engine = engines.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local ctx = context(Compose, runtime, {
 			types = engine.types,
 			theme = theme,
-			services = { RunService = { Heartbeat = engine.heartbeat } },
+			services = { RunService = { Heartbeat = engine.heartbeat } :: any },
 		})
 		local amount = Compose.cell(0)
-		local stop, node = runtime.mount(function()
-			local node = ctx.fade({ Name = "Faded", GroupTransparency = amount, runtime.constructors.Frame "Child" {} })
+		local stop, node: any = runtime.mount(function()
+			local node = ctx.fade({
+				Name = "Faded",
+				GroupTransparency = amount,
+				((runtime.constructors.Frame :: unknown) :: FrameConstructor) "Child" {},
+			})
 			ctx.skin(node, "panel")
 			return node
 		end, engine.new("Folder"))
@@ -585,7 +595,7 @@ t.describe("ctx.fade group warm-up", function()
 	t.it("theme shadows share the panel fade through closing and reopening", function()
 		for _, reactive in { false, true } do
 			local package = Facet.themes.neutralPackage()
-			package.chrome.panel = { kind = "native", shadow = { transparency = 0.3 } }
+			assert(package.chrome).panel = { kind = "native" :: "native", shadow = { transparency = 0.3 } }
 			local engine, runtime, amount, stop, node = world(if reactive then Compose.cell(package) else package)
 			local shadow = node:FindFirstChild("ChromeShadow")
 			for _, value in { 0, 0.25, 0.75, 1, 0.5, 0 } do

@@ -1,5 +1,7 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local document = require("./document")
 local library = require("./library")
 local history = require("./history")
@@ -16,7 +18,7 @@ local galleryPages = require("./gallery")
 local designer = {}
 
 function designer.mount(Facet: any, parent: Instance, dependencies: any): any
-	local Compose = Facet.Compose
+	local Compose: ComposeModule = Facet.Compose
 	local saved = dependencies.read and dependencies.read() or {}
 	local initial = templates[1]
 	if saved.draft and pcall(document.validate, saved.draft) then
@@ -51,7 +53,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 		dataFields = {},
 		dataArray = false,
 		galleryTitle = "",
-		galleryEntries = {},
+		galleryEntries = {} :: { { id: string, value: any } },
 		galleryQuery = "",
 		galleryPage = 1,
 		transferTitle = "",
@@ -81,7 +83,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			return nextValue
 		end)
 	end
-	local function attempt(callback: () -> ())
+	local function attempt<T...>(callback: () -> T...): boolean
 		local ok, err = pcall(function()
 			callback()
 			return true
@@ -99,14 +101,26 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 	end
 	local function sync(rebuild: boolean?)
 		local value, id = stack.current()
-		local node = assert(document.find(value.root, id))
-		local fields =
-			{ { id = id .. ".name", key = "name", label = "Layer name", kind = "string", value = node.name } }
+		local node, parent = document.find(value.root, id)
+		assert(node)
+		local fields: { any } = {
+			{ id = id .. ".name", key = "name", label = "Layer name", kind = "string" :: "string", value = node.name },
+		}
 		for _, descriptor in library.definitions[node.kind].fields do
-			if not library.visible(node.kind, descriptor.key, node.props) then
+			if
+				(descriptor.kind == "column" and (not parent or parent.kind ~= "Table"))
+				or (descriptor.kind == "binding" and not document.collection(value, id))
+				or not library.visible(node.kind, descriptor.key, node.props)
+			then
 				continue
 			end
 			local item = table.clone(descriptor)
+			if descriptor.kind == "column" then
+				item.options = {}
+				for _, column in assert(parent).props.columns or library.definitions.Table.defaults.columns do
+					table.insert(item.options, column.id)
+				end
+			end
 			item.id = id .. "." .. item.key
 			item.explicit = node.props[item.key] ~= nil
 			item.value = node.props[item.key]
@@ -114,6 +128,15 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 				item.value = library.definitions[node.kind].defaults[item.key]
 			end
 			table.insert(fields, item)
+		end
+		if node.kind == "Table" then
+			table.insert(fields, {
+				id = id .. ".cells",
+				key = "columnTemplates",
+				label = "Reusable column cells",
+				kind = "command",
+				value = "Design a cell",
+			})
 		end
 		selected:set(id)
 		patch({
@@ -140,7 +163,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			attempt(persist)
 		end
 	end
-	local function commit(callback: any)
+	local function commit(callback: any): boolean
 		return attempt(function()
 			local value, id = stack.current()
 			local nextValue, nextId = callback(value, id)
@@ -336,7 +359,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 					target = target[at]
 				end
 			end
-			library.parse({ kind = "json" }, value)
+			library.parse({ kind = "json" :: "json" }, value)
 			structured.value = value
 			showStructured()
 		end)
@@ -388,7 +411,58 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			actions.property(key, value)
 		end)
 	end
+	actions.bindProperty = function(key)
+		local value, id = stack.current()
+		local collection = assert(document.collection(value, id), "Select a control in a reusable cell")
+		local node = assert(document.find(value.root, id))
+		local descriptor = assert(library.descriptor(node.kind, key))
+		local rows = collection.props.from or library.definitions[collection.kind].defaults.from
+		local names = {}
+		for _, row in rows do
+			for name, item in row do
+				if
+					type(name) == "string"
+					and (type(item) == "string" or type(item) == "number" or type(item) == "boolean")
+					and (descriptor.conversion ~= "number" or type(item) == "number")
+				then
+					names[name] = true
+				end
+			end
+		end
+		local entries = { { label = "Use static value", value = "" } }
+		local ordered = {}
+		for name in names do
+			table.insert(ordered, name)
+		end
+		table.sort(ordered)
+		for _, name in ordered do
+			table.insert(entries, { label = name, value = name })
+		end
+		menu("Bind " .. descriptor.target .. " to a row field", entries, function(field)
+			actions.property(key, if field == "" then nil else field)
+		end)
+	end
+	actions.columnTemplates = function()
+		local value, id = stack.current()
+		local node = assert(document.find(value.root, id))
+		assert(node.kind == "Table", "Select a table")
+		local entries = {}
+		for _, column in node.props.columns or library.definitions.Table.defaults.columns do
+			table.insert(entries, { label = column.label or column.id, value = column.id })
+		end
+		menu("Design a reusable column cell", entries, function(column)
+			commit(function(current)
+				return document.columnTemplate(current, id, column)
+			end)
+		end)
+	end
 	actions.insertMenu = function()
+		local value, id = stack.current()
+		local node = assert(document.find(value.root, id))
+		if node.kind == "Table" then
+			actions.columnTemplates()
+			return
+		end
 		local entries = {}
 		for _, name in library.names() do
 			if name ~= "Screen" then
@@ -582,7 +656,7 @@ function designer.mount(Facet: any, parent: Instance, dependencies: any): any
 			dependencies.flush()
 		end
 	end
-	actions.galleryManage = function(name)
+	actions.galleryManage = function(name: string)
 		if model:peek().galleryTitle ~= "My designs" then
 			return
 		end

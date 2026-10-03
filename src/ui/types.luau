@@ -139,7 +139,7 @@ export type Config = {
 	userInputService: UserInputService?,
 	inputParent: Instance?,
 	overlayParent: Instance?,
-	controlSize: Value<ControlSize>?,
+	controlSize: Value<ControlSize?>?,
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
 	motionLevel: Value<MotionLevel>?,
@@ -190,7 +190,7 @@ export type ListRow = {
 	captions: { GuiObject },
 	trailing: { Child }?,
 	described: boolean,
-	controlSize: Value<ControlSize>?,
+	controlSize: Value<ControlSize?>?,
 }
 export type SkinStateOptions = {
 	disabled: Engine.ValueBoolean?,
@@ -220,7 +220,7 @@ export type Context = {
 	motionEase: (string, Use?) -> (number) -> number,
 	motionStyle: (string, Use?) -> Enum.EasingStyle,
 	neutralMetrics: (Use?) -> Theme.Metrics,
-	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,
+	controlSize: (Value<ControlSize?>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
 	hitFloor: () -> (Use?) -> number,
 	tenFoot: () -> (Use?) -> boolean,

@@ -1,4 +1,9 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -98,7 +103,7 @@ local function world(build: (any, any) -> any, options: any?): any
 			return true
 		end
 	end
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local errors: { any } = {}
 	local UI: any = controls(
 		Compose,
@@ -114,8 +119,8 @@ local function world(build: (any, any) -> any, options: any?): any
 	)
 	local target = engine.new("Folder")
 	local view = o.viewport or { w = 600, h = 900 }
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ build(UI, runtime.constructors) })
+	local stop, screen: any = runtime.mount(function()
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ build(UI, runtime.constructors) })
 	end, target)
 	screen.AbsoluteSize = engine.types.Vector2.new(view.w, view.h)
 	local w: any = {
@@ -184,12 +189,12 @@ local function world(build: (any, any) -> any, options: any?): any
 end
 
 local function mount(spec: any, options: any?): any
-	local full = table.clone(spec)
+	local full: { [any]: any } = table.clone(spec)
 	full.clock = full.clock or clock
-	local w = world(function(UI, Host)
+	local w = world(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame({
 			Name = "Col",
-			Host.UIListLayout({}),
+			Host.UIListLayout({}) :: unknown,
 			UI.DateTimePicker("P")(full),
 			UI.Button("Other")({ label = "Other" }),
 		})
@@ -237,7 +242,7 @@ t.describe("DateTimePicker: a single date", function()
 	t.it("the year and month menus open on the shown ones and honour min/max", function()
 		local cell, _, change = caller(D(2026, 9, 5))
 		local w = mount(
-			{ value = cell, onChange = change, style = "inline", min = D(2020, 3, 10), max = D(2030, 6, 1) },
+			{ value = cell, onChange = change, style = "inline" :: "inline", min = D(2020, 3, 10), max = D(2030, 6, 1) },
 			{ input = "pad" }
 		)
 		must(w.picker(), "Year").Activated.fire()
@@ -259,7 +264,10 @@ t.describe("DateTimePicker: a single date", function()
 
 	t.it("the year menu is a short bounded window on the shown year, never thousands of blurred rows", function()
 		local cell, _, change = caller(D(2026, 9, 5))
-		local w = mount({ value = cell, onChange = change, style = "inline", min = D(1, 1, 1) }, { input = "pad" })
+		local w = mount(
+			{ value = cell, onChange = change, style = "inline" :: "inline", min = D(1, 1, 1) },
+			{ input = "pad" }
+		)
 		must(w.picker(), "Year").Activated.fire()
 		local rows = must(w.screen, "MenuRows")
 		local years = {}
@@ -314,7 +322,7 @@ t.describe("DateTimePicker: a single date", function()
 
 	t.it("the field's parts take the field's height at every control size", function()
 		for _, input in { "pointer", "touch" } do
-			for _, rung in { "xsmall", "large", "none" } do
+			for _, rung in { "xsmall", "large", "none" } :: { "large" | "none" | "xsmall" } do
 				local cell, _, change = caller(D(2026, 9, 5))
 				local w = mount({
 					value = cell,
@@ -477,7 +485,7 @@ t.describe("DateTimePicker: a single date", function()
 				local cell, _, change = caller({ start = D(2026, 1, 2), finish = D(2026, 1, 9) })
 				local commits = 0
 				local w = mount({
-					selection = "range",
+					selection = "range" :: "range",
 					range = cell,
 					onRangeChange = change,
 					draft = draft,
@@ -688,7 +696,7 @@ t.describe("DateTimePicker: a single date", function()
 
 	t.it("time: the hour and minute fields share the panel width and AM/PM sits on its own line", function()
 		local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
-		local w = mount({ value = cell, onChange = change, time = true, minuteStep = 15, style = "inline" })
+		local w = mount({ value = cell, onChange = change, time = true, minuteStep = 15, style = "inline" :: "inline" })
 		local fields = must(w.picker(), "Fields")
 		expect(fields.Size.X.Scale).toBe(1)
 		expect(fields.AutomaticSize.Name).toBe("Y")
@@ -706,7 +714,7 @@ t.describe("DateTimePicker: a single date", function()
 
 	t.it("time: hour and minute fields step on the minute grid, AM/PM flips, and a touch list sets both", function()
 		local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
-		local w = mount({ value = cell, onChange = change, time = true, minuteStep = 15, style = "inline" })
+		local w = mount({ value = cell, onChange = change, time = true, minuteStep = 15, style = "inline" :: "inline" })
 		must(must(w.picker(), "Half"), "PM").Activated.fire()
 		expect(iso(cell:peek())).toBe("2026-09-16 21:30")
 		local minute = must(w.picker(), "Minute")
@@ -719,7 +727,7 @@ t.describe("DateTimePicker: a single date", function()
 		expect(find(w.picker(), "Times")).toBeNil()
 		w.stop()
 		local touch = mount(
-			{ value = cell, onChange = change, time = true, minuteStep = 30, style = "inline" },
+			{ value = cell, onChange = change, time = true, minuteStep = 30, style = "inline" :: "inline" },
 			{ input = "touch" }
 		)
 		local times = must(touch.picker(), "Times")
@@ -764,7 +772,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		local cell, seen, change = caller({})
 		local commits = {}
 		local w = mount({
-			selection = "range",
+			selection = "range" :: "range",
 			range = cell,
 			onRangeChange = change,
 			onRangeCommit = function(r: any)
@@ -800,7 +808,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		local neighbour = must(w.cellAt(1), "Day")
 		expect(`{inMonth:HasTag("facet-calendar-dim")} {neighbour:HasTag("facet-calendar-dim")}`).toBe("false true")
 		local engine: any = engines.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local sheet: any = nil
 		local stop = runtime.mount(function()
 			sheet = themes(Compose).createStyleSheet(runtime, nil, { types = engine.types })
@@ -826,7 +834,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 	t.it("presets clip to the bounds: outside is shown disabled, overlapping is clamped and enabled", function()
 		local cell, _, change = caller({})
 		local w = mount({
-			selection = "range",
+			selection = "range" :: "range",
 			range = cell,
 			onRangeChange = change,
 			presets = presets(),
@@ -845,7 +853,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		local cell, _, change = caller({ start = D(2026, 9, 1), finish = D(2026, 9, 3) })
 		local commits = {}
 		local w = mount({
-			selection = "range",
+			selection = "range" :: "range",
 			range = cell,
 			onRangeChange = change,
 			presets = presets(),
@@ -887,7 +895,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 
 	t.it("a caller write during an open draft re-bases what Cancel restores", function()
 		local cell, _, change = caller({ start = D(2026, 9, 1), finish = D(2026, 9, 3) })
-		local w = mount({ selection = "range", range = cell, onRangeChange = change, draft = true })
+		local w = mount({ selection = "range" :: "range", range = cell, onRangeChange = change, draft = true })
 		w.open()
 		cell:set({ start = D(2026, 10, 1), finish = D(2026, 10, 2) })
 		w.cellOf(D(2026, 9, 14)).Activated.fire()
@@ -931,13 +939,13 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		local cell, _, change = caller({ start = D(2026, 9, 10), finish = D(2026, 9, 15) })
 		local commits: { string } = {}
 		local w = mount({
-			selection = "range",
+			selection = "range" :: "range",
 			range = cell,
 			onRangeChange = change,
 			onRangeCommit = function(r: any)
 				table.insert(commits, `{iso(r.start)}..{iso(r.finish)}`)
 			end,
-			style = "inline",
+			style = "inline" :: "inline",
 		}, { viewport = { w = 900, h = 900 } })
 		w.picker().AbsoluteSize = w.V2.new(900, 700)
 		expect(w.attr("dual")).toBe(true)
@@ -968,14 +976,14 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		local cell, _, change = caller({ start = D(2026, 9, 10), finish = D(2026, 9, 15) })
 		local commits = 0
 		local w = mount({
-			selection = "range",
+			selection = "range" :: "range",
 			range = cell,
 			onRangeChange = change,
 			onRangeCommit = function()
 				commits += 1
 			end,
 			draft = true,
-			style = "inline",
+			style = "inline" :: "inline",
 		})
 		layout(w, 1)
 		drag(w, D(2026, 9, 15), { { D(2026, 9, 18) } })
@@ -1000,10 +1008,10 @@ t.describe("DateTimePicker: the gallery tab", function()
 				end
 			end
 		end
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Pickers",
-				Host.UIListLayout({}),
+				Host.UIListLayout({}) :: unknown,
 				UI.Toggle("Refuse")({ label = "Refuse changes", value = refuse }),
 				UI.Text("Committed")({
 					text = function(use: any): string
@@ -1018,7 +1026,7 @@ t.describe("DateTimePicker: the gallery tab", function()
 				}),
 				UI.DateTimePicker("Window")({
 					label = "Season window",
-					selection = "range",
+					selection = "range" :: "range",
 					range = window,
 					onRangeChange = accept(window),
 					onRangeCommit = function(r: any)
@@ -1062,17 +1070,17 @@ end)
 t.describe("DateTimePicker: layout, routes and refusals", function()
 	t.it("a wide screen shows two consecutive months, and they stay consecutive through paging and bounds", function()
 		local single, _, changeSingle = caller(D(2026, 12, 5))
-		local one = mount({ value = single, onChange = changeSingle, style = "inline" })
+		local one = mount({ value = single, onChange = changeSingle, style = "inline" :: "inline" })
 		one.picker().AbsoluteSize = one.V2.new(1000, 700)
 		expect(one.attr("dual")).toBe(false)
 		one.stop()
 		local cell, _, change = caller({ start = D(2026, 12, 5) })
 		local bound = Compose.cell(nil :: any)
 		local w = mount({
-			selection = "range",
+			selection = "range" :: "range",
 			range = cell,
 			onRangeChange = change,
-			style = "inline",
+			style = "inline" :: "inline",
 			min = function(use: any)
 				return use(bound)
 			end,
@@ -1098,7 +1106,12 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 		expect(titles()).toBe("January 2027 | February 2027")
 		expect(must(w.panel(), "Previous").Interactable).toBe(false)
 		w.stop()
-		local narrow = mount({ selection = "range", range = cell, onRangeChange = change, style = "inline" })
+		local narrow = mount({
+			selection = "range" :: "range",
+			range = cell,
+			onRangeChange = change,
+			style = "inline" :: "inline",
+		})
 		narrow.picker().AbsoluteSize = narrow.V2.new(390, 700)
 		expect(narrow.attr("dual")).toBe(false)
 		expect(find(narrow.picker(), "Pane2")).toBeNil()
@@ -1107,18 +1120,18 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 	end)
 
 	t.it("two time pickers on one page: Down from a picker's last week reaches ITS OWN hour field", function()
-		local w = world(function(UI, Host)
+		local w = world(function(UI: FacetControls, Host: RobloxHost)
 			local function picker(id: string): any
 				local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
 				return UI.DateTimePicker(id)({
 					value = cell,
 					onChange = change,
 					time = true,
-					style = "inline",
+					style = "inline" :: "inline",
 					clock = clock,
 				})
 			end
-			return Host.Frame({ Name = "Col", Host.UIListLayout({}), picker("A"), picker("B") })
+			return Host.Frame({ Name = "Col", Host.UIListLayout({}) :: unknown, picker("A"), picker("B") })
 		end, { input = "pad" })
 		for _, id in { "A", "B" } do
 			local last = 0
@@ -1141,7 +1154,7 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 				local cell, _, change = caller(if range then { start = D(2026, 9, 1) } else D(2026, 9, 16))
 				local spec: any = if range
 					then {
-						selection = "range",
+						selection = "range" :: "range",
 						range = cell,
 						onRangeChange = change,
 						draft = true,
@@ -1245,7 +1258,7 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 	t.it("refuses a malformed contract at construction and quarantines a late bad value", function()
 		local function build(spec: any): string
 			local ok, err = pcall(function()
-				local w = world(function(UI)
+				local w = world(function(UI: FacetControls)
 					spec.clock = clock
 					return UI.DateTimePicker(spec)
 				end)
@@ -1259,13 +1272,15 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 		end
 		expect(has({ value = D(2023, 2, 29), onChange = noop }, "calendar day")).toBe(true)
 		expect(has({ value = TODAY }, "onChange")).toBe(true)
-		expect(has({ selection = "range", value = TODAY, onChange = noop }, "range")).toBe(true)
+		expect(has({ selection = "range" :: "range", value = TODAY, onChange = noop }, "range")).toBe(true)
 		expect(has({ value = TODAY, onChange = noop, minuteStep = 7 }, "minuteStep")).toBe(true)
 		expect(has({ value = TODAY, onChange = noop, time = true }, "hour")).toBe(true)
-		expect(has({ selection = "range", range = {}, onRangeChange = noop, time = true }, "whole days")).toBe(true)
+		expect(has({ selection = "range" :: "range", range = {}, onRangeChange = noop, time = true }, "whole days")).toBe(
+			true
+		)
 		expect(has({ value = TODAY, onChange = noop, weekStart = 0 }, "weekStart")).toBe(true)
 		expect(has({
-			selection = "range",
+			selection = "range" :: "range",
 			range = {},
 			onRangeChange = noop,
 			presets = { { id = "a", label = "A", range = noop, rnage = noop } },

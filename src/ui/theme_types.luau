@@ -162,20 +162,56 @@ export type IconEntry = string | IconAsset | {
 }
 export type IconRegistry = { icons: { [string]: IconEntry }?, assets: { [string]: Asset }? }
 export type FillDirection = "ltr" | "rtl" | "ttb" | "btt"
+type SkinKind =
+	"native"
+	| "none"
+	| "nineSlice"
+	| "fill"
+	| "frame"
+	| "tile"
+	| "corners"
+	| "edges"
+	| "plaque"
+	| "layered"
+	| "glow"
+	| "ring"
+	| "brackets"
 export type SkinLayer = {
-	kind: "native"
-		| "none"
-		| "nineSlice"
-		| "fill"
-		| "frame"
-		| "tile"
-		| "corners"
-		| "edges"
-		| "plaque"
-		| "layered"
-		| "glow"
-		| "ring"
-		| "brackets",
+	kind: SkinKind,
+	asset: AssetSource?,
+	text: boolean?,
+	textInsets: Insets?,
+	tile: number?,
+	tileSize: { w: number, h: number }?,
+	sliced: boolean?,
+	topLeft: AssetSource?,
+	topRight: AssetSource?,
+	bottomLeft: AssetSource?,
+	bottomRight: AssetSource?,
+	sides: { "top" | "right" | "bottom" | "left" }?,
+	thickness: number?,
+	margin: number?,
+	size: number | { w: number, h: number }?,
+	edge: "top" | "right" | "bottom" | "left"?,
+	overhang: number?,
+	contentInsets: Insets?,
+	shadow: string | Shadow?,
+	layers: { SkinLayer }?,
+	direction: FillDirection?,
+	startAsset: AssetSource?,
+	endAsset: AssetSource?,
+	fallback: string?,
+	color: string | RGB?,
+	blurRadius: ShadowAxis?,
+	transparency: number?,
+	zIndex: number?,
+	corner: ("pill" | "square")?,
+	outset: number?,
+	sliceScale: number?,
+	pulse: boolean?,
+}
+export type SkinLayerPatch = {
+	kind: SkinKind?,
 	asset: AssetSource?,
 	text: boolean?,
 	textInsets: Insets?,
@@ -225,7 +261,8 @@ export type StyleValue =
 	| CFrame
 	| NumberRange
 export type RuleProperties = { [string]: StyleValue? }
-export type Rule = { selector: string, properties: RuleProperties?, props: RuleProperties? }
+export type AuthoredRuleProperties = { [string]: (StyleValue | { role: string })? }
+export type Rule = { selector: string, properties: AuthoredRuleProperties?, props: AuthoredRuleProperties? }
 export type Identity =
 	{ id: string, displayName: string?, version: string?, schemaVersion: string?, rendering: string? }
 export type IdentityPatch = {
@@ -251,7 +288,7 @@ export type ThemeDefinition = {
 	identity: IdentityPatch?,
 	style: { defaultTheme: string?, themes: { PalettePatch }?, shadows: { [string]: Shadow }? }?,
 	metrics: MetricsPatch?,
-	chrome: { [string]: SkinLayer }?,
+	chrome: { [string]: SkinLayerPatch }?,
 	assets: { [string]: Asset }?,
 	icons: { [string]: IconEntry }?,
 	rules: { Rule }?,
@@ -273,7 +310,7 @@ export type ThemeOptions = {
 	preferredTransparency: Engine.ValueNumber?,
 	hover: Engine.ValueBoolean?,
 	tenFoot: Engine.ValueBoolean?,
-	transition: Engine.Value<TweenInfo | false>?,
+	transition: Engine.Value<(TweenInfo | false)?>?,
 	contentProvider: ContentProvider?,
 }
 export type SkinOptions = {
@@ -297,7 +334,7 @@ export type Themes = {
 	REQUIRED_TYPE_ROLES: { string },
 	neutralPackage: () -> ThemePackage,
 	forDistance: (package: ThemePackage, distance: "near" | "ten-foot") -> ThemePackage,
-	define: (definition: ThemeDefinition) -> (ThemePackage?, ThemeReport),
+	define: (definition: ThemeDefinition | ThemePackage) -> (ThemePackage?, ThemeReport),
 	checkCoverage: (package: ThemePackage, needs: { CoverageNeed }) -> CoverageReport,
 	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> string?,
 	createStyleSheet: (

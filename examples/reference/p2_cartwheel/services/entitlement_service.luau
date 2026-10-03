@@ -1,9 +1,11 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local entitlement_service = {}
 
 function entitlement_service.new(opts: any): any
-	local Compose = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 	local self: any = {}
 
 	local chatterPlus = Compose.cell(false)

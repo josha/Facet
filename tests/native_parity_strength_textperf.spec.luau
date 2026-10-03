@@ -1,4 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -7,7 +17,7 @@ local perfRunner = require("../bench/perf_runner")
 local perfProfiles = require("../bench/perf_profiles")
 local lab = require("../examples/performance/lab/perf_lab")
 local textDegrade = require("../examples/gallery/scenarios/text_degrade")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function find(root: any, name: string): any
@@ -25,7 +35,7 @@ end
 
 local function world(options: { [string]: any }?): (any, any, any, any)
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -52,7 +62,7 @@ local function labModules(failing: string?): { [string]: any }
 	local workloads = require("../examples/performance/lab/workloads")
 	local wrapped = table.clone(workloads)
 	wrapped.create = function(context: any, scene: string, dataset: any)
-		local workload = workloads.create(context, scene, dataset)
+		local workload: any = workloads.create(context, scene, dataset)
 		if failing and scene == failing then
 			workload.step = function()
 				error("injected workload failure")
@@ -80,7 +90,7 @@ local function labFixture(failing: string?): (any, any, any)
 			sourceStamp = "test",
 			placeName = "headless",
 			viewport = "800x600",
-			orientation = "landscape",
+			orientation = "landscape" :: "landscape",
 			graphicsQualityLevel = "n/a",
 			frameTarget = "n/a",
 			studioVersion = "n/a",
@@ -240,7 +250,7 @@ t.describe("performance lab evidence", function()
 				local label = Compose.cell("Go")
 				app.runtime.mount(function()
 					return app.Host.ScreenGui({
-						app.UI.Button({ label = label, onActivate = function() end }),
+						app.UI.Button({ label = label, onActivate = function() end }) :: unknown,
 						app.UI.Button({ label = "Other", onActivate = function() end }),
 					})
 				end, app.target)
@@ -284,8 +294,8 @@ t.describe("fine-grained cost at any collection size", function()
 			metrics.destroys += 1
 			destroy(node)
 		end
-		local runtime = Facet.Roblox.createRuntime(engine)
-		local Host = runtime.constructors
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local D2, V2 = engine.types.UDim2, engine.types.Vector2
 		local items = {}
@@ -301,12 +311,12 @@ t.describe("fine-grained cost at any collection size", function()
 			end,
 			itemSize = 56,
 			columns = if grid then 4 else nil,
-			render = function(current)
+			render = function(current): GuiObject
 				local item = current:peek()
 				return Host.Frame({
 					Size = D2.new(1, 0, 0, 56),
 					Host.TextLabel({
-						Text = function(use)
+						Text = function(use: Use)
 							return tostring(use(item.value))
 						end,
 					}),
@@ -316,7 +326,7 @@ t.describe("fine-grained cost at any collection size", function()
 		}
 		local stop = runtime.mount(function()
 			list = if grid then UI.VirtualGrid(spec) else UI.VirtualList(spec)
-			return Host.ScreenGui({ list })
+			return Host.ScreenGui({ list :: unknown })
 		end, target)
 		list.AbsoluteSize = V2.new(480, 640)
 		list.AbsoluteWindowSize = V2.new(480, 640)
@@ -383,7 +393,7 @@ t.describe("compact text before truncation", function()
 		for key, value in (options or {}) :: { [string]: any } do
 			spec[key] = value
 		end
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Button(spec)
 		end, engine.new("ScreenGui"))
 		return engine, node, find(node, "FullLabelMeasure"), function()
@@ -400,7 +410,16 @@ t.describe("compact text before truncation", function()
 		t.expect(measure.Text).toBe("Continue to checkout")
 		measure.TextBounds = V2.new(180, 20)
 		t.expect(node.Text).toBe("Continue to checkout")
-		for _, case in { { 400, false }, { 205, false }, { 204, false }, { 203, true }, { 150, true }, { 60, true } } do
+		for _, case in
+			{
+				{ 400 :: unknown, false },
+				{ 205 :: unknown, false },
+				{ 204 :: unknown, false },
+				{ 203 :: unknown, true },
+				{ 150 :: unknown, true },
+				{ 60 :: unknown, true },
+			}
+		do
 			node.AbsoluteSize = V2.new(case[1], 44)
 			t.expect(node.Text).toBe(if case[2] then "Continue" else "Continue to checkout")
 		end
@@ -431,7 +450,7 @@ t.describe("compact text before truncation", function()
 
 	t.it("an author-pinned label without a compact form is never replaced", function()
 		local engine, runtime, UI = world()
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			return UI.Button({ label = "Continue to checkout" })
 		end, engine.new("ScreenGui"))
 		t.expect(find(node, "FullLabelMeasure")).toBeNil()
@@ -445,9 +464,13 @@ t.describe("compact text before truncation", function()
 
 	t.it("the text degrade demo declares a compact sort label and binds each width stop", function()
 		local engine, runtime, UI = world()
-		local built =
-			textDegrade.build({ UI = UI, Compose = Compose, Host = runtime.constructors, types = engine.types })
-		local stop, screen = runtime.mount(built.screen, engine.new("ScreenGui"))
+		local built = textDegrade.build({
+			UI = UI,
+			Compose = Compose,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			types = engine.types,
+		})
+		local stop, screen: any = runtime.mount(built.screen, engine.new("ScreenGui"))
 		local row = find(screen, "Row")
 		local sort = find(row, "Sort")
 		local measure = find(sort, "FullLabelMeasure")
@@ -494,16 +517,16 @@ t.describe("preferred text size and disclosure", function()
 						return row.id
 					end,
 					itemSize = 56,
-					render = function(current)
+					render = function(current): GuiObject
 						return UI.Text({
-							text = function(use)
+							text = function(use: Use)
 								return use(current).label
 							end,
 							TextSize = size,
 						})
 					end,
 				})
-				return app.Host.ScreenGui({ field, button, list })
+				return app.Host.ScreenGui({ field :: unknown, button, list })
 			end, app.target)
 			list.AbsoluteWindowSize = T.Vector2.new(320, 400)
 			return { app = app, size = size, package = package, field = field, button = button, list = list }
@@ -514,7 +537,7 @@ t.describe("preferred text size and disclosure", function()
 				local text = if node:IsA("TextLabel")
 						or node:IsA("TextButton")
 						or node:IsA("TextBox")
-					then `{node.Text}:{node.TextSize}`
+					then `{node.Text}:{(node :: TextBox).TextSize}`
 					else ""
 				table.insert(out, `{node.ClassName}:{node.Name}:{text}`)
 			end
@@ -543,7 +566,7 @@ t.describe("preferred text size and disclosure", function()
 			local updated = themes.neutralPackage()
 			updated.metrics.controlSizes.regular.height = 52
 			swung.package:set(updated)
-			t.expect(swung.field.TextSize).toBe(40)
+			t.expect((swung.field :: TextBox).TextSize).toBe(40)
 			t.expect(swung.button.TextSize).toBe(40)
 			swung.app.dispose()
 		end
@@ -554,18 +577,24 @@ t.describe("preferred text size and disclosure", function()
 		local engine, runtime, UI = world()
 		local long = "An identity value much longer than its slot"
 		local selected, tab = Compose.cell("a"), Compose.cell("first")
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({
+		local stop, root: any = runtime.mount(function()
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				UI.Picker "IdentitySegments" {
 					selected = selected,
-					style = "segmented",
-					options = { { value = "a", label = long }, { value = "b", label = "Short" } },
-				},
+					style = "segmented" :: "segmented",
+					options = {
+						{ value = "a", label = long } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Short" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
+				} :: unknown,
 				UI.Picker "MenuPicker" {
 					Size = engine.types.UDim2.fromOffset(120, 40),
 					selected = selected,
-					style = "menu",
-					options = { { value = "a", label = long }, { value = "b", label = "Short" } },
+					style = "menu" :: "menu",
+					options = {
+						{ value = "a", label = long } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Short" } :: FixtureNavigationTypes.PickerOption<any>,
+					},
 				},
 				UI.TabView "Tabs" {
 					selection = tab,
@@ -573,17 +602,17 @@ t.describe("preferred text size and disclosure", function()
 						{
 							id = "first",
 							label = long,
-							content = function()
-								return runtime.constructors.Frame({})
+							content = function(): Instance
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "second",
 							label = "Second",
-							content = function()
-								return runtime.constructors.Frame({})
+							content = function(): Instance
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
 				},
 			})
@@ -607,8 +636,8 @@ t.describe("preferred text size and disclosure", function()
 
 	t.it("a pinned table row still rises to fit one line of text", function()
 		local engine, runtime, UI, input = world()
-		local controls: any = {}
-		local stop, node = runtime.mount(function()
+		local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
+		local stop, node: any = runtime.mount(function()
 			return UI.Table({
 				from = { { id = 1, label = "One" }, { id = 2, label = "Two" } },
 				key = function(item)
@@ -616,7 +645,7 @@ t.describe("preferred text size and disclosure", function()
 				end,
 				itemSize = 24,
 				controls = controls,
-				columns = { { id = "label", label = "Label" } },
+				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },
 			})
 		end, engine.new("ScreenGui"))
 		local body = node:FindFirstChild("Body")
@@ -624,15 +653,15 @@ t.describe("preferred text size and disclosure", function()
 		local row = body:FindFirstChild("1", true)
 		local value = row:FindFirstChild("Value", true)
 		value.TextBounds = engine.types.Vector2.new(100, 8)
-		t.expect(controls.placementOf(2).offset).toBe(24)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(24)
 		value.TextBounds = engine.types.Vector2.new(100, 60)
-		local risen = controls.placementOf(2).offset
+		local risen = assert(controls.placementOf)(2).offset
 		t.expect(risen > 60).toBe(true)
 		input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		value.TextBounds = engine.types.Vector2.new(100, 8)
-		t.expect(controls.placementOf(2).offset).toBe(24)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(24)
 		value.TextBounds = engine.types.Vector2.new(100, 60)
-		t.expect(controls.placementOf(2).offset).toBe(risen)
+		t.expect(assert(controls.placementOf)(2).offset).toBe(risen)
 		t.expect(body:FindFirstChild("1", true)).toBe(row)
 		stop()
 		runtime:dispose()
@@ -646,10 +675,15 @@ t.describe("preferred text size and disclosure", function()
 			{ value = "two", label = "Two" },
 			{ value = "three", label = "Three" },
 		}
-		local stop, root = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Picker "Sized" { selected = selected, textSize = size, style = "segmented", options = options },
-				UI.Picker "Themed" { selected = selected, style = "segmented", options = options },
+		local stop, root: any = runtime.mount(function()
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				UI.Picker "Sized" {
+					selected = selected,
+					textSize = size,
+					style = "segmented" :: "segmented",
+					options = options,
+				} :: unknown,
+				UI.Picker "Themed" { selected = selected, style = "segmented" :: "segmented", options = options },
 			})
 		end, engine.new("ScreenGui"))
 		local sized, themed = find(root, "Sized"), find(root, "Themed")
@@ -673,8 +707,8 @@ t.describe("decoration cost", function()
 		local engine, runtime, UI = world()
 		for _, diameter in { 24, 32, 96, 400 } do
 			local value = Compose.cell(0.25)
-			local stop, node = runtime.mount(function()
-				return UI.ProgressView({ presentation = "circular", value = value, diameter = diameter })
+			local stop, node: any = runtime.mount(function()
+				return UI.ProgressView({ presentation = "circular" :: "circular", value = value, diameter = diameter })
 			end, engine.new("Folder"))
 			local circle = node:FindFirstChild("Indicator", true)
 			local fill, track = circle:FindFirstChild("RingFill"), circle:FindFirstChild("RingTrack")
@@ -695,9 +729,9 @@ t.describe("decoration cost", function()
 		local original = mutable.skin
 		local function fixture(theme: any): (any, () -> ())
 			local engine, runtime, UI = world({ theme = theme })
-			local stop, root = runtime.mount(function()
-				return runtime.constructors.Frame({
-					UI.Button({ label = "Save" }),
+			local stop, root: any = runtime.mount(function()
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+					UI.Button({ label = "Save" }) :: unknown,
 					UI.Toggle({ value = Compose.cell(false), label = "Ready" }),
 					UI.TextInput({ value = Compose.cell("Text") }),
 					UI.Slider({ value = Compose.cell(0.5) }),
@@ -705,8 +739,11 @@ t.describe("decoration cost", function()
 					UI.Chip({ label = "Chip", selected = Compose.cell(false) }),
 					UI.Picker({
 						selected = Compose.cell("a"),
-						style = "segmented",
-						options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+						style = "segmented" :: "segmented",
+						options = {
+							{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+						},
 					}),
 					UI.ProgressView({ value = 0.5 }),
 				})
@@ -740,17 +777,17 @@ t.describe("decoration cost", function()
 			end
 			stopFlat()
 			local _, stopProbe = fixture(Compose.cell(themes.neutralPackage()))
-			local slots: { [string]: boolean } = {}
+			local slots: { [string]: boolean? } = {}
 			for _, call in calls do
 				slots[call.slot] = true
 			end
 			stopProbe()
 			t.expect(next(slots) ~= nil).toBe(true)
 			local art = themes.neutralPackage()
-			art.assets.slice = { content = "rbxassetid://30" }
+			assert(art.assets).slice = { content = "rbxassetid://30" }
 			slots.barCap, slots.barCenter = nil, nil
 			for slot in slots do
-				art.chrome[slot] = { kind = "nineSlice", asset = "slice" }
+				assert(art.chrome)[slot] = { kind = "nineSlice" :: "nineSlice", asset = "slice" }
 			end
 			table.clear(calls)
 			local artRoot, stopArt = fixture(art)

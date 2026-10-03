@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -48,7 +52,7 @@ local function world(spec: any, preferred: string?, tenFoot: boolean?): any
 		return nil
 	end
 	input.PreferredInput = engine.types.Enum.PreferredInput[preferred or "KeyboardAndMouse"]
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local UI: any = controls(Compose, runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
@@ -57,8 +61,8 @@ local function world(spec: any, preferred: string?, tenFoot: boolean?): any
 	built.selected = built.selected or Compose.cell("normal")
 	built.options = built.options or THREE
 	local target = engine.new("Folder")
-	local stop, screen = runtime.mount(function()
-		return runtime.constructors.ScreenGui({ UI.Picker("P")(built) })
+	local stop, screen: any = runtime.mount(function()
+		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.Picker("P")(built) })
 	end, target)
 	return {
 		engine = engine,
@@ -83,9 +87,9 @@ t.describe("native Picker menu field", function()
 	t.it("the required mark rides the label and the error replaces the hint beside a danger trigger", function()
 		local failure = Compose.cell("")
 		local w = world({
-			style = "menu",
+			style = "menu" :: "menu",
 			label = "Difficulty",
-			requiredMark = "required",
+			requiredMark = "required" :: "required",
 			hint = "Change it any time",
 			errorText = failure,
 		})
@@ -108,7 +112,7 @@ t.describe("native Picker menu field", function()
 	end)
 
 	t.it("a labelled menu picker stands its title above a trigger at the leading edge", function()
-		local w = world({ style = "menu", label = "Driver" })
+		local w = world({ style = "menu" :: "menu", label = "Driver" })
 		local label = find(w.screen, "Label")
 		local menu = find(w.screen, "Value")
 		expect(label.Parent == menu.Parent).toBe(true)
@@ -121,7 +125,7 @@ t.describe("native Picker menu field", function()
 
 	t.it("appearance maps onto the trigger's paint live, and a word outside the family is refused", function()
 		local word = Compose.cell("standard")
-		local w = world({ style = "menu", appearance = word })
+		local w = world({ style = "menu" :: "menu", appearance = word })
 		local trigger = find(w.screen, "Trigger")
 		expect(trigger:HasTag("facet-accent")).toBe(false)
 		word:set("contrast")
@@ -134,13 +138,18 @@ t.describe("native Picker menu field", function()
 		end)
 		expect(trigger:HasTag("facet-appearance-utility")).toBe(true)
 		w.stop()
-		for _, bad in { { style = "menu", appearance = "stroke" }, { style = "inline", appearance = "utility" } } do
+		for _, bad: { style: "menu" | "inline", appearance: "stroke" | "utility" } in
+			{
+				{ style = "menu" :: "menu", appearance = "stroke" :: "stroke" },
+				{ style = "inline" :: "inline", appearance = "utility" :: "utility" },
+			} :: { { style: "menu" | "inline", appearance: "stroke" | "utility" } }
+		do
 			expect(pcall(world, bad)).toBe(false)
 		end
 	end)
 
 	t.it("a named rung shrinks the trigger, corners reach it, and it still opens", function()
-		local w = world({ style = "menu", controlSize = "compact", corners = "pill" })
+		local w = world({ style = "menu" :: "menu", controlSize = "compact" :: "compact", corners = "pill" :: "pill" })
 		local trigger = find(w.screen, "Trigger")
 		expect(trigger.Size.Y.Offset).toBe(36)
 		expect(trigger:FindFirstChildWhichIsA("UICorner").CornerRadius.Scale).toBe(1)
@@ -150,14 +159,14 @@ t.describe("native Picker menu field", function()
 	end)
 
 	t.it("the hint line belongs to the picker: disposal releases it for every style", function()
-		for _, style in { "menu", "segmented", "cards", "inline" } do
+		for _, style in { "menu", "segmented", "cards", "inline" } :: { "cards" | "inline" | "menu" | "segmented" } do
 			local engine: any = engines.new()
-			local runtime = Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 			local UI: any = controls(Compose, runtime, { types = engine.types })
 			local before = engine.census()
 			local stop = runtime.mount(function()
 				return UI.Picker("P")({
-					style = style,
+					style = style :: "cards" | "inline" | "menu" | "segmented",
 					selected = Compose.cell("normal"),
 					options = THREE,
 					hint = "Change it any time",
@@ -177,14 +186,14 @@ t.describe("native Picker menu panel", function()
 	end
 
 	t.it("maxHeight bounds the whole panel, ordinary and searchable, and a bad cap is refused", function()
-		local w = world({ style = "menu", options = LONG, maxHeight = 96, selected = Compose.cell("v1") })
+		local w = world({ style = "menu" :: "menu", options = LONG, maxHeight = 96, selected = Compose.cell("v1") })
 		open(w)
 		local panel = find(w.screen, "MenuPanel")
 		find(panel, "MenuRows").AbsoluteSize = w.engine.types.Vector2.new(280, 30 * 44)
 		expect(panel.Size.Y.Offset <= 96).toBe(true)
 		w.stop()
 		local searchable = world({
-			style = "navigationLink",
+			style = "navigationLink" :: "navigationLink",
 			options = LONG,
 			query = Compose.cell(""),
 			maxHeight = 96,
@@ -197,22 +206,24 @@ t.describe("native Picker menu panel", function()
 		find(body, "Flow").AbsoluteSize = searchable.engine.types.Vector2.new(400, 1320)
 		expect(body.Size.Y.Offset).toBe(96 - 16)
 		searchable.stop()
-		local tiny = world({ style = "menu", options = LONG, maxHeight = 10 })
+		local tiny = world({ style = "menu" :: "menu", options = LONG, maxHeight = 10 })
 		open(tiny)
 		local tinyPanel = find(tiny.screen, "MenuPanel")
 		find(tinyPanel, "MenuRows").AbsoluteSize = tiny.engine.types.Vector2.new(280, 30 * 44)
 		expect(tinyPanel.Size.Y.Offset >= 44).toBe(true)
 		tiny.stop()
 		for _, bad in { 0, math.huge, 0 / 0, "96" } :: { any } do
-			expect(pcall(world, { style = "menu", maxHeight = bad })).toBe(false)
+			expect(pcall(world, { style = "menu" :: "menu", maxHeight = bad })).toBe(false)
 		end
-		expect(pcall(world, { style = "segmented", maxHeight = 96 })).toBe(false)
+		expect(pcall(world, { style = "segmented" :: "segmented", maxHeight = 96 })).toBe(false)
 	end)
 
 	t.it("opening lands on the selected row with gamepad or keyboard selection", function()
 		for _, preferred in { "Gamepad", "KeyboardAndMouse" } do
-			local w =
-				world({ style = "menu", options = LONG, maxHeight = 200, selected = Compose.cell("v25") }, preferred)
+			local w = world(
+				{ style = "menu" :: "menu", options = LONG, maxHeight = 200, selected = Compose.cell("v25") },
+				preferred
+			)
 			w.gui.SelectedObject = find(w.screen, "Trigger")
 			open(w)
 			local target = w.gui.SelectedObject
@@ -226,7 +237,7 @@ t.describe("native Picker menu rows", function()
 	t.it("an option avatar's keys are closed: a misspelt one is refused by name", function()
 		local ok, err = pcall(function()
 			local w = world({
-				style = "menu",
+				style = "menu" :: "menu",
 				options = { { value = "a", label = "Ada", avatar = { name = "Ada", userID = 1 } } },
 			})
 			open(w)
@@ -238,7 +249,7 @@ t.describe("native Picker menu rows", function()
 	t.it("an avatar leads its row without a second stop or press, and a disabled row is unreachable", function()
 		local selected = Compose.cell("a")
 		local w = world({
-			style = "menu",
+			style = "menu" :: "menu",
 			selected = selected,
 			options = {
 				{ value = "a", label = "Ada", avatar = { name = "Ada" } },
@@ -269,9 +280,9 @@ t.describe("native Picker menu rows", function()
 	t.it("badge, meta and sectionTitle reach the menu engine from an automatic picker", function()
 		local w = world({
 			options = {
-				{ value = "easy", label = "Easy", sectionTitle = "Casual" },
-				{ value = "normal", label = "Normal", badge = 3, meta = "Crew" },
-				{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" },
+				{ value = "easy", label = "Easy", sectionTitle = "Casual" } :: PickerOption,
+				{ value = "normal", label = "Normal", badge = 3, meta = "Crew" } :: PickerOption,
+				{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" } :: PickerOption,
 			},
 		})
 		find(w.screen, "LabelMeasure").TextBounds = w.engine.types.Vector2.new(190, 18)
@@ -293,7 +304,7 @@ end)
 t.describe("native Picker segmented vocabulary and the radio mark", function()
 	t.it("appearance paints the track filled, stroked or not at all, live, and refuses a menu word", function()
 		local word = Compose.cell("filled")
-		local w = world({ style = "segmented", appearance = word })
+		local w = world({ style = "segmented" :: "segmented", appearance = word })
 		local track = find(w.screen, "P")
 		expect(track:HasTag("facet-segmented")).toBe(true)
 		expect(track:HasTag("facet-segmented-stroke")).toBe(false)
@@ -307,7 +318,7 @@ t.describe("native Picker segmented vocabulary and the radio mark", function()
 		end)
 		expect(track:HasTag("facet-segmented-utility")).toBe(true)
 		w.stop()
-		expect(pcall(world, { style = "segmented", appearance = "contrast" })).toBe(false)
+		expect(pcall(world, { style = "segmented" :: "segmented", appearance = "contrast" })).toBe(false)
 	end)
 
 	t.it("an automatic picker keeps its appearance intent across a live family switch", function()
@@ -354,13 +365,13 @@ t.describe("native Picker segmented vocabulary and the radio mark", function()
 	)
 
 	t.it("corners reach the strip, and a rung shrinks the segments", function()
-		local pill = world({ style = "segmented", corners = "pill" })
+		local pill = world({ style = "segmented" :: "segmented", corners = "pill" :: "pill" })
 		expect(find(pill.screen, "Corners").CornerRadius.Scale).toBe(1)
 		pill.stop()
-		local square = world({ style = "segmented", corners = "square" })
+		local square = world({ style = "segmented" :: "segmented", corners = "square" :: "square" })
 		expect(find(square.screen, "Corners").CornerRadius.Scale).toBe(0)
 		square.stop()
-		local compact = world({ style = "segmented", controlSize = "compact" })
+		local compact = world({ style = "segmented" :: "segmented", controlSize = "compact" :: "compact" })
 		expect(find(compact.screen, "P").Size.Y.Offset).toBe(36)
 		for _, key in { "easy", "normal", "hard" } do
 			expect(find(compact.screen, key).Size.Y.Scale).toBe(1)
@@ -369,8 +380,9 @@ t.describe("native Picker segmented vocabulary and the radio mark", function()
 	end)
 
 	t.it("indicatorPosition moves the radio mark to either edge, and belongs to the radio group only", function()
-		for _, edge in { "leading", "trailing" } do
-			local w = world({ style = "radioGroup", indicatorPosition = edge })
+		for _, edge in { "leading", "trailing" } :: { "leading" | "trailing" } do
+			local w =
+				world({ style = "radioGroup" :: "radioGroup", indicatorPosition = edge :: "leading" | "trailing" })
 			local mark = find(find(w.screen, "normal"), "Indicator")
 			local title = find(find(w.screen, "normal"), "Captions")
 			expect(mark.Parent).toBe(title.Parent)
@@ -379,7 +391,9 @@ t.describe("native Picker segmented vocabulary and the radio mark", function()
 			expect(find(find(find(w.screen, "easy"), "Indicator"), "Dot").Visible).toBe(false)
 			w.stop()
 		end
-		expect(pcall(world, { style = "segmented", indicatorPosition = "trailing" })).toBe(false)
+		expect(pcall(world, { style = "segmented" :: "segmented", indicatorPosition = "trailing" :: "trailing" })).toBe(
+			false
+		)
 	end)
 end)
 
@@ -399,7 +413,7 @@ t.describe("native Picker cards", function()
 
 	t.it("each option is a bordered card with its meta, the chosen one plated, on every input", function()
 		local selected = Compose.cell("sprint")
-		local w = world({ style = "cards", options = CARDS, selected = selected })
+		local w = world({ style = "cards" :: "cards", options = CARDS, selected = selected })
 		local card = find(w.screen, "Card-endurance")
 		expect(card:HasTag("facet-card-option")).toBe(true)
 		expect(find(w.screen, "Card-sprint"):HasTag("facet-accent")).toBe(true)
@@ -417,12 +431,12 @@ t.describe("native Picker cards", function()
 
 	t.it("choosing the chosen card again clears it only when the selection is not required", function()
 		local optional = Compose.cell("sprint")
-		local w = world({ style = "cards", options = CARDS, selected = optional, required = false })
+		local w = world({ style = "cards" :: "cards", options = CARDS, selected = optional, required = false })
 		find(w.screen, "Card-sprint").Activated.fire()
 		expect(optional:peek()).toBeNil()
 		w.stop()
 		local kept = Compose.cell("sprint")
-		local w2 = world({ style = "cards", options = CARDS, selected = kept })
+		local w2 = world({ style = "cards" :: "cards", options = CARDS, selected = kept })
 		find(w2.screen, "Card-sprint").Activated.fire()
 		expect(kept:peek()).toBe("sprint")
 		w2.stop()
@@ -430,8 +444,8 @@ t.describe("native Picker cards", function()
 
 	t.it("a long radio or card label wraps inside its row instead of running past it", function()
 		local LONG = { { value = "a", label = string.rep("A long label ", 12) }, { value = "b", label = "B" } }
-		for _, style in { "radioGroup", "cards" } do
-			local w = world({ style = style, options = LONG, selected = Compose.cell("b") })
+		for _, style in { "radioGroup", "cards" } :: { "cards" | "radioGroup" } do
+			local w = world({ style = style :: "cards" | "radioGroup", options = LONG, selected = Compose.cell("b") })
 			local button = find(w.screen, if style == "cards" then "Card-a" else "a")
 			local box = if style == "cards" then button else find(w.screen, "P")
 			box.AbsoluteSize = w.engine.types.Vector2.new(300, 44)
@@ -444,14 +458,14 @@ t.describe("native Picker cards", function()
 	end)
 
 	t.it("a row of cards wraps and long copy wraps inside its card; cards take no appearance", function()
-		local w = world({ style = "cards", options = CARDS, axis = "x" })
+		local w = world({ style = "cards" :: "cards", options = CARDS, axis = "x" :: "x" })
 		local layout = find(w.screen, "Cards"):FindFirstChildWhichIsA("UIListLayout")
 		expect(layout.FillDirection).toBe(w.E.FillDirection.Horizontal)
 		expect(layout.Wraps).toBe(true)
 		local card = find(w.screen, "Card-sprint")
 		expect(card.AutomaticSize).toBe(w.E.AutomaticSize.Y)
 		w.stop()
-		expect(pcall(world, { style = "cards", options = CARDS, appearance = "utility" })).toBe(false)
+		expect(pcall(world, { style = "cards" :: "cards", options = CARDS, appearance = "utility" })).toBe(false)
 	end)
 end)
 
@@ -465,7 +479,7 @@ t.describe("native Picker option indicator and search rows", function()
 			}
 		end
 		local list = Compose.cell(options({ status = "warning" }))
-		local w = world({ style = "radioGroup", options = list })
+		local w = world({ style = "radioGroup" :: "radioGroup", options = list })
 		local function status(): string
 			local mark = find(find(w.screen, "normal"), "Status")
 			if mark == nil then
@@ -498,7 +512,7 @@ t.describe("native Picker option indicator and search rows", function()
 	end)
 
 	t.it("a navigation link keeps its title and value in one row", function()
-		local w = world({ label = "Track", style = "navigationLink" })
+		local w = world({ label = "Track", style = "navigationLink" :: "navigationLink" })
 		local trigger = find(w.screen, "P")
 		local value = find(trigger, "Trailing")
 		expect(value.Text).toBe("Normal")
@@ -513,7 +527,7 @@ t.describe("native Picker option indicator and search rows", function()
 	end)
 
 	t.it("a segment whose live options carry no description centres its caption like a plain label", function()
-		local w = world({ style = "segmented", options = Compose.cell(THREE) })
+		local w = world({ style = "segmented" :: "segmented", options = Compose.cell(THREE) })
 		local content = find(find(w.screen, "hard"), "Content")
 		expect(content.Size.X.Scale).toBe(1)
 		expect(content:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment).toBe(w.E.HorizontalAlignment.Center)
@@ -522,8 +536,8 @@ t.describe("native Picker option indicator and search rows", function()
 
 	t.it("a vertical segmented strip grows to its segments and spreads them over a taller box", function()
 		local w = world({
-			style = "segmented",
-			axis = "y",
+			style = "segmented" :: "segmented",
+			axis = "y" :: "y",
 			iconOnly = true,
 			options = {
 				{ value = "easy", label = "Easy", icon = "edit" },
@@ -552,7 +566,7 @@ t.describe("native Picker option indicator and search rows", function()
 		far.stop()
 	end)
 	t.it("a navigation link opens its list in a panel attached to the control, without dimming the page", function()
-		local w = world({ label = "Track", style = "navigationLink" })
+		local w = world({ label = "Track", style = "navigationLink" :: "navigationLink" })
 		w.screen.AbsoluteSize = w.engine.types.Vector2.new(800, 600)
 		local trigger = find(w.screen, "P")
 		trigger.AbsolutePosition = w.engine.types.Vector2.new(100, 100)

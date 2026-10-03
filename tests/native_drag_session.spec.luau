@@ -26,21 +26,25 @@ local function fixture()
 	world.Raycast = function()
 		return rayHit
 	end
-	local ctx = context(C, runtime, {
-		types = engine.types,
-		userInputService = input,
-		guiService = gui,
-		services = {
-			Workspace = world,
-			Players = {
-				LocalPlayer = {
-					FindFirstChildWhichIsA = function()
-						return playerGui
-					end,
+	local ctx = context(
+		C,
+		runtime,
+		{
+			types = engine.types,
+			userInputService = input,
+			guiService = gui,
+			services = {
+				Workspace = world,
+				Players = {
+					LocalPlayer = {
+						FindFirstChildWhichIsA = function()
+							return playerGui
+						end,
+					},
 				},
 			},
-		},
-	})
+		} :: any
+	)
 	local session = sessionOf(ctx)
 	local source, target = engine.new("TextButton"), engine.new("Frame")
 	source.Parent, target.Parent = screen, screen

@@ -1,4 +1,11 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Rows that say no",
 	intro = "One table. Five rows. Three of them opt out of something the others allow.",
@@ -37,7 +44,7 @@ local COPY = {
 	footer = "The refusal line is written by the three predicates themselves, at the instant the framework asks them.",
 }
 
-local SEED = {
+local SEED: { { id: string, nameKey: string, lock: string | nil } } = {
 	{ id = "grid", nameKey = "rowGrid", lock = "move" },
 	{ id = "warmup", nameKey = "rowWarmup", lock = nil },
 	{ id = "main", nameKey = "rowMain", lock = "delete" },
@@ -49,8 +56,8 @@ return {
 	title = "Rows that say no",
 	copy = COPY,
 	seed = SEED,
-	build = function(ctx)
-		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local rows = Compose.cell(table.clone(SEED))
 		local selection = Compose.cell({})
@@ -92,10 +99,10 @@ return {
 					BackgroundTransparency = 1,
 					UI.Text "Title" {
 						text = COPY.title,
-						textRole = "title",
+						textRole = "title" :: "title",
 						Size = UDim2.new(1, 0, 0, 36),
 						BackgroundTransparency = 1,
-					},
+					} :: unknown,
 					UI.Text "Explanation" {
 						text = "Pinned rows cannot move. Protected rows cannot be deleted. Locked rows cannot be selected.",
 						TextWrapped = true,
@@ -111,7 +118,7 @@ return {
 							return item.id
 						end,
 						selection = selection,
-						selectionMode = "single",
+						selectionMode = "single" :: "single",
 						selectable = function(item)
 							return item.lock ~= "select"
 						end,
@@ -128,7 +135,7 @@ return {
 								value = function(item)
 									return COPY[item.nameKey]
 								end,
-							},
+							} :: TableColumn,
 							{
 								id = "lock",
 								label = COPY.colLock,
@@ -136,16 +143,16 @@ return {
 								value = function(item)
 									return item.lock or "—"
 								end,
-							},
+							} :: TableColumn,
 						},
-						rowActions = function(current, key)
+						rowActions = function(current, key): RowActions
 							return {
 								trailing = {
 									{
 										id = "delete",
 										label = "Delete",
-										role = "destructive",
-										enabled = function(use)
+										role = "destructive" :: "destructive",
+										enabled = function(use: Use)
 											return use(current).lock ~= "delete"
 										end,
 										onActivate = function()

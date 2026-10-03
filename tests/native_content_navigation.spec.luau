@@ -1,15 +1,22 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local UDim2 = require("@lune/roblox").UDim2
 local Vector2 = require("@lune/roblox").Vector2
 local Enum = require("@lune/roblox").Enum
 
-local function menuWorld(spec: { [string]: any }, options: { [string]: any }?): any
-	local world = worlds.new(function(UI, Host)
+local function menuWorld(spec: { [any]: any }, options: { [string]: any }?): any
+	local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
 	end, options or { motionLevel = "none" })
 	return world
@@ -75,12 +82,28 @@ t.describe("native content navigation deltas", function()
 		for _, case in
 			{
 				{ edge = nil, align = nil, x = 100, y = 144, at = 100 },
-				{ edge = "trailing", align = "center", x = 304, y = 20, at = 100 },
-				{ edge = "top", align = "end", x = 80, y = 300 - 200 - 4, at = 300 },
-				{ edge = "top", align = "start", x = 100, y = 144, at = 100 },
-				{ edge = "bottom", align = "center", x = 90, y = 144, at = 100 },
-				{ edge = "leading", align = "start", x = 400 - 220 - 4, y = 100, at = 100, ax = 400 },
-				{ edge = "leading", align = "start", x = 304, y = 100, at = 100 },
+				{ edge = "trailing" :: "trailing", align = "center" :: "center", x = 304, y = 20, at = 100 },
+				{ edge = "top" :: "top", align = "end" :: "end", x = 80, y = 300 - 200 - 4, at = 300 },
+				{ edge = "top" :: "top", align = "start" :: "start", x = 100, y = 144, at = 100 },
+				{ edge = "bottom" :: "bottom", align = "center" :: "center", x = 90, y = 144, at = 100 },
+				{
+					edge = "leading" :: "leading",
+					align = "start" :: "start",
+					x = 400 - 220 - 4,
+					y = 100,
+					at = 100,
+					ax = 400,
+				},
+				{ edge = "leading" :: "leading", align = "start" :: "start", x = 304, y = 100, at = 100 },
+			} :: {
+				{
+					edge: ("top" | "bottom" | "leading" | "trailing")?,
+					align: ("start" | "center" | "end")?,
+					x: number,
+					y: number,
+					at: number,
+					ax: number?,
+				}
 			}
 		do
 			local world = menuWorld({ label = "Options", edge = case.edge, align = case.align, items = items(3) })
@@ -124,8 +147,8 @@ t.describe("native content navigation deltas", function()
 
 	t.it("leads plain rows like accessory rows and gives every row the target floor", function()
 		local list = {
-			{ id = "a", label = "All tracks", badge = 3, onSelect = function() end },
-			{ id = "b", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = function() end },
+			{ id = "a", label = "All tracks", badge = 3, onSelect = function() end } :: MenuItem,
+			{ id = "b", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = function() end } :: MenuItem,
 		}
 		for index = 1, 4 do
 			table.insert(list, { id = `p{index}`, label = `Track {index}`, onSelect = function() end })
@@ -184,8 +207,8 @@ t.describe("native content navigation deltas", function()
 		local toggles = menuWorld({
 			label = "Options",
 			items = {
-				{ id = "first", label = "First", onSelect = function() end },
-				{ id = "flag", label = "Flag", checked = checked },
+				{ id = "first", label = "First", onSelect = function() end } :: MenuItem,
+				{ id = "flag", label = "Flag", checked = checked } :: MenuItem,
 			},
 		})
 		local togglePanel = openMenu(toggles, true)
@@ -285,14 +308,14 @@ t.describe("native content navigation deltas", function()
 					onSelect = function()
 						ran += 1
 					end,
-				},
+				} :: MenuItem,
 				{
 					id = "b",
 					label = "Beta",
 					avatar = { name = "Bea" },
 					shortcutLabel = "Ctrl+B",
 					onSelect = function() end,
-				},
+				} :: MenuItem,
 			},
 		})
 		local panel = openMenu(world, true)
@@ -325,23 +348,23 @@ t.describe("native content navigation deltas", function()
 	t.it("refuses malformed placement and bounds by name", function()
 		for _, bad in
 			{
-				{ edge = "middle" },
-				{ align = "top" },
+				{ edge = "middle" :: "middle" },
+				{ align = "top" :: "top" },
 				{ maxHeight = 0 },
 				{ maxHeight = math.huge },
 				{ width = 0 },
 				{ width = -40 },
 				{ width = math.huge },
-				{ width = "wide" },
+				{ width = "wide" :: "wide" },
 				{ width = { type = "wide" } },
 			} :: { { [string]: any } }
 		do
-			local spec: { [string]: any } = { label = "Options", items = items(2) }
+			local spec: { [any]: any } = { label = "Options", items = items(2) }
 			for key, value in bad do
 				spec[key] = value
 			end
-			local failure = worlds.mountError(function(UI)
-				return UI.Menu(spec)
+			local failure = worlds.mountError(function(UI: FacetControls)
+				return UI.Menu(spec :: any)
 			end)
 			local key = next(bad) :: string
 			t.expect(`{key} {failure ~= nil and string.find(failure, key, 1, true) ~= nil}`).toBe(`{key} true`)
@@ -381,13 +404,13 @@ t.describe("native content navigation deltas", function()
 
 	t.it("carries a Picker option badge and sectionTitle into menu rows and searchable list rows", function()
 		local options = Compose.cell({
-			{ value = "a", label = "Alpha", badge = 2 },
-			{ value = "b", label = "Beta" },
+			{ value = "a", label = "Alpha", badge = 2 } :: PickerOption,
+			{ value = "b", label = "Beta" } :: PickerOption,
 		})
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "S",
-				UI.Picker({ style = "menu", selected = Compose.cell("a"), options = options }),
+				UI.Picker({ style = "menu" :: "menu", selected = Compose.cell("a"), options = options }),
 			})
 		end, { motionLevel = "none" })
 		local panel = openMenu(world)
@@ -406,21 +429,21 @@ t.describe("native content navigation deltas", function()
 		t.expect(world.find("b", panel):FindFirstChild("Count", true)).toBeNil()
 		t.expect(panel:FindFirstChild("SectionTitle", true)).toBeNil()
 		options:set({
-			{ value = "a", label = "Alpha", badge = 2 },
-			{ value = "b", label = "Beta", sectionTitle = "More" },
+			{ value = "a", label = "Alpha", badge = 2 } :: PickerOption,
+			{ value = "b", label = "Beta", sectionTitle = "More" } :: PickerOption,
 		})
 		t.expect(headings(everywhere(world, "MenuPanel"))).toBe("More")
 		world.stop()
-		local search = worlds.new(function(UI, Host)
+		local search = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "S",
 				UI.Picker({
-					style = "navigationLink",
+					style = "navigationLink" :: "navigationLink",
 					query = Compose.cell(""),
 					selected = Compose.cell("a"),
 					options = {
-						{ value = "a", label = "Alpha", sectionTitle = "First" },
-						{ value = "b", label = "Beta", badge = "9" },
+						{ value = "a", label = "Alpha", sectionTitle = "First" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Beta", badge = "9" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				}),
 			})
@@ -436,7 +459,7 @@ t.describe("native content navigation deltas", function()
 	local function containers(): (any, any)
 		local scenario = require("../examples/gallery/scenarios/containers") :: any
 		local built: any
-		local world = worlds.new(function(UI, Host, engine)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine)
 			built = scenario.build({ UI = UI, Compose = Compose, Host = Host, types = engine.types })
 			return built.screen()
 		end, { motionLevel = "none" })
@@ -592,12 +615,12 @@ t.describe("native content navigation deltas", function()
 			table.insert(list, {
 				id = id,
 				label = string.upper(string.sub(id, 1, 1)) .. string.sub(id, 2),
-				content = function()
+				content = function(): Instance
 					return Host.Frame({ Name = "Page-" .. id })
 				end,
 			})
 		end
-		for key, value in extra or {} do
+		for key, value in (extra or {} :: { [string]: any }) do
 			list[2][key] = value
 		end
 		return list
@@ -605,10 +628,10 @@ t.describe("native content navigation deltas", function()
 
 	t.it("paints a tab indicator as a StatusIndicator in its own tab and keeps it through every switch", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView({
 				selection = selection,
-				placement = "topBar",
+				placement = "topBar" :: "topBar",
 				tabs = tabList(Host, { indicator = { status = "warning", form = "dot" } }),
 			})
 		end, { motionLevel = "none" })
@@ -625,11 +648,14 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("refuses a tab indicator that is not a StatusIndicator spec by name", function()
-		local failure = worlds.mountError(function(UI, Host)
-			return UI.TabView({ selection = Compose.cell("home"), tabs = tabList(Host, { indicator = "dot" }) })
+		local failure = worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				tabs = tabList(Host, { indicator = "dot" :: "dot" }),
+			})
 		end)
 		t.expect(failure ~= nil and string.find(failure, "indicator", 1, true) ~= nil).toBe(true)
-		t.expect(worlds.mountError(function(UI, Host)
+		t.expect(worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView({
 				selection = Compose.cell("home"),
 				tabs = tabList(Host, { indicator = { status = "loud" } }),
@@ -639,8 +665,12 @@ t.describe("native content navigation deltas", function()
 
 	t.it("keeps a disabled tab in the strip and refuses its selection on every route", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(function(UI, Host)
-			return UI.TabView({ selection = selection, placement = "topBar", tabs = tabList(Host, { enabled = false }) })
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				placement = "topBar" :: "topBar",
+				tabs = tabList(Host, { enabled = false }),
+			})
 		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		local feed = world.find("feed", tabs)
@@ -656,8 +686,12 @@ t.describe("native content navigation deltas", function()
 
 	t.it("shrinks tab words toward the caption role in a filling bottom bar before they truncate", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(function(UI, Host)
-			return UI.TabView({ selection = selection, placement = "bottomBar", tabs = tabList(Host) })
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				placement = "bottomBar" :: "bottomBar",
+				tabs = tabList(Host),
+			})
 		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		local feed = world.find("feed", tabs)
@@ -687,8 +721,12 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("sizes a sidebar rail to its widest tab by default, as before 0.12", function()
-		local world = worlds.new(function(UI, Host)
-			return UI.TabView({ selection = Compose.cell("home"), placement = "sidebar", tabs = tabList(Host) })
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				placement = "sidebar" :: "sidebar",
+				tabs = tabList(Host),
+			})
 		end, { motionLevel = "none" })
 		local view = world.find("TabView")
 		world.resize(view, 1200, 800)
@@ -715,8 +753,12 @@ t.describe("native content navigation deltas", function()
 		bare.chrome.control.contentInsets = nil
 		local widths = {}
 		for _, package in { pixel, bare } do
-			local world = worlds.new(function(UI, Host)
-				return UI.TabView({ selection = Compose.cell("home"), placement = "sidebar", tabs = tabList(Host) })
+			local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+				return UI.TabView({
+					selection = Compose.cell("home"),
+					placement = "sidebar" :: "sidebar",
+					tabs = tabList(Host),
+				})
 			end, { motionLevel = "none", theme = package })
 			world.resize(world.find("TabView"), 1200, 800)
 			local tabs = world.find("Tabs")
@@ -731,8 +773,12 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("clips its tab strip only while the tabs overflow, so a tab's chrome shadow is not cut", function()
-		local world = worlds.new(function(UI, Host)
-			return UI.TabView({ selection = Compose.cell("home"), placement = "topBar", tabs = tabList(Host) })
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				placement = "topBar" :: "topBar",
+				tabs = tabList(Host),
+			})
 		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		tabs.AbsoluteWindowSize = Vector2.new(300, 44)
@@ -744,8 +790,12 @@ t.describe("native content navigation deltas", function()
 	end)
 
 	t.it("centres the tabs of a top bar, as before 0.12", function()
-		local world = worlds.new(function(UI, Host)
-			return UI.TabView({ selection = Compose.cell("home"), placement = "topBar", tabs = tabList(Host) })
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				placement = "topBar" :: "topBar",
+				tabs = tabList(Host),
+			})
 		end, { motionLevel = "none" })
 		local layout = world.find("Tabs"):FindFirstChildWhichIsA("UIListLayout")
 		t.expect(layout.HorizontalAlignment.Name).toBe("Center")
@@ -754,8 +804,12 @@ t.describe("native content navigation deltas", function()
 
 	t.it("lets a crowded bottom bar scroll whole words when even the caption size cannot fit them", function()
 		local selection = Compose.cell("home")
-		local world = worlds.new(function(UI, Host)
-			return UI.TabView({ selection = selection, placement = "bottomBar", tabs = tabList(Host) })
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.TabView({
+				selection = selection,
+				placement = "bottomBar" :: "bottomBar",
+				tabs = tabList(Host),
+			})
 		end, { motionLevel = "none" })
 		local tabs = world.find("Tabs")
 		local feed = world.find("feed", tabs)
@@ -779,7 +833,7 @@ t.describe("native content navigation deltas", function()
 	t.it("nests a TabView that a page builds later inside one of its branches", function()
 		local selection, inner = Compose.cell("home"), Compose.cell("foryou")
 		local shown = Compose.cell(false)
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.TabView({
 				Name = "Outer",
 				selection = selection,
@@ -787,7 +841,7 @@ t.describe("native content navigation deltas", function()
 					{
 						id = "home",
 						label = "Home",
-						content = function()
+						content = function(): Instance
 							return Host.Frame({
 								Name = "Branch",
 								Compose.show(shown, function()
@@ -798,30 +852,30 @@ t.describe("native content navigation deltas", function()
 											{
 												id = "foryou",
 												label = "For you",
-												content = function()
+												content = function(): Instance
 													return Host.Frame({})
 												end,
-											},
+											} :: FixtureNavigationTypes.Tab,
 											{
 												id = "charts",
 												label = "Charts",
-												content = function()
+												content = function(): Instance
 													return Host.Frame({})
 												end,
-											},
+											} :: FixtureNavigationTypes.Tab,
 										},
 									})
 								end),
 							})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "feed",
 						label = "Feed",
-						content = function()
+						content = function(): Instance
 							return Host.Frame({})
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end, { motionLevel = "none" })
@@ -839,7 +893,7 @@ t.describe("native content navigation deltas", function()
 
 	t.it("closes up a collapsed outline section in a scroller and reopens it", function()
 		local open = Compose.cell(true)
-		local world = worlds.new(function(UI, Host)
+		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			local groups = {}
 			for index = 1, 2 do
 				table.insert(
@@ -849,12 +903,12 @@ t.describe("native content navigation deltas", function()
 						LayoutOrder = index,
 						label = "Group " .. index,
 						expanded = if index == 1 then open else Compose.cell(true),
-						content = function()
+						content = function(): Instance
 							local rows = {}
 							for _, id in { "a", "b", "c", "d" } do
 								table.insert(rows, UI.Button({ Name = "B" .. id, label = id }))
 							end
-							return Host.Frame({ Name = "Rows", table.unpack(rows) })
+							return Host.Frame({ Name = "Rows", table.unpack((rows :: unknown) :: { unknown }) })
 						end,
 					})
 				)
@@ -862,7 +916,7 @@ t.describe("native content navigation deltas", function()
 			return Host.ScrollingFrame({
 				Name = "Sc",
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 				table.unpack(groups),
 			})
 		end, { motionLevel = "none" })

@@ -1,8 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type World = {
@@ -23,7 +31,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 	engine.clock = function()
 		return now
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	local shift = { down = false }
@@ -44,8 +52,8 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui) })
 	end, parent)
 	return {
@@ -117,15 +125,17 @@ end
 t.describe("native parity classb themes", function()
 	t.it("rounds only the circle skeleton and pauses its sweep under reduced motion without a new plate", function()
 		local reduced = Compose.cell(false)
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Skeleton("Circle")({ form = "circle" }),
-				UI.Skeleton("Box")({ form = "box" }),
-				UI.Skeleton("Lines")({ form = "line", lines = 2 }),
+				UI.Skeleton("Circle")({ form = "circle" :: "circle" }) :: unknown,
+				UI.Skeleton("Box")({ form = "box" :: "box" }),
+				UI.Skeleton("Lines")({ form = "line" :: "line", lines = 2 }),
 			})
-		end, { motionLevel = Compose.formula(function(use)
-			return if use(reduced) then "none" else "normal"
-		end) })
+		end, {
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
+				return if use(reduced) then "none" else "normal"
+			end) :: unknown) :: MotionLevel,
+		})
 		local circle = find(find(world.screen, "Circle"), "Placeholder1")
 		local box = find(find(world.screen, "Box"), "Placeholder1")
 		local lines = placeholders(find(world.screen, "Lines"))
@@ -165,11 +175,11 @@ t.describe("native parity classb themes", function()
 
 	t.it("keeps the moving band inside each placeholder at fractional widths through full cycles", function()
 		local width = Compose.cell(390)
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame({
 				UI.Skeleton("A")({
-					form = "box",
-					Size = function(use)
+					form = "box" :: "box",
+					Size = function(use: Use)
 						return engine.types.UDim2.fromOffset(use(width), 0)
 					end,
 				}),
@@ -201,9 +211,9 @@ t.describe("native parity classb themes", function()
 	end)
 
 	t.it("keeps a stage out of selection and Tab traversal as a non-interactive leaf", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame("Form")({
-				Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }),
+				Host.UIListLayout({ SortOrder = engine.types.Enum.SortOrder.LayoutOrder }) :: unknown,
 				UI.Button("Before")({ label = "Before", LayoutOrder = 1 }),
 				UI.Stage("Scene")({ LayoutOrder = 2 }),
 				UI.Button("After")({ label = "After", LayoutOrder = 3 }),
@@ -231,20 +241,20 @@ t.describe("native parity classb themes", function()
 
 	t.it("paints a stage through the panel style rule and follows a palette swap", function()
 		local package = themes.define(themes.neutralPackage())
-		local palette = Compose.cell(package.style.defaultTheme)
+		local palette = Compose.cell(assert(package).style.defaultTheme)
 		local sheet
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local UI = Facet.controls(runtime, { types = engine.types, theme = package } :: any)
-		local Host = runtime.constructors
-		local stop, root = runtime.mount(function()
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local stop, root: any = runtime.mount(function()
 			sheet = themes.createStyleSheet(
 				runtime,
 				package,
 				{ types = engine.types, theme = palette, transition = false, preferredTransparency = 1 } :: any
 			)
 			return Host.ScreenGui({
-				sheet,
+				sheet :: unknown,
 				UI.Stage("Scene")({}),
 			})
 		end, engine.new("Folder"))
@@ -266,7 +276,7 @@ t.describe("native parity classb themes", function()
 			error("no panel rule")
 		end
 		local names = {}
-		for _, entry in package.style.themes do
+		for _, entry in assert(package).style.themes do
 			table.insert(names, entry.name)
 		end
 		t.expect(#names >= 2).toBe(true)
@@ -274,7 +284,7 @@ t.describe("native parity classb themes", function()
 		for _, name in names do
 			palette:set(name)
 			local entry
-			for _, candidate in package.style.themes do
+			for _, candidate in assert(package).style.themes do
 				if candidate.name == name then
 					entry = candidate
 				end
@@ -292,9 +302,9 @@ t.describe("native parity classb themes", function()
 		runtime:dispose()
 	end)
 	t.it("spends an authored count height and widens the count pill to at least that height", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame({
-				UI.StatusIndicator("Default")({ count = 7 }),
+				UI.StatusIndicator("Default")({ count = 7 }) :: unknown,
 				UI.StatusIndicator("Authored")({
 					count = 7,
 					cutout = true,

@@ -1,9 +1,14 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+
 local widgets = {}
 
 function widgets.new(Facet: any, runtime: any, model: any, options: any): any
-	local Host, Compose = runtime.constructors, Facet.Compose
+	local Host, Compose: ComposeModule = (runtime.constructors :: unknown) :: RobloxHost, Facet.Compose
 	local kit = {}
 	kit.colors = {
 		text = Color3.fromRGB(30, 40, 57),
@@ -58,24 +63,24 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 
 		return UI.Button(name) {
 			label = if type(value) == "function"
-				then function(use)
+				then function(use: Use)
 					return string.gsub(value(use), "%s*▾", "")
 				end
 				else string.gsub(value, "%s*▾", ""),
 			trailingIcon = if menu then "chevron.down" else nil,
 			selected = selected,
 			appearance = if type(primary) == "function"
-				then function(use)
+				then function(use: Use)
 					return if primary(use) then "soft" else "utility"
 				end
 				else if primary then "emphasis" else "standard",
-			controlSize = function(use)
+			controlSize = function(use: Use)
 				return if use(model).compact then "regular" else "compact"
 			end,
 			AutomaticSize = Enum.AutomaticSize.None,
 			onActivate = callback,
 			enabled = if enabled == nil then true else enabled,
-			Size = function(use)
+			Size = function(use: Use)
 				return if width == -1
 					then UDim2.new(1, -10, 0, if use(model).compact then 44 else 32)
 					else UDim2.fromOffset(width, if use(model).compact then 44 else 32)
@@ -85,7 +90,7 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 	function kit.input(name: string, value: any, callback: (string) -> (), width: any?): TextBox
 		local draft = Compose.cell("")
 		local baseline = ""
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			baseline = tostring(if type(value) == "function" then value(use) else value)
 			draft:set(baseline)
 		end)
@@ -96,10 +101,10 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 					callback(proposed)
 				end
 			end,
-			controlSize = function(use)
+			controlSize = function(use: Use)
 				return if use(model).compact then "regular" else "compact"
 			end,
-			Size = function(use)
+			Size = function(use: Use)
 				local size = width or UDim2.new(1, 0, 0, 34)
 				return if use(model).compact then UDim2.new(size.X.Scale, size.X.Offset, 0, 44) else size
 			end,
@@ -110,10 +115,10 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 		return UI.TextInput "MenuSearch" {
 			value = value,
 			onChange = callback,
-			presentation = "search",
+			presentation = "search" :: "search",
 			placeholder = "Search…",
 			clearButton = true,
-			controlSize = "regular",
+			controlSize = "regular" :: "regular",
 			Size = UDim2.new(1, 0, 0, 44),
 		}
 	end
@@ -123,13 +128,13 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 			runtime.decorate(child, { LayoutOrder = index })
 		end
 		return UI.HStack(name) {
-			width = "fill",
+			width = "fill" :: "fill",
 			Size = UDim2.new(1, 0, 0, height or 0),
 			gap = 6,
-			align = "center",
+			align = "center" :: "center",
 			wrap = wrap,
 			BackgroundTransparency = 1,
-			table.unpack(children),
+			table.unpack((children :: unknown) :: { unknown }),
 		}
 	end
 	return kit

@@ -17,11 +17,14 @@ function export.component(value: document.Document): string
 		"local Facet = require(game.ReplicatedStorage.Facet)",
 		"local Compose = Facet.Compose",
 		"",
-		"return function(UI: Facet.Controls): GuiObject",
+		"return function(UI: Facet.Controls, data: {[string]: any}?): GuiObject",
 	}
 	for _, row in document.rows(value.root) do
 		local node = assert(document.find(value.root, row.id))
-		for _, key in adapter.stateKeys(library.definitions[node.kind]) do
+		local keys: { string } = if document.collection(value, node.id)
+			then {}
+			else adapter.stateKeys(library.definitions[node.kind])
+		for _, key in keys do
 			table.insert(
 				lines,
 				"\tlocal "
@@ -34,7 +37,7 @@ function export.component(value: document.Document): string
 	end
 	for _, row in document.rows(value.root) do
 		local node = assert(document.find(value.root, row.id))
-		if library.definitions[node.kind].anchor then
+		if library.definitions[node.kind].anchor and not document.collection(value, node.id) then
 			table.insert(
 				lines,
 				"\tlocal anchor_"
@@ -54,6 +57,9 @@ function export.component(value: document.Document): string
 		local indent = string.rep("\t", depth)
 		local definition = library.definitions[node.kind]
 		local props = adapter.properties(node)
+		if node.kind == "Table" then
+			props.columns = adapter.expression("variable", { name = "columns_" .. node.id })
+		end
 		local keys, body = {}, {}
 		for key in props do
 			table.insert(keys, key)
@@ -61,7 +67,17 @@ function export.component(value: document.Document): string
 		table.sort(keys)
 		table.insert(body, indent .. "UI." .. node.kind .. " " .. literal(node.name) .. " {")
 		for _, key in keys do
-			table.insert(body, indent .. "\t" .. key .. " = " .. adapter.emit(props[key], emit, depth + 1) .. ",")
+			local expression = adapter.emit(props[key], emit, depth + 1)
+			for _, descriptor in definition.fields do
+				if
+					descriptor.key == key
+					and type(props[key]) == "string"
+					and table.find({ "choice", "extent", "space", "padding" }, descriptor.kind)
+				then
+					expression ..= " :: " .. literal(props[key])
+				end
+			end
+			table.insert(body, indent .. "\t" .. key .. " = " .. expression .. ",")
 		end
 		if
 			not definition.content
@@ -69,6 +85,7 @@ function export.component(value: document.Document): string
 			and node.kind ~= "TabView"
 			and node.kind ~= "PageView"
 			and node.kind ~= "NavigationStack"
+			and not table.find({ "Table", "VirtualList", "VirtualGrid" }, node.kind)
 		then
 			for _, child in node.children do
 				table.insert(body, emit(child, depth + 1) .. ",")
@@ -90,6 +107,18 @@ function export.component(value: document.Document): string
 		end
 		return result
 	end
+	for _, row in document.rows(value.root) do
+		local node = assert(document.find(value.root, row.id))
+		if node.kind == "Table" and not document.collection(value, node.id) then
+			table.insert(
+				lines,
+				"\tlocal columns_"
+					.. node.id
+					.. ": {Facet.TableColumn<any, any>} = "
+					.. adapter.emit(adapter.properties(node).columns, emit, 1)
+			)
+		end
+	end
 	table.insert(lines, "\treturn " .. string.sub(emit(value.root, 1), 2))
 	table.insert(lines, "end")
 	return table.concat(lines, "\n") .. "\n"
@@ -99,12 +128,13 @@ function export.preview(componentName: string, designName: string): string
 	return table.concat({
 		"--!strict",
 		"",
-		`local component = require(script.Parent[{literal(componentName)}])`,
+		"local Facet = require(game.ReplicatedStorage.Facet)",
+		`local component = require(script.Parent:WaitForChild({literal(componentName)}))`,
 		"",
 		"return {",
 		`\tname = {literal(designName)},`,
 		"\tpreviews = {",
-		'\t\t{ name = "Design", render = function(ctx) return component(ctx.UI) end },',
+		'\t\t{ name = "Design", render = function(ctx: { UI: Facet.Controls }) return component(ctx.UI) end },',
 		"\t},",
 		"}",
 		"",

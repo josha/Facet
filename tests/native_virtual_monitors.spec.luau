@@ -1,5 +1,10 @@
 --!strict
 local nativeDrag = require("./lib/native_drag")
+
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -17,7 +22,7 @@ local function withModel(body)
 	root.dispose()
 end
 
-local function find(node, name)
+local function find(node: any, name: string): any
 	if node.Name == name then
 		return node
 	end
@@ -61,17 +66,17 @@ local function saveCard(card)
 	card:_fireSignal("MouseLeave")
 end
 
-local function rate(node, value, types)
+local function rate(node, value: number, types)
 	local control = find(node, "Stars")
 	control.AbsolutePosition = types.Vector2.new(0, 0)
 	control.AbsoluteSize = types.Vector2.new(220, 44)
 	control.Activated.fire({ Position = types.Vector3.new((value - 0.5) * 44, 20, 0) })
 end
 
-local function withScreens(body, options)
+local function withScreens(body: (any) -> (), options: { [string]: any }?)
 	local Facet = require("../src")
 	local engine = engineModule.new()
-	local runtime = Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -83,13 +88,13 @@ local function withScreens(body, options)
 	local lifetime = Compose.createRootOwner(function()
 		local model = modelModule.new(Compose)
 		Compose.cleanup(model.dispose)
-		local config = {
+		local config: { [string]: any } = {
 			model = model,
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
 			motionLevel = "none",
 		}
-		for key, value in options or {} do
+		for key, value in (options or {}) :: { [string]: any } do
 			config[key] = value
 		end
 		local views = screens.create(Facet, runtime, config)
@@ -105,7 +110,7 @@ local function withScreens(body, options)
 			stops = {},
 		}
 		for _, name in screens.APPS do
-			local stop, node = runtime.mount(views[name], target)
+			local stop, node: any = runtime.mount(views[name], target)
 			world[name] = node
 			world.stops[name] = stop
 		end
@@ -285,7 +290,7 @@ t.describe("native virtual monitors", function()
 	t.it("mounts the actual three screens and drives their controls through native events", function()
 		local Facet = require("../src")
 		local engine = engineModule.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local lifetime = Compose.createRootOwner(function()
 			local model = modelModule.new(Compose)
@@ -295,9 +300,9 @@ t.describe("native virtual monitors", function()
 				runtime,
 				{ model = model, types = engine.types, spatial = true, motionLevel = "none" }
 			)
-			local _, discovery = runtime.mount(views.Discover, target)
-			local _, avatar = runtime.mount(views.Avatar, target)
-			local _, chat = runtime.mount(views.Chat, target)
+			local _, discovery: any = runtime.mount(views.Discover, target)
+			local _, avatar: any = runtime.mount(views.Avatar, target)
+			local _, chat: any = runtime.mount(views.Chat, target)
 			t.expect(discovery.ClassName).toBe("Frame")
 			t.expect(avatar.ClassName).toBe("Frame")
 			t.expect(chat.ClassName).toBe("Frame")
@@ -448,7 +453,7 @@ t.describe("native virtual monitors", function()
 				end
 			end
 			t.expect(settings.SelectionGroup).toBe(true)
-			for _, direction in { "Up", "Down", "Left", "Right" } do
+			for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 				t.expect(settings["SelectionBehavior" .. direction]).toBe(types.Enum.SelectionBehavior.Escape)
 			end
 			t.expect(settings:HasTag("facet-panel")).toBe(true)
@@ -466,7 +471,7 @@ t.describe("native virtual monitors", function()
 			t.expect(model.avatarSummary:peek()).toBe(true)
 			t.expect(find(world.target, "SheetPanel") ~= nil).toBe(true)
 			for id, expected in
-				{ Palette = "Iris", Hat = "Off", Rotation = "30°", TurnStep = "45°", AutoSpin = "Medium" }
+				{ Palette = "Iris", Hat = "Off", Rotation = "30°", TurnStep = "45°", AutoSpin = "Medium" } :: { [string]: string }
 			do
 				t.expect(find(find(world.target, "Summary" .. id), "Value").Text).toBe(expected)
 			end
@@ -988,7 +993,7 @@ t.describe("native virtual monitors", function()
 				end
 				local function release(value: any, state: any?)
 					value.UserInputState = state or states.End
-					nativeDrag.finish(input, value, true)
+					nativeDrag.finish(input, value)
 				end
 				local flick = contact()
 				flick.Position = types.Vector3.new(50, 95, 0)
@@ -1341,7 +1346,7 @@ t.describe("native virtual monitors", function()
 		withScreens(function(world)
 			local history = {}
 			for index = 1, 24 do
-				table.insert(history, { id = index, role = "assistant", content = "Message " .. index })
+				table.insert(history, { id = index, role = "assistant" :: "assistant", content = "Message " .. index })
 			end
 			world.model.chat.messages:set(history)
 			local feed = find(world.Chat, "Messages")
@@ -1349,7 +1354,7 @@ t.describe("native virtual monitors", function()
 			local initial = feed.CanvasPosition.Y
 			t.expect(initial > 0).toBe(true)
 			local nextHistory = table.clone(history)
-			table.insert(nextHistory, { id = 25, role = "assistant", content = "Latest reply" })
+			table.insert(nextHistory, { id = 25, role = "assistant" :: "assistant", content = "Latest reply" })
 			world.model.chat.messages:set(nextHistory)
 			t.expect(feed.CanvasPosition.Y > initial).toBe(true)
 			local row = find(feed, "MessageRow_25")
@@ -1358,7 +1363,7 @@ t.describe("native virtual monitors", function()
 			t.expect(feed.CanvasPosition.Y > previous).toBe(true)
 			feed.CanvasPosition = world.types.Vector2.new(0, 120)
 			local appended = table.clone(nextHistory)
-			table.insert(appended, { id = 26, role = "assistant", content = "Another reply" })
+			table.insert(appended, { id = 26, role = "assistant" :: "assistant", content = "Another reply" })
 			world.model.chat.messages:set(appended)
 			t.expect(feed.CanvasPosition.Y).toBe(120)
 		end)
@@ -1394,7 +1399,7 @@ t.describe("native virtual monitors", function()
 			t.expect(restored.CanvasPosition.Y).toBe(800)
 			local history = {}
 			for index = 1, 24 do
-				table.insert(history, { id = index, role = "assistant", content = "Message " .. index })
+				table.insert(history, { id = index, role = "assistant" :: "assistant", content = "Message " .. index })
 			end
 			world.model.chat.messages:set(history)
 			local feed = find(world.Chat, "Messages")
@@ -1476,7 +1481,7 @@ t.describe("native virtual monitors", function()
 	t.it("NVM-13 desktop tab transitions reclaim interrupted content and release departing owners", function()
 		local Facet, desktop = require("../src"), require("../examples/virtual_monitors/desktop")
 		local engine = engineModule.new()
-		local runtime = Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local mounted, released, now = {}, {}, 0
 		local target = engine.new("ScreenGui")
 		local lifetime = Compose.createRootOwner(function()
@@ -1489,10 +1494,10 @@ t.describe("native virtual monitors", function()
 					Compose.cleanup(function()
 						released[name] = (released[name] or 0) + 1
 					end)
-					return runtime.constructors.Frame({ Name = name .. "Content" })
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ Name = name .. "Content" })
 				end
 			end
-			local stop, root = runtime.mount(
+			local stop, root: any = runtime.mount(
 				desktop.create(Facet, runtime, views, model, Compose.cell(1), { types = engine.types }),
 				target
 			)
@@ -1649,7 +1654,7 @@ t.describe("native virtual monitors", function()
 				sheet = Facet.themes.createStyleSheet(world.runtime, package, {
 					types = types,
 					motionLevel = "none",
-					theme = function(use)
+					theme = function(use: Use)
 						return theme.paletteName(use(model.palette), use(model.dark))
 					end,
 				})

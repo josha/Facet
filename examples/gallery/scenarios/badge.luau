@@ -1,11 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 return {
 	title = "Badges",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -34,7 +37,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}),
+				}) :: unknown,
 				UI.Text({
 					LayoutOrder = 1,
 					Name = "Title",
@@ -43,7 +46,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Small labels",
-					textRole = "heading",
+					textRole = "heading" :: "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -72,7 +75,7 @@ return {
 						Padding = UDim.new(0, 12),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.Badge({
 						LayoutOrder = 1,
 						Name = "Standard",
@@ -115,10 +118,10 @@ return {
 					label = "Status",
 					selected = status,
 					options = {
-						{ value = "neutral", label = "Neutral" },
-						{ value = "warning", label = "Warning" },
-						{ value = "error", label = "Error" },
-						{ value = "voice", label = "Voice" },
+						{ value = "neutral", label = "Neutral" } :: PickerOption,
+						{ value = "warning", label = "Warning" } :: PickerOption,
+						{ value = "error", label = "Error" } :: PickerOption,
+						{ value = "voice", label = "Voice" } :: PickerOption,
 					},
 				},
 				UI.Picker "Size" {
@@ -126,8 +129,8 @@ return {
 					label = "Size",
 					selected = rung,
 					options = {
-						{ value = "compact", label = "Compact" },
-						{ value = "large", label = "Large" },
+						{ value = "compact", label = "Compact" } :: PickerOption,
+						{ value = "large", label = "Large" } :: PickerOption,
 					},
 				},
 				Host.Frame({
@@ -142,7 +145,7 @@ return {
 						Padding = UDim.new(0, 24),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Wraps = true,
-					}),
+					}) :: unknown,
 					UI.badged(UI.Button({ Name = "Inbox", LayoutOrder = 1, label = "Inbox" }), 120),
 					UI.badged(UI.Button({ Name = "Alerts", LayoutOrder = 2, label = "Alerts", icon = "menu" }), true),
 					UI.badged(UI.Avatar({ Name = "Friend", LayoutOrder = 3, name = "Alder" }), 3),

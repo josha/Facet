@@ -1,11 +1,24 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+local FixtureComposeTypes = require("../src/vendor/compose/core")
+local FixtureRadialTypes = require("../src/ui/radial_types")
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local transitionOf = require("./lib/transition")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local pathShapes = require("../src/ui/nav_path_shapes")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 local function openSettings(root: any)
@@ -44,7 +57,7 @@ local function world(options: { [string]: any }?): any
 	engine.clock = function()
 		return now
 	end
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -58,8 +71,10 @@ local function world(options: { [string]: any }?): any
 	local UI = Facet.controls(runtime, config :: any)
 	local w: any = { engine = engine, runtime = runtime, gui = gui, input = input, UI = UI, config = config }
 	function w.mount(build: (any, any) -> any): (() -> (), any)
-		local stop, node = runtime.mount(function()
-			return runtime.constructors.ScreenGui({ build(UI, runtime.constructors) })
+		local stop, node: any = runtime.mount(function()
+			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+				build(UI, runtime.constructors),
+			})
 		end, engine.new("Folder"))
 		return stop, node
 	end
@@ -107,7 +122,7 @@ end
 t.describe("indeterminate progress lifetime", function()
 	t.it("an indeterminate bar keeps travelling in its third second and stops dead with its owner", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.ProgressView({})
 		end)
 		local fill = find(screen, "Fill1")
@@ -156,8 +171,8 @@ t.describe("indeterminate progress lifetime", function()
 	t.it("unmounting and disposing the runtime are safe in either order", function()
 		for _, unmountFirst in { true, false } do
 			local w = world({ motionLevel = "normal" })
-			local stop, screen = w.mount(function(UI)
-				return UI.ProgressView({ presentation = "spinner" })
+			local stop, screen = w.mount(function(UI: FacetControls)
+				return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 			end)
 			local dot = find(screen, "Segment1")
 			w.step(0.1)
@@ -182,7 +197,7 @@ t.describe("indeterminate progress lifetime", function()
 		for _, reduced in { false, true } do
 			local w = world({ motionLevel = if reduced then "none" else "normal" })
 			local value = Compose.cell(0.4)
-			local stop, screen = w.mount(function(UI)
+			local stop, screen = w.mount(function(UI: FacetControls)
 				return UI.ProgressView({ value = value })
 			end)
 			t.expect(w.engine.heartbeat.count()).toBe(0)
@@ -202,9 +217,9 @@ t.describe("indeterminate progress lifetime", function()
 
 	t.it("an indeterminate view under reduced motion still runs its cycle and says Loading", function()
 		local w = world({ motionLevel = "none" })
-		local stop, screen = w.mount(function(UI, Host)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.ProgressView({ presentation = "spinner" }),
+				UI.ProgressView({ presentation = "spinner" :: "spinner" }) :: unknown,
 				UI.ProgressView({ showValue = true }),
 			})
 		end)
@@ -224,8 +239,8 @@ t.describe("spinner paint", function()
 	t.it("draws eight fixed square dots at the theme dot size and no bar", function()
 		local package = Compose.cell(themes.neutralPackage())
 		local w2 = world({ motionLevel = "normal", theme = package })
-		local stop, screen = w2.mount(function(UI)
-			return UI.ProgressView({ presentation = "spinner" })
+		local stop, screen = w2.mount(function(UI: FacetControls)
+			return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 		end)
 		local indicator = find(screen, "Indicator")
 		local dotSize = themes.neutralPackage().metrics.controls.progress.spinnerDotSize
@@ -257,8 +272,8 @@ t.describe("spinner paint", function()
 
 	t.it("moves the brightest dot around the ring while every dot stays visible", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI)
-			return UI.ProgressView({ presentation = "spinner" })
+		local stop, screen = w.mount(function(UI: FacetControls)
+			return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 		end)
 		local indicator = find(screen, "Indicator")
 		local first = brightest(indicator)
@@ -284,12 +299,12 @@ t.describe("spinner paint", function()
 	t.it("writes the spinner on full-motion frames and quantizes a mid-run switch without restarting", function()
 		local reduced = Compose.cell(false)
 		local w = world({
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reduced) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		})
-		local stop, screen = w.mount(function(UI)
-			return UI.ProgressView({ presentation = "spinner" })
+		local stop, screen = w.mount(function(UI: FacetControls)
+			return UI.ProgressView({ presentation = "spinner" :: "spinner" })
 		end)
 		local indicator = find(screen, "Indicator")
 		local seen: { [string]: boolean } = {}
@@ -329,8 +344,8 @@ end)
 t.describe("circular progress motion", function()
 	t.it("travels the indeterminate head while the sweep stays a fixed quarter turn", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI)
-			return UI.ProgressView({ presentation = "circular", diameter = 100 })
+		local stop, screen = w.mount(function(UI: FacetControls)
+			return UI.ProgressView({ presentation = "circular" :: "circular", diameter = 100 })
 		end)
 		local arc = find(screen, "RingFill")
 		local function sweep(): number
@@ -355,8 +370,8 @@ t.describe("circular progress motion", function()
 	t.it("keeps the reduced-motion ring travelling in a few visible poses each second", function()
 		local function poses(reducedMotion: boolean, frames: number, dt: number): (number, any)
 			local w = world({ motionLevel = if reducedMotion then "none" else "normal" })
-			local stop, screen = w.mount(function(UI)
-				return UI.ProgressView({ presentation = "circular", diameter = 100 })
+			local stop, screen = w.mount(function(UI: FacetControls)
+				return UI.ProgressView({ presentation = "circular" :: "circular", diameter = 100 })
 			end)
 			local arc = find(screen, "RingFill")
 			local seen: { [string]: boolean } = {}
@@ -374,8 +389,8 @@ t.describe("circular progress motion", function()
 			return count, arc
 		end
 		local w = world({ motionLevel = "none" })
-		local stop, screen = w.mount(function(UI)
-			return UI.ProgressView({ presentation = "circular", diameter = 100 })
+		local stop, screen = w.mount(function(UI: FacetControls)
+			return UI.ProgressView({ presentation = "circular" :: "circular", diameter = 100 })
 		end)
 		local arc = find(screen, "RingFill")
 		local start = angleOf(arc:GetControlPoints()[1])
@@ -396,8 +411,13 @@ t.describe("circular progress motion", function()
 	t.it("ends a quarter value at three o'clock and closes the ring at the full value", function()
 		local w = world({ motionLevel = "none" })
 		local value = Compose.cell(0.25)
-		local stop, screen = w.mount(function(UI)
-			return UI.ProgressView({ presentation = "circular", value = value, diameter = 100, thickness = 10 })
+		local stop, screen = w.mount(function(UI: FacetControls)
+			return UI.ProgressView({
+				presentation = "circular" :: "circular",
+				value = value,
+				diameter = 100,
+				thickness = 10,
+			})
 		end)
 		local arc = find(screen, "RingFill")
 		local points = arc:GetControlPoints()
@@ -500,15 +520,15 @@ t.describe("skeleton clock sharing", function()
 			local UIB = Facet.controls(runtimeB, { types = engine.types, motionLevel = "normal" } :: any)
 			t.expect(engine.heartbeat.count()).toBe(0)
 			local stopA1, a1 = runtimeA.mount(function()
-				return UIA.Skeleton({ form = "line", lines = 2 })
+				return UIA.Skeleton({ form = "line" :: "line", lines = 2 })
 			end, engine.new("Folder"))
 			t.expect(engine.heartbeat.count()).toBe(1)
 			local stopA2, a2 = runtimeA.mount(function()
-				return UIA.Skeleton({ form = "circle" })
+				return UIA.Skeleton({ form = "circle" :: "circle" })
 			end, engine.new("Folder"))
 			t.expect(engine.heartbeat.count()).toBe(1)
 			local stopB, b = runtimeB.mount(function()
-				return UIB.Skeleton({ form = "box" })
+				return UIB.Skeleton({ form = "box" :: "box" })
 			end, engine.new("Folder"))
 			t.expect(engine.heartbeat.count()).toBe(2)
 			engine.heartbeat.fire(0.3)
@@ -520,7 +540,7 @@ t.describe("skeleton clock sharing", function()
 			stopB()
 			t.expect(engine.heartbeat.count()).toBe(1)
 			local stopB2, b2 = runtimeB.mount(function()
-				return UIB.Skeleton({ form = "box" })
+				return UIB.Skeleton({ form = "box" :: "box" })
 			end, engine.new("Folder"))
 			t.expect(engine.heartbeat.count()).toBe(2)
 			engine.heartbeat.fire(0.2)
@@ -547,7 +567,7 @@ local function compassItems(onSelect: (string) -> ()): { any }
 			id = id,
 			slot = id,
 			label = id,
-			completion = "stay",
+			completion = "stay" :: "stay",
 			onSelect = function()
 				onSelect(id)
 			end,
@@ -560,10 +580,10 @@ t.describe("radial retirement motion", function()
 	t.it("reopening mid-exit continues from the painted opacity and keeps every node", function()
 		local w = world({ motionLevel = "normal" })
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = opened,
-				distribution = "compass",
+				distribution = "compass" :: "compass",
 				items = compassItems(function() end),
 			})
 		end)
@@ -602,7 +622,7 @@ t.describe("radial retirement motion", function()
 
 	t.it("a retiring branch keeps its geometry, leaves the focus order and then releases", function()
 		local w = world({ motionLevel = "normal" })
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
 				items = {
@@ -610,11 +630,11 @@ t.describe("radial retirement motion", function()
 						id = "Branch",
 						label = "Branch",
 						children = {
-							{ id = "Leaf", label = "Leaf", completion = "stay" },
-							{ id = "Twig", label = "Twig", completion = "stay" },
+							{ id = "Leaf", label = "Leaf", completion = "stay" :: "stay" },
+							{ id = "Twig", label = "Twig", completion = "stay" :: "stay" },
 						},
-					},
-					{ id = "Other", label = "Other", completion = "stay" },
+					} :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "Other", label = "Other", completion = "stay" :: "stay" } :: FixtureRadialTypes.RadialItem<any>,
 				},
 			})
 		end)
@@ -655,29 +675,29 @@ t.describe("radial retirement motion", function()
 	t.it("reduced motion opens a whole usable ring with a long iconed label under a native theme", function()
 		local picked = {}
 		local package = themes.neutralPackage()
-		package.assets.search = { content = "rbxassetid://77" }
-		package.icons["facet:search"] = { default = "search" }
+		assert(package.assets).search = { content = "rbxassetid://77" }
+		assert(package.icons)["facet:search"] = { default = "search" }
 		local w = world({ theme = package })
 		w.gui.ReducedMotionEnabled = true
 		local opened = Compose.cell(false)
-		local stop, screen = w.mount(function(UI, Host)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				themes.createStyleSheet(w.runtime, package, { types = w.engine.types, motionLevel = "none" }),
+				themes.createStyleSheet(w.runtime, package, { types = w.engine.types, motionLevel = "none" }) :: unknown,
 				UI.RadialMenu({
 					isPresented = opened,
-					distribution = "even",
+					distribution = "even" :: "even",
 					items = {
 						{
 							id = "look",
 							label = "Look at the beautiful mountain",
-							icon = "facet:search",
-							labelStyle = "both",
-							completion = "stay",
+							icon = "facet:search" :: string,
+							labelStyle = "text" :: "text",
+							completion = "stay" :: "stay",
 							onSelect = function()
 								table.insert(picked, "look")
 							end,
-						},
-						{ id = "wave", label = "Wave", completion = "stay" },
+						} :: FixtureRadialTypes.RadialItem<any>,
+						{ id = "wave", label = "Wave", completion = "stay" :: "stay" } :: FixtureRadialTypes.RadialItem<any>,
 					},
 				}),
 			})
@@ -707,12 +727,12 @@ t.describe("presented surface motion", function()
 	t.it("fades an alert in from transparent, fades it out over the declared time and then removes it", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = shown,
 				title = "Delete?",
 				transition = { seconds = 0.2 },
-				actions = { { id = "ok", label = "OK" } },
+				actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
 			})
 		end)
 		shown:set(true)
@@ -758,12 +778,12 @@ t.describe("presented surface motion", function()
 	t.it("presents and removes an alert immediately without a transition", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Alert({
 				isPresented = shown,
 				title = "Now",
-				transition = false,
-				actions = { { id = "ok", label = "OK" } },
+				transition = false :: false,
+				actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
 			})
 		end)
 		shown:set(true)
@@ -782,23 +802,23 @@ t.describe("presented surface motion", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
 		local cancels = 0
-		local stop, screen = w.mount(function(UI, Host)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
-				UI.Button "Keep" { label = "Keep" },
+				UI.Button "Keep" { label = "Keep" } :: unknown,
 				UI.Alert({
 					isPresented = shown,
 					title = "Leave?",
 					transition = { seconds = 0.2 },
 					actions = {
-						{ id = "ok", label = "OK" },
+						{ id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any>,
 						{
 							id = "cancel",
 							label = "Cancel",
-							role = "cancel",
+							role = "cancel" :: "cancel",
 							onActivate = function()
 								cancels += 1
 							end,
-						},
+						} :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				}),
 			})
@@ -831,30 +851,34 @@ t.describe("presented surface motion", function()
 		local w = world({ motionLevel = "normal" })
 		local selection = Compose.cell("a")
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(function(UI, Host)
+		local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.TabView({
 					selection = selection,
-					placement = "topBar",
+					placement = "topBar" :: "topBar",
 					transition = { seconds = 0.2 },
 					tabs = {
 						{
 							id = "a",
 							label = "A",
-							content = function()
+							content = function(): Instance
 								return UI.Button "AContent" { label = "A" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 						{
 							id = "b",
 							label = "B",
-							content = function()
+							content = function(): Instance
 								return UI.Button "BContent" { label = "B" }
 							end,
-						},
+						} :: FixtureNavigationTypes.Tab,
 					},
+				}) :: unknown,
+				UI.RadialMenu({
+					isPresented = opened,
+					distribution = "compass" :: "compass",
+					items = compassItems(function() end),
 				}),
-				UI.RadialMenu({ isPresented = opened, distribution = "compass", items = compassItems(function() end) }),
 			})
 		end)
 		w.step(0.3)
@@ -881,12 +905,12 @@ t.describe("presented surface motion", function()
 	t.it("a sheet reversed mid-flight holds its painted height and returns, and reduced motion settles it", function()
 		local w = world({})
 		local detent, shown = Compose.cell("medium"), Compose.cell(true)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Sheet({
 				detent = detent,
 				isPresented = shown,
 				title = "Details",
-				content = function()
+				content = function(): Instance
 					return UI.Button "Kept" { label = "Kept" }
 				end,
 			})
@@ -934,29 +958,29 @@ t.describe("presented surface motion", function()
 end)
 
 t.describe("tab content transition", function()
-	local function tabs(w: any, transition: any, retention: string?): (() -> (), any, any)
+	local function tabs(w: any, transition: any, retention: ("all" | "top")?): (() -> (), any, any)
 		local selection = Compose.cell("a")
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.TabView({
 				selection = selection,
-				placement = "topBar",
+				placement = "topBar" :: "topBar",
 				transition = transition,
 				retention = retention,
 				tabs = {
 					{
 						id = "a",
 						label = "A",
-						content = function()
+						content = function(): Instance
 							return UI.Button "AContent" { label = "A" }
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "b",
 						label = "B",
-						content = function()
+						content = function(): Instance
 							return UI.Button "BContent" { label = "B" }
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			})
 		end)
@@ -1053,13 +1077,16 @@ end)
 t.describe("row action reveal motion", function()
 	local function row(reduced: boolean): (any, () -> (), any, any)
 		local w = world({ motionLevel = if reduced then "none" else "normal" })
-		local open = Compose.cell(nil :: string?)
-		local stop, screen = w.mount(function(UI)
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> = Compose.cell(nil :: ("leading" | "trailing")?)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RowActions({
-				content = UI.Button "Body" { label = "A preview line long enough to wrap once squeezed" },
+				content = UI.Button "Body" { label = "A preview line long enough to wrap once squeezed" } :: GuiObject,
 				open = open,
-				leading = { { id = "Read", label = "Read" } },
-				trailing = { { id = "Archive", label = "Archive" }, { id = "Flag", label = "Flag" } },
+				leading = { { id = "Read", label = "Read" } :: FixtureCollectionTypes.RowAction },
+				trailing = {
+					{ id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction,
+					{ id = "Flag", label = "Flag" } :: FixtureCollectionTypes.RowAction,
+				},
 			})
 		end)
 		local node = find(screen, "Content").Parent
@@ -1068,7 +1095,7 @@ t.describe("row action reveal motion", function()
 	end
 
 	t.it("a programmatic open uncovers the tray behind the row and never ahead of it", function()
-		for _, edge in { "trailing", "leading" } do
+		for _, edge in { "trailing", "leading" } :: { "leading" | "trailing" } do
 			local w, stop, node, open = row(false)
 			local content, tray = find(node, "Content"), find(node, edge)
 			local band = if edge == "leading" then 88 else 176
@@ -1098,7 +1125,7 @@ t.describe("row action reveal motion", function()
 	end)
 
 	t.it("a leading reveal translates the row content and keeps its width", function()
-		for _, edge in { "leading", "trailing" } do
+		for _, edge in { "leading", "trailing" } :: { "leading" | "trailing" } do
 			local w, stop, node, open = row(false)
 			local content = find(node, "Content")
 			local width = content.Size
@@ -1147,7 +1174,10 @@ local function withGame(gui: any, body: () -> ())
 			return if name == "GuiService" then gui else nil
 		end,
 	}
-	local ok, err = pcall(body)
+	local ok, err = pcall(function(): boolean
+		body()
+		return true
+	end)
 	env.game = previous
 	if not ok then
 		error(err, 0)
@@ -1169,10 +1199,10 @@ t.describe("reduced motion preference", function()
 		withGame(w.gui, function()
 			local presses = 0
 			local sheet
-			local stop, screen = w.mount(function(UI, Host)
+			local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
 				sheet = themes.createStyleSheet(w.runtime, themes.neutralPackage(), { types = w.engine.types })
 				return Host.Frame({
-					sheet,
+					sheet :: unknown,
 					UI.Button({
 						Name = "Go",
 						label = "Go",
@@ -1221,10 +1251,10 @@ t.describe("reduced motion preference", function()
 		w.gui.ReducedMotionEnabled = true
 		withGame(w.gui, function()
 			local sheet
-			local stop, screen = w.mount(function(UI, Host)
+			local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
 				sheet = themes.createStyleSheet(w.runtime, themes.neutralPackage(), { types = w.engine.types })
 				return Host.Frame({
-					sheet,
+					sheet :: unknown,
 					UI.Button({ Name = "Go", label = "Go", pop = true, onActivate = function() end }),
 				})
 			end)
@@ -1244,12 +1274,12 @@ end)
 t.describe("invalid entry feedback", function()
 	local function field(reduced: any): (any, () -> (), any, any)
 		local w = world({
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if if type(reduced) == "table" then use(reduced) else reduced then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		})
 		local invalid = Compose.cell(false)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.TextInput({ Name = "Name", value = Compose.cell("ready"), invalid = invalid })
 		end)
 		return w, stop, find(screen, "Name"), invalid
@@ -1349,7 +1379,7 @@ t.describe("invalid entry feedback", function()
 	t.it("refuses an invalid declaration that is not a readable boolean", function()
 		for _, bad in { true :: any, "yes", 1, Compose.cell("no") } do
 			local w = world({})
-			local ok, err = pcall(w.mount, function(UI)
+			local ok, err = pcall(w.mount, function(UI: FacetControls)
 				return UI.TextInput({ value = Compose.cell(""), invalid = bad })
 			end)
 			t.expect(ok).toBe(false)
@@ -1366,45 +1396,45 @@ t.describe("control motion policy and lifetime", function()
 				detent = state.detent,
 				isPresented = state.sheet,
 				title = "Sheet",
-				content = function()
+				content = function(): Instance
 					return UI.Button({ Name = "Go", label = "Go", pop = true, onActivate = function() end })
 				end,
-			}),
+			}) :: unknown,
 			UI.RowActions({
 				content = UI.Button "RowBody" { label = "Row" },
 				open = state.open,
-				trailing = { { id = "Archive", label = "Archive" } },
+				trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
 			}),
 			UI.Alert({
 				isPresented = state.alert,
 				title = "Alert",
 				transition = { seconds = 0.2 },
-				actions = { { id = "ok", label = "OK" } },
+				actions = { { id = "ok", label = "OK" } :: FixtureNavigationTypes.AlertAction<any> },
 			}),
 			UI.TabView({
 				selection = state.tab,
-				placement = "topBar",
+				placement = "topBar" :: "topBar",
 				transition = { seconds = 0.2 },
 				tabs = {
 					{
 						id = "a",
 						label = "A",
-						content = function()
+						content = function(): Instance
 							return Host.Frame({ Name = "APage" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 					{
 						id = "b",
 						label = "B",
-						content = function()
+						content = function(): Instance
 							return Host.Frame({ Name = "BPage" })
 						end,
-					},
+					} :: FixtureNavigationTypes.Tab,
 				},
 			}),
 			UI.Skeleton({ form = "line" }),
 			UI.ProgressView({ Name = "Health", value = state.value, trail = { delay = 0.05, duration = 0.3 } }),
-			UI.ProgressView({ Name = "Busy", presentation = "spinner" }),
+			UI.ProgressView({ Name = "Busy", presentation = "spinner" :: "spinner" }),
 		})
 	end
 
@@ -1424,12 +1454,12 @@ t.describe("control motion policy and lifetime", function()
 		function()
 			local reduced = Compose.cell(false)
 			local w = world({
-				motionLevel = Compose.formula(function(use)
+				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 					return if use(reduced) then "none" else "normal"
-				end),
+				end) :: unknown) :: MotionLevel,
 			})
 			local state = newState()
-			local stop, screen = w.mount(function(UI, Host)
+			local stop, screen = w.mount(function(UI: FacetControls, Host: RobloxHost)
 				return motionScene(UI, Host, state)
 			end)
 			local row = find(screen, "RowBody").Parent.Parent
@@ -1508,7 +1538,9 @@ t.describe("control motion policy and lifetime", function()
 		local function cycle()
 			local state = newState()
 			local stop = w.runtime.mount(function()
-				return w.runtime.constructors.ScreenGui({ motionScene(w.UI, w.runtime.constructors, state) })
+				return ((w.runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+					motionScene(w.UI, w.runtime.constructors, state),
+				})
 			end, target)
 			local row = find(target, "RowBody").Parent.Parent
 			row.AbsoluteSize = w.engine.types.Vector2.new(320, 44)
@@ -1557,7 +1589,7 @@ t.describe("control motion policy and lifetime", function()
 		local moving
 		local root = Compose.createRootOwner(function()
 			clock = w.runtime.timeline({ duration = 1, autoplay = false })
-			moving = w.runtime.tween(function(use)
+			moving = w.runtime.tween(function(use: Use)
 				return use(target)
 			end, { seconds = 1 })
 		end, w.runtime.reactor)
@@ -1581,12 +1613,12 @@ t.describe("control motion policy and lifetime", function()
 
 	t.it("a row reveal reversed mid-flight continues from its painted offset", function()
 		local w = world({ motionLevel = "normal" })
-		local open = Compose.cell(nil :: string?)
-		local stop, screen = w.mount(function(UI)
+		local open: FixtureComposeTypes.Cell<("leading" | "trailing")?> = Compose.cell(nil :: ("leading" | "trailing")?)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RowActions({
-				content = UI.Button "Body" { label = "Row" },
+				content = UI.Button "Body" { label = "Row" } :: GuiObject,
 				open = open,
-				trailing = { { id = "Archive", label = "Archive" } },
+				trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
 			})
 		end)
 		local node = find(screen, "Content").Parent
@@ -1615,7 +1647,7 @@ t.describe("control motion policy and lifetime", function()
 	t.it("an alert reopened mid-exit continues from its painted opacity", function()
 		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.Alert({ isPresented = shown, title = "Again", transition = { seconds = 0.2 } })
 		end)
 		shown:set(true)
@@ -1673,7 +1705,7 @@ t.describe("theme paint transitions", function()
 			local normal = m.normal
 			local press = math.min(m.press or 0.08, normal)
 			local hover = math.min(m.hover or 0.15, normal)
-			for _, mode in { "full", "limited", "reduced", "off" } do
+			for _, mode in { "full", "limited", "reduced", "off" } :: { "full" | "limited" | "off" | "reduced" } do
 				local w = world({})
 				local stop, sheet = w.runtime.mount(function()
 					return themes.createStyleSheet(w.runtime, package, {
@@ -1744,14 +1776,14 @@ t.describe("match3 cascade order and input lock", function()
 
 	local function newGame(): (any, any)
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target = engine.new("Folder")
 		local viewport = Compose.cell({ width = 800, height = 600 })
 		local ctx: any = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			inputTarget = target,
 			worldTarget = engine.new("Folder"),
@@ -1762,16 +1794,16 @@ t.describe("match3 cascade order and input lock", function()
 			engine = engine,
 		}
 		local game
-		local stop, node = runtime.mount(function()
+		local stop, node: any = runtime.mount(function()
 			gallery.configure(ctx)
 			ctx.UI = Facet.controls(
 				runtime,
 				{
 					types = engine.types,
 					viewport = viewport,
-					motionLevel = Compose.formula(function(use)
+					motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-					end),
+					end) :: unknown) :: MotionLevel,
 				} :: any
 			)
 			game = match3.build(ctx)
@@ -1902,7 +1934,7 @@ t.describe("gallery motion setting", function()
 	t.it("offers Full and Reduced, never on or off wording, and follows the native preference", function()
 		local gallery = require("../examples/gallery/client/screen")
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, gui = engine.new("Folder"), engine.new("GuiService")
 		local input = engine.new("UserInputService")
 		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
@@ -1913,7 +1945,7 @@ t.describe("gallery motion setting", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
@@ -1924,7 +1956,7 @@ t.describe("gallery motion setting", function()
 			themeMode = Compose.cell("light"),
 		}
 		ctx.packages = { Neutral = ctx.theme:peek() }
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			gallery.configure(ctx)
 			ctx.UI = Facet.controls(
 				runtime,
@@ -1934,12 +1966,12 @@ t.describe("gallery motion setting", function()
 					inputParent = target,
 					services = { GuiService = gui, UserInputService = input },
 					theme = ctx.theme,
-					motionLevel = Compose.formula(function(use)
+					motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-					end),
+					end) :: unknown) :: MotionLevel,
 				} :: any
 			)
-			ctx.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
+			ctx.demos = { { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } }
 			ctx.load = function()
 				return {
 					build = function(page)
@@ -2045,7 +2077,7 @@ t.describe("performance lab motion flight", function()
 					sourceStamp = "test",
 					placeName = "headless",
 					viewport = "800x600",
-					orientation = "landscape",
+					orientation = "landscape" :: "landscape",
 					graphicsQualityLevel = "n/a",
 					frameTarget = "n/a",
 					studioVersion = "n/a",
@@ -2074,7 +2106,7 @@ t.describe("performance lab motion flight", function()
 			local active = probe.state().active
 			t.expect(#active.springs).toBe(24)
 			t.expect(#active.nodes).toBe(24)
-			local chips = table.clone(active.nodes)
+			local chips: { any } = table.clone(active.nodes)
 			local previous: { number } = {}
 			for index, chip in chips do
 				previous[index] = chip.Position.Y.Scale
@@ -2118,11 +2150,14 @@ t.describe("performance lab motion flight", function()
 
 	t.it("the segmented selection fill never reaches past the strip, so it cannot widen it", function()
 		local w = world({ motionLevel = "none" })
-		local _, screen = w.mount(function(UI)
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				selected = Compose.cell("b"),
-				options = { { value = "a", label = "A long option" }, { value = "b", label = "Rally" } },
+				options = {
+					{ value = "a", label = "A long option" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Rally" } :: FixtureNavigationTypes.PickerOption<any>,
+				},
 			}
 		end)
 		local V = w.engine.types.Vector2
@@ -2139,14 +2174,14 @@ t.describe("performance lab motion flight", function()
 		"the segmented selection fill is placed in the strip's padded content box, so it cannot grow the strip",
 		function()
 			local w = world({ motionLevel = "none" })
-			local _, screen = w.mount(function(UI)
+			local _, screen = w.mount(function(UI: FacetControls)
 				return UI.Picker "Mode" {
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = Compose.cell("b"),
 					options = {
-						{ value = "a", label = "Road" },
-						{ value = "b", label = "Rally" },
-						{ value = "c", label = "Drift" },
+						{ value = "a", label = "Road" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "Rally" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "c", label = "Drift" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				}
 			end)
@@ -2168,15 +2203,15 @@ t.describe("performance lab motion flight", function()
 
 	t.it("a stale segment position cannot place the selection fill past the laid-out segments", function()
 		local w = world({ motionLevel = "none" })
-		local _, screen = w.mount(function(UI)
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
-				style = "segmented",
-				axis = "y",
+				style = "segmented" :: "segmented",
+				axis = "y" :: "y",
 				selected = Compose.cell("b"),
 				options = {
-					{ value = "a", label = "Road" },
-					{ value = "b", label = "Rally" },
-					{ value = "c", label = "Drift" },
+					{ value = "a", label = "Road" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Rally" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "c", label = "Drift" } :: FixtureNavigationTypes.PickerOption<any>,
 				},
 			}
 		end)
@@ -2203,13 +2238,13 @@ t.describe("performance lab motion flight", function()
 	t.it("the segmented selection fill sits on a segment that wrapped to the next line, inside the strip", function()
 		local w = world({ motionLevel = "none" })
 		local selected = Compose.cell("b")
-		local _, screen = w.mount(function(UI)
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				selected = selected,
 				options = {
-					{ value = "a", label = "A deliberately long label that wraps the strip" },
-					{ value = "b", label = "Rally" },
+					{ value = "a", label = "A deliberately long label that wraps the strip" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "Rally" } :: FixtureNavigationTypes.PickerOption<any>,
 				},
 			}
 		end)
@@ -2232,14 +2267,14 @@ t.describe("performance lab motion flight", function()
 			local function run(reduced: boolean): (any, any, any)
 				local w = world({ motionLevel = if reduced then "none" else "normal" })
 				local selected = Compose.cell("a")
-				local _, screen = w.mount(function(UI)
+				local _, screen = w.mount(function(UI: FacetControls)
 					return UI.Picker "Mode" {
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						selected = selected,
 						options = {
-							{ value = "a", label = "A" },
-							{ value = "b", label = "B" },
-							{ value = "c", label = "C" },
+							{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+							{ value = "c", label = "C" } :: FixtureNavigationTypes.PickerOption<any>,
 						},
 					}
 				end)
@@ -2274,14 +2309,14 @@ t.describe("performance lab motion flight", function()
 	t.it("the segmented selection fill lands with the strip when the strip reflows during its slide", function()
 		local w = world({ motionLevel = "normal" })
 		local selected = Compose.cell("c")
-		local _, screen = w.mount(function(UI)
+		local _, screen = w.mount(function(UI: FacetControls)
 			return UI.Picker "Mode" {
-				style = "segmented",
+				style = "segmented" :: "segmented",
 				selected = selected,
 				options = {
-					{ value = "a", label = "A" },
-					{ value = "b", label = "B" },
-					{ value = "c", label = "C" },
+					{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+					{ value = "c", label = "C" } :: FixtureNavigationTypes.PickerOption<any>,
 				},
 			}
 		end)
@@ -2319,14 +2354,14 @@ t.describe("performance lab motion flight", function()
 		function()
 			local w = world({ motionLevel = "normal" })
 			local selected = Compose.cell("c")
-			local _, screen = w.mount(function(UI)
+			local _, screen = w.mount(function(UI: FacetControls)
 				return UI.Picker "Mode" {
-					style = "segmented",
+					style = "segmented" :: "segmented",
 					selected = selected,
 					options = {
-						{ value = "a", label = "A" },
-						{ value = "b", label = "B" },
-						{ value = "c", label = "C" },
+						{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "b", label = "B" } :: FixtureNavigationTypes.PickerOption<any>,
+						{ value = "c", label = "C" } :: FixtureNavigationTypes.PickerOption<any>,
 					},
 				}
 			end)
@@ -2376,7 +2411,7 @@ t.describe("radial presentation geometry", function()
 	t.it("closing folds the ring back into its centre as it fades", function()
 		local w = world({ motionLevel = "normal" })
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({ isPresented = opened, items = compassItems(function() end) })
 		end)
 		w.step(0.3)
@@ -2395,18 +2430,18 @@ t.describe("radial presentation geometry", function()
 	t.it("a replacing level keeps the ring it replaced", function()
 		local w = world({ motionLevel = "normal" })
 		local opened = Compose.cell(true)
-		local stop, screen = w.mount(function(UI)
+		local stop, screen = w.mount(function(UI: FacetControls)
 			return UI.RadialMenu({
 				isPresented = opened,
-				preset = "bottom-left",
-				appearance = "buttons",
+				preset = "bottom-left" :: "bottom-left",
+				appearance = "buttons" :: "buttons",
 				items = {
-					{ id = "look", label = "Look", icon = "close", onSelect = function() end },
+					{ id = "look", label = "Look", icon = "close", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
 					{
 						id = "pack",
 						label = "Pack",
 						icon = "menu",
-						navigation = "replace",
+						navigation = "replace" :: "replace",
 						children = {
 							{ id = "map", label = "Map", compactLabel = { icon = "flag" }, onSelect = function() end },
 							{
@@ -2416,8 +2451,8 @@ t.describe("radial presentation geometry", function()
 								onSelect = function() end,
 							},
 						},
-					},
-					{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end },
+					} :: FixtureRadialTypes.RadialItem<any>,
+					{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end } :: FixtureRadialTypes.RadialItem<any>,
 				},
 			})
 		end)

@@ -137,6 +137,7 @@ local function segmentedFlip(state)
 	local after = probe()
 	return { segments = segments, textSizeBefore = before, textSizeAfter = after }
 end
+type SceneState = { workload: { [string]: any }, target: any, dispose: () -> () }
 local scenes = {}
 for _, name in workloads.ORDER do
 	local counts = sampling[name] or { 240, 60 }
@@ -168,7 +169,8 @@ for _, name in workloads.ORDER do
 			local workload
 			world.runtime.mount(function()
 				workload = workloads.create(world, name, dataset)
-				return world.Host.ScreenGui({ workload.build() })
+				local build = workload.build :: () -> Instance
+				return world.Host.ScreenGui({ build() })
 			end, world.target)
 			world.workload = workload
 			if name == "radial-menu-open-close" then
@@ -181,21 +183,21 @@ for _, name in workloads.ORDER do
 			end
 			return world
 		end,
-		run = function(state)
+		run = function(state: SceneState)
 			return state.workload.step()
 		end,
-		afterRun = function(state)
+		afterRun = function(state: SceneState)
 			if state.workload.afterRun then
 				state.workload.afterRun()
 			end
 		end,
-		asyncStats = function(state)
+		asyncStats = function(state: SceneState)
 			return state.workload.async or { completed = 0, stale = 0, dropped = 0 }
 		end,
-		teardown = function(state)
+		teardown = function(state: SceneState)
 			state.dispose()
 		end,
-		extras = function(state)
+		extras = function(state: SceneState)
 			local w = state.workload
 			return {
 				dragMoves = w.dragMoves,

@@ -1,4 +1,14 @@
 --!strict
+
+type DatasetModule = typeof(require("./dataset"))
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ObservedCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type Use = <T>(Readable<T>) -> T
 local motion = require("./motion_workloads")
 local workloads = {}
 workloads.VERSION = "native-perf-workloads/2"
@@ -61,22 +71,33 @@ workloads.DATASETS = {
 	["radial-menu-open-close"] = "Six-action radial menu; open and close",
 }
 
-function workloads.create(ctx, name, dataset)
+local function createStandard(ctx: { [string]: any }, name: string, dataset: DatasetModule)
 	assert(workloads.DATASETS[name], `unknown performance workload {name}`)
-	if name == "dense-motion" or name == "control-motion" then
-		return motion.create(ctx, name, dataset)
-	end
-	local Compose, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
+	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, V2, E, C3 = types.UDim2, types.Vector2, types.Enum, types.Color3
+	type Row = {
+		id: string,
+		name: string,
+		detail: string?,
+		imageKey: string?,
+		enabled: boolean?,
+		rank: number?,
+		team: string?,
+		value: number?,
+	}
 	local state = {
 		n = 0,
 		name = name,
-		observed = {},
+		selected = nil :: any,
+		observed = {} :: { ObservedCell },
 		nodes = {},
+		close = nil :: (() -> ())?,
+		focused = nil :: any,
+		surface = nil :: { panel: string, items: { [string]: boolean } }?,
 		controls = {},
 		status = Compose.cell({
-			mode = "windowed",
-			direction = "vertical",
+			mode = "windowed" :: "windowed",
+			direction = "vertical" :: "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,
@@ -105,18 +126,20 @@ function workloads.create(ctx, name, dataset)
 	function state.disclosure()
 		return UI.Alert "RowDetail" {
 			isPresented = detailShown,
-			title = Compose.formula(function(use)
+			title = Compose.formula(function(use: Use)
 				local item = use(opened)
 				return if item then item.name else "Item"
 			end),
-			message = Compose.formula(function(use)
+			message = Compose.formula(function(use: Use)
 				local item = use(opened)
 				return if item then item.detail else ""
 			end),
-			actions = { { id = "close", label = "Close" } },
+			actions = {
+				{ id = "close", label = "Close" } :: AlertAction,
+			},
 		}
 	end
-	local function readText(value, index)
+	local function readText(value: any, index: (number | string)?)
 		return Host.TextLabel({
 			Name = `Readout{index or 1}`,
 			TextSize = if name == "hud-binding-storm" then 18 else 14,
@@ -125,8 +148,8 @@ function workloads.create(ctx, name, dataset)
 			BackgroundTransparency = 1,
 		})
 	end
-	local function stack(children)
-		local props = {
+	local function stack(children: { any })
+		local props: { [any]: any } = {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
@@ -139,9 +162,9 @@ function workloads.create(ctx, name, dataset)
 		end
 		return Host.Frame(props)
 	end
-	local function bindCell(value)
+	local function bindCell<T>(value: T): Cell<T>
 		local cell = Compose.cell(value)
-		table.insert(state.observed, cell)
+		table.insert(state.observed, (cell :: unknown) :: ObservedCell)
 		return cell
 	end
 	local function viewport(node)
@@ -169,7 +192,7 @@ function workloads.create(ctx, name, dataset)
 				item.enabled = false
 			end
 		end
-		state.rows = Compose.cell(data)
+		state.rows = Compose.cell(data :: { Row })
 		state.list = UI.VirtualList({
 			from = state.rows,
 			key = function(item)
@@ -183,7 +206,7 @@ function workloads.create(ctx, name, dataset)
 			status = state.status,
 			controls = state.controls,
 			Size = D2.fromScale(1, 1),
-			if full then state.disclosure() else nil,
+			if full then state.disclosure() else nil :: unknown,
 		})
 		viewport(state.list)
 		return state.list
@@ -204,7 +227,8 @@ function workloads.create(ctx, name, dataset)
 					source = source,
 					loader = if ctx.engine
 						then function(content, resolve)
-							local request = { resolve = resolve, content = content, cancelled = false }
+							local request: { resolve: (string?) -> (), content: string, cancelled: boolean, completed: boolean? } =
+								{ resolve = resolve, content = content, cancelled = false }
 							table.insert(state.requests, request)
 							return function()
 								request.cancelled = true
@@ -284,13 +308,13 @@ function workloads.create(ctx, name, dataset)
 				message = "The save slot is cleared and the run restarts from the last checkpoint.",
 				isPresented = state.presented,
 				actions = {
-					{ id = "Delete", label = "Delete", role = "destructive" },
-					{ id = "Keep", label = "Keep a copy" },
-					{ id = "Cancel", label = "Cancel", role = "cancel" },
+					{ id = "Delete", label = "Delete", role = "destructive" :: "destructive" } :: AlertAction,
+					{ id = "Keep", label = "Keep a copy" } :: AlertAction,
+					{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: AlertAction,
 				},
 			})
 		elseif kind == "radial" then
-			return UI.RadialMenu({ items = options, isPresented = state.presented, preset = "compass" })
+			return UI.RadialMenu({ items = options, isPresented = state.presented, preset = "compass" :: "compass" })
 		end
 		local choices = {}
 		for index, option in options do
@@ -303,7 +327,7 @@ function workloads.create(ctx, name, dataset)
 			onChange = function(value)
 				state.selected:set(value)
 			end,
-			style = "menu",
+			style = "menu" :: "menu",
 		})
 	end
 	local function lifecycle()
@@ -332,9 +356,9 @@ function workloads.create(ctx, name, dataset)
 				label = "Detail",
 				selected = selected,
 				options = {
-					{ value = "low", label = "Low" },
-					{ value = "medium", label = "Medium" },
-					{ value = "high", label = "High" },
+					{ value = "low", label = "Low" } :: PickerOption,
+					{ value = "medium", label = "Medium" } :: PickerOption,
+					{ value = "high", label = "High" } :: PickerOption,
 				},
 				onChange = function(next)
 					selected:set(next)
@@ -369,7 +393,7 @@ function workloads.create(ctx, name, dataset)
 		elseif name == "hud-binding-storm" then
 			state.speed = bindCell(0)
 			return stack({
-				readText(function(use)
+				readText(function(use: Use)
 					return `{use(state.speed)} sps`
 				end),
 				UI.Button({
@@ -377,18 +401,22 @@ function workloads.create(ctx, name, dataset)
 				}),
 			})
 		elseif name == "settings-churn" or name == "screen-lifecycle-churn" or name == "async-image-grid" then
-			state.anchor =
-				Host.Frame({ Size = D2.fromScale(1, 1), if name ~= "async-image-grid" then readText("HUD") else nil })
+			state.anchor = Host.Frame({
+				Size = D2.fromScale(1, 1),
+				if name ~= "async-image-grid" then readText("HUD") else nil :: unknown,
+			})
 			return state.anchor
 		elseif name == "collection-mutation" then
 			local items = {}
 			for index = 1, ctx.rowCount or 8 do
 				items[index] = { id = `r{index}`, name = `Racer {index}` }
 			end
-			state.rows, state.selected = Compose.cell(items), Compose.cell({})
-			local function cell(current)
+			state.rows, state.collectionSelection =
+				Compose.cell(items :: { Row }), Compose.cell({} :: { [string]: boolean? })
+			state.selected = state.collectionSelection
+			local function cell(current: Readable<Row>): Instance
 				return Host.TextLabel({
-					Text = function(use)
+					Text = function(use: Use)
 						return use(current).name
 					end,
 					TextSize = 14,
@@ -401,11 +429,14 @@ function workloads.create(ctx, name, dataset)
 				key = function(item)
 					return item.id
 				end,
-				columns = { { id = "name", minWidth = 80, render = cell }, { id = "n", width = 48, render = cell } },
+				columns = {
+					{ id = "name", minWidth = 80, render = cell } :: { id: string, minWidth: number?, width: number?, render: (Readable<Row>) -> Instance },
+					{ id = "n", width = 48, render = cell } :: { id: string, minWidth: number?, width: number?, render: (Readable<Row>) -> Instance },
+				},
 				itemSize = 40,
 				header = false,
-				selection = state.selected,
-				selectionMode = "multiple",
+				selection = state.collectionSelection,
+				selectionMode = "multiple" :: "multiple",
 				status = state.status,
 			})
 			for _, child in node:GetChildren() do
@@ -430,7 +461,7 @@ function workloads.create(ctx, name, dataset)
 		elseif name == "animation-interruption" then
 			state.value, state.current = bindCell(0), 0
 			return Host.TextLabel "Meter" {
-				Text = function(use)
+				Text = function(use: Use)
 					return string.format("%.1f%%", use(state.value) * 100)
 				end,
 				TextSize = 20,
@@ -441,10 +472,10 @@ function workloads.create(ctx, name, dataset)
 			state.expanded, state.textSize = bindCell(false), bindCell(1)
 			state.locale = Compose.cell("en-us")
 			local children = {}
-			local function label(text, size)
+			local function label(text: any, size: number)
 				return Host.TextLabel({
 					Text = text,
-					TextSize = function(use)
+					TextSize = function(use: Use)
 						return size * use(state.textSize)
 					end,
 					Size = D2.new(1, 0, 0, 30),
@@ -461,15 +492,15 @@ function workloads.create(ctx, name, dataset)
 					children,
 					UI.Picker({
 						label = "Difficulty",
-						style = "segmented",
+						style = "segmented" :: "segmented",
 						selected = state.selected,
-						textSize = function(use)
+						textSize = function(use: Use)
 							return 16 * use(state.textSize)
 						end,
 						options = {
-							{ value = "easy", label = "Easy" },
-							{ value = "normal", label = "Normal" },
-							{ value = "hard", label = "Hard" },
+							{ value = "easy", label = "Easy" } :: PickerOption,
+							{ value = "normal", label = "Normal" } :: PickerOption,
+							{ value = "hard", label = "Hard" } :: PickerOption,
 						},
 					})
 				)
@@ -541,7 +572,7 @@ function workloads.create(ctx, name, dataset)
 				{
 					id = "garage",
 					label = "Garage",
-					content = function()
+					content = function(): Instance
 						state.contentBuilds += 1
 						local children = {
 							Name = "Cars",
@@ -567,14 +598,14 @@ function workloads.create(ctx, name, dataset)
 				{
 					id = "race",
 					label = "Race",
-					content = function()
+					content = function(): Instance
 						return readText("Race")
 					end,
 				},
 				{
 					id = "settings",
 					label = "Settings",
-					content = function()
+					content = function(): Instance
 						return readText("Settings")
 					end,
 				},
@@ -592,7 +623,7 @@ function workloads.create(ctx, name, dataset)
 				selection = state.selected,
 				customization = state.customization,
 				placement = state.placement,
-				style = "sidebarAdaptable",
+				style = "sidebarAdaptable" :: "sidebarAdaptable",
 			})
 		elseif string.sub(name, 1, 11) == "theme-swap-" then
 			state.packages = assert(ctx.themePackages, "theme workload requires original package fixtures")
@@ -616,7 +647,7 @@ function workloads.create(ctx, name, dataset)
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ FillDirection = E.FillDirection.Horizontal, Padding = types.UDim.new(0, 8) }),
+					Host.UIListLayout({ FillDirection = E.FillDirection.Horizontal, Padding = types.UDim.new(0, 8) }) :: unknown,
 					state.themeControls[2],
 					state.themeControls[3],
 				}),
@@ -633,7 +664,7 @@ function workloads.create(ctx, name, dataset)
 						Host.Frame({
 							BackgroundTransparency = value,
 							Size = D2.fromOffset(30, 30),
-							Host.UICorner({}),
+							Host.UICorner({}) :: unknown,
 							Host.UIStroke({ Thickness = 2 }),
 							Host.UIShadow({ Transparency = value, BlurRadius = types.UDim.new(0, 8) }),
 						})
@@ -645,7 +676,7 @@ function workloads.create(ctx, name, dataset)
 				else
 					table.insert(
 						children,
-						readText(function(use)
+						readText(function(use: Use)
 							return tostring(use(value))
 						end, index)
 					)
@@ -657,7 +688,7 @@ function workloads.create(ctx, name, dataset)
 				state.activate = function()
 					state.boosts:set(state.boosts:peek() + 1)
 				end
-				state.boostText = readText(function(use)
+				state.boostText = readText(function(use: Use)
 					return `Boost x{use(state.boosts)}`
 				end, "Boosts")
 				table.insert(children, state.boostText)
@@ -682,7 +713,7 @@ function workloads.create(ctx, name, dataset)
 							key = function(item)
 								return item.id
 							end,
-							render = function(current)
+							render = function(current: Readable<{ id: string, x: number }>): GuiObject
 								return Host.Frame({ Name = `Dot-{current:peek().id}`, Size = D2.fromOffset(6, 6) })
 							end,
 						}),
@@ -699,7 +730,7 @@ function workloads.create(ctx, name, dataset)
 	end
 	function state.step()
 		state.n += 1
-		local phases
+		local phases: { [string]: number }?
 		if name == "hud-binding-storm" then
 			for index = 1, 50 do
 				state.speed:set(state.n * 50 + index)
@@ -724,7 +755,7 @@ function workloads.create(ctx, name, dataset)
 							Host.UIListLayout({
 								FillDirection = E.FillDirection.Horizontal,
 								Padding = types.UDim.new(0, 8),
-							}),
+							}) :: unknown,
 							Host.TextLabel({
 								Text = `Setting {index}`,
 								Size = D2.fromOffset(0, 24),
@@ -784,12 +815,12 @@ function workloads.create(ctx, name, dataset)
 				table.insert(items, math.max(1, math.floor(#items * 0.25)), item)
 				table.remove(items, math.max(1, math.floor(#items * 0.6)))
 				local at = math.max(1, (state.n * 7) % #items)
-				table.insert(items, math.max(1, ((state.n * 7) % #items) + 3), table.remove(items, at))
+				table.insert(items, math.max(1, ((state.n * 7) % #items) + 3), assert(table.remove(items, at)))
 			end
 			state.rows:set(items)
 			if state.nextSelectionKey then
 				local key = state.nextSelectionKey
-				state.selected:update(function(previous)
+				state.collectionSelection:update(function(previous)
 					local next = table.clone(previous)
 					next[key] = if next[key] then nil else true
 					return next
@@ -841,7 +872,7 @@ function workloads.create(ctx, name, dataset)
 				state.opens += 1
 				if state.surfaceItems == 0 then
 					for _, node in surface:GetDescendants() do
-						if state.surface.items[node.Name] then
+						if assert(state.surface).items[node.Name] then
 							state.surfaceItems += 1
 						end
 					end
@@ -876,7 +907,7 @@ function workloads.create(ctx, name, dataset)
 			if ctx.frame then
 				ctx.frame()
 			end
-			phases.focus = os.clock() - started
+			assert(phases).focus = os.clock() - started
 			started = os.clock()
 			state.placement:set("sidebar")
 			if ctx.frame then
@@ -887,7 +918,7 @@ function workloads.create(ctx, name, dataset)
 				ctx.frame()
 				ctx.frame()
 			end
-			phases.navigation = os.clock() - started
+			assert(phases).navigation = os.clock() - started
 			assert(state.contentBuilds == 1, "navigation chrome rebuilt retained inventory")
 		elseif name == "navigation-customization" then
 			local started = os.clock()
@@ -949,7 +980,7 @@ function workloads.create(ctx, name, dataset)
 		end
 		if state.requests then
 			for _ = 1, math.min(4, #state.requests) do
-				local request = table.remove(state.requests, 1)
+				local request = assert(table.remove(state.requests, 1))
 				request.completed = true
 				request.resolve(request.content)
 				if request.cancelled then
@@ -973,5 +1004,15 @@ function workloads.create(ctx, name, dataset)
 		return phases
 	end
 	return state
+end
+function workloads.create(
+	ctx: { [string]: any },
+	name: string,
+	dataset: DatasetModule
+): typeof(motion.create(nil :: any, nil :: any, nil :: any)) | typeof(createStandard(nil :: any, "", nil :: any))
+	if name == "dense-motion" or name == "control-motion" then
+		return motion.create(ctx, name, dataset)
+	end
+	return createStandard(ctx, name, dataset)
 end
 return workloads

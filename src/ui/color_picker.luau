@@ -168,7 +168,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 			}
 			for _, cell in cells do
-				table.insert(checker, cell)
+				checker[#checker + 1] = cell
 			end
 			return Host.Frame(checker)
 		end
@@ -711,7 +711,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					}),
 				}
 				for _, cell in cells do
-					table.insert(props, cell)
+					props[#props + 1] = cell
 				end
 				table.insert(rows, Host.Frame(props))
 			end
@@ -722,7 +722,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				ClipsDescendants = true,
 			}
 			for _, row in rows do
-				table.insert(checker, row)
+				checker[#checker + 1] = row
 			end
 			return Host.Frame "AlphaStrip" {
 				AnchorPoint = V2.new(0.5, 0.5),
@@ -1463,12 +1463,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 			}
 			for _, format in FORMATS do
-				table.insert(
-					values,
-					Compose.show(function(use: Use)
-						return use(formatCell) == format.value
-					end, builders[format.value])
-				)
+				values[#values + 1] = Compose.show(function(use: Use)
+					return use(formatCell) == format.value
+				end, builders[format.value])
 			end
 			local formatProps: Nav.SinglePickerSpec<string> = {
 				selected = formatCell,
@@ -1515,7 +1512,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					builders[mode]() :: Shared.Child,
 				})
 				table.insert(shows, show)
-				table.insert(technique, show)
+				technique[#technique + 1] = show
 			end
 			local heights: { ComposeTypes.Readable<Vector2> } = {}
 			for _, show in shows do
@@ -1690,11 +1687,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, SPACE) }),
 			}
 			if overlay then
-				table.insert(props, ctx.padding(PAD, PAD))
-				table.insert(props, ctx.corner())
+				props[#props + 1] = ctx.padding(PAD, PAD)
+				props[#props + 1] = ctx.corner()
 			end
 			for _, child in children do
-				table.insert(props, child)
+				props[#props + 1] = child
 			end
 			local panel = Host.Frame(props)
 			local visibility: { ComposeTypes.Readable<boolean> } = {}

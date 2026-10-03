@@ -1,9 +1,12 @@
 --!strict
+
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local build = require("./collection_demo")
 local TEAMS = { "Rustbucket", "Chrome Coyote", "Nine Volt", "Paper Lantern", "Bad Weather" }
 return {
 	title = "Virtualized table",
-	build = function(ctx)
+	build = function(ctx: ExampleContext)
 		local rows = {}
 		for index = 1, 2000 do
 			rows[index] = {
@@ -28,7 +31,7 @@ return {
 					value = function(item)
 						return `#{item.n}`
 					end,
-				},
+				} :: TableColumn,
 				{
 					id = "team",
 					label = "Team",
@@ -44,7 +47,7 @@ return {
 					value = function(item)
 						return item.team
 					end,
-				},
+				} :: TableColumn,
 				{
 					id = "best",
 					label = "Best lap",
@@ -52,7 +55,7 @@ return {
 					value = function(item)
 						return item.best
 					end,
-				},
+				} :: TableColumn,
 			},
 		})
 	end,

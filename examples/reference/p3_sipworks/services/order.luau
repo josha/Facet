@@ -1,21 +1,28 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+
 local order = {}
 
 order.RESOLVE_AFTER = 0.6
 order.READY_AFTER = 4.0
 
 function order.new(opts: any)
-	local Compose = opts.Compose
+	local Compose: ComposeModule = opts.Compose
 
 	local batch = opts.batch
 	local clock = opts.clock
 
 	local status = Compose.cell("idle")
 	local mode = Compose.cell("paid")
-	local blendId = Compose.cell(nil :: string?)
+	local blendId = (function(value: string?): OptionalStringCell
+		return Compose.cell(value)
+	end)(nil)
 	local isReady = Compose.cell(false)
-	local reason = Compose.cell(nil :: string?)
+	local reason = (function(value: string?): OptionalStringCell
+		return Compose.cell(value)
+	end)(nil)
 	local paymentsEnabled = Compose.cell(opts.paymentsEnabled ~= false)
 	local attempts = 0
 	local readyHandle: any = nil

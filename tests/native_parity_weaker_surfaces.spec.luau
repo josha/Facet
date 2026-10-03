@@ -1,4 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local materialize = require("./lib/materialize")
 local Facet = require("../src")
@@ -11,7 +21,7 @@ end
 local function near(actual: number, expected: number): boolean
 	return math.abs(actual - expected) <= 1
 end
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 type World = {
 	engine: any,
@@ -24,7 +34,7 @@ type World = {
 
 local function setup(build: (any, any, any, any, any) -> any, options: { [string]: any }?): World
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -42,8 +52,8 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 		config[key] = value
 	end
 	local UI = Facet.controls(runtime, config :: any)
-	local Host = runtime.constructors
-	local stop, screen = runtime.mount(function()
+	local Host = (runtime.constructors :: unknown) :: RobloxHost
+	local stop, screen: any = runtime.mount(function()
 		return Host.ScreenGui({ build(UI, Host, engine, gui, runtime) })
 	end, engine.new("Folder"))
 	return {
@@ -118,7 +128,7 @@ end
 
 local function mountScenario(name: string, reduced: boolean?): (any, any, any, any, any, () -> ())
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -128,7 +138,7 @@ local function mountScenario(name: string, reduced: boolean?): (any, any, any, a
 	local ctx: any = {
 		Facet = Facet,
 		Compose = Compose,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		runtime = runtime,
 		types = engine.types,
 		viewport = Compose.cell({ width = 1280, height = 720 }),
@@ -147,13 +157,13 @@ local function mountScenario(name: string, reduced: boolean?): (any, any, any, a
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = input },
 			inputParent = target,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		} :: any
 	)
 	local built: any
-	local stop, node = runtime.mount(function()
+	local stop, node: any = runtime.mount(function()
 		built = (require :: any)("../examples/gallery/scenarios/" .. name).build(ctx)
 		if built.dispose then
 			Compose.cleanup(built.dispose)
@@ -199,7 +209,7 @@ local function withMonitors(body: (any) -> ())
 	local modelModule: any = require("../examples/virtual_monitors/model")
 	local screens: any = require("../examples/virtual_monitors/screens")
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local target = engine.new("ScreenGui")
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
@@ -219,7 +229,7 @@ local function withMonitors(body: (any) -> ())
 		})
 		local world: any = { model = model, engine = engine, target = target, gui = gui, input = input }
 		for _, name in { "Discover", "Avatar" } do
-			local _, node = runtime.mount(views[name], target)
+			local _, node: any = runtime.mount(views[name], target)
 			world[name] = node
 		end
 		body(world)
@@ -232,15 +242,15 @@ end
 t.describe("presented surface strength", function()
 	t.it("centers a content-sized alert card under its width bound and leads the row with cancel", function()
 		for _, bound in { 440, 360 } do
-			local world = setup(function(UI)
+			local world = setup(function(UI: FacetControls)
 				return UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Delete this save?",
 					message = "This cannot be undone.",
 					maxWidth = if bound == 440 then nil else bound,
 					actions = {
-						{ id = "Delete", label = "Delete save", role = "destructive" },
-						{ id = "Cancel", label = "Cancel", role = "cancel" },
+						{ id = "Delete", label = "Delete save", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				})
 			end)
@@ -268,18 +278,18 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("stacks more than two alert actions with the likely action on top and cancel last", function()
-		local world = setup(function(UI, Host, _, gui)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local opener = UI.Button "Opener" { label = "Open" }
 			gui.SelectedObject = opener
 			return Host.Frame({
-				opener,
+				opener :: unknown,
 				UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Leave the race?",
 					actions = {
-						{ id = "Cancel", label = "Stay", role = "cancel" },
-						{ id = "Save", label = "Save and leave" },
-						{ id = "Delete", label = "Leave without saving", role = "destructive" },
+						{ id = "Cancel", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Save", label = "Save and leave" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Delete", label = "Leave without saving", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				}),
 			})
@@ -301,7 +311,7 @@ t.describe("presented surface strength", function()
 
 	t.it("binds alert presentation both ways without stacking or invoking action callbacks", function()
 		local shown, calls = Compose.cell(false), 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert({
 				title = "Continue?",
 				isPresented = shown,
@@ -309,11 +319,11 @@ t.describe("presented surface strength", function()
 					{
 						id = "cancel",
 						label = "Cancel",
-						role = "cancel",
+						role = "cancel" :: "cancel",
 						onActivate = function()
 							calls += 1
 						end,
-					},
+					} :: FixtureNavigationTypes.AlertAction<any>,
 				},
 			})
 		end)
@@ -338,11 +348,11 @@ t.describe("presented surface strength", function()
 	t.it("owns alert content through repeated presentation and dismisses on the default action shortcut", function()
 		local shown, text = Compose.cell(false), Compose.cell("Name")
 		local live, built, accepted = 0, 0, 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Alert "Edit" {
 				title = "Edit name",
 				isPresented = shown,
-				content = function()
+				content = function(): Instance
 					live += 1
 					built += 1
 					Compose.cleanup(function()
@@ -358,8 +368,8 @@ t.describe("presented surface strength", function()
 						onActivate = function()
 							accepted += 1
 						end,
-					},
-					{ id = "Cancel", label = "Cancel", role = "cancel" },
+					} :: FixtureNavigationTypes.AlertAction<any>,
+					{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 				},
 			}
 		end)
@@ -390,12 +400,12 @@ t.describe("presented surface strength", function()
 	t.it("rebuilds sheet content on each presentation and disposes it on close and owner stop", function()
 		local shown, detent = Compose.cell(false), Compose.cell("medium")
 		local live, visits = 0, 0
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Sheet "Details" {
 				title = "Details",
 				isPresented = shown,
 				detent = detent,
-				content = function()
+				content = function(): Instance
 					live += 1
 					visits += 1
 					Compose.cleanup(function()
@@ -432,12 +442,12 @@ t.describe("presented surface strength", function()
 
 	t.it("resolves every sheet detent to a height inside the measured available height", function()
 		local detent = Compose.cell("medium")
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Sheet({
 				isPresented = Compose.cell(true),
 				detent = detent,
-				detents = { "medium", "large", { id = "tall", height = 2000 }, { id = "fixed", height = 300 } },
-				content = function()
+				detents = { "medium", "large", { id = "tall", height = 2000 }, { id = "fixed", height = 300 } } :: { SheetDetent },
+				content = function(): Instance
 					return Host.Frame "Body" {}
 				end,
 			})
@@ -465,14 +475,14 @@ t.describe("presented surface strength", function()
 
 	t.it("keeps a usable minimum panel and a reachable close for tiny sheet detents", function()
 		local shown, detent = Compose.cell(true), Compose.cell("peek")
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Sheet({
 				isPresented = shown,
 				detent = detent,
-				detents = { { id = "peek", height = 60 }, { id = "sliver", fraction = 0.05 } },
+				detents = { { id = "peek", height = 60 }, { id = "sliver", fraction = 0.05 } } :: { SheetDetent },
 				title = "Peek",
-				dragIndicator = "hidden",
-				content = function()
+				dragIndicator = "hidden" :: "hidden",
+				content = function(): Instance
 					return UI.Button "Inside" { label = "Inside" }
 				end,
 			})
@@ -492,14 +502,14 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("hangs a callout below a top-right anchor with its arrow at the anchor and its body shifted left", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			local anchor = UI.Button "Plus" { label = "+" }
 			return Host.Frame({
-				anchor,
+				anchor :: unknown,
 				UI.Callout({
-					anchor = anchor,
+					anchor = anchor :: GuiObject,
 					onRetire = function() end,
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel "Tip" { Text = "Post avatars to the marketplace" }
 					end,
 				}),
@@ -527,14 +537,14 @@ t.describe("presented surface strength", function()
 
 	t.it("carries the given callout content tree and bounds long copy to the viewport width", function()
 		local long = string.rep("Pseudo-localized coaching copy that must wrap without clipping. ", 3)
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local anchor = UI.Button "Anchor" { label = "Anchor" }
 			return Host.Frame({
-				anchor,
+				anchor :: unknown,
 				UI.Callout({
-					anchor = anchor,
+					anchor = anchor :: GuiObject,
 					onRetire = function() end,
-					content = function()
+					content = function(): Instance
 						return Host.Frame "Content" {
 							Size = engine.types.UDim2.new(1, 0, 0, 0),
 							AutomaticSize = engine.types.Enum.AutomaticSize.Y,
@@ -543,7 +553,7 @@ t.describe("presented surface strength", function()
 								TextWrapped = true,
 								Size = engine.types.UDim2.new(1, 0, 0, 0),
 								AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-							},
+							} :: unknown,
 							Host.TextLabel "Sub" { Text = "Anyone can wear it" },
 						}
 					end,
@@ -579,7 +589,7 @@ t.describe("presented surface strength", function()
 	t.it("keeps a retired callout retired and unbuilt when it is presented again", function()
 		local shown, used = Compose.cell(false), Compose.cell(false)
 		local live, built, retired = 0, 0, 0
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			local anchor = UI.Button "Anchor" {
 				label = "Add",
 				onActivate = function()
@@ -587,15 +597,15 @@ t.describe("presented surface strength", function()
 				end,
 			}
 			return Host.Frame({
-				anchor,
+				anchor :: unknown,
 				UI.Callout "Tip" {
-					anchor = anchor,
+					anchor = anchor :: GuiObject,
 					isPresented = shown,
 					featureUsed = used,
 					onRetire = function()
 						retired += 1
 					end,
-					content = function()
+					content = function(): Instance
 						live += 1
 						built += 1
 						Compose.cleanup(function()
@@ -624,12 +634,12 @@ t.describe("presented surface strength", function()
 
 	t.it("adds no full-viewport cover or modal scope while a nonmodal callout is showing", function()
 		local presses = 0
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			local anchor = UI.Button "Anchor" { label = "Anchor" }
 			return Host.Frame "Live" {
 				Size = engine.types.UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				anchor,
+				anchor :: unknown,
 				UI.Button "Elsewhere" {
 					label = "Elsewhere",
 					onActivate = function()
@@ -637,9 +647,9 @@ t.describe("presented surface strength", function()
 					end,
 				},
 				UI.Callout({
-					anchor = anchor,
+					anchor = anchor :: GuiObject,
 					onRetire = function() end,
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel "TipText" { Text = "Tip" }
 					end,
 				}),
@@ -668,15 +678,17 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("makes the modal scrim the only full-viewport cover and keeps it translucent in every theme", function()
-		local world = setup(function(UI, Host, engine)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 			return Host.Frame "Live" {
 				Size = engine.types.UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Button "Trigger" { label = "Open" },
+				UI.Button "Trigger" { label = "Open" } :: unknown,
 				UI.Alert({
 					isPresented = Compose.cell(true),
 					title = "Leave race?",
-					actions = { { id = "stay", label = "Stay", role = "cancel" } },
+					actions = {
+						{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
 				}),
 			}
 		end)
@@ -722,7 +734,7 @@ t.describe("presented surface strength", function()
 		end
 		for _, package in packages do
 			local engine: any = engineLib.new()
-			local runtime = Facet.Roblox.createRuntime(engine)
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local stop, sheet: any = runtime.mount(function()
 				return themes.createStyleSheet(runtime, package, { types = engine.types })
 			end, engine.new("Folder"))
@@ -741,7 +753,7 @@ t.describe("presented surface strength", function()
 
 	t.it("closes every open menu level on a tap away from the automatic compact sheet", function()
 		local shown = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = shown,
 				items = {
@@ -755,7 +767,7 @@ t.describe("presented surface strength", function()
 								children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
 							},
 						},
-					},
+					} :: FixtureNavigationTypes.MenuItem<any>,
 				},
 			})
 		end)
@@ -778,10 +790,12 @@ t.describe("presented surface strength", function()
 
 	t.it("dismisses through a fully transparent menu catcher", function()
 		local shown = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.Menu({
 				isPresented = shown,
-				items = { { id = "Run", label = "Run", onSelect = function() end } },
+				items = {
+					{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
+				},
 			})
 		end)
 		local catcher = find(world.screen, "DismissOutside")
@@ -798,11 +812,11 @@ t.describe("presented surface strength", function()
 
 	t.it("fits the expanded content inside the plate's themed inset and grows the plate by it", function()
 		local expanded = Compose.cell(true)
-		local world = setup(function(UI)
+		local world = setup(function(UI: FacetControls)
 			return UI.CollapsibleView "View" {
 				label = "Race settings",
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Button "One" { label = "Coastal circuit" }
 				end,
 			}
@@ -822,11 +836,11 @@ t.describe("presented surface strength", function()
 
 	t.it("updates the bound summary label on a choice and returns selection to the same trigger", function()
 		local expanded, label, chosen = Compose.cell(false), Compose.cell("Select course"), false
-		local world = setup(function(UI, Host, _, gui)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local view = UI.CollapsibleView "View" {
 				label = label,
 				expanded = expanded,
-				content = function()
+				content = function(): Instance
 					return UI.Button "One" {
 						label = "Coastal circuit",
 						onActivate = function()
@@ -838,7 +852,7 @@ t.describe("presented surface strength", function()
 				end,
 			}
 			gui.SelectedObject = view
-			return Host.Frame({ view, UI.Button "Other" { label = "Unrelated" } })
+			return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Unrelated" } })
 		end)
 		local trigger = find(world.screen, "View")
 		t.expect(trigger:GetAttribute("label")).toBe("Select course")
@@ -860,25 +874,25 @@ t.describe("presented surface strength", function()
 	t.it("pops one modal per outside tap, routes inside taps and never clicks through to the base", function()
 		local outer, inner, barrier = Compose.cell(true), Compose.cell(true), Compose.cell(false)
 		local baseHits, topHits = 0, 0
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Button "Base" {
 					label = "Base",
 					onActivate = function()
 						baseHits += 1
 					end,
-				},
+				} :: unknown,
 				UI.Sheet({
 					isPresented = outer,
 					detent = Compose.cell("medium"),
-					content = function()
+					content = function(): Instance
 						return UI.Button "OuterAction" { label = "Outer" }
 					end,
 				}),
 				UI.Sheet({
 					isPresented = inner,
 					detent = Compose.cell("medium"),
-					content = function()
+					content = function(): Instance
 						return UI.Button "InnerAction" {
 							label = "Inner",
 							onActivate = function()
@@ -890,7 +904,10 @@ t.describe("presented surface strength", function()
 				UI.Alert({
 					isPresented = barrier,
 					title = "Decide",
-					actions = { { id = "Keep", label = "Keep", role = "cancel" }, { id = "Go", label = "Go" } },
+					actions = {
+						{ id = "Keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "Go", label = "Go" } :: FixtureNavigationTypes.AlertAction<any>,
+					},
 				}),
 			})
 		end)
@@ -932,9 +949,9 @@ t.describe("presented surface strength", function()
 	end)
 
 	t.it("shows help for gamepad selection but never when a touch tap moves the selection", function()
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Screen" {
-				UI.Button "Plus" { label = "+", help = "Posts this avatar" },
+				UI.Button "Plus" { label = "+", help = "Posts this avatar" } :: unknown,
 				UI.Button "Other" { label = "Other" },
 			}
 		end)
@@ -972,7 +989,7 @@ t.describe("presented surface strength", function()
 
 	t.it("keeps the top modal active when the covered surface beneath it is dismissed", function()
 		local outer, inner, shortcuts, confirmed = Compose.cell(true), Compose.cell(false), 0, 0
-		local world = setup(function(UI, Host)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				UI.Button "Background" {
 					label = "Background",
@@ -980,11 +997,11 @@ t.describe("presented surface strength", function()
 					onActivate = function()
 						shortcuts += 1
 					end,
-				},
+				} :: unknown,
 				UI.Sheet({
 					isPresented = outer,
 					detent = Compose.cell("medium"),
-					content = function()
+					content = function(): Instance
 						return UI.Button "Covered" { label = "Covered" }
 					end,
 				}),
@@ -998,8 +1015,8 @@ t.describe("presented surface strength", function()
 							onActivate = function()
 								confirmed += 1
 							end,
-						},
-						{ id = "No", label = "No", role = "cancel" },
+						} :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "No", label = "No", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				}),
 			})
@@ -1016,7 +1033,7 @@ t.describe("presented surface strength", function()
 		t.expect(find(world.screen, "AlertPanel") ~= nil).toBe(true)
 		t.expect(world.gui.SelectedObject).toBe(ok)
 		local panel = find(world.screen, "AlertPanel")
-		for _, direction in { "Up", "Down", "Left", "Right" } do
+		for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 			t.expect(panel["SelectionBehavior" .. direction]).toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 		end
 		find(world.screen, "Shortcut").Pressed.fire()
@@ -1034,7 +1051,7 @@ t.describe("presented surface strength", function()
 
 	t.it("routes activation to the selected control of the top modal and survives a re-entrant dismiss", function()
 		local presented, music, yes = Compose.cell(false), 0, 0
-		local world = setup(function(UI, Host, _, gui)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local base = UI.Button "Music" {
 				label = "Music",
 				onActivate = function()
@@ -1043,7 +1060,7 @@ t.describe("presented surface strength", function()
 			}
 			gui.SelectedObject = base
 			return Host.Frame({
-				base,
+				base :: unknown,
 				UI.Alert({
 					isPresented = presented,
 					title = "Apply?",
@@ -1055,8 +1072,8 @@ t.describe("presented surface strength", function()
 								yes += 1
 								presented:set(false)
 							end,
-						},
-						{ id = "No", label = "No", role = "cancel" },
+						} :: FixtureNavigationTypes.AlertAction<any>,
+						{ id = "No", label = "No", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
 					},
 				}),
 			})
@@ -1085,7 +1102,7 @@ t.describe("presented surface strength", function()
 
 	t.it("traps and cancels the confirmation tutorial and restores the delete trigger", function()
 		local built: any
-		local world = setup(function(UI, Host, engine, _, runtime)
+		local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, _, runtime)
 			built = require("../examples/gallery/examples/04_confirm_dialog").build({
 				UI = UI,
 				Host = Host,
@@ -1103,7 +1120,7 @@ t.describe("presented surface strength", function()
 			open.Pressed.fire()
 			local panel = find(world.screen, "AlertPanel")
 			t.expect(panel ~= nil).toBe(true)
-			for _, direction in { "Up", "Down", "Left", "Right" } do
+			for _, direction in { "Up", "Down", "Left", "Right" } :: { "Down" | "Left" | "Right" | "Up" } do
 				t.expect(panel["SelectionBehavior" .. direction]).toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 			end
 			find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(1280, 800)
@@ -1391,7 +1408,8 @@ t.describe("virtual monitors surface strength", function()
 			model.autoSpin:set(3)
 			t.expect(find(world.target, "SheetPanel")).toBe(nil)
 			find(avatar, "Summary").Activated.fire()
-			local expected = { Palette = "Clay", Hat = "Off", Rotation = "30°", AutoSpin = "Fast" }
+			local expected: { [string]: string } =
+				{ Palette = "Clay", Hat = "Off", Rotation = "30°", AutoSpin = "Fast" }
 			for id, value in expected do
 				t.expect(find(find(world.target, "Summary" .. id), "Value").Text).toBe(value)
 			end

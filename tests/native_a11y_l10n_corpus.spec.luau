@@ -1,4 +1,16 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+local FixtureCollectionTypes = require("../src/ui/collection_types")
+local requireDynamic = require :: (any) -> any
+local FixtureNavigationTypes = require("../src/ui/navigation_types")
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local HELPERS = {
 	fill = true,
@@ -20,7 +32,7 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local catalogue = require("../examples/gallery/client/demo_picker")
 local allControls = require("../examples/gallery/scenarios/all_controls")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 
 local NAME_ATTRIBUTES = { "AccessibleLabel", "FacetLabel", "label" }
 local REGION_CLASSES = { "ScrollingFrame" }
@@ -47,7 +59,7 @@ local KNOWN_UNNAMED: { [string]: { control: string, nameable: boolean, reason: s
 		nameable = true,
 		reason = "TextInput has no label or name option, so an empty field without a placeholder has no accessible name",
 		props = function()
-			return { value = Compose.cell(""), presentation = "search" }
+			return { value = Compose.cell(""), presentation = "search" :: "search" }
 		end,
 	},
 }
@@ -200,7 +212,7 @@ end
 
 local function world()
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local root = engine.new("ScreenGui")
 	local gui = engine.new("GuiService")
 	local UI = Facet.controls(runtime, {
@@ -216,16 +228,17 @@ end
 
 local function galleryContext()
 	local engine = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local viewport = Compose.cell({ width = 1280, height = 720 })
 	local target = engine.new("Folder")
 	local guiService = engine.new("GuiService")
 	local reducedMotion = Compose.cell(true)
-	local ctx = {
+	local ctx: ExampleContext = {
+		UI = nil :: any,
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		types = engine.types,
 		viewport = viewport,
 		inputTarget = target,
@@ -240,16 +253,16 @@ local function galleryContext()
 			guiService = guiService,
 			services = { GuiService = guiService },
 			inputParent = target,
-			motionLevel = Compose.formula(function(use)
+			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 				return if use(reducedMotion) then "none" else "normal"
-			end),
+			end) :: unknown) :: MotionLevel,
 		}),
 	}
 	return ctx, engine, target
 end
 
 local function load(kind: string, name: string): any
-	return require("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
+	return requireDynamic("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
 end
 
 local function find(root: any, name: string): any
@@ -302,7 +315,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			value = Compose.cell({ year = 2026, month = 9, day = 23 }),
 			onChange = function() end,
 			label = "Race day",
-			style = "inline",
+			style = "inline" :: "inline",
 			clock = function()
 				return { year = 2026, month = 9, day = 23 }
 			end,
@@ -313,7 +326,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			value = Compose.cell(require("@lune/roblox").Color3.new(1, 0, 0)),
 			onChange = function() end,
 			label = "Paint",
-			style = "inline",
+			style = "inline" :: "inline",
 			modes = { "swatches", "spectrum", "sliders" },
 		}
 	end,
@@ -332,10 +345,10 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	AdaptiveStack = function()
 		return { gap = "s" }
 	end,
-	ViewThatFits = function(Host)
+	ViewThatFits = function(Host: RobloxHost)
 		return { Host.TextLabel { Text = "Wide" }, Host.TextLabel { Text = "Narrow" } }
 	end,
-	Region = function(Host)
+	Region = function(Host: RobloxHost)
 		return { zone = "top", rank = 1, Host.TextLabel { Text = "Score" } }
 	end,
 	Composition = function()
@@ -372,7 +385,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 		return { status = "success", count = 3 }
 	end,
 	Path = function()
-		return { points = Facet.pathShapes.needle(45), role = "accent" }
+		return { points = Facet.pathShapes.needle(45), role = "accent" :: "accent" }
 	end,
 	ProgressView = function()
 		return { value = Compose.cell(0.5), label = "Loading" }
@@ -405,7 +418,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			onOverflow = function() end,
 		}
 	end,
-	ErrorBoundary = function(Host)
+	ErrorBoundary = function(Host: RobloxHost)
 		return {
 			view = function()
 				return Host.TextLabel({ Text = "Healthy" })
@@ -434,7 +447,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	end,
 	StepIndicator = function()
 		return {
-			steps = { { id = "a", label = "A", navigable = true }, { id = "b", label = "B" } },
+			steps = { { id = "a", label = "A", navigable = true }, { id = "b", label = "B" } } :: { { id: string, label: string, navigable: boolean? } },
 			current = "a",
 			onSelect = function() end,
 		}
@@ -449,7 +462,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	Picker = function()
 		return {
 			selected = Compose.cell("a"),
-			style = "segmented",
+			style = "segmented" :: "segmented",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 		}
 	end,
@@ -469,20 +482,20 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	RadialMenu = function()
 		return { items = { item("a", "Alpha"), item("b", "Beta") }, isPresented = Compose.cell(true), label = "Quick" }
 	end,
-	DisclosureGroup = function(Host)
+	DisclosureGroup = function(Host: RobloxHost)
 		return {
 			label = "Details",
 			expanded = Compose.cell(true),
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel({ Text = "Body" })
 			end,
 		}
 	end,
-	CollapsibleView = function(Host)
+	CollapsibleView = function(Host: RobloxHost)
 		return {
 			label = "Details",
 			expanded = Compose.cell(true),
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel({ Text = "Body" })
 			end,
 		}
@@ -492,10 +505,10 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			title = "Confirm",
 			message = "Continue?",
 			isPresented = Compose.cell(true),
-			actions = { { id = "ok", label = "OK" }, { id = "cancel", label = "Cancel", role = "cancel" } },
+			actions = { { id = "ok", label = "OK" }, { id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } },
 		}
 	end,
-	Dialog = function(Host)
+	Dialog = function(Host: RobloxHost)
 		local open = Compose.cell(true)
 		return {
 			title = "Confirm",
@@ -503,7 +516,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			onPresentedChange = function(nextValue: boolean)
 				open:set(nextValue)
 			end,
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel({ Text = "Body" })
 			end,
 			actions = { { id = "ok", label = "OK", onActivate = function() end } },
@@ -531,84 +544,86 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	NavBar = function()
 		return { title = "Tracks", onBack = function() end, backLabel = "Back" }
 	end,
-	Popover = function(Host)
+	Popover = function(Host: RobloxHost)
 		return {
 			isPresented = Compose.cell(true),
 			source = { rect = { x = 10, y = 10, w = 40, h = 40 } },
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel({ Text = "Body" })
 			end,
 		}
 	end,
-	Sheet = function(Host)
+	Sheet = function(Host: RobloxHost)
 		return {
 			title = "Sheet",
 			detent = Compose.cell("medium"),
 			isPresented = Compose.cell(true),
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel({ Text = "Body" })
 			end,
 		}
 	end,
-	Callout = function(Host)
+	Callout = function(Host: RobloxHost)
 		return {
 			anchor = Host.Frame({}),
 			onRetire = function() end,
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel({ Text = "Tip" })
 			end,
 			isPresented = Compose.cell(true),
 		}
 	end,
-	TabView = function(Host)
+	TabView = function(Host: RobloxHost)
 		local tab = function(id, label)
 			return {
 				id = id,
 				label = label,
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel({ Text = label })
 				end,
 			}
 		end
 		return { selection = Compose.cell("a"), tabs = { tab("a", "Alpha"), tab("b", "Beta") } }
 	end,
-	PageView = function(Host)
+	PageView = function(Host: RobloxHost)
 		local page = function(id, title)
 			return {
 				id = id,
 				title = title,
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel({ Text = title })
 				end,
 			}
 		end
 		return { selection = Compose.cell("a"), pages = { page("a", "Alpha"), page("b", "Beta") } }
 	end,
-	NavigationStack = function(Host)
+	NavigationStack = function(Host: RobloxHost)
 		return {
 			path = Compose.cell({ { id = "detail", value = 1 } }),
 			root = {
 				title = "Root",
-				content = function()
+				content = function(): Instance
 					return Host.TextLabel({ Text = "Root" })
 				end,
 			},
 			destinations = {
 				detail = {
 					title = "Detail",
-					content = function()
+					content = function(): Instance
 						return Host.TextLabel({ Text = "Detail" })
 					end,
 				},
 			},
 		}
 	end,
-	RowActions = function(Host)
+	RowActions = function(Host: RobloxHost)
 		return {
-			content = function()
+			content = function(): Instance
 				return Host.TextLabel({ Text = "Row" })
 			end,
-			trailing = { { id = "delete", label = "Delete", role = "destructive", onActivate = function() end } },
+			trailing = {
+				{ id = "delete", label = "Delete", role = "destructive" :: "destructive", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+			},
 			open = Compose.cell("trailing"),
 		}
 	end,
@@ -628,20 +643,20 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 					value = function(entry)
 						return entry.label
 					end,
-				},
+				} :: FixtureCollectionTypes.TableColumn<any, any>,
 			},
 		}
 	end,
 }
 for _, name in { "VirtualList", "VirtualGrid" } do
-	fixtures[name] = function(Host)
+	fixtures[name] = function(Host: RobloxHost)
 		return {
 			from = { { id = "a" }, { id = "b" } },
 			key = function(entry)
 				return entry.id
 			end,
 			itemSize = 24,
-			render = function()
+			render = function(): GuiObject
 				return Host.TextLabel({ Text = "Row" })
 			end,
 		}
@@ -706,7 +721,7 @@ local function textHosts(Host: any, value: string): { [string]: () -> any }
 		Picker = function()
 			return {
 				selected = Compose.cell("a"),
-				style = "inline",
+				style = "inline" :: "inline",
 				options = { { value = "a", label = value }, { value = "b", label = "Other" } },
 			}
 		end,
@@ -733,7 +748,10 @@ local function textHosts(Host: any, value: string): { [string]: () -> any }
 		TabView = function()
 			return {
 				selection = Compose.cell("a"),
-				tabs = { { id = "a", label = value, content = body }, { id = "b", label = "Other", content = body } },
+				tabs = {
+					{ id = "a", label = value, content = body } :: FixtureNavigationTypes.Tab,
+					{ id = "b", label = "Other", content = body } :: FixtureNavigationTypes.Tab,
+				},
 			}
 		end,
 		NavigationStack = function()
@@ -742,7 +760,9 @@ local function textHosts(Host: any, value: string): { [string]: () -> any }
 		RowActions = function()
 			return {
 				content = body,
-				trailing = { { id = "delete", label = value, onActivate = function() end } },
+				trailing = {
+					{ id = "delete", label = value, onActivate = function() end } :: FixtureCollectionTypes.RowAction,
+				},
 				open = Compose.cell("trailing"),
 			}
 		end,
@@ -759,7 +779,7 @@ local function textHosts(Host: any, value: string): { [string]: () -> any }
 						value = function(entry)
 							return entry.label
 						end,
-					},
+					} :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
 			}
 		end,
@@ -783,13 +803,13 @@ t.describe("native accessibility and localization corpus", function()
 	t.it("gives every selectable node of every public control an accessible name", function()
 		local _, probe = world()
 		local UI = Facet.controls(probe, { types = engineLib.new().types })
-		for name in UI do
+		for name in (UI :: unknown) :: { [string]: unknown } do
 			assert(fixtures[name] or HELPERS[name], `Missing corpus fixture: {name}`)
 		end
 		for name in fixtures do
 			assert(UI[name], `Stale corpus fixture: {name}`)
 		end
-		probe.dispose()
+		probe:dispose()
 		local names = {}
 		for name in fixtures do
 			table.insert(names, name)
@@ -842,7 +862,7 @@ t.describe("native accessibility and localization corpus", function()
 			local sheet =
 				Facet.themes.createStyleSheet(ctx.runtime, ctx.theme, { types = ctx.types, theme = ctx.themeMode })
 			return ctx.Host.ScreenGui "FacetGallery" {
-				sheet,
+				sheet :: unknown,
 				ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				require("../examples/gallery/client/screen").build(ctx),
 			}
@@ -931,8 +951,8 @@ t.describe("native accessibility and localization corpus", function()
 		local engine, runtime, root, UI = world()
 		local value = Compose.cell("Start")
 		local stop = runtime.mount(function()
-			return runtime.constructors.Frame({
-				UI.Text({ text = value }),
+			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+				UI.Text({ text = value }) :: unknown,
 				UI.Button({ label = value, onActivate = function() end }),
 				UI.Toggle({ value = Compose.cell(false), label = value }),
 			})
@@ -958,9 +978,9 @@ t.describe("native accessibility and localization corpus", function()
 			local open, bounded = Compose.cell(""), Compose.cell("")
 			local field, limited
 			local stop = runtime.mount(function()
-				field = UI.TextInput({ value = open })
-				limited = UI.TextInput({ value = bounded, maxLength = 3 })
-				return runtime.constructors.Frame({ field, limited })
+				field = UI.TextInput({ value = open }) :: TextBox
+				limited = UI.TextInput({ value = bounded, maxLength = 3 }) :: TextBox
+				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ field :: unknown, limited })
 			end, root)
 			field:CaptureFocus()
 			field.Text = entry.text

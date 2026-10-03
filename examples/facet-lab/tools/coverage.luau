@@ -1,3 +1,4 @@
+--!strict
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local luau = require("@lune/luau")
@@ -16,12 +17,12 @@ for _, name in fs.readDir(FACET) do
 	if string.match(name, "_types%.luau$") and name ~= "engine_types.luau" then
 		local source = fs.readFile(FACET .. name) .. "\nexport type __END = nil\n"
 		for start, typeName in string.gmatch(source, "()export type ([%w_]+)") do
-			local rest = string.sub(source, start)
+			local rest = string.sub(source, tonumber(start) :: number)
 
 			local body = string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nexport type ")
 				or string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nreturn")
 			if body then
-				bodies[typeName] = body
+				bodies[assert(typeName)] = body
 			end
 		end
 	end
@@ -49,8 +50,8 @@ local function scan(body: string): ({ string }, { string })
 			and string.match(ch, "[%a_]")
 			and not string.match(string.sub(body, i - 1, i - 1), "[%w_%.]")
 		then
-			local ident = string.match(body, "^[%a_][%w_%.]*", i)
-			table.insert(refs, (string.match(ident, "([%w_]+)$")))
+			local ident = assert(string.match(body, "^[%a_][%w_%.]*", i))
+			table.insert(refs, assert(string.match(ident, "([%w_]+)$")))
 			i += #ident - 1
 		end
 		i += 1
@@ -61,10 +62,10 @@ end
 local function optionsOf(typeName: string, seen: { [string]: boolean }?): { [string]: string }
 	local out: { [string]: string } = {}
 	seen = seen or {}
-	if seen[typeName] or bodies[typeName] == nil then
+	if assert(seen)[typeName] or bodies[typeName] == nil then
 		return out
 	end
-	seen[typeName] = true
+	assert(seen)[typeName] = true
 	local fields, refs = scan(bodies[typeName])
 	for _, field in fields do
 		if string.match(field, "^[a-z]") then
@@ -112,7 +113,7 @@ for typeName, body in bodies do
 		for line in string.gmatch(body, "[^\n]+") do
 			local control, expr = string.match(line, "^\t([%a_][%w_]*): (.+),$")
 			if control then
-				local props = propsTypeOf(expr)
+				local props = propsTypeOf(assert(expr))
 				specs[control] = if props then optionsOf(props) else {}
 				table.insert(names, control)
 			end

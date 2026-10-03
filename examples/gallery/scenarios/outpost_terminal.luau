@@ -1,8 +1,14 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type InstanceCell = typeof(require("@repo/tools/typecheck/aliases").InstanceCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 return {
 	title = "Outpost power terminal (world surface)",
-	build = function(ctx)
-		local Compose, Host, UI = ctx.Compose, ctx.Host, ctx.UI
+	build = function(ctx: ExampleContext)
+		local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 		local UDim, UDim2, Vector2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local terminal = ctx.load("example", "outpost_terminal")
 		local remote, player = ctx.outpostRemote, ctx.player
@@ -11,18 +17,20 @@ return {
 			player = game:GetService("Players").LocalPlayer
 		end
 		local world = ctx.worldTarget
-		local console = Compose.cell(nil)
+		local console = (function(value: Instance?): InstanceCell
+			return Compose.cell(value)
+		end)(nil)
 		local token = nil
 		local replies = {}
 		local connectionState =
 			Compose.cell(if remote then "Opening the outpost…" else "No outpost server connected.")
 		local lastExit = Compose.cell("—")
 		local previousSelection = nil
-		local function command(kind, payload)
+		local function command(kind: string, payload: { [string]: any }?)
 			if not remote then
 				return false
 			end
-			local message = table.clone(payload or {})
+			local message = table.clone((payload or {}) :: { [string]: any })
 			message.kind = kind
 			remote:FireServer(message)
 			return true
@@ -103,13 +111,17 @@ return {
 				release("adornee-lost")
 			elseif not root then
 				release("character-removed")
-			elseif (root.Position - part.Position).Magnitude > terminal.rules.RANGE then
+			elseif ((root :: BasePart).Position - (part :: BasePart).Position).Magnitude > terminal.rules.RANGE then
 				release("out-of-range")
 			elseif RaycastParams and world.Raycast then
 				local params = RaycastParams.new()
 				params.FilterType = Enum.RaycastFilterType.Exclude
 				params.FilterDescendantsInstances = { character }
-				local hit = world:Raycast(root.Position, part.Position - root.Position, params)
+				local hit = world:Raycast(
+					(root :: BasePart).Position,
+					(part :: BasePart).Position - (root :: BasePart).Position,
+					params
+				)
 				if hit and hit.Instance ~= part then
 					release("line-of-sight")
 				end
@@ -161,7 +173,7 @@ return {
 				return built.steps.apply()
 			end,
 		}
-		local function raw(allocation, override)
+		local function raw(allocation: { [string]: number }, override: string?)
 			return command("apply", { requestId = -1, allocation = allocation, token = override or token })
 		end
 		steps.refuseRange = function()
@@ -199,17 +211,17 @@ return {
 					AlwaysOnTop = false,
 					LightInfluence = 0,
 					MaxDistance = 64,
-					Active = function(use)
+					Active = function(use: Use)
 						return use(built.model.phase) == "engaged"
 					end,
-					Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+					Host.StyleLink({ StyleSheet = Compose.static(sheet) }) :: unknown,
 					built.screen(),
 				}
 				Host.InputContext "OutpostInput" {
 					Parent = ctx.inputTarget,
 					Priority = 3000,
 					Sink = true,
-					Enabled = function(use)
+					Enabled = function(use: Use)
 						return use(built.model.phase) == "engaged"
 					end,
 					Host.InputAction "LeaveConsole" {
@@ -217,12 +229,12 @@ return {
 						Pressed = function()
 							release("cancel")
 						end,
-						Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }),
+						Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }) :: unknown,
 						Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonB }),
 					},
 				}
 				local previousPhase = built.model.phase:peek()
-				Compose.watch(function(use)
+				Compose.watch(function(use: Use)
 					local phase = use(built.model.phase)
 					if phase == "engaged" and previousPhase ~= phase and ctx.guiService then
 						for _, node in gui:GetDescendants() do
@@ -243,12 +255,12 @@ return {
 						PaddingRight = UDim.new(0, 12),
 						PaddingTop = UDim.new(0, 12),
 						PaddingBottom = UDim.new(0, 12),
-					}),
+					}) :: unknown,
 					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
 					UI.Text({
 
 						text = "Outpost 7 — World terminal",
-						textRole = "heading",
+						textRole = "heading" :: "heading",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 54),
 					}),
@@ -263,7 +275,7 @@ return {
 					button("Restore", "Restore console", steps.restoreConsole),
 					UI.Text({
 
-						text = function(use)
+						text = function(use: Use)
 							return `Last exit: {use(lastExit)}`
 						end,
 						TextWrapped = true,

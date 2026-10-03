@@ -1,4 +1,8 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 local COPY = {
 	title = "Pages and dots",
 	intro = "Swipe one course at a time, choose any dot, or focus the dots and use Left / Right.",
@@ -13,10 +17,10 @@ return {
 	title = "Pages and dots",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx)
-		local UI, Compose = ctx.UI, ctx.Compose
+	build = function(ctx: ExampleContext)
+		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose = ctx.Compose
+		local Compose: ComposeModule = ctx.Compose
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
@@ -25,11 +29,11 @@ return {
 		local selected = Compose.cell("coast")
 		local picked = Compose.cell("Choose a course.")
 		local function screen()
-			local pages = {}
+			local pages: { Tab } = {}
 			for _, key in ids do
 				table.insert(pages, {
 					id = key,
-					title = copy[key],
+					label = copy[key],
 					content = Host.Frame "Course" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -38,7 +42,7 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 16),
-						}),
+						}) :: unknown,
 						UI.Text({
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -46,7 +50,7 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = copy[key],
-							textRole = "heading",
+							textRole = "heading" :: "heading",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -60,7 +64,7 @@ return {
 								local backdrop = Host.Frame "Backdrop" { Size = UDim2.new(1, 0, 1, 0) }
 								backdrop:AddTag("facet-panel")
 								return backdrop
-							end)(),
+							end)() :: unknown,
 							(function()
 								local path = Host.Path2D "Circuit" { Thickness = 4, ZIndex = 2 }
 								path:AddTag("facet-path")
@@ -88,7 +92,7 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = copy[key .. "Text"],
-							textRole = "caption",
+							textRole = "caption" :: "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -102,7 +106,7 @@ return {
 								picked:set(copy[key])
 							end,
 						}),
-					},
+					} :: Instance,
 				})
 			end
 			return Host.Frame "PageView" {
@@ -121,11 +125,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = copy.title,
-						textRole = "title",
+						textRole = "title" :: "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					}) :: unknown,
 					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
@@ -133,7 +137,7 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = copy.intro,
-						textRole = "caption",
+						textRole = "caption" :: "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,

@@ -1,9 +1,17 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+local ThemeTypes = require("../src/ui/theme_types")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
-local Compose = Facet.Compose
+local Compose: ComposeModule = Facet.Compose
 local themes = Facet.themes
 
 type Harness = {
@@ -34,7 +42,7 @@ local function openSettings(root: any)
 end
 local function harness(options: { [string]: any }?): Harness
 	local engine: any = engineLib.new()
-	local runtime = Facet.Roblox.createRuntime(engine)
+	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
 	for key, value in (options or {}) :: { [string]: any } do
@@ -45,7 +53,7 @@ local function harness(options: { [string]: any }?): Harness
 		engine = engine,
 		runtime = runtime,
 		UI = UI,
-		Host = runtime.constructors,
+		Host = (runtime.constructors :: unknown) :: RobloxHost,
 		gui = gui,
 		dispose = function()
 			runtime:dispose()
@@ -170,12 +178,12 @@ t.describe("native parity themes", function()
 		definition.metrics.typography.strong = { size = 21, font = { family = "rbxassetid://6", weight = "Heavy" } }
 		local package = assert(themes.define(definition))
 		t.expect(package.metrics.typography.strong.size).toBe(21)
-		t.expect(package.metrics.typography.strong.font.family).toBe("rbxassetid://6")
+		t.expect((package.metrics.typography.strong.font :: ThemeTypes.FontSpec).family).toBe("rbxassetid://6")
 		t.expect(package.metrics.typography.numeral.size).toBe(18)
 		local neutral = assert(themes.define({ identity = { id = "plain" } }))
-		t.expect(neutral.metrics.typography.strong.font.weight).toBe("SemiBold")
-		t.expect(neutral.metrics.typography.numeral.font.weight).toBe("Bold")
-		t.expect(neutral.metrics.typography.numeral.font.family).toBe("BuilderSans")
+		t.expect((neutral.metrics.typography.strong.font :: ThemeTypes.FontSpec).weight).toBe("SemiBold")
+		t.expect((neutral.metrics.typography.numeral.font :: ThemeTypes.FontSpec).weight).toBe("Bold")
+		t.expect((neutral.metrics.typography.numeral.font :: ThemeTypes.FontSpec).family).toBe("BuilderSans")
 		local derived = assert(themes.define({ base = package, identity = { id = "derived" } }))
 		t.expect(derived.metrics.typography.strong.size).toBe(21)
 		local h = harness()
@@ -189,7 +197,8 @@ t.describe("native parity themes", function()
 
 	t.it("authors circular and spinner metrics in every reference package across a twofold span", function()
 		local neutral = themes.neutralPackage().metrics.controls.progress
-		local extremes = { circularSize = { math.huge, 0 }, spinnerDotSize = { math.huge, 0 } }
+		local extremes: { [string]: { typeof(math.huge) | number } } =
+			{ circularSize = { math.huge, 0 }, spinnerDotSize = { math.huge, 0 } }
 		for _, name in REFERENCE do
 			local package, module = reference(name)
 			local authored = module.definition(themes).metrics.controls.progress
@@ -209,8 +218,8 @@ t.describe("native parity themes", function()
 			local h = harness({ theme = package })
 			local root, stop = mount(h, function()
 				return h.Host.Frame({
-					h.UI.ProgressView({ Name = "Ring", presentation = "circular", value = 0.5 }),
-					h.UI.ProgressView({ Name = "Dots", presentation = "spinner" }),
+					h.UI.ProgressView({ Name = "Ring", presentation = "circular" :: "circular", value = 0.5 }) :: unknown,
+					h.UI.ProgressView({ Name = "Dots", presentation = "spinner" :: "spinner" }),
 				})
 			end)
 			t.expect(find(find(root, "Ring"), "Indicator").Size.X.Offset).toBe(progress.circularSize)
@@ -233,8 +242,8 @@ t.describe("native parity themes", function()
 		local h = harness({ theme = package })
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.ProgressView({ Name = "Ring", presentation = "circular", value = 0.25 }),
-				h.UI.ProgressView({ Name = "Dots", presentation = "spinner" }),
+				h.UI.ProgressView({ Name = "Ring", presentation = "circular" :: "circular", value = 0.25 }) :: unknown,
+				h.UI.ProgressView({ Name = "Dots", presentation = "spinner" :: "spinner" }),
 			})
 		end)
 		t.expect(find(find(root, "Ring"), "Indicator").Size.X.Offset).toBe(32)
@@ -274,7 +283,7 @@ t.describe("native parity themes", function()
 		local h = harness()
 		local ok, message = pcall(function()
 			mount(h, function()
-				return h.UI.Text({ text = "x", textRole = "huge" })
+				return h.UI.Text({ text = "x", textRole = "huge" :: "huge" })
 			end)
 		end)
 		t.expect(ok).toBe(false)
@@ -317,7 +326,7 @@ t.describe("native parity themes", function()
 			style = {
 				themes = { { name = "Dark", colors = { content = { r = surface.r, g = surface.g, b = surface.b } } } },
 			},
-		})
+		} :: any)
 		t.expect(unreadable).toBe(nil)
 		t.expect(refusal.ok).toBe(false)
 		local named = false
@@ -359,7 +368,7 @@ t.describe("native parity themes", function()
 	end)
 
 	t.it("terminates on a self-referential metrics table and rejects it as a cycle", function()
-		for _, shape in { "self", "nested" } do
+		for _, shape in { "self", "nested" } :: { "nested" | "self" } do
 			local definition: any = themes.neutralPackage()
 			if shape == "self" then
 				definition.metrics.self = definition.metrics
@@ -385,8 +394,8 @@ t.describe("native parity themes", function()
 		definition.assets = {
 			a = { content = "rbxassetid://1", sliceCenter = { x0 = 4, y0 = 4, x1 = 12, y1 = 12 } },
 		}
-		definition.chrome.sliderTrack = { kind = "nineSlice", asset = "a" }
-		definition.chrome.sliderThumb = { kind = "nineSlice", asset = "a", sliced = false }
+		assert(definition.chrome).sliderTrack = { kind = "nineSlice" :: "nineSlice", asset = "a" }
+		assert(definition.chrome).sliderThumb = { kind = "nineSlice" :: "nineSlice", asset = "a", sliced = false }
 		local package, report = themes.define(definition)
 		t.expect(report.ok).toBe(true)
 		local h = harness({ theme = package })
@@ -432,15 +441,15 @@ t.describe("native parity themes", function()
 		t.expect(report.ok).toBe(true)
 		local inherited, inheritedReport = themes.define({ base = package, identity = { id = "derived-one" } })
 		t.expect(inheritedReport.ok).toBe(true)
-		t.expect(#inherited.style.themes).toBe(1)
-		t.expect(inherited.style.themes[1].name).toBe("Dark")
+		t.expect(#assert(inherited).style.themes).toBe(1)
+		t.expect(assert(inherited).style.themes[1].name).toBe("Dark")
 		local derived, derivedReport = themes.define({
 			base = package,
 			identity = { id = "derived-two" },
-			style = { themes = package.style.themes },
+			style = { themes = assert(package).style.themes },
 		} :: any)
 		t.expect(derivedReport.ok).toBe(true)
-		t.expect(#derived.style.themes).toBe(2)
+		t.expect(#assert(derived).style.themes).toBe(2)
 		local h = harness()
 		for _, candidate in { package, derived } do
 			for _, name in { "Dark", "Light" } do
@@ -477,8 +486,8 @@ t.describe("native parity themes", function()
 				chosen = { content = "rbxassetid://4" },
 				off = { content = "rbxassetid://5" },
 			}
-			package.chrome.control =
-				{ kind = "nineSlice", asset = { default = "rest", pressed = "press", disabled = "off" } }
+			assert(package.chrome).control =
+				{ kind = "nineSlice" :: "nineSlice", asset = { default = "rest", pressed = "press", disabled = "off" } }
 			local h = harness({ theme = package })
 			local enabled, selected = Compose.cell(true), Compose.cell(false)
 			local root, stop = mount(h, function()
@@ -501,8 +510,8 @@ t.describe("native parity themes", function()
 
 			local full = themes.neutralPackage()
 			full.assets = package.assets
-			full.chrome.control = {
-				kind = "nineSlice",
+			assert(full.chrome).control = {
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "rest", hover = "hot", pressed = "press", selected = "chosen", disabled = "off" },
 			}
 			local ranked = harness({ theme = full })
@@ -540,14 +549,14 @@ t.describe("native parity themes", function()
 			p = { content = "rbxassetid://12" },
 			c = { content = "rbxassetid://13" },
 		}
-		basis.chrome.control = { kind = "nineSlice", asset = { default = "a", pressed = "p" } }
+		assert(basis.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = { default = "a", pressed = "p" } }
 		local base = assert(themes.define(basis))
 		local derived = assert(themes.define({
 			base = base,
 			identity = { id = "d" },
-			chrome = { control = { kind = "nineSlice", asset = { default = "c" } } },
-		}))
-		t.expect(derived.chrome.control.asset.pressed).toBe(nil)
+			chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = { default = "c" } } },
+		} :: ThemeTypes.ThemeDefinition))
+		t.expect((assert(assert(derived.chrome).control.asset) :: ThemeTypes.AssetVariants).pressed).toBe(nil)
 		local h = harness()
 		local state = Compose.cell("pressed")
 		local node, stop = skinned(h, derived, "control", state)
@@ -599,7 +608,7 @@ t.describe("native parity themes", function()
 						local family = entry.font.family or "BuilderSans"
 						differs = differs
 							or (family ~= "BuilderSans" and family ~= "rbxasset://fonts/families/BuilderSans.json")
-							or (entry.font.weight or "Regular") ~= plain.font.weight
+							or (entry.font.weight or "Regular") ~= (plain.font :: ThemeTypes.FontSpec).weight
 					end
 					t.expect(differs).toBe(true)
 				elseif class == "assets" then
@@ -767,12 +776,12 @@ t.describe("native parity themes", function()
 		local themed = harness({ theme = missing })
 		local root, stop = mount(themed, function()
 			return themed.Host.Frame({
-				themed.UI.Button({ Name = "Action", label = "Continue" }),
+				themed.UI.Button({ Name = "Action", label = "Continue" }) :: unknown,
 				themed.UI.Sheet({
 					isPresented = Compose.cell(true),
 					detent = Compose.cell("medium"),
 					title = "Panel",
-					content = function()
+					content = function(): Instance
 						return themed.Host.Frame({})
 					end,
 				}),
@@ -797,7 +806,9 @@ t.describe("native parity themes", function()
 			local _, module = reference(name)
 			for _, palette in module.definition(themes).style.themes do
 				local colors = palette.colors
-				for _, role in { "success", "onSuccess", "warning", "onWarning" } do
+				for _, role in
+					{ "success", "onSuccess", "warning", "onWarning" } :: { "onSuccess" | "onWarning" | "success" | "warning" }
+				do
 					t.expect(type(colors[role])).toBe("table")
 				end
 				t.expect(same(colors.success, colors.accent)).toBe(false)
@@ -902,7 +913,7 @@ t.describe("native parity themes", function()
 
 	t.it("lists Neutral first then names, keeps the installed package on reselection and selects a palette", function()
 		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
+		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, gui = engine.new("Folder"), engine.new("GuiService")
 		local input = engine.new("UserInputService")
 		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
@@ -925,7 +936,7 @@ t.describe("native parity themes", function()
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
-			Host = runtime.constructors,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
 			types = engine.types,
 			viewport = Compose.cell({ width = 1280, height = 720 }),
 			inputTarget = target,
@@ -935,7 +946,7 @@ t.describe("native parity themes", function()
 			theme = Compose.cell(neutral),
 			themeMode = Compose.cell("Dark"),
 			packages = { Neutral = neutral, Zeta = zeta, Alpha = alpha },
-			demos = { { id = "first", title = "First", kind = "fixture", module = "first" } },
+			demos = { { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } },
 			load = function()
 				return {
 					build = function(page: any)
@@ -949,7 +960,7 @@ t.describe("native parity themes", function()
 			end,
 		}
 		local writes = 0
-		local stop, root = runtime.mount(function()
+		local stop, root: any = runtime.mount(function()
 			gallery.configure(ctx)
 			ctx.UI = Facet.controls(
 				runtime,
@@ -958,12 +969,12 @@ t.describe("native parity themes", function()
 					inputParent = target,
 					services = { GuiService = gui, UserInputService = input },
 					theme = ctx.theme,
-					motionLevel = Compose.formula(function(use)
+					motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
 						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-					end),
+					end) :: unknown) :: MotionLevel,
 				} :: any
 			)
-			Compose.watch(function(use)
+			Compose.watch(function(use: Use)
 				use(ctx.theme)
 				writes += 1
 			end)

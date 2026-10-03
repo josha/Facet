@@ -1,7 +1,12 @@
 --!strict
+
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 local Facet = require("../../src")
-local Compose = Facet.Compose
-local runtime = Facet.Roblox.createRuntime()
+local Compose: ComposeModule = Facet.Compose
+local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local UI = Facet.controls(runtime)
 local gap = Compose.cell("s" :: Facet.Space)
 local width: Facet.Cell<Facet.Extent> = Compose.cell("fill" :: Facet.Extent)
@@ -30,7 +35,8 @@ local column: Frame = UI.VStack({
 local row: Frame = UI.HStack("Toolbar")(stackProps)
 local adaptiveProps: Facet.AdaptiveStackProps = { maxWidth = maximum, gap = "s", axis = "x" :: "x" }
 local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
-local fits: Frame = UI.ViewThatFits({ maxWidth = 480, UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
+local fits: Frame =
+	UI.ViewThatFits({ maxWidth = 480, UI.Text({ text = "Wide" }) :: unknown, UI.Text({ text = "Narrow" }) })
 local layers: Frame =
 	UI.ZStack({ maxWidth = maximum, alignH = "center" :: "center", alignV = "end" :: "end", padding = "s" })
 local page: ScrollingFrame = UI.ScrollView({
@@ -55,10 +61,13 @@ local guarded: Frame = UI.ErrorBoundary("Region")({
 		return use(maximum)
 	end,
 	view = function()
-		return runtime.constructors.Frame({})
+		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 	end,
 	fallback = function(failure: unknown, retry: () -> ())
-		return runtime.constructors.TextButton({ Text = tostring(failure), Activated = retry })
+		return ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
+			Text = tostring(failure),
+			Activated = retry,
+		})
 	end,
 	onError = function(_failure: unknown) end,
 	width = "fill" :: "fill",
@@ -77,7 +86,7 @@ local divider: Frame = UI.Divider(dividerProps)
 local spacerProps: Facet.SpacerProps = { minLength = "m" }
 local spacer: Frame = UI.Spacer(spacerProps)
 local adaptive: Frame = UI.AdaptiveStack({ axis = "x" :: "x", gap = "s" })
-local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
+local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }) :: unknown, UI.Text({ text = "L" }) })
 local chosen: Facet.Cell<number> = Compose.cell(1)
 local region: Frame = UI.Region("Tasks")({
 	zone = "left" :: "left",
@@ -87,10 +96,10 @@ local region: Frame = UI.Region("Tasks")({
 	expand = function(): Instance
 		return UI.Text({ text = "Win a round" })
 	end,
-	UI.Text({ text = "Tasks" }),
+	UI.Text({ text = "Tasks" }) :: unknown,
 	UI.Text({ text = "1/3" }),
 })
-local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region })
+local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region :: unknown })
 return {
 	adaptive = adaptive,
 	fits = fits,
