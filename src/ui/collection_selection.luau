@@ -99,7 +99,7 @@ return function<V, K>(
 		anchor = key
 		base = table.clone(selected)
 	end
-	local function choose(key: K, item: V, input: InputObject?): ()
+	local function choose(key: K, item: V, _input: InputObject?): ()
 		if mode == "none" or not eligible(item) then
 			return
 		end
@@ -113,12 +113,7 @@ return function<V, K>(
 			return
 		end
 		local selected: CollectionTypes.Selection<K> = {}
-		if
-			held(toggle)
-			or input == nil
-			or input.UserInputType ~= E.UserInputType.MouseButton1
-			or read(spec.editing) == true
-		then
+		if held(toggle) or read(spec.editing) == true then
 			local current = selection:peek()
 			for other, on in current do
 				if on and other ~= key then

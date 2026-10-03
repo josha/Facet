@@ -315,6 +315,7 @@ return {
 				collectionId = "inbox",
 				selection = inboxSelection,
 				selectionMode = "multiple",
+				editing = choosing,
 				itemSize = 64,
 				measure = true,
 				Size = D2.fromScale(1, 1),
@@ -724,7 +725,7 @@ return {
 							return "Change a file name, then press Enter or leave the field to save. Choose Done to finish."
 						end
 						return if coarse(use)
-							then "Choose Edit to select files and change their names."
+							then "Tap a file to select it. Choose Edit to select several files or change their names."
 							else "Edit names directly. Command/Ctrl-click adds items; Shift-click selects a range. Drag a preview to reorder."
 					end,
 					Visible = function(use)

@@ -3908,6 +3908,63 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 end)
 
 t.describe("shared container editing", function()
+	t.it("replaces plain selection and toggles only in explicit edit mode across all containers", function()
+		for _, kind in { "VirtualList", "VirtualGrid", "Table" } do
+			local engine, runtime, UI, target = setup()
+			local selection, editing = Compose.cell({}), Compose.cell(false)
+			local stop, node: any = runtime.mount(function()
+				local spec: any = {
+					from = records(3),
+					key = key,
+					selection = selection,
+					selectionMode = "multiple",
+					editing = editing,
+					mode = "all",
+					render = function(): GuiObject
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+					end,
+				}
+				if kind == "Table" then
+					spec.columns = { { id = "label", label = "Label", width = 100 } }
+					spec.mode, spec.render = nil, nil
+				end
+				return UI[kind](spec)
+			end, target)
+			local body = if kind == "Table" then node:FindFirstChild("Body") else node
+			body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+			local inputs: { Enum.UserInputType | boolean } = {
+				engine.types.Enum.UserInputType.Touch,
+				engine.types.Enum.UserInputType.Gamepad1,
+				engine.types.Enum.UserInputType.Keyboard,
+				engine.types.Enum.UserInputType.MouseButton1,
+				false,
+			}
+			for _, inputType in inputs do
+				local input = if inputType then { UserInputType = inputType } else nil
+				local function tap(id: number)
+					body:FindFirstChild(tostring(id), true):FindFirstChild("RowHit", true).Activated.fire(input, 0)
+				end
+				selection:set({})
+				tap(1)
+				tap(2)
+				t.expect(selection:peek()).toEqual({ [2] = true })
+				tap(2)
+				t.expect(selection:peek()).toEqual({ [2] = true })
+				editing:set(true)
+				tap(1)
+				t.expect(selection:peek()).toEqual({ [1] = true, [2] = true })
+				tap(2)
+				t.expect(selection:peek()).toEqual({ [1] = true })
+				editing:set(false)
+				t.expect(selection:peek()).toEqual({ [1] = true })
+				tap(3)
+				t.expect(selection:peek()).toEqual({ [3] = true })
+			end
+			stop()
+			runtime:dispose()
+		end
+	end)
+
 	t.it("preserves hidden selection across views and prunes only deleted records", function()
 		local engine, runtime, UI, target = setup()
 		local all, visible, selection = Compose.cell(records(3)), Compose.cell(records(3)), Compose.cell({ [2] = true })

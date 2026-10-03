@@ -2686,7 +2686,7 @@
         "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
         "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
         "native_gallery_collections::native gallery collections::uses mail table activation editing and native row reorder with independent state",
-        "native_parity_weaker_rows::native parity weaker rows::apps2-38 selects playlist rows additively by touch and reorders by a touch handle drag"
+        "native_parity_weaker_rows::native parity weaker rows::apps2-38 selects playlist rows additively in Edit by touch and reorders by a touch handle drag"
       ]
     },
     {
@@ -13318,7 +13318,7 @@
         "native_collections::Compose native collections::shares list selection and reorder policies and fails closed for protected rows",
         "native_gallery_workflows::native gallery workflows::honors locked selection pinned movement and protected deletion in RunSheet",
         "native_collections::Compose native collections::enters native focus after unfocused collection churn and reaches offscreen keys",
-        "native_parity_weaker_tables::native parity weaker tables::collections-137 single replaces, multi toggles additively and keyboard focus walks and selects"
+        "native_parity_weaker_tables::native parity weaker tables::collections-137 single replaces, Edit toggles, and keyboard focus walks and selects"
       ]
     },
     {
@@ -13475,7 +13475,7 @@
       "class": "a",
       "candidateCases": [
         "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
-        "native_parity_weaker_focus::native parity weaker focus::extends reversed and focus-anchored ranges and toggles additive taps in multi selection"
+        "native_parity_weaker_focus::native parity weaker focus::extends reversed and focus-anchored ranges and toggles additive taps in edit mode"
       ]
     },
     {
@@ -13500,7 +13500,7 @@
       "class": "a",
       "candidateCases": [
         "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
-        "native_parity_weaker_focus::native parity weaker focus::extends reversed and focus-anchored ranges and toggles additive taps in multi selection"
+        "native_parity_weaker_focus::native parity weaker focus::extends reversed and focus-anchored ranges and toggles additive taps in edit mode"
       ]
     },
     {
@@ -14184,7 +14184,7 @@
       "nativeMechanism": "Native activation of RowHit",
       "nativeEvidence": "none",
       "candidateCases": [
-        "native_parity_classb_collections::native parity classb collections::collections-197 Return on a focused row toggles it in a multi-selection table, also while editing"
+        "native_parity_classb_collections::native parity classb collections::collections-197 Return replaces selection normally and toggles it while editing"
       ]
     },
     {

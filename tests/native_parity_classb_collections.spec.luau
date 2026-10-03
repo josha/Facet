@@ -749,7 +749,7 @@ t.describe("native parity classb collections", function()
 		end
 	)
 
-	t.it("collections-197 Return on a focused row toggles it in a multi-selection table, also while editing", function()
+	t.it("collections-197 Return replaces selection normally and toggles it while editing", function()
 		for _, editing in { false, true } do
 			local selection = Compose.cell({} :: { [string]: boolean })
 			local world, body = tableWorld({
@@ -765,10 +765,10 @@ t.describe("native parity classb collections", function()
 			press("r1")
 			t.expect(selection:peek()).toEqual({ r1 = true })
 			press("r2")
-			t.expect(selection:peek()).toEqual({ r1 = true, r2 = true })
+			t.expect(selection:peek()).toEqual(if editing then { r1 = true, r2 = true } else { r2 = true })
 			press("r1")
-			t.expect(selection:peek()).toEqual({ r2 = true })
-			t.expect(find(rowFrame(body, "r2"), "RowHit"):GetAttribute("FacetSelected")).toBe(true)
+			t.expect(selection:peek()).toEqual(if editing then { r2 = true } else { r1 = true })
+			t.expect(find(rowFrame(body, "r2"), "RowHit"):GetAttribute("FacetSelected")).toBe(editing)
 			world.stop()
 		end
 	end)

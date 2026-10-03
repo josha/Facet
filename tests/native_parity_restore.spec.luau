@@ -421,7 +421,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 			{ id = "nova", name = "Nova" },
 		}
 	end
-	local function tableWorld(mode: ("single" | "multiple" | "none")?): (World, any, any)
+	local function tableWorld(mode: ("single" | "multiple" | "none")?, editing: boolean?): (World, any, any)
 		table.clear(held)
 		local selection = Compose.cell({})
 		local focus: FixtureCollectionTypes.FocusControls<any> = {}
@@ -433,6 +433,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 				focus = focus,
 				selection = selection,
 				selectionMode = mode or ("multiple" :: "multiple"),
+				editing = editing,
 				columns = {
 					{
 						id = "name",
@@ -484,8 +485,8 @@ t.describe("native parity restore: Table multi-select keys", function()
 
 	t.it("replaces a multi selection on a plain mouse click", function()
 		local w, selection = tableWorld()
-		tap(w, "razz")
-		tap(w, "bolt")
+		click(w, "razz")
+		click(w, "bolt", "LeftControl")
 		t.expect(selected(selection)).toEqual({ "bolt", "razz" })
 		click(w, "josh")
 		t.expect(selected(selection)).toEqual({ "josh" })
@@ -541,8 +542,8 @@ t.describe("native parity restore: Table multi-select keys", function()
 		w.stop()
 	end)
 
-	t.it("keeps the additive toggle for a touch tap and a gamepad press", function()
-		local w, selection = tableWorld()
+	t.it("keeps the additive toggle for a touch tap and a gamepad press in edit mode", function()
+		local w, selection = tableWorld(nil, true)
 		tap(w, "razz")
 		tap(w, "josh")
 		t.expect(selected(selection)).toEqual({ "josh", "razz" })

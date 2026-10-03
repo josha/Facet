@@ -163,7 +163,7 @@ return function(c: any, kind: string)
 		UI.Text {
 			text = function(use)
 				return if coarse(use)
-					then "Choose Edit to rename items and select a group. Drag the handles to reorder."
+					then "Tap an item to select it. Choose Edit to select a group or rename items. Drag the handles to reorder."
 					else "Edit names directly. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a preview to reorder."
 			end,
 			wrap = true,

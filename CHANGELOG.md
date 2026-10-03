@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Plain touch, gamepad and keyboard activation replaces collection selection. Edit mode explicitly enables additive selection across tables, lists and grids; desktop modifier selection is unchanged.
+
 - Drag previews preserve the proportional pickup point and source scale. World-drop hit testing uses native styled transparency so transparent layout frames do not block destinations.
 
 - Frame-backed collection cells forward native drag-detector taps to selection, including after a drop. Accepted previews shrink at the destination with theme-timed native motion. Grid edit controls reserve their space on touch/gamepad, and the File library keeps name fields mounted when editing is disabled.
