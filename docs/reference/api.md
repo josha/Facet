@@ -3291,13 +3291,21 @@ VirtualGrid:
   is the last row that a click without Shift selected. A second Shift-click
   makes the range again from the same anchor. Rows that you added with
   Ctrl-click before the anchor stay selected.
-- A touch tap, a gamepad press and a plain Return add the row or remove it.
-  Return with Ctrl, Cmd or Shift follows the click rules.
+- A touch tap, a gamepad press and a plain Return select only that row.
+  With `editing = true`, they add the row to the selection or remove it,
+  without activating it. Return with Ctrl, Cmd or Shift follows the click rules.
 - Shift with an arrow key, Home or End moves the focus and selects the range
   from the anchor to the focused row. Without an anchor, the focused row
   becomes the anchor.
 - An arrow key without Shift moves the focus and does not change the
   selection.
+
+`selectionMode = "multiple"` permits multiple selected keys; it does not make
+every tap additive. On touch and gamepad, offer an Edit or Select command that
+sets `editing` to true, and Done that sets it to false. Done preserves the
+selection; the next plain activation selects only its row. For a persistent
+multi-choice picker, use `selectionMode = "multiple"` with `editing = true`.
+This does not require rename, reorder or delete actions.
 
 In `single` mode, each activation selects only that row, and the modifiers
 have no effect. A selected Table row carries the `facet-selected` tag, so the

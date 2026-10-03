@@ -972,6 +972,7 @@ t.describe("native parity weaker rows", function()
 						itemSize = 20,
 						selection = Compose.cell({}),
 						selectionMode = "multiple" :: "multiple",
+						editing = true,
 						reorderable = true,
 						onReorder = function(keys: { number }, slot: number)
 							table.insert(requests, { keys = keys, slot = slot, open = true })
@@ -1634,9 +1635,11 @@ t.describe("native parity weaker rows", function()
 		world.stop()
 	end)
 
-	t.it("apps2-38 selects playlist rows additively by touch and reorders by a touch handle drag", function()
+	t.it("apps2-38 selects playlist rows additively in Edit by touch and reorders by a touch handle drag", function()
 		local built, node, world = mountGallery("../examples/gallery/examples/02_playlist_table")
 		local E = world.engine.types.Enum
+		world.input.PreferredInput = E.PreferredInput.Touch
+		find(node, "Edit").Activated.fire()
 		local body = find(node, "Body")
 		body.AbsoluteWindowSize = V2(world, 900, 600)
 		nativeDrag.measure(body)

@@ -990,7 +990,7 @@ t.describe("native parity weaker focus", function()
 		end
 	end)
 
-	t.it("extends reversed and focus-anchored ranges and toggles additive taps in multi selection", function()
+	t.it("extends reversed and focus-anchored ranges and toggles additive taps in edit mode", function()
 		local shifted = false
 		local selected = Compose.cell({})
 		local world = setup(function(UI: FacetControls)
@@ -1007,6 +1007,7 @@ t.describe("native parity weaker focus", function()
 				end,
 				selection = selected,
 				selectionMode = "multiple" :: "multiple",
+				editing = true,
 				itemSize = 20,
 				overscan = 0,
 				columns = { { id = "label", label = "Label" } :: FixtureCollectionTypes.TableColumn<any, any> },

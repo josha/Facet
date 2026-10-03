@@ -840,7 +840,7 @@ t.describe("native parity weaker tables", function()
 		end
 	end)
 
-	t.it("collections-137 single replaces, multi toggles additively and keyboard focus walks and selects", function()
+	t.it("collections-137 single replaces, Edit toggles, and keyboard focus walks and selects", function()
 		local single = Compose.cell({})
 		local w = stage(function(UI: FacetControls)
 			return UI.Table({
@@ -892,6 +892,7 @@ t.describe("native parity weaker tables", function()
 				itemSize = 40,
 				selection = multi,
 				selectionMode = "multiple" :: "multiple",
+				editing = true,
 				columns = {
 					{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
 				},
