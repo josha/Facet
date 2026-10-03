@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -234,6 +235,7 @@ local function tableWorld(spec: { [string]: any }, options: { [string]: any }?):
 	end, options)
 	local body = find(world.node, "Body")
 	body.AbsoluteWindowSize = V2(world, 400, 200)
+	nativeDrag.measure(body)
 	body.AbsoluteSize = V2(world, 400, 200)
 	return world, body
 end
@@ -552,6 +554,7 @@ t.describe("native parity classb collections", function()
 			t.expect(name.Visible and artist.Visible and laps.Visible).toBe(true)
 		end
 		body.AbsoluteWindowSize = V2(world, 300, 200)
+		nativeDrag.measure(body)
 		t.expect(find(row, "artist").Visible).toBe(true)
 		t.expect(find(row, "laps").Visible).toBe(true)
 		widths:set({ name = 200 })
@@ -586,7 +589,7 @@ t.describe("native parity classb collections", function()
 		handle:FindFirstChildWhichIsA("UIDragDetector").DragStart.fire(V2(world, 20, 10))
 		local moved = inputOf(world, "MouseMovement")
 		moved.Position = world.engine.types.Vector3.new(20, height * 3.6, 0)
-		world.input.InputChanged.fire(moved)
+		handle:FindFirstChildWhichIsA("UIDragDetector").DragContinue.fire(V2(world, 20, height * 3.6))
 		local second = inputOf(world, "Touch")
 		other.InputBegan.fire(second)
 		other:FindFirstChildWhichIsA("UIDragDetector").DragStart.fire(V2(world, 20, height * 1.5))
@@ -616,6 +619,7 @@ t.describe("native parity classb collections", function()
 				reorders += 1
 			end,
 		})
+		world.input.PreferredInput = E(world).PreferredInput.Touch
 		for _, on in { false, true } do
 			editing:set(on)
 			t.expect(body:IsA("ScrollingFrame")).toBe(true)
@@ -626,13 +630,13 @@ t.describe("native parity classb collections", function()
 			for _, detector in world.node:GetDescendants() do
 				if detector:IsA("UIDragDetector") then
 					local owner = detector.Parent
-					t.expect(owner.Name == "Move" or owner.Name == "Resize").toBe(true)
+					t.expect(owner.Name == "Move" or owner.Name == "Resize" or not detector.Enabled).toBe(true)
 				end
 			end
 			local row = rowFrame(body, "r2")
 			local hit = find(row, "RowHit")
 			t.expect(hit:FindFirstChildWhichIsA("UIDragDetector")).toBeNil()
-			t.expect(find(row, "Cells"):FindFirstChildWhichIsA("UIDragDetector", true)).toBeNil()
+			t.expect(find(row, "Cells"):FindFirstChildWhichIsA("UIDragDetector", true).Enabled).toBe(false)
 			local touch = inputOf(world, "Touch")
 			hit.InputBegan.fire(touch)
 			local moved = inputOf(world, "Touch")
@@ -660,6 +664,7 @@ t.describe("native parity classb collections", function()
 			})
 			local height = rowFrame(body, "r1").Size.Y.Offset
 			body.AbsolutePosition = V2(world, 0, 300 - scrolled)
+			nativeDrag.measure(body)
 			local handle = find(rowFrame(body, "r1"), "Move")
 			local pressed = inputOf(world, "Touch")
 			handle.InputBegan.fire(pressed)
@@ -714,6 +719,7 @@ t.describe("native parity classb collections", function()
 			t.expect(find(header, "laps").Visible).toBe(true)
 			t.expect(find(find(header, "laps"), "Resize").Selectable).toBe(true)
 			body.AbsoluteWindowSize = V2(world, 280, 200)
+			nativeDrag.measure(body)
 			t.expect(find(header, "laps").Visible).toBe(false)
 			t.expect(find(rowFrame(body, "r1"), "laps").Visible).toBe(false)
 			t.expect(find(header, "name").Visible).toBe(true)
@@ -737,6 +743,7 @@ t.describe("native parity classb collections", function()
 			local expanded = plate()
 			t.expect(expanded ~= nil and expanded.Text == "1").toBe(true)
 			body.AbsoluteWindowSize = V2(world, 400, 200)
+			nativeDrag.measure(body)
 			t.expect(find(header, "laps").Visible).toBe(true)
 			world.stop()
 		end

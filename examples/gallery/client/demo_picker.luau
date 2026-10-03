@@ -35,6 +35,13 @@ local demos: { { id: string, title: string, blurb: string?, kind: "example" | "f
 		kind = "example" :: "example",
 		module = "13_arcade",
 	},
+	{
+		id = "files",
+		title = "File library",
+		blurb = "Edit, label and reorder files across linked icon, list and table views",
+		kind = "fixture",
+		module = "collection_workbench",
+	},
 }
 local catalogue = {}
 function catalogue.list()

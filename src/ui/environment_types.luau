@@ -65,18 +65,38 @@ export type WorldAnchor = { anchor: Types.Readable<WorldAnchorPoint>, dispose: (
 export type ScrollPosition = Vector2 | "top" | "bottom" | { x: number?, y: number? }
 export type ScrollOptions = { animated: boolean? }
 export type ScrollRect = { x: number, y: number, w: number, h: number }
+export type DropOperation = "copy" | "move" | "apply"
+export type DropDestination = GuiObject | BasePart | Model
+export type DropInsertion = { collection: unknown, beforeKey: unknown?, afterKey: unknown?, slot: number }
+export type DropInfo = {
+	source: GuiObject,
+	target: DropDestination,
+	mode: "pointer" | "armed",
+	operation: DropOperation,
+	position: Vector2?,
+	hit: RaycastResult?,
+	insertion: DropInsertion?,
+	complete: (accepted: boolean, reason: string?) -> boolean,
+}
 export type DraggableSpec = {
 	payload: unknown,
 	enabled: Types.ValueBoolean?,
 	armOnTap: boolean?,
+	operations: { DropOperation }?,
+	valid: (() -> boolean)?,
+	onStart: ((payload: any, mode: "pointer" | "armed") -> ())?,
+	onEnd: ((accepted: boolean, reason: string?) -> ())?,
 }
-export type DropInfo = { source: GuiObject, target: GuiObject, mode: "pointer" | "armed" }
 export type DropTargetSpec = {
-	onDrop: (payload: any, info: DropInfo) -> (),
-	accepts: ((payload: any) -> (boolean, string?))?,
+	onDrop: ((payload: any, info: DropInfo) -> ()) | ((payload: any, info: DropInfo) -> boolean | "pending"),
+	operation: Types.Value<DropOperation>?,
+	passThrough: ((payload: any) -> boolean)?,
+	focusTarget: GuiObject?,
+	accepts: ((payload: any, info: DropInfo) -> (boolean, string?))?,
 	onReject: ((payload: any, reason: string?) -> ())?,
 	onEnter: ((payload: any) -> ())?,
 	onLeave: ((payload: any) -> ())?,
+	onUpdate: ((payload: any, info: DropInfo, accepted: boolean, reason: string?) -> ())?,
 }
 export type FocusSectionOptions = {
 	entry: ("restore" | "first" | "nearest")?,
@@ -97,7 +117,7 @@ export type EnvironmentControls = {
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
 	draggable: (source: GuiObject, spec: DraggableSpec) -> (),
-	dropTarget: (target: GuiObject, spec: DropTargetSpec) -> (),
+	dropTarget: (target: DropDestination, spec: DropTargetSpec) -> (),
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,
 	scrollTo: (frame: ScrollingFrame, position: ScrollPosition, options: ScrollOptions?) -> boolean,
 	scrollToVisible: (node: GuiObject, rect: ScrollRect?, options: ScrollOptions?) -> boolean,

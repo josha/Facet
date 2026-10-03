@@ -39,6 +39,7 @@ to select a control. Then read the exact contract of that control in the
 | Screen roots, stacks and layers | `UI.Screen`, `UI.VStack`, `UI.HStack`, `UI.ZStack` |
 | Layouts that adapt to their space | `UI.AdaptiveStack`, `UI.ViewThatFits` |
 | A HUD anchored to the screen edges that steps down by rank | `UI.Composition`, `UI.Region` |
+| Reusable editors with model-owned drafts | `UI.CellEditor` |
 | Scrolling content and grids | `UI.ScrollView`, `UI.Grid` |
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
 | One theme focus ring in place of the engine selection glow | `UI.focusRing` |

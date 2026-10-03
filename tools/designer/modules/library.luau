@@ -116,6 +116,16 @@ local definitions: { [string]: any } = {
 			field("presentation", "Presentation", "choice", { "switch", "checkbox" }),
 		},
 	},
+	CellEditor = {
+		category = "Collections",
+		state = "value",
+		defaults = { editor = "text", value = "Name" },
+		fields = {
+			field("editor", "Editor", "choice", { "text" }),
+			field("value", "Initial text", "string"),
+			field("label", "Field label", "string"),
+		},
+	},
 	TextInput = {
 		category = "Input",
 		state = "value",

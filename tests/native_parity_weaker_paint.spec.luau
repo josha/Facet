@@ -846,7 +846,7 @@ t.describe("native parity weaker paint", function()
 					button = { slot = "control", x = 12, y = 0 },
 					field = { slot = "field", x = 0, y = 0 },
 					badge = { slot = "badge", x = 8, y = 3 },
-					panel = { slot = "panel", x = 0, y = 0 },
+					panel = { slot = "panel", x = entry.package.metrics.space.m, y = entry.package.metrics.space.m },
 				} :: { [string]: any }
 			do
 				local recipe = (entry.package.chrome or {})[floors.slot]

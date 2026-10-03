@@ -2,7 +2,7 @@
   "schema": "facet-theme-assets/1",
   "package": "facet-standard-icons",
   "stage": "compact-label",
-  "uploaded": "2026-09-18",
+  "uploaded": "2026-10-02",
   "method": "Roblox Open Cloud POST /assets/v1/assets with assetType=Image, polled to done via /assets/v1/operations/<id>, by tools/upload_icons.py. FULLY HEADLESS -- no Studio and no human step, unlike the eleven per-package assets that went up through the Studio MCP upload_image route. assetType=Image (not Decal) returns a real Image asset, AssetTypeId 1.",
   "note": "Framework-owned art, not a theme package: it resolves BELOW a package's own icons and ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white #F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and ImageColor3 multiplies, so white reaches every palette while black could only darken. Regenerate the PNGs with assets/icons/source/generate_icons.py.",
   "assets": {
@@ -272,6 +272,17 @@
       "moderation": "Approved",
       "assetType": "Image"
     },
+    "facet_icon_settings": {
+      "sliceBorder": 0,
+      "slot": "icons.settings",
+      "state": "default",
+      "file": "facet_icon_settings.png",
+      "contentId": "rbxassetid://78513807849201",
+      "size": "128x128",
+      "moderation": "Reviewing",
+      "sha256": "e6b7dda0cb28015af00d6c7b31c144b698404e0acea49ba403c1bb2f66c24efd",
+      "assetType": "Image"
+    },
     "facet_icon_success": {
       "sliceBorder": 0,
       "slot": "icons.status.success",
@@ -317,6 +328,36 @@
       "sha256": "2c4837ba2f4b87026b9f302a57e252c96a2a424782c4e29b4c52450b400e6e8f",
       "assetType": "Image"
     },
+    "facet_icon_view_grid": {
+      "sliceBorder": 0,
+      "slot": "icons.view.grid",
+      "state": "default",
+      "file": "facet_icon_view_grid.png",
+      "contentId": "rbxassetid://81137934612324",
+      "size": "128x128",
+      "moderation": "Reviewing",
+      "sha256": "dfa149a97369b01842ffd2ca1cf2865fc6473798803e4499ecc831cab2186930"
+    },
+    "facet_icon_view_list": {
+      "sliceBorder": 0,
+      "slot": "icons.view.list",
+      "state": "default",
+      "file": "facet_icon_view_list.png",
+      "contentId": "rbxassetid://71986932171552",
+      "size": "128x128",
+      "moderation": "Reviewing",
+      "sha256": "e01874999d63a4f487cd28874f6cf9c6b59a1d87ea1b8d097d82d43f2950302a"
+    },
+    "facet_icon_view_table": {
+      "sliceBorder": 0,
+      "slot": "icons.view.table",
+      "state": "default",
+      "file": "facet_icon_view_table.png",
+      "contentId": "rbxassetid://71955029916091",
+      "size": "128x128",
+      "moderation": "Reviewing",
+      "sha256": "ce826c556d6ee8c67e3681b99043b36f51f61e28d40144d66a50937d56b987c7"
+    },
     "facet_icon_warning": {
       "sliceBorder": 0,
       "slot": "icons.status.warning",
@@ -326,17 +367,6 @@
       "size": "128x128",
       "moderation": "Approved",
       "sha256": "6e92bffb9e6e134dd6663bbcd73edbdb2f18b16db0ba251c78cfaf3dc4fc66c5",
-      "assetType": "Image"
-    },
-    "facet_icon_settings": {
-      "sliceBorder": 0,
-      "slot": "icons.settings",
-      "state": "default",
-      "file": "facet_icon_settings.png",
-      "contentId": "rbxassetid://78513807849201",
-      "size": "128x128",
-      "moderation": "Reviewing",
-      "sha256": "e6b7dda0cb28015af00d6c7b31c144b698404e0acea49ba403c1bb2f66c24efd",
       "assetType": "Image"
     }
   },
@@ -366,10 +396,14 @@
     "facet_icon_radio_off",
     "facet_icon_radio_on",
     "facet_icon_search",
+    "facet_icon_settings",
     "facet_icon_success",
     "facet_icon_thumb_down",
     "facet_icon_thumb_up",
     "facet_icon_trash",
+    "facet_icon_view_grid",
+    "facet_icon_view_list",
+    "facet_icon_view_table",
     "facet_icon_warning"
   ]
 }

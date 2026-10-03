@@ -33,6 +33,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"reducedMotion",
 		"onActivate",
 		"editing",
+		"swipeEnabled",
 	}
 	local FULL_SWIPE = 0.6
 	local RESISTANCE = 0.55
@@ -523,6 +524,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local function swipeable(use: ComposeTypes.Use): boolean
 			return use(committing) == nil
+				and read(spec.editing, use) ~= true
+				and read(spec.swipeEnabled, use) ~= false
 				and read(spec.enabled, use) ~= false
 				and (#actions("leading", use) + #actions("trailing", use)) > 0
 		end
@@ -624,16 +627,21 @@ return function(ctx: Types.Context, UI: Controls): ()
 						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 						DragStart = function(position: Vector2)
 							detectorDrag = true
+							activation.drag(root, "start", position)
 							begin(position)
 						end,
 						DragContinue = function(position: Vector2)
 							if detectorDrag then
+								if activation.drag(root, "move", position) then
+									return
+								end
 								move(position)
 							end
 						end,
 						DragEnd = function()
 							if detectorDrag then
 								detectorDrag = false
+								activation.drag(root, "end", nil)
 								release()
 							end
 						end,

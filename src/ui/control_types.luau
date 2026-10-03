@@ -51,6 +51,7 @@ export type Controls = {
 	TabView: typeof(((nil :: unknown) :: Navigation.NavigationControls).TabView),
 	VirtualList: typeof(((nil :: unknown) :: Collections.CollectionControls).VirtualList),
 	VirtualGrid: typeof(((nil :: unknown) :: Collections.CollectionControls).VirtualGrid),
+	CellEditor: typeof(((nil :: unknown) :: Collections.CollectionControls).CellEditor),
 	Table: typeof(((nil :: unknown) :: Collections.CollectionControls).Table),
 	RowActions: typeof(((nil :: unknown) :: Collections.CollectionControls).RowActions),
 	Text: typeof(((nil :: unknown) :: Media.MediaControls).Text),

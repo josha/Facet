@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -994,6 +995,7 @@ t.describe("native parity controls", function()
 		end)
 		local body = find(world.node, "Body")
 		body.AbsoluteWindowSize = V2(world, 300, 200)
+		nativeDrag.measure(body)
 		local function row(rowKey: number): any
 			for _, node in body:FindFirstChild(tostring(rowKey), true):GetDescendants() do
 				if node:HasTag("facet-rowactions") then
@@ -1056,6 +1058,7 @@ t.describe("native parity controls", function()
 		end)
 		local body = find(world.node, "Body")
 		body.AbsoluteWindowSize = V2(world, 200, 100)
+		nativeDrag.measure(body)
 		local function drag(rowKey: number, y: number)
 			local handle = body:FindFirstChild(tostring(rowKey), true):FindFirstChild("Move", true)
 			local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
@@ -1095,6 +1098,7 @@ t.describe("native parity controls", function()
 			world.input.MouseEnabled = false
 			local body = find(world.node, "Body")
 			body.AbsoluteWindowSize = V2(world, 200, 100)
+			nativeDrag.measure(body)
 			body:FindFirstChild("1", true):FindFirstChild("Move", true).Activated.fire()
 			local line = find(world.node, "DropLine")
 			world.input.MouseEnabled = true
@@ -1480,6 +1484,7 @@ t.describe("native parity controls", function()
 		end)
 		local body = find(world.node, "Body")
 		body.AbsoluteWindowSize = V2(world, 300, 200)
+		nativeDrag.measure(body)
 		local function row(rowKey: number): any
 			for _, node in body:FindFirstChild(tostring(rowKey), true):GetDescendants() do
 				if node:HasTag("facet-rowactions") then
@@ -1505,10 +1510,13 @@ t.describe("native parity controls", function()
 		reorder.DragStart.fire(V2(world, 10, 50))
 		reorder.DragContinue.fire(V2(world, 10, 150))
 		t.expect(find(world.node, "DropLine") ~= nil).toBe(true)
-		source:set(records(4))
+		source:set(records(1))
 		t.expect(find(world.node, "DropLine")).toBeNil()
 		reorder.DragEnd.fire()
 		t.expect(#reorders).toBe(0)
+		source:set(records(4))
+		handle = handleOf(2)
+		reorder = handle:FindFirstChildWhichIsA("UIDragDetector")
 		reorder.DragStart.fire(V2(world, 10, 50))
 		reorder.DragContinue.fire(V2(world, 10, 150))
 		reorder.DragEnd.fire()
@@ -1564,6 +1572,7 @@ t.describe("native parity controls", function()
 		end, target)
 		local body = find(find(screen, "Tracks"), "Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(600, 100)
+		nativeDrag.measure(body)
 		local row
 		for _, node in body:GetDescendants() do
 			if node:HasTag("facet-rowactions") then

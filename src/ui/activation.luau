@@ -33,6 +33,22 @@ function activation.listen(node: Instance, listener: Listener): () -> ()
 	end
 end
 
+local interceptors = setmetatable({} :: { [Instance]: (unknown) -> boolean }, { __mode = "k" })
+
+function activation.intercept(node: Instance, listener: (unknown) -> boolean): () -> ()
+	interceptors[node] = listener
+	return function()
+		if interceptors[node] == listener then
+			interceptors[node] = nil
+		end
+	end
+end
+
+function activation.intercepted(node: Instance, input: unknown): boolean
+	local listener = interceptors[node]
+	return listener ~= nil and listener(input)
+end
+
 local activators = setmetatable({} :: { [Instance]: Listener }, { __mode = "k" })
 
 function activation.provide(node: Instance, activate: Listener): () -> ()
@@ -97,6 +113,26 @@ function activation.press(node: Instance, input: InputObject)
 	if press then
 		press(input)
 	end
+end
+
+local drags = setmetatable({} :: { [Instance]: (string, Vector2?) -> boolean }, { __mode = "k" })
+
+function activation.provideDrag(node: Instance, listener: (string, Vector2?) -> boolean): () -> ()
+	drags[node] = listener
+	return function()
+		drags[node] = nil
+	end
+end
+
+function activation.drag(node: Instance?, phase: string, position: Vector2?): boolean
+	while node do
+		local listener = drags[node]
+		if listener then
+			return listener(phase, position)
+		end
+		node = node.Parent
+	end
+	return false
 end
 
 return activation

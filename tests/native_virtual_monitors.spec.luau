@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
@@ -859,18 +860,19 @@ t.describe("native virtual monitors", function()
 			find(discover, "Games").AbsoluteWindowSize = types.Vector2.new(820, 260)
 			local shelves = find(discover, "Shelves")
 			shelves.AbsolutePosition, shelves.AbsoluteSize = types.Vector2.new(20, 80), types.Vector2.new(600, 40)
+			nativeDrag.measure(shelves)
 			local card = find(discover, "Game_1")
 			local body, preview = find(card, "Body"), find(card, "Preview")
 			local function dragTo(y: number)
 				local mouse = world.engine.new("InputObject")
 				mouse.UserInputType = types.Enum.UserInputType.MouseButton1
 				mouse.Position = types.Vector3.new(60, 260, 0)
-				preview.InputBegan.fire(mouse)
-				world.input.InputChanged.fire({
+				nativeDrag.press(preview, mouse)
+				nativeDrag.move(world.input, {
 					UserInputType = types.Enum.UserInputType.MouseMovement,
 					Position = types.Vector3.new(50, y, 0),
 				})
-				world.input.InputEnded.fire({
+				nativeDrag.finish(world.input, {
 					UserInputType = types.Enum.UserInputType.MouseButton1,
 					UserInputState = types.Enum.UserInputState.End,
 					Position = types.Vector3.new(50, y, 0),
@@ -900,6 +902,7 @@ t.describe("native virtual monitors", function()
 			find(world.Discover, "Games").AbsoluteWindowSize = types.Vector2.new(820, 260)
 			local shelves = find(world.Discover, "Shelves")
 			shelves.AbsolutePosition, shelves.AbsoluteSize = types.Vector2.new(20, 80), types.Vector2.new(600, 40)
+			nativeDrag.measure(shelves)
 			local card = find(world.Discover, "Game_1")
 			local body, preview = find(card, "Body"), find(card, "Preview")
 			local opened, selectGame = 0, model.selectGame
@@ -912,11 +915,11 @@ t.describe("native virtual monitors", function()
 				mouse.UserInputType = types.Enum.UserInputType.MouseButton1
 				mouse.UserInputState = types.Enum.UserInputState.Begin
 				mouse.Position = types.Vector3.new(60, 260, 0)
-				preview.InputBegan.fire(mouse)
+				nativeDrag.press(preview, mouse)
 				return mouse
 			end
 			local function move(y: number)
-				input.InputChanged.fire({
+				nativeDrag.move(input, {
 					UserInputType = types.Enum.UserInputType.MouseMovement,
 					Position = types.Vector3.new(50, y, 0),
 				})
@@ -924,7 +927,7 @@ t.describe("native virtual monitors", function()
 			local function release(mouse: any, y: number, state: any?)
 				mouse.UserInputState = state or types.Enum.UserInputState.End
 				mouse.Position = types.Vector3.new(50, y, 0)
-				input.InputEnded.fire(mouse)
+				nativeDrag.finish(input, mouse)
 			end
 			local click = press()
 			release(click, 262)
@@ -972,6 +975,7 @@ t.describe("native virtual monitors", function()
 				games.ScrollingEnabled = true
 				local shelves = find(world.Discover, "Shelves")
 				shelves.AbsolutePosition, shelves.AbsoluteSize = types.Vector2.new(20, 80), types.Vector2.new(600, 40)
+				nativeDrag.measure(shelves)
 				local card = find(world.Discover, "Game_1")
 				local body, preview = find(card, "Body"), find(card, "Preview")
 				local scroller = preview:FindFirstAncestorWhichIsA("ScrollingFrame")
@@ -980,7 +984,7 @@ t.describe("native virtual monitors", function()
 					value.UserInputType = types.Enum.UserInputType.Touch
 					value.UserInputState = states.Begin
 					value.Position = types.Vector3.new(60, 260, 0)
-					preview.InputBegan.fire(value)
+					nativeDrag.press(preview, value)
 					return value
 				end
 				local function hold(value: any)
@@ -989,18 +993,18 @@ t.describe("native virtual monitors", function()
 				end
 				local function release(value: any, state: any?)
 					value.UserInputState = state or states.End
-					input.InputEnded.fire(value, true)
+					nativeDrag.finish(input, value)
 				end
 				local flick = contact()
 				flick.Position = types.Vector3.new(50, 95, 0)
-				input.InputChanged.fire(flick)
+				nativeDrag.move(input, flick)
 				t.expect(scroller.ScrollingEnabled).toBe(true)
 				release(flick)
 				t.expect(model.saved:peek()["1"]).toBe(nil)
 				local held = contact()
 				hold(held)
 				held.Position = types.Vector3.new(50, 95, 0)
-				input.InputChanged.fire(held)
+				nativeDrag.move(input, held)
 				local other = world.engine.new("InputObject")
 				other.UserInputType = types.Enum.UserInputType.Touch
 				other.Position = types.Vector3.new(50, 95, 0)
@@ -1301,6 +1305,7 @@ t.describe("native virtual monitors", function()
 			local saved = find(discover, "SavedGames")
 			local body, header = find(saved, "Body"), find(saved, "Header")
 			body.AbsoluteWindowSize = types.Vector2.new(900, 300)
+			nativeDrag.measure(body)
 			for _, column in { "title", "genre", "rating" } do
 				find(find(header, column), "Sort").Activated.fire()
 				t.expect(model.savedSort:peek().column).toBe(column)
@@ -1329,6 +1334,7 @@ t.describe("native virtual monitors", function()
 			saved = find(discover, "SavedGames")
 			body = find(saved, "Body")
 			body.AbsoluteWindowSize = types.Vector2.new(900, 300)
+			nativeDrag.measure(body)
 			t.expect(find(saved, "Note_2").Text).toBe("Play Friday")
 			find(find(body, "2"), "RowHit").Activated.fire()
 			t.expect(model.savedSelection:peek()["2"]).toBe(true)

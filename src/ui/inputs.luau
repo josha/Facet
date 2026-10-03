@@ -567,7 +567,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		)
 		local function activate(...)
 			local pressed: Instance? = node
-			if activation.consumed((...)) or (pressed and help.consume(pressed)) then
+			if
+				activation.consumed((...))
+				or (pressed and (help.consume(pressed) or activation.intercepted(pressed, (...))))
+			then
 				return
 			end
 			local route = if node then ctx.shiftActivation(node, (...)) else nil

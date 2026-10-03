@@ -32,7 +32,7 @@ return function<V, K>(
 			return
 		end
 		local valid: { [K]: boolean } = {}
-		for index, item in read(source, use) do
+		for index, item in read(spec.selectionFrom or source, use) do
 			valid[keyOf(item, index)] = true
 		end
 		local pruned: CollectionTypes.Selection<K> = {}

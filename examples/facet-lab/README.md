@@ -26,6 +26,19 @@ for its playground, options, states, variants and usage examples. Settings
 contains the device, input, text, motion and theme previews. Compact layouts
 open the control list through Browse and Back.
 
+Table, VirtualList, and VirtualGrid start with a working **Editing** section.
+Rename items, create an item, select several items, reorder them, delete the
+selection, and Undo. Enable editing controls permission. Desktop names are
+editable immediately; touch and gamepad use Edit/Done. The examples use
+CellEditor and the containers' shared selection and editing APIs.
+
+Choose **Lab → Drag and drop demo** (or search for it) to drag a portrait onto
+a 3D canvas or a color onto the canvas or block. This demo was moved from
+Showcase's File library. The draggable and dropTarget pages also link to it.
+The demo includes legal-target feedback, return/completion motion, Undo, Reset,
+and keyboard/gamepad destination actions. The camera and objects are restored
+or removed when you leave the demo.
+
 The previews use Facet's environment options. Automatic input follows the
 selected device: touch for phone and tablet, gamepad for console, and pointer
 for desktop. An explicit input choice takes precedence. Open controls update

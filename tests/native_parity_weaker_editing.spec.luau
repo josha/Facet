@@ -228,7 +228,7 @@ t.describe("native parity weaker editing", function()
 		end
 		local editors = {}
 		for _, node in body:GetDescendants() do
-			if node.Name == "Editor" and node:IsA("TextBox") and rowOf(node) then
+			if node:IsA("TextBox") and rowOf(node) then
 				table.insert(editors, node)
 			end
 		end
@@ -241,7 +241,7 @@ t.describe("native parity weaker editing", function()
 		for _ = 1, 40 do
 			deliver(world.root, E.KeyCode.Tab)
 			local current = world.gui.SelectedObject
-			if current and current.Name == "Editor" and rowOf(current) then
+			if current and current:IsA("TextBox") and rowOf(current) then
 				if current == editors[1] then
 					break
 				end

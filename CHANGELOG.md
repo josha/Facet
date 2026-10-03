@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Drag previews preserve the proportional pickup point and source scale. World-drop hit testing uses native styled transparency so transparent layout frames do not block destinations.
+
+- Frame-backed collection cells forward native drag-detector taps to selection, including after a drop. Accepted previews shrink at the destination with theme-timed native motion. Grid edit controls reserve their space on touch/gamepad, and the File library keeps name fields mounted when editing is disabled.
+- Transparent native control plates hide their shadows, so Glossy Mobile segments remain readable at rest. The File library view picker follows theme corners and names its transfer panel Show Inbox.
+
+- Drop highlights and insertion markers appear only for accepted destinations. A source-only palette is not a drop target. Rejected and cancelled drag previews return to the source with native TweenService motion and honor reduced motion.
+- Themed panels now receive native UIPadding with a theme spacing floor, including bitmap themes. Explicit padding remains available.
+
+- Drag and drop shares one validated session across UI, collections, and registered Workspace targets. Native detectors drive pointer pickup; stable insertion neighbors, copy/move/apply operations, pending completion, selection-safe activation, and native hit testing support transfers. The File library adds an Inbox. Facet Lab has a Drag and drop demo for world appearance and working Editing sections on Table, VirtualList, and VirtualGrid.
+
+- Grid drag previews retain tile dimensions and stack the selected cards. Grid insertion tracks both axes. Grid edit controls occupy a top strip so narrow cells retain their content width. The Showcase File library supports selected-item reordering and a Grid size slider with compact, multi-column tiles.
+- Virtual lists and grids apply selected theme paint to the cell owner, including its text. The Showcase File library uses a compact icon view picker, direct desktop editing, Edit/Done for touch and gamepad, one Enable editing toggle, and two initial file labels. A segmented Picker with an explicit `controlSize` now keeps its native minimum height on that size instead of adding its internal inset.
+
+- Containers share authoritative selection through `selectionFrom`, item actions and edit marks. `CellEditor` supplies model-owned drafts, validation, rejection and cancellation for custom cells and built-in table editors. Tables forward focus and retention options and support column alignment; grids support `minColumnWidth`. The Showcase File library shows one file model as icons, rich rows and linked tables, with creation, editing, deletion and Undo.
+
 - Check every repository Luau file in strict mode with pinned Roblox and Lune types. The complete check rejects every type diagnostic and invalid API probe.
 - Export `RowActionsOptions` and `SheetDetent` for consumer annotations. Match public types to supported nullable bindings, theme overrides and image resource factories.
 

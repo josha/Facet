@@ -627,6 +627,9 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			open = Compose.cell("trailing"),
 		}
 	end,
+	CellEditor = function()
+		return { editor = "text", label = "Name", value = Compose.cell("Alpha"), onChange = function() end }
+	end,
 	Table = function()
 		return {
 			from = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },

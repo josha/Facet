@@ -74,6 +74,7 @@ local owner = Compose.createRootOwner(function()
 		},
 	}
 	showcase.configure(ctx)
+	ctx.sceneVisible = Compose.cell(false)
 	ctx.theme = Compose.cell(packages.foundation)
 	ctx.themeMode = Compose.cell(packages.foundation.style.defaultTheme)
 	ctx.themeName = Compose.cell("foundation")
@@ -109,6 +110,9 @@ local owner = Compose.createRootOwner(function()
 			Name = "Backdrop",
 			Size = UDim2.fromScale(1, 1),
 			BorderSizePixel = 0,
+			BackgroundTransparency = function(use)
+				return if use(ctx.sceneVisible) then 1 else 0
+			end,
 		})
 		fill:AddTag("facet-surface")
 		return fill

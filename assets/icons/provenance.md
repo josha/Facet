@@ -371,3 +371,11 @@ does not claim a new upload or a current moderation check. The matching procedur
 source is retained. Only the contact sheet was recomposed from the existing PNGs;
 all 29 earlier PNGs and manifest records, including ringless success/checkmark,
 remain unchanged.
+
+## Container view icons (2026-10-02)
+
+Added original procedural grid, list and table icons in `source/generate_icons.py`.
+Only these three PNGs were generated. Existing art and asset IDs were retained.
+The images use the existing near-white silhouette and theme tint.
+The Open Cloud upload returned `Reviewing` for all three images; IDs and hashes
+are in `upload-manifest.json`. The lab uses them in the compact segmented view picker.

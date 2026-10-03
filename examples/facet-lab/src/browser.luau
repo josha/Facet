@@ -12,6 +12,8 @@ local browser = {}
 local LOG_LINES = 8
 local catalog = require("./catalog")
 local NONE = catalog.NONE
+local collectionEditing = require(script.Parent.collection_editing)
+local dragDropDemo = require(script.Parent.drag_drop_demo)
 
 local SIZE_KEYS = { controlSize = true, starSize = true, segmentSize = true }
 
@@ -646,6 +648,18 @@ function browser.mount(opts: MountOpts): any
 					else "Recipe: composed from the public controls above (no constructor of its own)"
 			)
 		)
+		if page.id == "draggable" or page.id == "dropTarget" then
+			table.insert(
+				body,
+				UI.Button {
+					Name = "OpenDragDropDemo",
+					label = "Open Drag and drop demo",
+					onActivate = function()
+						state.top:set("drag-drop")
+					end,
+				}
+			)
+		end
 		if data.scenarios then
 			table.insert(body, InContext(page))
 		end
@@ -677,6 +691,12 @@ function browser.mount(opts: MountOpts): any
 	local function Page(page: any): any
 		local data = page.data
 		local children: { any } = { Header(page.title, data.purpose, data.note) }
+		if page.id == "Table" or page.id == "VirtualList" or page.id == "VirtualGrid" then
+			table.insert(
+				children,
+				section("Editing", "Editing", { collectionEditing(contextFor(pageState(page), true), page.id) })
+			)
+		end
 		if data.base ~= nil then
 			local options = #(data.axes or {})
 			for _, st in data.states or {} do
@@ -944,6 +964,8 @@ function browser.mount(opts: MountOpts): any
 							return StylePage()
 						elseif id == "@settings" then
 							return SettingsPage()
+						elseif id == "@drag-drop" then
+							return dragDropDemo(ctx)
 						end
 						local ok, node = pcall(Page, cat.pages[id])
 						if ok then
@@ -1054,7 +1076,7 @@ function browser.mount(opts: MountOpts): any
 			table.insert(groups, group(family.id, family.label, entries))
 		end
 		local labEntries = {}
-		for _, entry in { { id = "style", label = "Style" } } do
+		for _, entry in { { id = "drag-drop", label = "Drag and drop demo" }, { id = "style", label = "Style" } } do
 			table.insert(labEntries, {
 				id = `L_{entry.id}`,
 				label = entry.label,
@@ -1167,7 +1189,10 @@ function browser.mount(opts: MountOpts): any
 							title = function(use: Use)
 								local top = use(state.top)
 								if top ~= "catalog" then
-									return if top == "settings" then "Settings" else "Style"
+									return if top == "settings"
+										then "Settings"
+										elseif top == "drag-drop" then "Drag and drop demo"
+										else "Style"
 								end
 								local page = cat.pages[use(state.selected)]
 								return if page then page.title else ""
@@ -1240,6 +1265,9 @@ function browser.mount(opts: MountOpts): any
 			Catalog(),
 		})
 		frame:AddTag("facet-surface")
+		Compose.watch(function(use)
+			frame.BackgroundTransparency = if use(ctx.sceneVisible) then 1 else 0
+		end)
 		local stage = UI.ZStack({
 			Name = "Stage",
 			width = "fill" :: "fill",
@@ -1294,7 +1322,9 @@ function browser.mount(opts: MountOpts): any
 		section = function(name: string): any
 			local page = cat.pages[state.selected:peek()]
 			local data = page.data or {}
-			local exists = name == "overview" or (name == "examples" and data.scenarios ~= nil)
+			local exists = name == "overview"
+				or (name == "examples" and data.scenarios ~= nil)
+				or (name == "editing" and (page.id == "Table" or page.id == "VirtualList" or page.id == "VirtualGrid"))
 			if exists and name == "examples" then
 				pageState(page).examples:set(true)
 			end

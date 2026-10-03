@@ -16,6 +16,7 @@ local CELL_PADDING = 16
 
 type Controls = {
 	Table: CollectionTypes.TableConstructor,
+	CellEditor: Types.Constructor<CollectionTypes.CellEditorSpec, Frame>,
 	VirtualList: <V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
 	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
 	Popover: Types.Constructor<OverlayTypes.PopoverSpec, GuiObject>,
@@ -34,6 +35,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local behavior = {
 		"from",
+		"selectionFrom",
+		"selectionIndicator",
+		"focusPolicy",
+		"initialFocus",
+		"autoFocus",
+		"wrapFocus",
+		"maxRetained",
+		"onReachEnd",
 		"key",
 		"columns",
 		"itemSize",
@@ -59,6 +68,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"followThreshold",
 		"reducedMotion",
 		"reorderable",
+		"collectionId",
+		"drag",
+		"drop",
 		"onReorder",
 		"movable",
 		"selectable",
@@ -162,7 +174,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 				else 0
 		end)
 		local cellsLive = function(use: ComposeTypes.Use): boolean
-			return not toolbarShown(use) or read(editing, use) == true
+			return if spec.editing ~= nil
+				then read(editing, use) == true
+				else not toolbarShown(use) or read(editing, use) == true
 		end
 		local headerHeight = Compose.formula(function(use: ComposeTypes.Use)
 			if spec.header == false then
@@ -402,7 +416,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Name = "Sort",
 					Size = D2.fromScale(1, 1),
 					AutomaticSize = E.AutomaticSize.None,
-					TextXAlignment = E.TextXAlignment.Left,
+					TextXAlignment = function(use: ComposeTypes.Use)
+						local align = use(current).align or "start"
+						return if align == "end"
+							then E.TextXAlignment.Right
+							elseif align == "center" then E.TextXAlignment.Center
+							else E.TextXAlignment.Left
+					end,
 					label = function(use: ComposeTypes.Use): string
 						local value, order = use(current), readSource(sort, use)
 						local suffix = if order and order.column == value.id
@@ -587,8 +607,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 		}
 		local header = Host.Frame(headerProps)
 		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
-		local selectable = spec.selectionMode ~= nil and spec.selectionMode ~= "none"
-		if manageable or (spec.editing ~= nil and selectable) then
+		local selectable = (
+			spec.selectionMode or (if spec.selection or spec.onSelectionChange then "single" else "none")
+		) ~= "none"
+		if spec.drag or spec.drop or manageable or (spec.editing ~= nil and selectable) then
 			editor = reorder(ctx, UI, spec, ordered, keyOf, queries, function()
 				return body
 			end, selection, sort, editing)
@@ -624,6 +646,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 			status = status,
 			controls = queries,
 			focus = spec.focus,
+			focusPolicy = spec.focusPolicy,
+			initialFocus = spec.initialFocus,
+			autoFocus = spec.autoFocus,
+			wrapFocus = spec.wrapFocus,
+			maxRetained = spec.maxRetained,
+			onReachEnd = spec.onReachEnd,
+			selectionFrom = spec.selectionFrom,
+			selectionIndicator = false,
 			disabled = spec.disabled,
 			measure = spec.measure,
 			measured = function(use: ComposeTypes.Use)
@@ -645,7 +675,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 			selectionMode = spec.selectionMode,
 			selectable = spec.selectable,
 			onSelectionChange = spec.onSelectionChange,
-			onActivate = spec.onActivate,
+			onActivate = function(item, key, input, clicks)
+				if editor and editor.pickUp(key, input) then
+					return
+				end
+				if spec.onActivate then
+					spec.onActivate(item, key, input, clicks)
+				end
+			end,
 			editing = editing,
 
 			render = function(
@@ -754,7 +791,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 								end, true, touchRows)
 							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
 							local custom = definition.render
-							local content = if custom
+							local content: GuiObject = if custom
 								then ctx.styled(
 									Host.Frame "Inset" {
 										BackgroundTransparency = 1,
@@ -766,6 +803,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 								else ctx.styled(
 									ctx.text({
 										Name = "Value",
+										TextXAlignment = function(use: ComposeTypes.Use)
+											local align = use(column).align or "start"
+											return if align == "end"
+												then E.TextXAlignment.Right
+												elseif align == "center" then E.TextXAlignment.Center
+												else E.TextXAlignment.Left
+										end,
 										TextTruncate = E.TextTruncate.AtEnd,
 										TextWrapped = function(use: ComposeTypes.Use): boolean
 											return touchRows(use) and use(assert(wordFits)) ~= false
@@ -776,6 +820,27 @@ return function(ctx: Types.Context, UI: Controls): ()
 									}),
 									"TableValue"
 								)
+							if render then
+								local measured = if custom then content:GetChildren()[1] :: GuiObject else content
+								local size = ctx.observe.AbsoluteSize(measured)
+								local automatic = ctx.observe.AutomaticSize(measured)
+								local authored = ctx.observe.Size(measured)
+								Compose.watch(function(use: ComposeTypes.Use)
+									local sizing = use(automatic)
+									if
+										sizing == E.AutomaticSize.Y
+										or sizing == E.AutomaticSize.XY
+										or use(authored).Y.Scale == 0
+									then
+										local height = use(size).Y / use(unitScale) + CELL_PADDING
+										if height > 0 and cellHeights:peek()[definition.id] ~= height then
+											local nextHeights = table.clone(cellHeights:peek())
+											nextHeights[definition.id] = height
+											cellHeights:set(nextHeights)
+										end
+									end
+								end)
+							end
 							if not render then
 								recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
 								local fits = ctx.observe.TextFits(assert(undisclosed))
@@ -892,33 +957,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end
 				row = Host.Frame(rowProps)
 				local disclosing = row
-				local actions = if spec.rowActions then spec.rowActions(current, key) else nil
-				if actions then
-					local actionSpec: CollectionTypes.RowActionsSpec =
-						table.clone(actions) :: CollectionTypes.RowActionsSpec
-					local function gated(
-						list: Types.Value<{ CollectionTypes.RowAction }>?
-					): Types.Value<{ CollectionTypes.RowAction }>?
-						if list == nil or spec.rowDeletable == nil then
-							return list
-						end
-						return function(use: ComposeTypes.Use): { CollectionTypes.RowAction }
-							local allowed = policy.allows(spec.rowDeletable, use(current))
-							local kept = {}
-							for _, action in read(list, use) do
-								if allowed or action.role ~= "destructive" then
-									table.insert(kept, action)
-								end
-							end
-							return kept
-						end
-					end
-					actionSpec.leading, actionSpec.trailing = gated(actionSpec.leading), gated(actionSpec.trailing)
-					actionSpec.content, actionSpec.coordinator = row, coordinator
-					actionSpec.Size = D2.fromScale(1, 1)
-					actionSpec.reducedMotion = spec.reducedMotion
-					row = UI.RowActions(actionSpec)
-				end
+				row = policy.actions(ctx, spec, current, key, row, UI.RowActions, coordinator) :: Frame
 				if editor then
 					row = editor.wrap(row, current, key, true)
 				end

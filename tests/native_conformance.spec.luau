@@ -300,6 +300,9 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			end,
 		}
 	end,
+	CellEditor = function()
+		return { editor = "text", label = "Name", value = Compose.cell("Alpha"), onChange = function() end }
+	end,
 	Table = function()
 		return {
 			from = {},

@@ -1528,7 +1528,7 @@ t.describe("theme sheet paint", function()
 			{ kind = "nineSlice", asset = "c", contentInsets = { top = 12, right = 9, bottom = 13, left = 18 } } :: any
 		local sheet, stop = sheetFor(engine, runtime, package)
 		local expected: { [string]: { number } } = {
-			panel = { 10, 6, 4, 8 },
+			panel = { 16, 16, 16, 16 },
 			field = { 16, 14, 3, 5 },
 			badge = { 8, 11, 3, 6 },
 			button = { 30, 21, 12, 13 },
@@ -1559,7 +1559,7 @@ t.describe("theme sheet paint", function()
 		t.expect(style(ornate, ".facet-button::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 26))
 		stopOrnate()
 		local plain, stopPlain = sheetFor(engine, runtime, themes.neutralPackage())
-		t.expect(style(plain, ".facet-panel::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 0))
+		t.expect(style(plain, ".facet-panel::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 16))
 		t.expect(style(plain, ".facet-badge::UIPadding").PaddingTop).toBe(T.UDim.new(0, 3))
 		t.expect(style(plain, ".facet-button::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 12))
 		stopPlain()
@@ -2088,5 +2088,22 @@ t.describe("gallery theme packages", function()
 			end
 		end
 		t.expect(checked > 0).toBe(true)
+	end)
+end)
+
+t.describe("transparent native chrome", function()
+	t.it("hides the shadow when a native control has no opaque plate", function()
+		local engine, runtime, UI = world({ theme = built("glossy_mobile") })
+		local stop, node = runtime.mount(function()
+			return UI.Button { label = "Choice" }
+		end, engine.new("ScreenGui"))
+		local shadow = node:FindFirstChild("ChromeShadow")
+		t.expect(shadow ~= nil).toBe(true)
+		node.BackgroundTransparency = 1
+		t.expect(shadow.Transparency).toBe(1)
+		node.BackgroundTransparency = 0
+		t.expect(shadow.Transparency).toBe(0.35)
+		stop()
+		runtime:dispose()
 	end)
 end)

@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -238,7 +239,7 @@ t.describe("native parity weaker rows", function()
 		world.input.IsKeyDown = function()
 			return false
 		end
-		row.InputBegan.fire({ UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
+		nativeDrag.press(row, { UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
 		t.expect(find(world.root, "MenuPanel")).toBeNil()
 		local invoked = {}
 		trailing:set({
@@ -591,6 +592,7 @@ t.describe("native parity weaker rows", function()
 		end)
 		local body = find(world.node, "Body")
 		body.AbsoluteWindowSize = V2(world, 300, 200)
+		nativeDrag.measure(body)
 		local function row(rowKey: number): any
 			local node = rowActionsIn(body:FindFirstChild(tostring(rowKey), true))
 			node.AbsoluteSize = V2(world, 300, 44)
@@ -643,7 +645,7 @@ t.describe("native parity weaker rows", function()
 		world.stop()
 	end)
 
-	t.it("collections-67 table edit mode leaves hosted row actions alone; they stay independent of it", function()
+	t.it("collections-67 table edit mode leaves action chrome independent and releases swipe capture", function()
 		local deleted, editing = {}, Compose.cell(false)
 		local world = setup(function(UI: FacetControls)
 			return UI.Table({
@@ -675,6 +677,7 @@ t.describe("native parity weaker rows", function()
 		end)
 		local body = find(world.node, "Body")
 		body.AbsoluteWindowSize = V2(world, 300, 200)
+		nativeDrag.measure(body)
 		local function row(rowKey: number): any
 			local node = rowActionsIn(body:FindFirstChild(tostring(rowKey), true))
 			node.AbsoluteSize = V2(world, 300, 44)
@@ -686,7 +689,7 @@ t.describe("native parity weaker rows", function()
 		editing:set(true)
 		for rowKey = 1, 3 do
 			t.expect(row(rowKey):FindFirstChild("Delete")).toBeNil()
-			t.expect(row(rowKey):FindFirstChild("SwipeGrip", true).Visible).toBe(true)
+			t.expect(row(rowKey):FindFirstChild("SwipeGrip", true).Visible).toBe(false)
 		end
 		t.expect(deleted).toEqual({})
 		world.stop()
@@ -711,6 +714,7 @@ t.describe("native parity weaker rows", function()
 		end)
 		local body = find(world.node, "Body")
 		body.AbsoluteWindowSize = V2(world, 300, 200)
+		nativeDrag.measure(body)
 		for rowKey = 1, 4 do
 			local node = body:FindFirstChild(tostring(rowKey), true)
 			local wrapped = rowActionsIn(node)
@@ -770,7 +774,7 @@ t.describe("native parity weaker rows", function()
 		t.expect(find(plain, "Move")).toBeNil()
 		for rowKey = 1, 6 do
 			local cells = find(ordered:FindFirstChild(tostring(rowKey), true), "Cells")
-			t.expect(cells:FindFirstChildWhichIsA("UIDragDetector", true)).toBeNil()
+			t.expect(cells:FindFirstChild("FacetCollectionDrag", true) ~= nil).toBe(true)
 		end
 		local function handle(rowKey: number): any
 			return find(ordered:FindFirstChild(tostring(rowKey), true), "Move"):FindFirstChildWhichIsA("UIDragDetector")
@@ -823,6 +827,7 @@ t.describe("native parity weaker rows", function()
 			end)
 			local body = find(world.node, "Body")
 			body.AbsoluteWindowSize = V2(world, 200, 100)
+			nativeDrag.measure(body)
 			local function handle(rowKey: number): any
 				return body:FindFirstChild(tostring(rowKey), true)
 					:FindFirstChild("Move", true)
@@ -892,6 +897,7 @@ t.describe("native parity weaker rows", function()
 			end)
 			local body = find(find(world.node, "Ordered"), "Body")
 			body.AbsoluteWindowSize = V2(world, 200, 100)
+			nativeDrag.measure(body)
 			local fixed = find(world.node, "Fixed")
 			find(fixed, "Body").AbsoluteWindowSize = V2(world, 200, 100)
 			t.expect(find(fixed, "Move")).toBeNil()
@@ -908,7 +914,7 @@ t.describe("native parity weaker rows", function()
 					UserInputState = E.UserInputState.Begin,
 					Position = world.engine.types.Vector3.new(10, 10, 0),
 				}
-				move.InputBegan.fire(pointer)
+				nativeDrag.press(move, pointer)
 				detector.DragStart.fire(V2(world, 10, (rowKey - 1) * 20 + 10))
 				detector.DragContinue.fire(V2(world, 10, 90))
 				t.expect(find(world.node, "DropLine") ~= nil).toBe(true)
@@ -917,17 +923,17 @@ t.describe("native parity weaker rows", function()
 			local detector, pointer = begin(1)
 			world.input.WindowFocusReleased.fire()
 			t.expect(find(world.node, "DropLine")).toBeNil()
-			world.input.InputEnded.fire(pointer)
+			nativeDrag.finish(world.input, pointer)
 			detector.DragEnd.fire()
 			t.expect(#requests).toBe(0)
 			detector, pointer = begin(2)
 			pointer.UserInputState = E.UserInputState.End
-			world.input.InputEnded.fire(pointer)
+			nativeDrag.finish(world.input, pointer)
 			t.expect(requests).toEqual({ { keys = { 2 }, slot = 4 } })
 			detector, pointer = begin(3)
 			world.stop()
 			pointer.UserInputState = E.UserInputState.End
-			world.input.InputEnded.fire(pointer)
+			nativeDrag.finish(world.input, pointer)
 			detector.DragEnd.fire()
 			world.engine.heartbeat.fire(1 / 60)
 			t.expect(#requests).toBe(1)
@@ -1070,6 +1076,7 @@ t.describe("native parity weaker rows", function()
 				end)
 				local body = if host == "table" then find(world.node, "Body") else world.node
 				body.AbsoluteWindowSize = V2(world, 300, 200)
+				nativeDrag.measure(body)
 				local function row(rowKey: number): any
 					local node = rowActionsIn(body:FindFirstChild(tostring(rowKey), true))
 					node.AbsoluteSize = V2(world, 300, 44)
@@ -1094,7 +1101,7 @@ t.describe("native parity weaker rows", function()
 				world.gui.SelectedObject = find(body:FindFirstChild("2", true), "RowHit")
 				t.expect(world.gui.SelectedObject ~= nil).toBe(true)
 				t.expect(action(world.root, "RowActionsDelete")).toBeNil()
-				protected.InputBegan.fire({ UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
+				nativeDrag.press(protected, { UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
 				local menuDelete = find(world.root, "trailing:Delete")
 				t.expect(menuDelete.Interactable).toBe(false)
 				menuDelete.Activated.fire()
@@ -1152,6 +1159,7 @@ t.describe("native parity weaker rows", function()
 		end
 		local body = find(find(node, "RunSheet"), "Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(500, 400)
+		nativeDrag.measure(body)
 		local function row(id: string): any
 			return body:FindFirstChild(id, true)
 		end
@@ -1502,6 +1510,7 @@ t.describe("native parity weaker rows", function()
 		local E = world.engine.types.Enum
 		local body = find(node, "Body")
 		body.AbsoluteWindowSize = V2(world, 900, 600)
+		nativeDrag.measure(body)
 		local function ids(rows: { any }): string
 			local out = {}
 			for _, track in rows do
@@ -1560,6 +1569,7 @@ t.describe("native parity weaker rows", function()
 		local E = world.engine.types.Enum
 		local body = find(node, "Body")
 		body.AbsoluteWindowSize = V2(world, 900, 600)
+		nativeDrag.measure(body)
 		local function ids(): string
 			local out = {}
 			for _, track in built.baseRows:peek() do
@@ -1611,6 +1621,7 @@ t.describe("native parity weaker rows", function()
 		local _, node, world = mountGallery("../examples/gallery/examples/02_playlist_table")
 		local body = find(node, "Body")
 		body.AbsoluteWindowSize = V2(world, 900, 600)
+		nativeDrag.measure(body)
 		local handle = find(body:FindFirstChild("neon", true), "Move")
 		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 		t.expect(detector.Enabled).toBe(true)
@@ -1628,6 +1639,7 @@ t.describe("native parity weaker rows", function()
 		local E = world.engine.types.Enum
 		local body = find(node, "Body")
 		body.AbsoluteWindowSize = V2(world, 900, 600)
+		nativeDrag.measure(body)
 		local function selected(id: string): boolean
 			return find(body:FindFirstChild(id, true), "Row"):GetAttribute("FacetSelected") == true
 		end
@@ -1649,17 +1661,17 @@ t.describe("native parity weaker rows", function()
 			UserInputState = E.UserInputState.Begin,
 			Position = world.engine.types.Vector3.new(20, height / 2, 0),
 		}
-		handle.InputBegan.fire(finger)
+		nativeDrag.press(handle, finger)
 		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 		detector.DragStart.fire(V2(world, 20, height / 2))
 		finger.UserInputState = E.UserInputState.Change
 		finger.Position = world.engine.types.Vector3.new(20, height * 1.5 + height * 0.25, 0)
-		world.input.InputChanged.fire(finger)
+		nativeDrag.move(world.input, finger)
 		t.expect(find(node, "DropLine") ~= nil).toBe(true)
 		detector.DragEnd.fire()
 		t.expect(built.baseRows:peek()[1].id).toBe("drift")
 		finger.UserInputState = E.UserInputState.End
-		world.input.InputEnded.fire(finger)
+		nativeDrag.finish(world.input, finger)
 		t.expect(built.baseRows:peek()[1].id).toBe("drift")
 		t.expect(built.baseRows:peek()[2].id).toBe("neon")
 		t.expect(find(node, "DropLine")).toBeNil()

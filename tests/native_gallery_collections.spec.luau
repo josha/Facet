@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -117,6 +118,7 @@ t.describe("native gallery collections", function()
 		local tableNode, body = find(node, "Collection"), find(node, "Body")
 		tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
 		viewport(body, engine, 800, 400)
+		nativeDrag.measure(body)
 		t.expect(built.report().count).toBe(2000)
 		t.expect(built.report().status.retained < 30).toBe(true)
 		t.expect(contains(node, "Entrant") and contains(node, "Team") and contains(node, "Best lap")).toBe(true)
@@ -206,6 +208,7 @@ t.describe("native gallery collections", function()
 		local tableNode, body = find(page, "Collection"), find(page, "Body")
 		tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
 		viewport(body, engine, 800, 400)
+		nativeDrag.measure(body)
 		t.expect(contains(page, "From") and contains(page, "Subject")).toBe(true)
 		t.expect(contains(find(body, "m1"), "Ari Foyer")).toBe(true)
 		find(find(body, "m1"), "RowHit").Activated.fire()
@@ -373,12 +376,13 @@ t.describe("native gallery collections", function()
 		local tableNode, body = find(page, "Collection"), find(page, "Body")
 		tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
 		viewport(body, engine, 800, 400)
+		nativeDrag.measure(body)
 		t.expect(find(find(body, "m2"), "SelectMark").Visible).toBe(false)
 		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		find(page, "Edit").Activated.fire()
 		t.expect(find(find(body, "m2"), "SelectMark").Visible).toBe(true)
 		find(find(body, "m2"), "RowHit").Activated.fire({ UserInputType = engine.types.Enum.UserInputType.Touch }, 1)
-		t.expect(find(find(find(body, "m2"), "SelectMark"), "Dot").Visible).toBe(true)
+		t.expect(find(find(find(body, "m2"), "SelectMark"), "Check").Visible).toBe(true)
 		find(page, "DeleteSelected").Activated.fire({ UserInputType = engine.types.Enum.UserInputType.Touch })
 		t.expect(built.report().surfaces.table.count).toBe(5)
 		for _, item in built.report().surfaces.table.rows do
@@ -490,6 +494,187 @@ t.describe("native gallery collections", function()
 		end
 		world.viewport:set({ width = 844, height = 720 })
 		t.expect(find(find(node, "Mail_virtual"), "Title").Visible).toBe(true)
+		stop()
+	end)
+end)
+
+t.describe("file library workbench", function()
+	t.it("edits desktop cells directly and uses Edit on coarse inputs with one permission toggle", function()
+		local built, node, stop, engine, world = mount("collection_workbench")
+		for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
+			world.input.PreferredInput = (engine.types.Enum.PreferredInput :: any)[input]
+			for _, mode in { "icons", "list", "details" } do
+				find(find(node, "ViewMode"), mode).Activated.fire()
+				local collection = find(node, "primary")
+				collection.AbsoluteSize = engine.types.Vector2.new(800, 400)
+				viewport(if mode == "details" then find(collection, "Body") else collection, engine, 800, 400)
+				local coarse = input ~= "KeyboardAndMouse"
+				t.expect(find(node, "Edit").Visible).toBe(coarse)
+				t.expect(find(collection, "Rename") ~= nil).toBe(true)
+				t.expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable)
+					.toBe(not coarse)
+				if coarse then
+					find(node, "Edit").Activated.fire()
+					t.expect(find(collection, "Rename") ~= nil).toBe(true)
+				end
+				find(node, "EnableEditing").Activated.fire()
+				t.expect(built.model.editingEnabled:peek()).toBe(false)
+				t.expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(false)
+				t.expect(find(node, "Create").Interactable).toBe(false)
+				t.expect(find(node, "LabelGreen").Interactable).toBe(false)
+				find(node, "EnableEditing").Activated.fire()
+				if coarse then
+					find(node, "Edit").Activated.fire()
+				end
+				t.expect(find(collection, "Rename") ~= nil).toBe(true)
+				if mode == "details" then
+					t.expect(contains(collection, "Kind")).toBe(true)
+				end
+				if coarse then
+					find(node, "Edit").Activated.fire()
+				end
+			end
+		end
+		stop()
+	end)
+
+	t.it("keeps compact icons in multiple columns and binds the grid size slider", function()
+		local built, node, stop, engine, world = mount("collection_workbench", { width = 390, height = 844 })
+		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local grid = find(node, "primary")
+		viewport(grid, engine, 350, 400)
+		local first, second = find(grid, "1"), find(grid, "2")
+		t.expect(second.Position.Y.Offset).toBe(first.Position.Y.Offset)
+		t.expect(second.Position.X.Offset > first.Position.X.Offset).toBe(true)
+		find(node, "Edit").Activated.fire()
+		t.expect(find(first, "Cells").Size.X.Offset).toBe(0)
+		world.gui.SelectedObject = find(node, "GridSize")
+		local increase = action(world.target, "Increase")
+		t.expect(increase ~= nil).toBe(true)
+		increase.Pressed.fire()
+		increase.Released.fire()
+		t.expect(built.model.gridSize:peek()).toBe(160)
+		built.model.gridSize:set(260)
+		t.expect(second.Position.Y.Offset > first.Position.Y.Offset).toBe(true)
+		built.model.mode:set("list")
+		t.expect(find(node, "GridSize").Visible).toBe(false)
+		stop()
+	end)
+
+	t.it("moves selected files through native collection reorder and gates all writes", function()
+		local built, node, stop, engine, world = mount("collection_workbench")
+		local model = built.model
+		model.mode:set("list")
+		local body = find(node, "primary")
+		viewport(body, engine, 700, 600)
+		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		find(node, "Edit").Activated.fire()
+		model.selection:set({ ["1"] = true, ["2"] = true })
+		local detector = find(find(body, "1"), "Move"):FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(engine.types.Vector2.new(10, 10))
+		detector.DragContinue.fire(engine.types.Vector2.new(10, 500))
+		detector.DragEnd.fire()
+		t.expect(model.rows:peek()[1].id ~= "1").toBe(true)
+		local moved = {}
+		for i, item in model.rows:peek() do
+			if item.id == "1" or item.id == "2" then
+				table.insert(moved, i)
+			end
+		end
+		t.expect(moved[2]).toBe(moved[1] + 1)
+		local hiddenBefore = {}
+		for _, item in model.rows:peek() do
+			if not string.find(item.name, "Coast", 1, true) then
+				table.insert(hiddenBefore, item.id)
+			end
+		end
+		model.query:set("Coast")
+		model.reorder({ "1" }, 0)
+		local hiddenAfter, visible = {}, {}
+		for _, item in model.rows:peek() do
+			table.insert(if string.find(item.name, "Coast", 1, true) then visible else hiddenAfter, item.id)
+		end
+		t.expect(hiddenAfter).toEqual(hiddenBefore)
+		t.expect(visible[1]).toBe("1")
+		t.expect(visible[2]).toBe("5")
+		local before = model.rows:peek()
+		find(node, "EnableEditing").Activated.fire()
+		model.change("1", "name", "Blocked")
+		model.change(nil, "color", "Green")
+		model.remove({ "1" })
+		model.reorder({ "1" }, 2)
+		built.steps.create()
+		built.steps.undo()
+		t.expect(model.rows:peek()).toBe(before)
+		stop()
+	end)
+
+	t.it("labels the whole selection across filtering and deletes it once with undo", function()
+		local built, node, stop = mount("collection_workbench")
+		local model, selected = built.model, {}
+		local labeled = 0
+		for _, item in model.rows:peek() do
+			if item.color ~= "None" then
+				labeled += 1
+			end
+		end
+		t.expect(labeled).toBe(2)
+		t.expect(find(node, "LabelGreen").Interactable).toBe(false)
+		for i = 1, 10 do
+			selected[tostring(i)] = true
+		end
+		model.selection:set(selected)
+		t.expect(find(node, "LabelGreen").Interactable).toBe(true)
+		model.query:set("001")
+		find(node, "LabelGreen").Activated.fire()
+		for i = 1, 10 do
+			t.expect(model.rows:peek()[i].color).toBe("Green")
+		end
+		model.change("11", "color", "Red")
+		t.expect(model.rows:peek()[11].color).toBe("Red")
+		t.expect(model.rows:peek()[1].color).toBe("Green")
+		model.change(nil, "color", "None")
+		for i = 1, 10 do
+			t.expect(model.rows:peek()[i].color).toBe("None")
+		end
+		model.query:set("missing")
+		find(node, "Delete").Activated.fire()
+		t.expect(built.report().count).toBe(14)
+		t.expect(next(model.selection:peek())).toBeNil()
+		built.steps.undo()
+		t.expect(built.report().count).toBe(24)
+		for i = 1, 10 do
+			t.expect(model.selection:peek()[tostring(i)]).toBe(true)
+		end
+		stop()
+	end)
+
+	t.it("shares files and durable drafts through view switches creation deletion and undo", function()
+		local built, node, stop = mount("collection_workbench")
+		local model = built.model
+		t.expect(built.report().count).toBe(24)
+		model.editing:set(true)
+		model.draft("1"):set({ text = "Unfinished name", original = model.rows:peek()[1].name })
+		for _, mode in { "list", "details", "icons" } do
+			model.mode:set(mode)
+			t.expect(model.draft("1"):peek().text).toBe("Unfinished name")
+		end
+		model.linked:set(true)
+		model.change("1", "name", "Shared name")
+		t.expect(model.rows:peek()[1].name).toBe("Shared name")
+		model.selection:set({ ["1"] = true })
+		model.query:set("missing")
+		t.expect(model.selection:peek()["1"]).toBe(true)
+		built.steps.create()
+		t.expect(built.report().count).toBe(25)
+		t.expect(model.query:peek()).toBe("")
+		model.remove({ "25" })
+		t.expect(built.report().count).toBe(24)
+		built.steps.undo()
+		t.expect(built.report().count).toBe(25)
+		t.expect(model.selection:peek()["25"]).toBe(true)
+		built.steps.large()
+		t.expect(built.report().count).toBe(1000)
 		stop()
 	end)
 end)

@@ -350,6 +350,9 @@ local function minimalSpecs(Host: any): { [string]: () -> { [any]: any } }
 				tabs = { { id = "a", label = "A", content = content } :: FixtureNavigationTypes.Tab },
 			}
 		end,
+		CellEditor = function()
+			return { editor = "text", value = "Name", onChange = function() end }
+		end,
 		Table = function()
 			return {
 				from = {},

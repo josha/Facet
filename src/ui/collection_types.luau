@@ -1,6 +1,7 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
+local Env = require("./environment_types")
 local InputTypes = require("./input_types")
 
 export type FocusControls<K> = {
@@ -25,6 +26,8 @@ export type RowRender<V, K> = (
 ) -> GuiObject
 export type SelectionOptions<V, K> = {
 	selection: ComposeTypes.Cell<Selection<K>>?,
+	selectionFrom: Types.Value<{ V }>?,
+	selectionIndicator: boolean?,
 	selectionMode: ("none" | "single" | "multiple")?,
 	selectable: RowPredicate<V>?,
 	disabled: RowPredicate<V>?,
@@ -32,6 +35,9 @@ export type SelectionOptions<V, K> = {
 	editing: Types.ValueBoolean?,
 }
 export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
+	collectionId: unknown?,
+	drag: ((items: { V }, keys: { K }) -> Env.DraggableSpec)?,
+	drop: Env.DropTargetSpec?,
 	reorderable: boolean?,
 	movable: RowPredicate<V>?,
 	onReorder: ((keys: { K }, slot: number) -> ())?,
@@ -52,6 +58,8 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	gap: Types.ValueNumber?,
 	crossGap: Types.ValueNumber?,
 	columns: Types.ValueNumber?,
+	minColumnWidth: Types.ValueNumber?,
+	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsOptions?)?,
 	overscan: number?,
 	measured: Types.Value<{ [K]: number }>?,
 	measure: boolean?,
@@ -96,6 +104,7 @@ export type RowAction = {
 }
 export type RowEdge = "leading" | "trailing"
 export type RowActionsOptions = Types.FrameProps & {
+	swipeEnabled: Types.ValueBoolean?,
 	leading: Types.Value<{ RowAction }>?,
 	trailing: Types.Value<{ RowAction }>?,
 	actionWidth: Types.ValueNumber?,
@@ -108,6 +117,22 @@ export type RowActionsOptions = Types.FrameProps & {
 	editing: Types.ValueBoolean?,
 }
 export type RowActionsSpec = RowActionsOptions & { content: GuiObject | (() -> GuiObject) }
+export type CellDraft = { text: string, original: unknown, error: string? }
+export type CellEditorOptions = {
+	editor: "text" | "number" | "toggle" | "menu",
+	value: Types.Value<unknown>,
+	onChange: (unknown) -> (),
+	draft: ComposeTypes.Cell<CellDraft?>?,
+	validate: ((unknown) -> string?)?,
+	label: Types.ValueString?,
+	enabled: Types.ValueBoolean?,
+	busy: Types.ValueBoolean?,
+	options: { { value: unknown, label: Types.ValueString } }?,
+	min: number?,
+	max: number?,
+	step: number?,
+}
+export type CellEditorSpec = Types.FrameProps & CellEditorOptions
 export type TableColumn<V, K> = {
 	id: string,
 	label: Types.ValueString?,
@@ -118,6 +143,9 @@ export type TableColumn<V, K> = {
 	resizable: boolean?,
 	sortable: boolean?,
 	value: ((item: V) -> unknown)?,
+	align: ("start" | "center" | "end")?,
+	draft: ((key: K) -> ComposeTypes.Cell<CellDraft?>)?,
+	validate: ((value: unknown) -> string?)?,
 	render: RowRender<V, K>?,
 	editor: ("text" | "number" | "toggle" | "menu")?,
 	options: { { value: unknown, label: Types.ValueString } }?,
@@ -126,6 +154,12 @@ export type TableColumn<V, K> = {
 	step: number?,
 }
 export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & {
+	focusPolicy: ("key" | "index")?,
+	initialFocus: K?,
+	autoFocus: boolean?,
+	wrapFocus: boolean?,
+	maxRetained: number?,
+	onReachEnd: (() -> ())?,
 	from: Types.Value<{ V }>,
 	columns: Types.Value<{ TableColumn<V, K> }>,
 	itemSize: Types.ValueNumber?,
@@ -164,6 +198,7 @@ export type TableConstructor =
 	& (<V, _K>(spec: IdentityTableSpec<V>) -> Frame)
 	& ((name: string) -> (<V, K>(spec: KeyedTableSpec<V, K>) -> Frame) & (<V, _K>(spec: IdentityTableSpec<V>) -> Frame))
 export type CollectionControls = {
+	CellEditor: Types.Constructor<CellEditorSpec, Frame>,
 	VirtualList: CollectionConstructor,
 	VirtualGrid: CollectionConstructor,
 	Table: TableConstructor,

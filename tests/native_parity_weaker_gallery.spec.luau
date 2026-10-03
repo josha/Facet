@@ -440,9 +440,9 @@ t.describe("native parity weaker gallery", function()
 		g.stop()
 	end)
 
-	t.it("apps2-102 catalogue offers five unique demos with real registered modules and one tab each", function()
+	t.it("apps2-102 catalogue offers six unique demos with real registered modules and one tab each", function()
 		local demos = catalogue.list()
-		t.expect(#demos).toBe(5)
+		t.expect(#demos).toBe(6)
 		t.expect(demos[1].id).toBe("garage")
 		t.expect(demos[1].module).toBe("08_garage")
 		local seen: { [string]: boolean } = {}
@@ -450,7 +450,7 @@ t.describe("native parity weaker gallery", function()
 			t.expect(seen[demo.id]).toBe(nil)
 			seen[demo.id] = true
 		end
-		for _, id in { "garage", "sipworks", "hud", "ex02", "arcade" } do
+		for _, id in { "garage", "sipworks", "hud", "ex02", "arcade", "files" } do
 			t.expect(seen[id]).toBe(true)
 		end
 		local registry = fs.readFile("examples/gallery/scenarios/init.luau")
@@ -475,7 +475,7 @@ t.describe("native parity weaker gallery", function()
 				table.insert(tabs, node.Name)
 			end
 		end
-		t.expect(#tabs).toBe(5)
+		t.expect(#tabs).toBe(6)
 		for _, id in tabs do
 			t.expect(seen[id]).toBe(true)
 		end

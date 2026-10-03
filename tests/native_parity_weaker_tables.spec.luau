@@ -1,4 +1,5 @@
 --!strict
+local nativeDrag = require("./lib/native_drag")
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -451,6 +452,7 @@ t.describe("native parity weaker tables", function()
 		local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
 		local body = w.node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(300, 300)
+		nativeDrag.measure(body)
 		pinned.node:FindFirstChild("Body").AbsoluteWindowSize = V2.new(300, 300)
 		local first = body:FindFirstChild("Items"):FindFirstChild("1")
 		local pointer = first.Size.Y.Offset
@@ -557,6 +559,7 @@ t.describe("native parity weaker tables", function()
 			local table_ = node:FindFirstChild("Records")
 			local body = table_:FindFirstChild("Body")
 			body.AbsoluteWindowSize = V2.new(400, 200)
+			nativeDrag.measure(body)
 			local rowA = body:FindFirstChild("Items"):FindFirstChild("a")
 			rowA:FindFirstChild("RowHit", true).Activated.fire()
 			t.expect(selected:peek()).toEqual({ a = true })
@@ -745,6 +748,7 @@ t.describe("native parity weaker tables", function()
 			local table_ = screen:FindFirstChildWhichIsA("Frame")
 			local header, body = table_:FindFirstChild("Header"), table_:FindFirstChild("Body")
 			body.AbsoluteWindowSize = V2.new(800, 400)
+			nativeDrag.measure(body)
 			for _, rowKey in { "razz", "bolt", "josh" } do
 				expectAligned(table_, rowKey, { "name", "laps" })
 			end
@@ -802,6 +806,7 @@ t.describe("native parity weaker tables", function()
 			local V2 = w.engine.types.Vector2
 			local body = w.node:FindFirstChild("Body")
 			body.AbsoluteWindowSize = V2.new(400, 200)
+			nativeDrag.measure(body)
 			for _, row in body:FindFirstChild("Items"):GetChildren() do
 				row.AbsoluteSize = V2.new(400, 40)
 				for _, child in row:GetDescendants() do
@@ -852,6 +857,7 @@ t.describe("native parity weaker tables", function()
 		local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
 		local body = w.node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(300, 300)
+		nativeDrag.measure(body)
 		local items = body:FindFirstChild("Items")
 		local function hit(rowKey: string): any
 			return items:FindFirstChild(rowKey):FindFirstChild("RowHit", true)
@@ -947,6 +953,7 @@ t.describe("native parity weaker tables", function()
 		local V2 = w.engine.types.Vector2
 		local body = w.node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(400, 300)
+		nativeDrag.measure(body)
 		local items = body:FindFirstChild("Items")
 		local razz = items:FindFirstChild("razz")
 		t.expect(razz:FindFirstChild("name", true):FindFirstChild("Custom", true).Text).toBe("Razz Raccoon")
@@ -1004,6 +1011,7 @@ t.describe("native parity weaker tables", function()
 		local V2 = w.engine.types.Vector2
 		local body = w.node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(300, 300)
+		nativeDrag.measure(body)
 		local items = body:FindFirstChild("Items")
 		t.expect(items:FindFirstChild("1").Position.Y.Offset).toBe(0)
 		t.expect(items:FindFirstChild("2").Position.Y.Offset).toBe(44)
@@ -1068,6 +1076,7 @@ t.describe("native parity weaker tables", function()
 		local V2 = w.engine.types.Vector2
 		local items = w.node:FindFirstChild("Body")
 		items.AbsoluteWindowSize = V2.new(300, 400)
+		nativeDrag.measure(items)
 		local detector = items
 			:FindFirstChild("Items")
 			:FindFirstChild("1")
@@ -1149,10 +1158,12 @@ t.describe("native parity weaker tables", function()
 		local V2 = w.engine.types.Vector2
 		local header, body = w.node:FindFirstChild("Header"), w.node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(460, 200)
+		nativeDrag.measure(body)
 		local collapsedWidths, silent, disagreeing = 0, 0, 0
 		local openWidth: number? = nil
 		for width = 20, 460 do
 			body.AbsoluteWindowSize = V2.new(width, 200)
+			nativeDrag.measure(body)
 			local hidden = {}
 			for _, column in { "a", "b", "c" } do
 				if header:FindFirstChild(column).Visible == false then
@@ -1184,6 +1195,7 @@ t.describe("native parity weaker tables", function()
 		t.expect(disagreeing).toBe(0)
 		t.expect(header:FindFirstChild("a").Visible).toBe(true)
 		body.AbsoluteWindowSize = V2.new(200, 200)
+		nativeDrag.measure(body)
 		t.expect(header:FindFirstChild("a").Visible).toBe(true)
 		t.expect(header:FindFirstChild("c").Visible).toBe(false)
 		local rowNode = body:FindFirstChild("Items"):FindFirstChild("1")
@@ -1228,6 +1240,7 @@ t.describe("native parity weaker tables", function()
 				end, if package then { theme = package } else nil)
 				local body = w.node:FindFirstChild("Body")
 				body.AbsoluteWindowSize = w.engine.types.Vector2.new(if shape == "collapsed" then 220 else 500, 200)
+				nativeDrag.measure(body)
 				for _, rowKey in { "1", "2", "3" } do
 					expectAligned(w.node, rowKey, { "fixed", "fill", "tail" })
 					checked += 1
@@ -1259,6 +1272,7 @@ t.describe("native parity weaker tables", function()
 		local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
 		local body = w.node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = V2.new(300, 300)
+		nativeDrag.measure(body)
 		local handle = body:FindFirstChild("Items"):FindFirstChild("1"):FindFirstChild("Move", true)
 		focus(w.gui, handle)
 		t.expect(key(w.screen, w.engine, "DPadDown")).toBe("CollectionDown")

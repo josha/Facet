@@ -142,7 +142,7 @@ local function tour(world: any)
 end
 
 t.describe("native virtual monitors coverage", function()
-	t.it("uses every public Facet field, control and theme function in the mounted showcase", function()
+	t.it("uses every public Facet field, control and theme function in the showcase and file library", function()
 		local tracked, used = tracker()
 		local engine = engineModule.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
@@ -186,6 +186,22 @@ t.describe("native virtual monitors coverage", function()
 				target
 			)
 			world.Desktop = root
+			local _, workbench = runtime.mount(function()
+				local built = require("../examples/gallery/scenarios/collection_workbench").build({
+					Facet = tracked,
+					Compose = Compose,
+					runtime = runtime,
+					Host = runtime.constructors,
+					types = engine.types,
+					UI = tracked.controls(runtime, {
+						types = engine.types,
+						services = { GuiService = gui, UserInputService = input },
+						inputParent = target,
+					}),
+				})
+				return built.screen()
+			end, target)
+			find(workbench, "primary").AbsoluteWindowSize = engine.types.Vector2.new(700, 400)
 			tour(world)
 		end, runtime.reactor)
 		lifetime.dispose()
