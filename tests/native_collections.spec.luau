@@ -4353,6 +4353,115 @@ t.describe("input-aware collection commands", function()
 	end)
 end)
 
+t.describe("spatial grid reordering", function()
+	t.it("moves across cells and between rows for both grid directions, including a short last row", function()
+		for _, horizontal in { false, true } do
+			local engine, runtime, UI, target, _, ctx = setup()
+			local requests = {}
+			local stop, node: any = runtime.mount(function()
+				local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+					from = records(8),
+					key = key,
+					mode = "all" :: "all",
+					columns = 3,
+					itemSize = 40,
+					direction = if horizontal then "horizontal" :: "horizontal" else "vertical" :: "vertical",
+					reorderable = true,
+					collectionId = "spatial-test",
+					drag = function(
+						_: { { id: number, label: string } },
+						keys: { number }
+					): FixtureEnvironmentTypes.DraggableSpec
+						return {
+							payload = { collection = "spatial-test", keys = keys },
+							operations = { "move" } :: { "copy" | "move" | "apply" },
+						}
+					end,
+					onReorder = function(keys: { number }, slot: number)
+						table.insert(requests, { keys = keys, slot = slot })
+					end,
+					render = function(current): GuiObject
+						return button(UI, current)
+					end,
+				}
+				return UI.VirtualGrid(props)
+			end, target)
+			node.AbsoluteWindowSize = engine.types.Vector2.new(300, 300)
+			node.AbsoluteSize = node.AbsoluteWindowSize
+			local function press(name)
+				local action = target:FindFirstChild("Facet" .. name)
+				t.expect(action.Enabled).toBe(true)
+				action:FindFirstChild(name).Pressed.fire()
+			end
+			local handle = node:FindFirstChild("1", true):FindFirstChild("Move", true)
+			handle.Parent.AbsoluteSize = engine.types.Vector2.new(100, 40)
+			handle.Activated.fire()
+			t.expect(require("../src/ui/drag_session")(ctx).state:peek().pickupSize).toBe(handle.Parent.AbsoluteSize)
+			press("ChooseDropDestination")
+			t.expect(target:FindFirstChild("FacetReorderCrossLater").Enabled).toBe(false)
+			press("ChooseDropDestination")
+			t.expect(target:FindFirstChild("FacetReorderCrossLater").Enabled).toBe(true)
+			press("ReorderCrossLater")
+			press("ReorderDown")
+			press("ReorderDown")
+			press("ReorderDown")
+			press("ReorderUp")
+			press("ReorderDrop")
+			t.expect(requests).toEqual({ { keys = { 1 }, slot = 4 } })
+			handle.Activated.fire()
+			press("ReorderCrossEarlier")
+			press("ReorderUp")
+			press("ReorderCancel")
+			t.expect(#requests).toBe(1)
+			stop()
+			runtime:dispose()
+		end
+	end)
+	t.it("uses the current column count for selected blocks and permits cancelling an all-selected grid", function()
+		local engine, runtime, UI, target = setup()
+		local columns = Compose.cell(3)
+		local selection = Compose.cell({ [1] = true, [2] = true })
+		local requests = {}
+		local stop, node: any = runtime.mount(function()
+			local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+				from = records(8),
+				key = key,
+				mode = "all" :: "all",
+				columns = columns,
+				itemSize = 40,
+				selection = selection,
+				selectionMode = "multiple" :: "multiple",
+				reorderable = true,
+				onReorder = function(keys: { number }, slot: number)
+					table.insert(requests, { keys = keys, slot = slot })
+				end,
+				render = function(current): GuiObject
+					return button(UI, current)
+				end,
+			}
+			return UI.VirtualGrid(props)
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(300, 300)
+		node.AbsoluteSize = node.AbsoluteWindowSize
+		local function press(name)
+			target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed.fire()
+		end
+		node:FindFirstChild("1", true):FindFirstChild("Move", true).Activated.fire()
+		columns:set(2)
+		press("ReorderDown")
+		press("ReorderDrop")
+		t.expect(requests).toEqual({ { keys = { 1, 2 }, slot = 2 } })
+		selection:set({ [1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true })
+		node:FindFirstChild("1", true):FindFirstChild("Move", true).Activated.fire()
+		press("ReorderDown")
+		press("ReorderCrossLater")
+		press("ReorderCancel")
+		t.expect(#requests).toBe(1)
+		stop()
+		runtime:dispose()
+	end)
+end)
+
 t.describe("collection transfer sessions", function()
 	t.it("keyboard pickup carries selected hidden items and calls the source lifecycle once", function()
 		local engine, runtime, UI, target, _, ctx = setup()

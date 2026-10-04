@@ -51,6 +51,7 @@ local function fixture()
 	local owner = C.createRootOwner(function() end, runtime.reactor)
 	return {
 		engine = engine,
+		input = input,
 		runtime = runtime,
 		source = source,
 		target = target,
@@ -109,6 +110,64 @@ t.describe("shared drop sessions", function()
 				w.stop()
 			end
 		end
+	end)
+
+	t.it("keeps an armed preview visible and updates controller hints from owned native input observations", function()
+		local w = fixture()
+		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
+		w.source.AbsoluteSize = w.engine.types.Vector2.new(120, 80)
+		w.session.begin(w.source, { payload = "card" }, "armed", nil, nil)
+		local ghost = w.screen:FindFirstChild("DragGhost")
+		local text = w.screen:FindFirstChild("DragStatusText", true)
+		t.expect(ghost ~= nil).toBe(true)
+		t.expect(ghost.Interactable).toBe(false)
+		t.expect(string.find(text.Text, "A: drop", 1, true) ~= nil).toBe(true)
+		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.KeyboardAndMouse
+		w.engine.heartbeat.fire(1 / 60)
+		t.expect(string.find(text.Text, "Enter: drop", 1, true) ~= nil).toBe(true)
+		w.session.finish(false)
+		t.expect(w.screen:FindFirstChild("DragGhost")).toBeNil()
+		t.expect(w.source:GetAttribute("FacetDragHeld")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("shows the negotiated operation, rejection reason and pending state without accepting another drop", function()
+		local w = fixture()
+		local operation, legal, completion, count = C.cell("copy"), true, nil, 0
+		w.register(w.target, {
+			operation = operation,
+			accepts = function()
+				return legal, "This item is locked"
+			end,
+			onDrop = function(_, info)
+				completion = info.complete
+				count += 1
+				return "pending"
+			end,
+		})
+		w.hits({ w.target })
+		w.begin({ payload = 7, operations = { "copy", "move", "apply" } })
+		local label = w.screen:FindFirstChild("DragStatusText", true)
+		for _, kind in { "copy", "move", "apply" } do
+			operation:set(kind)
+			w.move(20, 30)
+			t.expect(label.Text).toBe(string.upper(string.sub(kind, 1, 1)) .. string.sub(kind, 2))
+		end
+		legal = false
+		w.move(20, 30)
+		t.expect(label.Text).toBe("This item is locked")
+		t.expect(w.target:FindFirstChild("FacetDropOutline").Enabled).toBe(false)
+		legal = true
+		w.move(20, 30)
+		w.session.commit(nil)
+		t.expect(label.Text).toBe("Waiting for confirmation…")
+		t.expect(w.session.state:peek().pending).toBe(true)
+		w.session.commit(nil)
+		t.expect(count).toBe(1)
+		w.session.finish(false, "Cancelled")
+		t.expect(completion(true)).toBe(false)
+		t.expect(w.screen:FindFirstChild("DragStatus")).toBeNil()
+		w.stop()
 	end)
 
 	t.it("validates on hover and again at release without mutating on a rejected proposal", function()

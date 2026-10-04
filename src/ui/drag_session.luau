@@ -1,6 +1,6 @@
 --!strict
 local Types = require("./types")
-local Env = require("./environment_types")
+local EngineTypes = require("./engine_types")
 local activation = require("./activation")
 local motion = require("./motion")
 local services = setmetatable({}, { __mode = "kv" }) :: any
@@ -179,6 +179,75 @@ return function(ctx: Types.Context): any
 		end
 		return D2.fromOffset((position.X - origin.X) / scale, (position.Y - origin.Y) / scale)
 	end
+	local function updateStatus(session: any)
+		local label = session.status
+		if not label then
+			return
+		end
+		label.Text = if session.pending
+			then "Waiting for confirmation…"
+			elseif session.accepted then ({ move = "Move", copy = "Copy", apply = "Apply" })[session.operation]
+			elseif session.target then session.reason or "Cannot drop here"
+			elseif session.mode == "armed" then "Choose a destination"
+			else "Cannot drop here"
+		if session.mode == "armed" and not session.pending then
+			local input = session.effectiveInput(nil)
+			label.Text ..= if input == "Gamepad"
+				then " · A: drop · B: cancel"
+				elseif input == "Touch" then " · Tap a destination"
+				else " · Enter: drop · Esc: cancel · Tab: destination"
+			if input == "Gamepad" and session.spec.navigationHint then
+				label.Text ..= " · " .. session.spec.navigationHint
+			end
+		end
+		local panel = label.Parent
+		local layer = panel.Parent
+		local destination = session.target and targets[session.target]
+		local anchor = destination and (destination.focusTarget or session.target)
+		local point = session.position
+			or (if anchor and anchor:IsA("GuiObject") then anchor.AbsolutePosition else session.origin)
+		local at = localPoint(panel, point)
+		local origin = layer.AbsolutePosition
+		local boundsAt = localPoint(panel, origin + layer.AbsoluteSize)
+		local sizeAt = localPoint(panel, origin + panel.AbsoluteSize)
+		local size = V2.new(sizeAt.X.Offset, sizeAt.Y.Offset)
+		local bounds = V2.new(boundsAt.X.Offset, boundsAt.Y.Offset)
+		local gap = ctx.metric("space.s")
+		local ghost = session.ghost
+		if session.mode == "armed" and ghost then
+			local preview = session.armedPreview
+			local origin = if preview
+					and preview.Parent
+					and (session.target == nil or session.target == session.source)
+				then preview.AbsolutePosition
+				else point
+			local pickup = localPoint(ghost, origin)
+			local extent = session.previewSize
+			local beside = anchor and anchor:IsA("GuiObject") and session.target ~= session.source
+			local x = pickup.X.Offset + gap
+			local y = pickup.Y.Offset + gap
+			if beside then
+				local edge = localPoint(ghost, anchor.AbsolutePosition + anchor.AbsoluteSize)
+				x = edge.X.Offset + gap
+				y = pickup.Y.Offset - extent.Y - gap
+			end
+			ghost.AnchorPoint = V2.zero
+			ghost.Position = D2.fromOffset(
+				math.clamp(x, gap, math.max(gap, bounds.X - extent.X - gap)),
+				math.clamp(y, gap, math.max(gap, bounds.Y - extent.Y - size.Y - gap * 3))
+			)
+			at = D2.fromOffset(
+				ghost.Position.X.Offset - gap,
+				ghost.Position.Y.Offset + extent.Y + gap - ctx.metric("targetSizes.minimum")
+			)
+		end
+		label:FindFirstChildWhichIsA("UISizeConstraint").MaxSize =
+			V2.new(math.max(1, math.min(280, bounds.X - gap * 4)), math.huge)
+		panel.Position = D2.fromOffset(
+			math.clamp(at.X.Offset + gap, gap, math.max(gap, bounds.X - size.X - gap)),
+			math.clamp(at.Y.Offset + ctx.metric("targetSizes.minimum"), gap, math.max(gap, bounds.Y - size.Y - gap))
+		)
+	end
 	function service.own(source: GuiObject)
 		Compose.cleanup(function()
 			if returning[source] then
@@ -263,6 +332,13 @@ return function(ctx: Types.Context): any
 			session.stop()
 		end
 		leave(session)
+		if session.pendingTarget and session.pendingTarget ~= session.target then
+			session.pendingTarget:SetAttribute("FacetDropState", nil)
+			session.pendingTarget:SetAttribute("FacetDropReason", nil)
+		end
+		if session.stopStatus then
+			session.stopStatus()
+		end
 		releaseGhost(session, accepted)
 		if session.highlight then
 			session.highlight:Destroy()
@@ -298,9 +374,11 @@ return function(ctx: Types.Context): any
 			end
 		end
 		current.hit = hit
+		current.accepted, current.reason, current.operation = false, nil, nil
 		if target then
 			local proposal = info(target)
 			local accepted, reason = validate(target, proposal)
+			current.accepted, current.reason, current.operation = accepted, reason, proposal.operation
 			target:SetAttribute("FacetDropState", if accepted then "accepted" else "rejected")
 			target:SetAttribute("FacetDropReason", reason)
 			local feedback = targets[target].feedback
@@ -316,6 +394,7 @@ return function(ctx: Types.Context): any
 				targets[target].onUpdate(current.payload, proposal, accepted, reason)
 			end
 		end
+		updateStatus(current)
 		state:set(table.clone(current))
 	end
 	function service.update(position: Vector2)
@@ -364,6 +443,9 @@ return function(ctx: Types.Context): any
 			return ok
 		end
 		session.pending = true
+		session.pendingTarget = destination
+		updateStatus(session)
+		state:set(table.clone(session))
 		destination:SetAttribute("FacetDropState", "pending")
 		session.executing = true
 		local ok, result = pcall(spec.onDrop, session.payload, proposal)
@@ -417,12 +499,50 @@ return function(ctx: Types.Context): any
 				then spec.returnPosition()
 				else source.AbsolutePosition + source.AbsoluteSize / 2,
 		}
+		local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
+		if layer then
+			local session = current
+			session.stopStatus = ctx.runtime.mount(function()
+				session.effectiveInput = ctx.effectiveInput()
+				local label = ctx.styled(
+					ctx.Host.TextLabel {
+						Name = "DragStatusText",
+						Size = D2.fromOffset(0, 0),
+						AutomaticSize = ctx.types.Enum.AutomaticSize.XY,
+						TextWrapped = true,
+						Text = "Choose a destination",
+						ZIndex = 1002,
+						ctx.Host.UISizeConstraint {
+							MaxSize = V2.new(math.max(1, math.min(280, layer.AbsoluteSize.X - 32)), math.huge),
+						},
+					},
+					"text"
+				)
+				session.status = label
+				local panelProps: Types.FrameProps = {
+					Name = "DragStatus",
+					Size = D2.fromOffset(0, 0),
+					AutomaticSize = ctx.types.Enum.AutomaticSize.XY,
+					ZIndex = 1001,
+					Attributes = { FacetDragFeedback = true } :: EngineTypes.Attributes,
+					ctx.Host.UIPadding {
+						PaddingTop = ctx.types.UDim.new(0, ctx.metric("space.s")),
+						PaddingBottom = ctx.types.UDim.new(0, ctx.metric("space.s")),
+						PaddingLeft = ctx.types.UDim.new(0, ctx.metric("space.s")),
+						PaddingRight = ctx.types.UDim.new(0, ctx.metric("space.s")),
+					},
+					label,
+				}
+				return ctx.styled(ctx.Host.Frame(panelProps), "tooltip")
+			end, layer)
+			updateStatus(session)
+		end
 		if spec.mark ~= false then
 			source:AddTag("facet-drag-held")
 			source:SetAttribute("FacetDragHeld", true)
 		end
 		activation.consume(press)
-		if mode == "pointer" and preview ~= false then
+		if preview ~= false then
 			local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
 			if layer then
 				local ghost = (preview or source):Clone()
@@ -462,9 +582,14 @@ return function(ctx: Types.Context): any
 				service.finish(false, "The source changed")
 				return
 			end
-			if session.target and not available(session.target) then
+			local destination = session.pendingTarget or session.target
+			if destination and not available(destination) then
 				service.finish(false, "The destination was removed")
 				return
+			end
+			updateStatus(session)
+			if session.mode == "armed" and not session.pending then
+				service.hover(session.target, nil)
 			end
 			if session.position and not session.pending then
 				service.update(session.position)
@@ -510,7 +635,7 @@ return function(ctx: Types.Context): any
 		end)
 	end
 	function service.preview(image: GuiObject, body: ScrollingFrame, frontSize: UDim2?)
-		if not current or current.mode ~= "pointer" then
+		if not current then
 			return
 		end
 		local layer = body:FindFirstAncestorWhichIsA("LayerCollector")
@@ -552,6 +677,7 @@ return function(ctx: Types.Context): any
 			end, ghost)
 		end
 		current.previewSize = extent
+		current.armedPreview = if current.mode == "armed" then image else nil
 		ghost.Position = localPoint(ghost, current.position or current.origin)
 		current.ghost = ghost
 	end
@@ -572,6 +698,7 @@ return function(ctx: Types.Context): any
 		else
 			feedback = (ctx.Host :: any).Highlight({
 				Name = "FacetDropHighlight",
+				FillTransparency = 1,
 				Enabled = false,
 				Adornee = Compose.static(target),
 				DepthMode = ctx.types.Enum.HighlightDepthMode.Occluded,

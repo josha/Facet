@@ -31,6 +31,7 @@ type Move<V, K> = {
 	rows: { V },
 	pointer: Vector2?,
 	keyboard: boolean,
+	navigationCross: number?,
 }
 return function<V, K>(
 	ctx: Types.Context,
@@ -49,6 +50,7 @@ return function<V, K>(
 	local read = ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
+	local choosingDestination = Compose.cell(false)
 	local TAP = 3
 	local STACK = 6
 	local FEEDBACK_Z = 1000
@@ -131,6 +133,7 @@ return function<V, K>(
 		touchKey, touchOrigin = nil, nil
 	end
 	local function clearMove()
+		local move, selected = moving:peek(), gui and gui.SelectedObject
 		captured = nil
 		disarm()
 		if scrollLocked then
@@ -138,6 +141,13 @@ return function<V, K>(
 			scrollLocked = nil
 		end
 		moving:set(nil)
+		if move and move.keyboard and selected == keyboardTarget and gui then
+			local row = rowNodes[move.key]
+			local handle = row and row:FindFirstChild("Move")
+			if handle and handle:IsA("GuiObject") and handle.Visible then
+				gui.SelectedObject = handle
+			end
+		end
 	end
 	stopLocal = clearMove
 	local function cancel()
@@ -216,6 +226,10 @@ return function<V, K>(
 			local valid, ended = options.valid, options.onEnd
 			options = table.clone(options)
 			options.mark = false
+			choosingDestination:set(false)
+			if spec.drag and (spec.onReorder or spec.drop) then
+				options.navigationHint = "Y: choose destination"
+			end
 			local original = rowNodes[key]
 			local origin = if original then original.AbsolutePosition + original.AbsoluteSize / 2 else position
 			options.returnPosition = function()
@@ -246,7 +260,14 @@ return function<V, K>(
 				if position then "pointer" else "armed",
 				captured,
 				false,
-				if original and pickupPosition then { position = pickupPosition, source = original } else nil
+				if original
+					then {
+						position = if position
+							then pickupPosition or position
+							else original.AbsolutePosition + original.AbsoluteSize / 2,
+						source = original,
+					}
+					else nil
 			)
 			moving:set(nextMove)
 			if position then
@@ -348,20 +369,45 @@ return function<V, K>(
 		moving:set(nextMove)
 		drag.update(position)
 	end
-	local function step(delta: number): ()
+	local function step(delta: number, along: boolean?): ()
 		local current = moving:peek()
-		if current then
+		local session = drag.state:peek()
+		if current and not (session and session.pending) then
 			local nextMove = table.clone(current)
 			nextMove.slot = math.clamp(current.slot + delta, 0, #current.remaining)
+			if grid and along then
+				local function point(slot: number): (number, number)
+					local candidate = current.remaining[slot + 1]
+					local index = if candidate then assert(controls.indexOfKey)(candidate) else #current.rows
+					local at = assert(controls.placementOf)(index or 1)
+					return at.offset, at.crossOffset + (if candidate then 0 else at.crossSize)
+				end
+				local origin, across = point(current.slot)
+				across = current.navigationCross or across
+				local nearest, distance = math.huge, math.huge
+				nextMove.slot, nextMove.navigationCross = current.slot, across
+				for slot = 0, #current.remaining do
+					local offset, cross = point(slot)
+					local forward, side = (offset - origin) * delta, math.abs(cross - across)
+					if forward > 0 and (forward < nearest or (forward == nearest and side < distance)) then
+						nearest, distance, nextMove.slot = forward, side, slot
+					end
+				end
+			else
+				nextMove.navigationCross = nil
+			end
 			moving:set(nextMove)
 			local body = bodyOf()
-			local at = current.remaining[math.clamp(nextMove.slot + 1, 1, #current.remaining)]
+			local at = current.remaining[nextMove.slot + 1] or current.remaining[nextMove.slot]
 			local index = if at then assert(controls.indexOfKey)(at) else nil
 			if index then
 				canvasOffset(
 					body,
 					assert(controls.offsetOf)(index, "center", axis(body.AbsoluteWindowSize) / scaleOf(body))
 				)
+			end
+			if current.keyboard then
+				drag.hover(body, nil)
 			end
 		end
 	end
@@ -630,6 +676,10 @@ return function<V, K>(
 				end,
 			} :: EngineTypes.Attributes,
 			Host.Frame "Cells" {
+				Visible = function(use: ComposeTypes.Use)
+					local move = use(moving)
+					return move == nil or not move.included[key]
+				end,
 				Position = function(use: ComposeTypes.Use)
 					return if grid
 						then D2.fromOffset(0, use(header))
@@ -1086,6 +1136,14 @@ return function<V, K>(
 						local pointer = if live and live.pointer
 							then crossAxis(live.pointer - body.AbsolutePosition) / scaleOf(body) - crossSize / 2
 							else (if placement then placement.crossOffset else 0)
+						if live and live.keyboard then
+							local candidate = live.remaining[live.slot + 1]
+							local index = if candidate then assert(controls.indexOfKey)(candidate) else #live.rows
+							local at = assert(controls.placementOf)(index or 1)
+							pointer = at.crossOffset
+								+ (if candidate then 0 else at.crossSize)
+								- crossAxis(use(canvasAt))
+						end
 						across = math.clamp(
 							pointer,
 							0,
@@ -1131,6 +1189,19 @@ return function<V, K>(
 					else original
 				local copy = if painted then painted:Clone() else nil
 				if copy then
+					local cells = copy:FindFirstChild("Cells", true)
+					if cells and cells:IsA("GuiObject") then
+						cells.Visible = true
+					end
+					local row = if copy.Name == "Reorderable" then copy else copy:FindFirstChild("Reorderable", true)
+					if row then
+						for _, name in { "Move", "SelectMark", "Minus", "Confirm" } do
+							local control = row:FindFirstChild(name)
+							if control and control:IsA("GuiObject") then
+								control.Visible = false
+							end
+						end
+					end
 					for _, node in copy:GetDescendants() do
 						if node:GetAttribute("FacetDragExclude") == true then
 							node:Destroy()
@@ -1375,7 +1446,7 @@ return function<V, K>(
 								return (spec.onReorder ~= nil or spec.drop ~= nil)
 									and session ~= nil
 									and (
-										(move and move.keyboard)
+										(move and move.keyboard and not use(choosingDestination))
 										or (
 											session.target == body
 											and body:GetAttribute("FacetDropState") == "accepted"
@@ -1429,6 +1500,7 @@ return function<V, K>(
 			return (spec.onReorder ~= nil or spec.drop ~= nil)
 				and move ~= nil
 				and move.keyboard
+				and not use(choosingDestination)
 				and (node == nil or node == keyboardTarget or node:IsDescendantOf(body))
 		end
 		if spec.drag then
@@ -1453,6 +1525,22 @@ return function<V, K>(
 				end
 			end, { priority = 400 })
 		end
+		if spec.drag and (spec.onReorder or spec.drop) then
+			ctx.action(root, "ChooseDropDestination", { E.KeyCode.ButtonY }, function(use)
+				local move = use(moving)
+				local session = use(drag.state)
+				return move ~= nil and move.keyboard and session ~= nil and not session.pending
+			end, function()
+				choosingDestination:set(not choosingDestination:peek())
+				local session = drag.state:peek()
+				if session then
+					session.spec.navigationHint = if choosingDestination:peek()
+						then "Y: reorder here"
+						else "Y: choose destination"
+					drag.hover(drag.targetOf(focus:peek()), nil)
+				end
+			end, { priority = 400 })
+		end
 		local earlier = if horizontal
 			then { E.KeyCode.Left, E.KeyCode.DPadLeft }
 			else { E.KeyCode.Up, E.KeyCode.DPadUp }
@@ -1460,11 +1548,33 @@ return function<V, K>(
 			then { E.KeyCode.Right, E.KeyCode.DPadRight }
 			else { E.KeyCode.Down, E.KeyCode.DPadDown }
 		ctx.action(root, "ReorderUp", earlier, keyboardActive, function()
-			step(-1)
+			step(-1, true)
 		end, { priority = 400, capture = true })
 		ctx.action(root, "ReorderDown", later, keyboardActive, function()
-			step(1)
+			step(1, true)
 		end, { priority = 400, capture = true })
+		if grid then
+			ctx.action(
+				root,
+				"ReorderCrossEarlier",
+				if horizontal then { E.KeyCode.Up, E.KeyCode.DPadUp } else { E.KeyCode.Left, E.KeyCode.DPadLeft },
+				keyboardActive,
+				function()
+					step(-1)
+				end,
+				{ priority = 400, capture = true }
+			)
+			ctx.action(
+				root,
+				"ReorderCrossLater",
+				if horizontal then { E.KeyCode.Down, E.KeyCode.DPadDown } else { E.KeyCode.Right, E.KeyCode.DPadRight },
+				keyboardActive,
+				function()
+					step(1)
+				end,
+				{ priority = 400, capture = true }
+			)
+		end
 		ctx.action(root, "ReorderCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
 			return use(moving) ~= nil
 		end, cancel, { priority = 400 })
