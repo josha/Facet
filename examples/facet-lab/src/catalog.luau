@@ -59,9 +59,19 @@ local function transferState(c: any): { [string]: any }
 end
 
 local function rowDropState(c: any): { [string]: any }
-	local rows = c.cell("assignedRoutes", ROWS)
+	local rows = c.cell("lapCopies", ROWS)
 	return {
 		from = rows,
+		render = function(current)
+			return c.UI.Text({
+				text = function(use)
+					local item = use(current)
+					return `{item.name} · {item.laps} laps`
+				end,
+				Size = UDim2.fromScale(1, 1),
+				wrap = true,
+			})
+		end,
 		drag = function(items)
 			return { payload = { route = items[1] }, operations = { "apply" } }
 		end,
@@ -72,17 +82,17 @@ local function rowDropState(c: any): { [string]: any }
 				end,
 				operation = "apply",
 				accepts = function(payload)
-					return type(payload) == "table" and payload.route ~= nil
+					return type(payload) == "table" and payload.route ~= nil and payload.route.id ~= key
 				end,
 				onDrop = function(payload)
 					local nextRows: { Row } = table.clone(rows:peek())
 					for index, item in nextRows do
 						if item.id == key then
-							nextRows[index] = { id = key, name = payload.route.name, laps = payload.route.laps }
+							nextRows[index] = { id = key, name = item.name, laps = payload.route.laps }
 						end
 					end
 					rows:set(nextRows)
-					c.log("rowDrop")(key, payload.route.name)
+					c.log("copiedLaps")(key, payload.route.laps)
 					return true
 				end,
 			}
@@ -3109,7 +3119,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "collections",
 		cellWidth = 280,
 		cellHeight = 90,
-		purpose = "A model-backed cell editor with durable drafts and commit validation.",
+		purpose = "A row label that becomes a text field while renaming, with durable drafts and commit validation.",
 		alternatives = "TextInput for immediate text changes.",
 		scenarios = { "table_virtualized" },
 		snippet = 'UI.CellEditor { editor = "text", value = name, draft = draft, onChange = save }',
@@ -3129,6 +3139,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			DISABLED :: State,
 			{ name = "pending", props = { busy = true } },
+			{ name = "custom edit action", props = { editLabel = "Edit title" } },
+			{
+				name = "renaming",
+				props = function(c: Context)
+					return { editing = c.cell("cellEditing", true) }
+				end,
+			},
 			{
 				name = "validation",
 				props = {
@@ -3428,9 +3445,17 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					return {
 						from = rows,
 						columns = {
-							{ id = "name", label = "Track", editor = "text" } :: Properties,
+							{ id = "name", label = "Track", editor = "text", editLabel = "Rename track" } :: Properties,
 							{ id = "laps", label = "Laps", width = 96, editor = "number", min = 1, max = 9, step = 1 } :: Properties,
-							{ id = "night", label = "Night", width = 64, editor = "toggle" } :: Properties,
+							{
+								id = "night",
+								label = "Night",
+								width = 64,
+								editor = "toggle",
+								editable = function(item)
+									return item.id ~= "2"
+								end,
+							} :: Properties,
 							{
 								id = "surface",
 								label = "Surface",
@@ -3977,15 +4002,17 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		alternatives = "Table and list reorder for rows.",
 		snippet = 'UI.draggable(card, { payload = "card" })',
 		demonstrates = { "payload", "enabled", "armOnTap", "operations", "valid", "onStart", "onEnd" },
+		states = { { name = "without status labels", props = { statusLabels = false } } :: State },
 		base = function()
 			return {}
 		end,
-		make = function(UI: FacetControls, _: Properties, c: Context): Instance
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local card = UI.Button({ label = "Drag me" })
 			local slot = UI.Button({ label = "Drop here" })
 			UI.draggable(card, {
 				payload = "card",
 				armOnTap = true,
+				statusLabels = p.statusLabels,
 				enabled = true,
 				operations = { "copy" :: "copy" },
 				valid = function()
@@ -5596,7 +5623,14 @@ PAGE_DATA.Outline = {
 		{
 			name = "expanded",
 			props = function(c: Context)
-				return { expanded = c.cell("expanded", { folder = true, nested = true }) }
+				local expanded = c.cell("expandedExample", { folder = true, nested = true })
+				return {
+					expanded = expanded,
+					onExpansionChange = function(value)
+						expanded:set(value)
+						c.log("onExpansionChange")(value)
+					end,
+				}
 			end,
 		} :: State,
 		{ name = "large indentation", props = { indent = 48 } } :: State,
@@ -5611,8 +5645,14 @@ PAGE_DATA.Outline = {
 
 for _, name in { "VirtualList", "VirtualGrid", "Table", "Outline" } do
 	table.insert(assert(PAGE_DATA[name].states), {
-		name = "assign a route by dropping onto a row",
-		props = rowDropState,
+		name = "drop a row onto another to copy its lap count",
+		props = function(c)
+			local props = rowDropState(c)
+			if name == "Table" then
+				props.render = nil
+			end
+			return props
+		end,
 	})
 end
 

@@ -761,7 +761,10 @@ return function<V, K>(
 				return reorderable
 					and movable(use(current))
 					and read(sort, use) == nil
-					and (preferred == nil or use(preferred) ~= E.PreferredInput.Touch)
+					and (
+						preferred == nil
+						or (use(preferred) ~= E.PreferredInput.Touch and use(preferred) ~= E.PreferredInput.Gamepad)
+					)
 			end,
 			DragStart = function(position)
 				rowOrigin, rowDragged = position, false
@@ -797,7 +800,17 @@ return function<V, K>(
 							and now - previous.at <= 0.5
 							and (position - previous.position).Magnitude <= 6
 						lastTap = if double then nil else { key = key, position = position, at = now }
-						activation.trigger(hit, pendingInput, if double then 1 else 0)
+						local target = hit
+						local layer = frame:FindFirstAncestorWhichIsA("BasePlayerGui")
+						if layer and not double then
+							for _, candidate in (layer :: PlayerGui):GetGuiObjectsAtPosition(position.X, position.Y) do
+								if candidate.Name == "EditLabel" and candidate:IsDescendantOf(frame) then
+									target = candidate
+									break
+								end
+							end
+						end
+						activation.trigger(target, pendingInput, if double then 1 else 0)
 						activation.consume(pendingInput)
 					end
 				end
@@ -1149,6 +1162,7 @@ return function<V, K>(
 			return true
 		end
 		if spec.drop or spec.onReorder then
+			destination.feedback = false
 			drag.register(body, destination)
 		end
 		drag.own(body)

@@ -4,6 +4,8 @@ local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 local NavigationTypes = require("./navigation_types")
+local activation = require("./activation")
+local policy = require("./collection_policy")
 type Controls = {
 	CellEditor: Types.Constructor<CollectionTypes.CellEditorSpec, Frame>,
 	TextInput: Types.Constructor<InputTypes.TextInputProps, TextBox | Frame>,
@@ -12,7 +14,7 @@ type Controls = {
 	Picker: NavigationTypes.PickerConstructor,
 }
 local EDITORS = { text = true, number = true, toggle = true, menu = true }
-local SETTINGS = { "options", "min", "max", "step", "draft", "validate" }
+local SETTINGS = { "options", "min", "max", "step", "draft", "validate", "editLabel", "editable" }
 
 return function(ctx: Types.Context, UI: Controls)
 	local Compose, read = ctx.Compose, ctx.read
@@ -26,9 +28,14 @@ return function(ctx: Types.Context, UI: Controls)
 			spec.draft == nil or spec.editor == "text" or spec.editor == "number",
 			"Facet CellEditor: only text and number accept a draft"
 		)
+		assert(
+			spec.editing == nil or spec.editor == "text" or spec.editor == "number",
+			"Facet CellEditor: only text and number accept editing"
+		)
 		local draft: ComposeTypes.Cell<CollectionTypes.CellDraft?> = spec.draft
 			or Compose.cell(nil :: CollectionTypes.CellDraft?)
 		local errorText = Compose.cell("")
+		local editing: ComposeTypes.Cell<boolean> = spec.editing or Compose.cell(false)
 		local alive = true
 		Compose.cleanup(function()
 			alive = false
@@ -77,6 +84,7 @@ return function(ctx: Types.Context, UI: Controls)
 			end
 		end
 		local child: GuiObject
+		local display: TextLabel? = nil
 		if spec.editor == "toggle" then
 			child = UI.Toggle(({
 				Name = "Editor",
@@ -140,6 +148,7 @@ return function(ctx: Types.Context, UI: Controls)
 				Selectable = enabled,
 				Interactable = enabled,
 				errorText = errorText,
+				Visible = editing,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				onChange = function(nextText: string)
@@ -154,6 +163,15 @@ return function(ctx: Types.Context, UI: Controls)
 				onCancel = function()
 					draft:set(nil)
 					errorText:set("")
+					editing:set(false)
+				end,
+				FocusLost = function()
+					if errorText:peek() == "" and read(spec.busy) ~= true then
+						editing:set(false)
+					end
+				end,
+				Focused = function()
+					editing:set(true)
 				end,
 			}
 			if spec.editor == "number" then
@@ -164,18 +182,148 @@ return function(ctx: Types.Context, UI: Controls)
 			else
 				child = UI.TextInput((props :: unknown) :: InputTypes.TextInputProps)
 			end
+			do
+				local hit: TextButton
+				local function rowHit(): GuiObject?
+					local parent: Instance? = hit.Parent
+					while parent and not parent:IsA("LayerCollector") do
+						local row = parent:FindFirstChild("RowHit")
+						if row then
+							return row :: GuiObject
+						end
+						parent = parent.Parent
+					end
+					return nil
+				end
+				local function activate(input: InputObject?, clicks: number?)
+					if activation.consumed(input) then
+						return
+					end
+					local row = rowHit()
+					local service = ctx.config.userInputService
+					local modified = false
+					if service then
+						for _, code in
+							{
+								E.KeyCode.LeftControl,
+								E.KeyCode.RightControl,
+								E.KeyCode.LeftMeta,
+								E.KeyCode.RightMeta,
+								E.KeyCode.LeftShift,
+								E.KeyCode.RightShift,
+							}
+						do
+							modified = modified or service:IsKeyDown(code)
+						end
+					end
+					if
+						not modified
+						and enabled()
+						and (row == nil or (input and input.UserInputType == E.UserInputType.MouseButton1))
+						and (row == nil or (clicks or 0) == 0)
+						and (row == nil or row.Interactable)
+						and (
+							row == nil
+							or row:GetAttribute("FacetSelectionRequired") == false
+							or row:GetAttribute("FacetOnlySelected") == true
+						)
+					then
+						editing:set(true)
+					elseif row then
+						activation.trigger(row, input, clicks)
+					end
+					activation.consume(input)
+				end
+				hit = ctx.Host.TextButton({
+					Name = "EditLabel",
+					Attributes = { AccessibleLabel = spec.label or spec.editLabel or "Edit value" } :: Types.Attributes,
+					Text = "",
+					Size = D2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					AutoButtonColor = false,
+					Selectable = false,
+					Activated = function(input: InputObject?, clicks: number?)
+						activate(input, math.max(0, (clicks or 1) - 1))
+					end,
+				})
+				ctx.runtime.connect(hit, "AncestryChanged", function()
+					hit.Selectable = rowHit() == nil
+				end)
+				Compose.cleanup(activation.provide(hit, function(input, clicks)
+					activate(input :: InputObject?, clicks :: number?)
+				end))
+				display = ctx.styled(
+					ctx.text({
+						Name = "Value",
+						Text = function(use: ComposeTypes.Use): string
+							return text(value(use))
+						end,
+						Visible = function(use: ComposeTypes.Use): boolean
+							return not use(editing)
+						end,
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
+						BackgroundTransparency = 1,
+						TextWrapped = true,
+						hit,
+					}),
+					"Text"
+				) :: TextLabel
+				local field = (
+					if child:IsA("TextBox") then child else child:FindFirstChildWhichIsA("TextBox", true)
+				) :: TextBox
+				local function focus()
+					if
+						editing:peek()
+						and enabled()
+						and field:FindFirstAncestorWhichIsA("LayerCollector")
+						and not field:IsFocused()
+					then
+						local gui = ctx.config.guiService
+						if gui then
+							gui.SelectedObject = field
+						end
+						field:CaptureFocus()
+					end
+				end
+				local wasEditing = false
+				Compose.watch(function(use: ComposeTypes.Use)
+					local active = use(editing)
+					if read(spec.enabled, use) == false and active then
+						active = false
+						editing:set(false)
+					end
+					if active then
+						focus()
+					elseif field:IsFocused() then
+						field:ReleaseFocus()
+					end
+					local gui = ctx.config.guiService
+					if wasEditing and not active and gui then
+						local selected = gui.SelectedObject
+						if selected and (selected == field or selected:IsDescendantOf(child)) then
+							gui.SelectedObject = rowHit() or hit
+						end
+					end
+					wasEditing = active
+				end)
+				ctx.runtime.connect(field, "AncestryChanged", focus)
+			end
 		end
 		local defaults: Types.FrameProps = {
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			child :: ComposeTypes.Child,
+			display :: ComposeTypes.Child,
 		}
-		return ctx.Host.Frame(ctx.props(spec, {
+		local root = ctx.Host.Frame(ctx.props(spec, {
 			"editor",
 			"value",
 			"onChange",
 			"draft",
+			"editing",
+			"editLabel",
 			"validate",
 			"label",
 			"enabled",
@@ -185,6 +333,18 @@ return function(ctx: Types.Context, UI: Controls)
 			"max",
 			"step",
 		}, defaults))
+		if spec.editor == "text" or spec.editor == "number" then
+			Compose.cleanup(activation.provideEdit(root, {
+				label = spec.editLabel or "Edit value",
+				enabled = enabled,
+				onActivate = function()
+					if enabled() then
+						editing:set(true)
+					end
+				end,
+			}))
+		end
+		return root
 	end
 	UI.CellEditor = ctx.construct("CellEditor", build)
 
@@ -227,6 +387,9 @@ return function(ctx: Types.Context, UI: Controls)
 				Name = "CellEditor",
 				editor = assert(column.editor),
 				label = column.label or column.id,
+				editLabel = column.editLabel or function(use: ComposeTypes.Use): string
+					return "Edit " .. read(column.label or column.id, use)
+				end,
 				value = function(use: ComposeTypes.Use): unknown
 					return raw(use(current))
 				end,
@@ -235,7 +398,9 @@ return function(ctx: Types.Context, UI: Controls)
 				end,
 				draft = if column.draft then column.draft(key) else nil,
 				validate = column.validate,
-				enabled = enabled,
+				enabled = function(use: ComposeTypes.Use): boolean
+					return enabled(use) and policy.allows(column.editable, use(current))
+				end,
 				options = column.options,
 				min = column.min,
 				max = column.max,

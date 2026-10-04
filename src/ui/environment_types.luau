@@ -82,6 +82,7 @@ export type DraggableSpec = {
 	payload: unknown,
 	enabled: Types.ValueBoolean?,
 	armOnTap: boolean?,
+	statusLabels: boolean?,
 	operations: { DropOperation }?,
 	valid: (() -> boolean)?,
 	onStart: ((payload: any, mode: "pointer" | "armed") -> ())?,

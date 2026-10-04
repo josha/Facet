@@ -214,30 +214,38 @@ return function(ctx: Types.Context): any
 		if not label then
 			return
 		end
-		label.Text = if session.pending
-			then "Waiting for confirmation…"
+		label.Text = if session.spec.statusLabels == false
+			then ""
+			elseif session.pending then "Waiting for confirmation…"
 			elseif session.accepted then ({ move = "Move", copy = "Copy", apply = "Apply" })[session.operation]
 			elseif session.target then session.reason or "Cannot drop here"
 			elseif session.mode == "armed" then "Choose a destination"
 			else "Cannot drop here"
-		if session.accepted and session.target and targets[session.target].label and not session.pending then
+		if
+			session.spec.statusLabels ~= false
+			and session.accepted
+			and session.target
+			and targets[session.target].label
+			and not session.pending
+		then
 			label.Text ..= " to " .. ctx.read(targets[session.target].label)
 		end
 		if session.mode == "armed" and not session.pending then
 			local input = session.effectiveInput(nil)
+			if label.Text ~= "" then
+				label.Text ..= " · "
+			end
 			label.Text ..= if input == "Gamepad"
-				then " · A: drop · B: cancel"
-				elseif input == "Touch" then " · Tap a destination"
-				else " · Enter: drop · Esc: cancel · Tab: destination"
+				then "A: drop · B: cancel"
+				elseif input == "Touch" then "Tap a destination"
+				else "Enter: drop · Esc: cancel · Tab: destination"
 			if input == "Gamepad" and session.spec.navigationHint then
 				label.Text ..= " · " .. session.spec.navigationHint
 			end
 		end
 		local panel = label.Parent
-		panel.Visible = session.pending
-			or session.mode == "armed"
-			or not session.accepted
-			or session.operation ~= "move"
+		panel.Visible = label.Text ~= ""
+			and (session.pending or session.mode == "armed" or not session.accepted or session.operation ~= "move")
 		local layer = panel.Parent
 		local destination = session.target and targets[session.target]
 		local anchor = destination and (destination.focusTarget or session.target)
@@ -726,8 +734,10 @@ return function(ctx: Types.Context): any
 
 	function service.register(target: Instance, spec: any)
 		local owned = table.clone(spec)
-		local feedback
-		if target:IsA("GuiObject") then
+		local feedback: Instance?
+		if spec.feedback == false then
+			feedback = nil
+		elseif target:IsA("GuiObject") then
 			feedback = ctx.Host.UIStroke({
 				Name = "FacetDropOutline",
 				Enabled = false,
@@ -746,7 +756,9 @@ return function(ctx: Types.Context): any
 				DepthMode = ctx.types.Enum.HighlightDepthMode.Occluded,
 			})
 		end
-		feedback.Parent = target
+		if feedback then
+			feedback.Parent = target
+		end
 		owned.feedback = feedback
 		targets[target] = owned
 		if spec.focusTarget then

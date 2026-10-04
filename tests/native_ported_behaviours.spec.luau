@@ -433,7 +433,13 @@ t.describe("Table editable cells", function()
 		local function editor(column: string): any
 			local found
 			local function walk(node: any)
-				if found == nil and node.Name == "CellEditor" and node.Parent and node.Parent.Name == column then
+				if
+					found == nil
+					and node.Name == "CellEditor"
+					and node.Parent
+					and node.Parent.Name == "Inset"
+					and node.Parent.Parent.Name == column
+				then
 					found = node:FindFirstChild("Editor")
 				end
 				for _, child in node:GetChildren() do
@@ -466,7 +472,7 @@ t.describe("Table editable cells", function()
 		local tier = editor("tier")
 		local trigger = find(tier, "Trigger") or tier
 		expect(trigger:HasTag("facet-appearance-utility")).toBe(true)
-		expect(tier.Parent.Parent.ClipsDescendants).toBe(true)
+		expect(tier.Parent.Parent.Parent.ClipsDescendants).toBe(true)
 		trigger.Activated.fire()
 		w.step(10)
 		local option = find(w.screen, "silver")
@@ -611,20 +617,25 @@ t.describe("Table edit mode", function()
 	end
 	local function editorOf(w: any): any
 		for _, node in w.screen:GetDescendants() do
-			if node.Name == "CellEditor" and node.Parent and node.Parent.Name == "ready" then
+			if
+				node.Name == "CellEditor"
+				and node.Parent
+				and node.Parent.Name == "Inset"
+				and node.Parent.Parent.Name == "ready"
+			then
 				return node:FindFirstChild("Editor")
 			end
 		end
 		return nil
 	end
-	t.it("touch and gamepad cells edit only after Edit; Done ends the edit mode", function()
+	t.it("touch and gamepad fields stay editable independently of collection Edit and Done", function()
 		for _, input in { "Touch", "Gamepad" } do
 			local w, proposals = editableTable(input)
 			local button = find(w.screen, "Edit")
 			expect(button ~= nil).toBe(true)
 			expect(button.Text).toBe("Edit")
 			editorOf(w).Activated.fire()
-			expect(#proposals).toBe(0)
+			expect(#proposals).toBe(1)
 			button.Activated.fire()
 			w.step()
 			expect(button.Text).toBe("Done")
@@ -634,7 +645,7 @@ t.describe("Table edit mode", function()
 			w.step()
 			expect(button.Text).toBe("Edit")
 			editorOf(w).Activated.fire()
-			expect(#proposals).toBe(1)
+			expect(#proposals).toBe(3)
 			w.stop()
 		end
 	end)

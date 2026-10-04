@@ -26,7 +26,11 @@ local FLING_STOP = 20
 local FLING_WINDOW = 0.1
 type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 
-export type BuildList = <V, K>(CollectionTypes.KeyedCollectionSpec<V, K>, TreeTypes.Tree<V, K>?) -> ScrollingFrame
+export type BuildList = <V, K>(
+	CollectionTypes.KeyedCollectionSpec<V, K>,
+	TreeTypes.Tree<V, K>?,
+	boolean?
+) -> ScrollingFrame
 
 return function(ctx: Types.Context, UI: Controls): BuildList
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -128,7 +132,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		spec: CollectionTypes.CollectionOptions<V, K>,
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		keyOf: (V, number) -> K,
-		tree: TreeTypes.Tree<V, K>?
+		tree: TreeTypes.Tree<V, K>?,
+		actionsWrapped: boolean?
 	): ScrollingFrame
 		assert(
 			spec.snap == nil or spec.snap == "none" or spec.snap == "item",
@@ -175,6 +180,19 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		end
 		local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
+		local onlySelected = Compose.formula(function(use: ComposeTypes.Use): K?
+			local only: K? = nil
+			local chosen: CollectionTypes.Selection<K> = use(selection)
+			for key, selected in chosen do
+				if selected then
+					if only ~= nil then
+						return nil
+					end
+					only = key
+				end
+			end
+			return only
+		end)
 		local coordinator = Compose.cell(nil :: {}?)
 		local selectionMode: "none" | "single" | "multiple" = spec.selectionMode
 			or (if spec.selection or spec.onSelectionChange then "single" else "none")
@@ -202,6 +220,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		local focusedPath: { string } = {}
 		local focusOwned = false
 		local mounted: { [K]: Frame? } = {}
+		local cellEdits: { [K]: { any } } = {}
 		local placed: { [K]: ComposeTypes.Readable<ComposeTypes.Placement> } = {}
 		local poolOwner = assert(Compose.currentOwner()).createChild()
 		local pool: ComposeTypes.Pool<PooledRow> = Compose.createPool({
@@ -459,7 +478,18 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							rendered = tree.wrap(rendered, current, key)
 						end
 						measuredNode = rendered
-						rendered = policy.actions(ctx, spec, current, key, rendered, UI.RowActions, coordinator)
+						cellEdits[key] = {}
+						for _, edit in activation.edits(rendered) do
+							local gated = table.clone(edit)
+							gated.enabled = function(use: ComposeTypes.Use): boolean
+								return read(edit.enabled, use) ~= false
+									and not policy.disabled(spec.disabled, use(current))
+							end
+							table.insert(cellEdits[key], gated)
+						end
+						if not actionsWrapped then
+							rendered = policy.actions(ctx, spec, current, key, rendered, UI.RowActions, coordinator)
+						end
 						if editor then
 							rendered = editor.wrap(rendered, current, key)
 							local press = editor.press
@@ -489,6 +519,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							or spec.selection
 							or spec.selectionMode
 							or spec.rowDrop
+							or #cellEdits[key] > 0
 							or editor
 						then
 							local hit: TextButton
@@ -509,6 +540,10 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 									end
 								end,
 								Attributes = {
+									FacetSelectionRequired = selectionMode ~= "none",
+									FacetOnlySelected = function(use: ComposeTypes.Use)
+										return use(onlySelected) == key
+									end,
 									FacetSelected = function(use: ComposeTypes.Use)
 										return read(selection, use)[key] == true
 									end,
@@ -587,6 +622,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						end
 						mounted[key] = nil
 						placed[key] = nil
+						cellEdits[key] = nil
 						stop()
 						lease.release()
 					end)
@@ -1016,6 +1052,71 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			then observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		Compose.watch(function(use: ComposeTypes.Use)
+			local field = use(selected)
+			if
+				field == nil
+				or not field:IsA("TextBox")
+				or not belongsTo(field, root)
+				or read(spec.ScrollingEnabled, use) == false
+			then
+				return
+			end
+			local current = use(viewport)
+			if current.size <= 0 then
+				return
+			end
+			use(status)
+			for key, node in mounted do
+				if node and field:IsDescendantOf(node) then
+					local index = assert(controls.indexOfKey)(key)
+					local at = index and assert(controls.placementOf)(index)
+					if at and at.offset < current.offset then
+						setOffset(at.offset)
+					elseif at and at.offset + at.size > current.offset + current.size then
+						setOffset(math.max(at.offset, at.offset + at.size - current.size))
+					end
+					break
+				end
+			end
+		end)
+		local function renameAction(use: ComposeTypes.Use?): any
+			readSource(mountedVersion, use)
+			local focused = readSource(selected, use)
+			if
+				(focused and not belongsTo(focused, root))
+				or not readSource(focusActive, use)
+				or (editor and editor.busy())
+				or (input and input.GetFocusedTextBox and input:GetFocusedTextBox())
+			then
+				return nil
+			end
+			local key: K? = nil
+			for candidate in readSource(selection, use) do
+				if key ~= nil then
+					return nil
+				end
+				key = candidate
+			end
+			key = key or readSource(focusScope.current, use)
+			local edits = if key ~= nil then cellEdits[key] else nil
+			if edits then
+				for _, action in edits do
+					if read(action.enabled, use) ~= false then
+						return action
+					end
+				end
+			end
+			return nil
+		end
+		ctx.action(root, "RenameCell", { E.KeyCode.F2 }, function(use: ComposeTypes.Use): boolean
+			return renameAction(use) ~= nil
+		end, function()
+			local action = renameAction()
+			if action then
+				action.onActivate()
+			end
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
 			local node = use(selected)
 			if node and not restoring then
 				if belongsTo(node, root) then
@@ -1232,7 +1333,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 	local function construct<V, K>(
 		spec: CollectionTypes.CollectionSpec<V, K>,
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
-		tree: TreeTypes.Tree<V, K>?
+		tree: TreeTypes.Tree<V, K>?,
+		actionsWrapped: boolean?
 	): ScrollingFrame
 		if spec.key == nil then
 			return collection(spec, kind, function(value: V, _index: number): V
@@ -1252,7 +1354,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			(spec :: unknown) :: CollectionTypes.KeyedCollectionSpec<V, K>,
 			kind,
 			(key :: unknown) :: (V, number) -> K,
-			tree
+			tree,
+			actionsWrapped
 		)
 	end
 	local function list<V, K>(spec: CollectionTypes.CollectionSpec<V, K>): ScrollingFrame
@@ -1268,7 +1371,11 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 	end) :: CollectionTypes.OutlineConstructor
 	UI.VirtualList = ctx.construct("VirtualList", list) :: CollectionTypes.CollectionConstructor
 	UI.VirtualGrid = ctx.construct("VirtualGrid", grid) :: CollectionTypes.CollectionConstructor
-	return function<V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>, tree: TreeTypes.Tree<V, K>?): ScrollingFrame
-		return construct(spec, "list", tree)
+	return function<V, K>(
+		spec: CollectionTypes.KeyedCollectionSpec<V, K>,
+		tree: TreeTypes.Tree<V, K>?,
+		actionsWrapped: boolean?
+	): ScrollingFrame
+		return construct(spec, "list", tree, actionsWrapped)
 	end
 end

@@ -199,6 +199,47 @@ t.describe("shared drop sessions", function()
 		w.stop()
 	end)
 
+	t.it("can hide status labels without changing validation or armed input instructions", function()
+		local w = fixture()
+		local legal, completion = true, nil
+		w.register(w.target, {
+			operation = "apply",
+			label = "Canvas",
+			accepts = function()
+				return legal, "Wrong kind"
+			end,
+			onDrop = function(_, info)
+				completion = info.complete
+				return "pending"
+			end,
+		})
+		w.hits({ w.target })
+		w.begin({ payload = "card", statusLabels = false })
+		local label = w.screen:FindFirstChild("DragStatusText", true)
+		w.move(20, 30)
+		t.expect(label.Parent.Visible).toBe(false)
+		t.expect(w.session.state:peek().accepted).toBe(true)
+		t.expect(w.target:FindFirstChild("FacetDropOutline").Enabled).toBe(true)
+		legal = false
+		w.move(20, 30)
+		t.expect(label.Parent.Visible).toBe(false)
+		t.expect(w.session.state:peek().accepted).toBe(false)
+		t.expect(w.target:FindFirstChild("FacetDropOutline").Enabled).toBe(false)
+		legal = true
+		w.move(20, 30)
+		w.session.commit(nil)
+		t.expect(label.Parent.Visible).toBe(false)
+		t.expect(w.session.state:peek().pending).toBe(true)
+		t.expect(completion(true)).toBe(true)
+		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
+		w.session.begin(w.source, { payload = "card", statusLabels = false }, "armed", nil, false)
+		label = w.screen:FindFirstChild("DragStatusText", true)
+		t.expect(label.Parent.Visible).toBe(true)
+		t.expect(label.Text).toBe("A: drop · B: cancel")
+		w.session.finish(false)
+		w.stop()
+	end)
+
 	t.it("validates on hover and again at release without mutating on a rejected proposal", function()
 		local w = fixture()
 		local legal, commits, reason = true, 0, nil

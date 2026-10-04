@@ -4150,7 +4150,7 @@ t.describe("shared container editing", function()
 		stop()
 	end)
 
-	t.it("disables swipe overlays while editing embedded controls", function()
+	t.it("keeps swipe overlays off independently editable embedded controls", function()
 		local _, runtime, UI, target = setup()
 		local editing = Compose.cell(false)
 		local stop, list: any = runtime.mount(function()
@@ -4169,7 +4169,7 @@ t.describe("shared container editing", function()
 			return UI.VirtualList(props)
 		end, target)
 		local grip = list:FindFirstChild("SwipeGrip", true)
-		t.expect(grip.Visible).toBe(true)
+		t.expect(grip.Visible).toBe(false)
 		editing:set(true)
 		t.expect(grip.Visible).toBe(false)
 		stop()
@@ -4710,6 +4710,12 @@ t.describe("native collection detector taps", function()
 			input.InputBegan.fire(press)
 			card.InputBegan.fire(press)
 			local detector = card:FindFirstChild("FacetCollectionDrag")
+			input.PreferredInput = E.PreferredInput.Gamepad
+			t.expect(detector.Enabled).toBe(false)
+			input.PreferredInput = E.PreferredInput.Touch
+			t.expect(detector.Enabled).toBe(false)
+			input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(detector.Enabled).toBe(true)
 			detector.DragStart.fire(V2.new(20, 20))
 			detector.DragContinue.fire(V2.new(20, 140))
 			press.UserInputState = E.UserInputState.End
@@ -4727,6 +4733,172 @@ t.describe("native collection detector taps", function()
 			t.expect(selection:peek()).toEqual({ [2] = true })
 			stop()
 			runtime:dispose()
+		end
+	end)
+end)
+
+t.describe("independent cell editing", function()
+	t.it("keeps table field permissions separate from collection editing and rechecks changed records", function()
+		local engine, runtime, UI, target = setup({ userInputService = {} })
+		local rows = Compose.cell({ { id = 1, name = "Alpha", checked = false, locked = false } })
+		local editing, changes = Compose.cell(false), {}
+		local stop, node: any = runtime.mount(function()
+			local props: FixtureCollectionTypes.KeyedTableSpec<
+				{ id: number, name: string, checked: boolean, locked: boolean },
+				number
+			> =
+				{
+					from = rows,
+					key = "id",
+					editing = editing,
+					columns = {
+						{
+							id = "name",
+							editor = "text",
+							editLabel = "Edit title",
+							editable = function()
+								return false
+							end,
+						} :: FixtureCollectionTypes.TableColumn<any, any>,
+						{
+							id = "checked",
+							editor = "toggle",
+							editable = function(item)
+								return not item.locked
+							end,
+						} :: FixtureCollectionTypes.TableColumn<any, any>,
+					},
+					onCellChange = function(_: number, column: string, value: unknown)
+						table.insert(changes, { column = column, value = value })
+					end,
+				}
+			return UI.Table(props)
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 200)
+		local row = node:FindFirstChild("1", true)
+		local name = row:FindFirstChild("name", true)
+		local toggle = row:FindFirstChild("checked", true):FindFirstChild("Editor", true)
+		local edits = require("../src/ui/activation").edits(row)
+		t.expect(edits[1].label).toBe("Edit title")
+		t.expect(name:FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(false)
+		toggle.Activated.fire()
+		t.expect(#changes).toBe(1)
+		editing:set(true)
+		t.expect(name:FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(false)
+		rows:set({ { id = 1, name = "Alpha", checked = false, locked = true } })
+		toggle.Activated.fire()
+		t.expect(#changes).toBe(1)
+		editing:set(false)
+		toggle.Activated.fire()
+		t.expect(#changes).toBe(1)
+		stop()
+	end)
+
+	t.it("selects before mouse rename and exposes the same field action on nested outline rows", function()
+		for _, kind in { "VirtualList", "VirtualGrid", "Outline", "Table" } do
+			local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
+			local E = engine.types.Enum
+			local selected, editing, allowed = Compose.cell({}), Compose.cell(false), Compose.cell(true)
+			local values = Compose.cell("Child")
+			local stop, node: any = runtime.mount(function()
+				local render = function(_current, _placement, key)
+					local fieldEditing: FixtureComposeTypes.Cell<boolean> = if key == "parent"
+						then Compose.cell(false)
+						else editing
+					return UI.CellEditor {
+						editor = "text" :: "text",
+						value = values,
+						editing = fieldEditing,
+						enabled = allowed,
+						editLabel = "Edit title",
+						onChange = function(v: any)
+							values:set(v)
+						end,
+					}
+				end
+				local spec: any = {
+					from = { { id = "child" } },
+					key = "id",
+					selection = selected,
+					selectionMode = "multiple",
+					render = render,
+					mode = "all",
+				}
+				if kind == "Outline" then
+					spec.from = { { id = "parent", children = { { id = "child" } } } }
+					spec.children, spec.expanded = "children", Compose.cell({ parent = true })
+				elseif kind == "Table" then
+					spec.render = nil
+					spec.columns = { { id = "name", render = render } }
+				end
+				return UI[kind](spec)
+			end, target)
+			local body = if kind == "Table" then node:FindFirstChild("Body") else node
+			body.AbsoluteSize = engine.types.Vector2.new(400, 300)
+			body.AbsoluteWindowSize = engine.types.Vector2.new(400, 300)
+			local row = node:FindFirstChild("child", true)
+			local actionButtons = 0
+			for _, child in row:GetDescendants() do
+				if child.Name == "CellActions" then
+					actionButtons += 1
+				end
+			end
+			t.expect(actionButtons).toBe(1)
+			local hit = row:FindFirstChild("EditLabel", true)
+			local function click(inputType)
+				hit.Activated.fire({ UserInputType = inputType })
+			end
+			click(E.UserInputType.MouseButton1)
+			t.expect(selected:peek()).toEqual({ child = true })
+			t.expect(editing:peek()).toBe(false)
+			click(E.UserInputType.Touch)
+			t.expect(editing:peek()).toBe(false)
+			click(E.UserInputType.MouseButton1)
+			t.expect(editing:peek()).toBe(true)
+			editing:set(false)
+			assert(ctx.config.userInputService).IsKeyDown = function(_, code)
+				return code == E.KeyCode.LeftControl
+			end
+			click(E.UserInputType.MouseButton1)
+			t.expect(editing:peek()).toBe(false)
+			assert(ctx.config.userInputService).IsKeyDown = function()
+				return false
+			end
+			selected:set({ child = true })
+			gui.SelectedObject = row:FindFirstChild("RowHit", true)
+			local rename = target:FindFirstChild("RenameCell", true)
+			t.expect(rename.Parent.Enabled).toBe(true)
+			rename.Pressed.fire()
+			t.expect(editing:peek()).toBe(true)
+			editing:set(false)
+			local edits = require("../src/ui/activation").edits(row)
+			t.expect(edits[1].label).toBe("Edit title")
+			edits[1].onActivate()
+			t.expect(editing:peek()).toBe(true)
+			editing:set(false)
+			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Gamepad
+			gui.SelectedObject = row:FindFirstChild("RowHit", true)
+			edits[1].onActivate()
+			local field = row:FindFirstChildWhichIsA("TextBox", true)
+			t.expect(gui.SelectedObject).toBe(field)
+			field.FocusLost.fire(false, { KeyCode = E.KeyCode.ButtonB })
+			t.expect(editing:peek()).toBe(false)
+			t.expect(gui.SelectedObject).toBe(row:FindFirstChild("RowHit", true))
+			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
+			edits[1].onActivate()
+			t.expect(gui.SelectedObject).toBe(field)
+			field.FocusLost.fire(false, { KeyCode = E.KeyCode.ButtonB })
+			t.expect(gui.SelectedObject).toBe(row:FindFirstChild("RowHit", true))
+			allowed:set(false)
+			edits[1].onActivate()
+			t.expect(editing:peek()).toBe(false)
+			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
+			t.expect(row:FindFirstChild("CellActions", true).Visible).toBe(true)
+			t.expect(row:FindFirstChild("SwipeGrip", true).Visible).toBe(false)
+			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(row:FindFirstChild("CellActions", true).Visible).toBe(false)
+			stop()
 		end
 	end)
 end)

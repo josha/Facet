@@ -16,7 +16,7 @@ local function Screen(): Frame
 	print(down.target, down.rule)
 	local responder = UI.responder(list, { passive = true, gameplayGuard = false, traversalWrap = false })
 	responder.engage()
-	local drag: Facet.DraggableSpec = { payload = "card", armOnTap = true }
+	local drag: Facet.DraggableSpec = { payload = "card", armOnTap = true, statusLabels = false }
 	UI.draggable(list, drag)
 	local drop: Facet.DropTargetSpec = {
 		onDrop = function(payload: any, info: Facet.DropInfo)
