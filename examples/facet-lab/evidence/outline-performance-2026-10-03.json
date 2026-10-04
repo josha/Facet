@@ -2,7 +2,7 @@
   "date": "2026-10-03",
   "scope": "Outline layout, branch animation, scrolling, and collection drag/drop performance",
   "environment": {
-    "runtime": "Roblox Studio on developer Mac",
+    "runtime": "Roblox Studio on development desktop",
     "devices": "Desktop hardware only; narrow layouts are viewport emulation, not CPU throttling",
     "themes": [
       "Foundation",
