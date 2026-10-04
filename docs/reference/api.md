@@ -3189,8 +3189,9 @@ continues over the scrollbar gutter to align the outside edges. Resize
 requests use layout pixels even when an ancestor scales the table.
 
 Editable cells. A column with `editor = "text"`, `"number"`, `"toggle"` or
-`"menu"` shows a TextInput, a NumberInput, a plain checkbox Toggle or a menu
-Picker in each cell. The column `value(item)`, or the field named by `id`, is the
+`"menu"` supplies a text value, a number value, a plain checkbox Toggle or a menu
+Picker in each cell. Text and number values appear as labels until the user
+starts editing that field. The column `value(item)`, or the field named by `id`, is the
 raw value: a string, a number, a boolean or the value of a menu option. `options`
 (`{ { value, label } }`) configures a menu. `min`, `max` and `step` configure a
 number. Each accepted edit calls the `onCellChange(rowKey, columnId, value)` of
@@ -3200,8 +3201,11 @@ nothing. Table uses the same `CellEditor` as custom list and grid cells.
 A rejected edit keeps the draft and shows an error. Supply `draft(key)` on a
 text or number column to keep its draft outside recycled cells, and
 `validate(value)` to return an error message or nil. Without a supplied draft,
-the draft lasts only as long as the mounted cell. Explicit `editing` controls
-whether the editor is enabled on every input device. Native Return or blur
+the draft lasts only as long as the mounted cell. A column can supply
+`editable(item)` to permit or lock that field for each record. It defaults to
+true. A disabled row blocks every field. Collection `editing` controls the
+collection interaction mode; it does not change field permissions. Use
+`editLabel` on the column to name its edit action. Native Return or blur
 commits; Escape or B cancels to the latest model value. Unmounting never commits.
 An editor with `render`, an unknown editor word, a menu without
 `options`, editor settings on a column without `editor`, and an editor column
@@ -3238,6 +3242,25 @@ menu and `min`, `max`, `step` for a number. `label` names a text field or toggle
 `enabled = false` or `busy = true` prevents proposals. Set `busy` while the model
 validates an asynchronous request, then update `value` on acceptance. The model
 remains authoritative; Facet does not mutate a record.
+
+Text and number cells begin as labels. With a mouse, click once to select a
+row, then click its value to edit it. Modifier-click keeps the collection's
+selection behavior. F2 edits one selected or focused item. Touch and gamepad
+show an item-actions button. Gamepad X opens the same menu. These actions are
+provided by Facet in lists, grids, tables and outlines, including nested rows.
+Use `editLabel` to set the action text (default `Edit value`; built-in table columns use `Edit` and the
+column label). A row with several editable fields should give each action a
+distinct name. Checkboxes and pickers change their values directly when enabled.
+
+`enabled` is the field permission and `busy` blocks edits while a request is
+pending. Neither depends on collection `editing`. For text and number cells,
+optional `editing = Compose.cell(false)` controls whether that individual field
+is open for input. Keep it outside a virtual row if that state must survive
+recycling. It does not grant permission. Without it, the cell owns this state.
+Idle labels participate in row selection and do not add a text-field focus stop.
+During an edit, Roblox owns text input, the on-screen keyboard and selection.
+Return or blur commits; Escape or B cancels. The row remains the navigation
+context after the field closes. Active fields keep validation errors available.
 
 `draft` is an optional writable cell containing nil or
 `{ text: string, original: unknown, error: string? }`. It is valid only for text
@@ -4213,6 +4236,9 @@ UI.dropTarget(slot, {
 - `enabled`: a boolean or a readable. While false the source cannot be picked
   up, and it stays selectable and activatable.
 - `armOnTap`: a touch tap picks the source up (above). Default `false`.
+- `statusLabels`: show operation, rejection and pending text. Default `true`.
+  Set `false` to hide these labels. Armed input instructions remain visible.
+  Collection sources set this in the spec returned by `drag(items, keys)`.
 
 The source also accepts `operations = { "copy", "move", "apply" }`, a
 `valid()` predicate, `onStart(payload, mode)`, and `onEnd(accepted, reason)`.
@@ -4231,9 +4257,11 @@ Failed drops return the preview to
 the source with a theme-timed native tween. Accepted drops shrink the preview at the drop position. Both use native TweenService and skip animation under reduced motion.
 Only accepted destinations show the native drop highlight; source-only
 collections show no insertion marker.
-A shared status label shows Move, Copy, or Apply for an accepted target, the
+A shared status label shows Copy or Apply for an accepted target, the
 rejection reason for a rejected target, and Waiting for confirmation for a pending
-drop. The label uses native text layout and theme paint. Pending drops keep their
+drop. Ordinary pointer moves omit Move; armed input retains it. `statusLabels = false`
+hides this text without changing validation, highlights or animations.
+The label uses native text layout and theme paint. Pending drops keep their
 preview and block a second commit until completion or cancellation.
 
 During a grid reorder, arrows and D-pad move the insertion point in both axes.
@@ -4247,6 +4275,8 @@ B cancels. The status label shows these controller commands.
 
 
 `dropTarget` spec:
+
+- `label`: optional destination name shown with the accepted operation.
 
 - `operation`: `"move"` by default; also accepts `"copy"`, `"apply"`, or a
   readable value. An explicit source operation list must include it.
@@ -4289,15 +4319,29 @@ input continues a drag only after its visual source is recycled. Touch uses
 native long-press recognition and captured touch continuation so an ordinary
 pan remains available to the ScrollingFrame. Edit handles use native detectors.
 
-All three data containers accept `collectionId`, `drag(items, keys)`, and `drop`.
+Lists, grids, outlines, and tables accept `collectionId`, `drag(items, keys)`,
+`drop`, and `rowDrop(current, key)`.
 `drag` returns a draggable spec; `drop` uses the target spec above. Use the same
 `collectionId` in linked views and carry `{ collection, keys, items }` in the
-payload. A same-collection drop calls `onReorder` once. Other accepted drops
+payload. A move of items present in the destination view calls `onReorder` once. Other accepted drops
 call `drop.onDrop` with insertion metadata. The game creates IDs for copies and
 new records, preserves IDs for moves, and updates both models together.
-Sorted views reject positional insertion until sorting is cleared. Item apply
-wells can use `UI.dropTarget` in `render`, with explicit pass-through for file
-payloads that should insert into the containing collection.
+Sorted views reject positional insertion until sorting is cleared.
+
+`rowDrop(current, key)` returns a drop target spec, or nil for no destination.
+Facet owns its lifetime, row highlight, and native focus target. In a collection
+that accepts insertion, the middle half of a row accepts a drop onto the item;
+the leading and trailing quarters route to collection insertion. Grids use
+horizontal cell edges. Armed touch and gamepad drops target the whole row.
+`passThrough` routes payloads that belong in the collection instead of the item.
+Disabled rows reject item drops. The model still validates folder cycles and
+permissions in `accepts` and applies moves in `onDrop`.
+
+A collapsed folder can accept an item without opening. During an armed drag,
+use Y to choose a destination, then Right/Left to expand or collapse an outline
+folder. A drops into the focused folder; B cancels. Sibling insertion stays on
+the collection's reorder path. Use `UI.dropTarget` in a cell renderer only for
+a separate destination within the cell, such as a color well.
 
 `UI.focusSection(group, { focusOnAppear?, returnFocus? })` also says where the
 selection goes when a branch appears and leaves. Call it in the component that

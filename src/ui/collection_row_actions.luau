@@ -42,6 +42,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local trailing: Types.Value<{ RowAction }> = spec.trailing or {}
 		local content = if type(spec.content) == "function" then spec.content() else spec.content
 		assert(typeof(content) == "Instance" or type(content) == "table", "Facet.RowActions requires content")
+		local cellEdits = activation.edits(content)
 		local open: ComposeTypes.Cell<RowEdge?> = spec.open or Compose.cell(nil :: RowEdge?)
 		local menuOpen = Compose.cell(false)
 		local drag: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
@@ -457,6 +458,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local function touchFirst(use: ComposeTypes.Use?): boolean
 			return preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Touch
 		end
+		local function actionWidth(use: ComposeTypes.Use): number
+			return if #cellEdits > 0
+					and preferred
+					and use(preferred) ~= E.PreferredInput.KeyboardAndMouse
+				then math.max(44, ctx.controlSize(nil, "height", use))
+				else 0
+		end
 		local panned = false
 		local stopPan: (() -> ())? = nil
 		local function settlePan(): ()
@@ -523,7 +531,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		local function swipeable(use: ComposeTypes.Use): boolean
-			return use(committing) == nil
+			return #cellEdits == 0
+				and use(committing) == nil
 				and read(spec.editing, use) ~= true
 				and read(spec.swipeEnabled, use) ~= false
 				and read(spec.enabled, use) ~= false
@@ -585,7 +594,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			tray("trailing"),
 			Host.Frame "Content" {
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(1, if read(spec.editing, use) then -use(editWidth) else 0, 1, 0)
+					return D2.new(1, (if read(spec.editing, use) then -use(editWidth) else 0) - actionWidth(use), 1, 0)
 				end,
 				BackgroundTransparency = 1,
 				Position = function(use: ComposeTypes.Use)
@@ -682,6 +691,30 @@ return function(ctx: Types.Context, UI: Controls): ()
 				},
 			},
 		}))
+		if #cellEdits > 0 then
+			runtime.mount(function()
+				return UI.Button {
+					Name = "CellActions",
+					icon = "more",
+					label = "",
+					name = "Item actions",
+					appearance = "plain",
+					AnchorPoint = V2.new(1, 0.5),
+					Position = D2.fromScale(1, 0.5),
+					Size = function(use)
+						return D2.fromOffset(actionWidth(use), actionWidth(use))
+					end,
+					Visible = function(use)
+						return actionWidth(use) > 0
+					end,
+					enabled = spec.enabled,
+					onActivate = function()
+						reveal()
+					end,
+					ZIndex = 5,
+				}
+			end, root)
+		end
 		contentFrame = assert(root:FindFirstChild("Content")) :: Frame
 		local grip = assert(contentFrame:FindFirstChild("SwipeGrip"))
 		runtime.connect(grip, "TouchPan", pan)
@@ -767,7 +800,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Compose.cleanup(release)
 		end
 		runtime.connect(root, "TouchLongPress", function(_: { Vector2 }, state: Enum.UserInputState)
-			if state == E.UserInputState.Begin then
+			if state == E.UserInputState.Begin and #cellEdits == 0 then
 				reveal()
 			end
 		end)
@@ -792,7 +825,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			{ E.KeyCode.ButtonX, E.KeyCode.Menu },
 			eligible,
 			reveal,
-			{ priority = 300 }
+			{ priority = 450 }
 		)
 		ctx.action(root, "RowActionsClose", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
 			return eligible(use) and (readSource(open, use) ~= nil or use(menuOpen))

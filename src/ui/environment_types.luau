@@ -82,12 +82,14 @@ export type DraggableSpec = {
 	payload: unknown,
 	enabled: Types.ValueBoolean?,
 	armOnTap: boolean?,
+	statusLabels: boolean?,
 	operations: { DropOperation }?,
 	valid: (() -> boolean)?,
 	onStart: ((payload: any, mode: "pointer" | "armed") -> ())?,
 	onEnd: ((accepted: boolean, reason: string?) -> ())?,
 }
 export type DropTargetSpec = {
+	label: Types.ValueString?,
 	onDrop: ((payload: any, info: DropInfo) -> ()) | ((payload: any, info: DropInfo) -> boolean | "pending"),
 	operation: Types.Value<DropOperation>?,
 	passThrough: ((payload: any) -> boolean)?,

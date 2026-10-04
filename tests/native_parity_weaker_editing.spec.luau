@@ -194,7 +194,7 @@ t.describe("native parity weaker editing", function()
 		world.stop()
 	end)
 
-	t.it("walks a table's editable cells with Tab in row order after the rows scroll and recycle", function()
+	t.it("walks a table's idle editable rows with Tab in row order after the rows scroll and recycle", function()
 		local rows = {}
 		for index = 1, 30 do
 			rows[index] = { id = index, name = `Row {index}` }
@@ -228,7 +228,7 @@ t.describe("native parity weaker editing", function()
 		end
 		local editors = {}
 		for _, node in body:GetDescendants() do
-			if node:IsA("TextBox") and rowOf(node) then
+			if node.Name == "RowHit" and rowOf(node) then
 				table.insert(editors, node)
 			end
 		end
@@ -241,7 +241,7 @@ t.describe("native parity weaker editing", function()
 		for _ = 1, 40 do
 			deliver(world.root, E.KeyCode.Tab)
 			local current = world.gui.SelectedObject
-			if current and current:IsA("TextBox") and rowOf(current) then
+			if current and current.Name == "RowHit" and rowOf(current) then
 				if current == editors[1] then
 					break
 				end

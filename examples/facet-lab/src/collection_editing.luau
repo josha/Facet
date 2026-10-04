@@ -32,7 +32,7 @@ return function(c: any, kind: string)
 		return use(env.effectiveInput) ~= "KeyboardAndMouse"
 	end
 	local function editable(use)
-		return use(enabled) and (not coarse(use) or use(editing))
+		return use(enabled)
 	end
 	local function save(nextRows)
 		if not enabled:peek() then
@@ -106,6 +106,7 @@ return function(c: any, kind: string)
 			},
 			UI.CellEditor {
 				Name = "Rename",
+				editLabel = "Rename",
 				editor = "text",
 				label = if kind == "Outline" then nil else "Name",
 				enabled = editable,
@@ -218,14 +219,14 @@ return function(c: any, kind: string)
 		UI.Text {
 			text = function(use)
 				return if use(env.effectiveInput) == "Gamepad"
-					then "A selects an item. Choose Edit to select a group or rename. On a move handle, A picks up, D-pad moves, A drops and B cancels."
+					then "A selects an item. X opens item actions to rename; Edit selects a group. On a move handle, A picks up, D-pad moves, A drops and B cancels."
 					elseif
 						coarse(use)
-					then "Tap an item to select it. Choose Edit to select a group or rename items. Drag the handles to reorder."
+					then "Tap an item to select it. The … menu lets you rename; Edit selects a group. Drag the handles to reorder."
 					elseif
 						kind == "Outline"
-					then "Edit names directly. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a row beside its name to reorder siblings."
-					else "Edit names directly. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a preview to reorder."
+					then "Click a selected name or press F2 to rename. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a row to reorder siblings."
+					else "Click a selected name or press F2 to rename. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a preview to reorder."
 			end,
 			wrap = true,
 			Size = D2.fromScale(1, 0),

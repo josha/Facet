@@ -216,7 +216,7 @@ t.describe("native gallery collections", function()
 		t.expect(built.report().surfaces.list.read.m1).toBe(false)
 		t.expect(find(find(body, "m1"), "Unread").Visible).toBe(false)
 		t.expect(find(find(body, "m2"), "Subject").Text).toBe("Order confirmed")
-		t.expect(find(find(body, "m1"), "Move").Visible).toBe(false)
+		t.expect(find(find(body, "m1"), "Move")).toBeNil()
 		t.expect(find(page, "Edit")).toBeNil()
 		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		find(page, "Edit").Activated.fire()
@@ -507,7 +507,7 @@ t.describe("file library workbench", function()
 		end
 		error("Missing file " .. tostring(key))
 	end
-	t.it("edits desktop cells directly and uses Edit on coarse inputs with one permission toggle", function()
+	t.it("keeps field permission independent of coarse selection mode with one demo permission toggle", function()
 		local built, node, stop, engine, world = mount("collection_workbench")
 		for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
 			world.input.PreferredInput = (engine.types.Enum.PreferredInput :: any)[input]
@@ -519,8 +519,7 @@ t.describe("file library workbench", function()
 				local coarse = input ~= "KeyboardAndMouse"
 				t.expect(find(node, "Edit").Visible).toBe(coarse)
 				t.expect(find(collection, "Rename") ~= nil).toBe(true)
-				t.expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable)
-					.toBe(not coarse)
+				t.expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(true)
 				if coarse then
 					find(node, "Edit").Activated.fire()
 					t.expect(find(collection, "Rename") ~= nil).toBe(true)

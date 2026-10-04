@@ -77,6 +77,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 		"collectionId",
 		"drag",
 		"drop",
+		"rowDrop",
 		"onReorder",
 		"movable",
 		"selectable",
@@ -133,6 +134,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 		local body: ScrollingFrame
 		local unitScale = Compose.cell(1)
 		local rowMeasures: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
+		local actionGutters: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
 		local headerMeasures: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local truncatedRows: ComposeTypes.Cell<{ [K]: { [string]: boolean } }> = Compose.cell({})
 		local input = ctx.config.userInputService
@@ -179,11 +181,6 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				then math.max(ctx.controlSize(nil, "height", use), 44) + ctx.metric("space.s", use)
 				else 0
 		end)
-		local cellsLive = function(use: ComposeTypes.Use): boolean
-			return if spec.editing ~= nil
-				then read(editing, use) == true
-				else not toolbarShown(use) or read(editing, use) == true
-		end
 		local headerHeight = Compose.formula(function(use: ComposeTypes.Use)
 			if spec.header == false then
 				return 0
@@ -598,7 +595,11 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 			return if editor then use(editor.leading) else 0
 		end
 		local function trailingGutter(use: ComposeTypes.Use): number
-			return if editor then use(editor.trailing) else 0
+			local gutter = 0
+			for _, width in use(actionGutters) do
+				gutter = math.max(gutter, width)
+			end
+			return (if editor then use(editor.trailing) else 0) + gutter
 		end
 		local window = Compose.cell(V2.zero)
 		local scrolledX = Compose.cell(0)
@@ -668,6 +669,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 			onReachEnd = spec.onReachEnd,
 			selectionFrom = spec.selectionFrom or (if tree then tree.all else nil),
 			selectionIndicator = false,
+			rowDrop = spec.rowDrop,
 			disabled = spec.disabled,
 			measure = spec.measure,
 			measured = function(use: ComposeTypes.Use)
@@ -709,6 +711,9 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				local cellHeights: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 				local truncated: ComposeTypes.Cell<{ [string]: boolean }> = Compose.cell({})
 				Compose.cleanup(function()
+					if truncatedRows:peek()[key] == nil then
+						return
+					end
 					local rows = table.clone(truncatedRows:peek())
 					rows[key] = nil
 					truncatedRows:set(rows)
@@ -752,9 +757,16 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 							local definition = column:peek()
 							local render: CollectionTypes.RowRender<V, K>? = definition.render
 								or if definition.editor
-									then editors.render(definition, function(item: V): unknown
-										return field(item, definition)
-									end, assert(spec.onCellChange), cellsLive)
+									then editors.render(
+										definition,
+										function(item: V): unknown
+											return field(item, definition)
+										end,
+										assert(spec.onCellChange),
+										function(use: ComposeTypes.Use): boolean
+											return not policy.disabled(spec.disabled, use(current))
+										end
+									)
 									else nil
 							local function valueText(use: ComposeTypes.Use): string
 								local result = field(use(current), use(column))
@@ -806,7 +818,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 									return if touchRows(use) then words(use) else valueText(use)
 								end, true, touchRows)
 							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
-							local custom = definition.render
+							local custom = render
 							local content: GuiObject = if custom
 								then ctx.styled(
 									Host.Frame "Inset" {
@@ -877,7 +889,11 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 										end
 										truncated:set(cells)
 										local rows = table.clone(truncatedRows:peek())
-										rows[key] = cells
+										if next(cells) then
+											rows[key] = cells
+										else
+											rows[key] = nil
+										end
 										truncatedRows:set(rows)
 									end
 								end)
@@ -988,6 +1004,24 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				row = Host.Frame(rowProps)
 				local disclosing = row
 				row = policy.actions(ctx, spec, current, key, row, UI.RowActions, coordinator) :: Frame
+				local actionButton = row:FindFirstChild("CellActions")
+				if actionButton and actionButton:IsA("GuiObject") then
+					local visible = ctx.observe.Visible(actionButton)
+					local size = ctx.observe.AbsoluteSize(actionButton)
+					Compose.watch(function(use: ComposeTypes.Use)
+						local width = if use(visible) then use(size).X / use(unitScale) else 0
+						if actionGutters:peek()[key] ~= width then
+							local gutters = table.clone(actionGutters:peek())
+							gutters[key] = width
+							actionGutters:set(gutters)
+						end
+					end)
+					Compose.cleanup(function()
+						local gutters = table.clone(actionGutters:peek())
+						gutters[key] = nil
+						actionGutters:set(gutters)
+					end)
+				end
 				if editor then
 					row = editor.wrap(row, current, key, true)
 				end
@@ -1023,7 +1057,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				return row
 			end,
 		}
-		body = buildList(bodySpec, tree)
+		body = buildList(bodySpec, tree, true)
 		local unit = Host.Frame({
 			Name = "LayoutUnit",
 			Size = D2.fromOffset(1, 1),

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Field editing is independent of collection edit mode. Table columns accept `editable(item)`; custom cells use `CellEditor.enabled`. Text and number cells appear as labels until editing starts. Shared item actions, F2 and selected-name mouse clicks open the field, with configurable `editLabel` text. Touch and gamepad show an item-actions button; gamepad X opens the same menu. Built-in table editors use the same native inset and alignment as custom cells. Action menus appear once per row and reserve column space. Active fields stay visible and return focus to their row. Pointer drag detectors yield to gamepad navigation.
+- Collection insertion shows its insertion marker without a redundant outline around the entire scroller. The Outline Lab expanded preset has independent state, and row-drop examples visibly copy a lap count.
+
+- Drag sources can set `statusLabels = false` to hide operation, rejection and pending labels. Armed input instructions, drop validation, highlights and animations remain available.
+
+- Lists, grids, outlines and tables share `rowDrop(current, key)` for item destinations. Row edges retain insertion, while the row center accepts an item drop. Folder transfers between linked views reach the model; gamepad users can open outline branches while choosing a destination. Native drag detectors use the final release position for quick drags.
+- Collections construct move controls only when needed and avoid redundant focus subscriptions and table truncation updates. Drag feedback stays above stacked previews. Ordinary mouse and touch moves omit the redundant Move badge; copy, apply, rejection, pending completion and armed input instructions remain visible.
+
 - Outline reveals branch rows progressively so expansion keeps the mounted row count bounded. Collections cache measurements between changes, and linear keyboard/gamepad focus no longer rebuilds pixel positions during layout. Leaf rows reserve indentation without constructing hidden disclosure buttons. Drag insertion searches measured positions and caches item order instead of scanning every item on each pointer update; model changes invalidate the cache and drops still validate current items.
 
 - Vertical collection rows use flat theme highlights and compact inline editors. Disclosure buttons retain their authored square size. Custom table cells align vertically; pointer fields stay compact while touch and gamepad targets grow. The Outline Lab uses a focused hierarchy playground and a two-column editing example. Files uses compact horizontal list/table cells and a flexible filename column.

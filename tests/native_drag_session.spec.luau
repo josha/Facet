@@ -112,6 +112,30 @@ t.describe("shared drop sessions", function()
 		end
 	end)
 
+	t.it("keeps drag status above custom previews and layered collection cards", function()
+		local w = fixture()
+		local paint = w.engine.new("Frame")
+		paint.ZIndex, paint.Parent = 3000, w.source
+		w.session.begin(w.source, { payload = "card" }, "pointer", nil, nil)
+		local panel = w.screen:FindFirstChild("DragStatus")
+		local label = panel:FindFirstChild("DragStatusText")
+		t.expect(panel.ZIndex > paint.ZIndex).toBe(true)
+		t.expect(label.ZIndex > panel.ZIndex).toBe(true)
+		local body, image = w.engine.new("ScrollingFrame"), w.engine.new("Frame")
+		body.Parent = w.screen
+		image.Size = w.engine.types.UDim2.fromOffset(120, 160)
+		local stack = w.engine.new("Frame")
+		stack.ZIndex, stack.Parent = 5000, image
+		local icon = w.engine.new("Path2D")
+		icon.ZIndex, icon.Parent = 5010, stack
+		w.session.preview(image, body)
+		t.expect(panel.ZIndex > icon.ZIndex).toBe(true)
+		t.expect(label.ZIndex > panel.ZIndex).toBe(true)
+		w.session.finish(false)
+		t.expect(w.screen:FindFirstChild("DragStatus")).toBeNil()
+		w.stop()
+	end)
+
 	t.it("keeps an armed preview visible and updates controller hints from owned native input observations", function()
 		local w = fixture()
 		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
@@ -122,6 +146,7 @@ t.describe("shared drop sessions", function()
 		t.expect(ghost ~= nil).toBe(true)
 		t.expect(ghost.Interactable).toBe(false)
 		t.expect(string.find(text.Text, "A: drop", 1, true) ~= nil).toBe(true)
+		t.expect(text.Parent.Visible).toBe(true)
 		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.KeyboardAndMouse
 		w.engine.heartbeat.fire(1 / 60)
 		t.expect(string.find(text.Text, "Enter: drop", 1, true) ~= nil).toBe(true)
@@ -152,21 +177,66 @@ t.describe("shared drop sessions", function()
 			operation:set(kind)
 			w.move(20, 30)
 			t.expect(label.Text).toBe(string.upper(string.sub(kind, 1, 1)) .. string.sub(kind, 2))
+			t.expect(label.Parent.Visible).toBe(kind ~= "move")
 		end
 		legal = false
 		w.move(20, 30)
 		t.expect(label.Text).toBe("This item is locked")
+		t.expect(label.Parent.Visible).toBe(true)
 		t.expect(w.target:FindFirstChild("FacetDropOutline").Enabled).toBe(false)
 		legal = true
+		operation:set("move")
 		w.move(20, 30)
 		w.session.commit(nil)
 		t.expect(label.Text).toBe("Waiting for confirmation…")
+		t.expect(label.Parent.Visible).toBe(true)
 		t.expect(w.session.state:peek().pending).toBe(true)
 		w.session.commit(nil)
 		t.expect(count).toBe(1)
 		w.session.finish(false, "Cancelled")
 		t.expect(completion(true)).toBe(false)
 		t.expect(w.screen:FindFirstChild("DragStatus")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("can hide status labels without changing validation or armed input instructions", function()
+		local w = fixture()
+		local legal, completion = true, nil
+		w.register(w.target, {
+			operation = "apply",
+			label = "Canvas",
+			accepts = function()
+				return legal, "Wrong kind"
+			end,
+			onDrop = function(_, info)
+				completion = info.complete
+				return "pending"
+			end,
+		})
+		w.hits({ w.target })
+		w.begin({ payload = "card", statusLabels = false })
+		local label = w.screen:FindFirstChild("DragStatusText", true)
+		w.move(20, 30)
+		t.expect(label.Parent.Visible).toBe(false)
+		t.expect(w.session.state:peek().accepted).toBe(true)
+		t.expect(w.target:FindFirstChild("FacetDropOutline").Enabled).toBe(true)
+		legal = false
+		w.move(20, 30)
+		t.expect(label.Parent.Visible).toBe(false)
+		t.expect(w.session.state:peek().accepted).toBe(false)
+		t.expect(w.target:FindFirstChild("FacetDropOutline").Enabled).toBe(false)
+		legal = true
+		w.move(20, 30)
+		w.session.commit(nil)
+		t.expect(label.Parent.Visible).toBe(false)
+		t.expect(w.session.state:peek().pending).toBe(true)
+		t.expect(completion(true)).toBe(true)
+		w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
+		w.session.begin(w.source, { payload = "card", statusLabels = false }, "armed", nil, false)
+		label = w.screen:FindFirstChild("DragStatusText", true)
+		t.expect(label.Parent.Visible).toBe(true)
+		t.expect(label.Text).toBe("A: drop · B: cancel")
+		w.session.finish(false)
 		w.stop()
 	end)
 

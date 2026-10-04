@@ -1,6 +1,28 @@
 --!strict
 local activation = {}
 
+local editors = setmetatable({} :: { [Instance]: any }, { __mode = "k" })
+
+function activation.provideEdit(node: Instance, action: any): () -> ()
+	editors[node] = action
+	return function()
+		editors[node] = nil
+	end
+end
+
+function activation.edits(root: Instance): { any }
+	local result = {}
+	if editors[root] then
+		table.insert(result, editors[root])
+	end
+	for _, node in root:GetDescendants() do
+		if editors[node] then
+			table.insert(result, editors[node])
+		end
+	end
+	return result
+end
+
 type Listener = (...unknown) -> ()
 
 local owned = setmetatable({} :: { [Instance]: { Listener } }, { __mode = "k" })

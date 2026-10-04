@@ -21,7 +21,7 @@ return {
 			return use(env.effectiveInput) ~= "KeyboardAndMouse"
 		end
 		local function editable(use)
-			return use(editingEnabled) and (not coarse(use) or use(editing))
+			return use(editingEnabled)
 		end
 		local function choosing(use)
 			return use(editingEnabled) and coarse(use) and use(editing)
@@ -586,6 +586,7 @@ return {
 			}
 			local editor = UI.CellEditor {
 				Name = "Rename",
+				editLabel = "Rename",
 				editor = "text",
 				value = value(current, "name"),
 				enabled = editable,
@@ -643,11 +644,15 @@ return {
 				if icon then editor else kind,
 				label,
 			}
+			return node
+		end
+		local function rowDrop(current, key)
 			local folderDrop = receive("library", key)
 			local function isFolder()
 				return current:peek().kind == "Folder"
 			end
-			UI.dropTarget(node, {
+			return {
+				label = value(current, "name"),
 				operation = function(use)
 					return if use(current).kind == "Folder" then use(operation) else "apply"
 				end,
@@ -674,8 +679,7 @@ return {
 					)
 					return true
 				end,
-			})
-			return node
+			}
 		end
 
 		local function view(kind, id, folder)
@@ -689,6 +693,7 @@ return {
 					return dragFiles(items, keys, "library")
 				end,
 				drop = receive("library", folder),
+				rowDrop = rowDrop,
 				from = source,
 				key = "id",
 				selection = selection,
@@ -971,14 +976,14 @@ return {
 							return use(message)
 						end
 						if coarse(use) and use(editing) then
-							return "Change a file name, then press Enter or leave the field to save. Choose Done to finish."
+							return "Select files for group actions. Choose Rename for one file; Enter saves and Escape cancels."
 						end
 						return if use(env.effectiveInput) == "Gamepad"
-							then "A opens folders; B goes back. Left/Right expands lists. Choose Edit to select or rename items; use a move handle to drag."
+							then "A opens folders; B goes back. Left/Right expands lists. X opens item actions to rename. Edit selects a group; use a move handle to drag."
 							elseif
 								coarse(use)
-							then "Tap a folder to open it. Use Back to leave it. Choose Edit to select several items or rename them."
-							else "Double-click a folder to open it. Arrows expand lists; Back leaves a folder. Command/Ctrl-click adds to selection; Shift-click selects a range."
+							then "Tap a folder to open it. Use Back to leave it. Use the item’s … menu to rename. Edit selects several items."
+							else "Double-click a folder to open it. Click a selected name or press F2 to rename. Command/Ctrl-click adds to selection; Shift-click selects a range."
 					end,
 					Visible = function(use)
 						return not short(use)
