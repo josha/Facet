@@ -50,6 +50,7 @@ export type Controls = {
 	PageView: typeof(((nil :: unknown) :: Navigation.NavigationControls).PageView),
 	TabView: typeof(((nil :: unknown) :: Navigation.NavigationControls).TabView),
 	VirtualList: typeof(((nil :: unknown) :: Collections.CollectionControls).VirtualList),
+	Outline: typeof(((nil :: unknown) :: Collections.CollectionControls).Outline),
 	VirtualGrid: typeof(((nil :: unknown) :: Collections.CollectionControls).VirtualGrid),
 	CellEditor: typeof(((nil :: unknown) :: Collections.CollectionControls).CellEditor),
 	Table: typeof(((nil :: unknown) :: Collections.CollectionControls).Table),

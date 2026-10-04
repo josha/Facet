@@ -499,6 +499,14 @@ t.describe("native gallery collections", function()
 end)
 
 t.describe("file library workbench", function()
+	local function file(model, key)
+		for _, item in model.rows:peek() do
+			if item.id == tostring(key) then
+				return item
+			end
+		end
+		error("Missing file " .. tostring(key))
+	end
 	t.it("edits desktop cells directly and uses Edit on coarse inputs with one permission toggle", function()
 		local built, node, stop, engine, world = mount("collection_workbench")
 		for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
@@ -566,15 +574,15 @@ t.describe("file library workbench", function()
 		local model = built.model
 		model.mode:set("list")
 		local body = find(node, "primary")
-		viewport(body, engine, 700, 600)
+		viewport(body, engine, 700, 1200)
 		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		find(node, "Edit").Activated.fire()
 		model.selection:set({ ["1"] = true, ["2"] = true })
 		local detector = find(find(body, "1"), "Move"):FindFirstChildWhichIsA("UIDragDetector")
 		detector.DragStart.fire(engine.types.Vector2.new(10, 10))
-		detector.DragContinue.fire(engine.types.Vector2.new(10, 500))
+		detector.DragContinue.fire(engine.types.Vector2.new(10, 1000))
 		detector.DragEnd.fire()
-		t.expect(model.rows:peek()[1].id ~= "1").toBe(true)
+		t.expect(model.rows:peek()[4].id ~= "1").toBe(true)
 		local moved = {}
 		for i, item in model.rows:peek() do
 			if item.id == "1" or item.id == "2" then
@@ -628,21 +636,21 @@ t.describe("file library workbench", function()
 		model.query:set("001")
 		find(node, "LabelGreen").Activated.fire()
 		for i = 1, 10 do
-			t.expect(model.rows:peek()[i].color).toBe("Green")
+			t.expect(file(model, i).color).toBe("Green")
 		end
 		model.change("11", "color", "Red")
-		t.expect(model.rows:peek()[11].color).toBe("Red")
-		t.expect(model.rows:peek()[1].color).toBe("Green")
+		t.expect(file(model, "11").color).toBe("Red")
+		t.expect(file(model, "1").color).toBe("Green")
 		model.change(nil, "color", "None")
 		for i = 1, 10 do
-			t.expect(model.rows:peek()[i].color).toBe("None")
+			t.expect(file(model, i).color).toBe("None")
 		end
 		model.query:set("missing")
 		find(node, "Delete").Activated.fire()
-		t.expect(built.report().count).toBe(14)
+		t.expect(built.report().count).toBe(17)
 		t.expect(next(model.selection:peek())).toBeNil()
 		built.steps.undo()
-		t.expect(built.report().count).toBe(24)
+		t.expect(built.report().count).toBe(27)
 		for i = 1, 10 do
 			t.expect(model.selection:peek()[tostring(i)]).toBe(true)
 		end
@@ -652,29 +660,100 @@ t.describe("file library workbench", function()
 	t.it("shares files and durable drafts through view switches creation deletion and undo", function()
 		local built, node, stop = mount("collection_workbench")
 		local model = built.model
-		t.expect(built.report().count).toBe(24)
+		t.expect(built.report().count).toBe(27)
 		model.editing:set(true)
-		model.draft("1"):set({ text = "Unfinished name", original = model.rows:peek()[1].name })
+		model.draft("1"):set({ text = "Unfinished name", original = file(model, "1").name })
 		for _, mode in { "list", "details", "icons" } do
 			model.mode:set(mode)
 			t.expect(model.draft("1"):peek().text).toBe("Unfinished name")
 		end
 		model.linked:set(true)
 		model.change("1", "name", "Shared name")
-		t.expect(model.rows:peek()[1].name).toBe("Shared name")
+		t.expect(file(model, "1").name).toBe("Shared name")
 		model.selection:set({ ["1"] = true })
 		model.query:set("missing")
 		t.expect(model.selection:peek()["1"]).toBe(true)
 		built.steps.create()
-		t.expect(built.report().count).toBe(25)
+		t.expect(built.report().count).toBe(28)
 		t.expect(model.query:peek()).toBe("")
 		model.remove({ "25" })
-		t.expect(built.report().count).toBe(24)
+		t.expect(built.report().count).toBe(27)
 		built.steps.undo()
-		t.expect(built.report().count).toBe(25)
+		t.expect(built.report().count).toBe(28)
 		t.expect(model.selection:peek()["25"]).toBe(true)
 		built.steps.large()
-		t.expect(built.report().count).toBe(1000)
+		t.expect(built.report().count).toBe(1003)
+		stop()
+	end)
+end)
+
+t.describe("file library folders", function()
+	t.it("opens folders with desktop double click or touch and gamepad activation, then goes back", function()
+		for _, inputName in { "MouseButton1", "Touch", "Gamepad1" } do
+			local built, node, stop, engine, world = mount("collection_workbench")
+			local model = built.model
+			model.query:set("Environments")
+			local body = find(node, "primary")
+			viewport(body, engine, 700, 600)
+			local hit = find(find(body, "environments"), "RowHit")
+			local input = {
+				UserInputType = if inputName == "MouseButton1"
+					then engine.types.Enum.UserInputType.MouseButton1
+					elseif inputName == "Touch" then engine.types.Enum.UserInputType.Touch
+					else engine.types.Enum.UserInputType.Gamepad1,
+			}
+			hit.Activated.fire(input, 0)
+			if inputName == "MouseButton1" then
+				t.expect(#model.path:peek()).toBe(0)
+				hit.Activated.fire(input, 1)
+			end
+			t.expect(model.path:peek()[1].value).toBe("environments")
+			t.expect(next(model.selection:peek())).toBeNil()
+			local back = action(world.target, "NavigationBack")
+			t.expect(back ~= nil).toBe(true)
+			back.Pressed.fire()
+			back.Released.fire()
+			t.expect(#model.path:peek()).toBe(0)
+			t.expect(action(world.target, "NavigationBack")).toBeNil()
+			stop()
+		end
+	end)
+	t.it("moves and copies complete folders, rejects cycles, and restores deleted descendants", function()
+		local built, _, stop = mount("collection_workbench")
+		local model = built.model
+		local function item(key)
+			for _, row in model.rows:peek() do
+				if row.id == key then
+					return row
+				end
+			end
+			return nil
+		end
+		local folder = item("environments")
+		local payload = { kind = "files", collection = "library", items = { folder }, keys = { folder.id } }
+		t.expect(model.receive("library", "archive").accepts(payload)).toBe(false)
+		t.expect(model.receive("library", "materials").onDrop(payload, { operation = "move" })).toBe(true)
+		t.expect(item("environments").parent).toBe("materials")
+		t.expect(item("archive").parent).toBe("environments")
+		built.steps.undo()
+		t.expect(item("environments").parent).toBeNil()
+		local count = #model.rows:peek()
+		t.expect(model.receive("library", "materials").onDrop(payload, { operation = "copy" })).toBe(true)
+		t.expect(#model.rows:peek() > count + 1).toBe(true)
+		local unique = {}
+		for _, row in model.rows:peek() do
+			t.expect(unique[row.id]).toBeNil()
+			unique[row.id] = true
+		end
+		built.steps.undo()
+		model.openFolder(item("archive"))
+		t.expect(#model.path:peek()).toBe(2)
+		model.remove({ "environments" })
+		t.expect(item("archive")).toBeNil()
+		t.expect(#model.path:peek()).toBe(0)
+		built.steps.undo()
+		t.expect(item("archive").parent).toBe("environments")
+		t.expect(#model.rows:peek()).toBe(count)
 		stop()
 	end)
 end)

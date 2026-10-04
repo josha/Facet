@@ -1,4 +1,6 @@
 --!strict
+local createTree = require("./collection_tree")
+local TreeTypes = require("./collection_tree")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
 local reorder = require("./collection_reorder")
@@ -14,6 +16,7 @@ local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 type Controls = {
 	VirtualList: CollectionTypes.CollectionConstructor,
+	Outline: CollectionTypes.OutlineConstructor,
 	VirtualGrid: CollectionTypes.CollectionConstructor,
 	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
 	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
@@ -23,7 +26,9 @@ local FLING_STOP = 20
 local FLING_WINDOW = 0.1
 type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 
-return function(ctx: Types.Context, UI: Controls): ()
+export type BuildList = <V, K>(CollectionTypes.KeyedCollectionSpec<V, K>, TreeTypes.Tree<V, K>?) -> ScrollingFrame
+
+return function(ctx: Types.Context, UI: Controls): BuildList
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local readSource = ctx.readSource
@@ -31,6 +36,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
 	local behavior = {
+		"children",
+		"expanded",
+		"onExpansionChange",
+		"indent",
 		"from",
 		"selectionFrom",
 		"selectionIndicator",
@@ -117,15 +126,27 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local function collection<V, K>(
 		spec: CollectionTypes.CollectionOptions<V, K>,
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
-		keyOf: (V, number) -> K
+		keyOf: (V, number) -> K,
+		tree: TreeTypes.Tree<V, K>?
 	): ScrollingFrame
 		assert(
 			spec.snap == nil or spec.snap == "none" or spec.snap == "item",
 			"Facet collection snap must be none or item"
 		)
 		assert(type(spec.render) == "function", "Facet collection requires render(current, placement, key)")
+		tree = tree or (if spec.children then createTree(ctx, UI, spec, keyOf) else nil)
+		if tree then
+			assert(kind == "list" and spec.direction ~= "horizontal", "Facet hierarchy needs a vertical list")
+			spec = table.clone(spec)
+			spec.selectionFrom = spec.selectionFrom or tree.all
+			spec.focus = spec.focus or {}
+			local hierarchy = tree
+			spec.onActivate = spec.onActivate or function(_item, key)
+				hierarchy.toggle(key)
+			end
+		end
 		local source = function(use: ComposeTypes.Use): { V }
-			return read(spec.from, use)
+			return read(if tree then tree.from else spec.from, use)
 		end
 
 		local viewport: ComposeTypes.Cell<ComposeTypes.OrderedCollectionViewport> =
@@ -236,7 +257,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
 				return
 			end
-			if editor and editor.pickUp(key, input) then
+			if editor and spec.onActivate == nil and read(spec.editing) ~= true and editor.pickUp(key, input) then
 				return
 			end
 			local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
@@ -279,9 +300,22 @@ return function(ctx: Types.Context, UI: Controls): ()
 				or spec.reorderable
 				or spec.deletable
 				or (spec.editing ~= nil and selectionMode ~= "none" and spec.selectionIndicator ~= false)
-			then reorder(ctx, UI, spec, source, keyOf, controls, function()
-				return root
-			end, selection, Compose.cell(nil :: CollectionTypes.Sort?), spec.editing, kind == "grid")
+			then reorder(
+				ctx,
+				UI,
+				spec,
+				source,
+				keyOf,
+				controls,
+				function()
+					return root
+				end,
+				selection,
+				Compose.cell(nil :: CollectionTypes.Sort?),
+				spec.editing,
+				kind == "grid",
+				if tree then tree.location else nil
+			)
 			else nil
 		local overlayReorder = if editor then editor.overlay else nil
 		local function cardLayout(use: ComposeTypes.Use?): (number, number)
@@ -298,6 +332,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 			local extent = (available - peek - gap * (perView - 1) - (if peek > 0 then gap else 0)) / perView
 			return math.max(1, math.floor(extent)), perView
 		end
+		local function fullSizes(use: ComposeTypes.Use): { [K]: number }
+			local combined = table.clone(use(measured))
+			for key, size in read(spec.measured or {}, use) do
+				combined[key] = size
+			end
+			return combined
+		end
 		local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
 			return Compose.OrderedCollection({
 				from = source,
@@ -308,16 +349,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 				status = status,
 				controls = controls,
 				overscan = spec.overscan or 2,
-				measured = function(use: ComposeTypes.Use)
-					if spec.measured ~= nil then
-						local combined = table.clone(use(measured))
-						for key, size in read(spec.measured, use) do
-							combined[key] = size
-						end
-						return combined
-					end
-					return use(measured)
-				end,
+				measured = Compose.formula(function(use: ComposeTypes.Use)
+					local sizes = fullSizes(use)
+					return if tree
+						then tree.sizes(use, sizes, read(spec.itemSize or 40, use) :: number, read(spec.gap or 0, use))
+						else sizes
+				end),
 				follow = follow,
 				followThreshold = spec.followThreshold,
 				layout = function(use: ComposeTypes.Use)
@@ -340,7 +377,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 						kind = kind,
 						columns = columns,
 						itemSize = if cardsMode then (cardLayout(use)) else read(spec.itemSize or 40, use) :: number,
-						gap = gap,
+						gap = if tree then 0 else gap,
 						crossGap = crossGap,
 						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
 					}
@@ -366,7 +403,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 						local delta = previous.offset + glide:peek() - at.offset
 						local moved = at.index ~= previous.index
 						previous = at
-						if not moved or kind ~= "list" or math.abs(delta) > viewport:peek().size or reduced() then
+						if
+							tree
+							or not moved
+							or kind ~= "list"
+							or math.abs(delta) > viewport:peek().size
+							or reduced()
+						then
 							return
 						end
 						halt()
@@ -384,8 +427,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end)
 					runtime.decorate(node, {
 						Name = tostring(key),
+						ClipsDescendants = tree ~= nil,
 						Interactable = function(use: ComposeTypes.Use)
-							return not policy.disabled(spec.disabled, use(current))
+							return (tree == nil or tree.visible(key, use))
+								and not policy.disabled(spec.disabled, use(current))
 						end,
 						LayoutOrder = function(use: ComposeTypes.Use)
 							return use(placement).index
@@ -409,6 +454,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 					local measuredNode: GuiObject
 					local stop, mountedContent = runtime.mount(function(): Frame
 						local rendered = spec.render(current, placement, key)
+						if tree and not tree.columnar then
+							rendered = tree.wrap(rendered, current, key)
+						end
 						measuredNode = rendered
 						rendered = policy.actions(ctx, spec, current, key, rendered, UI.RowActions, coordinator)
 						if editor then
@@ -420,7 +468,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 						end
 						local children: Types.FrameProps = {
 							Name = "Content",
-							Size = D2.fromScale(1, 1),
+							Size = if tree
+								then function(use: ComposeTypes.Use): UDim2
+									return D2.new(
+										1,
+										0,
+										0,
+										math.max(read(spec.itemSize or 40, use) :: number, fullSizes(use)[key] or 0)
+									)
+								end
+								else D2.fromScale(1, 1),
 							BackgroundTransparency = 1,
 							Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
 							rendered,
@@ -440,7 +497,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 								BackgroundTransparency = 1,
 								Selectable = true,
 								Interactable = function(use: ComposeTypes.Use)
-									return not policy.disabled(spec.disabled, use(current))
+									return (tree == nil or tree.visible(key, use))
+										and not policy.disabled(spec.disabled, use(current))
 								end,
 								Activated = function(input: InputObject?, clicks: number?)
 									select(key, current, input, clicks)
@@ -474,11 +532,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 						local content = Host.Frame(children)
 						if paintSelection then
 							ctx.styled(content, "TableRow")
-							ctx.skin(content, "control", {
-								selected = function(use: ComposeTypes.Use): boolean
-									return use(selection)[key] == true
-								end,
-							})
+							if kind == "grid" or horizontal then
+								ctx.skin(content, "control", {
+									selected = function(use: ComposeTypes.Use): boolean
+										return use(selection)[key] == true
+									end,
+								})
+							end
 							Compose.watch(function(use: ComposeTypes.Use)
 								if use(selection)[key] == true then
 									content:AddTag("facet-selected")
@@ -491,7 +551,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end, node)
 					local content = mountedContent :: Frame
 					wireSelection(content, key)
-					if spec.measure then
+					if spec.measure or (tree and not tree.columnar) then
 						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
 						local slot: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(node)
 						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
@@ -758,6 +818,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 				if not use(focusActive) then
 					return noFocusCandidates
 				end
+				if kind == "list" then
+					return source(use)
+				end
 				use(focusGeometry)
 				use(cross)
 				use(measured)
@@ -769,12 +832,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end,
 			key = keyOf,
 			disabled = function(item)
-				return policy.disabled(spec.disabled, item)
+				return (tree ~= nil and not tree.visible(keyOf(item, 1))) or policy.disabled(spec.disabled, item)
 			end,
 			initial = spec.initialFocus,
 			autoFocus = spec.autoFocus,
 			wrap = spec.wrapFocus,
 			position = function(_, index)
+				if kind == "list" then
+					return if horizontal then index else 0, if horizontal then 0 else index
+				end
 				local current = status:peek()
 				if current == nil or current.total == nil or current.total == 0 then
 					return 0, 0
@@ -809,6 +875,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end)
 		end
 		local function neighbourOf(lost: K): K?
+			local ancestor = if tree then tree.ancestor(lost) else nil
+			if ancestor ~= nil then
+				return ancestor
+			end
 			local keys, present = liveKeys(peekRows())
 			if table.find(keys, lost) then
 				return nil
@@ -881,6 +951,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 			spec.focus.first = focusScope.first
 			spec.focus.last = focusScope.last
 			spec.focus.isFocused = focusScope.isFocused
+		end
+		if tree then
+			tree.bind(root, focusScope)
 		end
 		local parent = observe.Parent(root)
 		local function restoreFocus(key: K?): ()
@@ -1150,7 +1223,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 	end
 	local function construct<V, K>(
 		spec: CollectionTypes.CollectionSpec<V, K>,
-		kind: ComposeTypes.OrderedCollectionLayoutKind
+		kind: ComposeTypes.OrderedCollectionLayoutKind,
+		tree: TreeTypes.Tree<V, K>?
 	): ScrollingFrame
 		if spec.key == nil then
 			return collection(spec, kind, function(value: V, _index: number): V
@@ -1169,7 +1243,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 		return collection(
 			(spec :: unknown) :: CollectionTypes.KeyedCollectionSpec<V, K>,
 			kind,
-			(key :: unknown) :: (V, number) -> K
+			(key :: unknown) :: (V, number) -> K,
+			tree
 		)
 	end
 	local function list<V, K>(spec: CollectionTypes.CollectionSpec<V, K>): ScrollingFrame
@@ -1179,6 +1254,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 		return construct(spec, "grid")
 	end
 
+	UI.Outline = ctx.construct("Outline", function<V, K>(spec: CollectionTypes.OutlineSpec<V, K>): ScrollingFrame
+		assert(spec.children ~= nil, "Facet Outline requires children")
+		return construct(spec, "list")
+	end) :: CollectionTypes.OutlineConstructor
 	UI.VirtualList = ctx.construct("VirtualList", list) :: CollectionTypes.CollectionConstructor
 	UI.VirtualGrid = ctx.construct("VirtualGrid", grid) :: CollectionTypes.CollectionConstructor
+	return function<V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>, tree: TreeTypes.Tree<V, K>?): ScrollingFrame
+		return construct(spec, "list", tree)
+	end
 end

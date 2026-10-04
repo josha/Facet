@@ -648,9 +648,10 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 		}
 	end,
 }
-for _, name in { "VirtualList", "VirtualGrid" } do
+for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
 	fixtures[name] = function(Host: RobloxHost)
 		return {
+			children = if name == "Outline" then "children" else nil,
 			from = { { id = "a" }, { id = "b" } },
 			key = function(entry)
 				return entry.id

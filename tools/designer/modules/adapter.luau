@@ -184,7 +184,7 @@ function adapter.properties(node: document.Node): any
 				content(if node.children[index + 1] then { node.children[index + 1] } else {})
 		end
 	end
-	if node.kind == "VirtualList" or node.kind == "VirtualGrid" then
+	if node.kind == "VirtualList" or node.kind == "VirtualGrid" or node.kind == "Outline" then
 		props.render = if node.children[1]
 			then expression("rowTemplate", { node = node.children[1] })
 			else expression("row")

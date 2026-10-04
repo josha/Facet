@@ -85,7 +85,7 @@ function export.component(value: document.Document): string
 			and node.kind ~= "TabView"
 			and node.kind ~= "PageView"
 			and node.kind ~= "NavigationStack"
-			and not table.find({ "Table", "VirtualList", "VirtualGrid" }, node.kind)
+			and not table.find({ "Table", "VirtualList", "VirtualGrid", "Outline" }, node.kind)
 		then
 			for _, child in node.children do
 				table.insert(body, emit(child, depth + 1) .. ",")

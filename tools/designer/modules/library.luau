@@ -550,6 +550,32 @@ add("VirtualList", "Collections", {
 	number("width", "Width"),
 	number("height", "Height"),
 }, { nativeSize = true })
+add("Outline", "Collections", {
+	from = {
+		{ id = "one", label = "Folder", children = { { id = "child", label = "Child item" } } },
+		{ id = "two", label = "Second item" },
+		{ id = "three", label = "Third item" },
+	} :: { any },
+	key = "id",
+	children = "children",
+	itemSize = 44,
+	gap = 6,
+	width = 320,
+	height = 220,
+}, {
+	json("from", "Rows"),
+	text("children", "Children field"),
+	number("indent", "Indentation"),
+	text("key", "Identity field"),
+	number("itemSize", "Row height"),
+	number("gap", "Gap"),
+	number("overscan", "Overscan"),
+	choice("selectionMode", "Selection mode", { "none", "single", "multiple" }),
+	flag("reorderable", "Reorder rows"),
+	flag("deletable", "Delete rows"),
+	number("width", "Width"),
+	number("height", "Height"),
+}, { nativeSize = true })
 add("VirtualGrid", "Collections", {
 	from = {
 		{ id = "one", label = "First item" },
@@ -987,7 +1013,7 @@ extend({ "DateTimePicker" }, {
 	json("locale", "Date words"),
 })
 extend({ "RowActions" }, { flag("enabled", "Enabled"), flag("reducedMotion", "Reduced motion") })
-extend({ "VirtualList", "VirtualGrid", "Table" }, {
+extend({ "VirtualList", "VirtualGrid", "Outline", "Table" }, {
 	number("overscan", "Overscan"),
 	number("gap", "Spacing"),
 	flag("editing", "Editing"),
@@ -999,7 +1025,7 @@ extend({ "VirtualList", "VirtualGrid", "Table" }, {
 	flag("reorderable", "Reorder rows"),
 	flag("deletable", "Delete rows"),
 })
-extend({ "VirtualList", "VirtualGrid" }, {
+extend({ "VirtualList", "VirtualGrid", "Outline" }, {
 	flag("autoscroll", "Drag scrolling"),
 	number("maxRetained", "Retained rows"),
 	choice("focusPolicy", "Focus policy", { "key", "index" }),
@@ -1050,14 +1076,14 @@ for _, definition in definitions do
 	end
 end
 
-for _, kind in { "VirtualList", "VirtualGrid", "Table" } do
+for _, kind in { "VirtualList", "VirtualGrid", "Outline", "Table" } do
 	definitions[kind].container = true
 	table.insert(definitions[kind].fields, field("dataKey", "Live rows input", "string"))
 	table.insert(definitions[kind].fields, field("activationKey", "Row activation callback", "string"))
 end
 table.insert(definitions.Table.fields, field("rowActions", "Row actions", "json"))
 
-for _, kind in { "Table", "VirtualList", "VirtualGrid" } do
+for _, kind in { "Table", "VirtualList", "VirtualGrid", "Outline" } do
 	for _, descriptor in definitions[kind].fields do
 		if descriptor.key == "width" then
 			descriptor.kind = "nativeWidth"

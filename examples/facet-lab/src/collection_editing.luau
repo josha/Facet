@@ -2,11 +2,27 @@
 return function(c: any, kind: string)
 	local UI, C = c.UI, c.Compose
 	local D2, E = c.ctx.types.UDim2, c.ctx.types.Enum
-	local initial = {}
+	local initial: { any } = {}
 	for i, name in { "Coast", "Canyon", "Forest", "City", "Glacier", "Harbour" } do
 		initial[i] = { id = tostring(i), name = name, kind = if i % 3 == 0 then "Material" else "Image" }
 	end
+	if kind == "Outline" then
+		for index = 4, 6 do
+			initial[index].parent = "folder"
+		end
+		table.insert(initial, 1, { id = "folder", name = "Championship", kind = "Folder" })
+	end
 	local rows = c.cell("editingRows", initial)
+	local expanded = c.cell("editingExpanded", { folder = true })
+	local function children(parent, all)
+		local result = {}
+		for _, item in all do
+			if item.parent == parent then
+				table.insert(result, item)
+			end
+		end
+		return result
+	end
 	local selection = c.cell("editingSelection", {})
 	local enabled, editing = c.cell("editingEnabled", true), c.cell("editingMode", false)
 	local serial, undo = c.cell("editingSerial", 6), c.cell("editingUndo", nil)
@@ -26,9 +42,23 @@ return function(c: any, kind: string)
 		rows:set(nextRows)
 	end
 	local function remove(keys)
+		local removing = {}
+		for _, key in keys do
+			removing[key] = true
+		end
+		local changed = true
+		while changed do
+			changed = false
+			for _, item in rows:peek() do
+				if item.parent and removing[item.parent] and not removing[item.id] then
+					removing[item.id] = true
+					changed = true
+				end
+			end
+		end
 		local kept, chosen = {}, table.clone(selection:peek())
 		for _, item in rows:peek() do
-			if table.find(keys, item.id) then
+			if removing[item.id] then
 				chosen[item.id] = nil
 			else
 				table.insert(kept, item)
@@ -53,12 +83,14 @@ return function(c: any, kind: string)
 	end
 	local function cell(current, _placement, key)
 		drafts[key] = drafts[key] or C.cell(nil)
-		return UI.VStack {
+		return (if kind == "Outline" then UI.HStack else UI.VStack) {
 			Name = "EditableCell",
+			align = "center",
 			width = "fill",
 			gap = "s",
-			padding = "s",
+			padding = if kind == "Outline" then nil else "s",
 			UI.HStack {
+				Visible = kind ~= "Outline",
 				width = "fill",
 				gap = "s",
 				align = "center",
@@ -75,10 +107,11 @@ return function(c: any, kind: string)
 			UI.CellEditor {
 				Name = "Rename",
 				editor = "text",
-				label = "Name",
+				label = if kind == "Outline" then nil else "Name",
 				enabled = editable,
 				Size = D2.fromScale(1, 0),
 				draft = drafts[key],
+				if kind == "Outline" then UI.fill() else nil,
 				value = function(use)
 					return use(current).name
 				end,
@@ -105,7 +138,12 @@ return function(c: any, kind: string)
 	end
 	local spec: any = {
 		Name = "EditableItems",
-		from = rows,
+		from = if kind == "Outline"
+			then function(use)
+				return children(nil, use(rows))
+			end
+			else rows,
+		selectionFrom = rows,
 		key = "id",
 		selection = selection,
 		selectionMode = "multiple",
@@ -121,25 +159,42 @@ return function(c: any, kind: string)
 			return enabled:peek()
 		end,
 		onDelete = remove,
-		onReorder = function(moved: { string }, slot: number)
+		onReorder = function(moved: { string }, slot: number, parentKey: string?)
 			local kept: { any }, carried: { any } = {}, {}
 			for _, item in rows:peek() do
 				table.insert(if table.find(moved, item.id) then carried else kept, item)
 			end
+			local siblings = children(parentKey, kept)
+			local before = siblings[slot + 1]
+			local index = #kept + 1
+			if before then
+				for i, item in kept do
+					if item.id == before.id then
+						index = i
+						break
+					end
+				end
+			end
 			for i, item in carried do
-				table.insert(kept, slot + i, item)
+				table.insert(kept, index + i - 1, item)
 			end
 			save(kept)
 			c.log("reorder")(moved, slot)
 		end,
 		measure = true,
-		itemSize = 160,
+		itemSize = if kind == "Outline" then nil else 160,
 		Size = D2.new(1, 0, 0, 360),
-		gap = 8,
+		gap = if kind == "Outline" then 0 else 8,
 	}
-	if kind == "Table" then
+	if kind == "Outline" then
+		spec.children = function(item)
+			return if item.kind == "Folder" then children(item.id, rows:peek()) else nil
+		end
+		spec.expanded = expanded
+	end
+	if kind == "Table" or kind == "Outline" then
 		local columns: { any } = {
-			{ id = "name", label = "Name", render = cell, minWidth = 160 },
+			{ id = "name", label = "Name", render = cell, minWidth = 180 },
 			{
 				id = "kind",
 				label = "Kind",
@@ -167,6 +222,9 @@ return function(c: any, kind: string)
 					elseif
 						coarse(use)
 					then "Tap an item to select it. Choose Edit to select a group or rename items. Drag the handles to reorder."
+					elseif
+						kind == "Outline"
+					then "Edit names directly. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a row beside its name to reorder siblings."
 					else "Edit names directly. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a preview to reorder."
 			end,
 			wrap = true,
@@ -242,6 +300,6 @@ return function(c: any, kind: string)
 				return `{#use(rows)} items · {count} selected`
 			end,
 		},
-		UI[kind](spec),
+		UI[if kind == "Outline" then "Table" else kind](spec),
 	}
 end

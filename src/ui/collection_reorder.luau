@@ -44,7 +44,8 @@ return function<V, K>(
 	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
 	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
 	editing: Types.ValueBoolean?,
-	grid: boolean?
+	grid: boolean?,
+	location: (({ K }, number) -> (boolean, number, K?))?
 ): Editor<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
@@ -116,6 +117,7 @@ return function<V, K>(
 	local input = ctx.config.userInputService
 	local captured: InputObject?
 	local recycled = false
+	local lastTap: { key: K, position: Vector2, at: number }?
 	local pendingInput: InputObject?
 	local pickupPosition: Vector2?
 	local origin: Vector2? = nil
@@ -161,7 +163,15 @@ return function<V, K>(
 	local function movable(item: V): boolean
 		return policy.allows(spec.movable, item) and not policy.disabled(spec.disabled, item)
 	end
+	local sourceIndex = Compose.formula(function(use: ComposeTypes.Use): { [K]: V }
+		local result: { [K]: V } = {}
+		for index, item in read(spec.selectionFrom or source, use) do
+			result[keyOf(item, index)] = item
+		end
+		return result
+	end)
 	local function begin(key: K, position: Vector2?, quiet: boolean?): ()
+		lastTap = nil
 		if
 			not reorderable
 			or read(sort) ~= nil
@@ -240,13 +250,14 @@ return function<V, K>(
 				if valid and not valid() then
 					return false
 				end
-				local found = 0
-				for index, item in read(spec.selectionFrom or source) do
-					if indices[keyOf(item, index)] and movable(item) then
-						found += 1
+				local live = sourceIndex:peek()
+				for _, key in keys do
+					local item = live[key]
+					if item == nil or not movable(item) then
+						return false
 					end
 				end
-				return found == #keys
+				return true
 			end
 			options.onEnd = function(accepted, reason)
 				stopLocal()
@@ -285,6 +296,13 @@ return function<V, K>(
 		end
 	end
 	local function commitLocal(keys: { K }, slot: number)
+		if location then
+			local accepted, siblingSlot, parentKey = location(keys, slot)
+			if accepted then
+				assert(spec.onReorder)(keys, siblingSlot, parentKey)
+			end
+			return
+		end
 		local rows = read(source)
 		local included, remaining = {}, {}
 		for _, key in keys do
@@ -750,14 +768,27 @@ return function<V, K>(
 					and not moving:peek()
 					and pendingInput ~= nil
 					and pendingInput.UserInputState ~= E.UserInputState.Cancel
+				local tapPosition = rowOrigin
 				rowOrigin = nil
+				if not tapped then
+					lastTap = nil
+				end
 				if captured == nil and moving:peek() then
 					commit()
 				elseif tapped and not row:IsA("GuiButton") and not activation.consumed(pendingInput) then
 					local host = frame.Parent
 					local hit = if host then host:FindFirstChild("RowHit") else nil
 					if hit then
-						activation.trigger(hit, pendingInput)
+						local frames = ctx.runtime.host.frames
+						local now = if frames then frames.now() else os.clock()
+						local previous = lastTap
+						local position = tapPosition :: Vector2
+						local double = previous ~= nil
+							and previous.key == key
+							and now - previous.at <= 0.5
+							and (position - previous.position).Magnitude <= 6
+						lastTap = if double then nil else { key = key, position = position, at = now }
+						activation.trigger(hit, pendingInput, if double then 1 else 0)
 						activation.consume(pendingInput)
 					end
 				end
@@ -946,10 +977,32 @@ return function<V, K>(
 		local incoming = Compose.cell(nil :: any)
 		local destination: any = if spec.drop then table.clone(spec.drop) else {}
 		local accept, drop, update = destination.accepts, destination.onDrop, destination.onUpdate
+		local noCarried: { K } = {}
+		local cachedRows: { V }? = nil
+		local cachedCarried: { K }? = nil
+		local remaining: { K } = {}
+		local rowIndices: { number } = {}
+		local remainingIndex: { [K]: number } = {}
 		local function insertion(payload: any, info: any)
-			local rows, remaining = read(source), {}
+			local rows: { V } = read(source)
 			local same = type(payload) == "table" and payload.collection == collectionId and info.operation == "move"
-			local carried = if same then payload.keys or {} else {}
+			local carried = if same then payload.keys or noCarried else noCarried
+			if rows ~= cachedRows or carried ~= cachedCarried then
+				cachedRows, cachedCarried = rows, carried
+				remaining, rowIndices, remainingIndex = {}, {}, {}
+				local included: { [K]: boolean } = {}
+				for _, key in carried do
+					included[key] = true
+				end
+				for index, item in rows do
+					local key = keyOf(item, index)
+					if not included[key] then
+						table.insert(remaining, key)
+						table.insert(rowIndices, index)
+						remainingIndex[key] = #remaining
+					end
+				end
+			end
 			local slot = 0
 			local offset, across = math.huge, math.huge
 			if info.position then
@@ -957,22 +1010,22 @@ return function<V, K>(
 				across = crossAxis(info.position - body.AbsolutePosition) / scaleOf(body)
 					+ crossAxis(body.CanvasPosition)
 			end
-			for index, item in rows do
-				local key = keyOf(item, index)
-				if not table.find(carried, key) then
-					local at = assert(controls.placementOf)(index)
-					local crossed = if grid
-						then offset >= at.offset + at.size
-							or (
-								offset >= at.offset
-								and offset < at.offset + at.size
-								and across >= at.crossOffset + at.crossSize / 2
-							)
-						else offset >= at.offset + at.size / 2
-					if crossed then
-						slot += 1
-					end
-					table.insert(remaining, key)
+			local low, high = 1, #remaining
+			while low <= high do
+				local middle = math.floor((low + high) / 2)
+				local at = assert(controls.placementOf)(rowIndices[middle])
+				local crossed = if grid
+					then offset >= at.offset + at.size
+						or (
+							offset >= at.offset
+							and offset < at.offset + at.size
+							and across >= at.crossOffset + at.crossSize / 2
+						)
+					else offset >= at.offset + at.size / 2
+				if crossed then
+					slot, low = middle, middle + 1
+				else
+					high = middle - 1
 				end
 			end
 			local move = moving:peek()
@@ -981,8 +1034,8 @@ return function<V, K>(
 			end
 			if info.insertion then
 				local before, after = info.insertion.beforeKey, info.insertion.afterKey
-				local beforeIndex = if before ~= nil then table.find(remaining, before) else nil
-				local afterIndex = if after ~= nil then table.find(remaining, after) else nil
+				local beforeIndex = if before ~= nil then remainingIndex[before] else nil
+				local afterIndex = if after ~= nil then remainingIndex[after] else nil
 				if (before ~= nil or after ~= nil) and beforeIndex == nil and afterIndex == nil then
 					info.invalid = "The insertion neighbors were removed"
 					return
@@ -1006,6 +1059,10 @@ return function<V, K>(
 				and spec.onReorder
 				and info.operation == "move"
 			then
+				if location then
+					local accepted = location(payload.keys, info.insertion.slot)
+					return accepted, if accepted then nil else "Move items within the same folder"
+				end
 				return true, nil
 			end
 			if accept then
@@ -1036,7 +1093,7 @@ return function<V, K>(
 			local session = drag.state:peek()
 			incoming:set(if accepted and session and session.source ~= body then info.insertion else nil)
 			local move = moving:peek()
-			if move and not move.keyboard and accepted then
+			if move and not move.keyboard and accepted and move.slot ~= info.insertion.slot then
 				local next = table.clone(move)
 				next.slot = info.insertion.slot
 				moving:set(next)

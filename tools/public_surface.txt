@@ -170,6 +170,7 @@ controls(runtime).NavBar : function
 controls(runtime).NavigationStack : function
 controls(runtime).Notice : function
 controls(runtime).NumberInput : function
+controls(runtime).Outline : function
 controls(runtime).PageView : function
 controls(runtime).Pagination : function
 controls(runtime).Path : function
@@ -273,6 +274,7 @@ type FocusMove
 type FocusQuery
 type GridProps
 type HapticKind
+type HierarchyOptions
 type IdentityCollectionSpec
 type IdentityTableSpec
 type ImageProps
@@ -290,6 +292,7 @@ type NavigationEntry
 type NavigationStackSpec
 type NoticeSpec
 type NumberInputProps
+type OutlineSpec
 type OverlayAction
 type OverlayHero
 type OverlayMedia

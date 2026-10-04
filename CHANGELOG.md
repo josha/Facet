@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Outline reveals branch rows progressively so expansion keeps the mounted row count bounded. Collections cache measurements between changes, and linear keyboard/gamepad focus no longer rebuilds pixel positions during layout. Leaf rows reserve indentation without constructing hidden disclosure buttons. Drag insertion searches measured positions and caches item order instead of scanning every item on each pointer update; model changes invalidate the cache and drops still validate current items.
+
+- Vertical collection rows use flat theme highlights and compact inline editors. Disclosure buttons retain their authored square size. Custom table cells align vertically; pointer fields stay compact while touch and gamepad targets grow. The Outline Lab uses a focused hierarchy playground and a two-column editing example. Files uses compact horizontal list/table cells and a flexible filename column.
+
+- Outline extends collection selection, editing and drag behavior with keyed children, shared expansion and animated disclosure. Tables support the same hierarchy with sibling sorting. Native content measurements keep bitmap themes and enlarged text within rows; reduced motion makes expansion immediate. The Lab has an Outline page, and the Files showcase supports folders, folder drops, creation and navigation on desktop, touch and gamepad.
+- Nested NavigationStacks derive gamepad Back priority from native ancestry, including stacks built with separate controls instances. Detector-captured row taps preserve double-click opening while a drag or cancelled gesture resets the click sequence. Collapsing an outline returns focused descendants to their nearest visible ancestor.
+
 - Plain touch, gamepad and keyboard activation replaces collection selection. Edit mode explicitly enables additive selection across tables, lists and grids; desktop modifier selection is unchanged.
 
 - Drag previews preserve the proportional pickup point and source scale. World-drop hit testing uses native styled transparency so transparent layout frames do not block destinations.

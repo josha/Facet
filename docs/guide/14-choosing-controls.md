@@ -41,7 +41,7 @@ game screens and Studio plugin interfaces.
 | Show the progress of a workflow | StepIndicator. |
 | Compare sortable columns | Table. |
 | Select or reorder data rows, even a short list | VirtualList; VirtualGrid for tiles, Table for columns. |
-| Edit a layer outline | VirtualList for visible rows; the model owns hierarchy and valid moves. |
+| Edit a layer outline | Outline for expandable rows; Table with `children` for columns. |
 | Move user-ordered items | The collection's `reorderable` and `onReorder` options. |
 | Show large scrolling data | VirtualList or VirtualGrid. |
 | Show a browsable item with a picture and actions | Card, in a VirtualGrid for many items. |
@@ -182,13 +182,13 @@ For a user-ordered collection:
   list is short or the rows are custom. Add such commands only for a requested
   or task-specific interaction; they can use the same model operation.
 
-A layer outline is a hierarchy of items, not a history of pages. Render its
-visible rows with stable IDs and depth in VirtualList. The model owns expansion,
-parent/child relationships, and valid destinations. Translate a flat insertion
-slot into a domain move; do not treat it as automatic tree reparenting. Use
-NavigationStack when opening child pages with Back. Use `UI.draggable` and
-`UI.dropTarget` when the task needs transfers between separate targets rather
-than order changes within a collection.
+Use Outline for a hierarchy of items. Supply roots, stable keys, `children`
+and an optional shared `expanded` cell. It owns disclosure, animated row
+expansion and parent/child focus. Table accepts the same hierarchy options.
+The model owns parent/child relationships and validates moves. Reordering
+reports an insertion slot among siblings; use `UI.dropTarget` on folder cells
+for reparenting. Use NavigationStack when opening a folder as a child page
+with Back. Keep selection and expansion outside the disposable page content.
 
 ## Collection size and lifetime
 

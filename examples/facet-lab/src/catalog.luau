@@ -5497,6 +5497,84 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 }
 
+local function hierarchyState(c: any): { [string]: any }
+	local rows = c.cell(
+		"treeRows",
+		{
+			{
+				id = "folder",
+				name = "Championship",
+				laps = 0,
+				children = {
+					{ id = "coast", name = "Coastal Circuit", laps = 3 },
+					{
+						id = "nested",
+						name = "Time trials",
+						laps = 0,
+						children = {
+							{ id = "harbour", name = "Harbour Sprint", laps = 6 },
+						},
+					},
+				},
+			},
+			{ id = "empty", name = "Community races", laps = 0, children = {} },
+			{ id = "readme", name = "Practice loop", laps = 1 },
+		} :: { any }
+	)
+	local expanded = c.cell("expanded", {})
+	return {
+		from = rows,
+		children = "children",
+		expanded = expanded,
+		indent = 24,
+		onExpansionChange = function(value)
+			expanded:set(value)
+			c.log("onExpansionChange")(value)
+		end,
+		onActivate = NONE,
+	}
+end
+for _, name in { "VirtualList", "Table" } do
+	table.insert(
+		assert(PAGE_DATA[name].states),
+		{ name = "expandable hierarchy", props = hierarchyState, across = false }
+	)
+end
+PAGE_DATA.Outline = {
+	family = "collections",
+	alias = "Outline",
+	cellWidth = 340,
+	cellHeight = 280,
+	purpose = "Expand nested groups, select rows, and edit items in one hierarchy.",
+	note = "Use the disclosure arrows to expand a group. Left/Right also collapses/expands the focused row. Try selection and expansion settings below; events appear in the log.",
+	alternatives = "VirtualList for flat rows. Table with children for hierarchy with columns.",
+	snippet = 'UI.Outline { from = roots, key = "id", children = "children", expanded = expanded, render = renderCell }',
+	base = function(c: Context)
+		local spec: any = assert(PAGE_DATA.VirtualList.base)(c)
+		for key, value in hierarchyState(c) do
+			spec[key] = if value == NONE then nil else value
+		end
+		spec.selection = c.cell("outlineSelection", {})
+		return spec
+	end,
+	axes = { { key = "selectionMode", values = { "single", "multiple" }, matrix = false } },
+	states = {
+		{
+			name = "expanded",
+			props = function(c: Context)
+				return { expanded = c.cell("expanded", { folder = true, nested = true }) }
+			end,
+		} :: State,
+		{ name = "large indentation", props = { indent = 48 } } :: State,
+		{ name = "reduced motion", props = { reducedMotion = true } } :: State,
+		{ name = "disabled folder", props = {
+			disabled = function(item)
+				return item.id == "folder"
+			end,
+		} },
+	},
+}
+
 for _, name in
 	{ "Screen", "VStack", "HStack", "ZStack", "ScrollView", "Grid", "AdaptiveStack", "ViewThatFits", "ErrorBoundary" }
 do

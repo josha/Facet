@@ -366,7 +366,7 @@ t.describe("themed edges, plates and gutters", function()
 		end
 	end)
 
-	t.it("skins a table row with the theme's control art, selected art when selected", function()
+	t.it("keeps dense table rows flat while selection follows the model on skinned themes", function()
 		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
 		local selection = Facet.Compose.cell({ a = true } :: { [string]: boolean })
 		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
@@ -394,9 +394,14 @@ t.describe("themed edges, plates and gutters", function()
 		end
 		t.expect(#rows).toBe(2)
 		for _, row in rows do
-			t.expect(row:HasTag("facet-skinned")).toBe(true)
-			t.expect(row:FindFirstChild("Skin", true) ~= nil).toBe(true)
+			t.expect(row:HasTag("facet-skinned")).toBe(false)
+			t.expect(row:FindFirstChild("Skin", true) == nil).toBe(true)
 		end
+		t.expect(rows[1]:HasTag("facet-selected")).toBe(true)
+		t.expect(rows[2]:HasTag("facet-selected")).toBe(false)
+		selection:set({ b = true })
+		t.expect(rows[1]:HasTag("facet-selected")).toBe(false)
+		t.expect(rows[2]:HasTag("facet-selected")).toBe(true)
 		world.stop()
 	end)
 

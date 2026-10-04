@@ -1,4 +1,6 @@
 --!strict
+local createTree = require("./collection_tree")
+local ListTypes = require("./collections")
 local layoutKit = require("./layout_kit")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
@@ -26,7 +28,7 @@ type Controls = {
 	Toggle: Types.Constructor<InputTypes.ToggleProps, TextButton>,
 	Picker: NavigationTypes.PickerConstructor,
 }
-return function(ctx: Types.Context, UI: Controls): ()
+return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList): ()
 	local lists = layoutKit.of(ctx)
 	local editors = tableEditors(ctx, UI)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -34,6 +36,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local behavior = {
+		"children",
+		"expanded",
+		"onExpansionChange",
+		"indent",
 		"from",
 		"selectionFrom",
 		"selectionIndicator",
@@ -230,8 +236,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 			return nil
 		end
-		local ordered: ComposeTypes.Formula<{ V }> = Compose.formula(function(use: ComposeTypes.Use)
-			local rows: { V } = read(spec.from, use)
+		local function sortRows(rows: { V }, use: ComposeTypes.Use): { V }
 			local order = use(sort)
 			if order == nil then
 				return rows
@@ -273,10 +278,19 @@ return function(ctx: Types.Context, UI: Controls): ()
 				result[index] = entry.item
 			end
 			return result
-		end)
+		end
+		local tree = if spec.children then createTree(ctx, UI, spec, keyOf, sortRows) else nil
+		if tree then
+			tree.columnar = true
+		end
+		local ordered = if tree
+			then tree.from
+			else Compose.formula(function(use: ComposeTypes.Use): { V }
+				return sortRows(read(spec.from, use), use)
+			end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local valid: { [K]: boolean } = {}
-			for index, item in read(spec.from, use) do
+			for index, item in read(if tree then tree.all else spec.from, use) do
 				valid[keyOf(item, index)] = true
 			end
 			local sizes: { [K]: number } = {}
@@ -613,7 +627,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		if spec.drag or spec.drop or manageable or (spec.editing ~= nil and selectable) then
 			editor = reorder(ctx, UI, spec, ordered, keyOf, queries, function()
 				return body
-			end, selection, sort, editing)
+			end, selection, sort, editing, false, if tree then tree.location else nil)
 		end
 		local bodySpec: CollectionTypes.KeyedCollectionSpec<V, K> = {
 			Name = "Body",
@@ -652,7 +666,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			wrapFocus = spec.wrapFocus,
 			maxRetained = spec.maxRetained,
 			onReachEnd = spec.onReachEnd,
-			selectionFrom = spec.selectionFrom,
+			selectionFrom = spec.selectionFrom or (if tree then tree.all else nil),
 			selectionIndicator = false,
 			disabled = spec.disabled,
 			measure = spec.measure,
@@ -676,11 +690,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 			selectable = spec.selectable,
 			onSelectionChange = spec.onSelectionChange,
 			onActivate = function(item, key, input, clicks)
-				if editor and editor.pickUp(key, input) then
+				if editor and spec.onActivate == nil and read(editing) ~= true and editor.pickUp(key, input) then
 					return
 				end
 				if spec.onActivate then
 					spec.onActivate(item, key, input, clicks)
+				elseif tree then
+					tree.toggle(key)
 				end
 			end,
 			editing = editing,
@@ -796,6 +812,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 									Host.Frame "Inset" {
 										BackgroundTransparency = 1,
 										custom(current, placement, key) :: ComposeTypes.Child,
+										Host.UIListLayout {
+											FillDirection = E.FillDirection.Vertical,
+											VerticalAlignment = E.VerticalAlignment.Center,
+											SortOrder = E.SortOrder.LayoutOrder,
+										} :: ComposeTypes.Child,
 									},
 									"TableCellInset"
 								)
@@ -859,6 +880,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 										rows[key] = cells
 										truncatedRows:set(rows)
 									end
+								end)
+							end
+							if tree and index:peek() == 1 then
+								content = tree.wrap(content, current, key)
+								local outlineSize = ctx.observe.AbsoluteSize(content)
+								Compose.watch(function(use: ComposeTypes.Use)
+									local sizes = table.clone(cellHeights:peek())
+									sizes[definition.id] = use(outlineSize).Y / use(unitScale)
+									cellHeights:set(sizes)
 								end)
 							end
 							local cell =
@@ -967,11 +997,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 						return D2.fromOffset(use(scrolledX), 0)
 					end,
 				})
-				ctx.skin(painted, "control", {
-					selected = function(use: ComposeTypes.Use): boolean
-						return read(selection, use)[key] == true
-					end,
-				})
 				Compose.watch(function(use: ComposeTypes.Use)
 					if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
 						painted:AddTag("facet-tablerow-alternate")
@@ -998,7 +1023,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return row
 			end,
 		}
-		body = UI.VirtualList(bodySpec)
+		body = buildList(bodySpec, tree)
 		local unit = Host.Frame({
 			Name = "LayoutUnit",
 			Size = D2.fromOffset(1, 1),

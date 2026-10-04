@@ -382,6 +382,9 @@ local function minimalSpecs(Host: any): { [string]: () -> { [any]: any } }
 		VirtualGrid = function()
 			return { from = {}, render = content }
 		end,
+		Outline = function()
+			return { from = {}, children = "children", render = content }
+		end,
 		VirtualList = function()
 			return { from = {}, render = content }
 		end,

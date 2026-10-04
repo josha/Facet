@@ -16,6 +16,13 @@ export type FocusControls<K> = {
 	isFocused: typeof(((nil :: unknown) :: ComposeTypes.FocusScope<K>).isFocused)?,
 }
 export type Selection<K> = { [K]: boolean }
+export type Children<V> = ((item: V) -> { V }?) | string
+export type HierarchyOptions<V, K> = {
+	children: Children<V>?,
+	expanded: ComposeTypes.Cell<Selection<K>>?,
+	onExpansionChange: ((expanded: Selection<K>) -> ())?,
+	indent: Types.ValueNumber?,
+}
 export type Sort = { column: string, direction: "ascending" | "descending" }
 export type RowPredicate<V> = (item: V) -> boolean
 export type Follow = "end" | "none"
@@ -40,7 +47,7 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	drop: Env.DropTargetSpec?,
 	reorderable: boolean?,
 	movable: RowPredicate<V>?,
-	onReorder: ((keys: { K }, slot: number) -> ())?,
+	onReorder: ((keys: { K }, slot: number, parentKey: K?) -> ())?,
 	deletable: boolean?,
 	rowDeletable: RowPredicate<V>?,
 	onDelete: ((keys: { K }) -> ())?,
@@ -49,7 +56,7 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	direction: ComposeTypes.OrderedCollectionDirection?,
 }
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
-export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions<V, K> & {
+export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions<V, K> & HierarchyOptions<V, K> & {
 	from: Types.Value<{ V }>,
 	render: RowRender<V, K>,
 	mode: ComposeTypes.OrderedCollectionMode?,
@@ -93,6 +100,15 @@ export type CollectionConstructor =
 		(<V, K>(spec: KeyedCollectionSpec<V, K>) -> ScrollingFrame)
 		& (<V, _K>(spec: IdentityCollectionSpec<V>) -> ScrollingFrame)
 	))
+
+export type OutlineSpec<V, K> = CollectionSpec<V, K> & { children: Children<V> }
+export type OutlineConstructor =
+	(<V, K>(spec: KeyedCollectionSpec<V, K> & { children: Children<V> }) -> ScrollingFrame)
+	& (<V, _K>(spec: IdentityCollectionSpec<V> & { children: Children<V> }) -> ScrollingFrame)
+	& ((
+		name: string
+	) -> (<V, K>(spec: KeyedCollectionSpec<V, K> & { children: Children<V> }) -> ScrollingFrame)
+		& (<V, _K>(spec: IdentityCollectionSpec<V> & { children: Children<V> }) -> ScrollingFrame))
 
 export type RowAction = {
 	id: string,
@@ -153,7 +169,7 @@ export type TableColumn<V, K> = {
 	max: number?,
 	step: number?,
 }
-export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & {
+export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & HierarchyOptions<V, K> & {
 	focusPolicy: ("key" | "index")?,
 	initialFocus: K?,
 	autoFocus: boolean?,
@@ -201,6 +217,7 @@ export type CollectionControls = {
 	CellEditor: Types.Constructor<CellEditorSpec, Frame>,
 	VirtualList: CollectionConstructor,
 	VirtualGrid: CollectionConstructor,
+	Outline: OutlineConstructor,
 	Table: TableConstructor,
 	RowActions: Types.Constructor<RowActionsSpec, Frame>,
 }

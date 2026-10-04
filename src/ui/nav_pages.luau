@@ -4,6 +4,7 @@ local Nav = require("./navigation_types")
 local Inputs = require("./input_types")
 local Media = require("./media_types")
 local Content = require("./content_types")
+local dragSession = require("./drag_session")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local motion = require("./motion")
@@ -1718,9 +1719,34 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		}))
 		stackReady = true
 		if ctx.action then
-			ctx.action(root, "NavigationBack", { "Escape", "ButtonB" }, function(use: ComposeTypes.Use)
-				return #use(spec.path) > 0 and (depth == 0 or surfaces.within(use(selectedObject), root))
-			end, pop, { priority = 1000 + depth })
+			local drag = dragSession(ctx)
+			root:SetAttribute("FacetNavigationStack", true)
+			local nesting = Compose.cell(depth)
+			local _, context = ctx.action(
+				root,
+				"NavigationBack",
+				{ "Escape", "ButtonB" },
+				function(use: ComposeTypes.Use)
+					return use(drag.state) == nil
+						and #use(spec.path) > 0
+						and (use(nesting) == 0 or surfaces.within(use(selectedObject), root))
+				end,
+				pop,
+				{ priority = 1000 + depth }
+			)
+			local function locate()
+				local count, at = 0, root.Parent
+				while at do
+					if at:GetAttribute("FacetNavigationStack") == true then
+						count += 1
+					end
+					at = at.Parent
+				end
+				nesting:set(count)
+				context.Priority = 1000 + count
+			end
+			runtime.connect(root, "AncestryChanged", locate)
+			locate()
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			root:SetAttribute("FacetError", use(errorText))

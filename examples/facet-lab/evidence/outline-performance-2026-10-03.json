@@ -1,0 +1,171 @@
+{
+  "date": "2026-10-03",
+  "scope": "Outline layout, branch animation, scrolling, and collection drag/drop performance",
+  "environment": {
+    "runtime": "Roblox Studio on development desktop",
+    "devices": "Desktop hardware only; narrow layouts are viewport emulation, not CPU throttling",
+    "themes": [
+      "Foundation",
+      "Fantasy Parchment",
+      "Pixel Quest"
+    ],
+    "sizes": [
+      1000,
+      10000
+    ],
+    "tree": "100 folders with children; 10,000 records includes 100 folders and 9,900 children"
+  },
+  "method": {
+    "profiler": "Roblox rbx-perf-profiling skill; LibMP CaptureToBufferSync and Session.OpenFromBuffer; CPU frame-local scope accounting with session/iterator disposal",
+    "drag": "120 updates per gesture using production drag callbacks, native engine hit testing, rendering, animation, autoscroll and actual model reorders",
+    "timing": "Callback wall time measured separately with os.clock. Most captures summarize final 120 frames; full-capture analysis includes pickup. The final bitmap table capture also includes drop and subsequent frames.",
+    "limitations": [
+      "Synthetic text cells are not equivalent to production images and rich editors.",
+      "CUA native drags emitted DragStart/DragEnd but no DragContinue. Native gesture performance was not validated by that attempt.",
+      "No real low-end mobile or gamepad performance capture.",
+      "MicroProfiler scope costs are inclusive and must not be summed into frame critical-path time.",
+      "Earlier result drops counters are cumulative per mounted case; rejected outline adds no model mutation.",
+      "The 75.083 ms bitmap-table frame also contains a synchronous MicroProfiler snapshot. It is not an isolated application hitch measurement; the 17.630 ms drop callback and 15.133 ms model-reorder scope are measured separately from snapshot capture."
+    ]
+  },
+  "fixes": [
+    "Cache measured collection sizes until measurements change.",
+    "Use logical list focus positions instead of rebuilding all pixel positions on layout changes.",
+    "Progressively reveal outline branches so tiny animated rows do not mount the entire branch.",
+    "Construct disclosure controls only for branches.",
+    "Cache drag item order and search Compose measured placements instead of scanning every item each update.",
+    "Cache sibling insertion lookup; invalidate on tree/order/selection changes and validate current items at drop."
+  ],
+  "nativeAPIs": [
+    "UIDragDetector retained for pointer/touch transport",
+    "ScrollingFrame native viewport/scroll and UIListLayout measurement",
+    "Compose OrderedCollection windowing and placementOf; Compose formulas, tweens and conditional mounting"
+  ],
+  "results": {
+    "outline10000": {
+      "before": {
+        "scrollCallbackP95Ms": 10.006,
+        "expandSetterMaxMs": 97.931,
+        "expandFrameMaxMs": 112.864
+      },
+      "after": {
+        "scrollCallbackP95Ms": 2.939,
+        "expandSetterMaxMs": 13.556,
+        "expandFrameMaxMs": 19.132
+      }
+    },
+    "drag10000": {
+      "list": {
+        "updateP95Ms": 0.781,
+        "pickupMs": 9.824,
+        "dropMs": 14.545
+      },
+      "grid": {
+        "updateP95Ms": 1.086,
+        "pickupMs": 8.595,
+        "dropMs": 13.321
+      },
+      "table": {
+        "updateP95Ms": 0.676,
+        "pickupMs": 12.635,
+        "dropMs": 14.095
+      },
+      "outline": {
+        "updateP95Ms": 0.828,
+        "pickupMs": 13.87,
+        "dropMs": 14.753
+      },
+      "outlineParchmentEdge": {
+        "updateP95Ms": 0.572,
+        "scrolledPixels": 993,
+        "retainedRows": 19
+      },
+      "outlineParchmentReject": {
+        "updateP95Ms": 0.662,
+        "additionalModelMutations": 0,
+        "remainingGhosts": 0
+      }
+    },
+    "grid1000PixelCancel": {
+      "updateP95Ms": 0.625,
+      "scrolledPixels": 1041,
+      "modelMutations": 0,
+      "remainingGhosts": 0
+    },
+    "table1000ParchmentDrop": {
+      "updateP95Ms": 1.354,
+      "pickupMs": 7.716,
+      "dropMs": 17.63,
+      "wholeCaptureMaxFrameMs": 75.083,
+      "dropFrame": {
+        "regular": 129735,
+        "absolute": 414765
+      },
+      "modelReorderScopeMs": 15.133,
+      "remainingGhosts": 0,
+      "wholeCaptureMaxFrameIncludesSnapshotOverhead": true
+    },
+    "pixelTableFastScroll": {
+      "records": 1000,
+      "callbackP95Ms": 15.603,
+      "frameMaxMs": 31.916
+    }
+  },
+  "assessment": "Large steady drags and outline expansion improved substantially. Low-end readiness remains unproven: bitmap table scrolling and ~18 ms drop callback work need further optimization and physical low-end capture.",
+  "validation": {
+    "targetedTests": 283,
+    "behaviorSuite": {
+      "passed": 3689,
+      "deferred": 1
+    },
+    "types": {
+      "targets": 651,
+      "blocking": 0,
+      "dependencyDiagnostics": 0,
+      "negativeProbesRejected": 180,
+      "negativeProbesTotal": 180
+    },
+    "bench": "PASS",
+    "format": "PASS",
+    "full": "Behavior suite, strict types, bench and package checks pass in final full run. Overall gate remains non-green: legacy rr brand/call-shape fixtures, six old capture metadata records, and host timing budget violations.",
+    "fullTimingViolations": [
+      "radial-menu-open-close frame-ceiling",
+      "screen-lifecycle-churn trend",
+      "settings-churn trend",
+      "theme-swap-assets trend"
+    ],
+    "builds": "PASS: Lab, all 12 example places, package build and package status. Local build only; not published.",
+    "studio": "Closed; no connected instances"
+  },
+  "rawEvidence": "artifacts/verify/outline-performance/results.json",
+  "finalBuild": {
+    "sourceCommit": "22d076cab2c5d1fe36ec3327ee5145a433ed7878-dirty",
+    "sourceHash": "33baffcd56c3054d82a9656d68d8b5d76a524257bdc0c150d2bf0b3ff4bc67e7",
+    "artifactSha256": "5b206ab36c92d96bb5bf6736b33105a8236ab56801ea32404c0974d71b10837d"
+  },
+  "controllerEmulator": {
+    "date": "2026-10-03",
+    "emulator": "Studio Generic Gamepad",
+    "nativeInput": "Gamepad1 events and PreferredInput.Gamepad confirmed",
+    "inputSetup": "Lab automatic input and platform; initial focus set for each case; actions sent through visible Controller Emulator keyboard mappings",
+    "themes": [
+      "Fantasy Parchment",
+      "Pixel Quest"
+    ],
+    "checks": [
+      "Two-column hierarchy: D-pad Left collapses; Right expands, then enters first child; A selects; Left returns to parent.",
+      "Gamepad A enters Edit mode. A on Move picks up selected row; D-pad Down changes sibling insertion; A commits exactly one reorder.",
+      "City moved after Glacier; focus returned to City Move; no carried preview remained.",
+      "B cancellation changed preview position across 13 sampled animation frames, preserved model order and returned focus to the source Move handle.",
+      "Standalone Outline: Right expands Championship; Right enters Coastal Circuit; A selects it.",
+      "D-pad Down focuses Time trials; Right expands it and enters Harbour; A selects Harbour; Left returns to Time trials; Left collapses it. Hidden Harbour selection is preserved.",
+      "Pixel Quest focus/selection and square rows inspected; Parchment pickup and insertion previews inspected.",
+      "No Lab runtime errors."
+    ],
+    "limitations": [
+      "Controller emulator, not physical controller hardware.",
+      "Controller interaction evidence does not establish low-end device performance."
+    ],
+    "studioClosed": true
+  }
+}

@@ -186,6 +186,7 @@ t.describe("native virtual monitors coverage", function()
 				target
 			)
 			world.Desktop = root
+			local filesModel
 			local _, workbench = runtime.mount(function()
 				local built = require("../examples/gallery/scenarios/collection_workbench").build({
 					Facet = tracked,
@@ -199,9 +200,13 @@ t.describe("native virtual monitors coverage", function()
 						inputParent = target,
 					}),
 				})
+				filesModel = built.model
 				return built.screen()
 			end, target)
 			find(workbench, "primary").AbsoluteWindowSize = engine.types.Vector2.new(700, 400)
+			filesModel.mode:set("list")
+			filesModel.expanded:set({ ["environments"] = true })
+			filesModel.mode:set("details")
 			tour(world)
 		end, runtime.reactor)
 		lifetime.dispose()

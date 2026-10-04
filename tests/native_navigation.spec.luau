@@ -45,7 +45,7 @@ local function find(root: any, name: string): any
 	return nil
 end
 local function setup(
-	build: (SharedTypes.Controls, Shared.Host, any, any) -> unknown,
+	build: (SharedTypes.Controls, Shared.Host, any, any, ComposeRuntime) -> unknown,
 	options: {
 		theme: any?,
 		pressHaptic: ((any) -> HapticEffect)?,
@@ -69,7 +69,7 @@ local function setup(
 	local target = engine.new("Folder")
 	local stop, screen: any = runtime.mount(function()
 		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-			build(UI, (runtime.constructors :: unknown) :: Shared.Host, engine, gui),
+			build(UI, (runtime.constructors :: unknown) :: Shared.Host, engine, gui, runtime),
 		})
 	end, target)
 	return {
@@ -2144,6 +2144,60 @@ t.describe("native navigation controls", function()
 					child = {
 						content = function(): Instance
 							return UI.NavigationStack "ChildStack" {
+								path = inner,
+								root = {
+									content = function(): Instance
+										return UI.Button({ label = "Child root" })
+									end,
+								} :: NavigationFixtures.NavigationDestination<any>,
+								destinations = {
+									detail = {
+										content = function(): Instance
+											return UI.Button "DeepAction" { label = "Deep" }
+										end,
+									} :: NavigationFixtures.NavigationDestination<any>,
+								},
+							}
+						end,
+					} :: NavigationFixtures.NavigationDestination<any>,
+				},
+			})
+		end)
+		world.gui.SelectedObject = find(world.screen, "DeepAction")
+		local winner
+		for _, node in world.screen:GetDescendants() do
+			if
+				node.Name == "NavigationBack"
+				and node.Parent.Enabled
+				and (not winner or node.Parent.Priority > winner.Parent.Priority)
+			then
+				winner = node
+			end
+		end
+		t.expect(winner ~= nil).toBe(true)
+		winner.Pressed.fire()
+		t.expect(#inner:peek()).toBe(0)
+		t.expect(#outer:peek()).toBe(1)
+		world.stop()
+	end)
+
+	t.it("routes Back through separately created nested controls", function()
+		local outer, inner =
+			Compose.cell({ { id = "child" } } :: { NavigationFixtures.NavigationEntry<any> }),
+			Compose.cell({ { id = "detail" } } :: { NavigationFixtures.NavigationEntry<any> })
+		local world = setup(function(UI: FacetControls, _Host, engine, gui, runtime)
+			local Child = controls(Compose, runtime, { types = engine.types, services = { GuiService = gui } })
+			return UI.NavigationStack({
+				path = outer,
+				root = {
+					content = function(): Instance
+						return UI.Button({ label = "Root" })
+					end,
+				} :: NavigationFixtures.NavigationDestination<any>,
+				destinations = {
+					child = {
+						content = function(): Instance
+							return Child.NavigationStack "ChildStack" {
 								path = inner,
 								root = {
 									content = function(): Instance
