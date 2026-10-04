@@ -195,7 +195,11 @@ local function new(options: any?): Engine
 							and property ~= "ClassName"
 							and not (original.ClassName == "ViewportFrame" and property == "CurrentCamera")
 						then
-							copy[property] = copies[value] or value
+							if original.ClassName == "Path2D" and property == "ControlPoints" then
+								copy:SetControlPoints(value)
+							else
+								copy[property] = copies[value] or value
+							end
 						end
 					end
 					for _, tag in original:GetTags() do

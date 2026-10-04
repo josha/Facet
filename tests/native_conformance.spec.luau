@@ -313,9 +313,10 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 		}
 	end,
 }
-for _, name in { "VirtualList", "VirtualGrid" } do
+for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
 	fixtures[name] = function(Host: Host)
 		return {
+			children = if name == "Outline" then "children" else nil,
 			from = { { id = "a" } },
 			key = function(item)
 				return item.id

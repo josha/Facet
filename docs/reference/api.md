@@ -2890,6 +2890,77 @@ names.
 
 ## Collections
 
+### Outline
+
+Use `UI.Outline` for expandable rows. It has the same `from`, `key`,
+`render(current, placement, key)`, selection, editing, drag and focus options
+as VirtualList. Table and vertical VirtualList also accept the hierarchy
+options below. VirtualGrid does not accept a hierarchy; pass the children of
+the current folder as its flat source.
+
+| Option | Meaning |
+|---|---|
+| `children` | Required for Outline. A field name or `(item) -> { child }?`. Return `nil` for a leaf and an array, including an empty array, for a folder. |
+| `expanded` | Optional writable cell of `{ [key] = true }`. Omitted: local state, initially collapsed. Keep the cell in the model to share expansion across views. |
+| `onExpansionChange` | Receives the proposed full expansion map. When supplied, the callback must write accepted changes to `expanded`. |
+| `indent` | Non-negative indentation per level. Defaults to the theme's `space.l`. Deep indentation is capped to leave room for content. |
+
+Keys must be stable and unique across the entire tree. Children must form an
+acyclic tree. A children accessor reads the current model; make `from` reactive
+when descendants change. The renderer receives the original item. It does not
+need to draw a disclosure button or calculate indentation.
+
+```luau
+local expanded = Compose.cell({})
+local selection = Compose.cell({})
+local outline = UI.Outline {
+    from = {
+        { id = "folder", name = "Images", children = {
+            { id = "portrait", name = "Portrait" },
+        } },
+    },
+    key = "id",
+    children = "children",
+    expanded = expanded,
+    selection = selection,
+    selectionMode = "multiple",
+    render = function(current)
+        return UI.Text { text = function(use) return use(current).name end }
+    end,
+}
+```
+
+The disclosure button changes expansion without changing selection. Right
+expands a folder or focuses its first child. Left collapses a folder or focuses
+its parent. These commands also use D-pad Left/Right. They apply to row and
+disclosure focus, leaving text editors and other cell controls their native
+input. When a focused descendant closes, focus returns to its visible ancestor.
+Hidden descendants keep their selection; `selectionFrom` can override the
+complete tree used for selection validation.
+
+Opening and closing animate row extents and the disclosure arrow with theme
+motion tokens through Compose. A branch reveals its rows progressively so
+expansion keeps windowed rendering bounded by the viewport. Cells retain their
+natural size and clip within the animated row. Reduced motion changes expansion immediately. The native
+button size and measured content determine the minimum height across themes.
+
+Table puts disclosure and indentation in its first column and sorts each set
+of siblings independently. Expansion does not change other column alignment.
+
+`onActivate` handles opening a folder or a file. Desktop uses double-click;
+touch and gamepad use activation outside Edit mode. Without `onActivate`, an
+Outline activation toggles a folder. Use NavigationStack for entering a folder
+with Back; that navigation is separate from expanding rows in place.
+Native button activation supplies the click count. When a UIDragDetector captures
+a frame cell, Facet recognizes a second tap on the same cell within half a second
+and six pixels; dragging or cancelling resets that sequence.
+
+For hierarchy reordering, `onReorder(keys, siblingSlot, parentKey)` reports a
+zero-based slot among remaining siblings and their parent (`nil` at the root).
+Only keys with the same parent can reorder together. Invalid insertion points
+are rejected. To move into another folder, compose `UI.dropTarget` on that
+folder's cell. The model validates cycles, permissions and descendant changes.
+
 ### VirtualList and VirtualGrid
 
 Use these controls for data rows or tiles that need selection, reordering or
@@ -3193,8 +3264,10 @@ it prunes against `from`. Use stable record IDs, not projection indices.
 Use `measure = true` with content-sized custom list or grid cells. Measurement
 follows the original rendered cell through selection and row-action wrappers.
 Tables measure custom cells that use native automatic height or a fixed height.
-`UI.CellEditor` grows with its native field, including theme insets, validation
-messages and text size. Prefer content-sized cells so theme changes can reflow
+`UI.CellEditor` uses compact utility text and number fields for inline edits.
+It grows with validation messages and text size, and keeps larger targets for
+touch and gamepad. Vertical lists and tables use flat themed row highlights;
+grid cards retain their control skin. Prefer content-sized cells so theme changes can reflow
 the collection. An explicitly fixed outer layout still needs room to scroll.
 
 Delete commands also use `selectionFrom`, so selected records hidden by a
@@ -3218,11 +3291,11 @@ The Showcase File library demonstrates that recipe, including model-owned Undo.
 
 #### Editable collections
 
-Table, VirtualList and VirtualGrid take the same model.
+Outline, Table, VirtualList and VirtualGrid take the same model.
 `reorderable = true` with `onReorder(keys, insertionSlot)` moves rows, and
 `deletable = true` with `onDelete(keys)` removes them; both only propose, and
 the caller changes its rows. `movable(item)` and `rowDeletable(item)` refuse
-single rows. In all three containers, a row that `rowDeletable` refuses also loses its
+single rows. In these containers, a row that `rowDeletable` refuses also loses its
 destructive `rowActions`, so no swipe, menu or key can remove it. The paths per
 input:
 
@@ -4147,6 +4220,10 @@ The source also accepts `operations = { "copy", "move", "apply" }`, a
 payload validation and model changes. Pointer previews preserve the proportional
 pickup point under the mouse or touch contact. Collection stacks use the grabbed
 cell as the front card and preserve its pickup point and UI scale.
+An explicit collection `onActivate` takes priority over pickup on A outside
+Edit mode. In Edit mode, A on a row changes selection; the move handle starts
+a drag. NavigationStack leaves B to the active drag before handling Back.
+
 Keyboard and gamepad pickup also shows an inert carried-item preview. During a
 collection reorder it follows the insertion point, and the original cells stay
 empty until the move ends. Edit controls are excluded from the preview.

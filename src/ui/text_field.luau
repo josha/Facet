@@ -87,12 +87,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	local read = ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local chrome = fieldChrome(ctx)
-	local function carved(face: number, side: "left" | "right" | "top" | "bottom"): (ComposeTypes.Use?) -> UDim
+	local function carved(
+		spec: Spec,
+		face: number,
+		side: "left" | "right" | "top" | "bottom"
+	): (ComposeTypes.Use?) -> UDim
 		return function(use: ComposeTypes.Use?): UDim
 			local package = read(ctx.config.theme, use)
 			local recipe = package and package.chrome and package.chrome.field
 			local insets = (recipe and recipe.contentInsets or {}) :: { [string]: number? }
-			return D.new(0, face + (insets[side] or 0))
+			return D.new(0, face + (if read(spec.appearance, use) == "utility" then 0 else insets[side] or 0))
 		end
 	end
 	local function dynamic(source: unknown): boolean
@@ -503,7 +507,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			nativeProps.Size = if spec.visibleLines
 				then D2.new(1, 0, 0, 0)
 				else function(use: ComposeTypes.Use)
-					local minimum = if spec.multiline == true then 96 else 36
+					local minimum = if spec.multiline == true then 96 elseif spec.controlSize then 0 else 36
 					return D2.new(0, 0, 0, math.max(minimum, use(textHeight) + 12))
 				end
 			nativeProps.AutomaticSize = if spec.visibleLines then E.AutomaticSize.Y else nil
@@ -784,10 +788,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 0,
 				Host.UIPadding({
-					PaddingLeft = carved(10, "left"),
-					PaddingRight = carved(10, "right"),
-					PaddingTop = carved(4, "top"),
-					PaddingBottom = carved(4, "bottom"),
+					PaddingLeft = carved(spec, 10, "left"),
+					PaddingRight = carved(spec, 10, "right"),
+					PaddingTop = carved(spec, 4, "top"),
+					PaddingBottom = carved(spec, 4, "bottom"),
 				}) :: ComposeTypes.Child,
 			})
 			local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
@@ -798,11 +802,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			chrome.paint(control, plate, spec, function(use: ComposeTypes.Use?)
 				return failure(use) ~= "" or read(spec.invalid, use) == true
 			end)
-			ctx.skin(plate, "field", {
+			local _, skin = ctx.skin(plate, "field", {
 				disabled = function(use: ComposeTypes.Use)
 					return not enabled(use)
 				end,
 			})
+			if skin then
+				runtime.decorate(skin, {
+					Visible = function(use: ComposeTypes.Use): boolean
+						return read(spec.appearance, use) ~= "utility"
+					end,
+				})
+			end
 			if not spec.stepButtons then
 				local up: { string } = {}
 				local at: Instance? = node.Parent

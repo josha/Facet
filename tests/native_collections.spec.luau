@@ -64,9 +64,9 @@ local function setup(options: { [string]: any }?)
 	require("../src/ui/nav_popover")(ctx, UI, surfaces)
 	require("../src/ui/nav_pages")(ctx, UI, surfaces)
 	require("../src/ui/nav_radial")(ctx, UI, surfaces)
-	registerCollections(ctx, UI)
+	local buildList = registerCollections(ctx, UI)
 	registerRowActions(ctx, UI)
-	registerTable(ctx, UI)
+	registerTable(ctx, UI, buildList)
 	return engine, runtime, UI, root, gui, ctx
 end
 
@@ -4054,6 +4054,38 @@ t.describe("shared container editing", function()
 		stop()
 	end)
 
+	t.it("keeps inline editors compact on pointer input and enlarges their input target for touch", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = { MouseEnabled = true } })
+		local enabled = Compose.cell(true)
+		local stop, node: any = runtime.mount(function()
+			return UI.CellEditor {
+				editor = "text" :: "text",
+				value = "Alpha",
+				enabled = enabled,
+				onChange = function() end,
+			}
+		end, target)
+		local hit = node:FindFirstChild("Input+target", true)
+		local compactHeight = hit.Size.Y.Offset
+		local input = assert(ctx.config.userInputService)
+		t.expect(compactHeight < 44).toBe(true)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		t.expect(hit.Size.Y.Offset >= 44).toBe(true)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+		t.expect(hit.Size.Y.Offset >= 44).toBe(true)
+		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		t.expect(hit.Size.Y.Offset).toBe(compactHeight)
+		enabled:set(false)
+		local field = node:FindFirstChildWhichIsA("TextBox", true)
+		t.expect(field.TextEditable).toBe(false)
+		t.expect(field.Selectable).toBe(false)
+		t.expect(field.Interactable).toBe(false)
+		t.expect(field:GetAttribute("readOnly")).toBe(true)
+		t.expect(hit.Size.Y.Offset).toBe(compactHeight)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("does not save an unfinished draft when its cell is removed", function()
 		local _, runtime, UI, target = setup()
 		local draft, commits = Compose.cell(nil :: FixtureCollectionTypes.CellDraft?), 0
@@ -4514,6 +4546,57 @@ t.describe("collection transfer sessions", function()
 		runtime:dispose()
 	end)
 
+	t.it("bounds placement queries while dragging through ten thousand rows", function()
+		local engine, runtime, UI, target, _, ctx = setup()
+		local rows = Compose.cell(records(10000))
+		local controls: FixtureComposeTypes.OrderedCollectionControls<any> = {}
+		local insertion
+		local stop, node: any = runtime.mount(function()
+			return UI.VirtualList({
+				from = rows,
+				key = key,
+				controls = controls,
+				itemSize = 40,
+				drop = {
+					operation = "copy" :: "copy",
+					onDrop = function(_: any, info: any)
+						insertion = info.insertion
+						return true
+					end,
+				},
+				render = function(current): GuiObject
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 200)
+		nativeDrag.measure(node)
+		local queries = 0
+		local placement = assert(controls.placementOf)
+		controls.placementOf = function(index)
+			queries += 1
+			return placement(index)
+		end
+		local session = require("../src/ui/drag_session")(ctx)
+		local source = engine.new("TextButton")
+		source.Parent = target
+		session.begin(source, { payload = "new", operations = { "copy" } }, "pointer", nil, false)
+		for _, y in { 45, 85, 125 } do
+			queries = 0
+			session.update(engine.types.Vector2.new(100, y))
+			t.expect(queries > 0 and queries < 100).toBe(true)
+		end
+		local changed = records(10000)
+		table.insert(changed, 1, { id = 10001, label = "New" })
+		rows:set(changed)
+		node.CanvasPosition = engine.types.Vector2.zero
+		session.update(engine.types.Vector2.new(100, 45))
+		session.commit(node)
+		t.expect(insertion.beforeKey).toBe(1)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("rebases pending insertion against surviving neighbors and rejects removed neighbors", function()
 		local engine, runtime, UI, target, _, ctx = setup()
 		local rows = Compose.cell(records(3))
@@ -4566,9 +4649,16 @@ end)
 t.describe("native collection detector taps", function()
 	t.it("selects a frame-backed card before and after a drag without selecting on the drop", function()
 		for _, kind in { "VirtualGrid", "VirtualList" } do
-			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local now = 0
+			local engine, runtime, UI, target, _, ctx = setup({
+				userInputService = {},
+				clock = function()
+					return now
+				end,
+			})
 			local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
 			local selection = Compose.cell({})
+			local opened = {}
 			local stop, list: any = runtime.mount(function()
 				return UI[kind] {
 					from = records(3),
@@ -4577,6 +4667,9 @@ t.describe("native collection detector taps", function()
 					selection = selection,
 					reorderable = true,
 					onReorder = function() end,
+					onActivate = function(_, id)
+						table.insert(opened, id)
+					end,
 					render = function(): GuiObject
 						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) { Name = "Card" }
 					end,
@@ -4597,6 +4690,9 @@ t.describe("native collection detector taps", function()
 			end
 			tap(1)
 			t.expect(selection:peek()).toEqual({ [1] = true })
+			t.expect(#opened).toBe(0)
+			tap(1)
+			t.expect(opened).toEqual({ 1 })
 			local card = list:FindFirstChild("1", true):FindFirstChild("Card", true)
 			press.UserInputState = E.UserInputState.Begin
 			input.InputBegan.fire(press)
@@ -4610,10 +4706,210 @@ t.describe("native collection detector taps", function()
 			t.expect(selection:peek()).toEqual({ [1] = true })
 			tap(2)
 			t.expect(selection:peek()).toEqual({ [2] = true })
+			t.expect(opened).toEqual({ 1 })
+			now += 0.6
+			engine.heartbeat.fire(0.6)
+			tap(2)
+			t.expect(opened).toEqual({ 1 })
 			tap(3, true)
 			t.expect(selection:peek()).toEqual({ [2] = true })
 			stop()
 			runtime:dispose()
 		end
+	end)
+end)
+
+type OutlineRecord = { id: string, label: string?, children: { OutlineRecord }? }
+
+t.describe("outline collections", function()
+	t.it("shares hierarchy, selection and controlled expansion across lists and tables", function()
+		for _, kind in { "Outline", "VirtualList", "Table" } do
+			local engine, runtime, UI, target = setup()
+			local rows: Compose.Cell<{ OutlineRecord }> = Compose.cell({
+				{ id = "folder", label = "Folder", children = { { id = "child", label = "Child" } } },
+				{ id = "empty", label = "Empty", children = {} },
+				{ id = "leaf", label = "Leaf" },
+			} :: { OutlineRecord })
+			local expanded, selection = Compose.cell({}), Compose.cell({ child = true })
+			local requests = 0
+			local focus: any = {}
+			local stop, node: any = runtime.mount(function()
+				local spec: any = {
+					from = rows,
+					key = "id",
+					children = "children",
+					expanded = expanded,
+					selection = selection,
+					selectionMode = "multiple",
+					focus = focus,
+					mode = "all" :: "all",
+					itemSize = 60,
+					onExpansionChange = function(value)
+						requests += 1
+						expanded:set(value)
+					end,
+					render = function(current)
+						return runtime.constructors.TextLabel {
+							Text = function(use)
+								return use(current).label
+							end,
+							Size = engine.types.UDim2.new(1, 0, 0, 40),
+						}
+					end,
+				}
+				if kind == "Table" then
+					spec.columns = { { id = "label", label = "Name", width = 240 } }
+					spec.render = nil
+				end
+				return (UI :: any)[kind](spec)
+			end, target)
+			local function row(key)
+				return node:FindFirstChild(key, true)
+			end
+			t.expect(row("child")).toBe(nil)
+			t.expect(selection:peek().child).toBe(true)
+			t.expect(row("empty"):FindFirstChild("Disclosure", true).Visible).toBe(true)
+			local leafDisclosure = row("leaf"):FindFirstChild("Disclosure", true)
+			t.expect(leafDisclosure == nil or not leafDisclosure.Visible).toBe(true)
+			row("folder"):FindFirstChild("Disclosure", true).Activated.fire()
+			t.expect(requests).toBe(1)
+			t.expect(row("child") ~= nil).toBe(true)
+			t.expect(row("child"):FindFirstChild("OutlineRow", true):GetAttribute("FacetOutlineDepth")).toBe(1)
+			focus.focus("child")
+			t.expect(focus.current:peek()).toBe("child")
+			row("folder"):FindFirstChild("Disclosure", true).Activated.fire()
+			t.expect(row("child")).toBe(nil)
+			t.expect(selection:peek().child).toBe(true)
+			t.expect(focus.current:peek()).toBe("folder")
+			stop()
+			runtime:dispose()
+		end
+	end)
+	t.it("keeps large animated branches windowed and preserves extent when expansion reverses", function()
+		local now = 0
+		local engine, runtime, UI, target = setup({
+			motionLevel = "normal",
+			clock = function()
+				return now
+			end,
+		})
+		local children: { OutlineRecord } = {}
+		for index = 1, 1000 do
+			table.insert(children, { id = tostring(index) })
+		end
+		local expanded = Compose.cell({})
+		local status: any = Compose.cell(nil)
+		local stop, node: any = runtime.mount(function()
+			return UI.Outline {
+				from = { { id = "folder", children = children }, { id = "last" } } :: { OutlineRecord },
+				key = "id",
+				children = "children",
+				expanded = expanded,
+				itemSize = 40,
+				status = status,
+				render = function(): GuiObject
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) {
+						Size = engine.types.UDim2.new(1, 0, 0, 40),
+					}
+				end,
+			}
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(400, 240)
+		expanded:set({ folder = true })
+		for _ = 1, 4 do
+			now += 0.01
+			engine.heartbeat.fire(0.01)
+			t.expect(status:peek().retained <= 12).toBe(true)
+		end
+		local before = status:peek().extent
+		expanded:set({})
+		t.expect(math.abs(status:peek().extent - before) < 0.001).toBe(true)
+		for _ = 1, 20 do
+			now += 0.02
+			engine.heartbeat.fire(0.02)
+			t.expect(status:peek().retained <= 12).toBe(true)
+		end
+		t.expect(status:peek().total).toBe(2)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("animates row extent on expansion and collapse and honors reduced motion", function()
+		for _, reduced in { false, true } do
+			local now = 0
+			local engine, runtime, UI, target = setup({
+				motionLevel = if reduced then "none" else "normal",
+				clock = function()
+					return now
+				end,
+			})
+			local expanded = Compose.cell({})
+			local controls: any = {}
+			local stop, node: any = runtime.mount(function()
+				return UI.Outline {
+					from = { { id = "folder", children = { { id = "child" } } }, { id = "last" } } :: { OutlineRecord },
+					key = "id",
+					children = "children",
+					expanded = expanded,
+					mode = "all" :: "all",
+					itemSize = 80,
+					controls = controls,
+					render = function(): GuiObject
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor) {
+							Size = engine.types.UDim2.new(1, 0, 0, 40),
+						}
+					end,
+				}
+			end, target)
+			expanded:set({ folder = true })
+			if not reduced then
+				now += 0.025
+				engine.heartbeat.fire(0.025)
+				local size = controls.placementOf(2).size
+				t.expect(size > 0 and size < 80).toBe(true)
+			end
+			now += 1
+			engine.heartbeat.fire(1)
+			t.expect(controls.placementOf(2).size).toBe(80)
+			expanded:set({})
+			if not reduced then
+				now += 0.025
+				engine.heartbeat.fire(0.025)
+				local size = controls.placementOf(2).size
+				t.expect(size > 0 and size < 80).toBe(true)
+				t.expect(node:FindFirstChild("child", true).Interactable).toBe(false)
+			end
+			now += 1
+			engine.heartbeat.fire(1)
+			t.expect(node:FindFirstChild("child", true)).toBe(nil)
+			stop()
+			runtime:dispose()
+		end
+	end)
+end)
+
+t.describe("outline movement boundaries", function()
+	t.it("reports sibling insertion slots and prevents implicit reparenting", function()
+		local _, runtime, UI, target, _, ctx = setup()
+		local tree: any
+		local stop = runtime.mount(function()
+			tree = require("../src/ui/collection_tree")(ctx, UI, {
+				from = { { id = "folder", children = { { id = "a" }, { id = "b" } } }, { id = "next" } } :: { OutlineRecord },
+				children = "children",
+				expanded = Compose.cell({ folder = true } :: { [string]: boolean }),
+			}, function(item: OutlineRecord)
+				return item.id
+			end)
+			return runtime.constructors.Frame {}
+		end, target)
+		local accepted, slot, parent = tree.location({ "a" }, 2)
+		t.expect(accepted).toBe(true)
+		t.expect(slot).toBe(1)
+		t.expect(parent).toBe("folder")
+		t.expect(tree.location({ "a" }, 0)).toBe(false)
+		t.expect(tree.location({ "a", "next" }, 0)).toBe(false)
+		t.expect(tree.location({ "next" }, 1)).toBe(false)
+		stop()
+		runtime:dispose()
 	end)
 end)

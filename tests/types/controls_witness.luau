@@ -323,6 +323,30 @@ local tableView: GuiObject = UI.Table({
 		},
 	},
 })
+type TreeRow = { id: string, title: string, children: { TreeRow }? }
+local treeRows = Compose.cell({} :: { TreeRow })
+local openKeys = Compose.cell({} :: { [string]: boolean })
+local outline: ScrollingFrame = UI.Outline {
+	from = treeRows,
+	key = "id",
+	children = "children",
+	expanded = openKeys,
+	onExpansionChange = function(value: { [string]: boolean })
+		openKeys:set(value)
+	end,
+	onReorder = function(_keys: { string }, _slot: number, _parent: string?) end,
+	render = guiContent,
+}
+local namedOutline: ScrollingFrame = UI.Outline "Hierarchy" {
+	from = treeRows,
+	key = function(item: TreeRow): string
+		return item.id
+	end,
+	children = function(item: TreeRow): { TreeRow }?
+		return item.children
+	end,
+	render = guiContent,
+}
 local fieldList: ScrollingFrame = UI.VirtualList({ from = rows, key = "id", render = guiContent })
 local fieldTable: GuiObject = UI.Table({
 	from = rows,
@@ -405,6 +429,8 @@ local mounted: { GuiObject } = {
 	grid,
 	fieldList,
 	fieldTable,
+	outline,
+	namedOutline,
 	tableView,
 	actions,
 }

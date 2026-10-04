@@ -62,7 +62,7 @@ function document.validate(value: any): Document
 			visit(
 				child,
 				depth + 1,
-				if table.find({ "Table", "VirtualList", "VirtualGrid" }, node.kind) then node else collection,
+				if table.find({ "Table", "VirtualList", "VirtualGrid", "Outline" }, node.kind) then node else collection,
 				node
 			)
 		end
@@ -84,7 +84,7 @@ function document.validate(value: any): Document
 				)
 				templates[child.props.columnId] = true
 			end
-		elseif node.kind == "VirtualList" or node.kind == "VirtualGrid" then
+		elseif node.kind == "VirtualList" or node.kind == "VirtualGrid" or node.kind == "Outline" then
 			assert(#node.children <= 1, "A collection uses one reusable row template")
 		end
 		visiting[node] = nil
@@ -114,7 +114,12 @@ end
 function document.collection(value: Document, selected: string): Node?
 	local _, parent = document.find(value.root, selected)
 	while parent do
-		if parent.kind == "Table" or parent.kind == "VirtualList" or parent.kind == "VirtualGrid" then
+		if
+			parent.kind == "Table"
+			or parent.kind == "VirtualList"
+			or parent.kind == "VirtualGrid"
+			or parent.kind == "Outline"
+		then
 			return parent
 		end
 		local _, nextParent = document.find(value.root, parent.id)

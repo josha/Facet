@@ -130,9 +130,15 @@ return function(ctx: Types.Context, UI: Controls)
 			end)
 			local props = {
 				Name = "Editor",
+				appearance = "utility",
+				controlSize = "compact",
 				value = input,
 				label = spec.label,
-				enabled = enabled,
+				readOnly = function(use: ComposeTypes.Use): boolean
+					return not enabled(use)
+				end,
+				Selectable = enabled,
+				Interactable = enabled,
 				errorText = errorText,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,

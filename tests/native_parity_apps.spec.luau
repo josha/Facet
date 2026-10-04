@@ -4065,6 +4065,7 @@ t.describe("native parity reference applications", function()
 				exported[name] = true
 			end
 			local shared = {
+				Outline = "OutlineSpec",
 				VirtualList = "CollectionSpec",
 				VirtualGrid = "CollectionSpec",
 				VStack = "StackProps",

@@ -55,6 +55,7 @@ and gives recipes for search, drill-down and contextual actions.
 
 | Control | When to use it |
 |---|---|
+| [Outline](../reference/api.md#outline) | Expandable data rows with shared collection selection, editing, drag and focus. Table accepts the same hierarchy options when columns help. |
 | [VirtualList / VirtualGrid](../reference/api.md#virtuallist-and-virtualgrid) | Data rows or tiles with selection, reordering or collection focus, including short editable lists; also large or unbounded collections. Use ScrollView for a document or form without those collection behaviors. |
 | [Table](../reference/api.md#table) | Comparing, sorting, selecting or reordering columnar data. Use cards when artwork and individual browsing matter more. |
 | [Card](../reference/api.md#card) | A browsable item with artwork and actions; compose it in VirtualGrid for many items. |

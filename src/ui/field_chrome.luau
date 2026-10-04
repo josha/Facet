@@ -214,12 +214,19 @@ return function(ctx: Shared.Context): Chrome
 			}
 			table.insert(parts, label)
 		end
+		local inputKind = ctx.effectiveInput()
+		local function targetFloor(use: ComposeTypes.Use?): number
+			return if read(spec.appearance, use) == "utility" and inputKind(use) == "KeyboardAndMouse"
+				then 0
+				else math.max(44, ctx.metric("targetSizes.minimum", use))
+		end
 		local body: GuiObject = plate
 		if spec.controlSize ~= nil then
 			local function plateHeight(use: ComposeTypes.Use): number
 				local package = read(ctx.config.theme, use)
 				local skin = package and package.chrome and package.chrome.field
 				local carve: { top: number?, bottom: number? } = if skin
+						and read(spec.appearance, use) ~= "utility"
 						and skin.kind ~= "native"
 						and skin.kind ~= "none"
 					then skin.contentInsets or {}
@@ -241,7 +248,7 @@ return function(ctx: Shared.Context): Chrome
 			body = Host.Frame(plate.Name .. "+target")({
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(1, 0, 0, math.max(44, plateHeight(use)))
+					return D2.new(1, 0, 0, math.max(targetFloor(use), plateHeight(use)))
 				end,
 				plate :: ComposeTypes.Child,
 			})

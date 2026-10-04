@@ -691,10 +691,12 @@ function browser.mount(opts: MountOpts): any
 	local function Page(page: any): any
 		local data = page.data
 		local children: { any } = { Header(page.title, data.purpose, data.note) }
-		if page.id == "Table" or page.id == "VirtualList" or page.id == "VirtualGrid" then
+		if page.id == "Table" or page.id == "VirtualList" or page.id == "VirtualGrid" or page.id == "Outline" then
 			table.insert(
 				children,
-				section("Editing", "Editing", { collectionEditing(contextFor(pageState(page), true), page.id) })
+				section("Editing", if page.id == "Outline" then "Two-column hierarchy and editing" else "Editing", {
+					collectionEditing(contextFor(pageState(page), true), page.id),
+				})
 			)
 		end
 		if data.base ~= nil then
@@ -1324,7 +1326,15 @@ function browser.mount(opts: MountOpts): any
 			local data = page.data or {}
 			local exists = name == "overview"
 				or (name == "examples" and data.scenarios ~= nil)
-				or (name == "editing" and (page.id == "Table" or page.id == "VirtualList" or page.id == "VirtualGrid"))
+				or (
+					name == "editing"
+					and (
+						page.id == "Table"
+						or page.id == "VirtualList"
+						or page.id == "VirtualGrid"
+						or page.id == "Outline"
+					)
+				)
 			if exists and name == "examples" then
 				pageState(page).examples:set(true)
 			end
