@@ -1,6 +1,7 @@
 --!strict
 local policy = require("./collection_policy")
 local activation = require("./activation")
+local scrollLock = require("./scroll_lock")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -130,20 +131,32 @@ return function<V, K>(
 		else Compose.cell(nil :: GuiObject?)
 	local touchKey: K? = nil
 	local touchOrigin: Vector2? = nil
-	local scrollLocked: ScrollingFrame? = nil
+	local releaseScrollers: (() -> ())? = nil
 	local function disarm()
 		touchKey, touchOrigin = nil, nil
 	end
 	local function clearMove()
 		local move, selected = moving:peek(), gui and gui.SelectedObject
+		local restore = move ~= nil and move.keyboard and selected == keyboardTarget
 		captured = nil
 		disarm()
-		if scrollLocked then
-			scrollLocked.ScrollingEnabled = true
-			scrollLocked = nil
+		if releaseScrollers then
+			releaseScrollers()
+			releaseScrollers = nil
+		end
+		if restore and move and gui then
+			gui.SelectedObject = nil
+			local index = assert(controls.indexOfKey)(move.key)
+			if index then
+				local body = bodyOf()
+				canvasOffset(
+					body,
+					assert(controls.offsetOf)(index, "center", axis(body.AbsoluteWindowSize) / scaleOf(body))
+				)
+			end
 		end
 		moving:set(nil)
-		if move and move.keyboard and selected == keyboardTarget and gui then
+		if restore and move and gui then
 			local row = rowNodes[move.key]
 			local handle = row and row:FindFirstChild("Move")
 			if handle and handle:IsA("GuiObject") and handle.Visible then
@@ -215,6 +228,10 @@ return function<V, K>(
 				and pendingInput.UserInputState ~= E.UserInputState.End
 				and pendingInput.UserInputState ~= E.UserInputState.Cancel
 			captured = if position and live then pendingInput else nil
+			local row = rowNodes[key]
+			if captured and captured.UserInputType == E.UserInputType.Touch and row and not releaseScrollers then
+				releaseScrollers = scrollLock.holdOwnedAncestors(row)
+			end
 			recycled = false
 			activation.consume(captured)
 			local nextMove = {
@@ -541,7 +558,10 @@ return function<V, K>(
 						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 						Enabled = function(use: ComposeTypes.Use)
 							local selected = if selectedObject then use(selectedObject) else nil
-							local held = handleNode ~= nil and rawequal(selected, handleNode)
+							local held = preferred ~= nil
+								and use(preferred) == E.PreferredInput.Gamepad
+								and handleNode ~= nil
+								and rawequal(selected, handleNode)
 							return movable(use(current)) and read(sort, use) == nil and not held
 						end,
 						DragStart = function(position)
@@ -591,6 +611,9 @@ return function<V, K>(
 							if move and move.pointer and captured == nil then
 								captured = value
 								activation.consume(value)
+								if value.UserInputType == E.UserInputType.Touch and not releaseScrollers then
+									releaseScrollers = scrollLock.holdOwnedAncestors(handle)
+								end
 							end
 						end
 					end)
@@ -733,11 +756,6 @@ return function<V, K>(
 			disarm()
 			if position then
 				begin(key, position)
-				local body = bodyOf()
-				if moving:peek() and body.ScrollingEnabled then
-					scrollLocked = body
-					body.ScrollingEnabled = false
-				end
 			end
 		end)
 		local rowOrigin: Vector2? = nil

@@ -5,6 +5,7 @@ local layoutKit = require("./layout_kit")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
 local activation = require("./activation")
+local scrollLock = require("./scroll_lock")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -465,8 +466,23 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				local frame: Frame
 				local resizeUnit: ComposeTypes.Readable<number>
 				local grip: TextButton?
+				local minimum = Compose.formula(function(use)
+					local value = use(current)
+					return if value.width ~= nil then value.minWidth or 48 else minimumOf(value, use)
+				end)
 				if column.resizable ~= false then
 					local startingPosition, startingWidth = 0, 0
+					local releaseScrollers: (() -> ())? = nil
+					local function finishResize()
+						if releaseScrollers then
+							releaseScrollers()
+							releaseScrollers = nil
+						end
+					end
+					Compose.cleanup(finishResize)
+					if input then
+						runtime.connect(input, "WindowFocusReleased", finishResize)
+					end
 					local gripProps: Types.TextButtonProps = {
 						Name = "Resize",
 						Text = "",
@@ -477,7 +493,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 							end) :: Types.Value<Types.AttributeValue?>,
 						},
 						Selectable = true,
-						AnchorPoint = V2.new(1, 0),
+						AnchorPoint = V2.new(0.5, 0),
 						Position = D2.fromScale(1, 0),
 						Size = function(use: ComposeTypes.Use)
 							return D2.new(
@@ -495,22 +511,30 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 							ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 							DragStart = function(position)
 								startingPosition, startingWidth = position.X, frame.AbsoluteSize.X / resizeUnit:peek()
+								finishResize()
+								releaseScrollers = scrollLock.holdOwnedAncestors(frame)
 							end,
 							DragContinue = function(position)
 								local value = current:peek()
 								local nextWidths = table.clone(readSource(widths))
 								nextWidths[value.id] = math.clamp(
 									startingWidth + (position.X - startingPosition) / resizeUnit:peek(),
-									value.minWidth or 48,
+									minimum:peek(),
 									value.maxWidth or 1000000
 								)
 								setWidths(nextWidths)
 							end,
+							DragEnd = finishResize,
 						}),
 					}
 					grip = Host.TextButton(gripProps)
 				end
 				frame = ctx.styled(columnFrame(current, index, button, grip), "TableHeader")
+				runtime.decorate(frame, {
+					ZIndex = function(use: ComposeTypes.Use)
+						return #read(spec.columns, use) - use(index) + 1
+					end,
+				})
 				resizeUnit = ctx.layoutUnit(frame)
 				Compose.cleanup((runtime.mount(function()
 					return ctx.styled(
@@ -543,7 +567,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 						local nextWidths = table.clone(readSource(widths))
 						nextWidths[value.id] = math.clamp(
 							(nextWidths[value.id] or frame.AbsoluteSize.X / resizeUnit:peek()) + delta,
-							value.minWidth or 48,
+							minimum:peek(),
 							value.maxWidth or 1000000
 						)
 						setWidths(nextWidths)

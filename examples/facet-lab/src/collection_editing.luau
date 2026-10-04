@@ -25,6 +25,7 @@ return function(c: any, kind: string)
 	end
 	local selection = c.cell("editingSelection", {})
 	local enabled, editing = c.cell("editingEnabled", true), c.cell("editingMode", false)
+	local cellsEnabled = c.cell("cellEditingEnabled", true)
 	local serial, undo = c.cell("editingSerial", 6), c.cell("editingUndo", nil)
 	local drafts = c.cell("editingDrafts", {}):peek()
 	local env = UI.environment()
@@ -32,12 +33,9 @@ return function(c: any, kind: string)
 		return use(env.effectiveInput) ~= "KeyboardAndMouse"
 	end
 	local function editable(use)
-		return use(enabled)
+		return use(cellsEnabled)
 	end
 	local function save(nextRows)
-		if not enabled:peek() then
-			return
-		end
 		undo:set({ rows = rows:peek(), selection = selection:peek() })
 		rows:set(nextRows)
 	end
@@ -120,7 +118,7 @@ return function(c: any, kind: string)
 					return if string.match(value, "^%s*$") then "Enter a name." else nil
 				end,
 				onChange = function(value)
-					if not enabled:peek() then
+					if not cellsEnabled:peek() then
 						return false
 					end
 					local nextRows: { any } = table.clone(rows:peek())
@@ -161,6 +159,9 @@ return function(c: any, kind: string)
 		end,
 		onDelete = remove,
 		onReorder = function(moved: { string }, slot: number, parentKey: string?)
+			if not enabled:peek() then
+				return
+			end
 			local kept: { any }, carried: { any } = {}, {}
 			for _, item in rows:peek() do
 				table.insert(if table.find(moved, item.id) then carried else kept, item)
@@ -237,7 +238,8 @@ return function(c: any, kind: string)
 			gap = "s",
 			align = "center",
 			wrap = true,
-			UI.Toggle { Name = "EnableEditing", label = "Enable editing", value = enabled },
+			UI.Toggle { Name = "EnableEditing", label = "Container editing", value = enabled },
+			UI.Toggle { Name = "EnableCellEditing", label = "Cell editing", value = cellsEnabled },
 			UI.Button {
 				Name = "EditItems",
 				label = function(use)
@@ -278,7 +280,7 @@ return function(c: any, kind: string)
 				Name = "UndoEdit",
 				label = "Undo",
 				enabled = function(use)
-					return use(enabled) and use(undo) ~= nil
+					return (use(enabled) or use(cellsEnabled)) and use(undo) ~= nil
 				end,
 				onActivate = function()
 					local previous = undo:peek()

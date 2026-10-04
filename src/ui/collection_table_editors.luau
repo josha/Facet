@@ -18,7 +18,7 @@ local SETTINGS = { "options", "min", "max", "step", "draft", "validate", "editLa
 
 return function(ctx: Types.Context, UI: Controls)
 	local Compose, read = ctx.Compose, ctx.read
-	local D2, E = ctx.types.UDim2, ctx.types.Enum
+	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local editors = {}
 	local function build(spec: CollectionTypes.CellEditorSpec): Frame
 		assert(EDITORS[spec.editor], "Facet CellEditor: editor must be text, number, toggle or menu")
@@ -85,6 +85,7 @@ return function(ctx: Types.Context, UI: Controls)
 		end
 		local child: GuiObject
 		local display: TextLabel? = nil
+		local fieldHeight: ComposeTypes.Readable<UDim2>? = nil
 		if spec.editor == "toggle" then
 			child = UI.Toggle(({
 				Name = "Editor",
@@ -141,7 +142,7 @@ return function(ctx: Types.Context, UI: Controls)
 				appearance = "utility",
 				controlSize = "compact",
 				value = input,
-				label = spec.label,
+				Attributes = { AccessibleLabel = spec.label or spec.editLabel or "Edit value" },
 				readOnly = function(use: ComposeTypes.Use): boolean
 					return not enabled(use)
 				end,
@@ -182,6 +183,7 @@ return function(ctx: Types.Context, UI: Controls)
 			else
 				child = UI.TextInput((props :: unknown) :: InputTypes.TextInputProps)
 			end
+			fieldHeight = ctx.observe.Size(assert(child:FindFirstChild("Input+target", true)) :: GuiObject)
 			do
 				local hit: TextButton
 				local function rowHit(): GuiObject?
@@ -261,10 +263,18 @@ return function(ctx: Types.Context, UI: Controls)
 						Visible = function(use: ComposeTypes.Use): boolean
 							return not use(editing)
 						end,
-						Size = D2.new(1, 0, 0, 0),
-						AutomaticSize = E.AutomaticSize.Y,
+						Size = function(use: ComposeTypes.Use)
+							return D2.new(1, 0, 0, use(assert(fieldHeight)).Y.Offset)
+						end,
+						AutomaticSize = E.AutomaticSize.None,
 						BackgroundTransparency = 1,
-						TextWrapped = true,
+						TextWrapped = false,
+						TextTruncate = E.TextTruncate.AtEnd,
+						TextYAlignment = E.TextYAlignment.Center,
+						ctx.Host.UIPadding {
+							PaddingLeft = D.new(0, 10),
+							PaddingRight = D.new(0, 10),
+						} :: ComposeTypes.Child,
 						hit,
 					}),
 					"Text"
@@ -316,6 +326,14 @@ return function(ctx: Types.Context, UI: Controls)
 			BackgroundTransparency = 1,
 			child :: ComposeTypes.Child,
 			display :: ComposeTypes.Child,
+			if fieldHeight
+				then ctx.Host.UISizeConstraint {
+					Name = "FieldSize",
+					MinSize = function(use: ComposeTypes.Use)
+						return V2.new(0, use(assert(fieldHeight)).Y.Offset)
+					end,
+				}
+				else nil,
 		}
 		local root = ctx.Host.Frame(ctx.props(spec, {
 			"editor",

@@ -239,7 +239,10 @@ t.describe("native parity weaker rows", function()
 		world.input.IsKeyDown = function()
 			return false
 		end
-		nativeDrag.press(row, { UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
+		row.InputBegan.fire({
+			UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(50, 50, 0),
+		})
 		t.expect(find(world.root, "MenuPanel")).toBeNil()
 		local invoked = {}
 		trailing:set({
@@ -1102,7 +1105,10 @@ t.describe("native parity weaker rows", function()
 				world.gui.SelectedObject = find(body:FindFirstChild("2", true), "RowHit")
 				t.expect(world.gui.SelectedObject ~= nil).toBe(true)
 				t.expect(action(world.root, "RowActionsDelete")).toBeNil()
-				nativeDrag.press(protected, { UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
+				protected.InputBegan.fire({
+					UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+					Position = world.engine.types.Vector3.new(50, 50, 0),
+				})
 				local menuDelete = find(world.root, "trailing:Delete")
 				t.expect(menuDelete.Interactable).toBe(false)
 				menuDelete.Activated.fire()
@@ -1620,6 +1626,8 @@ t.describe("native parity weaker rows", function()
 
 	t.it("apps2-39 keeps a selected Move handle out of the engine drag so ButtonA grabs the row", function()
 		local _, node, world = mountGallery("../examples/gallery/examples/02_playlist_table")
+		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+		find(node, "Edit").Activated.fire()
 		local body = find(node, "Body")
 		body.AbsoluteWindowSize = V2(world, 900, 600)
 		nativeDrag.measure(body)

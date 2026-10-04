@@ -1214,7 +1214,10 @@ t.describe("native parity navigation", function()
 		local trigger = find(find(world.screen, "Restricted"), "Trigger")
 		trigger.Activated.fire()
 		t.expect(restricted:peek()).toBe(false)
-		trigger.InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton2 })
+		trigger.InputBegan.fire({
+			UserInputType = Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(50, 50, 0),
+		})
 		t.expect(restricted:peek()).toBe(true)
 		t.expect(find(world.screen, "MenuPanel") ~= nil).toBe(true)
 		action(world.screen, "ModalBack").Pressed.fire()
@@ -1234,7 +1237,10 @@ t.describe("native parity navigation", function()
 		t.expect(restricted:peek()).toBe(true)
 		action(world.screen, "ModalBack").Pressed.fire()
 		local tap = find(find(world.screen, "Tap"), "Trigger")
-		tap.InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton2 })
+		tap.InputBegan.fire({
+			UserInputType = Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(50, 50, 0),
+		})
 		tap.TouchLongPress.fire({}, Enum.UserInputState.Begin)
 		world.gui.SelectedObject = tap
 		t.expect(action(world.screen, "Menu")).toBeNil()
@@ -2324,7 +2330,10 @@ t.describe("native parity navigation", function()
 			close()
 			trigger("Chord").Activated.fire()
 			t.expect(find(screen, "MenuPanel")).toBeNil()
-			trigger("Chord").InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton2 })
+			trigger("Chord").InputBegan.fire({
+				UserInputType = Enum.UserInputType.MouseButton2,
+				Position = engine.types.Vector3.new(50, 50, 0),
+			})
 			t.expect(built.report().counts.Chord).toBeNil()
 			gui.SelectedObject = trigger("Chord")
 			action(screen, "Menu").Pressed.fire()
@@ -2332,7 +2341,10 @@ t.describe("native parity navigation", function()
 			close()
 			trigger("Secondary").Activated.fire()
 			t.expect(built.report().counts.Secondary).toBeNil()
-			trigger("Secondary").InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton2 })
+			trigger("Secondary").InputBegan.fire({
+				UserInputType = Enum.UserInputType.MouseButton2,
+				Position = engine.types.Vector3.new(50, 50, 0),
+			})
 			t.expect(built.report().counts.Secondary).toBe(1)
 			close()
 			trigger("Hold").TouchLongPress.fire({}, Enum.UserInputState.Begin)

@@ -843,7 +843,7 @@ t.describe("Compose native collections", function()
 		t.expect(body:FindFirstChild("1", true):FindFirstChild("Action", true)).toBe(original)
 		column.AbsoluteSize = engine.types.Vector2.new(100, 40)
 		local grip = column:FindFirstChild("Resize")
-		t.expect(grip.AnchorPoint).toBe(engine.types.Vector2.new(1, 0))
+		t.expect(grip.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0))
 		t.expect(grip.Position).toBe(engine.types.UDim2.fromScale(1, 0))
 		t.expect(grip.Size.X.Offset).toBe(12)
 		t.expect(header.Size.Y.Offset).toBe(40)
@@ -1249,6 +1249,34 @@ t.describe("Compose native collections", function()
 		t.expect(gui.SelectedObject).toBe(heading)
 		stop()
 		runtime:dispose()
+	end)
+
+	t.it("resizes a compact touch column without jumping to its desktop minimum", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V2 = engine.types.Enum, engine.types.Vector2
+		assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
+		local widths = Compose.cell({} :: { [string]: number })
+		local stop, node: any = runtime.mount(function()
+			return UI.Table {
+				from = records(1),
+				key = key,
+				widths = widths,
+				columns = {
+					{ id = "label", minWidth = 180 },
+					{ id = "kind", width = 100 },
+				} :: { FixtureCollectionTypes.TableColumn<any, any> },
+			}
+		end, target)
+		local header = node:FindFirstChild("Header")
+		local column = header:FindFirstChild("label")
+		column.AbsoluteSize = V2.new(120, 44)
+		local detector = column:FindFirstChild("Resize"):FindFirstChildWhichIsA("UIDragDetector")
+		t.expect(column.ZIndex > header:FindFirstChild("kind").ZIndex).toBe(true)
+		detector.DragStart.fire(V2.new(120, 0))
+		detector.DragContinue.fire(V2.new(130, 0))
+		t.expect(widths:peek().label).toBe(130)
+		detector.DragEnd.fire()
+		stop()
 	end)
 
 	t.it("leaves the cross-axis D-pad to the engine so focus can leave a rail for the next shelf", function()
@@ -2115,6 +2143,50 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("keeps touch handle drags active with a focused handle and moves a non-adjacent selection", function()
+		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
+		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+		assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
+		local selected, requests = Compose.cell({ [1] = true, [3] = true }), {}
+		local stop, node: any = runtime.mount(function()
+			return UI.Table {
+				from = records(5),
+				key = key,
+				itemSize = 20,
+				selection = selected,
+				selectionMode = "multiple" :: "multiple",
+				editing = true,
+				reorderable = true,
+				onReorder = function(keys, slot)
+					table.insert(requests, { keys = keys, slot = slot })
+				end,
+				columns = { { id = "label", width = 100 } },
+			}
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = V2.new(200, 100)
+		body.Parent.AbsoluteSize = body.AbsoluteWindowSize
+		body.ScrollingEnabled = true
+		local handle = body:FindFirstChild("3", true):FindFirstChild("Move", true)
+		gui.SelectedObject = handle
+		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
+		t.expect(detector.Enabled).toBe(true)
+		local input = {
+			UserInputType = E.UserInputType.Touch,
+			UserInputState = E.UserInputState.Begin,
+			Position = V3.new(10, 40, 0),
+		}
+		detector.DragStart.fire(V2.new(10, 40))
+		handle.InputBegan.fire(input)
+		t.expect(body.ScrollingEnabled).toBe(false)
+		detector.DragContinue.fire(V2.new(10, 35))
+		detector.DragEnd.fire()
+		t.expect(requests).toEqual({ { keys = { 1, 3 }, slot = 1 } })
+		t.expect(body.ScrollingEnabled).toBe(true)
+		t.expect(selected:peek()).toEqual({ [1] = true, [3] = true })
+		stop()
+	end)
+
 	t.it("arms a move on a detector tap and commits it on the next tap", function()
 		local engine, runtime, UI, target = setup()
 		local source = Compose.cell(records(5))
@@ -2342,7 +2414,10 @@ t.describe("Compose native collections", function()
 		end, target)
 		local original = node:FindFirstChild("Action", true)
 		gui.SelectedObject = original
-		node.InputBegan.fire({ UserInputType = engine.types.Enum.UserInputType.MouseButton2 })
+		node.InputBegan.fire({
+			UserInputType = engine.types.Enum.UserInputType.MouseButton2,
+			Position = engine.types.Vector3.new(50, 50, 0),
+		})
 		local panel = target:FindFirstChild("MenuPanel", true)
 		t.expect(panel ~= nil).toBe(true)
 		t.expect(panel.SelectionBehaviorDown).toBe(engine.types.Enum.SelectionBehavior.Stop)
@@ -2352,8 +2427,9 @@ t.describe("Compose native collections", function()
 		t.expect(target:FindFirstChild("MenuPanel", true)).toBeNil()
 		t.expect(gui.SelectedObject).toBe(original)
 		t.expect(invoked).toBe(0)
-		node:FindFirstChild("SwipeGrip", true).InputBegan.fire({
+		node.InputBegan.fire({
 			UserInputType = engine.types.Enum.UserInputType.MouseButton2,
+			Position = engine.types.Vector3.new(70, 80, 0),
 		})
 		target:FindFirstChild("leading:Read", true).Activated.fire()
 		t.expect(invoked).toBe(1)
@@ -2746,8 +2822,17 @@ t.describe("Compose native collections", function()
 		t.expect(gui.SelectedObject.Name).toBe("Drop")
 		target:FindFirstChild("FacetReorderDrop"):FindFirstChild("ReorderDrop").Pressed.fire()
 		t.expect(requests[2]).toEqual({ keys = { 1 }, slot = 25 })
-		body.CanvasPosition = engine.types.Vector2.zero
+		t.expect(body.CanvasPosition.Y).toBe(0)
 		handle = body:FindFirstChild("1", true):FindFirstChild("Move", true)
+		t.expect(gui.SelectedObject).toBe(handle)
+		handle.Activated.fire()
+		for _ = 1, 25 do
+			action.Pressed.fire()
+		end
+		target:FindFirstChild("FacetReorderCancel"):FindFirstChild("ReorderCancel").Pressed.fire()
+		t.expect(body.CanvasPosition.Y).toBe(0)
+		handle = body:FindFirstChild("1", true):FindFirstChild("Move", true)
+		t.expect(gui.SelectedObject).toBe(handle)
 		detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 		handle.InputBegan.fire(input)
 		detector.DragStart.fire(engine.types.Vector2.new(10, 10))
@@ -3022,7 +3107,10 @@ t.describe("Compose native collections", function()
 		gui.SelectedObject = node:FindFirstChild("Action", true)
 		open:set(nil)
 		t.expect(target:FindFirstChild("FacetRowActionsDelete").Enabled).toBe(false)
-		node.InputBegan.fire({ UserInputType = engine.types.Enum.UserInputType.MouseButton2 })
+		node.InputBegan.fire({
+			UserInputType = engine.types.Enum.UserInputType.MouseButton2,
+			Position = engine.types.Vector3.new(50, 50, 0),
+		})
 		local menuButton = target:FindFirstChild("trailing:Remove", true)
 		t.expect(menuButton.Interactable).toBe(false)
 		menuButton.Activated.fire()
@@ -4095,6 +4183,41 @@ t.describe("shared container editing", function()
 		t.expect(hit.Size.Y.Offset).toBe(compactHeight)
 		stop()
 		runtime:dispose()
+	end)
+
+	t.it("reserves the same inline field box before, during and after editing", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = { MouseEnabled = true } })
+		local editing = Compose.cell(false)
+		local stop, node: any = runtime.mount(function()
+			return UI.CellEditor {
+				editor = "text" :: "text",
+				label = "Name",
+				value = "Alpha",
+				editing = editing,
+				onChange = function() end,
+			}
+		end, target)
+		local box = node:FindFirstChild("Input+target", true)
+		local display = node:FindFirstChild("Value")
+		local floor = node:FindFirstChild("FieldSize")
+		t.expect(node:FindFirstChild("Label", true)).toBe(nil)
+		t.expect(floor ~= nil).toBe(true)
+		for _, input in
+			{
+				engine.types.Enum.PreferredInput.KeyboardAndMouse,
+				engine.types.Enum.PreferredInput.Touch,
+				engine.types.Enum.PreferredInput.Gamepad,
+			}
+		do
+			assert(ctx.config.userInputService).PreferredInput = input
+			local height = box.Size.Y.Offset
+			for _, active in { false, true, false } do
+				editing:set(active)
+				t.expect(floor.MinSize.Y).toBe(height)
+				t.expect(display.Size.Y.Offset).toBe(height)
+			end
+		end
+		stop()
 	end)
 
 	t.it("does not save an unfinished draft when its cell is removed", function()

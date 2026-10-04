@@ -425,7 +425,8 @@ return function(
 		anchor: GuiObject,
 		nonmodal: boolean?,
 		phase: Nav.PresencePhase?,
-		motion: Nav.MotionTiming?
+		motion: Nav.MotionTiming?,
+		pointer: ComposeTypes.Readable<Vector2?>?
 	): Frame
 		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
 		local timing: Nav.MotionTiming = motion or { enter = popoverTiming.enter, exit = popoverTiming.exit }
@@ -959,6 +960,10 @@ return function(
 		end)
 		local position = ctx.observe.AbsolutePosition(anchor)
 		local size = ctx.observe.AbsoluteSize(anchor)
+		local function anchorBounds(use: ComposeTypes.Use): (Vector2, Vector2)
+			local point = if pointer then use(pointer) else nil
+			return if point then point else use(position), if point then V2.zero else use(size)
+		end
 		local modal = if nonmodal
 			then Host.Frame "SuggestionsOverlay" {
 				BackgroundTransparency = 1,
@@ -1038,8 +1043,8 @@ return function(
 			room:set(math.max(0, use(extent).X - left - right - 16))
 		end)
 		local function place(use: ComposeTypes.Use): (Vector2, Vector2)
-			local at, bounds, offer, panelSize, offset =
-				use(position), use(size), use(extent), use(measured), originOf(use)
+			local at, bounds = anchorBounds(use)
+			local offer, panelSize, offset = use(extent), use(measured), originOf(use)
 			local insetLeft, insetTop, insetRight, insetBottom = insets(use)
 			local low, high =
 				V2.new(insetLeft + 8, insetTop + 8), V2.new(offer.X - insetRight - 8, offer.Y - insetBottom - 8)
@@ -1049,7 +1054,8 @@ return function(
 			end
 			local x, y = at.X - offset.X, at.Y - offset.Y
 			local depth = #use(path)
-			local left, top = x + depth * 288, y + bounds.Y + 4
+			local gap = if pointer and use(pointer) then 0 else 4
+			local left, top = x + depth * 288, y + bounds.Y + gap
 			local above, after = false, true
 			local edge, align = spec.edge or "bottom", spec.align or "start"
 			local function along(start: number, extentAcross: number, extentAlong: number): number
@@ -1061,12 +1067,12 @@ return function(
 			local vertical = depth > 0 or edge == "top" or edge == "bottom"
 			if depth > 0 or (edge == "bottom" and align == "start") then
 				if offer.Y > 0 and top + panelSize.Y > high.Y then
-					top = y - panelSize.Y - 4
+					top = y - panelSize.Y - gap
 					above = true
 				end
 			elseif vertical then
 				left = along(x, bounds.X, panelSize.X)
-				local below, over = y + bounds.Y + 4, y - panelSize.Y - 4
+				local below, over = y + bounds.Y + gap, y - panelSize.Y - gap
 				above = edge == "top"
 				if edge == "bottom" and offer.Y > 0 and below + panelSize.Y > high.Y and over >= low.Y then
 					above = true
@@ -1350,11 +1356,15 @@ return function(
 							Size = D2.fromOffset(280, 0),
 							AutomaticSize = E.AutomaticSize.Y,
 							Position = function(use: ComposeTypes.Use)
-								local at, bounds, offset = use(position), use(size), originOf(use)
+								local at, bounds = anchorBounds(use)
+								local offset = originOf(use)
 								local insetLeft, insetTop = insets(use)
 								return D2.fromOffset(
 									math.max(insetLeft + 8, at.X - offset.X + (use(source).depth - 1) * 288),
-									math.max(insetTop + 8, at.Y - offset.Y + bounds.Y + 4)
+									math.max(
+										insetTop + 8,
+										at.Y - offset.Y + bounds.Y + (if pointer and use(pointer) then 0 else 4)
+									)
 								)
 							end,
 							Host.UIListLayout({
@@ -1518,6 +1528,7 @@ return function(
 			error("Facet UI.Menu: give label or trigger, not both", 0)
 		end
 		local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(false)
+		local pointer: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
 		local announced = false
 		local function announce(state: boolean)
 			if state == announced then
@@ -1544,7 +1555,11 @@ return function(
 			announce(true)
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			announce(use(opened))
+			local shown = use(opened)
+			if not shown then
+				pointer:set(nil)
+			end
+			announce(shown)
 		end)
 		Compose.cleanup(function()
 			announce(false)
@@ -1667,9 +1682,44 @@ return function(
 			end
 		end)
 		if allows("secondary") then
-			runtime.connect(trigger, "InputBegan", function(input: InputObject)
-				if input.UserInputType == E.UserInputType.MouseButton2 then
+			local function secondary(input: InputObject)
+				if read(spec.enabled) == false then
+					return
+				end
+				if input.UserInputType == E.UserInputType.MouseButton2 and not activation.consumed(input) then
+					local point = V2.new(input.Position.X, input.Position.Y)
+					local layer = trigger:FindFirstAncestorWhichIsA("ScreenGui")
+					local gui = surfaces.service("GuiService")
+					if layer and (layer :: ScreenGui).IgnoreGuiInset and gui then
+						point += gui:GetGuiInset()
+					end
+					pointer:set(point)
 					open()
+					if opened:peek() then
+						activation.consume(input)
+					end
+				end
+			end
+			local connections: { [Instance]: RBXScriptConnection } = {}
+			local function attach(node: Instance)
+				if node:IsA("GuiObject") and not connections[node] then
+					connections[node] = node.InputBegan:Connect(secondary)
+				end
+			end
+			attach(trigger)
+			for _, node in trigger:GetDescendants() do
+				attach(node)
+			end
+			runtime.connect(trigger, "DescendantAdded", attach)
+			runtime.connect(trigger, "DescendantRemoving", function(node: Instance)
+				if connections[node] then
+					connections[node]:Disconnect()
+					connections[node] = nil
+				end
+			end)
+			Compose.cleanup(function()
+				for _, connection in connections do
+					connection:Disconnect()
 				end
 			end)
 		end
@@ -1699,7 +1749,7 @@ return function(
 		local motion = ctx.motionTiming("popover")
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Nav.PresencePhase?)
-				return menuPanel(spec, close, trigger, nil, phase, motion)
+				return menuPanel(spec, close, trigger, nil, phase, motion, pointer)
 			end, { motion = motion }),
 		})
 		return root
