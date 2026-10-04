@@ -216,7 +216,7 @@ t.describe("native gallery collections", function()
 		t.expect(built.report().surfaces.list.read.m1).toBe(false)
 		t.expect(find(find(body, "m1"), "Unread").Visible).toBe(false)
 		t.expect(find(find(body, "m2"), "Subject").Text).toBe("Order confirmed")
-		t.expect(find(find(body, "m1"), "Move").Visible).toBe(false)
+		t.expect(find(find(body, "m1"), "Move")).toBeNil()
 		t.expect(find(page, "Edit")).toBeNil()
 		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		find(page, "Edit").Activated.fire()

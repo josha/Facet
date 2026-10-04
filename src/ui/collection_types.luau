@@ -45,6 +45,7 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	collectionId: unknown?,
 	drag: ((items: { V }, keys: { K }) -> Env.DraggableSpec)?,
 	drop: Env.DropTargetSpec?,
+	rowDrop: ((ComposeTypes.Readable<V>, K) -> Env.DropTargetSpec?)?,
 	reorderable: boolean?,
 	movable: RowPredicate<V>?,
 	onReorder: ((keys: { K }, slot: number, parentKey: K?) -> ())?,

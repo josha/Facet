@@ -643,11 +643,15 @@ return {
 				if icon then editor else kind,
 				label,
 			}
+			return node
+		end
+		local function rowDrop(current, key)
 			local folderDrop = receive("library", key)
 			local function isFolder()
 				return current:peek().kind == "Folder"
 			end
-			UI.dropTarget(node, {
+			return {
+				label = value(current, "name"),
 				operation = function(use)
 					return if use(current).kind == "Folder" then use(operation) else "apply"
 				end,
@@ -674,8 +678,7 @@ return {
 					)
 					return true
 				end,
-			})
-			return node
+			}
 		end
 
 		local function view(kind, id, folder)
@@ -689,6 +692,7 @@ return {
 					return dragFiles(items, keys, "library")
 				end,
 				drop = receive("library", folder),
+				rowDrop = rowDrop,
 				from = source,
 				key = "id",
 				selection = selection,

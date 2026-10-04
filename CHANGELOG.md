@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Lists, grids, outlines and tables share `rowDrop(current, key)` for item destinations. Row edges retain insertion, while the row center accepts an item drop. Folder transfers between linked views reach the model; gamepad users can open outline branches while choosing a destination. Native drag detectors use the final release position for quick drags.
+- Collections construct move controls only when needed and avoid redundant focus subscriptions and table truncation updates. Drag feedback stays above stacked previews. Ordinary mouse and touch moves omit the redundant Move badge; copy, apply, rejection, pending completion and armed input instructions remain visible.
+
 - Outline reveals branch rows progressively so expansion keeps the mounted row count bounded. Collections cache measurements between changes, and linear keyboard/gamepad focus no longer rebuilds pixel positions during layout. Leaf rows reserve indentation without constructing hidden disclosure buttons. Drag insertion searches measured positions and caches item order instead of scanning every item on each pointer update; model changes invalidate the cache and drops still validate current items.
 
 - Vertical collection rows use flat theme highlights and compact inline editors. Disclosure buttons retain their authored square size. Custom table cells align vertically; pointer fields stay compact while touch and gamepad targets grow. The Outline Lab uses a focused hierarchy playground and a two-column editing example. Files uses compact horizontal list/table cells and a flexible filename column.

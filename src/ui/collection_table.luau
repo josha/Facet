@@ -77,6 +77,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 		"collectionId",
 		"drag",
 		"drop",
+		"rowDrop",
 		"onReorder",
 		"movable",
 		"selectable",
@@ -668,6 +669,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 			onReachEnd = spec.onReachEnd,
 			selectionFrom = spec.selectionFrom or (if tree then tree.all else nil),
 			selectionIndicator = false,
+			rowDrop = spec.rowDrop,
 			disabled = spec.disabled,
 			measure = spec.measure,
 			measured = function(use: ComposeTypes.Use)
@@ -709,6 +711,9 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				local cellHeights: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 				local truncated: ComposeTypes.Cell<{ [string]: boolean }> = Compose.cell({})
 				Compose.cleanup(function()
+					if truncatedRows:peek()[key] == nil then
+						return
+					end
 					local rows = table.clone(truncatedRows:peek())
 					rows[key] = nil
 					truncatedRows:set(rows)
@@ -877,7 +882,11 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 										end
 										truncated:set(cells)
 										local rows = table.clone(truncatedRows:peek())
-										rows[key] = cells
+										if next(cells) then
+											rows[key] = cells
+										else
+											rows[key] = nil
+										end
 										truncatedRows:set(rows)
 									end
 								end)

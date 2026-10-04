@@ -3464,7 +3464,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		for _, list in { false, true } do
 			local w = editableWorld("KeyboardAndMouse", { reorderable = true }, list)
 			local V2 = w.engine.types.Vector2
-			t.expect(w.row(2):FindFirstChild("Move", true).Visible).toBe(false)
+			t.expect(w.row(2):FindFirstChild("Move", true)).toBeNil()
 			t.expect(w.row(2):FindFirstChild("Cells", true).Position.X.Offset).toBe(0)
 			local hit = w.row(2):FindFirstChild("RowHit", true)
 			nativeDrag.press(hit, {
@@ -3506,6 +3506,17 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			t.expect(w.reorders[1].keys).toEqual({ 2 })
 			w.stop()
 		end
+	end)
+
+	t.it("completes a fast native row drag without an intermediate drag event", function()
+		local w = editableWorld("KeyboardAndMouse", { reorderable = true }, true)
+		local V2 = w.engine.types.Vector2
+		local detector = w.row(2):FindFirstChild("FacetCollectionDrag", true)
+		detector.DragStart.fire(V2.new(10, 50))
+		detector.DragEnd.fire(V2.new(10, 150))
+		t.expect(#w.reorders).toBe(1)
+		t.expect(w.reorders[1].keys).toEqual({ 2 })
+		w.stop()
 	end)
 
 	t.it("a row dragged away and back to its own slot keeps the selection and activates nothing", function()
@@ -3576,7 +3587,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			local edit = w.node:FindFirstChild("Edit", true)
 			t.expect(edit ~= nil and edit.Text == "Edit").toBe(true)
 			t.expect(edit:HasTag("facet-appearance-utility")).toBe(false)
-			t.expect(w.row(1):FindFirstChild("Move", true).Visible).toBe(false)
+			t.expect(w.row(1):FindFirstChild("Move", true)).toBeNil()
 			t.expect(w.row(1):FindFirstChild("Minus", true)).toBeNil()
 			t.expect(w.row(1):FindFirstChild("SelectMark", true).Visible).toBe(false)
 			edit.Activated.fire()
@@ -4241,7 +4252,7 @@ t.describe("container presentation and shared cells", function()
 		t.expect(cells.Position).toBe(D2.fromOffset(0, 44))
 		t.expect(cells.Size).toBe(D2.new(1, 0, 1, -44))
 		t.expect(controls.placementOf(1).size).toBe(124)
-		t.expect(handle.Visible).toBe(false)
+		t.expect(row:FindFirstChild("Move", true)).toBeNil()
 		stop()
 		runtime:dispose()
 	end)
@@ -4430,6 +4441,7 @@ t.describe("spatial grid reordering", function()
 			handle.Activated.fire()
 			t.expect(require("../src/ui/drag_session")(ctx).state:peek().pickupSize).toBe(handle.Parent.AbsoluteSize)
 			press("ChooseDropDestination")
+			t.expect(target:FindFirstChild("Drop", true).Visible).toBe(false)
 			t.expect(target:FindFirstChild("FacetReorderCrossLater").Enabled).toBe(false)
 			press("ChooseDropDestination")
 			t.expect(target:FindFirstChild("FacetReorderCrossLater").Enabled).toBe(true)
@@ -4911,5 +4923,106 @@ t.describe("outline movement boundaries", function()
 		t.expect(tree.location({ "next" }, 1)).toBe(false)
 		stop()
 		runtime:dispose()
+	end)
+end)
+
+t.describe("collection row destinations", function()
+	t.it("routes row centers to item drops, edges to insertion, and armed focus to collapsed folders", function()
+		for _, kind in { "VirtualList", "VirtualGrid", "Outline", "Table" } do
+			local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
+			local drops, reorders = {}, {}
+			local stop, node = runtime.mount(function()
+				local spec: any = {
+					from = {
+						{ id = 1, label = "File" },
+						{ id = 2, label = "Folder", children = { { id = 4, label = "Child" } } },
+						{ id = 3, label = "File" },
+					},
+					key = function(item)
+						return item.id
+					end,
+					itemSize = 60,
+					editing = true,
+					reorderable = true,
+					collectionId = "library",
+					drag = function(items, keys)
+						return {
+							payload = { collection = "library", items = items, keys = keys },
+							operations = {
+								"move",
+							},
+						}
+					end,
+					onReorder = function(keys, slot)
+						table.insert(reorders, { keys, slot })
+					end,
+					rowDrop = function(current, key): FixtureEnvironmentTypes.DropTargetSpec?
+						if key ~= 2 then
+							return nil
+						end
+						return {
+							accepts = function(payload)
+								return payload.kind ~= "blocked", "Cannot put this in a folder"
+							end,
+							onDrop = function(payload)
+								table.insert(drops, { key, payload })
+								return true
+							end,
+						}
+					end,
+					render = function(current)
+						return button(UI, current)
+					end,
+				}
+				if kind == "Table" then
+					spec.render = nil
+					spec.columns = { { id = "label", label = "Name" } }
+				end
+				if kind == "Outline" then
+					spec.children = "children"
+				end
+				return (UI :: any)[kind](spec)
+			end, target)
+			local root = node :: any
+			local body = if kind == "Table" then root:FindFirstChild("Body") else root
+			local V2 = engine.types.Vector2
+			body.AbsolutePosition = V2.new(0, 0)
+			body.AbsoluteWindowSize = V2.new(300, 240)
+			nativeDrag.measure(body)
+			local outer = body:FindFirstChild("2", true)
+			outer.AbsolutePosition = V2.new(0, 60)
+			outer.AbsoluteSize = V2.new(300, 60)
+			local row = outer:FindFirstChild("Content")
+			row.AbsolutePosition = V2.new(0, 60)
+			row.AbsoluteSize = V2.new(300, 60)
+			local session = require("../src/ui/drag_session")(ctx)
+			local source = engine.new("TextButton")
+			source.Parent = target
+			session.begin(source, { payload = { collection = "library", keys = { 1 } } }, "pointer", nil, false)
+			session.update(V2.new(150, 90))
+			t.expect(session.state:peek().target).toBe(row)
+			t.expect(row:GetAttribute("FacetDropState")).toBe("accepted")
+			session.update(if kind == "VirtualGrid" then V2.new(5, 90) else V2.new(150, 61))
+			t.expect(session.state:peek().target).toBe(body)
+			t.expect(row:GetAttribute("FacetDropState")).toBeNil()
+			session.update(V2.new(150, 90))
+			session.commit(nil)
+			t.expect(#drops).toBe(1)
+			t.expect(#reorders).toBe(0)
+			session.begin(source, { payload = { kind = "blocked" } }, "pointer", nil, false)
+			session.update(V2.new(150, 90))
+			t.expect(row:GetAttribute("FacetDropState")).toBe("rejected")
+			t.expect(row:GetAttribute("FacetDropReason")).toBe("Cannot put this in a folder")
+			session.commit(nil)
+			t.expect(#drops).toBe(1)
+			session.begin(source, { payload = { kind = "file" } }, "armed", nil, false)
+			local hit = row:FindFirstChild("RowHit")
+			t.expect(session.targetOf(hit)).toBe(row)
+			hit.Activated.fire({ UserInputType = engine.types.Enum.UserInputType.Touch }, 1)
+			t.expect(#drops).toBe(2)
+			t.expect(session.state:peek()).toBeNil()
+			stop()
+			runtime:dispose()
+		end
 	end)
 end)

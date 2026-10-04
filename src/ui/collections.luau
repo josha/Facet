@@ -77,6 +77,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		"collectionId",
 		"drag",
 		"drop",
+		"rowDrop",
 		"onReorder",
 		"movable",
 		"deletable",
@@ -286,7 +287,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			scope.focus(key)
 		end
 		local function wireSelection(node: Instance, key: K): ()
-			if node:IsA("GuiObject") then
+			if node:IsA("GuiObject") and (node.Selectable or node:IsA("GuiButton") or node:IsA("TextBox")) then
 				runtime.connect(node, "SelectionGained", function()
 					captureSelection(node, key)
 				end)
@@ -487,9 +488,11 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							or spec.onActivate
 							or spec.selection
 							or spec.selectionMode
+							or spec.rowDrop
 							or editor
 						then
-							local hit = Host.TextButton "RowHit" {
+							local hit: TextButton
+							hit = Host.TextButton "RowHit" {
 								AnchorPoint = V2.new(0.5, 0.5),
 								Position = D2.fromScale(0.5, 0.5),
 								Size = D2.fromScale(1, 1),
@@ -501,7 +504,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 										and not policy.disabled(spec.disabled, use(current))
 								end,
 								Activated = function(input: InputObject?, clicks: number?)
-									select(key, current, input, clicks)
+									if not activation.intercepted(hit, input) then
+										select(key, current, input, clicks)
+									end
 								end,
 								Attributes = {
 									FacetSelected = function(use: ComposeTypes.Use)
@@ -510,7 +515,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 								} :: EngineTypes.Attributes,
 							}
 							Compose.cleanup(activation.provide(hit, function(input: unknown, clicks: unknown)
-								select(key, current, input :: InputObject?, clicks :: number?)
+								if not activation.intercepted(hit, input) then
+									select(key, current, input :: InputObject?, clicks :: number?)
+								end
 							end))
 							local function pressed(value: InputObject)
 								activation.press(rendered, value)
@@ -530,6 +537,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							children.BackgroundTransparency = nil
 						end
 						local content = Host.Frame(children)
+						policy.drop(ctx, spec, current, key, content, kind == "grid" or horizontal)
 						if paintSelection then
 							ctx.styled(content, "TableRow")
 							if kind == "grid" or horizontal then

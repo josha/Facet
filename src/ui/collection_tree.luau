@@ -421,7 +421,8 @@ return function<V, K>(
 			local drag = sessionOf(ctx)
 			local function enabled(use: ComposeTypes.Use): boolean
 				local selected = use(selected)
-				return use(drag.state) == nil
+				local session = use(drag.state)
+				return (session == nil or (session.mode == "armed" and not session.pending))
 					and selected ~= nil
 					and selected:IsDescendantOf(root)
 					and (selected.Name == "RowHit" or selected.Name == "Disclosure")

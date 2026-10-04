@@ -508,91 +508,96 @@ return function<V, K>(
 				confirming:set(false)
 			end
 		end)
-		local handleProps: InputTypes.ButtonProps = {
-			Name = "Move",
-			Visible = function(use: ComposeTypes.Use)
-				return use(controlsShown) and not use(confirming)
-			end,
-			AnchorPoint = V2.new(1, 0),
-			Position = D2.fromScale(1, 0),
-			Size = if grid then D2.fromOffset(44, 44) else D2.new(0, 44, 1, 0),
-			AutomaticSize = E.AutomaticSize.None,
-			appearance = "utility",
-			label = "",
-			ctx.icon(function(use: ComposeTypes.Use)
-				local move = use(moving)
-				return if move and move.key == key then "checkmark" elseif grid then "view.grid" else "menu"
-			end, {
-				Name = "ReorderIcon",
-				AnchorPoint = V2.new(0.5, 0.5),
-				Position = D2.fromScale(0.5, 0.5),
-			}) :: ComposeTypes.Child,
-			enabled = function(use: ComposeTypes.Use)
-				return movable(use(current)) and read(sort, use) == nil
-			end,
-			onActivate = activate,
-			ctx.Host.UIDragDetector({
-				DragStyle = if grid
-					then E.UIDragDetectorDragStyle.TranslatePlane
-					else E.UIDragDetectorDragStyle.TranslateLine,
-				DragAxis = if horizontal then V2.new(1, 0) else V2.new(0, 1),
-				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-				Enabled = function(use: ComposeTypes.Use)
-					local selected = if selectedObject then use(selectedObject) else nil
-					local held = handleNode ~= nil and rawequal(selected, handleNode)
-					return movable(use(current)) and read(sort, use) == nil and not held
-				end,
-				DragStart = function(position)
-					local current = moving:peek()
-					origin, travel = position, 0
-					pickupPosition = position
-					armed = current ~= nil and current.keyboard
-					if not armed then
-						begin(key, position)
-					end
-				end,
-				DragContinue = function(position)
-					if origin then
-						travel = math.max(travel, (position - origin).Magnitude)
-					end
-					if not armed or travel >= TAP then
-						movePointer(position)
-					end
-				end,
-				DragEnd = function()
-					local tapped = origin ~= nil and travel < TAP
-					origin = nil
-					if armed then
-						armed = false
-						commit()
-						return
-					end
-					if tapped then
-						cancel()
-						toggle()
-					else
-						commit()
-					end
-				end,
-			}),
-		}
-		local handle = if reorderable then UI.Button(handleProps) else nil
-		handleNode = handle
-		if handle then
-			ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
-				if
-					value.UserInputType == E.UserInputType.MouseButton1
-					or value.UserInputType == E.UserInputType.Touch
-				then
-					pendingInput = value
-					local move = moving:peek()
-					if move and move.pointer and captured == nil then
-						captured = value
-						activation.consume(value)
-					end
+		local handle = if reorderable
+			then Compose.show(controlsShown, function()
+				local handleProps: InputTypes.ButtonProps = {
+					Name = "Move",
+					Visible = function(use: ComposeTypes.Use)
+						return use(controlsShown) and not use(confirming)
+					end,
+					AnchorPoint = V2.new(1, 0),
+					Position = D2.fromScale(1, 0),
+					Size = if grid then D2.fromOffset(44, 44) else D2.new(0, 44, 1, 0),
+					AutomaticSize = E.AutomaticSize.None,
+					appearance = "utility",
+					label = "",
+					ctx.icon(function(use: ComposeTypes.Use)
+						local move = use(moving)
+						return if move and move.key == key then "checkmark" elseif grid then "view.grid" else "menu"
+					end, {
+						Name = "ReorderIcon",
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = D2.fromScale(0.5, 0.5),
+					}) :: ComposeTypes.Child,
+					enabled = function(use: ComposeTypes.Use)
+						return movable(use(current)) and read(sort, use) == nil
+					end,
+					onActivate = activate,
+					ctx.Host.UIDragDetector({
+						DragStyle = if grid
+							then E.UIDragDetectorDragStyle.TranslatePlane
+							else E.UIDragDetectorDragStyle.TranslateLine,
+						DragAxis = if horizontal then V2.new(1, 0) else V2.new(0, 1),
+						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
+						Enabled = function(use: ComposeTypes.Use)
+							local selected = if selectedObject then use(selectedObject) else nil
+							local held = handleNode ~= nil and rawequal(selected, handleNode)
+							return movable(use(current)) and read(sort, use) == nil and not held
+						end,
+						DragStart = function(position)
+							local current = moving:peek()
+							origin, travel = position, 0
+							pickupPosition = position
+							armed = current ~= nil and current.keyboard
+							if not armed then
+								begin(key, position)
+							end
+						end,
+						DragContinue = function(position)
+							if origin then
+								travel = math.max(travel, (position - origin).Magnitude)
+							end
+							if not armed or travel >= TAP then
+								movePointer(position)
+							end
+						end,
+						DragEnd = function()
+							local tapped = origin ~= nil and travel < TAP
+							origin = nil
+							if armed then
+								armed = false
+								commit()
+								return
+							end
+							if tapped then
+								cancel()
+								toggle()
+							else
+								commit()
+							end
+						end,
+					}),
+				}
+				local handle = UI.Button(handleProps)
+				handleNode = handle
+				if handle then
+					ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
+						if
+							value.UserInputType == E.UserInputType.MouseButton1
+							or value.UserInputType == E.UserInputType.Touch
+						then
+							pendingInput = value
+							local move = moving:peek()
+							if move and move.pointer and captured == nil then
+								captured = value
+								activation.consume(value)
+							end
+						end
+					end)
 				end
+				return handle
 			end)
-		end
+			else nil
 		local function deletableRow(use: ComposeTypes.Use): boolean
 			local item = use(current)
 			return policy.allows(spec.rowDeletable, item) and not policy.disabled(spec.disabled, item)
@@ -713,7 +718,7 @@ return function<V, K>(
 				row,
 			},
 		}
-		for _, control in { handle, minus, confirm, mark } :: { GuiObject? } do
+		for _, control in { handle, minus, confirm, mark } :: { ComposeTypes.Child } do
 			if control then
 				nativeProps[#nativeProps + 1] = control
 			end
@@ -737,6 +742,17 @@ return function<V, K>(
 		end)
 		local rowOrigin: Vector2? = nil
 		local rowDragged = false
+		local function continueRowDrag(position: Vector2)
+			if rowOrigin and not moving:peek() and (position - rowOrigin).Magnitude >= 6 then
+				rowDragged = true
+				if pendingInput == nil or pendingInput.UserInputType ~= E.UserInputType.Touch then
+					begin(key, position)
+				end
+			end
+			if moving:peek() then
+				movePointer(position)
+			end
+		end
 		local detector = Host.UIDragDetector({
 			Name = "FacetCollectionDrag",
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
@@ -751,18 +767,11 @@ return function<V, K>(
 				rowOrigin, rowDragged = position, false
 				pickupPosition = position
 			end,
-			DragContinue = function(position)
-				if rowOrigin and not moving:peek() and (position - rowOrigin).Magnitude >= 6 then
-					rowDragged = true
-					if pendingInput == nil or pendingInput.UserInputType ~= E.UserInputType.Touch then
-						begin(key, position)
-					end
+			DragContinue = continueRowDrag,
+			DragEnd = function(position: Vector2?)
+				if position and rowOrigin and not rowDragged then
+					continueRowDrag(position)
 				end
-				if moving:peek() then
-					movePointer(position)
-				end
-			end,
-			DragEnd = function()
 				local tapped = rowOrigin ~= nil
 					and not rowDragged
 					and not moving:peek()
@@ -1045,6 +1054,26 @@ return function<V, K>(
 			info.insertion =
 				{ collection = collectionId, beforeKey = remaining[slot + 1], afterKey = remaining[slot], slot = slot }
 		end
+		local function localMove(payload: any, info: any): boolean
+			if
+				type(payload) ~= "table"
+				or payload.collection ~= collectionId
+				or not spec.onReorder
+				or info.operation ~= "move"
+			then
+				return false
+			end
+			if type(payload.keys) ~= "table" or #payload.keys == 0 then
+				return false
+			end
+			local live = sourceIndex:peek()
+			for _, key in payload.keys do
+				if live[key] == nil then
+					return false
+				end
+			end
+			return true
+		end
 		destination.propose = insertion
 		destination.accepts = function(payload, info): (boolean, string?)
 			if info.invalid then
@@ -1053,12 +1082,7 @@ return function<V, K>(
 			if read(sort) ~= nil then
 				return false, "Clear sorting before inserting items"
 			end
-			if
-				type(payload) == "table"
-				and payload.collection == collectionId
-				and spec.onReorder
-				and info.operation == "move"
-			then
+			if localMove(payload, info) then
 				if location then
 					local accepted = location(payload.keys, info.insertion.slot)
 					return accepted, if accepted then nil else "Move items within the same folder"
@@ -1071,12 +1095,7 @@ return function<V, K>(
 			return drop ~= nil, "This collection does not accept these items"
 		end
 		destination.onDrop = function(payload, info)
-			if
-				type(payload) == "table"
-				and payload.collection == collectionId
-				and spec.onReorder
-				and info.operation == "move"
-			then
+			if localMove(payload, info) then
 				commitLocal(payload.keys, info.insertion.slot)
 				return true
 			end
@@ -1484,7 +1503,10 @@ return function<V, K>(
 					ZIndex = targetZ,
 					Visible = function(use: ComposeTypes.Use)
 						local move = use(moving)
-						return move ~= nil and move.keyboard and (spec.onReorder ~= nil or spec.drop ~= nil)
+						return move ~= nil
+							and move.keyboard
+							and not use(choosingDestination)
+							and (spec.onReorder ~= nil or spec.drop ~= nil)
 					end,
 					onActivate = commit,
 				}
@@ -1589,6 +1611,16 @@ return function<V, K>(
 				return move ~= nil and move.keyboard and session ~= nil and not session.pending
 			end, function()
 				choosingDestination:set(not choosingDestination:peek())
+				if gui then
+					local move = moving:peek()
+					local row = move and rowNodes[move.key]
+					local hit = row and row.Parent and row.Parent:FindFirstChild("RowHit")
+					gui.SelectedObject = if choosingDestination:peek()
+							and hit
+							and hit:IsA("GuiObject")
+						then hit
+						else keyboardTarget
+				end
 				local session = drag.state:peek()
 				if session then
 					session.spec.navigationHint = if choosingDestination:peek()
@@ -1637,7 +1669,10 @@ return function<V, K>(
 		end, cancel, { priority = 400 })
 		ctx.action(root, "ReorderDrop", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use)
 			local move = use(moving)
-			return move ~= nil and move.keyboard and (spec.onReorder ~= nil or spec.drop ~= nil)
+			return move ~= nil
+				and move.keyboard
+				and not use(choosingDestination)
+				and (spec.onReorder ~= nil or spec.drop ~= nil)
 		end, commit, { priority = 400 })
 		if reorderable then
 			local function nudge(delta: number)

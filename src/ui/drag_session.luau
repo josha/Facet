@@ -20,14 +20,24 @@ return function(ctx: Types.Context): any
 
 	local function ancestor(node: Instance?): Instance?
 		while node do
-			if proxies[node] then
-				return proxies[node]
+			local target = proxies[node] or node
+			local spec = targets[target]
+			local pass = current and spec and spec.passThrough and spec.passThrough(current.payload)
+			if current and spec and spec.collectionAxis and current.mode == "pointer" and current.position then
+				local axis = spec.collectionAxis
+				local gui = target :: GuiObject
+				local extent = if axis == "X" then gui.AbsoluteSize.X else gui.AbsoluteSize.Y
+				local offset = if axis == "X"
+					then current.position.X - gui.AbsolutePosition.X
+					else current.position.Y - gui.AbsolutePosition.Y
+				local parent = target.Parent
+				while parent and not targets[parent] do
+					parent = parent.Parent
+				end
+				pass = pass or (parent ~= nil and (offset < extent * 0.25 or offset > extent * 0.75))
 			end
-			if
-				targets[node]
-				and not (current and targets[node].passThrough and targets[node].passThrough(current.payload))
-			then
-				return node
+			if spec and not pass then
+				return target
 			end
 			node = node.Parent
 		end
@@ -92,7 +102,12 @@ return function(ctx: Types.Context): any
 		else
 			local best: GuiObject? = nil
 			for target in targets do
-				if target:IsA("GuiObject") and available(target) and contains(target, at) then
+				if
+					target:IsA("GuiObject")
+					and available(target)
+					and contains(target, at)
+					and ancestor(target) == target
+				then
 					local clipped = false
 					local parent = target.Parent
 					while parent do
@@ -179,6 +194,21 @@ return function(ctx: Types.Context): any
 		end
 		return D2.fromOffset((position.X - origin.X) / scale, (position.Y - origin.Y) / scale)
 	end
+	local function raiseStatus(ghost: GuiObject)
+		local label = current.status
+		if not label then
+			return
+		end
+		local top = ghost.ZIndex
+		for _, node in ghost:GetDescendants() do
+			if node:IsA("GuiObject") or node:IsA("Path2D") then
+				top = math.max(top, node.ZIndex)
+			end
+		end
+		label.Parent.ZIndex = top + 1
+		label.ZIndex = top + 2
+	end
+
 	local function updateStatus(session: any)
 		local label = session.status
 		if not label then
@@ -190,6 +220,9 @@ return function(ctx: Types.Context): any
 			elseif session.target then session.reason or "Cannot drop here"
 			elseif session.mode == "armed" then "Choose a destination"
 			else "Cannot drop here"
+		if session.accepted and session.target and targets[session.target].label and not session.pending then
+			label.Text ..= " to " .. ctx.read(targets[session.target].label)
+		end
 		if session.mode == "armed" and not session.pending then
 			local input = session.effectiveInput(nil)
 			label.Text ..= if input == "Gamepad"
@@ -201,6 +234,10 @@ return function(ctx: Types.Context): any
 			end
 		end
 		local panel = label.Parent
+		panel.Visible = session.pending
+			or session.mode == "armed"
+			or not session.accepted
+			or session.operation ~= "move"
 		local layer = panel.Parent
 		local destination = session.target and targets[session.target]
 		local anchor = destination and (destination.focusTarget or session.target)
@@ -229,7 +266,10 @@ return function(ctx: Types.Context): any
 			if beside then
 				local edge = localPoint(ghost, anchor.AbsolutePosition + anchor.AbsoluteSize)
 				x = edge.X.Offset + gap
-				y = pickup.Y.Offset - extent.Y - gap
+				y = pickup.Y.Offset - extent.Y - size.Y - gap * 3
+				if y < gap and edge.Y.Offset + extent.Y + size.Y + gap * 3 <= bounds.Y then
+					y = edge.Y.Offset + gap
+				end
 			end
 			ghost.AnchorPoint = V2.zero
 			ghost.Position = D2.fromOffset(
@@ -564,6 +604,7 @@ return function(ctx: Types.Context): any
 				current.previewSize = source.AbsoluteSize
 				ghost.Position = localPoint(ghost, current.position or current.origin)
 				current.ghost = ghost
+				raiseStatus(ghost)
 			end
 		end
 		state:set(table.clone(current))
@@ -680,6 +721,7 @@ return function(ctx: Types.Context): any
 		current.armedPreview = if current.mode == "armed" then image else nil
 		ghost.Position = localPoint(ghost, current.position or current.origin)
 		current.ghost = ghost
+		raiseStatus(ghost)
 	end
 
 	function service.register(target: Instance, spec: any)

@@ -58,6 +58,38 @@ local function transferState(c: any): { [string]: any }
 	}
 end
 
+local function rowDropState(c: any): { [string]: any }
+	local rows = c.cell("assignedRoutes", ROWS)
+	return {
+		from = rows,
+		drag = function(items)
+			return { payload = { route = items[1] }, operations = { "apply" } }
+		end,
+		rowDrop = function(current, key)
+			return {
+				label = function(use)
+					return use(current).name
+				end,
+				operation = "apply",
+				accepts = function(payload)
+					return type(payload) == "table" and payload.route ~= nil
+				end,
+				onDrop = function(payload)
+					local nextRows: { Row } = table.clone(rows:peek())
+					for index, item in nextRows do
+						if item.id == key then
+							nextRows[index] = { id = key, name = payload.route.name, laps = payload.route.laps }
+						end
+					end
+					rows:set(nextRows)
+					c.log("rowDrop")(key, payload.route.name)
+					return true
+				end,
+			}
+		end,
+	}
+end
+
 local function emptyStatus(c: any): any
 	return c.cell("status", {
 		mode = "windowed" :: "windowed",
@@ -3985,6 +4017,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			"onEnter",
 			"onLeave",
 			"focusTarget",
+			"label",
 			"onUpdate",
 			"operation",
 			"passThrough",
@@ -3998,6 +4031,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local full = UI.Button({ label = "Full slot" })
 			UI.draggable(card, { payload = "card" })
 			UI.dropTarget(open, {
+				label = "Open slot",
 				focusTarget = open,
 				operation = "move",
 				passThrough = function(payload)
@@ -5574,6 +5608,13 @@ PAGE_DATA.Outline = {
 		} },
 	},
 }
+
+for _, name in { "VirtualList", "VirtualGrid", "Table", "Outline" } do
+	table.insert(assert(PAGE_DATA[name].states), {
+		name = "assign a route by dropping onto a row",
+		props = rowDropState,
+	})
+end
 
 for _, name in
 	{ "Screen", "VStack", "HStack", "ZStack", "ScrollView", "Grid", "AdaptiveStack", "ViewThatFits", "ErrorBoundary" }
