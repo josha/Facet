@@ -116,6 +116,36 @@ local function luminance(color: any): number
 end
 
 t.describe("native menu parity with main", function()
+	t.it("anchors a secondary-click menu at the pointer and resets to the trigger on activation", function()
+		local shown = Compose.cell(false)
+		local enabled = Compose.cell(true)
+		local world = labelled({ items = items(2), isPresented = shown, enabled = enabled, presentation = "menu" })
+		local trigger = world.find("Trigger")
+		local caption = world.engine.new("TextLabel")
+		caption.Parent = trigger
+		caption.InputBegan.fire({
+			UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(240, 180, 0),
+		})
+		local panel = panelOf(world)
+		lay(world, panel, Vector2.new(20, 30), Vector2.new(500, 40), Vector2.new(280, 100))
+		t.expect(panel.Position.X.Offset).toBe(240)
+		t.expect(panel.Position.Y.Offset).toBe(180)
+		shown:set(false)
+		enabled:set(false)
+		caption.InputBegan.fire({
+			UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(300, 220, 0),
+		})
+		t.expect(shown:peek()).toBe(false)
+		enabled:set(true)
+		panel = open(world)
+		lay(world, panel, Vector2.new(20, 30), Vector2.new(500, 40), Vector2.new(280, 100))
+		t.expect(panel.Position.X.Offset).toBe(20)
+		t.expect(panel.Position.Y.Offset).toBe(74)
+		world.stop()
+	end)
+
 	t.it("attaches to the caller's trigger node and returns that same node without a wrapper", function()
 		local authored: any, returned
 		local ran: { string } = {}

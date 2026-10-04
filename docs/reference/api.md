@@ -1780,6 +1780,9 @@ menus keep the control-specific navigation of the menu.
   constructor name, apply to the trigger node. Give `label` and Menu makes a
   plain Button trigger in a `Menu` frame. `label` and `trigger` together cause
   an error.
+- A secondary-click menu opens at the pointer, clamped to the available screen.
+  Activation and keyboard opening use the trigger. Touch and gamepad retain the
+  adaptive sheet presentation.
 - `onOpen` runs once each time the menu opens and `onClose` runs once each
   time it closes. This includes a change of `isPresented`, a chosen action, a
   tap outside, Back, a disabled or removed trigger, and unmount.
@@ -3288,6 +3291,8 @@ Use `measure = true` with content-sized custom list or grid cells. Measurement
 follows the original rendered cell through selection and row-action wrappers.
 Tables measure custom cells that use native automatic height or a fixed height.
 `UI.CellEditor` uses compact utility text and number fields for inline edits.
+Idle and active fields reserve the same space. `label` names the field for
+accessibility; it does not add a second caption inside the cell.
 It grows with validation messages and text size, and keeps larger targets for
 touch and gamepad. Vertical lists and tables use flat themed row highlights;
 grid cards retain their control skin. Prefer content-sized cells so theme changes can reflow

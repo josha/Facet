@@ -421,7 +421,7 @@ t.describe("native parity weaker tables", function()
 		do
 			w.input.PreferredInput = case[1]
 			t.expect(grip.Size).toBe(D2.new(0, case[2], 1, 0))
-			t.expect(grip.AnchorPoint).toBe(V2.new(1, 0))
+			t.expect(grip.AnchorPoint).toBe(V2.new(0.5, 0))
 			t.expect(grip.Position).toBe(D2.fromScale(1, 0))
 			t.expect(grip.Selectable).toBe(true)
 			t.expect(grip.ZIndex > sort.ZIndex).toBe(true)

@@ -719,10 +719,16 @@ t.describe("native parity controls", function()
 		detectorB.DragEnd.fire()
 		t.expect(openA:peek()).toBeNil()
 		t.expect(openB:peek()).toBe("trailing")
-		a.InputBegan.fire({ UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
+		a.InputBegan.fire({
+			UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(50, 50, 0),
+		})
 		t.expect(find(world.root, "MenuPanel") ~= nil).toBe(true)
 		t.expect(openB:peek()).toBeNil()
-		b.InputBegan.fire({ UserInputType = world.engine.types.Enum.UserInputType.MouseButton2 })
+		b.InputBegan.fire({
+			UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(50, 50, 0),
+		})
 		t.expect(find(find(world.root, "MenuPanel"), "trailing:Save") ~= nil).toBe(true)
 		find(world.root, "ModalBack").Pressed.fire()
 		t.expect(find(world.root, "MenuPanel")).toBeNil()
@@ -1648,7 +1654,10 @@ t.describe("native parity controls", function()
 		local content = find(row, "Action")
 		world.gui.SelectedObject = content
 		t.expect(action(world.root, "RowActionsDelete") ~= nil).toBe(true)
-		row.InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton2 })
+		row.InputBegan.fire({
+			UserInputType = Enum.UserInputType.MouseButton2,
+			Position = world.engine.types.Vector3.new(50, 50, 0),
+		})
 		t.expect(find(world.root, "MenuPanel") ~= nil).toBe(true)
 		world.gui.SelectedObject = content
 		t.expect(action(world.root, "RowActionsDelete")).toBeNil()
@@ -1663,7 +1672,10 @@ t.describe("native parity controls", function()
 		t.expect(find(world.root, "MenuPanel")).toBeNil()
 		local baseline = world.engine.census()
 		for _ = 1, 10 do
-			row.InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton2 })
+			row.InputBegan.fire({
+				UserInputType = Enum.UserInputType.MouseButton2,
+				Position = world.engine.types.Vector3.new(50, 50, 0),
+			})
 			action(world.root, "ModalBack").Pressed.fire()
 		end
 		t.expect(find(world.root, "MenuPanel")).toBeNil()

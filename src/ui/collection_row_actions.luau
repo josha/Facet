@@ -339,9 +339,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1 then
 				activeInput = input
 			end
-			if input.UserInputType == E.UserInputType.MouseButton2 then
-				reveal()
-			end
 		end
 		local start: Vector2? = nil
 		local startOffset = 0
@@ -577,15 +574,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 				setOpen(nil)
 			end
 		end)
-		local contentMenu = UI.Menu {
-			trigger = content,
-			items = menuItems,
-			isPresented = menuOpen,
-			triggers = {},
-			onOpen = function()
-				setOpen(nil)
-			end,
-		}
 		root = Host.Frame(ctx.props(spec, behavior, {
 			Size = D2.new(1, 0, 0, 44),
 			BackgroundTransparency = 1,
@@ -606,7 +594,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 						return if read(spec.editing, use) then use(editWidth) else 0
 					end,
 				} :: Types.Attributes,
-				contentMenu :: ComposeTypes.Child,
+				content :: ComposeTypes.Child,
 				Host.TextButton "SwipeGrip" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
@@ -691,6 +679,24 @@ return function(ctx: Types.Context, UI: Controls): ()
 				},
 			},
 		}))
+		local menuSpec: NavigationTypes.MenuSpec<string> = {
+			trigger = root,
+			items = menuItems,
+			isPresented = menuOpen,
+			triggers = { "secondary" :: "secondary" },
+			enabled = function(use: ComposeTypes.Use?): boolean
+				return read(spec.enabled, use) ~= false
+					and readSource(committing, use) == nil
+					and #readSource(menuItems, use) > 0
+			end,
+			onOpen = function()
+				setOpen(nil)
+				if spec.coordinator then
+					spec.coordinator:set(rowToken)
+				end
+			end,
+		}
+		UI.Menu(menuSpec)
 		if #cellEdits > 0 then
 			runtime.mount(function()
 				return UI.Button {

@@ -28,6 +28,20 @@ local ROWS: { Row } = {
 	{ id = "6", name = "Desert Dunes", laps = 3 },
 }
 
+local function reorderRows(c: any, rows: Cell<{ Row }>)
+	return function(keys: { string }, slot: number)
+		local remaining: { Row }, moved: { Row } = {}, {}
+		for _, row in rows:peek() do
+			table.insert(if table.find(keys, row.id) then moved else remaining, row)
+		end
+		for index, row in moved do
+			table.insert(remaining, slot + index, row)
+		end
+		rows:set(remaining)
+		c.log("onReorder")(keys, slot)
+	end
+end
+
 local function transferState(c: any): { [string]: any }
 	local rows = c.cell("transferRows", ROWS)
 	local serial = 0
@@ -3333,7 +3347,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						movable = function(r)
 							return r.id ~= "1"
 						end,
-						onReorder = c.log("onReorder"),
+						onReorder = reorderRows(c, rows),
 						dragLabel = function(r)
 							return r.name
 						end,
@@ -3349,7 +3363,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						from = rows,
 						selectionMode = "multiple" :: "multiple",
 						reorderable = true,
-						onReorder = c.log("onReorder"),
+						onReorder = reorderRows(c, rows),
 						deletable = true,
 						rowDeletable = function(r)
 							return r.id ~= "1"
@@ -3557,9 +3571,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{
 				name = "reorder (row 1 fixed)",
 				props = function(c: Context)
+					local rows = c.cell("rows", ROWS)
 					return {
+						from = rows,
 						reorderable = true,
-						onReorder = c.log("onReorder"),
+						onReorder = reorderRows(c, rows),
 						movable = function(r)
 							return r.id ~= "1"
 						end,
@@ -3577,7 +3593,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						from = rows,
 						selectionMode = "multiple" :: "multiple",
 						reorderable = true,
-						onReorder = c.log("onReorder"),
+						onReorder = reorderRows(c, rows),
 						deletable = true,
 						editing = c.cell("listEditing", false),
 						onDelete = function(keys)
