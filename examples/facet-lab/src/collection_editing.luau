@@ -162,7 +162,10 @@ return function(c: any, kind: string)
 		gap = "m",
 		UI.Text {
 			text = function(use)
-				return if coarse(use)
+				return if use(env.effectiveInput) == "Gamepad"
+					then "A selects an item. Choose Edit to select a group or rename. On a move handle, A picks up, D-pad moves, A drops and B cancels."
+					elseif
+						coarse(use)
 					then "Tap an item to select it. Choose Edit to select a group or rename items. Drag the handles to reorder."
 					else "Edit names directly. Command/Ctrl-click adds to selection; Shift-click selects a range. Drag a preview to reorder."
 			end,
