@@ -472,6 +472,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 					mounted[key] = node
 					placed[key] = placement
 					local measuredNode: GuiObject
+					local actionHeight: ComposeTypes.Readable<number>? = nil
 					local stop, mountedContent = runtime.mount(function(): Frame
 						local rendered = spec.render(current, placement, key)
 						if tree and not tree.columnar then
@@ -488,7 +489,16 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							table.insert(cellEdits[key], gated)
 						end
 						if not actionsWrapped then
-							rendered = policy.actions(ctx, spec, current, key, rendered, UI.RowActions, coordinator)
+							rendered, actionHeight = policy.actions(
+								ctx,
+								spec,
+								current,
+								key,
+								rendered,
+								UI.RowActions,
+								coordinator,
+								kind == "grid"
+							)
 						end
 						if editor then
 							rendered = editor.wrap(rendered, current, key)
@@ -608,6 +618,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							local scale = math.max(use(factor) * ancestors, 0.001)
 							local extent = (if horizontal then use(size).X else use(size).Y) / scale
 								+ (if editor and not horizontal then use(editor.header) else 0)
+								+ (if actionHeight and not horizontal then use(actionHeight) else 0)
 							if extent > 0 and measured:peek()[key] ~= extent then
 								local nextSizes = table.clone(measured:peek())
 								nextSizes[key] = extent

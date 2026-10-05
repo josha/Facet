@@ -32,12 +32,13 @@ function policy.actions<V, K>(
 	key: K,
 	row: GuiObject,
 	constructor: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
-	coordinator: ComposeTypes.Cell<{}?>
-): GuiObject
+	coordinator: ComposeTypes.Cell<{}?>,
+	tiled: boolean?
+): (GuiObject, ComposeTypes.Readable<number>?)
 	local authored = if spec.rowActions then spec.rowActions(current, key) else nil
 	local edits = activation.edits(row)
 	if authored == nil and #edits == 0 then
-		return row
+		return row, nil
 	end
 	local actions: CollectionTypes.RowActionsOptions = authored or {}
 	local actionSpec = table.clone(actions) :: CollectionTypes.RowActionsSpec
@@ -72,13 +73,29 @@ function policy.actions<V, K>(
 	actionSpec.enabled = function(use: ComposeTypes.Use): boolean
 		return ctx.read(actions.enabled, use) ~= false and not policy.disabled(spec.disabled, use(current))
 	end
+	actionSpec.actionPlacement = actions.actionPlacement or (if tiled then "bottom" else "trailing")
 	actionSpec.content, actionSpec.coordinator = row, actions.coordinator or coordinator
 	actionSpec.Size = ctx.types.UDim2.fromScale(1, 1)
 	actionSpec.reducedMotion = spec.reducedMotion
 	actionSpec.swipeEnabled = function(use: ComposeTypes.Use): boolean
 		return ctx.read(actions.swipeEnabled, use) ~= false and ctx.read(spec.editing, use) ~= true
 	end
-	return constructor(actionSpec)
+	local root = constructor(actionSpec)
+	local button = root:FindFirstChild("CellActions")
+	local footer = if tiled
+			and actionSpec.actionPlacement == "bottom"
+			and button
+			and button:IsA("GuiObject")
+		then button
+		else nil
+	if footer then
+		local size, visible = ctx.layoutSize(footer), ctx.observe.Visible(footer)
+		return root,
+			ctx.Compose.formula(function(use: ComposeTypes.Use): number
+				return if use(visible) then use(size).Y else 0
+			end)
+	end
+	return root, nil
 end
 function policy.drop<V, K>(
 	ctx: Types.Context,

@@ -416,10 +416,12 @@ add("PageView", "Navigation", { selection = "first", pages = pages, indicators =
 add(
 	"NavigationSplitView",
 	"Navigation",
-	{ preferredCompactColumn = "sidebar", sidebarWidth = 360, sidebarHeight = 240 },
+	{ preferredCompactColumn = "sidebar", sidebarWidth = 360, sidebarHeight = 240, resizable = true },
 	{
 		choice("preferredCompactColumn", "Compact column", { "sidebar", "detail" }),
 		choice("axis", "Split axis", { "x", "y" }),
+		flag("resizable", "Resizable"),
+		flag("alwaysShowResizeHandle", "Always show resize handle"),
 		number("sidebarWidth", "Sidebar width"),
 		number("sidebarHeight", "Sidebar height"),
 		text("backLabel", "Back label"),

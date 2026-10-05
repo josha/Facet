@@ -9,6 +9,8 @@ local dragSession = require("./drag_session")
 export type Column = "sidebar" | "detail"
 export type Props = Shared.FrameProps & {
 	axis: ("x" | "y")?,
+	resizable: Shared.ValueBoolean?,
+	alwaysShowResizeHandle: Shared.ValueBoolean?,
 	sidebarHeight: Shared.Cell<number>?,
 	minSidebarHeight: number?,
 	maxSidebarHeight: number?,
@@ -68,6 +70,8 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			"preferredCompactColumn",
 			"sidebarWidth",
 			"axis",
+			"resizable",
+			"alwaysShowResizeHandle",
 			"sidebarHeight",
 			"minSidebarHeight",
 			"maxSidebarHeight",
@@ -87,8 +91,14 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local hovered, dragging = Compose.cell(false), Compose.cell(false)
 		local gamepad = ctx.config.services.GamepadService
 		local cursor = if gamepad then ctx.observe.GamepadCursorEnabled(gamepad) else Compose.cell(false)
+		local resizable = Compose.formula(function(use: Shared.Use): boolean
+			return spec.resizable == nil or read(spec.resizable, use)
+		end)
 		local function gutter(use: Shared.Use?): number
-			return if input(use) == "KeyboardAndMouse" then 12 else math.max(28, hitFloor(use))
+			return if not read(resizable, use)
+				then 1
+				elseif input(use) == "KeyboardAndMouse" then 12
+				else math.max(28, hitFloor(use))
 		end
 		local shown = Compose.formula(function(use: Shared.Use): boolean
 			return spec.detailVisible == nil or read(spec.detailVisible, use)
@@ -115,6 +125,9 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		end)
 		local function split(use: Shared.Use): boolean
 			return use(shown) and not use(compact)
+		end
+		local function canResize(use: Shared.Use): boolean
+			return split(use) and use(resizable)
 		end
 		local function chrome(use: Shared.Use): number
 			return if use(compact) and use(shown) then ctx.metric("targetSizes.minimum", use) else 0
@@ -221,7 +234,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			(function()
 				local resizeProps: Shared.TextButtonProps = {
 					Name = "Resize",
-					Active = true,
+					Active = canResize,
 					MouseEnter = function()
 						hovered:set(true)
 					end,
@@ -232,7 +245,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					AutoButtonColor = false,
 					BackgroundTransparency = 1,
 					Visible = split,
-					Selectable = true,
+					Selectable = canResize,
 					Position = function(use: Shared.Use)
 						return dimensions(0, use(actualExtent), 0, 0)
 					end,
@@ -255,6 +268,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					),
 					Host.Frame {
 						Name = "Grip",
+						Visible = canResize,
 						BackgroundTransparency = 1,
 						Active = false,
 						Selectable = false,
@@ -271,7 +285,10 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 								Size = dimensions(0, 3, 0, 24),
 								BorderSizePixel = 0,
 								Visible = function(use: Shared.Use): boolean
-									return use(hovered) or use(dragging) or input(use) ~= "KeyboardAndMouse"
+									return read(spec.alwaysShowResizeHandle, use) == true
+										or use(hovered)
+										or use(dragging)
+										or input(use) ~= "KeyboardAndMouse"
 								end,
 								Host.UICorner { CornerRadius = ctx.round },
 							},
@@ -280,7 +297,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					},
 					Host.UIDragDetector {
 						Enabled = function(use: Shared.Use): boolean
-							return split(use)
+							return canResize(use)
 								and (
 									preferred == nil
 									or use(preferred) ~= E.PreferredInput.Gamepad
@@ -319,7 +336,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				UI.adjustable(resize, {
 					axis = "none",
 					repeats = true,
-					enabled = split,
+					enabled = canResize,
 					onAdjust = function(direction: number)
 						setExtent(actualExtent:peek() + direction * 16)
 					end,
@@ -342,7 +359,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 				else nil
 			local crossed = previousPane ~= nil and pane ~= nil and pane ~= previousPane
 			previousPane = pane
-			if crossed and split(use) and gui then
+			if crossed and canResize(use) and gui then
 				previousPane = nil
 				gui.SelectedObject = resize
 				return
@@ -375,8 +392,11 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			end
 			root:SetAttribute("FacetSplitCollapsed", collapsed)
 			root:SetAttribute("FacetSplitColumn", current)
-			if not split(use) then
+			if not canResize(use) then
 				finish()
+				if gui and gui.SelectedObject == resize then
+					pendingFocus = true
+				end
 			end
 			local changed = collapsed ~= previousCompact or current ~= previousColumn or visible ~= previousShown
 			previousCompact, previousColumn, previousShown = collapsed, current, visible

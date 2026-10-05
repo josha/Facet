@@ -658,6 +658,21 @@ t.describe("file library workbench", function()
 		stop()
 	end)
 
+	t.it("keeps Linked and Inbox in the visible compact Views menu", function()
+		local built, node, stop, _, world = mount("collection_workbench", { width = 390, height = 844 })
+		local menu = find(node, "ViewOptions")
+		t.expect(menu.Parent.Name).toBe("Toolbar")
+		t.expect(menu.Visible and menu.Parent.Visible).toBe(true)
+		t.expect(find(node, "Filters").Visible).toBe(false)
+		for _, name in { "linked", "inbox" } do
+			find(menu, "Trigger").Activated.fire()
+			find(find(world.target, "MenuPanel"), name).Activated.fire()
+			t.expect(find(world.target, "MenuPanel")).toBeNil()
+		end
+		t.expect(built.model.linked:peek() and built.model.transfers:peek()).toBe(true)
+		stop()
+	end)
+
 	t.it("splits Files Inbox and Linked independently and navigates all three when compact", function()
 		local built, node, stop, engine = mount("collection_workbench")
 		local views, primary = find(node, "Views"), find(node, "PrimaryViews")

@@ -22,12 +22,15 @@ local function world(preferredInput: string?, axis: ("x" | "y")?)
 		environment = { viewingDistance = distance :: any },
 	})
 	local shown, width, column = Compose.cell(true), Compose.cell(360), Compose.cell("sidebar")
+	local resizable, alwaysShow = Compose.cell(true), Compose.cell(false)
 	local screen = engine.new("ScreenGui")
 	local root: any
 	local builds = { sidebar = 0, detail = 0 }
 	local stop = runtime.mount(function()
 		root = UI.NavigationSplitView {
 			axis = axis,
+			resizable = resizable,
+			alwaysShowResizeHandle = alwaysShow,
 			sidebarHeight = if axis == "y" then width else nil,
 			detailVisible = shown,
 			sidebarWidth = width,
@@ -52,6 +55,8 @@ local function world(preferredInput: string?, axis: ("x" | "y")?)
 		engine = engine,
 		screen = screen,
 		shown = shown,
+		resizable = resizable,
+		alwaysShow = alwaysShow,
 		width = width,
 		column = column,
 		distance = distance,
@@ -64,6 +69,51 @@ local function find(root: any, name: string): any
 end
 
 t.describe("native split navigation", function()
+	for _, axis in { "x", "y" } do
+		t.it("makes " .. axis .. " resizing optional without blocking pane focus", function()
+			local w = world(nil, axis :: "x" | "y")
+			local resize, detector = find(w.root, "Resize"), find(w.root, "UIDragDetector")
+			local file, inspector = find(w.root, "File"), find(w.root, "Inspector")
+			w.gui.SelectedObject = file
+			w.gui.SelectedObject = resize
+			detector.DragStart.fire(w.engine.types.Vector2.new(360, 360))
+			w.resizable:set(false)
+			t.expect(detector.Enabled).toBe(false)
+			t.expect(resize.Selectable).toBe(false)
+			t.expect(resize.Active).toBe(false)
+			t.expect(find(resize, "Grip").Visible).toBe(false)
+			t.expect(w.gui.SelectedObject).toBe(file)
+			detector.DragContinue.fire(w.engine.types.Vector2.new(400, 400))
+			detector.DragEnd.fire(w.engine.types.Vector2.new(400, 400))
+			t.expect(w.width:peek()).toBe(360)
+			w.gui.SelectedObject = inspector
+			t.expect(w.gui.SelectedObject).toBe(inspector)
+			w.width:set(380)
+			t.expect(
+				if axis == "x" then find(w.root, "Sidebar").Size.X.Offset else find(w.root, "Sidebar").Size.Y.Offset
+			)
+				.toBe(380)
+			w.resizable:set(true)
+			t.expect(detector.Enabled and resize.Selectable).toBe(true)
+			w.gui.SelectedObject = file
+			t.expect(w.gui.SelectedObject).toBe(resize)
+			w.stop()
+		end)
+	end
+	t.it("can keep the resize handle visible without pointer hover", function()
+		local w = world()
+		local resize, pill = find(w.root, "Resize"), find(w.root, "Pill")
+		t.expect(pill.Visible).toBe(false)
+		w.alwaysShow:set(true)
+		t.expect(pill.Visible).toBe(true)
+		resize.MouseEnter.fire()
+		resize.MouseLeave.fire()
+		t.expect(pill.Visible).toBe(true)
+		w.alwaysShow:set(false)
+		t.expect(pill.Visible).toBe(false)
+		w.stop()
+	end)
+
 	t.it("stacks panes vertically and clamps dragging along the height", function()
 		local w = world(nil, "y")
 		local sidebar, detail = find(w.root, "Sidebar"), find(w.root, "Detail")

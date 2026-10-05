@@ -245,6 +245,8 @@ local tabs: GuiObject =
 local pages: GuiObject = UI.PageView({ selection = selected, pages = { { id = "home", content = content } } })
 local split: GuiObject = UI.NavigationSplitView({
 	axis = "y" :: "y",
+	resizable = Compose.cell(true),
+	alwaysShowResizeHandle = true,
 	sidebarHeight = Compose.cell(240),
 	minSidebarHeight = 120,
 	maxSidebarHeight = 600,
@@ -373,8 +375,11 @@ local fieldTable: GuiObject = UI.Table({
 		},
 	},
 })
-local actions: GuiObject =
-	UI.RowActions({ content = guiContent, trailing = { { id = "save", label = "Save", onActivate = nothing } } })
+local actions: GuiObject = UI.RowActions({
+	actionPlacement = "bottom" :: "bottom",
+	content = guiContent,
+	trailing = { { id = "save", label = "Save", onActivate = nothing } },
+})
 local ownedImage: Frame = UI.AsyncImage({
 	resource = function(): Facet.ImageResource
 		Compose.cleanup(nothing)

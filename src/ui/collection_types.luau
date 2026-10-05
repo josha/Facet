@@ -121,6 +121,7 @@ export type RowAction = {
 }
 export type RowEdge = "leading" | "trailing"
 export type RowActionsOptions = Types.FrameProps & {
+	actionPlacement: ("trailing" | "bottom")?,
 	swipeEnabled: Types.ValueBoolean?,
 	leading: Types.Value<{ RowAction }>?,
 	trailing: Types.Value<{ RowAction }>?,

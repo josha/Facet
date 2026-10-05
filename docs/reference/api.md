@@ -2128,6 +2128,12 @@ UI.NavigationSplitView {
 }
 ```
 
+Set `resizable = false` to keep a one-pixel separator without dragging or a
+divider focus stop. The pane size cell still controls the layout. The default
+is `true`. Set `alwaysShowResizeHandle = true` to keep the grip visible without
+hovering. Its default is `false`; it has no effect when resizing is disabled
+or the layout is compact. Both options accept reactive values.
+
 Drag the divider with a pointer or touch. The pointer shows a resize cursor.
 The thin separator has a small handle on hover, during a drag, and for touch
 or gamepad input. With focus on the divider, use L1/R1
@@ -3519,6 +3525,13 @@ An action factory can still supply `editing` to show its own edit actions.
 `content` is native content or a factory. `leading` and `trailing` contain
 `{ id, label, icon, enabled, role, onActivate }` actions. `open` is `nil`,
 `leading` or `trailing`. `onOpenChange` is controlled.
+
+The item-actions button reserves trailing space by default.
+`actionPlacement = "bottom"` reserves space below the content instead.
+VirtualGrid uses bottom placement and includes this area in measured item
+heights. Its button uses a circular utility appearance so a theme does not
+add a large framed button inside the card. Lists and tables use trailing
+placement. Fixed-size items must have room for their content and actions.
 
 `actionWidth` has a minimum default of `88`. Native label bounds can make the
 action tray larger. Each action is as wide as its painted label, plus its icon

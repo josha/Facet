@@ -6,6 +6,107 @@ local function api(command: string, argument: any?): any
 end
 local cases: { any } = {
 	{
+		id = "files-grid-action-bounds",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
+					return require(game.ReplicatedStorage.FacetScenarios.collection_workbench)
+						.build(t.context(UI, Host, C, env))
+						.screen()
+				end, {
+					theme = theme.package,
+					size = Vector2.new(393, 844),
+					environment = { preferredInput = "Touch", viewportSize = Vector2.new(393, 844) },
+				})
+				local menu = t.find(stage, "ViewOptions")
+				t.check(
+					theme.name .. " view choices stay visible",
+					t.visible(menu) and not t.find(stage, "Filters").Visible
+				)
+				t.inside(theme.name .. " Views button bounds", menu, stage)
+				local count = 0
+				for _, button in t.all(stage, "CellActions") do
+					if not button.Visible then
+						continue
+					end
+					local cell = button.Parent:FindFirstChild("FileCell", true)
+					if not cell then
+						continue
+					end
+					count += 1
+					local label = theme.name .. " card " .. count
+					t.inside(label .. " action stays inside", button, button.Parent)
+					t.near(label .. " content keeps full width", cell.AbsoluteSize.X, button.Parent.AbsoluteSize.X)
+					t.check(
+						label .. " content clears action",
+						cell.AbsolutePosition.Y + cell.AbsoluteSize.Y <= button.AbsolutePosition.Y + 0.5
+					)
+				end
+				t.check(theme.name .. " checked editable tiles", count >= 2)
+			end
+		end,
+	},
+	{
+		id = "resize-options",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				for _, axis in { "x", "y" } do
+					local C = t.Facet.Compose
+					local resizable, always = C.cell(true), C.cell(true)
+					local stage = t.mount(function(UI: any)
+						return UI.NavigationSplitView {
+							Name = "OptionsSplit",
+							axis = axis,
+							resizable = resizable,
+							alwaysShowResizeHandle = always,
+							sidebar = function()
+								return UI.Button { Name = "Source", label = "Files" }
+							end,
+							detail = function()
+								return UI.Button { Name = "Result", label = "Inbox" }
+							end,
+						}
+					end, {
+						theme = theme.package,
+						size = Vector2.new(1000, 640),
+						environment = { viewingDistance = "near", preferredInput = "KeyboardAndMouse" },
+					})
+					local root = t.find(stage, "OptionsSplit")
+					local name = theme.name .. axis
+					t.check(name .. " persistent grip", root.Resize.Grip.Pill.Visible)
+					t.inside(name .. " grip bounds", root.Resize.Grip, root.Resize)
+					GuiService.SelectedObject = t.find(root.Sidebar, "Source")
+					GuiService.SelectedObject = root.Resize
+					resizable:set(false)
+					t.settle()
+					t.check(
+						name .. " disabled input",
+						not root.Resize.Selectable
+							and not root.Resize.Active
+							and not root.Resize:FindFirstChildWhichIsA("UIDragDetector").Enabled
+					)
+					t.check(name .. " disabled grip", not root.Resize.Grip.Visible)
+					t.check(name .. " focus leaves divider", GuiService.SelectedObject ~= root.Resize)
+					t.near(
+						name .. " thin separator",
+						if axis == "x" then root.Resize.AbsoluteSize.X else root.Resize.AbsoluteSize.Y,
+						1
+					)
+					GuiService.SelectedObject = t.find(root.Detail, "Result")
+					t.check(
+						name .. " direct pane traversal",
+						GuiService.SelectedObject == t.find(root.Detail, "Result")
+					)
+					resizable:set(true)
+					t.settle()
+					t.check(name .. " resizing restored", root.Resize.Selectable and root.Resize.Grip.Visible)
+				end
+			end
+		end,
+	},
+	{
 		id = "files-editor-first-focus",
 		contracts = {},
 		run = function(t: any)

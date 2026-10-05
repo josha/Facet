@@ -5033,7 +5033,11 @@ t.describe("independent cell editing", function()
 			t.expect(row:FindFirstChild("CellActions", true).Visible).toBe(true)
 			local actions = row:FindFirstChild("CellActions", true)
 			actions.AbsoluteSize = engine.types.Vector2.new(70, 46)
-			t.expect(actions.Parent:FindFirstChild("Content").Size.X.Offset).toBe(-70)
+			t.expect(actions.Parent:FindFirstChild("Content").Size.X.Offset)
+				.toBe(if kind == "VirtualGrid" then 0 else -70)
+			t.expect(actions.Parent:FindFirstChild("Content").Size.Y.Offset)
+				.toBe(if kind == "VirtualGrid" then -46 else 0)
+			t.expect(actions.AnchorPoint.Y).toBe(if kind == "VirtualGrid" then 1 else 0.5)
 
 			t.expect(row:FindFirstChild("SwipeGrip", true).Visible).toBe(false)
 			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.KeyboardAndMouse

@@ -25,6 +25,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"leading",
 		"trailing",
 		"actionWidth",
+		"actionPlacement",
 		"fullSwipe",
 		"open",
 		"onOpenChange",
@@ -38,6 +39,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local FULL_SWIPE = 0.6
 	local RESISTANCE = 0.55
 	UI.RowActions = ctx.construct("RowActions", function(spec: CollectionTypes.RowActionsSpec): Frame
+		assert(
+			spec.actionPlacement == nil or spec.actionPlacement == "trailing" or spec.actionPlacement == "bottom",
+			"RowActions.actionPlacement must be trailing or bottom"
+		)
+		local bottom = spec.actionPlacement == "bottom"
 		local leading: Types.Value<{ RowAction }> = spec.leading or {}
 		local trailing: Types.Value<{ RowAction }> = spec.trailing or {}
 		local content = if type(spec.content) == "function" then spec.content() else spec.content
@@ -48,7 +54,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local drag: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
 		local dimensions = Compose.cell(V2.zero)
 		local editWidth = Compose.cell(72)
-		local measuredActionWidth = Compose.cell(0)
+		local measuredActionSize = Compose.cell(V2.zero)
 		local actionWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local rowToken = {}
 		local departure = runtime.timeline({ duration = ctx.metric("motion.durations.rowDeparture"), autoplay = false })
@@ -465,7 +471,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local function actionWidth(use: ComposeTypes.Use): number
 			local size = actionSize(use)
-			return if size > 0 then math.max(size, use(measuredActionWidth)) else 0
+			return if size > 0 then math.max(size, use(measuredActionSize).X) else 0
+		end
+		local function actionHeight(use: ComposeTypes.Use): number
+			local size = actionSize(use)
+			return if bottom and size > 0 then math.max(size, use(measuredActionSize).Y) else 0
 		end
 		local panned = false
 		local stopPan: (() -> ())? = nil
@@ -587,7 +597,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 			tray("trailing"),
 			Host.Frame "Content" {
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(1, (if read(spec.editing, use) then -use(editWidth) else 0) - actionWidth(use), 1, 0)
+					return D2.new(
+						1,
+						(if read(spec.editing, use) then -use(editWidth) else 0)
+							- (if bottom then 0 else actionWidth(use)),
+						1,
+						-actionHeight(use)
+					)
 				end,
 				BackgroundTransparency = 1,
 				Position = function(use: ComposeTypes.Use)
@@ -709,9 +725,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 					icon = "more",
 					label = "",
 					name = "Item actions",
-					appearance = "plain",
-					AnchorPoint = V2.new(1, 0.5),
-					Position = D2.fromScale(1, 0.5),
+					appearance = if bottom then "utility" else "plain",
+					shape = if bottom then "circle" :: "circle" else nil,
+					AnchorPoint = V2.new(1, if bottom then 1 else 0.5),
+					Position = D2.fromScale(1, if bottom then 1 else 0.5),
 					Size = function(use)
 						return D2.fromOffset(actionSize(use), actionSize(use))
 					end,
@@ -726,7 +743,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				}
 				local size, unit = ctx.observe.AbsoluteSize(button), ctx.layoutUnit(root)
 				Compose.watch(function(use: ComposeTypes.Use)
-					measuredActionWidth:set(use(size).X / use(unit))
+					measuredActionSize:set(use(size) / use(unit))
 				end)
 				return button
 			end, root)

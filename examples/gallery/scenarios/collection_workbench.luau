@@ -883,6 +883,7 @@ return {
 		local function folderViews(folder)
 			return UI.NavigationSplitView {
 				Name = "Views",
+				alwaysShowResizeHandle = true,
 				detailVisible = linked,
 				preferredCompactColumn = splitColumn,
 				sidebarWidth = splitWidth,
@@ -892,6 +893,7 @@ return {
 				sidebar = function()
 					return UI.NavigationSplitView {
 						Name = "PrimaryViews",
+						alwaysShowResizeHandle = true,
 						detailVisible = transfers,
 						preferredCompactColumn = inboxColumn,
 						sidebarWidth = inboxWidth,
@@ -1042,6 +1044,14 @@ return {
 							{ value = "details", label = "Details", icon = "view.table" },
 						},
 					},
+					UI.Menu {
+						Name = "ViewOptions",
+						label = "Views",
+						items = {
+							{ id = "linked", label = "Linked view", checked = linked, dismiss = true },
+							{ id = "inbox", label = "Show Inbox", checked = transfers, dismiss = true },
+						},
+					},
 					UI.Toggle {
 						Name = "EnableEditing",
 						label = "Enable editing",
@@ -1119,15 +1129,7 @@ return {
 					button("Clear", "Clear filter", function()
 						query:set("")
 					end),
-					UI.Toggle {
-						Name = "Linked",
-						label = "Linked view",
-						value = linked,
-						onChange = function(v)
-							linked:set(v)
-						end,
-					},
-					UI.Toggle { Name = "Transfers", label = "Show Inbox", value = transfers },
+
 					UI.Picker {
 						Name = "TransferOperation",
 						Size = D2.fromOffset(0, 0),
