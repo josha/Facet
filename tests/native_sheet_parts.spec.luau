@@ -1088,15 +1088,46 @@ t.describe("native panels: a skinned panel keeps its content inside the art carv
 				{ id = "Apply", label = "Apply", onActivate = noop } :: OverlayAction,
 			},
 		}, { theme = fantasy })
-		t.expect(sides(w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("58 30 30 30")
+		t.expect(sides(w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("70 46 42 46")
 		local bar = w.find("DragHandle").Position.Y.Offset
 		t.expect(bar >= 30 and bar + 20 <= 58).toBe(true)
+		t.expect(w.find("Grabber"):GetAttribute("FacetFocusPart")).toBe("Pill")
 		w.stop()
 		local side = mount({ placement = "side" :: "side" }, { theme = fantasy, room = Vector2.new(1200, 800) })
-		t.expect(sides(side.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 58")
+		t.expect(sides(side.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("42 46 42 74")
 		local x = side.find("DragHandle").Position.X.Offset
 		t.expect(x >= 30 and x + 20 <= 58).toBe(true)
 		side.stop()
+	end)
+
+	t.it("keeps Sheet spacing inside a live theme carve even without body padding", function()
+		local themes = bindThemes(Compose)
+		local theme = Compose.cell(fantasy)
+		local w = mount({ contentInset = "none", dragIndicator = "hidden" }, { theme = theme })
+		local padding = w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")
+		t.expect(sides(padding)).toBe("42 46 42 46")
+		theme:set((require :: any)("../examples/themes/fantasy_parchment").build(themes))
+		t.expect(sides(padding)).toBe("30 34 30 34")
+		local neutral = assert(themes.define(themes.neutralPackage()))
+		theme:set(neutral)
+		t.expect(sides(padding)).toBe("12 16 12 16")
+		w.stop()
+	end)
+
+	t.it("stacks Sheet actions when the theme frame leaves too little width", function()
+		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(bindThemes(Compose))
+		local w = mount({
+			actionLayout = "row",
+			actions = {
+				{ id = "Cancel", label = "Cancel", onActivate = noop },
+				{ id = "Apply", label = "Apply", onActivate = noop },
+			},
+		}, { theme = parchment, room = Vector2.new(390, 640) })
+		w.find("Cancel").TextBounds = Vector2.new(150, 20)
+		w.find("Apply").TextBounds = Vector2.new(150, 20)
+		t.expect(w.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+			.toBe(w.Enum.FillDirection.Vertical)
+		w.stop()
 	end)
 
 	t.it("a wrapping Sheet title takes its height at the width it gets, so it never runs into the body", function()

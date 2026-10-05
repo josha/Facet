@@ -45,7 +45,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local minimum = if vertical then spec.minSidebarHeight or 120 else spec.minSidebarWidth or 240
 		local maximum = if vertical then spec.maxSidebarHeight or 600 else spec.maxSidebarWidth or 600
 		local detailMinimum = if vertical then spec.minDetailHeight or 120 else spec.minDetailWidth or 320
-		local breakpoint = if vertical then spec.compactHeight or 320 else spec.compactWidth or 720
+		local breakpoint = (if vertical then spec.compactHeight else spec.compactWidth) or minimum + detailMinimum
 		local function along(value: Vector2): number
 			return if vertical then value.Y else value.X
 		end

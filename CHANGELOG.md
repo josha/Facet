@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- NavigationSplitView uses the pane minimums and divider size for its default collapse threshold. Landscape views keep both panes when they fit. Explicit compact limits still apply. The Lab starts with a visible resize handle and names its compact destinations.
+
+- Sheet keeps its normal content spacing inside the theme's panel art insets. Titles, scrolling content and actions clear thick frames such as Fantasy Parchment, including after theme and placement changes.
+
+- ScrollView lets direct fill-height vertical stacks grow beyond the window when their content needs more space. Native automatic sizing and flex growth preserve pane minimums and produce scrollable overflow. Compact Files moves search and editing options into a scrolling sheet and groups file commands in Actions, leaving room for the active split pane.
+
 - Editable grid tiles reserve a bottom area for item actions and include it in measured item heights. The circular utility action button leaves the tile content at full width instead of squeezing it into a row-style trailing gutter. Lists and tables retain trailing actions.
 
 - NavigationSplitView can disable resizing with `resizable = false` and keep its grip visible with `alwaysShowResizeHandle = true`. Disabled resizing keeps a separator without a drag target or focus stop. Files exposes Linked and Inbox in a visible Views menu at compact sizes instead of hiding these choices with search options.

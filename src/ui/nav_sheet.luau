@@ -221,10 +221,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
 		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
 		local function reserve(side: string, use: ComposeTypes.Use?): number
-			return if indicator ~= "hidden" and RESERVED[from(use)] == side then HANDLE + 8 else 0
+			return BASE[side] + (if indicator ~= "hidden" and RESERVED[from(use)] == side then HANDLE + 8 else 0)
 		end
 		local function pad(side: string, use: ComposeTypes.Use?): number
-			return surfaces.inset(BASE[side], side, nil, use) + reserve(side, use)
+			return surfaces.inset(0, side, nil, use) + reserve(side, use)
 		end
 		local function available(use: ComposeTypes.Use?): number
 			local get: ComposeTypes.Use = use
@@ -611,6 +611,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return true
 		end)
 		local grabber = Host.TextButton "Grabber" {
+			Attributes = { FacetFocusPart = "Pill" } :: Types.Attributes,
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
 			Size = function(use: ComposeTypes.Use)
@@ -908,7 +909,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			table.insert(
 				regions,
 				parts.actions(ctx, UI, actions, spec.actionLayout, function(use: ComposeTypes.Use)
-					return use(panelWidth) - 32
+					return math.max(0, use(panelWidth) - pad("left", use) - pad("right", use))
 				end, press).frame
 			)
 		end
@@ -964,7 +965,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return 0, math.ceil(painted(use) * rest)
 		end
-		local column = ctx.column({ room.frame, ctx.padding(BASE.left, BASE.top) }, {
+		local column = ctx.column({ room.frame, ctx.padding(0, 0) }, {
 			Name = "SheetColumn",
 			BackgroundTransparency = 1,
 			AutomaticSize = E.AutomaticSize.None,

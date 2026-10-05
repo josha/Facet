@@ -776,6 +776,32 @@ t.describe("native layout primitives", function()
 			stop()
 		end)
 
+		t.it("lets a fill-height stack grow its scroll canvas around constrained content", function()
+			local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+				return UI.ScrollView {
+					UI.VStack {
+						Name = "Page",
+						width = "fill" :: "fill",
+						height = "fill" :: "fill",
+						UI.fill() :: unknown,
+						Host.Frame { Size = require("@lune/roblox").UDim2.new(1, 0, 0, 500) },
+						UI.VStack {
+							Name = "Pane",
+							height = "fill" :: "fill",
+							UI.fill() :: unknown,
+							Host.UISizeConstraint { MinSize = require("@lune/roblox").Vector2.new(0, 320) },
+						},
+					},
+				}
+			end)
+			local page = root:FindFirstChild("Page")
+			t.expect(page.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
+			t.expect(page:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(engine.types.Enum.UIFlexMode.Grow)
+			root.AbsoluteSize = engine.types.Vector2.new(390, 600)
+			t.expect(page:FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y).toBe(600)
+			stop()
+		end)
+
 		t.it("lets a grown fill-height child shrink back when the padded window shrinks", function()
 			local roblox = require("@lune/roblox")
 			local engine: any = engineLib.new()
