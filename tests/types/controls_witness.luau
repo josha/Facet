@@ -244,6 +244,12 @@ local tabs: GuiObject =
 	UI.TabView({ selection = selected, tabs = { { id = "home", label = "Home", content = content } } })
 local pages: GuiObject = UI.PageView({ selection = selected, pages = { { id = "home", content = content } } })
 local split: GuiObject = UI.NavigationSplitView({
+	axis = "y" :: "y",
+	sidebarHeight = Compose.cell(240),
+	minSidebarHeight = 120,
+	maxSidebarHeight = 600,
+	minDetailHeight = 120,
+	compactHeight = 320,
 	sidebar = content,
 	detail = content,
 	preferredCompactColumn = Compose.cell("sidebar" :: "sidebar" | "detail"),

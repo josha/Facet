@@ -5,7 +5,7 @@ local Roblox = require("../src/vendor/compose/roblox")
 local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-local function world(preferredInput: string?)
+local function world(preferredInput: string?, axis: ("x" | "y")?)
 	local engine = engines.new()
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	local gamepad = engine.new("GamepadService")
@@ -27,6 +27,8 @@ local function world(preferredInput: string?)
 	local builds = { sidebar = 0, detail = 0 }
 	local stop = runtime.mount(function()
 		root = UI.NavigationSplitView {
+			axis = axis,
+			sidebarHeight = if axis == "y" then width else nil,
 			detailVisible = shown,
 			sidebarWidth = width,
 			preferredCompactColumn = column :: any,
@@ -62,6 +64,60 @@ local function find(root: any, name: string): any
 end
 
 t.describe("native split navigation", function()
+	t.it("stacks panes vertically and clamps dragging along the height", function()
+		local w = world(nil, "y")
+		local sidebar, detail = find(w.root, "Sidebar"), find(w.root, "Detail")
+		local detector = find(w.root, "UIDragDetector")
+		t.expect(sidebar.Size.Y.Offset).toBe(360)
+		t.expect(sidebar.Size.X.Scale).toBe(1)
+		t.expect(detail.Position.Y.Offset).toBe(372)
+		t.expect(detail.Size.Y.Offset).toBe(-372)
+		t.expect(detector.DragAxis).toBe(w.engine.types.Vector2.new(0, 1))
+		detector.DragStart.fire(w.engine.types.Vector2.new(200, 360))
+		detector.DragContinue.fire(w.engine.types.Vector2.new(500, 360))
+		t.expect(w.width:peek()).toBe(360)
+		detector.DragContinue.fire(w.engine.types.Vector2.new(500, 10000))
+		t.expect(w.width:peek()).toBe(468)
+		detector.DragContinue.fire(w.engine.types.Vector2.new(500, -10000))
+		t.expect(w.width:peek()).toBe(120)
+		w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+		t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(false)
+		w.column:set("detail")
+		w.root.AbsoluteSize = w.engine.types.Vector2.new(700, 280)
+		t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(true)
+		t.expect(sidebar.Visible).toBe(false)
+		find(w.root, "Back").Activated.fire()
+		t.expect(sidebar.Visible).toBe(true)
+		w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+		t.expect(w.builds.sidebar + w.builds.detail).toBe(2)
+		w.distance:set("ten-foot")
+		t.expect(find(w.root, "Resize").Visible).toBe(false)
+		w.stop()
+	end)
+
+	t.it("uses a horizontal grip and up/down focus exits for stacked panes", function()
+		local w = world(nil, "y")
+		local resize = find(w.root, "Resize")
+		local file, inspector = find(w.root, "File"), find(w.root, "Inspector")
+		w.gui.SelectedObject = file
+		w.gui.SelectedObject = inspector
+		t.expect(w.gui.SelectedObject).toBe(resize)
+		w.gui.SelectedObject = inspector
+		t.expect(resize.NextSelectionUp).toBe(file)
+		t.expect(resize.NextSelectionDown).toBe(inspector)
+		t.expect(find(resize, "Grip").Size).toBe(w.engine.types.UDim2.fromOffset(36, 8))
+		t.expect(find(resize, "Line").Size).toBe(w.engine.types.UDim2.new(1, 0, 0, 1))
+		local detector = find(resize, "UIDragDetector")
+		t.expect(detector.CursorIcon).toBe("rbxasset://SystemCursors/SizeNS")
+		w.gamepad.GamepadCursorEnabled = true
+		detector.DragStart.fire(w.engine.types.Vector2.new(200, 360))
+		detector.DragEnd.fire(w.engine.types.Vector2.new(200, 420))
+		t.expect(w.width:peek()).toBe(420)
+		w.shown:set(false)
+		t.expect(find(w.root, "Sidebar").Size.Y.Scale).toBe(1)
+		w.stop()
+	end)
+
 	t.it("keeps both panes mounted across compact, Back and expanded transitions", function()
 		local w = world()
 		local sidebar, detail = find(w.root, "Sidebar"), find(w.root, "Detail")

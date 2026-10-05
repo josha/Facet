@@ -174,6 +174,67 @@ local cases: { any } = {
 		end,
 	},
 	{
+		id = "stacked-layout-and-retention",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				local C = t.Facet.Compose
+				local size, height, column = C.cell(Vector2.new(900, 640)), C.cell(240), C.cell("sidebar")
+				local stage = t.mount(function(UI: any)
+					return UI.NavigationSplitView {
+						Name = "Stacked",
+						axis = "y",
+						sidebarHeight = height,
+						preferredCompactColumn = column,
+						sidebar = function()
+							return UI.Button { Name = "TopItem", label = "Files" }
+						end,
+						detail = function()
+							return UI.Button { Name = "BottomItem", label = "Inbox" }
+						end,
+					}
+				end, { theme = theme.package, size = size, environment = { viewingDistance = "near" } })
+				local root = t.find(stage, "Stacked")
+				local top, bottom = root.Sidebar, root.Detail
+				t.check(theme.name .. " stacked panes visible", top.Visible and bottom.Visible and root.Resize.Visible)
+				t.near(theme.name .. " top height", top.AbsoluteSize.Y, 240)
+				t.inside(theme.name .. " top bounds", top, root)
+				t.inside(theme.name .. " bottom bounds", bottom, root)
+				t.check(
+					theme.name .. " stacked panes do not overlap",
+					top.AbsolutePosition.Y + top.AbsoluteSize.Y <= root.Resize.AbsolutePosition.Y
+						and root.Resize.AbsolutePosition.Y + root.Resize.AbsoluteSize.Y <= bottom.AbsolutePosition.Y
+				)
+				t.check(
+					theme.name .. " horizontal focus grip",
+					root.Resize.Grip.AbsoluteSize.X > root.Resize.Grip.AbsoluteSize.Y
+				)
+				size:set(Vector2.new(390, 640))
+				t.settle(20)
+				t.check(theme.name .. " portrait keeps stacked panes", not root:GetAttribute("FacetSplitCollapsed"))
+				height:set(10000)
+				t.settle(20)
+				t.check(theme.name .. " bottom keeps minimum height", bottom.AbsoluteSize.Y >= 120)
+				column:set("detail")
+				size:set(Vector2.new(844, 280))
+				t.settle(20)
+				t.check(
+					theme.name .. " short layout collapses",
+					root:GetAttribute("FacetSplitCollapsed")
+						and not top.Visible
+						and bottom.Visible
+						and not root.Resize.Visible
+				)
+				size:set(Vector2.new(900, 640))
+				t.settle(20)
+				t.check(
+					theme.name .. " stacked panes retained",
+					root.Sidebar == top and root.Detail == bottom and top.Visible and bottom.Visible
+				)
+			end
+		end,
+	},
+	{
 		id = "geometry-feedback",
 		contracts = {},
 		run = function(t: any)
@@ -191,10 +252,10 @@ local cases: { any } = {
 				return node
 			end)
 			t.settle(220)
-			t.check("feedback survives the deferred callback depth limit", size:peek().X == 200)
+			t.check("feedback survives the deferred callback depth limit", (size:peek() :: Vector2).X == 200)
 			node.Size = UDim2.fromOffset(240, 40)
 			t.settle()
-			t.check("geometry still updates after feedback", size:peek().X == 240)
+			t.check("geometry still updates after feedback", (size:peek() :: Vector2).X == 240)
 		end,
 	},
 	{

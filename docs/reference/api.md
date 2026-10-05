@@ -2076,8 +2076,10 @@ Facet transition presets do not exist. The first page shows without motion.
 
 ### NavigationSplitView
 
-Use `NavigationSplitView` for two related panes. Wide layouts show both panes
-with a resize divider. Narrow layouts and ten-foot layouts show one pane with
+Use `NavigationSplitView` for two related panes. Set `axis = "x"` (the default)
+for side-by-side panes or `axis = "y"` for panes stacked top/bottom. Layouts
+with enough room on that axis show both panes with a resize divider. Compact
+layouts and ten-foot layouts show one pane with
 Back and Show detail controls. A gamepad at near viewing distance can use both
 panes.
 
@@ -2110,11 +2112,28 @@ default is 360. `minSidebarWidth` defaults to 240, `maxSidebarWidth` to 600,
 reduce the sidebar width. The control collapses when both minimum widths and
 the divider no longer fit. Width limits must be positive finite numbers.
 
+For `axis = "y"`, use `sidebarHeight` instead of `sidebarWidth`. Its default is
+240. `minSidebarHeight` defaults to 120, `maxSidebarHeight` to 600,
+`minDetailHeight` to 120, and `compactHeight` to 320. These height options follow
+the same rules as the width options. The sidebar is the top pane; detail is the
+bottom pane. The axis is fixed when the control is constructed.
+
+```luau
+UI.NavigationSplitView {
+    axis = "y",
+    sidebarHeight = Compose.cell(240),
+    sidebar = files,
+    detail = inbox,
+    detailLabel = "Inbox",
+}
+```
+
 Drag the divider with a pointer or touch. The pointer shows a resize cursor.
 The thin separator has a small handle on hover, during a drag, and for touch
 or gamepad input. With focus on the divider, use L1/R1
 or comma/period to resize. The arrows and left stick move focus. Crossing
-between panes stops on the divider; its focus ring surrounds the grip. The
+between panes stops on the divider; its focus ring surrounds the grip. Left/Right
+cross side-by-side panes; Up/Down cross stacked panes. The
 native drag detector yields to gamepad navigation. On a compact layout,
 B or Escape returns from detail to sidebar before an enclosing navigation
 stack handles Back. Put a NavigationStack in a pane for deeper navigation.

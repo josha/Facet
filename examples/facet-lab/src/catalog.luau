@@ -2737,9 +2737,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	NavigationSplitView = {
 		family = "navigation",
 		cellWidth = 760,
-		cellHeight = 240,
+		cellHeight = 420,
 		alias = "(Facet) related panes",
-		purpose = "Shows related panes with a resize divider; collapses on narrow and TV layouts.",
+		purpose = "Shows panes side by side or stacked top/bottom, with a resize divider and compact navigation.",
 		alternatives = "NavigationStack for a hierarchy; TabView for peer destinations.",
 		scenarios = { "collection_workbench" },
 		snippet = "UI.NavigationSplitView { sidebar = files, detail = linkedFiles }",
@@ -2747,6 +2747,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {
 				preferredCompactColumn = c.cell("column", "sidebar"),
 				sidebarWidth = c.cell("width", 320),
+				sidebarHeight = c.cell("height", 220),
 				sidebar = function(): Instance
 					return c.UI.Button { label = "Files" }
 				end,
@@ -2755,7 +2756,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			}
 		end,
-		axes = {},
+		axes = { { key = "axis", values = { "x", "y" } } :: Axis },
 		states = {},
 	},
 
