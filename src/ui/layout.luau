@@ -287,6 +287,21 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			local frames = runtime.host.frames
 			for _, node in filling do
 				local size, automatic = node.Size, node.AutomaticSize
+				local layout = node:FindFirstChildWhichIsA("UIListLayout")
+				if node:IsA("Frame") and layout and layout.FillDirection == E.FillDirection.Vertical then
+					automatic = if automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY
+						then E.AutomaticSize.XY
+						else E.AutomaticSize.Y
+					node.AutomaticSize = automatic
+					local flex = node:FindFirstChildWhichIsA("UIFlexItem")
+					if flex then
+						if flex.FlexMode == E.UIFlexMode.Fill then
+							flex.FlexMode = E.UIFlexMode.Grow
+						elseif flex.FlexMode == E.UIFlexMode.Custom then
+							flex.ShrinkRatio = 0
+						end
+					end
+				end
 				local rest = D2.new(size.X.Scale, size.X.Offset, 0, size.Y.Offset)
 				local written = rest
 				local authored = false

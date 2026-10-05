@@ -20,10 +20,7 @@ local cases: { any } = {
 					environment = { preferredInput = "Touch", viewportSize = Vector2.new(393, 844) },
 				})
 				local menu = t.find(stage, "ViewOptions")
-				t.check(
-					theme.name .. " view choices stay visible",
-					t.visible(menu) and not t.find(stage, "Filters").Visible
-				)
+				t.check(theme.name .. " view choices stay visible", t.visible(menu) and t.find(stage, "Filters") == nil)
 				t.inside(theme.name .. " Views button bounds", menu, stage)
 				local count = 0
 				for _, button in t.all(stage, "CellActions") do

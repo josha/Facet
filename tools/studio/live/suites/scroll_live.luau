@@ -71,4 +71,93 @@ add("horizontal-scroll-view-steps-along-x", { "apps-226" }, function(t: any)
 	})
 end)
 
+add("fill-stack-preserves-overflow-and-recovers", {}, function(t: any)
+	for _, theme in t.themes do
+		local C = t.Facet.Compose
+		local size = C.cell(Vector2.new(390, 600))
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			return UI.ScrollView "Viewport" {
+				UI.VStack "Page" {
+					width = "fill" :: "fill",
+					height = "fill" :: "fill",
+					gap = 0,
+					UI.fill() :: unknown,
+					Host.Frame { Name = "Header", Size = UDim2.new(1, 0, 0, 500) },
+					UI.VStack "Pane" {
+						width = "fill" :: "fill",
+						height = "fill" :: "fill",
+						UI.fill() :: unknown,
+						Host.UISizeConstraint { MinSize = Vector2.new(0, 320) },
+						UI.Button { Name = "Last", label = "Last item" },
+					},
+				},
+			}
+		end, { theme = theme.package, size = size })
+		local viewport, page, pane = t.find(stage, "Viewport"), t.find(stage, "Page"), t.find(stage, "Pane")
+		for _, height in { 600, 1000, 400, 600 } do
+			size:set(Vector2.new(390, height))
+			t.settle(30)
+			local label = theme.name .. " height " .. height
+			t.check(label .. " pane minimum", pane.AbsoluteSize.Y >= 320)
+			t.check(label .. " page covers content", page.AbsoluteSize.Y >= 820)
+			t.check(label .. " canvas covers page", viewport.AbsoluteCanvasSize.Y >= page.AbsoluteSize.Y - 1)
+			local before = page.AbsoluteSize.Y
+			t.settle(30)
+			t.near(label .. " size settles", page.AbsoluteSize.Y, before)
+			viewport.CanvasPosition = Vector2.new(0, 10000)
+			t.settle()
+			t.check(
+				label .. " pane bottom reachable",
+				pane.AbsolutePosition.Y + pane.AbsoluteSize.Y
+					<= viewport.AbsolutePosition.Y + viewport.AbsoluteWindowSize.Y + 1
+			)
+		end
+	end
+end)
+
+add("sheet-content-clears-theme-frame", {}, function(t: any)
+	for _, theme in t.themes do
+		if theme.name ~= "Neutral" and theme.name ~= "fantasy_parchment" and theme.name ~= "fantasy_ornate" then
+			continue
+		end
+		for _, placement in { "bottom", "side" } do
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, C: any)
+				return UI.Sheet {
+					title = "Search & options with a title that wraps",
+					placement = placement :: any,
+					isPresented = C.cell(true),
+					detent = C.cell("large"),
+					detents = { "large" :: "large" },
+					contentInset = "none" :: "none",
+					content = function(): Instance
+						return Host.Frame { Size = UDim2.new(1, 0, 0, 1000) }
+					end,
+					actions = { { id = "Done", label = "Done", onActivate = function() end } },
+				}
+			end, { theme = theme.package, size = Vector2.new(390, 640) })
+			t.settle(20)
+			local panel = t.find(stage.Parent, "SheetPanel")
+			local title = t.find(panel, "Title")
+			title.TextSize = 32
+			t.settle(12)
+			t.inside(theme.name .. placement .. " enlarged title", title, title.Parent)
+			local carve = ((theme.package.chrome or {}).panel or {}).contentInsets or {}
+			for _, name in { "Header", "SheetContent", "Actions" } do
+				local node = t.find(panel, name)
+				local label = theme.name .. " " .. placement .. " " .. name
+				t.check(
+					label .. " clears left art and spacing",
+					node.AbsolutePosition.X - panel.AbsolutePosition.X >= (carve.left or 0) + 16 - 1
+				)
+				t.check(
+					label .. " clears right art and spacing",
+					node.AbsolutePosition.X + node.AbsoluteSize.X
+						<= panel.AbsolutePosition.X + panel.AbsoluteSize.X - (carve.right or 0) - 16 + 1
+				)
+				t.inside(label .. " stays in panel", node, panel)
+			end
+		end
+	end
+end)
+
 return cases

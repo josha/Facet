@@ -53,6 +53,12 @@ local function mount(name: string, size: { width: number, height: number }?)
 			services = { GuiService = guiService, UserInputService = inputService },
 			inputParent = target,
 			motionLevel = "none",
+			environment = {
+				viewportSize = function(use)
+					local size = use(viewport)
+					return engine.types.Vector2.new(size.width, size.height)
+				end,
+			},
 		}),
 	}
 	local built
@@ -556,7 +562,8 @@ t.describe("file library workbench", function()
 		t.expect(second.Position.X.Offset > first.Position.X.Offset).toBe(true)
 		find(node, "Edit").Activated.fire()
 		t.expect(find(first, "Cells").Size.X.Offset).toBe(0)
-		world.gui.SelectedObject = find(node, "GridSize")
+		find(node, "ShowFilters").Activated.fire()
+		world.gui.SelectedObject = find(world.target, "GridSize")
 		local increase = action(world.target, "Increase")
 		t.expect(increase ~= nil).toBe(true)
 		increase.Pressed.fire()
@@ -565,7 +572,7 @@ t.describe("file library workbench", function()
 		built.model.gridSize:set(260)
 		t.expect(second.Position.Y.Offset > first.Position.Y.Offset).toBe(true)
 		built.model.mode:set("list")
-		t.expect(find(node, "GridSize").Visible).toBe(false)
+		t.expect(find(world.target, "GridSize").Visible).toBe(false)
 		stop()
 	end)
 
@@ -663,13 +670,28 @@ t.describe("file library workbench", function()
 		local menu = find(node, "ViewOptions")
 		t.expect(menu.Parent.Name).toBe("Toolbar")
 		t.expect(menu.Visible and menu.Parent.Visible).toBe(true)
-		t.expect(find(node, "Filters").Visible).toBe(false)
+		t.expect(find(node, "Filters")).toBeNil()
 		for _, name in { "linked", "inbox" } do
 			find(menu, "Trigger").Activated.fire()
 			find(find(world.target, "MenuPanel"), name).Activated.fire()
 			t.expect(find(world.target, "MenuPanel")).toBeNil()
 		end
 		t.expect(built.model.linked:peek() and built.model.transfers:peek()).toBe(true)
+		stop()
+	end)
+
+	t.it("opens compact file options in a sheet without consuming the file pane", function()
+		local _, node, stop, engine, world = mount("collection_workbench", { width = 390, height = 640 })
+		t.expect(find(node, "CollectionWorkbench").AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
+		t.expect(find(node, "Contents"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y).toBe(320)
+		t.expect(find(node, "Create").Visible).toBe(false)
+		t.expect(find(node, "FileActions").Visible).toBe(true)
+		find(node, "ShowFilters").Activated.fire()
+		local filters = find(world.target, "Filters")
+		t.expect(filters ~= nil).toBe(true)
+		t.expect(filters:IsDescendantOf(find(node, "CollectionWorkbench"))).toBe(false)
+		find(world.target, "CloseFileOptions").Activated.fire()
+		t.expect(find(world.target, "Filters")).toBeNil()
 		stop()
 	end)
 

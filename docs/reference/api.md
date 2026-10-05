@@ -664,6 +664,11 @@ hugs their height, so a row of chips never clips when they grow at ten feet.
 When a child passed in the props has a Scale height (`height = "fill"`), the
 ScrollView fills its parent's height instead, as before, because a hugging
 frame would give that child no height.
+On a vertical scroll axis, a direct fill-height vertical stack uses the window
+height as its minimum. Its native `AutomaticSize` includes Y, and its
+`UIFlexItem` can grow but cannot shrink the stack to hide overflow. Content
+that needs more height expands the canvas. A nested scrolling control keeps
+its own viewport and scroll range.
 Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 
@@ -2545,7 +2550,10 @@ vertical bar on its left edge, and a side sheet from the left has one on its
 right edge. The grabber sits in its own gutter at that edge, just inside the inner edge
 of the theme's panel art (`contentInsets`), centred along the edge. The
 content reserves only the gutter, 20 pixels plus an 8 pixel gap, on that side
-and keeps equal padding on the other sides. On a side sheet,
+and keeps equal padding on the other sides. Sheet adds its normal content
+spacing inside the theme's panel art insets. The header, body and actions use
+this same boundary, including when `contentInset = "none"` removes the body's
+extra padding. On a side sheet,
 a drag of the grabber toward the sheet's edge moves the whole sheet. A release
 past a third of the width, or faster than 600 pixels a second, closes it.
 Otherwise it slides back.

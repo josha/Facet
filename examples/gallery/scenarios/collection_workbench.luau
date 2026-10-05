@@ -11,6 +11,7 @@ return {
 		local transfers, operation = Compose.cell(false), Compose.cell("move")
 		local env = UI.environment()
 		local filtersOpen = Compose.cell(false)
+		local filtersDetent = Compose.cell("large")
 		local gridSize = Compose.cell(150)
 		local function short(use)
 			return use(env.heightClass) == "short" or use(env.sizeClass) == "compact"
@@ -803,6 +804,14 @@ return {
 				Visible = visible,
 			}
 		end
+		local function wide(use)
+			return not short(use)
+		end
+		local function createPrompt(folder)
+			creatingFolder:set(folder)
+			newName:set("")
+			creating:set(true)
+		end
 		local function hasSelection(use)
 			return use(editingEnabled) and next(use(selection)) ~= nil
 		end
@@ -932,10 +941,140 @@ return {
 						Name = "LinkedView",
 						width = "fill",
 						height = "fill",
-						UI.Text { text = "Same files · independent sort", textRole = "caption" },
+						UI.Text { text = "Linked view · independent sort", textRole = "caption" },
 						view("details", "linked", folder),
 					}
 				end,
+			}
+		end
+
+		local function editingToggle(visible)
+			return UI.Toggle {
+				Name = "EnableEditing",
+				Visible = visible,
+				label = "Enable editing",
+				value = editingEnabled,
+				onChange = function(value)
+					editingEnabled:set(value)
+					message:set("")
+					if not value then
+						editing:set(false)
+						creating:set(false)
+					end
+				end,
+			}
+		end
+		local function gridSizeControl()
+			return UI.Slider {
+				Name = "GridSize",
+				label = "Grid size",
+				value = gridSize,
+				min = 140,
+				max = 300,
+				step = 10,
+				format = function(value: number)
+					return `{math.round(value / 150 * 100)}%`
+				end,
+				Size = D2.new(1, 0, 0, 0),
+				Visible = function(use)
+					return use(mode) == "icons"
+				end,
+				Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(400, math.huge) },
+			}
+		end
+		local function fileOptions()
+			return UI.VStack {
+				Name = "FileOptions",
+				width = "fill",
+				gap = "s",
+				editingToggle(short),
+				labels(),
+				Compose.show(transfers, function()
+					return UI.VStack {
+						width = "fill",
+						gap = "s",
+						UI.Text {
+							text = "Drag files between the library and Inbox. Choose Move or Copy. Drag the portrait into either collection to create a file.",
+							wrap = true,
+							Size = D2.fromScale(1, 0),
+							AutomaticSize = E.AutomaticSize.Y,
+							textRole = "caption",
+						},
+						assets(),
+					}
+				end),
+				UI.HStack {
+					Name = "Filters",
+					align = "center",
+					width = "fill",
+					gap = "s",
+					wrap = true,
+					UI.TextInput {
+						Name = "FilterFiles",
+						placeholder = "Filter files",
+						value = query,
+						Size = D2.fromOffset(200, 36),
+						onChange = function(v)
+							query:set(v)
+						end,
+					},
+					button("Clear", "Clear filter", function()
+						query:set("")
+					end),
+
+					UI.Picker {
+						Name = "TransferOperation",
+						Size = D2.fromOffset(0, 0),
+						AutomaticSize = E.AutomaticSize.XY,
+						sizing = "hug",
+						selected = operation,
+						Visible = transfers,
+						options = { { value = "move", label = "Move" }, { value = "copy", label = "Copy" } },
+					},
+					UI.Menu {
+						Name = "DemoOptions",
+						label = "Demo options",
+						items = {
+							{ id = "refuse", label = "Refuse edits", checked = refuse },
+							{
+								id = "large",
+								label = "Load 1,000 files",
+								onSelect = function()
+									seed(1000)
+								end,
+							},
+							{
+								id = "reset",
+								label = "Reset to 24 files",
+								onSelect = function()
+									seed(24)
+								end,
+							},
+							{
+								id = "ready",
+								label = "Show files",
+								onSelect = function()
+									state:set("ready")
+								end,
+							},
+							{
+								id = "loading",
+								label = "Show loading",
+								onSelect = function()
+									state:set("loading")
+								end,
+							},
+							{
+								id = "error",
+								label = "Show load error",
+								onSelect = function()
+									state:set("error")
+								end,
+							},
+						},
+					},
+				},
+				Compose.show(short, gridSizeControl),
 			}
 		end
 
@@ -943,7 +1082,6 @@ return {
 			local page = UI.VStack {
 				Name = "CollectionWorkbench",
 				UI.fill(),
-				Host.UISizeConstraint { MinSize = ctx.types.Vector2.new(0, 640) },
 				UI.Dialog {
 					isPresented = creating,
 					title = function(use: any)
@@ -1052,135 +1190,88 @@ return {
 							{ id = "inbox", label = "Show Inbox", checked = transfers, dismiss = true },
 						},
 					},
-					UI.Toggle {
-						Name = "EnableEditing",
-						label = "Enable editing",
-						value = editingEnabled,
-						onChange = function(value)
-							editingEnabled:set(value)
-							message:set("")
-							if not value then
-								editing:set(false)
-								creating:set(false)
-							end
-						end,
-					},
+					editingToggle(wide),
 					button("Edit", function(use)
 						return if use(editing) then "Done" else "Edit"
 					end, function()
 						editing:set(not editing:peek())
 					end, editingEnabled, coarse),
 					button("Create", "New file", function()
-						creatingFolder:set(false)
-						newName:set("")
-						creating:set(true)
-					end, editingEnabled),
+						createPrompt(false)
+					end, editingEnabled, wide),
 					button("CreateFolder", "New folder", function()
-						creatingFolder:set(true)
-						newName:set("")
-						creating:set(true)
-					end, editingEnabled),
+						createPrompt(true)
+					end, editingEnabled, wide),
 
 					button("Delete", "Delete selected", function()
 						remove(targets(nil))
 					end, function(use)
 						return use(editingEnabled) and next(use(selection)) ~= nil
-					end),
+					end, wide),
 					button("Undo", "Undo", restore, function(use)
 						return use(editingEnabled) and use(undo) ~= nil
-					end),
+					end, wide),
+					UI.Menu {
+						Name = "FileActions",
+						label = "Actions",
+						Visible = short,
+						items = {
+							{
+								id = "newFile",
+								label = "New file",
+								enabled = editingEnabled,
+								onSelect = function()
+									createPrompt(false)
+								end,
+							},
+							{
+								id = "newFolder",
+								label = "New folder",
+								enabled = editingEnabled,
+								onSelect = function()
+									createPrompt(true)
+								end,
+							},
+							{
+								id = "delete",
+								label = "Delete selected",
+								role = "destructive",
+								enabled = hasSelection,
+								onSelect = function()
+									remove(targets(nil))
+								end,
+							},
+							{
+								id = "undo",
+								label = "Undo",
+								enabled = function(use)
+									return use(editingEnabled) and use(undo) ~= nil
+								end,
+								onSelect = restore,
+							},
+						},
+					},
 					button("ShowFilters", "Search & options", function()
 						filtersOpen:set(not filtersOpen:peek())
 					end, nil, short),
 				},
-				labels(),
-				Compose.show(transfers, function()
-					return UI.VStack {
-						width = "fill",
-						gap = "s",
-						UI.Text {
-							text = "Drag files between the library and Inbox. Choose Move or Copy. Drag the portrait into either collection to create a file.",
-							wrap = true,
-							Size = D2.fromScale(1, 0),
-							AutomaticSize = E.AutomaticSize.Y,
-							textRole = "caption",
-						},
-						assets(),
-					}
-				end),
-				UI.HStack {
-					Name = "Filters",
-					align = "center",
-					Visible = function(use)
-						return not short(use) or use(filtersOpen)
+				Compose.show(wide, fileOptions),
+				UI.Sheet {
+					Name = "FileOptionsSheet",
+					title = "Search & options",
+					isPresented = filtersOpen,
+					detent = filtersDetent,
+					detents = { "large" },
+					content = function()
+						return UI.VStack {
+							width = "fill",
+							gap = "m",
+							fileOptions(),
+							button("CloseFileOptions", "Done", function()
+								filtersOpen:set(false)
+							end),
+						}
 					end,
-					width = "fill",
-					gap = "s",
-					wrap = true,
-					UI.TextInput {
-						Name = "FilterFiles",
-						placeholder = "Filter files",
-						value = query,
-						Size = D2.fromOffset(200, 36),
-						onChange = function(v)
-							query:set(v)
-						end,
-					},
-					button("Clear", "Clear filter", function()
-						query:set("")
-					end),
-
-					UI.Picker {
-						Name = "TransferOperation",
-						Size = D2.fromOffset(0, 0),
-						AutomaticSize = E.AutomaticSize.XY,
-						sizing = "hug",
-						selected = operation,
-						Visible = transfers,
-						options = { { value = "move", label = "Move" }, { value = "copy", label = "Copy" } },
-					},
-					UI.Menu {
-						Name = "DemoOptions",
-						label = "Demo options",
-						items = {
-							{ id = "refuse", label = "Refuse edits", checked = refuse },
-							{
-								id = "large",
-								label = "Load 1,000 files",
-								onSelect = function()
-									seed(1000)
-								end,
-							},
-							{
-								id = "reset",
-								label = "Reset to 24 files",
-								onSelect = function()
-									seed(24)
-								end,
-							},
-							{
-								id = "ready",
-								label = "Show files",
-								onSelect = function()
-									state:set("ready")
-								end,
-							},
-							{
-								id = "loading",
-								label = "Show loading",
-								onSelect = function()
-									state:set("loading")
-								end,
-							},
-							{
-								id = "error",
-								label = "Show load error",
-								onSelect = function()
-									state:set("error")
-								end,
-							},
-						},
-					},
 				},
 				UI.Text {
 					text = function(use)
@@ -1196,6 +1287,7 @@ return {
 				},
 				UI.VStack {
 					Name = "Contents",
+					Host.UISizeConstraint { MinSize = ctx.types.Vector2.new(0, 320) },
 					width = "fill",
 					height = "fill",
 					UI.fill(),
@@ -1252,22 +1344,7 @@ return {
 						}
 					end),
 				},
-				UI.Slider {
-					Name = "GridSize",
-					label = "Grid size",
-					value = gridSize,
-					min = 140,
-					max = 300,
-					step = 10,
-					format = function(value: number)
-						return `{math.round(value / 150 * 100)}%`
-					end,
-					Size = D2.new(1, 0, 0, 0),
-					Visible = function(use)
-						return use(mode) == "icons"
-					end,
-					Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(400, math.huge) },
-				},
+				Compose.show(wide, gridSizeControl),
 			}
 			return UI.ScrollView { Name = "FileViewport", width = "fill", height = "fill", page }
 		end
