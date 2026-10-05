@@ -243,6 +243,12 @@ local combo: GuiObject = UI.ComboBox({
 local tabs: GuiObject =
 	UI.TabView({ selection = selected, tabs = { { id = "home", label = "Home", content = content } } })
 local pages: GuiObject = UI.PageView({ selection = selected, pages = { { id = "home", content = content } } })
+local split: GuiObject = UI.NavigationSplitView({
+	sidebar = content,
+	detail = content,
+	preferredCompactColumn = Compose.cell("sidebar" :: "sidebar" | "detail"),
+	sidebarWidth = Compose.cell(360),
+})
 local stack: GuiObject = UI.NavigationStack({
 	path = Compose.cell({} :: { { id: string, value: string? } }),
 	root = { title = "Home", content = content },

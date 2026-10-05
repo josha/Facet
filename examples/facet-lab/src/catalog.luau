@@ -2734,6 +2734,31 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				and not (p.sidebarPreference ~= nil and p.style ~= "sidebarAdaptable")
 		end,
 	},
+	NavigationSplitView = {
+		family = "navigation",
+		cellWidth = 760,
+		cellHeight = 240,
+		alias = "(Facet) related panes",
+		purpose = "Shows related panes with a resize divider; collapses on narrow and TV layouts.",
+		alternatives = "NavigationStack for a hierarchy; TabView for peer destinations.",
+		scenarios = { "collection_workbench" },
+		snippet = "UI.NavigationSplitView { sidebar = files, detail = linkedFiles }",
+		base = function(c: Context)
+			return {
+				preferredCompactColumn = c.cell("column", "sidebar"),
+				sidebarWidth = c.cell("width", 320),
+				sidebar = function(): Instance
+					return c.UI.Button { label = "Files" }
+				end,
+				detail = function(): Instance
+					return c.UI.Button { label = "Linked files" }
+				end,
+			}
+		end,
+		axes = {},
+		states = {},
+	},
+
 	NavigationStack = {
 		family = "navigation",
 		cellWidth = 320,

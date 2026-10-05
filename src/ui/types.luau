@@ -121,6 +121,7 @@ export type WorldModelProps = Engine.WorldModelProps
 export type WorldModelNativeProps = Engine.WorldModelNativeProps
 
 export type Services = {
+	GamepadService: GamepadService?,
 	GuiService: GuiService?,
 	UserInputService: UserInputService?,
 	Players: Players?,

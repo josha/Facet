@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Batch native geometry measurements after construction and layout events. Split resizing no longer publishes control and skin measurements during the engine's layout pass. Pending measurements leave with their Compose owners.
+
+- Add NavigationSplitView with resizable related panes, compact and TV navigation, touch dragging and gamepad focus through the divider. The File library uses nested splits for Files, Inbox and Linked view. Outline Left navigation yields at a collapsed root so focus can leave the pane.
+
 - Inline cell editing preserves field geometry and avoids a duplicate caption. Context menus open at the secondary-click position. Table and outline resize targets straddle their dividers and use the current input minimum. Native touch resize and reorder gestures hold ancestor scrolling, and focused move handles remain draggable with touch. Gamepad drop and cancel bring the original item into view before restoring focus. Lab editing examples separate container and cell permissions; reorder presets update their models.
 
 - Field editing is independent of collection edit mode. Table columns accept `editable(item)`; custom cells use `CellEditor.enabled`. Text and number cells appear as labels until editing starts. Shared item actions, F2 and selected-name mouse clicks open the field, with configurable `editLabel` text. Touch and gamepad show an item-actions button; gamepad X opens the same menu. Built-in table editors use the same native inset and alignment as custom cells. Action menus appear once per row and reserve column space. Active fields stay visible and return focus to their row. Pointer drag detectors yield to gamepad navigation.

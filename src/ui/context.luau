@@ -9,6 +9,7 @@ local reservedKeys = require("./reserved_keys")
 local adaptive = require("./adaptive")
 local preferredInput = require("./preferred_input")
 local motion = require("./motion")
+local observeGeometry = require("./geometry_observation")
 
 type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = {
@@ -55,6 +56,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	assert(types.UDim2 and types.Enum, "Facet.controls requires Roblox datatypes")
 	local services: Shared.Services = if config.services then table.clone(config.services) else {}
 	if game then
+		services.GamepadService = services.GamepadService or game:GetService("GamepadService")
 		services.GuiService = services.GuiService or game:GetService("GuiService")
 		services.UserInputService = services.UserInputService or game:GetService("UserInputService")
 		services.Players = services.Players or game:GetService("Players")
@@ -248,6 +250,15 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return value
 		end)
 	end
+	local geometryProperties = {
+		AbsoluteSize = true,
+		AbsolutePosition = true,
+		AbsoluteContentSize = true,
+		AbsoluteWindowSize = true,
+		AbsoluteCanvasSize = true,
+		TextBounds = true,
+		TextFits = true,
+	}
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
 		if serviceNodes[node] then
@@ -322,6 +333,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end)
 			held.users += 1
 			return (previewed(property, held.cell) :: unknown) :: ComposeTypes.Cell<unknown>
+		end
+		if geometryProperties[property] then
+			return observeGeometry(Compose, runtime, node, property)
 		end
 		local value = Compose.cell(observation.readProperty(node, property))
 		Compose.cleanup(observation.observeProperty(node, property, function()

@@ -2074,6 +2074,51 @@ A page change uses a native crossfade. The default is
 direct Compose tween options to change it. Use `false` to disable motion. Named
 Facet transition presets do not exist. The first page shows without motion.
 
+### NavigationSplitView
+
+Use `NavigationSplitView` for two related panes. Wide layouts show both panes
+with a resize divider. Narrow layouts and ten-foot layouts show one pane with
+Back and Show detail controls. A gamepad at near viewing distance can use both
+panes.
+
+```luau
+local column = Compose.cell("sidebar" :: "sidebar" | "detail")
+local width = Compose.cell(360)
+UI.NavigationSplitView {
+    preferredCompactColumn = column,
+    sidebarWidth = width,
+    sidebar = function() return UI.Button { label = "File" } end,
+    detail = function() return UI.Button { label = "Linked file" } end,
+    detailLabel = "Linked view",
+    backLabel = "Files",
+}
+```
+
+`sidebar` and `detail` take an Instance or a function that returns an Instance.
+Both panes keep their mounted content when the layout collapses or expands.
+`detailVisible` defaults to true. Set it to false to remove the detail pane and
+let the sidebar fill the control. Keep durable detail state in the model.
+
+`preferredCompactColumn` is an optional writable cell with `"sidebar"` or
+`"detail"`. It defaults to `"sidebar"`. Back writes `"sidebar"`; Show detail
+writes `"detail"`. Set it to `"detail"` when a selection opens the detail pane.
+`backLabel` defaults to `"Back"`; `detailLabel` defaults to `"Show detail"`.
+
+`sidebarWidth` is an optional writable number cell in logical pixels. Its
+default is 360. `minSidebarWidth` defaults to 240, `maxSidebarWidth` to 600,
+`minDetailWidth` to 320, and `compactWidth` to 720. The available width can
+reduce the sidebar width. The control collapses when both minimum widths and
+the divider no longer fit. Width limits must be positive finite numbers.
+
+Drag the divider with a pointer or touch. The pointer shows a resize cursor.
+The thin separator has a small handle on hover, during a drag, and for touch
+or gamepad input. With focus on the divider, use L1/R1
+or comma/period to resize. The arrows and left stick move focus. Crossing
+between panes stops on the divider; its focus ring surrounds the grip. The
+native drag detector yields to gamepad navigation. On a compact layout,
+B or Escape returns from detail to sidebar before an enclosing navigation
+stack handles Back. Put a NavigationStack in a pane for deeper navigation.
+
 ### NavigationStack
 
 NavigationStack requires a writable `path`, `root` and `destinations`. The path

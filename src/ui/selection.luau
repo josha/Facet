@@ -316,6 +316,7 @@ return function(ctx: Shared.Context): Selection
 			local size = candidate.AbsoluteSize
 			if
 				candidate ~= origin
+				and not (past and origin:IsA("ScrollingFrame") and candidate:IsDescendantOf(origin))
 				and not (candidate:IsA("ScrollingFrame") and origin:IsDescendantOf(candidate))
 				and size.X > 0
 				and size.Y > 0
@@ -441,7 +442,8 @@ return function(ctx: Shared.Context): Selection
 	end
 
 	local function enter(): ()
-		if gui == nil then
+		local gamepad = config.services.GamepadService
+		if gui == nil or (gamepad and gamepad.GamepadCursorEnabled) then
 			return
 		end
 		local selected = gui.SelectedObject
@@ -532,6 +534,15 @@ return function(ctx: Shared.Context): Selection
 			return nil, nil
 		end
 		local selectedObject = ctx.observe.SelectedObject(service)
+		local gamepad = config.services.GamepadService
+		if gamepad then
+			local cursor = ctx.observe.GamepadCursorEnabled(gamepad)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(cursor) then
+					service.SelectedObject = nil
+				end
+			end)
+		end
 		local keyboard = ctx.observe.KeyboardEnabled(keys)
 		local preferred = ctx.observe.PreferredInput(keys)
 		local padPreferred, padMade = false, false

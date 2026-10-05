@@ -36,6 +36,7 @@ game screens and Studio plugin interfaces.
 | Put Back, a title and tools at the top of a surface | NavBar. |
 | Organize named peer destinations | TabView. |
 | Navigate a hierarchy of pages with Back | NavigationStack. |
+| Show two related panes, with one pane on a phone or TV | NavigationSplitView. |
 | Step through peer pages | PageView. |
 | Select a page of numbered results | Pagination. |
 | Show the progress of a workflow | StepIndicator. |

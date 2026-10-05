@@ -599,6 +599,7 @@ local PAD_KEYS: { [string]: Enum.KeyCode } = {
 	ButtonX = Enum.KeyCode.Eight,
 	ButtonY = Enum.KeyCode.Seven,
 	ButtonL1 = Enum.KeyCode.R,
+	ButtonR1 = Enum.KeyCode.O,
 	ButtonL2 = Enum.KeyCode.E,
 	StickUp = Enum.KeyCode.W,
 	StickLeft = Enum.KeyCode.A,

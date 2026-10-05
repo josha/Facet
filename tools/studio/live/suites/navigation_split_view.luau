@@ -1,0 +1,289 @@
+--!strict
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local function api(command: string, argument: any?): any
+	return (workspace:WaitForChild("FacetShowcaseAPI") :: any):Invoke(command, argument)
+end
+local cases: { any } = {
+	{
+		id = "three-pane-layout",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				if theme.name ~= "Neutral" and theme.name ~= "fantasy_parchment" then
+					continue
+				end
+				local Compose = t.Facet.Compose
+				local size, distance, input =
+					Compose.cell(Vector2.new(1340, 850)), Compose.cell("near"), Compose.cell("KeyboardAndMouse")
+				local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
+					local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
+						t.context(UI, Host, C, env)
+					)
+					built.model.linked:set(true)
+					built.model.transfers:set(true)
+					return built.screen()
+				end, {
+					theme = theme.package,
+					size = size,
+					environment = { viewingDistance = distance, preferredInput = input },
+				})
+				local outer, inner = t.find(stage, "Views"), t.find(stage, "PrimaryViews")
+				local files, inbox, linked =
+					t.find(stage, "PrimaryView"), t.find(stage, "InboxView"), t.find(stage, "LinkedView")
+				for _, device in
+					{
+						{
+							name = "desktop",
+							size = Vector2.new(1340, 850),
+							distance = "near",
+							input = "KeyboardAndMouse",
+						},
+						{ name = "tablet", size = Vector2.new(1024, 768), distance = "near", input = "Touch" },
+						{ name = "phone", size = Vector2.new(390, 844), distance = "near", input = "Touch" },
+						{ name = "landscape", size = Vector2.new(844, 390), distance = "near", input = "Touch" },
+						{ name = "console", size = Vector2.new(1920, 1080), distance = "ten-foot", input = "Gamepad" },
+					}
+				do
+					size:set(device.size)
+					distance:set(device.distance)
+					input:set(device.input)
+					t.settle(12)
+					local label = theme.name .. " " .. device.name
+					for _, split in { outer, inner } do
+						local collapsed = split:GetAttribute("FacetSplitCollapsed")
+						t.check(
+							label .. " divider matches layout " .. split.Name,
+							split.Resize.Visible == not collapsed
+						)
+						for _, pane in { split.Sidebar, split.Detail } do
+							if pane.Visible then
+								t.inside(label .. " pane bounds " .. split.Name .. pane.Name, pane, split)
+							end
+						end
+					end
+					if device.name == "desktop" then
+						t.check(
+							label .. " all three visible",
+							t.visible(files) and t.visible(inbox) and t.visible(linked)
+						)
+					elseif device.name == "phone" or device.name == "console" then
+						t.check(
+							label .. " both splits collapse",
+							outer:GetAttribute("FacetSplitCollapsed") and inner:GetAttribute("FacetSplitCollapsed")
+						)
+					end
+					t.check(
+						label .. " panes retained",
+						t.find(stage, "PrimaryView") == files
+							and t.find(stage, "InboxView") == inbox
+							and t.find(stage, "LinkedView") == linked
+					)
+				end
+			end
+		end,
+	},
+	{
+		id = "geometry-publication",
+		contracts = {},
+		run = function(t: any)
+			local observe = require(game.ReplicatedStorage.Facet.ui.geometry_observation)
+			local first, second, firstSize, secondSize, shown
+			local runs, lastFirst, lastSecond = 0, 0, 0
+			t.mount(function(_UI: any, Host: any, Compose: any, env: any)
+				shown = Compose.cell(true)
+				return Host.Frame {
+					Size = UDim2.fromScale(1, 1),
+					Compose.show(shown, function()
+						first = Host.Frame { Size = UDim2.fromOffset(100, 40) }
+						second = Host.Frame { Size = UDim2.fromOffset(200, 40) }
+						firstSize = observe(Compose, env.runtime, first, "AbsoluteSize")
+						secondSize = observe(Compose, env.runtime, second, "AbsoluteSize")
+						t.check(
+							"initial geometry waits for construction",
+							(firstSize:peek() :: Vector2) == Vector2.zero
+						)
+						Compose.watch(function(use: any)
+							runs += 1
+							lastFirst, lastSecond = use(firstSize).X, use(secondSize).X
+						end)
+						return Host.Frame { first, second }
+					end),
+				}
+			end)
+			t.check("initial geometry is published", lastFirst == 100 and lastSecond == 200)
+			local before = runs
+			first.Size = UDim2.fromOffset(150, 40)
+			second.Size = UDim2.fromOffset(250, 40)
+			t.check("native geometry changed", first.AbsoluteSize.X == 150 and second.AbsoluteSize.X == 250)
+			first.Size = UDim2.fromOffset(175, 40)
+			t.check("native geometry changed again", first.AbsoluteSize.X == 175)
+			t.check("layout dispatch does not run bindings", runs == before)
+			t.settle()
+			t.check("geometry publishes together once", runs == before + 1 and lastFirst == 175 and lastSecond == 250)
+			first.Size = UDim2.fromOffset(180, 40)
+			t.check("disposal has a pending measurement", first.AbsoluteSize.X == 180)
+			shown:set(false)
+			before = runs
+			t.settle()
+			t.check("disposed geometry does not publish", runs == before and (firstSize:peek() :: Vector2).X == 175)
+		end,
+	},
+	{
+		id = "split-layout-and-retention",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				local width, column, size, distance, shown
+				local count = 0
+				local stage = t.mount(
+					function(UI: any, Host: any, Compose: any)
+						width, column, shown = Compose.cell(360), Compose.cell("sidebar"), Compose.cell(true)
+						size, distance = Compose.cell(Vector2.new(1000, 600)), Compose.cell("near")
+						return UI.NavigationSplitView {
+							Name = "Split",
+							sidebarWidth = width,
+							preferredCompactColumn = column,
+							detailVisible = shown,
+							Size = function(use: any)
+								local s = use(size)
+								return UDim2.fromOffset(s.X, s.Y)
+							end,
+							sidebar = function()
+								count += 1
+								return UI.Button { Name = "Source", label = "Files" }
+							end,
+							detail = function()
+								count += 1
+								return UI.Button { Name = "Result", label = "Linked files" }
+							end,
+						}
+					end,
+					{ theme = theme.package, size = Vector2.new(1100, 800), environment = { viewingDistance = "near" } }
+				)
+				local root = t.find(stage, "Split")
+				local sidebar, detail = root.Sidebar, root.Detail
+				t.near(theme.name .. " initial sidebar", sidebar.AbsoluteSize.X, 360)
+				width:set(10000)
+				t.settle()
+				t.near(theme.name .. " max width", sidebar.AbsoluteSize.X, 600)
+				t.check(theme.name .. " detail minimum", detail.AbsoluteSize.X >= 320)
+				column:set("detail")
+				size:set(Vector2.new(390, 650))
+				t.settle()
+				t.check(
+					theme.name .. " compact detail only",
+					not sidebar.Visible and detail.Visible and not root.Resize.Visible
+				)
+				t.inside(theme.name .. " compact detail bounds", detail, root)
+				column:set("sidebar")
+				t.settle()
+				t.check(theme.name .. " compact sidebar only", sidebar.Visible and not detail.Visible)
+				size:set(Vector2.new(1000, 600))
+				t.settle()
+				t.check(
+					theme.name .. " retained panes",
+					root.Sidebar == sidebar and root.Detail == detail and count == 2
+				)
+				t.check(
+					theme.name .. " divider focus part",
+					root.Resize:GetAttribute("FacetFocusPart") == "Grip"
+						and not root.Resize.Grip.Selectable
+						and not root.Resize.Grip.Active
+						and root.Resize.Grip:IsA("Frame")
+				)
+				shown:set(false)
+				t.settle()
+				t.near(theme.name .. " single pane fills", sidebar.AbsoluteSize.X, root.AbsoluteSize.X)
+			end
+		end,
+	},
+	{
+		id = "files-theme-bounds",
+		contracts = {},
+		keepGallery = true,
+		run = function(t: any)
+			local layer = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+			local root = t.find(layer, "Views")
+			local detail = root:FindFirstChild("Detail")
+			t.check("linked detail exists", detail ~= nil)
+			if not detail then
+				return
+			end
+			t.inside("detail stays inside split", detail, root)
+			local checked = 0
+			for _, button in detail:GetDescendants() do
+				if button.Name ~= "CellActions" or not button:IsA("GuiObject") or not button.Visible then
+					continue
+				end
+				local details = button.Parent:FindFirstChild("Details", true)
+				if details and details:IsA("GuiObject") and details.Visible then
+					checked += 1
+					t.check(
+						"row actions do not cover details " .. checked,
+						details.AbsolutePosition.X + details.AbsoluteSize.X <= button.AbsolutePosition.X + 0.5
+					)
+					t.inside("row actions stay inside row " .. checked, button, button.Parent)
+				end
+			end
+			t.check("checked compact row actions", checked > 0)
+		end,
+	},
+	{
+		id = "files-linked-input",
+		contracts = {},
+		keepGallery = true,
+		setup = function(t: any)
+			api("show", "files")
+			t.settle(20)
+			local layer = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+			local root = t.find(layer, "Views")
+			t.check("Files uses NavigationSplitView", root ~= nil and root:GetAttribute("FacetSplitCollapsed") ~= nil)
+			return { root = root, layer = layer, width = 360 }
+		end,
+		steps = {
+			wide = function(t: any, s: any)
+				t.check(
+					"linked columns are visible",
+					s.root.Sidebar.Visible and s.root.Detail.Visible and s.root.Resize.Visible
+				)
+				t.inside("sidebar bounds", s.root.Sidebar, s.root)
+				t.inside("detail bounds", s.root.Detail, s.root)
+				s.width = s.root.Sidebar.AbsoluteSize.X
+			end,
+			resized = function(t: any, s: any)
+				t.check(
+					"real input resized the split",
+					math.abs(s.width - s.root.Sidebar.AbsoluteSize.X) >= 8,
+					{ before = s.width, after = s.root.Sidebar.AbsoluteSize.X }
+				)
+				t.check("focus stays on divider", GuiService.SelectedObject == s.root.Resize)
+			end,
+			divider = function(t: any, s: any)
+				t.check(
+					"pane crossing stops at divider",
+					GuiService.SelectedObject == s.root.Resize,
+					GuiService.SelectedObject
+				)
+				t.check("ring targets grip", s.root.Resize:GetAttribute("FacetFocusPart") == "Grip")
+			end,
+			compact = function(t: any, s: any)
+				t.check("collapsed", s.root:GetAttribute("FacetSplitCollapsed") == true)
+				t.check(
+					"only detail shown",
+					s.root.Detail.Visible and not s.root.Sidebar.Visible and not s.root.Resize.Visible
+				)
+				t.check("Back available", t.find(s.root, "Back") ~= nil)
+			end,
+			back = function(t: any, s: any)
+				t.check("Back shows source", s.root.Sidebar.Visible and not s.root.Detail.Visible)
+				local selected = GuiService.SelectedObject
+				t.check("Back restores sidebar focus", selected ~= nil and selected:IsDescendantOf(s.root.Sidebar))
+				t.check("can reopen linked view", t.find(s.root, "ShowDetail") ~= nil)
+				t.check("folder root has no Back", not t.find(s.root.Parent.Parent.NavigationBar, "Back"))
+			end,
+		},
+	},
+}
+
+return cases

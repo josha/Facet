@@ -172,6 +172,10 @@ function adapter.properties(node: document.Node): any
 			page.content = content(if node.children[index] then { node.children[index] } else {})
 		end
 	end
+	if node.kind == "NavigationSplitView" then
+		props.sidebar = content(if node.children[1] then { node.children[1] } else {})
+		props.detail = content(if node.children[2] then { node.children[2] } else {})
+	end
 	if node.kind == "NavigationStack" then
 		props.root.content = content(if node.children[1] then { node.children[1] } else {})
 		local keys = {}

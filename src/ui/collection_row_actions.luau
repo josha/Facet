@@ -48,6 +48,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local drag: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
 		local dimensions = Compose.cell(V2.zero)
 		local editWidth = Compose.cell(72)
+		local measuredActionWidth = Compose.cell(0)
 		local actionWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local rowToken = {}
 		local departure = runtime.timeline({ duration = ctx.metric("motion.durations.rowDeparture"), autoplay = false })
@@ -455,12 +456,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local function touchFirst(use: ComposeTypes.Use?): boolean
 			return preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Touch
 		end
-		local function actionWidth(use: ComposeTypes.Use): number
+		local function actionSize(use: ComposeTypes.Use): number
 			return if #cellEdits > 0
 					and preferred
 					and use(preferred) ~= E.PreferredInput.KeyboardAndMouse
 				then math.max(44, ctx.controlSize(nil, "height", use))
 				else 0
+		end
+		local function actionWidth(use: ComposeTypes.Use): number
+			local size = actionSize(use)
+			return if size > 0 then math.max(size, use(measuredActionWidth)) else 0
 		end
 		local panned = false
 		local stopPan: (() -> ())? = nil
@@ -699,7 +704,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		UI.Menu(menuSpec)
 		if #cellEdits > 0 then
 			runtime.mount(function()
-				return UI.Button {
+				local button = UI.Button {
 					Name = "CellActions",
 					icon = "more",
 					label = "",
@@ -708,10 +713,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 					AnchorPoint = V2.new(1, 0.5),
 					Position = D2.fromScale(1, 0.5),
 					Size = function(use)
-						return D2.fromOffset(actionWidth(use), actionWidth(use))
+						return D2.fromOffset(actionSize(use), actionSize(use))
 					end,
 					Visible = function(use)
-						return actionWidth(use) > 0
+						return actionSize(use) > 0
 					end,
 					enabled = spec.enabled,
 					onActivate = function()
@@ -719,6 +724,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end,
 					ZIndex = 5,
 				}
+				local size, unit = ctx.observe.AbsoluteSize(button), ctx.layoutUnit(root)
+				Compose.watch(function(use: ComposeTypes.Use)
+					measuredActionWidth:set(use(size).X / use(unit))
+				end)
+				return button
 			end, root)
 		end
 		contentFrame = assert(root:FindFirstChild("Content")) :: Frame

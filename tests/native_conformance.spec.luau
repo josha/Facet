@@ -281,6 +281,17 @@ local fixtures: { [string]: (Host) -> { [any]: any } } = {
 			},
 		}
 	end,
+	NavigationSplitView = function(Host: Host)
+		return {
+			sidebar = function(): Instance
+				return Host.TextLabel { Text = "Files" }
+			end,
+			detail = function(): Instance
+				return Host.TextLabel { Text = "Details" }
+			end,
+		}
+	end,
+
 	NavigationStack = function(Host: Host)
 		return {
 			path = Compose.cell({}),

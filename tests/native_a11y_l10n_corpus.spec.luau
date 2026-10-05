@@ -597,6 +597,17 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 		end
 		return { selection = Compose.cell("a"), pages = { page("a", "Alpha"), page("b", "Beta") } }
 	end,
+	NavigationSplitView = function(Host: RobloxHost)
+		return {
+			sidebar = function(): Instance
+				return Host.TextLabel { Text = "Files" }
+			end,
+			detail = function(): Instance
+				return Host.TextLabel { Text = "Details" }
+			end,
+		}
+	end,
+
 	NavigationStack = function(Host: RobloxHost)
 		return {
 			path = Compose.cell({ { id = "detail", value = 1 } }),

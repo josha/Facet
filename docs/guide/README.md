@@ -68,7 +68,7 @@ to select a control. Then read the exact contract of that control in the
 | Shortcut display | `UI.ShortcutHint` |
 | Action menus, and primary and secondary actions | `UI.Menu`, `UI.SplitButton` |
 | Choice and accepted custom text | `UI.Picker`, `UI.ComboBox` |
-| Named destinations, drill-down and sequential pages | `UI.TabView`, `UI.NavigationStack`, `UI.PageView` |
+| Named destinations, drill-down and sequential pages | `UI.TabView`, `UI.NavigationStack`, `UI.NavigationSplitView`, `UI.PageView` |
 | Numbered result pages and workflow steps | `UI.Pagination`, `UI.StepIndicator` |
 | Contextual radial actions | `UI.RadialMenu` |
 | Brief decisions and substantial presented content | `UI.Alert`, `UI.Dialog`, `UI.Sheet` |

@@ -62,6 +62,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local Host, E, D, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2
 		local input = (config.services :: unknown) :: { UserInputService: UserInputService? }
 		local keyed = Compose.cell(false)
+		local cursor = watched(config.services.GamepadService, "GamepadCursorEnabled", false)
 		local function heard(kind: Enum.UserInputType)
 			keyed:set(kind == E.UserInputType.Keyboard or string.find(kind.Name, "^Gamepad") ~= nil)
 		end
@@ -93,7 +94,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return use(recipe) :: ThemeTypes.SkinLayer
 		end
 		local function shown(use: ComposeTypes.Use): boolean
-			return use(keyed) or use(env.effectiveInput) == "Gamepad"
+			return use(cursor) ~= true and (use(keyed) or use(env.effectiveInput) == "Gamepad")
 		end
 		local function scaled(use: ComposeTypes.Use, value: number, factor: number): number
 			return if far(use) then math.round(value * factor) else value

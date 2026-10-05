@@ -24,6 +24,7 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 			and node.kind ~= "TabView"
 			and node.kind ~= "PageView"
 			and node.kind ~= "NavigationStack"
+			and node.kind ~= "NavigationSplitView"
 			and not table.find({ "Table", "VirtualList", "VirtualGrid", "Outline" }, node.kind)
 		then
 			for _, child in node.children do

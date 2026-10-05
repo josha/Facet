@@ -5018,6 +5018,10 @@ t.describe("independent cell editing", function()
 			t.expect(editing:peek()).toBe(false)
 			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
 			t.expect(row:FindFirstChild("CellActions", true).Visible).toBe(true)
+			local actions = row:FindFirstChild("CellActions", true)
+			actions.AbsoluteSize = engine.types.Vector2.new(70, 46)
+			t.expect(actions.Parent:FindFirstChild("Content").Size.X.Offset).toBe(-70)
+
 			t.expect(row:FindFirstChild("SwipeGrip", true).Visible).toBe(false)
 			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.KeyboardAndMouse
 			t.expect(row:FindFirstChild("CellActions", true).Visible).toBe(false)
