@@ -4024,6 +4024,7 @@ export type Observe = {
 	DisplayName: (InputAction | InputBinding) -> Compose.Cell<string>,
 	Enabled: (InputAction | InputContext | LayerCollector) -> Compose.Cell<boolean>,
 	FontFace: (TextBox | TextButton | TextLabel) -> Compose.Cell<Font>,
+	GamepadCursorEnabled: (GamepadService) -> Compose.Cell<boolean>,
 	GamepadEnabled: (UserInputService) -> Compose.Cell<boolean>,
 	GuiState: (GuiObject) -> Compose.Cell<Enum.GuiState>,
 	Interactable: (GuiObject) -> Compose.Cell<boolean>,

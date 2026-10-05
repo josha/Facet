@@ -36,6 +36,7 @@ and gives recipes for search, drill-down and contextual actions.
 | Control | Use it for | Choose something else when |
 |---|---|---|
 | [TabView](../reference/api.md#tabview) | Named peer destinations; sidebarAdaptable for outer navigation. | A hierarchy needs NavigationStack. |
+| [NavigationSplitView](../reference/api.md#navigationsplitview) | Related resizable panes, with one pane on compact and TV layouts. | A hierarchy inside a pane needs NavigationStack. |
 | [NavigationStack](../reference/api.md#navigationstack) | Retained drill-down pages with animated transitions and Back. | Peer destinations need TabView. |
 | [PageView](../reference/api.md#pageview) | Moving through sequential peer pages. | Numbered query results need Pagination. |
 | [Pagination](../reference/api.md#pagination) | Choosing a numbered page of results. | Workflow progress needs StepIndicator. |

@@ -11,7 +11,10 @@ local Dates = require("./date_time_picker_types")
 local Colors = require("./color_picker_types")
 local Env = require("./environment_types")
 
+local NavigationSplitView = require("./navigation_split_view")
+
 export type Controls = {
+	NavigationSplitView: typeof(((nil :: unknown) :: NavigationSplitView.Controls).NavigationSplitView),
 	Screen: typeof(((nil :: unknown) :: Layout.LayoutControls).Screen),
 	VStack: typeof(((nil :: unknown) :: Layout.LayoutControls).VStack),
 	HStack: typeof(((nil :: unknown) :: Layout.LayoutControls).HStack),

@@ -2,19 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 type Insets = { [string]: UDim }
-local depth = 0
-local function follow(apply: () -> ())
-	if depth > 0 and task then
-		task.defer(apply)
-		return
-	end
-	depth += 1
-	local ok, failure = pcall(apply :: () -> unknown)
-	depth -= 1
-	if not ok then
-		error(failure, 0)
-	end
-end
+local observeGeometry = require("./geometry_observation")
 
 return function(
 	Compose: typeof(ComposeTypes),
@@ -55,8 +43,8 @@ return function(
 		ZIndex = node.ZIndex,
 		container,
 	})
-	local scale = Compose.cell(boundary.AbsoluteSize)
-	local size = Compose.cell(target.AbsoluteSize)
+	local scale = (observeGeometry(Compose, runtime, boundary, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local size = (observeGeometry(Compose, runtime, target, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
 	local insets = Compose.cell({} :: Insets)
 	local connections: { RBXScriptConnection }, paddingConnections: { RBXScriptConnection } = {}, {}
 	local function disconnectPadding()
@@ -85,22 +73,6 @@ return function(
 		end
 		refresh()
 	end
-	table.insert(
-		connections,
-		target:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			follow(function()
-				size:set(target.AbsoluteSize)
-			end)
-		end)
-	)
-	table.insert(
-		connections,
-		boundary:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			follow(function()
-				scale:set(boundary.AbsoluteSize)
-			end)
-		end)
-	)
 	local function childChanged(child: Instance)
 		if child:IsA("UIPadding") then
 			paddingChanged()
@@ -138,15 +110,9 @@ return function(
 	end)
 	if target:IsA("ScrollingFrame") then
 		local frame = target :: ScrollingFrame
-		local canvas = Compose.cell(frame.CanvasPosition)
-		table.insert(
-			connections,
-			frame:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-				follow(function()
-					canvas:set(frame.CanvasPosition)
-				end)
-			end)
-		)
+		local canvas = (
+			observeGeometry(Compose, runtime, frame, "CanvasPosition") :: unknown
+		) :: ComposeTypes.Cell<Vector2>
 		runtime.decorate(boundary, {
 			Position = function(use: ComposeTypes.Use): UDim2
 				local rendered: Vector2, factor: Vector2, at: Vector2 = use(size), use(scale), use(canvas)

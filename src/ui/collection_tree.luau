@@ -451,6 +451,11 @@ return function<V, K>(
 						change(node.key, false)
 					elseif node.parent ~= nil and controls.focus then
 						controls.focus(node.parent)
+					elseif gui then
+						local target = ctx.focusPast(root, "Left")
+						if target then
+							gui.SelectedObject = target
+						end
 					end
 				end
 			end, { priority = 300, capture = true })

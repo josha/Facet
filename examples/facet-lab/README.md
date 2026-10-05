@@ -26,6 +26,10 @@ for its playground, options, states, variants and usage examples. Settings
 contains the device, input, text, motion and theme previews. Compact layouts
 open the control list through Browse and Back.
 
+Choose **Navigation → NavigationSplitView** (or search for it) to resize related
+panes and try compact navigation. The File library showcase combines two
+splits for Files, Inbox and Linked view.
+
 Table, VirtualList, and VirtualGrid start with a working **Editing** section.
 Rename items, create an item, select several items, reorder them, delete the
 selection, and Undo. Enable editing controls permission. Desktop names are

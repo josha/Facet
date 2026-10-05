@@ -1,6 +1,7 @@
 --!strict
 local segmentMetrics = require("./segment_metrics")
 local decoration = require("./native_decoration")
+local observeGeometry = require("./geometry_observation")
 local ComposeTypes = require("../vendor/compose/core")
 local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
@@ -2538,13 +2539,10 @@ local function skin(
 					Host.UIPadding(padding),
 				}
 				label:AddTag("facet-skin-caption-text")
-				local observation = runtime.host.observation
-				if observation then
-					Compose.cleanup(observation.observeProperty(label, "TextBounds", function()
-						fit:set(label.TextBounds)
-					end))
-				end
-				fit:set(label.TextBounds)
+				local bounds = observeGeometry(Compose, runtime, label, "TextBounds")
+				Compose.watch(function(use: ComposeTypes.Use)
+					fit:set(use(bounds) :: Vector2)
+				end)
 				Compose.cleanup(function()
 					fit:set(V2.new(0, 0))
 				end)

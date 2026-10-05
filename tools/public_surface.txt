@@ -167,6 +167,7 @@ controls(runtime).Label : function
 controls(runtime).LevelPicker : function
 controls(runtime).Menu : function
 controls(runtime).NavBar : function
+controls(runtime).NavigationSplitView : function
 controls(runtime).NavigationStack : function
 controls(runtime).Notice : function
 controls(runtime).NumberInput : function
@@ -289,6 +290,7 @@ type MenuSpec
 type NavBarSpec
 type NavigationDestination
 type NavigationEntry
+type NavigationSplitViewProps
 type NavigationStackSpec
 type NoticeSpec
 type NumberInputProps

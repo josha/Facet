@@ -257,6 +257,9 @@ local function minimalSpecs(Host: any): { [string]: () -> { [any]: any } }
 		Menu = function()
 			return { items = items }
 		end,
+		NavigationSplitView = function()
+			return { sidebar = content, detail = content }
+		end,
 		NavigationStack = function()
 			return {
 				path = Compose.cell({}),

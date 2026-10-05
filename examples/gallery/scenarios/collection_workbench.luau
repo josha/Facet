@@ -865,55 +865,83 @@ return {
 				UI.HStack { Name = "Palette", align = "center", gap = 0, wrap = false, table.unpack(children) },
 			}
 		end
+		local splitColumn = Compose.cell("sidebar")
+		local splitWidth = Compose.cell(360)
+		local inboxColumn, inboxWidth = Compose.cell("sidebar"), Compose.cell(360)
+		Compose.watch(function(use)
+			if use(transfers) then
+				splitWidth:set(math.max(splitWidth:peek(), 760))
+				splitColumn:set("sidebar")
+				inboxColumn:set("detail")
+			end
+		end)
+		Compose.watch(function(use)
+			if use(linked) then
+				splitColumn:set("detail")
+			end
+		end)
 		local function folderViews(folder)
-			return UI.AdaptiveStack {
+			return UI.NavigationSplitView {
 				Name = "Views",
-				axis = function(use)
-					return if ctx.viewport and use(ctx.viewport).width < 800 then "y" else "x"
-				end,
-				width = "fill",
-				height = "fill",
-				gap = "m",
-				UI.VStack {
-					Name = "PrimaryView",
-					width = "fill",
-					height = "fill",
-					UI.fill(),
-					Compose.keyed {
-						from = function(use)
-							return { use(mode) }
+				detailVisible = linked,
+				preferredCompactColumn = splitColumn,
+				sidebarWidth = splitWidth,
+				maxSidebarWidth = 1000,
+				backLabel = "Files",
+				detailLabel = "Linked view",
+				sidebar = function()
+					return UI.NavigationSplitView {
+						Name = "PrimaryViews",
+						detailVisible = transfers,
+						preferredCompactColumn = inboxColumn,
+						sidebarWidth = inboxWidth,
+						backLabel = "Files",
+						detailLabel = "Inbox",
+						sidebar = function()
+							return UI.VStack {
+								Name = "PrimaryView",
+								width = "fill",
+								height = "fill",
+								UI.fill(),
+								Compose.keyed {
+									from = function(use)
+										return { use(mode) }
+									end,
+									render = function(current)
+										return view(current:peek(), "primary", folder)
+									end,
+								},
+							}
 						end,
-						render = function(current)
-							return view(current:peek(), "primary", folder)
+						detail = function()
+							return UI.VStack {
+								Name = "InboxView",
+								width = "fill",
+								height = "fill",
+								UI.fill(),
+								UI.Text { text = "Inbox · drop files or images here", textRole = "caption" },
+								inboxView(),
+							}
 						end,
-					},
-				},
-				Compose.show(transfers, function()
-					return UI.VStack {
-						Name = "InboxView",
-						width = "fill",
-						height = "fill",
-						UI.fill(),
-						UI.Text { text = "Inbox · drop files or images here", textRole = "caption" },
-						inboxView(),
 					}
-				end),
-				Compose.show(linked, function()
+				end,
+				detail = function()
 					return UI.VStack {
 						Name = "LinkedView",
 						width = "fill",
 						height = "fill",
-						UI.fill(),
 						UI.Text { text = "Same files · independent sort", textRole = "caption" },
 						view("details", "linked", folder),
 					}
-				end),
+				end,
 			}
 		end
+
 		local function filesPage()
-			return UI.VStack {
+			local page = UI.VStack {
 				Name = "CollectionWorkbench",
 				UI.fill(),
+				Host.UISizeConstraint { MinSize = ctx.types.Vector2.new(0, 640) },
 				UI.Dialog {
 					isPresented = creating,
 					title = function(use: any)
@@ -1239,6 +1267,7 @@ return {
 					Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(400, math.huge) },
 				},
 			}
+			return UI.ScrollView { Name = "FileViewport", width = "fill", height = "fill", page }
 		end
 
 		return {

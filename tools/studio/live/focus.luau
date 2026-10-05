@@ -180,9 +180,7 @@ function focus.atlas(
 		table.insert(entries, {
 			path = paths[node],
 			rect = { node.AbsolutePosition.X, node.AbsolutePosition.Y, node.AbsoluteSize.X, node.AbsoluteSize.Y },
-			adjustable = if node:HasTag("facet-adjustable")
-				then (if node:GetAttribute("axis") == "vertical" then "vertical" else "horizontal")
-				else nil,
+			adjustable = if node:HasTag("facet-adjustable") then node:GetAttribute("axis") else nil,
 			links = links,
 			chain = chainOf(node),
 		})
