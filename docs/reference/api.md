@@ -668,7 +668,12 @@ On a vertical scroll axis, a direct fill-height vertical stack uses the window
 height as its minimum. Its native `AutomaticSize` includes Y, and its
 `UIFlexItem` can grow but cannot shrink the stack to hide overflow. Content
 that needs more height expands the canvas. A nested scrolling control keeps
-its own viewport and scroll range.
+its own viewport and scroll range. At a touch scroll boundary, a nested Facet
+scrolling control yields the rest of the swipe to the nearest enabled ancestor
+that can scroll in that direction. This also applies to virtual collections,
+table bodies and overlay content. The inner control becomes available again
+when the touch ends. A disabled scroll ancestor blocks the handoff. Mouse wheel
+scrolling uses the native engine behavior.
 Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 

@@ -43,7 +43,7 @@ return function(
 		flow,
 	}
 	local scroller = Host.ScrollingFrame(props)
-	scrollLock.own(scroller)
+	scrollLock.own(scroller, ctx)
 	local laidOut = ctx.layoutSize(flow, ctx.layoutUnit(scroller))
 	Compose.watch(function(use: ComposeTypes.Use)
 		extent:set(math.ceil(use(laidOut).Y - 0.01))

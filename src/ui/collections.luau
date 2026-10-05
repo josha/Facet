@@ -717,7 +717,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		})
 		table.insert(native, unit)
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
-		scrollLock.own(root)
+		scrollLock.own(root, ctx)
 		root:SetAttribute("FacetSelectionOwner", true)
 		local input = ctx.config.userInputService
 		if horizontal and input and not spec.reorderable then
