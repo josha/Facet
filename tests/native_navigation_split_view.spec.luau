@@ -5,7 +5,7 @@ local Roblox = require("../src/vendor/compose/roblox")
 local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-local function world(preferredInput: string?, axis: ("x" | "y")?)
+local function world(preferredInput: string?, axis: ("x" | "y")?, compact: number?)
 	local engine = engines.new()
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	local gamepad = engine.new("GamepadService")
@@ -29,6 +29,8 @@ local function world(preferredInput: string?, axis: ("x" | "y")?)
 	local stop = runtime.mount(function()
 		root = UI.NavigationSplitView {
 			axis = axis,
+			compactWidth = compact,
+			compactHeight = compact,
 			resizable = resizable,
 			alwaysShowResizeHandle = alwaysShow,
 			sidebarHeight = if axis == "y" then width else nil,
@@ -100,6 +102,38 @@ t.describe("native split navigation", function()
 			w.stop()
 		end)
 	end
+	for _, axis in { "x", "y" } do
+		t.it("collapses " .. axis .. " only when pane minimums and the input divider cannot fit", function()
+			local w = world(nil, axis :: "x" | "y")
+			w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+			local minimum = if axis == "x" then 560 else 240
+			local divider = find(w.root, "Resize").Size
+			local gutter = if axis == "x" then divider.X.Offset else divider.Y.Offset
+			t.expect(gutter >= 28).toBe(true)
+			local function size(value: number)
+				w.root.AbsoluteSize =
+					w.engine.types.Vector2.new(if axis == "x" then value else 390, if axis == "y" then value else 360)
+			end
+			size(minimum + gutter)
+			t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(false)
+			t.expect(find(w.root, "Sidebar").Visible and find(w.root, "Detail").Visible).toBe(true)
+			size(minimum + gutter - 1)
+			t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(true)
+			w.resizable:set(false)
+			size(minimum + 1)
+			t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(false)
+			size(minimum)
+			t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(true)
+			w.stop()
+			local explicit = world(nil, axis :: "x" | "y", 800)
+			explicit.root.AbsoluteSize = explicit.engine.types.Vector2.new(799, 799)
+			t.expect(explicit.root:GetAttribute("FacetSplitCollapsed")).toBe(true)
+			explicit.root.AbsoluteSize = explicit.engine.types.Vector2.new(800, 800)
+			t.expect(explicit.root:GetAttribute("FacetSplitCollapsed")).toBe(false)
+			explicit.stop()
+		end)
+	end
+
 	t.it("can keep the resize handle visible without pointer hover", function()
 		local w = world()
 		local resize, pill = find(w.root, "Resize"), find(w.root, "Pill")
@@ -133,7 +167,7 @@ t.describe("native split navigation", function()
 		w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
 		t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(false)
 		w.column:set("detail")
-		w.root.AbsoluteSize = w.engine.types.Vector2.new(700, 280)
+		w.root.AbsoluteSize = w.engine.types.Vector2.new(700, 230)
 		t.expect(w.root:GetAttribute("FacetSplitCollapsed")).toBe(true)
 		t.expect(sidebar.Visible).toBe(false)
 		find(w.root, "Back").Activated.fire()

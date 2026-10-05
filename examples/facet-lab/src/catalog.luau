@@ -2746,6 +2746,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		base = function(c: Context)
 			return {
 				preferredCompactColumn = c.cell("column", "sidebar"),
+				backLabel = "Files",
+				detailLabel = "Linked files",
 				sidebarWidth = c.cell("width", 320),
 				sidebarHeight = c.cell("height", 220),
 				sidebar = function(): Instance
@@ -2759,7 +2761,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = {
 			{ key = "axis", values = { "x", "y" } } :: Axis,
 			{ key = "resizable", values = { true, false } } :: Axis,
-			{ key = "alwaysShowResizeHandle", values = { false, true } } :: Axis,
+			{ key = "alwaysShowResizeHandle", values = { true, false } } :: Axis,
 		},
 		states = {},
 	},

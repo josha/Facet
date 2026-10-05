@@ -313,8 +313,15 @@ local cases: { any } = {
 				height:set(10000)
 				t.settle(20)
 				t.check(theme.name .. " bottom keeps minimum height", bottom.AbsoluteSize.Y >= 120)
+				size:set(Vector2.new(844, 310))
+				t.settle(20)
+				t.check(theme.name .. " short panes still fit", top.Visible and bottom.Visible and root.Resize.Visible)
+				t.check(
+					theme.name .. " short panes keep minimums",
+					top.AbsoluteSize.Y >= 120 and bottom.AbsoluteSize.Y >= 120
+				)
 				column:set("detail")
-				size:set(Vector2.new(844, 280))
+				size:set(Vector2.new(844, 230))
 				t.settle(20)
 				t.check(
 					theme.name .. " short layout collapses",
@@ -470,6 +477,18 @@ local cases: { any } = {
 				t.settle()
 				t.near(theme.name .. " max width", sidebar.AbsoluteSize.X, 600)
 				t.check(theme.name .. " detail minimum", detail.AbsoluteSize.X >= 320)
+				size:set(Vector2.new(640, 360))
+				t.settle()
+				t.check(
+					theme.name .. " landscape panes still fit",
+					sidebar.Visible and detail.Visible and root.Resize.Visible
+				)
+				t.check(
+					theme.name .. " landscape pane minimums",
+					sidebar.AbsoluteSize.X >= 240 and detail.AbsoluteSize.X >= 320
+				)
+				t.inside(theme.name .. " landscape sidebar bounds", sidebar, root)
+				t.inside(theme.name .. " landscape detail bounds", detail, root)
 				column:set("detail")
 				size:set(Vector2.new(390, 650))
 				t.settle()

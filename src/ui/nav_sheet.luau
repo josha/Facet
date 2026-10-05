@@ -611,7 +611,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return true
 		end)
 		local grabber = Host.TextButton "Grabber" {
-			Attributes = { FacetFocusPart = "Pill" },
+			Attributes = { FacetFocusPart = "Pill" } :: Types.Attributes,
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
 			Size = function(use: ComposeTypes.Use)

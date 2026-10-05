@@ -2113,14 +2113,16 @@ writes `"detail"`. Set it to `"detail"` when a selection opens the detail pane.
 
 `sidebarWidth` is an optional writable number cell in logical pixels. Its
 default is 360. `minSidebarWidth` defaults to 240, `maxSidebarWidth` to 600,
-`minDetailWidth` to 320, and `compactWidth` to 720. The available width can
-reduce the sidebar width. The control collapses when both minimum widths and
-the divider no longer fit. Width limits must be positive finite numbers.
+`minDetailWidth` to 320. The available width can reduce the sidebar width.
+By default, the control collapses only when both minimum widths and the divider
+no longer fit. Set `compactWidth` to collapse at a larger width. Width limits
+must be positive finite numbers.
 
 For `axis = "y"`, use `sidebarHeight` instead of `sidebarWidth`. Its default is
 240. `minSidebarHeight` defaults to 120, `maxSidebarHeight` to 600,
-`minDetailHeight` to 120, and `compactHeight` to 320. These height options follow
-the same rules as the width options. The sidebar is the top pane; detail is the
+`minDetailHeight` to 120. Set `compactHeight` to collapse before the minimum
+heights and divider no longer fit. These height options follow the same rules
+as the width options. The sidebar is the top pane; detail is the
 bottom pane. The axis is fixed when the control is constructed.
 
 ```luau
