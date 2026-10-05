@@ -174,6 +174,30 @@ local cases: { any } = {
 		end,
 	},
 	{
+		id = "geometry-feedback",
+		contracts = {},
+		run = function(t: any)
+			local observe = require(game.ReplicatedStorage.Facet.ui.geometry_observation)
+			local node, size
+			t.mount(function(_UI: any, Host: any, Compose: any, env: any)
+				node = Host.Frame { Size = UDim2.fromOffset(100, 40) }
+				size = observe(Compose, env.runtime, node, "AbsoluteSize")
+				Compose.watch(function(use: any)
+					local width = use(size).X
+					if width > 0 and width < 200 then
+						node.Size = UDim2.fromOffset(width + 1, 40)
+					end
+				end)
+				return node
+			end)
+			t.settle(220)
+			t.check("feedback survives the deferred callback depth limit", size:peek().X == 200)
+			node.Size = UDim2.fromOffset(240, 40)
+			t.settle()
+			t.check("geometry still updates after feedback", size:peek().X == 240)
+		end,
+	},
+	{
 		id = "geometry-publication",
 		contracts = {},
 		run = function(t: any)

@@ -18,7 +18,7 @@ return function(
 ): ComposeTypes.Cell<unknown>
 	local observation = assert(runtime.host.observation)
 	local initial: unknown = if task
-			and task.defer
+			and task.delay
 			and property ~= "CanvasPosition"
 		then (if property == "TextFits" then false else Vector2.zero)
 		else observation.readProperty(node, property)
@@ -61,10 +61,10 @@ return function(
 		if not alive then
 			return
 		end
-		if task and task.defer then
+		if task and task.delay then
 			held.pending[update] = true
 			if held.thread == nil then
-				held.thread = task.defer(flush)
+				held.thread = task.delay(0, flush)
 			end
 		else
 			update.read()
@@ -72,7 +72,7 @@ return function(
 		end
 	end
 	local stop = observation.observeProperty(node, property, refresh)
-	if task and task.defer then
+	if task and task.delay then
 		refresh()
 	end
 	Compose.cleanup(function()
