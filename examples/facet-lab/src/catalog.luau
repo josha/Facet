@@ -2737,9 +2737,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	NavigationSplitView = {
 		family = "navigation",
 		cellWidth = 760,
-		cellHeight = 240,
+		cellHeight = 420,
 		alias = "(Facet) related panes",
-		purpose = "Shows related panes with a resize divider; collapses on narrow and TV layouts.",
+		purpose = "Shows panes side by side or stacked top/bottom, with a resize divider and compact navigation.",
 		alternatives = "NavigationStack for a hierarchy; TabView for peer destinations.",
 		scenarios = { "collection_workbench" },
 		snippet = "UI.NavigationSplitView { sidebar = files, detail = linkedFiles }",
@@ -2747,6 +2747,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return {
 				preferredCompactColumn = c.cell("column", "sidebar"),
 				sidebarWidth = c.cell("width", 320),
+				sidebarHeight = c.cell("height", 220),
 				sidebar = function(): Instance
 					return c.UI.Button { label = "Files" }
 				end,
@@ -2755,7 +2756,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			}
 		end,
-		axes = {},
+		axes = {
+			{ key = "axis", values = { "x", "y" } } :: Axis,
+			{ key = "resizable", values = { true, false } } :: Axis,
+			{ key = "alwaysShowResizeHandle", values = { false, true } } :: Axis,
+		},
 		states = {},
 	},
 
@@ -3721,6 +3726,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "collections",
 		demonstrates = { "swipeEnabled", "coordinator" },
 		cellWidth = 320,
+		cellHeight = 150,
 		alias = "(Facet-only) swipe actions",
 		purpose = "Leading/trailing swipe actions on a row, reachable by pointer, touch, keyboard and gamepad.",
 		alternatives = "A trailing More Menu button when there is one secondary action.",
@@ -3751,6 +3757,27 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = {},
 		states = {
+			{
+				name = "bottom item actions",
+				props = function(c: Context)
+					local value = c.cell("cardName", "Environments")
+					return {
+						actionPlacement = "bottom" :: "bottom",
+						Size = UDim2.new(1, 0, 0, 120),
+						content = function(): Instance
+							return c.UI.CellEditor {
+								editor = "text",
+								label = "File name",
+								value = value,
+								onChange = function(v)
+									value:set(v)
+								end,
+								Size = UDim2.fromScale(1, 1),
+							}
+						end,
+					}
+				end,
+			} :: State,
 			{
 				name = "editing",
 				props = function(c: Context)

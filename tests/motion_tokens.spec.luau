@@ -28,6 +28,7 @@ end
 local ROOT = "src/ui/"
 local KEYS = { "seconds", "duration", "period", "damping", "TweenTime" }
 local ALLOWED: { [string]: string } = {
+	["geometry_observation.luau|task.delay(0"] = "next Heartbeat measurement scheduling, not motion",
 	["toast_schedule.luau|duration = 4"] = "how long a toast stays readable, not motion",
 	["nav_modal.luau|duration = 0.001"] = "an age clock for the first styled frame",
 	["nav_modal.luau|duration = HELP_DWELL"] = "the hover dwell before help shows, an interaction delay",

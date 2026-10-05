@@ -10,6 +10,7 @@ type Use = <T>(Readable<T>) -> T
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
+local context = require("../src/ui/context")
 local Compose: ComposeModule = Facet.Compose
 local function world(count)
 	local engine = engineLib.new({ recordCreated = false })
@@ -94,6 +95,35 @@ local function world(count)
 end
 
 t.describe("native performance invariants", function()
+	t.it("shares ancestor visibility subscriptions until the last consumer leaves", function()
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local ctx = context(Compose, runtime, { types = engine.types })
+		local node = engine.new("Frame")
+		local owners, values = {}, {}
+		for index = 1, 40 do
+			owners[index] = Compose.createRootOwner(function()
+				values[index] = ctx.observe.Visible(node)
+			end, runtime.reactor)
+		end
+		t.expect(node:GetPropertyChangedSignal("Visible").count()).toBe(1)
+		for index = 1, 39 do
+			owners[index].dispose()
+		end
+		node.Visible = false
+		t.expect(values[40]:peek()).toBe(false)
+		t.expect(node:GetPropertyChangedSignal("Visible").count()).toBe(1)
+		owners[40].dispose()
+		t.expect(node:GetPropertyChangedSignal("Visible").count()).toBe(0)
+		node.Visible = true
+		local stop = Compose.createRootOwner(function()
+			t.expect(ctx.observe.Visible(node):peek()).toBe(true)
+		end, runtime.reactor)
+		stop.dispose()
+		t.expect(node:GetPropertyChangedSignal("Visible").count()).toBe(0)
+		runtime:dispose()
+	end)
+
 	t.it("one bound value writes one native property at100800and3200rows", function()
 		for _, count in { 100, 800, 3200 } do
 			local state = world(count)

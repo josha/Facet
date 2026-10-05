@@ -413,12 +413,22 @@ add("PageView", "Navigation", { selection = "first", pages = pages, indicators =
 	flag("controls", "Navigation controls"),
 	flag("summary", "Summary"),
 }, { state = "selection", container = true, seeds = seed })
-add("NavigationSplitView", "Navigation", { preferredCompactColumn = "sidebar", sidebarWidth = 360 }, {
-	choice("preferredCompactColumn", "Compact column", { "sidebar", "detail" }),
-	number("sidebarWidth", "Sidebar width"),
-	text("backLabel", "Back label"),
-	text("detailLabel", "Detail label"),
-}, { states = { "preferredCompactColumn", "sidebarWidth" }, container = true, seeds = seed })
+add(
+	"NavigationSplitView",
+	"Navigation",
+	{ preferredCompactColumn = "sidebar", sidebarWidth = 360, sidebarHeight = 240, resizable = true },
+	{
+		choice("preferredCompactColumn", "Compact column", { "sidebar", "detail" }),
+		choice("axis", "Split axis", { "x", "y" }),
+		flag("resizable", "Resizable"),
+		flag("alwaysShowResizeHandle", "Always show resize handle"),
+		number("sidebarWidth", "Sidebar width"),
+		number("sidebarHeight", "Sidebar height"),
+		text("backLabel", "Back label"),
+		text("detailLabel", "Detail label"),
+	},
+	{ states = { "preferredCompactColumn", "sidebarWidth", "sidebarHeight" }, container = true, seeds = seed }
+)
 add(
 	"NavigationStack",
 	"Navigation",

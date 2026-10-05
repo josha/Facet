@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Editable grid tiles reserve a bottom area for item actions and include it in measured item heights. The circular utility action button leaves the tile content at full width instead of squeezing it into a row-style trailing gutter. Lists and tables retain trailing actions.
+
+- NavigationSplitView can disable resizing with `resizable = false` and keep its grip visible with `alwaysShowResizeHandle = true`. Disabled resizing keeps a separator without a drag target or focus stop. Files exposes Linked and Inbox in a visible Views menu at compact sizes instead of hiding these choices with search options.
+
+- NavigationSplitView supports top/bottom panes with `axis = "y"` and height limits. It uses native vertical dragging and Up/Down focus traversal; the default stays side by side. Both layouts retain their panes when compact navigation replaces the divider. The Lab includes both axes.
+- Grid resizing creates inline editors on first use and shares ancestor input observers. Geometry reads finish before updates publish on the next Heartbeat. This avoids repeated row construction work and the same-frame deferred callback limit that could freeze layout; geometry feedback is not drained recursively within one frame.
+
 - Batch native geometry measurements after construction and layout events. Split resizing no longer publishes control and skin measurements during the engine's layout pass. Pending measurements leave with their Compose owners.
 
 - Add NavigationSplitView with resizable related panes, compact and TV navigation, touch dragging and gamepad focus through the divider. The File library uses nested splits for Files, Inbox and Linked view. Outline Left navigation yields at a collapsed root so focus can leave the pane.

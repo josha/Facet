@@ -6,6 +6,197 @@ local function api(command: string, argument: any?): any
 end
 local cases: { any } = {
 	{
+		id = "files-grid-action-bounds",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
+					return require(game.ReplicatedStorage.FacetScenarios.collection_workbench)
+						.build(t.context(UI, Host, C, env))
+						.screen()
+				end, {
+					theme = theme.package,
+					size = Vector2.new(393, 844),
+					environment = { preferredInput = "Touch", viewportSize = Vector2.new(393, 844) },
+				})
+				local menu = t.find(stage, "ViewOptions")
+				t.check(
+					theme.name .. " view choices stay visible",
+					t.visible(menu) and not t.find(stage, "Filters").Visible
+				)
+				t.inside(theme.name .. " Views button bounds", menu, stage)
+				local count = 0
+				for _, button in t.all(stage, "CellActions") do
+					if not button.Visible then
+						continue
+					end
+					local cell = button.Parent:FindFirstChild("FileCell", true)
+					if not cell then
+						continue
+					end
+					count += 1
+					local label = theme.name .. " card " .. count
+					t.inside(label .. " action stays inside", button, button.Parent)
+					t.near(label .. " content keeps full width", cell.AbsoluteSize.X, button.Parent.AbsoluteSize.X)
+					t.check(
+						label .. " content clears action",
+						cell.AbsolutePosition.Y + cell.AbsoluteSize.Y <= button.AbsolutePosition.Y + 0.5
+					)
+				end
+				t.check(theme.name .. " checked editable tiles", count >= 2)
+			end
+		end,
+	},
+	{
+		id = "resize-options",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				for _, axis in { "x", "y" } do
+					local C = t.Facet.Compose
+					local resizable, always = C.cell(true), C.cell(true)
+					local stage = t.mount(function(UI: any)
+						return UI.NavigationSplitView {
+							Name = "OptionsSplit",
+							axis = axis,
+							resizable = resizable,
+							alwaysShowResizeHandle = always,
+							sidebar = function()
+								return UI.Button { Name = "Source", label = "Files" }
+							end,
+							detail = function()
+								return UI.Button { Name = "Result", label = "Inbox" }
+							end,
+						}
+					end, {
+						theme = theme.package,
+						size = Vector2.new(1000, 640),
+						environment = { viewingDistance = "near", preferredInput = "KeyboardAndMouse" },
+					})
+					local root = t.find(stage, "OptionsSplit")
+					local name = theme.name .. axis
+					t.check(name .. " persistent grip", root.Resize.Grip.Pill.Visible)
+					t.inside(name .. " grip bounds", root.Resize.Grip, root.Resize)
+					GuiService.SelectedObject = t.find(root.Sidebar, "Source")
+					GuiService.SelectedObject = root.Resize
+					resizable:set(false)
+					t.settle()
+					t.check(
+						name .. " disabled input",
+						not root.Resize.Selectable
+							and not root.Resize.Active
+							and not root.Resize:FindFirstChildWhichIsA("UIDragDetector").Enabled
+					)
+					t.check(name .. " disabled grip", not root.Resize.Grip.Visible)
+					t.check(name .. " focus leaves divider", GuiService.SelectedObject ~= root.Resize)
+					t.near(
+						name .. " thin separator",
+						if axis == "x" then root.Resize.AbsoluteSize.X else root.Resize.AbsoluteSize.Y,
+						1
+					)
+					GuiService.SelectedObject = t.find(root.Detail, "Result")
+					t.check(
+						name .. " direct pane traversal",
+						GuiService.SelectedObject == t.find(root.Detail, "Result")
+					)
+					resizable:set(true)
+					t.settle()
+					t.check(name .. " resizing restored", root.Resize.Selectable and root.Resize.Grip.Visible)
+				end
+			end
+		end,
+	},
+	{
+		id = "files-editor-first-focus",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				if theme.name ~= "Neutral" and theme.name ~= "fantasy_parchment" then
+					continue
+				end
+				local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
+					local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
+						t.context(UI, Host, C, env)
+					)
+					built.model.linked:set(true)
+					built.model.transfers:set(true)
+					return built.screen()
+				end, { theme = theme.package, size = Vector2.new(1340, 850) })
+				local editor = t.find(t.find(stage, "PrimaryView"), "Rename")
+				t.check(theme.name .. " starts without a field", editor:FindFirstChildWhichIsA("TextBox", true) == nil)
+				require(game.ReplicatedStorage.Facet.ui.activation).edits(editor)[1].onActivate()
+				t.settle()
+				local field = editor:FindFirstChildWhichIsA("TextBox", true)
+				t.check(theme.name .. " first edit stays open", editor.EditorHost.Visible and not editor.Value.Visible)
+				t.check(
+					theme.name .. " first edit owns native focus",
+					field:IsFocused() and GuiService.SelectedObject == field
+				)
+				field:ReleaseFocus(false)
+				t.settle()
+				t.check(
+					theme.name .. " closing keeps the editor",
+					editor:FindFirstChildWhichIsA("TextBox", true) == field
+				)
+				t.check(theme.name .. " closing restores row focus", GuiService.SelectedObject ~= field)
+			end
+		end,
+	},
+	{
+		id = "inline-editor-retention",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				if theme.name ~= "Neutral" and theme.name ~= "fantasy_parchment" then
+					continue
+				end
+				local Compose = t.Facet.Compose
+				local editing, input = Compose.cell(false), Compose.cell("KeyboardAndMouse")
+				local editor
+				local stage = t.mount(function(UI: any)
+					editor = UI.CellEditor {
+						editor = "text",
+						value = "A long file name for the linked view",
+						editing = editing,
+						onChange = function() end,
+					}
+					return editor
+				end, {
+					theme = theme.package,
+					size = Vector2.new(240, 100),
+					environment = { preferredInput = input },
+				})
+				t.settle()
+				t.check(
+					theme.name .. " display has no native editor",
+					editor:FindFirstChildWhichIsA("TextBox", true) == nil
+				)
+				local field
+				for _, kind in { "KeyboardAndMouse", "Touch", "Gamepad" } do
+					input:set(kind)
+					t.settle()
+					local height = editor.AbsoluteSize.Y
+					editing:set(true)
+					t.settle()
+					local current = editor:FindFirstChildWhichIsA("TextBox", true)
+					t.check(theme.name .. kind .. " mounts editor", current ~= nil)
+					t.check(theme.name .. kind .. " retains editor", field == nil or field == current)
+					field = current
+					t.near(theme.name .. kind .. " editing height", editor.AbsoluteSize.Y, height)
+					t.inside(theme.name .. kind .. " field inside cell", current, editor)
+					editing:set(false)
+					t.settle()
+					t.near(theme.name .. kind .. " display height", editor.AbsoluteSize.Y, height)
+					t.check(
+						theme.name .. kind .. " field retained after editing",
+						editor:FindFirstChildWhichIsA("TextBox", true) == field
+					)
+					t.inside(theme.name .. kind .. " cell inside viewport", editor, stage)
+				end
+			end
+		end,
+	},
+	{
 		id = "three-pane-layout",
 		contracts = {},
 		run = function(t: any)
@@ -84,12 +275,98 @@ local cases: { any } = {
 		end,
 	},
 	{
+		id = "stacked-layout-and-retention",
+		contracts = {},
+		run = function(t: any)
+			for _, theme in t.themes do
+				local C = t.Facet.Compose
+				local size, height, column = C.cell(Vector2.new(900, 640)), C.cell(240), C.cell("sidebar")
+				local stage = t.mount(function(UI: any)
+					return UI.NavigationSplitView {
+						Name = "Stacked",
+						axis = "y",
+						sidebarHeight = height,
+						preferredCompactColumn = column,
+						sidebar = function()
+							return UI.Button { Name = "TopItem", label = "Files" }
+						end,
+						detail = function()
+							return UI.Button { Name = "BottomItem", label = "Inbox" }
+						end,
+					}
+				end, { theme = theme.package, size = size, environment = { viewingDistance = "near" } })
+				local root = t.find(stage, "Stacked")
+				local top, bottom = root.Sidebar, root.Detail
+				t.check(theme.name .. " stacked panes visible", top.Visible and bottom.Visible and root.Resize.Visible)
+				t.near(theme.name .. " top height", top.AbsoluteSize.Y, 240)
+				t.inside(theme.name .. " top bounds", top, root)
+				t.inside(theme.name .. " bottom bounds", bottom, root)
+				t.check(
+					theme.name .. " stacked panes do not overlap",
+					top.AbsolutePosition.Y + top.AbsoluteSize.Y <= root.Resize.AbsolutePosition.Y
+						and root.Resize.AbsolutePosition.Y + root.Resize.AbsoluteSize.Y <= bottom.AbsolutePosition.Y
+				)
+				t.check(
+					theme.name .. " horizontal focus grip",
+					root.Resize.Grip.AbsoluteSize.X > root.Resize.Grip.AbsoluteSize.Y
+				)
+				size:set(Vector2.new(390, 640))
+				t.settle(20)
+				t.check(theme.name .. " portrait keeps stacked panes", not root:GetAttribute("FacetSplitCollapsed"))
+				height:set(10000)
+				t.settle(20)
+				t.check(theme.name .. " bottom keeps minimum height", bottom.AbsoluteSize.Y >= 120)
+				column:set("detail")
+				size:set(Vector2.new(844, 280))
+				t.settle(20)
+				t.check(
+					theme.name .. " short layout collapses",
+					root:GetAttribute("FacetSplitCollapsed")
+						and not top.Visible
+						and bottom.Visible
+						and not root.Resize.Visible
+				)
+				size:set(Vector2.new(900, 640))
+				t.settle(20)
+				t.check(
+					theme.name .. " stacked panes retained",
+					root.Sidebar == top and root.Detail == bottom and top.Visible and bottom.Visible
+				)
+			end
+		end,
+	},
+	{
+		id = "geometry-feedback",
+		contracts = {},
+		run = function(t: any)
+			local observe = require(game.ReplicatedStorage.Facet.ui.geometry_observation)
+			local node, size
+			t.mount(function(_UI: any, Host: any, Compose: any, env: any)
+				node = Host.Frame { Size = UDim2.fromOffset(100, 40) }
+				size = observe(Compose, env.runtime, node, "AbsoluteSize")
+				Compose.watch(function(use: any)
+					local width = use(size).X
+					if width > 0 and width < 200 then
+						node.Size = UDim2.fromOffset(width + 1, 40)
+					end
+				end)
+				return node
+			end)
+			t.settle(220)
+			t.check("feedback survives the deferred callback depth limit", (size:peek() :: Vector2).X == 200)
+			node.Size = UDim2.fromOffset(240, 40)
+			t.settle()
+			t.check("geometry still updates after feedback", (size:peek() :: Vector2).X == 240)
+		end,
+	},
+	{
 		id = "geometry-publication",
 		contracts = {},
 		run = function(t: any)
 			local observe = require(game.ReplicatedStorage.Facet.ui.geometry_observation)
 			local first, second, firstSize, secondSize, shown
 			local runs, lastFirst, lastSecond = 0, 0, 0
+			local order = {}
 			t.mount(function(_UI: any, Host: any, Compose: any, env: any)
 				shown = Compose.cell(true)
 				return Host.Frame {
@@ -97,8 +374,31 @@ local cases: { any } = {
 					Compose.show(shown, function()
 						first = Host.Frame { Size = UDim2.fromOffset(100, 40) }
 						second = Host.Frame { Size = UDim2.fromOffset(200, 40) }
+						local observation = env.runtime.host.observation
+						local read = observation.readProperty
+						observation.readProperty = function(node: Instance, property: string)
+							if (node == first or node == second) and property == "AbsoluteSize" then
+								table.insert(order, "read")
+							end
+							return read(node, property)
+						end
+						Compose.cleanup(function()
+							observation.readProperty = read
+						end)
 						firstSize = observe(Compose, env.runtime, first, "AbsoluteSize")
 						secondSize = observe(Compose, env.runtime, second, "AbsoluteSize")
+						local other = t.Facet.Roblox.createRuntime()
+						local subscriber = Compose.createRootOwner(function()
+							Compose.watch(function(use: any)
+								use(firstSize)
+								use(secondSize)
+								table.insert(order, "publish")
+							end)
+						end, other.reactor)
+						Compose.cleanup(function()
+							subscriber.dispose()
+							other:dispose()
+						end)
 						t.check(
 							"initial geometry waits for construction",
 							(firstSize:peek() :: Vector2) == Vector2.zero
@@ -113,6 +413,7 @@ local cases: { any } = {
 			end)
 			t.check("initial geometry is published", lastFirst == 100 and lastSecond == 200)
 			local before = runs
+			table.clear(order)
 			first.Size = UDim2.fromOffset(150, 40)
 			second.Size = UDim2.fromOffset(250, 40)
 			t.check("native geometry changed", first.AbsoluteSize.X == 150 and second.AbsoluteSize.X == 250)
@@ -120,6 +421,10 @@ local cases: { any } = {
 			t.check("native geometry changed again", first.AbsoluteSize.X == 175)
 			t.check("layout dispatch does not run bindings", runs == before)
 			t.settle()
+			t.check(
+				"reads geometry before publishing to another reactor",
+				order[1] == "read" and order[2] == "read" and order[3] == "publish"
+			)
 			t.check("geometry publishes together once", runs == before + 1 and lastFirst == 175 and lastSecond == 250)
 			first.Size = UDim2.fromOffset(180, 40)
 			t.check("disposal has a pending measurement", first.AbsoluteSize.X == 180)

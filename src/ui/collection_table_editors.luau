@@ -175,15 +175,21 @@ return function(ctx: Types.Context, UI: Controls)
 					editing:set(true)
 				end,
 			}
-			if spec.editor == "number" then
-				local numberProps = (props :: unknown) :: InputTypes.NumberInputProps
-				numberProps.numericValue = numeric
-				numberProps.min, numberProps.max, numberProps.step = spec.min, spec.max, spec.step
-				child = UI.NumberInput(numberProps)
-			else
-				child = UI.TextInput((props :: unknown) :: InputTypes.TextInputProps)
-			end
-			fieldHeight = ctx.observe.Size(assert(child:FindFirstChild("Input+target", true)) :: GuiObject)
+			local inputKind = ctx.effectiveInput()
+			fieldHeight = Compose.formula(function(use: ComposeTypes.Use)
+				return D2.new(
+					1,
+					0,
+					0,
+					math.max(
+						ctx.controlSize("compact", "height", use),
+						ctx.controlSize("compact", "iconSize", use),
+						if inputKind(use) == "KeyboardAndMouse"
+							then 0
+							else math.max(44, ctx.metric("targetSizes.minimum", use))
+					)
+				)
+			end)
 			do
 				local hit: TextButton
 				local function rowHit(): GuiObject?
@@ -279,45 +285,77 @@ return function(ctx: Types.Context, UI: Controls)
 					}),
 					"Text"
 				) :: TextLabel
-				local field = (
-					if child:IsA("TextBox") then child else child:FindFirstChildWhichIsA("TextBox", true)
-				) :: TextBox
-				local function focus()
-					if
-						editing:peek()
-						and enabled()
-						and field:FindFirstAncestorWhichIsA("LayerCollector")
-						and not field:IsFocused()
-					then
-						local gui = ctx.config.guiService
-						if gui then
-							gui.SelectedObject = field
-						end
-						field:CaptureFocus()
-					end
-				end
-				local wasEditing = false
+				local initialized = Compose.cell(false)
 				Compose.watch(function(use: ComposeTypes.Use)
-					local active = use(editing)
-					if read(spec.enabled, use) == false and active then
-						active = false
-						editing:set(false)
+					if use(editing) then
+						initialized:set(true)
 					end
-					if active then
-						focus()
-					elseif field:IsFocused() then
-						field:ReleaseFocus()
-					end
-					local gui = ctx.config.guiService
-					if wasEditing and not active and gui then
-						local selected = gui.SelectedObject
-						if selected and (selected == field or selected:IsDescendantOf(child)) then
-							gui.SelectedObject = rowHit() or hit
-						end
-					end
-					wasEditing = active
 				end)
-				ctx.runtime.connect(field, "AncestryChanged", focus)
+				child = ctx.Host.Frame {
+					Name = "EditorHost",
+					BackgroundTransparency = 1,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					Visible = editing,
+					Compose.show(initialized, function()
+						local editor: GuiObject
+						if spec.editor == "number" then
+							local numberProps = (props :: unknown) :: InputTypes.NumberInputProps
+							numberProps.numericValue = numeric
+							numberProps.min, numberProps.max, numberProps.step = spec.min, spec.max, spec.step
+							editor = UI.NumberInput(numberProps)
+						else
+							editor = UI.TextInput((props :: unknown) :: InputTypes.TextInputProps)
+						end
+						local field = (
+							if editor:IsA("TextBox") then editor else editor:FindFirstChildWhichIsA("TextBox", true)
+						) :: TextBox
+						local function focus()
+							if
+								editing:peek()
+								and enabled()
+								and field:FindFirstAncestorWhichIsA("LayerCollector")
+								and not field:IsFocused()
+							then
+								local gui = ctx.config.guiService
+								if gui then
+									gui.SelectedObject = field
+								end
+								field:CaptureFocus()
+							end
+						end
+						local function requestFocus()
+							if task and task.defer then
+								task.defer(focus)
+							else
+								focus()
+							end
+						end
+						local wasEditing = false
+						Compose.watch(function(use: ComposeTypes.Use)
+							local active = use(editing)
+							if read(spec.enabled, use) == false and active then
+								active = false
+								editing:set(false)
+							end
+							if active then
+								requestFocus()
+							elseif field:IsFocused() then
+								field:ReleaseFocus()
+							end
+							local gui = ctx.config.guiService
+							if wasEditing and not active and gui then
+								local selected = gui.SelectedObject
+								if selected and (selected == field or selected:IsDescendantOf(editor)) then
+									gui.SelectedObject = rowHit() or hit
+								end
+							end
+							wasEditing = active
+						end)
+						ctx.runtime.connect(field, "AncestryChanged", requestFocus)
+						return editor
+					end),
+				}
 			end
 		end
 		local defaults: Types.FrameProps = {

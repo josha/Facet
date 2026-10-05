@@ -1,8 +1,10 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 
+type Update = { read: () -> (), publish: () -> () }
+
 type Queue = {
-	pending: { [() -> ()]: boolean },
+	pending: { [Update]: boolean },
 	thread: thread?,
 	users: number,
 }
@@ -16,7 +18,7 @@ return function(
 ): ComposeTypes.Cell<unknown>
 	local observation = assert(runtime.host.observation)
 	local initial: unknown = if task
-			and task.defer
+			and task.delay
 			and property ~= "CanvasPosition"
 		then (if property == "TextFits" then false else Vector2.zero)
 		else observation.readProperty(node, property)
@@ -29,18 +31,29 @@ return function(
 	local held = queue :: Queue
 	held.users += 1
 	local alive = true
-	local function publish()
-		if alive then
-			value:set(observation.readProperty(node, property))
-		end
-	end
+	local snapshot: unknown = initial
+	local update: Update = {
+		read = function()
+			if alive then
+				snapshot = observation.readProperty(node, property)
+			end
+		end,
+		publish = function()
+			if alive then
+				value:set(snapshot)
+			end
+		end,
+	}
 	local function flush()
 		held.thread = nil
 		local pending = held.pending
 		held.pending = {}
+		for entry in pending do
+			entry.read()
+		end
 		runtime.reactor:batch(function()
-			for update in pending do
-				update()
+			for entry in pending do
+				entry.publish()
 			end
 		end)
 	end
@@ -48,23 +61,24 @@ return function(
 		if not alive then
 			return
 		end
-		if task and task.defer then
-			held.pending[publish] = true
+		if task and task.delay then
+			held.pending[update] = true
 			if held.thread == nil then
-				held.thread = task.defer(flush)
+				held.thread = task.delay(0, flush)
 			end
 		else
-			publish()
+			update.read()
+			update.publish()
 		end
 	end
 	local stop = observation.observeProperty(node, property, refresh)
-	if task and task.defer then
+	if task and task.delay then
 		refresh()
 	end
 	Compose.cleanup(function()
 		alive = false
 		stop()
-		held.pending[publish] = nil
+		held.pending[update] = nil
 		held.users -= 1
 		if next(held.pending) == nil and held.thread then
 			task.cancel(held.thread)

@@ -519,6 +519,7 @@ t.describe("file library workbench", function()
 				local coarse = input ~= "KeyboardAndMouse"
 				t.expect(find(node, "Edit").Visible).toBe(coarse)
 				t.expect(find(collection, "Rename") ~= nil).toBe(true)
+				require("../src/ui/activation").edits(find(collection, "Rename"))[1].onActivate()
 				t.expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(true)
 				if coarse then
 					find(node, "Edit").Activated.fire()
@@ -654,6 +655,21 @@ t.describe("file library workbench", function()
 		for i = 1, 10 do
 			t.expect(model.selection:peek()[tostring(i)]).toBe(true)
 		end
+		stop()
+	end)
+
+	t.it("keeps Linked and Inbox in the visible compact Views menu", function()
+		local built, node, stop, _, world = mount("collection_workbench", { width = 390, height = 844 })
+		local menu = find(node, "ViewOptions")
+		t.expect(menu.Parent.Name).toBe("Toolbar")
+		t.expect(menu.Visible and menu.Parent.Visible).toBe(true)
+		t.expect(find(node, "Filters").Visible).toBe(false)
+		for _, name in { "linked", "inbox" } do
+			find(menu, "Trigger").Activated.fire()
+			find(find(world.target, "MenuPanel"), name).Activated.fire()
+			t.expect(find(world.target, "MenuPanel")).toBeNil()
+		end
+		t.expect(built.model.linked:peek() and built.model.transfers:peek()).toBe(true)
 		stop()
 	end)
 

@@ -4125,6 +4125,7 @@ t.describe("shared container editing", function()
 					end,
 				}
 			end, target)
+			require("../src/ui/activation").edits(node)[1].onActivate()
 			return stop, node:FindFirstChildWhichIsA("TextBox", true)
 		end
 		local stop, field = mount()
@@ -4164,6 +4165,7 @@ t.describe("shared container editing", function()
 				onChange = function() end,
 			}
 		end, target)
+		require("../src/ui/activation").edits(node)[1].onActivate()
 		local hit = node:FindFirstChild("Input+target", true)
 		local compactHeight = hit.Size.Y.Offset
 		local input = assert(ctx.config.userInputService)
@@ -4175,6 +4177,7 @@ t.describe("shared container editing", function()
 		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(hit.Size.Y.Offset).toBe(compactHeight)
 		enabled:set(false)
+		require("../src/ui/activation").edits(node)[1].onActivate()
 		local field = node:FindFirstChildWhichIsA("TextBox", true)
 		t.expect(field.TextEditable).toBe(false)
 		t.expect(field.Selectable).toBe(false)
@@ -4197,7 +4200,7 @@ t.describe("shared container editing", function()
 				onChange = function() end,
 			}
 		end, target)
-		local box = node:FindFirstChild("Input+target", true)
+		t.expect(node:FindFirstChildWhichIsA("TextBox", true)).toBe(nil)
 		local display = node:FindFirstChild("Value")
 		local floor = node:FindFirstChild("FieldSize")
 		t.expect(node:FindFirstChild("Label", true)).toBe(nil)
@@ -4210,11 +4213,14 @@ t.describe("shared container editing", function()
 			}
 		do
 			assert(ctx.config.userInputService).PreferredInput = input
-			local height = box.Size.Y.Offset
+			local height = floor.MinSize.Y
 			for _, active in { false, true, false } do
 				editing:set(active)
 				t.expect(floor.MinSize.Y).toBe(height)
 				t.expect(display.Size.Y.Offset).toBe(height)
+				if active then
+					t.expect(node:FindFirstChild("Input+target", true).Size.Y.Offset).toBe(height)
+				end
 			end
 		end
 		stop()
@@ -4233,6 +4239,7 @@ t.describe("shared container editing", function()
 				end,
 			}
 		end, target)
+		require("../src/ui/activation").edits(node)[1].onActivate()
 		local field = node:FindFirstChildWhichIsA("TextBox", true)
 		field.Focused.fire()
 		field.Text = "Unfinished"
@@ -4260,6 +4267,7 @@ t.describe("shared container editing", function()
 				end,
 			}
 		end, target)
+		require("../src/ui/activation").edits(node)[1].onActivate()
 		local field = node:FindFirstChildWhichIsA("TextBox", true)
 		field.Focused.fire()
 		field.Text = "25"
@@ -4397,6 +4405,7 @@ t.describe("container presentation and shared cells", function()
 				}
 			end, target)
 			table.insert(stops, stop)
+			require("../src/ui/activation").edits(node)[1].onActivate()
 			table.insert(fields, node:FindFirstChildWhichIsA("TextBox", true))
 		end
 		fields[1].Focused.fire()
@@ -4904,11 +4913,15 @@ t.describe("independent cell editing", function()
 		local toggle = row:FindFirstChild("checked", true):FindFirstChild("Editor", true)
 		local edits = require("../src/ui/activation").edits(row)
 		t.expect(edits[1].label).toBe("Edit title")
-		t.expect(name:FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(false)
+		t.expect(edits[1].enabled()).toBe(false)
+		edits[1].onActivate()
+		t.expect(name:FindFirstChildWhichIsA("TextBox", true)).toBe(nil)
 		toggle.Activated.fire()
 		t.expect(#changes).toBe(1)
 		editing:set(true)
-		t.expect(name:FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(false)
+		t.expect(edits[1].enabled()).toBe(false)
+		edits[1].onActivate()
+		t.expect(name:FindFirstChildWhichIsA("TextBox", true)).toBe(nil)
 		rows:set({ { id = 1, name = "Alpha", checked = false, locked = true } })
 		toggle.Activated.fire()
 		t.expect(#changes).toBe(1)
@@ -5020,7 +5033,11 @@ t.describe("independent cell editing", function()
 			t.expect(row:FindFirstChild("CellActions", true).Visible).toBe(true)
 			local actions = row:FindFirstChild("CellActions", true)
 			actions.AbsoluteSize = engine.types.Vector2.new(70, 46)
-			t.expect(actions.Parent:FindFirstChild("Content").Size.X.Offset).toBe(-70)
+			t.expect(actions.Parent:FindFirstChild("Content").Size.X.Offset)
+				.toBe(if kind == "VirtualGrid" then 0 else -70)
+			t.expect(actions.Parent:FindFirstChild("Content").Size.Y.Offset)
+				.toBe(if kind == "VirtualGrid" then -46 else 0)
+			t.expect(actions.AnchorPoint.Y).toBe(if kind == "VirtualGrid" then 1 else 0.5)
 
 			t.expect(row:FindFirstChild("SwipeGrip", true).Visible).toBe(false)
 			assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.KeyboardAndMouse
