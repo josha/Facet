@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Nested Facet scrolling controls hand off a touch swipe at either scroll boundary to an ancestor that can move. Swipes over file tiles work too. Native scrolling keeps inertia and wheel behavior; modal and drag locks remain in force.
+
 - NavigationSplitView uses the pane minimums and divider size for its default collapse threshold. Landscape views keep both panes when they fit. Explicit compact limits still apply. The Lab starts with a visible resize handle and names its compact destinations.
 
 - Sheet keeps its normal content spacing inside the theme's panel art insets. Titles, scrolling content and actions clear thick frames such as Fantasy Parchment, including after theme and placement changes.

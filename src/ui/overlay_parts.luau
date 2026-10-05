@@ -409,7 +409,7 @@ function parts.room(
 	end
 	props.Selectable = false
 	local frame = Host.ScrollingFrame(props)
-	scrollLock.own(frame)
+	scrollLock.own(frame, ctx)
 	parts.reach(ctx, frame, tight)
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end

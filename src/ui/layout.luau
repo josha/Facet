@@ -273,7 +273,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			Host.ScrollingFrame(kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), insets }, children)),
 			properties
 		)
-		scrollLock.own(frame)
+		scrollLock.own(frame, ctx)
 		if axis ~= "x" and #filling > 0 then
 			local window = ctx.layoutSize(frame)
 			local top, bottom = Compose.cell(0), Compose.cell(0)

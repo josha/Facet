@@ -1,4 +1,6 @@
 --!strict
+local Types = require("./types")
+local chain = require("./scroll_chain")
 local scrollLock = {}
 
 type Layer = {
@@ -152,8 +154,18 @@ function scrollLock.release(layer: Instance, root: Instance)
 	refresh(layer, state)
 end
 
-function scrollLock.own(frame: ScrollingFrame)
+function scrollLock.own(frame: ScrollingFrame, ctx: Types.Context?)
 	owned[frame] = true
+	if ctx then
+		chain(ctx, frame, function(candidate: ScrollingFrame): boolean
+			return owned[candidate] == true
+		end, function(exhausted: ScrollingFrame): () -> ()
+			take(exhausted)
+			return function()
+				give(exhausted)
+			end
+		end)
+	end
 end
 
 function scrollLock.holdOwnedAncestors(node: Instance): () -> ()

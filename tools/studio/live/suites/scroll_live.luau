@@ -160,4 +160,63 @@ add("sheet-content-clears-theme-frame", {}, function(t: any)
 	end
 end)
 
+table.insert(cases, {
+	id = "files-nested-touch-handoff",
+	contracts = {},
+	keepGallery = true,
+	setup = function(t: any)
+		workspace.FacetShowcaseAPI:Invoke("show", "files")
+		t.settle(20)
+		local layer = game:GetService("Players").LocalPlayer.PlayerGui.FacetGallery
+		local outer = t.find(layer, "FileViewport")
+		local inner = t.find(outer, "primary")
+		return { outer = outer, inner = inner, before = 0, edge = 0 }
+	end,
+	steps = {
+		top = function(t: any, s: any)
+			s.inner:ResetScrollVelocity()
+			s.outer:ResetScrollVelocity()
+			s.inner.CanvasPosition = Vector2.zero
+			s.outer.CanvasPosition = Vector2.new(0, 100)
+			t.settle(10)
+			s.before = s.outer.CanvasPosition.Y
+			s.edge = s.inner.CanvasPosition.Y
+			t.check("outer has room toward top", s.before > 20)
+		end,
+		upstream = function(t: any, s: any)
+			t.settle(30)
+			t.check("swipe over file tile scrolls outer toward top", s.outer.CanvasPosition.Y < s.before - 20)
+			t.near("inner stays at top", s.inner.CanvasPosition.Y, s.edge, 2)
+			t.check("touch release restores inner", s.inner.ScrollingEnabled)
+		end,
+		bottom = function(t: any, s: any)
+			s.inner:ResetScrollVelocity()
+			s.outer:ResetScrollVelocity()
+			s.outer.CanvasPosition = Vector2.new(0, 20)
+			for _ = 1, 3 do
+				s.inner.CanvasPosition = Vector2.new(0, 1000000)
+				t.settle(10)
+			end
+			t.near(
+				"inner starts at bottom",
+				s.inner.CanvasPosition.Y,
+				s.inner.AbsoluteCanvasSize.Y - s.inner.AbsoluteWindowSize.Y,
+				2
+			)
+			s.before = s.outer.CanvasPosition.Y
+			s.edge = s.inner.CanvasPosition.Y
+			t.check(
+				"outer has room toward bottom",
+				s.outer.AbsoluteCanvasSize.Y - s.outer.AbsoluteWindowSize.Y > s.before + 20
+			)
+		end,
+		downstream = function(t: any, s: any)
+			t.settle(30)
+			t.check("swipe over file tile scrolls outer toward bottom", s.outer.CanvasPosition.Y > s.before + 20)
+			t.near("inner stays at bottom", s.inner.CanvasPosition.Y, s.edge, 2)
+			t.check("touch release restores inner", s.inner.ScrollingEnabled)
+		end,
+	},
+})
+
 return cases
