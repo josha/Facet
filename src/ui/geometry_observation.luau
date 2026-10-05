@@ -1,8 +1,10 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 
+type Update = { read: () -> (), publish: () -> () }
+
 type Queue = {
-	pending: { [() -> ()]: boolean },
+	pending: { [Update]: boolean },
 	thread: thread?,
 	users: number,
 }
@@ -29,18 +31,29 @@ return function(
 	local held = queue :: Queue
 	held.users += 1
 	local alive = true
-	local function publish()
-		if alive then
-			value:set(observation.readProperty(node, property))
-		end
-	end
+	local snapshot: unknown = initial
+	local update: Update = {
+		read = function()
+			if alive then
+				snapshot = observation.readProperty(node, property)
+			end
+		end,
+		publish = function()
+			if alive then
+				value:set(snapshot)
+			end
+		end,
+	}
 	local function flush()
 		held.thread = nil
 		local pending = held.pending
 		held.pending = {}
+		for entry in pending do
+			entry.read()
+		end
 		runtime.reactor:batch(function()
-			for update in pending do
-				update()
+			for entry in pending do
+				entry.publish()
 			end
 		end)
 	end
@@ -49,12 +62,13 @@ return function(
 			return
 		end
 		if task and task.defer then
-			held.pending[publish] = true
+			held.pending[update] = true
 			if held.thread == nil then
 				held.thread = task.defer(flush)
 			end
 		else
-			publish()
+			update.read()
+			update.publish()
 		end
 	end
 	local stop = observation.observeProperty(node, property, refresh)
@@ -64,7 +78,7 @@ return function(
 	Compose.cleanup(function()
 		alive = false
 		stop()
-		held.pending[publish] = nil
+		held.pending[update] = nil
 		held.users -= 1
 		if next(held.pending) == nil and held.thread then
 			task.cancel(held.thread)

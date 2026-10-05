@@ -440,7 +440,10 @@ t.describe("Table editable cells", function()
 					and node.Parent.Name == "Inset"
 					and node.Parent.Parent.Name == column
 				then
-					found = node:FindFirstChild("Editor")
+					for _, edit in require("../src/ui/activation").edits(node) do
+						edit.onActivate()
+					end
+					found = node:FindFirstChild("Editor", true)
 				end
 				for _, child in node:GetChildren() do
 					walk(child)

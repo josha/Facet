@@ -259,9 +259,10 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		TextBounds = true,
 		TextFits = true,
 	}
+	local sharedProperties = { Visible = true, Interactable = true, Enabled = true }
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
-		if serviceNodes[node] then
+		if serviceNodes[node] or sharedProperties[property] then
 			local byProperty = sharedObservations[node]
 			if byProperty == nil then
 				byProperty = {}
@@ -328,6 +329,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					held.stop()
 					if byProperty[property] == held then
 						byProperty[property] = nil
+					end
+					if next(byProperty) == nil then
+						sharedObservations[node] = nil
 					end
 				end
 			end)

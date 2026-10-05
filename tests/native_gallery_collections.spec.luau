@@ -519,6 +519,7 @@ t.describe("file library workbench", function()
 				local coarse = input ~= "KeyboardAndMouse"
 				t.expect(find(node, "Edit").Visible).toBe(coarse)
 				t.expect(find(collection, "Rename") ~= nil).toBe(true)
+				require("../src/ui/activation").edits(find(collection, "Rename"))[1].onActivate()
 				t.expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable).toBe(true)
 				if coarse then
 					find(node, "Edit").Activated.fire()
