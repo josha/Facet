@@ -2,7 +2,17 @@
 
 local Harness = require "./core/harness"
 local Performance = require "./core/performance"
+local Store = require "./benchmark-store"
 
+export type Stored = Store.Stored
+export type StoredMeasurement = Store.StoredMeasurement
+export type CompareRule = Store.Rule
+export type CompareOptions = Store.CompareOptions
+export type CompareMetric = Store.CompareMetric
+export type SpreadOptions = Store.SpreadOptions
+export type SpreadMetric = Store.SpreadMetric
+export type Noise = Store.Noise
+export type SpreadSummary = Store.SpreadSummary
 export type Unit = "seconds" | "milliseconds" | "microseconds"
 export type Clock = () -> number
 export type Metric = "p50" | "p95" | "p99" | "mean"
@@ -40,8 +50,10 @@ export type Heap = {
 }
 
 export type Judgment = {
+	phase: string?,
 	samples: { number },
 	summary: Performance.Summary,
+	series: Performance.Series,
 	unit: Unit,
 	yardstickBefore: { number },
 	yardstickAfter: { number },
@@ -50,13 +62,32 @@ export type Judgment = {
 	heap: HeapReading?,
 }
 
+export type Sampler = {
+	series: (name: string, values: { number }) -> (),
+}
+
+export type WarmupScope = "workload" | "sample"
+
+export type Phase = {
+	name: string,
+	run: (state: unknown, sampler: Sampler) -> (),
+	budget: Budget?,
+	maxSpread: number?,
+	baseline: Baseline?,
+	judge: ((view: Judgment) -> string?)?,
+}
+
 export type Spec = {
 	name: string,
 	unit: Unit,
-	workload: () -> (),
+	workload: ((state: unknown, sampler: Sampler) -> ())?,
+	phases: { Phase }?,
+	finalize: ((state: unknown, sampler: Sampler) -> ())?,
 	warmup: number,
+	warmupScope: WarmupScope?,
 	samples: number,
 	iterations: number?,
+	percentiles: { number }?,
 	budget: Budget?,
 	environment: { observed: string, accepted: { string }? },
 	maxSpread: number?,
@@ -69,8 +100,8 @@ export type Spec = {
 	tags: { string }?,
 	setup: (() -> ())?,
 	teardown: (() -> ())?,
-	beforeSample: (() -> ())?,
-	afterSample: (() -> ())?,
+	beforeSample: (() -> ...unknown)?,
+	afterSample: ((state: unknown, sampler: Sampler) -> ())?,
 	heap: Heap?,
 	judge: ((view: Judgment) -> string?)?,
 }
@@ -102,10 +133,24 @@ export type Comparison = {
 	normalized: boolean,
 }
 
+export type PhaseResult = {
+	name: string,
+	measurement: string,
+	samples: { number },
+	summary: Performance.Summary,
+	spread: number?,
+	invalid: { Invalid },
+	comparison: Comparison?,
+	judgment: string?,
+	series: Performance.Series,
+}
+
 export type Result = {
 	name: string,
 	unit: Unit,
 	samples: { number },
+	phases: { PhaseResult },
+	series: Performance.Series,
 	warmupRuns: number,
 	iterations: number,
 	yardstickBefore: { number },
@@ -146,16 +191,10 @@ local function nonnegativeFinite(value: number, label: string)
 	assert(type(value) == "number" and value >= 0 and value < math.huge, label .. " must be finite and nonnegative")
 end
 
-local function check(spec: Spec, owned: boolean?)
-	assert(type(spec.name) == "string" and string.find(spec.name, "%S") ~= nil, "benchmark needs a name")
-	assert(SCALE[spec.unit] ~= nil, "benchmark unit must be seconds, milliseconds or microseconds")
-	assert(type(spec.workload) == "function", "benchmark needs a workload function")
-	assert(type(spec.warmup) == "number" and spec.warmup >= 0 and spec.warmup % 1 == 0, "warmup must be a whole count")
-	positiveWhole(spec.samples, "samples")
-	if spec.iterations ~= nil then
-		positiveWhole(spec.iterations, "iterations")
+local function checkBudget(budget: Budget?, label: string)
+	if budget == nil then
+		return
 	end
-	local budget: Budget = if spec.budget ~= nil then spec.budget else {}
 	local limits: { { name: string, value: number? } } = {
 		{ name = "p50", value = budget.p50 },
 		{ name = "p95", value = budget.p95 },
@@ -164,9 +203,66 @@ local function check(spec: Spec, owned: boolean?)
 	}
 	for _, limit in limits do
 		if limit.value ~= nil then
-			nonnegativeFinite(limit.value, "budget." .. limit.name)
+			nonnegativeFinite(limit.value, label .. "budget." .. limit.name)
 		end
 	end
+end
+
+local function checkBaseline(baseline: Baseline?, declaresYardstick: boolean, label: string)
+	if baseline == nil then
+		return
+	end
+	assert(SCALE[baseline.unit] ~= nil, label .. "baseline unit must be seconds, milliseconds or microseconds")
+	assert(
+		(baseline.value == nil) ~= (baseline.samples == nil),
+		label .. "a baseline holds either a value or recorded samples"
+	)
+	if baseline.value ~= nil then
+		nonnegativeFinite(baseline.value, label .. "baseline.value")
+	end
+	if baseline.samples ~= nil then
+		assert(#baseline.samples > 0, label .. "baseline samples must not be empty")
+		for _, sample in baseline.samples do
+			nonnegativeFinite(sample, label .. "baseline sample")
+		end
+	end
+	nonnegativeFinite(baseline.tolerance, label .. "baseline.tolerance")
+	if baseline.yardstick ~= nil then
+		positiveFinite(baseline.yardstick, label .. "baseline.yardstick")
+		assert(declaresYardstick, "a yardstick-normalized baseline needs the benchmark to declare a yardstick")
+	end
+	assert(
+		baseline.identity ~= "" and baseline.environment ~= "",
+		label .. "baseline must name its identity and environment"
+	)
+end
+
+local function check(spec: Spec, owned: boolean?)
+	assert(type(spec.name) == "string" and string.find(spec.name, "%S") ~= nil, "benchmark needs a name")
+	assert(SCALE[spec.unit] ~= nil, "benchmark unit must be seconds, milliseconds or microseconds")
+	assert(
+		(spec.workload ~= nil) ~= (spec.phases ~= nil),
+		"benchmark declares a workload or phases, not both and not neither"
+	)
+	assert(spec.workload == nil or type(spec.workload) == "function", "benchmark workload must be a function")
+	assert(type(spec.warmup) == "number" and spec.warmup >= 0 and spec.warmup % 1 == 0, "warmup must be a whole count")
+	assert(
+		spec.warmupScope == nil or spec.warmupScope == "workload" or spec.warmupScope == "sample",
+		"warmupScope must be workload or sample"
+	)
+	positiveWhole(spec.samples, "samples")
+	if spec.iterations ~= nil then
+		positiveWhole(spec.iterations, "iterations")
+	end
+	if spec.percentiles ~= nil then
+		Performance.summarize {
+			samples = {},
+			unit = spec.unit,
+			context = { environment = "check", signal = "check", timing = "observed" },
+			percentiles = spec.percentiles,
+		}
+	end
+	checkBudget(spec.budget, "")
 	assert(
 		type(spec.environment) == "table"
 			and type(spec.environment.observed) == "string"
@@ -191,10 +287,14 @@ local function check(spec: Spec, owned: boolean?)
 		teardown = spec.teardown,
 		beforeSample = spec.beforeSample,
 		afterSample = spec.afterSample,
+		finalize = spec.finalize,
 		judge = spec.judge,
 	}
 	for name, value in hooks do
 		assert(type(value) == "function", name .. " must be a function")
+	end
+	if spec.finalize ~= nil then
+		assert(spec.iterations == nil or spec.iterations == 1, "finalize needs one iteration per sample")
 	end
 	if spec.heap ~= nil then
 		assert(type(spec.heap.probe) == "function", "heap needs a probe function")
@@ -203,34 +303,39 @@ local function check(spec: Spec, owned: boolean?)
 			nonnegativeFinite(spec.heap.maximumGrowth, "heap.maximumGrowth")
 		end
 	end
-	local baseline = spec.baseline
-	if baseline ~= nil then
-		assert(SCALE[baseline.unit] ~= nil, "baseline unit must be seconds, milliseconds or microseconds")
+	local declaresYardstick = spec.yardstick ~= nil or owned == true
+	checkBaseline(spec.baseline, declaresYardstick, "")
+	local phases = spec.phases
+	if phases ~= nil then
+		assert(type(phases) == "table" and #phases > 0, "phases must be a nonempty array")
 		assert(
-			(baseline.value == nil) ~= (baseline.samples == nil),
-			"a baseline holds either a value or recorded samples"
+			spec.budget == nil
+				and spec.baseline == nil
+				and spec.judge == nil
+				and spec.maxSpread == nil
+				and spec.finalize == nil
+				and spec.iterations == nil,
+			"a benchmark with phases declares budget, baseline, judge and maxSpread on each phase, and declares no finalize or iterations"
 		)
-		if baseline.value ~= nil then
-			nonnegativeFinite(baseline.value, "baseline.value")
-		end
-		if baseline.samples ~= nil then
-			assert(#baseline.samples > 0, "baseline samples must not be empty")
-			for _, sample in baseline.samples do
-				nonnegativeFinite(sample, "baseline sample")
+		assert(
+			spec.warmup == 0 or spec.beforeSample == nil or spec.warmupScope == "sample",
+			"phases with a beforeSample need warmupScope sample"
+		)
+		local names: { [string]: boolean } = {}
+		for index, phase in phases do
+			assert(type(index) == "number" and index >= 1 and index <= #phases, "phases must be a dense array")
+			assert(type(phase.name) == "string" and string.find(phase.name, "%S") ~= nil, "a phase needs a name")
+			assert(not names[phase.name], ("phase %q is declared twice"):format(phase.name))
+			names[phase.name] = true
+			assert(type(phase.run) == "function", ("phase %q needs a run function"):format(phase.name))
+			local label = ("phase %q: "):format(phase.name)
+			checkBudget(phase.budget, label)
+			checkBaseline(phase.baseline, declaresYardstick, label)
+			if phase.maxSpread ~= nil then
+				nonnegativeFinite(phase.maxSpread, label .. "maxSpread")
 			end
+			assert(phase.judge == nil or type(phase.judge) == "function", label .. "judge must be a function")
 		end
-		nonnegativeFinite(baseline.tolerance, "baseline.tolerance")
-		if baseline.yardstick ~= nil then
-			positiveFinite(baseline.yardstick, "baseline.yardstick")
-			assert(
-				spec.yardstick ~= nil or owned == true,
-				"a yardstick-normalized baseline needs the benchmark to declare a yardstick"
-			)
-		end
-		assert(
-			baseline.identity ~= "" and baseline.environment ~= "",
-			"baseline must name its identity and environment"
-		)
 	end
 end
 
@@ -269,13 +374,15 @@ local function metricValue(summary: Performance.Summary, metric: Metric): number
 	return summary.p99
 end
 
-local function summaryOf(spec: Spec, samples: { number }): Performance.Summary
+local function summaryOf(spec: Spec, samples: { number }, phase: string?): Performance.Summary
+	local signal = spec.signal or spec.name
 	return Performance.summarize {
 		samples = samples,
 		unit = spec.unit,
+		percentiles = spec.percentiles,
 		context = {
 			environment = spec.environment.observed,
-			signal = spec.signal or spec.name,
+			signal = if phase ~= nil then signal .. "/" .. phase else signal,
 			timing = "observed",
 		},
 	}
@@ -345,12 +452,12 @@ end
 
 local function comparisonOf(
 	spec: Spec,
+	baseline: Baseline?,
 	summary: Performance.Summary,
 	samples: { number },
 	before: { number },
 	after: { number }
 ): Comparison?
-	local baseline = spec.baseline
 	local recorded = if baseline ~= nil then baselineValue(spec, baseline) else nil
 	if baseline == nil or recorded == nil or #samples == 0 or baseline.unit ~= spec.unit then
 		return nil
@@ -414,32 +521,136 @@ local function baselineProblems(spec: Spec, baseline: Baseline): { string }
 	return problems
 end
 
+local function mismatches(spec: Spec): { string }
+	local problems: { string } = {}
+	if spec.baseline ~= nil then
+		for _, problem in baselineProblems(spec, spec.baseline) do
+			table.insert(problems, problem)
+		end
+	end
+	local declared: { Phase } = spec.phases or {}
+	for _, phase in declared do
+		if phase.baseline ~= nil then
+			for _, problem in baselineProblems(spec, phase.baseline) do
+				table.insert(problems, ("phase %s: %s"):format(phase.name, problem))
+			end
+		end
+	end
+	return problems
+end
+
+local function phaseResult(
+	spec: Spec,
+	phase: Phase,
+	samples: { number },
+	series: Performance.Series,
+	before: { number },
+	after: { number }
+): PhaseResult
+	local summary = summaryOf(spec, samples, phase.name)
+	local result: PhaseResult = {
+		name = phase.name,
+		measurement = spec.name .. "/" .. phase.name,
+		samples = samples,
+		summary = summary,
+		spread = relativeSpread(samples),
+		invalid = {},
+		comparison = comparisonOf(spec, phase.baseline, summary, samples, before, after),
+		judgment = nil,
+		series = series,
+	}
+	if phase.maxSpread ~= nil and #samples > 0 then
+		local spread = result.spread
+		if spread ~= nil and spread > phase.maxSpread then
+			table.insert(result.invalid, {
+				reason = "unstable",
+				detail = ("relative spread (p95-p50)/p50 of phase %s was %.3f, above the allowed %.3f"):format(
+					phase.name,
+					spread,
+					phase.maxSpread
+				),
+			})
+		end
+	end
+	return result
+end
+
 local function judgeResult(spec: Spec, result: Result)
-	local judge = spec.judge
-	if judge == nil or result.failure ~= nil or #result.invalid > 0 or #result.samples ~= spec.samples then
+	if result.failure ~= nil or #result.invalid > 0 or #result.samples ~= spec.samples then
 		return
 	end
-	local ok, verdict: unknown = pcall(judge, {
-		samples = table.clone(result.samples),
-		summary = result.summary,
-		unit = spec.unit,
-		yardstickBefore = table.clone(result.yardstickBefore),
-		yardstickAfter = table.clone(result.yardstickAfter),
-		yardstickBeforeSummary = summaryOf(spec, result.yardstickBefore),
-		yardstickAfterSummary = summaryOf(spec, result.yardstickAfter),
-		heap = result.heap,
-	})
-	if not ok then
-		result.failure = "judge raised: " .. tostring(verdict)
-	elseif verdict ~= nil then
-		result.judgment = tostring(verdict)
+	local function ask(
+		judge: ((view: Judgment) -> string?)?,
+		phase: string?,
+		samples: { number },
+		summary: Performance.Summary,
+		series: Performance.Series
+	): string?
+		if judge == nil then
+			return nil
+		end
+		local ok, verdict: unknown = pcall(judge, {
+			phase = phase,
+			samples = table.clone(samples),
+			summary = summary,
+			series = series,
+			unit = spec.unit,
+			yardstickBefore = table.clone(result.yardstickBefore),
+			yardstickAfter = table.clone(result.yardstickAfter),
+			yardstickBeforeSummary = summaryOf(spec, result.yardstickBefore),
+			yardstickAfterSummary = summaryOf(spec, result.yardstickAfter),
+			heap = result.heap,
+		})
+		if not ok then
+			result.failure = "judge raised: " .. tostring(verdict)
+			return nil
+		end
+		return if verdict ~= nil then tostring(verdict) else nil
 	end
+	result.judgment = ask(spec.judge, nil, result.samples, result.summary, result.series)
+	for index, entry in result.phases do
+		local phase = (spec.phases :: { Phase })[index]
+		if #entry.invalid == 0 then
+			entry.judgment = ask(phase.judge, phase.name, entry.samples, entry.summary, entry.series)
+		end
+	end
+end
+
+local function samplerFor(into: Performance.Series?): Sampler
+	return {
+		series = function(name: string, values: { number })
+			assert(type(name) == "string" and string.find(name, "%S") ~= nil, "a series needs a name")
+			assert(type(values) == "table", "a series holds an array of numbers")
+			Performance.checkSeries { [name] = { values } }
+			if into == nil then
+				return
+			end
+			local runs = into[name]
+			if runs == nil then
+				runs = {}
+				into[name] = runs
+			end
+			table.insert(runs, table.clone(values))
+		end,
+	}
+end
+
+local function invalidDuration(elapsed: number): boolean
+	return elapsed ~= elapsed or elapsed < 0 or elapsed == math.huge
 end
 
 local function measure(spec: Spec, clock: Clock, started: number): Result
 	local scale = SCALE[spec.unit]
 	local iterations = spec.iterations or 1
+	local phases: { Phase } = spec.phases or {}
 	local samples: { number } = {}
+	local series: Performance.Series = {}
+	local phaseSamples: { { number } } = {}
+	local phaseSeries: { Performance.Series } = {}
+	for index in phases do
+		phaseSamples[index] = {}
+		phaseSeries[index] = {}
+	end
 	local yardstickBefore: { number } = {}
 	local yardstickAfter: { number } = {}
 	local invalid: { Invalid } = {}
@@ -449,10 +660,19 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 
 	local function finish(): Result
 		local summary = summaryOf(spec, samples)
+		local entries: { PhaseResult } = {}
+		for index, phase in phases do
+			table.insert(
+				entries,
+				phaseResult(spec, phase, phaseSamples[index], phaseSeries[index], yardstickBefore, yardstickAfter)
+			)
+		end
 		local result: Result = {
 			name = spec.name,
 			unit = spec.unit,
 			samples = samples,
+			phases = entries,
+			series = series,
 			warmupRuns = warmupRuns,
 			iterations = iterations,
 			yardstickBefore = yardstickBefore,
@@ -466,7 +686,7 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 			failure = failure,
 			elapsedSeconds = math.max(0, clock() - started),
 		}
-		result.comparison = comparisonOf(spec, summary, samples, yardstickBefore, yardstickAfter)
+		result.comparison = comparisonOf(spec, spec.baseline, summary, samples, yardstickBefore, yardstickAfter)
 		if spec.maxSpread ~= nil and #samples > 0 then
 			local spread = result.spread
 			if spread ~= nil and spread > spec.maxSpread then
@@ -498,12 +718,9 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 			),
 		})
 	end
-	local baseline = spec.baseline
-	if baseline ~= nil then
-		local problems = baselineProblems(spec, baseline)
-		if #problems > 0 then
-			table.insert(invalid, { reason = "baseline_mismatch", detail = table.concat(problems, "; ") })
-		end
+	local problems = mismatches(spec)
+	if #problems > 0 then
+		table.insert(invalid, { reason = "baseline_mismatch", detail = table.concat(problems, "; ") })
 	end
 	if #invalid > 0 then
 		return finish()
@@ -547,9 +764,114 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 		return result
 	end
 
+	local function runSample(record: boolean): boolean
+		local state: unknown = nil
+		local prepare = spec.beforeSample
+		if prepare ~= nil and not attempt(function()
+			state = prepare()
+		end) then
+			return false
+		end
+		local ok = true
+		if spec.phases ~= nil then
+			local durations: { number } = {}
+			for index, phase in phases do
+				local tools = samplerFor(if record then phaseSeries[index] else nil)
+				local before = if record then clock() else 0
+				ok = attempt(function()
+					phase.run(state, tools)
+				end)
+				if not ok then
+					break
+				end
+				if record then
+					local elapsed = clock() - before
+					if invalidDuration(elapsed) then
+						failure = "the clock produced an invalid sample duration"
+						ok = false
+						break
+					end
+					table.insert(durations, elapsed * scale)
+				end
+			end
+			if ok and record then
+				local total = 0
+				for index, duration in durations do
+					table.insert(phaseSamples[index], duration)
+					total += duration
+				end
+				table.insert(samples, total)
+			end
+		else
+			local work = spec.workload :: (unknown, Sampler) -> ()
+			local tools = samplerFor(if record then series else nil)
+			local before = if record then clock() else 0
+			for _ = 1, if record then iterations else 1 do
+				ok = attempt(function()
+					work(state, tools)
+				end)
+				if not ok then
+					break
+				end
+			end
+			local finalize = spec.finalize
+			if ok and finalize ~= nil and (record or spec.warmupScope == "sample") then
+				ok = attempt(function()
+					finalize(state, tools)
+				end)
+			end
+			if ok and record then
+				local elapsed = clock() - before
+				if invalidDuration(elapsed) then
+					failure = "the clock produced an invalid sample duration"
+					ok = false
+				else
+					table.insert(samples, elapsed / iterations * scale)
+				end
+			end
+		end
+		local release = spec.afterSample
+		if release ~= nil then
+			local priorFailure = failure
+			local tail =
+				samplerFor(if not record then nil elseif spec.phases ~= nil then phaseSeries[#phases] else series)
+			local released = attempt(function()
+				release(state, tail)
+			end)
+			if priorFailure ~= nil then
+				failure = priorFailure
+			end
+			ok = ok and released
+		end
+		return ok
+	end
+
 	for _ = 1, spec.warmup do
-		if not attempt(spec.workload) then
-			return finish()
+		if spec.warmupScope == "sample" then
+			if not runSample(false) then
+				return finish()
+			end
+		else
+			local tools = samplerFor(nil)
+			local ok = true
+			if spec.phases ~= nil then
+				for _, phase in phases do
+					ok = attempt(function()
+						phase.run(nil, tools)
+					end)
+					if not ok then
+						break
+					end
+				end
+			else
+				local work = spec.workload :: (unknown, Sampler) -> ()
+				ok = attempt(function()
+					work(nil, tools)
+				end)
+			end
+			if not ok then
+				return finish()
+			end
 		end
 		warmupRuns += 1
 	end
@@ -582,22 +904,7 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 			})
 			return finish()
 		end
-		if spec.beforeSample ~= nil and not attempt(spec.beforeSample) then
-			return finish()
-		end
-		local before = clock()
-		for _ = 1, iterations do
-			if not attempt(spec.workload) then
-				return finish()
-			end
-		end
-		local elapsed = clock() - before
-		if elapsed ~= elapsed or elapsed < 0 or elapsed == math.huge then
-			failure = "the clock produced an invalid sample duration"
-			return finish()
-		end
-		table.insert(samples, elapsed / iterations * scale)
-		if spec.afterSample ~= nil and not attempt(spec.afterSample) then
+		if not runSample(true) then
 			return finish()
 		end
 	end
@@ -608,6 +915,33 @@ local function measure(spec: Spec, clock: Clock, started: number): Result
 		end
 	end
 	return finishWithHeap()
+end
+
+local function blankResult(spec: Spec, failure: string?): Result
+	local entries: { PhaseResult } = {}
+	local declared: { Phase } = spec.phases or {}
+	for _, phase in declared do
+		table.insert(entries, phaseResult(spec, phase, {}, {}, {}, {}))
+	end
+	return {
+		name = spec.name,
+		unit = spec.unit,
+		samples = {},
+		phases = entries,
+		series = {},
+		warmupRuns = 0,
+		iterations = spec.iterations or 1,
+		yardstickBefore = {},
+		yardstickAfter = {},
+		summary = summaryOf(spec, {}),
+		spread = nil,
+		invalid = {},
+		comparison = nil,
+		heap = nil,
+		judgment = nil,
+		failure = failure,
+		elapsedSeconds = 0,
+	}
 end
 
 local function run(spec: Spec): Result
@@ -623,23 +957,7 @@ local function run(spec: Spec): Result
 	end
 	local result: Result
 	if setupFailure ~= nil then
-		result = {
-			name = spec.name,
-			unit = spec.unit,
-			samples = {},
-			warmupRuns = 0,
-			iterations = spec.iterations or 1,
-			yardstickBefore = {},
-			yardstickAfter = {},
-			summary = summaryOf(spec, {}),
-			spread = nil,
-			invalid = {},
-			comparison = nil,
-			heap = nil,
-			judgment = nil,
-			failure = setupFailure,
-			elapsedSeconds = 0,
-		}
+		result = blankResult(spec, setupFailure)
 	else
 		result = measure(spec, clock, started)
 	end
@@ -654,7 +972,24 @@ local function run(spec: Spec): Result
 	return result
 end
 
-local function collect(collection: Collection): CollectionResult
+local function withoutVerdicts(member: Spec): Spec
+	local copy = table.clone(member)
+	copy.baseline = nil
+	copy.judge = nil
+	if member.phases ~= nil then
+		local stripped: { Phase } = {}
+		for _, phase in member.phases do
+			local plain = table.clone(phase)
+			plain.baseline = nil
+			plain.judge = nil
+			table.insert(stripped, plain)
+		end
+		copy.phases = stripped
+	end
+	return copy
+end
+
+local function checkCollection(collection: Collection)
 	assert(type(collection.name) == "string" and string.find(collection.name, "%S") ~= nil, "collection needs a name")
 	assert(#collection.benchmarks > 0, "collection needs at least one benchmark")
 	local tool = collection.yardstick
@@ -662,6 +997,17 @@ local function collect(collection: Collection): CollectionResult
 	positiveWhole(tool.samples, "yardstick.samples")
 	nonnegativeFinite(tool.maxSpread, "yardstick.maxSpread")
 	nonnegativeFinite(tool.maxDrift, "yardstick.maxDrift")
+	local unit = collection.benchmarks[1].unit
+	for _, member in collection.benchmarks do
+		check(member, true)
+		assert(member.yardstick == nil, "a collection owns the yardstick; a member declares none")
+		assert(member.unit == unit, "every member of a collection shares one unit")
+	end
+end
+
+local function collect(collection: Collection): CollectionResult
+	checkCollection(collection)
+	local tool = collection.yardstick
 	local clock: Clock = collection.clock or os.clock
 	local unit: Unit = collection.benchmarks[1].unit
 	local scale = SCALE[unit]
@@ -672,13 +1018,8 @@ local function collect(collection: Collection): CollectionResult
 	local failure = timeYardstick(clock, scale, tool, before)
 	if failure == nil then
 		for _, member in collection.benchmarks do
-			check(member, true)
-			assert(member.yardstick == nil, "a collection owns the yardstick; a member declares none")
-			assert(member.unit == unit, "every member of a collection shares one unit")
-			local copy = table.clone(member)
+			local copy = withoutVerdicts(member)
 			copy.clock = member.clock or clock
-			copy.baseline = nil
-			copy.judge = nil
 			table.insert(results, run(copy))
 		end
 		failure = timeYardstick(clock, scale, tool, after)
@@ -688,16 +1029,17 @@ local function collect(collection: Collection): CollectionResult
 				local member = collection.benchmarks[index]
 				result.yardstickBefore = table.clone(before)
 				result.yardstickAfter = table.clone(after)
-				local baseline = member.baseline
-				if baseline ~= nil then
-					local problems = baselineProblems(member, baseline)
-					if #problems > 0 then
-						table.insert(
-							result.invalid,
-							{ reason = "baseline_mismatch", detail = table.concat(problems, "; ") }
-						)
-					end
-					result.comparison = comparisonOf(member, result.summary, result.samples, before, after)
+				local problems = mismatches(member)
+				if #problems > 0 then
+					table.insert(
+						result.invalid,
+						{ reason = "baseline_mismatch", detail = table.concat(problems, "; ") }
+					)
+				end
+				result.comparison = comparisonOf(member, member.baseline, result.summary, result.samples, before, after)
+				for position, entry in result.phases do
+					local phase = (member.phases :: { Phase })[position]
+					entry.comparison = comparisonOf(member, phase.baseline, entry.summary, entry.samples, before, after)
 				end
 				if #invalid == 0 then
 					judgeResult(member, result)
@@ -715,34 +1057,83 @@ local function collect(collection: Collection): CollectionResult
 	}
 end
 
-local function limitsOf(spec: Spec): Performance.Limits
-	local budget: Budget = if spec.budget ~= nil then spec.budget else {}
+local function limitsFor(spec: Spec, budget: Budget?): Performance.Limits
+	local declared: Budget = if budget ~= nil then budget else {}
 	return {
 		unit = spec.unit,
 		minimumSamples = spec.samples,
-		p50 = budget.p50,
-		p95 = budget.p95,
-		p99 = budget.p99,
-		maximum = budget.maximum,
-		measureOnly = budget.p50 == nil and budget.p95 == nil and budget.p99 == nil and budget.maximum == nil,
+		p50 = declared.p50,
+		p95 = declared.p95,
+		p99 = declared.p99,
+		maximum = declared.maximum,
+		measureOnly = declared.p50 == nil and declared.p95 == nil and declared.p99 == nil and declared.maximum == nil,
 	}
 end
 
-local function inputOf(spec: Spec, result: Result): Performance.Input
+local function limitsOf(spec: Spec): Performance.Limits
+	return limitsFor(spec, spec.budget)
+end
+
+local function inputOf(
+	spec: Spec,
+	samples: { number },
+	summary: Performance.Summary,
+	series: Performance.Series
+): Performance.Input
 	return {
-		samples = result.samples,
+		samples = samples,
 		unit = spec.unit,
-		context = result.summary.context,
+		context = summary.context,
+		percentiles = spec.percentiles,
+		series = if next(series) ~= nil then series else nil,
 	}
+end
+
+local function record(context: Harness.Context, label: string, input: Performance.Input, limits: Performance.Limits)
+	if #input.samples == 0 then
+		return
+	end
+	local measured, thrown: unknown = pcall(context.measure, context, "benchmark", label, input, limits)
+	if not measured and type(thrown) ~= "table" then
+		error(thrown, 0)
+	end
+end
+
+local function regression(label: string, comparison: Comparison?): string?
+	if comparison == nil or not comparison.regressed then
+		return nil
+	end
+	return ("%s %s %.4g exceeds the %sbaseline %.4g plus tolerance (limit %.4g)"):format(
+		label,
+		comparison.metric,
+		comparison.observed,
+		if comparison.normalized then "yardstick-normalized " else "",
+		comparison.baseline,
+		comparison.limit
+	)
+end
+
+local function noteInvalid(context: Harness.Context, prefix: string, entries: { Invalid })
+	for _, entry in entries do
+		pcall(context.step, context, ("%s: %s (%s)"):format(prefix, entry.reason, entry.detail), function()
+			context:unsupported("measurement:" .. entry.reason)
+		end)
+	end
 end
 
 local function report(context: Harness.Context, spec: Spec, result: Result)
-	if #result.samples > 0 then
-		local measured, thrown: unknown =
-			pcall(context.measure, context, "benchmark", spec.name, inputOf(spec, result), limitsOf(spec))
-		if not measured and type(thrown) ~= "table" then
-			error(thrown, 0)
-		end
+	local plain = spec.phases == nil
+	if plain then
+		record(context, spec.name, inputOf(spec, result.samples, result.summary, result.series), limitsOf(spec))
+	end
+	for index, entry in result.phases do
+		local phase = (spec.phases :: { Phase })[index]
+		record(
+			context,
+			entry.measurement,
+			inputOf(spec, entry.samples, entry.summary, entry.series),
+			limitsFor(spec, phase.budget)
+		)
 	end
 	local heap = result.heap
 	if heap ~= nil then
@@ -761,19 +1152,21 @@ local function report(context: Harness.Context, spec: Spec, result: Result)
 			error(("%s heap grew %.4g %s, above the allowed %.4g"):format(spec.name, heap.growth, heap.unit, limit), 0)
 		end
 	end
-	local comparison = result.comparison
-	if comparison ~= nil and comparison.regressed then
-		error(
-			("%s %s %.4g exceeds the %sbaseline %.4g plus tolerance (limit %.4g)"):format(
-				spec.name,
-				comparison.metric,
-				comparison.observed,
-				if comparison.normalized then "yardstick-normalized " else "",
-				comparison.baseline,
-				comparison.limit
-			),
-			0
-		)
+	for _, entry in result.phases do
+		local refusal = regression(entry.measurement, entry.comparison)
+		if refusal == nil and entry.judgment ~= nil then
+			refusal = ("%s was refused by its judge: %s"):format(entry.measurement, entry.judgment)
+		end
+		if refusal ~= nil then
+			local message = refusal
+			pcall(context.step, context, "refused " .. entry.measurement, function()
+				error(message, 0)
+			end)
+		end
+	end
+	local refusal = regression(spec.name, result.comparison)
+	if refusal ~= nil then
+		error(refusal, 0)
 	end
 	if result.judgment ~= nil then
 		error(("%s was refused by its judge: %s"):format(spec.name, result.judgment), 0)
@@ -781,11 +1174,26 @@ local function report(context: Harness.Context, spec: Spec, result: Result)
 	if result.failure ~= nil then
 		error(result.failure :: string, 0)
 	end
-	for _, entry in result.invalid do
-		pcall(context.step, context, ("benchmark invalid: %s (%s)"):format(entry.reason, entry.detail), function()
-			context:unsupported("measurement:" .. entry.reason)
-		end)
+	noteInvalid(context, "benchmark invalid", result.invalid)
+	for _, entry in result.phases do
+		noteInvalid(context, "benchmark invalid " .. entry.measurement, entry.invalid)
 	end
+end
+
+local function limitations(spec: Spec): { string }?
+	local notes: { string } = {}
+	if spec.phases == nil then
+		if limitsOf(spec).measureOnly == true then
+			table.insert(notes, "measured only: no budget declared")
+		end
+	else
+		for _, phase in spec.phases do
+			if limitsFor(spec, phase.budget).measureOnly == true then
+				table.insert(notes, ("measured only: no budget declared for phase %s"):format(phase.name))
+			end
+		end
+	end
+	return if #notes > 0 then notes else nil
 end
 
 local function case(spec: Spec): Harness.CaseOptions
@@ -793,7 +1201,7 @@ local function case(spec: Spec): Harness.CaseOptions
 	return {
 		timeoutSeconds = if spec.deadlineSeconds ~= nil then spec.deadlineSeconds + 5 else nil,
 		tags = spec.tags,
-		limitations = if limitsOf(spec).measureOnly == true then { "measured only: no budget declared" } else nil,
+		limitations = limitations(spec),
 		run = function(context: Harness.Context)
 			report(context, spec, run(spec))
 		end,
@@ -801,9 +1209,7 @@ local function case(spec: Spec): Harness.CaseOptions
 end
 
 local function collectionCase(collection: Collection): Harness.CaseOptions
-	for _, member in collection.benchmarks do
-		check(member, true)
-	end
+	checkCollection(collection)
 	return {
 		run = function(context: Harness.Context)
 			local collected = collect(collection)
@@ -846,8 +1252,63 @@ local luauHeap: Heap = {
 	end,
 }
 
+local function store(name: string, results: { Result }): Stored
+	assert(type(name) == "string" and string.find(name, "%S") ~= nil, "a stored run needs a name")
+	assert(#results > 0, "a stored run needs at least one result")
+	local measurements: { StoredMeasurement } = {}
+	for _, result in results do
+		local environment = result.summary.context.environment
+		if #result.phases == 0 then
+			local entry: StoredMeasurement = {
+				name = result.name,
+				unit = result.unit,
+				environment = environment,
+				samples = table.clone(result.samples),
+			}
+			table.insert(measurements, entry)
+		end
+		for _, phase in result.phases do
+			local entry: StoredMeasurement = {
+				name = phase.measurement,
+				unit = result.unit,
+				environment = environment,
+				samples = table.clone(phase.samples),
+			}
+			table.insert(measurements, entry)
+		end
+	end
+	return Store.decode { schemaVersion = Store.SCHEMA_VERSION, name = name, measurements = measurements }
+end
+
+local function storeReport(name: string, report: Harness.Report): Stored
+	assert(type(name) == "string" and string.find(name, "%S") ~= nil, "a stored run needs a name")
+	assert(type(report) == "table" and type(report.results) == "table", "a stored run needs a report")
+	local measurements: { StoredMeasurement } = {}
+	for _, result in report.results do
+		if result.evidence ~= nil then
+			for _, measurement in result.evidence.measurements do
+				local entry: StoredMeasurement = {
+					name = measurement.name,
+					unit = measurement.input.unit,
+					environment = measurement.input.context.environment,
+					samples = table.clone(measurement.input.samples),
+				}
+				table.insert(measurements, entry)
+			end
+		end
+	end
+	assert(#measurements > 0, "the report carries no measurement evidence")
+	return Store.decode { schemaVersion = Store.SCHEMA_VERSION, name = name, measurements = measurements }
+end
+
 return {
+	store = store,
+	storeReport = storeReport,
+	decode = Store.decode,
+	compare = Store.compare,
+	spread = Store.spread,
 	check = check,
+	checkCollection = checkCollection,
 	run = run,
 	case = case,
 	collect = collect,

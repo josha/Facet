@@ -1,40 +1,48 @@
 ---
 name: verify
-description: Author, run, and read workloads that consume Verify; use when a consumer needs its verification model, plans, capabilities, or receipts.
+description: Author, run and read workloads that consume Verify. Use it when a consumer needs the verification model, plans, capabilities or reports.
 ---
 
 # Verify consumer guide
 
-This skill guides a consumer through authoring, running, and reading Verify workloads. Verify
-provides lifecycle and receipts. The consumer owns the work, locator resolution, host
-operations, external changes, and credentials.
-A capability describes what a host can observe. It does not grant permission.
+This skill guides a consumer through authoring, running and reading Verify workloads.
+Verify provides the lifecycle and the reports.
+The consumer owns the work, locator resolution, host operations, external changes and credentials.
+A capability describes what a host can observe. It grants no permission.
+The [terms](../../../docs/README.md#terms) define each word that this guide uses.
 
 ## Start
 
-1. Find the public root (`src/core`, `src/bdd.luau`, `src/lute`, `src/host`, `src/roblox`, or
-   `src/consumer`), the committed manifest or plan, and a nearby specification.
-2. Read the consumer's gate instructions and the relevant [documentation entry](../../../docs/README.md).
-3. Run `lute run tools/verify-check.luau <source-root>` when the consumer provides that command.
+1. Find the public root that you need. The [README](../../../README.md#packages) lists every root.
+2. Find the committed manifest or plan and a nearby specification.
+3. Read the gate instructions of the consumer and the relevant [documentation entry](../../../docs/README.md).
+4. Run `lute run tools/verify-check.luau --ruleset <generic|roblox> <source-root>` when the consumer provides that command.
 
-Do not import internal modules. Do not infer undocumented APIs. Do not use suffix discovery as a gate.
-Do not call an unsupported or narrowed run a pass.
+Follow these rules:
+
+- Do not import internal modules.
+- Do not infer undocumented APIs.
+- Do not use suffix discovery as a gate.
+- Do not call an unsupported or narrowed run a pass.
 
 ## Route by task
 
-- Run cases: [Run guide](../../../docs/running.md). Start with the shared command; do not copy launcher or report glue into the consumer.
-- Write a case: [API](../../../docs/api.md).
-- Build a plan, host, worker, retry, fixture or selection policy: [Execution](../../../docs/execution.md).
-- Run the same case locally or in Roblox: [Case and host contract](../../../docs/experience.md). Do not create a second scenario authoring model.
-- Implement an executor: [Execution](../../../docs/execution.md#engine-and-external-execution).
-- Seal or judge host observations: [API](../../../docs/api.md#host-observations).
-- Read a receipt or its claim: [API](../../../docs/api.md) and [Laws](../../../docs/laws.md).
+| Task | Document |
+| --- | --- |
+| Run cases | [Run cases](../../../docs/running.md). Use the shared command. Do not copy launcher or report glue into the consumer. |
+| Write a case | [API](../../../docs/api.md) |
+| Build a plan, host, worker, retry, fixture or selection policy | [Execution](../../../docs/execution.md) |
+| Run the same case locally and in Roblox | [One case model](../../../docs/experience.md#one-case-model). Do not create a second case authoring model. |
+| Implement a host | [Host boundary](../../../docs/execution.md#host-boundary) |
+| Seal or judge host observations | [Host observations](../../../docs/api.md#host-observations) and [evidence provenance](../../../docs/api.md#evidence-provenance) |
+| Read a report or its claim | [API](../../../docs/api.md) and [laws](../../../docs/laws.md) |
 
 ## Finish
 
-Run focused checks for the assigned claim. Let the consumer's integration owner run its complete
-gate once on the frozen candidate; do not rerun an unchanged gate per delegated task.
-Check provenance, source-loading failures, declared capabilities and limitations. Missing capability
-or setup holds the affected claim; report its cause and continue independent authorized work.
-Return the candidate, exact checks and exits, receipt path, covered claims and remaining gaps.
+1. Run focused checks for the assigned claim.
+2. Run the complete gate of the consumer once on the final bytes. Do not repeat an unchanged gate.
+3. Check provenance, source-loading failures, declared capabilities and limitations.
+4. If a capability or a setup is missing, do not claim the affected result. Report the cause.
+5. Report the exact checks and exit codes, the report path, the covered claims and the remaining gaps.
+
 A passing count alone does not prove a complete claim.

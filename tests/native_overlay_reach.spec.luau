@@ -20,12 +20,12 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function longPress(w: any, node: any)
-		node.TouchLongPress.fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin)
+		node.TouchLongPress:Fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin)
 		w.advance(0.05)
 	end
 
 	local function tap(w: any)
-		w.input.InputBegan.fire({ UserInputType = w.Enum.UserInputType.Touch }, false)
+		w.input.InputBegan:Fire({ UserInputType = w.Enum.UserInputType.Touch }, false)
 		w.advance(0.3)
 	end
 
@@ -152,12 +152,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.find("HelpText"))):toBeNil()
 				longPress(w, post)
 				Verify.expect(w.find("HelpText").Text):toBe("Posts it")
-				post.Activated.fire()
+				post.Activated:Fire()
 				Verify.expect(count[1]):toBe(0)
 				tap(w)
 				Verify.expect((w.find("HelpText"))):toBeNil()
-				post.InputBegan.fire({ UserInputType = w.Enum.UserInputType.Touch })
-				post.Activated.fire()
+				post.InputBegan:Fire({ UserInputType = w.Enum.UserInputType.Touch })
+				post.Activated:Fire()
 				Verify.expect(count[1]):toBe(1)
 				w.stop()
 			end,
@@ -214,10 +214,10 @@ return function(verifyHarness: Verify.Harness)
 					name.TextFits = false
 					longPress(w, name)
 					Verify.expect((w.find("Disclosure"))):toBeNil()
-					w.input.TouchLongPress.fire({ Vector2.new(500, 500) }, w.Enum.UserInputState.Begin, false)
+					w.input.TouchLongPress:Fire({ Vector2.new(500, 500) }, w.Enum.UserInputState.Begin, false)
 					w.advance(0.05)
 					Verify.expect((w.find("Disclosure"))):toBeNil()
-					w.input.TouchLongPress.fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin, false)
+					w.input.TouchLongPress:Fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin, false)
 					w.advance(0.05)
 					Verify.expect(w.find("HelpText").Text):toBe(LONG)
 					tap(w)

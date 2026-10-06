@@ -14,19 +14,56 @@ export type Native<V2, V3, C3, U1, U2, CF> = {
 	UDim: { new: (number, number) -> U1 },
 	UDim2: { new: (number, number, number, number) -> U2 },
 	CFrame: { new: (...number) -> CF },
+	Instance: { new: (className: string) -> unknown }?,
 }
 
 export type Options = {
 	ui: (UiFakes.Options | false)?,
 	classes: { [string]: Environment.ClassSpec }?,
 	referenceClass: ((className: string, property: string) -> string?)?,
-	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())?,
+	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ...unknown)?,
+	defaultProperty: ((className: string, property: string) -> unknown)?,
+	handlerErrors: Environment.HandlerErrors?,
+	computed: { [string]: Environment.Computed }?,
+	undeclaredWrites: boolean?,
+	undeclaredReads: ("raise" | "nil")?,
+	functionDoubles: boolean?,
 }
 
 local load = require :: (string) -> unknown
 
 local function enumType(value: unknown): string
 	return tostring((value :: { EnumType: unknown }).EnumType)
+end
+
+local function nativeDefault<V2, V3, C3, U1, U2, CF>(
+	native: Native<V2, V3, C3, U1, U2, CF>
+): ((className: string, property: string) -> unknown)?
+	local constructor = native.Instance
+	if constructor == nil then
+		return nil
+	end
+	local samples: { [string]: unknown } = {}
+	local absent = {}
+	return function(className: string, property: string): unknown
+		local sample = samples[className]
+		if sample == nil then
+			local ok, created = pcall(constructor.new, className)
+			sample = if ok then created else absent
+			samples[className] = sample
+		end
+		if sample == absent then
+			return nil
+		end
+		local ok, value = pcall(function(): unknown
+			return (sample :: { [string]: unknown })[property]
+		end)
+		local kind: string = typeof(value)
+		if not ok or kind == "Instance" or kind == "function" then
+			return nil
+		end
+		return value
+	end
 end
 
 local function createFrom<V2, V3, C3, U1, U2, CF>(native: Native<V2, V3, C3, U1, U2, CF>, options: Options?): FixtureBridge.Bridge
@@ -54,6 +91,12 @@ local function createFrom<V2, V3, C3, U1, U2, CF>(native: Native<V2, V3, C3, U1,
 		classes = settings.classes,
 		referenceClass = settings.referenceClass,
 		validateProperty = settings.validateProperty,
+		defaultProperty = settings.defaultProperty or nativeDefault(native),
+		handlerErrors = settings.handlerErrors,
+		computed = settings.computed,
+		undeclaredWrites = settings.undeclaredWrites,
+		undeclaredReads = settings.undeclaredReads,
+		functionDoubles = settings.functionDoubles,
 		ui = settings.ui,
 	}
 end

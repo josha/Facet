@@ -145,16 +145,21 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 			or draft.exit ~= nil
 			or draft.report ~= nil
 			or draft.benchmark ~= nil
+			or draft.collection ~= nil
 			or draft.env ~= nil
 			or draft.cwd ~= nil
 		then
 			error(label .. " is a tests producer and takes only worker and locators", 3)
 		end
 	elseif kind == "benchmark" then
-		if draft.benchmark == nil then
-			error(label .. " needs a benchmark specification", 3)
+		if (draft.benchmark == nil) == (draft.collection == nil) then
+			error(label .. " needs one benchmark specification or one benchmark collection", 3)
 		end
-		Benchmark.check(draft.benchmark)
+		if draft.benchmark ~= nil then
+			Benchmark.check(draft.benchmark)
+		elseif draft.collection ~= nil then
+			Benchmark.checkCollection(draft.collection)
+		end
 		if
 			draft.argv ~= nil
 			or draft.exit ~= nil
@@ -165,14 +170,20 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 			or draft.env ~= nil
 			or draft.cwd ~= nil
 		then
-			error(label .. " is a benchmark producer and takes only a benchmark specification", 3)
+			error(label .. " is a benchmark producer and takes only a benchmark specification or collection", 3)
 		end
 	else
 		argv = arguments(draft.argv, label .. ".argv")
 		if #argv == 0 then
 			error(label .. " needs a command", 3)
 		end
-		if draft.worker ~= nil or draft.locators ~= nil or draft.silent ~= nil or draft.benchmark ~= nil then
+		if
+			draft.worker ~= nil
+			or draft.locators ~= nil
+			or draft.silent ~= nil
+			or draft.benchmark ~= nil
+			or draft.collection ~= nil
+		then
 			error(label .. " is a command producer and takes argv, env, cwd, exit and report", 3)
 		end
 		local declaredExit: { [number]: GateTypes.ExitClass } = if draft.exit ~= nil then draft.exit else {}
@@ -242,6 +253,7 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 		args = arguments(draft.args, label .. ".args"),
 		cases = cases,
 		benchmark = draft.benchmark,
+		collection = draft.collection,
 	}
 end
 
@@ -369,6 +381,27 @@ local function digestOf(id: string, producers: { Producer }, policy: GateTypes.P
 						tostring(budget.p50) .. tostring(budget.p95) .. tostring(budget.p99) .. tostring(budget.maximum),
 						spec.environment.observed
 					)
+					elseif producer.collection ~= nil then (function(): string
+						local members: { string } = {}
+						for _, member in producer.collection.benchmarks do
+							local limits: Benchmark.Budget = if member.budget ~= nil then member.budget else {}
+							table.insert(
+								members,
+								("%s|%s|%d|%d|%s|%s"):format(
+									member.name,
+									member.unit,
+									member.warmup,
+									member.samples,
+									tostring(limits.p50)
+										.. tostring(limits.p95)
+										.. tostring(limits.p99)
+										.. tostring(limits.maximum),
+									member.environment.observed
+								)
+							)
+						end
+						return producer.collection.name .. ":" .. table.concat(members, ",")
+					end)()
 					else "",
 			}, "|")
 		)
@@ -485,8 +518,14 @@ local function resolve(gate: Gate, selection: GateTypes.Selection?): Resolved
 	local askedTiers = listed(selection.tiers)
 	local askedTags = listed(selection.tags)
 	local askedCases = listed(selection.cases)
-	if #askedIds == 0 and #askedTiers == 0 and #askedTags == 0 and #askedCases == 0 then
-		error("a gate selection must name at least one id, tier, tag or case", 3)
+	local askedSources = listed(selection.sources)
+	local askedName = selection.nameContains
+	if askedName ~= nil and (type(askedName) ~= "string" or askedName == "") then
+		error("a gate selection name filter must be a nonempty string", 3)
+	end
+	local byContent = askedName ~= nil or #askedSources > 0
+	if #askedIds == 0 and #askedTiers == 0 and #askedTags == 0 and #askedCases == 0 and not byContent then
+		error("a gate selection must name at least one id, tier, tag, case, name filter or source", 3)
 	end
 	local known: { [string]: boolean } = {}
 	local present: { [string]: boolean } = {}
@@ -536,6 +575,16 @@ local function resolve(gate: Gate, selection: GateTypes.Selection?): Resolved
 			end
 		end
 	end
+	if byContent and #askedIds == 0 and #wanted == 0 and #ownerIds == 0 then
+		for _, producer in gate.producers do
+			if producer.kind == "tests" then
+				table.insert(ownerIds, producer.id)
+			end
+		end
+		if #ownerIds == 0 then
+			error("a name or source selection needs a tests producer", 3)
+		end
+	end
 	local picked = Plan.select(gate.plan, {
 		ids = if #askedIds > 0 then askedIds elseif #ownerIds > 0 then ownerIds else nil,
 		tags = if #wanted > 0 then wanted else nil,
@@ -583,6 +632,9 @@ local function resolve(gate: Gate, selection: GateTypes.Selection?): Resolved
 				resolved.reasons[producer.id] = ("not selected: it carries none of the selected tag(s) %s"):format(
 					table.concat(askedTags, ", ")
 				)
+			elseif byContent and #askedCases == 0 then
+				resolved.reasons[producer.id] =
+					"not selected: the run filtered cases by name or source, which only tests producers take"
 			else
 				resolved.reasons[producer.id] = "not selected: it declares none of the selected cases"
 			end
@@ -753,6 +805,15 @@ local function schedule(
 		end
 		for _, case in cases do
 			table.insert(args, "--case=" .. case)
+		end
+		if producer.kind == "tests" then
+			local selection = options.selection
+			if selection ~= nil and selection.nameContains ~= nil then
+				table.insert(args, "--name=" .. selection.nameContains)
+			end
+			for _, source in listed(if selection ~= nil then selection.sources else nil) do
+				table.insert(args, "--source=" .. source)
+			end
 		end
 		local job: GateTypes.Job = {
 			id = producer.id,
@@ -1071,6 +1132,32 @@ local function missingCases(records: { ProducerRecord }, requested: GateTypes.Se
 			table.insert(missing, id)
 		end
 	end
+	if requested.nameContains ~= nil or #listed(requested.sources) > 0 then
+		local ran = false
+		for _, record in records do
+			if record.kind == "tests" and record.status ~= "not_selected" then
+				local skipped: { [string]: boolean } = {}
+				for _, id in record.deselected do
+					skipped[id] = true
+				end
+				for _, id in record.caseIds do
+					if id ~= record.id and not skipped[id] then
+						ran = true
+					end
+				end
+			end
+		end
+		if not ran then
+			local parts: { string } = {}
+			if requested.nameContains ~= nil then
+				table.insert(parts, ("name %q"):format(requested.nameContains))
+			end
+			if #listed(requested.sources) > 0 then
+				table.insert(parts, "source " .. table.concat(requested.sources :: { string }, ","))
+			end
+			table.insert(missing, table.concat(parts, " "))
+		end
+	end
 	return missing
 end
 
@@ -1118,6 +1205,12 @@ local function scopeOf(
 		if #cases > 0 then
 			table.insert(parts, "cases " .. table.concat(cases, ","))
 		end
+		if requested.nameContains ~= nil then
+			table.insert(parts, ("name %q"):format(requested.nameContains))
+		end
+		if #listed(requested.sources) > 0 then
+			table.insert(parts, "source " .. table.concat(listed(requested.sources), ","))
+		end
 		label = ("selected %s: %d of %d producers, %d not selected (%d by tier), %d case(s) deselected"):format(
 			if #parts > 0 then table.concat(parts, "; ") else "run",
 			#selected,
@@ -1134,6 +1227,8 @@ local function scopeOf(
 		tiers = copied(requested.tiers),
 		tags = copied(requested.tags),
 		cases = copied(requested.cases),
+		nameContains = requested.nameContains,
+		sources = copied(requested.sources),
 		selected = selected,
 		notSelected = notSelected,
 		skippedByTier = skippedByTier,

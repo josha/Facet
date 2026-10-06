@@ -292,7 +292,7 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		end
 		if state.n % 10 == 0 then
 			if ctx.engine then
-				state.button.Activated.fire()
+				state.button.Activated:Fire()
 			else
 				game:GetService("GuiService").SelectedObject = state.button
 				local parent = state.button.Parent

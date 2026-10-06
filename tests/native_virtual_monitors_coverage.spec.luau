@@ -80,7 +80,7 @@ return function(verifyHarness: Verify.Harness)
 	local function press(root: any, name: string)
 		local node = find(root, name)
 		assert(node, `the tour needs {name}`)
-		node.Activated.fire()
+		node.Activated:Fire()
 		return node
 	end
 
@@ -93,7 +93,7 @@ return function(verifyHarness: Verify.Harness)
 		model.catalog.seen(35)
 		model.step(0.1, true)
 		for _ = 1, 4 do
-			world.engine.heartbeat.fire(1 / 60)
+			world.engine.heartbeat:Fire(1 / 60)
 		end
 		local card = find(discover, "Game_1")
 		card:_fireSignal("MouseEnter")

@@ -95,7 +95,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(named.Name):toBe("Named")
 				stopNamed()
 				stop()
-				Verify.expect((node.isDestroyed())):toBe(true)
+				Verify.expect((node:isDestroyed())):toBe(true)
 				runtime:dispose()
 				for _, kind in { "primitive", "target", "mode" } :: { "mode" | "primitive" | "target" } do
 					Verify.expect((pcall(scaffold.plan, kind, "proof"))):toBe(false)

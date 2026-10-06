@@ -192,10 +192,10 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local boundary = find(w.screen, "EB")
 				Verify.expect((boundary:GetAttribute("FacetError"))):toBe("not ready")
-				find(boundary, "Retry").Activated.fire()
+				find(boundary, "Retry").Activated:Fire()
 				Verify.expect(find(boundary, "Retry") ~= nil):toBe(true)
 				broken = false
-				find(boundary, "Retry").Activated.fire()
+				find(boundary, "Retry").Activated:Fire()
 				Verify.expect((find(boundary, "Retry"))):toBeNil()
 				Verify.expect(find(boundary, "Ready") ~= nil):toBe(true)
 				Verify.expect((boundary:GetAttribute("FacetError"))):toBeNil()
@@ -496,18 +496,18 @@ return function(verifyHarness: Verify.Harness)
 			for _, name in { ... } do
 				held[name] = true
 			end
-			hit(w, key).Activated.fire({ UserInputType = w.engine.types.Enum.UserInputType.MouseButton1 }, 0)
+			hit(w, key).Activated:Fire({ UserInputType = w.engine.types.Enum.UserInputType.MouseButton1 }, 0)
 			table.clear(held)
 		end
 		local function tap(w: World, key: string)
-			hit(w, key).Activated.fire({ UserInputType = w.engine.types.Enum.UserInputType.Touch }, 1)
+			hit(w, key).Activated:Fire({ UserInputType = w.engine.types.Enum.UserInputType.Touch }, 1)
 		end
 		local function returnKey(w: World, key: string)
 			local E = w.engine.types.Enum
-			hit(w, key).Activated.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.Return }, 1)
+			hit(w, key).Activated:Fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.Return }, 1)
 		end
 		local function arrow(w: World, name: string)
-			w.screen:FindFirstChild("FacetCollection" .. name):FindFirstChild("Collection" .. name).Pressed.fire()
+			w.screen:FindFirstChild("FacetCollection" .. name):FindFirstChild("Collection" .. name).Pressed:Fire()
 		end
 		local function selected(selection: any): { string }
 			local out: { string } = {}
@@ -608,7 +608,7 @@ return function(verifyHarness: Verify.Harness)
 				tap(w, "josh")
 				Verify.expect((selected(selection))):toEqual({ "josh", "razz" })
 				local E = w.engine.types.Enum
-				hit(w, "razz").Activated.fire(
+				hit(w, "razz").Activated:Fire(
 					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA },
 					1
 				)
@@ -773,7 +773,7 @@ return function(verifyHarness: Verify.Harness)
 		end
 		local function press(w: World, x: number, y: number, kind: string?, processed: boolean?)
 			local E = w.engine.types.Enum
-			w.input.InputBegan.fire({
+			w.input.InputBegan:Fire({
 				UserInputType = (E.UserInputType :: any)[kind or "MouseButton1"],
 				UserInputState = E.UserInputState.Begin,
 				Position = w.engine.types.Vector3.new(x, y, 0),
@@ -798,7 +798,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((catchers(w))):toBe(before)
 				press(w, 150, 400, "MouseButton1", true)
 				Verify.expect((state.open.a:peek())):toBeNil()
-				find(w.screen, "Outside").Activated.fire()
+				find(w.screen, "Outside").Activated:Fire()
 				Verify.expect(state.outside):toBe(1)
 				Verify.expect(#state.fired):toBe(0)
 				state.open.a:set("trailing")
@@ -849,13 +849,13 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w, state = rowsWorld({ role = "destructive" :: "destructive", motionLevel = "normal" })
 				state.open.a:set("trailing")
-				w.engine.heartbeat.fire(0.3)
-				find(find(w.screen, "a"), "Delete").Activated.fire()
+				w.engine.heartbeat:Fire(0.3)
+				find(find(w.screen, "a"), "Delete").Activated:Fire()
 				Verify.expect(state.fired):toEqual({})
 				press(w, 150, 400)
-				find(w.screen, "Outside").Activated.fire()
+				find(w.screen, "Outside").Activated:Fire()
 				Verify.expect(state.outside):toBe(1)
-				w.engine.heartbeat.fire(0.3)
+				w.engine.heartbeat:Fire(0.3)
 				Verify.expect(state.fired):toEqual({ "a" })
 				w.stop()
 			end,
@@ -884,14 +884,14 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_parity_restore::native parity restore: RowActions outside tap::releases its input listener with the row",
 			run = function()
 				local w, state = rowsWorld()
-				local before = w.input.InputBegan.count()
+				local before = engineLib.connections(w.input.InputBegan)
 				state.open.a:set("trailing")
-				Verify.expect((w.input.InputBegan.count())):toBe(before + 1)
+				Verify.expect((engineLib.connections(w.input.InputBegan))):toBe(before + 1)
 				state.open.a:set(nil)
-				Verify.expect((w.input.InputBegan.count())):toBe(before)
+				Verify.expect((engineLib.connections(w.input.InputBegan))):toBe(before)
 				state.open.a:set("trailing")
 				w.stop()
-				Verify.expect((w.input.InputBegan.count())):toBe(0)
+				Verify.expect((engineLib.connections(w.input.InputBegan))):toBe(0)
 			end,
 		})
 	end)

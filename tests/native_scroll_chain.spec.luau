@@ -39,13 +39,13 @@ return function(verifyHarness: Verify.Harness)
 				UserInputState = engine.types.Enum.UserInputState.Begin,
 				Position = Vector3.new(50, 50, 0),
 			}
-			input.InputBegan.fire(touch)
+			input.InputBegan:Fire(touch)
 			return touch
 		end
 		local function move(touch: any, x: number, y: number)
 			touch.Position = Vector3.new(x, y, 0)
 			touch.UserInputState = engine.types.Enum.UserInputState.Change
-			input.InputChanged.fire(touch)
+			input.InputChanged:Fire(touch)
 		end
 		return {
 			engine = engine,
@@ -75,7 +75,7 @@ return function(verifyHarness: Verify.Harness)
 					w.move(touch, 50, 50 + direction * 40)
 					Verify.expect(w.inner.ScrollingEnabled):toBe(false)
 					Verify.expect(w.middle.ScrollingEnabled and w.root.ScrollingEnabled):toBe(true)
-					w.input.InputEnded.fire(touch)
+					w.input.InputEnded:Fire(touch)
 					Verify.expect(w.inner.ScrollingEnabled):toBe(true)
 					w.stop()
 				end
@@ -93,7 +93,7 @@ return function(verifyHarness: Verify.Harness)
 				w.move(touch, 20, 50)
 				Verify.expect(w.inner.ScrollingEnabled or w.middle.ScrollingEnabled):toBe(false)
 				Verify.expect(w.root.ScrollingEnabled):toBe(true)
-				w.input.InputEnded.fire(touch)
+				w.input.InputEnded:Fire(touch)
 				Verify.expect(w.inner.ScrollingEnabled and w.middle.ScrollingEnabled):toBe(true)
 				w.stop()
 			end,
@@ -113,7 +113,7 @@ return function(verifyHarness: Verify.Harness)
 				w.root.CanvasPosition = w.engine.types.Vector2.new(0, 100)
 				w.move(touch, 50, 100)
 				Verify.expect(w.inner.ScrollingEnabled or w.middle.ScrollingEnabled):toBe(false)
-				w.input.InputEnded.fire(touch)
+				w.input.InputEnded:Fire(touch)
 				w.stop()
 			end,
 		})
@@ -133,7 +133,7 @@ return function(verifyHarness: Verify.Harness)
 				local modal = w.engine.new("Frame")
 				modal.Parent = w.screen
 				scrollLock.acquire(w.screen, modal)
-				w.input.InputEnded.fire(touch)
+				w.input.InputEnded:Fire(touch)
 				Verify.expect(w.inner.ScrollingEnabled or w.middle.ScrollingEnabled or w.root.ScrollingEnabled)
 					:toBe(false)
 				scrollLock.release(w.screen, modal)
@@ -157,7 +157,7 @@ return function(verifyHarness: Verify.Harness)
 					local touch = w.begin()
 					w.move(touch, 50, 80)
 					Verify.expect(w.inner.ScrollingEnabled and w.middle.ScrollingEnabled):toBe(true)
-					w.input.InputEnded.fire(touch)
+					w.input.InputEnded:Fire(touch)
 					w.stop()
 				end
 			end,
@@ -169,25 +169,25 @@ return function(verifyHarness: Verify.Harness)
 				for _, reason in { "cancel", "blur", "dispose" } do
 					local w = world()
 					w.inner.CanvasPosition = w.engine.types.Vector2.zero
-					local baseline = w.input.InputChanged.count()
+					local baseline = engines.connections(w.input.InputChanged)
 					local touch = w.begin()
 					w.move(touch, 50, 80)
 					Verify.expect(w.inner.ScrollingEnabled):toBe(false)
 					if reason == "cancel" then
 						touch.UserInputState = w.engine.types.Enum.UserInputState.Cancel
-						w.input.InputChanged.fire(touch)
+						w.input.InputChanged:Fire(touch)
 					elseif reason == "blur" then
-						w.input.WindowFocusReleased.fire()
+						w.input.WindowFocusReleased:Fire()
 					else
 						w.stop()
 					end
 					if reason ~= "dispose" then
 						Verify.expect(w.inner.ScrollingEnabled):toBe(true)
-						Verify.expect((w.input.InputChanged.count())):toBe(baseline)
+						Verify.expect((engines.connections(w.input.InputChanged))):toBe(baseline)
 						w.stop()
 					end
-					Verify.expect((w.input.InputChanged.count())):toBe(0)
-					Verify.expect((w.input.InputBegan.count())):toBe(0)
+					Verify.expect((engines.connections(w.input.InputChanged))):toBe(0)
+					Verify.expect((engines.connections(w.input.InputBegan))):toBe(0)
 				end
 			end,
 		})

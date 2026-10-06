@@ -48,7 +48,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function settle(engine: any, frames: number)
 		for _ = 1, frames do
-			engine.heartbeat.fire(1 / 60)
+			engine.heartbeat:Fire(1 / 60)
 		end
 	end
 
@@ -75,15 +75,15 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 		for _, node in controls do
-			if node.Parent == nil or node.isDestroyed() then
+			if node.Parent == nil or node:isDestroyed() then
 				continue
 			end
 			local ok, problem = pcall(function()
 				if node:IsA("TextBox") then
 					node.Text = "Probe"
-					node.FocusLost.fire(true)
+					node.FocusLost:Fire(true)
 				else
-					node.Activated.fire()
+					node.Activated:Fire()
 				end
 				settle(engine, 3)
 			end)

@@ -106,14 +106,14 @@ return function(verifyHarness: Verify.Harness)
 
 	local function activate(w: any, input: string)
 		if input == "pointer" or input == "touch" then
-			w.tag.Activated.fire({
+			w.tag.Activated:Fire({
 				UserInputType = if input == "pointer" then w.E.UserInputType.MouseButton1 else w.E.UserInputType.Touch,
 			}, 1)
 		else
 			w.gui.SelectedObject = w.tag
 			local found = action(w, "Activate")
-			found.Pressed.fire()
-			found.Released.fire()
+			found.Pressed:Fire()
+			found.Released:Fire()
 		end
 	end
 
@@ -161,8 +161,8 @@ return function(verifyHarness: Verify.Harness)
 					end
 					table.sort(keys)
 					expect((table.concat(keys, " "))):toBe("Backspace ButtonX Delete")
-					remove.Pressed.fire()
-					remove.Released.fire()
+					remove.Pressed:Fire()
+					remove.Released:Fire()
 					expect(`{key} editing {w.state.removes}`):toBe(`{key} editing 1`)
 					w.stop()
 				end
@@ -240,12 +240,12 @@ return function(verifyHarness: Verify.Harness)
 						w.gui.SelectedObject = find(w.screen, all[n])
 						w.held[key] = true
 						local remove = action(w, "RemoveChip")
-						remove.Pressed.fire()
+						remove.Pressed:Fire()
 						local landed = w.gui.SelectedObject
 						local again = action(w, "RemoveChip")
-						again.Pressed.fire()
+						again.Pressed:Fire()
 						w.held[key] = nil
-						again.Released.fire()
+						again.Released:Fire()
 						expect(`{key} last of {n}: {#items:peek()} left, focus {landed and landed.Name}`):toBe(
 							`{key} last of {n}: {n - 1} left, focus {all[n - 1]}`
 						)
@@ -277,17 +277,17 @@ return function(verifyHarness: Verify.Harness)
 				expect(content.Position.Y.Scale):toBe(0.5)
 				w.gui.SelectedObject = token
 				local remove = action(w, "RemoveChip")
-				remove.Pressed.fire()
+				remove.Pressed:Fire()
 				expect(calls):toBe(1)
-				w.engine.heartbeat.fire(1)
+				w.engine.heartbeat:Fire(1)
 				expect(calls):toBe(1)
-				remove.Released.fire()
+				remove.Released:Fire()
 				find(w.screen, "Holder").Interactable = false
-				token.Activated.fire()
+				token.Activated:Fire()
 				expect(calls):toBe(1)
 				find(w.screen, "Holder").Interactable = true
 				enabled:set(false)
-				token.Activated.fire()
+				token.Activated:Fire()
 				expect((action(w, "RemoveChip"))):toBeNil()
 				expect(calls):toBe(1)
 				w.stop()

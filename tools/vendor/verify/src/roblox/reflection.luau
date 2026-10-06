@@ -17,7 +17,13 @@ export type Options = {
 	enumType: ((unknown) -> string)?,
 	classes: { [string]: Environment.ClassSpec }?,
 	referenceClass: ((className: string, property: string) -> string?)?,
-	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())?,
+	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ...unknown)?,
+	defaultProperty: ((className: string, property: string) -> unknown)?,
+	handlerErrors: Environment.HandlerErrors?,
+	computed: { [string]: Environment.Computed }?,
+	undeclaredWrites: boolean?,
+	undeclaredReads: ("raise" | "nil")?,
+	functionDoubles: boolean?,
 }
 
 local function create(options: Options): Environment.Environment
@@ -103,23 +109,31 @@ local function create(options: Options): Environment.Environment
 				if value ~= nil then
 					return value
 				end
+				if fallback == nil and options.defaultProperty ~= nil then
+					return options.defaultProperty(className, key)
+				end
 			end
 			return fallback
 		end,
+		handlerErrors = options.handlerErrors,
+		computed = options.computed,
+		undeclaredWrites = options.undeclaredWrites,
+		undeclaredReads = options.undeclaredReads,
+		functionDoubles = options.functionDoubles,
 		validateProperty = function(className, key, value, operation)
 			if key == "Parent" then
 				if options.validateProperty then
-					options.validateProperty(className, key, value, operation)
+					return options.validateProperty(className, key, value, operation)
 				end
-				return
+				return nil
 			end
 			local known = if doubles[className] then nil else properties[className]
 			local property = if known ~= nil then known[key] else nil
 			if not property then
 				if options.validateProperty then
-					options.validateProperty(className, key, value, operation)
+					return options.validateProperty(className, key, value, operation)
 				end
-				return
+				return nil
 			end
 			if operation == "set" then
 				assert(
@@ -155,8 +169,9 @@ local function create(options: Options): Environment.Environment
 			end
 			assert(valid, className .. "." .. key .. " requires " .. expected .. ", received " .. actual)
 			if options.validateProperty then
-				options.validateProperty(className, key, value, operation)
+				return options.validateProperty(className, key, value, operation)
 			end
+			return nil
 		end,
 	}
 	local define = environment.defineClass

@@ -133,19 +133,19 @@ return function(verifyHarness: Verify.Harness)
 	local function press(world: World, node: any, input: string)
 		local E = world.types.Enum
 		if input == "pointer" then
-			node.Activated.fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }, 1)
+			node.Activated:Fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }, 1)
 		elseif input == "touch" then
-			node.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
+			node.Activated:Fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
 		elseif input == "keyboard" then
 			world.gui.SelectedObject = node
 			local activate = assert(action(world.root, "Activate"), "Activate action is bound on the selected control")
 			Verify.expect(keys(activate).Return):toBe(true)
 			Verify.expect(keys(activate).Space):toBe(true)
-			activate.Pressed.fire()
-			activate.Released.fire()
+			activate.Pressed:Fire()
+			activate.Released:Fire()
 		else
 			world.gui.SelectedObject = node
-			node.Activated.fire({ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }, 1)
+			node.Activated:Fire({ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }, 1)
 		end
 	end
 
@@ -821,13 +821,13 @@ return function(verifyHarness: Verify.Harness)
 						local primary = find(root, "Primary")
 						root:_fireSignal("MouseEnter")
 						Verify.expect((root:GetAttribute("FacetRevealed"))):toBe(true)
-						primary.InputBegan.fire({ UserInputType = E.UserInputType[kind] })
+						primary.InputBegan:Fire({ UserInputType = E.UserInputType[kind] })
 						root:_fireSignal("MouseLeave")
 						Verify.expect(`{kind} {root:GetAttribute("FacetPressing")}`):toBe(`{kind} true`)
 						Verify.expect(`{kind} {root:GetAttribute("FacetRevealed")}`):toBe(`{kind} true`)
-						primary.InputEnded.fire({ UserInputType = E.UserInputType[kind] })
+						primary.InputEnded:Fire({ UserInputType = E.UserInputType[kind] })
 						Verify.expect(`{kind} {root:GetAttribute("FacetRevealed")}`):toBe(`{kind} false`)
-						primary.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard })
+						primary.InputBegan:Fire({ UserInputType = E.UserInputType.Keyboard })
 						Verify.expect(`{kind} {root:GetAttribute("FacetRevealed")}`):toBe(`{kind} false`)
 						world.stop()
 					end
@@ -905,24 +905,24 @@ return function(verifyHarness: Verify.Harness)
 					local token = find(world.node, "Token")
 					world.gui.SelectedObject = token
 					local activate = assert(action(world.root, "Activate"))
-					activate.Pressed.fire()
+					activate.Pressed:Fire()
 					Verify.expect(calls):toBe(1)
 					world.input.GamepadEnabled = true
 					world.input.PreferredInput = E.PreferredInput.Gamepad
 					for _ = 1, 30 do
-						world.engine.heartbeat.fire(1 / 60)
+						world.engine.heartbeat:Fire(1 / 60)
 					end
-					activate.Released.fire()
+					activate.Released:Fire()
 					Verify.expect(calls):toBe(1)
 					local remove = assert(action(world.root, "RemoveChip"))
 					Verify.expect(keys(remove).Delete and keys(remove).ButtonX):toBe(true)
-					remove.Pressed.fire()
+					remove.Pressed:Fire()
 					Verify.expect(calls):toBe(2)
 					world.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 					for _ = 1, 30 do
-						world.engine.heartbeat.fire(1 / 60)
+						world.engine.heartbeat:Fire(1 / 60)
 					end
-					remove.Released.fire()
+					remove.Released:Fire()
 					Verify.expect(calls):toBe(2)
 					local owner = find(world.node, "Owner")
 					owner.Interactable = false
@@ -931,8 +931,8 @@ return function(verifyHarness: Verify.Harness)
 							world.gui.SelectedObject = token
 							local bound = action(world.root, "Activate")
 							if bound then
-								bound.Pressed.fire()
-								bound.Released.fire()
+								bound.Pressed:Fire()
+								bound.Released:Fire()
 							end
 						else
 							press(world, token, input)

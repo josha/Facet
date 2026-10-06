@@ -257,7 +257,7 @@ refusal in milliseconds, without the network
 | `asset-id-missing` | `publish` runs when no `assetId` exists |
 | `asset-id-mismatch` | `--asset-id` disagrees with the config |
 | `route-override` | `--route` disagrees with the configured route and `--allow-route-override` is absent |
-| `gate-evidence-missing` | `artifacts/verify/latest-release.json` is absent or unreadable, or has no `gateEvidence` |
+| `gate-evidence-missing` | `artifacts/verify/native/gate/latest.json` is absent or unreadable, or has no build binding |
 | `gate-evidence-schema` | the evidence declares a different schema |
 | `gate-evidence-tier` | the evidence is not from a `release` run |
 | `gate-evidence-failed` | the `status` of the evidence is not `PASS` |
@@ -277,45 +277,24 @@ the key is set.
 
 ### The gate evidence file
 
-The release-gate guard reads `artifacts/verify/latest-release.json` and takes
-**one object from it**: `gateEvidence`.
-
-**Current gap:** on this branch, no producer writes
-`artifacts/verify/latest-release.json`. `lune run tools/lune/verify release` writes
-`artifacts/verify/native/report.json`, which has no `gateEvidence`. Thus the
-guard refuses every `publish` with `gate-evidence-missing` until a producer of
-this file is restored. The format below is the format that the guard expects.
-
-```json
-{
-  "…the coordinator's own verify-run fields…": "…",
-  "gateEvidence": {
-    "schema": "facet-release-gate/1",
-    "tier": "release",
-    "status": "PASS",
-    "commit": "<sha>",
-    "treeDirty": false,
-    "sourceHash": "<sha256>",
-    "completedAt": "2026-08-30T00:00:00Z"
-  }
-}
-```
-
-`decide()` compares each field:
+The release-gate guard reads `artifacts/verify/native/gate/latest.json`. That
+file is the Verify gate outcome that `lune run tools/lune/verify release`
+writes. The guard takes these fields from it:
 
 | Field | Must be |
 |---|---|
-| `schema` | `facet-release-gate/1` |
-| `tier` | `release`. A `fast` or `affected` run never authorizes a publish. |
-| `status` | `PASS` |
-| `treeDirty` | `false`. The gate must run on a clean tree for its result to describe this commit. |
-| `commit` | equal to `--commit`. The guard compares it only after `--commit` is known to equal `HEAD`. Thus `commit-mismatch` reports a wrong argument once, not twice. |
-| `sourceHash` | equal to the source hash of the tree that is built |
+| `gate` | `facet` |
+| `schemaVersion` | `1` |
+| `acceptance.complete` | `true`. A narrowed run never authorizes a publish. |
+| `acceptance.releasable` | `true`. A failed producer or a deferral refuses. |
+| `build.clean` | `true`. The gate must run on a clean tree for its result to describe this commit. |
+| `build.commit` | equal to `--commit`. The guard compares it only after `--commit` is known to equal `HEAD`. Thus `commit-mismatch` reports a wrong argument once, not twice. |
+| `build.digest` | equal to the source hash of the tree that is built |
 
-The guard **fails closed**. An absent file, an unreadable file and a file with
-no `gateEvidence` object all refuse in the same way. All three mean that
-nothing authorizes a publish. `status` reports which of the three
-occurred.
+The guard **fails closed**. An absent file, an unreadable file and an outcome
+of another gate or without a build binding all refuse in the same way. All
+three mean that nothing authorizes a publish. `status` reports which of the
+three occurred.
 
 Each comparison is against a fact that this tool derives itself. Thus there is
 no shared recipe for the two sides to disagree about. Previously there was one:
@@ -325,8 +304,8 @@ against an `identity` field that no code wrote. This made `publish`
 unreachable. The self-test passed only because it made the file that it then
 read. The self-test now writes an evidence file in the expected format. The
 file has the real commit and source hash of this repository. The self-test
-asserts that this file clears every gate check. This proves the guard logic. It does not prove that a
-verification run writes the file (see the current gap above).
+asserts that this file clears every gate check. This proves the guard logic.
+The release tier writes the file.
 
 ---
 

@@ -89,7 +89,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function press(world: World, key: string)
-		world.input.InputBegan.fire({
+		world.input.InputBegan:Fire({
 			KeyCode = (world.engine.types.Enum.KeyCode :: any)[key],
 			UserInputType = world.engine.types.Enum.UserInputType.Gamepad1,
 		}, true)
@@ -99,7 +99,7 @@ return function(verifyHarness: Verify.Harness)
 		world.shift.down = back == true
 		local traverse = find(world.parent, "FacetTraversal")
 		assert(traverse, "the traversal context exists")
-		traverse:FindFirstChild("Traverse").Pressed.fire()
+		traverse:FindFirstChild("Traverse").Pressed:Fire()
 		world.shift.down = false
 	end
 
@@ -324,12 +324,12 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local target = row("r2")
 				world.gui.SelectedObject = target
-				target.SelectionGained.fire()
+				target.SelectionGained:Fire()
 				rows:set({ { id = "r1" }, { id = "r3" }, { id = "r4" } })
 				Verify.expect(world.gui.SelectedObject):toBe(row("r3"))
 				target = row("r4")
 				world.gui.SelectedObject = target
-				target.SelectionGained.fire()
+				target.SelectionGained:Fire()
 				rows:set({ { id = "r1" }, { id = "r3" } })
 				Verify.expect(world.gui.SelectedObject):toBe(row("r3"))
 				world.stop()
@@ -363,7 +363,7 @@ return function(verifyHarness: Verify.Harness)
 				list.AbsoluteWindowSize = world.engine.types.Vector2.new(200, 200)
 				local target = find(find(list, "r2"), "Row")
 				world.gui.SelectedObject = target
-				target.SelectionGained.fire()
+				target.SelectionGained:Fire()
 				local toolbar = find(world.screen, "Toolbar")
 				target.Destroying:Connect(function()
 					world.gui.SelectedObject = toolbar

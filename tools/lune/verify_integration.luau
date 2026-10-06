@@ -47,22 +47,25 @@ local function tests(id: string, locators: { string }, cases: { string }?, custo
 	return {
 		id = id,
 		tier = "fast",
-		environment = "deterministic",
-		kind = "tests",
-		worker = custom or "tests/worker.luau",
-		locators = locators,
-		cases = cases,
-		workers = 4,
-		deadlineSeconds = 60,
+		producer = {
+			id = id,
+			kind = "tests",
+			worker = custom or "tests/worker.luau",
+			locators = locators,
+			cases = cases,
+			isolate = true,
+			workers = 4,
+			deadlineSeconds = 60,
+		},
 	}
 end
 
 local function command(id: string, script: string, environment: string?, tier: string?): gate.Entry
 	return {
 		id = id,
-		argv = { "/bin/sh", "-c", script },
 		tier = tier or "fast",
-		environment = environment or "deterministic",
+		environment = environment,
+		producer = { id = id, kind = "command", argv = { "/bin/sh", "-c", script } },
 	}
 end
 
@@ -88,10 +91,13 @@ local function reporter(id: string, mode: string, expectation: Gate.ReportExpect
 	)
 	return {
 		id = id,
-		argv = { "lune", "run", path, mode, "{report}", "{run}" },
 		tier = "fast",
-		environment = "deterministic",
-		report = expectation or { minimum = 1 },
+		producer = {
+			id = id,
+			kind = "command",
+			argv = { "lune", "run", path, mode, "{report}", "{run}" },
+			report = expectation or { minimum = 1 },
+		},
 	}
 end
 
@@ -102,12 +108,17 @@ local function runGate(
 ): Gate.Outcome
 	sequence += 1
 	local settings: { referenceHost: boolean?, tier: string?, rerun: string? } = options or {}
-	local definition = gate.define(entries, settings.referenceHost == true, `fixture-{sequence}`)
-	local chosen = gate.selection(settings.tier or "release")
+	local definition = Gate.define(gate.define(entries, settings.referenceHost == true, `fixture-{sequence}`))
+	local tiers = gate.tiers[settings.tier or "release"]
+	local chosen: Gate.Selection? = if #tiers > 0 then { tiers = tiers } else nil
 	if settings.rerun then
-		chosen = { ids = { settings.rerun }, tiers = if chosen then chosen.tiers else nil }
+		chosen = { ids = { settings.rerun }, tiers = if #tiers > 0 then tiers else nil }
 	end
 	return Lune.gate.run(definition, { directory = `{directory}/gate`, selection = chosen })
+end
+
+local function completeTier(outcome: Gate.Outcome): boolean
+	return #outcome.scope.ids == 0 and #outcome.scope.notSelected == #outcome.scope.skippedByTier
 end
 
 local function record(outcome: Gate.Outcome, id: string): Gate.Record
@@ -268,7 +279,7 @@ harness:suite("Suite execution through the Verify gate", function()
 			nil,
 			worker("hang", `process.exec("/bin/sh", \{ "-c", "(sleep 3; touch {marker}) & sleep 30" })`)
 		)
-		hung.deadlineSeconds = 1
+		assert(hung.producer).deadlineSeconds = 1
 		local outcome = runGate({ hung })
 		context:expect(status(outcome, "hang") ~= "passed"):toBe(true)
 		context:expect(outcome.execution.report.timedOut + outcome.execution.report.failed > 0):toBe(true)
@@ -309,28 +320,27 @@ harness:suite("Facet gate through Verify", function()
 		}
 		local release = runGate(clean, { tier = "release" })
 		context:expect(release.acceptance.releasable):toBe(true)
-		context:expect(select(2, gate.conclusion(release, "release"))):toBe(0)
+		context:expect(gate.releasable(0, "release", release)):toBe(0)
 		local full = runGate(clean, { tier = "full" })
 		context:expect(full.acceptance.verdict):toBe("selected")
 		context:expect(full.acceptance.releasable):toBe(false)
-		context:expect(gate.completeTier(full)):toBe(true)
+		context:expect(completeTier(full)):toBe(true)
 		context:expect(status(full, "gate")):toBe("not_selected")
-		context:expect((gate.conclusion(full, "full"))):toContain("complete full tier")
+		context:expect(gate.releasable(0, "full", full)):toBe(0)
+		context:expect(gate.releasable(0, "release", full)):toBe(1)
 		local focused = runGate(clean, { tier = "full", rerun = "fast" })
-		context:expect(gate.completeTier(focused)):toBe(false)
-		context:expect((gate.conclusion(focused, "full"))):toContain("PASS_SELECTED")
-		local fast = runGate(clean, { tier = "fast" })
-		context:expect((gate.conclusion(fast, "fast"))):toContain("PASS_PARTIAL")
+		context:expect(completeTier(focused)):toBe(false)
+		context:expect(focused.acceptance.verdict):toBe("selected")
 		local deferred = { command("fast", "exit 0"), command("live", "exit 2", "studio", "full") }
 		local lower = runGate(deferred, { tier = "full" })
 		context:expect(lower.acceptance.deferred):toEqual({ "live" })
-		context:expect(select(2, gate.conclusion(lower, "full"))):toBe(0)
+		context:expect(lower.acceptance.verdict ~= "failed"):toBe(true)
 		local blocked = runGate(deferred, { tier = "release" })
 		context:expect(blocked.acceptance.verdict):toBe("deferred")
 		context:expect(blocked.acceptance.releasable):toBe(false)
-		context:expect(select(2, gate.conclusion(blocked, "release"))):toBe(1)
+		context:expect(gate.releasable(0, "release", blocked)):toBe(1)
 		local failed = runGate({ command("fast", "exit 1") }, { tier = "fast" })
-		context:expect(select(2, gate.conclusion(failed, "fast"))):toBe(1)
+		context:expect(failed.acceptance.verdict):toBe("failed")
 		context
 			:expect(function()
 				runGate(clean, { tier = "full", rerun = "absent" })
@@ -363,7 +373,7 @@ harness:suite("Facet gate through Verify", function()
 	harness:case("blocks dependents and stops a timed-out producer with its descendants", function(context)
 		local marker = `{directory}/gate-descendant-survived`
 		local hung = command("hung", `(sleep 3; touch {marker}) & sleep 30`)
-		hung.deadlineSeconds = 1
+		assert(hung.producer).deadlineSeconds = 1
 		local dependent = command("dependent", "exit 0")
 		dependent.after = { "hung" }
 		local outcome = runGate({ hung, dependent })
@@ -376,23 +386,24 @@ harness:suite("Facet gate through Verify", function()
 	harness:case("declares every committed producer once with its tier and suite census", function(context)
 		local tiers = { fast = 0, full = 0, release = 0 }
 		local seen = {}
-		local entries = gate.catalog()
-		for _, entry in entries do
-			context:expect(seen[entry.id]):toBeNil()
-			seen[entry.id] = entry
-			tiers[entry.tier] += 1
+		local definition = gate.draft(false)
+		for _, producer in definition.producers do
+			context:expect(seen[producer.id]):toBeNil()
+			seen[producer.id] = producer
+			tiers[producer.tier :: string] += 1
 		end
 		context:expect(tiers):toEqual({ fast = 19, full = 59, release = 2 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
 		context:expect(#assert(seen["suite"].cases)):toBe(3731)
 		context:expect(#assert(seen["suite"].locators)):toBe(150)
-		context:expect(seen["suite"].kind):toBe("tests")
-		local definition = gate.define(entries, false)
-		context:expect(definition.policy.deferrals["live-evidence"] ~= nil):toBe(true)
-		context:expect(definition.policy.deferrals["bench"] ~= nil):toBe(true)
-		context:expect(gate.define(entries, true).policy.deferrals["bench"]):toBeNil()
-		context:expect(definition.policy.deferrals["suite"]):toBeNil()
+		context:expect(seen["suite"].isolate):toBe(true)
+		context:expect(seen["suite"].sourceDeadlineSeconds):toBe(600)
+		local deferrals = assert(assert(definition.policy).deferrals)
+		context:expect(deferrals["live-evidence"] ~= nil):toBe(true)
+		context:expect(deferrals["bench"] ~= nil):toBe(true)
+		context:expect(assert(assert(gate.draft(true).policy).deferrals)["bench"]):toBeNil()
+		context:expect(deferrals["suite"]):toBeNil()
 	end)
 	harness:case("rejects malformed reports and conflicting transport segments", function(context)
 		context

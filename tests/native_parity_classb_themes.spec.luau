@@ -68,7 +68,7 @@ return function(verifyHarness: Verify.Harness)
 			shift = shift,
 			step = function(seconds: number)
 				now += seconds
-				engine.heartbeat.fire(seconds)
+				engine.heartbeat:Fire(seconds)
 			end,
 			stop = function()
 				stop()
@@ -115,7 +115,7 @@ return function(verifyHarness: Verify.Harness)
 		world.shift.down = back == true
 		local traverse = find(world.parent, "FacetTraversal")
 		assert(traverse, "the traversal context exists")
-		traverse:FindFirstChild("Traverse").Pressed.fire()
+		traverse:FindFirstChild("Traverse").Pressed:Fire()
 		world.shift.down = false
 	end
 
@@ -345,7 +345,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(constraints[1].MinSize.Y):toBe(0)
 				for _, height in { 20, 50, 12 } do
 					authored.AbsoluteSize = world.engine.types.Vector2.new(40, height)
-					authored:GetPropertyChangedSignal("AbsoluteSize").fire()
+					authored:GetPropertyChangedSignal("AbsoluteSize"):Fire()
 					Verify.expect(constraints[1].MinSize.X):toBe(height)
 					Verify.expect(constraints[1].MinSize.Y):toBe(0)
 				end

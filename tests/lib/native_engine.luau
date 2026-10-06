@@ -5,8 +5,7 @@ local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
 local Shared = require("../../src/ui/types")
 local ComposeRoblox = require("../../src/vendor/compose/roblox")
 export type Signal<A... = ...unknown> = ComposeRoblox.Signal<A...> & {
-	fire: (A...) -> (),
-	count: () -> number,
+	Fire: (self: any, A...) -> (),
 }
 export type Engine = {
 	new: (string) -> any,
@@ -19,12 +18,11 @@ export type Engine = {
 	heartbeat: Signal<number>,
 	types: Shared.RobloxTypes,
 	made: { any },
-	rejectedSelections: { any },
+	rejectedSelections: () -> { any },
 	census: () -> { live: number, connections: number },
+	onWrite: ((any, string, any) -> ()) -> any,
 }
 
-local objects = setmetatable({}, { __mode = "kv" })
-local facades = setmetatable({}, { __mode = "kv" })
 local reflection = Roblox.getReflectionDatabase()
 local eventNames = {
 	"Activated",
@@ -51,6 +49,41 @@ local eventNames = {
 	"MouseButton1Down",
 	"SelectionGained",
 	"SelectionLost",
+	"OnClientEvent",
+}
+local environments: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local function owner(probe: (any) -> any): any
+	for environment in environments do
+		local ok, value = pcall(probe, environment)
+		if ok then
+			return value
+		end
+	end
+	error("the value was not created by a native engine fixture", 3)
+end
+local doubles: { [string]: any } = {
+	isDestroyed = function(object)
+		return owner(function(environment)
+			return not environment.isAlive(object)
+		end)
+	end,
+	connectionCount = function(object)
+		return owner(function(environment)
+			return environment.connectionsOfInstance(object)
+		end)
+	end,
+	_fireSignal = function(object, name, ...)
+		object[name]:Fire(...)
+	end,
+	Play = function(object)
+		object.PlayCount = (object.PlayCount or 0) + 1
+	end,
+	Stop = function(object)
+		object.StopCount = (object.StopCount or 0) + 1
+	end,
+	SetWaveformKeys = function(object, keys)
+		object.WaveformKeys = keys
+	end,
 }
 local metadata: { [string]: any } = {}
 local classes: { [string]: any } = {}
@@ -61,16 +94,15 @@ for _, name in names do
 	local class: any = { Name = original.Name, Superclass = original.Superclass, Tags = original.Tags }
 	class.Name = name
 	class.Superclass = if name == "UIShadow" then "UIComponent" else original.Superclass
-	class.Properties = table.clone(original.Properties)
+	class.Properties = {}
 	for key, property in original.Properties do
-		if property.Datatype == "ContentId" or property.Datatype == "BinaryString" then
-			class.Properties[key] = {
-				Name = property.Name,
-				Datatype = "string",
-				Scriptability = property.Scriptability,
-				Tags = property.Tags,
-			}
-		end
+		local opaque = property.Datatype == "ContentId" or property.Datatype == "BinaryString"
+		class.Properties[key] = {
+			Name = property.Name,
+			Datatype = if opaque then "string" else property.Datatype,
+			Scriptability = "ReadWrite",
+			Tags = {},
+		}
 	end
 	class.DefaultProperties = table.clone(original.DefaultProperties)
 	local properties: { [string]: any } = {}
@@ -138,8 +170,11 @@ for _, name in names do
 			table.insert(events, event)
 		end
 	end
-	classes[name] =
-		{ creatable = true, properties = properties, events = events, methods = if ui then ui.methods else nil }
+	local methods = table.clone(doubles)
+	for member, method in (if ui and ui.methods then ui.methods else {}) :: { [string]: any } do
+		methods[member] = method
+	end
+	classes[name] = { creatable = true, properties = properties, events = events, methods = methods }
 	metadata[name] = class
 end
 local database = {
@@ -151,32 +186,65 @@ local database = {
 	end,
 }
 local nativeDefaults: { [string]: any } = {}
+local resolved: { [string]: { [string]: any } } = {}
+local ABSENT = table.freeze({})
 local function defaultProperty(className: string, key: string): any
+	local known = resolved[className]
+	if not known then
+		known = {}
+		resolved[className] = known
+	end
+	local cached = known[key]
+	if cached ~= nil then
+		return if cached == ABSENT then nil else cached
+	end
 	local value = metadata[className].DefaultProperties[key]
-	if value ~= nil then
-		return value
-	end
 	local injected = classes[className].properties[key]
-	if injected ~= nil and injected ~= false then
-		return injected
+	if value == nil and injected ~= nil and injected ~= false then
+		value = injected
 	end
-	if not nativeDefaults[className] then
-		local ok, instance = pcall((Roblox.Instance.new :: unknown) :: (string) -> any, className)
-		nativeDefaults[className] = if ok then instance else Roblox.Instance.new("Folder")
+	if value == nil then
+		if not nativeDefaults[className] then
+			local ok, instance = pcall((Roblox.Instance.new :: unknown) :: (string) -> any, className)
+			nativeDefaults[className] = if ok then instance else Roblox.Instance.new("Folder")
+		end
+		local ok, fallback = pcall(function()
+			return nativeDefaults[className][key]
+		end)
+		value = if ok then fallback else nil
 	end
-	local ok, fallback = pcall(function()
-		return nativeDefaults[className][key]
+	known[key] = if value == nil then ABSENT else value
+	return value
+end
+
+local function connections(signal: any): number
+	return owner(function(environment)
+		return environment.connectionsOf(signal)
 	end)
-	return if ok then fallback else nil
 end
 
 local function new(options: any?): Engine
-	local made: { any } = {}
-	local rejectedSelections = {}
-	local attributeValues = {}
-	local attributeTokens = setmetatable({}, { __mode = "k" })
-	local signalAdapters = setmetatable({}, { __mode = "kv" })
+	local settings = options or {}
 	local environment: VerifyRoblox.Environment
+	local computed: { [string]: any } = {}
+	for _, class in { "TextLabel", "TextButton", "TextBox" } do
+		if settings.measureText then
+			computed[class .. ".TextBounds"] = { get = settings.measureText, writable = true }
+		end
+		if settings.textFits then
+			computed[class .. ".TextFits"] = { get = settings.textFits, writable = true }
+		end
+	end
+	local methods: { [string]: any } = {
+		["UIPageLayout.JumpTo"] = function(object, page)
+			environment.poke(object, "CurrentPage", page)
+		end,
+	}
+	if settings.styleOnlySignals then
+		methods["GuiObject.GetStyledPropertyChangedSignal"] = function()
+			return environment.newSignal()
+		end
+	end
 	local bridge = VerifyRoblox.fixtureBridge({
 		database = database,
 		typeName = function(value: any)
@@ -195,270 +263,31 @@ local function new(options: any?): Engine
 		library = (
 				{ typeName = typeof, datatypes = Roblox } :: unknown
 			) :: VerifyRoblox.EnvironmentEngineLibrary<any, any, any, any, any, any>,
+		defaultProperty = defaultProperty,
+		handlerErrors = "raise",
+		functionDoubles = true,
+		undeclaredReads = "nil",
+		undeclaredWrites = settings.lenientProperties == true,
+		computed = computed,
 		ui = {
-			validate = false,
-			methods = {
-				["UIPageLayout.JumpTo"] = function(object, page)
-					assert(VerifyRoblox.isInstance(object), "page layout fake requires an instance")
-					environment.poke(object :: VerifyRoblox.Instance, "CurrentPage", page)
-				end,
-			},
+			selection = "ignore",
+			requirePlayerGui = settings.selectionNeedsPlayerGui == true,
+			methods = methods,
 		},
 	})
 	environment = bridge.environment
-	local function raiseHandlerErrors()
-		if #environment.errors > 0 then
-			local message = table.concat(environment.errors, "\n")
-			table.clear(environment.errors)
-			error(message, 3)
-		end
+	environments[environment] = true
+	local made: { any } = {}
+	if settings.recordCreated ~= false then
+		environment.onCreate(function(object)
+			table.insert(made, object)
+		end)
 	end
-	local wrap: (any) -> any
-	local function unwrap(value: any): any
-		return objects[value] or value
-	end
-	local function adaptSignal<A...>(actual: VerifyRoblox.Signal<A...>): any
-		local existing = signalAdapters[actual]
-		if existing then
-			return existing
-		end
-		local connections = setmetatable({} :: { [VerifyRoblox.Connection]: boolean }, { __mode = "k" })
-		local adapter = {
-			Connect = function(_, callback)
-				local connection = actual:Connect(function(...)
-					local args = table.pack(...)
-					for index = 1, args.n do
-						args[index] = wrap(args[index])
-					end
-					callback(table.unpack(args, 1, args.n))
-				end)
-				connections[connection] = true
-				return connection
-			end,
-			fire = function(...)
-				local args = table.pack(...)
-				for index = 1, args.n do
-					args[index] = unwrap(args[index])
-				end
-				actual:Fire(table.unpack(args, 1, args.n))
-				raiseHandlerErrors()
-			end,
-			count = function()
-				local live = 0
-				for connection in pairs(connections) do
-					if connection.Connected then
-						live += 1
-					end
-				end
-				return live
-			end,
-		}
-		signalAdapters[actual] = adapter
-		return adapter
-	end
-	local function facade(actual: any): any
-		local className = actual.ClassName
-		local overrides: { [string]: any } = {}
-		local nodeSignals: { [any]: boolean } = {}
-		local function wrapMember(value: any): any
-			local result = wrap(value)
-			if type(result) == "table" and result.count then
-				nodeSignals[result] = true
-			end
-			return result
-		end
-		local node: any
-		local methods = {
-			_fireSignal = function(_, name, ...)
-				node[name].fire(...)
-			end,
-			SetAttribute = function(_, key, value)
-				if type(value) == "table" and value.Time and value.EasingStyle then
-					local token = attributeTokens[value]
-					if not token then
-						token = `FacetTweenInfo:{tostring(value)}`
-						attributeTokens[value] = token
-						attributeValues[token] = value
-					end
-					value = token
-				end
-				actual:SetAttribute(key, value)
-				raiseHandlerErrors()
-			end,
-			GetAttribute = function(_, key)
-				local value = actual:GetAttribute(key)
-				return attributeValues[value] or value
-			end,
-			GetAttributes = function()
-				local values = actual:GetAttributes()
-				for key, value in values do
-					values[key] = attributeValues[value] or value
-				end
-				return values
-			end,
-			Play = function()
-				node.PlayCount = (node.PlayCount or 0) + 1
-			end,
-			Stop = function()
-				node.StopCount = (node.StopCount or 0) + 1
-			end,
-			SetWaveformKeys = function(_, keys)
-				node.WaveformKeys = keys
-			end,
-			GetStyled = function(_, property)
-				return node[property]
-			end,
-			GetStyledPropertyChangedSignal = function(_, property)
-				if options and options.styleOnlySignals then
-					return adaptSignal(environment.newSignal())
-				end
-				return node:GetPropertyChangedSignal(property)
-			end,
-			ResetPropertyToDefault = function(_, property)
-				node[property] = defaultProperty(className, property)
-			end,
-			connectionCount = function()
-				local count = 0
-				for signal in nodeSignals do
-					count += signal.count()
-				end
-				return count
-			end,
-			isDestroyed = function()
-				return not environment.isAlive(actual)
-			end,
-		}
-		node = setmetatable({}, {
-			__index = function(_, key)
-				if overrides[key] ~= nil then
-					return overrides[key]
-				end
-				if methods[key] then
-					return methods[key]
-				end
-				if key == "TextBounds" and options and options.measureText then
-					return options.measureText(node)
-				end
-				if key == "TextFits" and options and options.textFits then
-					local value = options.textFits(node)
-					if value ~= nil then
-						return value
-					end
-				end
-				local ok, value = pcall(function()
-					return ((actual :: unknown) :: { [string]: any })[key]
-				end)
-				if not ok then
-					return nil
-				end
-				if type(value) == "function" then
-					return function(_, ...)
-						local args = table.pack(...)
-						for index = 1, args.n do
-							args[index] = unwrap(args[index])
-						end
-						local values: any =
-							table.pack((value :: (...any) -> ...any)(actual, table.unpack(args, 1, args.n)))
-						raiseHandlerErrors()
-						for index = 1, values.n do
-							local entry = values[index]
-							if key == "GetChildren" or key == "GetDescendants" then
-								local result = {}
-								for i, child in entry do
-									result[i] = wrap(child)
-								end
-								entry = result
-							else
-								entry = wrapMember(entry)
-							end
-							values[index] = entry
-						end
-						return table.unpack(values, 1, values.n)
-					end
-				end
-				return wrapMember(if value == nil and key ~= "TextFits" then defaultProperty(className, key) else value)
-			end,
-			__newindex = function(_, key, value)
-				if className == "GuiService" and key == "SelectedObject" and value then
-					local cursor = value
-					local shown = value.Selectable ~= false
-					while shown and cursor and cursor:IsA("GuiBase2d") do
-						shown = not (
-							(cursor:IsA("GuiObject") and cursor.Visible == false)
-							or (cursor:IsA("LayerCollector") and cursor.Enabled == false)
-						)
-						cursor = cursor.Parent
-					end
-					if not shown then
-						table.insert(rejectedSelections, value)
-						return
-					end
-					if options and options.selectionNeedsPlayerGui then
-						local ancestor = value.Parent
-						while ancestor and ancestor.ClassName ~= "PlayerGui" do
-							ancestor = ancestor.Parent
-						end
-						assert(
-							ancestor,
-							`Cannot set GuiService.SelectedObject to {value.Name} because it is not a descendant of a PlayerGui`
-						)
-					end
-				end
-				if
-					type(value) == "function"
-					or (type(value) == "table" and value.Connect ~= nil)
-					or string.sub(key, 1, 1) == "_"
-				then
-					overrides[key] = value
-				elseif
-					options
-					and options.lenientProperties
-					and key ~= "Parent"
-					and metadata[className].Properties[key] == nil
-					and classes[className].properties[key] == nil
-				then
-					overrides[key] = value
-				else
-					if key == "Parent" then
-						actual.Parent = unwrap(value)
-					else
-						environment.poke(actual, key, unwrap(value))
-					end
-					raiseHandlerErrors()
-				end
-			end,
-		})
-		objects[node] = actual
-		facades[actual] = node
-		if not options or options.recordCreated ~= false then
-			table.insert(made, node)
-		end
-		return node
-	end
-	local function create(className: string): any
-		return wrap(environment.createInstance(className))
-	end
-	function wrap(value: any): any
-		if facades[value] then
-			return facades[value]
-		end
-		if VerifyRoblox.isInstance(value) then
-			return facade(value)
-		end
-		if type(value) == "table" and type(value.Connect) == "function" then
-			return adaptSignal(value)
-		end
-		return value
-	end
-	environment.onCreate(function(object)
-		wrap(object)
-	end)
 	environment.onClone(function(_, copy)
 		if copy:IsA("ViewportFrame") then
 			environment.poke(copy, "CurrentCamera", nil)
 		end
 	end)
-	local heartbeat = adaptSignal(environment.heartbeat)
 
 	local types: any = table.clone(Roblox)
 	types.BrickColor = setmetatable({
@@ -505,41 +334,33 @@ local function new(options: any?): Engine
 			return proxy
 		end,
 	})
-	types.TweenInfo = {
-		new = function(seconds, easingStyle, easingDirection, repeatCount, reverses, delayTime)
-			return {
-				Time = seconds or 1,
-				EasingStyle = easingStyle or Roblox.Enum.EasingStyle.Quad,
-				EasingDirection = easingDirection or Roblox.Enum.EasingDirection.Out,
-				RepeatCount = repeatCount or 0,
-				Reverses = reverses or false,
-				DelayTime = delayTime or 0,
-			}
-		end,
-	}
-	types.FloatCurveKey = {
-		new = function(time, value, interpolation)
-			return { Time = time, Value = value, Interpolation = interpolation }
-		end,
-	}
-	types.Path2DControlPoint = {
-		new = function(position, leftTangent, rightTangent)
-			return { Position = position, LeftTangent = leftTangent, RightTangent = rightTangent }
-		end,
-	}
+	types.TweenInfo = VerifyRoblox.datatypes.TweenInfo
+	types.FloatCurveKey = VerifyRoblox.datatypes.FloatCurveKey
+	types.Path2DControlPoint = VerifyRoblox.datatypes.Path2DControlPoint
 
 	local engine: any = bridge.engine
-	engine.new = create
-	engine.heartbeat = heartbeat
 	engine.clock = os.clock
 	engine.census = function()
-		assert(not options or options.recordCreated ~= false, "census requires recording all created instances")
+		assert(settings.recordCreated ~= false, "census requires recording all created instances")
 		local accounting = bridge.accounting()
 		return { live = accounting.objects, connections = accounting.connections }
 	end
 	engine.made = made
-	engine.rejectedSelections = rejectedSelections
+	engine.rejectedSelections = function(): { any }
+		local targets = {}
+		for _, rejection in assert(bridge.ui).rejectedSelections() do
+			table.insert(targets, rejection.target)
+		end
+		return targets
+	end
+	engine.onWrite = function(listener: (any, string, any) -> ())
+		return bridge.observe(function(event: any)
+			if event.operation == "setProperty" or event.operation == "setParent" then
+				listener(event.object, event.member or "Parent", event.value)
+			end
+		end)
+	end
 	engine.types = types
 	return engine :: Engine
 end
-return { new = new }
+return { new = new, connections = connections }

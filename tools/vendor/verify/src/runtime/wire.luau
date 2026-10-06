@@ -7,7 +7,7 @@ type Report = Verify.Report
 type Segment = Verify.Segment
 
 export type Wire = {
-	encode: (report: Report) -> string,
+	encode: (value: unknown) -> string,
 	parse: (encoded: string) -> unknown,
 	decode: (encoded: string) -> Report,
 	normalize: (value: unknown) -> unknown,
@@ -29,8 +29,8 @@ local function normalize(value: unknown): unknown
 end
 
 local function create(json: Binding.Json): Wire
-	local function encode(report: Report): string
-		return json.encode(report)
+	local function encode(value: unknown): string
+		return json.encode(value)
 	end
 
 	local function parse(encoded: string): unknown

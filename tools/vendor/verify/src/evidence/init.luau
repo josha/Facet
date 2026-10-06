@@ -7,6 +7,7 @@ export type Subject = Seal.Subject
 export type Issue = Validation.Issue
 export type ExpectedBuild = Validation.Expected
 export type Requirement = Validation.Requirement
+export type Cell = Validation.Cell
 export type Attestation = Validation.Attestation
 export type Policy = Validation.Policy
 export type Result = Validation.Result
@@ -20,4 +21,5 @@ return {
 	bindReview = Seal.bindReview,
 	validate = Validation.validate,
 	explain = Validation.explain,
+	expand = Validation.expand,
 }

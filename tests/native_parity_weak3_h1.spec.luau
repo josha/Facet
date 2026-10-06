@@ -56,7 +56,7 @@ return function(verifyHarness: Verify.Harness)
 			root = root,
 			settle = function()
 				for _ = 1, 60 do
-					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
 				end
 			end,
 			stop = function()

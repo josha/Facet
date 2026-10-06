@@ -1,352 +1,504 @@
 # Execution contract
 
-A plan is a finite set of units, declared capabilities and policy. Verify executes that plan.
+A plan is a finite set of units, declared capabilities and policy. Verify executes the plan.
 The consumer defines each locator and supplies the authorized host.
 
-`Core.validatePlan(draft)` normalizes ids, locators, groups, tags, requirements, weights and policy.
-Duplicate ids/locators and malformed fields fail. `selectPlan` narrows by ids, tags, capabilities,
-groups or a predicate over the same source-bearing subject used by harness/session selection.
-`partitionPlan(plan, count, mode?)` assigns every unit once and keeps fixture groups whole.
-Count and weighted batching are deterministic functions of authored metadata. `planDigest` binds
-meaning, not timing. `caseId` composes stable ids. `planFromManifest` accepts an explicitly validated
-manifest. `validateManifest` remains the input boundary. All selection and partitioning use the plan.
-Discovery and changed-file reachability belong to consumers, not a second scheduler in Verify.
+`Core.validatePlan(draft)` normalizes IDs, locators, groups, tags, requirements, weights and policy.
+Duplicate IDs, duplicate locators and malformed fields fail.
+
+- `selectPlan` narrows a plan by IDs, tags, capabilities, groups or a predicate.
+  The predicate sees the same source-bearing subject that harness and session selection use.
+- `partitionPlan(plan, count, mode?)` assigns every unit once and keeps fixture groups whole.
+  Count batching and weighted batching are deterministic functions of the authored metadata.
+- `planDigest` binds the meaning of a plan, not its timing.
+- `caseId` composes stable IDs.
+- `planFromManifest` accepts a manifest that you validated explicitly. `validateManifest` is the input boundary.
+
+All selection and partitioning use the plan.
+Consumers own discovery and changed-file reachability. Verify has no second scheduler.
 
 ## Host boundary
 
-`Core.execute(plan, host, options?)` drives capability negotiation, fixture setup/cleanup, batching,
-run deadlines, failure accounting and receipt composition. A host supplies `runBatch`; optional
-parallel dispatch and artifact routing preserve the same report semantics. A batch outcome is
-`returned`, `faulted`, `timed_out`, or `cancelled`; only a returned valid report carries verdicts.
-The host must stop timed-out/cancelled work and account for every dispatched batch. A clean exit
-without the expected receipt is a fault.
+`Core.execute(plan, host, options?)` drives these steps:
 
-`execute` derives completeness from the original plan. Narrowing, missing results, infrastructure
-faults and contradictory retries remain explicit facts. A narrowed pass is not the complete gate.
-Retries apply only to declared infrastructure outcomes. The report retains every attempt. Verify never retries ordinary
-assertion failures to obtain a pass. Fixture and cleanup failures remain independently
-visible. Artifact sinks return references, not proof of durability or authenticity.
+- Capability negotiation.
+- Fixture setup and cleanup.
+- Batching.
+- Run deadlines.
+- Failure accounting and report composition.
 
-The typed `Host`, `BatchOutcome`, `ExecutionOptions`, `PlanPolicy` and returned `ExecutionReport`
-are exported by `src/core`. [Behavioral tests](../tests/execution.spec.luau) exercise dropped,
-reordered, duplicate, forged and disagreeing deliveries using the injected fake host.
+A host supplies `runBatch`. Optional parallel dispatch and artifact routing keep the same report semantics.
+A batch outcome is `returned`, `faulted`, `timed_out` or `cancelled`. Only a returned valid report carries verdicts.
+The host must stop timed-out and cancelled work and account for every dispatched batch.
+A clean exit without the expected receipt is a fault.
+
+`execute` derives completeness from the original plan.
+Narrowing, missing results, infrastructure faults and contradictory retries stay explicit facts.
+A narrowed pass is not the complete gate.
+
+Retries apply only to declared infrastructure outcomes. The report retains every attempt.
+Verify never retries an ordinary assertion failure to obtain a pass.
+Fixture and cleanup failures stay visible independently.
+Artifact sinks return references. A reference is not proof of durability or authenticity.
+
+`src/core` exports the types `Host`, `BatchOutcome`, `ExecutionOptions`, `PlanPolicy` and `ExecutionReport`.
+[Behavioral tests](../tests/execution.spec.luau) exercise dropped, reordered, duplicate, forged and disagreeing deliveries with the injected fake host.
 
 ## Case lifecycle and waits
 
-Every tier uses the [ordinary harness context](experience.md#one-case-model). Acquire actors and
-resources in `bind(context)`, registering cleanup with `context:defer` before each fallible acquisition.
-Perform readiness queries with `context:await`. Put actions, assertions and checkpoints in the case.
-The harness retains body and cleanup failures independently. There is no separate scenario lifecycle,
-actor runner or transcript verdict model.
+Every host uses the [ordinary harness context](experience.md#one-case-model).
 
-`Core.waitUntil` is the standalone read-only polling primitive. `Lute.runBounded(argv, seconds)`
-enforces an external process-group deadline. `Lute.directoryLock(root)` provides cross-process resource
-ownership. These are host utilities, not alternative case formats.
+1. Acquire actors and resources in `bind(context)`.
+2. Register cleanup with `context:defer` before each fallible acquisition.
+3. Perform readiness queries with `context:await`.
+4. Put actions, assertions and checkpoints in the case.
 
-`Core.accountPlan(plan, execution)` reports what ran, unsupported units and completeness.
-`Core.mediaProbeSummary`, `mediaAudioWindow`, `mediaAudioMeasurement` and `mediaSampleCommands`
-decode media measurements. Decoding alone provides no visual or audible judgment.
+The harness retains body failures and cleanup failures independently.
+Verify has no separate lifecycle, actor runner or transcript verdict model.
+
+These host utilities are not alternative case formats:
+
+- `Core.waitUntil` is the standalone read-only polling primitive.
+- `Lute.runBounded(argv, seconds)` enforces an external process-group deadline.
+- `Lute.directoryLock(root)` provides cross-process resource ownership.
+
+`Core.accountPlan(plan, execution)` reports what ran, the unsupported units and completeness.
+`Core.mediaProbeSummary`, `mediaAudioWindow`, `mediaAudioMeasurement` and `mediaSampleCommands` decode media measurements.
+Decoding alone provides no visual or audible judgment.
 
 ## Lute workers
 
-`Lute.host({worker, command?, directory, capabilities?, arguments?, ...})` starts one process per batch; `arguments` follow a `--` after the run id and `Lute.workerArguments()` returns them with the run id and the selection the worker derives from `--case=`, `--tag=` and `--tier=`.
-The worker process group is bounded by the batch deadline or host `deadlineSeconds` (default 60).
-Use a separate directory for each concurrent run; its batch inputs and reports remain available for
-failure diagnosis. Consumer output files remain the consumer's isolation responsibility.
+`Lute.host({worker, command?, directory, capabilities?, arguments?, ...})` starts one process per batch.
+The host appends `arguments` after a `--` that follows the run ID.
+`Lute.workerArguments()` returns them with the run ID and with the selection that the worker derives from `--case=`, `--tag=`, `--tier=`, `--name=` (a case-name substring) and `--source=`.
 
-`worker` loads a registration function returned by each module. `selfRegisteringWorker` instead calls
-`load(locator, harness)`, so an existing BDD surface can register against each unit's private harness.
-Both use the same session and failure classifier. No global registry is created on import.
+The batch deadline or the host `deadlineSeconds` (default 60) bounds the worker process group.
+Use a separate directory for each concurrent run. The batch inputs and reports stay available for failure diagnosis.
+The consumer isolates its own output files.
+
+Two worker styles exist:
+
+- `worker` loads a registration function that each module returns.
+- `selfRegisteringWorker` calls `load(locator, harness)`. An existing BDD surface can then register against the private harness of each unit.
+
+Both styles use the same session and failure classifier. Importing them creates no global registry.
 [The self-registering example](../examples/self-registering-worker.luau) shows the caller seam.
 
 `runWorkerBatch` and `runSelfRegisteringWorkerBatch` expose that lifecycle for injected execution.
-An explicit `classifyLoadFailure` may name a recognized prerequisite as skipped/unsupported.
-Unrecognized or throwing classifiers leave a hard failure. Successful loading followed by broken
-registration is a failure. Every missing source remains a named case.
+An explicit `classifyLoadFailure` can name a recognized prerequisite as skipped or unsupported.
+An unrecognized or throwing classifier leaves a hard failure.
+A successful load followed by a broken registration is a failure.
+Every missing source stays a named case.
 
-`Lute.corpus` supplies injected discovery rules, require-affinity grouping, literal subset matching,
-worker bounds and stable lock text. A query matching nothing selects nothing. The consumer owns
-filesystem discovery and the committed complete corpus. A static require scan cannot infer dynamic edges. `encodeBatch`/`decodeBatch` transport the existing plan-batch schema.
+`Lute.corpus` supplies these parts:
+
+- Injected discovery rules and require-affinity grouping.
+  `discover({ listDir, rules, order?, compare? })` accepts `fs.listDirectory` of the runtime directly.
+  `order = "sorted"` (default) sorts the final paths. `order = "walk"` keeps the visit order.
+  `compare(left, right)` replaces `<` for entry names and for sorted paths.
+- Literal subset matching, worker bounds and stable lock text.
+
+A query that matches nothing selects nothing.
+The consumer owns filesystem discovery and the committed complete corpus.
+A static require scan cannot infer dynamic edges.
+`encodeBatch` and `decodeBatch` transport the existing plan-batch schema.
 
 ## Lune workers
 
-`Lune.host({worker, command?, directory?, deadlineSeconds?, ...})` from `src/lune` is the Lute host with a different
-runtime binding: one real `lune run` process per batch, the same plan batches, session, load/registration
-classification and report schema. `Lune.worker`, `selfRegisteringWorker`, `runWorkerBatch`,
-`runSelfRegisteringWorkerBatch`, `runBounded`, `encodeBatch`/`decodeBatch` mirror the Lute names. Run
-`lune run examples/lune-run.luau` for a three-batch consumer run with a passing, a failing and a missing unit.
+`Lune.host({worker, command?, directory?, deadlineSeconds?, ...})` from `src/lune` is the Lute host with a different runtime binding.
+It starts one real `lune run` process per batch.
+It uses the same plan batches, session, load and registration classification and report schema.
+`Lune.worker`, `selfRegisteringWorker`, `runWorkerBatch`, `runSelfRegisteringWorkerBatch`, `runBounded`, `encodeBatch` and `decodeBatch` mirror the Lute names.
+Run `lune run examples/lune-run.luau` for a consumer run with three batches: a passing unit, a failing unit and a missing unit.
 
-The logic lives once in `src/runtime` over a `Runtime` binding `{ name, defaultCommand, defaultDirectory,
-json, fs, process, time, stdio }`; `src/lute/runtime.luau` and `src/lune/runtime.luau` supply the services and
-`Binding.validate` refuses an incomplete one. A third runtime needs only a binding. The Lute entry points are
-unchanged and keep the plain-report protocol.
+The logic lives once in `src/runtime`, over a `Runtime` binding `{ name, defaultCommand, defaultDirectory, json, fs, process, time, stdio }`.
+`src/lute/runtime.luau` and `src/lune/runtime.luau` supply the services. `Binding.validate` refuses an incomplete binding.
+A third runtime needs only a binding. The Lute entry points keep the plain-report protocol.
 
-A Lune host defaults to `receipts = "bound"`: the host passes a unique run id as the worker's third argument
-and the worker writes `{ receiptVersion, runId, batchId, report }` to a per-run file. The host returns a report
-only when the receipt parses, belongs to this run and batch, decodes as a valid report and the worker exited
-zero. Missing, malformed, stale (other run), foreign (other batch) or invalid receipts, a nonzero exit beside a
-receipt, an unstartable or absent worker and every timeout are faults or timeouts, never a pass. A worker that exits nonzero beside a valid receipt that records a failed or unsupported load (`unit:<id>:load`) is returned, not faulted: Lune exits 1 after a module raised at `require` even inside `pcall`. Any other nonzero exit beside a receipt stays a fault. Worker
-output is kept beside the receipt as `*-worker.log` and named in the fault detail. `receipts = "report"` (the
-Lute default) accepts a plain report and ignores the exit status. Load, registration and empty-discovery
-outcomes are the ordinary case results and `Core.execute` facts.
+### Receipts
 
-The batch deadline kills the worker's POSIX process group, including grandchildren, through `/bin/sh`.
-Limits: macOS and Linux only; `lune` must be on `PATH` or named in `command`; each worker resolves its own
-`require` paths relative to its script; `@lune/*` services are loaded dynamically, so static analysis does
-not type them; a pass proves Luau logic under Lune, not Lute, Studio or Player behavior.
+A Lune host defaults to `receipts = "bound"`.
+
+1. The host passes a unique run ID as the third argument of the worker.
+2. The worker writes `{ receiptVersion, runId, batchId, report }` to a per-run file.
+3. The host returns a report only when all of these conditions hold:
+   - The receipt parses and belongs to this run and batch.
+   - The receipt decodes as a valid report.
+   - The worker exited with zero.
+
+These cases are faults or timeouts, never a pass:
+
+- A missing, malformed, stale (other run), foreign (other batch) or invalid receipt.
+- A nonzero exit beside a receipt.
+- An unstartable or absent worker.
+- Every timeout.
+
+One exception exists.
+A worker can exit nonzero beside a valid receipt that records a failed or unsupported load (`unit:<id>:load`).
+The host returns that report and does not fault it, because Lune exits with 1 after a module raised at `require`, even inside `pcall`.
+Any other nonzero exit beside a receipt stays a fault.
+
+The host keeps the worker output beside the receipt as `*-worker.log` and names it in the fault detail.
+`receipts = "report"` is the Lute default. It accepts a plain report and ignores the exit status.
+Load, registration and empty-discovery outcomes are ordinary case results and `Core.execute` facts.
+
+### Limits
+
+The batch deadline kills the POSIX process group of the worker, including grandchildren, through `sh`.
+
+- Lune workers run on macOS and Linux only.
+- `lune` must be on `PATH` or named in `command`.
+- Each worker resolves its own `require` paths relative to its script.
+- `@lune/*` services load dynamically, so static analysis does not type them.
+- A pass proves Luau logic under Lune. It does not prove Lute, Studio or Player behavior.
+
 The `lune-specs` producer of the [repository gate](running.md#repository-gate) drives real `lune` subprocesses for these claims.
 
 ## Declarative gates
 
-`Gate.define({ id, producers, policy? })` declares what must be produced. `Lute.gate.run(gate, options?)` and
-`Lune.gate.run` execute it through `Core.execute`: one plan, one `Core.Report`, no second scheduler or receipt. Both
-are bindings over `src/runtime/gate.luau`; another host calls `Gate.run(gate, executor, { runId, ... })` with an
-injected `{ now, wait, start }`.
+`Gate.define({ id, producers, policy? })` declares what a run must produce.
+`Lute.gate.run(gate, options?)` and `Lune.gate.run` execute it through `Core.execute`.
+The result is one plan and one `Core.Report`. No second scheduler and no second record exist.
+Both are bindings over `src/runtime/gate.luau`.
+Another host calls `Gate.run(gate, executor, { runId, ... })` with an injected `{ now, wait, start }`.
 
 | Producer | Fields | Runs |
 | --- | --- | --- |
-| `tests` | `worker`, `locators`, `command?`, `silent?`, `isolate?`, `workers?`, `sourceDeadlineSeconds?`, `args?`, `cases?` | Ordinary spec modules in one [Lute worker](#lute-workers) process (`command` replaces the gate's worker command, for example `{ "lune", "run" }` for a [Lune worker](#lune-workers)), or with `isolate` one worker process per locator (`workers` at a time) accounted as this one producer. `sourceDeadlineSeconds` bounds each isolated source, also by the producer deadline, so one hung source times out alone. Every locator must report a case unless `silent` names it; a silent module may report none because another module requires it. `silent` is declared, never inferred. `cases` declares the exact case census: a missing or an unexpected case fails the producer. `args` are passed to each worker after `--`. A load, registration, hang or fault of one isolated source becomes a failed or timed-out case attributed to that source's locator, counted once. |
-| `command`, `build`, `native` | `argv`, `env?`, `cwd?`, `exit?`, `report?` | An argument vector in a bounded process group, with `env` added to the inherited environment and `cwd` set through the runtime binding (no shell wrapper). `native` must name its host in `requires`. |
-| `benchmark` | `benchmark` | A [benchmark](experience.md#benchmarks) in this process, alone by default. |
+| `tests` | `worker`, `locators`, `command?`, `silent?`, `isolate?`, `workers?`, `sourceDeadlineSeconds?`, `args?`, `cases?` | Ordinary spec modules in one [Lute worker](#lute-workers) process. `command` replaces the worker command of the gate, for example `{ "lune", "run" }` for a [Lune worker](#lune-workers). With `isolate`, one worker process runs per locator, `workers` at a time. The gate accounts them as this one producer. |
+| `command`, `build`, `native` | `argv`, `env?`, `cwd?`, `exit?`, `report?` | An argument vector in a bounded process group. `env` adds to the inherited environment. `cwd` is set through the runtime binding. No shell wrapper runs. `native` must name its host in `requires`. |
+| `benchmark` | `benchmark` or `collection` | A [benchmark](experience.md#benchmarks) or a benchmark collection in this process, alone by default. A producer names one of the two. |
 
-`Gate.shard(plan, { prefix, worker, count, mode?, silent?, ... })` turns a consumer's plan into `tests` producer
-drafts. It uses `partitionPlan`, so fixture groups stay whole and weights balance, and it carries the `silent` names
-that fall in each shard. With `policy.concurrency` the shards run in parallel without losing the plan's structure.
-`Gate.testCases(outcome)` returns the execution report without the producer-level case each `tests` producer adds,
-so counts show only the modules' own cases (it uses the report's own `without`, not a recount).
+Fields of the `tests` producer:
 
-Every producer has a unique `id` and may set `why` (one line shown by `Gate.list` and `Gate.explain`), `after`, `tier`, `tags`, `requires`, `deadlineSeconds` (default
-`policy.commandDeadlineSeconds`, 300) and `exclusive`. Policy sets `concurrency` (default 1), whole-run
-`deadlineSeconds`, `failFast`, `deferrals` and `reuse`.
+- `sourceDeadlineSeconds` bounds each isolated source. The producer deadline also bounds it. One hung source times out alone.
+- Every locator must report a case unless `silent` names it.
+  A silent module can report no case because another module requires it.
+  A consumer declares `silent`. Verify never infers it.
+- `cases` declares the exact case census. A missing case or an unexpected case fails the producer.
+- `args` go to each worker after `--`.
+- A load, registration, hang or fault of one isolated source becomes a failed or timed-out case. The case names the locator of that source and counts once.
 
-- **Order and concurrency.** Producers start in declaration order once everything they run `after` has passed, never more than
-  `concurrency` at once; an exclusive producer runs alone. A producer after one that did not pass is `blocked`.
-- **Deadlines.** Each command is bounded as by `runBounded` and its process group is killed at the limit
-  (whole seconds, rounded up). The run deadline clamps each start; producers it prevents from starting
-  are `timed_out`.
-- **Exit and reports.** Exit zero passes unless `exit` maps the code to `passed`, `failed`, `deferred` or
-  `unsupported`. A producer with `report` must also deliver a current-run report: `{report}`, `{run}`, `{tier}` and `{cases}` in
-  `argv` become the report path and run id, and the command writes `Lute.gate.writeReport(path, run, report)`,
-  the `{ runId, report }` envelope used by the Roblox report channel. The old file is deleted first; another run id, an undecodable
-  report, fewer than `report.minimum` cases or a missing `report.cases` entry fails; `report.exact` also rejects a case `report.cases` does not name. Exit and report must agree.
-  Adopted cases are named `<producer>:<case>`.
-- **Selection.** `{ ids, tiers, tags, cases }` narrows the run (all given kinds must match; any listed value of one kind).
-  Dependencies are pulled in and marked. Unknown or empty selections raise. Anything short of every producer yields
-  verdict `selected`, never `release`. `outcome.scope` states what ran: `complete`, a `label`, the requested filters,
-  `selected`, `notSelected`, `skippedByTier` (a declared tier other than the selected one, with the reason on each
-  record) and `deselected` cases; `Gate.format` prints them. `tiers` and `cases` reach every `tests` worker as
-  `--tier=` and `--case=` and a command's `{tier}` and `{cases}` placeholders. A worker started by `Lute.worker` or
-  `Lune.worker` runs a case tagged `tier:<name>` only in that tier (untagged cases run in every tier) and records each
-  other case as `skipped` with a `deselected:` reason (`Selection.account`); a deselected case is neither a pass nor a
-  failure, never recounted, and keeps the run `selected`. Named `cases` that no selected producer reported fail the run;
-  `cases` alone select the producers whose `cases` census declares them.
-- **Entry points.** `Gate.rerun(outcome)` returns the selection of the producers that did not pass, narrowed to their
-  failing cases when every one reported such cases. `Gate.explain(outcome, id)` says why a producer or case was
-  selected, pulled in, not selected (and why), deferred, blocked, failed or reused; `Gate.list(gate)` lists producers.
-  `Lute.gate.run` and `Lune.gate.run` keep `outcome.json` in the run directory and `latest.json` in the base directory;
-  `last(gate)` returns it only for the same gate digest. `tools/gate.luau` exposes them as `--tier`, `--case`,
-  `--rerun`, `--explain` and `--list`.
-- **Acceptance.** `outcome.acceptance.verdict` is `release`, `deferred`, `selected` or `failed`; only `release`
-  is `releasable`. A missing host capability is `unsupported` and fails. `policy.deferrals[id] = reason` makes an
-  unsupported producer, or an exit code classed `deferred`, `deferred` instead; unnamed ones fail. A deferral is explicit and
-  never a release.
-- **Reuse.** `options.reuse[id] = { report, reference, validatedBy }` satisfies a producer without running it, only for
-  ids in `policy.reuse`. The report is decoded and accounted like any other and the result is marked `reused` with a
-  limitation. The caller validates that the receipt matches the current artifact; Verify cannot.
-- **Build binding.** `options.build` (an `EvidenceBuild`, the one source/tree/cleanliness identity, see [Evidence provenance](api.md#evidence-provenance)) is recorded in
-  the report environment and the outcome. When set, a reused receipt must carry the same build digest or the producer fails.
-- **Outcome.** `{ runId, digest, build?, scope, execution, producers, acceptance }`. Every declared producer has a record (status, exit
-  code, bounded log tails, case ids, reuse, deferral). `execution.report` is the receipt; `Gate.format` renders it.
-  Full logs are written under `<directory>/<runId>/`.
+`Gate.shard(plan, { prefix, worker, count, mode?, silent?, ... })` turns a plan of the consumer into drafts of `tests` producers.
+It uses `partitionPlan`, so fixture groups stay whole and weights balance.
+It carries the `silent` names that fall in each shard.
+With `policy.concurrency`, the shards run in parallel and keep the structure of the plan.
 
-Limits: a benchmark runs in the gate's own process and stops only cooperatively between samples; the gate digest
-binds the definition but not benchmark closures; output is not streamed (use `observe` for progress).
+`Gate.testCases(outcome)` returns the execution report without the producer-level case that each `tests` producer adds.
+The counts then show only the cases of the modules. It uses the `without` of the report and does not recount.
+
+### Producer and policy fields
+
+Every producer has a unique `id`. It can also set these fields:
+
+- `why`: one line that `Gate.list` and `Gate.explain` show.
+- `after`, `tier`, `tags`, `requires` and `exclusive`.
+- `deadlineSeconds`. The default is `policy.commandDeadlineSeconds` (300).
+
+Policy sets `concurrency` (default 1), the whole-run `deadlineSeconds`, `failFast`, `deferrals` and `reuse`.
+
+### Run rules
+
+- **Order and concurrency.** Producers start in declaration order after everything that they run `after` has passed.
+  No more than `concurrency` producers run at once. An exclusive producer runs alone.
+  A producer after one that did not pass is `blocked`.
+- **Deadlines.** Each command is bounded as `runBounded` bounds it. Verify kills its process group at the limit, in whole seconds rounded up.
+  The run deadline clamps each start. Producers that the deadline prevents from starting are `timed_out`.
+- **Exit and reports.**
+  - Exit zero passes, unless `exit` maps the code to `passed`, `failed`, `deferred` or `unsupported`.
+  - A producer with `report` must also deliver a report from the current run.
+    `{report}`, `{run}`, `{tier}` and `{cases}` in `argv` become the report path and the run ID.
+  - The command writes `Lute.gate.writeReport(path, run, report)`. It is the `{ runId, report }` envelope that the Roblox report channel uses.
+  - Verify deletes any file at the report path before the run.
+  - The producer fails for another run ID, an undecodable report, fewer than `report.minimum` cases or a missing `report.cases` entry.
+    `report.exact` also rejects a case that `report.cases` does not name.
+  - The exit and the report must agree.
+  - Adopted cases are named `<producer>:<case>`.
+- **Selection.** `{ ids, tiers, tags, cases, nameContains, sources }` narrows the run.
+  All given kinds must match. Any listed value of one kind matches.
+  - Verify pulls in dependencies and marks them.
+  - An unknown or empty selection raises.
+  - Anything short of every producer yields the verdict `selected`, never `release`.
+  - `outcome.scope` states what ran: `complete`, a `label`, the requested filters, `selected`, `notSelected`, `skippedByTier` (a declared tier other than the selected tier, with the reason on each record) and `deselected` cases. `Gate.format` prints them.
+  - `tiers` and `cases` reach every `tests` worker as `--tier=` and `--case=`. They reach a command as the placeholders `{tier}` and `{cases}`.
+  - `nameContains` and `sources` reach every `tests` worker as `--name=` and `--source=`. A command does not receive them.
+    Without `ids`, tiers or tags, they select the `tests` producers. A filter that matches no case in any selected producer fails the run.
+  - A worker that `Lute.worker` or `Lune.worker` starts runs a case tagged `tier:<name>` only in that tier. It runs untagged cases in every tier.
+    It records each other case as `skipped` with a `deselected:` reason (`Selection.account`).
+    A deselected case is neither a pass nor a failure. Verify never recounts it, and it keeps the run `selected`.
+  - Named `cases` that no selected producer reported fail the run.
+    `cases` alone select the producers whose `cases` census declares them.
+- **Entry points.**
+  - `Gate.rerun(outcome)` returns the selection of the producers that did not pass. It narrows to their failing cases when every one of them reported such cases.
+  - `Gate.explain(outcome, id)` says why a producer or case was selected, pulled in, not selected (with the reason), deferred, blocked, failed or reused.
+  - `Gate.list(gate)` lists the producers.
+  - `Lute.gate.run` and `Lune.gate.run` keep `outcome.json` in the run directory and `latest.json` in the base directory.
+    `last(gate)` returns it only for the same gate digest.
+  - `Lute.gate.cli(draft, args, options?)` and `Lune.gate.cli` parse the flags, run the entry points and return the exit code. See [the gate command line](running.md#gate-command-line).
+  - `tools/gate.luau` exposes these entry points as `--tier`, `--case`, `--name`, `--rerun`, `--explain` and `--list`.
+- **Acceptance.** `outcome.acceptance.verdict` is `release`, `deferred`, `selected` or `failed`. Only `release` is `releasable`.
+  - A missing host capability is `unsupported` and fails.
+  - `policy.deferrals[id] = reason` makes an unsupported producer, or an exit code classed `deferred`, `deferred` instead. An unnamed one fails.
+  - A deferral is explicit. It is never a release.
+- **Reuse.** `options.reuse[id] = { report, reference, validatedBy }` satisfies a producer without running it. It works only for IDs in `policy.reuse`.
+  Verify decodes and accounts the report like any other report. It marks the result `reused` and adds a limitation.
+  The caller validates that the report matches the current artifact. Verify cannot.
+- **Build binding.** `options.build` is an `EvidenceBuild`, the one identity of source, tree and cleanliness. See [evidence provenance](api.md#evidence-provenance).
+  Verify records it in the report environment and in the outcome.
+  When you set it, a reused report must carry the same build digest, or the producer fails.
+- **Outcome.** `{ runId, digest, build?, scope, execution, producers, acceptance }`.
+  Every declared producer has a record: status, exit code, bounded log tails, case IDs, reuse and deferral.
+  `execution.report` is the report. `Gate.format` renders it.
+  Verify writes the full logs under `<directory>/<runId>/`.
+
+Limits:
+
+- A benchmark runs in the process of the gate. It stops only cooperatively between samples.
+- The gate digest binds the definition. It does not bind benchmark closures.
+- Output is not streamed. Use `observe` for progress.
 
 ## Native Studio execution
 
-`Lute.studio.run({place, code, worker, context?, deadlineSeconds?, directory?, studioExecutable?,
-mcpExecutable?, players?, finalCapture?})` copies an XML place into an isolated run directory, starts a disposable Studio,
-selects its unique document through the official Studio MCP, starts play and executes `code` in
-`Server` (default) or `Client`. Use the provided `tools/studio-worker.luau` as `worker`. macOS is the
-reference platform; the launcher uses POSIX process groups. `run` never attaches unless given `attach`
-(see [Attached Studio](#attached-studio)).
+`Lute.studio.run({place, code, worker, context?, deadlineSeconds?, directory?, studioExecutable?, mcpExecutable?, players?, finalCapture?})` runs code in a disposable Studio.
+
+1. It copies an XML place into an isolated run directory.
+2. It starts a disposable Studio and selects its unique document through the official Studio MCP.
+3. It starts play and executes `code` in `Server` (default) or `Client`.
+
+Use the provided `tools/studio-worker.luau` as `worker`.
+macOS is the reference platform. The launcher uses POSIX process groups.
+`run` never attaches unless you give it `attach`. See [attached Studio](#attached-studio).
 Studio must already be installed, authenticated and configured for its MCP tools.
 
-The engine code receives `runId`. Run ordinary cases or a source-bound session and return
-`HttpService:JSONEncode(Roblox.reportChannel.envelope(runId, report))`. The launcher validates identity
-and the ordinary report schema. Missing, malformed or wrong-run reports fault. Results use the existing
-`BatchOutcome`: returned, faulted or timed_out. A returned report can contain failed cases.
+The engine code receives `runId`.
+Run ordinary cases or a source-bound session, and return `HttpService:JSONEncode(Roblox.reportChannel.envelope(runId, report))`.
+The launcher validates the identity and the ordinary report schema.
+A missing, malformed or wrong-run report faults.
+The result uses the `BatchOutcome` states: returned, faulted or timed_out.
+A returned report can contain failed cases.
 
-`Lute.studio.host({place, worker, codeForBatch, capabilities, ...})` implements the standard `Core.Host`
-for `Core.execute`; `codeForBatch(batch)` loads and registers that batch's ordinary cases in the engine.
-The consumer owns its mounted test modules and operation bindings. No additional scenario format exists.
+`Lute.studio.host({place, worker, codeForBatch, capabilities, ...})` implements the standard `Core.Host` for `Core.execute`.
+`codeForBatch(batch)` loads and registers the ordinary cases of that batch in the engine.
+The consumer owns its mounted test modules and operation bindings. No other case format exists.
 
-The default run limit is 90 seconds. An external watchdog kills the owned worker process group,
-including Studio and the MCP process, on timeout. Normal success/failure also terminates those owned
-processes. Case budgets remain cooperative inside the engine; the outer run limit is enforced even
-when engine code never yields. Temporary run directories retain the input, engine/MCP diagnostics and
-one report for diagnosis. They are disposable, not a second receipt ledger.
+The default run limit is 90 seconds.
+An external watchdog kills the owned worker process group, including Studio and the MCP process, on a timeout.
+Normal success and failure also terminate those owned processes.
+Case budgets stay cooperative inside the engine. The outer run limit holds even when engine code never yields.
+Temporary run directories keep the input, the engine and MCP diagnostics and one report for diagnosis.
+They are disposable.
 
-`lute run tools/native-conformance.luau` builds the reference fixture from current source and tests
-simulator/server observation parity, detection of a native mutation defect, a client's actual jump
-and landing, and termination of a wedged engine. `lute run tools/gate.luau --native` includes this check.
-A missing/unavailable engine fails the native command. The default portable gate does not run it and
-cannot establish native parity. Use the native gate when changing engine behavior or its launcher.
+`lute run tools/native-conformance.luau` builds the reference fixture from the current source.
+It tests these behaviors:
 
-Set `players = 1..8` to run a server with that many actual Studio clients through
-`StudioTestService:ExecuteMultiplayerTestAsync`. The code runs on the server and ends the test with
-its report. See the [multiplayer example](../examples/multiplayer.luau); the native gate runs it.
+- Observation parity between the simulator and the server.
+- Detection of a native mutation defect.
+- The actual jump and landing of a client.
+- Termination of a wedged engine.
 
-For single-client runs, `finalCapture = true` saves the final active Studio viewport through the
-supported MCP capture tool before closing Studio. The last case retains the image path and media
-type. This is a final-state artifact, not an earlier checkpoint or a visual judgment. Captures are
-not silently substituted between actors. Multiplayer client capture callbacks need their own
-durable sink; `CaptureService` temporary image references expire with the client.
+`lute run tools/gate.luau --native` includes this check.
+A missing or unavailable engine fails the native command.
+The default portable gate does not run it and cannot establish native parity.
+Use the native gate when you change engine behavior or the launcher.
+
+Set `players = 1..8` to run a server with that many actual Studio clients through `StudioTestService:ExecuteMultiplayerTestAsync`.
+The code runs on the server and ends the test with its report.
+See the [multiplayer example](../examples/multiplayer.luau). The native gate runs it.
+
+For single-client runs, `finalCapture = true` saves the final active Studio viewport through the supported MCP capture tool before Studio closes.
+The last case keeps the image path and media type.
+This artifact shows the final state. It is not an earlier checkpoint and not a visual judgment.
+Verify does not substitute captures between actors silently.
+Multiplayer client capture callbacks need their own durable sink, because temporary `CaptureService` image references expire with the client.
 
 ## Attached Studio
 
-`Lute.studio.attach(options)` uses a Studio the developer already has open, through the official Studio
-MCP. It returns `session, refusal`. `options` is `{ authorize, studioId?, match?, transport?,
-mcpExecutable?, directory?, mode?, callSeconds?, runSeconds?, cleanupSeconds? }`.
+`Lute.studio.attach(options)` uses a Studio that the developer already has open, through the official Studio MCP.
+It returns `session, refusal`.
+`options` is `{ authorize, studioId?, match?, transport?, mcpExecutable?, directory?, mode?, callSeconds?, runSeconds?, cleanupSeconds? }`.
 
-Discovery lists open Studios (`list_roblox_studios`) and selects the one with `studioId` and/or for
-which `match({ id, name })` is true. A missing selector, no match (`absent`) or several matches
-(`ambiguous`) is a refusal naming the candidates; Verify never picks implicitly.
+Discovery lists the open Studios (`list_roblox_studios`).
+It selects the Studio with `studioId`, or the Studio for which `match({ id, name })` is true, or both.
+A missing selector, no match (`absent`) or several matches (`ambiguous`) is a refusal that names the candidates.
+Verify never picks implicitly.
 
-`authorize(request)` is required and returns `{ ok, reason? }`. It receives each request before any
-bytes leave: `{ tool, argumentsJson, fields, studioId, bytes, digest }`, where `bytes` is
-`{"name":...,"arguments":...}` exactly as sent and `digest` its SHA-256 hex. A refusal, a raise or a
-request aimed at another Studio sends nothing. Verify defines no policy; the caller owns grants,
-which place is open and whether its run may change it.
+`authorize(request)` is required. It returns `{ ok, reason? }`.
+It receives each request before any bytes leave: `{ tool, argumentsJson, fields, studioId, bytes, digest }`.
+`bytes` is `{"name":...,"arguments":...}` exactly as Verify sends it. `digest` is its SHA-256 hex.
+A refusal, a raise or a request that targets another Studio sends nothing.
+Verify defines no policy. The caller owns the grants, which place is open and whether the run can change it.
 
-A session offers `call(tool, argumentsJson)`, `execute(datamodel, code)` for `Edit`, `Server` or
-`Client`, `play(start)`, `capture({ argumentsJson?, directory?, stem? })`, `report(datamodel, code,
-runId)` for the ordinary run-bound report channel, and `close()`. Each response has `ok`, `delivery`,
-`refused`, `expired`, `detail`, `result` and `text`. `delivery` is `unsent` (nothing left; safe to
-retry), `possibly_sent` (the call may have taken effect: no answer, lost connection or deadline) or
-`answered`. Verify never retries a call; a caller must not blindly repeat a possibly sent mutation.
+A session offers these members:
 
-`callSeconds` (default 60) bounds each call and `runSeconds` (default 300) the whole session. At a
-deadline the call is abandoned, the transport is closed and the response is `possibly_sent`; later
-calls in an expired run are refused unsent. `close()` gets its own `cleanupSeconds` (default 30), sends the
-play toggle that returns the Studio to its declared prior `mode` (`edit` by default; `play` if the
-Studio was already playing) when the session changed it or lost track of it, closes the transport and
-returns `{ acknowledged, restored, mode, detail? }`. It never closes or kills Studio and sends only
-that toggle; an unacknowledged cleanup (for example the consumer refused the stop) is reported, not
-hidden. Verify cannot query the Studio's mode, so the declared `mode` is trusted.
+- `call(tool, argumentsJson)`.
+- `execute(datamodel, code)` for `Edit`, `Server` or `Client`.
+- `play(start)`.
+- `capture({ argumentsJson?, directory?, stem? })`.
+- `report(datamodel, code, runId)` for the ordinary run-bound report channel.
+- `close()`.
 
-`transport` replaces the MCP process with `{ call(tool, argumentsJson, deadline) -> exchange, close() }`,
-where an exchange is `answered`, `unsent` or `unanswered`. `close` must abort an in-flight call and a
-later `call` must work again. Tests use a fake transport; the default starts the Studio MCP executable
-and reconnects after a deadline.
+Each response has `ok`, `delivery`, `refused`, `expired`, `detail`, `result` and `text`.
+`delivery` has three values:
 
-`Lute.studio.run`, `Lute.studio.host` and `Lute.platform.run({ host = "studio", attach = ... })` accept
-`attach` and run the same engine code and report path as a launched run: play starts, the code runs in
-`context`, the report is validated against the run id, an optional final capture is saved, then
-cleanup runs. Faults, timeouts and unacknowledged cleanup are never a pass. The open place must already
-contain what the code requires, such as the mounted entry; nothing is built, copied or installed.
-Attached runs do not support `players`. They share the developer's Studio with no isolation, so the
-work can see and alter the open place's state; use a launched run for isolation.
+- `unsent`: nothing left. A retry is safe.
+- `possibly_sent`: the call can have taken effect. No answer arrived, the connection was lost or a deadline passed.
+- `answered`.
+
+Verify never retries a call. A caller must not repeat a possibly sent mutation blindly.
+
+`callSeconds` (default 60) bounds each call. `runSeconds` (default 300) bounds the whole session.
+At a deadline, Verify abandons the call and closes the transport. The response is `possibly_sent`.
+The session refuses later calls in an expired run as unsent.
+
+`close()` has its own `cleanupSeconds` (default 30).
+When the session changed the play mode or lost track of it, `close()` sends the play toggle that returns the Studio to its declared prior `mode`.
+The default `mode` is `edit`. It is `play` if the Studio was already playing.
+`close()` then closes the transport and returns `{ acknowledged, restored, mode, detail? }`.
+It never closes or kills Studio and sends only that toggle.
+It reports an unacknowledged cleanup, for example when the consumer refused the stop. It does not hide it.
+Verify cannot query the mode of the Studio, so it trusts the declared `mode`.
+
+`transport` replaces the MCP process with `{ call(tool, argumentsJson, deadline) -> exchange, close() }`.
+An exchange is `answered`, `unsent` or `unanswered`.
+`close` must abort an in-flight call. A later `call` must work again.
+Tests use a fake transport. The default starts the Studio MCP executable and reconnects after a deadline.
+
+`Lute.studio.run`, `Lute.studio.host` and `Lute.platform.run({ host = "studio", attach = ... })` accept `attach`.
+They run the same engine code and report path as a launched run:
+
+1. Play starts.
+2. The code runs in `context`.
+3. Verify validates the report against the run ID.
+4. An optional final capture is saved.
+5. Cleanup runs.
+
+Faults, timeouts and unacknowledged cleanup are never a pass.
+The open place must already contain what the code requires, such as the mounted entry.
+Verify builds, copies and installs nothing.
+Attached runs do not support `players`.
+They share the Studio of the developer with no isolation, so the work can see and change the state of the open place.
+Use a launched run for isolation.
 
 ## Open Cloud execution
 
-`Lute.openCloud.connect({ universeId, placeId, versionId, request, authorize, requestSeconds?,
-pollSeconds?, pollIntervalSeconds?, logPages?, logBytes?, now?, sleep? })` runs the ordinary entry as a
-Luau execution task on an exact published place version, with no local Studio or Player. It is a
-first-class host beside simulator, Studio and Player: `Lute.platform.run({ host = "open-cloud", cloud = ... })`
-and `tools/run.luau --host open-cloud` use the same entry, case IDs, selection, lifecycle and
-`Core.Report`. `Lute.openCloud.host({ connection, codeForBatch, runId?, capabilities?, onOutcome? })` is the
-`Core.Host` for `Core.execute`.
+`Lute.openCloud.connect({ universeId, placeId, versionId, request, authorize, requestSeconds?, pollSeconds?, pollIntervalSeconds?, logPages?, logBytes?, now?, sleep? })` runs the ordinary entry as a Luau execution task on an exact published place version.
+It needs no local Studio and no Player.
 
-Verify holds no credentials and reads no environment or files for this host. The caller supplies
-`request(call, deadline) -> exchange` and `authorize(call) -> { ok, reason? }`. `call` is
-`{ purpose = "submit" | "poll" | "logs", method, url, body?, digest, universeId, placeId, versionId, taskPath? }`;
-the request function adds authentication and performs the HTTP call; an exchange is `answered`
-(`httpStatus`, `body`), `unsent` or `unanswered`. `authorize` sees every call before it is sent.
-`deadline` is an absolute time on the host clock; Verify also abandons a call that exceeds
-`requestSeconds` (default 30). Caller code that outlives an abandoned call is the caller's to stop.
+Open Cloud is a first-class host beside the simulator, Studio and Player.
+`Lute.platform.run({ host = "open-cloud", cloud = ... })` and `tools/run.luau --host open-cloud` use the same entry, case IDs, selection, lifecycle and `Core.Report`.
+`Lute.openCloud.host({ connection, codeForBatch, runId?, capabilities?, onOutcome? })` is the `Core.Host` for `Core.execute`.
 
-`session.run({ code, runId, requires? })` submits once and polls to a terminal state until `pollSeconds`
-(default 330). The code receives `runId`, runs the case lifecycle in the task and returns
-`HttpService:JSONEncode(Roblox.reportChannel.envelope(runId, report))`. The outcome is
-`{ status, passed, delivery, state?, handle?, report?, detail?, logs, diagnostics, timing, runId }`.
+Verify holds no credentials and reads no environment and no files for this host.
+The caller supplies `request(call, deadline) -> exchange` and `authorize(call) -> { ok, reason? }`.
+
+- `call` is `{ purpose = "submit" | "poll" | "logs", method, url, body?, digest, universeId, placeId, versionId, taskPath? }`.
+- The request function adds authentication and performs the HTTP call.
+- An exchange is `answered` (`httpStatus`, `body`), `unsent` or `unanswered`.
+- `authorize` sees every call before Verify sends it.
+- `deadline` is an absolute time on the host clock. Verify also abandons a call that exceeds `requestSeconds` (default 30).
+- The caller stops caller code that outlives an abandoned call.
+
+`session.run({ code, runId, requires? })` submits once and polls until a terminal state or until `pollSeconds` (default 330) pass.
+The code receives `runId`, runs the case lifecycle in the task and returns `HttpService:JSONEncode(Roblox.reportChannel.envelope(runId, report))`.
+The outcome is `{ status, passed, delivery, state?, handle?, report?, detail?, logs, diagnostics, timing, runId }`.
 
 - `passed` is true only for a `COMPLETE` task whose single run-bound report has every case passed.
-  `COMPLETE` alone is not a pass; assertion failures return `status = "returned"` with failed cases.
-  `FAILED`, `CANCELLED`, a missing, malformed, duplicated or other-run report fault.
-- `delivery` is `unsent`, `possibly_sent` or `answered`, as in [Attached Studio](#attached-studio).
-  401, 403, 429 and other client errors, an unsent exchange and a refusing `authorize` are `unsent`.
-  A 5xx, 408, an unanswered or malformed 2xx reply and a submit deadline are `possibly_sent`.
-  Verify never retries a submit, and the host refuses to resubmit a batch whose earlier submit is unknown.
-- A local poll deadline is `timed_out` and does not cancel anything: the task may still run or complete.
+  `COMPLETE` alone is not a pass. Assertion failures return `status = "returned"` with failed cases.
+  `FAILED`, `CANCELLED` and a missing, malformed, duplicated or other-run report fault.
+- `delivery` is `unsent`, `possibly_sent` or `answered`, as in [attached Studio](#attached-studio).
+  - These are `unsent`: 401, 403, 429 and other client errors, an unsent exchange and a refusing `authorize`.
+  - These are `possibly_sent`: a 5xx, a 408, an unanswered or malformed 2xx reply and a submit deadline.
+  - Verify never retries a submit. The host refuses to submit a batch again when the earlier submit is unknown.
+- A local poll deadline gives `timed_out` and cancels nothing. The task can still run or complete.
   The outcome keeps `handle = { path, runId, universeId, placeId, versionId }`.
-  `session.reconcile(handle)` polls that task again without submitting; the host does this
-  automatically when a batch it timed out is run again.
+  `session.reconcile(handle)` polls that task again without a new submit.
+  The host does this automatically when you run a batch again that it timed out.
 - The task path must match the requested universe, place and version exactly. Another path is a fault.
-- Task logs are fetched (bounded by `logPages`, `logBytes`) after a terminal state into `logs`;
-  fetch problems and transient poll failures are listed in `diagnostics`. `timing` carries measured
-  `submitSeconds`, `pollSeconds`, `totalSeconds` and `polls`; the `tools/run.luau` output prints them.
+- After a terminal state, Verify fetches the task logs, bounded by `logPages` and `logBytes`, into `logs`.
+  Fetch problems and transient poll failures appear in `diagnostics`.
+  `timing` carries the measured `submitSeconds`, `pollSeconds`, `totalSeconds` and `polls`. The output of `tools/run.luau` prints them.
 
-Granular operations sit beside `run`. `session.submit(input)` creates the task and returns
-`{ status, delivery, handle?, state?, task?, detail? }` with the task path available before any poll.
-`session.poll(handle)` polls to a terminal state or the deadline without fetching logs, and `session.logs(handle)`
-fetches them separately as `{ ok, text, delivery, diagnostics }`; `reconcile` polls and fetches logs. All use the
-same authorize hook, deadlines, delivery states and handle ownership checks.
+Granular operations sit beside `run`:
 
-`input.binding = "caller"` submits `code` unchanged, with no run id prefix. The caller binds the task to its
-evidence, for example by the digest of the bytes it sent. Outcomes then report `binding = "caller"`, never carry a
-report and are never `passed`; a `COMPLETE` task is `returned` and a failed or cancelled one `faulted`. Every outcome
-exposes `results` (the raw task output results) and `task` (the raw decoded terminal task JSON). The default
-`binding = "run"` is unchanged.
+- `session.submit(input)` creates the task. It returns `{ status, delivery, handle?, state?, task?, detail? }`. The task path is available before any poll.
+- `session.poll(handle)` polls until a terminal state or the deadline. It fetches no logs.
+- `session.logs(handle)` fetches the logs separately as `{ ok, text, delivery, diagnostics }`.
+- `reconcile` polls and fetches the logs.
 
-The host declares `open-cloud-server`. It has no physics simulation, no auto-started place scripts,
-no joined clients and no input, replication, rendering, audio, capture or judgment. A unit requiring
-`native-physics`, `native-multiplayer`, `native-input`, `native-replication`, `native-rendering`,
-`native-audio`, `place-scripts`, `joined-clients`, `capture`, `judgment` or `action:input.*` is refused
-before anything is sent; declaring one in `capabilities` raises. Operation capabilities for a server
-instance host are the caller's to declare.
+All of them use the same authorize hook, deadlines, delivery states and handle ownership checks.
 
-This proves that the named published version executed that code in a Roblox server task and reported
-these results under this run id. It does not prove client, input, replication, rendering, audio or
-physics behavior, player-visible quality, that the place version is the one intended for release, or
-authenticity (the run id is correlation). The place must already contain the mounted framework and
-entry. Caller-facing service limits: a task is capped at five minutes, and a place may have at most ten
-incomplete tasks; exceed either and the service rejects or ends the task. Verify enforces neither and does not
-cancel tasks. Measured queue and run overhead: not yet measured; run
-`examples/open-cloud-transport.luau` live and record the printed `timing` here.
+`input.binding = "caller"` submits `code` unchanged, with no run ID prefix.
+The caller binds the task to its evidence, for example by the digest of the bytes that it sent.
+Outcomes then report `binding = "caller"`, never carry a report and are never `passed`.
+A `COMPLETE` task is `returned`. A failed or cancelled task is `faulted`.
+Every outcome exposes `results` (the raw task output results) and `task` (the raw decoded terminal task JSON).
+The default is `binding = "run"`.
+
+The host declares `open-cloud-server`.
+It has no physics simulation, no auto-started place scripts, no joined clients and no input, replication, rendering, audio, capture or judgment.
+Verify refuses a unit before it sends anything when the unit requires one of these: `native-physics`, `native-multiplayer`, `native-input`, `native-replication`, `native-rendering`, `native-audio`, `place-scripts`, `joined-clients`, `capture`, `judgment` or `action:input.*`.
+Declaring one of them in `capabilities` raises.
+The caller declares the operation capabilities of a server instance host.
+
+A passing run proves that the named published version executed that code in a Roblox server task and reported these results under this run ID.
+It does not prove any of these:
+
+- Client, input, replication, rendering, audio or physics behavior.
+- Player-visible quality.
+- That the place version is the version that you intend to release.
+- Authenticity. The run ID is correlation.
+
+The place must already contain the mounted framework and entry.
+
+Service limits that the caller faces: a task has a cap of five minutes, and a place can have at most ten incomplete tasks.
+The service rejects or ends a task that exceeds either limit.
+Verify enforces neither limit and does not cancel tasks.
+One measurement on a development place: a task that returns at once completes in about 5 seconds from submit to result.
+Your place and the service load change this number. Read the printed `timing` of your own run before you choose this host for a fast loop.
 
 ## Published Player execution
 
-Build the authorized test place with `Lute.platform.buildPublished`, then run the same entry through
-`--host player`. [Setup and commands](running.md) own this workflow. The builder
-supports server execution with client report relay, or client execution after server authorization.
-The server checks the actual joined UserId, entry identity and selected case IDs. Launch data is
-correlation, not authorization. Each player can execute only one request per join.
+Build the authorized test place with `Lute.platform.buildPublished`, then run the same entry through `--host player`.
+[Run cases](running.md#published-player) describes the workflow.
 
-The lower-level `Lute.player.run { placeId, runId, entry?, caseIds?, logPath?, deadlineSeconds? }`
-opens the documented Roblox deep link with the signed-in account. The macOS reference backend
-requires Roblox.app and no existing Player process. It reads the log held open by the new PID,
-validates the ordinary framed report and run identity, and stops that owned process. `logPath` saves
-the collected raw log before cleanup. The default deadline is 90 seconds. Missing, stale, malformed
-or incomplete reports, exits and cleanup failures cannot pass. Ambiguous process ownership faults.
-A delayed OS launch can finish after the startup deadline; Verify does not kill an unidentified process.
+The builder supports two modes: server execution with client report relay, or client execution after server authorization.
+The server checks the actual joined UserId, the entry identity and the selected case IDs.
+Launch data is correlation, not authorization.
+Each player can execute only one request per join.
+
+`Lute.player.run { placeId, runId, entry?, caseIds?, logPath?, deadlineSeconds? }` is the lower-level call.
+It opens the documented Roblox deep link with the signed-in account.
+
+- The macOS reference backend requires Roblox.app and no existing Player process.
+- It reads the log that the new PID holds open, validates the ordinary framed report and the run identity, and stops that owned process.
+- `logPath` saves the collected raw log before cleanup.
+- The default deadline is 90 seconds.
+- A missing, stale, malformed or incomplete report, an exit and a cleanup failure cannot pass.
+- Ambiguous process ownership faults.
+- A delayed OS launch can finish after the startup deadline. Verify does not kill an unidentified process.
+
 The launcher neither publishes places nor installs scripts into existing experiences.
-After republishing, use a new server running the intended place version. Entry and case selection do
-not identify a deployment revision; a valid report from an old server is not proof of the new build.
+After you republish, use a new server that runs the intended place version.
+Entry and case selection do not identify a deployment revision.
+A valid report from an old server is not proof of the new build.
 
-`backend` can supply another platform's typed `now`, `sleep` and `launch` implementation. Its session
-provides `read(remainingSeconds)`, `alive(remainingSeconds)` and `close()`. Respect deadlines and release
-partial acquisitions on failure. [Launcher tests](../tests/player-launcher.spec.luau) exercise this
-contract. Real published Player validation has exercised native character motion, generated fixture
-execution, selected cases, standard report collection and owned-process cleanup. This does not prove
-multiple authenticated Players or durable screenshots: the reference launcher drives one authenticated
-client per machine and has no durable screenshot export. Studio multiplayer remains separate evidence.
+`backend` can supply the typed `now`, `sleep` and `launch` implementation of another platform.
+Its session provides `read(remainingSeconds)`, `alive(remainingSeconds)` and `close()`.
+Respect deadlines and release partial acquisitions on failure.
+[Launcher tests](../tests/player-launcher.spec.luau) exercise this contract.
+
+Real published Player validation has exercised native character motion, generated fixture execution, selected cases, standard report collection and owned-process cleanup.
+It does not prove multiple authenticated Players or durable screenshots.
+The reference launcher drives one authenticated client per machine and has no durable screenshot export.
+Studio multiplayer is separate evidence.
 
 ## Report transport
 
 `Roblox.reportChannel.envelope(runId, report)` validates a report and binds its run identity.
-`receive(envelope, runId)` rejects other runs. `publish(runId, report, encode, emit)` writes framed
-`VERIFY_REPORT` lines; `collect(bytes, runId, decode)` reassembles and validates them. Supply the host's
-JSON codec and output sink. This is the same report for unit and end-to-end cases, not a log-derived
-verdict. Tagged transport rejects missing, mixed, conflicting or multiple complete reports.
-A matching id is correlation, not authentication; callers own channel access and evidence custody.
+`receive(envelope, runId)` rejects other runs.
+`publish(runId, report, encode, emit)` writes framed `VERIFY_REPORT` lines.
+`collect(bytes, runId, decode)` reassembles and validates them.
+Supply the JSON codec and the output sink of the host.
+
+This is the same report for unit and end-to-end cases. It is not a verdict that Verify derives from a log.
+Tagged transport rejects missing, mixed, conflicting and multiple complete reports.
+A matching ID is correlation, not authentication. Callers own channel access and evidence custody.

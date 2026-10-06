@@ -5,6 +5,7 @@ local Bounded = require "./bounded"
 local Files = require "./files"
 local Host = require "./host"
 local Verify = require "../core"
+local Cli = require "./gate-cli"
 local Gate = require "../gate"
 local Wire = require "./wire"
 
@@ -26,6 +27,11 @@ export type Options = {
 	fixtures: { { name: string, acquire: () -> (), release: (() -> ())? } }?,
 }
 
+export type CliOptions = {
+	options: Options?,
+	usage: string?,
+}
+
 export type Gate = {
 	DEFAULT_DIRECTORY: string,
 	DEFAULT_CAPABILITIES: { string },
@@ -33,9 +39,10 @@ export type Gate = {
 	executor: (options: Options, directory: string, runId: string) -> Gate.Executor,
 	writeReport: (path: string, runId: string, report: Verify.Report) -> (),
 	last: (gate: Gate.Definition, options: Options?) -> (Gate.Outcome?, string?),
+	cli: (draft: Gate.Draft, args: { string }, options: CliOptions?) -> number,
 }
 
-local DEFAULT_CAPABILITIES = { "local-luau", "process" }
+local DEFAULT_CAPABILITIES = { "local-luau", "process", Bounded.CAPABILITY }
 
 local sequence = 0
 
@@ -351,7 +358,110 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 		return outcome, nil
 	end
 
+	local function cli(draft: Gate.Draft, args: { string }, cliOptions: CliOptions?): number
+		local settings: CliOptions = if cliOptions ~= nil then cliOptions else {}
+		local base: Options = if settings.options ~= nil then table.clone(settings.options) else {}
+		local say = runtime.stdio.print
+		local command, problem = Cli.parse(args)
+		if command == nil then
+			say(tostring(problem))
+			say(settings.usage or Cli.USAGE)
+			return 2
+		end
+		local only = table.clone(command.only)
+		local narrowed, absent = Cli.narrow(draft, command.files, only)
+		if narrowed == nil then
+			say(tostring(absent))
+			return 2
+		end
+		local gate = Gate.define(narrowed)
+		if command.list then
+			say(Gate.list(gate))
+			return 0
+		end
+		local previous, missing = last(gate, base)
+		if command.explain ~= nil then
+			if previous == nil then
+				say(tostring(missing))
+				return 1
+			end
+			say(
+				Gate.explain(previous, command.explain)
+					or ("nothing named " .. command.explain .. " in the last outcome")
+			)
+			return 0
+		end
+		local selection: Gate.Selection? = nil
+		if command.rerun then
+			if previous == nil then
+				say(tostring(missing))
+				return 1
+			end
+			selection = Gate.rerun(previous)
+			if selection == nil then
+				say "gate: the last outcome has nothing to rerun"
+				return 0
+			end
+		elseif #only > 0 or #command.tiers > 0 or #command.cases > 0 or command.name ~= nil then
+			selection = {
+				ids = if #only > 0 then only else nil,
+				tiers = if #command.tiers > 0 then command.tiers else nil,
+				cases = if #command.cases > 0 then command.cases else nil,
+				nameContains = command.name,
+			}
+		end
+		base.selection = selection
+		if base.observe == nil then
+			base.observe = function(record: Gate.Record)
+				say(("-> %-12s %s"):format(record.status, record.id))
+			end
+		end
+		local outcome = run(gate, base)
+		for _, record in outcome.producers do
+			if record.status ~= "passed" and record.status ~= "not_selected" and record.status ~= "deferred" then
+				say(("\n== %s: %s"):format(record.id, record.status))
+				if record.detail ~= nil then
+					say(record.detail)
+				end
+				if record.log ~= nil then
+					say(record.log.stdout)
+					say(record.log.stderr)
+				end
+			end
+		end
+		for _, result in outcome.execution.report.results do
+			if result.status ~= "passed" and result.status ~= "skipped" and result.status ~= "unsupported" then
+				say(
+					("case %s: %s %s"):format(
+						result.id,
+						result.status,
+						if result.failures[1] ~= nil then result.failures[1].message else ""
+					)
+				)
+			end
+		end
+		say(Gate.format(outcome))
+		local verdict = outcome.acceptance.verdict
+		if verdict == "failed" then
+			say(("gate: FAILED (%d producer(s))"):format(#outcome.acceptance.failed))
+			return 1
+		elseif verdict == "selected" then
+			say(("gate: NARROWED run passed (%d producer(s)); this is not the gate"):format(#outcome.acceptance.passed))
+		elseif verdict == "deferred" then
+			say(
+				("gate: PASSED (%d producer(s); deferred: %s)"):format(
+					#outcome.acceptance.passed,
+					table.concat(outcome.acceptance.deferred, ", ")
+				)
+			)
+		else
+			say(("gate: PASSED (%d producer(s))"):format(#outcome.acceptance.passed))
+		end
+		return 0
+	end
+
 	return {
+		cli = cli,
 		DEFAULT_DIRECTORY = baseOf {},
 		DEFAULT_CAPABILITIES = DEFAULT_CAPABILITIES,
 		run = run,

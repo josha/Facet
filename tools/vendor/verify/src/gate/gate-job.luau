@@ -306,13 +306,32 @@ local function finish(
 end
 
 local function benchmark(producer: Producer, ctx: Context, deadline: number?): Built
-	local spec = producer.benchmark :: Benchmark.Spec
-	local run = table.clone(spec)
-	run.clock = spec.clock or ctx.now
-	if deadline ~= nil then
-		run.deadlineSeconds = if spec.deadlineSeconds ~= nil then math.min(spec.deadlineSeconds, deadline) else deadline
+	local function bounded(spec: Benchmark.Spec): Benchmark.Spec
+		local run = table.clone(spec)
+		run.clock = spec.clock or ctx.now
+		if deadline ~= nil then
+			run.deadlineSeconds = if spec.deadlineSeconds ~= nil
+				then math.min(spec.deadlineSeconds, deadline)
+				else deadline
+		end
+		return run
 	end
-	local options = Benchmark.case(run)
+	local options: Harness.CaseOptions
+	if producer.collection ~= nil then
+		local source = producer.collection
+		local members: { Benchmark.Spec } = {}
+		for _, member in source.benchmarks do
+			table.insert(members, bounded(member))
+		end
+		options = Benchmark.collection {
+			name = source.name,
+			yardstick = source.yardstick,
+			benchmarks = members,
+			clock = source.clock or ctx.now,
+		}
+	else
+		options = Benchmark.case(bounded(producer.benchmark :: Benchmark.Spec))
+	end
 	local base = harnessReport(producer, ctx, nil, options.run)
 	return finish(producer, ctx, base, nil, true, nil)
 end

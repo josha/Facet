@@ -21,7 +21,13 @@ export type Options = {
 	ui: (UiFakes.Options | false)?,
 	classes: { [string]: Environment.ClassSpec }?,
 	referenceClass: ((className: string, property: string) -> string?)?,
-	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())?,
+	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ...unknown)?,
+	defaultProperty: ((className: string, property: string) -> unknown)?,
+	handlerErrors: Environment.HandlerErrors?,
+	computed: { [string]: Environment.Computed }?,
+	undeclaredWrites: boolean?,
+	undeclaredReads: ("raise" | "nil")?,
+	functionDoubles: boolean?,
 }
 
 local SCHEMA_VERSION = 1
@@ -156,6 +162,12 @@ local function bridge(snapshot: Snapshot, options: Options?): FixtureBridge.Brid
 		classes = settings.classes,
 		referenceClass = settings.referenceClass,
 		validateProperty = settings.validateProperty,
+		defaultProperty = settings.defaultProperty,
+		handlerErrors = settings.handlerErrors,
+		computed = settings.computed,
+		undeclaredWrites = settings.undeclaredWrites,
+		undeclaredReads = settings.undeclaredReads,
+		functionDoubles = settings.functionDoubles,
 		ui = settings.ui,
 	}
 end

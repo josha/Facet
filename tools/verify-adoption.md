@@ -7,11 +7,10 @@ policy and small bindings.
 
 ## What Verify owns
 
-- `Gate.define` and `Lune.gate.run` run every producer as one plan. They bound
-  each process group, keep the logs, apply the selection and compute the scope
-  and the verdict. `tools/lune/producers.json` declares the producers.
-  `tools/lune/gate.luau` binds the tier, the deferral policy and the build
-  identity.
+- `Lune.gate.cli` defines and runs the gate from `tools/lune/producers.json`.
+  It owns the command line, the selection, process bounds, logs, scope and the
+  verdict. `tools/lune/gate.luau` adds the tier names, the deferral policy and
+  the build identity.
 - The `suite` producer is a `tests` producer. Verify runs each source in its
   own Lune worker, four at a time, with a deadline for each source and a
   run-bound receipt. Its `cases` field is the committed census. A missing, an
@@ -19,10 +18,12 @@ policy and small bindings.
 - A case with the tag `tier:release` runs only in the release tier. Below that
   tier, Verify records the case as deselected, and the run is not complete.
 - The gate outcome carries the build binding: commit, tree, clean state and
-  package source hash. `tools/package.py` reads that outcome.
-- `Roblox.fixtureBridge` composes reflection, UI fakes, clone state and the
-  engine seam for `tests/lib/native_engine.luau`. The fixture installs no
-  validator for each property write, so the cost of a write did not change.
+  package source hash. `tools/package.py` reads
+  `artifacts/verify/native/gate/latest.json`.
+- `Roblox.fixtureBridge` is the test fixture. The specs use its simulated
+  instances directly. `tests/lib/native_engine.luau` holds only the Facet
+  configuration: the reshaped class database, the method doubles, the default
+  lookup and the datatype table. The instance facade is removed.
 - `Benchmark.collect` owns warmup, sampling, hooks and the shared yardstick
   for `tools/lune/bench.luau`.
 
@@ -32,17 +33,23 @@ policy and small bindings.
   `tools/check_architecture.py` and `tools/check_coverage.py`, and the gate
   runs them as producers. `replacement-cases` checks that each mapped case is
   in the census that the `suite` producer must pass.
-- `tests/lib/native_engine.luau` keeps the Facet facade: Compose signal
-  adapters, `TweenInfo` attribute tokens, reflected default values, the
-  `UIShadow` class, selection rejection records and text measurement
-  callbacks. About 4,000 call sites in the specs read this facade. The fixture
-  is a native double. It does not prove engine behavior.
 - `tools/lune/bench.luau` keeps the comparison as a `judge`: the yardstick p95
   mean, the 1.5 factor, the millisecond floor, the p50 scenes, the drift limit
   and the heap checkpoints. The samples, the baseline and the thresholds are
   unchanged.
 - `tools/lune/perf.luau` and the `check_perf_*` and `check_live_evidence`
   validators are Facet workloads and recorded evidence policy.
+- `tools/lune/build.luau`, `release.luau` and `mkpair.luau` replace the shell
+  scripts. `tools/studio/capture_viewport.sh` stays, because it drives the
+  screen capture of the host.
+
+## Fixture change and the benchmark
+
+The benchmark scenes run on the test fixture. Without the facade, the cost of
+the fixture changed: a property read is faster and a property write is slower.
+Thus scene timings differ from earlier runs in both directions. The baseline
+and the thresholds are unchanged, and the benchmark passes against them. Do
+not compare a scene timing from before this change with one from after it.
 
 ## Verdicts
 
@@ -51,7 +58,7 @@ policy and small bindings.
 | `release`, every producer passed | `release` | 0 |
 | `release` with an environment deferral | `deferred` | 1 |
 | `full` or `fast`, complete tier | `selected` | 0 |
-| `--rerun` or `spec` | `selected`, not tier evidence | 0 |
+| `--only`, `--rerun` or `spec` | `selected`, not tier evidence | 0 |
 | A failed, timed-out or blocked producer | `failed` | 1 |
 
 A studio, device or timing producer that exits 2 is `deferred` by name in the

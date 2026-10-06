@@ -92,7 +92,7 @@ return function(verifyHarness: Verify.Harness)
 	local function tab(world: World)
 		local traverse = find(world.parent, "FacetTraversal")
 		assert(traverse, "the traversal context exists")
-		traverse:FindFirstChild("Traverse").Pressed.fire()
+		traverse:FindFirstChild("Traverse").Pressed:Fire()
 	end
 
 	local function selected(world: World): string
@@ -337,7 +337,7 @@ return function(verifyHarness: Verify.Harness)
 					local landscape, portrait = { width = 844, height = 390 }, { width = 390, height = 844 }
 					local function settle(world: World, box: { number })
 						measured.measure(world.screen, world.engine, box)
-						world.engine.heartbeat.fire(1)
+						world.engine.heartbeat:Fire(1)
 					end
 					local fresh = hudWorld(landscape)
 					settle(fresh, measured.LANDSCAPE)

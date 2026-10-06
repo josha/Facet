@@ -194,7 +194,7 @@ for lap = 1, 3 do
 	local label = node:FindFirstChild("Title")
 	local button = node:FindFirstChild("Go")
 	check(label ~= nil and button ~= nil, `lap {lap}: native control tree mounts`)
-	button.Activated.fire()
+	button.Activated:Fire()
 	check(taps == lap, `lap {lap}: native activation reaches the callback`)
 	title:set(`Changed {lap}`)
 	check(label.Text == `Changed {lap}`, `lap {lap}: Compose updates native text`)
@@ -205,7 +205,10 @@ for lap = 1, 3 do
 	)
 	close()
 	check(#target:GetChildren() == 0, `lap {lap}: owned scene is removed`)
-	check(button.Activated.count() == 0, `lap {lap}: owned input connection is released`)
+	check(
+		require("../../tests/lib/native_engine").connections(button.Activated) == 0,
+		`lap {lap}: owned input connection is released`
+	)
 end
 runtime:dispose()
 if #failures > 0 then

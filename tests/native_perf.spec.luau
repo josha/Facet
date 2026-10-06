@@ -321,7 +321,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(phases.inputToVisible > 0):toBe(true)
 				Verify.expect(state.workload.boostText.Text):toBe("Boost x1")
 				for _, button in state.workload.nodes do
-					button.Activated.fire()
+					button.Activated:Fire()
 				end
 				Verify.expect((state.workload.boosts:peek())):toBe(5)
 				Verify.expect(state.workload.boostText.Text):toBe("Boost x5")
@@ -479,10 +479,10 @@ return function(verifyHarness: Verify.Harness)
 					end
 					table.clear(log)
 					for _, node in { root, child, leaf } do
-						Verify.expect((node.AncestryChanged.count())):toBe(0)
-						Verify.expect((node.Destroying.count())):toBe(0)
-						node.AncestryChanged.fire(node, nil)
-						node.Destroying.fire()
+						Verify.expect((require("./lib/native_engine").connections(node.AncestryChanged))):toBe(0)
+						Verify.expect((require("./lib/native_engine").connections(node.Destroying))):toBe(0)
+						node.AncestryChanged:Fire(node, nil)
+						node.Destroying:Fire()
 					end
 					Verify.expect(#log):toBe(0)
 					first:Destroy()

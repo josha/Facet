@@ -734,7 +734,7 @@ return function(verifyHarness: Verify.Harness)
 				})
 			end, { motionLevel = "none", theme = package })
 			world.input.MouseEnabled, world.input.TouchEnabled, world.input.GamepadEnabled = true, false, false
-			world.find("Trigger").Activated.fire()
+			world.find("Trigger").Activated:Fire()
 			local function pitch(): { string }
 				local panel = world.find("MenuPanel", world.screen.Parent)
 				local out = {}
@@ -793,7 +793,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, { motionLevel = "none", theme = package })
 				world.input.MouseEnabled = true
-				world.find("Trigger").Activated.fire()
+				world.find("Trigger").Activated:Fire()
 				local panel = world.find("MenuPanel", world.screen.Parent)
 				for _, id in { "slow", "normal", "fast" } do
 					Verify.expect(world.find(id, panel).Size.Y.Offset):toBe(28)
@@ -828,7 +828,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((row:HasTag("facet-toggle-plain"))):toBe(true)
 				Verify.expect(row.Size.Y.Offset):toBe(36)
 				Verify.expect((resolve(sheet, row, "TextSize"))):toBe(14)
-				row.Activated.fire()
+				row.Activated:Fire()
 				Verify.expect((value:peek())):toBe(true)
 				Verify.expect((row:HasTag("facet-selected"))):toBe(false)
 				Verify.expect((row:FindFirstChild("Indicator", true):HasTag("facet-toggle-on"))):toBe(true)

@@ -31,8 +31,8 @@ where.
   weaker replacement. The five Studio producers of the performance lab have
   their evidence. See [Producers](#producers).
 - A complete run writes the Verify gate outcome to
-  `artifacts/verify/latest-<tier>.json`. `python3 tools/package.py publish` reads the `release` file and
-  refuses anything but a clean, passing run of the same source.
+  `artifacts/verify/native/gate/latest.json`. `python3 tools/package.py publish` reads that file and
+  refuses anything but a clean, releasable run of the same source.
 - The audit found 10 defects in `src` and 3 in the examples. All of them
   are fixed. The parity tests found and fixed 18 more defects in `src` and
   7 more in the examples. [Fixed after the audit](#fixed-after-the-audit)
@@ -253,8 +253,8 @@ or retired with its subject.
 
 `tools/lune/gate.luau` declares the producers as one Verify gate.
 `lune run tools/lune/verify <tier>` selects every producer of that tier and of the lower
-tiers. Use `--explain` to see each selected producer, its environment, its tier
-and the main producers that it replaces.
+tiers. Use `--list` to see each producer, its tier and the main producers
+that it replaces.
 
 - A producer that exits 0 passes.
 - A studio or device producer that exits 2 is `deferred`. Its live evidence
@@ -266,7 +266,8 @@ and the main producers that it replaces.
 - The `full` tier reports a deferral and continues. The `release` tier is
   the complete gate. Its verdict is `release` only when no producer is
   deferred.
-- A `--rerun` selection has the verdict `selected`. It is not tier evidence.
+- An `--only` or `--rerun` selection has the verdict `selected`. It is not tier
+  evidence.
 
 Main put `perf` and `bench` in the `release` tier only, and its `full` tier
 read a recorded report. The candidate runs `perf` and `bench` in `full`, and
@@ -449,11 +450,11 @@ See [the lab in Roblox Studio](19-paired-performance.md#the-performance-lab-in-r
 
 ### Release evidence
 
-A complete `full` or `release` run writes the Verify gate outcome to
-`artifacts/verify/latest-<tier>.json`. Its `build` object holds the commit, the
+Each run writes the Verify gate outcome to
+`artifacts/verify/native/gate/latest.json`. Its `build` object holds the commit, the
 tree, whether the tree was clean when the run started, and the package source
 hash. Its `acceptance` object holds the verdict.
-`python3 tools/package.py publish` reads `artifacts/verify/latest-release.json`. It
+`python3 tools/package.py publish` reads that file. It
 refuses a missing file, an incomplete gate, a verdict other than `release`, a
 dirty tree and a different source hash. Only a clean, releasable `release` run
 allows a publish.

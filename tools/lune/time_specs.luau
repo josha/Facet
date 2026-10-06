@@ -2,7 +2,7 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
-local outcome = serde.decode("json", fs.readFile(process.args[1] or "artifacts/verify/native/report.json"))
+local outcome = serde.decode("json", fs.readFile(process.args[1] or "artifacts/verify/native/gate/latest.json"))
 local rows = {}
 local bySource = {}
 for _, result in outcome.execution.report.results do

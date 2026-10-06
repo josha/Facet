@@ -104,7 +104,7 @@ CANARY = "tools/lune/package_canary.luau"
 
 DEFAULT_CONFIG = os.path.join(REPO, "package", "facet-package.json")
 DEFAULT_RECEIPTS = os.path.join(REPO, "package", "receipts")
-GATE_EVIDENCE = os.path.join(REPO, "artifacts", "verify", "latest-release.json")
+GATE_EVIDENCE = os.path.join(REPO, "artifacts", "verify", "native", "gate", "latest.json")
 
 DEFAULT_MODEL = os.path.join(BUILD, "Facet.rbxm")
 DEFAULT_XML = os.path.join(BUILD, "Facet.rbxmx")

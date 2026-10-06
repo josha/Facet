@@ -94,7 +94,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function press(w: any, name: string)
-		find(w.node, "Input/" .. name).Activated.fire()
+		find(w.node, "Input/" .. name).Activated:Fire()
 	end
 
 	verifyHarness:suite("native NumberInput preset", function()
@@ -322,13 +322,13 @@ return function(verifyHarness: Verify.Harness)
 					local w = numberWorld({ draft = "0", number = 0, stepButtons = true, step = 1, min = 0, max = 20 })
 					local button = find(w.node, "Input/Increment")
 					local held = { UserInputType = w.E.UserInputType.MouseButton1, KeyCode = w.E.KeyCode:FromValue(0) }
-					expect((w.engine.heartbeat.count())):toBe(0)
-					button.InputBegan.fire(held)
-					w.engine.heartbeat.fire(0.4)
-					w.engine.heartbeat.fire(0.1)
+					expect((engineLib.connections(w.engine.heartbeat))):toBe(0)
+					button.InputBegan:Fire(held)
+					w.engine.heartbeat:Fire(0.4)
+					w.engine.heartbeat:Fire(0.1)
 					expect((w.number:peek())):toBe(2)
-					button.InputEnded.fire(held)
-					expect((w.engine.heartbeat.count())):toBe(0)
+					button.InputEnded:Fire(held)
+					expect((engineLib.connections(w.engine.heartbeat))):toBe(0)
 					w.stop()
 				end,
 			}
@@ -461,7 +461,7 @@ return function(verifyHarness: Verify.Harness)
 					local before = w.number:peek()
 					local button = find(w.node, "Input/" .. case.path)
 					expect(`{case.name}: {button.Interactable}`):toBe(`{case.name}: false`)
-					button.Activated.fire()
+					button.Activated:Fire()
 					expect(`{case.name}: {w.number:peek()} {#w.commits}`):toBe(`{case.name}: {before} 0`)
 					w.stop()
 				end
@@ -497,16 +497,16 @@ return function(verifyHarness: Verify.Harness)
 			local mouse =
 				{ UserInputType = w.E.UserInputType.MouseButton1, Position = w.engine.types.Vector3.new(x, 10, 0) }
 			w.mouse = mouse
-			w.field.InputBegan.fire(mouse)
+			w.field.InputBegan:Fire(mouse)
 		end
 		local function move(w: any, dx: number, dy: number?)
-			w.input.InputChanged.fire({
+			w.input.InputChanged:Fire({
 				UserInputType = w.E.UserInputType.MouseMovement,
 				Position = w.engine.types.Vector3.new(100 + dx, 10 + (dy or 0), 0),
 			})
 		end
 		local function up(w: any)
-			w.input.InputEnded.fire(w.mouse)
+			w.input.InputEnded:Fire(w.mouse)
 		end
 
 		verifyHarness:case("a press that never promotes leaves the native tap and typing alone", {
@@ -520,7 +520,7 @@ return function(verifyHarness: Verify.Harness)
 				w.field.Text = "105"
 				w.field:ReleaseFocus(true)
 				expect(`{w.number:peek()} {#w.commits} {w.commits[1].value}`):toBe("20 1 20")
-				expect((w.input.InputChanged.count())):toBe(0)
+				expect((engineLib.connections(w.input.InputChanged))):toBe(0)
 				w.stop()
 			end,
 		})
@@ -569,7 +569,7 @@ return function(verifyHarness: Verify.Harness)
 					if finish == "end" then
 						up(w)
 					else
-						w.input.InputBegan.fire({
+						w.input.InputBegan:Fire({
 							KeyCode = w.E.KeyCode.Escape,
 							UserInputType = w.E.UserInputType.Keyboard,
 						})
@@ -598,7 +598,7 @@ return function(verifyHarness: Verify.Harness)
 						move(w, 24)
 						expect(`{how} moved {w.number:peek()}`):toBe(`{how} moved 13`)
 						if how == "cancel" then
-							w.input.InputBegan.fire({
+							w.input.InputBegan:Fire({
 								KeyCode = w.E.KeyCode.ButtonB,
 								UserInputType = w.E.UserInputType.Gamepad1,
 							})
@@ -643,20 +643,20 @@ return function(verifyHarness: Verify.Harness)
 				expect((w.number:peek())):toBe(12)
 				w.visible:set(false)
 				expect(`{w.number:peek()} {w.draft:peek()}`):toBe("10 10")
-				expect((w.input.InputChanged.count())):toBe(0)
+				expect((engineLib.connections(w.input.InputChanged))):toBe(0)
 				w.stop()
 				local plain = scrubWorld({ scrub = false })
 				down(plain, 100)
 				move(plain, 40)
 				expect(`{plain.number:peek()} {plain.field:IsFocused()}`):toBe("10 true")
-				expect((plain.input.InputChanged.count())):toBe(0)
+				expect((engineLib.connections(plain.input.InputChanged))):toBe(0)
 				plain.stop()
 				local none = numberWorld()
-				none.field.InputBegan.fire({
+				none.field.InputBegan:Fire({
 					UserInputType = none.E.UserInputType.MouseButton1,
 					Position = none.engine.types.Vector3.new(1, 1, 0),
 				})
-				expect((none.input.InputEnded.count())):toBe(0)
+				expect((engineLib.connections(none.input.InputEnded))):toBe(0)
 				none.stop()
 			end,
 		})

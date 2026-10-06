@@ -3,7 +3,7 @@ local active: any = nil
 local api = {}
 
 function api.press(node: any, value: any)
-	node.InputBegan.fire(value)
+	node.InputBegan:Fire(value)
 	if node.IsA == nil or node:IsA("UserInputService") or value.Position == nil then
 		return
 	end
@@ -16,12 +16,12 @@ function api.press(node: any, value: any)
 	if detector and detector.Enabled then
 		active = { detector = detector, press = value }
 		local V2 = require("@lune/roblox").Vector2
-		detector.DragStart.fire(V2.new(value.Position.X, value.Position.Y))
+		detector.DragStart:Fire(V2.new(value.Position.X, value.Position.Y))
 	end
 end
 
 function api.move(input: any, value: any)
-	input.InputChanged.fire(value)
+	input.InputChanged:Fire(value)
 	if
 		active
 		and active.detector.Parent
@@ -29,27 +29,27 @@ function api.move(input: any, value: any)
 		and (value == active.press or tostring(value.UserInputType) == "Enum.UserInputType.MouseMovement")
 	then
 		local V2 = require("@lune/roblox").Vector2
-		active.detector.DragContinue.fire(V2.new(value.Position.X, value.Position.Y))
+		active.detector.DragContinue:Fire(V2.new(value.Position.X, value.Position.Y))
 	end
 end
 
 function api.finish(input: any, value: any)
 	local drag = active
 	if drag and value ~= drag.press and tostring(value.UserInputType) == "Enum.UserInputType.Touch" then
-		input.InputEnded.fire(value)
+		input.InputEnded:Fire(value)
 		return
 	end
 	active = nil
 	if tostring(value.UserInputState) == "Enum.UserInputState.Cancel" then
-		input.InputEnded.fire(value)
+		input.InputEnded:Fire(value)
 		return
 	end
 	if drag and drag.detector.Parent then
 		local position = value.Position or drag.press.Position
 		local V2 = require("@lune/roblox").Vector2
-		drag.detector.DragEnd.fire(V2.new(position.X, position.Y))
+		drag.detector.DragEnd:Fire(V2.new(position.X, position.Y))
 	end
-	input.InputEnded.fire(value)
+	input.InputEnded:Fire(value)
 end
 
 function api.measure(node: any)

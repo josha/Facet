@@ -38,6 +38,7 @@ export type ProducerDraft = {
 	args: { string }?,
 	cases: { string }?,
 	benchmark: Benchmark.Spec?,
+	collection: Benchmark.Collection?,
 }
 
 export type Producer = {
@@ -65,6 +66,7 @@ export type Producer = {
 	args: { string },
 	cases: { string }?,
 	benchmark: Benchmark.Spec?,
+	collection: Benchmark.Collection?,
 }
 
 export type PolicyDraft = {
@@ -107,6 +109,8 @@ export type Selection = {
 	tiers: { string }?,
 	tags: { string }?,
 	cases: { string }?,
+	nameContains: string?,
+	sources: { string }?,
 }
 
 export type Reuse = {
@@ -234,6 +238,8 @@ export type Scope = {
 	tiers: { string },
 	tags: { string },
 	cases: { string },
+	nameContains: string?,
+	sources: { string },
 	selected: { string },
 	notSelected: { string },
 	skippedByTier: { string },

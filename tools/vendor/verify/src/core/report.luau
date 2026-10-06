@@ -261,10 +261,37 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			assert(value == nil or Shape.finiteNonnegative(value), "invalid performance bound")
 			return value :: number?
 		end
+		local percentiles: { number }? = nil
+		if input.percentiles ~= nil then
+			percentiles = {}
+			for _, value in rows(input.percentiles) do
+				assert(type(value) == "number", "invalid performance percentile")
+				table.insert(percentiles :: { number }, value)
+			end
+		end
+		local series: Performance.Series? = nil
+		if input.series ~= nil then
+			series = {}
+			for name, runs in fields(input.series) do
+				assert(type(name) == "string", "invalid series name")
+				local copiedRuns: { { number } } = {}
+				for _, run in rows(runs) do
+					local values: { number } = {}
+					for _, value in rows(run) do
+						assert(type(value) == "number", "invalid series value")
+						table.insert(values, value)
+					end
+					table.insert(copiedRuns, values)
+				end
+				(series :: Performance.Series)[name] = copiedRuns
+			end
+		end
 		local copiedInput: Performance.Input = {
 			samples = samples,
 			unit = requiredString(input.unit, "unit"),
 			threshold = optionalNumber(input.threshold),
+			percentiles = percentiles,
+			series = series,
 			context = {
 				environment = requiredString(context.environment, "environment"),
 				signal = requiredString(context.signal, "signal"),

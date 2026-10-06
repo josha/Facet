@@ -686,7 +686,7 @@ return function(verifyHarness: Verify.Harness)
 							options = THREE,
 						}
 					end)
-					find(world.root, "Trigger").Activated.fire()
+					find(world.root, "Trigger").Activated:Fire()
 					local panel = find(world.root, "MenuPanel")
 					local row = find(panel, "normal")
 					local title = find(row, "Title")

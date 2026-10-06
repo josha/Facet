@@ -55,7 +55,7 @@ return function(verifyHarness: Verify.Harness)
 			step = function(seconds: number)
 				for _ = 1, math.ceil(seconds * 60) do
 					now += 1 / 60
-					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
 				end
 			end,
 			stop = function()
@@ -107,7 +107,7 @@ return function(verifyHarness: Verify.Harness)
 					arena(world)
 					world.step(0.3)
 					local gx, gy = offset(find(world.root, "Gear"))
-					find(world.root, "Gear").Activated.fire()
+					find(world.root, "Gear").Activated:Fire()
 					world.step(1 / 60)
 					local tool = find(world.root, "Tool")
 					local paint = find(world.root, "Sector-Tool"):FindFirstChild("Paint", true)
@@ -213,7 +213,7 @@ return function(verifyHarness: Verify.Harness)
 				end, false)
 				arena(world)
 				world.step(0.3)
-				find(world.root, "Gear").Activated.fire()
+				find(world.root, "Gear").Activated:Fire()
 				world.step(1 / 60)
 				local tool = find(world.root, "Tool")
 				local ex, ey = offset(tool)
@@ -264,13 +264,13 @@ return function(verifyHarness: Verify.Harness)
 							return owner == target
 						end
 					end
-					target.Pressed.fire()
+					target.Pressed:Fire()
 				end
 				local function release()
 					local target = owner
 					owner = nil
 					if target then
-						target.Released.fire()
+						target.Released:Fire()
 					end
 				end
 				world.gui.SelectedObject = find(world.root, "Control")

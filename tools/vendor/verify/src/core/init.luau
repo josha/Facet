@@ -18,7 +18,7 @@ local Spy = require "@self/spy"
 local Transport = require "@self/transport"
 local Types = require "@self/types"
 local Wait = require "@self/wait"
-local Witness = require "@self/witness"
+local Console = require "@self/console"
 
 export type OperationRequest = Operations.Request
 export type CaseHost = Operations.Host
@@ -114,7 +114,7 @@ export type SessionProvidedOptions<S> = SessionModule.ProvidedOptions<S>
 export type TransportRecord = Transport.Record
 export type Segment = Transport.Segment
 
-export type ClassifyConsoleOptions = Witness.ClassifyOptions
+export type ClassifyConsoleOptions = Console.ClassifyOptions
 
 return {
 	operation = Operations.operation,
@@ -183,10 +183,7 @@ return {
 	verdictDifferences = ReportModel.verdictDifferences,
 	observationParity = ReportModel.observationParity,
 
-	DEFAULT_WITNESS_ERROR_PATTERNS = Witness.DEFAULT_ERROR_PATTERNS,
-	DEFAULT_WITNESS_BLOCK_BEGIN_PATTERNS = Witness.DEFAULT_BLOCK_BEGIN_PATTERNS,
-	DEFAULT_WITNESS_BLOCK_END_PATTERNS = Witness.DEFAULT_BLOCK_END_PATTERNS,
-	classifyConsole = Witness.classifyConsole,
-	classifyConsoleText = Witness.classifyConsoleText,
-	splitConsoleLines = Witness.splitConsoleLines,
+	classifyConsole = Console.classifyConsole,
+	classifyConsoleText = Console.classifyConsoleText,
+	splitConsoleLines = Console.splitConsoleLines,
 }

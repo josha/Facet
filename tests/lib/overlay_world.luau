@@ -113,7 +113,7 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		local count = steps or 1
 		for _ = 1, count do
 			now += seconds / count
-			engine.heartbeat.fire(seconds / count)
+			engine.heartbeat:Fire(seconds / count)
 		end
 	end
 	function self.tick(seconds: number)

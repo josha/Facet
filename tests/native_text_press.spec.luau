@@ -21,7 +21,7 @@ return function(verifyHarness: Verify.Harness)
 				table.insert(listeners, { c = c, fn = callback })
 				return c
 			end,
-			fire = function(...)
+			Fire = function(_, ...)
 				for _, item in table.clone(listeners) do
 					if item.c.connected then
 						item.fn(...)
@@ -54,7 +54,7 @@ return function(verifyHarness: Verify.Harness)
 				if focused then
 					focused = false
 					state.CursorPosition, state.SelectionStart = -1, -1
-					p.instance.FocusLost.fire(false)
+					p.instance.FocusLost:Fire(false)
 				end
 			end,
 		}, {
@@ -102,31 +102,31 @@ return function(verifyHarness: Verify.Harness)
 			if not focused then
 				engine(5, -1)
 				focused = true
-				instance.Focused.fire()
+				instance.Focused:Fire()
 			end
-			instance.InputBegan.fire(p.mouse)
+			instance.InputBegan:Fire(p.mouse)
 		end
 		function p.mouseMove(dx: number, dy: number)
-			uis.InputChanged.fire({ UserInputType = "Move", Position = { X = 100 + dx, Y = 30 + dy } })
+			uis.InputChanged:Fire({ UserInputType = "Move", Position = { X = 100 + dx, Y = 30 + dy } })
 		end
 		function p.key(code: string)
-			uis.InputBegan.fire({ UserInputType = "Keyboard", KeyCode = code })
+			uis.InputBegan:Fire({ UserInputType = "Keyboard", KeyCode = code })
 		end
 		function p.mouseUp()
 			if focused then
 				engine(5, -1)
 			end
 			mouseDown = false
-			uis.InputEnded.fire(p.mouse)
+			uis.InputEnded:Fire(p.mouse)
 		end
 		function p.capture()
 			focused = true
 			engine(#state.Text + 1, -1)
-			instance.Focused.fire()
+			instance.Focused:Fire()
 		end
 		function p.blur()
 			focused = false
-			instance.FocusLost.fire(false)
+			instance.FocusLost:Fire(false)
 		end
 		function p.caret(): string
 			return `{state.CursorPosition} {state.SelectionStart}`
@@ -204,7 +204,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_text_press::native text press selectOnFocus::a touch on a field with nothing to select or scrub adds no listener",
 			run = function()
 				local p = probe("12.5 km", "none")
-				p.instance.InputBegan.fire({ UserInputType = "Touch", Position = { X = 50, Y = 20 } })
+				p.instance.InputBegan:Fire({ UserInputType = "Touch", Position = { X = 50, Y = 20 } })
 				expect(p.uis.InputEnded.live() + p.uis.InputChanged.live() + p.uis.InputBegan.live()):toBe(0)
 			end,
 		})
@@ -312,16 +312,16 @@ return function(verifyHarness: Verify.Harness)
 				local t2, touches = scrubProbe()
 				local finger = { UserInputType = "Touch", Position = { X = 50, Y = 20 } }
 				local other = { UserInputType = "Touch", Position = { X = 90, Y = 20 } }
-				t2.instance.InputBegan.fire(finger)
-				t2.instance.InputBegan.fire(other)
-				t2.uis.InputChanged.fire({ UserInputType = "Touch", Position = { X = 80, Y = 20 } })
+				t2.instance.InputBegan:Fire(finger)
+				t2.instance.InputBegan:Fire(other)
+				t2.uis.InputChanged:Fire({ UserInputType = "Touch", Position = { X = 80, Y = 20 } })
 				finger.Position = { X = 63, Y = 20 }
-				t2.uis.InputChanged.fire(finger)
-				t2.uis.InputChanged.fire(other)
+				t2.uis.InputChanged:Fire(finger)
+				t2.uis.InputChanged:Fire(other)
 				finger.Position = { X = 65, Y = 20 }
-				t2.uis.InputChanged.fire(finger)
-				t2.uis.InputEnded.fire(other)
-				t2.uis.InputEnded.fire(finger)
+				t2.uis.InputChanged:Fire(finger)
+				t2.uis.InputEnded:Fire(other)
+				t2.uis.InputEnded:Fire(finger)
 				expect((table.concat(touches, " "))):toBe("press:touch begin move:15 end")
 			end,
 		})
@@ -331,7 +331,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local p, log = scrubProbe()
 				p.mouseDown()
-				p.instance.InputBegan.fire(p.mouse)
+				p.instance.InputBegan:Fire(p.mouse)
 				p.mouseMove(8, 0)
 				p.mouseUp()
 				expect((table.concat(log, " "))):toBe("press:pointer press:pointer begin move:8 end")

@@ -20,7 +20,13 @@ export type Options<V2 = Vector2, V3 = Vector3, C3 = Color3, U1 = UDim, U2 = UDi
 	library: Adapter.Library<V2, V3, C3, U1, U2, CF>?,
 	classes: { [string]: Environment.ClassSpec }?,
 	referenceClass: ((className: string, property: string) -> string?)?,
-	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())?,
+	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ...unknown)?,
+	defaultProperty: ((className: string, property: string) -> unknown)?,
+	handlerErrors: Environment.HandlerErrors?,
+	computed: { [string]: Environment.Computed }?,
+	undeclaredWrites: boolean?,
+	undeclaredReads: ("raise" | "nil")?,
+	functionDoubles: boolean?,
 	ui: (UiFakes.Options | false)?,
 }
 
@@ -94,15 +100,20 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 	local uiValidates = ui ~= false and validate ~= false
 	local selectUi = if type(validate) == "function" then validate else nil
 	local supplied = settings.validateProperty
-	local validator: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())? = nil
+	local selection = UiFakes.selection(if type(ui) == "table" then ui else nil)
+	local validator: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ...unknown)? =
+		nil
 	if uiValidates then
 		validator = function(className, property, value, operation)
 			if property == "SelectedObject" and (selectUi == nil or selectUi(className, property)) then
-				UiFakes.validateProperty(className, property, value, operation)
+				if selection.validate(className, property, value, operation) == false then
+					return false
+				end
 			end
 			if supplied ~= nil then
-				supplied(className, property, value, operation)
+				return supplied(className, property, value, operation)
 			end
+			return nil
 		end
 	else
 		validator = supplied
@@ -114,9 +125,15 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 		classes = overlays(settings, unavailable),
 		referenceClass = settings.referenceClass,
 		validateProperty = validator,
+		defaultProperty = settings.defaultProperty,
+		handlerErrors = settings.handlerErrors,
+		computed = settings.computed,
+		undeclaredWrites = settings.undeclaredWrites,
+		undeclaredReads = settings.undeclaredReads,
+		functionDoubles = settings.functionDoubles,
 	}
 	local controller: UiFakes.Controller? = if ui ~= false
-		then UiFakes.attach(environment, ui :: UiFakes.Options?)
+		then UiFakes.attach(environment, ui :: UiFakes.Options?, selection)
 		else nil
 	local library = (settings.library :: unknown) :: Adapter.Library<V2, V3, C3, U1, U2, CF>?
 	local engine = Adapter.create(environment, library)

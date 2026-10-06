@@ -92,7 +92,7 @@ end
 
 local stop, gui = app.mount(Counter)
 local screen = gui:FindFirstChild("Counter")
-screen:FindFirstChild("Add").Activated.fire()
+screen:FindFirstChild("Add").Activated:Fire()
 assert(screen:FindFirstChild("Count").Text == "Count: 1")
 stop()
 assert(#playerGui:GetChildren() == 0)
@@ -111,7 +111,7 @@ app.runtime:dispose()
 - The fake engine refuses a property that the Roblox class does not have, as
   Roblox does. A misspelled native property, such as `Sise`, stops the test
   with an error.
-- `Activated.fire()` sends the event that a click or a gamepad press sends.
+- `Activated:Fire()` sends the event that a click or a gamepad press sends.
 
 The [standalone consumer test](../../tests/native_gallery.spec.luau) mounts the
 screen module of `examples/consumer` in the same way.

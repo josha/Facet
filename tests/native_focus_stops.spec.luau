@@ -60,24 +60,24 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 		function world.press(key: string)
-			input.InputBegan.fire({
+			input.InputBegan:Fire({
 				KeyCode = (engine.types.Enum.KeyCode :: any)[key],
 				UserInputType = engine.types.Enum.UserInputType.Gamepad1,
 			}, true)
-			input.InputEnded.fire({
+			input.InputEnded:Fire({
 				KeyCode = (engine.types.Enum.KeyCode :: any)[key],
 				UserInputType = engine.types.Enum.UserInputType.Gamepad1,
 			}, true)
 		end
 		function world.stick(x: number, y: number, key: string?)
-			input.InputChanged.fire({
+			input.InputChanged:Fire({
 				KeyCode = (engine.types.Enum.KeyCode :: any)[key or "Thumbstick1"],
 				UserInputType = engine.types.Enum.UserInputType.Gamepad1,
 				Position = engine.types.Vector3.new(x, y, 0),
 			}, true)
 		end
 		function world.stickEnded()
-			input.InputEnded.fire({
+			input.InputEnded:Fire({
 				KeyCode = engine.types.Enum.KeyCode.Thumbstick1,
 				UserInputType = engine.types.Enum.UserInputType.Gamepad1,
 				Position = engine.types.Vector3.new(0, 0, 0),
@@ -86,7 +86,7 @@ return function(verifyHarness: Verify.Harness)
 		function world.action(name: string)
 			for _, node in parent:GetDescendants() do
 				if node:IsA("InputContext") and node.Name == "Facet" .. name and node.Enabled then
-					node:FindFirstChild(name).Pressed.fire()
+					node:FindFirstChild(name).Pressed:Fire()
 					return true
 				end
 			end
@@ -149,7 +149,7 @@ return function(verifyHarness: Verify.Harness)
 					w.stick(1, 0)
 					Verify.expect((left:peek())):toBe(9)
 					for _ = 1, 6 do
-						w.engine.heartbeat.fire(0.41)
+						w.engine.heartbeat:Fire(0.41)
 					end
 					Verify.expect((left:peek())):toBe(10)
 					Verify.expect(w.gui.SelectedObject):toBe(a)
@@ -274,7 +274,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local E = w.engine.types.Enum
 				local function push(pad: any, x: number)
-					w.input.InputChanged.fire({
+					w.input.InputChanged:Fire({
 						KeyCode = E.KeyCode.Thumbstick1,
 						UserInputType = pad,
 						Position = w.engine.types.Vector3.new(x, 0, 0),
@@ -345,9 +345,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((value:peek())):toBe(4)
 				w.stick(0.8, 0)
 				Verify.expect((value:peek())):toBe(5)
-				Verify.expect(w.engine.heartbeat.count() > 0):toBe(true)
+				Verify.expect(engineLib.connections(w.engine.heartbeat) > 0):toBe(true)
 				w.stick(0, 0)
-				Verify.expect((w.engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(w.engine.heartbeat))):toBe(0)
 				w.stop()
 			end,
 		})
@@ -380,10 +380,10 @@ return function(verifyHarness: Verify.Harness)
 					w.stick(x, 0.01)
 				end
 				Verify.expect((value:peek())):toBe(6)
-				w.engine.heartbeat.fire(0.41)
+				w.engine.heartbeat:Fire(0.41)
 				Verify.expect((value:peek())):toBe(7)
 				w.stick(0.3, 0)
-				Verify.expect((w.engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(w.engine.heartbeat))):toBe(0)
 				for _, push in { { 0.6, 0.59 }, { 0.59, 0.6 }, { 0.6, 0.59 }, { 0.62, 0.6 } } do
 					w.stick(push[1], push[2])
 				end
@@ -486,7 +486,7 @@ return function(verifyHarness: Verify.Harness)
 					w.stick(-1, 0)
 					Verify.expect((value:peek())):toBe(4)
 					w.stickEnded()
-					Verify.expect((w.engine.heartbeat.count())):toBe(0)
+					Verify.expect((engineLib.connections(w.engine.heartbeat))):toBe(0)
 					w.stick(-1, 0)
 					Verify.expect((value:peek())):toBe(3)
 					w.stop()
@@ -516,7 +516,7 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local unwired = {}
 					for _, node in w.screen:GetDescendants() do
-						if node:HasTag("facet-adjustable") and node.SelectionGained.count() == 0 then
+						if node:HasTag("facet-adjustable") and engineLib.connections(node.SelectionGained) == 0 then
 							table.insert(unwired, node.Name)
 						end
 					end
@@ -564,10 +564,10 @@ return function(verifyHarness: Verify.Harness)
 				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 				w.screen:GetChildren()[1].AbsoluteSize = V.new(400, 44)
 				local detector = w.screen:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
-				detector.DragStart.fire(V.new(300, 10))
-				detector.DragContinue.fire(V.new(100, 10))
+				detector.DragStart:Fire(V.new(300, 10))
+				detector.DragContinue:Fire(V.new(100, 10))
 				w.input.PreferredInput = E.PreferredInput.Gamepad
-				detector.DragEnd.fire()
+				detector.DragEnd:Fire()
 				Verify.expect(w.find("DismissTray").Visible):toBe(false)
 				w.stop()
 			end,
@@ -786,7 +786,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((value:peek())):toBe(4)
 					Verify.expect(stepper.NextSelectionUp):toBe(nil)
 					Verify.expect(stepper.NextSelectionDown):toBe(nil)
-					w.find("Increase", stepper).Activated.fire()
+					w.find("Increase", stepper).Activated:Fire()
 					Verify.expect((value:peek())):toBe(5)
 					w.stop()
 				end,

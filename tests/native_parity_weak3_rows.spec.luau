@@ -126,7 +126,7 @@ return function(verifyHarness: Verify.Harness)
 						local function lap(label: string)
 							probe.ramp()
 							for rung, rows in dataset.RAMP_STEPS do
-								engine.heartbeat.fire(1 / 60)
+								engine.heartbeat:Fire(1 / 60)
 								Verify.expect(probe.state().rows):toBe(rows)
 								if floor then
 									same(floor, census(engine), `{label} rung {rung} ({rows} rows)`)
@@ -143,7 +143,7 @@ return function(verifyHarness: Verify.Harness)
 						stop()
 						runtime:dispose()
 						Verify.expect(#target:GetChildren()):toBe(0)
-						Verify.expect((engine.heartbeat.count())):toBe(0)
+						Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 						same(before, census(engine), "lab teardown")
 					end)
 				end,

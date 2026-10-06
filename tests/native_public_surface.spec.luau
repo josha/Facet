@@ -76,10 +76,10 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({ button :: unknown })
 				end, root)
 				Verify.expect(input.Enabled):toBe(true)
-				action.Pressed.fire()
+				action.Pressed:Fire()
 				panel.Visible = false
 				Verify.expect(input.Enabled):toBe(false)
-				action.Pressed.fire()
+				action.Pressed:Fire()
 				panel.Visible = true
 				root.Enabled = false
 				Verify.expect(input.Enabled):toBe(false)
@@ -90,8 +90,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(input.Enabled):toBe(true)
 				Verify.expect(activated):toBe(1)
 				stop()
-				Verify.expect((action.Pressed.count())):toBe(0)
-				Verify.expect((root:GetPropertyChangedSignal("Enabled").count())):toBe(0)
+				Verify.expect((engineLib.connections(action.Pressed))):toBe(0)
+				Verify.expect((engineLib.connections(root:GetPropertyChangedSignal("Enabled")))):toBe(0)
 				runtime:dispose()
 			end,
 		})

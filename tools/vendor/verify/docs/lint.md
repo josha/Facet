@@ -18,19 +18,23 @@ At the pinned runtime, those two rules misreport forward-declared recursion and 
 
 ## Consumer specifications
 
-`verify-check` checks consumer specifications:
+`verify-check` checks consumer specifications. Choose a ruleset with `--ruleset`:
 
 ```console
-lute run tools/verify-check.luau path/to/specifications
+lute run tools/verify-check.luau --ruleset generic path/to/specifications
+lute run tools/verify-check.luau --ruleset roblox path/to/specifications
 ```
 
-It treats `*.verify.luau` as a portable specification. `*.lute.verify.luau` and `*.roblox.verify.luau` are explicit host variants.
-It rejects ambient scheduling, clocks and host access in portable specifications.
-It rejects external mutation authority in every specification.
-It rejects unmeasured `--!native` annotations.
+Both rulesets treat `*.verify.luau` as a portable specification. `*.lute.verify.luau` is an explicit host variant.
+The generic ruleset rejects ambient scheduling and clocks in portable specifications.
+It rejects unmeasured `--!native` annotations in every specification.
+The `roblox` ruleset adds three rules. `*.roblox.verify.luau` is a host variant.
+Portable specifications may not use the globals `game` and `workspace`.
+No specification may call `PublishAsync`, `PostAsync`, `RequestAsync`, `CreateAssetAsync` or `SavePlaceAsync`.
 A general-purpose linter cannot infer these architectural checks.
 
-The tool calls `Consumer.scanTree(root, { listDir, readFile })` ([public consumer root](../src/consumer/init.luau)).
+The tool calls `Consumer.scanTree(root, { ruleset, listDir, readFile })` ([public consumer root](../src/consumer/init.luau)).
+A `Ruleset` is `{ name, hostVariantSuffixes, hostGlobals, externalMutationMembers }`. A call without one raises.
 `scanTree` owns traversal, specification detection and exemption tracking.
 It also runs `scanProductionPaths` over every discovered path, including files that are not specifications.
 The same call detects `.verify.luau` files and Verify imports in a production source graph.

@@ -78,7 +78,7 @@ return function(verifyHarness: Verify.Harness)
 					:toBe(false)
 				Verify.expect(built.report().exitReason):toBe("out-of-range")
 				stop()
-				Verify.expect((root.isDestroyed())):toBe(true)
+				Verify.expect((root:isDestroyed())):toBe(true)
 			end,
 		})
 		verifyHarness:case("refuses over-budget drafts locally and preserves authority guards", {
@@ -121,7 +121,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(surface.Active):toBe(false)
 				Verify.expect(built.report().serverConnected):toBe(false)
 				stop()
-				Verify.expect((surface.isDestroyed())):toBe(true)
+				Verify.expect((surface:isDestroyed())):toBe(true)
 				Verify.expect(#ctx.inputTarget:GetChildren()):toBe(0)
 			end,
 		})
@@ -132,7 +132,6 @@ return function(verifyHarness: Verify.Harness)
 				local remote, console, heartbeat = nil, nil, nil
 				local built, _, stop, ctx = mount(scenario, nil, function(context, engine)
 					remote = engine.new("RemoteEvent")
-					remote.OnClientEvent = engine.heartbeat
 					remote.FireServer = function(_, message)
 						table.insert(sent, message)
 					end
@@ -153,7 +152,7 @@ return function(verifyHarness: Verify.Harness)
 					context.runService = { Heartbeat = heartbeat }
 				end)
 				Verify.expect(sent[1].kind):toBe("open")
-				remote.OnClientEvent.fire({
+				remote.OnClientEvent:Fire({
 					kind = "session" :: "session",
 					token = "server-session",
 					revision = 1,
@@ -166,7 +165,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(sent[#sent].kind):toBe("apply")
 				Verify.expect(sent[#sent].token):toBe("server-session")
 				Verify.expect(built.report().terminal.complete):toBe(false)
-				remote.OnClientEvent.fire({
+				remote.OnClientEvent:Fire({
 					kind = "verdict" :: "verdict",
 					requestId = request.requestId,
 					ok = true,
@@ -175,13 +174,13 @@ return function(verifyHarness: Verify.Harness)
 				})
 				Verify.expect(built.report().terminal.complete):toBe(true)
 				console:Destroy()
-				heartbeat.fire(0)
+				heartbeat:Fire(0)
 				Verify.expect(surface.Active):toBe(false)
 				Verify.expect(built.report().lastExit):toBe("adornee-lost")
 				stop()
 				Verify.expect(sent[#sent].kind):toBe("close")
-				Verify.expect((remote.OnClientEvent.count())):toBe(0)
-				Verify.expect((heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(remote.OnClientEvent))):toBe(0)
+				Verify.expect((engineLib.connections(heartbeat))):toBe(0)
 			end,
 		})
 		verifyHarness:case("converges full snapshots across skipped revisions without losing independent drafts", {

@@ -479,7 +479,7 @@ enumMt.__index = function(enum: EnumValue, category: string): EnumCategory
 end
 local Enum = (setmetatable({}, enumMt) :: unknown) :: EnumValue
 
-local shellMt: { [string]: {} } = {
+local shellMt: { [string]: { [string]: unknown } } = {
 	NumberSequenceKeypoint = {},
 	ColorSequenceKeypoint = {},
 	NumberRange = {},
@@ -487,6 +487,8 @@ local shellMt: { [string]: {} } = {
 	ColorSequence = {},
 	Rect = {},
 	TweenInfo = {},
+	FloatCurveKey = {},
+	Path2DControlPoint = {},
 }
 
 local function tag<T>(value: T, metatable: {}): T
@@ -530,16 +532,87 @@ local Rect = {
 	end,
 }
 
+export type TweenInfoValue = {
+	Time: number,
+	EasingStyle: EnumMember,
+	EasingDirection: EnumMember,
+	RepeatCount: number,
+	Reverses: boolean,
+	DelayTime: number,
+}
+
+shellMt.TweenInfo.__eq = function(a: TweenInfoValue, b: TweenInfoValue): boolean
+	return a.Time == b.Time
+		and a.EasingStyle == b.EasingStyle
+		and a.EasingDirection == b.EasingDirection
+		and a.RepeatCount == b.RepeatCount
+		and a.Reverses == b.Reverses
+		and a.DelayTime == b.DelayTime
+end
+
 local TweenInfo = {
 	new = function(
-		_time: number?,
-		_style: unknown,
-		_dir: unknown,
-		_count: number?,
-		_reverses: boolean?,
-		_delay: number?
-	): { _tweenInfo: boolean }
-		return tag({ _tweenInfo = true }, shellMt.TweenInfo)
+		time: number?,
+		style: EnumMember?,
+		direction: EnumMember?,
+		count: number?,
+		reverses: boolean?,
+		delayTime: number?
+	): TweenInfoValue
+		return tag({
+			Time = time or 1,
+			EasingStyle = style or Enum.EasingStyle.Quad,
+			EasingDirection = direction or Enum.EasingDirection.Out,
+			RepeatCount = count or 0,
+			Reverses = reverses or false,
+			DelayTime = delayTime or 0,
+		}, shellMt.TweenInfo)
+	end,
+}
+
+export type FloatCurveKeyValue = {
+	Time: number,
+	Value: number,
+	Interpolation: EnumMember,
+	LeftTangent: number?,
+	RightTangent: number?,
+}
+
+shellMt.FloatCurveKey.__eq = function(a: FloatCurveKeyValue, b: FloatCurveKeyValue): boolean
+	return a.Time == b.Time
+		and a.Value == b.Value
+		and a.Interpolation == b.Interpolation
+		and a.LeftTangent == b.LeftTangent
+		and a.RightTangent == b.RightTangent
+end
+
+local FloatCurveKey = {
+	new = function(time: number, value: number, interpolation: EnumMember): FloatCurveKeyValue
+		return tag({
+			Time = time,
+			Value = value,
+			Interpolation = interpolation,
+		}, shellMt.FloatCurveKey)
+	end,
+}
+
+export type Path2DControlPointValue = {
+	Position: UDim2Value,
+	LeftTangent: UDim2Value,
+	RightTangent: UDim2Value,
+}
+
+shellMt.Path2DControlPoint.__eq = function(a: Path2DControlPointValue, b: Path2DControlPointValue): boolean
+	return a.Position == b.Position and a.LeftTangent == b.LeftTangent and a.RightTangent == b.RightTangent
+end
+
+local Path2DControlPoint = {
+	new = function(position: UDim2Value, leftTangent: UDim2Value?, rightTangent: UDim2Value?): Path2DControlPointValue
+		return tag({
+			Position = position,
+			LeftTangent = leftTangent or UDim2.new(0, 0, 0, 0),
+			RightTangent = rightTangent or UDim2.new(0, 0, 0, 0),
+		}, shellMt.Path2DControlPoint)
 	end,
 }
 
@@ -614,6 +687,8 @@ return {
 	ColorSequence = ColorSequence,
 	Rect = Rect,
 	TweenInfo = TweenInfo,
+	FloatCurveKey = FloatCurveKey,
+	Path2DControlPoint = Path2DControlPoint,
 	typeName = typeName,
 	isAttributeType = isAttributeType,
 	enumType = enumType,

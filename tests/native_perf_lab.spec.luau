@@ -1,4 +1,5 @@
 --!strict
+local NativeEngine = require("./lib/native_engine")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -56,17 +57,17 @@ return function(verifyHarness: Verify.Harness)
 				local checked = active.rowModels.toggles[item.id]
 				value:set(0.2)
 				local previous = checked:peek()
-				row:FindFirstChild("Ready", true).Activated.fire()
-				row:FindFirstChild("Rate", true):FindFirstChild("Increase", true).Activated.fire()
+				row:FindFirstChild("Ready", true).Activated:Fire()
+				row:FindFirstChild("Rate", true):FindFirstChild("Increase", true).Activated:Fire()
 				Verify.expect((checked:peek())):toBe(not previous)
 				Verify.expect((value:peek())):toBe(0.25)
-				row:FindFirstChild("Open", true).Activated.fire()
+				row:FindFirstChild("Open", true).Activated:Fire()
 				local close = world.target:FindFirstChild("close", true)
 				Verify.expect(close ~= nil):toBe(true)
 				local disclosure = world.target:FindFirstChild("AlertContent", true)
 				Verify.expect(disclosure:FindFirstChild("Title", true).Text):toBe(item.name)
 				Verify.expect(disclosure:FindFirstChild("Message", true).Text):toBe(item.detail)
-				close.Activated.fire()
+				close.Activated:Fire()
 				active.list.CanvasPosition = world.types.Vector2.new(0, 10000)
 				active.list.CanvasPosition = world.types.Vector2.zero
 				row = active.list:FindFirstChild(tostring(item.id), true)
@@ -90,12 +91,12 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect(probe.state().active.status:peek().retained < 30):toBe(true)
 				probe.select("table-unified", 100)
-				Verify.expect((previous.isDestroyed())):toBe(true)
+				Verify.expect((previous:isDestroyed())):toBe(true)
 				probe.reset()
 				Verify.expect(probe.state().selected):toBe("idle-baseline")
 				Verify.expect(probe.state().playing):toBe(false)
 				world.dispose()
-				Verify.expect((world.engine.heartbeat.count())):toBe(0)
+				Verify.expect((NativeEngine.connections(world.engine.heartbeat))):toBe(0)
 			end,
 		})
 		verifyHarness:case("keeps the mounted workload when the capture mode or the theme changes", {
@@ -106,7 +107,7 @@ return function(verifyHarness: Verify.Harness)
 				probe.select("dense-scroll-native", 300)
 				local active = probe.state().active
 				for _ = 1, 5 do
-					world.engine.heartbeat.fire(1 / 60)
+					world.engine.heartbeat:Fire(1 / 60)
 				end
 				Verify.expect(probe.state().ready):toBe(true)
 				probe.clean(true)

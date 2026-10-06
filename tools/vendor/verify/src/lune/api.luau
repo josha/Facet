@@ -55,6 +55,7 @@ return {
 	runWorkerBatch = worker.runBatch,
 	runSelfRegisteringWorkerBatch = worker.runBatchSelfRegistering,
 	encode = wire.encode,
+	parse = wire.parse,
 	decode = wire.decode,
 	encodeBatch = batch.encode,
 	decodeBatch = batch.decode,

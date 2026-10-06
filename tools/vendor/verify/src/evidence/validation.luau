@@ -27,6 +27,15 @@ export type Requirement = {
 	reviews: { Provenance.ReviewKind }?,
 }
 
+export type Cell = {
+	caseId: string,
+	actor: string,
+	checkpoint: string,
+	device: string,
+	mediaType: string?,
+	reviews: { Provenance.ReviewKind }?,
+}
+
 export type Attestation = (artifact: Artifact, provenance: Provenance.Provenance) -> boolean
 
 export type Policy = {
@@ -78,6 +87,36 @@ local function contains(values: { string }, wanted: string): boolean
 	return table.find(values, wanted) ~= nil
 end
 
+local function checkedRequirement(requirement: Requirement)
+	assert(requirement.caseId ~= "", "a requirement needs a case id")
+	strings(requirement.actors, "requirement actors")
+	strings(requirement.checkpoints, "requirement checkpoints")
+	strings(requirement.devices, "requirement devices")
+end
+
+local function expand(required: { Requirement }): { Cell }
+	assert(#required > 0, "required coverage must not be empty")
+	local cells: { Cell } = {}
+	for _, requirement in required do
+		checkedRequirement(requirement)
+		for _, actor in requirement.actors do
+			for _, checkpoint in requirement.checkpoints do
+				for _, device in requirement.devices do
+					table.insert(cells, {
+						caseId = requirement.caseId,
+						actor = actor,
+						checkpoint = checkpoint,
+						device = device,
+						mediaType = requirement.mediaType,
+						reviews = requirement.reviews,
+					})
+				end
+			end
+		end
+	end
+	return cells
+end
+
 local DEFAULT_MAX_AGE_SECONDS = 3600
 local DEFAULT_MAX_SKEW_SECONDS = 5
 
@@ -107,10 +146,7 @@ local function validate(report: Types.Report, policy: Policy): Result
 	local now = policy.now()
 	assert(Shape.finiteNonnegative(now), "the injected clock must return a finite non-negative time")
 	for _, requirement in policy.required do
-		assert(requirement.caseId ~= "", "a requirement needs a case id")
-		strings(requirement.actors, "requirement actors")
-		strings(requirement.checkpoints, "requirement checkpoints")
-		strings(requirement.devices, "requirement devices")
+		checkedRequirement(requirement)
 	end
 
 	local issues: { Issue } = {}
@@ -413,4 +449,4 @@ local function explain(result: Result): string
 	return table.concat(lines, "\n")
 end
 
-return { validate = validate, explain = explain }
+return { validate = validate, explain = explain, expand = expand }

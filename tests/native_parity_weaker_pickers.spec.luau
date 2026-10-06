@@ -139,18 +139,18 @@ return function(verifyHarness: Verify.Harness)
 	local function press(world: World, node: any, input: string)
 		local E = world.E
 		if input == "pointer" then
-			node.Activated.fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }, 1)
+			node.Activated:Fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode:FromValue(0) }, 1)
 		elseif input == "touch" then
-			node.Activated.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
+			node.Activated:Fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) }, 1)
 		elseif input == "keyboard" then
 			world.gui.SelectedObject = node
 			local activate = assert(action(world.root, "Activate"), "Activate action is bound on the selected control")
 			Verify.expect(keys(activate).Return):toBe(true)
 			Verify.expect(keys(activate).Space):toBe(true)
-			activate.Pressed.fire()
+			activate.Pressed:Fire()
 		else
 			world.gui.SelectedObject = node
-			node.Activated.fire({ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }, 1)
+			node.Activated:Fire({ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }, 1)
 		end
 	end
 
@@ -158,7 +158,7 @@ return function(verifyHarness: Verify.Harness)
 		if input == "keyboard" then
 			world.gui.SelectedObject = node
 			Verify.expect((action(world.root, "Activate"))):toBeNil()
-			node.Activated.fire({ UserInputType = world.E.UserInputType.Keyboard, KeyCode = world.E.KeyCode.Return }, 1)
+			node.Activated:Fire({ UserInputType = world.E.UserInputType.Keyboard, KeyCode = world.E.KeyCode.Return }, 1)
 		else
 			press(world, node, input)
 		end

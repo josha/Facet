@@ -27,7 +27,7 @@ export type Options = {
 	arguments: { string }?,
 }
 
-local DEFAULT_CAPABILITIES = { "local-luau", "worker" }
+local DEFAULT_CAPABILITIES = { "local-luau", "worker", Bounded.CAPABILITY }
 
 local runSequence = 0
 

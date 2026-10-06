@@ -162,14 +162,22 @@ local function parseArguments(arguments: { string }): Arguments
 	end
 	local ids: { string } = {}
 	local tags: { string } = {}
+	local sources: { string } = {}
+	local nameFilter: string? = nil
 	local tiers: { [string]: boolean } = {}
 	local tiered = false
 	for _, extra in extras do
 		local case = string.match(extra, "^%-%-case=(.+)$")
 		local tag = string.match(extra, "^%-%-tag=(.+)$")
 		local tier = string.match(extra, "^%-%-tier=(.+)$")
+		local contains = string.match(extra, "^%-%-name=(.+)$")
+		local source = string.match(extra, "^%-%-source=(.+)$")
 		if case ~= nil then
 			table.insert(ids, case)
+		elseif contains ~= nil then
+			nameFilter = contains
+		elseif source ~= nil then
+			table.insert(sources, source)
 		elseif tag ~= nil then
 			table.insert(tags, tag)
 		elseif tier ~= nil then
@@ -179,7 +187,7 @@ local function parseArguments(arguments: { string }): Arguments
 			end
 		end
 	end
-	if #ids == 0 and #tags == 0 and not tiered then
+	if #ids == 0 and #tags == 0 and #sources == 0 and nameFilter == nil and not tiered then
 		return { runId = runId, extras = extras, selection = nil }
 	end
 	local predicate: Verify.SelectionPredicate? = nil
@@ -203,6 +211,8 @@ local function parseArguments(arguments: { string }): Arguments
 		selection = {
 			ids = if #ids > 0 then ids else nil,
 			tags = if #tags > 0 then tags else nil,
+			sources = if #sources > 0 then sources else nil,
+			nameContains = nameFilter,
 			predicate = predicate,
 			account = true,
 		},

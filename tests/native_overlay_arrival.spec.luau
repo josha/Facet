@@ -27,7 +27,7 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			end,
-			fire = function()
+			Fire = function(_self: any)
 				for _, fn in table.clone(handlers) do
 					fn()
 				end
@@ -102,7 +102,7 @@ return function(verifyHarness: Verify.Harness)
 					local inner = if kind == "Sheet" then "SheetPanel" else "ok"
 					open:set(true)
 					Verify.expect(`{kind} hidden {hidden(screen, inner)}`):toBe(`{kind} hidden true`)
-					frames.Heartbeat.fire()
+					frames.Heartbeat:Fire()
 					Verify.expect(`{kind} hidden {hidden(screen, inner)}`):toBe(`{kind} hidden false`)
 					Verify.expect((frames.Heartbeat.count())):toBe(0)
 					stop()
@@ -172,8 +172,8 @@ return function(verifyHarness: Verify.Harness)
 						end, engine.new("Folder"))
 						gui.SelectedObject = screen:FindFirstChild("Opener", true)
 						open:set(true)
-						frames.Heartbeat.fire()
-						Verify.expect(#engine.rejectedSelections):toBe(0)
+						frames.Heartbeat:Fire()
+						Verify.expect(#engine.rejectedSelections()):toBe(0)
 						local selected = gui.SelectedObject
 						Verify.expect(selected.Name):toBe(if kind == "RadialMenu" then "alpha" else "Inside")
 						stop()

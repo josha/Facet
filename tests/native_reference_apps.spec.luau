@@ -61,7 +61,7 @@ return function(verifyHarness: Verify.Harness)
 					built.model.section:set(id)
 				end
 				stop()
-				Verify.expect((root.isDestroyed())):toBe(true)
+				Verify.expect((root:isDestroyed())):toBe(true)
 			end,
 		})
 		verifyHarness:case("keeps Cartwheel brew commands, rejected purchase retry and guild validation", {

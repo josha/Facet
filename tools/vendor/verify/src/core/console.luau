@@ -2,18 +2,6 @@
 
 local Shape = require "./shape"
 
-local DEFAULT_ERROR_PATTERNS: { string } = {
-	"attempt to",
-	"refused",
-	"Infinite yield",
-	"not authorized",
-	"Stack Begin",
-}
-
-local DEFAULT_BLOCK_BEGIN_PATTERNS: { string } = { "Stack Begin" }
-
-local DEFAULT_BLOCK_END_PATTERNS: { string } = { "Stack End" }
-
 local copyStrings = Shape.copyStrings
 
 local function containsAny(line: string, needles: { string }): boolean
@@ -43,7 +31,7 @@ local function optionalPredicate(value: unknown, label: string): ((line: string)
 end
 
 export type ClassifyOptions = {
-	errorPatterns: { string }?,
+	errorPatterns: { string },
 	ignorePatterns: { string }?,
 	ignore: ((line: string) -> boolean)?,
 	blockBeginPatterns: { string }?,
@@ -51,10 +39,13 @@ export type ClassifyOptions = {
 	caseInsensitive: boolean?,
 }
 
-local function classifyConsole(lines: unknown, options: ClassifyOptions?): { string }
+local function classifyConsole(lines: unknown, options: ClassifyOptions): { string }
 	local source = copyStrings(lines, "lines")
-	local selected: ClassifyOptions = if options ~= nil then options else {}
-	local errorPatterns = optionalPatterns(selected.errorPatterns, "errorPatterns") or DEFAULT_ERROR_PATTERNS
+	local selected = options
+	if type(selected) ~= "table" or selected.errorPatterns == nil then
+		error("errorPatterns are required", 2)
+	end
+	local errorPatterns = copyStrings(selected.errorPatterns, "errorPatterns")
 	local ignorePatterns = optionalPatterns(selected.ignorePatterns, "ignorePatterns") or {}
 	local blockBeginPatterns = optionalPatterns(selected.blockBeginPatterns, "blockBeginPatterns")
 	local blockEndPatterns = optionalPatterns(selected.blockEndPatterns, "blockEndPatterns")
@@ -130,14 +121,11 @@ local function splitLines(text: unknown): { string }
 	end
 end
 
-local function classifyConsoleText(text: unknown, options: ClassifyOptions?): { string }
+local function classifyConsoleText(text: unknown, options: ClassifyOptions): { string }
 	return classifyConsole(splitLines(text), options)
 end
 
 return {
-	DEFAULT_ERROR_PATTERNS = DEFAULT_ERROR_PATTERNS,
-	DEFAULT_BLOCK_BEGIN_PATTERNS = DEFAULT_BLOCK_BEGIN_PATTERNS,
-	DEFAULT_BLOCK_END_PATTERNS = DEFAULT_BLOCK_END_PATTERNS,
 	classifyConsole = classifyConsole,
 	classifyConsoleText = classifyConsoleText,
 	splitConsoleLines = splitLines,

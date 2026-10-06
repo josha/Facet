@@ -405,7 +405,7 @@ return function(verifyHarness: Verify.Harness)
 							root.Enabled = rng(0, 1) == 1
 							local prior = activations
 							local activated = button.Activated :: any
-							activated.fire()
+							activated:Fire()
 							local expected = if enabled:peek() and panel.Visible and root.Enabled then 1 else 0
 							assert(activations == prior + expected, `seed={seed} step={step}: action eligibility stale`)
 						end
@@ -450,7 +450,7 @@ return function(verifyHarness: Verify.Harness)
 						if rng(1, 10) <= 3 then
 							gui.SelectedObject = a
 							input.PreferredInput = choice
-							a.Activated.fire()
+							a.Activated:Fire()
 							pressed += 1
 						else
 							input.PreferredInput = choice

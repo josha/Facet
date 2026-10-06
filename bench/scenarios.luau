@@ -297,12 +297,12 @@ end, function(state)
 	local direction = if state.n % 2 == 0 then 1 else -1
 	local initialWidth = state.widths:peek().name
 	state.drag.Parent.Parent.AbsoluteSize = state.types.Vector2.new(initialWidth, 40)
-	state.drag.DragStart.fire(state.types.Vector2.new(600, 10))
+	state.drag.DragStart:Fire(state.types.Vector2.new(600, 10))
 	for index = 1, 8 do
-		state.drag.DragContinue.fire(state.types.Vector2.new(600 + direction * index * 5, 10))
+		state.drag.DragContinue:Fire(state.types.Vector2.new(600 + direction * index * 5, 10))
 		state.frame()
 	end
-	state.drag.DragEnd.fire(state.types.Vector2.new(600 + direction * 40, 10))
+	state.drag.DragEnd:Fire(state.types.Vector2.new(600 + direction * 40, 10))
 	assert(state.widths:peek().name == initialWidth + direction * 40, "resize workload did not update its column")
 	state.frame()
 end)
@@ -341,14 +341,14 @@ add("textinput-typing-storm", function()
 	world.field = field
 	return world
 end, function(state)
-	state.field.Focused.fire()
+	state.field.Focused:Fire()
 	local text = "The quick brown fox 0123"
 	for index = 1, #text do
 		state.field.Text = string.sub(text, 1, index)
 	end
 	state.frame()
-	state.field.FocusLost.fire(false, { KeyCode = state.types.Enum.KeyCode.Escape })
-	assert(state.builds == 1 and not state.field.isDestroyed(), "typing rebuilt the field")
+	state.field.FocusLost:Fire(false, { KeyCode = state.types.Enum.KeyCode.Escape })
+	assert(state.builds == 1 and not state.field:isDestroyed(), "typing rebuilt the field")
 	state.value:set("")
 	state.frame()
 end)

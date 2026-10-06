@@ -55,7 +55,7 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 		function world.tab()
-			world.find("Traverse", parent).Pressed.fire()
+			world.find("Traverse", parent).Pressed:Fire()
 		end
 		function world.selected(): string
 			return if gui.SelectedObject then gui.SelectedObject.Name else "nil"
@@ -134,9 +134,9 @@ return function(verifyHarness: Verify.Harness)
 				local context = w.find("FacetEntry", w.parent)
 				Verify.expect(context.Sink):toBe(false)
 				local enter = context:FindFirstChild("Enter")
-				enter.StateChanged.fire(V2.new(0.2, -0.1))
+				enter.StateChanged:Fire(V2.new(0.2, -0.1))
 				Verify.expect((w.selected())):toBe("nil")
-				enter.StateChanged.fire(V2.new(0, -1))
+				enter.StateChanged:Fire(V2.new(0, -1))
 				Verify.expect((w.selected())):toBe("A")
 				w.stop()
 			end,
@@ -163,7 +163,7 @@ return function(verifyHarness: Verify.Harness)
 					w.input.PreferredInput = E.PreferredInput.Gamepad
 					w.find("FacetEntry", w.parent)
 						:FindFirstChild("Enter").StateChanged
-						.fire(w.engine.types.Vector2.new(0, -1))
+						:Fire(w.engine.types.Vector2.new(0, -1))
 					Verify.expect((w.selected())):toBe("Q")
 					w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 					Verify.expect((w.selected())):toBe("nil")
@@ -393,7 +393,7 @@ return function(verifyHarness: Verify.Harness)
 					return hits
 				end
 				local E = w.engine.types.Enum
-				w.input.InputBegan.fire({
+				w.input.InputBegan:Fire({
 					UserInputType = if kind == "touch" then E.UserInputType.Touch else E.UserInputType.MouseButton1,
 					KeyCode = E.KeyCode:FromValue(0),
 					Position = w.engine.types.Vector3.new(10, 10, 0),
@@ -409,7 +409,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.traversal())):toBe(false)
 				Verify.expect((w.guard())):toBe(false)
 				local E = w.engine.types.Enum
-				w.input.InputBegan.fire(
+				w.input.InputBegan:Fire(
 					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
 					false
 				)
@@ -461,7 +461,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.responder.state:peek())):toBe("engaged")
 				local cancel = w.find("FacetResponderCancel", w.parent)
 				Verify.expect(cancel.Sink):toBe(false)
-				cancel:FindFirstChild("Cancel").Pressed.fire()
+				cancel:FindFirstChild("Cancel").Pressed:Fire()
 				Verify.expect((w.responder.state:peek())):toBe("passive")
 				Verify.expect((w.selected())):toBe("nil")
 				w.stop()

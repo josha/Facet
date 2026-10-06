@@ -12,6 +12,8 @@ export type Result = {
 
 export type Runner = (argv: { string }, options: Binding.RunOptions?) -> Binding.ProcessResult
 
+local CAPABILITY = "posix-process-groups"
+
 local MARKER = "verify_bounded_timeout"
 
 local WATCHDOG = table.concat({
@@ -22,7 +24,7 @@ local WATCHDOG = table.concat({
 
 local function run(argv: { string }, seconds: number, runner: Runner, options: Binding.RunOptions?): Result
 	assert(#argv > 0 and seconds > 0 and seconds < math.huge, "bounded run needs a command and a positive limit")
-	local command = { "/bin/sh", "-c", WATCHDOG, "verify-bounded", tostring(math.ceil(seconds)) }
+	local command = { "sh", "-c", WATCHDOG, "verify-bounded", tostring(math.ceil(seconds)) }
 	for _, value in argv do
 		table.insert(command, value)
 	end
@@ -43,5 +45,6 @@ local function run(argv: { string }, seconds: number, runner: Runner, options: B
 end
 
 return {
+	CAPABILITY = CAPABILITY,
 	run = run,
 }

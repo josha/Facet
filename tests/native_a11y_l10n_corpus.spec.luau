@@ -856,7 +856,7 @@ return function(verifyHarness: Verify.Harness)
 					local stop = runtime.mount(function()
 						return controls[name](fixtures[name](runtime.constructors, engine))
 					end, root)
-					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
 					local missing, checked = unnamed(root, true)
 					total += checked
 					for _, entry in missing do
@@ -870,7 +870,7 @@ return function(verifyHarness: Verify.Harness)
 					local stop = runtime.mount(function()
 						return controls[gap.control](gap.props())
 					end, root)
-					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
 					local _, _, known = unnamed(root, false)
 					if not known[tag] then
 						table.insert(
@@ -911,8 +911,8 @@ return function(verifyHarness: Verify.Harness)
 				local bar = find(gui, "Tabs")
 				local failures, total = {}, 0
 				for _, demo in catalogue.list() do
-					find(bar, demo.id).Activated.fire()
-					engine.heartbeat.fire(1 / 60)
+					find(bar, demo.id).Activated:Fire()
+					engine.heartbeat:Fire(1 / 60)
 					assert(ctx.errorMessage:peek() == nil, `{demo.id}: {ctx.errorMessage:peek()}`)
 					local missing, checked = unnamed(gui, false)
 					total += checked
@@ -932,7 +932,7 @@ return function(verifyHarness: Verify.Harness)
 						end
 						return sctx.Host.ScreenGui "DemoScreen" { built.screen() }
 					end, starget)
-					sengine.heartbeat.fire(1 / 60)
+					sengine.heartbeat:Fire(1 / 60)
 					local missing, checked = unnamed(node, false)
 					total += checked
 					for _, entry in missing do
@@ -963,7 +963,7 @@ return function(verifyHarness: Verify.Harness)
 							local stop = runtime.mount(function()
 								return UI[name](textHosts(runtime.constructors, entry.text)[name]())
 							end, root)
-							engine.heartbeat.fire(1 / 60)
+							engine.heartbeat:Fire(1 / 60)
 							local found = texts(root)
 							if entry.text ~= "" and not found[entry.text] then
 								table.insert(failures, `{name} {entry.id}: no native Text or name equals the input`)
@@ -1006,7 +1006,7 @@ return function(verifyHarness: Verify.Harness)
 				end, root)
 				for _, entry in CORPUS do
 					value:set(entry.text)
-					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
 					local count = 0
 					for _, node in root:GetDescendants() do
 						if (node:IsA("TextLabel") or node:IsA("TextButton")) and node.Text == entry.text then
