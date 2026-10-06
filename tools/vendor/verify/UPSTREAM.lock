@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "ddabefefbe207d71269e1f07f4d239973eca83cb",
+  "commit": "089aaeee10e7de597b27c401bc021ff7c57d923c",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "35a4ce00ea9fe47c9e539926ba409100b149b64a5efc7510f8740e56d0a95b33",
@@ -10,7 +10,7 @@
     "docs/experience.md": "297c7bd1fd4f13f598121d2e4322615d0a955201b0ade6acafca9702049447e6",
     "docs/laws.md": "2f9c6189fff5d02a6260f1741f186839e5efc17e9a452841c905800ab2cdb87a",
     "docs/lint.md": "c5cd8188df7ccb8f91f57ac15fa398769f33d112781c38017af41edfbb5a3a02",
-    "docs/running.md": "a7e23b3d2016a688e4deadab7351f08000ced53bd5dcdc4709f96c1e24a1bd77",
+    "docs/running.md": "1de83faa2da75746f2ecc3a077169306dc9d3c361419041af7f7c4c933ac6ddf",
     "src/benchmark-store.luau": "3cf69efa12ee1cda89a8058fcbb2fa08a7889e5e96f5d1a845c4a662c2e36b06",
     "src/benchmark.luau": "3b2b19b7d3aafa2191fe1182076b41a66b0bbf177a977631eb706538fc019d7f",
     "src/core/capability.luau": "a04dd04905611473a5494b23835573c892568d6291778f8f04df61a08f0ec45a",
@@ -70,7 +70,7 @@
     "src/runtime/binding.luau": "3f7fcb8fd3b5400fa156f723b274d88afed63d2ae7ecfb021c5cb53c4afb51a2",
     "src/runtime/bounded.luau": "83400b39b1e4875f65102749fbbe193232f4b78dbdc52248f1597c6cbdb769c9",
     "src/runtime/files.luau": "56a7f0c5c3862ba9e358f62570208b3abe8ed8725d167d27dde878f22d69c4d2",
-    "src/runtime/gate-cli.luau": "6250c976853746b10dabc997b741061cd9188a90532cf07c425d74f20279c0fc",
+    "src/runtime/gate-cli.luau": "bc95a1cf7a7a2e9a58c85e2f99f9e7b48dc9f55b4dcfe0fd5c9550776f7e4eed",
     "src/runtime/gate.luau": "f9efb2eab2e717d8fb1c6d00edeaa3d4104bc68ac575be1cc7c6d81b27bd1747",
     "src/runtime/host.luau": "64b2654ac339531730a3eddf1457bad1e38f98f9cc3abae761d11b9dc3937daa",
     "src/runtime/receipt.luau": "4b57afa3426ca24bb0298137e5eff5f1cc6312a1f7571aa3174eb47d5cec826f",

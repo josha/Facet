@@ -111,6 +111,15 @@ local function narrow(draft: Gate.Draft, files: { string }, only: { string }): (
 			if #kept > 0 then
 				local narrowed = table.clone(producer)
 				narrowed.locators = kept
+				if producer.silent ~= nil then
+					local silent: { string } = {}
+					for _, locator in producer.silent do
+						if table.find(kept, locator) ~= nil then
+							table.insert(silent, locator)
+						end
+					end
+					narrowed.silent = silent
+				end
 				narrowed.cases = censusOf(producer.cases, producer.locators, kept)
 				table.insert(producers, narrowed)
 				table.insert(only, producer.id)
