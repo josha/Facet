@@ -379,9 +379,8 @@ The script does these steps:
 1. It refuses an unknown commit, a dirty tree, a missing `ROBLOX_API_KEY` and
    an unconfigured asset id.
 2. It checks out the named commit into a temporary git worktree.
-3. It runs the release gate again in that worktree. It uses
-   `tools/verify.sh release` if that script exists, otherwise `tools/test.sh`,
-   and records which one it used.
+3. It runs the release gate again in that worktree with
+   `tools/verify.sh release`.
 4. It builds in the worktree, so that the drift guard has a recorded manifest
    to compare against.
 5. It runs `tools/package.sh publish --confirm` with every guard still active.

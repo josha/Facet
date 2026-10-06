@@ -67,11 +67,7 @@ echo "release: worktree $work"
 git worktree add --detach "$work" "$full_commit" >/dev/null
 
 
-if [ -x "$work/tools/verify.sh" ]; then
-	gate="tools/verify.sh release"
-else
-	gate="tools/test.sh"
-fi
+gate="tools/verify.sh release"
 echo "release: gate = $gate"
 (cd "$work" && $gate)
 echo "release: gate PASS ($gate)"
