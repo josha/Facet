@@ -31,71 +31,26 @@ The typed `Host`, `BatchOutcome`, `ExecutionOptions`, `PlanPolicy` and returned 
 are exported by `src/core`. [Behavioral tests](../tests/execution.spec.luau) exercise dropped,
 reordered, duplicate, forged and disagreeing deliveries using the injected fake host.
 
-## Run lifecycle
+## Case lifecycle and waits
 
-`Core.runLifecycle(spec, ops)` drives one external run through injected host operations: ordered `setup`
-steps, a `start` step, a `body`, then cleanup. The body is a list of steps and checkpoints or a function
-that receives a handle (`send`, `capture`, `checkpoint`). A checkpoint captures each declared row, then
-acknowledges; it counts as reached only after the acknowledgment succeeds. `ops` supplies `now` and
-optional `sleep`, `start`, `send`, `capture`, `acknowledge`, `readLog`, `stop`, `reset`, `acquire`,
-`release` and `interrupted`. A missing operation that a step needs is a failure, not a pass.
+Every tier uses the [ordinary harness context](experience.md#one-case-model). Acquire actors and
+resources in `bind(context)`, registering cleanup with `context:defer` before each fallible acquisition.
+Perform readiness queries with `context:await`. Put actions, assertions and checkpoints in the case.
+The harness retains body and cleanup failures independently. There is no separate scenario lifecycle,
+actor runner or transcript verdict model.
 
-The first failure is the run's `failure`: `failed`, `timeout`, `threw`, `resource` or `interrupted`, with
-the step id, phase and reason. Cleanup always runs after it, in order: `readLog` and `stop` once `start`
-was attempted (a failed start may be half started), then `reset` once `start` or any step marked
-`mutates` was attempted. A cleanup failure goes to `cleanupFailures` and never replaces `failure`; a run
-with only cleanup failures is not ok. `Core.lifecycleFailures(result)` returns both in the report
-`Failure` shape.
+`Core.waitUntil` is the standalone read-only polling primitive. `Lute.runBounded(argv, seconds)`
+enforces an external process-group deadline. `Lute.directoryLock(root)` provides cross-process resource
+ownership. These are host utilities, not alternative case formats.
 
-A step may carry its own host operation in `run`; it replaces the shared `send`, `capture` or `acknowledge`
-operation for that step. A step's `deadlineSeconds` is passed to the host operation and checked against `now` after it returns, as
-is the spec's run deadline before each step. Verify cannot stop work a blocking host call does not end;
-the host operation must enforce the bound and may return `timedOut`. A step naming `resource` holds that
-exclusive resource only around its own operation. `acquire` is polled with `sleep` within the spec's
-`resource` wait budget; the release runs after success or failure and a release failure is a cleanup
-failure. Language-level cleanup cannot survive a killed host process; recovering that host belongs to the
-consumer.
-
-`Core.runConcurrentLifecycles(runs, parallel?)` begins each run in order, hands the runs' resource-free
-single steps of each round to `parallel` as one batch for the host to run together, then finishes every
-run. Runs fail and clean up independently. Resource steps and checkpoints run one at a time in the
-calling process, so a resource shared by concurrent processes is taken inside each process.
-[Behavioral tests](../tests/lifecycle.spec.luau) use fake host operations.
-
-## Waits, actors and evidence
-
-`Core.waitUntil({name, deadlineSeconds, pollSeconds, probe, describe?}, {now, sleep, cancelled?})`
-polls `probe(remainingSeconds) -> (done, observed, refusal?)`. It returns `satisfied`, `timeout`,
-`cancelled`, `refused` (the probe named a hard failure; no retry) or `probe_threw`, with the waited
-seconds, the poll count and the last observed value; the timeout detail names the wait and that value.
-A probe must only read. Verify cannot interrupt a blocking probe, so a host call that can hang must
-enforce `remainingSeconds` itself; `Lute.runBounded(argv, seconds)` does this by killing the command's
-process group at the limit and reporting `timedOut`. `Lute.directoryLock(root)` returns `acquire(name)` and
-`release(handle)` for a named exclusive resource shared by processes: it makes a lock directory, and takes
-over one whose recorded holder process no longer exists.
-
-`Core.actorNames(count, prefix?)` names actors (`client-1`...). `Core.runActors({name, actors,
-resources?, deadlineSeconds, pollSeconds, body}, ops)` runs the lifecycle for several named
-participants: it takes each named shared resource, joins every actor, waits until each reports ready
-(a ready actor is not probed again, a lost actor fails the run by name), runs the body, then always
-leaves the actors in reverse order and releases the resources. Leave and release failures are cleanup
-failures and never replace the body failure. The caller supplies `join`, `probe`, `leave`, and the
-lifecycle operations the body uses. Actions, predicates and participant counts stay with the consumer.
-
-A host operation may return `artifacts` (still, burst frame, clip, audio sample, metric file). The
-lifecycle keeps them per step; `Core.attachLifecycle(context, result)` attaches each to the running
-case as `<step>/<name>` and then throws the failure and the cleanup failures as one message, so the
-evidence and the verdict live in the same report. `Core.mediaProbeSummary`, `mediaAudioWindow`,
-`mediaAudioMeasurement` and `mediaSampleCommands` are the pure parts of decoding a recording; they claim
-no visual or audible judgment.
-
-`Core.accountPlan(plan, execution)` lists, for the plan's units, what ran, which capability each
-unsupported unit lacked, what was not run, and whether the plan was complete. Select with
-`selectPlan` or the `selection` option, run on any host, and account with this one path.
+`Core.accountPlan(plan, execution)` reports what ran, unsupported units and completeness.
+`Core.mediaProbeSummary`, `mediaAudioWindow`, `mediaAudioMeasurement` and `mediaSampleCommands`
+decode media measurements. Decoding alone provides no visual or audible judgment.
 
 ## Lute workers
 
 `Lute.host({worker, command?, directory, capabilities?, ...})` starts one process per batch.
+The worker process group is bounded by the batch deadline or host `deadlineSeconds` (default 60).
 Use a separate directory for each concurrent run; its batch inputs and reports remain available for
 failure diagnosis. Consumer output files remain the consumer's isolation responsibility.
 
@@ -113,14 +68,78 @@ registration is a failure. Every missing source remains a named case.
 worker bounds and stable lock text. A query matching nothing selects nothing. The consumer owns
 filesystem discovery and the committed complete corpus. A static require scan cannot infer dynamic edges. `encodeBatch`/`decodeBatch` transport the existing plan-batch schema.
 
-## Engine and external execution
+## Native Studio execution
 
-Mount the portable core/BDD and needed Roblox adapters. Create a source-bound session or harness.
-Transport its report. Engine manifests, live services, driver startup, publication identity,
-credentials, scheduling, image capture and durable storage are consumer operations. Verify's
-injected observation/capture/tier adapters judge those supplied facts; they do not authenticate a
-remote service or authorize an external action.
+`Lute.studio.run({place, code, worker, context?, deadlineSeconds?, directory?, studioExecutable?,
+mcpExecutable?, players?, finalCapture?})` copies an XML place into an isolated run directory, starts a disposable Studio,
+selects its unique document through the official Studio MCP, starts play and executes `code` in
+`Server` (default) or `Client`. Use the provided `tools/studio-worker.luau` as `worker`. macOS is the
+reference platform; the launcher uses POSIX process groups. It never attaches to an existing place.
+Studio must already be installed, authenticated and configured for its MCP tools.
 
-Use tagged log transport or bounded segments from [the API](api.md#reports-and-transport). Enumerate
-all expected responses. Refuse missing, mixed, conflicting and stale evidence before release
-acceptance. A saved old report proves no current source, environment, screenshot or runtime result.
+The engine code receives `runId`. Run ordinary cases or a source-bound session and return
+`HttpService:JSONEncode(Roblox.reportChannel.envelope(runId, report))`. The launcher validates identity
+and the ordinary report schema. Missing, malformed or wrong-run reports fault. Results use the existing
+`BatchOutcome`: returned, faulted or timed_out. A returned report can contain failed cases.
+
+`Lute.studio.host({place, worker, codeForBatch, capabilities, ...})` implements the standard `Core.Host`
+for `Core.execute`; `codeForBatch(batch)` loads and registers that batch's ordinary cases in the engine.
+The consumer owns its mounted test modules and operation bindings. No additional scenario format exists.
+
+The default run limit is 90 seconds. An external watchdog kills the owned worker process group,
+including Studio and the MCP process, on timeout. Normal success/failure also terminates those owned
+processes. Case budgets remain cooperative inside the engine; the outer run limit is enforced even
+when engine code never yields. Temporary run directories retain the input, engine/MCP diagnostics and
+one report for diagnosis. They are disposable, not a second receipt ledger.
+
+`lute run tools/native-conformance.luau` builds the reference fixture from current source and tests
+simulator/server observation parity, detection of a native mutation defect, a client's actual jump
+and landing, and termination of a wedged engine. `lute run tools/gate.luau --native` includes this check.
+A missing/unavailable engine fails the native command. The default portable gate does not run it and
+cannot establish native parity. Use the native gate when changing engine behavior or its launcher.
+
+Set `players = 1..8` to run a server with that many actual Studio clients through
+`StudioTestService:ExecuteMultiplayerTestAsync`. The code runs on the server and ends the test with
+its report. See the [multiplayer example](../examples/multiplayer.luau); the native gate runs it.
+
+For single-client runs, `finalCapture = true` saves the final active Studio viewport through the
+supported MCP capture tool before closing Studio. The last case retains the image path and media
+type. This is a final-state artifact, not an earlier checkpoint or a visual judgment. Captures are
+not silently substituted between actors. Multiplayer client capture callbacks need their own
+durable sink; `CaptureService` temporary image references expire with the client.
+
+## Published Player execution
+
+Build the authorized test place with `Lute.platform.buildPublished`, then run the same entry through
+`--host player`. [Setup and commands](running.md) own this workflow. The builder
+supports server execution with client report relay, or client execution after server authorization.
+The server checks the actual joined UserId, entry identity and selected case IDs. Launch data is
+correlation, not authorization. Each player can execute only one request per join.
+
+The lower-level `Lute.player.run { placeId, runId, entry?, caseIds?, logPath?, deadlineSeconds? }`
+opens the documented Roblox deep link with the signed-in account. The macOS reference backend
+requires Roblox.app and no existing Player process. It reads the log held open by the new PID,
+validates the ordinary framed report and run identity, and stops that owned process. `logPath` saves
+the collected raw log before cleanup. The default deadline is 90 seconds. Missing, stale, malformed
+or incomplete reports, exits and cleanup failures cannot pass. Ambiguous process ownership faults.
+A delayed OS launch can finish after the startup deadline; Verify does not kill an unidentified process.
+The launcher neither publishes places nor installs scripts into existing experiences.
+After republishing, use a new server running the intended place version. Entry and case selection do
+not identify a deployment revision; a valid report from an old server is not proof of the new build.
+
+`backend` can supply another platform's typed `now`, `sleep` and `launch` implementation. Its session
+provides `read(remainingSeconds)`, `alive(remainingSeconds)` and `close()`. Respect deadlines and release
+partial acquisitions on failure. [Launcher tests](../tests/player-launcher.spec.luau) exercise this
+contract. Real published Player validation has exercised native character motion, generated fixture
+execution, selected cases, standard report collection and owned-process cleanup. This does not prove
+multiple authenticated Players or durable screenshots: the reference launcher drives one authenticated
+client per machine and has no durable screenshot export. Studio multiplayer remains separate evidence.
+
+## Report transport
+
+`Roblox.reportChannel.envelope(runId, report)` validates a report and binds its run identity.
+`receive(envelope, runId)` rejects other runs. `publish(runId, report, encode, emit)` writes framed
+`VERIFY_REPORT` lines; `collect(bytes, runId, decode)` reassembles and validates them. Supply the host's
+JSON codec and output sink. This is the same report for unit and end-to-end cases, not a log-derived
+verdict. Tagged transport rejects missing, mixed, conflicting or multiple complete reports.
+A matching id is correlation, not authentication; callers own channel access and evidence custody.

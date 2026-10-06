@@ -1,6 +1,7 @@
 --!strict
 
 local process = require("@lune/process")
+local Verify = require("../tools/vendor/verify/src/core")
 
 local perf_runner = {}
 
@@ -177,14 +178,6 @@ local function hostOs(): string
 	return `{process.os}/{process.arch}`
 end
 
-local function percentile(sorted: { number }, p: number): number
-	if #sorted == 0 then
-		return 0
-	end
-	local idx = math.max(1, math.ceil(p * #sorted))
-	return sorted[idx]
-end
-
 local function slope(ys: { number }): number
 	local n = #ys
 	if n < 2 then
@@ -284,11 +277,15 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 
 	local phases: { [string]: any } = {}
 	for name, bucket in phaseSamples do
-		table.sort(bucket)
+		local summary = Verify.performance.summarize({
+			samples = bucket,
+			unit = "ms",
+			context = { environment = "facet-lune", signal = name, timing = "observed" },
+		})
 		phases[name] = {
-			p50_ms = percentile(bucket, 0.50),
-			p95_ms = percentile(bucket, 0.95),
-			p99_ms = percentile(bucket, 0.99),
+			p50_ms = summary.p50 or 0,
+			p95_ms = summary.p95 or 0,
+			p99_ms = summary.p99 or 0,
 			samples = #bucket,
 		}
 	end

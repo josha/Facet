@@ -228,10 +228,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				function gui:GetGuiInset()
 					return ctx.types.Vector2.new(0, top), ctx.types.Vector2.new(0, 0)
 				end
-				gui.TopbarInset = top
+				gui.TopbarInset = ctx.types.Rect.new(0, 0, 1280, top)
 				Verify.expect(math.abs(scale.Scale - (720 - 58) / 1024) < 0.000001):toBe(true)
 				top = 0
-				gui.TopbarInset = top
+				gui.TopbarInset = ctx.types.Rect.new(0, 0, 1280, top)
 				ctx.devicePreview:set("tv")
 				expectDevice(1920, 1080, "Large", "Gamepad")
 				Verify.expect((disabled(find(root, "Orientation")))):toBe(true)

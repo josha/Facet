@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Use Verify for reflected test classes, instance cloning, tags, ancestor lookup,
+  focus and style maps. The fixture keeps explicit geometry and input providers.
+  Benchmark percentile summaries use the shared Verify implementation.
+
+- Card hover keeps measured collection rows steady. Native AnchorPoint centering
+  avoids integer position steps. Cards with no primary action or menu do not
+  paint an empty action plate over the next row.
+
 - Use Verify for the headless engine hierarchy, signals, attributes and destruction.
   Keep borrowed modal content alive through Compose and preserve native StyleSheet
   panel padding. The shared Compose module

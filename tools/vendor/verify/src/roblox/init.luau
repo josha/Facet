@@ -1,5 +1,15 @@
 --!strict
 
+local CaseEntry = require "@self/case-entry"
+local EnvironmentEngineAdapter = require "@self/environment-engine"
+local Reflection = require "@self/reflection"
+local UiFakes = require "@self/ui-fakes"
+local Multiplayer = require "@self/multiplayer"
+local InputHost = require "@self/input-host"
+local PlayerHost = require "@self/player-host"
+local ReportChannel = require "@self/report-channel"
+local InstanceHost = require "@self/instance-host"
+
 local Performance = require "@self/performance"
 local Network = require "@self/network"
 local ExperienceHost = require "@self/experience-host"
@@ -9,11 +19,44 @@ local Environment = require "@self/environment"
 local CheckpointPlan = require "@self/checkpoint-plan"
 local ObservationSink = require "@self/observation-sink"
 local PlaceBoot = require "@self/place-boot"
-local ScenarioRunner = require "@self/scenario-runner"
 local Scheduler = require "@self/scheduler"
 local ScenarioStepJournal = require "@self/scenario-step-journal"
-local TierLadder = require "@self/tier-ladder"
 local WitnessHost = require "@self/witness-host"
+
+export type CaseEntry = CaseEntry.Entry
+export type CaseEntryFactory = CaseEntry.Factory
+export type CaseHostName = CaseEntry.Host
+export type MultiplayerConnection = Multiplayer.Connection
+export type MultiplayerPlayer = Multiplayer.Player
+export type MultiplayerRemote = Multiplayer.Remote
+export type MultiplayerServerOptions = Multiplayer.ServerOptions
+export type MultiplayerClientOptions = Multiplayer.ClientOptions
+export type InputKey = InputHost.Key
+export type InputPointer = InputHost.Pointer
+export type InputBackend = InputHost.Backend
+export type InputGuiTarget = InputHost.GuiTarget
+export type EnvironmentEngine = EnvironmentEngineAdapter.Engine
+export type EnvironmentEngineVector2 = EnvironmentEngineAdapter.Vector2
+export type EnvironmentEngineVector3 = EnvironmentEngineAdapter.Vector3
+export type EnvironmentEngineColor3 = EnvironmentEngineAdapter.Color3
+export type EnvironmentEngineUDim = EnvironmentEngineAdapter.UDim
+export type EnvironmentEngineUDim2 = EnvironmentEngineAdapter.UDim2
+export type EnvironmentEngineCFrame = EnvironmentEngineAdapter.CFrame
+export type EnvironmentEngineLibrary<
+	V2 = EnvironmentEngineVector2,
+	V3 = EnvironmentEngineVector3,
+	C3 = EnvironmentEngineColor3,
+	U1 = EnvironmentEngineUDim,
+	U2 = EnvironmentEngineUDim2,
+	CF = EnvironmentEngineCFrame
+> = EnvironmentEngineAdapter.Library<V2, V3, C3, U1, U2, CF>
+export type ReflectionOptions = Reflection.Options
+export type ReflectionDatabase = Reflection.Database
+export type UiFakeOptions = UiFakes.Options
+export type UiFakeController = UiFakes.Controller
+export type ExperienceEngine = ExperienceHost.Engine
+export type ExperienceRegistry = ExperienceHost.Registry
+export type ExperienceTransport = ExperienceHost.Transport
 
 export type Network = Network.Network
 export type NetworkOptions = Network.Options
@@ -75,29 +118,7 @@ export type PlaceBootCache<B = unknown, C = () -> unknown> = PlaceBoot.Cache<B, 
 export type PlaceBootMounted = PlaceBoot.Mounted
 export type PlaceBootOpaque = PlaceBoot.Opaque
 export type PlaceBootTreeDeps<B = unknown> = PlaceBoot.TreeDeps<B>
-export type ScenarioDeps = ScenarioRunner.Deps
-export type ScenarioPredicates = ScenarioRunner.Predicates
-export type ScenarioReasons = ScenarioRunner.Reasons
-export type ScenarioOptions = ScenarioRunner.Options
-export type ScenarioSelection = ScenarioRunner.Selection
 export type CheckReceiptOptions = WitnessHost.CheckReceiptOptions
-export type TierLadderSpec = TierLadder.Spec
-export type TierLadderSeal = TierLadder.Seal
-export type TierLadderVerdict = TierLadder.Verdict
-export type TierLadderReceiptOptions = TierLadder.ReceiptOptions
-export type TierLadderUnsupportedRule = TierLadder.UnsupportedRule
-export type TierLadderDecoder = TierLadder.Decoder
-export type TierLadderVerbs = TierLadder.Verbs
-export type SessionObservationOptions = TierLadder.SessionObservationOptions
-export type ChunkedProbe = TierLadder.ChunkedProbe
-export type ChunkedCallPlanOptions = TierLadder.CallPlanOptions
-export type ClientObservationOptions = TierLadder.ClientObservationOptions
-export type ClientObservationMarker = TierLadder.Marker
-export type JourneyNames = TierLadder.JourneyNames
-export type JourneyOptions = TierLadder.JourneyOptions
-export type JourneyBinding = TierLadder.JourneyBinding
-export type JourneyAcceptance = TierLadder.JourneyAcceptance
-export type PredicateRow = TierLadder.PredicateRow
 export type ObservationNode = ObservationSink.Node
 type ObservationOwner = ObservationSink.Owner
 export type ObservationTransport = ObservationSink.Transport
@@ -114,6 +135,15 @@ export type ObservationSeamState<N = ObservationNode> = ObservationSink.SeamStat
 export type ObservationAcquire<N = ObservationNode> = ObservationSink.Acquire<N>
 
 return {
+	caseEntry = CaseEntry,
+	environmentEngine = EnvironmentEngineAdapter.create,
+	reflection = Reflection,
+	uiFakes = UiFakes,
+	multiplayer = Multiplayer,
+	inputHost = InputHost,
+	reportChannel = ReportChannel,
+	playerHost = PlayerHost,
+	instanceHost = InstanceHost,
 	performance = Performance,
 	network = Network,
 	experienceHost = ExperienceHost,
@@ -151,20 +181,8 @@ return {
 	PLACE_COMMIT_TOKEN = PlaceBoot.COMMIT_TOKEN,
 	PLACE_FRAME_SECONDS = PlaceBoot.FRAME_SECONDS,
 	PLACE_BOOT_STAGES = PlaceBoot.STAGES,
-	scenarioRunner = ScenarioRunner,
 	checkpointPlan = CheckpointPlan,
 	scenarioStepJournal = ScenarioStepJournal,
-	DEFAULT_SCENARIO_REASONS = ScenarioRunner.DEFAULT_REASONS,
-	observeScenario = ScenarioRunner.observe,
-	tierLadder = TierLadder,
-	DEFAULT_REFUSAL_PATTERNS = TierLadder.DEFAULT_REFUSAL_PATTERNS,
-	classifyLadderVerdict = TierLadder.classify,
-	judgeLadder = TierLadder.judge,
-	ladderReceipt = TierLadder.receipt,
-	sessionObservations = TierLadder.sessionObservations,
-	chunkedCallPlan = TierLadder.chunkedCallPlan,
-	clientObservations = TierLadder.clientObservations,
-	journeySpec = TierLadder.journeySpec,
 	observationSink = ObservationSink,
 	OBSERVATION_ENCODED_TAG_SUFFIX = ObservationSink.ENCODED_TAG_SUFFIX,
 	DEFAULT_OBSERVATION_REPORT_LIMITS = ObservationSink.DEFAULT_REPORT_LIMITS,

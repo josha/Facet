@@ -11,6 +11,8 @@ export type Spy = Verify.Spy
 export type Own = (cleanup: () -> ()) -> ()
 export type Body = (own: Own, context: Context) -> ()
 export type CaseDefinition = {
+	timeoutSeconds: number?,
+	cleanupTimeoutSeconds: number?,
 	run: Body,
 	id: string?,
 	requires: { string }?,
@@ -61,6 +63,8 @@ local function create(harness: Harness): Bdd
 		end
 		harness:case(name, {
 			id = definition.id,
+			timeoutSeconds = definition.timeoutSeconds,
+			cleanupTimeoutSeconds = definition.cleanupTimeoutSeconds,
 			run = adapt(definition.run),
 			requires = definition.requires,
 			tags = definition.tags,
@@ -102,6 +106,8 @@ export type Report = Verify.Report
 export type CaseResult = Verify.CaseResult
 
 export type SurfaceOptions = {
+	bind: ((Context) -> Verify.CaseHost)?,
+	cancelled: (() -> boolean)?,
 	executor: string,
 	environment: { [string]: string },
 	capabilities: { string },
@@ -135,6 +141,8 @@ local function surface(options: SurfaceOptions): Surface
 	local api = {} :: Surface
 	local sessionOptions: Verify.SessionProvidedOptions<Bdd> = {
 		executor = options.executor,
+		bind = options.bind,
+		cancelled = options.cancelled,
 		environment = options.environment,
 		capabilities = options.capabilities,
 		now = options.now or os.clock,

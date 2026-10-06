@@ -99,7 +99,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		local tags = node:GetTags()
 		table.sort(tags)
 		table.insert(lines, "tags=" .. table.concat(tags, ","))
-		table.insert(lines, "style=" .. encode(node:GetProperties()))
+		table.insert(lines, "style=" .. encode(if node:IsA("StyleRule") then node:GetProperties() else {}))
 		local children = {}
 		for _, child in node:GetChildren() do
 			table.insert(children, painted(child))

@@ -2,6 +2,9 @@
 
 local Types = require "./types"
 local Shape = require "./shape"
+local Operations = require "./operations"
+local Performance = require "./performance"
+local Matchers = require "./matchers"
 
 type Artifact = Types.Artifact
 type CaseResult = Types.CaseResult
@@ -117,13 +120,19 @@ local function copySteps(value: unknown, label: string): { StepResult }
 		end
 		local raw = item :: { [string]: unknown }
 		local status = requiredString(raw.status, label .. ".status")
-		if status ~= "passed" and status ~= "failed" and status ~= "timed_out" and status ~= "cancelled" then
+		if
+			status ~= "passed"
+			and status ~= "failed"
+			and status ~= "timed_out"
+			and status ~= "cancelled"
+			and status ~= "unsupported"
+		then
 			error(label .. " contains an unknown step status: " .. status, 3)
 		end
 		table.insert(result, {
 			name = requiredString(raw.name, label .. ".name"),
 			actor = optionalString(raw.actor, label .. ".actor"),
-			status = status :: "passed" | "failed" | "timed_out" | "cancelled",
+			status = status :: "passed" | "failed" | "timed_out" | "cancelled" | "unsupported",
 			durationMicros = nonnegativeNumber(raw.durationMicros, label .. ".durationMicros"),
 			message = optionalString(raw.message, label .. ".message"),
 		})
@@ -150,6 +159,135 @@ local function copyArtifacts(value: unknown, label: string): { Artifact }
 	return result
 end
 
+local function fields(value: unknown): { [string]: unknown }
+	assert(type(value) == "table", "evidence requires a record")
+	return value :: { [string]: unknown }
+end
+
+local function rows(value: unknown): { unknown }
+	assert(
+		type(value) == "table" and Shape.denseRows(value, #(value :: { unknown })),
+		"evidence requires a dense array"
+	)
+	return value :: { unknown }
+end
+
+local function copyEvidence(value: unknown, steps: { StepResult }): Types.Evidence?
+	if value == nil then
+		return nil
+	end
+	local raw = fields(value)
+	local function step(value: unknown): number
+		assert(
+			Shape.nonnegativeInteger(value) and (value :: number) >= 1 and steps[value :: number] ~= nil,
+			"evidence needs a recorded step"
+		)
+		return value :: number
+	end
+	local result: Types.Evidence = { observations = {}, checkpoints = {}, reviews = {}, measurements = {} }
+	for _, item in rows(raw.observations) do
+		local row = fields(item)
+		assert(row.kind == "action" or row.kind == "query", "invalid observation kind")
+		table.insert(result.observations, {
+			step = step(row.step),
+			kind = row.kind :: "action" | "query",
+			actor = requiredString(row.actor, "actor"),
+			name = requiredString(row.name, "name"),
+			value = Operations.snapshot(row.value),
+			input = Operations.snapshot(row.input),
+		})
+	end
+	for _, item in rows(raw.checkpoints) do
+		local row = fields(item)
+		local artifacts = copyArtifacts(row.artifacts, "checkpoint artifacts")
+		assert(#artifacts > 0, "checkpoint needs evidence")
+		local actor, name = requiredString(row.actor, "actor"), requiredString(row.name, "name")
+		for _, prior in result.checkpoints do
+			assert(prior.actor ~= actor or prior.name ~= name, "duplicate checkpoint")
+		end
+		table.insert(result.checkpoints, {
+			step = step(row.step),
+			actor = actor,
+			name = name,
+			artifacts = artifacts,
+		})
+	end
+	for _, item in rows(raw.reviews) do
+		local row = fields(item)
+		local actor, checkpoint = requiredString(row.actor, "actor"), requiredString(row.checkpoint, "checkpoint")
+		local found = false
+		for _, capture in result.checkpoints do
+			if capture.actor == actor and capture.name == checkpoint then
+				found = true
+			end
+		end
+		assert(found, "review needs bound checkpoint")
+		local judgment = fields(row.judgment)
+		assert(
+			judgment.status == "passed" or judgment.status == "failed" or judgment.status == "unreviewed",
+			"invalid judgment status"
+		)
+		table.insert(result.reviews, {
+			step = step(row.step),
+			actor = actor,
+			checkpoint = checkpoint,
+			criterion = requiredString(row.criterion, "criterion"),
+			judgment = {
+				status = judgment.status :: "passed" | "failed" | "unreviewed",
+				reviewer = requiredString(judgment.reviewer, "reviewer"),
+				detail = requiredString(judgment.detail, "detail"),
+			},
+		})
+	end
+	for _, item in rows(raw.measurements) do
+		local row = fields(item)
+		local input, limits = fields(row.input), fields(row.limits)
+		local context = fields(input.context)
+		assert(context.timing == "observed" or context.timing == "simulated", "invalid timing")
+		local samples: { number } = {}
+		for _, sample in rows(input.samples) do
+			assert(Shape.finiteNonnegative(sample), "invalid performance sample")
+			table.insert(samples, sample :: number)
+		end
+		local function optionalNumber(value: unknown): number?
+			assert(value == nil or Shape.finiteNonnegative(value), "invalid performance bound")
+			return value :: number?
+		end
+		local copiedInput: Performance.Input = {
+			samples = samples,
+			unit = requiredString(input.unit, "unit"),
+			threshold = optionalNumber(input.threshold),
+			context = {
+				environment = requiredString(context.environment, "environment"),
+				signal = requiredString(context.signal, "signal"),
+				timing = context.timing :: "observed" | "simulated",
+			},
+		}
+		assert(Shape.nonnegativeInteger(limits.minimumSamples), "invalid minimum samples")
+		local copiedLimits: Performance.Limits = {
+			unit = requiredString(limits.unit, "unit"),
+			minimumSamples = limits.minimumSamples :: number,
+			p50 = optionalNumber(limits.p50),
+			p95 = optionalNumber(limits.p95),
+			p99 = optionalNumber(limits.p99),
+			maximum = optionalNumber(limits.maximum),
+			threshold = optionalNumber(limits.threshold),
+			aboveThresholdRatio = optionalNumber(limits.aboveThresholdRatio),
+		}
+		local evaluation = Performance.evaluate(Performance.summarize(copiedInput), copiedLimits)
+		assert(Matchers.deepEqual(evaluation, row.evaluation), "performance evaluation mismatch")
+		table.insert(result.measurements, {
+			step = step(row.step),
+			actor = requiredString(row.actor, "actor"),
+			name = requiredString(row.name, "name"),
+			input = copiedInput,
+			limits = copiedLimits,
+			evaluation = evaluation,
+		})
+	end
+	return result
+end
+
 local NEEDS_FAILURE: { [string]: boolean } = {
 	failed = true,
 	timed_out = true,
@@ -166,6 +304,16 @@ local function copyResult(value: unknown, label: string): CaseResult
 		error(label .. " contains an unknown status: " .. status, 3)
 	end
 	local failures = copyFailures(raw.failures, label .. ".failures")
+	local steps = copySteps(raw.steps, label .. ".steps")
+	local evidence = copyEvidence(raw.evidence, steps)
+	if status == "passed" and evidence then
+		for _, review in evidence.reviews do
+			assert(review.judgment.status == "passed", "passed case has unsatisfied review")
+		end
+		for _, measurement in evidence.measurements do
+			assert(measurement.evaluation.status == "passed", "passed case has unsatisfied measurement")
+		end
+	end
 	if NEEDS_FAILURE[status] and #failures == 0 then
 		error(("%s is %s but records no failure"):format(label, status), 3)
 	end
@@ -186,8 +334,9 @@ local function copyResult(value: unknown, label: string): CaseResult
 		status = status :: Status,
 		durationMicros = nonnegativeNumber(raw.durationMicros, label .. ".durationMicros"),
 		failures = failures,
-		steps = copySteps(raw.steps, label .. ".steps"),
+		steps = steps,
 		artifacts = copyArtifacts(raw.artifacts, label .. ".artifacts"),
+		evidence = evidence,
 		limitations = copyStrings(raw.limitations, label .. ".limitations"),
 		missingCapabilities = copyStrings(raw.missingCapabilities, label .. ".missingCapabilities"),
 		skipReason = optionalString(raw.skipReason, label .. ".skipReason"),
@@ -496,6 +645,26 @@ local function sortedKeys(map: { [string]: string }): { string }
 	return keys
 end
 
+local function canonicalValue(value: unknown): string
+	local kind = type(value)
+	if kind == "nil" then
+		return "nil"
+	end
+	if kind == "string" then
+		return string.format("%q", value :: string)
+	end
+	if kind == "number" or kind == "boolean" then
+		return tostring(value)
+	end
+	assert(kind == "table", "invalid evidence value")
+	local pieces: { string } = {}
+	for key, child in value :: { [string | number]: unknown } do
+		table.insert(pieces, canonicalValue(key) .. "=" .. canonicalValue(child))
+	end
+	table.sort(pieces)
+	return "{" .. table.concat(pieces, ",") .. "}"
+end
+
 local function canonical(value: unknown): string
 	local report = decode(value)
 	local lines: { string } = {
@@ -530,6 +699,9 @@ local function canonical(value: unknown): string
 				tostring(result.skipReason)
 			)
 		)
+		if result.evidence ~= nil then
+			table.insert(lines, "  evidence " .. canonicalValue(result.evidence))
+		end
 		for _, limitation in result.limitations do
 			table.insert(lines, ("  limitation %s"):format(limitation))
 		end
@@ -602,6 +774,32 @@ local function verdictDifferences(left: Report, right: Report): { string }
 	return ids
 end
 
+local function observationParity(left: Report, right: Report): Operations.Parity
+	left, right = decode(left), decode(right)
+	local differences = verdictDifferences(left, right)
+	local unsupported = left.total == 0 or right.total == 0 or left.passed ~= left.total or right.passed ~= right.total
+	local other: { [string]: CaseResult } = {}
+	for _, result in right.results do
+		other[result.id] = result
+	end
+	for _, result in left.results do
+		local peer = other[result.id]
+		if
+			peer
+			and not Matchers.deepEqual(
+				if result.evidence then result.evidence.observations else {},
+				if peer.evidence then peer.evidence.observations else {}
+			)
+		then
+			table.insert(differences, result.id .. ": observations differ")
+		end
+	end
+	return {
+		status = if #differences > 0 then "failed" elseif unsupported then "unsupported" else "passed",
+		differences = differences,
+	}
+end
+
 return {
 	SCHEMA_VERSION = SCHEMA_VERSION,
 	TIMING_FIELDS = TIMING_FIELDS,
@@ -612,4 +810,5 @@ return {
 	canonical = canonical,
 	verdictDigest = verdictDigest,
 	verdictDifferences = verdictDifferences,
+	observationParity = observationParity,
 }

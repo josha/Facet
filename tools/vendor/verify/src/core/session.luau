@@ -4,6 +4,7 @@ local Capability = require "./capability"
 local Harness = require "./harness"
 local ReportModel = require "./report"
 local Types = require "./types"
+local Operations = require "./operations"
 
 type Report = Types.Report
 type Selection = Harness.Selection
@@ -13,6 +14,8 @@ export type SurfaceFactory<S = Surface> = (harness: Harness.Harness) -> S
 
 export type Options<S = Surface> = {
 	executor: string,
+	bind: ((Harness.Context) -> Operations.Host)?,
+	cancelled: (() -> boolean)?,
 	environment: { [string]: string },
 	capabilities: { string }?,
 	now: (() -> number)?,
@@ -25,6 +28,8 @@ export type Options<S = Surface> = {
 
 export type ProvidedOptions<S> = {
 	executor: string,
+	bind: ((Harness.Context) -> Operations.Host)?,
+	cancelled: (() -> boolean)?,
 	environment: { [string]: string },
 	capabilities: { string }?,
 	now: (() -> number)?,
@@ -37,6 +42,8 @@ export type ProvidedOptions<S> = {
 
 export type DefaultOptions = {
 	executor: string,
+	bind: ((Harness.Context) -> Operations.Host)?,
+	cancelled: (() -> boolean)?,
 	environment: { [string]: string },
 	capabilities: { string }?,
 	now: (() -> number)?,
@@ -208,6 +215,8 @@ local function create<S>(options: Options<S>): Session<S>
 					capabilities = capabilities,
 					environment = environment,
 					selection = selection,
+					bind = options.bind,
+					cancelled = options.cancelled,
 				}
 			end)
 			running = nil

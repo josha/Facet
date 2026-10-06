@@ -19,12 +19,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		playerGui.GetGuiObjectsAtPosition = function()
 			return hits
 		end
-		world.CurrentCamera = {
-			ScreenPointToRay = function(_, x, y)
-				table.insert(rays, { x, y })
-				return { Origin = engine.types.Vector3.zero, Direction = engine.types.Vector3.new(0, 0, -1) }
-			end,
-		}
+		world.CurrentCamera = engine.new("Camera")
+		world.CurrentCamera.ScreenPointToRay = function(_, x, y)
+			table.insert(rays, { x, y })
+			return { Origin = engine.types.Vector3.zero, Direction = engine.types.Vector3.new(0, 0, -1) }
+		end
 		world.Raycast = function()
 			return rayHit
 		end

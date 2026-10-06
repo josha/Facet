@@ -4,6 +4,8 @@ local Matchers = require "./matchers"
 local ReportModel = require "./report"
 local Spy = require "./spy"
 local Types = require "./types"
+local Operations = require "./operations"
+local Performance = require "./performance"
 
 export type Status = Types.Status
 export type Failure = Types.Failure
@@ -38,6 +40,21 @@ export type Disposable<T = unknown> = {
 export type Resource<T = unknown> = (() -> ()) | (T & { dispose: (T) -> () }) | (T & { destroy: (T) -> () })
 
 export type Context = {
+	unsupported: (self: Context, requirement: string) -> never,
+	await: <I, O>(
+		self: Context,
+		actor: string,
+		operation: Operations.Operation<I, O>,
+		input: I,
+		predicate: (O) -> boolean,
+		pollSeconds: number
+	) -> O,
+	perform: <I, O>(self: Context, actor: string, operation: Operations.Operation<I, O>, input: I) -> O,
+	checkpoint: (self: Context, actor: string, name: string) -> (),
+	judge: (self: Context, actor: string, checkpoint: string, criterion: string) -> (),
+	measure: (self: Context, actor: string, name: string, input: Performance.Input, limits: Performance.Limits) -> (),
+	remainingSeconds: (self: Context) -> number,
+
 	expect: (self: Context, value: unknown) -> Expectation,
 	defer: (self: Context, cleanup: () -> ()) -> (),
 	own: <T>(self: Context, resource: Resource<T>) -> (),
@@ -48,6 +65,8 @@ export type Context = {
 
 export type CaseRun = (context: Context) -> ()
 export type CaseOptions = {
+	timeoutSeconds: number?,
+	cleanupTimeoutSeconds: number?,
 	id: string?,
 	run: CaseRun,
 	requires: { string }?,
@@ -66,6 +85,8 @@ export type Selection = {
 }
 
 export type RunOptions = {
+	bind: ((context: Context) -> Operations.Host)?,
+	cancelled: (() -> boolean)?,
 	executor: string,
 	capabilities: { string }?,
 	environment: { [string]: string }?,
@@ -98,6 +119,8 @@ export type SyntheticOptions = {
 }
 
 type CaseEntry = {
+	timeoutSeconds: number?,
+	cleanupTimeoutSeconds: number?,
 	id: string,
 	name: string,
 	source: string?,
@@ -119,6 +142,9 @@ type Suite = {
 
 local RuntimeSkip = {}
 local StepAbort = {}
+local TimedOut = {}
+local Cancelled = {}
+local Unsupported = {}
 
 local function newSuite(name: string, parent: Suite?): Suite
 	return {
@@ -276,7 +302,7 @@ local function selected(entry: CaseEntry, path: { string }, selection: Selection
 	return true
 end
 
-local function statusFor(failures: { Failure }, runtimeSkipReason: string?): Status
+local function statusFor(failures: { Failure }, runtimeSkipReason: string?, missing: { string }): Status
 	for _, failure in failures do
 		if failure.outcome == "timed_out" then
 			return "timed_out"
@@ -289,6 +315,8 @@ local function statusFor(failures: { Failure }, runtimeSkipReason: string?): Sta
 	end
 	if #failures > 0 then
 		return "failed"
+	elseif #missing > 0 then
+		return "unsupported"
 	elseif runtimeSkipReason ~= nil then
 		return "skipped"
 	end
@@ -375,6 +403,8 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 		local tags: { string } = {}
 		local limitations: { string } = {}
 		local explicitId: string? = nil
+		local timeoutSeconds: number? = nil
+		local cleanupTimeoutSeconds: number? = nil
 		if type(definition) == "function" then
 			run = definition
 		else
@@ -386,6 +416,17 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			tags = copySortedUnique(definition.tags, "case tags")
 			limitations = copySortedUnique(definition.limitations, "case limitations")
 			explicitId = definition.id
+			timeoutSeconds = definition.timeoutSeconds
+			cleanupTimeoutSeconds = definition.cleanupTimeoutSeconds
+			if cleanupTimeoutSeconds ~= nil then
+				assert(
+					cleanupTimeoutSeconds > 0 and cleanupTimeoutSeconds < math.huge,
+					"cleanup timeout must be positive and finite"
+				)
+			end
+			if timeoutSeconds ~= nil then
+				assert(timeoutSeconds > 0 and timeoutSeconds < math.huge, "case timeout must be positive and finite")
+			end
 		end
 		local path = suitePath(ancestors(current))
 		local id = explicitId or humanId(path, checkedName("case", name))
@@ -403,6 +444,8 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			id = id,
 			name = name,
 			source = source,
+			timeoutSeconds = timeoutSeconds,
+			cleanupTimeoutSeconds = cleanupTimeoutSeconds,
 			run = run,
 			requires = requirements,
 			tags = tags,
@@ -437,7 +480,8 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 		entry: CaseEntry,
 		available: { [string]: boolean },
 		runOrigin: Origin,
-		invoker: Invoker
+		invoker: Invoker,
+		runOptions: RunOptions
 	): CaseResult
 		local chain = ancestors(suite)
 		local path = suitePath(chain)
@@ -492,9 +536,35 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 		local runtimeSkipReason: string? = nil
 		local started = now()
 		local context = {} :: Context
+		local deadline = if entry.timeoutSeconds then started + entry.timeoutSeconds else math.huge
+		local host: Operations.Host? = nil
+		local evidence: Types.Evidence = { observations = {}, checkpoints = {}, reviews = {}, measurements = {} }
+		local releasing = false
+		local cleanupDeadline = math.huge
+		local function withinDeadline()
+			if releasing then
+				if now() >= cleanupDeadline then
+					error({ signal = TimedOut }, 0)
+				end
+				return
+			end
+			if runOptions.cancelled and runOptions.cancelled() then
+				error({ signal = Cancelled }, 0)
+			end
+			if now() >= deadline then
+				error({ signal = TimedOut }, 0)
+			end
+		end
 
 		local function invoke(phase: Types.InvocationPhase, callback: () -> ()): InvocationResult
-			local ok, result: unknown = pcall(invoker, phase, callback)
+			if phase == "cleanup" or phase == "teardown" then
+				cleanupDeadline = now() + (entry.cleanupTimeoutSeconds or 5)
+			end
+			local ok, result: unknown = pcall(invoker, phase, function()
+				withinDeadline()
+				callback()
+				withinDeadline()
+			end)
 			if not ok then
 				return { outcome = "failed", error = "executor invoker failed: " .. tostring(result) }
 			end
@@ -510,6 +580,23 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			then
 				return { outcome = "failed", error = "executor invoker returned an unknown outcome" }
 			end
+			local abort = type(invocation.error) == "table"
+				and (invocation.error :: { [string]: unknown }).signal == StepAbort
+			if not abort and now() >= (if releasing then cleanupDeadline else deadline) then
+				return {
+					outcome = "timed_out",
+					error = "case deadline exceeded: " .. tostring(invocation.error or "late completion"),
+				}
+			end
+			if invocation.outcome == "failed" and type(invocation.error) == "table" then
+				local signal = (invocation.error :: { [string]: unknown }).signal
+				if signal == TimedOut then
+					return { outcome = "timed_out", error = "case deadline exceeded" }
+				end
+				if signal == Cancelled then
+					return { outcome = "cancelled", error = "case cancelled" }
+				end
+			end
 			return invocation
 		end
 
@@ -522,6 +609,9 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 				local signal = thrown :: { [unknown]: unknown }
 				if signal.signal == RuntimeSkip then
 					runtimeSkipReason = tostring(signal.reason)
+					return false
+				elseif signal.signal == Unsupported then
+					table.insert(missing, tostring(signal.reason))
 					return false
 				elseif signal.signal == StepAbort then
 					return false
@@ -569,6 +659,11 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			end)
 		end
 
+		function context:unsupported(requirement: string): never
+			checkedName("missing requirement", requirement)
+			error({ signal = Unsupported, reason = requirement }, 0)
+		end
+
 		function context:skip(reason: string): never
 			if reason == "" then
 				error("runtime skip reason must not be empty", 2)
@@ -594,8 +689,11 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			end
 			local stepStarted = now()
 			local invocation = invoke("step", stepRun)
-			local stepStatus: "passed" | "failed" | "timed_out" | "cancelled" = if invocation.outcome == "returned"
-				then "passed"
+			local unsupported = type(invocation.error) == "table"
+				and (invocation.error :: { [string]: unknown }).signal == Unsupported
+			local stepStatus: "passed" | "failed" | "timed_out" | "cancelled" | "unsupported" = if unsupported
+				then "unsupported"
+				elseif invocation.outcome == "returned" then "passed"
 				elseif invocation.outcome == "timed_out" then "timed_out"
 				elseif invocation.outcome == "cancelled" then "cancelled"
 				else "failed"
@@ -624,7 +722,185 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			table.insert(artifacts, { name = name, reference = reference, mediaType = mediaType })
 		end
 
+		function context:remainingSeconds(): number
+			return math.max(0, (if releasing then cleanupDeadline else deadline) - now())
+		end
+
+		function context:perform<I, O>(actor: string, operation: Operations.Operation<I, O>, input: I): O
+			local output: O? = nil
+			self:step(operation.kind .. " " .. operation.name, {
+				actor = actor,
+				run = function()
+					assert(actor ~= "", "operation needs an actor")
+					local bound = host
+					assert(bound ~= nil, "case has no operation host")
+					assert(
+						table.find(bound.capabilities, operation.kind .. ":" .. operation.name),
+						"operation unavailable"
+					)
+					local payload = Operations.snapshot(operation.input(input))
+					local value = bound.invoke {
+						kind = operation.kind,
+						actor = actor,
+						name = operation.name,
+						payload = payload,
+						deadline = if releasing then cleanupDeadline else deadline,
+					}
+					withinDeadline()
+					output = operation.output(Operations.snapshot(value))
+					table.insert(evidence.observations, {
+						step = #steps + 1,
+						kind = operation.kind,
+						actor = actor,
+						name = operation.name,
+						value = Operations.snapshot(output),
+						input = payload,
+					})
+				end,
+			})
+			return output :: O
+		end
+
+		function context:await<I, O>(
+			actor: string,
+			operation: Operations.Operation<I, O>,
+			input: I,
+			predicate: (O) -> boolean,
+			pollSeconds: number
+		): O
+			assert(operation.kind == "query", "await only retries queries")
+			assert(pollSeconds > 0 and pollSeconds < math.huge, "poll interval must be positive and finite")
+			assert(deadline < math.huge, "await requires a case timeout")
+			local value: O? = nil
+			self:step("await " .. operation.name, {
+				actor = actor,
+				run = function()
+					while true do
+						local observed = self:perform(actor, operation, input)
+						if predicate(observed) then
+							value = observed
+							return
+						end
+						local bound = host
+						assert(bound ~= nil and bound.sleep ~= nil, "await requires a host clock and sleep")
+						bound.sleep(math.min(pollSeconds, self:remainingSeconds()))
+						withinDeadline()
+					end
+				end,
+			})
+			return value :: O
+		end
+
+		function context:checkpoint(actor: string, name: string)
+			self:step("checkpoint " .. name, {
+				actor = actor,
+				run = function()
+					assert(actor ~= "" and name ~= "", "checkpoint needs actor and name")
+					for _, prior in evidence.checkpoints do
+						assert(prior.actor ~= actor or prior.name ~= name, "duplicate checkpoint")
+					end
+					local bound = host
+					assert(
+						bound ~= nil and bound.capture ~= nil and table.find(bound.capabilities, "capture"),
+						"capture unavailable"
+					)
+					local captures = bound.capture(actor, name)
+					withinDeadline()
+					assert(#captures > 0, "capture returned no evidence")
+					local copies: { Types.Artifact } = {}
+					for _, artifact in captures do
+						self:artifact(artifact.name, artifact.reference, artifact.mediaType)
+						table.insert(copies, table.freeze(table.clone(artifact)))
+					end
+					table.insert(
+						evidence.checkpoints,
+						{ step = #steps + 1, actor = actor, name = name, artifacts = table.freeze(copies) }
+					)
+				end,
+			})
+		end
+
+		function context:judge(actor: string, checkpoint: string, criterion: string)
+			self:step("judge " .. criterion, {
+				actor = actor,
+				run = function()
+					assert(criterion ~= "", "judgment needs a criterion")
+					local captured: Types.Checkpoint? = nil
+					for _, candidate in evidence.checkpoints do
+						if candidate.actor == actor and candidate.name == checkpoint then
+							captured = candidate
+						end
+					end
+					assert(captured ~= nil, "judgment requires captured evidence")
+					local bound = host
+					assert(
+						bound ~= nil and bound.judge ~= nil and table.find(bound.capabilities, "judgment"),
+						"judgment unavailable"
+					)
+					local result = bound.judge {
+						actor = actor,
+						checkpoint = checkpoint,
+						criterion = criterion,
+						artifacts = captured.artifacts,
+					}
+					withinDeadline()
+					assert(result.reviewer ~= "" and result.detail ~= "", "judgment needs reviewer and reasoning")
+					assert(
+						result.status == "passed" or result.status == "failed" or result.status == "unreviewed",
+						"invalid judgment status"
+					)
+					table.insert(evidence.reviews, {
+						step = #steps + 1,
+						actor = actor,
+						checkpoint = checkpoint,
+						criterion = criterion,
+						judgment = table.freeze(table.clone(result)),
+					})
+					if result.status == "unreviewed" then
+						self:unsupported("judgment:" .. criterion)
+					end
+					self:expect(result.status):toBe "passed"
+				end,
+			})
+		end
+
+		function context:measure(actor: string, name: string, input: Performance.Input, limits: Performance.Limits)
+			self:step("measure " .. name, {
+				actor = actor,
+				run = function()
+					assert(actor ~= "" and name ~= "", "measurement needs actor and name")
+					local capturedInput = Operations.snapshot(input) :: Performance.Input
+					local capturedLimits = Operations.snapshot(limits) :: Performance.Limits
+					local evaluation = Performance.evaluate(Performance.summarize(capturedInput), capturedLimits)
+					table.insert(evidence.measurements, {
+						step = #steps + 1,
+						actor = actor,
+						name = name,
+						input = capturedInput,
+						limits = capturedLimits,
+						evaluation = evaluation,
+					})
+					if evaluation.status == "unsupported" then
+						self:unsupported("measurement:" .. evaluation.reason)
+					end
+					self:expect(evaluation.status):toBe "passed"
+				end,
+			})
+		end
+
 		local setupPassed = true
+		if runOptions.bind ~= nil then
+			setupPassed = record(
+				"setup",
+				invoke("setup", function()
+					local bound = (runOptions.bind :: (Context) -> Operations.Host)(context)
+					host = bound
+					if bound.close then
+						context:defer(bound.close)
+					end
+				end)
+			)
+		end
 		for _, suiteInChain in chain do
 			for _, hook in suiteInChain.beforeEach do
 				if setupPassed and runtimeSkipReason == nil then
@@ -645,6 +921,7 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 				end)
 			)
 		end
+		releasing = true
 		for index = #chain, 1, -1 do
 			for _, hook in chain[index].afterEach do
 				record(
@@ -664,13 +941,14 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			source = base.source,
 			path = base.path,
 			name = base.name,
-			status = statusFor(failures, runtimeSkipReason),
+			status = statusFor(failures, runtimeSkipReason, missing),
+			evidence = evidence,
 			durationMicros = micros(now() - started),
 			failures = failures,
 			steps = steps,
 			artifacts = artifacts,
 			limitations = base.limitations,
-			missingCapabilities = {},
+			missingCapabilities = missing,
 			skipReason = runtimeSkipReason,
 			origin = runOrigin,
 		}
@@ -698,7 +976,7 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			local path = suitePath(ancestors(suite))
 			for _, entry in suite.cases do
 				if selected(entry, path, runOptions.selection) then
-					local result = executeCase(suite, entry, available, runOrigin, invoker)
+					local result = executeCase(suite, entry, available, runOrigin, invoker, runOptions)
 					if result.status == nil then
 						result.status = "unsupported"
 					end
@@ -800,8 +1078,57 @@ local function syntheticReport(options: SyntheticOptions): Report
 	}
 end
 
+export type NamedCase = CaseOptions & { name: string }
+local function runCase(spec: NamedCase, host: Operations.Host): Report
+	local harness = createHarness { now = host.now }
+	harness:case(spec.name, spec)
+	return harness:run {
+		executor = host.name,
+		capabilities = host.capabilities,
+		environment = host.environment,
+		bind = function(): Operations.Host
+			return host
+		end,
+	}
+end
+
+local function runCases(specs: { NamedCase }, options: RunOptions, now: () -> number, ids: { string }?): Report
+	local known: { [string]: NamedCase } = {}
+	for _, spec in specs do
+		local id = spec.id
+		assert(id ~= nil and id ~= "", "runCases requires explicit case ids")
+		assert(known[id :: string] == nil, "duplicate case id: " .. (id :: string))
+		known[id :: string] = spec
+	end
+	assert(#specs > 0, "case collection is empty")
+	local selected: { [string]: boolean } = {}
+	if ids ~= nil then
+		assert(#ids > 0, "case selection is empty")
+		for _, id in ids do
+			assert(known[id] ~= nil, "unknown selected case: " .. id)
+			assert(not selected[id], "duplicate selected case: " .. id)
+			selected[id] = true
+		end
+	end
+	assert(options.selection == nil, "runCases owns selection; pass case ids explicitly")
+	local harness = createHarness { now = now }
+	for _, spec in specs do
+		if ids == nil or selected[spec.id :: string] then
+			harness:case(spec.name, spec)
+		end
+	end
+	local settings = table.clone(options)
+	settings.environment = table.clone(options.environment or {})
+	local environment = settings.environment :: { [string]: string }
+	environment["caseSelection"] = if ids == nil then "all" else "explicit"
+	environment["availableCases"] = tostring(#specs)
+	return harness:run(settings)
+end
+
 return {
 	createHarness = createHarness,
+	runCase = runCase,
+	runCases = runCases,
 	syntheticReport = syntheticReport,
 	format = format,
 }

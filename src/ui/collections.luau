@@ -210,6 +210,13 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		local function reduced(): boolean
 			return if spec.reducedMotion == nil then motionReduced() else read(spec.reducedMotion) == true
 		end
+		local unit = Host.Frame({
+			Name = "LayoutUnit",
+			Size = D2.fromOffset(1, 1),
+			BackgroundTransparency = 1,
+			Visible = false,
+		})
+		local unitSize: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(unit)
 		local root: ScrollingFrame
 		local scope: ComposeTypes.FocusScope<K>? = nil
 		local restoring = false
@@ -608,20 +615,44 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 					wireSelection(content, key)
 					if spec.measure or (tree and not tree.columnar) then
 						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
-						local slot: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(node)
 						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
+						local layoutUnit = if measuredNode:GetAttribute("FacetBody")
+							then measuredNode:FindFirstChild("LayoutUnit")
+							else nil
+						local measurementUnit: Frame? = if lift
+							then if layoutUnit and layoutUnit:IsA("Frame")
+								then layoutUnit
+								else Host.Frame({
+									Name = "MeasurementUnit",
+									Size = D2.fromOffset(1, 1),
+									Visible = false,
+								})
+							else nil
+						if measurementUnit then
+							measurementUnit.Parent = measuredNode
+						end
+						local paintedSize = if measurementUnit then observe.AbsoluteSize(measurementUnit) else nil
 						local factor: ComposeTypes.Readable<number> = if lift
 							then observe.Scale(lift)
 							else Compose.cell(1)
 						Compose.watch(function(use: ComposeTypes.Use)
-							local rendered = if horizontal then use(slot).X else use(slot).Y
-							local assigned = if horizontal then node.Size.X.Offset else node.Size.Y.Offset
-							local ancestors = if rendered > 0 and assigned > 0 then rendered / assigned else 1
-							local scale = math.max(use(factor) * ancestors, 0.001)
-							local extent = (if horizontal then use(size).X else use(size).Y) / scale
+							local ancestors = use(unitSize).X
+							if ancestors <= 0 then
+								ancestors = 1
+							end
+							local liftScale = use(factor)
+							local painted = if paintedSize then use(paintedSize).X else 0
+							local scale = math.max(if painted > 0 then painted else liftScale * ancestors, 0.001)
+							local dimensions = use(size)
+							local extent = (if horizontal then dimensions.X else dimensions.Y) / scale
 								+ (if editor and not horizontal then use(editor.header) else 0)
 								+ (if actionHeight and not horizontal then use(actionHeight) else 0)
-							if extent > 0 and measured:peek()[key] ~= extent then
+							extent = math.round(extent)
+							local previous = measured:peek()[key]
+							if previous and liftScale ~= 1 and math.abs(extent - previous) <= 1 then
+								return
+							end
+							if extent > 0 and previous ~= extent then
 								local nextSizes = table.clone(measured:peek())
 								nextSizes[key] = extent
 								measured:set(nextSizes)
@@ -711,12 +742,6 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			end
 			return Host.Frame(nativeProps)
 		end)
-		local unit = Host.Frame({
-			Name = "LayoutUnit",
-			Size = D2.fromOffset(1, 1),
-			BackgroundTransparency = 1,
-			Visible = false,
-		})
 		table.insert(native, unit)
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
 		scrollLock.own(root, ctx)
@@ -824,7 +849,6 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		end
 		local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteWindowSize(root)
 		local position: ComposeTypes.Cell<Vector2> = observe.CanvasPosition(root)
-		local unitSize: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local scale = use(unitSize).X
 			local dimensions, at = use(size), use(position)

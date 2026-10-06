@@ -21,12 +21,19 @@ export type Instance = {
 	Name: unknown,
 	Parent: Instance?,
 	Destroy: (Instance) -> (),
+	Clone: (Instance) -> Instance?,
+	AddTag: (Instance, string) -> (),
+	RemoveTag: (Instance, string) -> (),
+	HasTag: (Instance, string) -> boolean,
+	GetTags: (Instance) -> { string },
 	ClearAllChildren: (Instance) -> (),
 	GetChildren: (Instance) -> { Instance },
 	GetDescendants: (Instance) -> { Instance },
 	FindFirstChild: (Instance, string, boolean?) -> Instance?,
 	FindFirstChildOfClass: (Instance, string) -> Instance?,
-	FindFirstChildWhichIsA: (Instance, string) -> Instance?,
+	FindFirstChildWhichIsA: (Instance, string, boolean?) -> Instance?,
+	FindFirstAncestorOfClass: (Instance, string) -> Instance?,
+	FindFirstAncestorWhichIsA: (Instance, string) -> Instance?,
 	FindFirstAncestor: (Instance, string) -> Instance?,
 	GetFullName: (Instance) -> string,
 	IsA: (Instance, string) -> boolean,
@@ -128,6 +135,7 @@ type State = {
 	children: { Instance },
 	parent: Instance?,
 	attributes: { [string]: unknown },
+	tags: { [string]: boolean },
 	signals: { [string]: Signal },
 	destroyed: boolean,
 	destroying: boolean,
@@ -292,7 +300,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		end
 		local result: Resolved = {
 			creatable = if spec.creatable ~= nil then spec.creatable else true,
-			properties = if parent ~= nil then table.clone(parent.properties) else { Name = false },
+			properties = if parent ~= nil then table.clone(parent.properties) else { Name = false, Archivable = true },
 			events = if parent ~= nil then table.clone(parent.events) else {},
 			methods = if parent ~= nil then table.clone(parent.methods) else {},
 		}
@@ -623,25 +631,109 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 				return search(object)
 			end
 		elseif key == "FindFirstChildOfClass" or key == "FindFirstChildWhichIsA" then
-			return function(_self: Instance, className: string): unknown
-				for _, child in state.children do
-					local childClass = stateOf(child).className
-					if childClass == className or (key == "FindFirstChildWhichIsA" and isA(childClass, className)) then
-						return child
+			return function(_self: Instance, className: string, recursive: boolean?): Instance?
+				local function search(parent: Instance): Instance?
+					for _, child in stateOf(parent).children do
+						local childClass = stateOf(child).className
+						if
+							childClass == className or (key == "FindFirstChildWhichIsA" and isA(childClass, className))
+						then
+							return child
+						end
 					end
+					if key == "FindFirstChildWhichIsA" and recursive == true then
+						for _, child in stateOf(parent).children do
+							local found = search(child)
+							if found then
+								return found
+							end
+						end
+					end
+					return nil
+				end
+				return search(object)
+			end
+		elseif
+			key == "FindFirstAncestor"
+			or key == "FindFirstAncestorOfClass"
+			or key == "FindFirstAncestorWhichIsA"
+		then
+			return function(_self: Instance, name: string): Instance?
+				local walk = state.parent
+				while walk ~= nil do
+					local candidate = stateOf(walk)
+					if
+						(key == "FindFirstAncestor" and candidate.values.Name == name)
+						or (key == "FindFirstAncestorOfClass" and candidate.className == name)
+						or (key == "FindFirstAncestorWhichIsA" and isA(candidate.className, name))
+					then
+						return walk
+					end
+					walk = candidate.parent
 				end
 				return nil
 			end
-		elseif key == "FindFirstAncestor" then
-			return function(_self: Instance, name: string): unknown
-				local walk = state.parent
-				while walk ~= nil do
-					if stateOf(walk).values.Name == name then
-						return walk
+		elseif key == "Clone" then
+			return function(): Instance?
+				if state.values.Archivable == false then
+					return nil
+				end
+				local copies: { [Instance]: Instance } = {}
+				local function copyTree(original: Instance): Instance
+					local source = stateOf(original)
+					local copy = newObject(source.className, nil, false)
+					copies[original] = copy
+					for _, child in source.children do
+						if stateOf(child).values.Archivable ~= false then
+							local childCopy = copyTree(child)
+							move(childCopy, stateOf(childCopy), copy)
+						end
 					end
-					walk = stateOf(walk).parent
+					return copy
+				end
+				local ok, result = pcall(function(): Instance
+					local rootCopy = copyTree(object)
+					for original, copy in copies do
+						local source, target = stateOf(original), stateOf(copy)
+						for property, value in source.values do
+							target.values[property] = if isObject(value)
+								then copies[value :: Instance] or value
+								else value
+						end
+						target.attributes = table.clone(source.attributes)
+						target.tags = table.clone(source.tags)
+					end
+					return rootCopy
+				end)
+				if not ok then
+					for _, copy in copies do
+						destroy(copy, stateOf(copy))
+					end
+					error(result, 0)
+				end
+				return result
+			end
+		elseif key == "AddTag" or key == "RemoveTag" or key == "HasTag" then
+			return function(_self: Instance, tag: string): boolean?
+				assert(type(tag) == "string", "tag must be a string")
+				if key == "HasTag" then
+					return state.tags[tag] == true
+				end
+				if key == "AddTag" then
+					state.tags[tag] = true
+				else
+					state.tags[tag] = nil
 				end
 				return nil
+			end
+		elseif key == "GetTags" then
+			return function(): { string }
+				local tags: { string } = {}
+				for tag in state.tags do
+					table.insert(tags, tag)
+				end
+				table.sort(tags)
+				return tags
 			end
 		elseif key == "GetFullName" then
 			return function(): string
@@ -791,6 +883,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 				children = {},
 				parent = nil,
 				attributes = {},
+				tags = {},
 				signals = {},
 				destroyed = false,
 				destroying = false,

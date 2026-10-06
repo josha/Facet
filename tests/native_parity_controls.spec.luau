@@ -145,8 +145,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		verifyHarness:case("aligns icon button content by the declared text alignment and centers it by default", {
 			id = "native_parity_controls::native parity controls::aligns icon button content by the declared text alignment and centers it by default",
 			run = function()
-				local alignment = Compose.cell(nil :: any)
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				local alignment: any
+				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+					alignment = Compose.cell(engine.types.Enum.TextXAlignment.Center)
 					return Host.Frame("Buttons")({
 						UI.Button("Plain")({ label = "Plain", icon = "person" }) :: unknown,
 						UI.Button("Aligned")({ label = "Aligned", icon = "person", TextXAlignment = alignment }),
@@ -157,6 +158,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					return find(find(world.node, name), "Content"):FindFirstChildWhichIsA("UIListLayout")
 				end
 				Verify.expect(layoutOf("Plain").HorizontalAlignment):toBe(E.HorizontalAlignment.Center)
+				Verify.expect(layoutOf("Aligned").HorizontalAlignment):toBe(E.HorizontalAlignment.Center)
 				alignment:set(E.TextXAlignment.Left)
 				Verify.expect(layoutOf("Aligned").HorizontalAlignment):toBe(E.HorizontalAlignment.Left)
 				alignment:set(E.TextXAlignment.Right)
