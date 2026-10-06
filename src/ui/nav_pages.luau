@@ -608,8 +608,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return tostring(read(use(current).label, use) or tab.id)
 							end,
 							TextSize = function(use: ComposeTypes.Use): number
-								local authored = if fit then nil else read(spec.textSize :: Types.Value<number>, use)
-								return authored or ctx.metric("typography.control.size", use)
+								local authored = if fit then nil else read(spec.textSize, use)
+								return if type(authored) == "number"
+									then authored
+									else ctx.metric("typography.control.size", use)
 							end,
 						})
 						surfaces.attach(button, { measure :: Types.Child })

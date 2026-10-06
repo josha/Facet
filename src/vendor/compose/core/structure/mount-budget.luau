@@ -45,7 +45,7 @@ local function mountBudget<V, K>(options: Options<V, K>): Children.Directive
 	local render =
 		Support.builderOf(settings.render, "MountBudget", "render") :: (Types.Readable<V>, Types.Readable<number>, K) -> Host.Node
 	local keyOf: (value: V, index: number) -> K = if settings.key == nil
-		then (identity :: any) :: (value: V, index: number) -> K
+		then (identity :: unknown) :: (value: V, index: number) -> K
 		else Support.builderOf(settings.key, "MountBudget", "key")
 	local priority: ((value: V, index: number) -> number)? = if settings.priority == nil
 		then nil

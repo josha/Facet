@@ -16,7 +16,7 @@ type Node = Host.Node
 
 local UNWRITTEN = newproxy(false)
 
-export type Props = { [any]: any }
+export type Props = { [unknown]: unknown }
 
 type Binding = { remaining: number, active: boolean, dispose: (() -> ())?, pendingKey: string?, previous: Binding? }
 type Bindings = { [string]: Binding? }
@@ -151,7 +151,7 @@ local function classify(host: Host.Host, node: Node, key: string): Host.KeyKind
 	return classifyKey(node, key)
 end
 
-local function subscribe(host: Host.Host, node: Node, owner: Owner.Owner, name: string, handler: (...any) -> ())
+local function subscribe(host: Host.Host, node: Node, owner: Owner.Owner, name: string, handler: (...unknown) -> ())
 	local events = host.events
 	if events == nil then
 		Diagnostics.raise("host/no-events", ("host %q cannot subscribe to events"):format(host.name), {
@@ -583,9 +583,9 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 						}
 					)
 				end
-				subscribe(host, node, owner, marker.name, value)
+				subscribe(host, node, owner, marker.name, value :: (...unknown) -> ())
 			elseif type(value) == "function" or cellModule.isReadable(value) then
-				bind(host, node, owner, marker.name, value)
+				bind(host, node, owner, marker.name, value :: Types.Source<unknown>)
 			else
 				refuseNodeValue(host, node, marker.name, value)
 				writeOnce(host, node, owner, marker.name, value)
@@ -617,15 +617,15 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 		end
 
 		if cellModule.isReadable(value) then
-			bind(host, node, owner, name, value)
+			bind(host, node, owner, name, value :: Types.Source<unknown>)
 			continue
 		end
 
 		if type(value) == "function" then
 			if classify(host, node, name) == "event" then
-				subscribe(host, node, owner, name, value)
+				subscribe(host, node, owner, name, value :: (...unknown) -> ())
 			else
-				bind(host, node, owner, name, value)
+				bind(host, node, owner, name, value :: Types.Source<unknown>)
 			end
 			continue
 		end

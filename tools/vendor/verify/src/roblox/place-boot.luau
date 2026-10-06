@@ -1,9 +1,15 @@
 --!strict
 
 local PlaceRuntime = require "./place-runtime"
+local Environment = require "./environment"
+type Instance = PlaceRuntime.Instance
+type Engine = PlaceRuntime.Engine
+type Runtime = PlaceRuntime.Runtime
+type ProjectNode = { [string]: unknown }
+type Project = { globIgnorePaths: { string }?, tree: { [string]: ProjectNode } }
 
-export type Host = PlaceRuntime.Host
-export type Cache = PlaceRuntime.Cache
+export type Host<B = unknown, C = () -> unknown> = PlaceRuntime.Host<B, C>
+export type Cache<B = unknown, C = () -> unknown> = PlaceRuntime.Cache<B, C>
 export type Mounted = PlaceRuntime.Mounted
 
 export type Files = {
@@ -14,12 +20,12 @@ export type Files = {
 
 export type Opaque = {
 	attribute: string?,
-	fill: ((engine: any, object: any, path: string) -> ())?,
+	fill: ((engine: Engine, object: Instance, path: string) -> ())?,
 }
 
-export type TreeDeps = {
-	cache: Cache,
-	host: Host,
+export type TreeDeps<B = unknown> = {
+	cache: Cache<B>,
+	host: Host<B>,
 	files: Files,
 	opaque: Opaque?,
 }
@@ -41,10 +47,10 @@ export type Identity = {
 export type Stage = "server" | "player" | "client" | "viewport" | "character" | "settled"
 
 export type View = {
-	engine: any,
-	runtime: any,
-	player: any?,
-	playerGui: any?,
+	engine: Engine,
+	runtime: Runtime,
+	player: Instance?,
+	playerGui: Instance?,
 }
 
 export type Observer = (stage: Stage, view: View) -> ()
@@ -69,23 +75,23 @@ export type Config = {
 	observe: Observer?,
 }
 
-export type Deps = {
-	newEngine: () -> any,
-	cache: Cache,
-	host: Host,
+export type Deps<B = unknown> = {
+	newEngine: () -> Engine,
+	cache: Cache<B>,
+	host: Host<B>,
 	files: Files,
 }
 
 export type Report = {
-	engine: any,
-	runtime: any,
+	engine: Engine,
+	runtime: Runtime,
 	mounted: Mounted,
-	player: any,
-	playerGui: any,
-	diagnostics: { any },
+	player: Instance,
+	playerGui: Instance,
+	diagnostics: { PlaceRuntime.Diagnostic },
 	serverScripts: { string },
 	clientScripts: { string },
-	firstScripts: { any },
+	firstScripts: { Instance },
 	roots: { string },
 	mountedRoots: { string },
 	lines: { string },
@@ -160,28 +166,28 @@ local function scriptClass(fileName: string): (string?, string?)
 	return nil
 end
 
-local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Mounted
+local function buildTree<B>(engine: Engine, projectPath: string, deps: TreeDeps<B>): Mounted
 	local cache = deps.cache
 	local files = deps.files
 	local opaque = deps.opaque
-	local project: any = deps.host.decodeJson(deps.host.readFile(projectPath))
+	local project = deps.host.decodeJson(deps.host.readFile(projectPath)) :: Project
 	local patterns: { string } = {}
 	for _, glob in (project.globIgnorePaths or {}) :: { string } do
 		patterns[#patterns + 1] = globToPattern(glob)
 	end
 
-	local scripts: { any } = {}
-	local sources: { [any]: string } = {}
+	local scripts: { Instance } = {}
+	local sources: { [Instance]: string } = {}
 
-	local function attach(object: any, parent: any, name: string)
+	local function attach(object: Instance, parent: Instance, name: string)
 		engine.stateOf(object).name = name
 		engine.stateOf(object).values.Name = name
 		object.Parent = parent
 	end
 
-	local function makeScript(className: string, name: string, path: string, parent: any): any
+	local function makeScript(className: string, name: string, path: string, parent: Instance): Instance
 		local object = engine.newInstance(className, true)
-		attach(object, parent, name)
+		attach(object, parent :: Instance, name)
 		sources[object] = path
 		cache.read(path)
 		if className ~= "ModuleScript" then
@@ -190,7 +196,7 @@ local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Moun
 		return object
 	end
 
-	local function mountPath(path: string, name: string, parent: any, explicit: boolean?): any?
+	local function mountPath(path: string, name: string, parent: Instance, explicit: boolean?): Instance?
 		if explicit ~= true and ignored(path, patterns) then
 			return nil
 		end
@@ -205,7 +211,7 @@ local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Moun
 			return makeScript(className, name, path, parent)
 		end
 		local entries = files.listDirectory(path)
-		local container: any = nil
+		local container: Instance? = nil
 		for _, entry in entries do
 			if entry.type ~= "file" then
 				continue
@@ -220,12 +226,12 @@ local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Moun
 		end
 		if container == nil then
 			container = engine.newInstance("Folder", true)
-			attach(container, parent, name)
+			attach(container :: Instance, parent :: Instance, name)
 		end
 		for _, entry in entries do
 			local childPath = path .. "/" .. entry.name
 			if entry.type == "dir" then
-				mountPath(childPath, entry.name, container)
+				mountPath(childPath, entry.name, container :: Instance)
 				continue
 			end
 			if string.match(entry.name, "^init%.") ~= nil then
@@ -238,49 +244,49 @@ local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Moun
 			if ignored(childPath, patterns) then
 				continue
 			end
-			makeScript(resolved, base :: string, childPath, container)
+			makeScript(resolved, base :: string, childPath, container :: Instance)
 		end
 		return container
 	end
 
-	local function mountNode(node: any, name: string, parent: any?): any
-		local object: any = nil
-		local path = node["$path"]
+	local function mountNode(node: ProjectNode, name: string, parent: Instance?): Instance
+		local object: Instance
+		local path = node["$path"] :: string?
 		if parent == nil then
 			object = engine.game
 		elseif path ~= nil then
 			if string.match(path, "%.rbx[m]?[x]?$") ~= nil then
 				object = engine.newInstance("Model", true)
-				attach(object, parent, name)
+				attach(object, parent :: Instance, name)
 				if opaque ~= nil then
 					if opaque.attribute ~= nil then
 						object:SetAttribute(opaque.attribute :: string, path)
 					end
 					if opaque.fill ~= nil then
-						(opaque.fill :: any)(engine, object, path)
+						opaque.fill(engine, object, path)
 					end
 				end
 			else
-				object = mountPath(path, name, parent, true)
+				object = mountPath(path, name, parent, true) :: Instance
 			end
 			if object == nil then
-				object = engine.newInstance(node["$className"] or IMPLICIT_CLASS_NAME, true)
-				attach(object, parent, name)
+				object = engine.newInstance((node["$className"] :: string?) or IMPLICIT_CLASS_NAME, true)
+				attach(object, parent :: Instance, name)
 			end
-		elseif node["$className"] ~= nil then
-			if engine.surface.services[node["$className"]] == true and parent == engine.game then
-				object = engine.service(node["$className"])
+		elseif (node["$className"] :: string) ~= nil then
+			if engine.surface.services[node["$className"] :: string] == true and parent == engine.game then
+				object = engine.service(node["$className"] :: string)
 			else
-				object = engine.newInstance(node["$className"], true)
-				attach(object, parent, name)
+				object = engine.newInstance(node["$className"] :: string, true)
+				attach(object, parent :: Instance, name)
 			end
 		else
 			object = engine.newInstance("Folder", true)
-			attach(object, parent, name)
+			attach(object, parent :: Instance, name)
 		end
 		local properties = node["$properties"]
 		if properties ~= nil then
-			for key, value in properties :: { [string]: any } do
+			for key, value in properties :: { [string]: unknown } do
 				if type(key) ~= "string" then
 					continue
 				end
@@ -291,7 +297,7 @@ local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Moun
 						local category = string.match(declared :: string, "^Enum(%w+)$")
 						if category ~= nil then
 							local ok, item = pcall(function()
-								return (engine.datatypes.Enum :: any)[category][value]
+								return engine.datatypes.Enum[category][value]
 							end)
 							value = if ok then item else value
 						end
@@ -304,19 +310,20 @@ local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Moun
 			if type(key) ~= "string" or string.sub(key, 1, 1) == "$" then
 				continue
 			end
-			mountNode(value, key, object)
+			mountNode(value :: ProjectNode, key, object)
 		end
 		return object
 	end
 
-	for name, node in project.tree :: { [string]: any } do
+	for name, node in project.tree do
 		if type(name) ~= "string" or string.sub(name, 1, 1) == "$" then
 			continue
 		end
-		local service = engine.service(if node["$className"] ~= nil then node["$className"] else name)
+		local service =
+			engine.service(if (node["$className"] :: string) ~= nil then node["$className"] :: string else name)
 		local properties = node["$properties"]
 		if properties ~= nil then
-			for key, value in properties :: { [string]: any } do
+			for key, value in properties :: { [string]: unknown } do
 				if type(key) ~= "string" then
 					continue
 				end
@@ -329,14 +336,14 @@ local function buildTree(engine: any, projectPath: string, deps: TreeDeps): Moun
 			if type(key) ~= "string" or string.sub(key, 1, 1) == "$" then
 				continue
 			end
-			mountNode(value, key, service)
+			mountNode(value :: ProjectNode, key, service)
 		end
 	end
 
 	return { root = engine.game, scripts = scripts, sources = sources }
 end
 
-local function frameOnce(engine: any, runtime: any)
+local function frameOnce(engine: Engine, runtime: Runtime)
 	local run = engine.service "RunService"
 	local scheduler = engine.scheduler
 	scheduler.advance(FRAME_SECONDS)
@@ -353,7 +360,7 @@ local function frameOnce(engine: any, runtime: any)
 	scheduler.drain(64)
 end
 
-local function scriptsUnder(container: any, className: string, out: { any })
+local function scriptsUnder(container: Instance, className: string, out: { Instance })
 	for _, child in container:GetChildren() do
 		if child.ClassName == className then
 			out[#out + 1] = child
@@ -362,7 +369,7 @@ local function scriptsUnder(container: any, className: string, out: { any })
 	end
 end
 
-local function named(engine: any, className: string, name: string, parent: any): any
+local function named(engine: Engine, className: string, name: string, parent: Instance): Instance
 	local object = engine.newInstance(className, true)
 	engine.stateOf(object).name = name
 	engine.stateOf(object).values.Name = name
@@ -370,7 +377,7 @@ local function named(engine: any, className: string, name: string, parent: any):
 	return object
 end
 
-local function mountEngineProvided(engine: any, player: any, provided: boolean)
+local function mountEngineProvided(engine: Engine, player: Instance, provided: boolean)
 	if provided then
 		local contexts = named(engine, "Folder", "InputContexts", player)
 		local character = named(engine, "InputContext", "CharacterContext", contexts)
@@ -394,12 +401,12 @@ local function mountEngineProvided(engine: any, player: any, provided: boolean)
 	if channels == nil then
 		channels = named(engine, "Folder", "TextChannels", textChat)
 	end
-	if channels:FindFirstChild "RBXGeneral" == nil then
-		named(engine, "TextChannel", "RBXGeneral", channels)
+	if (channels :: Instance):FindFirstChild "RBXGeneral" == nil then
+		named(engine, "TextChannel", "RBXGeneral", channels :: Instance)
 	end
 end
 
-local function makeCharacter(engine: any, name: string): any
+local function makeCharacter(engine: Engine, name: string): Instance
 	local character = engine.newInstance("Model", true)
 	engine.stateOf(character).name = name
 	local root = engine.newInstance("Part", true)
@@ -416,7 +423,7 @@ local function makeCharacter(engine: any, name: string): any
 	return character
 end
 
-local function run(config: Config, deps: Deps): Report
+local function run<B>(config: Config, deps: Deps<B>): Report
 	local engine = deps.newEngine()
 	local mounted = buildTree(engine, config.projectPath, {
 		cache = deps.cache,
@@ -430,8 +437,8 @@ local function run(config: Config, deps: Deps): Report
 		host = deps.host,
 	})
 	local watcher = config.observe
-	local witnessed: any = nil
-	local witnessedGui: any = nil
+	local witnessed: Instance? = nil
+	local witnessedGui: Instance? = nil
 	local function reachedStage(stage: Stage)
 		if watcher == nil then
 			return
@@ -444,7 +451,7 @@ local function run(config: Config, deps: Deps): Report
 		})
 	end
 
-	function engine.signalOf(object: any, name: string): any
+	function engine.signalOf(object: Instance, name: string): Environment.Signal
 		local state = engine.stateOf(object)
 		local existing = state.signals[name]
 		if existing == nil then
@@ -478,7 +485,7 @@ local function run(config: Config, deps: Deps): Report
 	engine.stateOf(workspace).values.Terrain = terrain
 
 	local serverNames: { string } = {}
-	local serverScripts: { any } = {}
+	local serverScripts: { Instance } = {}
 	scriptsUnder(serverScriptService, "Script", serverScripts)
 	scriptsUnder(workspace, "Script", serverScripts)
 	for _, entry in serverScripts do
@@ -498,7 +505,8 @@ local function run(config: Config, deps: Deps): Report
 	engine.stateOf(playerGui).name = "PlayerGui"
 	playerGui.Parent = player
 	local seenRoots: { [string]: boolean } = {}
-	engine.signalOf(playerGui, "ChildAdded"):Connect(function(child: any)
+	engine.signalOf(playerGui, "ChildAdded"):Connect(function(value: unknown)
+		local child = value :: Instance
 		seenRoots[child.Name] = true
 	end)
 	local playerScripts = engine.newInstance("PlayerScripts", true)
@@ -521,7 +529,7 @@ local function run(config: Config, deps: Deps): Report
 	reachedStage "player"
 
 	local clientNames: { string } = {}
-	local firstScripts: { any } = {}
+	local firstScripts: { Instance } = {}
 	scriptsUnder(replicatedFirst, "LocalScript", firstScripts)
 	for _, entry in firstScripts do
 		clientNames[#clientNames + 1] = entry:GetFullName()
@@ -534,7 +542,7 @@ local function run(config: Config, deps: Deps): Report
 			child.Parent = playerScripts
 		end
 	end
-	local playerLocalScripts: { any } = {}
+	local playerLocalScripts: { Instance } = {}
 	scriptsUnder(playerScripts, "LocalScript", playerLocalScripts)
 	for _, entry in playerLocalScripts do
 		clientNames[#clientNames + 1] = entry:GetFullName()

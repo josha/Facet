@@ -351,7 +351,9 @@ return function(
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				Attributes = {
-					label = title,
+					label = function(use: ComposeTypes.Use): string
+						return use(title)
+					end,
 				} :: Types.Attributes,
 			}
 			for _, child in bodyChildren do

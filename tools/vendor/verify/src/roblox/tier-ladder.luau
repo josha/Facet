@@ -17,20 +17,20 @@ export type ClassifyOptions = Verify.ClassifyConsoleOptions
 export type Artifact = { name: string, reference: string, mediaType: string? }
 
 export type Verbs = {
-	describe: (name: string, register: () -> ()) -> (),
-	it: (name: string, body: any) -> (),
-	itSkip: (name: string, reason: string, body: any?) -> (),
-	beforeEach: (body: any) -> (),
-	afterEach: (body: any) -> (),
-	expect: (value: any, ...any) -> any,
-	skip: (reason: string) -> never,
+	describe: (string, () -> ()) -> (),
+	it: (string, Bdd.Body | Bdd.CaseDefinition) -> (),
+	itSkip: (string, string, Bdd.Body?) -> (),
+	beforeEach: (Bdd.Body) -> (),
+	afterEach: (Bdd.Body) -> (),
+	expect: typeof(Verify.expect),
+	skip: (string) -> never,
 }
 
-export type Spec = (verbs: Verbs, observations: { [string]: any }?, declare: ((string) -> ())?) -> ()
+export type Spec = (verbs: Verbs, observations: { [string]: unknown }?, declare: ((string) -> ())?) -> ()
 
 export type Seal = {
 	executor: string,
-	environment: { [string]: any },
+	environment: { [string]: unknown },
 	capabilities: { string },
 	actors: { string }?,
 	artifacts: { Artifact }?,
@@ -56,32 +56,32 @@ export type Verdict = {
 export type ReceiptOptions = {
 	contract: string,
 	verdict: Verdict,
-	binding: { [string]: any }?,
-	observations: { [string]: any }?,
+	binding: { [string]: unknown }?,
+	observations: { [string]: unknown }?,
 }
 
 local COMPLETE = "COMPLETE"
 local HOLD = "HOLD"
 
-local function numberAt(observations: { [string]: any }, key: string): number
+local function numberAt(observations: { [string]: unknown }, key: string): number
 	local value = observations[key]
 	return if type(value) == "number" then value else -1
 end
 
-local function textAt(observations: { [string]: any }, key: string): string
+local function textAt(observations: { [string]: unknown }, key: string): string
 	local value = observations[key]
 	return if type(value) == "string" then value else ""
 end
 
-local function listAt(observations: { [string]: any }, key: string): { any }
+local function listAt<T>(observations: { [string]: unknown }, key: string): { T }
 	local value = observations[key]
-	return if type(value) == "table" then value else {}
+	return if type(value) == "table" then value :: { T } else {}
 end
 
 local function classify(
 	status: string,
 	reason: string,
-	observations: { [string]: any },
+	observations: { [string]: unknown },
 	rule: UnsupportedRule?
 ): (string, string, string?)
 	if rule == nil or status ~= HOLD or reason ~= (rule :: UnsupportedRule).fromReason then
@@ -105,7 +105,7 @@ local function classify(
 end
 
 local function judge(
-	observations: { [string]: any },
+	observations: { [string]: unknown },
 	seal: Seal,
 	source: string,
 	spec: Spec,
@@ -124,8 +124,8 @@ local function judge(
 	local report = Verify.evaluateObservations(
 		bundle,
 		source,
-		function(harness: Verify.Harness, seen: { [string]: any })
-			local verbs = Bdd.create(harness) :: any
+		function(harness: Verify.Harness, seen: { [string]: unknown })
+			local verbs = (Bdd.create(harness) :: unknown) :: Verbs
 			verbs.expect = Verify.expect
 			spec(verbs :: Verbs, seen)
 		end,
@@ -137,9 +137,9 @@ local function judge(
 	return { status = finalStatus, reason = finalReason, limitation = limitation, report = report }
 end
 
-local function receipt(options: ReceiptOptions): { [string]: any }
-	local row: { [string]: any } = {}
-	for key, value in (if options.binding ~= nil then options.binding else {}) :: { [string]: any } do
+local function receipt(options: ReceiptOptions): { [string]: unknown }
+	local row: { [string]: unknown } = {}
+	for key, value in (if options.binding ~= nil then options.binding else {}) :: { [string]: unknown } do
 		row[key] = value
 	end
 	row.contract = options.contract
@@ -155,7 +155,7 @@ local function receipt(options: ReceiptOptions): { [string]: any }
 	return row
 end
 
-export type Decoder = (payload: string) -> any
+export type Decoder = (payload: string) -> unknown
 
 export type SessionObservationOptions = {
 	contract: string,
@@ -163,8 +163,11 @@ export type SessionObservationOptions = {
 	decode: Decoder?,
 }
 
-local function sessionObservations(results: { any }?, options: SessionObservationOptions): ({ [string]: any }?, string?)
-	local first = if type(results) == "table" then (results :: { any })[1] else nil
+local function sessionObservations(
+	results: { unknown }?,
+	options: SessionObservationOptions
+): ({ [string]: unknown }?, string?)
+	local first = if type(results) == "table" then (results :: { unknown })[1] else nil
 	if type(first) == "string" and options.decode ~= nil then
 		local decoded, value = pcall(options.decode :: Decoder, first :: string)
 		first = if decoded then value else nil
@@ -172,16 +175,16 @@ local function sessionObservations(results: { any }?, options: SessionObservatio
 	if type(first) ~= "table" then
 		return nil, "the execution session returned no observation table"
 	end
-	local observed = first :: any
+	local observed = first :: { [string]: unknown }
 	if observed.contract ~= options.contract then
 		return nil, "the execution session returned " .. tostring(observed.contract)
 	end
-	local merged: { [string]: any } = {}
+	local merged: { [string]: unknown } = {}
 	for key, value in observed do
 		merged[key] = value
 	end
 	merged.observationContract = observed.contract
-	local red: { any } = if type(observed.errorLines) == "table" then observed.errorLines else {}
+	local red: { unknown } = if type(observed.errorLines) == "table" then observed.errorLines :: { unknown } else {}
 	for _, line in (if options.errorLines ~= nil then options.errorLines else {}) :: { string } do
 		table.insert(red, line)
 	end
@@ -205,7 +208,14 @@ export type CallPlanOptions = {
 	chunk: ChunkedProbe,
 }
 
-local function chunkedCallPlan(options: CallPlanOptions): { any }
+export type PlannedCall = {
+	tool: string,
+	input: { studio_id: string?, is_start: boolean?, datamodel_type: string?, code: string? },
+	expect: string,
+	repeatUntil: string?,
+	maxAttempts: number?,
+}
+local function chunkedCallPlan(options: CallPlanOptions): { PlannedCall }
 	local chunk = options.chunk
 	return {
 		{
@@ -263,14 +273,14 @@ export type ClientObservationOptions = {
 }
 
 local function clientObservations(
-	banked: any,
+	banked: unknown,
 	console: string,
 	options: ClientObservationOptions
-): ({ [string]: any }?, string?)
+): ({ [string]: unknown }?, string?)
 	if type(banked) ~= "table" then
 		return nil, "the bridge returned no observation table"
 	end
-	local observed = banked :: any
+	local observed = banked :: { [string]: unknown }
 	if observed.contract ~= options.contract then
 		return nil, "the bridge returned " .. tostring(observed.contract)
 	end
@@ -280,7 +290,7 @@ local function clientObservations(
 				options.chunk.deadlineSeconds
 			)
 	end
-	local merged: { [string]: any } = {}
+	local merged: { [string]: unknown } = {}
 	for key, value in observed do
 		merged[key] = value
 	end
@@ -294,7 +304,7 @@ local function clientObservations(
 	return merged, nil
 end
 
-local function decodeObject(payload: string?, decode: Decoder): { [string]: any }?
+local function decodeObject(payload: string?, decode: Decoder): { [string]: unknown }?
 	if payload == nil then
 		return nil
 	end
@@ -302,10 +312,56 @@ local function decodeObject(payload: string?, decode: Decoder): { [string]: any 
 	if not ok or type(decoded) ~= "table" then
 		return nil
 	end
-	return decoded :: { [string]: any }
+	return decoded :: { [string]: unknown }
 end
 
-local function frameSummary(value: any): boolean
+type FrameSummary = {
+	sampleCount: number,
+	elapsedSec: number,
+	p50Ms: number,
+	p95Ms: number,
+	p99Ms: number,
+	maxMs: number,
+	over50MsCount: number,
+	over50MsRatio: number,
+}
+type FrameHealth = {
+	ok: boolean,
+	reason: string,
+	detail: string,
+	signal: string,
+	sampleCount: number,
+	p50Ms: number,
+	p95Ms: number,
+	p99Ms: number,
+	maxMs: number,
+	over50MsRatio: number,
+}
+type FrameReport = FrameSummary & {
+	signal: string,
+	phases: { [string]: unknown },
+	longFrames: { { phase: string, phaseElapsedSec: number, routeElapsedSec: number, dtMs: number } },
+	longFrameThresholdMs: number,
+	longFrameCap: number,
+	longFrameDropped: number,
+	render: unknown,
+}
+type Budget = {
+	ok: boolean,
+	detail: string,
+	signal: string,
+	environmentUnhealthy: boolean,
+	minimumSamples: number,
+	p95LimitMs: number,
+	p99LimitMs: number,
+	maxLimitMs: number,
+	over50MsRatioLimit: number,
+	setupP50LimitMs: number,
+	setupMinimumSamples: number,
+	renderFrameHealth: unknown,
+}
+local function frameSummary(raw: unknown): boolean
+	local value = raw :: FrameSummary
 	return type(value) == "table"
 		and nonnegativeInteger(value.sampleCount)
 		and finiteNonnegative(value.elapsedSec)
@@ -336,7 +392,8 @@ local FRAME_HEALTH_FIELDS = {
 	"over50MsRatio",
 }
 
-local function frameHealth(value: any): boolean
+local function frameHealth(raw: unknown): boolean
+	local value = raw :: FrameHealth
 	return type(value) == "table"
 		and type(value.ok) == "boolean"
 		and type(value.reason) == "string"
@@ -352,19 +409,21 @@ local function frameHealth(value: any): boolean
 		and value.over50MsRatio <= 1
 end
 
-local function sameFrameHealth(left: any, right: any): boolean
+local function sameFrameHealth(left: unknown, right: unknown): boolean
 	if not frameHealth(left) or not frameHealth(right) then
 		return false
 	end
 	for _, key in FRAME_HEALTH_FIELDS do
-		if left[key] ~= right[key] then
+		if (left :: { [string]: unknown })[key] ~= (right :: { [string]: unknown })[key] then
 			return false
 		end
 	end
 	return true
 end
 
-local function frameHealthMatchesSummary(health: any, summary: any): boolean
+local function frameHealthMatchesSummary(rawHealth: unknown, rawSummary: unknown): boolean
+	local health = rawHealth :: FrameHealth
+	local summary = rawSummary :: FrameReport
 	return frameHealth(health)
 		and frameSummary(summary)
 		and health.signal == summary.signal
@@ -376,13 +435,14 @@ local function frameHealthMatchesSummary(health: any, summary: any): boolean
 		and health.over50MsRatio == summary.over50MsRatio
 end
 
-local function frameReport(value: any, requireRender: boolean): boolean
+local function frameReport(raw: unknown, requireRender: boolean): boolean
+	local value = raw :: FrameReport
 	if
 		not frameSummary(value)
 		or type(value.signal) ~= "string"
 		or value.signal == ""
 		or type(value.phases) ~= "table"
-		or getmetatable(value.phases) ~= nil
+		or ((getmetatable :: unknown) :: (unknown) -> unknown)(value.phases) ~= nil
 		or type(value.longFrames) ~= "table"
 		or not denseRows(value.longFrames, #(value.longFrames or {}))
 		or not finiteNonnegative(value.longFrameThresholdMs)
@@ -421,7 +481,8 @@ local function frameReport(value: any, requireRender: boolean): boolean
 	return value.render == nil
 end
 
-local function frameSamplingComplete(sampling: any): boolean
+local function frameSamplingComplete(raw: unknown): boolean
+	local sampling = raw :: { clientFrameTiming: FrameReport, clientFrameBudget: Budget, renderFrameHealth: unknown }
 	if type(sampling) ~= "table" or not deeplyFinite(sampling) then
 		return false
 	end
@@ -447,24 +508,24 @@ local function frameSamplingComplete(sampling: any): boolean
 		and frameHealthMatchesSummary(health, timing.render)
 end
 
-local function boundRecord(record: any, exact: { [string]: any }, coerced: { [string]: any }?): boolean
+local function boundRecord(record: unknown, exact: { [string]: unknown }, coerced: { [string]: unknown }?): boolean
 	if type(record) ~= "table" then
 		return false
 	end
 	for field, expected in exact do
-		if (record :: any)[field] ~= expected then
+		if (record :: { [string]: unknown })[field] ~= expected then
 			return false
 		end
 	end
-	for field, expected in (if coerced ~= nil then coerced else {}) :: { [string]: any } do
-		if tostring((record :: any)[field]) ~= tostring(expected) then
+	for field, expected in (if coerced ~= nil then coerced else {}) :: { [string]: unknown } do
+		if tostring((record :: { [string]: unknown })[field]) ~= tostring(expected) then
 			return false
 		end
 	end
 	return true
 end
 
-local function exactGreenRows(summaryRows: any, count: number, expectedNames: { string }?): boolean
+local function exactGreenRows(summaryRows: unknown, count: number, expectedNames: { string }?): boolean
 	if not denseRows(summaryRows, count) then
 		return false
 	end
@@ -484,7 +545,7 @@ local function exactGreenRows(summaryRows: any, count: number, expectedNames: { 
 		expected = names
 	end
 	for index = 1, count do
-		local row = summaryRows[index]
+		local row = (summaryRows :: { { n: string, ok: unknown } })[index]
 		if
 			type(row) ~= "table"
 			or type(row.n) ~= "string"
@@ -549,7 +610,8 @@ local function refusalLines(bytes: string, patterns: { string }?, limit: number?
 	return lines
 end
 
-local function rowName(row: any): string?
+local function rowName(raw: unknown): string?
+	local row = raw :: { name: unknown, n: unknown }
 	if type(row) ~= "table" then
 		return nil
 	end
@@ -564,7 +626,7 @@ end
 
 export type PredicateRow = { name: string, ok: boolean, detail: string }
 
-local function predicateRows(rows: { any }, missingDetail: string): { PredicateRow }
+local function predicateRows(rows: { unknown }, missingDetail: string): { PredicateRow }
 	local resolved: { PredicateRow } = {}
 	local seen: { [string]: boolean } = {}
 	for _, row in rows do
@@ -573,8 +635,13 @@ local function predicateRows(rows: { any }, missingDetail: string): { PredicateR
 			continue
 		end
 		seen[name :: string] = true
-		local detail = if type((row :: any).detail) == "string" then (row :: any).detail else missingDetail
-		table.insert(resolved, { name = name :: string, ok = (row :: any).ok == true, detail = detail })
+		local detail = if type((row :: { [string]: unknown }).detail) == "string"
+			then (row :: { [string]: unknown }).detail :: string
+			else missingDetail
+		table.insert(
+			resolved,
+			{ name = name :: string, ok = (row :: { [string]: unknown }).ok == true, detail = detail }
+		)
 	end
 	return resolved
 end
@@ -601,12 +668,12 @@ export type JourneyNames = {
 }
 
 export type JourneyBinding = (
-	seen: { [string]: any },
+	seen: { [string]: unknown },
 	contract: string,
 	runId: string
-) -> ({ [string]: any }, { [string]: any }?)
+) -> ({ [string]: unknown }, { [string]: unknown }?)
 
-export type JourneyAcceptance = (start: any, finish: any, summary: any) -> (any?, string?)
+export type JourneyAcceptance = (start: unknown, finish: unknown, summary: unknown) -> (unknown?, string?)
 
 export type JourneyOptions = {
 	title: string?,
@@ -620,28 +687,28 @@ export type JourneyOptions = {
 local DEFAULT_TITLE = "the scenario journey"
 local DEFAULT_MISSING_DETAIL = "the scenario host reported this predicate as failed"
 
-local function step(context: any, name: string, actor: string, run: () -> ())
+local function step(context: Verify.Context, name: string, actor: string, run: () -> ())
 	context:step(name, { actor = actor, run = run })
 end
 
 local function journeySpec(
 	verbs: Verbs,
-	observations: { [string]: any }?,
+	observations: { [string]: unknown }?,
 	options: JourneyOptions,
 	declare: ((string) -> ())?
 )
 	local describe, it, expect = verbs.describe, verbs.it, verbs.expect
 	local names = options.names
 	local missingDetail = if options.missingDetail ~= nil then options.missingDetail else DEFAULT_MISSING_DETAIL
-	local function record(payload: string?): { [string]: any }?
+	local function record(payload: string?): { [string]: unknown }?
 		return decodeObject(payload, options.decode)
 	end
 
 	describe(if options.title ~= nil then options.title else DEFAULT_TITLE, function()
 		local function case(
 			name: string,
-			body: (any, { [string]: any }) -> (),
-			applicable: (({ [string]: any }) -> boolean)?
+			body: (Verify.Context, { [string]: unknown }) -> (),
+			applicable: (({ [string]: unknown }) -> boolean)?
 		)
 			if observations == nil then
 				if declare ~= nil then
@@ -649,15 +716,15 @@ local function journeySpec(
 				end
 				return
 			end
-			if applicable ~= nil and not applicable(observations :: { [string]: any }) then
+			if applicable ~= nil and not applicable(observations :: { [string]: unknown }) then
 				return
 			end
-			it(name, function(_own: any, context: any)
-				body(context, observations :: { [string]: any })
+			it(name, function(_own: Bdd.Own, context: Verify.Context)
+				body(context, observations :: { [string]: unknown })
 			end)
 		end
 
-		local function requireLog(seen: { [string]: any })
+		local function requireLog(seen: { [string]: unknown })
 			expect(seen.logBound):toBeTrueWith "the executor did not bind a runtime log for this run"
 		end
 
@@ -666,16 +733,16 @@ local function journeySpec(
 			for _, path in listAt(seen, "baselineLogs") do
 				context:artifact(names.baselineArtifact, tostring(path), "text/plain")
 			end
-			context:step(seen.configurationFault or names.configurationBound, function()
+			context:step((seen.configurationFault :: string?) or names.configurationBound, function()
 				expect(seen.configurationFault):toBeNil()
 			end)
-			context:step(seen.publishFault or names.publishCurrent, function()
+			context:step((seen.publishFault :: string?) or names.publishCurrent, function()
 				expect(seen.publishFault):toBeNil()
 			end)
-			step(context, seen.launchFault or names.launched, names.driverActor, function()
+			step(context, (seen.launchFault :: string?) or names.launched, names.driverActor, function()
 				expect(seen.launchFault):toBeNil()
 			end)
-			step(context, seen.selectionFault or names.logBound, names.driverActor, function()
+			step(context, (seen.selectionFault :: string?) or names.logBound, names.driverActor, function()
 				expect(seen.selectionFault):toBeNil()
 			end)
 			if seen.logBound == true then
@@ -696,9 +763,9 @@ local function journeySpec(
 		case("prints its acceptance pair before the summary that closes the run", function(context, seen)
 			requireLog(seen)
 			step(context, names.acceptanceOrder, names.hostActor, function()
-				local summaries = listAt(seen, "summaryRecords")
-				local starts = listAt(seen, "acceptanceStartRecords")
-				local finishes = listAt(seen, "acceptanceFinishRecords")
+				local summaries: { { ordinal: number, payload: string } } = listAt(seen, "summaryRecords")
+				local starts: { { ordinal: number, payload: string } } = listAt(seen, "acceptanceStartRecords")
+				local finishes: { { ordinal: number, payload: string } } = listAt(seen, "acceptanceFinishRecords")
 				expect(#summaries):toBe(1)
 				expect(#starts):toBe(1)
 				expect(#finishes):toBe(1)
@@ -711,7 +778,7 @@ local function journeySpec(
 
 		case("prints a results summary that decodes and names a safe run id", function(context, seen)
 			requireLog(seen)
-			local summary = record(seen.summaryPayload)
+			local summary = record(seen.summaryPayload :: string?)
 			local valid = summary ~= nil
 				and summary.contract == names.summaryContract
 				and safeId(summary.runId)
@@ -742,19 +809,19 @@ local function journeySpec(
 		case("carries no refusal, attempt-to-index, or not-authorized console lines", function(context, seen)
 			requireLog(seen)
 			step(context, names.failed, names.hostActor, function()
-				local lines = listAt(seen, "consoleRefusalLines")
+				local lines: { string } = listAt(seen, "consoleRefusalLines")
 				expect(#lines == 0):toBeTrueWith(table.concat(lines, "; "))
 			end)
 		end)
 
 		case("binds its armed and summary records to this run, place and version", function(context, seen)
 			requireLog(seen)
-			local summary = record(seen.summaryPayload)
-			local armed = record(seen.armedPayload)
+			local summary = record(seen.summaryPayload :: string?)
+			local armed = record(seen.armedPayload :: string?)
 			local expectedPassed = seen.expectedPassed
 			step(context, names.recordMismatch, names.hostActor, function()
 				expect(summary).never:toBeNil()
-				local runId = (summary :: any).runId
+				local runId = (summary :: { [string]: unknown }).runId :: string
 				local bind = options.bind
 				expect(bind ~= nil):toBeTrueWith "the caller declared no record binding for this run"
 				local armedExact, armedCoerced = (bind :: JourneyBinding)(seen, names.armedContract, runId)
@@ -769,19 +836,19 @@ local function journeySpec(
 
 		case("reports exactly the complete expected predicate set passing", function(context, seen)
 			requireLog(seen)
-			local summary = record(seen.summaryPayload)
+			local summary = record(seen.summaryPayload :: string?)
 			step(context, names.failed, names.hostActor, function()
 				expect(summary).never:toBeNil()
 				local expected = seen.expectedPassed :: number
 				expect(
-					(summary :: any).passed == expected
-						and (summary :: any).failed == 0
-						and (summary :: any).skipped == 0
+					(summary :: { [string]: unknown }).passed == expected
+						and (summary :: { [string]: unknown }).failed == 0
+						and (summary :: { [string]: unknown }).skipped == 0
 				):toBeTrueWith "the summary must report exactly the expected passes and nothing else"
 				local expectedNames = seen.expectedPredicateNames
 				expect(
 					exactGreenRows(
-						(summary :: any).results,
+						(summary :: { [string]: unknown }).results,
 						expected,
 						if type(expectedNames) == "table" then expectedNames :: { string } else nil
 					)
@@ -793,13 +860,13 @@ local function journeySpec(
 
 		case("carries a complete acceptance record for the run it closes", function(context, seen)
 			requireLog(seen)
-			local summary = record(seen.summaryPayload)
+			local summary = record(seen.summaryPayload :: string?)
 			step(context, names.acceptanceOrder, names.acceptanceActor, function()
 				expect(seen.wireDefect):toBeNil()
 			end)
 			step(context, names.acceptanceIncomplete, names.acceptanceActor, function()
-				local starts = listAt(seen, "acceptanceStartRecords")
-				local finishes = listAt(seen, "acceptanceFinishRecords")
+				local starts: { { ordinal: number, payload: string } } = listAt(seen, "acceptanceStartRecords")
+				local finishes: { { ordinal: number, payload: string } } = listAt(seen, "acceptanceFinishRecords")
 				expect(summary).never:toBeNil()
 				local validate = options.acceptance
 				expect(validate ~= nil):toBeTrueWith "the caller declared no acceptance validator"
@@ -821,7 +888,7 @@ local function journeySpec(
 			return
 		end
 
-		local seen = observations :: { [string]: any }
+		local seen = observations :: { [string]: unknown }
 		local rows = predicateRows(listAt(seen, "rows"), missingDetail)
 		for _, row in rows do
 			case(("scenario predicate: %s"):format(row.name), function(context, _seen)

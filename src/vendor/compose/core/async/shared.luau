@@ -6,7 +6,7 @@ local Owner = require "../ownership/owner"
 
 export type Factory<T> = () -> (T, (() -> ())?)
 
-export type Acquire<T> = (() -> T) & { detached: () -> (T, () -> ()) }
+export type Acquire<T> = typeof(setmetatable({} :: { detached: () -> (T, () -> ()) }, {} :: { __call: (unknown) -> T }))
 
 local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 	if type(factory) ~= "function" then
@@ -84,12 +84,12 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 			return take()
 		end,
 	}, {
-		__call = function(): T
+		__call = function(_: unknown): T
 			return acquireOwned()
 		end,
 	})
 
-	return (acquire :: any) :: Acquire<T>
+	return acquire
 end
 
 return createSharedResource

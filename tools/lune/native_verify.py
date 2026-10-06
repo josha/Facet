@@ -302,6 +302,7 @@ def producers_for(tier):
     catalog = [
         producer("vendor", ["python3", "tools/sync_compose.py", "--check"], WORKING),
         producer("verify-vendor", ["python3", "tools/sync_verify.py", "--check"], WORKING),
+        producer("snapshot-sync-selftest", ["python3", "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_snapshot_sync.py"], WORKING),
         producer("verify-integration", ["lune", "run", "tools/lune/verify_integration"], WORKING),
         producer("verify-census", ["lune", "run", "tools/lune/verify_census"], WORKING),
         producer("verification-selftest", ["python3", "tools/lune/native_verify_selftest.py"], WORKING, replaces=["verify-selftest"]),

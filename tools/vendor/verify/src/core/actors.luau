@@ -5,7 +5,7 @@ local Wait = require "./wait"
 
 export type Probe = { ready: boolean, lost: boolean?, observed: unknown? }
 
-export type Ops = Lifecycle.Ops & {
+export type Ops<H = unknown> = Lifecycle.Ops<H> & {
 	join: (name: string) -> Lifecycle.Returned,
 	probe: (name: string, remainingSeconds: number) -> Probe,
 	leave: (name: string) -> Lifecycle.Returned,
@@ -29,14 +29,14 @@ local function names(count: number, prefix: string?): { string }
 	return out
 end
 
-local function run(spec: Spec, ops: Ops): Lifecycle.Result
+local function run<H>(spec: Spec, ops: Ops<H>): Lifecycle.Result
 	local seen: { [string]: boolean } = {}
 	for _, actor in spec.actors do
 		assert(actor ~= "" and not seen[actor], "actor names must be unique and not empty")
 		seen[actor] = true
 	end
 	local joined: { string } = {}
-	local held: { { name: string, handle: any } } = {}
+	local held: { { name: string, handle: H } } = {}
 
 	local function release(): { string }
 		local problems: { string } = {}
@@ -46,7 +46,7 @@ local function run(spec: Spec, ops: Ops): Lifecycle.Result
 				if ops.release == nil then
 					return { ok = false, detail = "release_unavailable" }
 				end
-				return (ops.release :: (any, string) -> Lifecycle.Returned?)(entry.handle, entry.name)
+				return (ops.release :: (H, string) -> Lifecycle.Returned?)(entry.handle, entry.name)
 			end)
 			if not called then
 				table.insert(problems, ("resource %s: %s"):format(entry.name, tostring(released)))
@@ -58,7 +58,7 @@ local function run(spec: Spec, ops: Ops): Lifecycle.Result
 		return problems
 	end
 
-	local lifecycleOps: Lifecycle.Ops = table.clone(ops) :: any
+	local lifecycleOps: Lifecycle.Ops<H> = table.clone(ops)
 	lifecycleOps.start = function(): Lifecycle.Returned
 		local resources: { string } = spec.resources or {}
 		for _, resource in resources do
@@ -70,7 +70,7 @@ local function run(spec: Spec, ops: Ops): Lifecycle.Result
 				deadlineSeconds = spec.deadlineSeconds,
 				pollSeconds = spec.pollSeconds,
 				probe = function(): (boolean, unknown, string?)
-					local handle, why = (ops.acquire :: (string) -> (any?, string?))(resource)
+					local handle, why = (ops.acquire :: (string) -> (H?, string?))(resource)
 					if handle ~= nil then
 						table.insert(held, { name = resource, handle = handle })
 					end
@@ -124,7 +124,10 @@ local function run(spec: Spec, ops: Ops): Lifecycle.Result
 				local rows: { string } = {}
 				for _, actor in spec.actors do
 					if pending[actor] then
-						table.insert(rows, ("%s=%s"):format(actor, tostring((observed :: any or {})[actor])))
+						table.insert(
+							rows,
+							("%s=%s"):format(actor, tostring((observed :: { [string]: unknown }? or {})[actor]))
+						)
 					end
 				end
 				return if #rows == 0 then "all ready" else table.concat(rows, ", ")

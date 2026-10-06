@@ -17,7 +17,7 @@ Discovery and changed-file reachability belong to consumers, not a second schedu
 `Core.execute(plan, host, options?)` drives capability negotiation, fixture setup/cleanup, batching,
 run deadlines, failure accounting and receipt composition. A host supplies `runBatch`; optional
 parallel dispatch and artifact routing preserve the same report semantics. A batch outcome is
-`completed`, `faulted`, `timed_out`, or `cancelled`; only a completed valid report carries verdicts.
+`returned`, `faulted`, `timed_out`, or `cancelled`; only a returned valid report carries verdicts.
 The host must stop timed-out/cancelled work and account for every dispatched batch. A clean exit
 without the expected receipt is a fault.
 

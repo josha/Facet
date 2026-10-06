@@ -87,7 +87,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 							capture = require("../examples/performance/lab/capture"),
 							workloads = require("../examples/performance/lab/workloads"),
 						}
-						local engine = engineLib.new({ cacheDefaults = true })
+						local engine = engineLib.new()
 						local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 						local target = engine.new("Folder")
 						local probe

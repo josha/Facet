@@ -31,16 +31,16 @@ export type StepOptions = {
 	run: () -> (),
 }
 
-export type Disposable = {
-	dispose: ((self: any) -> ())?,
-	destroy: ((self: any) -> ())?,
+export type Disposable<T = unknown> = {
+	dispose: ((self: T) -> ())?,
+	destroy: ((self: T) -> ())?,
 }
-export type Resource = (() -> ()) | Disposable
+export type Resource<T = unknown> = (() -> ()) | (T & { dispose: (T) -> () }) | (T & { destroy: (T) -> () })
 
 export type Context = {
 	expect: (self: Context, value: unknown) -> Expectation,
 	defer: (self: Context, cleanup: () -> ()) -> (),
-	own: (self: Context, resource: Resource) -> (),
+	own: <T>(self: Context, resource: Resource<T>) -> (),
 	skip: (self: Context, reason: string) -> never,
 	step: (self: Context, name: string, definition: (() -> ()) | StepOptions) -> (),
 	artifact: (self: Context, name: string, reference: string, mediaType: string?) -> (),
@@ -479,7 +479,7 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			}
 		end
 		if entry.skipReason ~= nil then
-			local result = table.clone(base) :: any
+			local result = table.clone(base) :: CaseResult
 			result.status = "skipped"
 			result.skipReason = entry.skipReason
 			return result :: CaseResult
@@ -550,7 +550,7 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			table.insert(cleanups, cleanup)
 		end
 
-		function context:own(resource: Resource)
+		function context:own<T>(resource: Resource<T>)
 			if type(resource) == "function" then
 				table.insert(cleanups, resource :: () -> ())
 				return
@@ -558,12 +558,12 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			if type(resource) ~= "table" then
 				error("own requires a function or a table carrying dispose or destroy", 2)
 			end
-			local handle = resource :: Disposable
-			local release = (handle.dispose or handle.destroy) :: ((any) -> ())?
+			local handle = resource :: T & Disposable<T>
+			local release = (handle.dispose or handle.destroy) :: ((T) -> ())?
 			if type(release) ~= "function" then
 				error("own requires a resource with a dispose or destroy method", 2)
 			end
-			local dispose = release :: (any) -> ()
+			local dispose = release :: (T) -> ()
 			table.insert(cleanups, function()
 				dispose(handle)
 			end)

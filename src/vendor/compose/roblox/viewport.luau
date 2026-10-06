@@ -13,21 +13,21 @@ export type Options = {
 local DEFAULT_MINIMUM_SIDE = 100
 local DEFAULT_FALLBACK: Viewport = { width = 1280, height = 720 }
 
-local function dimensionsOf(size: any): Viewport
+local function dimensionsOf(size: Engine.Vector2): Viewport
 	return { width = size.X, height = size.Y }
 end
 
-local function side(value: any, minimum: number): boolean
+local function side(value: unknown, minimum: number): boolean
 	return type(value) == "number" and value == value and value >= minimum and value < math.huge
 end
 
-local function known(size: any, minimum: number?): boolean
+local function known(size: Engine.Vector2?, minimum: number?): boolean
 	local threshold = if minimum ~= nil then minimum else DEFAULT_MINIMUM_SIDE
 	return size ~= nil and side(size.X, threshold) and side(size.Y, threshold)
 end
 
 local function createViewport(
-	camera: any,
+	camera: { ViewportSize: Engine.Vector2 },
 	engine: Engine.Engine?,
 	options: Options?
 ): (Compose.Readable<Viewport>, Compose.Readable<boolean>)

@@ -8,50 +8,74 @@ local Types = require "./types"
 type Report = Types.Report
 type Selection = Harness.Selection
 
-export type Surface = { [string]: any }
-export type SurfaceFactory = (harness: Harness.Harness) -> Surface
+export type Surface = { [string]: unknown }
+export type SurfaceFactory<S = Surface> = (harness: Harness.Harness) -> S
 
-export type Options = {
+export type Options<S = Surface> = {
 	executor: string,
 	environment: { [string]: string },
 	capabilities: { string }?,
 	now: (() -> number)?,
-	surface: SurfaceFactory?,
+	surface: SurfaceFactory<S>?,
 
 	runtimeVerbs: { string }?,
 	prefixCaseIds: boolean?,
 	selection: Selection?,
 }
 
-export type Session = {
-	verbs: Surface,
-	open: (self: Session, source: string) -> (),
-	close: (self: Session) -> (),
-	current: (self: Session) -> Surface,
-	harness: (self: Session) -> Harness.Harness,
-	adoptReport: (self: Session, source: string, report: Report) -> (),
+export type ProvidedOptions<S> = {
+	executor: string,
+	environment: { [string]: string },
+	capabilities: { string }?,
+	now: (() -> number)?,
+	surface: SurfaceFactory<S>,
+
+	runtimeVerbs: { string }?,
+	prefixCaseIds: boolean?,
+	selection: Selection?,
+}
+
+export type DefaultOptions = {
+	executor: string,
+	environment: { [string]: string },
+	capabilities: { string }?,
+	now: (() -> number)?,
+	surface: nil,
+
+	runtimeVerbs: { string }?,
+	prefixCaseIds: boolean?,
+	selection: Selection?,
+}
+
+export type Session<S = Surface> = {
+	verbs: S,
+	open: (self: Session<S>, source: string) -> (),
+	close: (self: Session<S>) -> (),
+	current: (self: Session<S>) -> S,
+	harness: (self: Session<S>) -> Harness.Harness,
+	adoptReport: (self: Session<S>, source: string, report: Report) -> (),
 	sourceReport: (
-		self: Session,
+		self: Session<S>,
 		id: string,
 		source: string,
 		status: "failed" | "skipped",
 		detail: string
 	) -> Report,
-	setSelection: (self: Session, selection: Selection?) -> (),
-	run: (self: Session) -> Report,
-	reset: (self: Session) -> (),
+	setSelection: (self: Session<S>, selection: Selection?) -> (),
+	run: (self: Session<S>) -> Report,
+	reset: (self: Session<S>) -> (),
 }
 
-type Entry = {
+type Entry<S> = {
 	source: string,
 	harness: Harness.Harness?,
-	surface: Surface?,
+	surface: S?,
 	report: Report?,
 }
 
 local DEFAULT_RUNTIME_VERBS: { string } = { "skip" }
 
-local function create(options: Options): Session
+local function create<S>(options: Options<S>): Session<S>
 	if type(options) ~= "table" or options.executor == "" then
 		error("a session needs a non-empty executor", 2)
 	end
@@ -61,9 +85,9 @@ local function create(options: Options): Session
 	local now = options.now or function(): number
 		return 0
 	end
-	local build: SurfaceFactory = options.surface
-		or function(harness: Harness.Harness): Surface
-			return harness :: any
+	local build: SurfaceFactory<S> = options.surface
+		or function(harness: Harness.Harness): S
+			return (harness :: unknown) :: S
 		end
 	local prefixCaseIds = options.prefixCaseIds == true
 	local runtimeVerbs: { [string]: boolean } = {}
@@ -71,14 +95,14 @@ local function create(options: Options): Session
 		runtimeVerbs[verb] = true
 	end
 
-	local session = {} :: Session
-	local stack: { Entry } = {}
-	local pending: { Entry } = {}
-	local running: Entry? = nil
+	local session = {} :: Session<S>
+	local stack: { Entry<S> } = {}
+	local pending: { Entry<S> } = {}
+	local running: Entry<S>? = nil
 	local runInProgress = false
 	local selection: Selection? = options.selection
 
-	local function registering(): Entry
+	local function registering(): Entry<S>
 		local entry = stack[#stack]
 		if entry == nil then
 			error("a verification source registered outside an open session source", 3)
@@ -86,27 +110,29 @@ local function create(options: Options): Session
 		return entry
 	end
 
-	function session:current(): Surface
-		return registering().surface :: Surface
+	function session:current(): S
+		return registering().surface :: S
 	end
 
 	function session:harness(): Harness.Harness
 		return registering().harness :: Harness.Harness
 	end
 
-	session.verbs = setmetatable({}, {
-		__index = function(_, verb: string): any
-			return function(...): ...any
-				local entry = if runtimeVerbs[verb] then (running or registering()) else registering()
-				local surface = entry.surface :: Surface
-				local callable = surface[verb]
-				if type(callable) ~= "function" then
-					error(("the session surface has no verb %q"):format(verb), 2)
+	session.verbs = (
+		setmetatable({}, {
+			__index = function(_, verb: string): unknown
+				return function(...: unknown): ...unknown
+					local entry = if runtimeVerbs[verb] then (running or registering()) else registering()
+					local surface = (entry.surface :: unknown) :: Surface
+					local callable = surface[verb]
+					if type(callable) ~= "function" then
+						error(("the session surface has no verb %q"):format(verb), 2)
+					end
+					return (callable :: (...unknown) -> ...unknown)(...)
 				end
-				return callable(...)
-			end
-		end,
-	}) :: any
+			end,
+		}) :: unknown
+	) :: S
 
 	function session:open(source: string)
 		if source == "" then
@@ -167,7 +193,7 @@ local function create(options: Options): Session
 		return report
 	end
 
-	local function runQueued(queued: { Entry }): Report
+	local function runQueued(queued: { Entry<S> }): Report
 		local reports: { Report } = {}
 		for _, entry in queued do
 			local adopted = entry.report
@@ -176,7 +202,7 @@ local function create(options: Options): Session
 				continue
 			end
 			running = entry
-			local ok, produced: any = pcall(function(): Report
+			local ok, produced: unknown = pcall(function(): Report
 				return (entry.harness :: Harness.Harness):run {
 					executor = executor,
 					capabilities = capabilities,
@@ -199,7 +225,7 @@ local function create(options: Options): Session
 		end
 		runInProgress = true
 
-		local ok, produced: any = pcall(runQueued, table.clone(pending))
+		local ok, produced: unknown = pcall(runQueued, table.clone(pending))
 		running = nil
 		runInProgress = false
 		if not ok then
@@ -220,7 +246,9 @@ local function create(options: Options): Session
 	return session
 end
 
+type Creator = (<S>(options: ProvidedOptions<S>) -> Session<S>) & ((options: DefaultOptions) -> Session<Surface>)
+
 return {
-	create = create,
+	create = (create :: unknown) :: Creator,
 	DEFAULT_RUNTIME_VERBS = DEFAULT_RUNTIME_VERBS,
 }

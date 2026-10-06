@@ -10,7 +10,7 @@ local PreferredInput = require "@self/preferred-input"
 local Viewport = require "@self/viewport"
 
 export type Engine = Engine.Engine
-export type Signal = Engine.Signal
+export type Signal<A... = ...unknown> = Engine.Signal<A...>
 export type Connection = Engine.Connection
 export type Viewport = Viewport.Viewport
 export type ViewportOptions = Viewport.Options

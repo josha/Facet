@@ -374,7 +374,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					.. `{name} preserves caller properties refs events and cleanup in both constructor forms`,
 				run = function()
 					for _, named in { false, true } do
-						local engine = engineLib.new({ cacheDefaults = true })
+						local engine = engineLib.new()
 						local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 						local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
 						local root = engine.new("ScreenGui")

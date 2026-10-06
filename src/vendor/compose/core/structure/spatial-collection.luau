@@ -119,7 +119,7 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 	if settings.key ~= nil then
 		keyOf = Support.builderOf(settings.key, "SpatialCollection", "key") :: (value: V, index: number) -> K
 	else
-		keyOf = (identity :: any) :: (value: V, index: number) -> K
+		keyOf = (identity :: unknown) :: (value: V, index: number) -> K
 	end
 
 	local hysteresis = math.max(0, numberOr(settings.hysteresis, 0))

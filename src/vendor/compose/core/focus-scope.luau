@@ -58,7 +58,7 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 	end
 	local source = Support.sourceOf(settings.from, "createFocusScope", "from") :: Types.Body<{ V }>
 	local keyOf: (value: V, index: number) -> K = if settings.key == nil
-		then (identity :: any) :: (value: V, index: number) -> K
+		then (identity :: unknown) :: (value: V, index: number) -> K
 		else Support.builderOf(settings.key, "createFocusScope", "key")
 	local disabled: ((value: V, index: number) -> boolean)? = if settings.disabled == nil
 		then nil

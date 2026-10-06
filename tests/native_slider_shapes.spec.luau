@@ -27,7 +27,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 
 	local function world(spec: any, options: any?): any
 		local o = options or {}
-		local engine: any = engineLib.new()
+		local engine: any = o.engine or engineLib.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI: any = {}
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
@@ -578,7 +578,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						info = knob
 						return engine.new("Frame")
 					end,
-				})
+				}, { engine = engine })
 				expect(builds):toBe(1)
 				expect(
 					`{info.thumb}:{info.value:peek()}:{info.fraction:peek()}:{info.dragging:peek()}:{info.enabled:peek()}`
@@ -606,7 +606,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					thumbContent = function()
 						return engine.new("Frame")
 					end,
-				})
+				}, { engine = engine })
 				local thumb = find(w.track, "Thumb")
 				expect((thumb:HasTag("facet-slider-thumb"))):toBe(false)
 				expect(thumb.AutomaticSize):toBe(w.E.AutomaticSize.XY)
@@ -624,13 +624,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			id = "native_slider_shapes::native Slider thumb modes and custom art::a knob is told its own thumb in a range, and each handle wears one",
 			run = function()
 				local seen = {}
+				local engine = engineLib.new()
 				local w = world({
 					range = true,
 					thumbContent = function(info: any)
 						table.insert(seen, `{info.thumb}:{info.value:peek()}`)
-						return engineLib.new().new("Frame")
+						return engine.new("Frame")
 					end,
-				})
+				}, { engine = engine })
 				expect((table.concat(seen, " "))):toBe("lower:20 upper:60")
 				expect(find(find(w.track, "HandleLower"), "Knob") ~= nil):toBe(true)
 				w.stop()
@@ -669,7 +670,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						builds += 1
 						return engine.new("Frame")
 					end,
-				})
+				}, { engine = engine })
 				expect(builds):toBe(1)
 				expect((find(w.track, "Rail"))):toBeNil()
 				expect((find(w.track, "Fill"))):toBeNil()
@@ -716,18 +717,18 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			id = "native_slider_shapes::native Slider knob travel::each range handle travels by the size of its own art",
 			run = function()
 				local sides = { lower = 12, upper = 40 }
+				local engine = engineLib.new()
 				local w = world({
 					range = true,
 					value = Compose.cell({ lower = 0, upper = 100 }),
 					thumbContent = function(info: any)
-						local engine = engineLib.new()
 						local art = engine.new("Frame")
 						local side = sides[info.thumb]
 						art.Name = "Art_" .. info.thumb
 						art.AbsoluteSize = engine.types.Vector2.new(side, side)
 						return art
 					end,
-				})
+				}, { engine = engine })
 				local lower, upper = find(w.track, "HandleLower"), find(w.track, "HandleUpper")
 				local lowerLeft = span(lower, sides.lower)
 				local _, upperRight = span(upper, sides.upper)

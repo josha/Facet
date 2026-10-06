@@ -116,24 +116,25 @@ function FORMULA.peek(self: FormulaNode): unknown
 end
 
 local function formula<T>(body: Body<T>, equals: Equals<T>?): Formula<T>
-	local self: FormulaNode = setmetatable({
+	local self = setmetatable({
 		version = 0,
-		subscribers = false,
-		lastSubscriber = false,
+		subscribers = false :: false | Graph.Edge?,
+		lastSubscriber = false :: false | Graph.Edge?,
 		state = Graph.DIRTY,
 		released = false,
-		dependencies = {},
+		dependencies = {} :: { Graph.Edge },
 		reads = 0,
-		value = false,
-		body = body,
-	}, FORMULA) :: any
+		value = false :: unknown,
+		body = body :: Body<unknown>,
+	}, FORMULA)
 	self.subscribers = nil
 	self.lastSubscriber = nil
 	self.value = nil
 	if equals ~= nil then
-		self.compare = equals :: Equals<unknown>
+		((self :: unknown) :: FormulaNode).compare = equals :: Equals<unknown>
 	end
-	return (self :: any) :: Formula<T>
+	local node = (self :: unknown) :: FormulaNode
+	return (node :: unknown) :: Formula<T>
 end
 
 return formula

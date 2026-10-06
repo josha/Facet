@@ -244,7 +244,11 @@ return function(ctx: Types.Context, UI: Controls)
 				end
 				hit = ctx.Host.TextButton({
 					Name = "EditLabel",
-					Attributes = { AccessibleLabel = spec.label or spec.editLabel or "Edit value" } :: Types.Attributes,
+					Attributes = {
+						AccessibleLabel = function(use: ComposeTypes.Use): string
+							return read(spec.label or spec.editLabel or "Edit value", use)
+						end,
+					} :: Types.Attributes,
 					Text = "",
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,

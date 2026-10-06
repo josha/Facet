@@ -7,7 +7,7 @@ local engineLib = require("./native_engine")
 local alive = setmetatable({} :: { [any]: boolean }, { __mode = "k" })
 
 local function mountAndDispose()
-	local engine = engineLib.new({ cacheDefaults = true })
+	local engine = engineLib.new()
 	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI = Facet.controls(
@@ -44,7 +44,7 @@ end
 print(`retained {count}`)
 
 local motion = require("../../src/ui/motion")
-local engine = engineLib.new({ cacheDefaults = true })
+local engine = engineLib.new()
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 local gui = engine.new("GuiService")
 local contexts = setmetatable({} :: { [any]: boolean }, { __mode = "k" })

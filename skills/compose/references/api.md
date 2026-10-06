@@ -1,12 +1,7 @@
-# API
+# Public API
 
-Read `docs/quickstart.md` before writing your first component.
-Use `docs/api.md` to choose a public API. Pass a readable directly when no
-transformation is needed. Use a reactive body only for a computation. For internal changes, stop
-and follow the root `AGENTS.md`.
+Start with the [quickstart](https://github.com/voidmeld/compose/blob/60b9241d66a8b5611a01cec50893f70419341e1b/docs/quickstart.md) for a component and runtime setup.
+Use the [API reference](https://github.com/voidmeld/compose/blob/60b9241d66a8b5611a01cec50893f70419341e1b/docs/api.md) for calls, types and failure behavior.
+Host constructors belong to the runtime; reactive helpers belong to core.
 
-Use `local Host = runtime.constructors` for host constructors such as `Host.Text { ... }` where
-the host supports that kind. The table caches each constructor on its first lookup. Each constructor belongs to that runtime.
-Use `runtime.create(kind)` when the kind is dynamic. Core supplies reactive helpers, not host
-constructors. An application may export its constructor table as its own `Compose` module and
-require core separately as `ComposeCore`.
+For changes to Compose itself, follow [AGENTS](https://github.com/voidmeld/compose/blob/60b9241d66a8b5611a01cec50893f70419341e1b/AGENTS.md).

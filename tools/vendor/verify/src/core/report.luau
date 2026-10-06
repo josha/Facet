@@ -454,7 +454,7 @@ local function compose(payloads: { Types.ShardPayload }, executor: string, envir
 			nameFailure(shardId, "shard:" .. shardId, shardId, "shard produced no report")
 			continue
 		end
-		local decoded, decodedReport: any = pcall(decode, payload.report)
+		local decoded, decodedReport: unknown = pcall(decode, payload.report)
 		if not decoded then
 			nameFailure(shardId, "shard:" .. shardId, shardId, "undecodable shard payload: " .. tostring(decodedReport))
 			continue

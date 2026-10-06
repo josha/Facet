@@ -1,8 +1,8 @@
 --!strict
 
-export type Node = any
+export type Node = unknown
 
-export type Owner = any
+export type Owner = unknown
 
 export type TransportRecord = {
 	payload: string,
@@ -64,34 +64,34 @@ export type ValueNames = {
 	done: string,
 }
 
-export type Seam = {
-	createFolder: (name: string) -> Node,
-	writeString: (folder: Node, name: string, value: string) -> (),
-	writeBool: (folder: Node, name: string, value: boolean) -> (),
+export type Seam<N = Node> = {
+	createFolder: (name: string) -> N,
+	writeString: (folder: N, name: string, value: string) -> (),
+	writeBool: (folder: N, name: string, value: boolean) -> (),
 	dispose: (() -> ())?,
 }
 
-export type SeamDeps = {
-	createOwner: () -> Owner,
-	createChild: (owner: Owner) -> Owner,
-	dispose: (owner: Owner) -> (),
-	custodyOf: (node: Node) -> string,
+export type SeamDeps<N = Node, O = Owner> = {
+	createOwner: () -> O,
+	createChild: (owner: O) -> O,
+	dispose: (owner: O) -> (),
+	custodyOf: (node: N) -> string,
 	borrowedCustody: string,
-	createNode: (owner: Owner, parent: Node, className: string, name: string, value: any?) -> Node,
-	adopt: (owner: Owner, node: Node) -> (),
-	findChild: (parent: Node, name: string) -> Node?,
-	children: (node: Node) -> { Node },
-	isClass: (node: Node, className: string) -> boolean,
-	setValue: (node: Node, value: any) -> (),
+	createNode: (owner: O, parent: N, className: string, name: string, value: unknown?) -> N,
+	adopt: (owner: O, node: N) -> (),
+	findChild: (parent: N, name: string) -> N?,
+	children: (node: N) -> { N },
+	isClass: (node: N, className: string) -> boolean,
+	setValue: (node: N, value: unknown) -> (),
 }
 
-export type SeamState = {
-	createFolder: (name: string) -> Node,
-	writeValue: (folder: Node, name: string, value: any, className: string) -> (),
+export type SeamState<N = Node> = {
+	createFolder: (name: string) -> N,
+	writeValue: (folder: N, name: string, value: unknown, className: string) -> (),
 	dispose: () -> (),
 }
 
-export type Acquire = (parent: Node) -> (() -> (), SeamState)
+export type Acquire<N = Node> = (parent: N) -> (() -> (), SeamState<N>)
 
 local ENCODED_TAG_SUFFIX = "~enc1"
 
@@ -222,20 +222,19 @@ local function boundedValue(value: unknown, limits: ReportLimits?): (boolean, st
 	local selected = if limits ~= nil then limits else DEFAULT_REPORT_LIMITS
 	local entries = 0
 	local stringBytes = 0
-	local seen: { [any]: boolean } = {}
-	local function visit(current: any, depth: number): (boolean, string?)
-		local valueType = type(current)
-		if valueType == "nil" or valueType == "boolean" then
+	local seen: { [unknown]: boolean } = {}
+	local function visit(current: unknown, depth: number): (boolean, string?)
+		if type(current) == "nil" or type(current) == "boolean" then
 			return true, nil
-		elseif valueType == "number" then
+		elseif type(current) == "number" then
 			return current == current and current ~= math.huge and current ~= -math.huge, "report_non_finite_number"
-		elseif valueType == "string" then
+		elseif type(current) == "string" then
 			if #current > selected.stringLength then
 				return false, "report_string_over_budget"
 			end
 			stringBytes += #current
 			return stringBytes <= selected.stringBytes, "report_strings_over_budget"
-		elseif valueType ~= "table" then
+		elseif type(current) ~= "table" then
 			return false, "report_invalid_value_type"
 		end
 		if depth > selected.depth then
@@ -245,7 +244,7 @@ local function boundedValue(value: unknown, limits: ReportLimits?): (boolean, st
 			return false, "report_cycle"
 		end
 		seen[current] = true
-		for key, child in current do
+		for key, child in current :: { [unknown]: unknown } do
 			entries += 1
 			if entries > selected.entries then
 				return false, "report_entries_over_budget"
@@ -282,8 +281,8 @@ local function markers(raw: unknown, options: MarkerOptions): ({ Marker }?, stri
 		allowed[kind] = true
 	end
 
-	local markerMap = raw :: { [any]: any }
-	local markerCount = #(raw :: { any })
+	local markerMap = raw :: { [unknown]: unknown }
+	local markerCount = #(raw :: { unknown })
 	if markerCount > limits.count then
 		return nil, "input_markers_over_budget"
 	end
@@ -303,7 +302,7 @@ local function markers(raw: unknown, options: MarkerOptions): ({ Marker }?, stri
 		if type(rawMarker) ~= "table" then
 			return nil, "input_marker_not_table"
 		end
-		local marker = rawMarker :: { [string]: any }
+		local marker = rawMarker :: { [string]: unknown }
 		local t = marker.t
 		local kind = marker.kind
 		local target = marker.target
@@ -342,20 +341,20 @@ local function tally(results: { { ok: boolean } }): (number, number)
 	return passed, failed
 end
 
-type PoolEntry = {
-	value: any,
+type PoolEntry<V> = {
+	value: V,
 	references: number,
 }
 
-local function referencePool(create: (key: any) -> any, release: (value: any) -> ()): (key: any) -> (() -> (), any)
-	local entries: { [any]: PoolEntry } = setmetatable({}, { __mode = "k" }) :: any
-	return function(key: any): (() -> (), any)
+local function referencePool<K, V>(create: (key: K) -> V, release: (value: V) -> ()): (key: K) -> (() -> (), V)
+	local entries: { [K]: PoolEntry<V> } = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [K]: PoolEntry<V> }
+	return function(key: K): (() -> (), V)
 		local entry = entries[key]
 		if entry == nil then
 			entry = { value = create(key), references = 0 }
 			entries[key] = entry
 		end
-		local held = entry :: PoolEntry
+		local held = entry :: PoolEntry<V>
 		held.references += 1
 		local released = false
 		local function drop()
@@ -374,13 +373,13 @@ local function referencePool(create: (key: any) -> any, release: (value: any) ->
 	end
 end
 
-local function createSeamState(parent: Node, deps: SeamDeps): SeamState
+local function createSeamState<N, O>(parent: N, deps: SeamDeps<N, O>): SeamState<N>
 	local owner = deps.createOwner()
-	local folderNode: Node = nil
-	local folderOwner: Owner = nil
-	local nodeOwners: { [Node]: Owner } = {}
+	local folderNode: N? = nil
+	local folderOwner: O? = nil
+	local nodeOwners: { [Node]: O } = {}
 
-	local function removeNode(node: Node)
+	local function removeNode(node: N)
 		local nodeOwner = nodeOwners[node]
 		if nodeOwner ~= nil then
 			nodeOwners[node] = nil
@@ -391,11 +390,11 @@ local function createSeamState(parent: Node, deps: SeamDeps): SeamState
 			error(REASONS.replacement, 2)
 		end
 		local replacementOwner = deps.createChild(owner)
-		local adopted, adoptFailure = pcall(function(): any
+		local adopted, adoptFailure = pcall(function(): unknown
 			deps.adopt(replacementOwner, node)
 			return nil
 		end)
-		local disposed, disposeFailure = pcall(function(): any
+		local disposed, disposeFailure = pcall(function(): unknown
 			deps.dispose(replacementOwner)
 			return nil
 		end)
@@ -407,7 +406,7 @@ local function createSeamState(parent: Node, deps: SeamDeps): SeamState
 		end
 	end
 
-	local function createFolder(name: string): Node
+	local function createFolder(name: string): N
 		if folderNode ~= nil and deps.findChild(parent, name) == folderNode then
 			return folderNode
 		end
@@ -439,7 +438,7 @@ local function createSeamState(parent: Node, deps: SeamDeps): SeamState
 		return folder
 	end
 
-	local function writeValue(folder: Node, name: string, value: any, className: string)
+	local function writeValue(folder: N, name: string, value: unknown, className: string)
 		local existing = deps.findChild(folder, name)
 		if existing ~= nil and deps.isClass(existing, className) then
 			if nodeOwners[existing] == nil and deps.custodyOf(existing) ~= deps.borrowedCustody then
@@ -473,7 +472,7 @@ local function createSeamState(parent: Node, deps: SeamDeps): SeamState
 	}
 end
 
-local function pooledSeam(parent: Node, acquire: Acquire): Seam
+local function pooledSeam<N>(parent: N, acquire: Acquire<N>): Seam<N>
 	local drop, state = acquire(parent)
 	local active = true
 	local function requireActive()
@@ -483,15 +482,15 @@ local function pooledSeam(parent: Node, acquire: Acquire): Seam
 	end
 
 	return table.freeze {
-		createFolder = function(name: string): Node
+		createFolder = function(name: string): N
 			requireActive()
 			return state.createFolder(name)
 		end,
-		writeString = function(folder: Node, name: string, value: string)
+		writeString = function(folder: N, name: string, value: string)
 			requireActive()
 			state.writeValue(folder, name, value, STRING_VALUE_CLASS)
 		end,
-		writeBool = function(folder: Node, name: string, value: boolean)
+		writeBool = function(folder: N, name: string, value: boolean)
 			requireActive()
 			state.writeValue(folder, name, value, BOOL_VALUE_CLASS)
 		end,
@@ -505,7 +504,7 @@ local function pooledSeam(parent: Node, acquire: Acquire): Seam
 	}
 end
 
-local function arm(seam: Seam, names: ValueNames, runId: string): Node
+local function arm<N>(seam: Seam<N>, names: ValueNames, runId: string): N
 	local folder = seam.createFolder(names.folder)
 	seam.writeString(folder, names.runId, runId)
 	seam.writeString(folder, names.results, "")
@@ -513,7 +512,7 @@ local function arm(seam: Seam, names: ValueNames, runId: string): Node
 	return folder
 end
 
-local function publish(seam: Seam, names: ValueNames, runId: string, payloadJson: string): Node
+local function publish<N>(seam: Seam<N>, names: ValueNames, runId: string, payloadJson: string): N
 	local folder = seam.createFolder(names.folder)
 	seam.writeString(folder, names.runId, runId)
 	seam.writeString(folder, names.results, payloadJson)

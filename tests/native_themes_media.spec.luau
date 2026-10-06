@@ -268,7 +268,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			run = function()
 				local engine, runtime, UI = setup()
 				local acquired, released = 0, 0
-				local resource = Compose.createSharedResource(function()
+				local resource = Compose.createSharedResource(function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
 					acquired += 1
 					return {
 						state = Compose.cell("ready" :: "loading" | "ready" | "failed"),
@@ -278,10 +278,18 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end
 				end)
 				local first: any = runtime.mount(function()
-					return UI.AsyncImage({ resource = resource })
+					return UI.AsyncImage({
+						resource = function()
+							return resource()
+						end,
+					})
 				end, engine.new("Folder"))
 				local second = runtime.mount(function()
-					return UI.AsyncImage({ resource = resource })
+					return UI.AsyncImage({
+						resource = function()
+							return resource()
+						end,
+					})
 				end, engine.new("Folder"))
 				Verify.expect(acquired):toBe(1)
 				first()
@@ -823,7 +831,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			run = function()
 				local engine, runtime, UI = setup()
 				local loaded, released, activated = 0, 0, 0
-				local resource = Compose.createSharedResource(function()
+				local resource = Compose.createSharedResource(function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
 					loaded += 1
 					return {
 						state = Compose.cell("ready" :: "loading" | "ready" | "failed"),
@@ -845,8 +853,20 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					})
 					group = UI.AvatarGroup({
 						items = {
-							{ id = "a", name = "Ada", resource = resource } :: FixtureMediaTypes.AvatarMember,
-							{ id = "b", name = "Bo", resource = resource } :: FixtureMediaTypes.AvatarMember,
+							{
+								id = "a",
+								name = "Ada",
+								resource = function()
+									return resource()
+								end,
+							} :: FixtureMediaTypes.AvatarMember,
+							{
+								id = "b",
+								name = "Bo",
+								resource = function()
+									return resource()
+								end,
+							} :: FixtureMediaTypes.AvatarMember,
 							{ id = "c", name = "Cleo" } :: FixtureMediaTypes.AvatarMember,
 						},
 						max = 2,

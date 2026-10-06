@@ -50,10 +50,10 @@ local function register(engine: Engine.Engine): { string }
 	if vector2 ~= nil then
 		add("Vector2", {
 			arity = 2,
-			encode = function(value: any, out: { number })
+			encode = function(value: Engine.Vector2, out: { number })
 				out[1], out[2] = value.X, value.Y
 			end,
-			decode = function(c: { number }): any
+			decode = function(c: { number }): Engine.Vector2
 				return vector2(c[1], c[2])
 			end,
 		})
@@ -63,10 +63,10 @@ local function register(engine: Engine.Engine): { string }
 	if vector3 ~= nil then
 		add("Vector3", {
 			arity = 3,
-			encode = function(value: any, out: { number })
+			encode = function(value: Engine.Vector3, out: { number })
 				out[1], out[2], out[3] = value.X, value.Y, value.Z
 			end,
-			decode = function(c: { number }): any
+			decode = function(c: { number }): Engine.Vector3
 				return vector3(c[1], c[2], c[3])
 			end,
 		})
@@ -76,10 +76,10 @@ local function register(engine: Engine.Engine): { string }
 	if color3 ~= nil then
 		add("Color3", {
 			arity = 3,
-			encode = function(value: any, out: { number })
+			encode = function(value: Engine.Color3, out: { number })
 				out[1], out[2], out[3] = value.R, value.G, value.B
 			end,
-			decode = function(c: { number }): any
+			decode = function(c: { number }): Engine.Color3
 				return color3(c[1], c[2], c[3])
 			end,
 			normalise = function(c: { number })
@@ -94,10 +94,10 @@ local function register(engine: Engine.Engine): { string }
 	if udim ~= nil then
 		add("UDim", {
 			arity = 2,
-			encode = function(value: any, out: { number })
+			encode = function(value: Engine.UDim, out: { number })
 				out[1], out[2] = value.Scale, value.Offset
 			end,
-			decode = function(c: { number }): any
+			decode = function(c: { number }): Engine.UDim
 				return udim(c[1], math.round(c[2]))
 			end,
 		})
@@ -107,11 +107,11 @@ local function register(engine: Engine.Engine): { string }
 	if udim2 ~= nil then
 		add("UDim2", {
 			arity = 4,
-			encode = function(value: any, out: { number })
+			encode = function(value: Engine.UDim2, out: { number })
 				out[1], out[2] = value.X.Scale, value.X.Offset
 				out[3], out[4] = value.Y.Scale, value.Y.Offset
 			end,
-			decode = function(c: { number }): any
+			decode = function(c: { number }): Engine.UDim2
 				return udim2(c[1], math.round(c[2]), c[3], math.round(c[4]))
 			end,
 		})
@@ -122,7 +122,7 @@ local function register(engine: Engine.Engine): { string }
 	if cframe ~= nil and readCFrame ~= nil and vector3 ~= nil then
 		add("CFrame", {
 			arity = 7,
-			encode = function(value: any, out: { number })
+			encode = function(value: Engine.CFrame, out: { number })
 				local x, y, z, rotation = readCFrame(value)
 				out[1], out[2], out[3] = x, y, z
 				local qx, qy, qz, qw = quaternionFromRotation(rotation)
@@ -140,7 +140,7 @@ local function register(engine: Engine.Engine): { string }
 				end
 				c[4], c[5], c[6], c[7] = c[4] / length, c[5] / length, c[6] / length, c[7] / length
 			end,
-			decode = function(c: { number }): any
+			decode = function(c: { number }): Engine.CFrame
 				return cframe(vector3(c[1], c[2], c[3]), rotationFromQuaternion(c[4], c[5], c[6], c[7]))
 			end,
 		})

@@ -14,7 +14,7 @@ export type Returned = {
 export type Step = {
 	id: string,
 	kind: string?,
-	payload: any?,
+	payload: unknown?,
 	run: ((step: Step) -> Returned)?,
 	deadlineSeconds: number?,
 	resource: string?,
@@ -51,7 +51,7 @@ export type Record = {
 	artifacts: { Types.Artifact }?,
 }
 
-export type Ops = {
+export type Ops<H = unknown> = {
 	now: () -> number,
 	sleep: ((seconds: number) -> ())?,
 	start: ((step: Step) -> Returned)?,
@@ -61,8 +61,8 @@ export type Ops = {
 	readLog: (() -> Returned)?,
 	stop: (() -> Returned)?,
 	reset: (() -> Returned)?,
-	acquire: ((name: string) -> (any?, string?))?,
-	release: ((handle: any, name: string) -> Returned?)?,
+	acquire: ((name: string) -> (H?, string?))?,
+	release: ((handle: H, name: string) -> Returned?)?,
 	interrupted: (() -> boolean)?,
 }
 
@@ -96,12 +96,12 @@ export type Result = {
 	elapsedSeconds: number,
 }
 
-export type Run = { spec: Spec, ops: Ops }
+export type Run<H = unknown> = { spec: Spec, ops: Ops<H> }
 export type Batch = { run: number, step: Step }
 
-type State = {
+type State<H> = {
 	spec: Spec,
-	ops: Ops,
+	ops: Ops<H>,
 	began: number,
 	records: { Record },
 	failure: Failure?,
@@ -133,7 +133,7 @@ local function refused(failure: Failure): Outcome
 	}
 end
 
-local function acquire(state: State, name: string): (any?, string?)
+local function acquire<H>(state: State<H>, name: string): (H?, string?)
 	local ops = state.ops
 	if ops.acquire == nil then
 		return nil, "acquire_unavailable"
@@ -141,12 +141,12 @@ local function acquire(state: State, name: string): (any?, string?)
 	local policy = state.spec.resource
 	local waitUntil = ops.now() + (if policy ~= nil then policy.waitSeconds else 0)
 	while true do
-		local called, handle, why = pcall(ops.acquire :: (string) -> (any?, string?), name)
+		local called, handle, why = pcall(ops.acquire :: (string) -> (unknown?, string?), name)
 		if not called then
 			return nil, tostring(handle)
 		end
 		if handle ~= nil then
-			return handle, nil
+			return handle :: H, nil
 		end
 		if policy == nil or ops.sleep == nil or ops.now() >= waitUntil then
 			return nil, why or "busy"
@@ -155,15 +155,16 @@ local function acquire(state: State, name: string): (any?, string?)
 	end
 end
 
-local function classify(
-	state: State,
+local function classify<H>(
+	state: State<H>,
 	phase: Phase,
 	step: Step,
 	called: boolean,
-	returned: any,
+	rawReturned: unknown,
 	elapsed: number,
 	failReason: string?
 ): Outcome
+	local returned = rawReturned :: Returned
 	local timeout = step.deadlineSeconds
 	local result: Outcome
 	if not called then
@@ -193,7 +194,14 @@ local function classify(
 	return result
 end
 
-local function callOp(state: State, phase: Phase, step: Step, op: any, name: string, failReason: string?): Outcome
+local function callOp<H>(
+	state: State<H>,
+	phase: Phase,
+	step: Step,
+	op: ((Step) -> Returned)?,
+	name: string,
+	failReason: string?
+): Outcome
 	local ops = state.ops
 	if phase ~= "cleanup" then
 		if ops.interrupted ~= nil and ops.interrupted() then
@@ -207,7 +215,7 @@ local function callOp(state: State, phase: Phase, step: Step, op: any, name: str
 	if op == nil and step.run == nil then
 		return refused(failureOf(step.id, phase, "failed", "op_missing", name))
 	end
-	local handle: any = nil
+	local handle: H? = nil
 	if step.resource ~= nil then
 		local acquired, why = acquire(state, step.resource)
 		if acquired == nil then
@@ -216,14 +224,14 @@ local function callOp(state: State, phase: Phase, step: Step, op: any, name: str
 		handle = acquired
 	end
 	local began = ops.now()
-	local called, returned = pcall(step.run or op, step)
+	local called, returned = pcall((step.run or op) :: (Step) -> Returned, step)
 	local elapsed = ops.now() - began
 	if step.resource ~= nil then
 		local released, problem = pcall(function(): Returned?
 			if ops.release == nil then
 				return { ok = false, detail = "release_unavailable" }
 			end
-			return (ops.release :: (any, string) -> Returned?)(handle, step.resource :: string)
+			return (ops.release :: (H, string) -> Returned?)(handle :: H, step.resource :: string)
 		end)
 		if not released or (type(problem) == "table" and problem.ok == false) then
 			local detail = if released then (problem :: Returned).detail else tostring(problem)
@@ -236,11 +244,11 @@ local function callOp(state: State, phase: Phase, step: Step, op: any, name: str
 	return classify(state, phase, step, called, returned, elapsed, failReason)
 end
 
-local function sendStep(state: State, phase: Phase, step: Step): Outcome
+local function sendStep<H>(state: State<H>, phase: Phase, step: Step): Outcome
 	return callOp(state, phase, step, state.ops.send, "send", nil)
 end
 
-local function checkpoint(state: State, phase: Phase, item: Checkpoint): Outcome
+local function checkpoint<H>(state: State<H>, phase: Phase, item: Checkpoint): Outcome
 	for _, capture in item.captures do
 		local captured = callOp(state, phase, capture, state.ops.capture, "capture", "capture_failed")
 		if captured.failure ~= nil then
@@ -255,7 +263,7 @@ local function checkpoint(state: State, phase: Phase, item: Checkpoint): Outcome
 	return acknowledged
 end
 
-local function handleFor(state: State): Handle
+local function handleFor<H>(state: State<H>): Handle
 	return {
 		send = function(_self: Handle, step: Step): Outcome
 			return sendStep(state, "body", step)
@@ -266,11 +274,11 @@ local function handleFor(state: State): Handle
 		checkpoint = function(_self: Handle, item: Checkpoint): Outcome
 			return checkpoint(state, "body", item)
 		end,
-	} :: any
+	}
 end
 
-local function begin(spec: Spec, ops: Ops): State
-	local state: State = {
+local function begin<H>(spec: Spec, ops: Ops<H>): State<H>
+	local state: State<H> = {
 		spec = spec,
 		ops = ops,
 		began = ops.now(),
@@ -302,14 +310,14 @@ local function begin(spec: Spec, ops: Ops): State
 	return state
 end
 
-local function bodyItem(state: State, item: Step | Checkpoint): Failure?
-	if (item :: any).captures ~= nil then
+local function bodyItem<H>(state: State<H>, item: Step | Checkpoint): Failure?
+	if (item :: Checkpoint).captures ~= nil then
 		return checkpoint(state, "body", item :: Checkpoint).failure
 	end
 	return sendStep(state, "body", item :: Step).failure
 end
 
-local function runBody(state: State)
+local function runBody<H>(state: State<H>)
 	if state.failure ~= nil then
 		return
 	end
@@ -332,9 +340,9 @@ local function runBody(state: State)
 	end
 end
 
-local function finish(state: State): Result
+local function finish<H>(state: State<H>): Result
 	local ops = state.ops
-	local function cleanup(id: string, op: any)
+	local function cleanup(id: string, op: (() -> Returned)?)
 		local called, returned = pcall(function(): Returned
 			if op == nil then
 				return { ok = true }
@@ -367,18 +375,21 @@ local function finish(state: State): Result
 	}
 end
 
-local function run(spec: Spec, ops: Ops): Result
+local function run<H>(spec: Spec, ops: Ops<H>): Result
 	local state = begin(spec, ops)
 	runBody(state)
 	return finish(state)
 end
 
-local function batchable(state: State, item: any): boolean
-	return state.failure == nil and item ~= nil and item.captures == nil and item.resource == nil
+local function batchable<H>(state: State<H>, item: (Step | Checkpoint)?): boolean
+	return state.failure == nil
+		and item ~= nil
+		and (item :: Checkpoint).captures == nil
+		and (item :: Step).resource == nil
 end
 
-local function runConcurrent(runs: { Run }, parallel: ((batch: { Batch }) -> { Returned })?): { Result }
-	local states: { State } = {}
+local function runConcurrent<H>(runs: { Run<H> }, parallel: ((batch: { Batch }) -> { Returned })?): { Result }
+	local states: { State<H> } = {}
 	local rounds = 0
 	for index, entry in runs do
 		states[index] = begin(entry.spec, entry.ops)
@@ -395,9 +406,9 @@ local function runConcurrent(runs: { Run }, parallel: ((batch: { Batch }) -> { R
 		for index, state in states do
 			local body = state.spec.body
 			if parallel ~= nil and type(body) == "table" then
-				local item = body[round] :: any
+				local item = body[round]
 				if batchable(state, item) then
-					table.insert(batch, { run = index, step = item })
+					table.insert(batch, { run = index, step = item :: Step })
 				end
 			end
 		end

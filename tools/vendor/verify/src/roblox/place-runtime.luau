@@ -1,34 +1,114 @@
 --!strict
 
-export type Host = {
-	readFile: (path: string) -> string,
-	compile: (source: string) -> any,
-	load: (bytecode: any, chunkName: string, environment: { [string]: any }) -> any,
-	encodeJson: (value: any) -> string,
-	decodeJson: (text: string) -> any,
+local Scheduler = require "./scheduler"
+local Datatypes = require "./datatypes"
+local Environment = require "./environment"
+
+export type Chunk = () -> unknown
+export type Instance = {
+	[string]: unknown,
+	Name: string,
+	ClassName: string,
+	Parent: Instance?,
+	Character: Instance?,
+	UserId: number,
+	GetChildren: (Instance) -> { Instance },
+	FindFirstChild: (Instance, string) -> Instance?,
+	GetFullName: (Instance) -> string,
+	GetPlayers: (Instance) -> { Instance },
+	Destroy: (Instance) -> (),
+	Clone: (Instance) -> Instance,
+	AddTag: (Instance, string) -> (),
+	RemoveTag: (Instance, string) -> (),
+	HasTag: (Instance, string) -> boolean,
+	SetAttribute: (Instance, string, unknown) -> (),
+	GetAttributes: (Instance) -> { [string]: unknown },
+}
+export type State = {
+	name: string,
+	className: string,
+	values: { [string]: unknown },
+	signals: { [string]: Environment.Signal },
+	propertySignals: { [string]: Environment.Signal },
+}
+export type Diagnostic = { kind: string, text: string, source: string }
+export type Engine = {
+	game: Instance,
+	scheduler: Scheduler.Scheduler,
+	newInstance: (string, boolean?) -> Instance,
+	stateOf: (Instance) -> State,
+	service: (string) -> Instance,
+	serviceMethods: { [string]: { [string]: unknown } },
+	setSourceResolver: (() -> string) -> (),
+	currentSource: () -> string,
+	record: (string, string, string) -> (),
+	isInstance: (unknown) -> boolean,
+	signal: () -> Environment.Signal,
+	signalOf: (Instance, string) -> Environment.Signal,
+	fire: (Environment.Signal, ...unknown) -> (),
+	datatypes: typeof(Datatypes),
+	methods: { Destroy: (Instance) -> () },
+	typeName: (unknown) -> string,
+	diagnostics: { Diagnostic },
+	surface: {
+		services: { [string]: boolean },
+		memberKind: (string, string) -> string?,
+		memberType: (string, string) -> string?,
+	},
+	outstandingWaits: () -> { { target: string, name: string, source: string } },
+	frames: () -> number,
+	blocked: () -> number,
+}
+type Entry = { status: string, waiters: { thread }, value: unknown, failure: unknown }
+export type Runtime = {
+	localPlayer: Instance?,
+	closeHandlers: { () -> () },
+	renderSteps: { [string]: (number) -> () },
+	tagged: { [string]: { Instance } },
+	tagAdded: { [string]: Environment.Signal },
+	tagRemoved: { [string]: Environment.Signal },
+	guidCount: number,
+	dataStore: {
+		GetAsync: () -> unknown,
+		SetAsync: () -> unknown,
+		UpdateAsync: (unknown, string, (unknown) -> unknown) -> unknown,
+		RemoveAsync: () -> unknown,
+		OnUpdate: () -> { Disconnect: () -> () },
+	},
+	globals: { [string]: unknown },
+	requireInstance: (unknown) -> unknown,
+	runScript: (Instance, string) -> thread?,
 }
 
-export type Cache = {
+export type Host<B = unknown, C = Chunk> = {
+	readFile: (path: string) -> string,
+	compile: (source: string) -> B,
+	load: (bytecode: B, chunkName: string, environment: { [string]: unknown }) -> C,
+	encodeJson: (value: unknown) -> string,
+	decodeJson: (text: string) -> unknown,
+}
+
+export type Cache<B = unknown, C = Chunk> = {
 	read: (path: string) -> string,
-	bytecode: (path: string) -> any,
-	load: (path: string, environment: { [string]: any }) -> any,
+	bytecode: (path: string) -> B,
+	load: (path: string, environment: { [string]: unknown }) -> C,
 }
 
 export type Mounted = {
-	root: any,
-	scripts: { any },
-	sources: { [any]: string },
+	root: Instance,
+	scripts: { Instance },
+	sources: { [Instance]: string },
 }
 
-export type Options = {
+export type Options<B = unknown> = {
 	aliases: { [string]: string },
-	cache: Cache,
-	host: Host,
+	cache: Cache<B>,
+	host: Host<B>,
 }
 
-local function createCache(host: Host): Cache
+local function createCache<B, C>(host: Host<B, C>): Cache<B, C>
 	local texts: { [string]: string } = {}
-	local bytecodes: { [string]: any } = {}
+	local bytecodes: { [string]: B } = {}
 
 	local cache = {}
 
@@ -41,7 +121,7 @@ local function createCache(host: Host): Cache
 		return existing
 	end
 
-	function cache.bytecode(path: string): any
+	function cache.bytecode(path: string): B
 		local existing = bytecodes[path]
 		if existing == nil then
 			existing = host.compile(cache.read(path))
@@ -50,7 +130,7 @@ local function createCache(host: Host): Cache
 		return existing
 	end
 
-	function cache.load(path: string, environment: { [string]: any }): any
+	function cache.load(path: string, environment: { [string]: unknown }): C
 		return host.load(cache.bytecode(path), "@" .. path, environment)
 	end
 
@@ -69,24 +149,24 @@ local function resolveAlias(aliases: { [string]: string }, target: string): stri
 	return root .. "/" .. (rest :: string)
 end
 
-local function create(engine: any, mounted: Mounted, options: Options): any
+local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>): Runtime
 	local aliases = options.aliases
 	local cache = options.cache
 	local host = options.host
-	local runtime: any = {}
+	local runtime = {} :: Runtime
 	local scheduler = engine.scheduler
-	local modules: { [string]: { [any]: any } } = { server = {}, client = {} }
-	local fileModules: { [string]: any } = {}
-	local globals: { [string]: any } = {}
+	local modules: { [string]: { [Instance]: Entry } } = { server = {}, client = {} }
+	local fileModules: { [string]: Entry } = {}
+	local globals: { [string]: unknown } = {}
 
 	local function context(): string
 		local tag = scheduler.context()
-		return if type(tag) == "table" then tag.context else "server"
+		return if type(tag) == "table" then (tag :: { context: string }).context else "server"
 	end
 
 	local function source(): string
 		local tag = scheduler.context()
-		return if type(tag) == "table" then tag.source else "engine"
+		return if type(tag) == "table" then (tag :: { source: string }).source else "engine"
 	end
 
 	engine.setSourceResolver(source)
@@ -94,34 +174,36 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		engine.record("error", message, source())
 	end)
 
-	local function loadSource(path: string, _chunkName: string, environment: { [string]: any }): any
+	local function loadSource(path: string, _chunkName: string, environment: { [string]: unknown }): Chunk
 		return cache.load(path, environment)
 	end
 
-	local resolveInstanceRequire: (any, string) -> any
+	local resolveInstanceRequire: (Instance, string) -> unknown
 
-	local function environmentFor(scriptInstance: any): { [string]: any }
-		local environment: any = setmetatable({}, { __index = globals })
+	local function environmentFor(scriptInstance: Instance): { [string]: unknown }
+		local environment: { [string]: unknown } = (
+			setmetatable({}, { __index = globals }) :: unknown
+		) :: { [string]: unknown }
 		environment.script = scriptInstance
-		environment.getfenv = function(): any
+		environment.getfenv = function(): unknown
 			return environment
 		end
-		environment.setfenv = function(_level: any, replacement: any): any
+		environment.setfenv = function(_level: unknown, replacement: unknown): unknown
 			return replacement
 		end
-		environment.require = function(target: any): any
+		environment.require = function(target: unknown): unknown
 			if type(target) == "string" then
 				return resolveInstanceRequire(scriptInstance, target)
 			end
-			return (globals.require :: any)(target)
+			return (globals.require :: (unknown) -> unknown)(target)
 		end
 		return environment
 	end
 
-	local requireInstance: (any) -> any
-	local requirePath: (string) -> any
+	local requireInstance: (unknown) -> unknown
+	local requirePath: (string) -> unknown
 
-	local function awaitEntry(entry: any): any
+	local function awaitEntry(entry: Entry): unknown
 		if entry.status == "done" then
 			return entry.value
 		end
@@ -134,7 +216,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		return entry.value
 	end
 
-	local function settle(entry: any, status: string, value: any)
+	local function settle(entry: Entry, status: string, value: unknown)
 		entry.status = status
 		if status == "done" then
 			entry.value = value
@@ -148,17 +230,19 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		end
 	end
 
-	function requirePath(path: string): any
+	function requirePath(path: string): unknown
 		local cached = fileModules[path]
 		if cached ~= nil then
 			return awaitEntry(cached)
 		end
-		local environment: any = setmetatable({}, { __index = globals })
+		local environment: { [string]: unknown } = (
+			setmetatable({}, { __index = globals }) :: unknown
+		) :: { [string]: unknown }
 		environment.script = nil
-		environment.getfenv = function(): any
+		environment.getfenv = function(): unknown
 			return environment
 		end
-		local entry = { status = "loading", waiters = {} }
+		local entry: Entry = { status = "loading", waiters = {}, value = nil, failure = nil }
 		fileModules[path] = entry
 		local chunk = loadSource(path, "@" .. path, environment)
 		local ok, value = pcall(chunk)
@@ -169,9 +253,9 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		return value
 	end
 
-	function resolveInstanceRequire(scriptInstance: any, target: string): any
+	function resolveInstanceRequire(scriptInstance: Instance, target: string): unknown
 		local selfPath = string.match(target, "^@self/(.+)$")
-		local base: any = nil
+		local base: Instance? = nil
 		local rest: string? = nil
 		if selfPath ~= nil then
 			base = scriptInstance
@@ -183,7 +267,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				else scriptInstance.Parent
 			local upward = string.match(target, "^%.%./(.+)$")
 			if upward ~= nil then
-				base = container.Parent
+				base = (container :: Instance).Parent
 				rest = upward
 			else
 				local sibling = string.match(target, "^%./(.+)$")
@@ -210,7 +294,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		return requireInstance(walk)
 	end
 
-	function requireInstance(target: any): any
+	function requireInstance(target: unknown): unknown
 		if type(target) == "string" then
 			local resolved = resolveAlias(aliases, target)
 			if resolved == nil then
@@ -221,21 +305,22 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		if not engine.isInstance(target) then
 			error("Attempted to call require with invalid argument(s).", 2)
 		end
-		if target.ClassName ~= "ModuleScript" then
-			error(("Attempted to require a %s"):format(target.ClassName), 2)
+		local object = target :: Instance
+		if object.ClassName ~= "ModuleScript" then
+			error(("Attempted to require a %s"):format(object.ClassName), 2)
 		end
 		local moduleCache = modules[context()]
-		local cached = moduleCache[target]
+		local cached = moduleCache[object]
 		if cached ~= nil then
 			return awaitEntry(cached)
 		end
-		local path = mounted.sources[target]
+		local path = mounted.sources[object]
 		if path == nil then
-			error(("place runtime has no source for %s"):format(target:GetFullName()), 2)
+			error(("place runtime has no source for %s"):format(object:GetFullName()), 2)
 		end
-		local entry = { status = "loading", waiters = {} }
-		moduleCache[target] = entry
-		local chunk = loadSource(path, "@" .. path, environmentFor(target))
+		local entry: Entry = { status = "loading", waiters = {}, value = nil, failure = nil }
+		moduleCache[object] = entry
+		local chunk = loadSource(path, "@" .. path, environmentFor(object))
 		local ok, value = pcall(chunk)
 		settle(entry, if ok then "done" else "failed", value)
 		if not ok then
@@ -244,10 +329,10 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		return value
 	end
 
-	local contextActionGui: any = nil
-	local contextActionButtons: { [string]: any } = {}
+	local contextActionGui: Instance? = nil
+	local contextActionButtons: { [string]: Instance } = {}
 
-	local function contextActionButton(name: string): any?
+	local function contextActionButton(name: string): Instance?
 		local player = runtime.localPlayer
 		local playerGui = if player ~= nil then player:FindFirstChild "PlayerGui" else nil
 		if playerGui == nil then
@@ -269,7 +354,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 		end
 		local button = engine.newInstance "ImageButton"
 		button.Name = name
-		button.Parent = contextActionGui:FindFirstChild "ContextButtonFrame"
+		button.Parent = (contextActionGui :: Instance):FindFirstChild "ContextButtonFrame"
 		local title = engine.newInstance "TextLabel"
 		title.Name = "ActionTitle"
 		title.Parent = button
@@ -280,34 +365,39 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 	local function serviceOverrides()
 		local overrides = engine.serviceMethods
 		overrides.ContextActionService = {
-			BindAction = function(_service: any, name: string, _handler: any, createTouchButton: any)
+			BindAction = function(_service: Instance, name: string, _handler: unknown, createTouchButton: unknown)
 				if createTouchButton == true then
 					contextActionButton(name)
 				end
 			end,
-			BindActionAtPriority = function(_service: any, name: string, _handler: any, createTouchButton: any)
+			BindActionAtPriority = function(
+				_service: Instance,
+				name: string,
+				_handler: unknown,
+				createTouchButton: unknown
+			)
 				if createTouchButton == true then
 					contextActionButton(name)
 				end
 			end,
-			UnbindAction = function(_service: any, name: string)
+			UnbindAction = function(_service: Instance, name: string)
 				local button = contextActionButtons[name]
 				if button ~= nil then
 					contextActionButtons[name] = nil
 					button:Destroy()
 				end
 			end,
-			GetButton = function(_service: any, name: string): any
+			GetButton = function(_service: Instance, name: string): unknown
 				return contextActionButtons[name]
 			end,
-			SetTitle = function(_service: any, name: string, title: string)
+			SetTitle = function(_service: Instance, name: string, title: string)
 				local button = contextActionButtons[name]
 				local label = if button ~= nil then button:FindFirstChild "ActionTitle" else nil
 				if label ~= nil then
 					label.Text = title
 				end
 			end,
-			SetPosition = function(_service: any, name: string, position: any)
+			SetPosition = function(_service: Instance, name: string, position: unknown)
 				local button = contextActionButtons[name]
 				if button ~= nil then
 					button.Position = position
@@ -316,13 +406,13 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 			SetImage = function() end,
 		}
 		overrides.DataModel = {
-			GetService = function(_self: any, name: string): any
+			GetService = function(_self: Instance, name: string): unknown
 				return engine.service(name)
 			end,
-			FindService = function(_self: any, name: string): any
+			FindService = function(_self: Instance, name: string): unknown
 				return engine.service(name)
 			end,
-			BindToClose = function(_self: any, callback: any)
+			BindToClose = function(_self: Instance, callback: () -> ())
 				runtime.closeHandlers[#runtime.closeHandlers + 1] = callback
 			end,
 			IsLoaded = function(): boolean
@@ -351,16 +441,16 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 			IsEdit = function(): boolean
 				return false
 			end,
-			BindToRenderStep = function(_service: any, name: string, _priority: number, callback: any)
+			BindToRenderStep = function(_service: Instance, name: string, _priority: number, callback: (number) -> ())
 				runtime.renderSteps[name] = callback
 			end,
-			UnbindFromRenderStep = function(_service: any, name: string)
+			UnbindFromRenderStep = function(_service: Instance, name: string)
 				runtime.renderSteps[name] = nil
 			end,
 		}
 		overrides.Players = {
-			GetPlayers = function(service: any): { any }
-				local out: { any } = {}
+			GetPlayers = function(service: Instance): { Instance }
+				local out: { Instance } = {}
 				for _, child in service:GetChildren() do
 					if child.ClassName == "Player" then
 						out[#out + 1] = child
@@ -368,7 +458,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				end
 				return out
 			end,
-			GetPlayerFromCharacter = function(service: any, character: any): any
+			GetPlayerFromCharacter = function(service: Instance, character: Instance): unknown
 				for _, player in service:GetPlayers() do
 					if player.Character == character then
 						return player
@@ -376,7 +466,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				end
 				return nil
 			end,
-			GetPlayerByUserId = function(service: any, userId: number): any
+			GetPlayerByUserId = function(service: Instance, userId: number): unknown
 				for _, player in service:GetPlayers() do
 					if player.UserId == userId then
 						return player
@@ -385,7 +475,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				return nil
 			end,
 		}
-		local function signalOn(object: any, name: string): any
+		local function signalOn(object: Instance, name: string): Environment.Signal
 			local state = engine.stateOf(object)
 			local existing = state.signals[name]
 			if existing == nil then
@@ -394,23 +484,23 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 			end
 			return existing
 		end
-		local function callbackOf(object: any, name: string): any
+		local function callbackOf(object: Instance, name: string): unknown
 			return engine.stateOf(object).values[name]
 		end
 		overrides.RemoteEvent = {
-			FireServer = function(object: any, ...: any)
+			FireServer = function(object: Instance, ...: unknown)
 				engine.fire(signalOn(object, "OnServerEvent"), runtime.localPlayer, ...)
 			end,
-			FireClient = function(object: any, _player: any, ...: any)
+			FireClient = function(object: Instance, _player: unknown, ...: unknown)
 				engine.fire(signalOn(object, "OnClientEvent"), ...)
 			end,
-			FireAllClients = function(object: any, ...: any)
+			FireAllClients = function(object: Instance, ...: unknown)
 				engine.fire(signalOn(object, "OnClientEvent"), ...)
 			end,
 		}
 		overrides.UnreliableRemoteEvent = overrides.RemoteEvent
 		overrides.RemoteFunction = {
-			InvokeServer = function(object: any, ...: any): ...any
+			InvokeServer = function(object: Instance, ...: unknown): ...unknown
 				local callback = callbackOf(object, "OnServerInvoke")
 				if callback == nil then
 					error(
@@ -418,9 +508,9 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 						2
 					)
 				end
-				return callback(runtime.localPlayer, ...)
+				return (callback :: (Instance?, ...unknown) -> ...unknown)(runtime.localPlayer, ...)
 			end,
-			InvokeClient = function(object: any, _player: any, ...: any): ...any
+			InvokeClient = function(object: Instance, _player: unknown, ...: unknown): ...unknown
 				local callback = callbackOf(object, "OnClientInvoke")
 				if callback == nil then
 					error(
@@ -428,25 +518,25 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 						2
 					)
 				end
-				return callback(...)
+				return (callback :: (...unknown) -> ...unknown)(...)
 			end,
 		}
 		overrides.BindableEvent = {
-			Fire = function(object: any, ...: any)
+			Fire = function(object: Instance, ...: unknown)
 				engine.fire(signalOn(object, "Event"), ...)
 			end,
 		}
 		overrides.BindableFunction = {
-			Invoke = function(object: any, ...: any): ...any
+			Invoke = function(object: Instance, ...: unknown): ...unknown
 				local callback = callbackOf(object, "OnInvoke")
 				if callback == nil then
 					error(("Attempt to call a BindableFunction %s with no OnInvoke"):format(object:GetFullName()), 2)
 				end
-				return callback(...)
+				return (callback :: (...unknown) -> ...unknown)(...)
 			end,
 		}
 		overrides.HttpService = {
-			GenerateGUID = function(_service: any, wrapInCurlyBraces: boolean?): string
+			GenerateGUID = function(_service: Instance, wrapInCurlyBraces: boolean?): string
 				runtime.guidCount += 1
 				local body = ("%08x-0000-4000-8000-%012x"):format(runtime.guidCount, runtime.guidCount)
 				if wrapInCurlyBraces == false then
@@ -454,15 +544,15 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				end
 				return "{" .. body .. "}"
 			end,
-			JSONEncode = function(_service: any, value: any): string
+			JSONEncode = function(_service: Instance, value: unknown): string
 				return host.encodeJson(value)
 			end,
-			JSONDecode = function(_service: any, text: string): any
+			JSONDecode = function(_service: Instance, text: string): unknown
 				return host.decodeJson(text)
 			end,
 		}
 		overrides.CollectionService = {
-			AddTag = function(_service: any, object: any, tag: string)
+			AddTag = function(_service: Instance, object: Instance, tag: string)
 				object:AddTag(tag)
 				local list = runtime.tagged[tag]
 				if list == nil then
@@ -475,22 +565,23 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 					engine.fire(added, object)
 				end
 			end,
-			RemoveTag = function(_service: any, object: any, tag: string)
+			RemoveTag = function(_service: Instance, object: Instance, tag: string)
 				object:RemoveTag(tag)
 			end,
-			HasTag = function(_service: any, object: any, tag: string): boolean
+			HasTag = function(_service: Instance, object: Instance, tag: string): boolean
 				return object:HasTag(tag)
 			end,
-			GetTagged = function(_service: any, tag: string): { any }
-				local out: { any } = {}
-				for _, object in runtime.tagged[tag] or {} do
+			GetTagged = function(_service: Instance, tag: string): { Instance }
+				local out: { Instance } = {}
+				local tagged: { Instance } = runtime.tagged[tag] or {}
+				for _, object in tagged do
 					if object:HasTag(tag) then
 						out[#out + 1] = object
 					end
 				end
 				return out
 			end,
-			GetInstanceAddedSignal = function(_service: any, tag: string): any
+			GetInstanceAddedSignal = function(_service: Instance, tag: string): unknown
 				local existing = runtime.tagAdded[tag]
 				if existing == nil then
 					existing = engine.signal()
@@ -498,7 +589,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				end
 				return existing
 			end,
-			GetInstanceRemovedSignal = function(_service: any, tag: string): any
+			GetInstanceRemovedSignal = function(_service: Instance, tag: string): unknown
 				local existing = runtime.tagRemoved[tag]
 				if existing == nil then
 					existing = engine.signal()
@@ -508,13 +599,18 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 			end,
 		}
 		overrides.TweenService = {
-			Create = function(_service: any, target: any, _info: any, goal: { [string]: any }): any
+			Create = function(
+				_service: Instance,
+				target: Instance,
+				_info: unknown,
+				goal: { [string]: unknown }
+			): unknown
 				local tween = engine.newInstance("Tween", true)
 				engine.stateOf(tween).values.Instance = target
 				local completed = engine.signal()
 				engine.stateOf(tween).signals.Completed = completed
 				engine.serviceMethods.Tween = engine.serviceMethods.Tween or {}
-				engine.serviceMethods.Tween.Play = function(instance: any)
+				engine.serviceMethods.Tween.Play = function(instance: Instance)
 					for key, value in goal do
 						target[key] = value
 					end
@@ -525,24 +621,28 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				end
 				engine.serviceMethods.Tween.Cancel = function() end
 				engine.serviceMethods.Tween.Pause = function() end
-				engine.serviceMethods.Tween.Destroy = function(instance: any)
+				engine.serviceMethods.Tween.Destroy = function(instance: Instance)
 					engine.methods.Destroy(instance)
 				end
 				return tween
 			end,
-			GetValue = function(_service: any, alpha: number): number
+			GetValue = function(_service: Instance, alpha: number): number
 				return alpha
 			end,
 		}
 		overrides.Debris = {
-			AddItem = function(_service: any, object: any, lifetime: number?)
+			AddItem = function(_service: Instance, object: Instance, lifetime: number?)
 				scheduler.delay(lifetime or 10, function()
 					object:Destroy()
 				end)
 			end,
 		}
 		overrides.ContentProvider = {
-			PreloadAsync = function(_service: any, instances: { any }, callback: any?)
+			PreloadAsync = function(
+				_service: Instance,
+				instances: { Instance },
+				callback: ((Instance, Datatypes.EnumMember) -> ())?
+			)
 				for _, object in instances do
 					if callback ~= nil then
 						callback(object, engine.datatypes.Enum.AssetFetchStatus.Success)
@@ -551,9 +651,11 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 			end,
 		}
 		overrides.AssetService = {
-			CreateMeshPartAsync = function(_service: any, content: any): any
+			CreateMeshPartAsync = function(_service: Instance, content: unknown): unknown
 				local part = engine.newInstance("MeshPart", true)
-				engine.stateOf(part).values.MeshId = if type(content) == "table" then content.Uri else tostring(content)
+				engine.stateOf(part).values.MeshId = if type(content) == "table"
+					then (content :: { Uri: unknown }).Uri
+					else tostring(content)
 				return part
 			end,
 		}
@@ -570,18 +672,18 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 				return true
 			end,
 			SetCore = function() end,
-			GetCore = function(): any
+			GetCore = function(): unknown
 				return nil
 			end,
 		}
 		overrides.DataStoreService = {
-			GetDataStore = function(): any
+			GetDataStore = function(): unknown
 				return runtime.dataStore
 			end,
-			GetOrderedDataStore = function(): any
+			GetOrderedDataStore = function(): unknown
 				return runtime.dataStore
 			end,
-			GetGlobalDataStore = function(): any
+			GetGlobalDataStore = function(): unknown
 				return runtime.dataStore
 			end,
 		}
@@ -595,19 +697,19 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 	runtime.tagRemoved = {}
 	runtime.guidCount = 0
 	runtime.dataStore = {
-		GetAsync = function(): any
+		GetAsync = function(): unknown
 			return nil
 		end,
-		SetAsync = function(): any
+		SetAsync = function(): unknown
 			return nil
 		end,
-		UpdateAsync = function(_self: any, _key: string, transform: any): any
+		UpdateAsync = function(_self: unknown, _key: string, transform: (unknown) -> unknown): unknown
 			return transform(nil)
 		end,
-		RemoveAsync = function(): any
+		RemoveAsync = function(): unknown
 			return nil
 		end,
-		OnUpdate = function(): any
+		OnUpdate = function(): { Disconnect: () -> () }
 			return { Disconnect = function() end }
 		end,
 	}
@@ -619,29 +721,29 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 	globals.Workspace = globals.workspace
 	globals.require = requireInstance
 	globals.Instance = {
-		new = function(className: string, parent: any?): any
+		new = function(className: string, parent: Instance?): unknown
 			local object = engine.newInstance(className)
 			if parent ~= nil then
 				object.Parent = parent
 			end
 			return object
 		end,
-		fromExisting = function(template: any): any
+		fromExisting = function(template: Instance): unknown
 			return template:Clone()
 		end,
 	}
-	for name, value in engine.datatypes do
+	for name, value in (engine.datatypes :: unknown) :: { [string]: unknown } do
 		globals[name] = value
 	end
 	globals.typeof = engine.typeName
-	globals.print = function(...: any)
+	globals.print = function(...: unknown)
 		local parts: { string } = {}
 		for index = 1, select("#", ...) do
 			parts[#parts + 1] = tostring((select(index, ...)))
 		end
 		engine.record("print", table.concat(parts, " "), engine.currentSource())
 	end
-	globals.warn = function(...: any)
+	globals.warn = function(...: unknown)
 		local parts: { string } = {}
 		for index = 1, select("#", ...) do
 			parts[#parts + 1] = tostring((select(index, ...)))
@@ -659,7 +761,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 	}
 	globals.wait = scheduler.wait
 	globals.spawn = scheduler.spawn
-	globals.delay = function(seconds: number, callback: any)
+	globals.delay = function(seconds: number, callback: Scheduler.Task)
 		return scheduler.delay(seconds, callback)
 	end
 	globals.tick = scheduler.clock
@@ -707,7 +809,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 	runtime.globals = globals
 	runtime.requireInstance = requireInstance
 
-	function runtime.runScript(scriptInstance: any, scriptContext: string)
+	function runtime.runScript(scriptInstance: Instance, scriptContext: string)
 		local path = mounted.sources[scriptInstance]
 		if path == nil then
 			return
@@ -717,7 +819,7 @@ local function create(engine: any, mounted: Mounted, options: Options): any
 			local ok, failure = xpcall(function()
 				local chunk = loadSource(path, "@" .. path, environmentFor(scriptInstance))
 				chunk()
-			end, function(message: any): string
+			end, function(message: unknown): string
 				return tostring(message)
 			end)
 			if not ok then

@@ -282,7 +282,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		local detail: string? = outcome.detail
 		local report: Report? = nil
 		if outcome.report ~= nil then
-			local decoded, value: any = pcall(ReportModel.decode, outcome.report)
+			local decoded, value: unknown = pcall(ReportModel.decode, outcome.report)
 			if decoded then
 				report = value :: Report
 			elseif status == "returned" then
@@ -324,7 +324,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 	end
 
 	local function runOne(batch: PlanBatch): unknown
-		local ok, value: any = pcall(adapter.runBatch, batch)
+		local ok, value: unknown = pcall(adapter.runBatch, batch)
 		if not ok then
 			return { status = "faulted", detail = "the host raised while running a batch: " .. tostring(value) }
 		end
@@ -343,12 +343,16 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		local collected: { [number]: unknown } = {}
 		local duplicates: { string } = {}
 		local started = adapter.now()
-		local ok, thrown: unknown = pcall(adapter.runBatches :: any, chunk, function(index: number, outcome: unknown)
-			if collected[index] ~= nil then
-				table.insert(duplicates, tostring(index))
+		local ok, thrown: unknown = pcall(
+			adapter.runBatches :: ({ PlanBatch }, (number, unknown) -> ()) -> (),
+			chunk,
+			function(index: number, outcome: unknown)
+				if collected[index] ~= nil then
+					table.insert(duplicates, tostring(index))
+				end
+				collected[index] = outcome
 			end
-			collected[index] = outcome
-		end)
+		)
 		local elapsed = adapter.now() - started
 		if #duplicates > 0 then
 			fact(
@@ -373,7 +377,7 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 
 	local function shouldStop(): string?
 		if adapter.cancelled ~= nil then
-			local ok, answer: any = pcall(adapter.cancelled :: any)
+			local ok, answer: unknown = pcall(adapter.cancelled :: () -> boolean)
 			if ok and answer == true then
 				stopKind = "cancelled"
 				return "the host cancelled the run"
@@ -500,7 +504,8 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 			if adapter.artifact ~= nil then
 				for _, result in (report :: Report).results do
 					for artifactIndex, artifact in result.artifacts do
-						local ok, replaced: any = pcall(adapter.artifact :: any, result.id, artifact)
+						local ok, replaced: unknown =
+							pcall(adapter.artifact :: (string, Artifact) -> Artifact, result.id, artifact)
 						if ok and type(replaced) == "table" then
 							result.artifacts[artifactIndex] = replaced :: Artifact
 						elseif not ok then

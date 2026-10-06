@@ -1,5 +1,8 @@
 --!strict
 
+local Experience = require "@self/experience"
+local Performance = require "@self/performance"
+
 local Actors = require "@self/actors"
 local Capability = require "@self/capability"
 local Execution = require "@self/execution"
@@ -19,6 +22,15 @@ local Types = require "@self/types"
 local Wait = require "@self/wait"
 local Witness = require "@self/witness"
 
+export type ExperienceHost = Experience.Host
+export type ExperienceCase = Experience.Case
+export type ExperienceContext = Experience.Context
+export type ExperienceResult = Experience.Result
+export type PerformanceInput = Performance.Input
+export type PerformanceSummary = Performance.Summary
+export type PerformanceLimits = Performance.Limits
+export type PerformanceEvaluation = Performance.Evaluation
+
 export type Status = Types.Status
 export type Failure = Types.Failure
 export type StepResult = Types.StepResult
@@ -33,14 +45,14 @@ export type SelectionSubject = Types.SelectionSubject
 export type SelectionPredicate = Types.SelectionPredicate
 export type ShardPayload = Types.ShardPayload
 export type Expectation = Matchers.Expectation
-export type Spy = Spy.Spy
+export type Spy<A... = ...unknown> = Spy.Spy<A...>
 export type SpyCall = Spy.Call
 
 export type InvocationResult = HarnessModule.InvocationResult
 export type Invoker = HarnessModule.Invoker
 export type StepOptions = HarnessModule.StepOptions
-export type Disposable = HarnessModule.Disposable
-export type Resource = HarnessModule.Resource
+export type Disposable<T = unknown> = HarnessModule.Disposable<T>
+export type Resource<T = unknown> = HarnessModule.Resource<T>
 export type Context = HarnessModule.Context
 export type CaseRun = HarnessModule.CaseRun
 export type CaseOptions = HarnessModule.CaseOptions
@@ -72,10 +84,17 @@ export type PlanAccount = Execution.Account
 export type ExecutionOptions = Execution.Options
 
 export type ActorProbe = Actors.Probe
-export type ActorOps = Actors.Ops
+export type ActorOps<H = unknown> = Actors.Ops<H>
 export type ActorSpec = Actors.Spec
 
 export type MediaAudioWindow = Media.AudioWindow
+export type MediaResolvedAudioWindow = Media.ResolvedAudioWindow
+export type MediaRecording = Media.Recording
+export type MediaProbe = Media.Probe
+export type MediaProbeStream = Media.ProbeStream
+export type MediaSummary = Media.Summary
+export type MediaAudioMeasurement = Media.AudioMeasurement
+export type MediaSampleCommand = Media.SampleCommand
 
 export type WaitOps = Wait.Ops
 export type WaitProbe = Wait.Probe
@@ -88,26 +107,29 @@ export type LifecycleCheckpoint = Lifecycle.Checkpoint
 export type LifecycleFailure = Lifecycle.Failure
 export type LifecycleOutcome = Lifecycle.Outcome
 export type LifecycleRecord = Lifecycle.Record
-export type LifecycleOps = Lifecycle.Ops
+export type LifecycleOps<H = unknown> = Lifecycle.Ops<H>
 export type LifecycleHandle = Lifecycle.Handle
 export type LifecycleBody = Lifecycle.Body
 export type LifecycleSpec = Lifecycle.Spec
 export type LifecycleResult = Lifecycle.Result
-export type LifecycleRun = Lifecycle.Run
+export type LifecycleRun<H = unknown> = Lifecycle.Run<H>
 export type LifecycleBatch = Lifecycle.Batch
 
 export type Negotiation = Capability.Negotiation
 export type Bundle = Observation.Bundle
 export type BundleDraft = Observation.Draft
 export type BundleVerdict = Observation.Verdict
-export type Session = SessionModule.Session
-export type SessionOptions = SessionModule.Options
+export type Session<S = { [string]: unknown }> = SessionModule.Session<S>
+export type SessionOptions<S = { [string]: unknown }> = SessionModule.Options<S>
+export type SessionProvidedOptions<S> = SessionModule.ProvidedOptions<S>
 export type TransportRecord = Transport.Record
 export type Segment = Transport.Segment
 
 export type ClassifyConsoleOptions = Witness.ClassifyOptions
 
 return {
+	experience = Experience,
+	performance = Performance,
 	SCHEMA_VERSION = ReportModel.SCHEMA_VERSION,
 	MANIFEST_SCHEMA_VERSION = Manifest.SCHEMA_VERSION,
 	PLAN_SCHEMA_VERSION = Plan.SCHEMA_VERSION,

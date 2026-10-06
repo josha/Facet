@@ -5,7 +5,7 @@ local Engine = require "./engine"
 
 type Node = Compose.Node
 
-type DefaultCache = { [string]: any }
+type DefaultCache = { [string]: unknown }
 
 local function createHost(engine: Engine.Engine): Compose.Host
 	local defaults: DefaultCache = {}
@@ -14,15 +14,15 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	local classified: { [string]: { [string]: Compose.KeyKind } } = {}
 
 	local function readClassName(node: Node): string
-		return (node :: any).ClassName
+		return (node :: Engine.Instance).ClassName
 	end
 
-	local function readMember(node: Node, key: string): any
-		return (node :: any)[key]
+	local function readMember(node: Node, key: string): unknown
+		return (node :: { [string]: unknown })[key]
 	end
 
-	local function hasConnectMethod(value: any): boolean
-		return type(value.Connect) == "function"
+	local function hasConnectMethod(value: unknown): boolean
+		return type((value :: { Connect: unknown }).Connect) == "function"
 	end
 
 	local function classNameOf(node: Node): string
@@ -33,7 +33,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		return "<unknown class>"
 	end
 
-	local function defaultFor(node: Node, key: string): any
+	local function defaultFor(node: Node, key: string): unknown
 		local class = classNameOf(node)
 		local cacheKey = class .. "." .. key
 		local cached = defaults[cacheKey]
@@ -63,11 +63,11 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	end
 
 	local function setProperty(node: Node, key: string, value: unknown)
-		(node :: any)[key] = value
+		(node :: { [string]: unknown })[key] = value
 	end
 
 	local function writeAttribute(node: Node, name: string, value: unknown): boolean
-		(node :: any):SetAttribute(name, value)
+		(node :: Engine.Instance):SetAttribute(name, value)
 		return true
 	end
 
@@ -84,23 +84,28 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		if default == nil then
 			return
 		end
-		(node :: any)[key] = default
+		(node :: { [string]: unknown })[key] = default
 	end
 
 	local function insertChild(parent: Node, child: Node, _position: number?)
-		(child :: any).Parent = parent
+		(child :: Engine.Instance).Parent = parent
 	end
 
 	local function removeChild(_parent: Node, child: Node)
-		(child :: any).Parent = nil
+		if (child :: Engine.Instance).Parent ~= nil then
+			(child :: Engine.Instance).Parent = nil
+		end
 	end
 
 	local function destroyNode(node: Node)
 		engine.destroy(node)
 	end
 
-	local function connectEvent(node: Node, event: string, handler: (...any) -> ()): Compose.Unsubscribe
-		local signal: Engine.Signal? = (node :: any)[event]
+	local function connectEvent<Args...>(node: Node, event: string, handler: (Args...) -> ()): Compose.Unsubscribe
+		local read, found = pcall(function(): unknown
+			return (node :: { [string]: unknown })[event]
+		end)
+		local signal = (if read then found else nil) :: Engine.Signal<Args...>?
 		if signal == nil or type(signal.Connect) ~= "function" then
 			error(
 				Compose.formatDiagnostic(
@@ -159,7 +164,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	end
 
 	local function readProperty(node: Node, key: string): unknown
-		return (node :: any)[key]
+		return (node :: { [string]: unknown })[key]
 	end
 
 	local function observeProperty(node: Node, key: string, listener: () -> ()): Compose.Unsubscribe
@@ -207,7 +212,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		},
 		naming = {
 			setName = function(node: Node, label: string)
-				(node :: any).Name = label
+				(node :: Engine.Instance).Name = label
 			end,
 		},
 		frames = {
@@ -216,7 +221,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		},
 		describeNode = function(node: Node): string
 			local ok, name = pcall(function()
-				return ("%s %q"):format((node :: any).ClassName, (node :: any).Name)
+				return ("%s %q"):format((node :: Engine.Instance).ClassName, (node :: Engine.Instance).Name)
 			end)
 			return if ok then name else tostring(node)
 		end,

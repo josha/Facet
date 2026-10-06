@@ -1825,7 +1825,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					environment.game = {
 						GetService = function(_, name: string)
 							table.insert(requested, name)
-							return gui
+							return if name == "UserInputService" then h.input else gui
 						end,
 					}
 					local package = themes.neutralPackage()

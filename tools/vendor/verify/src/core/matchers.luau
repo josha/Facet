@@ -23,7 +23,7 @@ export type Expectation = {
 	never: Expectation,
 }
 
-local function render(value: unknown, depth: number, seen: { [any]: boolean }): string
+local function render(value: unknown, depth: number, seen: { [unknown]: boolean }): string
 	if type(value) == "string" then
 		return string.format("%q", value)
 	elseif type(value) ~= "table" then
@@ -36,8 +36,8 @@ local function render(value: unknown, depth: number, seen: { [any]: boolean }): 
 		return "<table>"
 	end
 	seen[value] = true
-	local values = value :: { [any]: any }
-	local keys: { any } = {}
+	local values = value :: { [unknown]: unknown }
+	local keys: { unknown } = {}
 	for key in values do
 		table.insert(keys, key)
 	end
@@ -56,7 +56,7 @@ local function describe(value: unknown): string
 	return render(value, 4, {})
 end
 
-local function deepEqual(left: unknown, right: unknown, seen: { [any]: any }): boolean
+local function deepEqual(left: unknown, right: unknown, seen: { [unknown]: unknown }): boolean
 	if left == right then
 		return true
 	end
@@ -67,8 +67,8 @@ local function deepEqual(left: unknown, right: unknown, seen: { [any]: any }): b
 		return seen[left] == right
 	end
 	seen[left] = right
-	local leftTable = left :: { [any]: any }
-	local rightTable = right :: { [any]: any }
+	local leftTable = left :: { [unknown]: unknown }
+	local rightTable = right :: { [unknown]: unknown }
 	for key, value in leftTable do
 		if not deepEqual(value, rightTable[key], seen) then
 			return false
@@ -107,7 +107,7 @@ end
 
 local function makeExpectation(actual: unknown): Expectation
 	local function build(negated: boolean): Expectation
-		local expectation = {} :: any
+		local expectation = {} :: Expectation
 
 		local function check(condition: boolean, verb: string, expected: unknown?, detail: string?)
 			if condition == negated then
@@ -226,7 +226,7 @@ local function makeExpectation(actual: unknown): Expectation
 			end
 			requireHaystack()
 			local found = false
-			for _, value in actual :: { any } do
+			for _, value in actual :: { unknown } do
 				if deepEqual(value, expected, {}) then
 					found = true
 					break
@@ -243,7 +243,7 @@ local function makeExpectation(actual: unknown): Expectation
 			end
 			requireHaystack()
 			local found = false
-			for _, value in actual :: { any } do
+			for _, value in actual :: { unknown } do
 				if value == expected then
 					found = true
 					break
@@ -256,7 +256,7 @@ local function makeExpectation(actual: unknown): Expectation
 			if type(actual) == "string" then
 				check(#actual == expected, "to have length", expected)
 			elseif type(actual) == "table" then
-				check(#(actual :: { any }) == expected, "to have length", expected)
+				check(#(actual :: { unknown }) == expected, "to have length", expected)
 			else
 				error("length expectation requires a string or table", 2)
 			end
@@ -266,7 +266,7 @@ local function makeExpectation(actual: unknown): Expectation
 			if type(actual) ~= "function" then
 				error("throw expectation requires a function", 2)
 			end
-			local ok, thrown: any = pcall(actual :: () -> ())
+			local ok, thrown: unknown = pcall(actual :: () -> ())
 			local matched = not ok
 			if matched and contains ~= nil then
 				matched = string.find(tostring(thrown), contains, 1, true) ~= nil
@@ -281,7 +281,7 @@ local function makeExpectation(actual: unknown): Expectation
 			if type(pattern) ~= "string" or pattern == "" then
 				error("toThrowMatching requires a non-empty pattern", 2)
 			end
-			local ok, thrown: any = pcall(actual :: () -> ())
+			local ok, thrown: unknown = pcall(actual :: () -> ())
 			local matched = not ok and string.find(tostring(thrown), pattern) ~= nil
 			check(matched, "to throw matching", pattern, caught(ok, thrown))
 		end
@@ -297,8 +297,11 @@ local function makeExpectation(actual: unknown): Expectation
 
 	local positive = build(false)
 	local negative = build(true)
-	setmetatable(positive :: any, unknownMatcher)
-	setmetatable(negative :: any, unknownMatcher)
+	local function attach(value: Expectation)
+		setmetatable(value, unknownMatcher)
+	end
+	attach(positive)
+	attach(negative)
 	positive.never = negative
 	negative.never = positive
 	return positive

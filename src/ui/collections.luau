@@ -238,7 +238,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				return { node = node, owner = owner }
 			end,
 			reset = function(record: PooledRow)
-				record.node.Parent = nil
+				if record.node.Parent ~= nil then
+					record.node.Parent = nil
+				end
 			end,
 			destroy = function(record: PooledRow)
 				record.owner.dispose()

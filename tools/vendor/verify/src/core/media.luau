@@ -1,8 +1,42 @@
 --!strict
 
 export type AudioWindow = { start: number?, span: number? }
+export type ResolvedAudioWindow = { start: number, span: number }
+export type AudioStream = { codec: string?, channels: number?, sampleRate: string? }
+export type Recording = { duration: number, audio: AudioStream? }
+export type ProbeStream = {
+	codec_type: string,
+	codec_name: string?,
+	width: number?,
+	height: number?,
+	avg_frame_rate: string?,
+	channels: number?,
+	sample_rate: string?,
+}
+export type Probe = { format: { duration: (string | number)? }?, streams: { ProbeStream }? }
+export type Summary = {
+	duration: number,
+	video: { width: number, height: number, codec: string?, frameRate: string? },
+	audio: AudioStream?,
+	audioSignal: "unmeasured" | "no_audio_stream",
+	visualJudgment: "unproved",
+	audioJudgment: "unproved",
+}
+export type AudioMeasurement = {
+	maxVolumeDb: string?,
+	meanVolumeDb: string?,
+	silenceDetected: boolean,
+	thresholdDb: number,
+}
+export type SampleCommand = {
+	kind: "frame" | "audio",
+	seconds: number,
+	duration: number?,
+	output: string,
+	argv: { string },
+}
 
-local function audioWindow(summary: any, requested: AudioWindow?): any?
+local function audioWindow(summary: Recording, requested: AudioWindow?): ResolvedAudioWindow?
 	local options: AudioWindow = requested or {}
 	if summary.audio == nil then
 		assert(options.start == nil and options.span == nil, "recording has no audio stream to sample")
@@ -16,23 +50,29 @@ local function audioWindow(summary: any, requested: AudioWindow?): any?
 	return { start = start, span = span }
 end
 
-local function probeSummary(probe: any): any
-	local duration = tonumber((probe.format or {}).duration)
+local function probeSummary(probe: Probe): Summary
+	local format: { duration: (string | number)? } = probe.format or {}
+	local duration = tonumber(format.duration)
 	assert(duration ~= nil and duration > 0 and duration < math.huge, "recording has no positive duration")
-	local video, audio = nil, nil
-	for _, stream in probe.streams or {} do
+	local video: ProbeStream? = nil
+	local audio: ProbeStream? = nil
+	local streams: { ProbeStream } = probe.streams or {}
+	for _, stream in streams do
 		if stream.codec_type == "video" and video == nil then
 			video = stream
 		elseif stream.codec_type == "audio" and audio == nil then
 			audio = stream
 		end
 	end
-	assert(video ~= nil and video.width > 0 and video.height > 0, "recording has no readable video dimensions")
+	assert(
+		video ~= nil and (video.width :: number) > 0 and (video.height :: number) > 0,
+		"recording has no readable video dimensions"
+	)
 	return {
 		duration = duration,
 		video = {
-			width = video.width,
-			height = video.height,
+			width = video.width :: number,
+			height = video.height :: number,
 			codec = video.codec_name,
 			frameRate = video.avg_frame_rate,
 		},
@@ -45,7 +85,7 @@ local function probeSummary(probe: any): any
 	}
 end
 
-local function audioMeasurement(log: string): any
+local function audioMeasurement(log: string): AudioMeasurement
 	return {
 		maxVolumeDb = string.match(log, "max_volume: ([^ ]+) dB"),
 		meanVolumeDb = string.match(log, "mean_volume: ([^ ]+) dB"),
@@ -54,9 +94,14 @@ local function audioMeasurement(log: string): any
 	}
 end
 
-local function sampleCommands(original: string, output: string, summary: any, requested: AudioWindow?): { any }
+local function sampleCommands(
+	original: string,
+	output: string,
+	summary: Recording,
+	requested: AudioWindow?
+): { SampleCommand }
 	local window = audioWindow(summary, requested)
-	local samples = {}
+	local samples: { SampleCommand } = {}
 	for index, seconds in { 0, summary.duration / 2, math.max(0, summary.duration - 0.2) } do
 		table.insert(samples, {
 			kind = "frame",
