@@ -39,14 +39,37 @@ only a clean, passing `artifacts/verify/latest-release.json` for the same source
 The [producer comparison](docs/guide/20-verification-parity.md#producers) lists
 each main producer and its native status.
 
-A spec case can require a higher tier. Give `t.it` the option
-`{ tier = "full" }` (or `"release"`) when the case is too slow for the working
-tiers, for example a mount ramp to the declared ceiling of 40000 rows. The
-`affected` and `fast` tiers record the case as `skip` with its tier, and the
-suite check accepts it there. The `full` tier runs a `full` case, and only the `release` tier runs a
-`release` case. The mount ramp to 40000 rows is a `release` case. A case that
-the run's own tier must run cannot be skipped. `lune run tests/run_one <spec>`
-also skips it. Use `lune run tests/run_one <spec> release` to run it.
+Specs return a registration function. The runner supplies a Verify harness and
+the selected tier. Use `harness:suite`, `harness:case`, and
+`Verify.expect(value):toBe(expected)`. Give each case an explicit, stable `id`.
+Verify owns assertions, case cleanup, and reports. The consumer gate owns
+coverage and release acceptance.
+
+`tests/plan.json` declares the complete executable corpus. Add a new source to
+that plan. `tests/case_inventory.json` records the case census. Add its case IDs
+when you add behavior. The gate rejects a missing or extra case. The migration
+census includes the retained `native_toast` source; its replacement mapping
+excludes it from the full plan, as before the migration. You can still run it
+with the single-source command.
+
+A slow case can require the `full` or `release` tier. Use the supplied tier to
+call `context:skip("tier:full")` or `context:skip("tier:release")` below that
+tier, and record the requirement in the case inventory. The gate accepts only
+these declared deferrals. The 40000-row mount ramp requires `release`.
+`lune run tests/run_one <spec>` uses the `one` tier. Supply `full` or `release`
+as the second argument to run the higher tier.
+
+`python3 tools/run_each_spec.py` runs the committed corpus in isolated workers
+through Verify. The full gate uses the same host with four workers and the
+`full` tier. Use `--tier full` for a full-tier worker selection. `--only <spec> ...` records a focused run. An empty selection,
+worker failure, or missing receipt fails the command. `--timeout` stops the
+worker process group before Verify records a timeout.
+
+Verify is pinned under `tools/vendor/verify`. It is a generated, read-only test
+dependency and is not part of the Facet model. Run
+`python3 tools/sync_verify.py --check` to check its files. Change shared testing
+mechanisms in `voidmeld/verify`, then update the pin. The consumer guide is
+[Verify's skill](tools/vendor/verify/.agents/skills/verify/SKILL.md).
 
 The [verification scope audit](docs/guide/18-verification-scope.md) records the
 substantial reduction from main and the unresolved coverage work. At this time,
@@ -56,10 +79,10 @@ equivalent to the historical coverage.
 The `types` producer runs `python3 tools/check_types.py` with the old Luau type
 solver at the default analyzer limits. It must report no owned diagnostics and
 must reject all negative probes. Run `python3 tools/check_types.py --solver new`
-to check the new type solver (`LuauSolverV2`). That run must not exceed the
-diagnostic budget in `tools/typecheck/solver_v2_budget.json`. When a change
-removes new solver diagnostics, lower the budget in the same change. Do not
-raise it.
+to check the new type solver (`LuauSolverV2`). It is an optional check outside
+the required `types` producer. A passing run needs zero owned diagnostics and
+all negative probes rejected. Compare its failures with main and report them
+separately from the required solver.
 
 Run `tools/bench.sh` when no other verification load runs. Keep the workload
 intent and the checked-in baselines. Report changed measurement boundaries and

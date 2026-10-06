@@ -150,8 +150,15 @@ def check(skip_build=False, quiet=False):
         files += scan_tree(absolute, REPO, problems, exclude_words=True)
 
     for found in vendor_directories(REPO, REPO):
-        if found != "src/vendor":
+        if found not in {"src/vendor", "tools/vendor"}:
             problems.append(f"{found}: unexpected vendor directory")
+    test_vendor = os.path.join(REPO, "tools", "vendor")
+    if os.path.isdir(test_vendor):
+        if set(os.listdir(test_vendor)) != {"verify"}:
+            problems.append("tools/vendor: only the pinned Verify dependency is approved")
+        integrity = subprocess.run([sys.executable, "tools/sync_verify.py", "--check"], cwd=REPO, capture_output=True, text=True)
+        if integrity.returncode != 0:
+            problems.append("Verify: missing or modified pinned dependency")
     vendor = os.path.join(REPO, "src", "vendor")
     if os.path.isdir(vendor):
         if set(os.listdir(vendor)) != {"compose"}:
@@ -310,7 +317,7 @@ def main():
         print("check_no_fusion refuses, in sources AND in the built model:")
         for rule, pattern in RULES:
             print(f"  {rule}: {pattern.pattern}")
-        print("  ...and any vendor directory except the pinned src/vendor/compose dependency.")
+        print("  ...and any vendor directory except the pinned Compose and Verify dependencies.")
         print("  Temporary source copies under artifacts/verify/tmp are excluded; built models are scanned separately.")
         print("allowed mentions (path + rule, with the reason and what removes it):")
         for path, rule, reason, removal in ALLOWLIST:
@@ -332,7 +339,7 @@ def main():
         for problem in problems:
             print(f"  {problem}")
         raise SystemExit(1)
-    print("check_no_fusion: retired dependency absent; approved Compose files match their integrity pin")
+    print("check_no_fusion: retired dependency absent; approved Compose and Verify files match their integrity pins")
     raise SystemExit(0)
 
 

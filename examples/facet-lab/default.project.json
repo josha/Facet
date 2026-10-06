@@ -92,6 +92,9 @@
       },
       "FacetLive": {
         "$path": "../../tools/studio/live"
+      },
+      "FacetVerify": {
+        "$path": "../../tools/vendor/verify/src"
       }
     }
   }

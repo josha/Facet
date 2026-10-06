@@ -367,3 +367,11 @@ Add a section here in the same commit that adds any material this repository did
 not create. The section needs the origin, the license, and the exact notice the
 license asks you to carry. If a piece of material cannot be given all three, it
 does not belong in the repository.
+
+## Verify test dependency
+
+The development tree includes Verify from
+[voidmeld/verify](https://github.com/voidmeld/verify), commit
+`7ee3d2737d74e9283bb1510224ec3f5c7853a1d2`, under the MIT License.
+Its license is in `tools/vendor/verify/LICENSE`. The generated snapshot is
+checked by `tools/sync_verify.py`. Verify is not included in the Facet model.

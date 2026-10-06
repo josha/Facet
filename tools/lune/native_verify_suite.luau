@@ -2,33 +2,24 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
-local testkit = require("../../tests/lib/testkit")
-local specs = serde.decode("json", fs.readFile("artifacts/verify/native/specs.json"))
-assert(#specs > 0, "native verification selected no specs")
-local loadFailures = {}
-for _, name in specs do
-	print(`LOAD {name}`)
-	local ending = if fs.isFile("tests/" .. name .. ".spec.luau") then ".spec" else "_spec"
-	local ok, err = pcall(require, "../../tests/" .. name .. ending)
-	if not ok then
-		loadFailures[name] = tostring(err)
-	end
-end
-if next(loadFailures) ~= nil then
-	testkit.describe("native suite loading", function()
-		for name, message in loadFailures do
-			testkit.it(name, function()
-				error(message, 0)
-			end)
-		end
-	end)
-end
-if
-	not testkit.run({
-		jsonOut = "artifacts/verify/native/suite.json",
-		tier = process.args[1] or "full",
-		registeredSpecs = #specs,
-	})
-then
+local workers = require("./run_each_spec")
+local Verify = require("../vendor/verify/src/core")
+local plan = Verify.validatePlan(serde.decode("json", fs.readFile("tests/plan.json")))
+local selected = serde.decode("json", fs.readFile("artifacts/verify/native/specs.json"))
+assert(#selected > 0, "native verification selected no specs")
+local selectedPlan = Verify.selectPlan(plan, { ids = selected })
+assert(#selectedPlan.units == #selected, "selected specs must be in the committed Verify plan")
+local tier = process.args[1] or "full"
+local execution = workers.execute({
+	tier = tier,
+	jobs = 4,
+	timeout = 600,
+	only = selected,
+	directory = "artifacts/verify/native/workers",
+	output = "artifacts/verify/native/suite.json",
+})
+print(Verify.format(execution.report))
+assert(Verify.accountPlan(selectedPlan, execution).complete, "every selected source must be accounted for")
+if not workers.accept(execution, tier) then
 	process.exit(1)
 end

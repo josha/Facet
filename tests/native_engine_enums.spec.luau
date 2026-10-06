@@ -1,23 +1,29 @@
 --!strict
-local t = require("./lib/testkit")
-local Roblox = require("@lune/roblox")
-local engineModule = require("./lib/native_engine")
+local Verify = require("../tools/vendor/verify/src/core")
 
-t.describe("native enum fixture", function()
-	t.it("resolves names and values while preserving native enum items", function()
-		local engine = engineModule.new()
-		local keyCodes = engine.types.Enum.KeyCode
-		t.expect(keyCodes:FromName("Space")).toBe(Roblox.Enum.KeyCode.Space)
-		t.expect(keyCodes:FromValue(Roblox.Enum.KeyCode.Space.Value)).toBe(Roblox.Enum.KeyCode.Space)
-		t.expect(keyCodes:FromValue(0)).toBe((Roblox.Enum.KeyCode :: any).Unknown)
-		t.expect(keyCodes:FromName("MissingKey")).toBe(nil)
-		t.expect(keyCodes:FromValue(-100)).toBe(nil)
-		t.expect(keyCodes.Space).toBe(Roblox.Enum.KeyCode.Space)
-		t.expect(#keyCodes:GetEnumItems()).toBe(#Roblox.Enum.KeyCode:GetEnumItems())
-		t.expect(engine.types.Enum.KeyCode).toBe(keyCodes)
-		local items = keyCodes:GetEnumItems()
-		table.clear(items)
-		t.expect(#keyCodes:GetEnumItems() > 0).toBe(true)
-		t.expect(engine.types.Enum.UserInputType:FromName("Touch")).toBe(Roblox.Enum.UserInputType.Touch)
+return function(verifyHarness: Verify.Harness, tier: string)
+	local Roblox = require("@lune/roblox")
+	local engineModule = require("./lib/native_engine")
+
+	verifyHarness:suite("native enum fixture", function()
+		verifyHarness:case("resolves names and values while preserving native enum items", {
+			id = "native_engine_enums::native enum fixture::resolves names and values while preserving native enum items",
+			run = function()
+				local engine = engineModule.new()
+				local keyCodes = engine.types.Enum.KeyCode
+				Verify.expect((keyCodes:FromName("Space"))):toBe(Roblox.Enum.KeyCode.Space)
+				Verify.expect((keyCodes:FromValue(Roblox.Enum.KeyCode.Space.Value))):toBe(Roblox.Enum.KeyCode.Space)
+				Verify.expect((keyCodes:FromValue(0))):toBe((Roblox.Enum.KeyCode :: any).Unknown)
+				Verify.expect((keyCodes:FromName("MissingKey"))):toBe(nil)
+				Verify.expect((keyCodes:FromValue(-100))):toBe(nil)
+				Verify.expect(keyCodes.Space):toBe(Roblox.Enum.KeyCode.Space)
+				Verify.expect(#keyCodes:GetEnumItems()):toBe(#Roblox.Enum.KeyCode:GetEnumItems())
+				Verify.expect(engine.types.Enum.KeyCode):toBe(keyCodes)
+				local items = keyCodes:GetEnumItems()
+				table.clear(items)
+				Verify.expect(#keyCodes:GetEnumItems() > 0):toBe(true)
+				Verify.expect((engine.types.Enum.UserInputType:FromName("Touch"))):toBe(Roblox.Enum.UserInputType.Touch)
+			end,
+		})
 	end)
-end)
+end
