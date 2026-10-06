@@ -110,7 +110,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
 		local owner = assert(Compose.currentOwner())
-		local home = assert(richest).Parent
+		local home = properties[1] :: Instance
 		local function returnHome()
 			if owner.isDisposed() then
 				return
@@ -141,13 +141,6 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 					Compose.cleanup(returnHome)
 					return holder
 				end
-			if not spec.expand then
-				Compose.watch(function(use: ComposeTypes.Use)
-					if not use(open) then
-						returnHome()
-					end
-				end)
-			end
 			local floor = ctx.hitFloor()
 			local cell = resolver.CELLS[zone]
 			local edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
@@ -442,11 +435,6 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				gathered = list
 				if not same and open:peek() then
 					open:set(false)
-				end
-			end)
-			Compose.watch(function(use: ComposeTypes.Use)
-				if not use(open) then
-					release()
 				end
 			end)
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)

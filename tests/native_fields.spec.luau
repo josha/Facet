@@ -399,8 +399,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a plain search field draws its leading search mark", {
-			id = "native_fields::native field accessories::a plain search field draws its leading search mark",
+		verifyHarness:case("a search field keeps native editing beside its icon and clear button", {
+			id = "native_fields::native field accessories::a search field keeps native editing beside its icon and clear button",
 			run = function()
 				local w = world(function(UI: FacetControls)
 					return UI.TextInput("Find")({ value = Compose.cell(""), presentation = "search" :: "search" })
@@ -408,6 +408,17 @@ return function(verifyHarness: Verify.Harness)
 				local glyph = w.node:FindFirstChild("SearchIcon", true)
 				expect(glyph ~= nil):toBe(true)
 				expect(glyph.Selectable):toBe(false)
+				local field = w.node:FindFirstChild("Field", true)
+				local clear = w.node:FindFirstChild("Clear", true)
+				expect(field.ClassName):toBe("TextBox")
+				expect(field.Parent):toBe(glyph.Parent)
+				expect(clear.Parent):toBe(field.Parent)
+				expect(glyph.LayoutOrder < field.LayoutOrder and field.LayoutOrder < clear.LayoutOrder):toBe(true)
+				field.Focused:Fire()
+				field.Text = "A long search whose caret can scroll without moving the icon"
+				expect((glyph:IsDescendantOf(field))):toBe(false)
+				clear.Activated:Fire()
+				expect(field.Text):toBe("")
 				w.stop()
 			end,
 		})

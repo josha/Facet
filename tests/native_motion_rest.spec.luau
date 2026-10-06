@@ -463,4 +463,62 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 	end)
+
+	verifyHarness:suite("present at rest: mobile controls", function()
+		verifyHarness:case("keeps segmented choices transparent until their text and native bounds settle", {
+			id = "native_motion_rest::present at rest: mobile controls::keeps segmented choices transparent until their text and native bounds settle",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls)
+					return UI.Picker "Motion" {
+						label = "Motion",
+						style = "segmented" :: "segmented",
+						selected = Compose.cell("device"),
+						options = {
+							{ value = "device", label = "Device" },
+							{ value = "game", label = "Game: Normal" },
+						},
+					}
+				end, { runService = true })
+				local picker = w.find("Options")
+				w.size(picker, 360, 44)
+				w.size(w.find("device"), 110, 44)
+				w.size(w.find("game"), 240, 44)
+				Verify.expect((fadeKit.of(picker))):toBe(1)
+				w.advance(FRAME)
+				w.size(w.find("device"), 130, 44)
+				w.advance(FRAME)
+				Verify.expect((fadeKit.of(picker))):toBe(1)
+				w.advance(FRAME)
+				Verify.expect((fadeKit.of(picker))):toBe(0)
+				Verify.expect((picker:FindFirstChild("Fade"))):toBeNil()
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("keeps the colour panel transparent while its swatches reflow", {
+			id = "native_motion_rest::present at rest: mobile controls::keeps the colour panel transparent while its swatches reflow",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls)
+					return UI.ColorPicker "Colour" {
+						value = Compose.cell(require("@lune/roblox").Color3.new(1, 0, 0)),
+						onChange = function() end,
+					}
+				end, { runService = true })
+				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.size(w.screen, 390, 844)
+				w.find("Well").Activated:Fire()
+				local panel, technique = w.find("Panel"), w.find("Technique")
+				w.size(technique, 350, 220)
+				Verify.expect((fadeKit.of(panel))):toBe(1)
+				w.advance(FRAME)
+				w.size(technique, 330, 264)
+				w.advance(FRAME)
+				Verify.expect((fadeKit.of(panel))):toBe(1)
+				w.advance(FRAME)
+				Verify.expect((fadeKit.of(panel))):toBe(0)
+				Verify.expect(w.find("DismissOutside").BorderSizePixel):toBe(0)
+				w.stop()
+			end,
+		})
+	end)
 end

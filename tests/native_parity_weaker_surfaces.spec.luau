@@ -1283,7 +1283,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_parity_weaker_surfaces::gallery toast strength::clears showing toasts and returns the rows, instances and frame clock",
 			run = function()
 				local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
-				engine.heartbeat:Fire(1 / 60)
+				advance(engine, 0.5, 1 / 60)
 				local baseline = #node:GetDescendants()
 				for i = 1, 3 do
 					built.show("Held " .. i, "Long", { duration = 20 })

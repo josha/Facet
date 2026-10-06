@@ -1,12 +1,12 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "b1375878345d03ced67c910196685affde386342",
+  "commit": "7a3c3066cd262c2f1d6552d2986bff7793a543ca",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "35a4ce00ea9fe47c9e539926ba409100b149b64a5efc7510f8740e56d0a95b33",
     "docs/README.md": "6bf00eacc63052405bd522df0f8b5f8816289ea91777b56d14b7b6edc4600c2b",
     "docs/api.md": "1b8b65a09dce1715071f78964fa595558cc57b00277599d5486632d2b0394c49",
-    "docs/execution.md": "25234f06ddd23cfd611979dadb66e07db95c9060c80ebd9f7fc15d66644d6cd9",
+    "docs/execution.md": "6e8ba321c62780c24e39d57ab498b7018a708cfa85c0492e350aef288717fa29",
     "docs/experience.md": "297c7bd1fd4f13f598121d2e4322615d0a955201b0ade6acafca9702049447e6",
     "docs/laws.md": "2f9c6189fff5d02a6260f1741f186839e5efc17e9a452841c905800ab2cdb87a",
     "docs/lint.md": "c5cd8188df7ccb8f91f57ac15fa398769f33d112781c38017af41edfbb5a3a02",

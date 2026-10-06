@@ -482,13 +482,7 @@ end
 
 local function encodeReceipt(report: any, records: { any }): string
 	Verify.decode(report)
-	local bundle = Verify.sealObservations({
-		executor = report.executor,
-		environment = report.environment,
-		capabilities = report.capabilities,
-		observations = { cases = records },
-	})
-	return HttpService:JSONEncode({ report = report, observations = bundle })
+	return HttpService:JSONEncode({ report = report, cases = records })
 end
 
 function live.run(suite: string, options: { [string]: any }?): string

@@ -121,6 +121,33 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps the measured overlay origin while the opening touch freezes the center", {
+			id = "native_radial_controls::native radial interaction policies::keeps the measured overlay origin while the opening touch freezes the center",
+			run = function()
+				local world = setup({ isPresented = Compose.cell(false), items = compass(function() end) }, true)
+				local V2 = world.engine.types.Vector2
+				world.screen.AbsolutePosition = V2.new(0, 60)
+				world.screen.AbsoluteSize = V2.new(390, 780)
+				local launcher = world.find("Launcher")
+				launcher.AbsolutePosition = V2.new(24, 360)
+				launcher.AbsoluteSize = V2.new(120, 44)
+				local touch = pointer(world, 80, 380)
+				launcher.InputBegan:Fire(touch)
+				local center = world.find("Center")
+				local original = center.Position
+				Verify.expect(original.Y.Offset):toBe(322)
+				local modal = center.Parent
+				modal.AbsolutePosition = world.screen.AbsolutePosition
+				modal.AbsoluteSize = world.screen.AbsoluteSize
+				world.step(0.25)
+				Verify.expect(center.Position):toBe(original)
+				world.input.InputEnded:Fire(touch)
+				world.step(0.25)
+				Verify.expect(center.Position):toBe(original)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("the ring's Back and Close are icon-only even when the level's items carry text labels", {
 			id = "native_radial_controls::native radial interaction policies::the ring's Back and Close are icon-only even when the level's items carry text labels",
 			run = function()

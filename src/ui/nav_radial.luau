@@ -471,6 +471,10 @@ return function(
 				local nativeAnchor = focal and (typeof(focal) == "Instance" or (type(focal) == "table" and focal.IsA))
 				local anchorPosition = if nativeAnchor then ctx.observe.AbsolutePosition(focal :: GuiObject) else nil
 				local anchorSize = if nativeAnchor then ctx.observe.AbsoluteSize(focal :: GuiObject) else nil
+				if nativeAnchor and anchorPosition and anchorSize then
+					anchorPosition:set((focal :: GuiObject).AbsolutePosition)
+					anchorSize:set((focal :: GuiObject).AbsoluteSize)
+				end
 				local shelves: { { position: ComposeTypes.Readable<Vector2>, size: ComposeTypes.Readable<Vector2> } } =
 					{}
 				local shelf = if nativeAnchor and not corner then (focal :: Instance).Parent else nil
@@ -1383,6 +1387,12 @@ return function(
 						}),
 					})
 				end
+				if not corner then
+					local glyph = centerNode:FindFirstChild("LeadingIcon", true)
+					if glyph then
+						runtime.decorate(glyph, { ImageTransparency = transparency })
+					end
+				end
 				if spec.center == "content" and spec.centerContent and not corner then
 					local node = if type(spec.centerContent) == "function"
 						then spec.centerContent()
@@ -1935,7 +1945,10 @@ return function(
 				local bounds = ctx.observe.AbsoluteSize(modal)
 				local position = ctx.observe.AbsolutePosition(modal)
 				Compose.watch(function(use: ComposeTypes.Use)
-					origin:set(use(position))
+					local at, size = use(position), use(bounds)
+					if size.X > 0 and size.Y > 0 then
+						origin:set(at)
+					end
 				end)
 				if spec.centerPassThrough and (spec.center == "empty" or spec.center == "content") then
 					local outside = modal:FindFirstChild("DismissOutside")

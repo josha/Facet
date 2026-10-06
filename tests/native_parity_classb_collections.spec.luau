@@ -496,7 +496,7 @@ return function(verifyHarness: Verify.Harness)
 					detector.DragContinue:Fire(V2(world, 440, 20))
 					Verify.expect(content.Position.X.Offset):toBe(mid - 60)
 					detector.DragEnd:Fire()
-					Verify.expect(target <= 88):toBe(true)
+					Verify.expect(target):toBe(math.abs(mid))
 					world.stop()
 				end,
 			}

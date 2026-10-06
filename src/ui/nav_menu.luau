@@ -8,6 +8,7 @@ local Content = require("./content_types")
 local fieldChrome = require("./field_chrome")
 local activation = require("./activation")
 local reducedMotion = require("./motion").reduced
+local rest = require("./rest")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local Overlay = require("./overlay_types")
@@ -1823,7 +1824,7 @@ return function(
 	): ()
 		local reduced = reducedMotion(ctx)
 		local spring = ctx.motionSpring("control")
-		local laidOut = ctx.observe.AbsoluteContentSize(assert(picker:FindFirstChildWhichIsA("UIListLayout")))
+		local laidOut = ctx.observe.AbsoluteContentSize(assert(picker:FindFirstChildWhichIsA("UIListLayout", true)))
 		local seenOrder: number?, seenStrip: Vector2? = nil, nil
 		local function reshaped(before: Vector2, after: Vector2): boolean
 			if before.Y <= 0 or after.Y <= 0 then
@@ -3198,7 +3199,32 @@ return function(
 		for _, child in children do
 			table.insert((p :: unknown) :: { unknown }, child)
 		end
-		local picker = Host.Frame(p)
+		local ready = Compose.cell(false)
+		local picker: Frame
+		if style == "segmented" and labelled then
+			local fading = (p :: unknown) :: Types.CanvasGroupNativeProps
+			fading.GroupTransparency = function(use: ComposeTypes.Use): number
+				return if use(ready) then 0 else 1
+			end
+			picker = ctx.fade(fading)
+			local settled = rest(ctx, function(): (string, boolean)
+				local parts = { tostring(picker.AbsoluteSize) }
+				local filled = picker.AbsoluteSize.X > 0 and picker.AbsoluteSize.Y > 0
+				for button in segmentBoxes do
+					table.insert(
+						parts,
+						`{button.AbsolutePosition}:{button.AbsoluteSize}:{(button :: TextButton).TextBounds}`
+					)
+					filled = filled and button.AbsoluteSize.X > 0 and button.AbsoluteSize.Y > 0
+				end
+				return table.concat(parts, ";"), filled
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				ready:set(use(settled))
+			end)
+		else
+			picker = Host.Frame(p)
+		end
 		if not labelled then
 			local width = layoutWidth(picker)
 			Compose.watch(function(use: ComposeTypes.Use)

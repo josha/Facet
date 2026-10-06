@@ -459,9 +459,9 @@ function screen.build(ctx: any)
 					selected = ctx.motionMode,
 					options = {
 						{ value = "device", label = "Device" } :: PickerOption,
-						{ value = "normal", label = "Game: Normal" } :: PickerOption,
-						{ value = "limited", label = "Game: Limited" } :: PickerOption,
-						{ value = "none", label = "Game: None" } :: PickerOption,
+						{ value = "normal", label = "Normal" } :: PickerOption,
+						{ value = "limited", label = "Limited" } :: PickerOption,
+						{ value = "none", label = "None" } :: PickerOption,
 					},
 					onChange = function(value)
 						ctx.motionPreference:set(if value == "device" then nil else value)
@@ -617,10 +617,28 @@ function screen.build(ctx: any)
 	end
 	local function panel()
 		local content = Compose.cell(0)
-		local card = UI.ScrollView "ShowcasePanel" {
+		local scroll = UI.ScrollView "PanelScroll" {
 			gap = "s",
+			width = "fill" :: "fill",
+			height = "fill" :: "fill",
+			UI.Picker "Section" {
+				style = "segmented" :: "segmented",
+				selected = section,
+				options = {
+					{ value = "demos", label = "Demos" } :: PickerOption,
+					{ value = "settings", label = "Settings" } :: PickerOption,
+				},
+			},
+			Compose.show(function(use: Use)
+				return use(section) == "demos"
+			end, demoList, settingsContent),
+		}
+		local card = UI.VStack "ShowcasePanel" {
 			padding = "s",
-			width = "hug" :: "hug",
+			width = function(use: Use)
+				local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
+				return math.min(460 * use(environment.metricScale), size.width - 28)
+			end,
 			height = function(use: Use)
 				local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
 				return math.min(use(content), math.max(120, size.height - toolbarHeight(use) - 16))
@@ -640,21 +658,11 @@ function screen.build(ctx: any)
 					return ctx.types.Vector2.new(if wide > 0 then wide else size.width - 28, math.huge)
 				end,
 			},
-			UI.Picker "Section" {
-				style = "segmented" :: "segmented",
-				selected = section,
-				options = {
-					{ value = "demos", label = "Demos" } :: PickerOption,
-					{ value = "settings", label = "Settings" } :: PickerOption,
-				},
-			},
-			Compose.show(function(use: Use)
-				return use(section) == "demos"
-			end, demoList, settingsContent),
+			scroll,
 		}
 		card:AddTag("facet-panel")
 		card:AddTag("facet-floating")
-		local list = card:FindFirstChildWhichIsA("UIListLayout")
+		local list = scroll:FindFirstChildWhichIsA("UIListLayout")
 		local inset = card:FindFirstChildWhichIsA("UIPadding")
 		local function measure()
 			local scale = ctx.previewScale:peek()

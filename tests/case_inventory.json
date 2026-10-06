@@ -1587,8 +1587,8 @@
       "suite": "Compose native collections"
     },
     {
-      "id": "native_collections::Compose native collections::resizes a compact touch column without jumping to its desktop minimum",
-      "name": "resizes a compact touch column without jumping to its desktop minimum",
+      "id": "native_collections::Compose native collections::resizes a touch column from its authored minimum without changing the width contract",
+      "name": "resizes a touch column from its authored minimum without changing the width contract",
       "source": "native_collections",
       "suite": "Compose native collections"
     },
@@ -1965,8 +1965,8 @@
       "suite": "editable collections: reorderable and deletable on every input"
     },
     {
-      "id": "native_collections::editable collections: reorderable and deletable on every input::touch flexible columns keep the touch floor and scroll sideways instead of shrinking to nothing",
-      "name": "touch flexible columns keep the touch floor and scroll sideways instead of shrinking to nothing",
+      "id": "native_collections::editable collections: reorderable and deletable on every input::touch flexible columns keep their column minimum and scroll sideways instead of shrinking to nothing",
+      "name": "touch flexible columns keep their column minimum and scroll sideways instead of shrinking to nothing",
       "source": "native_collections",
       "suite": "editable collections: reorderable and deletable on every input"
     },
@@ -2573,6 +2573,12 @@
     {
       "id": "native_composition::Composition::keeps the zone's hidden popover open while another region in the zone steps a visible form",
       "name": "keeps the zone's hidden popover open while another region in the zone steps a visible form",
+      "source": "native_composition",
+      "suite": "Composition"
+    },
+    {
+      "id": "native_composition::Composition::keeps borrowed region content in its popover until the exit finishes",
+      "name": "keeps borrowed region content in its popover until the exit finishes",
       "source": "native_composition",
       "suite": "Composition"
     },
@@ -4557,8 +4563,8 @@
       "suite": "native field accessories"
     },
     {
-      "id": "native_fields::native field accessories::a plain search field draws its leading search mark",
-      "name": "a plain search field draws its leading search mark",
+      "id": "native_fields::native field accessories::a search field keeps native editing beside its icon and clear button",
+      "name": "a search field keeps native editing beside its icon and clear button",
       "source": "native_fields",
       "suite": "native field accessories"
     },
@@ -9313,6 +9319,18 @@
       "name": "a submenu is measured at rest before its level animates",
       "source": "native_motion_rest",
       "suite": "present at rest: menu"
+    },
+    {
+      "id": "native_motion_rest::present at rest: mobile controls::keeps segmented choices transparent until their text and native bounds settle",
+      "name": "keeps segmented choices transparent until their text and native bounds settle",
+      "source": "native_motion_rest",
+      "suite": "present at rest: mobile controls"
+    },
+    {
+      "id": "native_motion_rest::present at rest: mobile controls::keeps the colour panel transparent while its swatches reflow",
+      "name": "keeps the colour panel transparent while its swatches reflow",
+      "source": "native_motion_rest",
+      "suite": "present at rest: mobile controls"
     },
     {
       "id": "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
@@ -19458,6 +19476,12 @@
     {
       "id": "native_radial_controls::native radial interaction policies::keeps the ring's aim, commit and direction actions in one input context",
       "name": "keeps the ring's aim, commit and direction actions in one input context",
+      "source": "native_radial_controls",
+      "suite": "native radial interaction policies"
+    },
+    {
+      "id": "native_radial_controls::native radial interaction policies::keeps the measured overlay origin while the opening touch freezes the center",
+      "name": "keeps the measured overlay origin while the opening touch freezes the center",
       "source": "native_radial_controls",
       "suite": "native radial interaction policies"
     },

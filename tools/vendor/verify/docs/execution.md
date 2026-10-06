@@ -347,7 +347,10 @@ Each response has `ok`, `delivery`, `refused`, `expired`, `detail`, `result` and
 - `possibly_sent`: the call can have taken effect. No answer arrived, the connection was lost or a deadline passed.
 - `answered`.
 
-Verify never retries a call. A caller must not repeat a possibly sent mutation blindly.
+Verify never retries a call that may have been sent. A caller must not repeat a possibly sent mutation blindly.
+Before each write, the default transport checks that the MCP child is alive. It writes through a bounded process, so a pipe with no reader cannot block the run.
+If the child exited before the write, the call was not sent. The transport reopens the session once and retries it.
+If that fails, or the child exits during a call, the response has `sessionLost = true` and a detail that starts with `session_lost`. It is not an expired deadline.
 
 `callSeconds` (default 60) bounds each call. `runSeconds` (default 300) bounds the whole session.
 At a deadline, Verify abandons the call and closes the transport. The response is `possibly_sent`.
