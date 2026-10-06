@@ -395,8 +395,17 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(tiers):toEqual({ fast = 19, full = 59, release = 2 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
-		context:expect(#assert(seen["suite"].cases)):toBe(3735)
-		context:expect(#assert(seen["suite"].locators)):toBe(150)
+		local plan = serde.decode("json", fs.readFile("tests/plan.json"))
+		local planned, expected = {}, 0
+		for _, unit in plan.units do
+			planned[unit.id] = true
+		end
+		for _, entry in serde.decode("json", fs.readFile("tests/case_inventory.json")).cases do
+			expected += if planned[entry.source] then 1 else 0
+		end
+		context:expect(expected > 3700):toBe(true)
+		context:expect(#assert(seen["suite"].cases)):toBe(expected)
+		context:expect(#assert(seen["suite"].locators)):toBe(#plan.units)
 		context:expect(seen["suite"].isolate):toBe(true)
 		context:expect(seen["suite"].sourceDeadlineSeconds):toBe(600)
 		local deferrals = assert(assert(definition.policy).deferrals)

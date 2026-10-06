@@ -40,6 +40,8 @@ lute run tools/run.luau --entry examples/platform-entry.luau --case instance-sta
 The first two commands run the same assertions against simulated and native instances.
 [The entry](../examples/platform-entry.luau) chooses the host binding.
 It exports a function that receives `simulator`, `studio` or `player` and returns `{ cases, options, now }`.
+On Studio and Open Cloud runs the function also receives the run ID as a second argument. It is nil on the simulator and the Player.
+During a Studio run, `ReplicatedStorage` holds the attribute `VerifyRun` with the run ID. A multiplayer run sets it on the test server before the entry runs, so clients read it by replication. Prefer the second argument on the server.
 
 - `cases` holds `Core.NamedCase` values with explicit unique IDs.
 - `options` is `Core.RunOptions`.
@@ -105,6 +107,14 @@ A file with no new line for too long means a stalled run.
 A launched Studio run reads the console on every poll of the detached run. See [native Studio execution](execution.md#native-studio-execution).
 `onProgress` receives the same events in order after the run returns, because a worker process blocks the caller.
 A run with no listener and no file behaves as before. The report is the same, and progress never proves a pass.
+
+## Attachments
+
+A case can attach text with `context:attach(name, mediaType, text)`.
+`Lute.platform.run` writes each attachment to `<output>/attachments/<case id>/<name>` and replaces it in the report with an artifact entry that has `size` and `sha256`.
+Pass `attachmentSink` to store it elsewhere, and `attachments = { maxBytes?, maxCount?, maxTotalBytes? }` to change the limits.
+The simulator and the launched and attached Studio hosts support attachments. Player and Open Cloud runs fail the case `verify:attachments`.
+The [attachment example](../examples/attachments.luau) shows the result. See [inline attachments](api.md#inline-attachments).
 
 ## Gates and benchmarks
 

@@ -88,9 +88,9 @@ table.insert(cases, {
 					)
 				end
 				if options.up then
-					live.save("focus-upstream", '"on"')
-					local moves, offsets = focus.walkUp(layer, stops, paths, options.up)
-					live.save("focus-upstream", '"off"')
+					local moves, offsets = live.signal("focus-upstream", function()
+						return focus.walkUp(layer, stops, paths, options.up)
+					end)
 					for path, target in moves do
 						atlas.moves.dpad[path] = atlas.moves.dpad[path] or {}
 						atlas.moves.dpad[path].DPadUp = target

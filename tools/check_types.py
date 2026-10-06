@@ -104,7 +104,7 @@ def is_owned(path):
 
 
 def plugin_file(path):
-    return path.startswith("tools/designer/") or path == "tools/studio/inject.luau"
+    return path.startswith("tools/designer/")
 
 
 def project_runs(files):
