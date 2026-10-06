@@ -560,11 +560,12 @@ t.describe("native input controls", function()
 		t.expect(value:peek()).toBe("")
 		t.expect(clear.Visible).toBe(false)
 		t.expect(changes).toBe(1)
-		node:CaptureFocus()
-		node.Text = "find"
-		node.ReturnPressedFromOnScreenKeyboard.fire()
+		local field = find(node, "Field")
+		field:CaptureFocus()
+		field.Text = "find"
+		field.ReturnPressedFromOnScreenKeyboard.fire()
 		t.expect(commits).toBe(1)
-		t.expect(node:IsFocused()).toBe(false)
+		t.expect(field:IsFocused()).toBe(false)
 		stop()
 	end)
 

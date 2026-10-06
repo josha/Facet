@@ -415,3 +415,55 @@ t.describe("present at rest: menu", function()
 		world.stop()
 	end)
 end)
+
+t.describe("present at rest: mobile controls", function()
+	t.it("keeps segmented choices transparent until their text and native bounds settle", function()
+		local w = overlay.new(function(UI: FacetControls)
+			return UI.Picker "Motion" {
+				label = "Motion",
+				style = "segmented" :: "segmented",
+				selected = Compose.cell("device"),
+				options = {
+					{ value = "device", label = "Device" },
+					{ value = "game", label = "Game: Normal" },
+				},
+			}
+		end, { runService = true })
+		local picker = w.find("Options")
+		w.size(picker, 360, 44)
+		w.size(w.find("device"), 110, 44)
+		w.size(w.find("game"), 240, 44)
+		t.expect(fadeKit.of(picker)).toBe(1)
+		w.advance(FRAME)
+		w.size(w.find("device"), 130, 44)
+		w.advance(FRAME)
+		t.expect(fadeKit.of(picker)).toBe(1)
+		w.advance(FRAME)
+		t.expect(fadeKit.of(picker)).toBe(0)
+		t.expect(picker:FindFirstChild("Fade")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("keeps the colour panel transparent while its swatches reflow", function()
+		local w = overlay.new(function(UI: FacetControls)
+			return UI.ColorPicker "Colour" {
+				value = Compose.cell(require("@lune/roblox").Color3.new(1, 0, 0)),
+				onChange = function() end,
+			}
+		end, { runService = true })
+		w.input.PreferredInput = w.Enum.PreferredInput.Touch
+		w.size(w.screen, 390, 844)
+		w.find("Well").Activated.fire()
+		local panel, technique = w.find("Panel"), w.find("Technique")
+		w.size(technique, 350, 220)
+		t.expect(fadeKit.of(panel)).toBe(1)
+		w.advance(FRAME)
+		w.size(technique, 330, 264)
+		w.advance(FRAME)
+		t.expect(fadeKit.of(panel)).toBe(1)
+		w.advance(FRAME)
+		t.expect(fadeKit.of(panel)).toBe(0)
+		t.expect(w.find("DismissOutside").BorderSizePixel).toBe(0)
+		w.stop()
+	end)
+end)

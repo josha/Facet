@@ -629,7 +629,7 @@ t.describe("pointer, touch and drag strength", function()
 				end
 				detector.DragContinue.fire(V2(world, 200 - 150, 20))
 				t.expect(content.Position.X.Offset).toBe(if policy == true then -150 else -122)
-				t.expect(tray.Size.X.Offset).toBe(88)
+				t.expect(tray.Size.X.Offset).toBe(if policy == true then 150 else 122)
 				detector.DragContinue.fire(V2(world, 200 - 179, 20))
 				detector.DragEnd.fire()
 				t.expect(invoked.trailing).toBe(0)

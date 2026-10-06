@@ -1135,7 +1135,7 @@ The other options are `placeholder`, `multiline`, `invalid`, `enabled`,
 `disabled`, `clearButton` and `clearButtonMode` (`never`, `always`,
 `whileEditing` or `unlessEditing`). Native TextBox properties stay available.
 The placeholder uses the `contentSecondary` colour of the theme. A
-TextInput without field chrome (no `label`, `hint` or other chrome option) is
+plain TextInput without field chrome (no `label`, `hint` or other chrome option) is
 the TextBox itself, so it keeps the flat `facet-field` plate in a skinned
 theme. A framed TextInput shows the `field` art on its `Input` plate.
 The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
@@ -1162,7 +1162,7 @@ The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
 
 A field can have these field chrome options: `label`, `requiredMark`, `hint`,
 `errorText`, `leading`, `trailing`, `controlSize`, `appearance` and `corners`.
-A field without chrome options, number units, step buttons or `visibleLines`
+A field without search presentation, chrome options, number units, step buttons or `visibleLines`
 keeps the native TextBox as its root. Other fields return a Frame. The root
 Frame holds these children in order:
 
@@ -3264,12 +3264,10 @@ VirtualList. A column has:
 A column collapses only when it has a numeric `priority`. Larger values
 collapse first. The first column always stays visible. The other columns
 keep their `minWidth` and truncate their text, so a narrow table scrolls
-sideways and never loses a column. Under touch or gamepad input a flexible
-column's floor is the smaller of its `minWidth` and the theme's touch floor
-(`targetSizes.minimum`, 44), so more columns fit a phone before the table
-scrolls sideways. A Popover shows collapsed and natively
-truncated values through the row's icon-only `more` (…) button, named
-"More actions". The cell
+sideways and never loses a column. This minimum also applies under touch and
+gamepad input. A Popover shows collapsed and natively truncated values through
+the row's icon-only `status.info` button, named "Show details". Row commands
+keep their separate `more` (…) button. The cell
 state stays retained. The header band spans the whole row, edit controls
 included, and shows a hairline divider between headings; the headings sit over
 their columns. With a persistent vertical scrollbar, the header background

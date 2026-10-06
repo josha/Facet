@@ -433,11 +433,13 @@ return function(ctx: Types.Context): Nav.Surfaces
 		end
 		local props: Types.FrameNativeProps = {
 			Name = spec.Name or "Modal",
+			BorderSizePixel = 0,
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Active = true,
 			ZIndex = spec.ZIndex or 100,
 			Host.TextButton "DismissOutside" {
+				BorderSizePixel = 0,
 				Size = D2.fromScale(1, 1),
 				Active = true,
 				Text = "",

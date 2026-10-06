@@ -470,7 +470,7 @@ t.describe("native parity classb collections", function()
 		detector.DragContinue.fire(V2(world, 440, 20))
 		t.expect(content.Position.X.Offset).toBe(mid - 60)
 		detector.DragEnd.fire()
-		t.expect(target <= 88).toBe(true)
+		t.expect(target).toBe(math.abs(mid))
 		world.stop()
 	end)
 	t.it(

@@ -492,8 +492,9 @@ t.describe("native parity weaker actions", function()
 			end
 			return nil
 		end
-		local filter = find(node, "Filter")
-		local clear = find(filter, "Clear")
+		local search = find(node, "Filter")
+		local filter = find(search, "Field")
+		local clear = find(search, "Clear")
 		t.expect(clear.Visible).toBe(false)
 		local drift = rowFor("Drift City Nights")
 		t.expect(drift ~= nil).toBe(true)

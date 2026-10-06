@@ -2005,9 +2005,9 @@ t.describe("gallery motion setting", function()
 		end
 		t.expect(optionCount).toBe(4)
 		t.expect(device:GetAttribute("label")).toBe("Device")
-		t.expect(full:GetAttribute("label")).toBe("Game: Normal")
-		t.expect(limited:GetAttribute("label")).toBe("Game: Limited")
-		t.expect(reduced:GetAttribute("label")).toBe("Game: None")
+		t.expect(full:GetAttribute("label")).toBe("Normal")
+		t.expect(limited:GetAttribute("label")).toBe("Limited")
+		t.expect(reduced:GetAttribute("label")).toBe("None")
 		local wording: { string } = {}
 		for _, node in sheet:GetDescendants() do
 			local ok, text = pcall(function()

@@ -1187,7 +1187,7 @@ t.describe("gallery toast strength", function()
 
 	t.it("clears showing toasts and returns the rows, instances and frame clock", function()
 		local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
-		engine.heartbeat.fire(1 / 60)
+		advance(engine, 0.5, 1 / 60)
 		local baseline = #node:GetDescendants()
 		for i = 1, 3 do
 			built.show("Held " .. i, "Long", { duration = 20 })

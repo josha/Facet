@@ -257,7 +257,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				Position = D2.fromScale(if edge == "leading" then 0 else 1, 0),
 				Size = function(use: ComposeTypes.Use)
 					local reveal = math.abs(paintedOffset(use))
-					return D2.new(0, if armed(edge, use) then reveal else math.min(bandWidth(edge, use), reveal), 1, 0)
+					return D2.new(0, reveal, 1, 0)
 				end,
 				Visible = function(use: ComposeTypes.Use)
 					local x = paintedOffset(use)
@@ -297,7 +297,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 								if armed(edge, use) and first(use) then
 									return D2.fromScale(1, 1)
 								end
-								return D2.new(0, bandWidth(edge, use) / math.max(1, #actions(edge, use)), 1, 0)
+								local width = bandWidth(edge, use)
+								local stretch = if first(use)
+									then math.max(0, math.abs(paintedOffset(use)) - width)
+									else 0
+								return D2.new(0, width / math.max(1, #actions(edge, use)) + stretch, 1, 0)
 							end,
 							Visible = function(use: ComposeTypes.Use)
 								return not armed(edge, use) or first(use)

@@ -1251,7 +1251,7 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
-	t.it("resizes a compact touch column without jumping to its desktop minimum", function()
+	t.it("resizes a touch column from its authored minimum without changing the width contract", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2 = engine.types.Enum, engine.types.Vector2
 		assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
@@ -1269,12 +1269,14 @@ t.describe("Compose native collections", function()
 		end, target)
 		local header = node:FindFirstChild("Header")
 		local column = header:FindFirstChild("label")
-		column.AbsoluteSize = V2.new(120, 44)
+		column.AbsoluteSize = V2.new(180, 44)
 		local detector = column:FindFirstChild("Resize"):FindFirstChildWhichIsA("UIDragDetector")
 		t.expect(column.ZIndex > header:FindFirstChild("kind").ZIndex).toBe(true)
-		detector.DragStart.fire(V2.new(120, 0))
-		detector.DragContinue.fire(V2.new(130, 0))
-		t.expect(widths:peek().label).toBe(130)
+		detector.DragStart.fire(V2.new(180, 0))
+		detector.DragContinue.fire(V2.new(190, 0))
+		t.expect(widths:peek().label).toBe(190)
+		detector.DragContinue.fire(V2.new(80, 0))
+		t.expect(widths:peek().label).toBe(180)
 		detector.DragEnd.fire()
 		stop()
 	end)
@@ -1762,6 +1764,11 @@ t.describe("Compose native collections", function()
 		t.expect(`{delete.Size.X.Scale} {delete.Size.X.Offset}`).toBe("0 64")
 		detector.DragContinue.fire(engine.types.Vector2.new(170, 20))
 		t.expect(`{delete.Size.X.Scale} {delete.Size.X.Offset}`).toBe("0 64")
+		detector.DragContinue.fire(engine.types.Vector2.new(100, 20))
+		t.expect(tray.Size.X.Offset).toBe(150)
+		t.expect(delete.Size.X.Offset + flag.Size.X.Offset).toBe(150)
+		t.expect(flag.Size.X.Offset).toBe(64)
+		t.expect(flag.Visible).toBe(true)
 		detector.DragContinue.fire(engine.types.Vector2.new(65, 20))
 		t.expect(delete.Size).toEqual(engine.types.UDim2.fromScale(1, 1))
 		t.expect(flag.Visible).toBe(false)
@@ -3197,7 +3204,7 @@ t.describe("Table compact width", function()
 		local more = row:FindFirstChild("Details", true)
 		t.expect(more:FindFirstChild("Title", true) == nil or not more:FindFirstChild("Title", true).Visible).toBe(true)
 		t.expect(more:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
-		t.expect(more:GetAttribute("label")).toBe("More actions")
+		t.expect(more:GetAttribute("label")).toBe("Show details")
 		t.expect(more:HasTag("facet-appearance-utility")).toBe(true)
 		stop()
 		runtime:dispose()
@@ -3894,8 +3901,8 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		local header = node:FindFirstChild("Header")
 		t.expect(header.Size.X.Offset).toBe(359)
 		node:FindFirstChild("Edit", true).Activated.fire()
-		t.expect(header.Size.X.Offset).toBe(271)
-		t.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(44)
+		t.expect(header.Size.X.Offset).toBe(306)
+		t.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(90)
 		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(header.Size.X.Offset).toBe(306)
 		header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(306, 44)
@@ -3944,26 +3951,30 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		runtime:dispose()
 	end)
 
-	t.it("touch flexible columns keep the touch floor and scroll sideways instead of shrinking to nothing", function()
-		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
-		local V2 = engine.types.Vector2
-		assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.Touch
-		local columns = {}
-		for index = 1, 6 do
-			table.insert(columns, { id = `c{index}`, label = `Column {index}` })
+	t.it(
+		"touch flexible columns keep their column minimum and scroll sideways instead of shrinking to nothing",
+		function()
+			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local V2 = engine.types.Vector2
+			assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.Touch
+			local columns = {}
+			for index = 1, 6 do
+				table.insert(columns, { id = `c{index}`, label = `Column {index}` })
+			end
+			local stop, node: any = runtime.mount(function()
+				return UI.Table({ from = records(3), key = key, itemSize = 44, columns = columns })
+			end, target)
+			node:FindFirstChild("Body").AbsoluteWindowSize = V2.new(200, 200)
+			local header = node:FindFirstChild("Header")
+			t.expect(header.Size.X.Offset).toBe(6 * 48)
+			for index = 1, 6 do
+				t.expect(header:FindFirstChild(`c{index}`):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X)
+					.toBe(48)
+			end
+			stop()
+			runtime:dispose()
 		end
-		local stop, node: any = runtime.mount(function()
-			return UI.Table({ from = records(3), key = key, itemSize = 44, columns = columns })
-		end, target)
-		node:FindFirstChild("Body").AbsoluteWindowSize = V2.new(200, 200)
-		local header = node:FindFirstChild("Header")
-		t.expect(header.Size.X.Offset).toBe(6 * 44)
-		for index = 1, 6 do
-			t.expect(header:FindFirstChild(`c{index}`):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(44)
-		end
-		stop()
-		runtime:dispose()
-	end)
+	)
 
 	t.it("the shoulder buttons move the selected rows by one slot", function()
 		local w = editableWorld("Gamepad", { reorderable = true, selected = { [2] = true } }, false)

@@ -487,6 +487,40 @@ t.describe("Composition", function()
 		w.stop()
 	end)
 
+	t.it("keeps borrowed region content in its popover until the exit finishes", function()
+		local overlay = require("./lib/overlay_world")
+		local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+			return UI.Composition "Hud" {
+				gap = 8,
+				padding = 0,
+				topbar = false,
+				UI.Region "Tasks" {
+					zone = "left" :: "left",
+					rank = 1,
+					Host.Frame { Name = "TasksFull" },
+					Host.Frame { Name = "TasksChip" },
+				},
+			}
+		end, { motionLevel = "normal", runService = true })
+		local full = w.find("TasksFull")
+		local home = full.Parent
+		w.size(full, 240, 130)
+		w.size(w.find("TasksChip"), 90, 30)
+		w.size(w.find("Zones"), 200, 100)
+		w.find("Expand").Activated.fire()
+		w.advance(1, 60)
+		local modal = w.find("ExpandModal")
+		t.expect(full:IsDescendantOf(modal)).toBe(true)
+		w.find("DismissOutside").Activated.fire()
+		t.expect(full:IsDescendantOf(modal)).toBe(true)
+		w.advance(1 / 60)
+		t.expect(full:IsDescendantOf(modal)).toBe(true)
+		w.advance(1, 60)
+		t.expect(full.Parent).toBe(home)
+		t.expect(w.find("ExpandModal")).toBeNil()
+		w.stop()
+	end)
+
 	t.it("refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region", function()
 		local function refusal(body: (any, any) -> any): string
 			local engine, runtime, UI = make()
