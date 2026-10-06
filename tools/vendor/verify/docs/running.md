@@ -102,6 +102,7 @@ An event is `{ runId, sequence, actor, caseId, step, phase, status? }`. `phase` 
 `sequence` rises by one in each run. A step with no actor reports the actor `case`.
 A watchdog process reads the file. A `started` event with no `finished` event names the actor and step that is still running.
 A file with no new line for too long means a stalled run.
+A launched Studio run reads the console on every poll of the detached run. See [native Studio execution](execution.md#native-studio-execution).
 `onProgress` receives the same events in order after the run returns, because a worker process blocks the caller.
 A run with no listener and no file behaves as before. The report is the same, and progress never proves a pass.
 
@@ -279,6 +280,7 @@ The caller owns these decisions:
 - Which place is open.
 - Whether the entry is mounted in that place.
 
+A Studio run is detached and its report returns in segments. A long run or a large report does not reach a request limit of the Studio MCP server. Only `deadlineSeconds` bounds the run.
 Verify starts play, runs, captures if you ask and returns the Studio to its prior mode.
 Verify never closes the Studio. The command line does not attach.
 See [attached Studio](execution.md#attached-studio).

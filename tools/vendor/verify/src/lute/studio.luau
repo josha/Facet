@@ -7,12 +7,15 @@ local json = require "@std/json"
 local Core = require "../core"
 local Attach = require "./studio-attach"
 local Bounded = require "./bounded"
+local Detached = require "./studio-detached"
 local Files = require "./files"
 local Wire = require "./wire"
 local Mcp = require "./studio-mcp"
 local ProgressChannel = require "../roblox/progress-channel"
 local ProgressFile = require "./progress-file"
 local Reply = require "./studio-reply"
+
+local CALL_SECONDS = 30
 
 export type Options = {
 	finalCapture: boolean?,
@@ -112,17 +115,34 @@ local function worker(path: string)
 				end
 			end
 		end
-		local finished = false
-		if polling then
-			task.spawn(function()
-				while not finished do
-					pcall(pollProgress)
-					task.wait(1)
-				end
-			end)
+		local function engine(datamodel: string, code: string): Detached.Reply
+			local limit = math.min(deadline, os.clock() + CALL_SECONDS)
+			local exchange = connection.callRaw(
+				"execute_luau",
+				json.serialize { studio_id = id, datamodel_type = datamodel, code = code },
+				limit
+			)
+			if exchange.status ~= "answered" then
+				return {
+					ok = false,
+					detail = exchange.detail or exchange.status,
+					lost = exchange.lost == true,
+					expired = exchange.lost ~= true and os.clock() >= limit,
+				}
+			end
+			if exchange.detail ~= nil then
+				return { ok = false, detail = exchange.detail, lost = false, expired = false }
+			end
+			local record = Mcp.record(exchange.result)
+			local text = Reply.texts(exchange.result)
+			if record.isError == true then
+				return { ok = false, detail = text, lost = false, expired = false }
+			end
+			return { ok = true, text = text, lost = false, expired = false }
 		end
 		local players = fields.players
-		local result: unknown
+		local datamodel = textField "context"
+		local code: string
 		if type(players) == "number" then
 			assert(players >= 1 and players <= 8 and players % 1 == 0, "Studio multiplayer supports 1 to 8 clients")
 			local source = "local runId = "
@@ -137,30 +157,36 @@ local function worker(path: string)
 					.. string.format("%q", source)
 					.. "; runner.Parent = game:GetService('ServerScriptService')",
 			})
-			result = connection.call("execute_luau", {
-				studio_id = id,
-				datamodel_type = "Edit",
-				code = "return game:GetService('StudioTestService'):ExecuteMultiplayerTestAsync("
-					.. tostring(players)
-					.. ", {})",
-			})
+			datamodel = "Edit"
+			code = "return game:GetService('StudioTestService'):ExecuteMultiplayerTestAsync("
+				.. tostring(players)
+				.. ", {})"
 		else
 			connection.call("start_stop_play", { studio_id = id, is_start = true })
-			local code = "assert(game:GetService('ReplicatedStorage'):GetAttribute('VerifyRun') == "
+			datamodel = textField "context"
+			code = "assert(game:GetService('ReplicatedStorage'):GetAttribute('VerifyRun') == "
 				.. token
 				.. ", 'wrong Verify run'); local runId = "
 				.. token
 				.. "; "
 				.. textField "code"
-			result =
-				connection.call("execute_luau", { studio_id = id, datamodel_type = textField "context", code = code })
 		end
-
-		finished = true
+		local outcome = Detached.run {
+			execute = engine,
+			datamodel = datamodel,
+			code = code,
+			runId = runId,
+			deadline = deadline,
+			pollSeconds = 1,
+			onPoll = if polling then pollProgress else nil,
+		}
 		if polling then
 			pcall(pollProgress)
 		end
-		local payload = Reply.texts(result)
+		if outcome.status ~= "done" then
+			error(outcome.detail or outcome.status, 0)
+		end
+		local payload = outcome.text :: string
 		local report = Reply.report(payload, runId)
 		assert(report ~= nil, "engine did not return the run-bound report envelope: " .. payload:sub(1, 1000))
 		if fields.finalCapture == true then

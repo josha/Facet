@@ -255,6 +255,63 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("lays topbar regions side by side in the strip and steps them down by their total width", {
+			id = "native_composition::Composition::lays topbar regions side by side in the strip and steps them down by their total width",
+			run = function()
+				local engine, runtime, UI, gui = make()
+				local T = engine.types
+				local Host = runtime.constructors
+				local ride = Compose.cell(true)
+				local objective, timer = Compose.cell(1), Compose.cell(1)
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local root: any
+				runtime.mount(function()
+					root = UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						topbar = ride,
+						UI.Region "Objective" {
+							zone = "topbar",
+							rank = 2,
+							form = objective,
+							form(Host, "ObjectiveFull"),
+							form(Host, "ObjectiveChip"),
+						} :: unknown,
+						UI.Region "Timer" { zone = "topbar", rank = 1, form = timer, form(Host, "TimerFull") },
+					}
+					return root
+				end, layer)
+				local sizes: { [string]: { number } } =
+					{ ObjectiveFull = { 130, 32 }, ObjectiveChip = { 60, 32 }, TimerFull = { 120, 32 } }
+				for node, size in sizes do
+					sized(engine, root:FindFirstChild(node, true), size[1], size[2])
+				end
+				local topbar = root:FindFirstChild("Topbar", true)
+				local layout = topbar:FindFirstChildWhichIsA("UIListLayout")
+				Verify.expect(layout.FillDirection):toBe(T.Enum.FillDirection.Vertical)
+				gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
+				local strip = topbar.Parent
+				Verify.expect(strip.ClassName):toBe("ScreenGui")
+				Verify.expect(layout.FillDirection):toBe(T.Enum.FillDirection.Horizontal)
+				Verify.expect(topbar:FindFirstChild("Objective") ~= nil):toBe(true)
+				Verify.expect(topbar:FindFirstChild("Timer") ~= nil):toBe(true)
+				sized(engine, root:FindFirstChild("Zones"), 844, 330)
+				sized(engine, strip, 300, 58)
+				Verify.expect(objective:peek()):toBe(1)
+				Verify.expect(timer:peek()):toBe(1)
+				sized(engine, strip, 200, 58)
+				Verify.expect(objective:peek()):toBe(2)
+				Verify.expect(timer:peek()):toBe(1)
+				sized(engine, strip, 300, 58)
+				Verify.expect(objective:peek()):toBe(1)
+				ride:set(false)
+				Verify.expect(layout.FillDirection):toBe(T.Enum.FillDirection.Vertical)
+				Verify.expect(topbar.Parent.Name):toBe("Top")
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("pops an arriving form unless motion is reduced, and holds its measurement while it pops", {
 			id = "native_composition::Composition::pops an arriving form unless motion is reduced, and holds its measurement while it pops",
 			run = function()

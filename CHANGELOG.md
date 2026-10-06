@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `UI.Composition` puts `topbar` regions side by side in the top bar strip.
+  Before, the strip stacked them vertically, so two regions overflowed it or
+  stepped down. The regions now step down when their total width does not fit.
+  Outside the strip, they still lead the `top` zone as a column.
+
 - Use Verify for reflected test classes, instance cloning, tags, ancestor lookup,
   focus and style maps. The fixture keeps explicit geometry and input providers.
   Benchmark percentile summaries use the shared Verify implementation.

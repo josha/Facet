@@ -353,6 +353,9 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 					return if riding(use) then E.AutomaticSize.None else E.AutomaticSize.XY
 				end,
 				Host.UIListLayout({
+					FillDirection = function(use: ComposeTypes.Use): Enum.FillDirection
+						return if riding(use) then E.FillDirection.Horizontal else E.FillDirection.Vertical
+					end,
 					SortOrder = E.SortOrder.LayoutOrder,
 					HorizontalAlignment = E.HorizontalAlignment.Center,
 					VerticalAlignment = E.VerticalAlignment.Center,

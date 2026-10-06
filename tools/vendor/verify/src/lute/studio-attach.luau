@@ -1,9 +1,9 @@
 --!strict
 
-local crypto = require "@lute/crypto"
 local json = require "@std/json"
 local task = require "@std/task"
 local Core = require "../core"
+local Detached = require "./studio-detached"
 local Files = require "./files"
 local Mcp = require "./studio-mcp"
 local Reply = require "./studio-reply"
@@ -102,14 +102,7 @@ local CAPTURE = "screen_capture"
 local DATAMODELS: { [string]: boolean } = { Edit = true, Server = true, Client = true }
 local DEFAULT_EXECUTABLE = "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP"
 
-local function digest(bytes: string): string
-	local value = crypto.digest(crypto.hash.sha256, bytes)
-	local out: { string } = {}
-	for index = 0, buffer.len(value) - 1 do
-		table.insert(out, string.format("%02x", buffer.readu8(value, index)))
-	end
-	return table.concat(out)
-end
+local digest = Detached.digest
 
 local function unsent(detail: string, refused: boolean?, expired: boolean?): Response
 	return {
@@ -426,11 +419,42 @@ local function attach(options: Options): (Session?, Refusal?)
 	end
 
 	local function report(datamodel: string, code: string, runId: string): ReportResponse
-		local response = execute(datamodel, code)
-		if not response.ok then
-			return { response = response, report = nil, problem = response.detail }
+		local last: Response? = nil
+		local outcome = Detached.run {
+			execute = function(model: string, source: string): Detached.Reply
+				local response = execute(model, source)
+				last = response
+				return {
+					ok = response.ok,
+					text = response.text,
+					detail = response.detail,
+					lost = response.sessionLost == true,
+					expired = response.expired,
+				}
+			end,
+			datamodel = datamodel,
+			code = code,
+			runId = runId,
+			deadline = runDeadline,
+		}
+		local answered = last
+		local response: Response = if answered ~= nil
+			then table.clone(answered)
+			else unsent "the detached run sent nothing"
+		if outcome.status ~= "done" then
+			response.ok = false
+			response.detail = outcome.detail
+			response.expired = outcome.status == "timed_out"
+			response.sessionLost = outcome.status == "session_lost"
+			if response.delivery == "unsent" and not response.refused then
+				response.delivery = "possibly_sent"
+			end
+			return { response = response, report = nil, problem = outcome.detail }
 		end
-		local parsed, found: unknown = pcall(Reply.report, response.text or "", runId)
+		response.ok = true
+		response.detail = nil
+		response.text = outcome.text
+		local parsed, found: unknown = pcall(Reply.report, outcome.text or "", runId)
 		if not parsed then
 			return { response = response, report = nil, problem = tostring(found) }
 		end
@@ -438,7 +462,7 @@ local function attach(options: Options): (Session?, Refusal?)
 			return {
 				response = response,
 				report = nil,
-				problem = "engine did not return the run-bound report envelope: " .. (response.text or ""):sub(1, 1000),
+				problem = "engine did not return the run-bound report envelope: " .. (outcome.text or ""):sub(1, 1000),
 			}
 		end
 		return { response = response, report = found :: Core.Report, problem = nil }

@@ -284,6 +284,36 @@ A returned report can contain failed cases.
 `codeForBatch(batch)` loads and registers the ordinary cases of that batch in the engine.
 The consumer owns its mounted test modules and operation bindings. No other case format exists.
 
+Every Studio run is detached.
+Verify wraps the code, starts it in the engine and returns at once.
+The engine keeps the result in memory and holds the encoded report there.
+Verify polls the engine until the code finishes or `deadlineSeconds` ends.
+No single request runs long, so the request time limit of the Studio MCP server never ends a run.
+Only `deadlineSeconds` bounds the run.
+
+The engine returns the encoded report in segments of at most 24000 bytes.
+Each segment carries its index, its count, its own digest, and the length and digest of the whole report.
+Verify fetches one segment for each call, rebuilds the report and checks each digest and the total length.
+A report of any size arrives, and a small report is one segment.
+A missing, repeated, mismatched or corrupted segment fails the run with a `transport:` detail that names the segment.
+No partial report is accepted.
+Every result that carries engine data from `execute_luau` takes this path, for launched and attached runs and for runs with `players`.
+
+The poll finds one of these states:
+
+| State | Result |
+| --- | --- |
+| Running | Verify waits and polls again. |
+| Done | Verify fetches the segments. |
+| Raised | The run faults with the engine error. |
+| Gone | The play session ended or Studio closed. The run faults with `session_lost`. |
+| No answer until `deadlineSeconds` | The run is `timed_out`. |
+
+Each poll also reads the Studio console for progress when the run has a `progressFile`.
+The code must still be valid code for the engine, and it can yield.
+The engine keeps the result in the attributes of `ReplicatedStorage`, named `VerifyRun<digest>_*`.
+Verify clears them after a fetch.
+
 The default run limit is 90 seconds.
 An external watchdog kills the owned worker process group, including Studio and the MCP process, on a timeout.
 Normal success and failure also terminate those owned processes.
@@ -339,7 +369,8 @@ It receives each request before any bytes leave: `{ tool, argumentsJson, fields,
 A refusal, a raise or a request that targets another Studio sends nothing.
 Verify defines no policy. The caller owns the grants, which place is open and whether the run can change it.
 
-A session offers these members:
+A session offers these members. `report` runs detached and fetches in segments. See [native Studio execution](#native-studio-execution).
+Each of its start, poll, fetch and clear requests passes through `authorize` as a separate `execute_luau` request.
 
 - `call(tool, argumentsJson)`.
 - `execute(datamodel, code)` for `Edit`, `Server` or `Client`.

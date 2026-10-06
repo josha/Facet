@@ -301,4 +301,50 @@ table.insert(cases, {
 	end,
 })
 
+table.insert(cases, {
+	id = "topbar-regions-side-by-side",
+	run = function(t: any)
+		t.mount(function(UI: any, Host: any)
+			return UI.Composition "Hud" {
+				gap = 8,
+				padding = 0,
+				UI.Region "Objective" {
+					zone = "topbar",
+					rank = 2,
+					Host.Frame "ObjectiveFull" { Size = UDim2.fromOffset(120, 32) },
+				},
+				UI.Region "Timer" {
+					zone = "topbar",
+					rank = 1,
+					Host.Frame "TimerFull" { Size = UDim2.fromOffset(90, 32) },
+				},
+			}
+		end)
+		t.settle(6)
+		local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+		local strip = playerGui:FindFirstChild("CompositionTopbar")
+		t.check(
+			"the strip rides the Roblox top bar",
+			strip ~= nil and strip.ScreenInsets == Enum.ScreenInsets.TopbarSafeInsets,
+			GuiService.TopbarInset
+		)
+		if not strip then
+			return
+		end
+		local first, second = t.rect(t.find(strip, "ObjectiveFull")), t.rect(t.find(strip, "TimerFull"))
+		t.note("topbar regions", { first, second })
+		t.check("both topbar regions keep their full form", first.w == 120 and second.w == 90, { first, second })
+		t.check(
+			"topbar regions sit on one row",
+			math.abs((first.y + first.h / 2) - (second.y + second.h / 2)) <= 1,
+			{ first, second }
+		)
+		t.check(
+			"the second region starts after the first with the gap",
+			math.abs(second.x - (first.r + 8)) <= 1,
+			{ first, second }
+		)
+	end,
+})
+
 return cases
