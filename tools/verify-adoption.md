@@ -90,3 +90,8 @@ Historical assertion parity is not established. Read the
 [verification scope](../docs/guide/18-verification-scope.md). No library
 source, example, benchmark workload, baseline or threshold changed. No Studio
 check was necessary, because no geometry or input behavior changed.
+
+Two baseline limits are not regressions. On a loaded host, the
+`table-mutation` scene is at the 1.5 factor on main and on this change. Two
+swipe cases in `native_parity_weaker_rows` fail in some parallel runs on a
+loaded host: 4 of 48 runs on main and 2 of 48 runs on this change.
