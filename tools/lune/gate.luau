@@ -186,4 +186,12 @@ local function main()
 	process.exit(code)
 end
 
-return { define = define, draft = draft, tests = tests, tiers = TIERS, releasable = releasable, main = main }
+return {
+	define = define,
+	draft = draft,
+	tests = tests,
+	tiers = TIERS,
+	releasable = releasable,
+	build = build,
+	main = main,
+}

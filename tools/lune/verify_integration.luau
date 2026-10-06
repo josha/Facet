@@ -404,6 +404,33 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(deferrals["bench"] ~= nil):toBe(true)
 		context:expect(assert(assert(gate.draft(true).policy).deferrals)["bench"]):toBeNil()
 		context:expect(deferrals["suite"]):toBeNil()
+		local order = {}
+		for index, producer in definition.producers do
+			order[producer.id] = index
+		end
+		context:expect(order["suite"] < order["replacement-cases"]):toBe(true)
+		context:expect(seen["replacement-cases"].after):toEqual({ "suite" })
+		for _, reader in { "perf-budgets", "perf-metrics", "perf-scenes", "perf-gate-evidence-budgets" } do
+			context:expect(order["perf"] < order[reader]):toBe(true)
+		end
+		context:expect(order["model-build"] < order["package-verify"]):toBe(true)
+		context:expect(seen["perf-gate-evidence-falsifiable"].tier):toBe("release")
+		context:expect(order["perf-gate-evidence-perf-gate"] < order["prove-perf-gate"]):toBe(true)
+		context:expect(order["prove-perf-gate"] < order["perf-gate-evidence-falsifiable"]):toBe(true)
+	end)
+	harness:case("binds the gate to the commit, tree, clean state and package source hash", function(context)
+		local build = gate.build()
+		context:expect(string.match(build.commit, "^%x+$") ~= nil and #build.commit == 40):toBe(true)
+		context:expect(string.match(build.tree, "^%x+$") ~= nil and #build.tree == 40):toBe(true)
+		context:expect(type(build.clean)):toBe("boolean")
+		context:expect(string.match(build.digest, "^%x+$") ~= nil and #build.digest == 64):toBe(true)
+		local bound = Lune.gate.run(
+			Gate.define(gate.define({ command("fast", "exit 0") }, false, "fixture-build")),
+			{ directory = `{directory}/gate`, build = build }
+		)
+		context:expect(assert(bound.build).commit):toBe(build.commit)
+		context:expect(assert(bound.build).digest):toBe(build.digest)
+		context:expect(assert(bound.build).clean):toBe(build.clean)
 	end)
 	harness:case("rejects malformed reports and conflicting transport segments", function(context)
 		context
