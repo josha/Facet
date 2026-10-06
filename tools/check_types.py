@@ -19,6 +19,7 @@ PLUGIN_LOCK = ROOT / "tools/typecheck/roblox-plugin.lock.json"
 SOLVERS = {"old": [], "new": ["LuauSolverV2=true"]}
 DEFAULT_FLAGS = ["LuauTarjanChildLimit=100000"]
 FLAGS = list(DEFAULT_FLAGS)
+LUTE_RUNTIME = ("tools/lute/", "tools/vendor/verify/src/lute/", "tools/vendor/verify/tools/")
 DIAGNOSTIC = re.compile(r"^(.+?\.lua(?:u)?)(?: \[[^\]]*\])?\((\d+),(\d+)\): (\w+): (.*)$", re.M)
 
 
@@ -27,7 +28,7 @@ def repository_files():
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.luau"],
         cwd=ROOT, capture_output=True, text=True, check=True,
     )
-    return sorted(set(path for path in result.stdout.split("\0") if path and (ROOT / path).is_file()))
+    return sorted(set(path for path in result.stdout.split("\0") if path and (ROOT / path).is_file() and not path.startswith(LUTE_RUNTIME)))
 
 
 def prepare_lune_types():

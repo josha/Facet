@@ -46,6 +46,19 @@ The budget includes recovery operations after a failed or cancelled body.
 Timeout and cancellation keep their own report statuses.
 Checks are cooperative. A blocking call must enforce the deadline that it receives, or the outer worker must interrupt it.
 Cleanup runs even after a failure. Its failures stay visible independently.
+`context:perform(actor, operation, input, deadlineSeconds?)` and `context:await(actor, query, input, predicate, pollSeconds, deadlineSeconds?)` accept a per-call deadline.
+The deadline is positive, finite and bounded by the remaining case time. For `await`, it bounds the whole wait.
+The request that reaches the host carries that deadline. A host must stop at it.
+If the call fails at or after its deadline, the step is `timed_out` and its message names the actor and operation. The case then runs its cleanup.
+A call that fails before its deadline keeps its ordinary failure.
+
+### Progress
+
+`Core.runCases` accepts `progress = Core.progress.create(runId, emit)`. The harness emits `{ runId, sequence, actor, caseId, step, phase, status? }` when each step starts and finishes.
+`sequence` is monotonic in the run. A step with no actor reports the actor `case`. A failing listener does not change the run.
+`Core.progress.pending(events)` lists the started steps that have not finished.
+`Roblox.progressChannel` frames events on the output channel and collects them in order without repeats.
+A run with no progress behaves as before. Progress is not evidence and no report field depends on it.
 
 ### Observations
 

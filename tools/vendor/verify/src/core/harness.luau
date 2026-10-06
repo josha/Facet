@@ -2,6 +2,7 @@
 
 local Matchers = require "./matchers"
 local ReportModel = require "./report"
+local Progress = require "./progress"
 local Spy = require "./spy"
 local Types = require "./types"
 local Operations = require "./operations"
@@ -47,9 +48,16 @@ export type Context = {
 		operation: Operations.Operation<I, O>,
 		input: I,
 		predicate: (O) -> boolean,
-		pollSeconds: number
+		pollSeconds: number,
+		deadlineSeconds: number?
 	) -> O,
-	perform: <I, O>(self: Context, actor: string, operation: Operations.Operation<I, O>, input: I) -> O,
+	perform: <I, O>(
+		self: Context,
+		actor: string,
+		operation: Operations.Operation<I, O>,
+		input: I,
+		deadlineSeconds: number?
+	) -> O,
 	checkpoint: (self: Context, actor: string, name: string) -> (),
 	judge: (self: Context, actor: string, checkpoint: string, criterion: string) -> (),
 	measure: (self: Context, actor: string, name: string, input: Performance.Input, limits: Performance.Limits) -> (),
@@ -97,6 +105,7 @@ export type RunOptions = {
 	environment: { [string]: string }?,
 	selection: Selection?,
 	invoke: Invoker?,
+	progress: Progress.Progress?,
 }
 
 export type Harness = {
@@ -627,7 +636,11 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			if invocation.outcome == "failed" and type(invocation.error) == "table" then
 				local signal = (invocation.error :: { [string]: unknown }).signal
 				if signal == TimedOut then
-					return { outcome = "timed_out", error = "case deadline exceeded" }
+					local detail = (invocation.error :: { [string]: unknown }).detail
+					return {
+						outcome = "timed_out",
+						error = if type(detail) == "string" then detail else "case deadline exceeded",
+					}
 				end
 				if signal == Cancelled then
 					return { outcome = "cancelled", error = "case cancelled" }
@@ -724,6 +737,9 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 				stepRun = definition.run
 			end
 			local stepStarted = now()
+			if runOptions.progress ~= nil then
+				runOptions.progress.publish(entry.id, actor or "case", name, "started", nil)
+			end
 			local invocation = invoke("step", stepRun)
 			local unsupported = type(invocation.error) == "table"
 				and (invocation.error :: { [string]: unknown }).signal == Unsupported
@@ -733,6 +749,9 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 				elseif invocation.outcome == "timed_out" then "timed_out"
 				elseif invocation.outcome == "cancelled" then "cancelled"
 				else "failed"
+			if runOptions.progress ~= nil then
+				runOptions.progress.publish(entry.id, actor or "case", name, "finished", stepStatus)
+			end
 			table.insert(steps, {
 				name = name,
 				actor = actor,
@@ -762,7 +781,15 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			return math.max(0, (if releasing then cleanupDeadline else deadline) - now())
 		end
 
-		function context:perform<I, O>(actor: string, operation: Operations.Operation<I, O>, input: I): O
+		function context:perform<I, O>(
+			actor: string,
+			operation: Operations.Operation<I, O>,
+			input: I,
+			deadlineSeconds: number?
+		): O
+			if deadlineSeconds ~= nil and not (deadlineSeconds > 0 and deadlineSeconds < math.huge) then
+				error("operation deadline must be positive and finite", 2)
+			end
 			local output: O? = nil
 			self:step(operation.kind .. " " .. operation.name, {
 				actor = actor,
@@ -775,13 +802,37 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 						"operation unavailable"
 					)
 					local payload = Operations.snapshot(operation.input(input))
-					local value = bound.invoke {
+					local caseLimit = if releasing then cleanupDeadline else deadline
+					local callLimit = if deadlineSeconds ~= nil
+						then math.min(caseLimit, now() + deadlineSeconds)
+						else caseLimit
+					local function stuck(cause: string?): never
+						error({
+							signal = TimedOut,
+							detail = ("operation deadline exceeded: %s %s %s%s"):format(
+								actor,
+								operation.kind,
+								operation.name,
+								if cause ~= nil then " (" .. cause .. ")" else ""
+							),
+						}, 0)
+					end
+					local called, value = pcall(bound.invoke, {
 						kind = operation.kind,
 						actor = actor,
 						name = operation.name,
 						payload = payload,
-						deadline = if releasing then cleanupDeadline else deadline,
-					}
+						deadline = callLimit,
+					})
+					if not called then
+						if deadlineSeconds ~= nil and callLimit < caseLimit and now() >= callLimit then
+							stuck(tostring(value))
+						end
+						error(value, 0)
+					end
+					if deadlineSeconds ~= nil and callLimit < caseLimit and now() >= callLimit then
+						stuck(nil)
+					end
 					withinDeadline()
 					output = operation.output(Operations.snapshot(value))
 					table.insert(evidence.observations, {
@@ -802,9 +853,14 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 			operation: Operations.Operation<I, O>,
 			input: I,
 			predicate: (O) -> boolean,
-			pollSeconds: number
+			pollSeconds: number,
+			deadlineSeconds: number?
 		): O
 			assert(operation.kind == "query", "await only retries queries")
+			if deadlineSeconds ~= nil and not (deadlineSeconds > 0 and deadlineSeconds < math.huge) then
+				error("await deadline must be positive and finite", 2)
+			end
+			local awaitLimit = if deadlineSeconds ~= nil then now() + deadlineSeconds else math.huge
 			assert(pollSeconds > 0 and pollSeconds < math.huge, "poll interval must be positive and finite")
 			assert(deadline < math.huge, "await requires a case timeout")
 			local value: O? = nil
@@ -812,14 +868,27 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 				actor = actor,
 				run = function()
 					while true do
-						local observed = self:perform(actor, operation, input)
+						local remaining = if awaitLimit < math.huge then awaitLimit - now() else nil
+						if remaining ~= nil and remaining <= 0 then
+							error({
+								signal = TimedOut,
+								detail = ("await deadline exceeded: %s %s"):format(actor, operation.name),
+							}, 0)
+						end
+						local observed = self:perform(actor, operation, input, remaining)
 						if predicate(observed) then
 							value = observed
 							return
 						end
 						local bound = host
 						assert(bound ~= nil and bound.sleep ~= nil, "await requires a host clock and sleep")
-						bound.sleep(math.min(pollSeconds, self:remainingSeconds()))
+						bound.sleep(
+							math.min(
+								pollSeconds,
+								self:remainingSeconds(),
+								if remaining ~= nil then math.max(awaitLimit - now(), 0) else math.huge
+							)
+						)
 						withinDeadline()
 					end
 				end,

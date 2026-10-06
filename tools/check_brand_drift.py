@@ -190,6 +190,9 @@ EXCLUDED_TREES = (
 RR_DOC_HISTORY = ("docs/missions/", "docs/playtests/", "docs/DECISIONS.md")
 
 ALLOWLIST = [
+    ("rokit.toml", re.compile(r"luau-lang/"),
+     "the Lute pin names its publisher; the name is not a Facet tag",
+     "when Facet no longer pins Lute"),
     ("tools/microprofiler_aggregate.py", re.compile(r"LuauUI/"),
      "the pre-rename scope prefix is data about stored captures, not a name this tool wears",
      "when no capture predating the rename is still cited as evidence"),

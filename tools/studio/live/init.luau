@@ -485,7 +485,7 @@ local function encodeReceipt(report: any, records: { any }): string
 	return HttpService:JSONEncode({ report = report, cases = records })
 end
 
-function live.run(suite: string, options: { [string]: any }?): string
+function live.report(suite: string, options: { [string]: any }?): (any, { any })
 	local config: { [string]: any } = options or {}
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local themes = themeModules(Facet)
@@ -543,7 +543,11 @@ function live.run(suite: string, options: { [string]: any }?): string
 		capabilities = { "roblox-client" },
 		selection = { ids = selected },
 	})
-	return encodeReceipt(report, records)
+	return report, records
+end
+
+function live.run(suite: string, options: { [string]: any }?): string
+	return encodeReceipt(live.report(suite, options))
 end
 
 function live.begin(suite: string, id: string): string

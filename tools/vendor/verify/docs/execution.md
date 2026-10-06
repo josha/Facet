@@ -304,6 +304,11 @@ A missing or unavailable engine fails the native command.
 The default portable gate does not run it and cannot establish native parity.
 Use the native gate when you change engine behavior or the launcher.
 
+Use `basePlace` to run in your own XML place. Verify copies it, mounts the modules and entry scripts, and leaves the rest untouched. See [mounting](running.md#mounting-and-custom-hosts).
+Studio runs report progress through the Studio console. The engine prints one framed `VERIFY_PROGRESS` line for each step event.
+The worker reads the console through `get_console_output` while the run executes and appends each new event to `progressFile`. Only the simulator path was run without Studio.
+Progress is never evidence. See [watch a run](running.md#watch-a-run).
+
 Set `players = 1..8` to run a server with that many actual Studio clients through `StudioTestService:ExecuteMultiplayerTestAsync`.
 The code runs on the server and ends the test with its report.
 See the [multiplayer example](../examples/multiplayer.luau). The native gate runs it.
@@ -313,6 +318,9 @@ The last case keeps the image path and media type.
 This artifact shows the final state. It is not an earlier checkpoint and not a visual judgment.
 Verify does not substitute captures between actors silently.
 Multiplayer client capture callbacks need their own durable sink, because temporary `CaptureService` image references expire with the client.
+`finalCapture` does not exist for `players`. A final capture for each actor would need these parts:
+a client callback that saves the image bytes to a path that the host can read, one capture request for each client in the multiplayer session, and one `Artifact` for each actor in the report.
+The screen capture tool saves only the viewport of the active Studio window, so it cannot see the other clients.
 
 ## Attached Studio
 

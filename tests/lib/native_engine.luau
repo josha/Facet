@@ -339,7 +339,6 @@ local function new(options: any?): Engine
 	types.Path2DControlPoint = VerifyRoblox.datatypes.Path2DControlPoint
 
 	local engine: any = bridge.engine
-	engine.clock = os.clock
 	engine.census = function()
 		assert(settings.recordCreated ~= false, "census requires recording all created instances")
 		local accounting = bridge.accounting()

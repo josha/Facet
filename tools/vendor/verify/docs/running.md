@@ -64,6 +64,7 @@ Do not also set `options.selection`. Each case declares a finite timeout and the
 | `--framework directory` | Framework checkout. Inferred from the path of this command. |
 | `--root directory` | Additional mounted module directory. Repeat as needed. Verify follows literal imports automatically. |
 | `--place fixture.rbxlx` | Existing Studio fixture that contains the mounted entry. Without it, the command builds an isolated floor and spawn fixture. |
+| `--base-place place.rbxlx` | Merge the mounted modules and entry scripts into a copy of this XML place. Do not combine it with `--place`. |
 | `--context Server\|Client` | Studio execution side. Defaults to Server. |
 | `--players count` | Studio server with 1 to 8 clients. |
 | `--client file`, `--server file` | Portable bootstrap modules that return functions. Verify mounts and calls them automatically. |
@@ -92,6 +93,17 @@ It accepts the corresponding typed options and `requiredEvidence`.
 Require each actor separately when a multiplayer claim needs both views.
 Missing required evidence adds a failed case to the same report.
 `Lute.evidence.write` and `Lute.evidence.finish` persist reports from custom hosts with the same rules.
+
+## Watch a run
+
+`Lute.platform.run` accepts `progressFile` and `onProgress` for the simulator and Studio hosts.
+The run appends one JSON line per step event to `progressFile`. If you give only `onProgress`, the file is `<output>/progress.jsonl`.
+An event is `{ runId, sequence, actor, caseId, step, phase, status? }`. `phase` is `started` or `finished`.
+`sequence` rises by one in each run. A step with no actor reports the actor `case`.
+A watchdog process reads the file. A `started` event with no `finished` event names the actor and step that is still running.
+A file with no new line for too long means a stalled run.
+`onProgress` receives the same events in order after the run returns, because a worker process blocks the caller.
+A run with no listener and no file behaves as before. The report is the same, and progress never proves a pass.
 
 ## Gates and benchmarks
 
@@ -279,6 +291,14 @@ It resolves them as Luau does. An ordinary file `a/b.luau` resolves `./c` as `a/
 An `init.luau` stands for its directory. In `a/b/init.luau`, `./c` is `a/c`, `../c` is the sibling of `a` and `@self/c` is `a/b/c`.
 It does not compile arbitrary package systems and does not replace the place build of an application.
 Use `moduleExpression(path, rootName?)` to reference a mounted module.
+
+`basePlace` merges into an existing place instead of building a floor.
+`Lute.place.build({ output, basePlace, roots, modules?, clientSource?, serverSource?, rootName? })` copies the base file to `output`.
+It adds the module tree as `ReplicatedStorage.<rootName>`, `VerifyClient` in `StarterPlayerScripts` and `VerifyServer` in `ServerScriptService`.
+It adds a missing service and leaves every other instance of the base untouched. It never edits the base file.
+It fails when the base already holds an instance with the module root name or with a script name that it adds.
+It reads and writes XML only. A binary `.rbxl` base fails with a message. Save the base as `.rbxlx` first.
+The merge scans `Item` tags. It does not parse the other XML. `Lute.platform.run({ basePlace })` uses it and the option `place` keeps its meaning.
 
 For an existing place fixture, mount under `ReplicatedStorage.VerifyModules`.
 You can also use the lower-level [Studio host](execution.md#native-studio-execution) with your own bootstrap.
