@@ -275,7 +275,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					h = math.max(0, size.Y - 2 * MARGIN),
 				}
 			end
-			local content = spec.content()
+			local content: Instance
+			local contentScope = Compose.createRootOwner(function()
+				content = spec.content()
+			end, runtime.reactor)
+			Compose.cleanup(contentScope.dispose)
 			local function cap(use: ComposeTypes.Use): Vector2
 				local box = safe(use)
 				local width = math.min(spec.maxWidth or math.huge, box.w)
@@ -450,6 +454,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				canDismiss = spec.cancelPolicy ~= "none",
 			})
 			modal:SetAttribute("FacetRoute", "popover")
+			Compose.cleanup(contentScope.dispose)
 			return modal
 		end
 		local function sheeted(phase: Nav.PresencePhase?): Frame

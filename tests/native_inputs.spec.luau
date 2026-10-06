@@ -619,11 +619,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect((value:peek())):toBe("")
 				Verify.expect(clear.Visible):toBe(false)
 				Verify.expect(changes):toBe(1)
-				node:CaptureFocus()
-				node.Text = "find"
-				node.ReturnPressedFromOnScreenKeyboard.fire()
+				local field = find(node, "Field")
+				field:CaptureFocus()
+				field.Text = "find"
+				field.ReturnPressedFromOnScreenKeyboard.fire()
 				Verify.expect(commits):toBe(1)
-				Verify.expect((node:IsFocused())):toBe(false)
+				Verify.expect((field:IsFocused())):toBe(false)
 				stop()
 			end,
 		})

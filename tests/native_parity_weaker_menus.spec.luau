@@ -1340,7 +1340,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local row = find(world.root, "Handling")
 					local options = find(row, "Options")
 
-					Verify.expect(options:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(false)
+					Verify.expect(options:FindFirstChildWhichIsA("UIListLayout", true).Wraps):toBe(false)
 					local floor = options:FindFirstChild("TargetFloor")
 					Verify.expect(floor.MinSize.Y):toBe(50)
 					local constraints = 0

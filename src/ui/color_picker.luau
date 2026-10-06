@@ -6,6 +6,7 @@ local Nav = require("./navigation_types")
 local Types = require("./color_picker_types")
 local colorValue = require("./color_value")
 local fieldChrome = require("./field_chrome")
+local rest = require("./rest")
 
 type Use = ComposeTypes.Use
 type Hsv = colorValue.Hsv
@@ -1693,7 +1694,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			for _, child in children do
 				props[#props + 1] = child
 			end
-			local panel = Host.Frame(props)
+			local panel = if overlay
+				then ctx.fade((props :: unknown) :: Shared.CanvasGroupNativeProps)
+				else Host.Frame(props)
 			local visibility: { ComposeTypes.Readable<boolean> } = {}
 			for _, entry in measured do
 				table.insert(visibility, ctx.observe.Visible(entry.node))
@@ -1703,7 +1706,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				for index, entry in measured do
 					if use(visibility[index]) then
 						local extent: Vector2 = use(entry.size)
-						total += extent.Y
+						total += extent.Y / use(unit)
 						count += 1
 					end
 				end
@@ -1939,6 +1942,16 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							end,
 						} :: Shared.Attributes,
 					})
+					local settled = rest(ctx, function(): (string, boolean)
+						local spot = where:peek()
+						local technique = view.panel:FindFirstChild("Technique", true) :: GuiObject
+						local size = technique.AbsoluteSize
+						return `{spot.w}:{spot.h}:{columns:peek()}:{size}`,
+							size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
+					end)
+					ctx.fadeTo(view.panel, function(use: Use): number
+						return if use(settled) then 0 else 1
+					end)
 					ctx.styled(view.panel, "panel")
 					surfaces.skin(view.panel)
 					return surfaces.modal(function()

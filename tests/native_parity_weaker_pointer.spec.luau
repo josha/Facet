@@ -680,7 +680,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						end
 						detector.DragContinue.fire(V2(world, 200 - 150, 20))
 						Verify.expect(content.Position.X.Offset):toBe(if policy == true then -150 else -122)
-						Verify.expect(tray.Size.X.Offset):toBe(88)
+						Verify.expect(tray.Size.X.Offset):toBe(if policy == true then 150 else 122)
 						detector.DragContinue.fire(V2(world, 200 - 179, 20))
 						detector.DragEnd.fire()
 						Verify.expect(invoked.trailing):toBe(0)

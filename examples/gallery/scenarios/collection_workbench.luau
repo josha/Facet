@@ -880,13 +880,14 @@ return {
 		Compose.watch(function(use)
 			if use(transfers) then
 				splitWidth:set(math.max(splitWidth:peek(), 760))
-				splitColumn:set("sidebar")
-				inboxColumn:set("detail")
+			end
+			if not use(transfers) then
+				inboxColumn:set("sidebar")
 			end
 		end)
 		Compose.watch(function(use)
-			if use(linked) then
-				splitColumn:set("detail")
+			if not use(linked) then
+				splitColumn:set("sidebar")
 			end
 		end)
 		local function folderViews(folder)
@@ -897,8 +898,9 @@ return {
 				preferredCompactColumn = splitColumn,
 				sidebarWidth = splitWidth,
 				maxSidebarWidth = 1000,
-				backLabel = "Files",
-				detailLabel = "Linked view",
+				minDetailWidth = 440,
+				backLabel = "Back to Files",
+				detailLabel = "Open linked view",
 				sidebar = function()
 					return UI.NavigationSplitView {
 						Name = "PrimaryViews",
@@ -906,8 +908,8 @@ return {
 						detailVisible = transfers,
 						preferredCompactColumn = inboxColumn,
 						sidebarWidth = inboxWidth,
-						backLabel = "Files",
-						detailLabel = "Inbox",
+						backLabel = "Back to Files",
+						detailLabel = "Open Inbox",
 						sidebar = function()
 							return UI.VStack {
 								Name = "PrimaryView",

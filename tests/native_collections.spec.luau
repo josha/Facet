@@ -1392,8 +1392,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			end,
 		})
 
-		verifyHarness:case("resizes a compact touch column without jumping to its desktop minimum", {
-			id = "native_collections::Compose native collections::resizes a compact touch column without jumping to its desktop minimum",
+		verifyHarness:case("resizes a touch column from its authored minimum without changing the width contract", {
+			id = "native_collections::Compose native collections::resizes a touch column from its authored minimum without changing the width contract",
 			run = function()
 				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 				local E, V2 = engine.types.Enum, engine.types.Vector2
@@ -1412,12 +1412,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end, target)
 				local header = node:FindFirstChild("Header")
 				local column = header:FindFirstChild("label")
-				column.AbsoluteSize = V2.new(120, 44)
+				column.AbsoluteSize = V2.new(180, 44)
 				local detector = column:FindFirstChild("Resize"):FindFirstChildWhichIsA("UIDragDetector")
 				Verify.expect(column.ZIndex > header:FindFirstChild("kind").ZIndex):toBe(true)
-				detector.DragStart.fire(V2.new(120, 0))
-				detector.DragContinue.fire(V2.new(130, 0))
-				Verify.expect(widths:peek().label):toBe(130)
+				detector.DragStart.fire(V2.new(180, 0))
+				detector.DragContinue.fire(V2.new(190, 0))
+				Verify.expect(widths:peek().label):toBe(190)
+				detector.DragContinue.fire(V2.new(80, 0))
+				Verify.expect(widths:peek().label):toBe(180)
 				detector.DragEnd.fire()
 				stop()
 			end,
@@ -1957,6 +1959,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(`{delete.Size.X.Scale} {delete.Size.X.Offset}`):toBe("0 64")
 				detector.DragContinue.fire(engine.types.Vector2.new(170, 20))
 				Verify.expect(`{delete.Size.X.Scale} {delete.Size.X.Offset}`):toBe("0 64")
+				detector.DragContinue.fire(engine.types.Vector2.new(100, 20))
+				Verify.expect(tray.Size.X.Offset):toBe(150)
+				Verify.expect(delete.Size.X.Offset + flag.Size.X.Offset):toBe(150)
+				Verify.expect(flag.Size.X.Offset):toBe(64)
+				Verify.expect(flag.Visible):toBe(true)
 				detector.DragContinue.fire(engine.types.Vector2.new(65, 20))
 				Verify.expect(delete.Size):toEqual(engine.types.UDim2.fromScale(1, 1))
 				Verify.expect(flag.Visible):toBe(false)
@@ -3500,7 +3507,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				)
 					:toBe(true)
 				Verify.expect(more:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
-				Verify.expect((more:GetAttribute("label"))):toBe("More actions")
+				Verify.expect((more:GetAttribute("label"))):toBe("Show details")
 				Verify.expect((more:HasTag("facet-appearance-utility"))):toBe(true)
 				stop()
 				runtime:dispose()
@@ -4285,9 +4292,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local header = node:FindFirstChild("Header")
 				Verify.expect(header.Size.X.Offset):toBe(359)
 				node:FindFirstChild("Edit", true).Activated.fire()
-				Verify.expect(header.Size.X.Offset):toBe(271)
+				Verify.expect(header.Size.X.Offset):toBe(306)
 				Verify.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X)
-					:toBe(44)
+					:toBe(90)
 				assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 				Verify.expect(header.Size.X.Offset):toBe(306)
 				header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(306, 44)
@@ -4341,9 +4348,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		})
 
 		verifyHarness:case(
-			"touch flexible columns keep the touch floor and scroll sideways instead of shrinking to nothing",
+			"touch flexible columns keep their column minimum and scroll sideways instead of shrinking to nothing",
 			{
-				id = "native_collections::editable collections: reorderable and deletable on every input::touch flexible columns keep the touch floor and scroll sideways instead of shrinking to nothing",
+				id = "native_collections::editable collections: reorderable and deletable on every input::touch flexible columns keep their column minimum and scroll sideways instead of shrinking to nothing",
 				run = function()
 					local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 					local V2 = engine.types.Vector2
@@ -4357,12 +4364,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end, target)
 					node:FindFirstChild("Body").AbsoluteWindowSize = V2.new(200, 200)
 					local header = node:FindFirstChild("Header")
-					Verify.expect(header.Size.X.Offset):toBe(6 * 44)
+					Verify.expect(header.Size.X.Offset):toBe(6 * 48)
 					for index = 1, 6 do
 						Verify.expect(
 							header:FindFirstChild(`c{index}`):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X
 						)
-							:toBe(44)
+							:toBe(48)
 					end
 					stop()
 					runtime:dispose()

@@ -56,14 +56,6 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				return { value = Compose.cell(2) }
 			end,
 		},
-		["facet-text-input"] = {
-			control = "TextInput",
-			nameable = true,
-			reason = "TextInput has no label or name option, so an empty field without a placeholder has no accessible name",
-			props = function()
-				return { value = Compose.cell(""), presentation = "search" :: "search" }
-			end,
-		},
 	}
 
 	local REJECTS_EMPTY = {

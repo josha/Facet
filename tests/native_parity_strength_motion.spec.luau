@@ -2183,9 +2183,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 				Verify.expect(optionCount):toBe(4)
 				Verify.expect((device:GetAttribute("label"))):toBe("Device")
-				Verify.expect((full:GetAttribute("label"))):toBe("Game: Normal")
-				Verify.expect((limited:GetAttribute("label"))):toBe("Game: Limited")
-				Verify.expect((reduced:GetAttribute("label"))):toBe("Game: None")
+				Verify.expect((full:GetAttribute("label"))):toBe("Normal")
+				Verify.expect((limited:GetAttribute("label"))):toBe("Limited")
+				Verify.expect((reduced:GetAttribute("label"))):toBe("None")
 				local wording: { string } = {}
 				for _, node in sheet:GetDescendants() do
 					local ok, text = pcall(function()

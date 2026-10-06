@@ -529,8 +529,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end
 					return nil
 				end
-				local filter = find(node, "Filter")
-				local clear = find(filter, "Clear")
+				local search = find(node, "Filter")
+				local filter = find(search, "Field")
+				local clear = find(search, "Clear")
 				Verify.expect(clear.Visible):toBe(false)
 				local drift = rowFor("Drift City Nights")
 				Verify.expect(drift ~= nil):toBe(true)

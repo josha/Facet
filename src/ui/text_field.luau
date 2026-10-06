@@ -200,6 +200,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		lastPolicy = policyOf(read(spec.selectOnFocus))
 
 		local framed = chrome.present(spec)
+			or spec.presentation == "search"
 			or spec.leading ~= nil
 			or spec.trailing ~= nil
 			or spec.prefix ~= nil
@@ -464,6 +465,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 		end
 
+		local touchFloor = ctx.touchFloor()
 		local nativeProps = ctx.props(spec, TEXT_KEYS, {
 			Text = read(spec.value),
 			PlaceholderText = spec.placeholder or "",
@@ -508,7 +510,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				then D2.new(1, 0, 0, 0)
 				else function(use: ComposeTypes.Use)
 					local minimum = if spec.multiline == true then 96 elseif spec.controlSize then 0 else 36
-					return D2.new(0, 0, 0, math.max(minimum, use(textHeight) + 12))
+					return D2.new(
+						0,
+						0,
+						0,
+						math.max(
+							minimum,
+							if spec.presentation == "search" then touchFloor(use) else 0,
+							use(textHeight) + 12
+						)
+					)
 				end
 			nativeProps.AutomaticSize = if spec.visibleLines then E.AutomaticSize.Y else nil
 		else
@@ -541,9 +552,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 		end
 		local padding = ctx.padding(if framed then 0 else 10, 6)
-		if spec.presentation == "search" and not framed then
-			padding.PaddingLeft = D.new(0, 40)
-		end
 		table.insert(nativeProps, padding)
 
 		local messageNode: TextLabel?
@@ -588,7 +596,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.find({ "always", "never", "whileEditing", "unlessEditing" }, mode),
 			`Facet.{control}: invalid clearButtonMode`
 		)
-		local touchFloor = ctx.touchFloor()
 		local clear = if mode ~= "never"
 			then UI.Button "Clear" {
 				name = "Clear",
@@ -624,17 +631,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			else nil
 		if clear and not framed then
 			table.insert(nativeProps, clear)
-		end
-		if spec.presentation == "search" and not framed then
-			table.insert(
-				nativeProps,
-				ctx.icon("facet:search", {
-					Name = "SearchIcon",
-					Size = D2.fromOffset(18, 18),
-					AnchorPoint = V2.new(0, 0.5),
-					Position = D2.new(0, -28, 0.5, 0),
-				})
-			)
 		end
 		node = ctx.styled(Host.TextBox(nativeProps), "text")
 		if not framed then
@@ -957,10 +953,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				return readOnly(use)
 			end,
 		})
-		if spec.label ~= nil then
+		if spec.label ~= nil or spec.presentation == "search" then
 			attributes(node, {
 				AccessibleLabel = function(use: ComposeTypes.Use): string
-					return chrome.labelText(spec, use)
+					if spec.label ~= nil then
+						return chrome.labelText(spec, use)
+					end
+					local placeholder = read(spec.placeholder, use)
+					return if placeholder ~= nil and placeholder ~= "" then placeholder else "Search"
 				end,
 			})
 		end

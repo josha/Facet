@@ -48,8 +48,13 @@ contract.
 
 ## Rules for evidence
 
-- Use Verify from `tools/vendor/verify/src/core` for test registration,
-  assertions, execution and reports. Do not add a Facet test harness.
+- Default to [Verify](https://github.com/voidmeld/verify) when adding or changing
+  tests. Use its public APIs from `tools/vendor/verify` for registration,
+  assertions, fixtures, execution and reports. Do not add a Facet test harness.
+- Before writing custom testing infrastructure, check Verify's public API and
+  consumer skill. If a capability is missing, add it upstream in Verify and
+  re-pin with `tools/sync_verify.py` before using it here. Keep only
+  Facet-specific cases and integration policy in this repository.
 - Keep `tests/plan.json` and `tests/case_inventory.json` aligned with the cases.
   The full gate uses the committed plan. A focused run is not full evidence.
 - `tools/vendor/verify` is a generated, read-only test dependency. Change shared
