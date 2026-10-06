@@ -3,6 +3,7 @@
 local Operations = require "@self/operations"
 local Performance = require "@self/performance"
 
+local Benchmark = require "@self/benchmark"
 local Capability = require "@self/capability"
 local Execution = require "@self/execution"
 local HarnessModule = require "@self/harness"
@@ -92,6 +93,13 @@ export type EvidenceContent = Provenance.Content
 export type EvidenceMeta = Provenance.Meta
 export type EvidenceStat = Provenance.Stat
 
+export type BenchmarkSpec = Benchmark.Spec
+export type BenchmarkResult = Benchmark.Result
+export type BenchmarkBaseline = Benchmark.Baseline
+export type BenchmarkYardstick = Benchmark.Yardstick
+export type BenchmarkInvalid = Benchmark.Invalid
+export type BenchmarkClock = Benchmark.Clock
+
 export type MediaAudioWindow = Media.AudioWindow
 export type MediaResolvedAudioWindow = Media.ResolvedAudioWindow
 export type MediaRecording = Media.Recording
@@ -121,6 +129,7 @@ return {
 	runCase = HarnessModule.runCase,
 	runCases = HarnessModule.runCases,
 	performance = Performance,
+	benchmark = Benchmark,
 	SCHEMA_VERSION = ReportModel.SCHEMA_VERSION,
 	MANIFEST_SCHEMA_VERSION = Manifest.SCHEMA_VERSION,
 	PLAN_SCHEMA_VERSION = Plan.SCHEMA_VERSION,

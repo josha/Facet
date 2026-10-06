@@ -328,7 +328,7 @@ locator meaning and an authorized host.
 | `Core.execute(plan, host, options?)` | Execute batches with lifecycle and failure accounting. |
 
 | `Gate.define`, `run`, `format`, `shard`, `testCases` (package `src/gate`); `Lute.gate` and `Lune.gate` (`run`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
-| `Benchmark.case`, `run` (`src/benchmark.luau`) | Warmup, sampling, baseline and stability checks reported as an ordinary case. See [benchmarks](experience.md#benchmarks). |
+| `Core.benchmark.case`, `run` | Warmup, sampling, baseline and stability checks reported as an ordinary case. See [benchmarks](experience.md#benchmarks). |
 
 See [the execution contract](execution.md) for fixtures, deadlines, retries and Lute workers. [`Host.fake`](../src/host/init.luau) injects missing, duplicate, reordered, failed and
 cancelled deliveries without external effects.

@@ -99,10 +99,7 @@ local function create(options: Options): Environment.Environment
 			end
 			local declared = properties[className]
 			if declared ~= nil and declared[key] then
-				local value = defaults[className][key]
-				if value ~= nil then
-					return value
-				end
+				return defaults[className][key]
 			end
 			return fallback
 		end,

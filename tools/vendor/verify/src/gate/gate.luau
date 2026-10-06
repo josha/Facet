@@ -1,6 +1,6 @@
 --!strict
 
-local Benchmark = require "../benchmark"
+local Benchmark = require "../core/benchmark"
 local Capability = require "../core/capability"
 local Execution = require "../core/execution"
 local GateJob = require "./gate-job"

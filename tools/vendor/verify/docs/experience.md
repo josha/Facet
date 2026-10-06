@@ -183,7 +183,7 @@ input, distinct from the character motion operations in `playerHost`.
 
 ## Benchmarks
 
-`Benchmark.case(spec)` (`src/benchmark.luau`, host-side) is an ordinary case; `Benchmark.run(spec)` returns the raw result. A spec supplies
+`Verify.benchmark.case(spec)` is an ordinary case; `Verify.benchmark.run(spec)` returns the raw result. A spec supplies
 `name`, `unit` (`seconds`, `milliseconds`, `microseconds`), `workload`, `warmup`, `samples`, `iterations?`, `budget`
 (`p50`, `p95`, `p99`, `maximum`), `environment = { observed, accepted? }` and optionally `maxSpread`, `yardstick`,
 `baseline` with `acceptedBaselines`, `deadlineSeconds` and an injectable `clock` (default `os.clock`; a gate supplies its own).

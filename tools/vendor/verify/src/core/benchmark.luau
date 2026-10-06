@@ -1,7 +1,7 @@
 --!strict
 
-local Harness = require "./core/harness"
-local Performance = require "./core/performance"
+local Harness = require "./harness"
+local Performance = require "./performance"
 
 export type Unit = "seconds" | "milliseconds" | "microseconds"
 export type Clock = () -> number

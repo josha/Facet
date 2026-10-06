@@ -1,6 +1,6 @@
 --!strict
 
-local Benchmark = require "../benchmark"
+local Benchmark = require "../core/benchmark"
 local GateTypes = require "./gate-types"
 local Harness = require "../core/harness"
 local ReportModel = require "../core/report"

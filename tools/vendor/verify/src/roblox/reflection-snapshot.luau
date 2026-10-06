@@ -44,13 +44,6 @@ local function decodeValue(value: unknown): unknown
 	end
 	local tagged = value :: { [string]: unknown }
 	local kind = tagged["$"]
-	if kind == "bytes" then
-		return (
-			string.gsub(tagged.v :: string, "%x%x", function(pair: string): string
-				return string.char(tonumber(pair, 16) :: number)
-			end)
-		)
-	end
 	if kind == "number" then
 		return number(tagged.v)
 	end

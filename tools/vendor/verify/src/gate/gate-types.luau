@@ -1,6 +1,6 @@
 --!strict
 
-local Benchmark = require "../benchmark"
+local Benchmark = require "../core/benchmark"
 local Provenance = require "../core/provenance"
 local Types = require "../core/types"
 
