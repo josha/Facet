@@ -1,41 +1,150 @@
 --!strict
 
 type Vec3 = { X: number, Y: number, Z: number }
-type CF = { _cframe: boolean }
+type Vec2 = { X: number, Y: number }
+type CF = { X: number, Y: number, Z: number, _cframe: boolean, r: { number } }
 type C3 = { R: number, G: number, B: number }
 
-local Vector3: any
-local CFrame: any
+export type Vector3Value = typeof(setmetatable(
+	{} :: {
+		X: number,
+		Y: number,
+		Z: number,
+		Magnitude: number,
+		Unit: Vector3Value,
+		Dot: (Vector3Value, Vec3 | Vector3Value) -> number,
+		Cross: (Vector3Value, Vec3 | Vector3Value) -> Vector3Value,
+	},
+	{} :: {
+		__add: (Vector3Value, Vec3 | Vector3Value) -> Vector3Value,
+		__sub: (Vector3Value, Vec3 | Vector3Value) -> Vector3Value,
+		__mul: (Vector3Value, number | Vec3 | Vector3Value) -> Vector3Value,
+		__div: (Vector3Value, number | Vec3 | Vector3Value) -> Vector3Value,
+		__unm: (Vector3Value) -> Vector3Value,
+		__eq: (Vector3Value, Vector3Value) -> boolean,
+		__tostring: (Vec3) -> string,
+		__index: (Vec3, string) -> unknown,
+	}
+))
 
-local v3Mt: any = {}
-v3Mt.__add = function(a: any, b: any): any
+export type Vector2Value = typeof(setmetatable(
+	{} :: {
+		X: number,
+		Y: number,
+		Magnitude: number,
+		Unit: Vector2Value,
+		Dot: (Vector2Value, Vec2 | Vector2Value) -> number,
+	},
+	{} :: {
+		__add: (Vector2Value, Vec2 | Vector2Value) -> Vector2Value,
+		__sub: (Vector2Value, Vec2 | Vector2Value) -> Vector2Value,
+		__mul: (Vector2Value, number | Vec2 | Vector2Value) -> Vector2Value,
+		__div: (Vector2Value, number | Vec2 | Vector2Value) -> Vector2Value,
+		__unm: (Vector2Value) -> Vector2Value,
+		__eq: (Vector2Value, Vector2Value) -> boolean,
+		__tostring: (Vec2) -> string,
+		__index: (Vec2, string) -> unknown,
+	}
+))
+
+export type CFrameValue = typeof(setmetatable(
+	{} :: {
+		X: number,
+		Y: number,
+		Z: number,
+		_cframe: boolean,
+		r: { number },
+		Position: Vector3Value,
+		RightVector: Vector3Value,
+		XVector: Vector3Value,
+		UpVector: Vector3Value,
+		YVector: Vector3Value,
+		ZVector: Vector3Value,
+		LookVector: Vector3Value,
+		GetComponents: (
+			CFrameValue
+		) -> (number, number, number, number, number, number, number, number, number, number, number, number),
+		Inverse: (CFrameValue) -> CFrameValue,
+	},
+	{} :: {
+		__mul: ((CFrameValue, CFrameValue) -> CFrameValue) & ((CFrameValue, Vec3 | Vector3Value) -> Vector3Value),
+		__sub: (CFrameValue, Vec3 | Vector3Value) -> CFrameValue,
+		__eq: (CFrameValue, CFrameValue) -> boolean,
+		__index: (CF, string) -> unknown,
+	}
+))
+
+export type Color3Value = typeof(setmetatable(
+	{} :: C3,
+	{} :: {
+		__index: { Lerp: (Color3Value, C3 | Color3Value, number) -> Color3Value },
+		__eq: (Color3Value, Color3Value) -> boolean,
+		__tostring: (C3) -> string,
+	}
+))
+
+export type UDimValue = typeof(setmetatable(
+	{} :: { Scale: number, Offset: number },
+	{} :: {
+		__eq: (UDimValue, UDimValue) -> boolean,
+		__tostring: (UDimValue) -> string,
+	}
+))
+export type UDim2Value = typeof(setmetatable(
+	{} :: {
+		X: UDimValue,
+		Y: UDimValue,
+		Width: UDimValue,
+		Height: UDimValue,
+	},
+	{} :: {
+		__eq: (UDim2Value, UDim2Value) -> boolean,
+		__tostring: (UDim2Value) -> string,
+	}
+))
+
+export type Vector3Constructor = { new: (number?, number?, number?) -> Vector3Value }
+export type CFrameConstructor = {
+	new: ((number?, number?, number?, ...number) -> CFrameValue)
+		& ((Vec3) -> CFrameValue)
+		& ((Vector3Value, Vector3Value?) -> CFrameValue),
+	Angles: (number, number, number) -> CFrameValue,
+	fromEulerAnglesXYZ: (number, number, number) -> CFrameValue,
+	lookAt: (Vector3Value, Vector3Value, Vector3Value?) -> CFrameValue,
+}
+
+local Vector3: Vector3Constructor
+local CFrame: CFrameConstructor
+
+local v3Mt = {}
+v3Mt.__add = function(a: Vector3Value, b: Vec3): Vector3Value
 	return Vector3.new(a.X + b.X, a.Y + b.Y, a.Z + b.Z)
 end
-v3Mt.__sub = function(a: any, b: any): any
+v3Mt.__sub = function(a: Vector3Value, b: Vec3): Vector3Value
 	return Vector3.new(a.X - b.X, a.Y - b.Y, a.Z - b.Z)
 end
-v3Mt.__mul = function(a: any, b: any): any
+v3Mt.__mul = function(a: Vector3Value, b: number | Vec3 | Vector3Value): Vector3Value
 	if type(b) == "number" then
 		return Vector3.new(a.X * b, a.Y * b, a.Z * b)
 	end
 	return Vector3.new(a.X * b.X, a.Y * b.Y, a.Z * b.Z)
 end
-v3Mt.__div = function(a: any, b: any): any
+v3Mt.__div = function(a: Vector3Value, b: number | Vec3 | Vector3Value): Vector3Value
 	if type(b) == "number" then
 		return Vector3.new(a.X / b, a.Y / b, a.Z / b)
 	end
 	return Vector3.new(a.X / b.X, a.Y / b.Y, a.Z / b.Z)
 end
-v3Mt.__unm = function(a: any): any
+v3Mt.__unm = function(a: Vector3Value): Vector3Value
 	return Vector3.new(-a.X, -a.Y, -a.Z)
 end
-v3Mt.__eq = function(a: any, b: any): boolean
+v3Mt.__eq = function(a: Vector3Value, b: Vector3Value): boolean
 	return a.X == b.X and a.Y == b.Y and a.Z == b.Z
 end
-v3Mt.__tostring = function(a: any): string
+v3Mt.__tostring = function(a: Vec3): string
 	return ("Vector3(%g, %g, %g)"):format(a.X, a.Y, a.Z)
 end
-v3Mt.__index = function(v: any, key: any): any
+v3Mt.__index = function(v: Vec3, key: string): unknown
 	if key == "Magnitude" then
 		return math.sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z)
 	elseif key == "Unit" then
@@ -45,33 +154,33 @@ v3Mt.__index = function(v: any, key: any): any
 	return rawget(v3Mt, key)
 end
 
-function v3Mt.Dot(a: any, b: any): number
+function v3Mt.Dot(a: Vector3Value, b: Vec3): number
 	return a.X * b.X + a.Y * b.Y + a.Z * b.Z
 end
 
-function v3Mt.Cross(a: any, b: any): any
+function v3Mt.Cross(a: Vector3Value, b: Vec3): Vector3Value
 	return Vector3.new(a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X)
 end
 
 Vector3 = {
-	new = function(x: number?, y: number?, z: number?): Vec3
-		local v: any = { X = x or 0, Y = y or 0, Z = z or 0 }
+	new = function(x: number?, y: number?, z: number?): Vector3Value
+		local v: Vec3 = { X = x or 0, Y = y or 0, Z = z or 0 }
 		setmetatable(v, v3Mt)
-		return v
+		return (v :: unknown) :: Vector3Value
 	end,
 }
 
-local cfMt: any = {}
+local cfMt = {}
 
-local function makeCFrame(x: number, y: number, z: number, r: { number }): CF
-	local cf: any = { _cframe = true, X = x, Y = y, Z = z, r = r }
+local function makeCFrame(x: number, y: number, z: number, r: { number }): CFrameValue
+	local cf: CF = { _cframe = true, X = x, Y = y, Z = z, r = r }
 	setmetatable(cf, cfMt)
-	return cf
+	return (cf :: unknown) :: CFrameValue
 end
 
 local IDENTITY_R = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
 
-cfMt.__index = function(cf: any, key: any): any
+cfMt.__index = function(cf: CF, key: string): unknown
 	local r = rawget(cf, "r") :: { number }
 	if key == "Position" then
 		return Vector3.new(cf.X, cf.Y, cf.Z)
@@ -87,10 +196,10 @@ cfMt.__index = function(cf: any, key: any): any
 	return rawget(cfMt, key)
 end
 
-cfMt.__mul = function(a: any, b: any): any
-	local ar = rawget(a, "r") :: { number }
+cfMt.__mul = function(a: CF, b: CF | Vec3): CFrameValue | Vector3Value
+	local ar = rawget((a :: unknown) :: CF, "r") :: { number }
 	if b ~= nil and rawget(b, "_cframe") ~= nil then
-		local br = rawget(b, "r") :: { number }
+		local br = rawget((b :: unknown) :: CF, "r") :: { number }
 		local r = table.create(9, 0)
 		for row = 0, 2 do
 			for col = 1, 3 do
@@ -113,12 +222,12 @@ cfMt.__mul = function(a: any, b: any): any
 	)
 end
 
-cfMt.__eq = function(a: any, b: any): boolean
+cfMt.__eq = function(a: CFrameValue, b: CFrameValue): boolean
 	if a.X ~= b.X or a.Y ~= b.Y or a.Z ~= b.Z then
 		return false
 	end
-	local ar = rawget(a, "r") :: { number }
-	local br = rawget(b, "r") :: { number }
+	local ar = rawget((a :: unknown) :: CF, "r") :: { number }
+	local br = rawget((b :: unknown) :: CF, "r") :: { number }
 	for index = 1, 9 do
 		if ar[index] ~= br[index] then
 			return false
@@ -127,11 +236,11 @@ cfMt.__eq = function(a: any, b: any): boolean
 	return true
 end
 
-cfMt.__sub = function(a: any, b: any): any
-	return makeCFrame(a.X - b.X, a.Y - b.Y, a.Z - b.Z, rawget(a, "r") :: { number })
+cfMt.__sub = function(a: CF, b: Vec3): CFrameValue
+	return makeCFrame(a.X - b.X, a.Y - b.Y, a.Z - b.Z, rawget((a :: unknown) :: CF, "r") :: { number })
 end
 
-function cfMt.GetComponents(cf: any): (
+function cfMt.GetComponents(cf: CF): (
 	number,
 	number,
 	number,
@@ -149,7 +258,7 @@ function cfMt.GetComponents(cf: any): (
 	return cf.X, cf.Y, cf.Z, r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]
 end
 
-function cfMt.Inverse(cf: any): CF
+function cfMt.Inverse(cf: CF): CFrameValue
 	local r = rawget(cf, "r") :: { number }
 	return makeCFrame(
 		-(r[1] * cf.X + r[4] * cf.Y + r[7] * cf.Z),
@@ -159,7 +268,7 @@ function cfMt.Inverse(cf: any): CF
 	)
 end
 
-local function fromEulerAnglesXYZ(rx: number, ry: number, rz: number): CF
+local function fromEulerAnglesXYZ(rx: number, ry: number, rz: number): CFrameValue
 	local cx, sx = math.cos(rx), math.sin(rx)
 	local cy, sy = math.cos(ry), math.sin(ry)
 	local cz, sz = math.cos(rz), math.sin(rz)
@@ -176,22 +285,27 @@ local function fromEulerAnglesXYZ(rx: number, ry: number, rz: number): CF
 	})
 end
 
-CFrame = {
-	new = function(x: any?, y: any?, z: number?, ...: number): CF
+local cframeConstructor = {
+	new = function(
+		x: number | Vec3 | Vector3Value?,
+		y: number | Vec3 | Vector3Value?,
+		z: number?,
+		...: number
+	): CFrameValue
 		if type(x) == "table" then
 			if type(y) == "table" then
-				return CFrame.lookAt(x, y)
+				return CFrame.lookAt((x :: unknown) :: Vector3Value, (y :: unknown) :: Vector3Value)
 			end
 			return makeCFrame(x.X, x.Y, x.Z, IDENTITY_R)
 		end
 		if select("#", ...) == 9 then
-			return makeCFrame(x or 0, y or 0, z or 0, { ... })
+			return makeCFrame((x :: number?) or 0, (y :: number?) or 0, z or 0, { ... })
 		end
-		return makeCFrame(x or 0, y or 0, z or 0, IDENTITY_R)
+		return makeCFrame((x :: number?) or 0, (y :: number?) or 0, z or 0, IDENTITY_R)
 	end,
 	Angles = fromEulerAnglesXYZ,
 	fromEulerAnglesXYZ = fromEulerAnglesXYZ,
-	lookAt = function(from: any, to: any, up: any?): CF
+	lookAt = function(from: Vector3Value, to: Vector3Value, up: Vector3Value?): CFrameValue
 		local worldUp = up or Vector3.new(0, 1, 0)
 		local look = (to - from).Unit
 		local right = look:Cross(worldUp)
@@ -217,41 +331,43 @@ CFrame = {
 	end,
 }
 
-local color3Mt: any = {}
+CFrame = cframeConstructor :: CFrameConstructor
+
+local color3Mt = {}
 color3Mt.__index = color3Mt
-local makeColor3: (number, number, number) -> C3
-function color3Mt:Lerp(other: C3, alpha: number): C3
+local makeColor3: (number, number, number) -> Color3Value
+function color3Mt.Lerp(self: C3, other: C3 | Color3Value, alpha: number): Color3Value
 	return makeColor3(
 		self.R + (other.R - self.R) * alpha,
 		self.G + (other.G - self.G) * alpha,
 		self.B + (other.B - self.B) * alpha
 	)
 end
-color3Mt.__eq = function(a: any, b: any): boolean
+color3Mt.__eq = function(a: Color3Value, b: Color3Value): boolean
 	return a.R == b.R and a.G == b.G and a.B == b.B
 end
-color3Mt.__tostring = function(a: any): string
+color3Mt.__tostring = function(a: C3): string
 	return ("%g, %g, %g"):format(a.R, a.G, a.B)
 end
 
-makeColor3 = function(r: number, g: number, b: number): C3
-	local color: any = { R = r, G = g, B = b }
+makeColor3 = function(r: number, g: number, b: number): Color3Value
+	local color: C3 = { R = r, G = g, B = b }
 	setmetatable(color, color3Mt)
-	return color
+	return (color :: unknown) :: Color3Value
 end
 
 local Color3 = {
-	fromRGB = function(r: number, g: number, b: number): C3
+	fromRGB = function(r: number, g: number, b: number): Color3Value
 		return makeColor3(r / 255, g / 255, b / 255)
 	end,
-	new = function(r: number?, g: number?, b: number?): C3
+	new = function(r: number?, g: number?, b: number?): Color3Value
 		return makeColor3(r or 0, g or 0, b or 0)
 	end,
 }
 
-local v2Mt: any = {}
-local makeVector2: (number, number) -> any
-v2Mt.__index = function(v: any, key: any): any
+local v2Mt = {}
+local makeVector2: (number, number) -> Vector2Value
+v2Mt.__index = function(v: Vec2, key: string): unknown
 	if key == "Magnitude" then
 		return math.sqrt(v.X * v.X + v.Y * v.Y)
 	elseif key == "Unit" then
@@ -260,130 +376,134 @@ v2Mt.__index = function(v: any, key: any): any
 	end
 	return rawget(v2Mt, key)
 end
-v2Mt.__add = function(a: any, b: any): any
+v2Mt.__add = function(a: Vector2Value, b: Vec2): Vector2Value
 	return makeVector2(a.X + b.X, a.Y + b.Y)
 end
-v2Mt.__sub = function(a: any, b: any): any
+v2Mt.__sub = function(a: Vector2Value, b: Vec2): Vector2Value
 	return makeVector2(a.X - b.X, a.Y - b.Y)
 end
-v2Mt.__mul = function(a: any, b: any): any
+v2Mt.__mul = function(a: Vector2Value, b: number | Vec2 | Vector2Value): Vector2Value
 	if type(b) == "number" then
 		return makeVector2(a.X * b, a.Y * b)
 	end
 	return makeVector2(a.X * b.X, a.Y * b.Y)
 end
-v2Mt.__div = function(a: any, b: any): any
+v2Mt.__div = function(a: Vector2Value, b: number | Vec2 | Vector2Value): Vector2Value
 	if type(b) == "number" then
 		return makeVector2(a.X / b, a.Y / b)
 	end
 	return makeVector2(a.X / b.X, a.Y / b.Y)
 end
-v2Mt.__unm = function(a: any): any
+v2Mt.__unm = function(a: Vector2Value): Vector2Value
 	return makeVector2(-a.X, -a.Y)
 end
-v2Mt.__eq = function(a: any, b: any): boolean
+v2Mt.__eq = function(a: Vector2Value, b: Vector2Value): boolean
 	return a.X == b.X and a.Y == b.Y
 end
-v2Mt.__tostring = function(a: any): string
+v2Mt.__tostring = function(a: Vec2): string
 	return ("%g, %g"):format(a.X, a.Y)
 end
-function v2Mt.Dot(a: any, b: any): number
+function v2Mt.Dot(a: Vector2Value, b: Vec2): number
 	return a.X * b.X + a.Y * b.Y
 end
-makeVector2 = function(x: number, y: number): any
-	return setmetatable({ X = x, Y = y }, v2Mt)
+makeVector2 = function(x: number, y: number): Vector2Value
+	return (setmetatable({ X = x, Y = y }, v2Mt) :: unknown) :: Vector2Value
 end
 local Vector2 = {
-	new = function(x: number?, y: number?): any
+	new = function(x: number?, y: number?): Vector2Value
 		return makeVector2(x or 0, y or 0)
 	end,
 }
 
-local udimMt: any = {}
-udimMt.__eq = function(a: any, b: any): boolean
+local udimMt = {}
+udimMt.__eq = function(a: UDimValue, b: UDimValue): boolean
 	return a.Scale == b.Scale and a.Offset == b.Offset
 end
-udimMt.__tostring = function(a: any): string
+udimMt.__tostring = function(a: UDimValue): string
 	return ("%g, %g"):format(a.Scale, a.Offset)
 end
 local UDim = {
-	new = function(scale: number?, offset: number?): any
+	new = function(scale: number?, offset: number?): UDimValue
 		return setmetatable({ Scale = scale or 0, Offset = offset or 0 }, udimMt)
 	end,
 }
 
-local udim2Mt: any = {}
-udim2Mt.__eq = function(a: any, b: any): boolean
+local udim2Mt = {}
+udim2Mt.__eq = function(a: UDim2Value, b: UDim2Value): boolean
 	return a.X == b.X and a.Y == b.Y
 end
-udim2Mt.__tostring = function(a: any): string
+udim2Mt.__tostring = function(a: UDim2Value): string
 	return ("{%g, %g}, {%g, %g}"):format(a.X.Scale, a.X.Offset, a.Y.Scale, a.Y.Offset)
 end
-local function makeUDim2(xs: any?, xo: any?, ys: number?, yo: number?): any
+local function makeUDim2(xs: number | UDimValue?, xo: number | UDimValue?, ys: number?, yo: number?): UDim2Value
 	local x, y
 	if type(xs) == "table" then
-		x, y = xs, xo
+		x, y = xs, xo :: UDimValue
 	else
-		x, y = UDim.new(xs, xo), UDim.new(ys, yo)
+		x, y = UDim.new(xs :: number?, xo :: number?), UDim.new(ys, yo)
 	end
-	return setmetatable({ X = x, Y = y, Width = x, Height = y }, udim2Mt)
+	return setmetatable({ X = x, Y = y, Width = x, Height = y }, udim2Mt) :: UDim2Value
 end
 local UDim2 = {
-	new = makeUDim2,
-	fromScale = function(x: number?, y: number?): any
+	new = makeUDim2 :: ((number?, number?, number?, number?) -> UDim2Value) & ((UDimValue, UDimValue) -> UDim2Value),
+	fromScale = function(x: number?, y: number?): UDim2Value
 		return makeUDim2(x or 0, 0, y or 0, 0)
 	end,
-	fromOffset = function(x: number?, y: number?): any
+	fromOffset = function(x: number?, y: number?): UDim2Value
 		return makeUDim2(0, x or 0, 0, y or 0)
 	end,
 }
 
-local memberMt: any = {}
-memberMt.__index = function(category: any, member: string): any
+export type EnumMember = { _enum: string }
+export type EnumCategory = { [string]: EnumMember }
+export type EnumValue = { [string]: EnumCategory }
+
+local memberMt = {}
+memberMt.__index = function(category: EnumCategory, member: string): EnumMember
 	local value = { _enum = member }
 	rawset(category, member, value)
 	return value
 end
-local enumMt: any = {}
-enumMt.__index = function(enum: any, category: string): any
-	local members = setmetatable({}, memberMt)
+local enumMt = {}
+enumMt.__index = function(enum: EnumValue, category: string): EnumCategory
+	local members = (setmetatable({}, memberMt) :: unknown) :: EnumCategory
 	rawset(enum, category, members)
 	return members
 end
-local Enum = setmetatable({} :: any, enumMt)
+local Enum = (setmetatable({}, enumMt) :: unknown) :: EnumValue
 
 local NumberSequenceKeypoint = {
-	new = function(t: number, v: number, _envelope: number?): any
+	new = function(t: number, v: number, _envelope: number?): { Time: number, Value: number }
 		return { Time = t, Value = v }
 	end,
 }
 
 local ColorSequenceKeypoint = {
-	new = function(t: number, color: any): any
+	new = function<T>(t: number, color: T): { Time: number, Value: T }
 		return { Time = t, Value = color }
 	end,
 }
 
 local NumberRange = {
-	new = function(min: number, max: number?): any
+	new = function(min: number, max: number?): { Min: number, Max: number }
 		return { Min = min, Max = max or min }
 	end,
 }
 
 local NumberSequence = {
-	new = function(value: any): any
+	new = function<T>(value: T): { _ns: T }
 		return { _ns = value }
 	end,
 }
 
 local ColorSequence = {
-	new = function(value: any): any
+	new = function<T>(value: T): { _cs: T }
 		return { _cs = value }
 	end,
 }
 
 local Rect = {
-	new = function(_x0: number?, _y0: number?, _x1: number?, _y1: number?): any
+	new = function(_x0: number?, _y0: number?, _x1: number?, _y1: number?): { _rect: boolean }
 		return { _rect = true }
 	end,
 }
@@ -391,17 +511,22 @@ local Rect = {
 local TweenInfo = {
 	new = function(
 		_time: number?,
-		_style: any?,
-		_dir: any?,
+		_style: unknown,
+		_dir: unknown,
 		_count: number?,
 		_reverses: boolean?,
 		_delay: number?
-	): any
+	): { _tweenInfo: boolean }
 		return { _tweenInfo = true }
 	end,
 }
 
-local names: { [any]: string } = {
+export type Vector2Constructor = typeof(Vector2)
+export type Color3Constructor = typeof(Color3)
+export type UDimConstructor = typeof(UDim)
+export type UDim2Constructor = typeof(UDim2)
+
+local names: { [unknown]: string } = {
 	[v3Mt] = "Vector3",
 	[cfMt] = "CFrame",
 	[color3Mt] = "Color3",
@@ -410,15 +535,15 @@ local names: { [any]: string } = {
 	[udim2Mt] = "UDim2",
 }
 
-local function typeName(value: any): string?
+local function typeName(value: unknown): string?
 	if type(value) ~= "table" then
 		return nil
 	end
-	return names[getmetatable(value)]
+	return names[((getmetatable :: unknown) :: (unknown) -> unknown)(value)]
 end
 
-local function readCFrame(value: any): (number, number, number, { number })
-	local r = rawget(value, "r") :: { number }
+local function readCFrame(value: CFrameValue): (number, number, number, { number })
+	local r = rawget((value :: unknown) :: CF, "r") :: { number }
 	return value.X, value.Y, value.Z, table.clone(r)
 end
 

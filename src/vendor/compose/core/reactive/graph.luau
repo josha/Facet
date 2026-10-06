@@ -8,12 +8,13 @@ local stats = require "./stats"
 local statsOn = stats.state
 local userSpace = require "./userSpace"
 local validationState = userSpace.state
+local metatableOf = (getmetatable :: unknown) :: (unknown) -> unknown
 
 local CLEAN = 0
 local CHECK = 1
 local DIRTY = 2
 
-export type Edge = { any }
+export type Edge = { Producer | Consumer | number | Edge | nil }
 
 export type Producer = {
 
@@ -67,7 +68,44 @@ export type Reactor = {
 
 local PRODUCER, CONSUMER, OBSERVED, PREVIOUS, NEXT = 1, 2, 3, 4, 5
 
-local evaluating: Consumer? = nil
+type Evaluation = { consumer: Consumer?, order: number }
+
+local evaluations = (
+	setmetatable({} :: { [thread]: Evaluation? }, { __mode = "k" }) :: unknown
+) :: { [thread]: Evaluation? }
+local evaluationOrder = 0
+
+local function evaluationContext(): Consumer?
+	local running = coroutine.running()
+	local own = evaluations[running]
+	if own ~= nil then
+		return own.consumer
+	end
+	local inherited: Evaluation? = nil
+	for thread, context in evaluations do
+		if
+			context ~= nil
+			and coroutine.status(thread) == "normal"
+			and (inherited == nil or context.order > inherited.order)
+		then
+			inherited = context
+		end
+	end
+	return if inherited ~= nil then inherited.consumer else nil
+end
+
+local function activateEvaluation(consumer: Consumer?)
+	evaluationOrder += 1
+	evaluations[coroutine.running()] = { consumer = consumer, order = evaluationOrder }
+end
+
+local function captureEvaluationContext(): Evaluation?
+	return evaluations[coroutine.running()]
+end
+
+local function restoreEvaluationContext(previous: Evaluation?)
+	evaluations[coroutine.running()] = previous
+end
 
 local touched: { Reactor } = {}
 local touchedCount = 0
@@ -85,9 +123,9 @@ local function attach(producer: Producer, consumer: Consumer): Edge
 end
 
 local function detach(edge: Edge)
-	local previous = edge[PREVIOUS]
-	local following = edge[NEXT]
-	local producer = edge[PRODUCER]
+	local previous = edge[PREVIOUS] :: Edge?
+	local following = edge[NEXT] :: Edge?
+	local producer = edge[PRODUCER] :: Producer
 	if previous ~= nil then
 		previous[NEXT] = following
 	else
@@ -115,21 +153,21 @@ local function markStale(producer: Producer, state: number)
 		local kind = if producer.derived then "formula" else "cell"
 		local recorded = producer.subscribers
 		while recorded ~= nil do
-			profile.edge(producer, kind, recorded[CONSUMER])
-			recorded = recorded[NEXT]
+			profile.edge(producer, kind, recorded[CONSUMER] :: Consumer)
+			recorded = recorded[NEXT] :: Edge?
 		end
 	end
 
 	local edge = producer.subscribers
 	while edge ~= nil do
-		local consumer: Consumer = edge[CONSUMER]
+		local consumer: Consumer = edge[CONSUMER] :: Consumer
 		if consumer.state < state or consumer.retry then
 			local wasClean = consumer.state == CLEAN or consumer.retry
 			consumer.retry = false
 			consumer.state = state
 			if wasClean then
 				if consumer.derived then
-					markStale(edge[CONSUMER], CHECK)
+					markStale(edge[CONSUMER] :: Producer, CHECK)
 				end
 				local enqueue = consumer.enqueue
 
@@ -138,7 +176,7 @@ local function markStale(producer: Producer, state: number)
 				end
 			end
 		end
-		edge = edge[NEXT]
+		edge = edge[NEXT] :: Edge?
 	end
 end
 
@@ -220,7 +258,7 @@ local function recordThenRefresh(consumer: Consumer, producer: Producer)
 end
 
 local function observe(producer: Producer)
-	local consumer = evaluating
+	local consumer = evaluationContext()
 	if consumer == nil then
 		Diagnostics.raise("reactive/no-evaluation", "use() was called outside a reactive body", {
 			contract = "use reads a cell or formula and records a dependency, which only means "
@@ -237,7 +275,7 @@ local function dependenciesMoved(consumer: Consumer): boolean
 	local dependencies = consumer.dependencies
 	for index = 1, #dependencies do
 		local edge = dependencies[index]
-		local producer: Producer = edge[PRODUCER]
+		local producer: Producer = edge[PRODUCER] :: Producer
 		local refresh = producer.refresh
 		if refresh then
 			(refresh :: (Producer) -> ())(producer)
@@ -250,8 +288,9 @@ local function dependenciesMoved(consumer: Consumer): boolean
 end
 
 local function evaluate<A, T>(consumer: Consumer, body: (A) -> T, argument: A): T
-	local previous = evaluating
-	evaluating = consumer
+	local running = coroutine.running()
+	local previous = evaluations[running]
+	activateEvaluation(consumer)
 	consumer.reads = 0
 
 	local ok, result
@@ -261,7 +300,7 @@ local function evaluate<A, T>(consumer: Consumer, body: (A) -> T, argument: A): 
 		ok, result = pcall(body, argument)
 	end
 
-	evaluating = previous
+	evaluations[running] = previous
 	if not ok then
 		if consumer.derived then
 			consumer.state = DIRTY
@@ -274,29 +313,21 @@ local function evaluate<A, T>(consumer: Consumer, body: (A) -> T, argument: A): 
 	return result :: T
 end
 
-local function beginEvaluation(consumer: Consumer): Consumer?
-	local previous = evaluating
-	evaluating = consumer
+local function beginEvaluation(consumer: Consumer): Evaluation?
+	local previous = captureEvaluationContext()
+	activateEvaluation(consumer)
 	consumer.reads = 0
 	return previous
 end
 
-local function finishEvaluation(consumer: Consumer, previous: Consumer?)
-	evaluating = previous
+local function finishEvaluation(consumer: Consumer, previous: Evaluation?)
+	restoreEvaluationContext(previous)
 	local dependencies = consumer.dependencies
 	local from = consumer.reads + 1
 	for index = #dependencies, from, -1 do
 		detach(dependencies[index])
 		dependencies[index] = nil
 	end
-end
-
-local function evaluationContext(): Consumer?
-	return evaluating
-end
-
-local function restoreEvaluationContext(previous: Consumer?)
-	evaluating = previous
 end
 
 local function release(consumer: Consumer)
@@ -314,9 +345,9 @@ local function rearm(consumer: Consumer)
 	end
 	consumer.retry = true
 	for _, edge in consumer.dependencies do
-		local producer = edge[PRODUCER]
+		local producer = edge[PRODUCER] :: Producer
 		if producer.derived then
-			rearm(producer)
+			rearm((producer :: unknown) :: Consumer)
 		end
 	end
 end
@@ -326,16 +357,17 @@ local function subscriberCount(producer: Producer): number
 	local edge = producer.subscribers
 	while edge ~= nil do
 		total += 1
-		edge = edge[NEXT]
+		edge = edge[NEXT] :: Edge?
 	end
 	return total
 end
 
 local function untracked<T>(body: () -> T): T
-	local previous = evaluating
-	evaluating = nil
+	local running = coroutine.running()
+	local previous = evaluations[running]
+	activateEvaluation(nil)
 	local ok, result = pcall(body)
-	evaluating = previous
+	evaluations[running] = previous
 	if not ok then
 		error(result, 0)
 	end
@@ -360,11 +392,11 @@ local function notANode(api: string, value: unknown): never
 end
 
 local function use<T>(readable: Types.Readable<T>): T
-	local producer = (readable :: any) :: Held<T>
-	if type(producer) ~= "table" or getmetatable(producer :: any) == nil then
+	local producer = (readable :: unknown) :: Held<T>
+	if type(producer) ~= "table" or metatableOf(readable) == nil then
 		notANode("use", producer)
 	end
-	local consumer = evaluating
+	local consumer = evaluationContext()
 	if consumer == nil then
 		observe(producer)
 		return producer.value
@@ -375,8 +407,8 @@ local function use<T>(readable: Types.Readable<T>): T
 end
 
 local function runTracked(consumer: Tracked)
-	local previous = evaluating
-	evaluating = consumer
+	local previous = captureEvaluationContext()
+	activateEvaluation(consumer)
 	consumer.reads = 0
 
 	if validationState.validating then
@@ -385,7 +417,7 @@ local function runTracked(consumer: Tracked)
 		consumer.body(use)
 	end
 
-	evaluating = previous
+	restoreEvaluationContext(previous)
 	local dependencies = consumer.dependencies
 	for index = #dependencies, consumer.reads + 1, -1 do
 		detach(dependencies[index])
@@ -421,6 +453,7 @@ return {
 	beginEvaluation = beginEvaluation,
 	finishEvaluation = finishEvaluation,
 	evaluationContext = evaluationContext,
+	captureEvaluationContext = captureEvaluationContext,
 	restoreEvaluationContext = restoreEvaluationContext,
 	runTracked = runTracked,
 	release = release,

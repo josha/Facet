@@ -1,19 +1,25 @@
 --!strict
 
+export type Callback<A... = ...unknown, R... = ...unknown> = (A...) -> R...
+export type Task<A... = ...unknown, R... = ...unknown> = Callback<A..., R...> | thread
+
+type Arguments = { [number]: unknown, n: number }
+type Ready = { thread: thread, arguments: Arguments }
+
 export type Scheduler = {
 	clock: () -> number,
-	tag: (thread: thread, value: any) -> (),
+	tag: (thread: thread, value: unknown) -> (),
 	onFailure: (handler: (string) -> ()) -> (),
-	context: () -> any,
-	spawn: (callback: any, ...any) -> thread,
-	spawnTagged: (tag: any, callback: any, ...any) -> thread,
-	defer: (callback: any, ...any) -> thread,
-	delay: (seconds: number, callback: any, ...any) -> thread,
+	context: () -> unknown,
+	spawn: <A..., R...>(callback: Task<A..., R...>, A...) -> thread,
+	spawnTagged: <A..., R...>(tag: unknown, callback: Callback<A..., R...>, A...) -> thread,
+	defer: <A..., R...>(callback: Task<A..., R...>, A...) -> thread,
+	delay: <A..., R...>(seconds: number, callback: Task<A..., R...>, A...) -> thread,
 	wait: (seconds: number?) -> number,
-	block: (resume: (thread) -> ()) -> ...any,
+	block: (resume: (thread) -> ()) -> ...unknown,
 	drain: (budget: number) -> (),
 	advance: (seconds: number) -> (),
-	resume: (thread: thread, ...any) -> (),
+	resume: (thread: thread, ...unknown) -> (),
 	cancel: (thread: thread) -> (),
 	failures: { string },
 	pending: () -> number,
@@ -21,16 +27,16 @@ export type Scheduler = {
 
 local function create(): Scheduler
 	local now = 0
-	local ready: { { thread: thread, arguments: any } } = {}
+	local ready: { Ready } = {}
 	local timers: { { at: number, thread: thread } } = {}
 	local failures: { string } = {}
-	local tags: { [thread]: any } = {}
+	local tags: { [thread]: unknown } = {}
 	local owners: { [thread]: thread } = {}
-	local active: any = nil
-	local scheduler: any = {}
+	local active: unknown = nil
+	local scheduler = {} :: Scheduler
 	local onFailure: (string) -> () = function() end
 
-	local function withTag(thread: thread, ...: any): ...any
+	local function withTag<A...>(thread: thread, ...: A...): ...unknown
 		local previous = active
 		active = tags[thread]
 		local results = table.pack(coroutine.resume(thread, ...))
@@ -38,9 +44,9 @@ local function create(): Scheduler
 		return table.unpack(results, 1, results.n)
 	end
 
-	local function describe(thread: thread, message: any): string
-		local ok, trace = pcall(function(): any
-			return (debug :: any).traceback(thread)
+	local function describe(thread: thread, message: unknown): string
+		local ok, trace = pcall(function(): unknown
+			return debug.traceback(thread)
 		end)
 		if ok and type(trace) == "string" then
 			return tostring(message) .. "\n" .. trace
@@ -48,7 +54,7 @@ local function create(): Scheduler
 		return tostring(message)
 	end
 
-	local function push(thread: thread, ...: any)
+	local function push<A...>(thread: thread, ...: A...)
 		ready[#ready + 1] = { thread = thread, arguments = table.pack(...) }
 	end
 
@@ -72,11 +78,11 @@ local function create(): Scheduler
 		return now
 	end
 
-	function scheduler.resume(thread: thread, ...: any)
+	function scheduler.resume(thread: thread, ...: unknown)
 		push(thread, ...)
 	end
 
-	function scheduler.spawn(callback: any, ...: any): thread
+	function scheduler.spawn<A..., R...>(callback: Task<A..., R...>, ...: A...): thread
 		local thread = if type(callback) == "thread" then callback else coroutine.create(callback)
 		if tags[thread] == nil then
 			tags[thread] = active
@@ -90,7 +96,7 @@ local function create(): Scheduler
 		return thread
 	end
 
-	function scheduler.spawnTagged(tag: any, callback: any, ...: any): thread
+	function scheduler.spawnTagged<A..., R...>(tag: unknown, callback: Callback<A..., R...>, ...: A...): thread
 		local thread = coroutine.create(callback)
 		tags[thread] = tag
 		local results = table.pack(withTag(thread, ...))
@@ -102,7 +108,7 @@ local function create(): Scheduler
 		return thread
 	end
 
-	function scheduler.defer(callback: any, ...: any): thread
+	function scheduler.defer<A..., R...>(callback: Task<A..., R...>, ...: A...): thread
 		local thread = if type(callback) == "thread" then callback else coroutine.create(callback)
 		if tags[thread] == nil then
 			tags[thread] = active
@@ -111,7 +117,7 @@ local function create(): Scheduler
 		return thread
 	end
 
-	function scheduler.delay(seconds: number, callback: any, ...: any): thread
+	function scheduler.delay<A..., R...>(seconds: number, callback: Task<A..., R...>, ...: A...): thread
 		local thread = if type(callback) == "thread" then callback else coroutine.create(callback)
 		local arguments = table.pack(...)
 		if tags[thread] == nil then
@@ -130,11 +136,11 @@ local function create(): Scheduler
 		onFailure = handler
 	end
 
-	function scheduler.tag(thread: thread, value: any)
+	function scheduler.tag(thread: thread, value: unknown)
 		tags[thread] = value
 	end
 
-	function scheduler.context(): any
+	function scheduler.context(): unknown
 		return active
 	end
 
@@ -145,7 +151,7 @@ local function create(): Scheduler
 		return seconds or 0
 	end
 
-	function scheduler.block(register: (thread) -> ()): ...any
+	function scheduler.block(register: (thread) -> ()): ...unknown
 		register(coroutine.running())
 		return coroutine.yield()
 	end
@@ -182,7 +188,7 @@ local function create(): Scheduler
 	end
 
 	function scheduler.cancel(thread: thread)
-		local keptReady: { { thread: thread, arguments: any } } = {}
+		local keptReady: { Ready } = {}
 		for _, entry in ready do
 			if entry.thread ~= thread then
 				table.insert(keptReady, entry)

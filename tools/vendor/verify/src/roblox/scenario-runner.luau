@@ -92,7 +92,7 @@ local function callList(list: () -> ({ string }?, string?)): ({ string }?, strin
 	if not ok or type(values) ~= "table" then
 		return nil, if type(problem) == "string" then problem else "unavailable"
 	end
-	for _, reference in values :: { any } do
+	for _, reference in values :: { unknown } do
 		if type(reference) ~= "string" or reference == "" then
 			return nil, "malformed"
 		end
@@ -249,7 +249,11 @@ local function observe(deps: Deps, predicates: Predicates, options: Options): Se
 		selection.appeared = appeared
 
 		for _, row in rows do
-			if not selection.latched and predicates.latch ~= nil and (predicates.latch :: any)(row.bytes) then
+			if
+				not selection.latched
+				and predicates.latch ~= nil
+				and (predicates.latch :: (string) -> boolean)(row.bytes)
+			then
 				selection.latched = true
 			end
 			if selection.halt == nil then

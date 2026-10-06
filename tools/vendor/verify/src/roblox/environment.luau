@@ -8,17 +8,62 @@ export type Connection = {
 	Disconnect: (self: Connection) -> (),
 }
 
-export type Signal = {
-	Connect: (self: Signal, handler: (...any) -> ()) -> Connection,
-	Fire: (self: Signal, ...any) -> (),
+export type Signal<A... = ...unknown> = {
+	Connect: (self: Signal<A...>, handler: (A...) -> ()) -> Connection,
+	Fire: (self: Signal<A...>, A...) -> (),
+	DisconnectAll: (self: Signal<A...>) -> (),
 }
 
-export type ClassSpec = {
+export type Method<A... = ...unknown, R... = ...unknown> = (A...) -> R...
+export type Instance = {
+	[string]: unknown,
+	ClassName: string,
+	Name: unknown,
+	Parent: Instance?,
+	Destroy: (Instance) -> (),
+	ClearAllChildren: (Instance) -> (),
+	GetChildren: (Instance) -> { Instance },
+	GetDescendants: (Instance) -> { Instance },
+	FindFirstChild: (Instance, string, boolean?) -> Instance?,
+	FindFirstChildOfClass: (Instance, string) -> Instance?,
+	FindFirstChildWhichIsA: (Instance, string) -> Instance?,
+	FindFirstAncestor: (Instance, string) -> Instance?,
+	GetFullName: (Instance) -> string,
+	IsA: (Instance, string) -> boolean,
+	IsDescendantOf: (Instance, Instance) -> boolean,
+	IsAncestorOf: (Instance, Instance) -> boolean,
+	SetAttribute: (Instance, string, unknown) -> (),
+	GetAttribute: (Instance, string) -> unknown,
+	GetAttributes: (Instance) -> { [string]: unknown },
+	GetPropertyChangedSignal: (Instance, string) -> Signal<()>,
+	GetAttributeChangedSignal: (Instance, string) -> Signal<()>,
+	Changed: Signal<string>,
+	ChildAdded: Signal<Instance>,
+	ChildRemoved: Signal<Instance>,
+	DescendantAdded: Signal<Instance>,
+	DescendantRemoving: Signal<Instance>,
+	AncestryChanged: Signal<Instance, Instance?>,
+	Destroying: Signal<()>,
+	AttributeChanged: Signal<string>,
+}
+export type Snapshot = {
+	className: string,
+	name: unknown,
+	properties: { [string]: unknown },
+	attributes: { [string]: unknown },
+	children: { Snapshot },
+}
+
+export type ClassSpec<P = { [string]: unknown }, M = { [string]: unknown }> = {
 	super: string?,
 	creatable: boolean?,
-	properties: { [string]: any }?,
+	properties: P?,
 	events: { string }?,
-	methods: { [string]: any }?,
+	methods: M?,
+}
+
+export type DefineOptions = {
+	replace: boolean?,
 }
 
 export type Limits = {
@@ -26,157 +71,178 @@ export type Limits = {
 	attributeStringLength: number?,
 }
 
-export type Options = {
-	classes: { [string]: ClassSpec }?,
+export type Options<P = { [string]: unknown }, M = { [string]: unknown }, F = { [string]: unknown }> = {
+	defaultProperty: ((className: string, property: string, fallback: unknown) -> unknown)?,
+	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())?,
+	classes: { [string]: ClassSpec<P, M> }?,
 	builtins: boolean?,
-	fakes: { [string]: (self: any, ...any) -> ...any }?,
+	fakes: F?,
 	limits: Limits?,
 }
 
 export type Operation = "create" | "setProperty" | "setAttribute" | "setParent" | "destroy"
 
 export type Environment = {
-	root: any,
-	heartbeat: Signal,
+	root: Instance,
+	heartbeat: Signal<number>,
 	scheduler: Scheduler.Scheduler,
 	task: {
-		spawn: (callback: any, ...any) -> thread,
-		defer: (callback: any, ...any) -> thread,
-		delay: (seconds: number, callback: any, ...any) -> thread,
+		spawn: <A..., R...>(callback: Scheduler.Task<A..., R...>, A...) -> thread,
+		defer: <A..., R...>(callback: Scheduler.Task<A..., R...>, A...) -> thread,
+		delay: <A..., R...>(seconds: number, callback: Scheduler.Task<A..., R...>, A...) -> thread,
 		wait: (seconds: number?) -> number,
 		cancel: (thread: thread) -> (),
 	},
 	errors: { string },
-	defineClass: (className: string, spec: ClassSpec) -> (),
-	fake: (member: string, handler: (self: any, ...any) -> ...any) -> (),
-	createInstance: (className: string, props: { [any]: any }?) -> any,
-	snapshot: (object: any) -> any,
-	newSignal: () -> Signal,
+	defineClass: <P, M>(className: string, spec: ClassSpec<P, M>, options: DefineOptions?) -> (),
+	fake: <A..., R...>(member: string, handler: (Instance, A...) -> R...) -> (),
+	createInstance: (className: string, props: { [unknown]: unknown }?) -> Instance,
+	snapshot: (object: Instance) -> Snapshot,
+	newSignal: <A...>() -> Signal<A...>,
 	step: (seconds: number) -> (),
 	now: () -> number,
-	childrenOf: (object: any) -> { any },
-	parentOf: (object: any) -> any,
-	propertyOf: (object: any, key: string) -> any,
-	attributeOf: (object: any, name: string) -> any,
-	isAlive: (object: any) -> boolean,
+	childrenOf: (object: Instance) -> { Instance },
+	parentOf: (object: Instance) -> Instance?,
+	propertyOf: (object: Instance, key: string) -> unknown,
+	attributeOf: (object: Instance, name: string) -> unknown,
+	isAlive: (object: Instance) -> boolean,
 	liveObjects: () -> number,
 	liveConnections: () -> number,
-	poke: (object: any, key: string, value: any) -> (),
-	fire: (object: any, event: string, ...any) -> (),
+	poke: (object: Instance, key: string, value: unknown) -> (),
+	fire: (object: Instance, event: string, ...unknown) -> (),
 	failNext: (operation: Operation, times: number?) -> (),
 	clearFailures: () -> (),
 }
 
 type Resolved = {
 	creatable: boolean,
-	properties: { [string]: any },
+	properties: { [string]: unknown },
 	events: { [string]: true },
-	methods: { [string]: any },
+	methods: { [string]: unknown },
 }
 
 type State = {
 	className: string,
 	class: Resolved,
-	values: { [string]: any },
-	children: { any },
-	parent: any,
-	attributes: { [string]: any },
-	signals: { [string]: any },
+	values: { [string]: unknown },
+	children: { Instance },
+	parent: Instance?,
+	attributes: { [string]: unknown },
+	signals: { [string]: Signal },
 	destroyed: boolean,
+	destroying: boolean,
+	removing: boolean,
 }
 
 local ATTRIBUTE_NAME_LIMIT = 100
 
-local UNIVERSAL_EVENTS: { string } =
-	{ "Changed", "ChildAdded", "ChildRemoved", "Destroying", "AttributeChanged", "DescendantAdded" }
-
-local BASIC_CLASSES: { [string]: ClassSpec } = {
-	Instance = { creatable = false },
-	Folder = { super = "Instance" },
-	Model = { super = "Instance", properties = { PrimaryPart = false } },
-	Configuration = { super = "Instance" },
-	BasePart = {
-		super = "Instance",
-		creatable = false,
-		properties = { Transparency = 0, Anchored = false, CanCollide = true },
-		events = { "Touched", "TouchEnded" },
-	},
-	Part = { super = "BasePart" },
-	MeshPart = { super = "BasePart" },
-	GuiObject = {
-		super = "Instance",
-		creatable = false,
-		properties = {
-			Visible = true,
-			BackgroundTransparency = 0,
-			BackgroundColor3 = Datatypes.Color3.new(1, 1, 1),
-			LayoutOrder = 0,
-			ZIndex = 1,
-			Size = Datatypes.UDim2.new(0, 0, 0, 0),
-			Position = Datatypes.UDim2.new(0, 0, 0, 0),
-			AnchorPoint = Datatypes.Vector2.new(0, 0),
-			Active = false,
-			ClipsDescendants = false,
-		},
-		events = { "InputBegan", "InputEnded", "MouseEnter", "MouseLeave" },
-	},
-	Frame = { super = "GuiObject" },
-	CanvasGroup = { super = "GuiObject", properties = { GroupTransparency = 0 } },
-	ScrollingFrame = {
-		super = "GuiObject",
-		properties = {
-			CanvasSize = Datatypes.UDim2.new(0, 0, 0, 0),
-			CanvasPosition = Datatypes.Vector2.new(0, 0),
-			ScrollingEnabled = true,
-			ScrollBarThickness = 12,
-		},
-	},
-	TextBox = {
-		super = "GuiObject",
-		properties = { Text = "", PlaceholderText = "", ClearTextOnFocus = true },
-		events = { "Focused", "FocusLost" },
-	},
-	UIListLayout = {
-		super = "Instance",
-		properties = { Padding = Datatypes.UDim.new(0, 0), SortOrder = false, FillDirection = false },
-	},
-	UIPadding = {
-		super = "Instance",
-		properties = {
-			PaddingLeft = Datatypes.UDim.new(0, 0),
-			PaddingRight = Datatypes.UDim.new(0, 0),
-			PaddingTop = Datatypes.UDim.new(0, 0),
-			PaddingBottom = Datatypes.UDim.new(0, 0),
-		},
-	},
-	TextLabel = { super = "GuiObject", properties = { Text = "" } },
-	TextButton = {
-		super = "GuiObject",
-		properties = { Text = "" },
-		events = { "Activated", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up" },
-	},
-	ImageLabel = { super = "GuiObject", properties = { Image = "" } },
-	ImageButton = {
-		super = "GuiObject",
-		properties = { Image = "" },
-		events = { "Activated", "MouseButton1Click" },
-	},
-	ScreenGui = { super = "Instance", properties = { Enabled = true } },
-	Humanoid = { super = "Instance", properties = { Health = 100, MaxHealth = 100 } },
-	Animation = { super = "Instance", properties = { AnimationId = "" } },
-	AnimationTrack = {
-		super = "Instance",
-		properties = { Animation = false, IsPlaying = false, Speed = 1, Weight = 1, TimePosition = 0, Looped = false },
-		events = { "Stopped", "Ended", "DidLoop", "KeyframeReached" },
-	},
+local UNIVERSAL_EVENTS: { string } = {
+	"Changed",
+	"ChildAdded",
+	"ChildRemoved",
+	"Destroying",
+	"AttributeChanged",
+	"DescendantAdded",
+	"DescendantRemoving",
+	"AncestryChanged",
 }
 
-local function create(options: Options?): Environment
-	local settings: Options = options or {}
+local BASIC_CLASSES = (
+	{
+		Instance = { creatable = false },
+		Folder = { super = "Instance" },
+		Model = { super = "Instance", properties = { PrimaryPart = false } },
+		Configuration = { super = "Instance" },
+		BasePart = {
+			super = "Instance",
+			creatable = false,
+			properties = { Transparency = 0, Anchored = false, CanCollide = true },
+			events = { "Touched", "TouchEnded" },
+		},
+		Part = { super = "BasePart" },
+		MeshPart = { super = "BasePart" },
+		GuiObject = {
+			super = "Instance",
+			creatable = false,
+			properties = {
+				Visible = true,
+				BackgroundTransparency = 0,
+				BackgroundColor3 = Datatypes.Color3.new(1, 1, 1),
+				LayoutOrder = 0,
+				ZIndex = 1,
+				Size = Datatypes.UDim2.new(0, 0, 0, 0),
+				Position = Datatypes.UDim2.new(0, 0, 0, 0),
+				AnchorPoint = Datatypes.Vector2.new(0, 0),
+				Active = false,
+				ClipsDescendants = false,
+			},
+			events = { "InputBegan", "InputEnded", "MouseEnter", "MouseLeave" },
+		},
+		Frame = { super = "GuiObject" },
+		CanvasGroup = { super = "GuiObject", properties = { GroupTransparency = 0 } },
+		ScrollingFrame = {
+			super = "GuiObject",
+			properties = {
+				CanvasSize = Datatypes.UDim2.new(0, 0, 0, 0),
+				CanvasPosition = Datatypes.Vector2.new(0, 0),
+				ScrollingEnabled = true,
+				ScrollBarThickness = 12,
+			},
+		},
+		TextBox = {
+			super = "GuiObject",
+			properties = { Text = "", PlaceholderText = "", ClearTextOnFocus = true },
+			events = { "Focused", "FocusLost" },
+		},
+		UIListLayout = {
+			super = "Instance",
+			properties = { Padding = Datatypes.UDim.new(0, 0), SortOrder = false, FillDirection = false },
+		},
+		UIPadding = {
+			super = "Instance",
+			properties = {
+				PaddingLeft = Datatypes.UDim.new(0, 0),
+				PaddingRight = Datatypes.UDim.new(0, 0),
+				PaddingTop = Datatypes.UDim.new(0, 0),
+				PaddingBottom = Datatypes.UDim.new(0, 0),
+			},
+		},
+		TextLabel = { super = "GuiObject", properties = { Text = "" } },
+		TextButton = {
+			super = "GuiObject",
+			properties = { Text = "" },
+			events = { "Activated", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up" },
+		},
+		ImageLabel = { super = "GuiObject", properties = { Image = "" } },
+		ImageButton = {
+			super = "GuiObject",
+			properties = { Image = "" },
+			events = { "Activated", "MouseButton1Click" },
+		},
+		ScreenGui = { super = "Instance", properties = { Enabled = true } },
+		Humanoid = { super = "Instance", properties = { Health = 100, MaxHealth = 100 } },
+		Animation = { super = "Instance", properties = { AnimationId = "" } },
+		AnimationTrack = {
+			super = "Instance",
+			properties = {
+				Animation = false,
+				IsPlaying = false,
+				Speed = 1,
+				Weight = 1,
+				TimePosition = 0,
+				Looped = false,
+			},
+			events = { "Stopped", "Ended", "DidLoop", "KeyframeReached" },
+		},
+	} :: unknown
+) :: { [string]: ClassSpec }
+
+local function create<P, M, F>(options: Options<P, M, F>?): Environment
+	local settings: Options = ((options or {}) :: unknown) :: Options
 	local limits: Limits = settings.limits or {}
 	local specs: { [string]: ClassSpec } = {}
-	local fakes: { [string]: (self: any, ...any) -> ...any } = {}
-	local initialFakes: { [string]: (self: any, ...any) -> ...any } = settings.fakes or {}
+	local fakes: { [string]: unknown } = {}
+	local initialFakes: { [string]: unknown } = settings.fakes or {}
 	for member, handler in initialFakes do
 		fakes[member] = handler
 	end
@@ -187,17 +253,17 @@ local function create(options: Options?): Environment
 	local connections = 0
 	local alive = 0
 
-	local environment: any = {}
-	local newObject: (className: string, props: { [any]: any }?, isRoot: boolean) -> any
+	local environment = {} :: Environment
+	local newObject: (className: string, props: { [unknown]: unknown }?, isRoot: boolean) -> Instance
 
-	local function defineClass(className: string, spec: ClassSpec)
+	local function defineClass<P, M>(className: string, spec: ClassSpec<P, M>, defineOptions: DefineOptions?)
 		if type(className) ~= "string" or className == "" then
 			error("class name must be a non-empty string", 2)
 		end
-		if specs[className] ~= nil then
+		if specs[className] ~= nil and not (defineOptions ~= nil and defineOptions.replace == true) then
 			error(("class %q is already defined"):format(className), 2)
 		end
-		specs[className] = spec
+		specs[className] = (spec :: unknown) :: ClassSpec
 		table.clear(resolved)
 	end
 
@@ -235,7 +301,7 @@ local function create(options: Options?): Environment
 				result.events[event] = true
 			end
 		end
-		local declared: { [string]: any } = spec.properties or {}
+		local declared: { [string]: unknown } = spec.properties or {}
 		for key, default in declared do
 			result.properties[key] = default
 		end
@@ -243,7 +309,7 @@ local function create(options: Options?): Environment
 		for _, event in declaredEvents do
 			result.events[event] = true
 		end
-		local declaredMethods: { [string]: any } = spec.methods or {}
+		local declaredMethods: { [string]: unknown } = spec.methods or {}
 		for key, method in declaredMethods do
 			result.methods[key] = method
 		end
@@ -271,14 +337,14 @@ local function create(options: Options?): Environment
 		end
 	end
 
-	local function newSignal(): Signal
-		local live: { { handler: (...any) -> (), connected: boolean } } = {}
-		local signal: any = {}
-		function signal:Connect(handler: (...any) -> ()): Connection
-			local record = { handler = handler, connected = true }
+	local function newSignal<A...>(): Signal<A...>
+		local live: { { handler: (A...) -> (), connected: boolean, connection: Connection } } = {}
+		local signal = {} :: Signal<A...>
+		function signal:Connect(handler: (A...) -> ()): Connection
+			local connection = { Connected = true } :: Connection
+			local record = { handler = handler, connected = true, connection = connection }
 			table.insert(live, record)
 			connections += 1
-			local connection: any = { Connected = true }
 			function connection:Disconnect()
 				if not record.connected then
 					return
@@ -293,10 +359,10 @@ local function create(options: Options?): Environment
 			end
 			return connection :: Connection
 		end
-		function signal:Fire(...: any)
+		function signal:Fire(...: A...)
 			for _, record in table.clone(live) do
 				if record.connected then
-					local ok, thrown: any = pcall(record.handler, ...)
+					local ok, thrown: unknown = pcall(record.handler, ...)
 					if not ok then
 						table.insert(errors, tostring(thrown))
 					end
@@ -305,25 +371,22 @@ local function create(options: Options?): Environment
 		end
 		function signal:DisconnectAll()
 			for _, record in table.clone(live) do
-				if record.connected then
-					record.connected = false
-					connections -= 1
-				end
+				record.connection:Disconnect()
 			end
 			table.clear(live)
 		end
-		return signal :: Signal
+		return signal :: Signal<A...>
 	end
 
-	local function stateOf(object: any): State
-		return rawget(object, "__state") :: State
+	local function stateOf(object: Instance): State
+		return rawget((object :: unknown) :: { [string]: unknown }, "__state") :: State
 	end
 
-	local function isObject(value: any): boolean
-		return type(value) == "table" and rawget(value, "__state") ~= nil
+	local function isObject(value: unknown): boolean
+		return type(value) == "table" and rawget(value :: { [string]: unknown }, "__state") ~= nil
 	end
 
-	local function signalFor(state: State, key: string): any
+	local function signalFor(state: State, key: string): Signal
 		local existing = state.signals[key]
 		if existing == nil then
 			existing = newSignal()
@@ -340,28 +403,87 @@ local function create(options: Options?): Environment
 		error(("%s is not a valid member of %s"):format(key, describe(state)), 3)
 	end
 
-	local function changed(object: any, state: State, property: string)
+	local function changed(object: Instance, state: State, property: string)
 		signalFor(state, "prop:" .. property):Fire()
 		signalFor(state, "Changed"):Fire(property)
 	end
 
-	local function detach(object: any, state: State)
-		local parent = state.parent
-		if parent == nil then
-			return
+	local function subtree(object: Instance): { Instance }
+		local objects: { Instance } = {}
+		local function visit(current: Instance)
+			table.insert(objects, current)
+			for _, child in stateOf(current).children do
+				visit(child)
+			end
 		end
-		local siblings = stateOf(parent).children
-		local index = table.find(siblings, object)
-		if index ~= nil then
-			table.remove(siblings, index)
-		end
-		state.parent = nil
-		signalFor(stateOf(parent), "ChildRemoved"):Fire(object)
+		visit(object)
+		return objects
 	end
 
-	local function setParent(object: any, state: State, parent: any)
+	local function ancestors(parent: Instance?): { Instance }
+		local objects: { Instance } = {}
+		local walk = parent
+		while walk ~= nil do
+			table.insert(objects, walk)
+			walk = stateOf(walk).parent
+		end
+		return objects
+	end
+
+	local function move(object: Instance, state: State, parent: Instance?)
+		local previous = state.parent
+		if previous == parent then
+			return
+		end
+		local objects = subtree(object)
+		local before = ancestors(previous)
+		local after = ancestors(parent)
+		for _, descendant in objects do
+			stateOf(descendant).removing = true
+		end
+		for _, descendant in objects do
+			for _, ancestor in before do
+				if table.find(after, ancestor) == nil then
+					signalFor(stateOf(ancestor), "DescendantRemoving"):Fire(descendant)
+				end
+			end
+		end
+		if previous ~= nil then
+			local siblings = stateOf(previous).children
+			local index = table.find(siblings, object)
+			if index ~= nil then
+				table.remove(siblings, index)
+			end
+		end
+		state.parent = parent
+		if parent ~= nil then
+			table.insert(stateOf(parent).children, object)
+		end
+		for _, descendant in objects do
+			stateOf(descendant).removing = false
+		end
+		if previous ~= nil then
+			signalFor(stateOf(previous), "ChildRemoved"):Fire(object)
+		end
+		if parent ~= nil then
+			signalFor(stateOf(parent), "ChildAdded"):Fire(object)
+		end
+		for _, descendant in objects do
+			for _, ancestor in after do
+				if table.find(before, ancestor) == nil then
+					signalFor(stateOf(ancestor), "DescendantAdded"):Fire(descendant)
+				end
+			end
+		end
+		changed(object, state, "Parent")
+		for _, descendant in objects do
+			signalFor(stateOf(descendant), "AncestryChanged"):Fire(object, parent)
+		end
+	end
+
+	local function setParent(object: Instance, state: State, parent: Instance?)
 		inject "setParent"
-		if state.destroyed then
+		if state.destroyed or state.destroying or state.removing then
 			error(("The Parent property of %s is locked"):format(describe(state)), 4)
 		end
 		if parent ~= nil and not isObject(parent) then
@@ -374,33 +496,26 @@ local function create(options: Options?): Environment
 			end
 			walk = stateOf(walk).parent
 		end
-		if state.parent == parent then
-			return
+		if settings.validateProperty ~= nil then
+			settings.validateProperty(state.className, "Parent", parent, "set")
 		end
-		detach(object, state)
-		if parent ~= nil then
-			state.parent = parent
-			table.insert(stateOf(parent).children, object)
-			signalFor(stateOf(parent), "ChildAdded"):Fire(object)
-			local ancestor = parent
-			while ancestor ~= nil do
-				signalFor(stateOf(ancestor), "DescendantAdded"):Fire(object)
-				ancestor = stateOf(ancestor).parent
-			end
-		end
-		changed(object, state, "Parent")
+		move(object, state, parent)
 	end
 
-	local function destroy(object: any, state: State)
-		if state.destroyed then
+	local function destroy(object: Instance, state: State)
+		if state.destroyed or state.destroying then
 			return
 		end
+		if state.removing then
+			error(("The Parent property of %s is locked"):format(describe(state)), 4)
+		end
 		inject "destroy"
+		state.destroying = true
 		signalFor(state, "Destroying"):Fire()
+		move(object, state, nil)
 		for _, child in table.clone(state.children) do
 			destroy(child, stateOf(child))
 		end
-		detach(object, state)
 		state.destroyed = true
 		alive -= 1
 		for _, signal in state.signals do
@@ -408,7 +523,7 @@ local function create(options: Options?): Environment
 		end
 	end
 
-	local function validAttribute(name: any, value: any)
+	local function validAttribute(name: unknown, value: unknown)
 		local nameLimit = limits.attributeNameLength or ATTRIBUTE_NAME_LIMIT
 		if type(name) ~= "string" or name == "" or string.match(name, "^[%w_]+$") == nil then
 			error("attribute names must be non-empty alphanumeric or underscore strings", 4)
@@ -423,17 +538,21 @@ local function create(options: Options?): Environment
 		if kind == "table" or kind == "function" or kind == "thread" then
 			error(("attribute %q cannot hold a %s"):format(name, kind), 4)
 		end
-		if kind == "string" and limits.attributeStringLength ~= nil and #value > limits.attributeStringLength then
+		if
+			type(value) == "string"
+			and limits.attributeStringLength ~= nil
+			and #value > limits.attributeStringLength
+		then
 			error(("attribute %q string is longer than %d characters"):format(name, limits.attributeStringLength), 4)
 		end
 	end
 
-	local function memberMethod(object: any, state: State, key: string): ((...any) -> ...any)?
+	local function memberMethod(object: Instance, state: State, key: string): unknown
 		local method = state.class.methods[key]
 		if method == nil then
 			return nil
 		end
-		local implementation: any = if method == true then fakes[state.className .. "." .. key] else method
+		local implementation: unknown = if method == true then fakes[state.className .. "." .. key] else method
 		if implementation == nil then
 			local walk: string? = specs[state.className].super
 			while implementation == nil and walk ~= nil do
@@ -451,12 +570,12 @@ local function create(options: Options?): Environment
 				3
 			)
 		end
-		return function(_self: any, ...: any): ...any
-			return implementation(object, ...)
+		return function(_self: Instance, ...: unknown): ...unknown
+			return (implementation :: Method)(object, ...)
 		end
 	end
 
-	local function universal(object: any, state: State, key: string): ((...any) -> ...any)?
+	local function universal(object: Instance, state: State, key: string): unknown
 		if key == "Destroy" then
 			return function()
 				destroy(object, state)
@@ -473,8 +592,8 @@ local function create(options: Options?): Environment
 			end
 		elseif key == "GetDescendants" then
 			return function()
-				local out: { any } = {}
-				local function walk(parent: any)
+				local out: { Instance } = {}
+				local function walk(parent: Instance)
 					for _, child in stateOf(parent).children do
 						table.insert(out, child)
 						walk(child)
@@ -484,8 +603,8 @@ local function create(options: Options?): Environment
 				return out
 			end
 		elseif key == "FindFirstChild" then
-			return function(_self: any, name: string, recursive: boolean?): any
-				local function search(parent: any): any
+			return function(_self: Instance, name: string, recursive: boolean?): unknown
+				local function search(parent: Instance): Instance?
 					for _, child in stateOf(parent).children do
 						if stateOf(child).values.Name == name then
 							return child
@@ -504,7 +623,7 @@ local function create(options: Options?): Environment
 				return search(object)
 			end
 		elseif key == "FindFirstChildOfClass" or key == "FindFirstChildWhichIsA" then
-			return function(_self: any, className: string): any
+			return function(_self: Instance, className: string): unknown
 				for _, child in state.children do
 					local childClass = stateOf(child).className
 					if childClass == className or (key == "FindFirstChildWhichIsA" and isA(childClass, className)) then
@@ -514,7 +633,7 @@ local function create(options: Options?): Environment
 				return nil
 			end
 		elseif key == "FindFirstAncestor" then
-			return function(_self: any, name: string): any
+			return function(_self: Instance, name: string): unknown
 				local walk = state.parent
 				while walk ~= nil do
 					if stateOf(walk).values.Name == name then
@@ -527,7 +646,7 @@ local function create(options: Options?): Environment
 		elseif key == "GetFullName" then
 			return function(): string
 				local parts: { string } = {}
-				local walk: any = object
+				local walk: Instance? = object
 				while walk ~= nil and walk ~= environment.root do
 					table.insert(parts, 1, tostring(stateOf(walk).values.Name))
 					walk = stateOf(walk).parent
@@ -535,11 +654,11 @@ local function create(options: Options?): Environment
 				return table.concat(parts, ".")
 			end
 		elseif key == "IsA" then
-			return function(_self: any, className: string): boolean
+			return function(_self: Instance, className: string): boolean
 				return isA(state.className, className)
 			end
 		elseif key == "IsDescendantOf" then
-			return function(_self: any, ancestor: any): boolean
+			return function(_self: Instance, ancestor: unknown): boolean
 				local walk = state.parent
 				while walk ~= nil do
 					if walk == ancestor then
@@ -550,8 +669,8 @@ local function create(options: Options?): Environment
 				return false
 			end
 		elseif key == "IsAncestorOf" then
-			return function(_self: any, descendant: any): boolean
-				local walk = stateOf(descendant).parent
+			return function(_self: Instance, descendant: unknown): boolean
+				local walk = stateOf(descendant :: Instance).parent
 				while walk ~= nil do
 					if walk == object then
 						return true
@@ -561,7 +680,7 @@ local function create(options: Options?): Environment
 				return false
 			end
 		elseif key == "SetAttribute" then
-			return function(_self: any, name: string, value: any)
+			return function(_self: Instance, name: string, value: unknown)
 				inject "setAttribute"
 				validAttribute(name, value)
 				if state.attributes[name] == value then
@@ -572,30 +691,30 @@ local function create(options: Options?): Environment
 				signalFor(state, "AttributeChanged"):Fire(name)
 			end
 		elseif key == "GetAttribute" then
-			return function(_self: any, name: string): any
+			return function(_self: Instance, name: string): unknown
 				return state.attributes[name]
 			end
 		elseif key == "GetAttributes" then
-			return function(): { [string]: any }
+			return function(): { [string]: unknown }
 				return table.clone(state.attributes)
 			end
 		elseif key == "GetPropertyChangedSignal" then
-			return function(_self: any, property: string): Signal
+			return function(_self: Instance, property: string): Signal
 				if state.class.properties[property] == nil and property ~= "Parent" then
 					memberError(state, property)
 				end
 				return signalFor(state, "prop:" .. property)
 			end
 		elseif key == "GetAttributeChangedSignal" then
-			return function(_self: any, name: string): Signal
+			return function(_self: Instance, name: string): Signal
 				return signalFor(state, "attr:" .. name)
 			end
 		end
 		return nil
 	end
 
-	local objectMetatable: any = {
-		__index = function(object: any, key: string): any
+	local objectMetatable = {
+		__index = function(object: Instance, key: string): unknown
 			local state = stateOf(object)
 			if key == "ClassName" then
 				return state.className
@@ -613,21 +732,30 @@ local function create(options: Options?): Environment
 			if method ~= nil then
 				return method
 			end
-			if state.class.properties[key] == nil then
-				memberError(state, key)
+			if state.class.properties[key] ~= nil then
+				return state.values[key]
 			end
-			return state.values[key]
+			for _, child in state.children do
+				if stateOf(child).values.Name == key then
+					return child
+				end
+			end
+			memberError(state, key)
+			return nil
 		end,
-		__newindex = function(object: any, key: string, value: any)
+		__newindex = function(object: Instance, key: string, value: unknown)
 			local state = stateOf(object)
 			if key == "Parent" then
-				setParent(object, state, value)
+				setParent(object, state, value :: Instance?)
 				return
 			end
 			if state.class.properties[key] == nil then
 				memberError(state, key)
 			end
 			inject "setProperty"
+			if settings.validateProperty ~= nil then
+				settings.validateProperty(state.className, key, value, "set")
+			end
 			if state.values[key] == value then
 				return
 			end
@@ -636,7 +764,7 @@ local function create(options: Options?): Environment
 		end,
 	}
 
-	function newObject(className: string, props: { [any]: any }?, isRoot: boolean): any
+	function newObject(className: string, props: { [unknown]: unknown }?, isRoot: boolean): Instance
 		local class = resolve(className)
 		if class == nil then
 			error(("Unable to create an Instance of type %q"):format(className), 3)
@@ -645,12 +773,14 @@ local function create(options: Options?): Environment
 			error(("Unable to create an Instance of type %q"):format(className), 3)
 		end
 		inject "create"
-		local values: { [string]: any } = {}
+		local values: { [string]: unknown } = {}
 		for key, default in class.properties do
-			values[key] = if default == false then nil else default
+			local fallback = if key == "Name" then className elseif default == false then nil else default
+			values[key] = if settings.defaultProperty ~= nil
+				then settings.defaultProperty(className, key, fallback)
+				else fallback
 		end
-		values.Name = className
-		local object: any = setmetatable({} :: { [string]: any }, objectMetatable)
+		local object = (setmetatable({} :: { [string]: unknown }, objectMetatable) :: unknown) :: Instance
 		rawset(
 			object,
 			"__state",
@@ -663,12 +793,14 @@ local function create(options: Options?): Environment
 				attributes = {},
 				signals = {},
 				destroyed = false,
+				destroying = false,
+				removing = false,
 			} :: State
 		)
 		if not isRoot then
 			alive += 1
 		end
-		local initial: { [any]: any } = props or {}
+		local initial: { [unknown]: unknown } = props or {}
 		for key, value in initial do
 			if type(key) == "string" and key ~= "Parent" then
 				object[key] = value
@@ -677,54 +809,60 @@ local function create(options: Options?): Environment
 		for index = 1, #initial do
 			local child = initial[index]
 			if isObject(child) then
-				child.Parent = object
+				((child :: unknown) :: Instance).Parent = object
 			end
 		end
 		if props ~= nil and props.Parent ~= nil then
-			object.Parent = props.Parent
+			object.Parent = props.Parent :: Instance
 		end
 		return object
 	end
 
 	if settings.builtins ~= false then
-		specs.Animator = {
-			super = "Instance",
-			methods = {
-				LoadAnimation = function(_self: any, animation: any): any
-					return newObject("AnimationTrack", { Animation = animation }, false)
-				end,
-			},
-		}
+		specs.Animator = (
+			{
+				super = "Instance",
+				methods = {
+					LoadAnimation = function(_self: Instance, animation: unknown): unknown
+						return newObject("AnimationTrack", { Animation = animation }, false)
+					end,
+				},
+			} :: unknown
+		) :: ClassSpec
 		local track = table.clone(specs.AnimationTrack)
 		specs.AnimationTrack = track
-		track.methods = {
-			Play = function(self: any, _fade: number?, _weight: number?, speed: number?)
-				self.IsPlaying = true
-				self.TimePosition = 0
-				if speed ~= nil then
+		track.methods = (
+			{
+				Play = function(self: Instance, _fade: number?, _weight: number?, speed: number?)
+					self.IsPlaying = true
+					self.TimePosition = 0
+					if speed ~= nil then
+						self.Speed = speed
+					end
+				end,
+				Stop = function(self: Instance)
+					if not self.IsPlaying then
+						return
+					end
+					self.IsPlaying = false
+					local stopped = self.Stopped :: Signal<()>
+					local ended = self.Ended :: Signal<()>
+					stopped:Fire()
+					ended:Fire()
+				end,
+				AdjustSpeed = function(self: Instance, speed: number)
 					self.Speed = speed
-				end
-			end,
-			Stop = function(self: any)
-				if not self.IsPlaying then
-					return
-				end
-				self.IsPlaying = false
-				self.Stopped:Fire()
-				self.Ended:Fire()
-			end,
-			AdjustSpeed = function(self: any, speed: number)
-				self.Speed = speed
-			end,
-			AdjustWeight = function(self: any, weight: number)
-				self.Weight = weight
-			end,
-		}
+				end,
+				AdjustWeight = function(self: Instance, weight: number)
+					self.Weight = weight
+				end,
+			} :: unknown
+		) :: { [string]: unknown }
 		table.clear(resolved)
 	end
 
-	local heartbeat = newSignal()
-	local root: any = nil
+	local heartbeat: Signal<number> = newSignal()
+	local root: Instance
 	if specs.Folder ~= nil then
 		root = newObject("Folder", nil, true)
 	else
@@ -744,10 +882,10 @@ local function create(options: Options?): Environment
 	}
 	environment.errors = errors
 	environment.defineClass = defineClass
-	environment.fake = function(member: string, handler: (self: any, ...any) -> ...any)
+	environment.fake = function<A..., R...>(member: string, handler: (Instance, A...) -> R...)
 		fakes[member] = handler
 	end
-	environment.createInstance = function(className: string, props: { [any]: any }?): any
+	environment.createInstance = function(className: string, props: { [unknown]: unknown }?): Instance
 		return newObject(className, props, false)
 	end
 	environment.newSignal = newSignal
@@ -757,19 +895,19 @@ local function create(options: Options?): Environment
 		heartbeat:Fire(seconds)
 	end
 	environment.now = scheduler.clock
-	environment.childrenOf = function(object: any): { any }
+	environment.childrenOf = function(object: Instance): { Instance }
 		return table.clone(stateOf(object).children)
 	end
-	environment.parentOf = function(object: any): any
+	environment.parentOf = function(object: Instance): Instance?
 		return stateOf(object).parent
 	end
-	environment.propertyOf = function(object: any, key: string): any
+	environment.propertyOf = function(object: Instance, key: string): unknown
 		return stateOf(object).values[key]
 	end
-	environment.attributeOf = function(object: any, name: string): any
+	environment.attributeOf = function(object: Instance, name: string): unknown
 		return stateOf(object).attributes[name]
 	end
-	environment.isAlive = function(object: any): boolean
+	environment.isAlive = function(object: Instance): boolean
 		return not stateOf(object).destroyed
 	end
 	environment.liveObjects = function(): number
@@ -778,10 +916,13 @@ local function create(options: Options?): Environment
 	environment.liveConnections = function(): number
 		return connections
 	end
-	environment.poke = function(object: any, key: string, value: any)
+	environment.poke = function(object: Instance, key: string, value: unknown)
 		local state = stateOf(object)
 		if state.class.properties[key] == nil then
 			memberError(state, key)
+		end
+		if settings.validateProperty ~= nil then
+			settings.validateProperty(state.className, key, value, "poke")
 		end
 		if state.values[key] == value then
 			return
@@ -789,23 +930,23 @@ local function create(options: Options?): Environment
 		state.values[key] = value
 		changed(object, state, key)
 	end
-	environment.fire = function(object: any, event: string, ...: any)
+	environment.fire = function(object: Instance, event: string, ...: unknown)
 		local state = stateOf(object)
 		if not state.class.events[event] then
 			memberError(state, event)
 		end
 		signalFor(state, event):Fire(...)
 	end
-	environment.snapshot = function(object: any): any
-		local function walk(current: any): any
+	environment.snapshot = function(object: Instance): Snapshot
+		local function walk(current: Instance): Snapshot
 			local state = stateOf(current)
-			local properties: { [string]: any } = {}
+			local properties: { [string]: unknown } = {}
 			for key, value in state.values do
 				if key ~= "Name" then
 					properties[key] = value
 				end
 			end
-			local children: { any } = {}
+			local children: { Snapshot } = {}
 			for _, child in state.children do
 				table.insert(children, walk(child))
 			end
@@ -828,11 +969,11 @@ local function create(options: Options?): Environment
 	return environment :: Environment
 end
 
-local function isInstance(value: any): boolean
-	return type(value) == "table" and rawget(value, "__state") ~= nil
+local function isInstance(value: unknown): boolean
+	return type(value) == "table" and rawget(value :: { [string]: unknown }, "__state") ~= nil
 end
 
-local function typeName(value: any): string
+local function typeName(value: unknown): string
 	if isInstance(value) then
 		return "Instance"
 	end

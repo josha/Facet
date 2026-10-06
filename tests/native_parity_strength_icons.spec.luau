@@ -255,7 +255,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local acquired, released = 0, 0
 				local state: FixtureComposeTypes.Cell<"loading" | "ready" | "failed">, value =
 					Compose.cell("loading" :: "loading" | "ready" | "failed"), Compose.cell("")
-				local resource = Compose.createSharedResource(function()
+				local resource = Compose.createSharedResource(function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
 					acquired += 1
 					return { state = state, value = value }, function()
 						released += 1
@@ -263,10 +263,19 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end)
 				local dimmed = Compose.cell(false)
 				local first, one: any = runtime.mount(function()
-					return UI.AsyncImage({ resource = resource, dimmed = dimmed })
+					return UI.AsyncImage({
+						resource = function()
+							return resource()
+						end,
+						dimmed = dimmed,
+					})
 				end, engine.new("Folder"))
 				local second, two: any = runtime.mount(function()
-					return UI.AsyncImage({ resource = resource })
+					return UI.AsyncImage({
+						resource = function()
+							return resource()
+						end,
+					})
 				end, engine.new("Folder"))
 				Verify.expect(acquired):toBe(1)
 				local image: any = one:FindFirstChild("Image")
@@ -304,20 +313,26 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 					local UI = media(context(Compose, runtime, { types = engine.types }))
 					local acquired, released = 0, 0
-					local resource = Compose.createSharedResource(function()
-						acquired += 1
-						return {
-							state = Compose.cell("ready" :: FixtureMediaTypes.ImageState),
-							value = Compose.cell("rbxassetid://7"),
-						}, function()
-							released += 1
+					local resource = Compose.createSharedResource(
+						function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
+							acquired += 1
+							return {
+								state = Compose.cell("ready" :: FixtureMediaTypes.ImageState),
+								value = Compose.cell("rbxassetid://7"),
+							}, function()
+								released += 1
+							end
 						end
-					end)
+					)
 					local requests, cancellations, statuses = {}, 0, 0
 					local stops = {}
 					for _ = 1, 3 do
 						table.insert(stops, (runtime.mount(function()
-							return UI.AsyncImage({ resource = resource })
+							return UI.AsyncImage({
+								resource = function()
+									return resource()
+								end,
+							})
 						end, folder)))
 					end
 					local pendingStop, pendingRoot: any = runtime.mount(function()
@@ -341,7 +356,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					stops[3]()
 					Verify.expect(released):toBe(1)
 					local again = runtime.mount(function()
-						return UI.AsyncImage({ resource = resource })
+						return UI.AsyncImage({
+							resource = function()
+								return resource()
+							end,
+						})
 					end, folder)
 					Verify.expect(acquired):toBe(2)
 					again()
@@ -485,15 +504,22 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local state: FixtureComposeTypes.Cell<"loading" | "ready" | "failed">, value =
 						Compose.cell("loading" :: "loading" | "ready" | "failed"), Compose.cell("rbxassetid://1")
 					local held, acquired = 0, 0
-					local resource = Compose.createSharedResource(function()
-						acquired += 1
-						held += 1
-						return { state = state, value = value }, function()
-							held -= 1
+					local resource = Compose.createSharedResource(
+						function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
+							acquired += 1
+							held += 1
+							return { state = state, value = value }, function()
+								held -= 1
+							end
 						end
-					end)
+					)
 					local stop, avatar: any = runtime.mount(function()
-						return UI.Avatar({ name = "Ada", resource = resource })
+						return UI.Avatar({
+							name = "Ada",
+							resource = function()
+								return resource()
+							end,
+						})
 					end, engine.new("Folder"))
 					local initials = avatar:FindFirstChild("Initials")
 					local image: any = avatar:FindFirstChild("Portrait"):FindFirstChild("Image")
@@ -543,7 +569,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			run = function()
 				local engine, runtime, UI = setup()
 				local loaded, released = 0, 0
-				local resource = Compose.createSharedResource(function()
+				local resource = Compose.createSharedResource(function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
 					loaded += 1
 					return {
 						state = Compose.cell("ready" :: FixtureMediaTypes.ImageState),
@@ -553,10 +579,20 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end
 				end)
 				local stopA, a: any = runtime.mount(function()
-					return UI.Avatar({ name = "A", resource = resource })
+					return UI.Avatar({
+						name = "A",
+						resource = function()
+							return resource()
+						end,
+					})
 				end, engine.new("Folder"))
 				local stopB, b: any = runtime.mount(function()
-					return UI.Avatar({ name = "B", resource = resource })
+					return UI.Avatar({
+						name = "B",
+						resource = function()
+							return resource()
+						end,
+					})
 				end, engine.new("Folder"))
 				Verify.expect(loaded):toBe(1)
 				for _, face in { a, b } do
@@ -948,7 +984,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			run = function()
 				local engine, runtime, UI = setup()
 				local loaded, released = 0, 0
-				local shared = Compose.createSharedResource(function()
+				local shared = Compose.createSharedResource(function(): (FixtureMediaTypes.ImageResource, (() -> ())?)
 					loaded += 1
 					return {
 						state = Compose.cell("ready" :: FixtureMediaTypes.ImageState),
@@ -960,8 +996,22 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local items = Compose.cell({
 					{ id = "a", name = "Ada", image = "rbxassetid://123" } :: FixtureMediaTypes.AvatarMember,
 					{ id = "b", name = "Bo", image = "rbxassetid://456" } :: FixtureMediaTypes.AvatarMember,
-					{ id = "c", name = "Côte", userId = 1, resource = shared } :: FixtureMediaTypes.AvatarMember,
-					{ id = "d", name = "Dan", userId = 1, resource = shared } :: FixtureMediaTypes.AvatarMember,
+					{
+						id = "c",
+						name = "Côte",
+						userId = 1,
+						resource = function()
+							return shared()
+						end,
+					} :: FixtureMediaTypes.AvatarMember,
+					{
+						id = "d",
+						name = "Dan",
+						userId = 1,
+						resource = function()
+							return shared()
+						end,
+					} :: FixtureMediaTypes.AvatarMember,
 				})
 				local stop, group: any = runtime.mount(function()
 					return UI.AvatarGroup({ items = items })

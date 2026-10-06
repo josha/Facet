@@ -4,19 +4,23 @@ local function finite(value: unknown): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
-local function finiteNonnegative(value: any): boolean
-	return finite(value) and value >= 0
+local function finiteNonnegative(value: unknown): boolean
+	return type(value) == "number" and finite(value) and value >= 0
 end
 
-local function nonnegativeInteger(value: any): boolean
-	return finiteNonnegative(value) and value % 1 == 0
+local function nonnegativeInteger(value: unknown): boolean
+	return type(value) == "number" and finiteNonnegative(value) and value % 1 == 0
 end
 
-local function denseRows(value: any, count: number): boolean
-	if type(value) ~= "table" or getmetatable(value) ~= nil or #value ~= count then
+local function denseRows(value: unknown, count: number): boolean
+	if
+		type(value) ~= "table"
+		or ((getmetatable :: unknown) :: (unknown) -> unknown)(value) ~= nil
+		or #(value :: { unknown }) ~= count
+	then
 		return false
 	end
-	for key in value do
+	for key in value :: { [unknown]: unknown } do
 		if type(key) == "userdata" then
 			continue
 		end
@@ -27,14 +31,14 @@ local function denseRows(value: any, count: number): boolean
 	return true
 end
 
-local function deeplyFinite(value: any): boolean
+local function deeplyFinite(value: unknown): boolean
 	if type(value) == "number" then
 		return finite(value)
 	end
 	if type(value) ~= "table" then
 		return true
 	end
-	for key, child in value do
+	for key, child in value :: { [unknown]: unknown } do
 		if not deeplyFinite(key) or not deeplyFinite(child) then
 			return false
 		end
@@ -42,7 +46,7 @@ local function deeplyFinite(value: any): boolean
 	return true
 end
 
-local function safeId(value: any): boolean
+local function safeId(value: unknown): boolean
 	return type(value) == "string"
 		and #(value :: string) >= 1
 		and #(value :: string) <= 64
@@ -53,17 +57,17 @@ local function nonempty(value: unknown): boolean
 	return type(value) == "string" and #(value :: string) > 0
 end
 
-local function exactKeys(value: any, fields: { [string]: boolean }): boolean
-	if type(value) ~= "table" or getmetatable(value) ~= nil then
+local function exactKeys(value: unknown, fields: { [string]: boolean }): boolean
+	if type(value) ~= "table" or ((getmetatable :: unknown) :: (unknown) -> unknown)(value) ~= nil then
 		return false
 	end
-	for key in value do
+	for key in value :: { [unknown]: unknown } do
 		if type(key) ~= "string" or fields[key] ~= true then
 			return false
 		end
 	end
 	for key in fields do
-		if value[key] == nil then
+		if (value :: { [string]: unknown })[key] == nil then
 			return false
 		end
 	end
@@ -74,7 +78,7 @@ local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boo
 	if type(value) ~= "table" then
 		return false
 	end
-	for key in value :: any do
+	for key in value :: { [unknown]: unknown } do
 		if type(key) ~= "string" or fields[key] ~= true then
 			return false
 		end

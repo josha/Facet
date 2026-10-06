@@ -385,13 +385,13 @@ local function checkpointFrames(options: CheckpointFramesOptions): ({ Checkpoint
 	if type(rawFrames) ~= "table" then
 		return nil, "frame_missing: observation carries no frames"
 	end
-	local byCheckpoint: { [string]: any } = {}
-	for _, row in rawFrames :: { any } do
-		if type(row) == "table" and type(row.checkpoint) == "string" then
-			if byCheckpoint[row.checkpoint] ~= nil then
-				return nil, "frame_duplicate_checkpoint: " .. row.checkpoint
+	local byCheckpoint: { [string]: { [string]: unknown } } = {}
+	for _, row in rawFrames :: { unknown } do
+		if type(row) == "table" and type((row :: { [string]: unknown }).checkpoint) == "string" then
+			if byCheckpoint[(row :: { [string]: string }).checkpoint] ~= nil then
+				return nil, "frame_duplicate_checkpoint: " .. (row :: { [string]: string }).checkpoint
 			end
-			byCheckpoint[row.checkpoint] = row
+			byCheckpoint[(row :: { [string]: string }).checkpoint] = row :: { [string]: unknown }
 		end
 	end
 	local ordered: { CheckpointFrame } = {}
@@ -410,7 +410,7 @@ local function checkpointFrames(options: CheckpointFramesOptions): ({ Checkpoint
 			or not positiveInteger(row.windowWidth)
 			or not positiveInteger(row.windowHeight)
 			or (
-				row.windowPixelScale ~= nil
+				row.windowPixelScale :: number? ~= nil
 				and (
 					type(row.windowPixelScale) ~= "number"
 					or row.windowPixelScale <= 0
@@ -423,27 +423,27 @@ local function checkpointFrames(options: CheckpointFramesOptions): ({ Checkpoint
 		end
 		if
 			looksLikeWholeWindow(
-				row.width,
-				row.height,
-				row.windowWidth,
-				row.windowHeight,
+				row.width :: number,
+				row.height :: number,
+				row.windowWidth :: number,
+				row.windowHeight :: number,
 				options.wholeWindowTolerance,
-				row.windowPixelScale
+				row.windowPixelScale :: number?
 			)
 		then
 			return nil, "frame_not_viewport: " .. name
 		end
-		if options.requireDistinctFrames and byDigest[row.sha256] ~= nil then
-			return nil, "frame_reused: " .. name .. " duplicates " .. byDigest[row.sha256]
+		if options.requireDistinctFrames and byDigest[row.sha256 :: string] ~= nil then
+			return nil, "frame_reused: " .. name .. " duplicates " .. byDigest[row.sha256 :: string]
 		end
-		byDigest[row.sha256] = name
+		byDigest[row.sha256 :: string] = name
 		table.insert(ordered, {
 			checkpoint = name,
-			path = row.path,
-			sha256 = row.sha256,
-			bytes = row.bytes,
-			width = row.width,
-			height = row.height,
+			path = row.path :: string,
+			sha256 = row.sha256 :: string,
+			bytes = row.bytes :: number,
+			width = row.width :: number,
+			height = row.height :: number,
 		})
 	end
 	return ordered, nil
@@ -460,7 +460,12 @@ export type Receipt = {
 	screenshotBytes: number,
 }
 
-export type Outcome = { ok: boolean, reason: string, detail: string?, receipt: { [string]: any }? }
+export type Outcome = {
+	ok: boolean,
+	reason: string,
+	detail: string?,
+	receipt: (Receipt & { validForRange: { from: string, to: string }? })?,
+}
 
 export type RecordOptions = {
 	contract: string,
@@ -541,7 +546,11 @@ local function recordReceipt(options: RecordOptions): Outcome
 		screenshotSha256 = options.sha256(options.screenshot :: string),
 		screenshotBytes = #(options.screenshot :: string),
 	}
-	return { ok = true, reason = "witness_recorded", receipt = receipt :: any }
+	return {
+		ok = true,
+		reason = "witness_recorded",
+		receipt = (receipt :: unknown) :: Receipt & { validForRange: { from: string, to: string }? },
+	}
 end
 
 local RECEIPT_FIELDS: { [string]: boolean } = {
@@ -555,11 +564,11 @@ local RECEIPT_FIELDS: { [string]: boolean } = {
 	screenshotBytes = true,
 }
 
-local function exactKeys(value: any): boolean
-	if type(value) ~= "table" or getmetatable(value) ~= nil then
+local function exactKeys(value: unknown): boolean
+	if type(value) ~= "table" or ((getmetatable :: unknown) :: (unknown) -> unknown)(value) ~= nil then
 		return false
 	end
-	for key in value do
+	for key in value :: { [unknown]: unknown } do
 		if type(key) == "string" and RECEIPT_FIELDS[key] ~= true then
 			return false
 		elseif type(key) ~= "string" and type(key) ~= "userdata" then
@@ -577,7 +586,7 @@ local function decodeReceipt(value: unknown, contract: string, target: string): 
 	if not exactKeys(value) then
 		return nil, "receipt_invalid"
 	end
-	local receipt = value :: any
+	local receipt = value :: { [string]: unknown }
 	if
 		receipt.contract ~= contract
 		or receipt.target ~= target
@@ -592,12 +601,12 @@ local function decodeReceipt(value: unknown, contract: string, target: string): 
 	then
 		return nil, "receipt_invalid"
 	end
-	for key, line in receipt.consoleErrorLines do
+	for key, line in receipt.consoleErrorLines :: { [unknown]: unknown } do
 		if (type(key) ~= "number" and type(key) ~= "userdata") or type(line) ~= "string" then
 			return nil, "receipt_invalid"
 		end
 	end
-	return receipt :: Receipt, nil
+	return (receipt :: unknown) :: Receipt, nil
 end
 
 export type CheckReceiptOptions = {
@@ -623,7 +632,7 @@ local function checkReceipt(options: CheckReceiptOptions): Outcome
 	if #receipt.consoleErrorLines > 0 then
 		return refusal("console_red", table.concat(receipt.consoleErrorLines, "\n"))
 	end
-	local verified: { [string]: any } = table.clone(receipt :: any)
+	local verified = table.clone(receipt) :: Receipt & { validForRange: { from: string, to: string }? }
 	verified.validForRange = { from = receipt.sourceSha, to = options.candidateSha }
 	return { ok = true, reason = "witness_verified", receipt = verified }
 end

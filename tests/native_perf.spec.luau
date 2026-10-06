@@ -425,8 +425,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		verifyHarness:case("preserves subscribed ancestry ordering and cleanup after unobserved moves", {
 			id = "native_perf::native benchmark workload contract::preserves subscribed ancestry ordering and cleanup after unobserved moves",
 			run = function()
-				for _, cached in { false, true } do
-					local engine = require("./lib/native_engine").new({ cacheDefaults = cached, recordCreated = false })
+				for _, recordCreated in { false, true } do
+					local engine = require("./lib/native_engine").new({ recordCreated = recordCreated })
 					local first, second, root: any, child, leaf =
 						engine.new("Folder"),
 						engine.new("Folder"),
@@ -452,9 +452,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						table.insert(
 							connections,
 							node.AncestryChanged:Connect(function(changed, parent)
-								Verify.expect(changed):toBe(node)
-								Verify.expect(parent):toBe(node.Parent)
-								table.insert(log, `A:{node.Name}:{if parent then parent.Name else "nil"}`)
+								Verify.expect(changed == node or node:IsDescendantOf(changed)):toBe(true)
+								Verify.expect(parent):toBe(changed.Parent)
+								table.insert(log, `A:{changed.Name}:{if parent then parent.Name else "nil"}`)
 							end)
 						)
 						table.insert(
@@ -468,12 +468,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect((table.concat(childEvents, "|"))):toBe("removed|added")
 					removed:Disconnect()
 					added:Disconnect()
-					Verify.expect((table.concat(log, "|"))):toBe("A:Root:Second|A:Child:Root|A:Leaf:Child")
+					Verify.expect((table.concat(log, "|"))):toBe("A:Root:Second|A:Root:Second|A:Root:Second")
 					table.clear(log)
 					connections[3]:Disconnect()
 					root:Destroy()
 					Verify.expect((table.concat(log, "|")))
-						:toBe("D:Root:Second|A:Root:nil|A:Leaf:Child|D:Child:Root|A:Leaf:Child|D:Leaf:Child|A:Leaf:nil")
+						:toBe("D:Root:Second|A:Root:nil|A:Root:nil|D:Child:Root|A:Child:nil|D:Leaf:Child|A:Leaf:nil")
 					for _, connection in connections do
 						connection:Disconnect()
 					end
@@ -494,7 +494,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		verifyHarness:case("keeps cached reflection defaults independent across native fixture instances", {
 			id = "native_perf::native benchmark workload contract::keeps cached reflection defaults independent across native fixture instances",
 			run = function()
-				local engine = require("./lib/native_engine").new({ cacheDefaults = true, recordCreated = false })
+				local engine = require("./lib/native_engine").new({ recordCreated = false })
 				local first, second = engine.new("TextLabel"), engine.new("TextLabel")
 				local initial = second.Text
 				first.Text = "Changed"

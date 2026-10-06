@@ -12,6 +12,7 @@ multiple sources or collect observations elsewhere.
 | Schedule work across executors | [Execution plans](#execution-plans) |
 | Judge observations collected by a host | [Remote observations](#remote-observations) |
 | Capture a scenario, window or place fixture | [Host adapters](#host-adapters) |
+| Test engine-facing logic without Roblox | [Simulated environment](#simulated-environment) |
 
 Examples use these package names. Replace the paths with your mounted package locations:
 
@@ -114,6 +115,10 @@ The context records assertions, steps and artifact references, and owns case-loc
 | `context:own(resource)` | Own a cleanup function or a table with `dispose`/`destroy`. |
 | `context:skip(reason)` | Stop the current case with a deliberate skip. |
 
+Declare a disposal callback’s receiver as the complete resource type, including its `dispose` or
+`destroy` member. `LifecycleOps<H>` and `ActorOps<H>` preserve the acquired handle type in release
+callbacks.
+
 Cleanup runs once, newest first. Setup, case, teardown and cleanup failures remain independently
 visible; a later failure does not erase an earlier one. Hooks and cleanup use the same invocation
 contract as the case. Artifact references record locations; they do not save or authenticate bytes.
@@ -156,9 +161,10 @@ capabilities they require and the evidence they attach, not in the runner.
 
 `createSession(options) -> Session`
 
-`Core.createSession` owns one registry per source. Use it when modules register their cases as they load. Options
+`Core.createSession` preserves the factory’s surface type in `verbs` and `current()`. It owns one registry per source. Use it when modules register their cases as they load. Options
 require `executor` and `environment`; optional fields include `capabilities`, `now`, `surface`,
-`runtimeVerbs`, `prefixCaseIds` and `selection`.
+`runtimeVerbs`, `prefixCaseIds` and `selection`. With solver v2, declare factory options as
+`Core.SessionProvidedOptions<YourSurface>` before calling the overloaded constructor.
 
 ```luau
 local session = Core.createSession {
@@ -412,6 +418,8 @@ and final clean-image coverage.
 reference pooling, owned observation seams, arming and publication into an injected node tree.
 It must not replace or destroy host-owned state. In-engine adapters can import this leaf directly.
 
+### Simulated environment
+
 `Roblox.testEnvironment(options?)` is the optional simulated engine for headless tests. It is host-neutral
 Luau: it depends on no consumer, reads no generated paths and ships in no game. `options` are `classes`
 (`{super?, creatable?, properties = {name = default}, events = {names}, methods = {name = function | true}}`; the
@@ -419,7 +427,7 @@ builtins cover `Instance`, `Folder`, `Model`, parts, `GuiObject` (size, position
 `CanvasGroup`, `ScrollingFrame`, `TextLabel`, `TextBox`, buttons, `UIListLayout`, `UIPadding`, `ScreenGui`,
 `Humanoid`, `Animation`, `Animator` and `AnimationTrack`),
 `builtins = false` to omit `Roblox.BASIC_ENVIRONMENT_CLASSES`, `fakes` and `limits`
-(`attributeNameLength`, `attributeStringLength`, off unless set). The result has `root`,
+(`attributeNameLength`, default 100; `attributeStringLength`, unbounded unless set). The result has `root`,
 `createInstance(className, props?)`, `defineClass`, `newSignal`, `heartbeat`, `task`
 (`spawn`, `defer`, `delay`, `wait`, `cancel` on virtual time), `scheduler`, `step(seconds)`, `now`,
 inspection (`childrenOf`, `parentOf`, `propertyOf`, `attributeOf`, `isAlive`, `liveObjects`,
@@ -429,20 +437,53 @@ attributes and children as a table, for debugging) and `fake(member, handler)`. 
 children in the array part: `createInstance("Model", {Name = "m", childA, childB, Parent = root})`.
 `Roblox.isInstance(value)` and `Roblox.typeName(value)` identify instances and datatypes.
 
+`Environment`, `EnvironmentOptions`, `EnvironmentDefineOptions`, `EnvironmentSnapshot`, `EnvironmentMethod`, `Signal`,
+`Connection`, `VirtualScheduler`, `VirtualTask` and `VirtualCallback` are exported types. Instance
+properties and per-class methods are dynamic schema boundaries. Their values still require the
+consumer's class contract; assigning a method dictionary does not prove its signatures.
+
 `Roblox.datatypes` holds `Vector2`, `Vector3`, `Color3`, `UDim`, `UDim2` and `CFrame` constructors with
 value equality, the other constructor shells and a permissive `Enum`, `typeName(value)` and
 `readCFrame(cframe) -> (x, y, z, {nine rotation numbers})`. `Animator:LoadAnimation` returns a track whose
 `Play`, `Stop` and `AdjustSpeed` change `IsPlaying` and `Speed` and fire `Stopped` and `Ended`; no frames
-are blended.
+are blended. The package exports `DatatypeVector2`, `DatatypeVector3`, `DatatypeCFrame`,
+`DatatypeColor3`, `DatatypeUDim`, `DatatypeUDim2` and `DatatypeEnum` for supported values. These types
+describe the simulated surface, not every native Roblox member.
 
 Instances support `Parent`, `Name`, children events, `Destroy` (locks the parent, destroys descendants,
 disconnects the instance's signals), find/ancestor/`GetFullName`, attributes with change signals, and
 property change signals that fire only on change. Signals fire in connect order and skip a connection
-disconnected during the fire. A member the schema does not declare raises the engine's "is not a valid
-member" error. A method declared as `true` has no behavior: calling it raises
+disconnected during the fire. Reading a name that is not a property, event or method returns the first
+child with that `Name`, as the engine does; a property, event or method of that name wins. Any other
+unknown read, and every unknown write, raises the engine's "is not a valid member" error. `defineClass`
+refuses an existing class, builtin included, unless called as `defineClass(name, spec, {replace = true})`;
+the spec replaces the old one for instances created afterwards and is not merged. A method declared as `true` has no behavior: calling it raises
 `unsupported_method: Class.Method ...` unless a function is given in `methods`, in `options.fakes` or
 through `fake("Class.Method", handler)`. A schema describing an API is never an implementation, and a
 test that needs a result supplies it explicitly. `Roblox.virtualScheduler()` is the same scheduler alone.
+
+### Reflection and behavior adapters
+
+The built-in schemas are a small declared test surface, not a complete Roblox reflection database.
+A caller may translate reflection metadata into class schemas and supply `defaultProperty(className,
+property, fallback)` and `validateProperty(className, property, value, operation)` in the environment
+options. The first returns a per-instance default; return `fallback` for an unmapped property. A returned
+`false` is a real default. The second accepts a write or throws before mutation; `operation` is `set`
+for authored assignments or `poke` for simulated engine changes. This lets a reflection adapter enforce
+datatypes and read-only rules without replacing the hierarchy, signals or scheduler.
+
+Declare text measurement, focus restrictions, style methods and cloning through class methods or
+explicit fakes when a test requires them. Those functions own their behavior and assertions. Declaring
+a name does not implement it, and a fixture result does not prove native layout or input fidelity.
+Keep reflection loading and application UI policy in the caller; do not copy the simulator to add them.
+
+Hierarchy notifications include `AncestryChanged`, `DescendantRemoving` and subtree `DescendantAdded`.
+Moving a subtree notifies the ancestors it leaves or enters; a common ancestor receives neither event.
+Removal runs before detachment, root before descendants. An ancestry callback on the moved instance or
+its descendants receives the moved instance and its new parent. Same-parent assignments emit no events.
+Reparenting the removing instance from its removal callback fails. The simulator dispatches immediately;
+a native deferred signal mode can expose different callback timing and observed state. Cross-event
+ordering beyond these guarantees is not a contract.
 
 The simulation proves Luau logic over the declared surface, ordering and disposal. It does not prove
 rendering, physics, replication, animation, audio, input devices or player capacity; check a supported

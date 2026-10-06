@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Use Verify for the headless engine hierarchy, signals, attributes and destruction.
+  Keep borrowed modal content alive through Compose and preserve native StyleSheet
+  panel padding. The shared Compose module
+  also exposes `createSlot` and `geometry`.
+
 - Use the same test library as Compose, the pinned `voidmeld/verify`, for cases,
   assertions, execution,
   worker reports, Studio reports, and checked evidence transport. Preserve the

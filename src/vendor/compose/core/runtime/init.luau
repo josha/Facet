@@ -2,6 +2,8 @@
 
 local Active = require "./ownership/active"
 local Animation = require "./animation/motion"
+local RampModule = require "./animation/ramp"
+local SchedulerModule = require "./scheduler"
 local TimelineModule = require "./animation/timeline"
 local Block = require "@self/block"
 local Children = require "@self/children"
@@ -28,6 +30,9 @@ export type SpringOptions = Animation.SpringOptions
 export type TimelineOptions = TimelineModule.Options
 export type Timeline = TimelineModule.Timeline
 export type TweenOptions = Animation.TweenOptions
+export type RampOptions = RampModule.Options
+export type Ramp<T> = RampModule.Ramp<T>
+export type Scheduler = SchedulerModule.Scheduler
 
 export type Component = () -> Node
 
@@ -44,7 +49,7 @@ export type Runtime = {
 
 	decorate: (node: Node, props: Props.Props) -> Node,
 
-	connect: (node: Node, event: string, handler: (...any) -> ()) -> () -> (),
+	connect: <Args...>(node: Node, event: string, handler: (Args...) -> ()) -> () -> (),
 
 	adopt: (node: Node) -> Node,
 	borrow: (node: Node) -> Node,
@@ -53,6 +58,8 @@ export type Runtime = {
 
 	tween: <T>(source: Types.Body<T>, options: Animation.TweenOptions?) -> Types.Readable<T>,
 	timeline: (options: TimelineModule.Options?) -> TimelineModule.Timeline,
+	ramp: <T>(initial: T, options: RampModule.Options?) -> RampModule.Ramp<T>,
+	scheduler: (owner: Owner.Owner?) -> SchedulerModule.Scheduler,
 
 	reactor: Reactor.Reactor,
 
@@ -210,7 +217,7 @@ local function createRuntime(host: Host.Host): Runtime
 					return labelled
 				end
 				return build(nil, first)
-			end :: any
+			end :: Constructor
 		) :: Constructor
 	end
 
@@ -433,7 +440,7 @@ local function createRuntime(host: Host.Host): Runtime
 		return node
 	end
 
-	local function connect(node: Node, event: string, handler: (...any) -> ()): () -> ()
+	local function connect<Args...>(node: Node, event: string, handler: (Args...) -> ()): () -> ()
 		if type(node) ~= "table" and type(node) ~= "userdata" then
 			Diagnostics.raise("mount/not-a-node", "connect expects an existing host node", {
 				event = event,
@@ -498,6 +505,8 @@ local function createRuntime(host: Host.Host): Runtime
 
 	local motion = Animation.createMotion(host, requireOwner, reactor)
 	local timelines = TimelineModule.createTimelines(host, requireOwner)
+	local ramp = RampModule.createRamps(motion.tween, requireOwner)
+	local scheduler = SchedulerModule.createSchedulers(timelines.timeline, requireOwner)
 
 	local function watch(_self: Runtime, body: (use: Types.Use) -> (), label: string?): Types.Dispose
 		local active = Active.current()
@@ -542,6 +551,8 @@ local function createRuntime(host: Host.Host): Runtime
 		spring = motion.spring,
 		tween = motion.tween,
 		timeline = timelines.timeline,
+		ramp = ramp,
+		scheduler = scheduler,
 	}
 end
 

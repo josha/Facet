@@ -92,7 +92,7 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 		list.total -= 1
 	end
 
-	local mountPoint = {
+	local mountPoint: MountPoint = {
 		parent = parent,
 		host = host,
 		insert = insert,
@@ -124,7 +124,7 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 			__newindex = function(_: unknown, key: string, _value: unknown): never
 				return refuse(tostring(key), "assigned")
 			end,
-		}) :: any
+		}) :: unknown
 	) :: MountPoint
 end
 

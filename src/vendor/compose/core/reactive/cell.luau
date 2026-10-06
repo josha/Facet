@@ -50,20 +50,21 @@ local UNSET = newproxy(false)
 local validationState = userSpace.state
 
 local function cell<T>(initial: Initial<T>, equals: Equals<T>?): Cell<T>
-	local self: CellNode = setmetatable({
+	local self = setmetatable({
 		version = 0,
-		subscribers = false,
-		lastSubscriber = false,
+		subscribers = false :: false | Edge?,
+		lastSubscriber = false :: false | Edge?,
 		refresh = CELL.refresh,
 		set = CELL.set,
-		value = UNSET,
-		initial = initial,
-		compare = equals or false,
-	}, CELL) :: any
+		value = UNSET :: unknown,
+		initial = initial :: Initial<unknown>,
+		compare = (equals :: Equals<unknown>?) or false,
+	}, CELL)
 
 	self.subscribers = nil
 	self.lastSubscriber = nil
-	return (self :: any) :: Cell<T>
+	local node = (self :: unknown) :: CellNode
+	return (node :: unknown) :: Cell<T>
 end
 
 local function start(self: CellNode)
@@ -126,7 +127,7 @@ function CELL.set(self: CellNode, incoming: unknown)
 	end
 
 	if edge[EDGE_NEXT] == nil and not statsEnabled then
-		local node = edge[EDGE_CONSUMER]
+		local node = edge[EDGE_CONSUMER] :: Consumer
 		local consumer: Consumer = node
 		local state = consumer.state
 		if state == CLEAN or consumer.retry then
@@ -139,7 +140,7 @@ function CELL.set(self: CellNode, incoming: unknown)
 				return
 			end
 			if consumer.derived then
-				markStale(node, CHECK)
+				markStale((node :: unknown) :: Producer, CHECK)
 			end
 
 			local enqueue = consumer.enqueue
@@ -171,16 +172,17 @@ SHARED.__index = SHARED
 SHARED.shared = true
 
 local function sharedCell<T>(initial: Initial<T>, equals: Equals<T>?): Cell<T>
-	local self = cell(initial, equals)
-	setmetatable(self :: any, SHARED)
-	return self
+	local self: Cell<T> = cell(initial, equals)
+	setmetatable(self, SHARED)
+	return (self :: unknown) :: Cell<T>
 end
 
 local function isReadable(value: unknown): boolean
 	if type(value) ~= "table" then
 		return false
 	end
-	local meta = getmetatable(value :: any)
+	local metatableOf = (getmetatable :: unknown) :: (unknown) -> { [string]: unknown }?
+	local meta = metatableOf(value)
 	return meta ~= nil and rawget(meta, "__isComposeReadable") == true
 end
 

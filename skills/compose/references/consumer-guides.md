@@ -1,9 +1,7 @@
-# Targeted contracts
+# Host and authoring guides
 
-Choose the guide for your task:
-
-- `docs/roblox.md`: the engine boundary.
-- `docs/api.md`: public composition and diagnostics.
-- `authoring/README.md`: semantic sets and project generation.
+- [Roblox](https://github.com/voidmeld/compose/blob/60b9241d66a8b5611a01cec50893f70419341e1b/docs/roblox.md): engine adapter and native verification.
+- [Diagnostics](https://github.com/voidmeld/compose/blob/60b9241d66a8b5611a01cec50893f70419341e1b/docs/api.md#diagnostics): work counters, profiling and retention.
+- [Authoring](https://github.com/voidmeld/compose/blob/60b9241d66a8b5611a01cec50893f70419341e1b/authoring/README.md): build-time content and project generation.
 
 The consuming application manages its dependency pin and verifies integration.

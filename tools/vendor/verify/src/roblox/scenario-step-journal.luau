@@ -18,16 +18,31 @@ export type Deps = {
 	write: (string, string) -> (),
 	log: ((string) -> ())?,
 }
+export type Step = {
+	ordinal: number,
+	kind: string,
+	label: string,
+	tool: string,
+	checkpoint: string?,
+	viewport: string?,
+	requestDigest: string?,
+	resultDigest: string,
+	path: string,
+	status: string,
+	bytes: number,
+	command: { string }?,
+}
+export type Call = { tool: string, binding: string, requestDigest: string, resultDigest: string, status: string }
 export type Journal = {
-	steps: { any },
-	calls: { any },
-	record: (self: Journal, entry: Entry, result: Result) -> (any, any?),
+	steps: { Step },
+	calls: { Call },
+	record: (Journal, Entry, Result) -> (Step, Call?),
 }
 
 local function create(binding: string, deps: Deps): Journal
 	assert(type(binding) == "string" and binding ~= "", "journal binding missing")
-	local journal: Journal = { steps = {}, calls = {} } :: any
-	function journal:record(entry: Entry, result: Result): (any, any?)
+	local journal: Journal = { steps = {}, calls = {} } :: Journal
+	function journal:record(entry: Entry, result: Result): (Step, Call?)
 		assert(type(entry.path) == "string" and entry.path ~= "", "journal path missing")
 		assert(type(result.output) == "string", "journal output missing")
 		local ordinal = #self.steps + 1
@@ -50,7 +65,7 @@ local function create(binding: string, deps: Deps): Journal
 			command = entry.command,
 		}
 		table.insert(self.steps, step)
-		local call = nil
+		local call: Call? = nil
 		if entry.evidenceOnly ~= true and requestDigest ~= nil then
 			call = {
 				tool = entry.tool,
@@ -59,7 +74,7 @@ local function create(binding: string, deps: Deps): Journal
 				resultDigest = resultDigest,
 				status = status,
 			}
-			table.insert(self.calls, call)
+			table.insert(self.calls, call :: Call)
 		end
 		if deps.log ~= nil then
 			(deps.log :: (string) -> ())(

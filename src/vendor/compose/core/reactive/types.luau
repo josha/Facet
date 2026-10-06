@@ -14,7 +14,7 @@ export type Cell<T> = Readable<T> & {
 }
 
 export type Formula<T> = {
-	peek: (self: Formula<T> | any) -> T,
+	peek: (self: Readable<T>) -> T,
 	dispose: (self: Formula<T>) -> (),
 }
 

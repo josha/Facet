@@ -19,6 +19,7 @@ Compose : table
   Compose.createRootOwner : function
   Compose.createRuntime : function
   Compose.createSharedResource : function
+  Compose.createSlot : function
   Compose.createSpringState : function
   Compose.currentOwner : function
   Compose.custodyOf : function
@@ -28,6 +29,7 @@ Compose : table
   Compose.formatDiagnostic : function
   Compose.formula : function
   Compose.fragment : function
+  Compose.geometry : table(frozen)
   Compose.group : function
   Compose.indexes : function
   Compose.inspect : table

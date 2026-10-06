@@ -25,7 +25,7 @@ export type Bdd = {
 	beforeEach: (body: Body) -> (),
 	afterEach: (body: Body) -> (),
 	expect: (value: unknown) -> Expectation,
-	spy: (implementation: ((...any) -> ...any)?) -> Spy,
+	spy: typeof(Verify.spy),
 	skip: (reason: string) -> never,
 }
 
@@ -117,7 +117,7 @@ export type Surface = {
 	afterEach: (body: Body) -> (),
 	skip: (reason: string) -> never,
 	expect: (value: unknown, ...unknown) -> Expectation,
-	spy: (implementation: ((...any) -> ...any)?) -> Spy,
+	spy: typeof(Verify.spy),
 	float32: (value: number) -> number,
 	open: (source: string) -> (),
 	close: () -> (),
@@ -133,33 +133,45 @@ local REGISTRATION_VERBS: { string } = { "describe", "it", "itSkip", "beforeEach
 
 local function surface(options: SurfaceOptions): Surface
 	local api = {} :: Surface
-	local session = Verify.createSession {
+	local sessionOptions: Verify.SessionProvidedOptions<Bdd> = {
 		executor = options.executor,
 		environment = options.environment,
 		capabilities = options.capabilities,
 		now = options.now or os.clock,
-		surface = function(harness: Harness): { [string]: any }
-			return create(harness)
-		end,
+		surface = create,
 		runtimeVerbs = { "skip" },
 		prefixCaseIds = false,
 	}
+	local session = Verify.createSession(sessionOptions)
 	local depth = 0
 	local ambientOpen = false
 	local activeOverride: Bdd? = nil
 
-	for _, verb in REGISTRATION_VERBS do
-		(api :: any)[verb] = function(...)
-			if activeOverride ~= nil then
-				return ((activeOverride :: any)[verb])(...)
-			end
-			if depth == 0 then
-				session:open(options.ambientSource)
-				depth += 1
-				ambientOpen = true
-			end
-			return session.verbs[verb](...)
+	local function registering(): Bdd
+		if activeOverride ~= nil then
+			return activeOverride
 		end
+		if depth == 0 then
+			session:open(options.ambientSource)
+			depth += 1
+			ambientOpen = true
+		end
+		return session:current()
+	end
+	api.describe = function(name, run)
+		registering().describe(name, run)
+	end
+	api.it = function(name, definition)
+		registering().it(name, definition)
+	end
+	api.itSkip = function(name, reason, run)
+		registering().itSkip(name, reason, run)
+	end
+	api.beforeEach = function(run)
+		registering().beforeEach(run)
+	end
+	api.afterEach = function(run)
+		registering().afterEach(run)
 	end
 
 	function api.useHarness(harness: Harness, run: () -> ())

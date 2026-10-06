@@ -7,7 +7,7 @@ local engineLib = require("./native_engine")
 local alive = setmetatable({}, { __mode = "k" })
 
 local function mountAndDispose()
-	local engine = engineLib.new({ cacheDefaults = true })
+	local engine = engineLib.new()
 	local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local UI = Facet.controls(runtime, {

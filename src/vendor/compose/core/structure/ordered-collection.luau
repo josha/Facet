@@ -140,7 +140,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	if settings.key ~= nil then
 		keyOf = Support.builderOf(settings.key, "OrderedCollection", "key") :: (value: V, index: number) -> K
 	else
-		keyOf = (identity :: any) :: (value: V, index: number) -> K
+		keyOf = (identity :: unknown) :: (value: V, index: number) -> K
 	end
 
 	local mode: Mode = (settings.mode :: Mode?) or "all"

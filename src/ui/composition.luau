@@ -109,8 +109,12 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
+		local owner = assert(Compose.currentOwner())
 		local home = assert(richest).Parent
 		local function returnHome()
+			if owner.isDisposed() then
+				return
+			end
 			local content = assert(richest)
 			if content.Parent ~= home then
 				content.Parent = home

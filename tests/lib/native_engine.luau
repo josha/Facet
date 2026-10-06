@@ -1,175 +1,298 @@
 --!strict
 
 local Roblox = require("@lune/roblox")
+local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
 local Shared = require("../../src/ui/types")
 local ComposeRoblox = require("../../src/vendor/compose/roblox")
-export type Signal = {
-	Connect: (any, (...any) -> ()) -> { Disconnect: () -> () },
-	fire: (...any) -> (),
+export type Signal<A... = ...unknown> = ComposeRoblox.Signal<A...> & {
+	fire: (A...) -> (),
 	count: () -> number,
 }
-export type Engine = ComposeRoblox.Engine & {
-	heartbeat: Signal,
+export type Engine = {
+	new: (string) -> any,
+	clock: () -> number,
+	typeName: (any) -> string,
+	destroy: (any) -> (),
+	propertyChanged: (any, string) -> Signal<()>,
+	datatypes: typeof(((nil :: unknown) :: ComposeRoblox.Engine).datatypes),
+	readCFrame: typeof(((nil :: unknown) :: ComposeRoblox.Engine).readCFrame),
+	heartbeat: Signal<number>,
 	types: Shared.RobloxTypes,
 	made: { any },
 	rejectedSelections: { any },
 	census: () -> { live: number, connections: number },
 }
 
-local function signal()
-	local listeners: { [any]: (...any) -> () } = {}
-	return {
-		Connect = function(_: any, callback: (...any) -> ()): { Disconnect: () -> () }
-			local token = {}
-			listeners[token] = callback
-			return {
-				Disconnect = function()
-					listeners[token] = nil
-				end,
-			}
-		end,
-		fire = function(...)
-			if next(listeners) == nil then
-				return
-			end
-			for _, callback in table.clone(listeners) do
-				callback(...)
-			end
-		end,
-		count = function()
-			local count = 0
-			for _ in listeners do
-				count += 1
-			end
-			return count
-		end,
-	}
-end
 local reflection = Roblox.getReflectionDatabase()
-local NEWER_MEMBERS: { [string]: { [string]: boolean } } = {
-	InputBinding = { PrimaryModifier = true, SecondaryModifier = true, DisplayName = true, DisplayImage = true },
-	InputAction = { PreferredBinding = true },
-}
-local function isMember(className: string, key: string): boolean
-	local newer = NEWER_MEMBERS[className]
-	if newer and newer[key] then
-		return true
-	end
-	local class = reflection:GetClass(className)
-	if class == nil then
-		return true
-	end
-	while class do
-		if class.Properties[key] ~= nil then
-			return true
-		end
-		class = if class.Superclass then reflection:GetClass(class.Superclass) else nil
-	end
-	return false
-end
+local defaultsByClass: { [string]: any } = {}
+local defaultsByProperty: { [string]: { [string]: any } } = {}
+
 local function new(options: any?): Engine
 	local made: { any } = {}
 	local rejectedSelections = {}
-	local defaultsByClass = {}
-	local membersByClass = {}
-	local datatypes: { [string]: { [string]: string | false } } = {}
+	local attributeValues = {}
+	local attributeTokens = setmetatable({}, { __mode = "k" })
 	local cloneRecords = setmetatable({}, { __mode = "k" })
-	local events = {
-		ChildAdded = true,
-		ChildRemoved = true,
-		Activated = true,
-		Focused = true,
-		ReturnPressedFromOnScreenKeyboard = true,
-		Pressed = true,
-		Released = true,
-		StateChanged = true,
-		TouchLongPress = true,
-		TouchPan = true,
-		AncestryChanged = true,
-		DescendantAdded = true,
-		DescendantRemoving = true,
-		Destroying = true,
-		FocusLost = true,
-		InputBegan = true,
-		InputChanged = true,
-		InputEnded = true,
-		LastInputTypeChanged = true,
-		WindowFocusReleased = true,
-		WindowFocused = true,
-		DragStart = true,
-		DragContinue = true,
-		DragEnd = true,
-		MouseEnter = true,
-		MouseLeave = true,
-		MouseMoved = true,
-		MouseButton1Down = true,
-		SelectionGained = true,
-		SelectionLost = true,
+	local classes: { [string]: any } = {}
+	local objects = setmetatable({}, { __mode = "k" })
+	local facades = setmetatable({}, { __mode = "kv" })
+	local signalAdapters = setmetatable({}, { __mode = "kv" })
+	local eventNames = {
+		"Activated",
+		"Focused",
+		"ReturnPressedFromOnScreenKeyboard",
+		"Pressed",
+		"Released",
+		"StateChanged",
+		"TouchLongPress",
+		"TouchPan",
+		"FocusLost",
+		"InputBegan",
+		"InputChanged",
+		"InputEnded",
+		"LastInputTypeChanged",
+		"WindowFocusReleased",
+		"WindowFocused",
+		"DragStart",
+		"DragContinue",
+		"DragEnd",
+		"MouseEnter",
+		"MouseLeave",
+		"MouseMoved",
+		"MouseButton1Down",
+		"SelectionGained",
+		"SelectionLost",
 	}
-	local function create(className: string): any
-		local cached = options and options.cacheDefaults == true
-		local record: any = if cached then defaultsByClass[className] else nil
-		if record == nil then
-			record = {
-				node = Roblox.Instance.new(if className == "UIShadow" then "Folder" else className),
-				properties = {},
-				ancestry = {},
+
+	local observed = {
+		"AbsoluteSize",
+		"TextBounds",
+		"AbsoluteContentSize",
+		"AbsolutePosition",
+		"AbsoluteWindowSize",
+		"AbsoluteCanvasSize",
+		"CanvasPosition",
+	}
+	local shadow: { [string]: any } = {
+		BlurRadius = Roblox.UDim.new(0, 12),
+		Color = Roblox.Color3.new(0, 0, 0),
+		Offset = Roblox.UDim2.new(),
+		Spread = Roblox.UDim2.new(),
+		Transparency = 0.5,
+		ZIndex = -1,
+		Enabled = true,
+	}
+	local function nativeDefaults(className: string): any
+		local cached = defaultsByClass[className]
+		if not cached then
+			local ok, instance = pcall(function()
+				return Roblox.Instance.new(if className == "UIShadow" then "Folder" else className)
+			end)
+			cached = if ok then instance else Roblox.Instance.new("Folder")
+			defaultsByClass[className] = cached
+		end
+		return cached
+	end
+	local function defaultProperty(className: string, key: string, fallback: any): any
+		if table.find(observed, key) then
+			return Roblox.Vector2.zero
+		end
+		if className == "UICorner" and string.match(key, "Radius$") then
+			return Roblox.UDim.new(0, 8)
+		end
+		if className == "UIShadow" and shadow[key] ~= nil then
+			return shadow[key]
+		end
+		local values = defaultsByProperty[className]
+		if not values then
+			values = {}
+			defaultsByProperty[className] = values
+		end
+		local cached = values[key]
+		if not cached then
+			local ok, value = pcall(function()
+				return nativeDefaults(className)[key]
+			end)
+			cached = { ok, value }
+			values[key] = cached
+		end
+		return if cached[1] then cached[2] else fallback
+	end
+	local environment = VerifyRoblox.testEnvironment({
+		builtins = false,
+		defaultProperty = defaultProperty,
+		validateProperty = function(className, key, value)
+			if value == nil then
+				return
+			end
+			local kind = typeof(defaultProperty(className, key, nil))
+			if table.find({ "Color3", "UDim2", "UDim", "Vector2" }, kind) then
+				assert(typeof(value) == kind, `Unable to assign property {key}. {kind} expected, got {typeof(value)}`)
+			end
+		end,
+	})
+	local function raiseHandlerErrors()
+		if #environment.errors > 0 then
+			local message = table.concat(environment.errors, "\n")
+			table.clear(environment.errors)
+			error(message, 3)
+		end
+	end
+	local function defineClass(className: string)
+		if classes[className] then
+			return
+		end
+		local metadata: any = reflection:GetClass(if className == "UIShadow" then "UIComponent" else className)
+		local parent: string? = if className == "UIShadow"
+			then "UIComponent"
+			elseif metadata then metadata.Superclass
+			else nil
+		if parent then
+			defineClass(parent)
+		end
+		local properties: { [string]: any } = {}
+		local cursor = metadata
+		while cursor do
+			for key in cursor.Properties do
+				properties[key] = false
+			end
+			cursor = if cursor.Superclass then reflection:GetClass(cursor.Superclass) else nil
+		end
+		for _, key in observed do
+			properties[key] = false
+		end
+		for _, key in
+			{
+				"PlayCount",
+				"StopCount",
+				"WaveformKeys",
+				"ControlPoints",
+				"PrimaryModifier",
+				"SecondaryModifier",
+				"DisplayName",
+				"DisplayImage",
+				"PreferredBinding",
 			}
-			if cached then
-				defaultsByClass[className] = record
-			end
+		do
+			properties[key] = false
 		end
-		local defaults = record.node
-		local properties: { [string]: any } = {
-			ClassName = className,
-			Name = className,
-			AbsoluteSize = Roblox.Vector2.zero,
-			TextBounds = Roblox.Vector2.zero,
-			AbsoluteContentSize = Roblox.Vector2.zero,
-			AbsolutePosition = Roblox.Vector2.zero,
-			AbsoluteWindowSize = Roblox.Vector2.zero,
-			AbsoluteCanvasSize = Roblox.Vector2.zero,
-			CanvasPosition = Roblox.Vector2.zero,
-		}
 		if className == "UICorner" then
-			for _, corner in { "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" } do
-				properties[corner] = Roblox.UDim.new(0, 8)
+			for _, key in { "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" } do
+				properties[key] = false
+			end
+		elseif className == "UIShadow" then
+			for key in shadow do
+				properties[key] = false
 			end
 		end
-		if className == "UIShadow" then
-			properties.BlurRadius = Roblox.UDim.new(0, 12)
-			properties.Color = Roblox.Color3.new(0, 0, 0)
-			properties.Offset = Roblox.UDim2.new()
-			properties.Spread = Roblox.UDim2.new()
-			properties.Transparency = 0.5
-			properties.ZIndex = -1
-			properties.Enabled = true
+		local spec = { super = parent, properties = properties, events = eventNames }
+		classes[className] = spec
+		environment.defineClass(className, spec, { replace = className == "Folder" })
+	end
+	local wrap: (any) -> any
+	local function unwrap(value: any): any
+		return objects[value] or value
+	end
+	local function adaptSignal<A...>(actual: VerifyRoblox.Signal<A...>): any
+		local existing = signalAdapters[actual]
+		if existing then
+			return existing
 		end
-		local changed: { [string]: any } = {}
-		local signals: { [string]: typeof(signal()) } = {}
-		local children: { any } = {}
-		local node: any
-		local destroyed: boolean?
-		local focused: boolean?
-		local tags, styleProperties, styleTransitions = {}, {}, {}
-		local methods = {
-			_fireSignal = function(_, name, ...)
-				if signals[name] then
-					signals[name].fire(...)
-				end
+		local connections = setmetatable({} :: { [VerifyRoblox.Connection]: boolean }, { __mode = "k" })
+		local adapter = {
+			Connect = function(_, callback)
+				local connection = actual:Connect(function(...)
+					local args = table.pack(...)
+					for index = 1, args.n do
+						args[index] = wrap(args[index])
+					end
+					callback(table.unpack(args, 1, args.n))
+				end)
+				connections[connection] = true
+				return connection
 			end,
-			_hasSignal = function(_, name)
-				return signals[name] ~= nil
-			end,
-			_fireAncestry = function()
-				if signals.AncestryChanged then
-					signals.AncestryChanged.fire(node, properties.Parent)
+			fire = function(...)
+				local args = table.pack(...)
+				for index = 1, args.n do
+					args[index] = unwrap(args[index])
 				end
-				if children[1] ~= nil then
-					for _, child in table.clone(children) do
-						child:_fireAncestry()
+				actual:Fire(table.unpack(args, 1, args.n))
+				raiseHandlerErrors()
+			end,
+			count = function()
+				local live = 0
+				for connection in pairs(connections) do
+					if connection.Connected then
+						live += 1
 					end
 				end
+				return live
+			end,
+		}
+		signalAdapters[actual] = adapter
+		return adapter
+	end
+	local create: (string) -> any
+	function create(className: string): any
+		defineClass(className)
+		local actual = environment.createInstance(className)
+		local overrides: { [string]: any } = {}
+		local tags, styleProperties, styleTransitions = {}, {}, {}
+		local focused = false
+		local nodeSignals: { [any]: boolean } = {}
+		local function wrapMember(value: any): any
+			local result = wrap(value)
+			if type(result) == "table" and result.count then
+				nodeSignals[result] = true
+			end
+			return result
+		end
+		local node: any
+		local methods = {
+			_fireSignal = function(_, name, ...)
+				node[name].fire(...)
+			end,
+			FindFirstChildWhichIsA = function(_, name, recursive)
+				for _, child in if recursive then node:GetDescendants() else node:GetChildren() do
+					if child:IsA(name) then
+						return child
+					end
+				end
+				return nil
+			end,
+			SetAttribute = function(_, key, value)
+				if type(value) == "table" and value.Time and value.EasingStyle then
+					local token = attributeTokens[value]
+					if not token then
+						token = `FacetTweenInfo:{tostring(value)}`
+						attributeTokens[value] = token
+						attributeValues[token] = value
+					end
+					value = token
+				end
+				actual:SetAttribute(key, value)
+				raiseHandlerErrors()
+			end,
+			GetAttribute = function(_, key)
+				local value = actual:GetAttribute(key)
+				return attributeValues[value] or value
+			end,
+			GetAttributes = function()
+				local values = actual:GetAttributes()
+				for key, value in values do
+					values[key] = attributeValues[value] or value
+				end
+				return values
+			end,
+			FindFirstAncestorWhichIsA = function(_, name)
+				local parent = node.Parent
+				while parent do
+					if parent:IsA(name) then
+						return parent
+					end
+					parent = parent.Parent
+				end
+				return nil
 			end,
 			Clone = function()
 				if node.Archivable == false then
@@ -206,35 +329,38 @@ local function new(options: any?): Engine
 						copy:AddTag(tag)
 					end
 					copy:SetProperties(original:GetProperties())
+					for name, value in original:GetAttributes() do
+						copy:SetAttribute(name, value)
+					end
 				end
 				return result
 			end,
 			Play = function()
-				properties.PlayCount = (properties.PlayCount or 0) + 1
+				node.PlayCount = (node.PlayCount or 0) + 1
 			end,
 			Stop = function()
-				properties.StopCount = (properties.StopCount or 0) + 1
+				node.StopCount = (node.StopCount or 0) + 1
 			end,
 			SetWaveformKeys = function(_, keys)
-				properties.WaveformKeys = keys
+				node.WaveformKeys = keys
 			end,
 			GetStyled = function(_, property)
 				return node[property]
 			end,
 			GetStyledPropertyChangedSignal = function(_, property)
 				if options and options.styleOnlySignals then
-					return signal()
+					return adaptSignal(environment.newSignal())
 				end
 				return node:GetPropertyChangedSignal(property)
 			end,
 			ResetPropertyToDefault = function(_, property)
-				node[property] = defaults[property]
+				node[property] = defaultProperty(className, property, nil)
 			end,
 			SetControlPoints = function(_, points)
-				properties.ControlPoints = table.clone(points)
+				node.ControlPoints = table.clone(points)
 			end,
 			GetControlPoints = function()
-				return properties.ControlPoints or {}
+				return node.ControlPoints or {}
 			end,
 			JumpTo = function(_, page)
 				node.CurrentPage = page
@@ -280,252 +406,77 @@ local function new(options: any?): Engine
 					node.FocusLost.fire(enter == true)
 				end
 			end,
-			IsDescendantOf = function(_, ancestor)
-				local parent = node.Parent
-				while parent do
-					if parent == ancestor then
-						return true
-					end
-					parent = parent.Parent
-				end
-				return false
-			end,
-			FindFirstAncestorWhichIsA = function(_, name)
-				local parent = node.Parent
-				while parent do
-					if parent:IsA(name) then
-						return parent
-					end
-					parent = parent.Parent
-				end
-				return nil
-			end,
-			FindFirstChild = function(_, name, recursive)
-				for _, child in children do
-					if child.Name == name then
-						return child
-					end
-				end
-				if recursive then
-					for _, child in children do
-						local found = child:FindFirstChild(name, true)
-						if found then
-							return found
-						end
-					end
-				end
-				return nil
-			end,
-			FindFirstChildWhichIsA = function(_, name, recursive)
-				for _, child in children do
-					if child:IsA(name) then
-						return child
-					end
-				end
-				if recursive then
-					for _, child in children do
-						local found = child:FindFirstChildWhichIsA(name, true)
-						if found then
-							return found
-						end
-					end
-				end
-				return nil
-			end,
-			GetDescendants = function()
-				local result = {}
-				local function visit(parent)
-					for _, child in parent:GetChildren() do
-						table.insert(result, child)
-						visit(child)
-					end
-				end
-				visit(node)
-				return result
-			end,
-			GetChildren = function()
-				return table.clone(children)
-			end,
-			GetPropertyChangedSignal = function(_, key)
-				changed[key] = changed[key] or signal()
-				return changed[key]
-			end,
-			SetAttribute = function(_, key, value)
-				local previous = properties["@" .. key]
-				properties["@" .. key] = value
-				if previous ~= value and changed["@" .. key] then
-					changed["@" .. key].fire()
-				end
-			end,
-			GetAttributeChangedSignal = function(_, key)
-				changed["@" .. key] = changed["@" .. key] or signal()
-				return changed["@" .. key]
-			end,
-			GetAttribute = function(_, key)
-				return properties["@" .. key]
-			end,
-			IsA = function(_, name)
-				if name == className or (className == "UIShadow" and name == "UIComponent") then
-					return true
-				end
-				local result = record.ancestry[name]
-				if result == nil then
-					result = defaults:IsA(name)
-					if cached then
-						record.ancestry[name] = result
-					end
-				end
-				return result
-			end,
-			Destroy = function()
-				if destroyed then
-					return
-				end
-				destroyed = true
-				if signals.Destroying then
-					signals.Destroying.fire()
-				end
-				node.Parent = nil
-				if children[1] ~= nil then
-					for _, child in table.clone(children) do
-						child:Destroy()
-					end
-				end
-				if not cached then
-					defaults:Destroy()
-				end
-			end,
+
 			connectionCount = function()
 				local count = 0
-				for _, event in signals do
-					count += event.count()
-				end
-				for _, event in changed do
-					count += event.count()
+				for signal in nodeSignals do
+					count += signal.count()
 				end
 				return count
 			end,
 			isDestroyed = function()
-				return destroyed == true
+				return not environment.isAlive(actual)
 			end,
 		}
-		local function lineage(start: any, name: string)
-			local listeners: { any } = {}
-			local cursor = start
-			while cursor do
-				if cursor:_hasSignal(name) then
-					table.insert(listeners, cursor)
-				end
-				cursor = cursor.Parent
-			end
-			if listeners[1] == nil then
-				return
-			end
-			local subtree = node:GetDescendants()
-			table.insert(subtree, 1, node)
-			for _, listener in listeners do
-				for _, member in subtree do
-					listener:_fireSignal(name, member)
-				end
-			end
-		end
 		node = setmetatable({}, {
 			__index = function(_, key)
+				if overrides[key] ~= nil then
+					return overrides[key]
+				end
 				if methods[key] then
 					return methods[key]
-				end
-				if events[key] then
-					signals[key] = signals[key] or signal()
-					return signals[key]
 				end
 				if key == "TextBounds" and options and options.measureText then
 					return options.measureText(node)
 				end
-				if key == "TextFits" and options and options.textFits and options.textFits(node) ~= nil then
-					return options.textFits(node)
-				end
-				if properties[key] ~= nil then
-					return properties[key]
-				end
-				if key == "Parent" then
-					return nil
-				end
-				local known = record.properties[key]
-				if known then
-					return known.value
+				if key == "TextFits" and options and options.textFits then
+					local value = options.textFits(node)
+					if value ~= nil then
+						return value
+					end
 				end
 				local ok, value = pcall(function()
-					return defaults[key]
+					return ((actual :: unknown) :: { [string]: any })[key]
 				end)
-				if cached then
-					record.properties[key] = { value = if ok then value else nil }
+				if not ok then
+					return nil
 				end
-				return if ok then value else nil
+				if type(value) == "function" then
+					return function(_, ...)
+						local args = table.pack(...)
+						for index = 1, args.n do
+							args[index] = unwrap(args[index])
+						end
+						local values: any =
+							table.pack((value :: (...any) -> ...any)(actual, table.unpack(args, 1, args.n)))
+						raiseHandlerErrors()
+						for index = 1, values.n do
+							local entry = values[index]
+							if key == "GetChildren" or key == "GetDescendants" then
+								local result = {}
+								for i, child in entry do
+									result[i] = wrap(child)
+								end
+								entry = result
+							else
+								entry = wrapMember(entry)
+							end
+							values[index] = entry
+						end
+						return table.unpack(values, 1, values.n)
+					end
+				end
+				return wrapMember(value)
 			end,
 			__newindex = function(_, key, value)
-				if
-					type(key) == "string"
-					and properties[key] == nil
-					and not events[key]
-					and string.sub(key, 1, 1) ~= "_"
-					and string.sub(key, 1, 1) ~= "@"
-					and not (options and options.lenientProperties == true)
-				then
-					local members = membersByClass[className]
-					if members == nil then
-						members = {}
-						membersByClass[className] = members
-					end
-					local valid = members[key]
-					if valid == nil then
-						valid = pcall(function()
-							return defaults[key]
-						end) or isMember(className, key)
-						members[key] = valid
-					end
-					local double = type(value) == "function" or (type(value) == "table" and value.Connect ~= nil)
-					assert(valid or double, `{key} is not a valid member of {className} "{properties.Name}"`)
-				end
-				if value ~= nil and type(key) == "string" then
-					local kinds = datatypes[className]
-					if kinds == nil then
-						kinds = {}
-						datatypes[className] = kinds
-					end
-					local kind = kinds[key]
-					if kind == nil then
-						local ok, default = pcall(function()
-							return defaults[key]
-						end)
-						local found = if ok then typeof(default) else ""
-						kind = if found == "Color3"
-								or found == "UDim2"
-								or found == "UDim"
-								or found == "Vector2"
-							then found
-							else false
-						kinds[key] = kind :: string | false
-					end
-					if kind then
-						assert(
-							typeof(value) == kind,
-							`Unable to assign property {key}. {kind} expected, got {typeof(value)}`
-						)
-					end
-				end
-				local previous = node[key]
-				if previous == value then
-					return
-				end
-				if className == "GuiService" and key == "SelectedObject" and value ~= nil then
-					local shown = value.Selectable ~= false
+				if className == "GuiService" and key == "SelectedObject" and value then
 					local cursor = value
+					local shown = value.Selectable ~= false
 					while shown and cursor and cursor:IsA("GuiBase2d") do
-						if cursor:IsA("GuiObject") and cursor.Visible == false then
-							shown = false
-						elseif cursor:IsA("LayerCollector") and cursor.Enabled == false then
-							shown = false
-						end
+						shown = not (
+							(cursor:IsA("GuiObject") and cursor.Visible == false)
+							or (cursor:IsA("LayerCollector") and cursor.Enabled == false)
+						)
 						cursor = cursor.Parent
 					end
 					if not shown then
@@ -537,52 +488,50 @@ local function new(options: any?): Engine
 						while ancestor and ancestor.ClassName ~= "PlayerGui" do
 							ancestor = ancestor.Parent
 						end
-						if not ancestor then
-							error(
-								`Cannot set GuiService.SelectedObject to {value.Name} because it is not a descendant of a PlayerGui`
-							)
-						end
+						assert(
+							ancestor,
+							`Cannot set GuiService.SelectedObject to {value.Name} because it is not a descendant of a PlayerGui`
+						)
 					end
 				end
-				if key == "Parent" and previous then
-					lineage(previous, "DescendantRemoving")
+				if
+					type(value) == "function"
+					or (type(value) == "table" and value.Connect ~= nil)
+					or string.sub(key, 1, 1) == "_"
+				then
+					overrides[key] = value
+				elseif key ~= "Parent" and classes[className].properties[key] == nil then
+					assert(
+						options and options.lenientProperties,
+						`{key} is not a valid member of {className} "{node.Name}"`
+					)
+					overrides[key] = value
+				else
+					actual[key] = unwrap(value)
+					raiseHandlerErrors()
 				end
-				if key == "Parent" then
-					if previous then
-						local siblings = previous._children
-						local index = table.find(siblings, node)
-						if index then
-							table.remove(siblings, index)
-						end
-					end
-					if value then
-						table.insert(value._children, node)
-					end
-				end
-				properties[key] = value
-				if key == "Parent" then
-					if previous then
-						previous:_fireSignal("ChildRemoved", node)
-					end
-					if value then
-						value:_fireSignal("ChildAdded", node)
-						lineage(value, "DescendantAdded")
-					end
-					methods._fireAncestry()
-				end
-				if changed[key] then
-					changed[key].fire()
-				end
+				cloneRecords[node][key] = value
 			end,
 		})
-		properties._children = children
-		cloneRecords[node] = properties
+		cloneRecords[node] = { Name = className }
+		objects[node] = actual
+		facades[actual] = node
 		if not options or options.recordCreated ~= false then
 			table.insert(made, node)
 		end
 		return node
 	end
-	local heartbeat = signal()
+	function wrap(value: any): any
+		if facades[value] then
+			return facades[value]
+		end
+		if type(value) == "table" and type(value.Connect) == "function" then
+			return adaptSignal(value)
+		end
+		return value
+	end
+	local heartbeat = adaptSignal(environment.heartbeat)
+
 	local types: any = table.clone(Roblox)
 	types.BrickColor = setmetatable({
 		palette = function(index: number): any
@@ -650,40 +599,36 @@ local function new(options: any?): Engine
 			return { Position = position, LeftTangent = leftTangent, RightTangent = rightTangent }
 		end,
 	}
-	local result = {
-		new = create,
-		heartbeat = heartbeat,
-		clock = os.clock,
-		typeName = typeof,
-		destroy = function(node: any)
-			node:Destroy()
-		end,
-		propertyChanged = function(node: any, key: string)
-			return node:GetPropertyChangedSignal(key)
-		end,
-		datatypes = {
-			CFrame = nil,
-			Vector2 = Roblox.Vector2.new,
-			Vector3 = Roblox.Vector3.new,
-			Color3 = Roblox.Color3.new,
-			UDim = Roblox.UDim.new,
-			UDim2 = Roblox.UDim2.new,
-		},
-		census = function()
-			assert(not options or options.recordCreated ~= false, "census requires recording all created instances")
-			local live, connections = 0, heartbeat.count()
-			for _, node in made do
-				if not node:isDestroyed() then
-					live += 1
-				end
-				connections += node:connectionCount()
-			end
-			return { live = live, connections = connections }
-		end,
-		made = made,
-		rejectedSelections = rejectedSelections,
-		types = types :: Shared.RobloxTypes,
-	}
-	return (result :: unknown) :: Engine
+
+	return (
+		{
+			new = create,
+			readCFrame = nil,
+			heartbeat = heartbeat,
+			clock = os.clock,
+			typeName = typeof,
+			destroy = function(node: any)
+				node:Destroy()
+			end,
+			propertyChanged = function(node: any, key: string)
+				return node:GetPropertyChangedSignal(key)
+			end,
+			datatypes = {
+				CFrame = nil,
+				Vector2 = Roblox.Vector2.new,
+				Vector3 = Roblox.Vector3.new,
+				Color3 = Roblox.Color3.new,
+				UDim = Roblox.UDim.new,
+				UDim2 = Roblox.UDim2.new,
+			},
+			census = function()
+				assert(not options or options.recordCreated ~= false, "census requires recording all created instances")
+				return { live = environment.liveObjects(), connections = environment.liveConnections() }
+			end,
+			made = made,
+			rejectedSelections = rejectedSelections,
+			types = types :: Shared.RobloxTypes,
+		} :: unknown
+	) :: Engine
 end
 return { new = new }

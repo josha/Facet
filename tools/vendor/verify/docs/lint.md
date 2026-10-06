@@ -1,8 +1,16 @@
 # Lint policy
 
 The complete gate runs `lute lint -c lint.config.luau` on each maintained Luau tree. It also runs
-`luau-lsp analyze` for type and scope-aware checks that pinned Lute does not perform correctly.
+`luau-lsp analyze` in strict mode for every maintained source, test, tool, example and lint
+configuration. Exported records and callbacks carry concrete types. Dynamic host members, arbitrary
+assertion values and heterogeneous callback arguments remain explicit boundaries; a strict directive
+alone does not prove those values safe. The analyzer checks consumers against the installed SDK types;
+it excludes diagnostics inside external SDK and generated build directories.
 
+`tools/check-no-any.luau` parses every maintained Luau file, including tests, tools and examples.
+Each file must start with `--!strict`. Explicit `any` types and `--!nonstrict` or `--!nocheck`
+directives fail the gate. Use concrete types, correlated generics and validated `unknown` at
+external boundaries. Do not hide weak typing behind aliases or unchecked boundary casts.
 
 The explicit configuration keeps Lute's defect rules on. It turns off only
 `global_function_in_scope` and `unused_variable`. At the pinned runtime, those two rules misreport

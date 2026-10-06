@@ -18,7 +18,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	local Compose: ComposeModule = Facet.Compose
 
 	local function world()
-		local engine = engineLib.new({ cacheDefaults = true })
+		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local root = engine.new("ScreenGui")
 		local gui = engine.new("GuiService")

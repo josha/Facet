@@ -163,7 +163,7 @@ local function createMotion(
 		primitive: string,
 		source: Types.Body<T>,
 		makeAdvance: (
-			codec: Codec.Codec<any>,
+			codec: Codec.Codec<T>,
 			current: { number },
 			target: { number },
 			reference: { number }
@@ -174,7 +174,7 @@ local function createMotion(
 		local frames = framesOf(host, primitive)
 		local owner = ownerOf(primitive)
 
-		local codec: Codec.Codec<any>
+		local codec: Codec.Codec<T>
 		local arity = 0
 		local current: { number }
 		local target: { number }
@@ -347,7 +347,7 @@ local function createMotion(
 			local body = wanted :: Types.Body<number>
 			durations = function(): number
 				return watchModule.sample(function()
-					return body(nil :: any)
+					return ((body :: unknown) :: (nil) -> number)(nil)
 				end)
 			end
 		else

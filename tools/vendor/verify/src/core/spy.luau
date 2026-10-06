@@ -1,31 +1,34 @@
 --!strict
 
 export type Call = {
-	args: { any },
-	returnValue: any,
+	args: { unknown },
+	returnValue: unknown,
 }
 
-export type Spy = {
-	fn: (...any) -> ...any,
+export type Spy<A... = ...unknown> = {
+	fn: (A...) -> ...unknown,
 
 	calls: { Call },
 	callCount: () -> number,
 	called: () -> boolean,
-	lastArgs: () -> { any }?,
-	lastReturn: () -> any,
+	lastArgs: () -> { unknown }?,
+	lastReturn: () -> unknown,
 	reset: () -> (),
-	returnValue: (value: any) -> (),
-	implementation: (f: (...any) -> ...any) -> (),
+	returnValue: (value: unknown) -> (),
+	implementation: (f: (A...) -> ...unknown) -> (),
 }
 
-local function on(implementation: ((...any) -> ...any)?): Spy
+local function arguments(...: unknown): { unknown }
+	return { ... }
+end
+
+local function on<A...>(implementation: ((A...) -> ...unknown)?): Spy<A...>
 	local calls: { Call } = {}
+	local recordArguments = (arguments :: unknown) :: (A...) -> { unknown }
 
-	local current: (...any) -> ...any = implementation or function(...: any)
-		local _ = { ... }
-	end
+	local current: (A...) -> ...unknown = implementation or function(...: A...) end
 
-	local spy: Spy = {
+	local spy: Spy<A...> = {
 		calls = calls,
 		callCount = function()
 			return #calls
@@ -42,23 +45,20 @@ local function on(implementation: ((...any) -> ...any)?): Spy
 		reset = function()
 			table.clear(calls)
 		end,
-		returnValue = function(value: any)
-			current = function(...: any)
-				local _ = { ... }
+		returnValue = function(value: unknown)
+			current = function(...: A...)
 				return value
 			end
 		end,
-		implementation = function(f: (...any) -> ...any)
+		implementation = function(f: (A...) -> ...unknown)
 			current = f
 		end,
-		fn = nil :: any,
+		fn = function(...: A...): ...unknown
+			local returned = { current(...) }
+			table.insert(calls, { args = recordArguments(...), returnValue = returned[1] })
+			return table.unpack(returned)
+		end,
 	}
-
-	spy.fn = function(...: any): ...any
-		local returned = { current(...) }
-		table.insert(calls, { args = { ... }, returnValue = returned[1] })
-		return table.unpack(returned)
-	end
 
 	return spy
 end

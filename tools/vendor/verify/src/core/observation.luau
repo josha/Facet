@@ -23,27 +23,27 @@ export type Bundle = {
 	actors: { string },
 	artifacts: { Artifact },
 	timeline: { Event },
-	observations: { [string]: any },
+	observations: { [string]: unknown },
 }
 
 export type Draft = {
 	executor: string,
-	environment: { [string]: any },
+	environment: { [string]: unknown },
 	capabilities: { string }?,
 	actors: { string }?,
 	artifacts: { Artifact }?,
 	timeline: { Event }?,
-	observations: { [string]: any },
+	observations: { [string]: unknown },
 }
 
-export type Register = (harness: Harness.Harness, observations: { [string]: any }) -> ()
+export type Register = (harness: Harness.Harness, observations: { [string]: unknown }) -> ()
 
 export type Verdict = {
 	status: "clear" | "held",
 	reason: string,
 }
 
-local function stringMap(values: { [string]: any }): { [string]: string }
+local function stringMap(values: { [string]: unknown }): { [string]: string }
 	local result: { [string]: string } = {}
 	for key, value in values do
 		if type(key) ~= "string" or key == "" then
@@ -63,7 +63,7 @@ local function stringMap(values: { [string]: any }): { [string]: string }
 	return result
 end
 
-local function frozenSnapshot(value: any, copies: { [any]: any }): any
+local function frozenSnapshot(value: unknown, copies: { [unknown]: unknown }): unknown
 	if type(value) ~= "table" then
 		return value
 	end
@@ -72,7 +72,7 @@ local function frozenSnapshot(value: any, copies: { [any]: any }): any
 	end
 	local copy = {}
 	copies[value] = copy
-	for key, child in value do
+	for key, child in value :: { [unknown]: unknown } do
 		copy[frozenSnapshot(key, copies)] = frozenSnapshot(child, copies)
 	end
 	return table.freeze(copy)
@@ -102,7 +102,7 @@ local function seal(draft: Draft): Bundle
 end
 
 local function isSealed(value: unknown): boolean
-	if type(value) ~= "table" or not table.isfrozen(value :: any) then
+	if type(value) ~= "table" or not table.isfrozen(value :: {}) then
 		return false
 	end
 	local candidate = value :: { [string]: unknown }

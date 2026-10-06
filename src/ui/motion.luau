@@ -2,7 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 
-type Acquire = () -> ComposeTypes.Cell<boolean>
+type Acquire = ComposeTypes.AcquireSharedResource<ComposeTypes.Cell<boolean>>
 export type Level = Shared.MotionLevel
 
 local RANK = { normal = 0, limited = 1, none = 2 }

@@ -100,7 +100,7 @@ local function run(scheduled: Scheduled)
 	end
 
 	local edge = self.edge
-	local producer: Host = edge[PRODUCER]
+	local producer: Host = edge[PRODUCER] :: Host
 	if self.state == CHECK then
 		local refresh = producer.refresh
 		if refresh then
@@ -119,7 +119,7 @@ local function run(scheduled: Scheduled)
 	local members = self.members
 	local failures: { string }? = nil
 
-	local context = Graph.evaluationContext()
+	local context = Graph.captureEvaluationContext()
 
 	self.running = true
 	self.at = 0
