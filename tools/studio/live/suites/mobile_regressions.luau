@@ -166,6 +166,19 @@ table.insert(cases, {
 				theme.name .. " field details have a distinct name",
 				details:GetAttribute("label") == "Show details"
 			)
+			local actions = t.find(linked, "CellActions")
+			model.editingEnabled:set(false)
+			t.settle(10)
+			t.check(theme.name .. " read-only rows hide editing actions", not actions.Visible)
+			t.near(
+				theme.name .. " read-only rows reclaim action space",
+				actions.Parent.Content.AbsoluteSize.X,
+				actions.Parent.AbsoluteSize.X
+			)
+			t.check(theme.name .. " read-only rows retain information", t.visible(details))
+			model.editingEnabled:set(true)
+			t.settle(10)
+			t.check(theme.name .. " editable rows restore actions", actions.Visible and actions.AbsoluteSize.X >= 44)
 			t.cleanup()
 		end
 	end,

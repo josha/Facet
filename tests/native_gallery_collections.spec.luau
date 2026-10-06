@@ -597,9 +597,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 								find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable
 							)
 								:toBe(false)
+							Verify.expect(find(collection, "CellActions").Visible):toBe(false)
 							Verify.expect(find(node, "Create").Interactable):toBe(false)
 							Verify.expect(find(node, "LabelGreen").Interactable):toBe(false)
 							find(node, "EnableEditing").Activated.fire()
+							Verify.expect(find(collection, "CellActions").Visible):toBe(coarse)
 							if coarse then
 								find(node, "Edit").Activated.fire()
 							end

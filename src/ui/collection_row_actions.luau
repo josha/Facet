@@ -468,6 +468,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local function actionSize(use: ComposeTypes.Use): number
 			return if #cellEdits > 0
+					and read(spec.enabled, use) ~= false
 					and preferred
 					and use(preferred) ~= E.PreferredInput.KeyboardAndMouse
 				then math.max(44, ctx.controlSize(nil, "height", use))
