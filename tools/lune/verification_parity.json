@@ -498,7 +498,7 @@
       "producer:links (tools/lune/check_links_cli, full tier)",
       "producer:links-selftest",
       "tools/check_types.py with tests/types/*_witness.luau (not a lune case)",
-      "tools/lune/native_verify.py::architecture (examples/*.luau may not require private src modules)"
+      "tools/check_architecture.py::architecture (examples/*.luau may not require private src modules)"
     ],
     "contracts": 2846,
     "candidateCasesAtRecheck": 675,
@@ -3441,7 +3441,7 @@
       ],
       "mainCases": 20,
       "class": "c",
-      "removal": "The registration checker and its control registry rows (dumpFunction, inputProofs, affordanceProofs, allowlist) were deleted. Spec discovery is now a glob with a census check in tools/lune/native_verify.py:122-124,214..."
+      "removal": "The registration checker and its control registry rows (dumpFunction, inputProofs, affordanceProofs, allowlist) were deleted. Spec discovery is now a glob with a census check in tools/check_coverage.py and tools/lune/suite.luau"
     },
     {
       "id": "apps2-78",
@@ -23948,7 +23948,7 @@
       ],
       "mainCases": 5,
       "class": "c",
-      "removal": "tests/lib/src_tree deleted with the seam specs; import boundary is now checked by native_verify/check_public_allowlist"
+      "removal": "tests/lib/src_tree deleted with the seam specs; import boundary is now checked by check_architecture/check_public_allowlist"
     },
     {
       "id": "mech3-47",
@@ -24521,7 +24521,7 @@
       ],
       "mainCases": 7,
       "class": "c",
-      "removal": "tests/run.luau suite list and fast-tier exclusions replaced by tools/lune/native_verify.py tiers (covered by native_verify_selftest.py)"
+      "removal": "tests/run.luau suite list and fast-tier exclusions replaced by tools/lune/gate.luau tiers (covered by tools/lune/verify_integration.luau)"
     },
     {
       "id": "mech3-86",
@@ -37784,7 +37784,7 @@
       "mainCases": 4,
       "class": "a",
       "candidateCases": [
-        "tools/lune/native_verify.py::architecture (examples/*.luau may not require private src modules)",
+        "tools/check_architecture.py::architecture (examples/*.luau may not require private src modules)",
         "native_parity_strength_surface::theme package boundaries::reference packages use only the public themes surface and are not test fixtures"
       ]
     },

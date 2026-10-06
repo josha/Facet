@@ -56,8 +56,8 @@ In the audited candidate, the runner also ignored `pendingLiveRisks` when it
 decided its exit code. At commit `254e44d0`, the coverage producer fails when
 `pendingLiveRisks` has entries. This does not close any of the risks.
 
-`historicalParity: "not-established"` in the current report is independent of
-`ok`. `completeTier` means that all selected commands were attempted. It does
+`historicalParity = "not-established"` in the environment of the current
+report is independent of the verdict. A complete tier means that all selected commands were attempted. It does
 not establish historical parity or fresh Studio or device coverage.
 
 ## Restored checks
@@ -103,7 +103,7 @@ timing thresholds. That is a change of measurement environment. It does not
 prove that the Ubuntu regression was resolved. Keep this distinction when you
 compare performance reports and when you decide which platforms CI must cover.
 CI runs the full tier on Ubuntu again, beside the ARM runner. On Ubuntu, a
-failed timing budget is reported as `FAIL_ENVIRONMENT` and does not stop the
+failed timing budget is reported as `deferred` and does not stop the
 run. Timing budgets stop the run only on the reference host.
 
 See [Contributing](../../CONTRIBUTING.md) to run the current tier, and

@@ -162,7 +162,7 @@ tools/verify.sh affected             # the smallest safe set for what you change
 tools/verify.sh fast                 # the inner-loop tier
 tools/verify.sh full                 # every deterministic check, exactly once
 tools/verify.sh release              # full, plus the build, package and evidence producers
-lune run tests/run_one <spec-name>   # one spec file
+lune run tools/lune/suite_cli <spec-name>   # one spec file
 tools/bench.sh                       # benchmarks
 ```
 

@@ -2,7 +2,7 @@
 
 local Core = require "../core"
 
-export type Host = "simulator" | "studio" | "player"
+export type Host = "simulator" | "studio" | "player" | "open-cloud"
 export type Entry = {
 	cases: { Core.NamedCase },
 	options: Core.RunOptions,

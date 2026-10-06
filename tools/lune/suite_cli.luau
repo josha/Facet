@@ -1,0 +1,2 @@
+--!strict
+require("./suite").main()

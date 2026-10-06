@@ -14,6 +14,8 @@ if __name__ == "__main__":
             "src/roblox",
             "src/host",
             "src/consumer",
+            "src/lune",
+            "src/runtime",
             "src/bdd.luau",
             "LICENSE",
             "PROVENANCE.md",

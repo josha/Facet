@@ -5,6 +5,7 @@ local Shape = require "./shape"
 local Operations = require "./operations"
 local Performance = require "./performance"
 local Matchers = require "./matchers"
+local Provenance = require "./provenance"
 
 type Artifact = Types.Artifact
 type CaseResult = Types.CaseResult
@@ -150,10 +151,14 @@ local function copyArtifacts(value: unknown, label: string): { Artifact }
 			error(label .. " must be a dense artifact array", 3)
 		end
 		local raw = item :: { [string]: unknown }
+		local identity = Provenance.identity(raw, label)
 		table.insert(result, {
 			name = requiredString(raw.name, label .. ".name"),
 			reference = requiredString(raw.reference, label .. ".reference"),
 			mediaType = optionalString(raw.mediaType, label .. ".mediaType"),
+			sha256 = identity.sha256,
+			size = identity.size,
+			provenance = identity.provenance,
 		})
 	end
 	return result
@@ -227,7 +232,10 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			judgment.status == "passed" or judgment.status == "failed" or judgment.status == "unreviewed",
 			"invalid judgment status"
 		)
+		local binding = Provenance.reviewBinding(row, "review")
 		table.insert(result.reviews, {
+			kind = binding.kind,
+			judged = binding.judged,
 			step = step(row.step),
 			actor = actor,
 			checkpoint = checkpoint,

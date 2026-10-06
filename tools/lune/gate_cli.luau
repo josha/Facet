@@ -1,0 +1,2 @@
+--!strict
+require("./gate").main()

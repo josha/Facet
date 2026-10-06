@@ -89,6 +89,15 @@ export type Options<P = { [string]: unknown }, M = { [string]: unknown }, F = { 
 
 export type Operation = "create" | "setProperty" | "setAttribute" | "setParent" | "destroy"
 
+export type Event = {
+	operation: Operation,
+	subject: string,
+	member: string?,
+	injected: boolean,
+}
+
+export type CloneHook = (source: Instance, copy: Instance, remap: (Instance) -> Instance) -> ()
+
 export type Environment = {
 	root: Instance,
 	heartbeat: Signal<number>,
@@ -119,6 +128,9 @@ export type Environment = {
 	fire: (object: Instance, event: string, ...unknown) -> (),
 	failNext: (operation: Operation, times: number?) -> (),
 	clearFailures: () -> (),
+	pendingFailures: () -> number,
+	observe: (listener: (event: Event) -> ()) -> Connection,
+	onClone: (hook: CloneHook) -> Connection,
 }
 
 type Resolved = {
@@ -337,10 +349,19 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		return false
 	end
 
-	local function inject(operation: Operation)
+	local observers: { { listener: (event: Event) -> (), connected: boolean } } = {}
+	local cloneHooks: { { hook: CloneHook, connected: boolean } } = {}
+
+	local function inject(operation: Operation, subject: string, member: string?)
 		local remaining = failures[operation]
-		if remaining ~= nil and remaining > 0 then
-			failures[operation] = remaining - 1
+		local failing = remaining ~= nil and remaining > 0
+		for _, observer in table.clone(observers) do
+			if observer.connected then
+				observer.listener { operation = operation, subject = subject, member = member, injected = failing }
+			end
+		end
+		if failing then
+			failures[operation] = (remaining :: number) - 1
 			error(("environment: injected failure in %s"):format(operation), 0)
 		end
 	end
@@ -490,7 +511,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	end
 
 	local function setParent(object: Instance, state: State, parent: Instance?)
-		inject "setParent"
+		inject("setParent", describe(state))
 		if state.destroyed or state.destroying or state.removing then
 			error(("The Parent property of %s is locked"):format(describe(state)), 4)
 		end
@@ -517,7 +538,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		if state.removing then
 			error(("The Parent property of %s is locked"):format(describe(state)), 4)
 		end
-		inject "destroy"
+		inject("destroy", describe(state))
 		state.destroying = true
 		signalFor(state, "Destroying"):Fire()
 		move(object, state, nil)
@@ -703,6 +724,16 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 						target.attributes = table.clone(source.attributes)
 						target.tags = table.clone(source.tags)
 					end
+					local function remap(value: Instance): Instance
+						return copies[value] or value
+					end
+					for original, copy in copies do
+						for _, entry in table.clone(cloneHooks) do
+							if entry.connected then
+								entry.hook(original, copy, remap)
+							end
+						end
+					end
 					return rootCopy
 				end)
 				if not ok then
@@ -773,7 +804,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			end
 		elseif key == "SetAttribute" then
 			return function(_self: Instance, name: string, value: unknown)
-				inject "setAttribute"
+				inject("setAttribute", describe(state), name)
 				validAttribute(name, value)
 				if state.attributes[name] == value then
 					return
@@ -844,7 +875,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			if state.class.properties[key] == nil then
 				memberError(state, key)
 			end
-			inject "setProperty"
+			inject("setProperty", describe(state), key)
 			if settings.validateProperty ~= nil then
 				settings.validateProperty(state.className, key, value, "set")
 			end
@@ -864,7 +895,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		if not class.creatable and not isRoot then
 			error(("Unable to create an Instance of type %q"):format(className), 3)
 		end
-		inject "create"
+		inject("create", className)
 		local values: { [string]: unknown } = {}
 		for key, default in class.properties do
 			local fallback = if key == "Name" then className elseif default == false then nil else default
@@ -1058,6 +1089,41 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	end
 	environment.clearFailures = function()
 		table.clear(failures)
+	end
+	environment.pendingFailures = function(): number
+		local total = 0
+		for _, remaining in failures do
+			total += remaining
+		end
+		return total
+	end
+	environment.observe = function(listener: (event: Event) -> ()): Connection
+		local entry = { listener = listener, connected = true }
+		table.insert(observers, entry)
+		local connection = { Connected = true } :: Connection
+		function connection:Disconnect()
+			entry.connected = false
+			connection.Connected = false
+			local index = table.find(observers, entry)
+			if index ~= nil then
+				table.remove(observers, index)
+			end
+		end
+		return connection
+	end
+	environment.onClone = function(hook: CloneHook): Connection
+		local entry = { hook = hook, connected = true }
+		table.insert(cloneHooks, entry)
+		local connection = { Connected = true } :: Connection
+		function connection:Disconnect()
+			entry.connected = false
+			connection.Connected = false
+			local index = table.find(cloneHooks, entry)
+			if index ~= nil then
+				table.remove(cloneHooks, index)
+			end
+		end
+		return connection
 	end
 	return environment :: Environment
 end

@@ -50,6 +50,8 @@ contract.
 
 - Use Verify from `tools/vendor/verify/src/core` for test registration,
   assertions, execution and reports. Do not add a Facet test harness.
+- Declare each producer in `tools/lune/producers.json`. The Verify gate in
+  `tools/lune/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
 - Keep `tests/plan.json` and `tests/case_inventory.json` aligned with the cases.
   The full gate uses the committed plan. A focused run is not full evidence.
 - `tools/vendor/verify` is a generated, read-only test dependency. Change shared

@@ -180,3 +180,20 @@ capabilities; unavailable input is not a pass. `registry(backend)` binds the ope
 bounds to screen coordinates including the top-bar inset. Pointer coordinates are screen pixels.
 Roblox still rejects reserved keys and interactions with protected CoreGui. This is real virtual
 input, distinct from the character motion operations in `playerHost`.
+
+## Benchmarks
+
+`Verify.benchmark.case(spec)` is an ordinary case; `Verify.benchmark.run(spec)` returns the raw result. A spec supplies
+`name`, `unit` (`seconds`, `milliseconds`, `microseconds`), `workload`, `warmup`, `samples`, `iterations?`, `budget`
+(`p50`, `p95`, `p99`, `maximum`), `environment = { observed, accepted? }` and optionally `maxSpread`, `yardstick`,
+`baseline` with `acceptedBaselines`, `deadlineSeconds` and an injectable `clock` (default `os.clock`; a gate supplies its own).
+The consumer owns identities, budgets and units; no machine is a universal baseline.
+
+Warmup runs are untimed. Exactly `samples` timed samples follow, each `iterations` runs averaged. The run is never retried.
+All raw samples are kept in the case's measurement evidence. Within budget passes; over budget or a baseline
+regression beyond `tolerance` fails. Anything that makes the numbers untrustworthy is reported as missing
+`measurement:<reason>` (unsupported unless the budget also failed): `environment_mismatch`, `baseline_mismatch`
+(identity, environment or unit), `unstable` (`(p95 - p50) / p50 > maxSpread`), `yardstick_unstable`,
+`yardstick_drift` (a fixed CPU workload sampled before and after moves more than `maxDrift`), `deadline_exceeded`.
+Environment or baseline mismatch skips the workload. A raising workload or invalid clock fails.
+

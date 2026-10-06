@@ -2,10 +2,8 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
-local Verify = require("../vendor/verify/src/core")
-local runner = require("../../tests/runner")
-local plan = Verify.validatePlan(serde.decode("json", fs.readFile("tests/plan.json")))
-local execution = runner.execute(plan, "full", nil)
+local suite = require("./suite")
+local execution, plan = suite.execute({ tier = "full", jobs = 1 })
 local rows = {}
 local bySource = {}
 for _, result in execution.report.results do
@@ -27,6 +25,6 @@ for _, row in rows do
 end
 fs.writeFile(output .. ".tsv", table.concat(lines, "\n") .. "\n")
 print(`spec timings: {output} and {output}.tsv`)
-if not runner.accept(execution, "full") then
+if #suite.findings(execution, plan, "full") > 0 then
 	process.exit(1)
 end

@@ -4,6 +4,7 @@ local CaseEntry = require "@self/case-entry"
 local EnvironmentEngineAdapter = require "@self/environment-engine"
 local Reflection = require "@self/reflection"
 local UiFakes = require "@self/ui-fakes"
+local FixtureBridge = require "@self/fixture-bridge"
 local Multiplayer = require "@self/multiplayer"
 local InputHost = require "@self/input-host"
 local PlayerHost = require "@self/player-host"
@@ -53,6 +54,19 @@ export type EnvironmentEngineLibrary<
 export type ReflectionOptions = Reflection.Options
 export type ReflectionDatabase = Reflection.Database
 export type UiFakeOptions = UiFakes.Options
+export type FixtureBridgeOptions<
+	V2 = EnvironmentEngineVector2,
+	V3 = EnvironmentEngineVector3,
+	C3 = EnvironmentEngineColor3,
+	U1 = EnvironmentEngineUDim,
+	U2 = EnvironmentEngineUDim2,
+	CF = EnvironmentEngineCFrame
+> = FixtureBridge.Options<V2, V3, C3, U1, U2, CF>
+export type FixtureBridge = FixtureBridge.Bridge
+export type FixtureAccounting = FixtureBridge.Accounting
+export type FixtureFaults = FixtureBridge.Faults
+export type EnvironmentEvent = Environment.Event
+export type EnvironmentCloneHook = Environment.CloneHook
 export type UiFakeController = UiFakes.Controller
 export type ExperienceEngine = ExperienceHost.Engine
 export type ExperienceRegistry = ExperienceHost.Registry
@@ -139,6 +153,7 @@ return {
 	environmentEngine = EnvironmentEngineAdapter.create,
 	reflection = Reflection,
 	uiFakes = UiFakes,
+	fixtureBridge = FixtureBridge.create,
 	multiplayer = Multiplayer,
 	inputHost = InputHost,
 	reportChannel = ReportChannel,

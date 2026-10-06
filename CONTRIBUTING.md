@@ -30,12 +30,17 @@ directives and notices.
    including the unmapped legacy behavioral coverage. A passing subset from a
    new runner is not full parity.
 
-Each run writes `artifacts/verify/latest-<tier>.json`. Use `--explain` to see
-each selected producer, its tiers and the main producer it replaces. A studio,
-device or timing producer that exits 2 reports `FAIL_ENVIRONMENT`: its evidence
-is not recorded, or a host timing budget failed. The `full` tier reports it and
-continues. The `release` tier stops on it. `tools/package.sh publish` accepts
-only a clean, passing `artifacts/verify/latest-release.json` for the same source.
+`tools/lune/gate.luau` declares every producer as one Verify gate. Verify runs
+the producers, bounds each process, keeps the logs and writes the outcome. A
+complete tier writes the outcome to `artifacts/verify/latest-<tier>.json`. Use
+`--explain` to see each selected producer, its tier and the main producer it
+replaces. Use `--rerun <producer>` for a focused run. A focused run is not
+tier evidence. A studio, device or timing producer that exits 2 is `deferred`:
+its evidence is not recorded, or a host timing budget failed. The `full` tier
+reports the deferral and continues. The `release` tier is the complete gate and
+is not releasable with a deferral. `tools/package.sh publish` accepts only a
+releasable `artifacts/verify/latest-release.json` whose build binding matches
+the clean source.
 The [producer comparison](docs/guide/20-verification-parity.md#producers) lists
 each main producer and its native status.
 
@@ -56,14 +61,12 @@ A slow case can require the `full` or `release` tier. Use the supplied tier to
 call `context:skip("tier:full")` or `context:skip("tier:release")` below that
 tier, and record the requirement in the case inventory. The gate accepts only
 these declared deferrals. The 40000-row mount ramp requires `release`.
-`lune run tests/run_one <spec>` uses the `one` tier. Supply `full` or `release`
-as the second argument to run the higher tier.
-
-`python3 tools/run_each_spec.py` runs the committed corpus in isolated workers
-through Verify. The full gate uses the same host with four workers and the
-`full` tier. Use `--tier full` for a full-tier worker selection. `--only <spec> ...` records a focused run. An empty selection,
-worker failure, or missing receipt fails the command. `--timeout` stops the
-worker process group before Verify records a timeout.
+`lune run tools/lune/suite_cli <spec> ...` runs the named sources in the `one` tier. Use
+`--tier full` or `--tier release` to run a higher tier. Without a source name,
+the command runs the committed plan. Each source runs in its own Lune worker
+through the Verify Lune host. The full gate uses the same command with four
+workers. A worker failure, a missing or foreign receipt, or a census difference
+fails the command. Verify stops the worker process group at its deadline.
 
 Verify is pinned under `tools/vendor/verify`. It is a generated, read-only test
 dependency and is not part of the Facet model. Run

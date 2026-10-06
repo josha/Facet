@@ -118,7 +118,8 @@ ASSET_TYPE = "Model"
 BUILD_SCHEMA = "facet-package/1"
 MANIFEST_SCHEMA = "facet-package-manifest/1"
 RECEIPT_SCHEMA = "facet-package-receipt/1"
-GATE_SCHEMA = "facet-release-gate/1"
+GATE_SCHEMA = "verify-gate/1"
+GATE_ID = "facet"
 
 
 
@@ -531,13 +532,25 @@ def read_gate_evidence(path=None):
         return None
     try:
         with open(path) as handle:
-            document = json.load(handle)
+            outcome = json.load(handle)
     except ValueError:
         return None
-    if not isinstance(document, dict):
+    if not isinstance(outcome, dict):
         return None
-    evidence = document.get("gateEvidence")
-    return evidence if isinstance(evidence, dict) else None
+    acceptance, build = outcome.get("acceptance"), outcome.get("build")
+    if not isinstance(acceptance, dict) or not isinstance(build, dict) or outcome.get("gate") != GATE_ID:
+        return None
+    completed = datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
+    return {
+        "schema": f"verify-gate/{outcome.get('schemaVersion')}",
+        "tier": "release" if acceptance.get("complete") is True else "selected",
+        "status": "PASS" if acceptance.get("releasable") is True else str(acceptance.get("verdict")),
+        "commit": build.get("commit"),
+        "treeDirty": build.get("clean") is not True,
+        "sourceHash": build.get("digest"),
+        "completedAt": completed.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "runId": outcome.get("runId"),
+    }
 
 
 
@@ -668,7 +681,7 @@ def decide(facts):
         refuse(
             "gate-evidence-missing",
             f"no usable release-gate evidence at {shown(GATE_EVIDENCE)} — the file must exist and carry a "
-            f"`gateEvidence` object; the release tier must run first",
+            f"Verify gate outcome with its build binding; the release tier must run first",
         )
     else:
         mark("gate-evidence-schema", "gate-evidence-tier", "gate-evidence-failed", "gate-evidence-dirty",
@@ -1006,7 +1019,7 @@ def write_receipt(receipts_dir, config, facts, *, operation_path, asset_revision
 
         "gateRun": {
             key: (gate or {}).get(key)
-            for key in ("schema", "tier", "status", "commit", "treeDirty", "sourceHash", "completedAt")
+            for key in ("schema", "tier", "status", "commit", "treeDirty", "sourceHash", "completedAt", "runId")
         },
         "studio_verification": {"status": "pending", "by": None, "date": None, "notes": None},
     }
@@ -1123,7 +1136,7 @@ def cmd_status(args):
 
     gate = read_gate_evidence()
     if gate is None:
-        detail = "absent" if not os.path.isfile(GATE_EVIDENCE) else "present but carries no readable gateEvidence"
+        detail = "absent" if not os.path.isfile(GATE_EVIDENCE) else "present but carries no readable Verify gate outcome"
         print(f"  gate evidence    {detail} ({shown(GATE_EVIDENCE)})")
     else:
         agrees = (
@@ -1823,19 +1836,11 @@ def _selftest_transport():
 
         gate_path = os.path.join(work, "latest-release.json")
         gate_document = {
-            "schema": "facet-verify-run/1",
-            "tier": "release",
-            "status": "PASS",
-            "completedAt": now_iso(),
-            "gateEvidence": {
-                "schema": GATE_SCHEMA,
-                "tier": "release",
-                "status": "PASS",
-                "commit": commit,
-                "treeDirty": False,
-                "sourceHash": source_hash(),
-                "completedAt": now_iso(),
-            },
+            "schemaVersion": 1,
+            "gate": GATE_ID,
+            "runId": "selftest-run",
+            "build": {"commit": commit, "tree": "t" * 40, "clean": True, "digest": source_hash()},
+            "acceptance": {"verdict": "release", "releasable": True, "complete": True},
         }
         write_atomic(gate_path, json.dumps(gate_document, indent=2))
 
@@ -1844,19 +1849,33 @@ def _selftest_transport():
 
 
         empty_path = os.path.join(work, "no-evidence.json")
-        write_atomic(empty_path, json.dumps({"schema": "facet-verify-run/1", "status": "PASS"}))
+        write_atomic(empty_path, json.dumps({"schemaVersion": 1, "gate": GATE_ID, "acceptance": {"releasable": True}}))
+        foreign_path = os.path.join(work, "foreign.json")
+        write_atomic(foreign_path, json.dumps(dict(gate_document, gate="another-gate")))
+        deferred_path = os.path.join(work, "deferred.json")
+        write_atomic(deferred_path, json.dumps(dict(gate_document, acceptance={"verdict": "deferred", "releasable": False, "complete": True})))
+        selected_path = os.path.join(work, "selected.json")
+        write_atomic(selected_path, json.dumps(dict(gate_document, acceptance={"verdict": "selected", "releasable": False, "complete": False})))
+        dirty_path = os.path.join(work, "dirty.json")
+        write_atomic(dirty_path, json.dumps(dict(gate_document, build=dict(gate_document["build"], clean=False))))
         broken_path = os.path.join(work, "broken.json")
         write_atomic(broken_path, "{ this is not json")
         reader_cases = [
             ("an absent file", os.path.join(work, "nothing-here.json"), None),
-            ("a file with no gateEvidence object", empty_path, None),
+            ("an outcome with no build binding", empty_path, None),
             ("an unreadable file", broken_path, None),
-            ("the coordinator's document", gate_path, gate_document["gateEvidence"]),
+            ("another gate's outcome", foreign_path, None),
+            ("the releasable outcome", gate_path, ("release", "PASS", False)),
+            ("an outcome with an environment deferral", deferred_path, ("release", "deferred", False)),
+            ("a focused outcome", selected_path, ("selected", "selected", False)),
+            ("an outcome from a dirty tree", dirty_path, ("release", "PASS", True)),
         ]
         for label, path, want in reader_cases:
             got = read_gate_evidence(path)
-            if got == want:
-                print(f"  [ ok  ] read_gate_evidence: {label} -> {'the evidence object' if want else 'missing'}")
+            seen = got and (got["tier"], got["status"], got["treeDirty"])
+            bound = got is None or (got["schema"] == GATE_SCHEMA and got["commit"] == commit and got["sourceHash"] == source_hash())
+            if seen == want and bound:
+                print(f"  [ ok  ] read_gate_evidence: {label} -> {want or 'missing'}")
             else:
                 ok = False
                 print(f"  [WRONG] read_gate_evidence: {label} -> {got!r}")

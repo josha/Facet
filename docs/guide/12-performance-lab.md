@@ -41,7 +41,7 @@ runtime speedup.
 
 The timing budgets block a run only on a reference host, which runs
 `tools/verify.sh full --reference-host`. On every other host, CI included, a
-failed timing budget is `FAIL_ENVIRONMENT`. The report shows it, and the run
+failed timing budget is a `deferred` producer. The report shows it, and the run
 continues. A release run blocks on it everywhere. The workload checks
 (`perf-scenes`) do not measure time. They block on every host.
 

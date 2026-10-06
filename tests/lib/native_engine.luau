@@ -295,26 +295,16 @@ local function new(options: any?): Engine
 				if not copy then
 					return nil
 				end
-				local function copyUiState(source: any, target: any)
+				local function adopt(target: any)
 					wrap(target)
-					if source:IsA("StyleRule") then
-						target:SetProperties(source:GetProperties())
-						target:SetPropertyTransitions(source:GetPropertyTransitions())
-					elseif source:IsA("Path2D") then
-						target:SetControlPoints(source:GetControlPoints())
-					elseif source:IsA("ViewportFrame") then
+					if target:IsA("ViewportFrame") then
 						environment.poke(target, "CurrentCamera", nil)
 					end
-					local index = 0
-					local children = target:GetChildren()
-					for _, child in source:GetChildren() do
-						if child.Archivable ~= false then
-							index += 1
-							copyUiState(child, children[index])
-						end
+					for _, child in target:GetChildren() do
+						adopt(child)
 					end
 				end
-				copyUiState(actual, copy)
+				adopt(copy)
 				return wrap(copy)
 			end,
 			Play = function()

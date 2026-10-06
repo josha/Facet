@@ -12,6 +12,7 @@ multiple sources or collect observations elsewhere.
 | Schedule work across executors | [Execution plans](#execution-plans) |
 | Judge observations collected by a host | [Remote observations](#remote-observations) |
 | Capture a scenario, window or place fixture | [Host adapters](#host-adapters) |
+| Prove evidence is current, intact, reviewed and covers what you require | [Evidence provenance](#evidence-provenance) |
 | Test engine-facing logic without Roblox | [Simulated environment](#simulated-environment) |
 
 Examples use these package names. Replace the paths with your mounted package locations:
@@ -325,6 +326,9 @@ locator meaning and an authorized host.
 | `Core.negotiate`, `explainCapabilities` | Determine and explain capability support. |
 | `Core.execute(plan, host, options?)` | Execute batches with lifecycle and failure accounting. |
 
+| `Core.defineGate`, `runGate`, `formatGate`; `Lute.gate` and `Lune.gate` (`run`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
+| `Core.benchmark.case`, `run` | Warmup, sampling, baseline and stability checks reported as an ordinary case. See [benchmarks](experience.md#benchmarks). |
+
 See [the execution contract](execution.md) for fixtures, deadlines, retries and Lute workers. [`Host.fake`](../src/host/init.luau) injects missing, duplicate, reordered, failed and
 cancelled deliveries without external effects.
 
@@ -365,6 +369,54 @@ exclusions, blocks and line ordering. `Lute.detectViewportCorners` uses the adja
 as an explicitly supplied native inspection capability. It rejects absent or ambiguous marker
 rectangles; a missing capability is unsupported. Consumers still own run freshness, image custody
 and final clean-image coverage.
+
+### Attached Studio
+
+`Lute.studio.attach({ authorize, studioId?, match?, transport?, ... })` returns `session, refusal` for an
+already open Studio chosen through the official Studio MCP. `authorize(request)` sees each request's
+exact bytes and digest before it is sent. The session provides `execute`, `play`, `capture`, `report`,
+`call` and `close`; responses distinguish `unsent`, `possibly_sent` and `answered`, deadlines are
+enforced and `close` restores the declared prior mode without closing Studio. `attach` is also an option of
+`Lute.studio.run`, `Lute.studio.host` and `Lute.platform.run`. The caller owns policy. See
+[Attached Studio](execution.md#attached-studio).
+
+### Open Cloud
+
+`Lute.openCloud.connect(options)` returns `{ run({ code, runId, requires? }), reconcile(handle) }`;
+`Lute.openCloud.host({ connection, codeForBatch, ... })` returns a `Core.Host`; `Lute.platform.run` and
+`tools/run.luau` accept `host = "open-cloud"` with `cloud` options. The caller supplies `request` and
+`authorize`; outcomes report `passed`, `delivery`, task state, `handle`, logs and `timing`. A complete task
+is not a pass without a run-bound all-passed report; a local timeout never cancels. See
+[Open Cloud execution](execution.md#open-cloud-execution).
+
+### Evidence provenance
+
+Evidence rides on the report. An `Artifact` may carry `sha256`, `size` and a typed `provenance`: run, case,
+actor, checkpoint, build (`commit`, `tree`, `clean`, `digest`), executing host and capabilities (from the case
+origin), caller-declared `device` class and `capturedAt`. A `Review` may carry `kind` (`visual` or `audio`) and
+`judged`, the content hashes the reviewer saw. The report decoder keeps both; no second receipt exists.
+
+- `Core.sealEvidence(report, { runId, build, device, now, hash, read, sink })` reads each artifact, stores its
+  bytes in `sink` and returns `{ report, issues }`. An unreadable, unstorable or unconfirmed artifact stays
+  unsealed and reported. `Lute.evidenceStore.seal` binds the Lute hash, file reader and clock.
+- `Core.bindReview(report, { caseId, actor, checkpoint, kind, judged })` binds a recorded review to the content
+  hashes the reviewer actually judged. Hash what the reviewer saw, not what is stored later.
+- `Core.validateEvidence(report, policy)` returns `{ ok, issues, verified }` and re-hashes every artifact through
+  `policy.store`. The policy declares the expected build (`requireClean` refuses dirty builds), `now`,
+  `maxAgeSeconds`, `maxSkewSeconds`, optional `runId`, `hosts` and `capabilities`, and `required` coverage:
+  `{ caseId, actors, checkpoints, devices, mediaType?, reviews? }` expanded as a cross product. It rejects
+  mismatched builds, stale or future captures, missing coverage, a wrong run, host, actor, checkpoint or device,
+  duplicate or conflicting observations, missing identity, changed or unavailable artifacts, and missing,
+  unbound, failed or wrong-artifact reviews. An empty policy or invalid clock raises instead of passing.
+- A sink is `{ put(content, meta) -> reference, get(reference) -> bytes, stat(reference) -> { size } }`, supplied
+  by the caller. `Lute.evidenceStore.localDirectory(path)` is the content-addressed reference sink and
+  `Core.memorySink(hash)` a portable one. Validation needs only `get`, `stat`, a hasher and a clock, so it runs
+  unchanged under Lute and Lune: `lute run examples/evidence-provenance/lute.luau` and
+  `lune run examples/evidence-provenance/lune.luau`.
+
+Metadata or a saved screenshot does not establish visual quality, audio quality or physical-device proof. A
+review records that a named reviewer judged specific content; `device` is a claim. The class `physical` is
+accepted only when `policy.attest.physical(artifact, provenance)` returns true from the caller's own evidence.
 
 ### Observation sinks and place fixtures
 
@@ -457,14 +509,31 @@ reference properties: Lune's `Ref` metadata does not include the target class. `
 explicit events/methods; `validateProperty` adds fixture restrictions. The portable package imports
 no Lune runtime. `lune run tools/check-reflection.luau` checks the real integration.
 
+`Roblox.fixtureBridge { database, typeName, enumType?, library?, classes?, referenceClass?, validateProperty?, ui? }`
+composes reflection, the simulator's event metadata, UI fakes and the engine seam over one environment.
+UI fake classes the database lacks are listed in `unavailable`, not invented; `ui = false` omits them and
+`classes` entries replace the defaults. It returns `{ environment, engine, ui, unavailable, faults, hasClass,
+observe, record, instanceHost, accounting, close }`. `faults` wraps `failNext` and `assertConsumed` refuses an
+injection that never fired. `observe`/`record` report each create, property, attribute, parent and destroy
+operation, marking injected failures. `accounting` and `close` return live objects, connections and pending
+faults. `instanceHost(actor)` reuses the same environment. `Lune.fixture(options?)` (`src/lune`) binds
+`@lune/roblox`'s real database and datatypes to it; `lune run examples/lune-fixture.luau` shows a consumer.
+Application-specific UI expectations stay with the consumer.
+
+This is simulated behavior validated against engine metadata, not engine parity: instances are Luau tables,
+defaults and property types come from the database, and events, methods, layout, rendering, input and
+physics exist only where declared or injected.
+
 `Roblox.uiFakes.classes` declares optional UI methods. Supply it as a class overlay and pass
 `uiFakes.validateProperty` as the property validator to reject selection of hidden or unselectable
 controls. `uiFakes.attach(environment, { measureText?, measureBounds?, methods? })` installs focus,
 style-map, video-state, path-point storage and instant page-navigation fakes. Measurement providers
 are required for measurement claims. Keep its controller and call `close()` to release focus resources.
 Curve evaluation, rendered text, animated navigation, playback quality and style rendering are not
-simulated. Unsupported declared methods require an explicit injected implementation. Style/path
-fake maps are external fixture state and are not copied by `Instance:Clone()`.
+simulated. Unsupported declared methods require an explicit injected implementation. `attach` registers
+`environment.onClone`, so `Clone()` copies style, transition, derive and path state with in-tree derive
+references remapped; focus is never copied. `environment.observe` and `pendingFailures` expose operation
+observation and unfired fault injection.
 
 `Roblox.environmentEngine(environment, library?)` exposes the environment as a structural scene engine
 with creation, heartbeat, clock, datatype constructors, destruction and property observation.

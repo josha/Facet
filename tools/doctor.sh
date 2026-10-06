@@ -42,7 +42,7 @@ LUNE_V="$(lune --version 2>/dev/null)" && add_check lune OK "$LUNE_V" true || ad
 ROJO_V="$(rojo --version 2>/dev/null)" && add_check rojo OK "$ROJO_V" true || add_check rojo FAIL "rojo not on PATH" true
 [ -f tests/plan.json ] && add_check corpus OK "committed Verify plan present" true || add_check corpus FAIL "tests/plan.json missing" true
 [ -f src/init.luau ] && add_check library OK "native Facet entry point present" true || add_check library FAIL "src/init.luau missing" true
-[ -f tools/lune/native_verify.py ] && add_check verification OK "native verification runner present" true || add_check verification FAIL "tools/lune/native_verify.py missing" true
+[ -f tools/lune/gate.luau ] && add_check verification OK "Verify gate definition present" true || add_check verification FAIL "tools/lune/gate.luau missing" true
 
 
 if rojo build examples/gallery.project.json -o build/Facet-Gallery.rbxl >/dev/null 2>&1; then

@@ -1,6 +1,6 @@
 # Run cases
 
-Use one command for simulator, Studio and published Player tests. Each entry returns ordinary
+Use one command for simulator, Studio, published Player and Open Cloud tests. Each entry returns ordinary
 named cases and harness options. Each host produces the standard report. There is no separate
 end-to-end case language.
 
@@ -31,7 +31,7 @@ Reports record whether selection was explicit and the available case count. Unkn
 | Option | Meaning |
 | --- | --- |
 | `--entry module.luau` | Portable factory module; required. |
-| `--host simulator\|studio\|player` | Defaults to simulator. |
+| `--host simulator\|studio\|player\|open-cloud` | Defaults to simulator. |
 | `--case id` | Exact case ID; repeat to select several. |
 | `--deadline seconds` | Host execution budget; defaults to 90. Preparation is outside this budget. |
 | `--output directory` | Parent for unique evidence directories; defaults to `.verify`. |
@@ -43,7 +43,9 @@ Reports record whether selection was explicit and the available case count. Unkn
 | `--client file`, `--server file` | Portable bootstrap modules returning functions; mounted and called automatically. |
 | `--capture` | Durable final Studio view; single-client runs only. |
 | `--require-media type` | Require a saved artifact with this exact MIME type for each returned case. |
-| `--place-id number` | Published Player destination. |
+| `--place-id number` | Published Player or Open Cloud place. |
+| `--cloud module.luau` | Open Cloud: caller module returning `{ request, authorize }`. |
+| `--universe-id id`, `--place-version n` | Open Cloud universe and exact place version. |
 
 Exit zero means a nonempty report with every selected case passed. Skips, unsupported requirements,
 timeouts, partial reports and failed cleanup exit nonzero. A selected pass is not whole-project acceptance.
@@ -59,6 +61,21 @@ It accepts the corresponding typed options plus `requiredEvidence`, a list of
 `{ caseId, actor?, checkpoint?, mediaType }`. Require each actor separately when a multiplayer claim
 needs both views. Missing required evidence adds a failed case to the same report.
 `Lute.evidence.write` and `finish` persist reports from custom hosts using the same rules.
+
+## Gates and benchmarks
+
+```sh
+lute run examples/gate.luau [producer-id ...]
+lute run examples/benchmark.luau
+lute run tools/gate.luau [--native] [--only producer]...
+```
+
+The last command also drives the Lune checks, which need `lune` on `PATH`.
+
+[The gate example](../examples/gate.luau) runs build, test-module, benchmark and deferred native producers as one plan and prints the
+verdict; naming ids narrows it, which prints `selected`. `tools/gate.luau` is this repository's own declarative gate:
+`--only` narrows, and the native producers are deferred unless `--native` is given. See
+[declarative gates](execution.md#declarative-gates) and [benchmarks](experience.md#benchmarks).
 
 ## Multiplayer
 
@@ -103,6 +120,45 @@ The [reference Player launcher](execution.md#published-player-execution) uses th
 It currently supports one client per machine and requires an otherwise closed Player. Publishing
 remains explicit; rerun the fixture build and publish after changing its mounted source. A Player run
 uses published code, not files that changed locally afterward.
+
+## Open Cloud
+
+```sh
+lute run tools/run.luau --entry examples/platform-entry.luau --host open-cloud \
+  --cloud examples/open-cloud-transport.luau --universe-id U --place-id P --place-version V
+```
+
+The caller module owns credentials and policy (the example reads one key from its process environment
+and allows only the Open Cloud origin); Verify never reads them. `--case` and `--deadline` behave as
+for other hosts, the latter bounding polling. The published place version must already contain the
+mounted framework and entry. The report, exit status and evidence are the ordinary ones, and the
+command prints the task path, delivery, state and measured timing. A timeout prints the task path and
+does not cancel; reconcile it with `session.reconcile(handle)` rather than resubmitting. See
+[Open Cloud execution](execution.md#open-cloud-execution) for guarantees and limits.
+
+## Launch or attach
+
+By default `--host studio` launches a disposable Studio on a copy of an XML place and closes it.
+Programmatic callers can instead pass `attach` to `Lute.platform.run` with `host = "studio"` to run the
+same entry in a Studio that is already open:
+
+```luau
+Lute.platform.run {
+	host = "studio",
+	entry = "examples/platform-entry.luau",
+	context = "Client",
+	attach = {
+		studioId = openStudioId,
+		authorize = function(request) return { ok = true } end,
+	},
+}
+```
+
+Attach shares the developer's open Studio: there is no isolation, `players` is unsupported, and no
+place is built or copied. The caller owns authorization (the required `authorize` hook sees every
+request before it is sent), which place is open and whether the entry is mounted in it. Verify starts
+play, runs, captures if asked and returns the Studio to its prior mode, but never closes it. The
+command-line runner does not attach. See [Attached Studio](execution.md#attached-studio).
 
 ## Mounting and custom hosts
 

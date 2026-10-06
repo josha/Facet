@@ -30,8 +30,8 @@ where.
 - Of 130 main `full` producers, no producer is a gap and no producer is a
   weaker replacement. The five Studio producers of the performance lab have
   their evidence. See [Producers](#producers).
-- A complete run writes `artifacts/verify/latest-<tier>.json` with release
-  gate evidence. `tools/package.sh publish` reads the `release` file and
+- A complete run writes the Verify gate outcome to
+  `artifacts/verify/latest-<tier>.json`. `tools/package.sh publish` reads the `release` file and
   refuses anything but a clean, passing run of the same source.
 - The audit found 10 defects in `src` and 3 in the examples. All of them
   are fixed. The parity tests found and fixed 18 more defects in `src` and
@@ -251,18 +251,22 @@ or retired with its subject.
 
 ### How the candidate runs its producers
 
-`tools/verify.sh <tier>` runs every producer whose tiers include that tier.
-Use `--explain` to see each selected producer, its environment, its tiers and
-the main producers that it replaces.
+`tools/lune/gate.luau` declares the producers as one Verify gate.
+`tools/verify.sh <tier>` selects every producer of that tier and of the lower
+tiers. Use `--explain` to see each selected producer, its environment, its tier
+and the main producers that it replaces.
 
 - A producer that exits 0 passes.
-- A studio or device producer that exits 2 reports `FAIL_ENVIRONMENT`. Its
-  live evidence is not recorded in this checkout.
-- A perf producer that exits 2 reports `FAIL_ENVIRONMENT`. A host timing
-  budget failed. With `--reference-host`, the same result is `FAIL`.
-- Any other exit code is `FAIL`.
-- The `full` tier reports `FAIL_ENVIRONMENT` and continues. The `release`
-  tier stops on it.
+- A studio or device producer that exits 2 is `deferred`. Its live evidence
+  is not recorded in this checkout. The log of the producer shows
+  `FAIL_ENVIRONMENT`.
+- A perf producer that exits 2 is `deferred`. A host timing budget failed.
+  With `--reference-host`, the same result is `failed`.
+- Any other exit code is `failed`.
+- The `full` tier reports a deferral and continues. The `release` tier is
+  the complete gate. Its verdict is `release` only when no producer is
+  deferred.
+- A `--rerun` selection has the verdict `selected`. It is not tier evidence.
 
 Main put `perf` and `bench` in the `release` tier only, and its `full` tier
 read a recorded report. The candidate runs `perf` and `bench` in `full`, and
@@ -445,12 +449,14 @@ See [the lab in Roblox Studio](19-paired-performance.md#the-performance-lab-in-r
 
 ### Release evidence
 
-A complete `full` or `release` run writes `artifacts/verify/latest-<tier>.json`.
-Its `gateEvidence` object holds the tier, the status, the commit, whether the
-tree was dirty when the run started, and the package source hash.
+A complete `full` or `release` run writes the Verify gate outcome to
+`artifacts/verify/latest-<tier>.json`. Its `build` object holds the commit, the
+tree, whether the tree was clean when the run started, and the package source
+hash. Its `acceptance` object holds the verdict.
 `tools/package.sh publish` reads `artifacts/verify/latest-release.json`. It
-refuses a missing file, another tier, a failed status, a dirty tree and a
-different source hash. Only a clean, passing `release` run allows a publish.
+refuses a missing file, an incomplete gate, a verdict other than `release`, a
+dirty tree and a different source hash. Only a clean, releasable `release` run
+allows a publish.
 The `release` tier adds `prove-perf-gate` and the `falsifiable` evidence mode.
 
 ### CI
@@ -458,7 +464,7 @@ The `release` tier adds `prove-perf-gate` and the `falsifiable` evidence mode.
 CI runs the `fast` and `full` tiers on `ubuntu-latest` and on the pinned
 `macos-15` runner. The `macos-15` lane uses `--reference-host`, so a timing budget
 failure fails that lane. On Ubuntu, a timing budget failure is
-`FAIL_ENVIRONMENT`. Both lanes then build the distributable model and check
+`deferred`. Both lanes then build the distributable model and check
 its purity.
 
 ## Defects found

@@ -244,6 +244,29 @@ local function attach(env: Environment.Environment, options: Options?): Controll
 		end
 		env.fire(object, "PageEnter", page)
 	end)
+	env.onClone(function(source: Instance, copy: Instance, remap: (Instance) -> Instance)
+		local function copyTable(store: { [Instance]: { [string]: unknown } })
+			if store[source] ~= nil then
+				store[copy] = table.clone(store[source])
+			end
+		end
+		copyTable(properties)
+		copyTable(transitions)
+		if defaults[source] ~= nil then
+			defaults[copy] = defaults[source]
+		end
+		local derived = derives[source]
+		if derived ~= nil then
+			local mapped: { Instance } = {}
+			for _, value in derived do
+				table.insert(mapped, remap(value))
+			end
+			derives[copy] = mapped
+		end
+		if points[source] ~= nil then
+			points[copy] = table.clone(points[source])
+		end
+	end)
 	local methods: { [string]: Environment.Method } = settings.methods or {}
 	for member, handler in methods do
 		env.fake(member, handler)
