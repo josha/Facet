@@ -233,6 +233,8 @@ Policy sets `concurrency` (default 1), the whole-run `deadlineSeconds`, `failFas
   - `Gate.list(gate)` lists the producers.
   - `Lute.gate.run` and `Lune.gate.run` keep `outcome.json` in the run directory and `latest.json` in the base directory.
     `last(gate)` returns it only for the same gate digest.
+  - The `--file` flag narrows the census of a `tests` producer to the case IDs that start with `<spec file>::` for the kept files. It drops the census when an ID names no declared file.
+    `--name`, `--case` and `--source` keep the whole census, because the worker accounts for each deselected case.
   - `Lute.gate.cli(draft, args, options?)` and `Lune.gate.cli` parse the flags, run the entry points and return the exit code. See [the gate command line](running.md#gate-command-line).
   - `tools/gate.luau` exposes these entry points as `--tier`, `--case`, `--name`, `--rerun`, `--explain` and `--list`.
 - **Acceptance.** `outcome.acceptance.verdict` is `release`, `deferred`, `selected` or `failed`. Only `release` is `releasable`.

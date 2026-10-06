@@ -672,7 +672,7 @@ A write or a `poke` to a computed property raises.
 Declare `{ get = fn, writable = true }` instead of the function to opt in to writes.
 A write or a `poke` then stores the value and notifies as a normal write does.
 A read returns the getter result, or the stored value when the getter returns nil.
-`propertyOf` and `snapshot` return the stored value. `Clone` copies it.
+`Clone` copies the stored value of a writable computed property.
 The getter runs on every read. Fire the changed signal with `poke` on a stored property that it depends on.
 `propertyOf` and `snapshot` return stored values only.
 This is a test convenience. It does not compute layout or text metrics. The getter you supply does.

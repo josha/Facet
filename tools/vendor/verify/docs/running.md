@@ -161,7 +161,7 @@ end
 | Flag | Meaning |
 | --- | --- |
 | `--only producer` | Select a producer. Repeat to select several. |
-| `--file spec` | Keep only this spec file in each `tests` producer. Repeat to keep several. An unknown file exits with 2. |
+| `--file spec` | Keep only this spec file in each `tests` producer. Repeat to keep several. An unknown file exits with 2. The declared `cases` census keeps only the entries of the kept files. |
 | `--case id` | Select an exact case. |
 | `--name text` | Select the cases whose name contains the text. |
 | `--tier name` | Select a tier. |

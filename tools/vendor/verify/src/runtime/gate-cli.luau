@@ -70,6 +70,29 @@ local function parse(args: { string }): (Command?, string?)
 	return command, nil
 end
 
+local function censusOf(declared: { string }?, locators: { string }, kept: { string }): { string }?
+	if declared == nil then
+		return nil
+	end
+	local census: { string } = {}
+	for _, id in declared do
+		local owner: string? = nil
+		for _, locator in locators do
+			if string.sub(id, 1, #locator + 2) == locator .. "::" then
+				owner = locator
+				break
+			end
+		end
+		if owner == nil then
+			return nil
+		end
+		if table.find(kept, owner) ~= nil then
+			table.insert(census, id)
+		end
+	end
+	return census
+end
+
 local function narrow(draft: Gate.Draft, files: { string }, only: { string }): (Gate.Draft?, string?)
 	if #files == 0 then
 		return draft, nil
@@ -88,6 +111,7 @@ local function narrow(draft: Gate.Draft, files: { string }, only: { string }): (
 			if #kept > 0 then
 				local narrowed = table.clone(producer)
 				narrowed.locators = kept
+				narrowed.cases = censusOf(producer.cases, producer.locators, kept)
 				table.insert(producers, narrowed)
 				table.insert(only, producer.id)
 			end
