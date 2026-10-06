@@ -1,5 +1,6 @@
 # Verify contracts
 
+- [Run cases](running.md): the default command, host selection, fixture setup and evidence.
 - [Laws](laws.md): lifecycle, evidence, host boundaries and behavioral falsifiers.
 - [API](api.md): public surfaces and receipt semantics.
 - [Execution](execution.md): plans, hosts, workers and transport.

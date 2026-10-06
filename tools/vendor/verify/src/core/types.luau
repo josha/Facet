@@ -1,5 +1,7 @@
 --!strict
 
+local Performance = require "./performance"
+
 export type Status = "passed" | "failed" | "skipped" | "unsupported" | "timed_out" | "cancelled"
 
 export type InvocationPhase = "setup" | "case" | "step" | "teardown" | "cleanup"
@@ -15,7 +17,7 @@ export type Failure = {
 export type StepResult = {
 	name: string,
 	actor: string?,
-	status: "passed" | "failed" | "timed_out" | "cancelled",
+	status: "passed" | "failed" | "timed_out" | "cancelled" | "unsupported",
 	durationMicros: number,
 	message: string?,
 }
@@ -26,6 +28,43 @@ export type Artifact = {
 	mediaType: string?,
 }
 
+export type Observation = {
+	input: unknown,
+	step: number,
+	kind: "action" | "query",
+	actor: string,
+	name: string,
+	value: unknown,
+}
+export type Checkpoint = {
+	step: number,
+	actor: string,
+	name: string,
+	artifacts: { Artifact },
+}
+export type Judgment = { status: "passed" | "failed" | "unreviewed", reviewer: string, detail: string }
+export type Review = {
+	step: number,
+	actor: string,
+	checkpoint: string,
+	criterion: string,
+	judgment: Judgment,
+}
+export type Measurement = {
+	step: number,
+	actor: string,
+	name: string,
+	input: Performance.Input,
+	limits: Performance.Limits,
+	evaluation: Performance.Evaluation,
+}
+export type Evidence = {
+	observations: { Observation },
+	checkpoints: { Checkpoint },
+	reviews: { Review },
+	measurements: { Measurement },
+}
+
 export type Origin = {
 	executor: string,
 	environment: { [string]: string },
@@ -33,6 +72,7 @@ export type Origin = {
 }
 
 export type CaseResult = {
+	evidence: Evidence?,
 	id: string,
 	source: string?,
 	path: { string },

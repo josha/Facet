@@ -4,34 +4,72 @@ Use the same authored case and ordinary Verify harness to check application logi
 and native Roblox observations. The caller supplies operations, evidence collectors, reviewers,
 capabilities and acceptance criteria.
 
-## Cases and evidence
+## One case model
 
-`Verify.experience.register(harness, case, host, evidence)` adds an experience case beside ordinary
-cases. Run that harness once with the host's capabilities and environment. `run(case, host)` is the
-standalone convenience. Both use the existing harness/report model. `Result` holds `{ report,
-evidence }` in memory; evidence is keyed by case id. The caller owns persistence and transport.
+Author every tier with `harness:case(name, options)` and the ordinary `Core.Context`. BDD and sessions
+use that same context. `Core.runCase(namedCase, host)` is a one-case convenience over the harness; it
+returns the ordinary `Report`. There is no separate experience case, context, runner or evidence map.
+Use direct assertions for local functions and typed operations for host interactions in the same case.
 
-A case declares `id`, `name`, `requires`, positive `timeoutSeconds` and `run(context)`. Declare each
-required `action:<name>`, `query:<name>`, `capture` and `judgment` capability. Missing declared
-capabilities produce an unsupported case without executing it. An unavailable operation discovered
-inside a step fails that step.
+`Core.operation({kind, name, input, output})` declares an action or query with input and output decoders.
+`context:perform(actor, operation, input)` preserves the declared Luau input/result types. Decoders also
+validate both sides of the wire boundary. `Core.bindOperation(operation, handler)` binds a typed handler
+to a host endpoint. Actions and queries use finite plain values; unsupported engine values need an
+explicit codec. A query must only read. `context:await(actor, query, input, predicate, pollSeconds)` polls
+it using the host clock and sleep within the case deadline; it refuses actions.
 
-The context offers `action`, `query`, `checkpoint`, `judge`, `measure` and ordinary `check` assertions.
-Operations name their actor. Payloads and returned observations are finite portable values,
-snapshotted against later mutation. A checkpoint attaches nonempty artifact references to the case.
-Judgment requires that actor's captured checkpoint and a caller-supplied reviewer with a verdict and
-reasoning. Capture alone grants no quality verdict; no default judge exists. Entered cases defer host
-cleanup through the harness and retain its failures. The caller releases setup skipped by preflight.
+A host binds through `harness:run({executor, capabilities, environment, bind, cancelled?})`. `bind(context)`
+runs in setup only for selected, supported cases. Create a fresh host per case. Register partial resource
+cleanup with `context:defer` before a fallible acquisition or readiness operation. The harness owns the
+returned host's `close`, then suite setup, body, teardown and cleanup run through one failure classifier.
+Sessions, BDD surfaces, injected execution hosts and Lute worker options accept the same `bind` and `cancelled` options. Use the same monotonic clock for the harness and
+host. Declare required operation capabilities as `action:<name>` or `query:<name>` and declare `capture`
+and `judgment` when needed. Missing preflight capabilities are unsupported; an undeclared unavailable
+operation encountered during execution fails.
 
-Deadlines use the host's monotonic clock and are checked before and after operations. They are
-cooperative: they detect late completion but cannot interrupt a hung callback or native remote call.
-`parity(left, right)` returns `{ status, differences }` and compares case verdicts and recorded
-action/query observations. Passing requires both runs to pass and their observations to agree.
-Checkpoint media, judgments and performance measurements remain separate acceptance obligations;
-this comparison grants no native event-ordering, physics, rendering or audio parity.
+Case options include `timeoutSeconds` and `cleanupTimeoutSeconds`. A deadline covers setup and body.
+Each teardown/cleanup callback gets a separate cleanup budget (default five seconds), including recovery
+operations after a failed or cancelled body. Timeout and cancellation keep their own report statuses.
+Checks are cooperative: a blocking call must enforce its supplied deadline or the outer worker must
+interrupt it. Cleanup is attempted even after failure; its failures remain visible independently.
 
-Start with the [in-memory example](../examples/experience.luau). Behavioral evidence lives in
-[experience tests](../tests/experience.spec.luau).
+`context:checkpoint(actor, name)`, `judge(actor, checkpoint, criterion)` and `measure(actor, name, input,
+limits)` attach observations to `CaseResult.evidence`, bound to recorded step indices. Evidence survives
+standard report decoding, merging and transport. Judgment needs that actor's captured checkpoint and an
+explicit reviewer verdict with reasoning. Capturing media alone establishes no quality judgment.
+Unreviewed judgments and insufficient measurements are unsupported; observed defects fail.
+`context:unsupported(requirement)` records a missing runtime capability and still runs cleanup.
+Measurements retain their inputs and limits; report decoding recomputes and checks their evaluation.
+
+`Core.observationParity(leftReport, rightReport)` compares case verdicts and action/query inputs and
+observations. Both reports must pass. It does not certify native physics, replication timing, visual
+quality, sound or performance. Those require their own observations and assertions.
+
+Start with [typed local operations](../examples/experience.luau), the
+[shared instance case](../examples/instance-case.luau) and
+[failure/cleanup tests](../tests/semantic-execution.spec.luau).
+
+## Reusable instance adapter
+
+`Roblox.instanceHost` owns instance-operation binding and fixture cleanup. Its `create`, `parent`,
+`destroy`, `setProperty`, `setAttribute` and `inspect` operations use stable caller-selected instance ids.
+`property(decoder)` and `attribute(decoder)` provide typed reads. The exact same case runs with
+`instanceHost.simulated(actor).host` or `instanceHost.native(actor).host`. Native execution requires an
+already running authorized Studio or Player context. The [native launcher](execution.md#native-studio-execution)
+provides isolated Studio startup and report retrieval.
+
+`simulated(actor, environment?)` accepts a configured `Roblox.testEnvironment()`. Reuse its class,
+default/validation, explicit fake, virtual time and hierarchy behavior instead of building a second
+engine. `Roblox.reflection.create` supplies class definitions and defaults from an injected database; no reflection database or
+unimplemented UI/physics behavior is implied. Supply explicit fakes for unsupported methods.
+
+`registry({actor, createInstance, borrowed?, codec?})` exposes the same endpoints for a custom native or
+simulated host, including `experienceHost` remote routing. `native(actor, borrowed?, codec?)` provides the
+native factory and clock. A codec translates nonportable property/attribute values; default transport
+accepts only finite plain values. Borrowed instances are not destroyed. Borrowed descendants moved under
+owned fixtures are restored to their original parent before cleanup; failed restoration prevents their
+owner from being destroyed. Other changes to borrowed instances need explicit caller cleanup. Owned
+fixtures are released on success and failure. Unknown ids, wrong actors and invalid values fail.
 
 ## Native Roblox hosts
 
@@ -55,6 +93,18 @@ returned completion cooperatively.
 The [native visibility example](../examples/roblox-experience.luau) binds an injected target and optional
 collectors. The [hierarchy conformance example](../examples/hierarchy-experience.luau) accepts either
 a native Folder factory or the simulated environment and checks the same authored observations.
+
+## Player actions
+
+`Roblox.playerHost` declares typed `move`, `jump`, `equip` and `inspect` operations. `native(actor)`
+binds the live local player's Humanoid, backpack and character. `move` accepts a unit direction,
+`equip` requires one uniquely named backpack Tool, and `inspect` returns position, velocity, health
+and equipped tool. Cleanup stops movement. These are semantic character controls, not proof of keyboard,
+touch, gamepad or UI input behavior. Those need input-specific host operations and tests.
+
+`registry(backend)` binds the same vocabulary to injected functions for deterministic tests. Such a
+fixture does not advertise native physics. The [player example](../examples/player-case.luau) requires
+`native-physics` and observes an actual jump and landing; it is unsupported on a simulation-only host.
 
 ## Simulated networking
 
@@ -105,3 +155,28 @@ cloned `Performance.Input` samples in `ms`, labeled `observed`; invalid interval
 cleanup. The cap stops retaining new samples, while `finish` releases the connection. The caller must
 connect the actual signal and bind its run/source identity. Injected callback tests establish fixture
 coverage, not an observed native frame-performance result.
+
+## Coordinated native clients
+
+`Roblox.multiplayer.server(context, options)` binds a server and one to eight clients to one ordinary
+case. Options supply the `RemoteEvent`, unique `runId`, client count, authorization callback, server
+registry, native engine, sleep and readiness deadline. `armed` may announce that the server listener
+is connected. Clients wait for that announcement, then call `multiplayer.client` with the same remote
+and run ID, their registry, capabilities, clock and spawn function. Optional `capture` and `close`
+callbacks collect client evidence and release client resources.
+
+The server assigns `client-1` through `client-N` in join order. These are run-local identities, not
+account IDs. Cases use `context:perform`, `await` and `checkpoint` against those actors or `server`.
+The coordinator checks actual sender identity, run and request identity, deadlines and disconnects.
+Cleanup waits for connected clients to acknowledge release; missing or failed cleanup fails the case.
+The [runnable example](../examples/multiplayer.luau) clicks UI in one client and observes the server
+and second client's replicated counter. Its native client images are temporary, explicitly limited
+evidence. Use a durable capture callback for retained per-client images.
+
+`Roblox.inputHost` declares `key`, `pointer` and `text` operations. `native()` uses
+`UserInputService:CreateVirtualInput()` and returns nil when unavailable. Register only the available
+capabilities; unavailable input is not a pass. `registry(backend)` binds the operations, and
+`backend.close()` releases held keys and mouse buttons. `screenCenter(guiObject)` converts rendered GUI
+bounds to screen coordinates including the top-bar inset. Pointer coordinates are screen pixels.
+Roblox still rejects reserved keys and interactions with protected CoreGui. This is real virtual
+input, distinct from the character motion operations in `playerHost`.

@@ -1,17 +1,14 @@
 --!strict
 
-local Experience = require "@self/experience"
+local Operations = require "@self/operations"
 local Performance = require "@self/performance"
 
-local Actors = require "@self/actors"
 local Capability = require "@self/capability"
 local Execution = require "@self/execution"
 local HarnessModule = require "@self/harness"
-local Lifecycle = require "@self/lifecycle"
 local Manifest = require "@self/manifest"
 local Matchers = require "@self/matchers"
 local Media = require "@self/media"
-local Observation = require "@self/observation"
 local Plan = require "@self/plan"
 local Shape = require "@self/shape"
 local ReportModel = require "@self/report"
@@ -22,10 +19,10 @@ local Types = require "@self/types"
 local Wait = require "@self/wait"
 local Witness = require "@self/witness"
 
-export type ExperienceHost = Experience.Host
-export type ExperienceCase = Experience.Case
-export type ExperienceContext = Experience.Context
-export type ExperienceResult = Experience.Result
+export type OperationRequest = Operations.Request
+export type CaseHost = Operations.Host
+export type Operation<I, O> = Operations.Operation<I, O>
+export type NamedCase = HarnessModule.NamedCase
 export type PerformanceInput = Performance.Input
 export type PerformanceSummary = Performance.Summary
 export type PerformanceLimits = Performance.Limits
@@ -83,10 +80,6 @@ export type Fixture = Execution.Fixture
 export type PlanAccount = Execution.Account
 export type ExecutionOptions = Execution.Options
 
-export type ActorProbe = Actors.Probe
-export type ActorOps<H = unknown> = Actors.Ops<H>
-export type ActorSpec = Actors.Spec
-
 export type MediaAudioWindow = Media.AudioWindow
 export type MediaResolvedAudioWindow = Media.ResolvedAudioWindow
 export type MediaRecording = Media.Recording
@@ -101,24 +94,7 @@ export type WaitProbe = Wait.Probe
 export type WaitSpec = Wait.Spec
 export type WaitResult = Wait.Result
 
-export type LifecycleReturned = Lifecycle.Returned
-export type LifecycleStep = Lifecycle.Step
-export type LifecycleCheckpoint = Lifecycle.Checkpoint
-export type LifecycleFailure = Lifecycle.Failure
-export type LifecycleOutcome = Lifecycle.Outcome
-export type LifecycleRecord = Lifecycle.Record
-export type LifecycleOps<H = unknown> = Lifecycle.Ops<H>
-export type LifecycleHandle = Lifecycle.Handle
-export type LifecycleBody = Lifecycle.Body
-export type LifecycleSpec = Lifecycle.Spec
-export type LifecycleResult = Lifecycle.Result
-export type LifecycleRun<H = unknown> = Lifecycle.Run<H>
-export type LifecycleBatch = Lifecycle.Batch
-
 export type Negotiation = Capability.Negotiation
-export type Bundle = Observation.Bundle
-export type BundleDraft = Observation.Draft
-export type BundleVerdict = Observation.Verdict
 export type Session<S = { [string]: unknown }> = SessionModule.Session<S>
 export type SessionOptions<S = { [string]: unknown }> = SessionModule.Options<S>
 export type SessionProvidedOptions<S> = SessionModule.ProvidedOptions<S>
@@ -128,13 +104,15 @@ export type Segment = Transport.Segment
 export type ClassifyConsoleOptions = Witness.ClassifyOptions
 
 return {
-	experience = Experience,
+	operation = Operations.operation,
+	bindOperation = Operations.bind,
+	runCase = HarnessModule.runCase,
+	runCases = HarnessModule.runCases,
 	performance = Performance,
 	SCHEMA_VERSION = ReportModel.SCHEMA_VERSION,
 	MANIFEST_SCHEMA_VERSION = Manifest.SCHEMA_VERSION,
 	PLAN_SCHEMA_VERSION = Plan.SCHEMA_VERSION,
 	EXECUTION_SCHEMA_VERSION = Execution.SCHEMA_VERSION,
-	OBSERVATION_CONTRACT = Observation.CONTRACT,
 	TIMING_FIELDS = ReportModel.TIMING_FIELDS,
 
 	createHarness = HarnessModule.createHarness,
@@ -159,23 +137,11 @@ return {
 	execute = Execution.execute,
 	accountPlan = Execution.account,
 	createSession = SessionModule.create,
-	runLifecycle = Lifecycle.run,
-	runConcurrentLifecycles = Lifecycle.runConcurrent,
-	lifecycleFailures = Lifecycle.failures,
-	attachLifecycle = Lifecycle.attach,
 	waitUntil = Wait.waitUntil,
 	mediaAudioWindow = Media.audioWindow,
 	mediaProbeSummary = Media.probeSummary,
 	mediaAudioMeasurement = Media.audioMeasurement,
 	mediaSampleCommands = Media.sampleCommands,
-	actorNames = Actors.names,
-	runActors = Actors.run,
-
-	sealObservations = Observation.seal,
-	isSealedBundle = Observation.isSealed,
-	evaluateObservations = Observation.evaluate,
-	observationVerdict = Observation.verdict,
-	observationStringMap = Observation.stringMap,
 
 	frame = Transport.frame,
 	extract = Transport.extract,
@@ -200,6 +166,7 @@ return {
 	canonical = ReportModel.canonical,
 	verdictDigest = ReportModel.verdictDigest,
 	verdictDifferences = ReportModel.verdictDifferences,
+	observationParity = ReportModel.observationParity,
 
 	DEFAULT_WITNESS_ERROR_PATTERNS = Witness.DEFAULT_ERROR_PATTERNS,
 	DEFAULT_WITNESS_BLOCK_BEGIN_PATTERNS = Witness.DEFAULT_BLOCK_BEGIN_PATTERNS,

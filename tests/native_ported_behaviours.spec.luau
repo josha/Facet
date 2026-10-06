@@ -509,6 +509,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				box:CaptureFocus()
 				box:ReleaseFocus(true)
 				expect(#proposals):toBe(0)
+				expect(editor("name")):toBe(name)
 				box:CaptureFocus()
 				box.Text = "Ava"
 				box:ReleaseFocus(true)

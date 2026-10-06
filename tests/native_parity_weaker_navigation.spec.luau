@@ -1705,7 +1705,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local search = find(node, "Search", "TextBox")
 				search:CaptureFocus()
 				search.Text = "FoReSt"
-				search.FocusLost.fire(true)
+				search:ReleaseFocus(true)
 				Verify.expect(built.report().query):toBe("FoReSt")
 				local function results()
 					local count = 0
@@ -1732,7 +1732,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(ctx.guiService.SelectedObject):toBe(result)
 				search:CaptureFocus()
 				search.Text = "zzz"
-				search.FocusLost.fire(true)
+				search:ReleaseFocus(true)
 				Verify.expect((results())):toBe(0)
 				built.steps.clearSearch()
 				Verify.expect(built.report().query):toBe("")

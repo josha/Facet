@@ -76,14 +76,14 @@ when a source is supplied. Prefixing requires a source and does not change selec
 | --- | --- |
 | `harness:suite(name, register)` | Group the cases registered by a callback. |
 | `harness:case(name, run)` | Register a callback receiving a case context. |
-| `harness:case(name, options)` | Supply `run` plus optional `id`, `requires`, `tags` and `limitations`. |
+| `harness:case(name, options)` | Supply `run` plus optional `id`, `requires`, `tags`, `limitations`, `timeoutSeconds` and `cleanupTimeoutSeconds`. |
 | `harness:skip(name, reason, run?)` | Register a deliberate omission with its reason. |
 | `harness:beforeEach(run)` | Register setup for cases in the current suite. |
 | `harness:afterEach(run)` | Register teardown for cases in the current suite. |
 | `harness:run(options)` | Execute selected cases and return a report. |
 
 Run options name the `executor` and may supply `environment`, `capabilities`, `selection` and
-`invoke`. Selection supports IDs, suite prefixes, tags, capabilities and a predicate.
+`invoke`, `bind` and `cancelled`. Selection supports IDs, suite prefixes, tags, capabilities and a predicate.
 A focused result records that execution; it does not establish a complete gate.
 
 ```luau
@@ -114,6 +114,16 @@ The context records assertions, steps and artifact references, and owns case-loc
 | `context:defer(cleanup)` | Register cleanup for the end of the case. |
 | `context:own(resource)` | Own a cleanup function or a table with `dispose`/`destroy`. |
 | `context:skip(reason)` | Stop the current case with a deliberate skip. |
+| `context:perform(actor, operation, input)` | Execute a typed action or query. |
+| `context:await(actor, query, input, predicate, pollSeconds)` | Poll a read-only query within the case deadline. |
+| `context:checkpoint(actor, name)` | Capture evidence through the bound host. |
+| `context:judge(actor, checkpoint, criterion)` | Require an explicit review of captured evidence. |
+| `context:measure(actor, name, input, limits)` | Check observed performance against explicit limits. |
+| `context:remainingSeconds()` | Read the current body or cleanup budget. |
+
+The [cross-host execution contract](experience.md#one-case-model) owns typed operations, host binding,
+deadlines and evidence. `Core.runCase({name, ...caseOptions}, host)` runs one ordinary case and returns
+the standard report. Use `Core.observationParity` to compare its action/query observations across hosts.
 
 Declare a disposal callback’s receiver as the complete resource type, including its `dispose` or
 `destroy` member. `LifecycleOps<H>` and `ActorOps<H>` preserve the acquired handle type in release
@@ -320,56 +330,11 @@ cancelled deliveries without external effects.
 
 ---
 
-## Remote observations
+## Host observations
 
-### `Core.sealObservations`
-
-`sealObservations(draft) -> Bundle`
-
-`Core.sealObservations` freezes a snapshot of supplied observations and their executor, environment, capabilities,
-actors, artifacts and timeline. Sealing preserves the input. It does not judge or authenticate it.
-
-### `Core.evaluateObservations`
-
-`evaluateObservations(bundle, source, register, now?, selection?) -> Report`
-
-`Core.evaluateObservations` runs a real harness against a sealed bundle. Registration receives the harness and observations.
-An optional `selection` uses the harness selection contract. Only selected case bodies run.
-Registration failures still fail, and a selection with no matches cannot produce a clear verdict.
-A focused report proves only its selected claims; consumers must distinguish it from complete acceptance.
-
-```luau
-local bundle = Core.sealObservations {
-    executor = "local-observer",
-    environment = { revision = "working-tree", run = "sample-1" },
-    observations = { visibleRows = 3 },
-}
-
-local report = Core.evaluateObservations(bundle, "viewport", function(harness, observations)
-    harness:case("shows three rows", function(context)
-        context:expect(observations.visibleRows):toBe(3)
-    end)
-end)
-
-local verdict = Core.observationVerdict(report, "viewport checks passed")
-```
-
-`observationVerdict(report, clearReason)` returns `clear` only for nonempty, all-passing results
-with coherent counts; otherwise it returns `held`. `isSealedBundle` checks the sealed snapshot,
-and `observationStringMap` normalizes supplied environment fields. An observation is not an
-acceptance decision before its cases run.
-
-## Run lifecycle
-
-`Core.runLifecycle(spec, ops)` and `Core.runConcurrentLifecycles(runs, parallel?)` run setup, start, steps,
-checkpoints and always-run cleanup over injected host operations, and return the original failure and any
-cleanup failures separately. `Core.lifecycleFailures(result)` maps them to report failures. See the
-[execution contract](execution.md#run-lifecycle).
-
-`Core.waitUntil(spec, ops)`, `Core.runActors(spec, ops)`, `Core.attachLifecycle(context, result)`,
-`Core.accountPlan(plan, execution)` and the `media*` functions are described in the
-[execution contract](execution.md#waits-actors-and-evidence). `Lute.runBounded(argv, seconds)` runs a
-command that the host kills at the limit.
+Use typed operations, `context:perform`, `await`, `checkpoint`, `judge` and `measure` in the ordinary
+case. Evidence lives in `CaseResult.evidence` and uses standard report transport. See the
+[experience contract](experience.md) for binding and the [execution contract](execution.md) for hosts.
 
 ## Host adapters
 
@@ -378,23 +343,12 @@ artifact custody and release acceptance. Load only the package needed for the ob
 
 ### Scenarios and journeys
 
-`Roblox.observeScenario(deps, predicates, options)` captures the baseline census before starting
-an authorized driver. It selects a new or grown transcript, refuses ambiguous sources, and
-returns bounded readback or a named failure. Consumer predicates define source, completion and
-bindings; core evaluates the collected observations.
-
 `Roblox.checkpointPlan.order(checkpoints, viewports, rows, collectAll)` orders a declared matrix
 with checkpoint first and viewport second. It refuses missing and duplicate checkpoint rows;
 non-checkpoint rows remain available for caller-owned capture policy. `Roblox.scenarioStepJournal.create`
 retains numbered tool outputs and their request/result digests through injected storage and digest
 operations. A binding is copied into call records; the caller owns authorization, tool execution,
 paths, and the meaning of each checkpoint.
-
-`Roblox.tierLadder` provides session, client and journey judgment and receipts. Exact predicate
-rows, run identity, source and environment must agree. `unsupported` applies only when the
-specified capability was unreached and no real defect was observed. See the typed options for
-`judge`, `receipt`, `sessionObservations`, `chunkedCallPlan`, `clientObservations` and `journeySpec`
-in [`tier-ladder.luau`](../src/roblox/tier-ladder.luau).
 
 ### Windows, captures and receipts
 
@@ -465,17 +419,12 @@ test that needs a result supplies it explicitly. `Roblox.virtualScheduler()` is 
 ### Reflection and behavior adapters
 
 The built-in schemas are a small declared test surface, not a complete Roblox reflection database.
-A caller may translate reflection metadata into class schemas and supply `defaultProperty(className,
-property, fallback)` and `validateProperty(className, property, value, operation)` in the environment
-options. The first returns a per-instance default; return `fallback` for an unmapped property. A returned
-`false` is a real default. The second accepts a write or throws before mutation; `operation` is `set`
-for authored assignments or `poke` for simulated engine changes. This lets a reflection adapter enforce
-datatypes and read-only rules without replacing the hierarchy, signals or scheduler.
-
-Declare text measurement, focus restrictions, style methods and cloning through class methods or
-explicit fakes when a test requires them. Those functions own their behavior and assertions. Declaring
-a name does not implement it, and a fixture result does not prove native layout or input fidelity.
-Keep reflection loading and application UI policy in the caller; do not copy the simulator to add them.
+Use the [reflection and UI adapters](#reflection-and-explicit-ui-fakes) for standard integration.
+Custom environments may supply `defaultProperty(className, property, fallback)` and
+`validateProperty(className, property, value, operation)`. A returned `false` is a real default;
+return `fallback` for an unmapped property. Validation runs before mutation. `operation` is `set`
+for authored assignments or `poke` for simulated engine changes. Explicit fakes do not establish
+native rendering or input fidelity.
 
 Hierarchy notifications include `AncestryChanged`, `DescendantRemoving` and subtree `DescendantAdded`.
 Moving a subtree notifies the ancestors it leaves or enters; a common ancestor receives neither event.
@@ -496,3 +445,37 @@ behavior.
 
 `Consumer.scan`, `scanTree` and `scanProductionPaths` inspect portable specifications and
 production graphs. See [consumer diagnostics](lint.md) for the rules and their limits.
+
+### Reflection and explicit UI fakes
+
+`Roblox.reflection.create { database, typeName, enumType?, classes?, referenceClass?, validateProperty? }`
+builds an environment from a Lune-compatible reflection database. Pass
+`roblox.getReflectionDatabase()` and the runtime's `typeof`. `enumType(value)` returns the enum family
+name, with or without the `Enum.` prefix. The adapter inherits class defaults, rejects unknown and
+read-only writes, and validates native datatypes. `referenceClass(className, property)` can narrow
+reference properties: Lune's `Ref` metadata does not include the target class. `classes` overlays
+explicit events/methods; `validateProperty` adds fixture restrictions. The portable package imports
+no Lune runtime. `lune run tools/check-reflection.luau` checks the real integration.
+
+`Roblox.uiFakes.classes` declares optional UI methods. Supply it as a class overlay and pass
+`uiFakes.validateProperty` as the property validator to reject selection of hidden or unselectable
+controls. `uiFakes.attach(environment, { measureText?, measureBounds?, methods? })` installs focus,
+style-map, video-state, path-point storage and instant page-navigation fakes. Measurement providers
+are required for measurement claims. Keep its controller and call `close()` to release focus resources.
+Curve evaluation, rendered text, animated navigation, playback quality and style rendering are not
+simulated. Unsupported declared methods require an explicit injected implementation. Style/path
+fake maps are external fixture state and are not copied by `Instance:Clone()`.
+
+`Roblox.environmentEngine(environment, library?)` exposes the environment as a structural scene engine
+with creation, heartbeat, clock, datatype constructors, destruction and property observation.
+Objects and signals preserve identity. The default uses Verify datatypes; supply the typed factory
+library when using native datatypes. This adapter adds no renderer or native engine claims.
+
+The environment implements `Clone()` with internal instance-reference remapping, attributes and tags.
+Nonarchivable descendants are omitted; external references stay external; signals are not copied.
+It includes recursive `FindFirstChildWhichIsA`, exact/inherited ancestor lookup and instance tag methods.
+
+## Named case collections
+
+`Core.runCases(cases, options, now, ids?)` executes ordinary named cases with exact selection.
+The [run guide](running.md) owns selection, entry modules and host execution.

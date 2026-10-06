@@ -1,7 +1,7 @@
 --!strict
 --!nolint DeprecatedApi
 
-local Experience = require "../core/experience"
+local Experience = require "../core/operations"
 local Types = require "../core/types"
 
 export type Context = "server" | "client"
@@ -48,6 +48,7 @@ export type Options = {
 	capabilities: { string }?,
 	transport: Transport?,
 	maxInFlight: number?,
+	sleep: ((number) -> ())?,
 	capture: ((actor: string, checkpoint: string) -> { Types.Artifact })?,
 	judge: ((Experience.JudgmentRequest) -> Experience.Judgment)?,
 }
@@ -292,6 +293,7 @@ local function create(options: Options): Experience.Host
 			["roblox.gameId"] = tostring(engine.gameId),
 		},
 		now = engine.now,
+		sleep = options.sleep,
 		invoke = function(invocation: Experience.Request): unknown
 			actorReady(invocation.actor)
 			invocation = request(invocation)

@@ -453,7 +453,7 @@ return function(
 			Host.Frame({
 				Name = "Plate",
 				Size = D2.fromScale(1, 1),
-				Visible = reveal == "automatic",
+				Visible = reveal == "automatic" and (primary ~= nil or menu ~= nil),
 			}),
 			"panel"
 		)
@@ -475,6 +475,11 @@ return function(
 			row :: Types.Child,
 		}
 		local liftScale = Host.UIScale({ Name = "Lift", Scale = scale })
+		local layoutUnit = Host.Frame({
+			Name = "LayoutUnit",
+			Size = D2.fromOffset(1, 1),
+			Visible = false,
+		})
 		local card = Host.Frame(ctx.props(spec, {
 			"image",
 			"artwork",
@@ -522,11 +527,13 @@ return function(
 				end,
 			}) :: Types.Child,
 			liftScale :: Types.Child,
+			layoutUnit :: Types.Child,
 			body :: Types.Child,
 			plate :: Types.Child,
 		}))
 		root = card
 		local extent = ctx.observe.AbsoluteSize(card)
+		local unitSize = ctx.observe.AbsoluteSize(layoutUnit)
 		if spec.onActivate then
 			local bodyExtent = ctx.observe.AbsoluteSize(body)
 			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else extent
@@ -540,16 +547,18 @@ return function(
 		end
 		if (spec :: { [unknown]: unknown }).Position == nil then
 			runtime.decorate(card, {
-				Position = function(use: ComposeTypes.Use): UDim2
+				AnchorPoint = function(use: ComposeTypes.Use): Vector2
 					local factor = math.max(use(scale), 0.001)
-					local grown = use(extent) * (1 - 1 / factor) / 2
-					return D2.fromOffset(-grown.X, -grown.Y)
+					local anchor = read(spec.AnchorPoint, use) or ctx.types.Vector2.new(0, 0)
+					local growth = (1 - 1 / factor) / 2
+					return anchor + ctx.types.Vector2.new(growth, growth)
 				end,
 			})
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			local painted = liftScale.Scale
-			cardWidth:set(math.round(use(extent).X / (if painted > 0 then painted else 1)))
+			local painted = use(unitSize).X
+			local factor = if painted > 0 then painted else math.max(liftScale.Scale, 0.001)
+			cardWidth:set(math.round(use(extent).X / factor))
 		end)
 		local revealExtent = Compose.formula(function(use: ComposeTypes.Use): { body: number }
 			return { body = use(extent).Y }

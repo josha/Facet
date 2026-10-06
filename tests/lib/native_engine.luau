@@ -23,113 +23,174 @@ export type Engine = {
 	census: () -> { live: number, connections: number },
 }
 
+local objects = setmetatable({}, { __mode = "kv" })
+local facades = setmetatable({}, { __mode = "kv" })
 local reflection = Roblox.getReflectionDatabase()
-local defaultsByClass: { [string]: any } = {}
-local defaultsByProperty: { [string]: { [string]: any } } = {}
+local eventNames = {
+	"Activated",
+	"Focused",
+	"ReturnPressedFromOnScreenKeyboard",
+	"Pressed",
+	"Released",
+	"StateChanged",
+	"TouchLongPress",
+	"TouchPan",
+	"FocusLost",
+	"InputBegan",
+	"InputChanged",
+	"InputEnded",
+	"LastInputTypeChanged",
+	"WindowFocusReleased",
+	"WindowFocused",
+	"DragStart",
+	"DragContinue",
+	"DragEnd",
+	"MouseEnter",
+	"MouseLeave",
+	"MouseMoved",
+	"MouseButton1Down",
+	"SelectionGained",
+	"SelectionLost",
+}
+local metadata: { [string]: any } = {}
+local classes: { [string]: any } = {}
+local names = reflection:GetClassNames()
+table.insert(names, "UIShadow")
+for _, name in names do
+	local original = assert(reflection:GetClass(if name == "UIShadow" then "UIComponent" else name))
+	local class: any = { Name = original.Name, Superclass = original.Superclass, Tags = original.Tags }
+	class.Name = name
+	class.Superclass = if name == "UIShadow" then "UIComponent" else original.Superclass
+	class.Properties = table.clone(original.Properties)
+	for key, property in original.Properties do
+		if property.Datatype == "ContentId" or property.Datatype == "BinaryString" then
+			class.Properties[key] = {
+				Name = property.Name,
+				Datatype = "string",
+				Scriptability = property.Scriptability,
+				Tags = property.Tags,
+			}
+		end
+	end
+	class.DefaultProperties = table.clone(original.DefaultProperties)
+	local properties: { [string]: any } = {}
+	if class.Properties.TextFits then
+		class.Properties.TextFits = nil
+		properties.TextFits = false
+	end
+	for _, key in
+		{
+			"AbsoluteSize",
+			"TextBounds",
+			"AbsoluteContentSize",
+			"AbsolutePosition",
+			"AbsoluteWindowSize",
+			"AbsoluteCanvasSize",
+			"CanvasPosition",
+		}
+	do
+		properties[key] = Roblox.Vector2.zero
+		class.DefaultProperties[key] = Roblox.Vector2.zero
+	end
+	for _, key in
+		{
+			"PlayCount",
+			"StopCount",
+			"WaveformKeys",
+			"ControlPoints",
+			"PrimaryModifier",
+			"SecondaryModifier",
+			"DisplayName",
+			"DisplayImage",
+			"PreferredBinding",
+		}
+	do
+		properties[key] = false
+	end
+	if name == "UICorner" then
+		for _, key in { "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" } do
+			properties[key] = Roblox.UDim.new(0, 8)
+			class.DefaultProperties[key] = properties[key]
+		end
+	elseif name == "GuiService" then
+		class.Properties.PreferredTransparency = nil
+		class.DefaultProperties.PreferredTransparency = nil
+		properties.PreferredTransparency = 1
+		properties.GuiNavigationEnabled = true
+		properties.AutoSelectGuiEnabled = true
+		class.DefaultProperties.GuiNavigationEnabled = true
+		class.DefaultProperties.AutoSelectGuiEnabled = true
+	elseif name == "UIShadow" then
+		properties = {
+			BlurRadius = Roblox.UDim.new(0, 12),
+			Color = Roblox.Color3.new(),
+			Offset = Roblox.UDim2.new(),
+			Spread = Roblox.UDim2.new(),
+			Transparency = 0.5,
+			ZIndex = -1,
+			Enabled = true,
+		}
+	end
+	local ui = VerifyRoblox.uiFakes.classes[name]
+	local events = table.clone(eventNames)
+	if ui and ui.events then
+		for _, event in ui.events do
+			table.insert(events, event)
+		end
+	end
+	classes[name] =
+		{ creatable = true, properties = properties, events = events, methods = if ui then ui.methods else nil }
+	metadata[name] = class
+end
+local database = {
+	GetClassNames = function()
+		return names
+	end,
+	GetClass = function(_, name)
+		return metadata[name]
+	end,
+}
+local nativeDefaults: { [string]: any } = {}
+local function defaultProperty(className: string, key: string): any
+	local value = metadata[className].DefaultProperties[key]
+	if value ~= nil then
+		return value
+	end
+	local injected = classes[className].properties[key]
+	if injected ~= nil and injected ~= false then
+		return injected
+	end
+	if not nativeDefaults[className] then
+		local ok, instance = pcall((Roblox.Instance.new :: unknown) :: (string) -> any, className)
+		nativeDefaults[className] = if ok then instance else Roblox.Instance.new("Folder")
+	end
+	local ok, fallback = pcall(function()
+		return nativeDefaults[className][key]
+	end)
+	return if ok then fallback else nil
+end
 
 local function new(options: any?): Engine
 	local made: { any } = {}
 	local rejectedSelections = {}
 	local attributeValues = {}
 	local attributeTokens = setmetatable({}, { __mode = "k" })
-	local cloneRecords = setmetatable({}, { __mode = "k" })
-	local classes: { [string]: any } = {}
-	local objects = setmetatable({}, { __mode = "k" })
-	local facades = setmetatable({}, { __mode = "kv" })
 	local signalAdapters = setmetatable({}, { __mode = "kv" })
-	local eventNames = {
-		"Activated",
-		"Focused",
-		"ReturnPressedFromOnScreenKeyboard",
-		"Pressed",
-		"Released",
-		"StateChanged",
-		"TouchLongPress",
-		"TouchPan",
-		"FocusLost",
-		"InputBegan",
-		"InputChanged",
-		"InputEnded",
-		"LastInputTypeChanged",
-		"WindowFocusReleased",
-		"WindowFocused",
-		"DragStart",
-		"DragContinue",
-		"DragEnd",
-		"MouseEnter",
-		"MouseLeave",
-		"MouseMoved",
-		"MouseButton1Down",
-		"SelectionGained",
-		"SelectionLost",
-	}
-
-	local observed = {
-		"AbsoluteSize",
-		"TextBounds",
-		"AbsoluteContentSize",
-		"AbsolutePosition",
-		"AbsoluteWindowSize",
-		"AbsoluteCanvasSize",
-		"CanvasPosition",
-	}
-	local shadow: { [string]: any } = {
-		BlurRadius = Roblox.UDim.new(0, 12),
-		Color = Roblox.Color3.new(0, 0, 0),
-		Offset = Roblox.UDim2.new(),
-		Spread = Roblox.UDim2.new(),
-		Transparency = 0.5,
-		ZIndex = -1,
-		Enabled = true,
-	}
-	local function nativeDefaults(className: string): any
-		local cached = defaultsByClass[className]
-		if not cached then
-			local ok, instance = pcall(function()
-				return Roblox.Instance.new(if className == "UIShadow" then "Folder" else className)
-			end)
-			cached = if ok then instance else Roblox.Instance.new("Folder")
-			defaultsByClass[className] = cached
-		end
-		return cached
-	end
-	local function defaultProperty(className: string, key: string, fallback: any): any
-		if table.find(observed, key) then
-			return Roblox.Vector2.zero
-		end
-		if className == "UICorner" and string.match(key, "Radius$") then
-			return Roblox.UDim.new(0, 8)
-		end
-		if className == "UIShadow" and shadow[key] ~= nil then
-			return shadow[key]
-		end
-		local values = defaultsByProperty[className]
-		if not values then
-			values = {}
-			defaultsByProperty[className] = values
-		end
-		local cached = values[key]
-		if not cached then
-			local ok, value = pcall(function()
-				return nativeDefaults(className)[key]
-			end)
-			cached = { ok, value }
-			values[key] = cached
-		end
-		return if cached[1] then cached[2] else fallback
-	end
-	local environment = VerifyRoblox.testEnvironment({
-		builtins = false,
-		defaultProperty = defaultProperty,
-		validateProperty = function(className, key, value)
-			if value == nil then
-				return
+	local environment = VerifyRoblox.reflection.create({
+		database = database,
+		typeName = function(value: any)
+			if type(value) == "table" then
+				local source = rawget(value, "SourceType")
+				if source and source.Name == "Uri" and type(rawget(value, "Uri")) == "string" then
+					return "Content"
+				end
 			end
-			local kind = typeof(defaultProperty(className, key, nil))
-			if table.find({ "Color3", "UDim2", "UDim", "Vector2" }, kind) then
-				assert(typeof(value) == kind, `Unable to assign property {key}. {kind} expected, got {typeof(value)}`)
-			end
+			return typeof(value)
 		end,
+		enumType = function(value)
+			return tostring((value :: any).EnumType)
+		end,
+		classes = classes,
 	})
 	local function raiseHandlerErrors()
 		if #environment.errors > 0 then
@@ -137,57 +198,6 @@ local function new(options: any?): Engine
 			table.clear(environment.errors)
 			error(message, 3)
 		end
-	end
-	local function defineClass(className: string)
-		if classes[className] then
-			return
-		end
-		local metadata: any = reflection:GetClass(if className == "UIShadow" then "UIComponent" else className)
-		local parent: string? = if className == "UIShadow"
-			then "UIComponent"
-			elseif metadata then metadata.Superclass
-			else nil
-		if parent then
-			defineClass(parent)
-		end
-		local properties: { [string]: any } = {}
-		local cursor = metadata
-		while cursor do
-			for key in cursor.Properties do
-				properties[key] = false
-			end
-			cursor = if cursor.Superclass then reflection:GetClass(cursor.Superclass) else nil
-		end
-		for _, key in observed do
-			properties[key] = false
-		end
-		for _, key in
-			{
-				"PlayCount",
-				"StopCount",
-				"WaveformKeys",
-				"ControlPoints",
-				"PrimaryModifier",
-				"SecondaryModifier",
-				"DisplayName",
-				"DisplayImage",
-				"PreferredBinding",
-			}
-		do
-			properties[key] = false
-		end
-		if className == "UICorner" then
-			for _, key in { "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" } do
-				properties[key] = false
-			end
-		elseif className == "UIShadow" then
-			for key in shadow do
-				properties[key] = false
-			end
-		end
-		local spec = { super = parent, properties = properties, events = eventNames }
-		classes[className] = spec
-		environment.defineClass(className, spec, { replace = className == "Folder" })
 	end
 	local wrap: (any) -> any
 	local function unwrap(value: any): any
@@ -232,13 +242,17 @@ local function new(options: any?): Engine
 		signalAdapters[actual] = adapter
 		return adapter
 	end
-	local create: (string) -> any
-	function create(className: string): any
-		defineClass(className)
-		local actual = environment.createInstance(className)
+	VerifyRoblox.uiFakes.attach(environment, {
+		methods = {
+			["UIPageLayout.JumpTo"] = function(object, page)
+				assert(VerifyRoblox.isInstance(object), "page layout fake requires an instance")
+				environment.poke(object :: VerifyRoblox.Instance, "CurrentPage", page)
+			end,
+		},
+	})
+	local function facade(actual: any): any
+		local className = actual.ClassName
 		local overrides: { [string]: any } = {}
-		local tags, styleProperties, styleTransitions = {}, {}, {}
-		local focused = false
 		local nodeSignals: { [any]: boolean } = {}
 		local function wrapMember(value: any): any
 			local result = wrap(value)
@@ -251,14 +265,6 @@ local function new(options: any?): Engine
 		local methods = {
 			_fireSignal = function(_, name, ...)
 				node[name].fire(...)
-			end,
-			FindFirstChildWhichIsA = function(_, name, recursive)
-				for _, child in if recursive then node:GetDescendants() else node:GetChildren() do
-					if child:IsA(name) then
-						return child
-					end
-				end
-				return nil
 			end,
 			SetAttribute = function(_, key, value)
 				if type(value) == "table" and value.Time and value.EasingStyle then
@@ -284,56 +290,32 @@ local function new(options: any?): Engine
 				end
 				return values
 			end,
-			FindFirstAncestorWhichIsA = function(_, name)
-				local parent = node.Parent
-				while parent do
-					if parent:IsA(name) then
-						return parent
-					end
-					parent = parent.Parent
-				end
-				return nil
-			end,
 			Clone = function()
-				if node.Archivable == false then
+				local copy = actual:Clone()
+				if not copy then
 					return nil
 				end
-				local copies = {}
-				local function copyTree(original: any): any
-					local copy = create(original.ClassName)
-					copies[original] = copy
-					for _, child in original:GetChildren() do
+				local function copyUiState(source: any, target: any)
+					wrap(target)
+					if source:IsA("StyleRule") then
+						target:SetProperties(source:GetProperties())
+						target:SetPropertyTransitions(source:GetPropertyTransitions())
+					elseif source:IsA("Path2D") then
+						target:SetControlPoints(source:GetControlPoints())
+					elseif source:IsA("ViewportFrame") then
+						environment.poke(target, "CurrentCamera", nil)
+					end
+					local index = 0
+					local children = target:GetChildren()
+					for _, child in source:GetChildren() do
 						if child.Archivable ~= false then
-							copyTree(child).Parent = copy
+							index += 1
+							copyUiState(child, children[index])
 						end
 					end
-					return copy
 				end
-				local result = copyTree(node)
-				for original, copy in copies do
-					for property, value in cloneRecords[original] do
-						if
-							property ~= "Parent"
-							and property ~= "_children"
-							and property ~= "ClassName"
-							and not (original.ClassName == "ViewportFrame" and property == "CurrentCamera")
-						then
-							if original.ClassName == "Path2D" and property == "ControlPoints" then
-								copy:SetControlPoints(value)
-							else
-								copy[property] = copies[value] or value
-							end
-						end
-					end
-					for _, tag in original:GetTags() do
-						copy:AddTag(tag)
-					end
-					copy:SetProperties(original:GetProperties())
-					for name, value in original:GetAttributes() do
-						copy:SetAttribute(name, value)
-					end
-				end
-				return result
+				copyUiState(actual, copy)
+				return wrap(copy)
 			end,
 			Play = function()
 				node.PlayCount = (node.PlayCount or 0) + 1
@@ -354,59 +336,8 @@ local function new(options: any?): Engine
 				return node:GetPropertyChangedSignal(property)
 			end,
 			ResetPropertyToDefault = function(_, property)
-				node[property] = defaultProperty(className, property, nil)
+				node[property] = defaultProperty(className, property)
 			end,
-			SetControlPoints = function(_, points)
-				node.ControlPoints = table.clone(points)
-			end,
-			GetControlPoints = function()
-				return node.ControlPoints or {}
-			end,
-			JumpTo = function(_, page)
-				node.CurrentPage = page
-			end,
-			AddTag = function(_, tag)
-				tags[tag] = true
-			end,
-			RemoveTag = function(_, tag)
-				tags[tag] = nil
-			end,
-			HasTag = function(_, tag)
-				return tags[tag] == true
-			end,
-			GetTags = function()
-				local result = {}
-				for tag in tags do
-					table.insert(result, tag)
-				end
-				return result
-			end,
-			SetPropertyTransitions = function(_, values)
-				styleTransitions = table.clone(values)
-			end,
-			GetPropertyTransitions = function()
-				return table.clone(styleTransitions)
-			end,
-			SetProperties = function(_, values)
-				styleProperties = table.clone(values)
-			end,
-			GetProperties = function()
-				return table.clone(styleProperties)
-			end,
-			IsFocused = function()
-				return focused == true
-			end,
-			CaptureFocus = function()
-				focused = true
-				node.Focused.fire()
-			end,
-			ReleaseFocus = function(_, enter)
-				if focused then
-					focused = false
-					node.FocusLost.fire(enter == true)
-				end
-			end,
-
 			connectionCount = function()
 				local count = 0
 				for signal in nodeSignals do
@@ -466,7 +397,7 @@ local function new(options: any?): Engine
 						return table.unpack(values, 1, values.n)
 					end
 				end
-				return wrapMember(value)
+				return wrapMember(if value == nil and key ~= "TextFits" then defaultProperty(className, key) else value)
 			end,
 			__newindex = function(_, key, value)
 				if className == "GuiService" and key == "SelectedObject" and value then
@@ -500,20 +431,24 @@ local function new(options: any?): Engine
 					or string.sub(key, 1, 1) == "_"
 				then
 					overrides[key] = value
-				elseif key ~= "Parent" and classes[className].properties[key] == nil then
-					assert(
-						options and options.lenientProperties,
-						`{key} is not a valid member of {className} "{node.Name}"`
-					)
+				elseif
+					options
+					and options.lenientProperties
+					and key ~= "Parent"
+					and metadata[className].Properties[key] == nil
+					and classes[className].properties[key] == nil
+				then
 					overrides[key] = value
 				else
-					actual[key] = unwrap(value)
+					if key == "Parent" then
+						actual.Parent = unwrap(value)
+					else
+						environment.poke(actual, key, unwrap(value))
+					end
 					raiseHandlerErrors()
 				end
-				cloneRecords[node][key] = value
 			end,
 		})
-		cloneRecords[node] = { Name = className }
 		objects[node] = actual
 		facades[actual] = node
 		if not options or options.recordCreated ~= false then
@@ -521,9 +456,15 @@ local function new(options: any?): Engine
 		end
 		return node
 	end
+	local function create(className: string): any
+		return facade(environment.createInstance(className))
+	end
 	function wrap(value: any): any
 		if facades[value] then
 			return facades[value]
+		end
+		if VerifyRoblox.isInstance(value) then
+			return facade(value)
 		end
 		if type(value) == "table" and type(value.Connect) == "function" then
 			return adaptSignal(value)
@@ -600,35 +541,22 @@ local function new(options: any?): Engine
 		end,
 	}
 
-	return (
-		{
-			new = create,
-			readCFrame = nil,
-			heartbeat = heartbeat,
-			clock = os.clock,
-			typeName = typeof,
-			destroy = function(node: any)
-				node:Destroy()
-			end,
-			propertyChanged = function(node: any, key: string)
-				return node:GetPropertyChangedSignal(key)
-			end,
-			datatypes = {
-				CFrame = nil,
-				Vector2 = Roblox.Vector2.new,
-				Vector3 = Roblox.Vector3.new,
-				Color3 = Roblox.Color3.new,
-				UDim = Roblox.UDim.new,
-				UDim2 = Roblox.UDim2.new,
-			},
-			census = function()
-				assert(not options or options.recordCreated ~= false, "census requires recording all created instances")
-				return { live = environment.liveObjects(), connections = environment.liveConnections() }
-			end,
-			made = made,
-			rejectedSelections = rejectedSelections,
-			types = types :: Shared.RobloxTypes,
-		} :: unknown
-	) :: Engine
+	local engine: any = VerifyRoblox.environmentEngine(
+		environment,
+		(
+				{ typeName = typeof, datatypes = Roblox } :: unknown
+			) :: VerifyRoblox.EnvironmentEngineLibrary<any, any, any, any, any, any>
+	)
+	engine.new = create
+	engine.heartbeat = heartbeat
+	engine.clock = os.clock
+	engine.census = function()
+		assert(not options or options.recordCreated ~= false, "census requires recording all created instances")
+		return { live = environment.liveObjects(), connections = environment.liveConnections() }
+	end
+	engine.made = made
+	engine.rejectedSelections = rejectedSelections
+	engine.types = types
+	return engine :: Engine
 end
 return { new = new }

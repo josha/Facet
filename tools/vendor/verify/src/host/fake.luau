@@ -19,6 +19,8 @@ export type Fault = {
 }
 
 export type Options = {
+	bind: ((Verify.Context) -> Verify.CaseHost)?,
+	cancelled: (() -> boolean)?,
 	name: string?,
 	capabilities: { string }?,
 	environment: { [string]: string }?,
@@ -129,6 +131,8 @@ local function create(options: Options): FakeHost
 			table.insert(
 				reports,
 				harness:run {
+					bind = options.bind,
+					cancelled = options.cancelled,
 					executor = name,
 					capabilities = capabilities,
 					environment = environment,

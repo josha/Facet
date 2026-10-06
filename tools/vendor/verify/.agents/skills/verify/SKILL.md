@@ -22,8 +22,10 @@ Do not call an unsupported or narrowed run a pass.
 
 ## Route by task
 
+- Run cases: [Run guide](../../../docs/running.md). Start with the shared command; do not copy launcher or report glue into the consumer.
 - Write a case: [API](../../../docs/api.md).
 - Build a plan, host, worker, retry, fixture or selection policy: [Execution](../../../docs/execution.md).
+- Run the same case locally or in Roblox: [Case and host contract](../../../docs/experience.md). Do not create a second scenario authoring model.
 - Implement an executor: [Execution](../../../docs/execution.md#engine-and-external-execution).
 - Seal or judge remote observations: [API](../../../docs/api.md#remote-observations).
 - Read a receipt or its claim: [API](../../../docs/api.md) and [Laws](../../../docs/laws.md).

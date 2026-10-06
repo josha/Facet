@@ -618,8 +618,32 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				hover(root, true)
 				settle(world, 1)
 				root.AbsoluteSize = world.engine.types.Vector2.new(312, 208)
-				Verify.expect(root.Position):toBe(world.engine.types.UDim2.fromOffset(-6, -4))
+				Verify.expect(root.Position):toBe(world.engine.types.UDim2.fromOffset(0, 0))
+				Verify.expect(root.AnchorPoint.X * root.AbsoluteSize.X):toBeCloseTo(6, 0.00001)
+				Verify.expect(root.AnchorPoint.Y * root.AbsoluteSize.Y):toBeCloseTo(4, 0.00001)
 				world.stop()
+				local position = UDim2.fromOffset(30, 40)
+				local explicit, positioned = mount(
+					cardSpec({}, {
+						Position = position,
+						AnchorPoint = world.V2(0.5, 0.5),
+					}),
+					{ motionLevel = "normal" }
+				)
+				hover(positioned, true)
+				settle(explicit, 1)
+				Verify.expect(positioned.Position):toBe(position)
+				Verify.expect(positioned.AnchorPoint):toBe(explicit.V2(0.5, 0.5))
+				explicit.stop()
+				local plain = cardSpec({})
+				plain.primaryAction = nil
+				plain.menu = nil
+				local empty, emptyRoot = mount(plain, { motionLevel = "normal" })
+				Verify.expect(empty.find("Plate").Visible):toBe(false)
+				hover(emptyRoot, true)
+				settle(empty, 1)
+				Verify.expect(empty.find("Plate").Visible):toBe(false)
+				empty.stop()
 			end,
 		})
 
@@ -697,6 +721,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				settle(world, 1)
 				Verify.expect(root:FindFirstChild("Lift").Scale):toBe(1.04)
 				world.resize(root, 312, 272)
+				Verify.expect(artwork.Size):toBe(resting)
+				local unit = root:FindFirstChild("LayoutUnit")
+				world.runtime.reactor:batch(function()
+					world.resize(unit, 1.3, 1.3)
+					world.resize(root, 390, 340.6)
+				end)
 				Verify.expect(artwork.Size):toBe(resting)
 				world.stop()
 			end,
