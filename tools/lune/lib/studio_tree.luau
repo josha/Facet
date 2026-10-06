@@ -49,6 +49,7 @@ end
 function studio_tree.entries(mode: string?): { FileEntry }
 	local entries: { FileEntry } = {}
 	addTree(entries, "src", "ReplicatedStorage.Facet", "ModuleScript")
+	addTree(entries, "tools/vendor/verify/src", "ReplicatedStorage.FacetVerify", "Folder")
 	addTree(entries, "examples/themes", "ReplicatedStorage.FacetThemes", "Folder")
 	if mode == "perf" then
 		addTree(entries, "examples/performance/lab", "ReplicatedStorage.FacetScenarios", "ModuleScript")

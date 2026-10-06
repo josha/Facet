@@ -37348,7 +37348,7 @@
       "gap": {
         "description": "theme_packages.check() is dead code in CAND: no spec, verify producer or tool calls it (grep). A new theme module without a role, or a renamed exclusion, would go unnoticed. build_themes.sh only uses list/shippable.",
         "headlessTestable": true,
-        "proposedTest": "Port MAIN tests/theme_package_enumeration.spec.luau to testkit t.describe/t.it: expect check().ok (currently true, probe), byRole('reference')==9, check({'brand_new'}) reports 'has no declared role', and table-mutation cases for renamed role/exclusion, short reason, non-reference shippable, missing REFERENCE_ORDER entry (restore tables after)."
+        "proposedTest": "Port MAIN tests/theme_package_enumeration.spec.luau to Verify harness:suite/harness:case: expect check().ok (currently true, probe), byRole('reference')==9, check({'brand_new'}) reports 'has no declared role', and table-mutation cases for renamed role/exclusion, short reason, non-reference shippable, missing REFERENCE_ORDER entry (restore tables after)."
       },
       "closedBy": "native_parity_apps::Public surface, catalog and theme corpus::gives every theme module a role and derives the eight shippable packages"
     },

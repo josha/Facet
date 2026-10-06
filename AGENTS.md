@@ -48,6 +48,14 @@ contract.
 
 ## Rules for evidence
 
+- Use Verify from `tools/vendor/verify/src/core` for test registration,
+  assertions, execution and reports. Do not add a Facet test harness.
+- Keep `tests/plan.json` and `tests/case_inventory.json` aligned with the cases.
+  The full gate uses the committed plan. A focused run is not full evidence.
+- `tools/vendor/verify` is a generated, read-only test dependency. Change shared
+  testing mechanisms upstream in `voidmeld/verify`, then re-pin with
+  `tools/sync_verify.py`. Keep Verify out of the consumer model.
+
 - Verify behavior with meaningful tests. Geometry and input also need live
   Studio evidence. A native engine double does not prove engine behavior.
 - Before you propose a completed change, run `tools/verify.sh full`,

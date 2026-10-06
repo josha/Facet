@@ -12,6 +12,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
 
+local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
+
 local live = {}
 
 local function round(value: number): number
@@ -89,7 +91,7 @@ local function environment(): { [string]: any }
 	}
 end
 
-local function newCase(Facet: any, themes: { any }, record: { [string]: any })
+local function newCase(Facet: any, themes: { any }, record: { [string]: any }, context: any?)
 	local t = {}
 	local cleanups: { () -> () } = {}
 	t.Facet = Facet
@@ -97,6 +99,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 	t.environment = environment()
 	function t.check(name: string, ok: boolean, detail: any?)
 		table.insert(record.checks, { name = name, ok = ok == true, detail = encode(detail) })
+		if context then
+			pcall(function()
+				context:step(name, function()
+					context:expect(ok == true):toBeTrueWith(HttpService:JSONEncode(encode(detail)))
+				end)
+			end)
+		end
 	end
 	function t.near(name: string, actual: number, expected: number, tolerance: number?)
 		local margin = tolerance or 1
@@ -440,10 +449,18 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 		return hold and hold.value
 	end
 	function t.cleanup()
+		local failures = {}
 		for index = #cleanups, 1, -1 do
-			pcall(cleanups[index])
+			local cleanup = assert(table.remove(cleanups))
+			local ok, problem = pcall(function()
+				cleanup()
+				return nil
+			end)
+			if not ok then
+				table.insert(failures, tostring(problem))
+			end
 		end
-		table.clear(cleanups)
+		assert(#failures == 0, table.concat(failures, "\n"))
 	end
 	return t
 end
@@ -454,65 +471,85 @@ function live.cases(suite: string): { any }
 	return (require :: any)(module)
 end
 
+local function reportEnvironment(suite: string): { [string]: string }
+	local values = environment()
+	local fields = { suite = suite }
+	for key, value in values do
+		fields[key] = if type(value) == "table" then HttpService:JSONEncode(value) else tostring(value)
+	end
+	return fields
+end
+
+local function encodeReceipt(report: any, records: { any }): string
+	Verify.decode(report)
+	local bundle = Verify.sealObservations({
+		executor = report.executor,
+		environment = report.environment,
+		capabilities = report.capabilities,
+		observations = { cases = records },
+	})
+	return HttpService:JSONEncode({ report = report, observations = bundle })
+end
+
 function live.run(suite: string, options: { [string]: any }?): string
 	local config: { [string]: any } = options or {}
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local themes = themeModules(Facet)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local hidden = {}
-	for _, gui in playerGui:GetChildren() do
-		if gui:IsA("ScreenGui") and string.sub(gui.Name, 1, 12) == "FacetGallery" and gui.Enabled then
-			if not config.keepGallery then
-				gui.Enabled = false
-				table.insert(hidden, gui)
-			end
+	local hidden: { ScreenGui } = {}
+	local harness = Verify.createHarness({ now = os.clock, source = suite, prefixIds = false })
+	harness:afterEach(function()
+		for _, gui in hidden do
+			gui.Enabled = true
 		end
-	end
-	local results = {}
-	local passed, failed = 0, 0
+		table.clear(hidden)
+	end)
+	local records = {}
+	local selected = {}
 	for _, case in live.cases(suite) do
-		if not case.run or (config.only and not string.find(case.id, config.only, 1, true)) then
+		if not case.run then
 			continue
 		end
-		local record: { [string]: any } = { id = case.id, contracts = case.contracts or {}, checks = {}, notes = {} }
-		local t = newCase(Facet, themes, record)
-		local ok, problem = xpcall(case.run, debug.traceback, t)
-		if not record.held then
-			t.cleanup()
+		if not config.only or string.find(case.id, config.only, 1, true) then
+			table.insert(selected, case.id)
 		end
-		if not ok then
-			record.error = tostring(problem)
-		end
-		local good = ok and #record.checks > 0
-		for _, check in record.checks do
-			good = good and check.ok
-		end
-		record.ok = good
-		if good then
-			passed += 1
-		else
-			failed += 1
-		end
-		table.insert(results, record)
+		harness:case(case.id, {
+			id = case.id,
+			requires = { "roblox-client" },
+			run = function(context: any)
+				for _, gui in playerGui:GetChildren() do
+					if
+						gui:IsA("ScreenGui")
+						and string.sub(gui.Name, 1, 12) == "FacetGallery"
+						and gui.Enabled
+						and not config.keepGallery
+					then
+						gui.Enabled = false
+						table.insert(hidden, gui)
+					end
+				end
+				local record: { [string]: any } =
+					{ id = case.id, contracts = case.contracts or {}, checks = {}, notes = {} }
+				table.insert(records, record)
+				local t = newCase(Facet, themes, record, context)
+				context:defer(function()
+					if not record.held then
+						t.cleanup()
+					end
+				end)
+				case.run(t)
+				context:expect(#record.checks):toBeGreaterThan(0)
+			end,
+		})
 	end
-	for _, gui in hidden do
-		gui.Enabled = true
-	end
-	return HttpService:JSONEncode({
-		schema = "facet-live-assertions/1",
-		suite = suite,
-		environment = environment(),
-		themes = (function()
-			local names = {}
-			for _, entry in themes do
-				table.insert(names, entry.name)
-			end
-			return names
-		end)(),
-		passed = passed,
-		failed = failed,
-		cases = results,
+	assert(#selected > 0, "no live cases matched the selection")
+	local report = harness:run({
+		executor = "roblox-studio",
+		environment = reportEnvironment(suite),
+		capabilities = { "roblox-client" },
+		selection = { ids = selected },
 	})
+	return encodeReceipt(report, records)
 end
 
 function live.begin(suite: string, id: string): string
@@ -538,18 +575,41 @@ function live.begin(suite: string, id: string): string
 		end
 		t.cleanup = (function(inner)
 			return function()
-				inner()
+				local ok, problem = pcall(inner)
 				for _, gui in hidden do
 					gui.Enabled = true
 				end
 				table.clear(hidden)
+				if not ok then
+					error(problem, 0)
+				end
 			end
 		end)(t.cleanup)
 	end
-	local value = chosen.setup(t)
-	shared.FacetLiveHold = { cleanup = t.cleanup, value = value }
-	shared.FacetLiveSession = { suite = suite, case = chosen, record = record, t = t, value = value }
-	return HttpService:JSONEncode(record)
+	local ready = false
+	local value
+	local harness = Verify.createHarness({ source = suite, now = os.clock, prefixIds = false })
+	harness:case(id, {
+		id = id,
+		run = function(context)
+			context:defer(function()
+				if not ready then
+					t.cleanup()
+				end
+			end)
+			value = chosen.setup(t)
+			shared.FacetLiveHold = { cleanup = t.cleanup, value = value }
+			shared.FacetLiveSession = { suite = suite, case = chosen, record = record, t = t, value = value }
+			ready = true
+		end,
+	})
+	local report = harness:run({
+		executor = "roblox-studio",
+		environment = reportEnvironment(suite),
+		capabilities = { "roblox-client" },
+	})
+	assert(report.passed == 1, Verify.format(report))
+	return encodeReceipt(report, { record })
 end
 
 function live.step(name: string): string
@@ -571,21 +631,28 @@ end
 function live.finish(tag: string): string
 	local session = assert(shared.FacetLiveSession, "call live.begin first")
 	shared.FacetLiveSession = nil
-	live.release()
 	local record = session.record
-	local good = #record.checks > 0
-	for _, check in record.checks do
-		good = good and check.ok
-	end
-	record.ok = good
-	local json = HttpService:JSONEncode({
-		schema = "facet-live-assertions/1",
-		suite = session.suite,
-		environment = environment(),
-		passed = if good then 1 else 0,
-		failed = if good then 0 else 1,
-		cases = { record },
+	local harness = Verify.createHarness({ now = os.clock, source = session.suite, prefixIds = false })
+	harness:case(record.id, {
+		id = record.id,
+		run = function(context)
+			context:defer(live.release)
+			context:expect(#record.checks):toBeGreaterThan(0)
+			for _, check in record.checks do
+				pcall(function()
+					context:step(check.name, function()
+						context:expect(check.ok):toBeTrueWith(HttpService:JSONEncode(check.detail))
+					end)
+				end)
+			end
+		end,
 	})
+	local report = harness:run({
+		executor = "roblox-studio",
+		environment = reportEnvironment(session.suite),
+		capabilities = { "roblox-client" },
+	})
+	local json = encodeReceipt(report, { record })
 	live.save(`{session.suite}-{record.id}-{tag}`, json)
 	return live.summary(json)
 end
@@ -661,10 +728,8 @@ end
 function live.save(name: string, json: string, dir: string?): number
 	local event = storage:WaitForChild("FacetLiveRelay", 10) :: RemoteEvent?
 	assert(event, "start the relay in the Server datamodel first")
-	local size = 30000
-	local count = math.max(1, math.ceil(#json / size))
-	for index = 1, count do
-		event:FireServer(name, index, count, string.sub(json, (index - 1) * size + 1, index * size), dir)
+	for _, segment in Verify.segment(json, 30000) do
+		event:FireServer(name, segment, dir)
 	end
 	return #json
 end
@@ -682,31 +747,8 @@ function live.record(tag: string, suites: { string }?): string
 end
 
 function live.summary(json: string, limit: number?): string
-	local result = HttpService:JSONDecode(json)
-	local lines = {
-		`{result.suite}: {result.passed} passed, {result.failed} failed at {table.concat(
-			result.environment.viewport,
-			"x"
-		)} {result.environment.preferredTextSize}`,
-	}
-	for _, case in result.cases do
-		local bad = 0
-		for _, check in case.checks do
-			if not check.ok then
-				bad += 1
-				if bad <= (limit or 4) then
-					table.insert(lines, `  FAIL {case.id} :: {check.name} {HttpService:JSONEncode(check.detail)}`)
-				end
-			end
-		end
-		table.insert(
-			lines,
-			`{if case.ok then "ok  " else "FAIL"} {case.id} ({#case.checks} checks, {bad} failed){if case.error
-				then " error " .. string.sub(case.error, 1, 300)
-				else ""}`
-		)
-	end
-	return table.concat(lines, "\n")
+	local receipt = HttpService:JSONDecode(json)
+	return Verify.format(Verify.decode(receipt.report))
 end
 
 return live

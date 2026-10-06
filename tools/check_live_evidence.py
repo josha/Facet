@@ -30,7 +30,7 @@ ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ITEM_ID = re.compile(r"^[A-Z]+\d+$")
 COMMIT_REF = re.compile(r"^([0-9a-f]{7,40}) (\S.*)$")
 ARTIFACT_PATH = re.compile(r"artifacts/[A-Za-z0-9_./-]*[A-Za-z0-9_-]\.[A-Za-z0-9]+")
-CALL = re.compile(r"(?<![\w.:])(?:[A-Za-z_]\w*\.)?(describe|it)\s*\(")
+CALL = re.compile(r"(?<![\w.:])(?:[A-Za-z_]\w*[.:])?(describe|it|suite|case)\s*\(")
 ITEM_FIELDS = {
     "id": str,
     "sourceReference": str,
@@ -171,7 +171,7 @@ def spec_cases(path):
             continue
         while stack and stack[-1][0] >= indent:
             stack.pop()
-        if match.group(1) == "describe":
+        if match.group(1) in ("describe", "suite"):
             stack.append((indent, name))
         elif stack and isinstance(stack[-1][1], str):
             cases.append((stack[-1][1], name))
