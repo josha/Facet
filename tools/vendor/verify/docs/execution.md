@@ -145,6 +145,8 @@ Load, registration and empty-discovery outcomes are ordinary case results and `C
 ### Limits
 
 The batch deadline kills the POSIX process group of the worker, including grandchildren, through `sh`.
+Verify creates the group without a terminal. It tries shell job control, then `setsid`, then `perl` `setsid`, and it proves that the group exists before it starts the command.
+If no mechanism works, the run does not start the command. It returns `unsupported = true` and `ok = false`, so the capability `posix-process-groups` is never claimed falsely.
 
 - Lune workers run on macOS and Linux only.
 - `lune` must be on `PATH` or named in `command`.

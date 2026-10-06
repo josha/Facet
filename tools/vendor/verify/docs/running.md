@@ -293,6 +293,7 @@ These parts need a POSIX system:
 - Bounded runs (`Lute.runBounded`, gate commands and worker hosts) start `sh` from `PATH`.
   They need job control and process-group kill.
   They declare the capability `posix-process-groups`. A host without it is unsupported.
+  They need one way to create a process group: shell job control, `setsid` or `perl`. A dash shell without a terminal has no job control.
 - `Lute.directoryLock` runs `mkdir`, `kill` and `rm` from `PATH`.
 
 The reference Studio, Player and window capture adapters support macOS only.
