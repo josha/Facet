@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local model = require("../examples/facet_home/model")
 	local fs, serde = require("@lune/fs"), require("@lune/serde")
 	local document = require("../tools/designer/modules/document")

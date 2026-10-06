@@ -1,6 +1,7 @@
 --!strict
 
 local Performance = require "./performance"
+local Provenance = require "./provenance"
 
 export type Status = "passed" | "failed" | "skipped" | "unsupported" | "timed_out" | "cancelled"
 
@@ -26,6 +27,9 @@ export type Artifact = {
 	name: string,
 	reference: string,
 	mediaType: string?,
+	sha256: string?,
+	size: number?,
+	provenance: Provenance.Provenance?,
 }
 
 export type Observation = {
@@ -49,6 +53,8 @@ export type Review = {
 	checkpoint: string,
 	criterion: string,
 	judgment: Judgment,
+	kind: Provenance.ReviewKind?,
+	judged: { string }?,
 }
 export type Measurement = {
 	step: number,

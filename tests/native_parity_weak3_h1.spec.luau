@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -56,7 +56,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			root = root,
 			settle = function()
 				for _ = 1, 60 do
-					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
 				end
 			end,
 			stop = function()

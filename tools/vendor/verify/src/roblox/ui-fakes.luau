@@ -7,11 +7,24 @@ export type Options = {
 	measureText: ((text: string, size: number, font: unknown, bounds: unknown) -> unknown)?,
 	measureBounds: ((parameters: unknown) -> unknown)?,
 	methods: { [string]: Environment.Method }?,
+	validate: (((className: string, property: string) -> boolean) | false)?,
+	selection: ("raise" | "ignore")?,
+	requirePlayerGui: boolean?,
 }
-export type Controller = { focused: () -> Instance?, close: () -> () }
+export type Rejection = { target: Instance, reason: string }
+export type Controller = {
+	focused: () -> Instance?,
+	rejectedSelections: () -> { Rejection },
+	close: () -> (),
+}
+export type Selection = {
+	validate: (className: string, property: string, value: unknown, operation: "set" | "poke") -> boolean?,
+	rejected: { Rejection },
+}
 
 local classes = (
 	{
+		Instance = { methods = { GetStyled = true, GetStyledPropertyChangedSignal = true } },
 		TextBox = {
 			super = "GuiObject",
 			properties = { Text = "", ClearTextOnFocus = true },
@@ -89,22 +102,55 @@ local function visible(object: Instance): boolean
 	return true
 end
 
-local function validateProperty(_className: string, property: string, value: unknown, _operation: "set" | "poke")
-	if property ~= "SelectedObject" or value == nil then
-		return
+local function selection(options: Options?): Selection
+	local settings: Options = options or {}
+	local ignoring = settings.selection == "ignore"
+	assert(
+		settings.selection == nil or settings.selection == "raise" or ignoring,
+		'selection must be "raise" or "ignore"'
+	)
+	local rejected: { Rejection } = {}
+	local function validate(_className: string, property: string, value: unknown, _operation: "set" | "poke"): boolean?
+		if property ~= "SelectedObject" or value == nil then
+			return nil
+		end
+		assert(Environment.isInstance(value), "SelectedObject requires a simulated instance")
+		local object = value :: Instance
+		assert(object:IsA "GuiObject", "SelectedObject requires a GuiObject")
+		if settings.requirePlayerGui == true then
+			assert(
+				object:FindFirstAncestorWhichIsA "PlayerGui" ~= nil,
+				"SelectedObject requires a descendant of a PlayerGui"
+			)
+		end
+		local reason: string? = nil
+		if not visible(object) then
+			reason = "SelectedObject cannot select a hidden control"
+		else
+			local ok, selectable = pcall(function(): unknown
+				return object.Selectable
+			end)
+			if ok and selectable == false then
+				reason = "SelectedObject requires a selectable control"
+			end
+		end
+		if reason == nil then
+			return nil
+		end
+		assert(ignoring, reason)
+		table.insert(rejected, { target = object, reason = reason })
+		return false
 	end
-	assert(Environment.isInstance(value), "SelectedObject requires a simulated instance")
-	local object = value :: Instance
-	assert(object:IsA "GuiObject", "SelectedObject requires a GuiObject")
-	assert(visible(object), "SelectedObject cannot select a hidden control")
-	local ok, selectable = pcall(function(): unknown
-		return object.Selectable
-	end)
-	assert(not ok or selectable ~= false, "SelectedObject requires a selectable control")
+	return { validate = validate, rejected = rejected }
 end
 
-local function attach(env: Environment.Environment, options: Options?): Controller
+local function validateProperty(className: string, property: string, value: unknown, operation: "set" | "poke")
+	selection(nil).validate(className, property, value, operation)
+end
+
+local function attach(env: Environment.Environment, options: Options?, rule: Selection?): Controller
 	local settings: Options = options or {}
+	local selected = rule or selection(options)
 	local focused: Instance? = nil
 	local focusConnection: Environment.Connection? = nil
 	local function release(enterPressed: boolean?)
@@ -244,6 +290,35 @@ local function attach(env: Environment.Environment, options: Options?): Controll
 		end
 		env.fire(object, "PageEnter", page)
 	end)
+	env.onClone(function(source: Instance, copy: Instance, remap: (Instance) -> Instance)
+		local function copyTable(store: { [Instance]: { [string]: unknown } })
+			if store[source] ~= nil then
+				store[copy] = table.clone(store[source])
+			end
+		end
+		copyTable(properties)
+		copyTable(transitions)
+		if defaults[source] ~= nil then
+			defaults[copy] = defaults[source]
+		end
+		local derived = derives[source]
+		if derived ~= nil then
+			local mapped: { Instance } = {}
+			for _, value in derived do
+				table.insert(mapped, remap(value))
+			end
+			derives[copy] = mapped
+		end
+		if points[source] ~= nil then
+			points[copy] = table.clone(points[source])
+		end
+	end)
+	env.fake("Instance.GetStyled", function(object: Instance, property: string): unknown
+		return object[property]
+	end)
+	env.fake("Instance.GetStyledPropertyChangedSignal", function(object: Instance, property: string): unknown
+		return object:GetPropertyChangedSignal(property)
+	end)
 	local methods: { [string]: Environment.Method } = settings.methods or {}
 	for member, handler in methods do
 		env.fake(member, handler)
@@ -252,10 +327,13 @@ local function attach(env: Environment.Environment, options: Options?): Controll
 		focused = function(): Instance?
 			return focused
 		end,
+		rejectedSelections = function(): { Rejection }
+			return table.clone(selected.rejected)
+		end,
 		close = function()
 			release(false)
 		end,
 	}
 end
 
-return { classes = classes, attach = attach, validateProperty = validateProperty }
+return { classes = classes, attach = attach, selection = selection, validateProperty = validateProperty }

@@ -26,21 +26,26 @@ directives and notices.
    pinned pre-cutover commit to account for removed and replaced specs. CI also
    fetches this history.
 2. While you edit, run the targeted behavioral specs.
-3. Run `tools/verify.sh full` for a completed change. Read its report,
+3. Run `lune run tools/lune/verify full` for a completed change. Read its report,
    including the unmapped legacy behavioral coverage. A passing subset from a
    new runner is not full parity.
 
-Each run writes `artifacts/verify/latest-<tier>.json`. Use `--explain` to see
-each selected producer, its tiers and the main producer it replaces. A studio,
-device or timing producer that exits 2 reports `FAIL_ENVIRONMENT`: its evidence
-is not recorded, or a host timing budget failed. The `full` tier reports it and
-continues. The `release` tier stops on it. `tools/package.sh publish` accepts
-only a clean, passing `artifacts/verify/latest-release.json` for the same source.
+`tools/lune/gate.luau` declares every producer as one Verify gate. Verify runs
+the producers, bounds each process, keeps the logs and writes the outcome. A
+Each run writes its outcome to `artifacts/verify/native/gate/latest.json`. Use
+`--list` to see each producer, its tier and the main producer it replaces. Use
+`--only <producer>` for a focused run, `--rerun` to repeat what the last run
+did not pass and `--explain <id>` to see why a producer or a case ran. A
+focused run is not tier evidence. A studio, device or timing producer that exits 2 is `deferred`:
+its evidence is not recorded, or a host timing budget failed. The `full` tier
+reports the deferral and continues. The `release` tier is the complete gate and
+is not releasable with a deferral. `python3 tools/package.py publish` accepts only a
+releasable `artifacts/verify/native/gate/latest.json` whose build binding matches
+the clean source.
 The [producer comparison](docs/guide/20-verification-parity.md#producers) lists
 each main producer and its native status.
 
-Specs return a registration function. The runner supplies a Verify harness and
-the selected tier. Use `harness:suite`, `harness:case`, and
+Specs return a registration function. The worker supplies a Verify harness. Use `harness:suite`, `harness:case`, and
 `Verify.expect(value):toBe(expected)`. Give each case an explicit, stable `id`.
 Verify owns assertions, case cleanup, and reports. The consumer gate owns
 coverage and release acceptance.
@@ -52,18 +57,16 @@ census includes the retained `native_toast` source; its replacement mapping
 excludes it from the full plan, as before the migration. You can still run it
 with the single-source command.
 
-A slow case can require the `full` or `release` tier. Use the supplied tier to
-call `context:skip("tier:full")` or `context:skip("tier:release")` below that
-tier, and record the requirement in the case inventory. The gate accepts only
-these declared deferrals. The 40000-row mount ramp requires `release`.
-`lune run tests/run_one <spec>` uses the `one` tier. Supply `full` or `release`
-as the second argument to run the higher tier.
-
-`python3 tools/run_each_spec.py` runs the committed corpus in isolated workers
-through Verify. The full gate uses the same host with four workers and the
-`full` tier. Use `--tier full` for a full-tier worker selection. `--only <spec> ...` records a focused run. An empty selection,
-worker failure, or missing receipt fails the command. `--timeout` stops the
-worker process group before Verify records a timeout.
+A slow case can require the `full` or `release` tier. Give the case the tag
+`tier:full` or `tier:release`, and record the tier in the case inventory.
+Below that tier, Verify records the case as deselected. The 40000-row mount
+ramp requires `release`.
+`lune run tools/lune/verify spec <spec> ...` runs the named sources below the release
+tier. Use `--tier release` to include the release cases. Each source runs in
+its own Lune worker through the Verify gate. The full gate runs the committed
+plan the same way with four workers. A worker failure, a missing or foreign
+receipt, or a census difference fails the producer. Verify stops the worker
+process group at its deadline.
 
 Verify is pinned under `tools/vendor/verify`. It is a generated, read-only test
 dependency and is not part of the Facet model. Run
@@ -84,13 +87,13 @@ the required `types` producer. A passing run needs zero owned diagnostics and
 all negative probes rejected. Compare its failures with main and report them
 separately from the required solver.
 
-Run `tools/bench.sh` when no other verification load runs. Keep the workload
+Run `lune run tools/lune/bench` when no other verification load runs. Keep the workload
 intent and the checked-in baselines. Report changed measurement boundaries and
 preexisting threshold failures explicitly. For real layout and input evidence,
 exercise the maintained gallery and the virtual monitors in Roblox Studio.
 
-After a source change, run `tools/package.sh build` and
-`tools/package.sh status`. Cloud publication is not part of a code change.
+After a source change, run `python3 tools/package.py build` and
+`python3 tools/package.py status`. Cloud publication is not part of a code change.
 
 ## Versioning
 

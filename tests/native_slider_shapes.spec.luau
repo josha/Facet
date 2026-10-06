@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 
@@ -122,8 +122,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		if found == nil then
 			return false
 		end
-		found.Pressed.fire()
-		found.Released.fire()
+		found.Pressed:Fire()
+		found.Released:Fire()
 		return true
 	end
 
@@ -139,12 +139,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 
 	local function drag(w: any, node: any, from: any, to: { any }?)
 		local detector = node:FindFirstChildWhichIsA("UIDragDetector")
-		detector.DragStart.fire(from)
+		detector.DragStart:Fire(from)
 		local points: { any } = to or {}
 		for _, point in points do
-			detector.DragContinue.fire(point)
+			detector.DragContinue:Fire(point)
 		end
-		detector.DragEnd.fire()
+		detector.DragEnd:Fire()
 	end
 
 	local function pair(w: any): string
@@ -202,12 +202,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					w.held[key] = true
 					w.gui.SelectedObject = w.node
 					local increase = action(w, "IncreaseArrow")
-					increase.Pressed.fire()
+					increase.Pressed:Fire()
 					expect(`{key} landed {w.value:peek()}`):toBe(`{key} landed 50`)
 					w.held[key] = nil
-					increase.Released.fire()
-					increase.Pressed.fire()
-					increase.Released.fire()
+					increase.Released:Fire()
+					increase.Pressed:Fire()
+					increase.Released:Fire()
 					expect(`{key} next {w.value:peek()}`):toBe(`{key} next 60`)
 					w.stop()
 				end
@@ -353,7 +353,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local increase = action(w, "IncreaseArrow")
 				expect(increase ~= nil):toBe(true)
 				expect(increase.Parent.Sink):toBe(true)
-				increase.Pressed.fire()
+				increase.Pressed:Fire()
 				expect(`{w.gui.SelectedObject == w.node} {w.node:GetAttribute("adjusting")} {w.value:peek().lower}`):toBe(
 					"true lower 50"
 				)
@@ -457,13 +457,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				run = function()
 					local w = world({ range = true })
 					local detector = find(w.track, "HandleLower"):FindFirstChildWhichIsA("UIDragDetector")
-					detector.DragStart.fire(v(w, 40, 22))
-					detector.DragContinue.fire(v(w, 0, 22))
+					detector.DragStart:Fire(v(w, 40, 22))
+					detector.DragContinue:Fire(v(w, 0, 22))
 					expect(w.value:peek().lower):toBe(0)
 					w.input.PreferredInput = w.E.PreferredInput.Gamepad
 					expect((pair(w))):toBe("20/60")
-					detector.DragContinue.fire(v(w, 80, 22))
-					detector.DragEnd.fire()
+					detector.DragContinue:Fire(v(w, 80, 22))
+					detector.DragEnd:Fire()
 					expect(`{pair(w)} commits={#w.commits}`):toBe("20/60 commits=0")
 					w.stop()
 				end,
@@ -555,9 +555,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				w.track.GuiState = w.E.GuiState.Idle
 				expect(thumb.Visible):toBe(false)
 				local detector = w.track:FindFirstChildWhichIsA("UIDragDetector")
-				detector.DragStart.fire(v(w, 20, 22))
+				detector.DragStart:Fire(v(w, 20, 22))
 				expect(thumb.Visible):toBe(true)
-				detector.DragEnd.fire()
+				detector.DragEnd:Fire()
 				expect(thumb.Visible):toBe(false)
 				w.stop()
 				local touch = world({ thumb = "auto" }, { preferred = engineLib.new().types.Enum.PreferredInput.Touch })
@@ -590,9 +590,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				expect((info.value:peek())):toBe(100)
 				expect(thumb.Position.X.Scale > before):toBe(true)
 				local detector = w.track:FindFirstChildWhichIsA("UIDragDetector")
-				detector.DragStart.fire(v(w, 20, 22))
+				detector.DragStart:Fire(v(w, 20, 22))
 				expect((info.dragging:peek())):toBe(true)
-				detector.DragEnd.fire()
+				detector.DragEnd:Fire()
 				expect((info.dragging:peek())):toBe(false)
 				w.stop()
 			end,

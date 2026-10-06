@@ -55,6 +55,8 @@ contract.
   consumer skill. If a capability is missing, add it upstream in Verify and
   re-pin with `tools/sync_verify.py` before using it here. Keep only
   Facet-specific cases and integration policy in this repository.
+- Declare each producer in `tools/lune/producers.json`. The Verify gate in
+  `tools/lune/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
 - Keep `tests/plan.json` and `tests/case_inventory.json` aligned with the cases.
   The full gate uses the committed plan. A focused run is not full evidence.
 - `tools/vendor/verify` is a generated, read-only test dependency. Change shared
@@ -63,8 +65,8 @@ contract.
 
 - Verify behavior with meaningful tests. Geometry and input also need live
   Studio evidence. A native engine double does not prove engine behavior.
-- Before you propose a completed change, run `tools/verify.sh full`,
-  `tools/bench.sh`, `tools/package.sh build` and `tools/package.sh status`.
+- Before you propose a completed change, run `lune run tools/lune/verify full`,
+  `lune run tools/lune/bench`, `python3 tools/package.py build` and `python3 tools/package.py status`.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
 - A passing native `full` run is not equivalent to the historical coverage on

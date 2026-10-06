@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -83,7 +83,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	end
 
 	local function open(world: any): any
-		world.find("Trigger").Activated.fire()
+		world.find("Trigger").Activated:Fire()
 		return panelOf(world)
 	end
 
@@ -128,7 +128,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local trigger = world.find("Trigger")
 				local caption = world.engine.new("TextLabel")
 				caption.Parent = trigger
-				caption.InputBegan.fire({
+				caption.InputBegan:Fire({
 					UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
 					Position = world.engine.types.Vector3.new(240, 180, 0),
 				})
@@ -138,7 +138,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(panel.Position.Y.Offset):toBe(180)
 				shown:set(false)
 				enabled:set(false)
-				caption.InputBegan.fire({
+				caption.InputBegan:Fire({
 					UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
 					Position = world.engine.types.Vector3.new(300, 220, 0),
 				})
@@ -170,10 +170,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(authored.Parent.Name):toBe("S")
 				Verify.expect(authored.Name):toBe("Opener")
 				Verify.expect(authored.LayoutOrder):toBe(3)
-				authored.Activated.fire()
+				authored.Activated:Fire()
 				local panel = panelOf(world)
 				Verify.expect(panel ~= nil):toBe(true)
-				world.find("row2", panel).Activated.fire()
+				world.find("row2", panel).Activated:Fire()
 				Verify.expect(ran):toEqual({ "row2" })
 				world.stop()
 				local named = worlds.new(function(UI: FacetControls, Host: RobloxHost)
@@ -207,7 +207,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						},
 					})
 				end, { motionLevel = "none" })
-				world.find("Opener").Activated.fire()
+				world.find("Opener").Activated:Fire()
 				local panel = panelOf(world)
 				for _, id in { "plain", "deeper" } do
 					local content = world.find(id, panel):FindFirstChild("Content")
@@ -236,7 +236,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 							},
 						})
 					end, { motionLevel = "none" })
-					world.find("Opener").Activated.fire()
+					world.find("Opener").Activated:Fire()
 					local catcher = world.find("DismissOutside")
 					Verify.expect(`{case[1]}: {catcher.BackgroundTransparency < 1}`):toBe(`{case[1]}: {case[2]}`)
 					world.stop()
@@ -275,17 +275,17 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				})
 				Verify.expect(log):toEqual({})
 				open(world)
-				world.find("skin", panelOf(world)).Activated.fire()
+				world.find("skin", panelOf(world)).Activated:Fire()
 				Verify.expect(log):toEqual({ "open", "close" })
 				open(world)
-				world.find("DismissOutside", world.screen.Parent).Activated.fire()
+				world.find("DismissOutside", world.screen.Parent).Activated:Fire()
 				Verify.expect(log):toEqual({ "open", "close", "open", "close" })
 				presented:set(true)
 				Verify.expect(log):toEqual({ "open", "close", "open", "close", "open" })
-				world.find("Trigger").Activated.fire()
+				world.find("Trigger").Activated:Fire()
 				Verify.expect(#log):toBe(5)
 				world.gui.SelectedObject = world.find("adjust", panelOf(world))
-				world.action("ModalBack").Pressed.fire()
+				world.action("ModalBack").Pressed:Fire()
 				Verify.expect(log):toEqual({ "open", "close", "open", "close", "open", "close" })
 				Verify.expect((presented:peek())):toBe(false)
 				presented:set(true)
@@ -435,7 +435,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				for _, presentation in { "menu", "sheet" } :: { "menu" | "sheet" } do
 					local world = labelled({ presentation = presentation :: "menu" | "sheet", items = NESTED })
 					local panel = open(world)
-					world.find("adjust", panel).Activated.fire()
+					world.find("adjust", panel).Activated:Fire()
 					Verify.expect(`{presentation} {world.find("Back", panel) ~= nil}`)
 						:toBe(`{presentation} {presentation == "sheet"}`)
 					if presentation == "menu" then
@@ -464,7 +464,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					{ motionLevel = "none", theme = theme }
 				)
 				local panel = open(world)
-				world.find("adjust", panel).Activated.fire()
+				world.find("adjust", panel).Activated:Fire()
 				local parent = world.find("AncestorMenu", world.screen.Parent)
 				local padding = parent:FindFirstChildWhichIsA("UIPadding")
 				Verify.expect(padding.PaddingLeft.Offset):toBe(theme:peek().metrics.space.xs)
@@ -595,11 +595,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local panel = open(world)
 					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 					for _ = 1, 40 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
-					world.find("big", panel).Activated.fire()
+					world.find("big", panel).Activated:Fire()
 					for _ = 1, 3 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					local rows = panel:FindFirstChild("MenuRows", true)
 					local scroller = panel:FindFirstChild("MenuScroll", true)
@@ -633,36 +633,36 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local group = world.find("MenuGroup", panel)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect((fadeKit.of(group))):toBe(1)
-				world.engine.heartbeat.fire(FRAME)
-				world.engine.heartbeat.fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(scale.Scale >= 0.95 and scale.Scale < 1):toBe(true)
 				local shrink = 1 - scale.Scale
 				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(280 + 220 * shrink, 1)
 				Verify.expect(materialize.position(panel).Y.Offset):toBeCloseTo(96 + 200 * shrink, 2)
 				local enter = 0
 				while scale.Scale < 1 and enter < 60 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 					enter += 1
 				end
 				for _ = 1, 30 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect((materialize.position(panel))):toBe(UDim2.fromOffset(280, 96))
-				world.find("adjust", panel).Activated.fire()
+				world.find("adjust", panel).Activated:Fire()
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect((fadeKit.of(group))):toBe(1)
-				world.engine.heartbeat.fire(FRAME)
-				world.engine.heartbeat.fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(scale.Scale >= 0.95 and scale.Scale < 1):toBe(true)
 				for _ = 1, 30 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
 				Verify.expect(scale.Scale):toBe(1)
-				world.find("DismissOutside", world.screen.Parent).Activated.fire()
+				world.find("DismissOutside", world.screen.Parent).Activated:Fire()
 				local exit, cleared = 0, 0
-				while not panel.isDestroyed() and exit < 60 do
-					world.engine.heartbeat.fire(FRAME)
+				while not panel:isDestroyed() and exit < 60 do
+					world.engine.heartbeat:Fire(FRAME)
 					exit += 1
 					if cleared == 0 and fadeKit.of(group) >= 0.95 then
 						cleared = exit
@@ -671,9 +671,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(exit > 0 and exit < enter):toBe(true)
 				Verify.expect(cleared > 0 and cleared < exit):toBe(true)
 				for _ = 1, 30 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
-				Verify.expect((panel.isDestroyed())):toBe(true)
+				Verify.expect((panel:isDestroyed())):toBe(true)
 				world.stop()
 			end,
 		})
@@ -722,8 +722,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						local world = labelled({ edge = case.edge, align = case.align, items = items(3) }, {})
 						local panel = open(world)
 						lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
-						world.engine.heartbeat.fire(FRAME)
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 						local shrink = 1 - materialize.of(panel).Scale
 						Verify.expect(shrink > 0):toBe(true)
 						Verify.expect(materialize.position(panel).X.Offset)
@@ -742,14 +742,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local world = labelled({ items = NESTED, presentation = "menu" :: "menu" })
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
-				world.engine.heartbeat.fire(FRAME)
-				world.engine.heartbeat.fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
 				Verify.expect((fadeKit.of(world.find("MenuGroup", panel)))):toBe(0)
-				world.find("adjust", panel).Activated.fire()
+				world.find("adjust", panel).Activated:Fire()
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
-				world.engine.heartbeat.fire(FRAME)
-				world.engine.heartbeat.fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
 				Verify.expect((fadeKit.of(world.find("MenuGroup", panel)))):toBe(0)
 				world.stop()
@@ -805,13 +805,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 				for _ = 1, 3 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
 				local scale = materialize.of(panel)
 				Verify.expect(scale.Scale):toBe(1)
 				local early = materialize.position(panel).Y.Offset
 				for _ = 1, 40 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
 				local rest = materialize.position(panel).Y.Offset
 				Verify.expect(early > rest):toBe(true)
@@ -828,16 +828,16 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 				for _ = 1, 40 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
-				world.find("adjust", panel).Activated.fire()
+				world.find("adjust", panel).Activated:Fire()
 				for _ = 1, 3 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
 				local rows = world.find("MenuLevel", panel)
 				Verify.expect(fadeKit.of(rows) > 0):toBe(true)
 				for _ = 1, 30 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
 				Verify.expect((fadeKit.of(rows))):toBe(0)
 				world.stop()
@@ -853,13 +853,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local panel = open(world)
 					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
 					for _ = 1, 40 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					local adjust = world.find("adjust", panel)
 					adjust.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 44)
-					adjust.Activated.fire()
+					adjust.Activated:Fire()
 					for _ = 1, 3 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					local scale = materialize.of(panel)
 					Verify.expect(scale.Scale < 1):toBe(true)
@@ -867,12 +867,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(100 + 288, 1)
 					Verify.expect(materialize.position(panel).Y.Offset):toBeCloseTo(144 + 44 * shrink, 1)
 					for _ = 1, 40 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
-					world.action("MenuLeft").Pressed.fire()
+					world.action("MenuLeft").Pressed:Fire()
 					Verify.expect(world.find("adjust", panel) ~= nil):toBe(true)
 					for _ = 1, 3 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					Verify.expect(scale.Scale < 1):toBe(true)
 					shrink = 1 - scale.Scale
@@ -909,7 +909,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
 					local function settle()
 						for _ = 1, 40 do
-							world.engine.heartbeat.fire(FRAME)
+							world.engine.heartbeat:Fire(FRAME)
 						end
 					end
 					settle()
@@ -921,15 +921,15 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						end
 					end
 					more.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 10)
-					more.Activated.fire()
+					more.Activated:Fire()
 					settle()
 					local b = world.find("b", panel)
 					b.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 120)
-					b.Activated.fire()
+					b.Activated:Fire()
 					settle()
-					world.action("MenuLeft").Pressed.fire()
+					world.action("MenuLeft").Pressed:Fire()
 					for _ = 1, 2 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					local shrink = 1 - scale.Scale
 					Verify.expect(shrink > 0):toBe(true)
@@ -937,9 +937,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					settle()
 					Verify.expect(math.abs(top - (materialize.position(panel).Y.Offset + 120 * shrink)) < 1.5)
 						:toBe(true)
-					world.action("MenuLeft").Pressed.fire()
+					world.action("MenuLeft").Pressed:Fire()
 					for _ = 1, 3 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					shrink = 1 - scale.Scale
 					Verify.expect(shrink > 0):toBe(true)
@@ -947,9 +947,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					settle()
 					Verify.expect(math.abs(top - (materialize.position(panel).Y.Offset + 10 * shrink)) < 1.5):toBe(true)
 					local rest = materialize.position(panel).X.Offset
-					world.find("DismissOutside", world.screen.Parent).Activated.fire()
-					world.engine.heartbeat.fire(FRAME)
-					world.engine.heartbeat.fire(FRAME)
+					world.find("DismissOutside", world.screen.Parent).Activated:Fire()
+					world.engine.heartbeat:Fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 					Verify.expect(scale.Scale < 1):toBe(true)
 					Verify.expect(materialize.position(panel).X.Offset):toBe(rest)
 					world.stop()
@@ -965,19 +965,19 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
 				for _ = 1, 40 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
-				world.find("adjust", panel).Activated.fire()
+				world.find("adjust", panel).Activated:Fire()
 				for _ = 1, 40 do
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 				end
 				local scale = materialize.of(panel)
-				world.find("DismissOutside", world.screen.Parent).Activated.fire()
-				world.engine.heartbeat.fire(FRAME)
+				world.find("DismissOutside", world.screen.Parent).Activated:Fire()
+				world.engine.heartbeat:Fire(FRAME)
 				local leaving = scale.Scale
 				Verify.expect(leaving < 1):toBe(true)
 				list:set({ NESTED[1], NESTED[3] })
-				world.engine.heartbeat.fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(scale.Scale <= leaving):toBe(true)
 				world.stop()
 			end,
@@ -993,8 +993,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(736, 200))
-				world.engine.heartbeat.fire(FRAME)
-				world.engine.heartbeat.fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(panel.Size.X.Offset):toBe(-24 - 40 - 24)
 				Verify.expect((materialize.position(panel))):toBe(UDim2.fromOffset(52, 600 - 34 - 200 - 12))
 				world.stop()
@@ -1015,26 +1015,26 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local panel = open(world)
 					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 					for _ = 1, 30 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					local rows = panel:FindFirstChild("MenuRows", true)
 					Verify.expect(rows.Position.X.Offset):toBe(0)
-					world.find("adjust", panel).Activated.fire()
-					world.engine.heartbeat.fire(FRAME)
-					world.engine.heartbeat.fire(FRAME)
+					world.find("adjust", panel).Activated:Fire()
+					world.engine.heartbeat:Fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 					local forward = rows.Position.X.Offset
 					Verify.expect(if reduced then forward == 0 else forward > 0):toBe(true)
-					world.engine.heartbeat.fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 					Verify.expect(if reduced then true else rows.Position.X.Offset < forward):toBe(true)
 					for _ = 1, 30 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					Verify.expect(rows.Position.X.Offset):toBe(0)
-					world.find("Back", panel).Activated.fire()
+					world.find("Back", panel).Activated:Fire()
 					local backward = rows.Position.X.Offset
 					Verify.expect(if reduced then backward == 0 else backward < 0):toBe(true)
 					for _ = 1, 30 do
-						world.engine.heartbeat.fire(FRAME)
+						world.engine.heartbeat:Fire(FRAME)
 					end
 					Verify.expect(rows.Position.X.Offset):toBe(0)
 					Verify.expect(world.find("adjust", panel) ~= nil):toBe(true)

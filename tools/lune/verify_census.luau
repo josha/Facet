@@ -26,10 +26,15 @@ for source in sources do
 			"case differs from the migration census: " .. id
 		)
 		actual[id] = true
+		local gated = expected[id].tier and "tier:" .. expected[id].tier
+		assert(
+			(definition.tags and definition.tags[1]) == (gated or nil),
+			"case tier tag differs from the migration census: " .. id
+		)
 		registerCase(self, name, definition)
 	end
 	local register = requireDynamic("../../tests/" .. source .. ".spec")
-	register(harness, "full")
+	register(harness)
 end
 local count = 0
 for id in expected do

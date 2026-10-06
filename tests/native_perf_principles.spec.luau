@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -18,16 +18,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		local engine = engineLib.new({ recordCreated = false })
 		local metrics = { writes = 0, creates = 0, destroys = 0, nodes = {} }
 		local make, destroy = engine.new, engine.destroy
+		engine.onWrite(function(self, key, value)
+			metrics.writes += 1
+			metrics.nodes[self] = true
+		end)
 		engine.new = function(className)
 			local node = make(className)
 			metrics.creates += 1
-			local meta = getmetatable(node)
-			local write = meta.__newindex
-			meta.__newindex = function(self, key, value)
-				metrics.writes += 1
-				metrics.nodes[self] = true
-				write(self, key, value)
-			end
 			return node
 		end
 		engine.destroy = function(node)
@@ -115,21 +112,21 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						values[index] = ctx.observe.Visible(node)
 					end, runtime.reactor)
 				end
-				Verify.expect((node:GetPropertyChangedSignal("Visible").count())):toBe(1)
+				Verify.expect((engineLib.connections(node:GetPropertyChangedSignal("Visible")))):toBe(1)
 				for index = 1, 39 do
 					owners[index].dispose()
 				end
 				node.Visible = false
 				Verify.expect((values[40]:peek())):toBe(false)
-				Verify.expect((node:GetPropertyChangedSignal("Visible").count())):toBe(1)
+				Verify.expect((engineLib.connections(node:GetPropertyChangedSignal("Visible")))):toBe(1)
 				owners[40].dispose()
-				Verify.expect((node:GetPropertyChangedSignal("Visible").count())):toBe(0)
+				Verify.expect((engineLib.connections(node:GetPropertyChangedSignal("Visible")))):toBe(0)
 				node.Visible = true
 				local stop = Compose.createRootOwner(function()
 					Verify.expect((ctx.observe.Visible(node):peek())):toBe(true)
 				end, runtime.reactor)
 				stop.dispose()
-				Verify.expect((node:GetPropertyChangedSignal("Visible").count())):toBe(0)
+				Verify.expect((engineLib.connections(node:GetPropertyChangedSignal("Visible")))):toBe(0)
 				runtime:dispose()
 			end,
 		})
@@ -175,7 +172,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local state = world(400)
 				state.items[2].value:set(55)
 				local changed = state.delta(function()
-					state.engine.heartbeat.fire(1 / 60)
+					state.engine.heartbeat:Fire(1 / 60)
 					state.items[2].value:set(55)
 				end)
 				Verify.expect(changed.writes):toBe(0)
@@ -190,7 +187,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local state = world(400)
 				local changed = state.delta(function()
 					state.items[1].ready:set(true)
-					state.engine.heartbeat.fire(1 / 60)
+					state.engine.heartbeat:Fire(1 / 60)
 				end)
 				Verify.expect(changed.writes > 0 and changed.writes < 12):toBe(true)
 				Verify.expect(changed.creates):toBe(0)

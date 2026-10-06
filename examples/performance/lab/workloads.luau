@@ -789,11 +789,11 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			end
 			state.list.CanvasPosition = V2.new(0, state.scroll)
 			if name == "native-scroll-drag" and ctx.engine then
-				state.controls[1].DragStart.fire(V2.new(10, 10))
+				state.controls[1].DragStart:Fire(V2.new(10, 10))
 				for index = 1, 6 do
-					state.controls[1].DragContinue.fire(V2.new(10 + index * 30, 10 + index * 12))
+					state.controls[1].DragContinue:Fire(V2.new(10 + index * 30, 10 + index * 12))
 				end
-				state.controls[1].DragEnd.fire(V2.new(210, 90))
+				state.controls[1].DragEnd:Fire(V2.new(210, 90))
 			end
 		elseif name == "lab-collection-churn" or name == "collection-mutation" then
 			local items = table.clone(state.rows:peek())
@@ -897,9 +897,9 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			local card = state.nodes[state.n % 2 + 1]
 			if ctx.engine then
 				if state.focused then
-					state.focused.SelectionLost.fire()
+					state.focused.SelectionLost:Fire()
 				end
-				card.SelectionGained.fire()
+				card.SelectionGained:Fire()
 			else
 				game:GetService("GuiService").SelectedObject = card
 			end
@@ -936,9 +936,9 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			for _, node in state.nodes do
 				if ctx.engine then
 					if state.focused then
-						state.focused.SelectionLost.fire()
+						state.focused.SelectionLost:Fire()
 					end
-					node.SelectionGained.fire()
+					node.SelectionGained:Fire()
 					state.focused = node
 					state.focusMoves = (state.focusMoves or 0) + 1
 				else
@@ -970,7 +970,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			if name == "dense-hud" then
 				local started = os.clock()
 				if ctx.engine then
-					state.nodes[1].Activated.fire()
+					state.nodes[1].Activated:Fire()
 				else
 					state.activate()
 				end

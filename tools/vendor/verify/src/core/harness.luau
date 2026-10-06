@@ -74,14 +74,19 @@ export type CaseOptions = {
 	limitations: { string }?,
 }
 
+local DESELECTED_PREFIX = "deselected: "
+
 export type SelectionSubject = Types.SelectionSubject
 export type SelectionPredicate = Types.SelectionPredicate
 export type Selection = {
 	ids: { string }?,
 	suitePrefixes: { string }?,
+	sources: { string }?,
+	nameContains: string?,
 	tags: { string }?,
 	capabilities: { string }?,
 	predicate: SelectionPredicate?,
+	account: boolean?,
 }
 
 export type RunOptions = {
@@ -280,6 +285,13 @@ local function selected(entry: CaseEntry, path: { string }, selection: Selection
 			return false
 		end
 	end
+	local sources = selectionSet(selection.sources)
+	if next(sources) ~= nil and (entry.source == nil or not sources[entry.source]) then
+		return false
+	end
+	if selection.nameContains ~= nil and string.find(entry.name, selection.nameContains, 1, true) == nil then
+		return false
+	end
 	if next(tags) ~= nil and not intersects(entry.tags, tags) then
 		return false
 	end
@@ -323,6 +335,25 @@ local function statusFor(failures: { Failure }, runtimeSkipReason: string?, miss
 	return "passed"
 end
 
+local function number(value: number?): string
+	return if value == nil then "-" else ("%.4g"):format(value)
+end
+
+local function measurementLine(measurement: Types.Measurement): string
+	local summary = measurement.evaluation.summary
+	local parts = {
+		("%s [%s] n=%d"):format(measurement.name, summary.unit, summary.sampleCount),
+		"p50=" .. number(summary.p50),
+		"p95=" .. number(summary.p95),
+	}
+	local extra: { Performance.PercentileValue } = summary.percentiles or {}
+	for _, entry in extra do
+		table.insert(parts, ("p%s=%s"):format(number(entry.percentile), number(entry.value)))
+	end
+	table.insert(parts, measurement.evaluation.reason)
+	return table.concat(parts, " ")
+end
+
 local function format(report: Report): string
 	local lines = { ("Verify receipt v%d — %s"):format(report.schemaVersion, report.executor) }
 	local environmentKeys: { string } = {}
@@ -343,6 +374,11 @@ local function format(report: Report): string
 		end
 		for _, failure in result.failures do
 			table.insert(lines, ("              %s/%s: %s"):format(failure.phase, failure.outcome, failure.message))
+		end
+		if result.evidence ~= nil then
+			for _, measurement in result.evidence.measurements do
+				table.insert(lines, "              " .. measurementLine(measurement))
+			end
 		end
 	end
 	table.insert(
@@ -981,6 +1017,11 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 						result.status = "unsupported"
 					end
 					table.insert(results, result)
+				elseif runOptions.selection ~= nil and runOptions.selection.account == true then
+					local skipped = table.clone(entry)
+					skipped.requires = {}
+					skipped.skipReason = DESELECTED_PREFIX .. "the run's selection did not include this case"
+					table.insert(results, executeCase(suite, skipped, available, runOrigin, invoker, runOptions))
 				end
 			end
 			for _, child in suite.children do
@@ -1126,6 +1167,7 @@ local function runCases(specs: { NamedCase }, options: RunOptions, now: () -> nu
 end
 
 return {
+	DESELECTED_PREFIX = DESELECTED_PREFIX,
 	createHarness = createHarness,
 	runCase = runCase,
 	runCases = runCases,

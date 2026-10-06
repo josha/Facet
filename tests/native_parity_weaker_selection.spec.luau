@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -91,7 +91,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	end
 
 	local function press(world: World, key: string)
-		world.input.InputBegan.fire({
+		world.input.InputBegan:Fire({
 			KeyCode = (world.engine.types.Enum.KeyCode :: any)[key],
 			UserInputType = world.engine.types.Enum.UserInputType.Gamepad1,
 		}, true)
@@ -101,7 +101,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		world.shift.down = back == true
 		local traverse = find(world.parent, "FacetTraversal")
 		assert(traverse, "the traversal context exists")
-		traverse:FindFirstChild("Traverse").Pressed.fire()
+		traverse:FindFirstChild("Traverse").Pressed:Fire()
 		world.shift.down = false
 	end
 
@@ -113,18 +113,18 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	local function select(world: World, node: any)
 		local previous = world.gui.SelectedObject
 		if previous and previous ~= node then
-			previous.SelectionLost.fire()
+			previous.SelectionLost:Fire()
 		end
 		world.gui.SelectedObject = node
 		if world.gui.SelectedObject == node then
-			node.SelectionGained.fire()
+			node.SelectionGained:Fire()
 		end
 	end
 
 	local function returnKey(world: World)
 		local activate = action(world.parent, "Activate")
 		assert(activate, "the selected control binds Activate")
-		activate.Pressed.fire()
+		activate.Pressed:Fire()
 	end
 
 	local function mountExample(name: string, folder: string?): (World, any)
@@ -262,7 +262,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					select(world, find(world.screen, "Inner"))
 					local activate = action(world.parent, "Activate")
 					if activate then
-						activate.Pressed.fire()
+						activate.Pressed:Fire()
 					end
 					Verify.expect(activated):toBe(0)
 					local panel, track = find(world.screen, "Panel"), find(world.screen, "Volume")
@@ -273,8 +273,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(raised > 0.5):toBe(true)
 					panel.Interactable = false
 					Verify.expect((selected(world))):toBe("Before")
-					track.SelectionLost.fire()
-					find(world.screen, "Before").SelectionGained.fire()
+					track.SelectionLost:Fire()
+					find(world.screen, "Before").SelectionGained:Fire()
 					press(world, "DPadRight")
 					press(world, "DPadLeft")
 					Verify.expect((action(world.parent, "Increase"))):toBe(nil)
@@ -402,7 +402,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 				table.sort(keys)
 				Verify.expect((table.concat(keys, ","))):toBe("Return,Space")
-				activate.Pressed.fire()
+				activate.Pressed:Fire()
 				Verify.expect((table.concat(activated, ","))):toBe("Sfx")
 				world.stop()
 			end,
@@ -454,7 +454,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect((selected(world))):toBe(inside)
 				tab(world)
 				Verify.expect(selected(world) == "Stay" or selected(world) == "Quit"):toBe(true)
-				action(world.parent, "ModalBack").Pressed.fire()
+				action(world.parent, "ModalBack").Pressed:Fire()
 				Verify.expect((presented:peek())):toBe(false)
 				Verify.expect((selected(world))):toBe("A")
 				world.stop()
@@ -495,13 +495,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					returnKey(world)
 					Verify.expect((choice:peek())):toBe("b")
 					select(world, find(world.screen, "c"))
-					find(world.screen, "c").Activated.fire()
+					find(world.screen, "c").Activated:Fire()
 					Verify.expect((choice:peek())):toBe("c")
 					local header = find(world.screen, "Header")
 					select(world, header)
 					returnKey(world)
 					Verify.expect((expanded:peek())):toBe(true)
-					header.Activated.fire()
+					header.Activated:Fire()
 					Verify.expect((expanded:peek())):toBe(false)
 					world.stop()
 				end,
@@ -599,10 +599,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						end
 						table.sort(keys)
 						Verify.expect((table.concat(keys, ","))):toBe(`DPad{direction},{direction}`)
-						arrow.Pressed.fire()
+						arrow.Pressed:Fire()
 						local node = world.gui.SelectedObject
 						if node then
-							node.SelectionGained.fire()
+							node.SelectionGained:Fire()
 						end
 					end
 					select(world, find(rail, "Card_c1"))
@@ -621,7 +621,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local shown = find(world.screen, "Selected")
 					Verify.expect(string.find(shown.Text, "Livery 002", 1, true) ~= nil):toBe(true)
 					step("Right")
-					world.gui.SelectedObject.Activated.fire()
+					world.gui.SelectedObject.Activated:Fire()
 					Verify.expect(built.report().selectedKey):toBe("c3")
 					world.stop()
 				end,
@@ -652,14 +652,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(built.report().server.music):toBe(true)
 					local music = find(world.screen, "Music")
 					select(world, music)
-					music.Activated.fire()
+					music.Activated:Fire()
 					Verify.expect(built.report().draft.music):toBe(false)
 					Verify.expect(built.report().status):toBe("pending")
-					find(world.screen, "Deliver").Activated.fire()
+					find(world.screen, "Deliver").Activated:Fire()
 					Verify.expect(built.report().status):toBe("confirmed")
 					local decrease = find(find(world.screen, "Volume"), "Decrease")
 					select(world, decrease)
-					decrease.Activated.fire()
+					decrease.Activated:Fire()
 					Verify.expect(built.report().draft.volume):toBe(9)
 					Verify.expect(built.report().status):toBe("pending")
 					world.stop()

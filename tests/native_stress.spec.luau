@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
@@ -405,7 +405,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 							root.Enabled = rng(0, 1) == 1
 							local prior = activations
 							local activated = button.Activated :: any
-							activated.fire()
+							activated:Fire()
 							local expected = if enabled:peek() and panel.Visible and root.Enabled then 1 else 0
 							assert(activations == prior + expected, `seed={seed} step={step}: action eligibility stale`)
 						end
@@ -450,7 +450,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						if rng(1, 10) <= 3 then
 							gui.SelectedObject = a
 							input.PreferredInput = choice
-							a.Activated.fire()
+							a.Activated:Fire()
 							pressed += 1
 						else
 							input.PreferredInput = choice

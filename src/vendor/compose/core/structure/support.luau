@@ -74,7 +74,7 @@ local function sourceOf<T>(value: unknown, primitive: string, field: string): Ty
 		field = field,
 		actual = Diagnostics.describe(value),
 		expected = "a cell, a formula, or a function taking `use`",
-		fix = ("pass the cell itself -- %s = players -- or a body that reads one"):format(field),
+		fix = ("pass the cell itself -- %s = items -- or a body that reads one"):format(field),
 	})
 	error("unreachable", 0)
 end

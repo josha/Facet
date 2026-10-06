@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -118,7 +118,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						if binding:IsA("InputBinding") and binding.KeyCode == key then
 							matched = true
 							table.insert(received, context.Name)
-							inputAction.Pressed.fire()
+							inputAction.Pressed:Fire()
 							break
 						end
 					end
@@ -305,14 +305,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(action(world.root, "TextEditing") ~= nil):toBe(true)
 					field.Text = "seedX"
 					Verify.expect((value:peek())):toBe("seedX")
-					field.Focused.fire()
+					field.Focused:Fire()
 					Verify.expect((field:IsFocused())):toBe(true)
 					Verify.expect(action(world.root, "TextEditing") ~= nil):toBe(true)
 					Verify.expect(#commits):toBe(0)
 					Verify.expect(changes):toEqual({ "seedX" })
 					deliver(world.root, E.KeyCode.DPadDown)
 					Verify.expect(probed):toBe(0)
-					action(world.root, "Cancel").Pressed.fire()
+					action(world.root, "Cancel").Pressed:Fire()
 					Verify.expect((value:peek())):toBe("seed")
 					Verify.expect(field.Text):toBe("seed")
 					Verify.expect(cancels):toBe(1)
@@ -414,18 +414,18 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect((env.effectiveInput:peek())):toBe("Gamepad")
 				local before = published
 				for _ = 1, 20 do
-					world.input.InputChanged.fire({
+					world.input.InputChanged:Fire({
 						UserInputType = E.UserInputType.Gamepad1,
 						KeyCode = E.KeyCode.Thumbstick1,
 						Position = world.engine.types.Vector3.new(0.1, 0, 0),
 					})
-					world.input.InputChanged.fire({
+					world.input.InputChanged:Fire({
 						UserInputType = E.UserInputType.MouseMovement,
 						KeyCode = E.KeyCode:FromValue(0),
 						Position = world.engine.types.Vector3.new(10, 10, 0),
 					})
 				end
-				world.input.InputBegan.fire({
+				world.input.InputBegan:Fire({
 					UserInputType = E.UserInputType.MouseButton1,
 					KeyCode = E.KeyCode:FromValue(0),
 				})
@@ -438,7 +438,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(classes.gamepad):toBe(true)
 				Verify.expect((env.effectiveInput:peek())):toBe("KeyboardAndMouse")
 				for _ = 1, 10 do
-					world.input.InputChanged.fire({
+					world.input.InputChanged:Fire({
 						UserInputType = E.UserInputType.MouseMovement,
 						KeyCode = E.KeyCode:FromValue(0),
 						Position = world.engine.types.Vector3.new(20, 20, 0),
@@ -456,7 +456,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				world.input.MouseEnabled = false
 				world.input.KeyboardEnabled = false
 				world.input.PreferredInput = E.PreferredInput.Gamepad
-				world.input.InputBegan.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) })
+				world.input.InputBegan:Fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode:FromValue(0) })
 				classes = env.interactionClasses:peek()
 				Verify.expect(classes.primary):toBe("gamepad")
 				Verify.expect(classes.pointer):toBe(false)
@@ -647,15 +647,15 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local first = find(region, "Panel")
 				Verify.expect(first ~= nil):toBe(true)
 				Verify.expect(built):toBe(1)
-				toggle.Activated.fire()
+				toggle.Activated:Fire()
 				Verify.expect((find(region, "Panel"))):toBe(first)
 				Verify.expect(cleaned):toBe(0)
 				Verify.expect((phase.exiting:peek())):toBe(true)
-				toggle.Activated.fire()
+				toggle.Activated:Fire()
 				Verify.expect((find(region, "Panel"))):toBe(first)
 				Verify.expect(built):toBe(1)
 				Verify.expect((phase.exiting:peek())):toBe(false)
-				toggle.Activated.fire()
+				toggle.Activated:Fire()
 				done:set(true)
 				Verify.expect(cleaned):toBe(1)
 				Verify.expect((find(region, "Panel"))):toBeNil()
@@ -664,8 +664,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(cleaned):toBe(1)
 				local baseline = #region:GetDescendants()
 				for _ = 1, 20 do
-					toggle.Activated.fire()
-					toggle.Activated.fire()
+					toggle.Activated:Fire()
+					toggle.Activated:Fire()
 					done:set(true)
 				end
 				Verify.expect(built):toBe(21)

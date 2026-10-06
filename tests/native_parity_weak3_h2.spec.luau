@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
@@ -242,12 +242,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					UserInputState = world.engine.types.Enum.UserInputState.Begin,
 					Position = world.engine.types.Vector3.new(cx, cy - 130, 0),
 				}
-				world.find("N").InputBegan.fire(touch)
+				world.find("N").InputBegan:Fire(touch)
 				touch.UserInputState = world.engine.types.Enum.UserInputState.Change
 				touch.Position = world.engine.types.Vector3.new(cx, cy - (sector.outer - 1), 0)
-				world.input.InputChanged.fire(touch)
+				world.input.InputChanged:Fire(touch)
 				touch.UserInputState = world.engine.types.Enum.UserInputState.End
-				world.input.InputEnded.fire(touch)
+				world.input.InputEnded:Fire(touch)
 				Verify.expect((table.concat(fired, ","))):toBe("N")
 				world.stop()
 			end,
@@ -320,7 +320,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						Verify.expect((findNamed(discover, "SavedGames"))):toBe(nil)
 						model.toggleSaved("1")
 						model.toggleSaved("2")
-						findNamed(discover, "Saved").Activated.fire()
+						findNamed(discover, "Saved").Activated:Fire()
 						Verify.expect((model.shelf:peek())):toBe("saved")
 						Verify.expect((findNamed(discover, "Games"))):toBe(nil)
 						Verify.expect(grid.Parent):toBe(nil)
@@ -332,7 +332,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						local flex = only[1]:FindFirstChildWhichIsA("UIFlexItem")
 						Verify.expect(flex ~= nil and flex.FlexMode == engine.types.Enum.UIFlexMode.Fill):toBe(true)
 						Verify.expect(saved.Size):toBe(engine.types.UDim2.fromScale(1, 1))
-						findNamed(discover, "Browse").Activated.fire()
+						findNamed(discover, "Browse").Activated:Fire()
 						Verify.expect((model.shelf:peek())):toBe("browse")
 						Verify.expect((findNamed(discover, "SavedGames"))):toBe(nil)
 						Verify.expect(saved.Parent):toBe(nil)
@@ -552,7 +552,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				screen = screen,
 				press = function(x: number, y: number, kind: string?)
 					local E = engine.types.Enum
-					input.InputBegan.fire({
+					input.InputBegan:Fire({
 						UserInputType = (E.UserInputType :: any)[kind or "Touch"],
 						UserInputState = E.UserInputState.Begin,
 						Position = engine.types.Vector3.new(x, y, 0),
@@ -584,14 +584,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(shield.ZIndex > findNamed(row, "RowContent").ZIndex):toBe(true)
 					w.press(100, 20, kind)
 					Verify.expect((state.open.a:peek())):toBe("trailing")
-					shield.Activated.fire()
+					shield.Activated:Fire()
 					Verify.expect((state.open.a:peek())):toBeNil()
 					Verify.expect(shield.Visible):toBe(false)
 				end
 				Verify.expect(#state.content):toBe(0)
 				Verify.expect(#state.fired):toBe(0)
 				state.open.a:set("leading")
-				shield.Activated.fire()
+				shield.Activated:Fire()
 				Verify.expect((state.open.a:peek())):toBeNil()
 				Verify.expect(#state.content):toBe(0)
 				w.stop()
@@ -605,7 +605,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				state.open.a:set("trailing")
 				w.press(280, 20)
 				Verify.expect((state.open.a:peek())):toBe("trailing")
-				findNamed(findNamed(findNamed(w.screen, "a"), "trailing"), "Delete").Activated.fire()
+				findNamed(findNamed(findNamed(w.screen, "a"), "trailing"), "Delete").Activated:Fire()
 				Verify.expect(state.fired):toEqual({ "a:Delete" })
 				Verify.expect((state.open.a:peek())):toBeNil()
 				state.open.a:set("leading")
@@ -623,7 +623,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				w.press(100, 60)
 				Verify.expect((state.open.a:peek())):toBeNil()
 				Verify.expect((state.open.b:peek())):toBeNil()
-				findNamed(findNamed(w.screen, "b"), "RowContent").Activated.fire()
+				findNamed(findNamed(w.screen, "b"), "RowContent").Activated:Fire()
 				Verify.expect(state.content):toEqual({ "b" })
 				w.stop()
 			end,

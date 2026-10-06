@@ -17,5 +17,5 @@ for _, file in writes do
 	print(`wrote {file.path}`)
 end
 print(
-	"Implement the control, add a native behavior spec and gallery scenario, and document its API before running tools/verify.sh full."
+	"Implement the control, add a native behavior spec and gallery scenario, and document its API before running lune run tools/lune/verify full."
 )

@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src") :: any
 	local context = require("../src/ui/context")
 	local sessionOf = require("../src/ui/drag_session")
@@ -168,7 +168,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(string.find(text.Text, "A: drop", 1, true) ~= nil):toBe(true)
 					Verify.expect(text.Parent.Visible):toBe(true)
 					w.input.PreferredInput = w.engine.types.Enum.PreferredInput.KeyboardAndMouse
-					w.engine.heartbeat.fire(1 / 60)
+					w.engine.heartbeat:Fire(1 / 60)
 					Verify.expect(string.find(text.Text, "Enter: drop", 1, true) ~= nil):toBe(true)
 					w.session.finish(false)
 					Verify.expect((w.screen:FindFirstChild("DragGhost"))):toBeNil()
@@ -357,7 +357,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					else
 						valid = false
 					end
-					w.engine.heartbeat.fire(1 / 60)
+					w.engine.heartbeat:Fire(1 / 60)
 					Verify.expect((completion(true))):toBe(false)
 					Verify.expect((w.session.state:peek())):toBeNil()
 					w.stop()
@@ -465,10 +465,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					w.move(40, 50)
 					Verify.expect((first:GetAttribute("FacetDropState"))):toBe("accepted")
 					w.ray({ Instance = wall })
-					w.engine.heartbeat.fire(1 / 60)
+					w.engine.heartbeat:Fire(1 / 60)
 					Verify.expect((first:GetAttribute("FacetDropState"))):toBeNil()
 					w.ray({ Instance = second })
-					w.engine.heartbeat.fire(1 / 60)
+					w.engine.heartbeat:Fire(1 / 60)
 					w.session.commit(nil)
 					Verify.expect(dropped):toBe(second)
 					w.stop()

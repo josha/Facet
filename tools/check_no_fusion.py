@@ -131,7 +131,7 @@ def vendor_directories(root, label_root):
 def build_model_xml(work):
 
     out = os.path.join(work, "Facet.rbxmx")
-    result = subprocess.run([BUILD_MODEL, out], cwd=REPO, env=env(), capture_output=True, text=True)
+    result = subprocess.run([*BUILD_MODEL, out], cwd=REPO, env=env(), capture_output=True, text=True)
     if result.returncode != 0:
         sys.stderr.write(result.stdout + result.stderr)
         raise SystemExit(2)

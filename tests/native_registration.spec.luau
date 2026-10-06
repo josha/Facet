@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	local requireDynamic = require :: (any) -> any
 
@@ -95,7 +95,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(named.Name):toBe("Named")
 				stopNamed()
 				stop()
-				Verify.expect((node.isDestroyed())):toBe(true)
+				Verify.expect((node:isDestroyed())):toBe(true)
 				runtime:dispose()
 				for _, kind in { "primitive", "target", "mode" } :: { "mode" | "primitive" | "target" } do
 					Verify.expect((pcall(scaffold.plan, kind, "proof"))):toBe(false)

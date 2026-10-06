@@ -44,6 +44,7 @@ export type Instance = {
 	GetAttributes: (Instance) -> { [string]: unknown },
 	GetPropertyChangedSignal: (Instance, string) -> Signal<()>,
 	GetAttributeChangedSignal: (Instance, string) -> Signal<()>,
+	ResetPropertyToDefault: (Instance, string) -> (),
 	Changed: Signal<string>,
 	ChildAdded: Signal<Instance>,
 	ChildRemoved: Signal<Instance>,
@@ -78,16 +79,43 @@ export type Limits = {
 	attributeStringLength: number?,
 }
 
+export type HandlerErrors = "collect" | "raise"
+
 export type Options<P = { [string]: unknown }, M = { [string]: unknown }, F = { [string]: unknown }> = {
 	defaultProperty: ((className: string, property: string, fallback: unknown) -> unknown)?,
-	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())?,
+	validateProperty: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ...unknown)?,
+	handlerErrors: HandlerErrors?,
+	computed: { [string]: Computed }?,
+	undeclaredWrites: boolean?,
+	undeclaredReads: ("raise" | "nil")?,
+	functionDoubles: boolean?,
 	classes: { [string]: ClassSpec<P, M> }?,
 	builtins: boolean?,
 	fakes: F?,
 	limits: Limits?,
 }
 
+export type Computed = ((object: Instance) -> unknown) | { get: (object: Instance) -> unknown, writable: boolean? }
+
 export type Operation = "create" | "setProperty" | "setAttribute" | "setParent" | "destroy"
+
+export type Event = {
+	operation: Operation,
+	subject: string,
+	member: string?,
+	injected: boolean,
+	object: Instance,
+	value: unknown,
+}
+
+export type CloneHook = (source: Instance, copy: Instance, remap: (Instance) -> Instance) -> ()
+export type CreateHook = (object: Instance) -> ()
+
+export type SignalHandle = {
+	fire: (...unknown) -> (),
+	connections: () -> number,
+	fires: () -> number,
+}
 
 export type Environment = {
 	root: Instance,
@@ -103,6 +131,7 @@ export type Environment = {
 	errors: { string },
 	defineClass: <P, M>(className: string, spec: ClassSpec<P, M>, options: DefineOptions?) -> (),
 	fake: <A..., R...>(member: string, handler: (Instance, A...) -> R...) -> (),
+	fakeOn: <A..., R...>(object: Instance, name: string, handler: (Instance, A...) -> R...) -> (),
 	createInstance: (className: string, props: { [unknown]: unknown }?) -> Instance,
 	snapshot: (object: Instance) -> Snapshot,
 	newSignal: <A...>() -> Signal<A...>,
@@ -119,6 +148,14 @@ export type Environment = {
 	fire: (object: Instance, event: string, ...unknown) -> (),
 	failNext: (operation: Operation, times: number?) -> (),
 	clearFailures: () -> (),
+	pendingFailures: () -> number,
+	observe: (listener: (event: Event) -> ()) -> Connection,
+	onClone: (hook: CloneHook) -> Connection,
+	onCreate: (hook: CreateHook) -> Connection,
+	signalOf: (object: Instance, event: string) -> SignalHandle,
+	connectionsOf: (signal: Signal) -> number,
+	firesOf: (signal: Signal) -> number,
+	connectionsOfInstance: (object: Instance) -> number,
 }
 
 type Resolved = {
@@ -137,6 +174,8 @@ type State = {
 	attributes: { [string]: unknown },
 	tags: { [string]: boolean },
 	signals: { [string]: Signal },
+	extras: { [string]: boolean },
+	doubles: { [string]: unknown },
 	destroyed: boolean,
 	destroying: boolean,
 	removing: boolean,
@@ -257,6 +296,19 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	local resolved: { [string]: Resolved } = {}
 	local failures: { [string]: number } = {}
 	local errors: { string } = {}
+	local handlerErrors: HandlerErrors = settings.handlerErrors or "collect"
+	if handlerErrors ~= "collect" and handlerErrors ~= "raise" then
+		error('handlerErrors must be "collect" or "raise"', 2)
+	end
+	if
+		settings.undeclaredReads ~= nil
+		and settings.undeclaredReads ~= "raise"
+		and settings.undeclaredReads ~= "nil"
+	then
+		error('undeclaredReads must be "raise" or "nil"', 2)
+	end
+	local raising = handlerErrors == "raise"
+	local running = setmetatable({} :: { [thread]: boolean }, { __mode = "k" })
 	local scheduler = Scheduler.create()
 	local connections = 0
 	local alive = 0
@@ -337,16 +389,69 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		return false
 	end
 
-	local function inject(operation: Operation)
+	local observers: { { listener: (event: Event) -> (), connected: boolean } } = {}
+	local cloneHooks: { { hook: CloneHook, connected: boolean } } = {}
+	local createHooks: { { hook: CreateHook, connected: boolean } } = {}
+
+	local function inject(operation: Operation, subject: string, object: Instance, member: string?, value: unknown)
 		local remaining = failures[operation]
-		if remaining ~= nil and remaining > 0 then
-			failures[operation] = remaining - 1
+		local failing = remaining ~= nil and remaining > 0
+		for _, observer in table.clone(observers) do
+			if observer.connected then
+				observer.listener {
+					operation = operation,
+					subject = subject,
+					member = member,
+					injected = failing,
+					object = object,
+					value = value,
+				}
+			end
+		end
+		if failing then
+			failures[operation] = (remaining :: number) - 1
 			error(("environment: injected failure in %s"):format(operation), 0)
 		end
 	end
 
+	local meters =
+		setmetatable({} :: { [unknown]: { connections: () -> number, fires: () -> number } }, { __mode = "k" })
+
+	local function guarded(body: (...unknown) -> ...unknown): (...unknown) -> ...unknown
+		if not raising then
+			return body
+		end
+		return function(...: unknown): ...unknown
+			local thread = coroutine.running()
+			if running[thread] then
+				return body(...)
+			end
+			running[thread] = true
+			local start = #errors
+			local packed = table.pack(pcall(body, ...))
+			running[thread] = nil
+			if not packed[1] then
+				error(packed[2], 0)
+			end
+			if #errors > start then
+				local parts: { string } = {}
+				for index = start + 1, #errors do
+					table.insert(parts, errors[index])
+					errors[index] = nil
+				end
+				error(table.concat(parts, "\n"), 0)
+			end
+			return table.unpack(packed, 2, packed.n)
+		end
+	end
+
+	local function operation(body: unknown): unknown
+		return guarded((body :: unknown) :: (...unknown) -> ...unknown)
+	end
+
 	local function newSignal<A...>(): Signal<A...>
 		local live: { { handler: (A...) -> (), connected: boolean, connection: Connection } } = {}
+		local fired = 0
 		local signal = {} :: Signal<A...>
 		function signal:Connect(handler: (A...) -> ()): Connection
 			local connection = { Connected = true } :: Connection
@@ -367,7 +472,8 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			end
 			return connection :: Connection
 		end
-		function signal:Fire(...: A...)
+		local function dispatch(_self: Signal<A...>, ...: A...)
+			fired += 1
 			for _, record in table.clone(live) do
 				if record.connected then
 					local ok, thrown: unknown = pcall(record.handler, ...)
@@ -377,12 +483,21 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 				end
 			end
 		end
+		signal.Fire = (operation(dispatch) :: unknown) :: (Signal<A...>, A...) -> ()
 		function signal:DisconnectAll()
 			for _, record in table.clone(live) do
 				record.connection:Disconnect()
 			end
 			table.clear(live)
 		end
+		meters[signal] = {
+			connections = function(): number
+				return #live
+			end,
+			fires = function(): number
+				return fired
+			end,
+		}
 		return signal :: Signal<A...>
 	end
 
@@ -405,6 +520,43 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 
 	local function describe(state: State): string
 		return ("%s %q"):format(state.className, tostring(state.values.Name))
+	end
+
+	local function computedEntry(
+		className: string,
+		key: string
+	): { get: (object: Instance) -> unknown, writable: boolean }?
+		local getters = settings.computed
+		if getters == nil then
+			return nil
+		end
+		local walk: string? = className
+		while walk ~= nil do
+			local entry = getters[walk .. "." .. key]
+			if entry ~= nil then
+				if type(entry) == "function" then
+					return { get = entry, writable = false }
+				end
+				return { get = entry.get, writable = entry.writable == true }
+			end
+			local spec = specs[walk]
+			walk = if spec ~= nil then spec.super else nil
+		end
+		return nil
+	end
+	local function computedFor(className: string, key: string): ((object: Instance) -> unknown)?
+		local entry = computedEntry(className, key)
+		return if entry ~= nil then entry.get else nil
+	end
+	local function writableComputed(className: string, key: string): boolean
+		local entry = computedEntry(className, key)
+		return entry ~= nil and entry.writable
+	end
+
+	local function defaultOf(className: string, class: Resolved, key: string): unknown
+		local declared = class.properties[key]
+		local fallback = if key == "Name" then className elseif declared == false then nil else declared
+		return if settings.defaultProperty ~= nil then settings.defaultProperty(className, key, fallback) else fallback
 	end
 
 	local function memberError(state: State, key: string): never
@@ -490,7 +642,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	end
 
 	local function setParent(object: Instance, state: State, parent: Instance?)
-		inject "setParent"
+		inject("setParent", describe(state), object, nil, parent)
 		if state.destroyed or state.destroying or state.removing then
 			error(("The Parent property of %s is locked"):format(describe(state)), 4)
 		end
@@ -504,8 +656,11 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			end
 			walk = stateOf(walk).parent
 		end
-		if settings.validateProperty ~= nil then
-			settings.validateProperty(state.className, "Parent", parent, "set")
+		if
+			settings.validateProperty ~= nil
+			and settings.validateProperty(state.className, "Parent", parent, "set") == false
+		then
+			return
 		end
 		move(object, state, parent)
 	end
@@ -517,7 +672,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		if state.removing then
 			error(("The Parent property of %s is locked"):format(describe(state)), 4)
 		end
-		inject "destroy"
+		inject("destroy", describe(state), object, nil, nil)
 		state.destroying = true
 		signalFor(state, "Destroying"):Fire()
 		move(object, state, nil)
@@ -543,8 +698,13 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			error("attribute names must not start with RBX", 4)
 		end
 		local kind = type(value)
-		if kind == "table" or kind == "function" or kind == "thread" then
-			error(("attribute %q cannot hold a %s"):format(name, kind), 4)
+		if kind ~= "string" and kind ~= "number" and kind ~= "boolean" and value ~= nil then
+			local described = if kind == "table"
+				then (if isObject(value) then "Instance" else Datatypes.typeName(value) or kind)
+				else typeof(value)
+			if not Datatypes.isAttributeType(described) then
+				error(("attribute %q cannot hold a %s"):format(name, described), 4)
+			end
 		end
 		if
 			type(value) == "string"
@@ -679,10 +839,12 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 					return nil
 				end
 				local copies: { [Instance]: Instance } = {}
+				local originals: { Instance } = {}
 				local function copyTree(original: Instance): Instance
 					local source = stateOf(original)
 					local copy = newObject(source.className, nil, false)
 					copies[original] = copy
+					table.insert(originals, original)
 					for _, child in source.children do
 						if stateOf(child).values.Archivable ~= false then
 							local childCopy = copyTree(child)
@@ -696,12 +858,29 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 					for original, copy in copies do
 						local source, target = stateOf(original), stateOf(copy)
 						for property, value in source.values do
-							target.values[property] = if isObject(value)
-								then copies[value :: Instance] or value
-								else value
+							if
+								computedFor(source.className, property) == nil
+								or writableComputed(source.className, property)
+							then
+								target.values[property] = if isObject(value)
+									then copies[value :: Instance] or value
+									else value
+							end
 						end
+						target.extras = table.clone(source.extras)
 						target.attributes = table.clone(source.attributes)
 						target.tags = table.clone(source.tags)
+					end
+					local function remap(value: Instance): Instance
+						return copies[value] or value
+					end
+					for _, original in originals do
+						local copy = copies[original]
+						for _, entry in table.clone(cloneHooks) do
+							if entry.connected then
+								entry.hook(original, copy, remap)
+							end
+						end
 					end
 					return rootCopy
 				end)
@@ -773,7 +952,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			end
 		elseif key == "SetAttribute" then
 			return function(_self: Instance, name: string, value: unknown)
-				inject "setAttribute"
+				inject("setAttribute", describe(state), object, name, value)
 				validAttribute(name, value)
 				if state.attributes[name] == value then
 					return
@@ -792,10 +971,29 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			end
 		elseif key == "GetPropertyChangedSignal" then
 			return function(_self: Instance, property: string): Signal
-				if state.class.properties[property] == nil and property ~= "Parent" then
+				if
+					state.class.properties[property] == nil
+					and property ~= "Parent"
+					and not state.extras[property]
+					and settings.undeclaredWrites ~= true
+					and computedFor(state.className, property) == nil
+				then
 					memberError(state, property)
 				end
 				return signalFor(state, "prop:" .. property)
+			end
+		elseif key == "ResetPropertyToDefault" then
+			return function(_self: Instance, property: string)
+				if state.class.properties[property] == nil then
+					memberError(state, property)
+				end
+				local value = defaultOf(state.className, state.class, property)
+				inject("setProperty", describe(state), object, property, value)
+				if state.values[property] == value then
+					return
+				end
+				state.values[property] = value
+				changed(object, state, property)
 			end
 		elseif key == "GetAttributeChangedSignal" then
 			return function(_self: Instance, name: string): Signal
@@ -805,55 +1003,102 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		return nil
 	end
 
-	local objectMetatable = {
-		__index = function(object: Instance, key: string): unknown
-			local state = stateOf(object)
-			if key == "ClassName" then
-				return state.className
-			elseif key == "Parent" then
-				return state.parent
+	local function readMember(object: Instance, key: string): unknown
+		local state = stateOf(object)
+		if key == "ClassName" then
+			return state.className
+		elseif key == "Parent" then
+			return state.parent
+		end
+		local double = state.doubles[key]
+		if double ~= nil then
+			return operation(function(_self: Instance, ...: unknown): ...unknown
+				return (double :: Method)(object, ...)
+			end)
+		end
+		if state.class.events[key] then
+			return signalFor(state, key)
+		end
+		if type(state.class.methods[key]) == "function" then
+			return operation(memberMethod(object, state, key))
+		end
+		local builtin = universal(object, state, key)
+		if builtin ~= nil then
+			return operation(builtin)
+		end
+		local method = memberMethod(object, state, key)
+		if method ~= nil then
+			return operation(method)
+		end
+		local getter = computedFor(state.className, key)
+		if getter ~= nil then
+			local computed = getter(object)
+			if computed ~= nil or not writableComputed(state.className, key) then
+				return computed
 			end
-			if state.class.events[key] then
-				return signalFor(state, key)
+			return state.values[key]
+		end
+		if state.class.properties[key] ~= nil or state.extras[key] then
+			return state.values[key]
+		end
+		for _, child in state.children do
+			if stateOf(child).values.Name == key then
+				return child
 			end
-			local builtin = universal(object, state, key)
-			if builtin ~= nil then
-				return builtin
-			end
-			local method = memberMethod(object, state, key)
-			if method ~= nil then
-				return method
-			end
-			if state.class.properties[key] ~= nil then
-				return state.values[key]
-			end
-			for _, child in state.children do
-				if stateOf(child).values.Name == key then
-					return child
-				end
-			end
-			memberError(state, key)
+		end
+		if settings.undeclaredReads == "nil" then
 			return nil
-		end,
-		__newindex = function(object: Instance, key: string, value: unknown)
-			local state = stateOf(object)
-			if key == "Parent" then
-				setParent(object, state, value :: Instance?)
+		end
+		memberError(state, key)
+		return nil
+	end
+
+	local function writeMember(object: Instance, key: string, value: unknown)
+		local state = stateOf(object)
+		if key == "Parent" then
+			setParent(object, state, value :: Instance?)
+			return
+		end
+		local writable = writableComputed(state.className, key)
+		if not writable and computedFor(state.className, key) ~= nil then
+			error(("%s is read-only on %s"):format(key, describe(state)), 3)
+		end
+		local declared = state.class.properties[key] ~= nil
+		if not declared and not writable then
+			local isEvent = state.class.events[key] == true
+			if
+				type(value) == "function"
+				and settings.functionDoubles == true
+				and not isEvent
+				and key ~= "ClassName"
+			then
+				state.doubles[key] = value
 				return
 			end
-			if state.class.properties[key] == nil then
+			if settings.undeclaredWrites ~= true or isEvent or key == "ClassName" or type(value) == "function" then
 				memberError(state, key)
 			end
-			inject "setProperty"
-			if settings.validateProperty ~= nil then
-				settings.validateProperty(state.className, key, value, "set")
-			end
-			if state.values[key] == value then
-				return
-			end
-			state.values[key] = value
-			changed(object, state, key)
-		end,
+		end
+		inject("setProperty", describe(state), object, key, value)
+		if
+			settings.validateProperty ~= nil
+			and settings.validateProperty(state.className, key, value, "set") == false
+		then
+			return
+		end
+		if state.values[key] == value then
+			return
+		end
+		state.values[key] = value
+		if not declared then
+			state.extras[key] = true
+		end
+		changed(object, state, key)
+	end
+
+	local objectMetatable = {
+		__index = readMember,
+		__newindex = (operation(writeMember) :: unknown) :: typeof(writeMember),
 	}
 
 	function newObject(className: string, props: { [unknown]: unknown }?, isRoot: boolean): Instance
@@ -864,13 +1109,9 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		if not class.creatable and not isRoot then
 			error(("Unable to create an Instance of type %q"):format(className), 3)
 		end
-		inject "create"
 		local values: { [string]: unknown } = {}
 		for key, default in class.properties do
-			local fallback = if key == "Name" then className elseif default == false then nil else default
-			values[key] = if settings.defaultProperty ~= nil
-				then settings.defaultProperty(className, key, fallback)
-				else fallback
+			values[key] = defaultOf(className, class, key)
 		end
 		local object = (setmetatable({} :: { [string]: unknown }, objectMetatable) :: unknown) :: Instance
 		rawset(
@@ -885,13 +1126,21 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 				attributes = {},
 				tags = {},
 				signals = {},
+				extras = {},
+				doubles = {},
 				destroyed = false,
 				destroying = false,
 				removing = false,
 			} :: State
 		)
+		inject("create", className, object, nil, nil)
 		if not isRoot then
 			alive += 1
+		end
+		for _, entry in table.clone(createHooks) do
+			if entry.connected then
+				entry.hook(object)
+			end
 		end
 		local initial: { [unknown]: unknown } = props or {}
 		for key, value in initial do
@@ -1009,26 +1258,54 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	environment.liveConnections = function(): number
 		return connections
 	end
-	environment.poke = function(object: Instance, key: string, value: unknown)
+	environment.poke = (
+		operation(function(object: Instance, key: string, value: unknown)
+			local state = stateOf(object)
+			local declared = state.class.properties[key] ~= nil
+			local writable = writableComputed(state.className, key)
+			if not writable and computedFor(state.className, key) ~= nil then
+				error(("%s is computed on %s"):format(key, describe(state)), 3)
+			end
+			if not declared and not writable and settings.undeclaredWrites ~= true then
+				memberError(state, key)
+			end
+			if
+				settings.validateProperty ~= nil
+				and settings.validateProperty(state.className, key, value, "poke") == false
+			then
+				return
+			end
+			if state.values[key] == value then
+				return
+			end
+			state.values[key] = value
+			if not declared then
+				state.extras[key] = true
+			end
+			changed(object, state, key)
+		end) :: unknown
+	) :: (object: Instance, key: string, value: unknown) -> ()
+	environment.fire = (
+		operation(function(object: Instance, event: string, ...: unknown)
+			local state = stateOf(object)
+			if not state.class.events[event] then
+				memberError(state, event)
+			end
+			signalFor(state, event):Fire(...)
+		end) :: unknown
+	) :: (object: Instance, event: string, ...unknown) -> ()
+	environment.fakeOn = function<A..., R...>(object: Instance, name: string, handler: (Instance, A...) -> R...)
 		local state = stateOf(object)
-		if state.class.properties[key] == nil then
-			memberError(state, key)
+		if
+			state.class.properties[name] ~= nil
+			or state.class.events[name] == true
+			or name == "ClassName"
+			or name == "Parent"
+			or state.extras[name]
+		then
+			error(("%s of %s is a property or event and cannot be a method double"):format(name, describe(state)), 2)
 		end
-		if settings.validateProperty ~= nil then
-			settings.validateProperty(state.className, key, value, "poke")
-		end
-		if state.values[key] == value then
-			return
-		end
-		state.values[key] = value
-		changed(object, state, key)
-	end
-	environment.fire = function(object: Instance, event: string, ...: unknown)
-		local state = stateOf(object)
-		if not state.class.events[event] then
-			memberError(state, event)
-		end
-		signalFor(state, event):Fire(...)
+		state.doubles[name] = handler
 	end
 	environment.snapshot = function(object: Instance): Snapshot
 		local function walk(current: Instance): Snapshot
@@ -1058,6 +1335,91 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	end
 	environment.clearFailures = function()
 		table.clear(failures)
+	end
+	environment.pendingFailures = function(): number
+		local total = 0
+		for _, remaining in failures do
+			total += remaining
+		end
+		return total
+	end
+	environment.observe = function(listener: (event: Event) -> ()): Connection
+		local entry = { listener = listener, connected = true }
+		table.insert(observers, entry)
+		local connection = { Connected = true } :: Connection
+		function connection:Disconnect()
+			entry.connected = false
+			connection.Connected = false
+			local index = table.find(observers, entry)
+			if index ~= nil then
+				table.remove(observers, index)
+			end
+		end
+		return connection
+	end
+	environment.onClone = function(hook: CloneHook): Connection
+		local entry = { hook = hook, connected = true }
+		table.insert(cloneHooks, entry)
+		local connection = { Connected = true } :: Connection
+		function connection:Disconnect()
+			entry.connected = false
+			connection.Connected = false
+			local index = table.find(cloneHooks, entry)
+			if index ~= nil then
+				table.remove(cloneHooks, index)
+			end
+		end
+		return connection
+	end
+	environment.onCreate = function(hook: CreateHook): Connection
+		local entry = { hook = hook, connected = true }
+		table.insert(createHooks, entry)
+		local connection = { Connected = true } :: Connection
+		function connection:Disconnect()
+			entry.connected = false
+			connection.Connected = false
+			local index = table.find(createHooks, entry)
+			if index ~= nil then
+				table.remove(createHooks, index)
+			end
+		end
+		return connection
+	end
+	environment.signalOf = function(object: Instance, event: string): SignalHandle
+		local state = stateOf(object)
+		if not state.class.events[event] then
+			memberError(state, event)
+		end
+		local signal = signalFor(state, event)
+		local meter = meters[signal]
+		return {
+			fire = function(...: unknown)
+				signal:Fire(...)
+			end,
+			connections = meter.connections,
+			fires = meter.fires,
+		}
+	end
+	environment.connectionsOf = function(signal: Signal): number
+		local meter = meters[signal]
+		if meter == nil then
+			error("signal was not created by this environment", 2)
+		end
+		return meter.connections()
+	end
+	environment.firesOf = function(signal: Signal): number
+		local meter = meters[signal]
+		if meter == nil then
+			error("signal was not created by this environment", 2)
+		end
+		return meter.fires()
+	end
+	environment.connectionsOfInstance = function(object: Instance): number
+		local total = 0
+		for _, signal in stateOf(object).signals do
+			total += meters[signal].connections()
+		end
+		return total
 	end
 	return environment :: Environment
 end

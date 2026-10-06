@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -309,15 +309,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			local engine = engineLib.new({ recordCreated = false })
 			local metrics = { writes = 0, creates = 0, destroys = 0 }
 			local make, destroy = engine.new, engine.destroy
+			engine.onWrite(function(self, key, value)
+				metrics.writes += 1
+			end)
 			engine.new = function(className)
 				local node = make(className)
 				metrics.creates += 1
-				local meta = getmetatable(node)
-				local write = meta.__newindex
-				meta.__newindex = function(self, key, value)
-					metrics.writes += 1
-					write(self, key, value)
-				end
 				return node
 			end
 			engine.destroy = function(node)

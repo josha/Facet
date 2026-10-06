@@ -44,7 +44,7 @@ return function(options: any?): State
 		viewport = opts.viewport or { w = 800, h = 600 },
 		frame = function(dt: number?)
 			elapsed += dt or 1 / 60
-			engine.heartbeat.fire(dt or 1 / 60)
+			engine.heartbeat:Fire(dt or 1 / 60)
 		end,
 		dispose = function()
 			root.dispose()

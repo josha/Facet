@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -112,11 +112,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 
 	local function tab(w: any)
 		local traverse = assert(find(w.parent, "FacetTraversal"), "the traversal context exists")
-		traverse:FindFirstChild("Traverse").Pressed.fire()
+		traverse:FindFirstChild("Traverse").Pressed:Fire()
 	end
 
 	local function pad(w: any, key: string)
-		w.input.InputBegan.fire({
+		w.input.InputBegan:Fire({
 			KeyCode = (w.engine.types.Enum.KeyCode :: any)[key],
 			UserInputType = w.engine.types.Enum.UserInputType.Gamepad1,
 		}, true)
@@ -381,7 +381,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local id = ids[index]
 				w.gui.SelectedObject = buttons[index]
 				Verify.expect(w.gui.SelectedObject):toBe(buttons[index])
-				buttons[index].Activated.fire()
+				buttons[index].Activated:Fire()
 				Verify.expect(`{label} {cell:peek()}`):toBe(`{label} {id}`)
 				local panel = assert(pages:FindFirstChild(id, true), `{label}: no {id} page`)
 				Verify.expect(panel.Visible):toBe(true)
@@ -389,7 +389,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(`{label} {id} away {within(selected, panel) or selected == buttons[index]}`)
 					:toBe(`{label} {id} away true`)
 			end
-			Verify.expect(#w.engine.rejectedSelections):toBe(0)
+			Verify.expect(#w.engine.rejectedSelections()):toBe(0)
 			open(w.built)
 			local sheet = assert(find(w.screen, "SheetPanel"), `{label}: no sheet`)
 			local inside = ring(w)
@@ -401,7 +401,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 			end
 			Verify.expect(`{label} dismissal reachable {close ~= nil}`):toBe(`{label} dismissal reachable true`)
-			find(w.parent, "ModalBack", "InputAction").Pressed.fire()
+			find(w.parent, "ModalBack", "InputAction").Pressed:Fire()
 			Verify.expect((find(w.screen, "SheetPanel"))):toBeNil()
 			w.stop()
 		end
@@ -506,7 +506,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 								end
 							end
 						end
-						Verify.expect(#w.engine.rejectedSelections):toBe(0)
+						Verify.expect(#w.engine.rejectedSelections()):toBe(0)
 						w.stop()
 					end
 				end,
@@ -620,7 +620,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						local on = names()
 						Verify.expect(on.Go and on.InnerGo and on.After and on.PowerToggle):toBe(true)
 						w.gui.SelectedObject = go
-						power.Activated.fire(input(w, "keyboard"))
+						power.Activated:Fire(input(w, "keyboard"))
 						Verify.expect(built.report().enabled):toBe(false)
 						Verify.expect(w.gui.SelectedObject):toBe(after)
 						local off = names()
@@ -635,7 +635,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 							guard += 1
 						end
 						Verify.expect(w.gui.SelectedObject):toBe(after)
-						power.Activated.fire(input(w, "gamepad"))
+						power.Activated:Fire(input(w, "gamepad"))
 						Verify.expect(built.report().enabled):toBe(true)
 						local again = names()
 						Verify.expect(again.Go and again.InnerGo):toBe(true)
@@ -655,28 +655,28 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					for index, kind in
 						{ "mouse", "touch", "gamepad", "keyboard" } :: { "gamepad" | "keyboard" | "mouse" | "touch" }
 					do
-						release.Activated.fire(input(w, kind))
+						release.Activated:Fire(input(w, kind))
 						Verify.expect((built.requests:peek())):toBe(index)
 						Verify.expect(built.effects.release.PlayCount):toBe(index)
 						Verify.expect(built.steps.readHistory()[1]):toBe(`{index}. release`)
 					end
 					Verify.expect(built.effects.press.PlayCount == nil or built.effects.press.PlayCount == 0):toBe(true)
 					Verify.expect(find(root, "Press").PressHapticEffect):toBe(built.effects.press)
-					find(root, "Custom").Activated.fire(input(w, "gamepad"))
+					find(root, "Custom").Activated:Fire(input(w, "gamepad"))
 					Verify.expect(built.effects.custom.PlayCount):toBe(1)
 					Verify.expect(built.report().motorConfirmed):toBe(false)
 					built.steps.setPlayHaptics(false)
 					for _, kind in
 						{ "mouse", "touch", "gamepad", "keyboard" } :: { "gamepad" | "keyboard" | "mouse" | "touch" }
 					do
-						release.Activated.fire(input(w, kind))
+						release.Activated:Fire(input(w, kind))
 					end
 					Verify.expect((built.requests:peek())):toBe(5)
 					Verify.expect(built.effects.release.PlayCount):toBe(4)
 					Verify.expect(find(root, "Press").PressHapticEffect):toBe(nil)
 					w.stop()
 					for _, effect in built.effects do
-						Verify.expect((effect.isDestroyed())):toBe(true)
+						Verify.expect((effect:isDestroyed())):toBe(true)
 					end
 				end,
 			}
@@ -882,9 +882,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						local signal = body:GetPropertyChangedSignal("AbsoluteSize")
 						stop()
 						runtime:dispose()
-						Verify.expect((surface.isDestroyed())):toBe(true)
+						Verify.expect((surface:isDestroyed())):toBe(true)
 						Verify.expect(#holder:GetChildren()):toBe(0)
-						Verify.expect((signal.count())):toBe(0)
+						Verify.expect((engineLib.connections(signal))):toBe(0)
 					end
 				end,
 			}

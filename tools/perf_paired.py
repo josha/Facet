@@ -94,7 +94,7 @@ def run(arguments):
                     rows.flush()
                 if not arguments.skip_bench:
                     with open(out / f"bench-{label}-{round_number}.log", "w") as bench_log:
-                        subprocess.run(["bash", "tools/bench.sh"], cwd=tree, env=env, stdout=bench_log, stderr=subprocess.STDOUT)
+                        subprocess.run(["lune", "run", "tools/lune/bench"], cwd=tree, env=env, stdout=bench_log, stderr=subprocess.STDOUT)
                     shutil.copyfile(tree / "artifacts" / "bench.json", out / f"bench-{label}-{round_number}.json")
                 print(f"round {round_number} {label} end {datetime.now():%H:%M:%S}", file=log, flush=True)
         print("DONE", file=log, flush=True)

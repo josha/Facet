@@ -10,6 +10,7 @@ local Manifest = require "@self/manifest"
 local Matchers = require "@self/matchers"
 local Media = require "@self/media"
 local Plan = require "@self/plan"
+local Provenance = require "@self/provenance"
 local Shape = require "@self/shape"
 local ReportModel = require "@self/report"
 local SessionModule = require "@self/session"
@@ -17,7 +18,7 @@ local Spy = require "@self/spy"
 local Transport = require "@self/transport"
 local Types = require "@self/types"
 local Wait = require "@self/wait"
-local Witness = require "@self/witness"
+local Console = require "@self/console"
 
 export type OperationRequest = Operations.Request
 export type CaseHost = Operations.Host
@@ -32,6 +33,7 @@ export type Status = Types.Status
 export type Failure = Types.Failure
 export type StepResult = Types.StepResult
 export type Artifact = Types.Artifact
+export type Checkpoint = Types.Checkpoint
 export type Origin = Types.Origin
 export type CaseResult = Types.CaseResult
 export type ReportSource = Types.ReportSource
@@ -80,6 +82,17 @@ export type Fixture = Execution.Fixture
 export type PlanAccount = Execution.Account
 export type ExecutionOptions = Execution.Options
 
+export type ReviewKind = Provenance.ReviewKind
+export type EvidenceHasher = Provenance.Hasher
+export type EvidenceBuild = Provenance.Build
+export type EvidenceSubject = Provenance.Subject
+export type ArtifactProvenance = Provenance.Provenance
+export type EvidenceSink = Provenance.Sink
+export type EvidenceMemorySink = Provenance.MemorySink
+export type EvidenceContent = Provenance.Content
+export type EvidenceMeta = Provenance.Meta
+export type EvidenceStat = Provenance.Stat
+
 export type MediaAudioWindow = Media.AudioWindow
 export type MediaResolvedAudioWindow = Media.ResolvedAudioWindow
 export type MediaRecording = Media.Recording
@@ -101,11 +114,12 @@ export type SessionProvidedOptions<S> = SessionModule.ProvidedOptions<S>
 export type TransportRecord = Transport.Record
 export type Segment = Transport.Segment
 
-export type ClassifyConsoleOptions = Witness.ClassifyOptions
+export type ClassifyConsoleOptions = Console.ClassifyOptions
 
 return {
 	operation = Operations.operation,
 	bindOperation = Operations.bind,
+	DESELECTED_PREFIX = HarnessModule.DESELECTED_PREFIX,
 	runCase = HarnessModule.runCase,
 	runCases = HarnessModule.runCases,
 	performance = Performance,
@@ -138,6 +152,7 @@ return {
 	accountPlan = Execution.account,
 	createSession = SessionModule.create,
 	waitUntil = Wait.waitUntil,
+	memorySink = Provenance.memorySink,
 	mediaAudioWindow = Media.audioWindow,
 	mediaProbeSummary = Media.probeSummary,
 	mediaAudioMeasurement = Media.audioMeasurement,
@@ -168,10 +183,7 @@ return {
 	verdictDifferences = ReportModel.verdictDifferences,
 	observationParity = ReportModel.observationParity,
 
-	DEFAULT_WITNESS_ERROR_PATTERNS = Witness.DEFAULT_ERROR_PATTERNS,
-	DEFAULT_WITNESS_BLOCK_BEGIN_PATTERNS = Witness.DEFAULT_BLOCK_BEGIN_PATTERNS,
-	DEFAULT_WITNESS_BLOCK_END_PATTERNS = Witness.DEFAULT_BLOCK_END_PATTERNS,
-	classifyConsole = Witness.classifyConsole,
-	classifyConsoleText = Witness.classifyConsoleText,
-	splitConsoleLines = Witness.splitConsoleLines,
+	classifyConsole = Console.classifyConsole,
+	classifyConsoleText = Console.classifyConsoleText,
+	splitConsoleLines = Console.splitConsoleLines,
 }

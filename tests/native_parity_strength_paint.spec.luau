@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -1024,7 +1024,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 								})
 							end)
 							local states = {}
-							find(root.Parent, "alpha").MouseEnter.fire()
+							find(root.Parent, "alpha").MouseEnter:Fire()
 							for _, id in { "alpha", "beta" } do
 								local button = find(root.Parent, id)
 								local fill = resolve(sheet, find(button.Parent, "Sector"), "Color3")
@@ -1796,15 +1796,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	local function countWrites(sheet: any): { [any]: number }
 		local writes: { [any]: number } = {}
 		for _, rule in sheet:GetChildren() do
-			local meta = getmetatable(rule)
-			local index = meta.__index
 			local original = rule.SetProperties
-			local counted = function(self: any, properties: any)
+			rule.SetProperties = function(self: any, properties: any)
 				writes[self] = (writes[self] or 0) + 1
 				return original(self, properties)
-			end
-			meta.__index = function(self: any, key: any)
-				return if key == "SetProperties" then counted else index(self, key)
 			end
 		end
 		return writes
@@ -1851,11 +1846,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(transitionOf(text, "TextColor3").Time):toBe(0.2)
 					gui.PreferredTransparency = 1
 					Verify.expect(style(sheet, ".facet-scrim").BackgroundTransparency):toBeCloseTo(0.55, 1e-4)
-					Verify.expect((gui:GetPropertyChangedSignal("ReducedMotionEnabled").count())):toBe(0)
-					Verify.expect((gui:GetPropertyChangedSignal("PreferredTransparency").count())):toBe(1)
+					Verify.expect((engineLib.connections(gui:GetPropertyChangedSignal("ReducedMotionEnabled")))):toBe(0)
+					Verify.expect((engineLib.connections(gui:GetPropertyChangedSignal("PreferredTransparency"))))
+						:toBe(1)
 					stop()
-					Verify.expect((gui:GetPropertyChangedSignal("ReducedMotionEnabled").count())):toBe(0)
-					Verify.expect((gui:GetPropertyChangedSignal("PreferredTransparency").count())):toBe(0)
+					Verify.expect((engineLib.connections(gui:GetPropertyChangedSignal("ReducedMotionEnabled")))):toBe(0)
+					Verify.expect((engineLib.connections(gui:GetPropertyChangedSignal("PreferredTransparency"))))
+						:toBe(0)
 					local halfDeclared = themes.neutralPackage()
 					local partialMotionMetrics = halfDeclared.metrics :: any
 					partialMotionMetrics.motion = { fast = 0.1 }
@@ -2955,7 +2952,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(primary.Size.Y.Offset >= 44):toBe(true)
 				Verify.expect((segment:FindFirstChildWhichIsA("UISizeConstraint"))):toBe(nil)
 				Verify.expect(primary.Selectable ~= false and segment.Selectable ~= false):toBe(true)
-				segment.Activated.fire()
+				segment.Activated:Fire()
 				Verify.expect(find(root.Parent or root, "MenuPanel") ~= nil):toBe(true)
 				stopSheet()
 				stop()

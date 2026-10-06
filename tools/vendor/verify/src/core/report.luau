@@ -5,6 +5,7 @@ local Shape = require "./shape"
 local Operations = require "./operations"
 local Performance = require "./performance"
 local Matchers = require "./matchers"
+local Provenance = require "./provenance"
 
 type Artifact = Types.Artifact
 type CaseResult = Types.CaseResult
@@ -150,10 +151,14 @@ local function copyArtifacts(value: unknown, label: string): { Artifact }
 			error(label .. " must be a dense artifact array", 3)
 		end
 		local raw = item :: { [string]: unknown }
+		local identity = Provenance.identity(raw, label)
 		table.insert(result, {
 			name = requiredString(raw.name, label .. ".name"),
 			reference = requiredString(raw.reference, label .. ".reference"),
 			mediaType = optionalString(raw.mediaType, label .. ".mediaType"),
+			sha256 = identity.sha256,
+			size = identity.size,
+			provenance = identity.provenance,
 		})
 	end
 	return result
@@ -227,7 +232,10 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			judgment.status == "passed" or judgment.status == "failed" or judgment.status == "unreviewed",
 			"invalid judgment status"
 		)
+		local binding = Provenance.reviewBinding(row, "review")
 		table.insert(result.reviews, {
+			kind = binding.kind,
+			judged = binding.judged,
 			step = step(row.step),
 			actor = actor,
 			checkpoint = checkpoint,
@@ -253,10 +261,37 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			assert(value == nil or Shape.finiteNonnegative(value), "invalid performance bound")
 			return value :: number?
 		end
+		local percentiles: { number }? = nil
+		if input.percentiles ~= nil then
+			percentiles = {}
+			for _, value in rows(input.percentiles) do
+				assert(type(value) == "number", "invalid performance percentile")
+				table.insert(percentiles :: { number }, value)
+			end
+		end
+		local series: Performance.Series? = nil
+		if input.series ~= nil then
+			series = {}
+			for name, runs in fields(input.series) do
+				assert(type(name) == "string", "invalid series name")
+				local copiedRuns: { { number } } = {}
+				for _, run in rows(runs) do
+					local values: { number } = {}
+					for _, value in rows(run) do
+						assert(type(value) == "number", "invalid series value")
+						table.insert(values, value)
+					end
+					table.insert(copiedRuns, values)
+				end
+				(series :: Performance.Series)[name] = copiedRuns
+			end
+		end
 		local copiedInput: Performance.Input = {
 			samples = samples,
 			unit = requiredString(input.unit, "unit"),
 			threshold = optionalNumber(input.threshold),
+			percentiles = percentiles,
+			series = series,
 			context = {
 				environment = requiredString(context.environment, "environment"),
 				signal = requiredString(context.signal, "signal"),
@@ -273,6 +308,7 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			maximum = optionalNumber(limits.maximum),
 			threshold = optionalNumber(limits.threshold),
 			aboveThresholdRatio = optionalNumber(limits.aboveThresholdRatio),
+			measureOnly = if limits.measureOnly == true then true else nil,
 		}
 		local evaluation = Performance.evaluate(Performance.summarize(copiedInput), copiedLimits)
 		assert(Matchers.deepEqual(evaluation, row.evaluation), "performance evaluation mismatch")
@@ -535,6 +571,23 @@ local function merge(reports: { Report }, executor: string, environment: { [stri
 		end
 	end
 	return finish(into, executor, environment)
+end
+
+local function without(report: Report, dropped: { string }): Report
+	local skip: { [string]: boolean } = {}
+	for _, id in dropped do
+		skip[id] = true
+	end
+	local source = decode(report)
+	local into = newAccumulator()
+	absorbEnvelope(into, source)
+	for _, result in source.results do
+		if not skip[result.id] then
+			into.ids[result.id] = "1"
+			table.insert(into.results, result)
+		end
+	end
+	return finish(into, source.executor, source.environment)
 end
 
 local function compose(payloads: { Types.ShardPayload }, executor: string, environment: { [string]: string }): Report
@@ -806,6 +859,7 @@ return {
 	counts = counts,
 	decode = decode,
 	merge = merge,
+	without = without,
 	compose = compose,
 	canonical = canonical,
 	verdictDigest = verdictDigest,

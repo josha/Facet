@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 	type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
 
@@ -65,7 +65,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(style(sheet, ".facet-text").TextColor3):toBe(engine.types.Color3.new(0.1, 0.2, 0.3))
 				Verify.expect(label.Text):toBe("Themed")
 				stop()
-				Verify.expect((sheet.isDestroyed())):toBe(true)
+				Verify.expect((sheet:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -154,7 +154,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						:toBe(engine.types.Color3.new(236 / 255, 239 / 255, 245 / 255))
 					Verify.expect(sheet:GetChildren()[1]):toBe(rules[1])
 					Verify.expect(#sheet:GetChildren()):toBe(#rules)
-					Verify.expect((engine.heartbeat.count())):toBe(0)
+					Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 					reduced:set(true)
 					Verify.expect(transitionOf(textRule, "TextColor3").Time):toBe(0)
 					Verify.expect(transitionOf(surfaceRule, "BackgroundColor3").Time):toBe(0)
@@ -168,10 +168,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					explicit:set(false :: false)
 					Verify.expect(transitionOf(textRule, "TextColor3").Time):toBe(0)
 					stop()
-					Verify.expect((textRule.isDestroyed())):toBe(true)
-					Verify.expect((surfaceRule.isDestroyed())):toBe(true)
+					Verify.expect((textRule:isDestroyed())):toBe(true)
+					Verify.expect((surfaceRule:isDestroyed())):toBe(true)
 					selection:set("Dark")
-					Verify.expect((engine.heartbeat.count())):toBe(0)
+					Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 					runtime:dispose()
 				end,
 			}
@@ -208,14 +208,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(sheet:GetChildren()[#initial + 1]):toBe(added)
 					table.clear(assert(package.rules))
 					revision:set(3)
-					Verify.expect((added.isDestroyed())):toBe(true)
+					Verify.expect((added:isDestroyed())):toBe(true)
 					Verify.expect(#sheet:GetChildren()):toBe(#initial)
 					for index, rule in initial do
 						Verify.expect(sheet:GetChildren()[index]):toBe(rule)
 					end
 					stop()
 					for _, rule in initial do
-						Verify.expect((rule.isDestroyed())):toBe(true)
+						Verify.expect((rule:isDestroyed())):toBe(true)
 					end
 					runtime:dispose()
 				end,
@@ -258,7 +258,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(image.Image):toBe("rbxassetid://2")
 				Verify.expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Stretch)
 				stop()
-				Verify.expect((image.isDestroyed())):toBe(true)
+				Verify.expect((image:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -437,7 +437,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local model: any = stage:FindFirstChild("Model", true)
 				Verify.expect(model.ClassName):toBe("Part")
 				stop()
-				Verify.expect((model.isDestroyed())):toBe(true)
+				Verify.expect((model:isDestroyed())):toBe(true)
 				Verify.expect(released):toBe(1)
 				runtime:dispose()
 			end,
@@ -492,7 +492,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(first.LayoutOrder):toBe(2)
 				local overflow: any = group:FindFirstChild("Overflow")
 				Verify.expect(overflow.Text):toBe("+1")
-				overflow.Activated.fire()
+				overflow.Activated:Fire()
 				Verify.expect(selected):toBe(1)
 				stop()
 				runtime:dispose()
@@ -514,30 +514,30 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local first: any, one: any = runtime.mount(function()
 					return UI.Skeleton({ form = "line" :: "line", lines = 3 })
 				end, engine.new("Folder"))
-				local listeners = engine.heartbeat.count()
+				local listeners = engineLib.connections(engine.heartbeat)
 				local second, two: any = runtime.mount(function()
 					return UI.Skeleton({ form = "circle" :: "circle" })
 				end, engine.new("Folder"))
-				Verify.expect((engine.heartbeat.count())):toBe(listeners)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(listeners)
 				Verify.expect(one:FindFirstChild("Placeholder3").Size.X.Scale):toBeCloseTo(0.6, 1e-4)
-				engine.heartbeat.fire(0.4)
+				engine.heartbeat:Fire(0.4)
 				local gradient = two:FindFirstChild("Shimmer", true)
 				local previous = gradient.Offset.X
 				first()
-				engine.heartbeat.fire(0.2)
+				engine.heartbeat:Fire(0.2)
 				Verify.expect(gradient.Offset.X > previous):toBe(true)
 				reduced:set(true)
 				Verify.expect(gradient.Enabled):toBe(false)
 				previous = gradient.Offset.X
-				engine.heartbeat.fire(0.3)
+				engine.heartbeat:Fire(0.3)
 				Verify.expect(gradient.Offset.X):toBe(previous)
 				reduced:set(false)
-				engine.heartbeat.fire(0.2)
+				engine.heartbeat:Fire(0.2)
 				Verify.expect(gradient.Enabled):toBe(true)
 				Verify.expect(gradient.Offset.X ~= previous):toBe(true)
 				second()
 				runtime:dispose()
-				Verify.expect((engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 			end,
 		})
 
@@ -555,15 +555,15 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end, engine.new("Folder"))
 				local dot: any = busy:FindFirstChild("Segment1", true)
 				local before = dot.BackgroundTransparency
-				engine.heartbeat.fire(0.1)
+				engine.heartbeat:Fire(0.1)
 				Verify.expect(dot.BackgroundTransparency):toBe(before)
-				engine.heartbeat.fire(0.2)
+				engine.heartbeat:Fire(0.2)
 				Verify.expect(dot.BackgroundTransparency ~= before):toBe(true)
 				value:set(0.2)
 				Verify.expect((bar:FindFirstChild("Trail", true) :: any).Size.X.Scale):toBeCloseTo(0.2, 1e-4)
 				stop()
 				runtime:dispose()
-				Verify.expect((engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 			end,
 		})
 
@@ -732,7 +732,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(stage.Ambient):toBe(ambient)
 				Verify.expect(camera.Parent):toBe(original)
 				stop()
-				Verify.expect((camera.isDestroyed())):toBe(false)
+				Verify.expect((camera:isDestroyed())):toBe(false)
 				runtime:dispose()
 			end,
 		})
@@ -889,7 +889,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect((avatar:GetAttribute("AccessibleLabel"))):toBe("Ada, Disponible")
 				Verify.expect(avatar.Size.X.Offset):toBe(52)
 				Verify.expect(avatar.Selectable):toBe(true)
-				avatar.Activated.fire()
+				avatar.Activated:Fire()
 				Verify.expect(activated):toBe(1)
 				Verify.expect((group:FindFirstChild("Overflow") :: any):GetAttribute("AccessibleLabel") :: any)
 					:toBe("Otra persona")
@@ -1205,7 +1205,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect((target:FindFirstChild("ChromeShadow"))):toBe(shadow)
 				Verify.expect(shadow.Enabled):toBe(true)
 				stop()
-				Verify.expect((shadow.isDestroyed())):toBe(true)
+				Verify.expect((shadow:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -1332,7 +1332,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(preloaded[2]):toBe(image)
 				Verify.expect(image.Image):toBe("rbxassetid://20")
 				stop()
-				Verify.expect((image.isDestroyed())):toBe(true)
+				Verify.expect((image:isDestroyed())):toBe(true)
 				environment.task = originalTask
 				runtime:dispose()
 			end,
@@ -1367,19 +1367,19 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end, engine.new("Folder"))
 				local trail = meter:FindFirstChild("Trail", true)
 				value:set(0.5)
-				engine.heartbeat.fire(0.1)
+				engine.heartbeat:Fire(0.1)
 				Verify.expect(trail.Size.X.Scale):toBe(1)
-				engine.heartbeat.fire(0.25)
+				engine.heartbeat:Fire(0.25)
 				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.75, 1e-4)
-				engine.heartbeat.fire(0.2)
+				engine.heartbeat:Fire(0.2)
 				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.5, 1e-4)
-				Verify.expect((engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				value:set(0.25)
 				value:set(0.4)
 				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
-				Verify.expect((engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				value:set(0.1)
-				engine.heartbeat.fire(0.35)
+				engine.heartbeat:Fire(0.35)
 				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.25, 1e-4)
 				value:set(0.2)
 				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.2, 1e-4)
@@ -1455,7 +1455,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						end, parent)
 					end):toThrow()
 					Verify.expect(#engine.made):toBe(count)
-					Verify.expect((engine.heartbeat.count())):toBe(0)
+					Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 					runtime:dispose()
 				end
 			end,
@@ -1478,18 +1478,18 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end, engine.new("Folder"))
 				local trail = meter:FindFirstChild("Trail", true)
 				value:set(0.4)
-				Verify.expect((engine.heartbeat.count())):toBe(1)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(1)
 				reduced:set(true)
 				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
-				Verify.expect((engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				reduced:set(false)
 				Verify.expect(trail.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
 				value:set(0.2)
-				Verify.expect((engine.heartbeat.count())):toBe(1)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(1)
 				stop()
-				Verify.expect((engine.heartbeat.count())):toBe(0)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				value:set(0.8)
-				Verify.expect((trail.isDestroyed())):toBe(true)
+				Verify.expect((trail:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -1538,23 +1538,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					SliceCenter = "Rect",
 					SliceScale = "number",
 				}
-				engine.new = function(className)
-					local node = create(className)
-					if className == "ImageLabel" then
-						local mt = getmetatable(node)
-						local assign = mt.__newindex
-						mt.__newindex = function(target, key, value)
-							if expected[key] then
-								assert(
-									typeof(value) == expected[key],
-									`ImageLabel.{key} expected {expected[key]}, got {typeof(value)}`
-								)
-							end
-							return assign(target, key, value)
-						end
+				engine.onWrite(function(target, key, value)
+					if target.ClassName == "ImageLabel" and expected[key] then
+						assert(
+							typeof(value) == expected[key],
+							`ImageLabel.{key} expected {expected[key]}, got {typeof(value)}`
+						)
 					end
-					return node
-				end
+				end)
 				local defaults = create("ImageLabel")
 				local tiled = themes.neutralPackage()
 				tiled.identity.rendering = "pixel"
@@ -1662,13 +1653,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(#arc:GetControlPoints()):toBe(3)
 				Verify.expect(#((meter:FindFirstChild("Indicator") :: any):GetDescendants() :: any)):toBe(2)
 				local before = arc:GetControlPoints()[1].Position
-				engine.heartbeat.fire(0.1)
+				engine.heartbeat:Fire(0.1)
 				Verify.expect(arc:GetControlPoints()[1].Position ~= before):toBe(true)
 				reduced:set(true)
 				before = arc:GetControlPoints()[1].Position
-				engine.heartbeat.fire(0.1)
+				engine.heartbeat:Fire(0.1)
 				Verify.expect(arc:GetControlPoints()[1].Position):toBe(before)
-				engine.heartbeat.fire(0.1)
+				engine.heartbeat:Fire(0.1)
 				Verify.expect(arc:GetControlPoints()[1].Position ~= before):toBe(true)
 				local nextPackage = themes.neutralPackage()
 				nextPackage.style.themes[1].colors.accent = { r = 0.7, g = 0.2, b = 0.1 }
@@ -1684,8 +1675,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					:toBe(engine.types.Color3.new(secondary.r, secondary.g, secondary.b))
 				Verify.expect((meter:FindFirstChild("RingFill", true))):toBe(arc)
 				stop()
-				Verify.expect((arc.isDestroyed())):toBe(true)
-				Verify.expect((engine.heartbeat.count())):toBe(0)
+				Verify.expect((arc:isDestroyed())):toBe(true)
+				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				runtime:dispose()
 			end,
 		})
@@ -1701,22 +1692,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					engine.new = function(className)
 						local node = create(className)
 						if className == "StyleRule" then
-							local mt = getmetatable(node)
-							local index, setProperties, setTransitions =
-								mt.__index, node.SetProperties, node.SetPropertyTransitions
-							local write = function(self, properties)
+							local setProperties, setTransitions = node.SetProperties, node.SetPropertyTransitions
+							node.SetProperties = function(self, properties)
 								writes[self] = (writes[self] or 0) + 1
 								return setProperties(self, properties)
 							end
-							local timing = function(self, properties)
+							node.SetPropertyTransitions = function(self, properties)
 								transitions[self] = (transitions[self] or 0) + 1
 								return setTransitions(self, properties)
-							end
-							mt.__index = function(self, key)
-								return if key == "SetProperties"
-									then write
-									elseif key == "SetPropertyTransitions" then timing
-									else index(self, key)
 							end
 						end
 						return node
@@ -1873,7 +1856,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(#root:GetChildren()):toBe(16)
 				local retained = 0
 				for _, image in initial do
-					if not image.isDestroyed() then
+					if not image:isDestroyed() then
 						retained += 1
 						Verify.expect(image.Parent):toBe(root)
 						Verify.expect(image.Visible):toBe(false)
@@ -1893,10 +1876,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(reused):toBe(16)
 				stop()
 				for _, image in initial do
-					Verify.expect((image.isDestroyed())):toBe(true)
+					Verify.expect((image:isDestroyed())):toBe(true)
 				end
 				for _, image in active do
-					Verify.expect((image.isDestroyed())):toBe(true)
+					Verify.expect((image:isDestroyed())):toBe(true)
 				end
 				selected:set(themes.neutralPackage())
 				selected:set(package)
@@ -1942,7 +1925,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(image.Image):toBe("rbxassetid://99")
 				Verify.expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Stretch)
 				stop()
-				Verify.expect((image.isDestroyed())):toBe(true)
+				Verify.expect((image:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -2223,7 +2206,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						Verify.expect(node.KeyCode == engine.types.Enum.KeyCode.ButtonB):toBe(false)
 					end
 				end
-				chip.Activated.fire()
+				chip.Activated:Fire()
 				Verify.expect(calls):toBe(1)
 				stop()
 				runtime:dispose()

@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 	type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
 
@@ -1041,8 +1041,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(shadow.BlurRadius):toBe(T.UDim.new(0, 14))
 				Verify.expect(shadow.Transparency):toBe(0.35)
 				stop()
-				Verify.expect((plaque.isDestroyed())):toBe(true)
-				Verify.expect((shadow.isDestroyed())):toBe(true)
+				Verify.expect((plaque:isDestroyed())):toBe(true)
+				Verify.expect((shadow:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -1184,7 +1184,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					:toBe("panel7 panel8 panel9 panel10")
 				stop()
 				for _, image in layers do
-					Verify.expect((image.isDestroyed())):toBe(true)
+					Verify.expect((image:isDestroyed())):toBe(true)
 				end
 				runtime:dispose()
 			end,
@@ -1287,7 +1287,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect((target:HasTag("facet-skinned"))):toBe(true)
 				stop()
 				for _, image in third do
-					Verify.expect((image.isDestroyed())):toBe(true)
+					Verify.expect((image:isDestroyed())):toBe(true)
 				end
 				runtime:dispose()
 			end,
@@ -1859,14 +1859,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(#rules > 30):toBe(true)
 					Verify.expect(outerLink.StyleSheet):toBe(outerSheet)
 					stop()
-					Verify.expect((sheet.isDestroyed())):toBe(true)
-					Verify.expect((((link :: unknown) :: Destroyable).isDestroyed())):toBe(true)
-					Verify.expect((button.isDestroyed())):toBe(true)
+					Verify.expect((sheet:isDestroyed())):toBe(true)
+					Verify.expect((((link :: unknown) :: Destroyable):isDestroyed())):toBe(true)
+					Verify.expect((button:isDestroyed())):toBe(true)
 					for _, rule in rules do
-						Verify.expect((rule.isDestroyed())):toBe(true)
+						Verify.expect((rule:isDestroyed())):toBe(true)
 					end
-					Verify.expect((outerSheet.isDestroyed())):toBe(false)
-					Verify.expect((((outerLink :: unknown) :: Destroyable).isDestroyed())):toBe(false)
+					Verify.expect((outerSheet:isDestroyed())):toBe(false)
+					Verify.expect((((outerLink :: unknown) :: Destroyable):isDestroyed())):toBe(false)
 					Verify.expect(outerLink.StyleSheet):toBe(outerSheet)
 					Verify.expect(outerSheet.Parent):toBe(outer)
 					Verify.expect(#outerSheet:GetChildren()):toBe(#outerRules)
@@ -1878,7 +1878,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(after.connections):toBe(before.connections)
 					stopOuter()
 					for _, rule in outerRules do
-						Verify.expect((rule.isDestroyed())):toBe(true)
+						Verify.expect((rule:isDestroyed())):toBe(true)
 					end
 					Verify.expect(engine.census().live):toBe(baseline.live + 2)
 					Verify.expect(engine.census().connections):toBe(baseline.connections)
@@ -1939,11 +1939,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(style(sheet, ".facet-button").TextSize):toBe(package.metrics.typography.control.size)
 					Verify.expect(setups):toBe(1)
 					for _, rule in rules do
-						Verify.expect(`{label} {rule.Name}: {rule.isDestroyed()}`):toBe(`{label} {rule.Name}: false`)
+						Verify.expect(`{label} {rule.Name}: {rule:isDestroyed()}`):toBe(`{label} {rule.Name}: false`)
 						Verify.expect(rule.Parent):toBe(sheet)
 					end
 					for _, node in nodes do
-						Verify.expect((node.isDestroyed())):toBe(false)
+						Verify.expect((node:isDestroyed())):toBe(false)
 						Verify.expect((node:IsDescendantOf(root))):toBe(true)
 					end
 					Verify.expect((field:IsFocused())):toBe(true)
@@ -2002,7 +2002,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 				stop()
 				for _, node in nodes do
-					Verify.expect((node.isDestroyed())):toBe(true)
+					Verify.expect((node:isDestroyed())):toBe(true)
 				end
 				runtime:dispose()
 			end,
@@ -2185,7 +2185,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local demo = find(g.root, "DemoAction")
 				local surface = style(g.sheet, ".facet-surface").BackgroundColor3
 				local rules = g.sheet:GetChildren()
-				demo.Activated.fire()
+				demo.Activated:Fire()
 				Verify.expect((g.activations())):toBe(1)
 				for _, name in { "refused_theme", "throwing_theme", "fantasy_parchment_stub", "missing" } do
 					local result = gallery.dispatch(ctx, "theme", name)
@@ -2201,7 +2201,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				for index, rule in g.sheet:GetChildren() do
 					Verify.expect(rule):toBe(rules[index])
 				end
-				demo.Activated.fire()
+				demo.Activated:Fire()
 				Verify.expect((g.activations())):toBe(2)
 				Verify.expect(gallery.dispatch(ctx, "theme", "scifi_hud").ok):toBe(true)
 				Verify.expect(ctx.theme:peek().identity.id):toBe("scifi-hud")

@@ -17,7 +17,8 @@ from strip_comments import strip_luau as strip_luau_comments  # noqa: E402
 
 REPO = os.path.dirname(HERE)
 
-BUILD_THEMES = os.path.join(HERE, "build_themes.sh")
+BUILD_SCRIPT = os.path.join(HERE, "lune", "build.luau")
+BUILD_THEMES = ["lune", "run", os.path.join(HERE, "lune", "build"), "themes"]
 MANIFEST = os.path.join(REPO, "build", "themes", "manifest.json")
 
 
@@ -48,7 +49,7 @@ def run(args, cwd=REPO, check=True):
 
 
 def build_one(source, name, out_path):
-    run([BUILD_THEMES, "--one", source, name, out_path])
+    run([*BUILD_THEMES, "--one", source, name, out_path])
 
 
 def artifact_source(xml_path, name, problems):
@@ -66,7 +67,7 @@ def artifact_source(xml_path, name, problems):
     if kids:
         problems.append(
             f"{name}: the artifact's ModuleScript has {len(kids)} children — this package grew runtime data "
-            f"and tools/build_themes.sh has not been taught to map it"
+            f"and lune run tools/lune/build themes has not been taught to map it"
         )
         return None
     props = item.find("Properties")
@@ -88,7 +89,7 @@ def artifact_source(xml_path, name, problems):
 def check(keep=False, manifest_path=MANIFEST, plant=None):
 
     problems = []
-    run([BUILD_THEMES])
+    run(BUILD_THEMES)
     with open(manifest_path) as handle:
         manifest = json.load(handle)
 
@@ -220,8 +221,8 @@ def main():
     parser.add_argument("--keep", action="store_true", help="leave the isolated tree on disk for inspection")
     args = parser.parse_args()
 
-    if not os.path.isfile(BUILD_THEMES):
-        sys.stderr.write("check_theme_artifacts: tools/build_themes.sh is missing\n")
+    if not os.path.isfile(BUILD_SCRIPT):
+        sys.stderr.write("check_theme_artifacts: lune run tools/lune/build themes is missing\n")
         raise SystemExit(2)
 
     if args.selftest:

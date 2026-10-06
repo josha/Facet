@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type Attributes = typeof(require("@repo/tools/typecheck/aliases").Attributes)
 
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -122,15 +122,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	local function counter(engine: any): any
 		local metrics = { writes = 0, creates = 0, destroys = 0 }
 		local make = engine.new
+		engine.onWrite(function(self, name, value)
+			metrics.writes += 1
+		end)
 		engine.new = function(className)
 			local node = make(className)
 			metrics.creates += 1
-			local meta = getmetatable(node)
-			local write = meta.__newindex
-			meta.__newindex = function(self, name, value)
-				metrics.writes += 1
-				write(self, name, value)
-			end
 			return node
 		end
 		local destroy = engine.destroy
@@ -253,21 +250,21 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					window(body, engine, 320, 640)
 					local previousExtent = 0
 					for _, offset in { 0, 4, 10, 14 } do
-						find(node, "TextOffset" .. offset).Activated.fire()
+						find(node, "TextOffset" .. offset).Activated:Fire()
 						local report = built.report()
 						Verify.expect(report.status.extent > previousExtent):toBe(true)
 						Verify.expect(report.status.retained < 20):toBe(true)
 						Verify.expect(report.extents["2"] > report.extents["1"]):toBe(true)
 						previousExtent = report.status.extent
 					end
-					find(node, "TextOffset0").Activated.fire()
-					find(node, "Mode").Activated.fire()
+					find(node, "TextOffset0").Activated:Fire()
+					find(node, "Mode").Activated:Fire()
 					Verify.expect(built.report().status.extent):toBe(400 * 84 + 399 * 8)
 					for _, index in mountedKeys(body) do
 						Verify.expect(rowHost(body, index).Size.Y.Offset):toBe(84)
 					end
-					find(node, "Mode").Activated.fire()
-					find(node, "Jump").Activated.fire()
+					find(node, "Mode").Activated:Fire()
+					find(node, "Jump").Activated:Fire()
 					local function topKey(): number?
 						local at = body.CanvasPosition.Y
 						for _, index in mountedKeys(body) do
@@ -282,7 +279,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local before = body.CanvasPosition.Y
 					Verify.expect(before > 0):toBe(true)
 					Verify.expect(anchor ~= nil):toBe(true)
-					find(node, "TextOffset14").Activated.fire()
+					find(node, "TextOffset14").Activated:Fire()
 					Verify.expect(body.CanvasPosition.Y ~= before):toBe(true)
 					Verify.expect(built.report().status.first):toBe(first)
 					Verify.expect((topKey())):toBe(anchor)
@@ -409,8 +406,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						end
 						return nil
 					end
-					button("grids").Activated.fire()
-					button("vertical").Activated.fire()
+					button("grids").Activated:Fire()
+					button("vertical").Activated:Fire()
 					Verify.expect(built.report().active):toBe("vertical")
 					local grid = find(find(node, "virtual_grid"), "Collection")
 					Verify.expect((grid:IsA("ScrollingFrame"))):toBe(true)
@@ -463,11 +460,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local function hit(index: number): any
 						return rowHost(node, index):FindFirstChild("RowHit", true)
 					end
-					hit(3).Activated.fire()
+					hit(3).Activated:Fire()
 					Verify.expect((selection:peek())):toEqual({ [3] = true })
-					hit(5).Activated.fire()
+					hit(5).Activated:Fire()
 					Verify.expect((selection:peek())):toEqual({ [5] = true })
-					hit(3).Activated.fire()
+					hit(3).Activated:Fire()
 					Verify.expect(#selections):toBe(3)
 					local survivors = {}
 					for _, index in mountedKeys(node) do
@@ -533,11 +530,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(built):toBe(3)
 				Verify.expect((node:FindFirstChild("Row-a"))):toBe(row)
 				Verify.expect(row.Text):toBe("Great Axe")
-				row.Activated.fire()
+				row.Activated:Fire()
 				Verify.expect(equipped):toBe("Great Axe")
 				items:set({ { id = "c", name = "Club" } })
 				Verify.expect((node:FindFirstChild("Row-a"))):toBeNil()
-				Verify.expect((row.isDestroyed())):toBe(true)
+				Verify.expect((row:isDestroyed())):toBe(true)
 				Verify.expect(built):toBe(3)
 				stop()
 				runtime:dispose()
@@ -614,7 +611,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						local content = rowHost(plain, index):FindFirstChild("Content")
 						Verify.expect((content:FindFirstChild("RowHit"))):toBeNil()
 						Verify.expect((content:GetAttribute("FacetSelected"))):toBeNil()
-						rowHost(plain, index):FindFirstChild("Action", true).Activated.fire()
+						rowHost(plain, index):FindFirstChild("Action", true).Activated:Fire()
 					end
 					stopPlain()
 					local stopActivate, activate: any = runtime.mount(function()
@@ -632,7 +629,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end, root)
 					window(activate, engine, 200, 200)
 					local rowHit = rowHost(activate, 2):FindFirstChild("RowHit", true)
-					rowHit.Activated.fire({ UserInputType = engine.types.Enum.UserInputType.MouseButton1 }, 1)
+					rowHit.Activated:Fire({ UserInputType = engine.types.Enum.UserInputType.MouseButton1 }, 1)
 					Verify.expect(activated):toBe(1)
 					Verify.expect((rowHit:GetAttribute("FacetSelected"))):toBe(false)
 					stopActivate()
@@ -652,8 +649,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					local function hit(index: number): any
 						return rowHost(node, index):FindFirstChild("RowHit", true)
 					end
-					hit(2).Activated.fire()
-					hit(4).Activated.fire()
+					hit(2).Activated:Fire()
+					hit(4).Activated:Fire()
 					Verify.expect((selection:peek())):toEqual({ [4] = true })
 					local reversed = table.clone(source:peek())
 					for index = 1, 2 do
@@ -1120,7 +1117,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				assert(focus.focus)(1)
 				Verify.expect(gui.SelectedObject.Text):toBe("1")
 				local function press(name: string)
-					root:FindFirstChild("FacetCollection" .. name):FindFirstChild("Collection" .. name).Pressed.fire()
+					root:FindFirstChild("FacetCollection" .. name):FindFirstChild("Collection" .. name).Pressed:Fire()
 				end
 				press("Down")
 				Verify.expect((assert(focus.current):peek())):toBe(2)
@@ -1208,15 +1205,15 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					assert(focus.focus)(1)
 					Verify.expect(node.CanvasPosition.Y):toBe(0)
 					local detector = rowHost(node, 1):FindFirstChildWhichIsA("UIDragDetector", true)
-					detector.DragStart.fire(engine.types.Vector2.new(10, 10))
-					detector.DragContinue.fire(engine.types.Vector2.new(10, 3 * 62 + 56 + 3))
+					detector.DragStart:Fire(engine.types.Vector2.new(10, 10))
+					detector.DragContinue:Fire(engine.types.Vector2.new(10, 3 * 62 + 56 + 3))
 					Verify.expect(node:FindFirstChild("DropLine", true).Position.Y.Offset):toBe(4 * 62)
-					detector.DragContinue.fire(engine.types.Vector2.new(10, 5 * 62 + 20))
+					detector.DragContinue:Fire(engine.types.Vector2.new(10, 5 * 62 + 20))
 					Verify.expect(node:FindFirstChild("DropLine", true).Position.Y.Offset):toBe(5 * 62)
-					detector.DragContinue.fire(engine.types.Vector2.new(10, 5 * 62 + 40))
+					detector.DragContinue:Fire(engine.types.Vector2.new(10, 5 * 62 + 40))
 					Verify.expect(node:FindFirstChild("DropLine", true).Position.Y.Offset):toBe(6 * 62)
-					detector.DragContinue.fire(engine.types.Vector2.new(10, 3 * 62 + 56 + 3))
-					detector.DragEnd.fire()
+					detector.DragContinue:Fire(engine.types.Vector2.new(10, 3 * 62 + 56 + 3))
+					detector.DragEnd:Fire()
 					Verify.expect(requests):toEqual({ { keys = { 1 }, slot = 3 } })
 					stop()
 					local state = status()
@@ -1420,12 +1417,12 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					node.CanvasPosition = engine.types.Vector2.zero
 					local content = rowHost(node, 1):FindFirstChild("Content")
 					local opening = shape(content)
-					content:FindFirstChild("Open", true).Activated.fire()
+					content:FindFirstChild("Open", true).Activated:Fire()
 					Verify.expect(shape(content) ~= opening):toBe(true)
 					Verify.expect(loads - cancels):toBe(state:peek().retained)
 					node.CanvasPosition = engine.types.Vector2.new(0, 2000)
 					Verify.expect((rowHost(node, 1))):toBeNil()
-					Verify.expect((content.isDestroyed())):toBe(true)
+					Verify.expect((content:isDestroyed())):toBe(true)
 					Verify.expect(cancels >= 10):toBe(true)
 					local late = delta(function()
 						resolvers[1]("rbxassetid://late")
@@ -1671,7 +1668,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					runtime:dispose()
 					local built, node, close, galleryEngine = gallery("container_grid")
 					local sidebar = find(node, "Sidebar")
-					find(node, "GuidesToggle").Activated.fire()
+					find(node, "GuidesToggle").Activated:Fire()
 					for _, case in
 						{ { 320, 3, 1 }, { 599, 3, 1 }, { 600, 6, 2 }, { 959, 6, 2 }, { 960, 12, 3 }, { 1280, 12, 3 } }
 					do
@@ -1690,15 +1687,15 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						Verify.expect(find(sidebar, "Heading").Text)
 							:toBe(string.format("Sidebar · %d px · %d columns", case[1], case[2]))
 					end
-					find(node, "GuidesToggle").Activated.fire()
+					find(node, "GuidesToggle").Activated:Fire()
 					for index = 1, 12 do
 						Verify.expect(find(sidebar, "Lane" .. index).Visible):toBe(false)
 					end
 					local media = find(sidebar, "Media")
-					find(node, "Replays").Activated.fire()
+					find(node, "Replays").Activated:Fire()
 					Verify.expect(media.Visible):toBe(false)
 					Verify.expect(find(sidebar, "Standings").Visible):toBe(true)
-					find(node, "Replays").Activated.fire()
+					find(node, "Replays").Activated:Fire()
 					Verify.expect((find(sidebar, "Media"))):toBe(media)
 					Verify.expect(media.Visible):toBe(true)
 					close()
@@ -1777,7 +1774,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end
 					for host in fresh.hosts do
 						freshHosts += 1
-						Verify.expect(host.Parent == nil and not host.isDestroyed()):toBe(false)
+						Verify.expect(host.Parent == nil and not host:isDestroyed()):toBe(false)
 					end
 					Verify.expect(pooledHosts < freshHosts):toBe(true)
 					for step = 1, 200 do
@@ -1786,14 +1783,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end
 					local parked = 0
 					for host in pooled.hosts do
-						if host.Parent == nil and not host.isDestroyed() then
+						if host.Parent == nil and not host:isDestroyed() then
 							parked += 1
 						end
 					end
 					Verify.expect(parked <= 32):toBe(true)
 					local live = 0
 					for host in pooled.hosts do
-						if not host.isDestroyed() then
+						if not host:isDestroyed() then
 							live += 1
 						end
 					end
@@ -2097,13 +2094,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					roster:set({ roster:peek()[1], { id = "a", name = "Alice Quill", resource = replacement } })
 					Verify.expect(replaced):toBe(1)
 					Verify.expect(released):toBe(1)
-					Verify.expect((faceA.isDestroyed())):toBe(true)
+					Verify.expect((faceA:isDestroyed())):toBe(true)
 					Verify.expect((group:FindFirstChild("b"))):toBe(faceB)
 					local faceNew = group:FindFirstChild("a")
 					Verify.expect(faceNew ~= faceA):toBe(true)
 					Verify.expect(faceNew:FindFirstChild("Image", true).Image):toBe("rbxassetid://9")
 					roster:set({ roster:peek()[1] })
-					Verify.expect((faceNew.isDestroyed())):toBe(true)
+					Verify.expect((faceNew:isDestroyed())):toBe(true)
 					stop()
 					Verify.expect(released):toBe(acquired)
 					runtime:dispose()

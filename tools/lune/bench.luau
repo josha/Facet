@@ -4,7 +4,12 @@ local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 local process = require("@lune/process")
 local artifact = require("./artifact")
+local Benchmark = require("../vendor/verify/src/benchmark")
 local Verify = require("../vendor/verify/src/core")
+
+if not process.exec("python3", { "tools/sync_compose.py", "--check" }, { stdio = "inherit" }).ok then
+	process.exit(1)
+end
 
 local scenarios = require("../../bench/scenarios")
 
@@ -16,6 +21,8 @@ local REGRESSION_FACTOR = 1.5
 local REGRESSION_FLOOR_MS = 0.05
 
 local YARDSTICK = "zz-yardstick-cpu"
+
+local UNGATED = 1e12
 
 if #scenarios == 0 then
 	print("bench: FAIL - no scenarios registered in bench/scenarios.luau (hint: land the core bake-off scenarios)")
@@ -33,60 +40,6 @@ local results = {}
 local failed = false
 local errored = false
 
-local function measure(scenario: any): any?
-	local entry: any = nil
-	local ok, err = pcall(function()
-		local sampleCount: number = scenario.samples or SAMPLES
-		local warmupCount: number = scenario.warmup or WARMUP
-		local state = scenario.setup()
-		for _ = 1, warmupCount do
-			scenario.run(state)
-		end
-		local samples = table.create(sampleCount, 0)
-
-		local CHECKPOINTS = 10
-		local every = math.max(1, sampleCount // CHECKPOINTS)
-		local heapFirst = gcinfo()
-		local heapLast, heapMin, heapMax = heapFirst, heapFirst, heapFirst
-		for i = 1, sampleCount do
-			local t0 = os.clock()
-			scenario.run(state)
-			samples[i] = (os.clock() - t0) * 1000
-			if i % every == 0 then
-				heapLast = gcinfo()
-				heapMin = math.min(heapMin, heapLast)
-				heapMax = math.max(heapMax, heapLast)
-			end
-		end
-		if scenario.teardown then
-			scenario.teardown(state)
-		end
-		local summary = Verify.performance.summarize({
-			samples = samples,
-			unit = "ms",
-			context = { environment = "facet-lune", signal = scenario.name, timing = "observed" },
-		})
-		entry = {
-			name = scenario.name,
-			requirement = scenario.requirement,
-			samples = sampleCount,
-			warmup = warmupCount,
-			p50_ms = assert(summary.p50),
-			p95_ms = assert(summary.p95),
-			p99_ms = assert(summary.p99),
-			heapNetKb = heapLast - heapFirst,
-			heapSwingKb = heapMax - heapMin,
-			regression = false,
-		}
-	end)
-	if not ok then
-		print(`  {scenario.name}: ERROR {err}`)
-		errored = true
-		return nil
-	end
-	return entry
-end
-
 local yardstickScenario: any = nil
 local subjects = {}
 for _, s in scenarios do
@@ -101,64 +54,159 @@ if yardstickScenario == nil then
 	process.exit(1)
 end
 
-local yardBefore = measure(yardstickScenario)
-for _, scenario in subjects do
-	local entry = measure(scenario)
-	if entry ~= nil then
-		table.insert(results, entry)
-	end
-end
-local yardAfter = measure(yardstickScenario)
-
-if yardBefore == nil or yardAfter == nil then
-	print("bench: FAIL - the yardstick did not measure; every ratio would be meaningless")
-	process.exit(1)
-end
-local yardstickP95 = (yardBefore.p95_ms + yardAfter.p95_ms) / 2
-if not (yardstickP95 > 0) then
-	print("bench: FAIL - the yardstick measured zero; refusing to divide by it")
-	process.exit(1)
-end
-
-local yardstickDriftPct = math.abs(yardAfter.p95_ms - yardBefore.p95_ms) / yardstickP95 * 100
-
 local baselineHasNorm = false
+local baselineRows: { [string]: any } = {}
 if baseline ~= nil then
 	for _, b in baseline.results or {} do
+		baselineRows[b.name] = b
 		if b.p95_norm ~= nil then
 			baselineHasNorm = true
-			break
 		end
 	end
 end
 
-for _, entry in results do
-	entry.p95_norm = entry.p95_ms / yardstickP95
-	entry.p50_norm = entry.p50_ms / yardstickP95
-	if baseline ~= nil then
-		for _, b in baseline.results or {} do
-			if b.name == entry.name then
+local function member(scenario: any): Benchmark.Spec
+	local sampleCount: number = scenario.samples or SAMPLES
+	local warmupCount: number = scenario.warmup or WARMUP
+	local every = math.max(1, sampleCount // 10)
+	local state: any = nil
+	local taken = 0
+	local heapFirst, heapLast, heapMin, heapMax = 0, 0, 0, 0
+	return {
+		name = scenario.name,
+		unit = "milliseconds",
+		warmup = warmupCount,
+		samples = sampleCount,
+		environment = { observed = "facet-lune" },
+		setup = function()
+			state = scenario.setup()
+		end,
+		workload = function()
+			scenario.run(state)
+		end,
+		beforeSample = function()
+			if taken == 0 then
+				heapFirst = gcinfo()
+				heapLast, heapMin, heapMax = heapFirst, heapFirst, heapFirst
+			end
+		end,
+		afterSample = function()
+			taken += 1
+			if taken % every == 0 then
+				heapLast = gcinfo()
+				heapMin = math.min(heapMin, heapLast)
+				heapMax = math.max(heapMax, heapLast)
+			end
+		end,
+		teardown = function()
+			if scenario.teardown then
+				scenario.teardown(state)
+			end
+		end,
+		judge = function(view: Benchmark.Judgment): string?
+			local yardstickP95 = (assert(view.yardstickBeforeSummary.p95) + assert(view.yardstickAfterSummary.p95)) / 2
+			local entry: any = {
+				name = scenario.name,
+				requirement = scenario.requirement,
+				samples = sampleCount,
+				warmup = warmupCount,
+				p50_ms = assert(view.summary.p50),
+				p95_ms = assert(view.summary.p95),
+				p99_ms = assert(view.summary.p99),
+				heapNetKb = heapLast - heapFirst,
+				heapSwingKb = heapMax - heapMin,
+				regression = false,
+			}
+			table.insert(results, entry)
+			if not (yardstickP95 > 0) then
+				return nil
+			end
+			entry.p95_norm = entry.p95_ms / yardstickP95
+			entry.p50_norm = entry.p50_ms / yardstickP95
+			local b = baselineRows[entry.name]
+			if b ~= nil then
 				local aboveFloor = entry.p95_ms > REGRESSION_FLOOR_MS or b.p95_ms > REGRESSION_FLOOR_MS
 				if baselineHasNorm and b.p95_norm ~= nil then
 					entry.baseline_p95_norm = b.p95_norm
-
-					if b.gateChannel == "p50_norm" and b.p50_norm ~= nil and entry.p50_norm ~= nil then
+					if b.gateChannel == "p50_norm" and b.p50_norm ~= nil then
 						entry.gateChannel = "p50_norm"
 						entry.ratio = entry.p50_norm / b.p50_norm
 					else
 						entry.ratio = entry.p95_norm / b.p95_norm
 					end
-					if entry.ratio > REGRESSION_FACTOR and aboveFloor then
-						entry.regression = true
-						failed = true
-					end
-				elseif entry.p95_ms > b.p95_ms * REGRESSION_FACTOR and aboveFloor then
-					entry.regression = true
-					failed = true
+					entry.regression = entry.ratio > REGRESSION_FACTOR and aboveFloor
+				else
+					entry.regression = entry.p95_ms > b.p95_ms * REGRESSION_FACTOR and aboveFloor
 				end
 			end
-		end
+			return if entry.regression then "host timing comparison exceeded the baseline" else nil
+		end,
+	}
+end
+
+local members = {}
+for _, scenario in subjects do
+	table.insert(members, member(scenario))
+end
+local yardstickState = yardstickScenario.setup()
+for _ = 1, yardstickScenario.warmup or WARMUP do
+	yardstickScenario.run(yardstickState)
+end
+local collected = Benchmark.collect({
+	name = "facet-bench",
+	benchmarks = members,
+	yardstick = {
+		run = function()
+			yardstickScenario.run(yardstickState)
+		end,
+		samples = yardstickScenario.samples or SAMPLES,
+		maxSpread = UNGATED,
+		maxDrift = UNGATED,
+	},
+})
+if yardstickScenario.teardown then
+	yardstickScenario.teardown(yardstickState)
+end
+if collected.failure ~= nil then
+	print(`bench: FAIL - the yardstick did not measure; every ratio would be meaningless ({collected.failure})`)
+	process.exit(1)
+end
+
+local function yardstickEntry(samples: { number }, suffix: string): any
+	local summary = Verify.performance.summarize({
+		samples = samples,
+		unit = "ms",
+		context = { environment = "facet-lune", signal = YARDSTICK, timing = "observed" },
+	})
+	return {
+		name = `{YARDSTICK}-{suffix}`,
+		requirement = yardstickScenario.requirement,
+		samples = #samples,
+		warmup = yardstickScenario.warmup or WARMUP,
+		p50_ms = assert(summary.p50),
+		p95_ms = assert(summary.p95),
+		p99_ms = assert(summary.p99),
+		regression = false,
+	}
+end
+local yardBefore = yardstickEntry(collected.yardstickBefore, "before")
+local yardAfter = yardstickEntry(collected.yardstickAfter, "after")
+local yardstickP95 = (yardBefore.p95_ms + yardAfter.p95_ms) / 2
+if not (yardstickP95 > 0) then
+	print("bench: FAIL - the yardstick measured zero; refusing to divide by it")
+	process.exit(1)
+end
+local yardstickDriftPct = math.abs(yardAfter.p95_ms - yardBefore.p95_ms) / yardstickP95 * 100
+
+for _, result in collected.results do
+	if result.failure ~= nil then
+		print(`  {result.name}: ERROR {result.failure}`)
+		errored = true
+	elseif result.judgment ~= nil then
+		failed = true
 	end
+end
+for _, entry in results do
 	print(
 		`  {entry.name}: p50={string.format("%.4f", entry.p50_ms)}ms p95={string.format("%.4f", entry.p95_ms)}ms`
 			.. ` norm={string.format("%.3f", entry.p95_norm)}`
@@ -181,10 +229,8 @@ if phaseDominated > 0 then
 	print("        collector phase — not retention. Compare nets across runs; never read one sign.")
 end
 
-assert(yardBefore).p95_norm = yardBefore.p95_ms / yardstickP95
-assert(yardAfter).p95_norm = yardAfter.p95_ms / yardstickP95
-assert(yardBefore).name = `{YARDSTICK}-before`
-assert(yardAfter).name = `{YARDSTICK}-after`
+yardBefore.p95_norm = yardBefore.p95_ms / yardstickP95
+yardAfter.p95_norm = yardAfter.p95_ms / yardstickP95
 table.insert(results, yardBefore)
 table.insert(results, yardAfter)
 print(

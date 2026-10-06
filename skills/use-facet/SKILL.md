@@ -133,12 +133,12 @@ See [custom themes](../../docs/guide/09-custom-themes.md),
 ## Verification
 
 1. While you edit, run the targeted behavioral specs.
-2. Before you propose changes, run `tools/verify.sh full`. Use a checkout with
+2. Before you propose changes, run `lune run tools/lune/verify full`. Use a checkout with
    history for the coverage audit. A passing `full` run is not equivalent to
    the historical coverage on main. See the
    [verification scope](../../docs/guide/18-verification-scope.md).
 3. After runtime changes, rebuild and examine the distributable with
-   `tools/package.sh build` and `tools/package.sh status`. Package publication
+   `python3 tools/package.py build` and `python3 tools/package.py status`. Package publication
    is a separate maintainer task.
 
 In Studio, exercise changed screens at compact and wide sizes with the

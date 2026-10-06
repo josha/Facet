@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
@@ -12,16 +12,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	local function mount(width: number?, height: number?)
 		local engine = engineLib.new()
 		local create = engine.new
+		engine.onWrite(function(instance, property, value)
+			if property == "Text" then
+				assert(type(value) == "string", instance.ClassName .. ".Text requires a string")
+			end
+		end)
 		engine.new = function(className)
 			local node = create(className)
-			local metatable = getmetatable(node)
-			local assign = metatable.__newindex
-			metatable.__newindex = function(instance, property, value)
-				if property == "Text" then
-					assert(type(value) == "string", className .. ".Text requires a string")
-				end
-				assign(instance, property, value)
-			end
 			return node
 		end
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
@@ -87,7 +84,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				built.steps.notify()
 				Verify.expect(notice.Visible):toBe(true)
 				Verify.expect(button.Text):toBe("Supplies delivered")
-				button.Activated.fire()
+				button.Activated:Fire()
 				Verify.expect(notice.Visible):toBe(false)
 				Verify.expect(button.Text):toBe("")
 				stop()
@@ -126,9 +123,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				for index, fraction in { 0.2, 0.4, 0.6 } do
 					Verify.expect(find(find(root, "Task" .. index), "Fill1").Size.X.Scale):toBeCloseTo(fraction, 1e-4)
 				end
-				find(root, "Weapon2").Activated.fire()
+				find(root, "Weapon2").Activated:Fire()
 				Verify.expect((built.model.selectedWeapon:peek())):toBe(2)
-				find(root, "Shop").Activated.fire()
+				find(root, "Shop").Activated:Fire()
 				Verify.expect(built.report().notice):toBe("Shop opened")
 				stop()
 			end,
@@ -173,7 +170,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						built.steps.closeUrlBar()
 						measure(root, engine, box)
 						Verify.expect(built.report().forms):toEqual(expected)
-						sink(root).Activated.fire()
+						sink(root).Activated:Fire()
 						Verify.expect(built.report().overflowOpen):toBe(true)
 						built.steps.closeOverflow()
 					end
@@ -189,7 +186,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local built, root, stop, _, engine = mount()
 				measure(root, engine, TINY)
 				Verify.expect(#built.report().unshown > 3):toBe(true)
-				sink(root).Activated.fire()
+				sink(root).Activated:Fire()
 				local body = find(root.Parent, "OverflowBody")
 				Verify.expect(body.ClassName):toBe("ScrollingFrame")
 				for _, id in built.report().unshown do
@@ -200,7 +197,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 				built.steps.advanceTask(2, 0.8)
 				Verify.expect(find(find(body, "Task2"), "Fill1").Size.X.Scale):toBeCloseTo(0.8, 1e-4)
-				find(body, "Weapon3").Activated.fire()
+				find(body, "Weapon3").Activated:Fire()
 				Verify.expect((built.model.selectedWeapon:peek())):toBe(3)
 				measure(root, engine, { 1040, 640 })
 				Verify.expect(#built.report().unshown):toBe(0)
@@ -218,7 +215,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				measure(root, engine, PORTRAIT)
 				Verify.expect(built.report().forms.Tasks ~= "full" and built.report().forms.Tasks ~= "hidden")
 					:toBe(true)
-				find(find(root, "Tasks"), "Expand").Activated.fire()
+				find(find(root, "Tasks"), "Expand").Activated:Fire()
 				Verify.expect(built.report().overflowOpen):toBe(false)
 				local modal = find(root.Parent, "ExpandModal")
 				Verify.expect((modal:GetAttribute("FacetRoute"))):toBe("popover")
@@ -243,7 +240,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local zones = find(root, "Zones")
 				local signal = zones:GetPropertyChangedSignal("AbsoluteSize")
 				stop()
-				Verify.expect((signal.count())):toBe(0)
+				Verify.expect((engineLib.connections(signal))):toBe(0)
 			end,
 		})
 	end)

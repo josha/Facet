@@ -16,7 +16,7 @@ Open the checked-in [Facet Farm place](../places/Facet-Farm.rbxl) in Studio.
 Rebuild it with the other examples from the repository root:
 
 ```sh
-tools/build_places.sh
+lune run tools/lune/build places
 ```
 
 To build only this example, run

@@ -4,6 +4,8 @@ local CaseEntry = require "@self/case-entry"
 local EnvironmentEngineAdapter = require "@self/environment-engine"
 local Reflection = require "@self/reflection"
 local UiFakes = require "@self/ui-fakes"
+local FixtureBridge = require "@self/fixture-bridge"
+local ReflectionSnapshot = require "@self/reflection-snapshot"
 local Multiplayer = require "@self/multiplayer"
 local InputHost = require "@self/input-host"
 local PlayerHost = require "@self/player-host"
@@ -16,12 +18,10 @@ local ExperienceHost = require "@self/experience-host"
 
 local Datatypes = require "@self/datatypes"
 local Environment = require "@self/environment"
-local CheckpointPlan = require "@self/checkpoint-plan"
 local ObservationSink = require "@self/observation-sink"
 local PlaceBoot = require "@self/place-boot"
 local Scheduler = require "@self/scheduler"
-local ScenarioStepJournal = require "@self/scenario-step-journal"
-local WitnessHost = require "@self/witness-host"
+local ConsolePatterns = require "@self/console-patterns"
 
 export type CaseEntry = CaseEntry.Entry
 export type CaseEntryFactory = CaseEntry.Factory
@@ -52,7 +52,24 @@ export type EnvironmentEngineLibrary<
 > = EnvironmentEngineAdapter.Library<V2, V3, C3, U1, U2, CF>
 export type ReflectionOptions = Reflection.Options
 export type ReflectionDatabase = Reflection.Database
+export type ReflectionClass = Reflection.Class
 export type UiFakeOptions = UiFakes.Options
+export type FixtureBridgeOptions<
+	V2 = EnvironmentEngineVector2,
+	V3 = EnvironmentEngineVector3,
+	C3 = EnvironmentEngineColor3,
+	U1 = EnvironmentEngineUDim,
+	U2 = EnvironmentEngineUDim2,
+	CF = EnvironmentEngineCFrame
+> = FixtureBridge.Options<V2, V3, C3, U1, U2, CF>
+export type FixtureBridge = FixtureBridge.Bridge
+export type ReflectionSnapshot = ReflectionSnapshot.Snapshot
+export type ReflectionSnapshotClass = ReflectionSnapshot.ClassEntry
+export type ReflectionSnapshotOptions = ReflectionSnapshot.Options
+export type FixtureAccounting = FixtureBridge.Accounting
+export type FixtureFaults = FixtureBridge.Faults
+export type EnvironmentEvent = Environment.Event
+export type EnvironmentCloneHook = Environment.CloneHook
 export type UiFakeController = UiFakes.Controller
 export type ExperienceEngine = ExperienceHost.Engine
 export type ExperienceRegistry = ExperienceHost.Registry
@@ -86,26 +103,6 @@ export type DatatypeEnum = Datatypes.EnumValue
 export type VirtualScheduler = Scheduler.Scheduler
 export type VirtualTask<A... = ...unknown, R... = ...unknown> = Scheduler.Task<A..., R...>
 export type VirtualCallback<A... = ...unknown, R... = ...unknown> = Scheduler.Callback<A..., R...>
-export type Window = WitnessHost.Window
-export type WindowList = WitnessHost.WindowList
-export type WindowSelection = WitnessHost.Selection
-export type ViewportTarget = WitnessHost.ViewportTarget
-export type ViewportRect = WitnessHost.ViewportRect
-export type CropOutcome = WitnessHost.CropOutcome
-export type CaptureFrame = WitnessHost.Frame
-export type CaptureDeps = WitnessHost.CaptureDeps
-export type CaptureReasons = WitnessHost.CaptureReasons
-export type CaptureLimits = WitnessHost.CaptureLimits
-export type CaptureOptions = WitnessHost.CaptureOptions
-export type ChangeDeps = WitnessHost.ChangeDeps
-export type ChangeReasons = WitnessHost.ChangeReasons
-export type CheckpointRow = CheckpointPlan.Row
-export type CheckpointOrdered<R = CheckpointRow> = CheckpointPlan.Ordered<R>
-export type CheckpointFrame = WitnessHost.CheckpointFrame
-export type CheckpointFramesOptions = WitnessHost.CheckpointFramesOptions
-export type WitnessReceipt = WitnessHost.Receipt
-export type WitnessOutcome = WitnessHost.Outcome
-export type RecordReceiptOptions = WitnessHost.RecordOptions
 export type PlaceBootStage = PlaceBoot.Stage
 export type PlaceBootView = PlaceBoot.View
 export type PlaceBootObserver = PlaceBoot.Observer
@@ -118,7 +115,6 @@ export type PlaceBootCache<B = unknown, C = () -> unknown> = PlaceBoot.Cache<B, 
 export type PlaceBootMounted = PlaceBoot.Mounted
 export type PlaceBootOpaque = PlaceBoot.Opaque
 export type PlaceBootTreeDeps<B = unknown> = PlaceBoot.TreeDeps<B>
-export type CheckReceiptOptions = WitnessHost.CheckReceiptOptions
 export type ObservationNode = ObservationSink.Node
 type ObservationOwner = ObservationSink.Owner
 export type ObservationTransport = ObservationSink.Transport
@@ -139,6 +135,8 @@ return {
 	environmentEngine = EnvironmentEngineAdapter.create,
 	reflection = Reflection,
 	uiFakes = UiFakes,
+	fixtureBridge = FixtureBridge.create,
+	reflectionSnapshot = ReflectionSnapshot,
 	multiplayer = Multiplayer,
 	inputHost = InputHost,
 	reportChannel = ReportChannel,
@@ -153,24 +151,7 @@ return {
 	datatypes = Datatypes,
 	isInstance = Environment.isInstance,
 	typeName = Environment.typeName,
-	witnessHost = WitnessHost,
-	DEFAULT_CAPTURE_LIMITS = WitnessHost.DEFAULT_CAPTURE_LIMITS,
-	DEFAULT_CAPTURE_REASONS = WitnessHost.DEFAULT_CAPTURE_REASONS,
-	DEFAULT_CHANGE_REASONS = WitnessHost.DEFAULT_CHANGE_REASONS,
-	DEFAULT_WHOLE_WINDOW_TOLERANCE = WitnessHost.DEFAULT_WHOLE_WINDOW_TOLERANCE,
-	parseWindowRows = WitnessHost.parseWindowRows,
-	selectWindow = WitnessHost.selectWindow,
-	pngSize = WitnessHost.pngSize,
-	parsePid = WitnessHost.parsePid,
-	documentWindowSize = WitnessHost.documentWindowSize,
-	captureFrame = WitnessHost.captureFrame,
-	changedPathArgs = WitnessHost.changedPathArgs,
-	acceptsChange = WitnessHost.acceptsChange,
-	looksLikeWholeWindow = WitnessHost.looksLikeWholeWindow,
-	checkpointFrames = WitnessHost.checkpointFrames,
-	recordReceipt = WitnessHost.recordReceipt,
-	decodeReceipt = WitnessHost.decodeReceipt,
-	checkReceipt = WitnessHost.checkReceipt,
+	consolePatterns = ConsolePatterns,
 	placeBoot = PlaceBoot,
 	bootPlace = PlaceBoot.run,
 	buildPlaceTree = PlaceBoot.buildTree,
@@ -181,8 +162,6 @@ return {
 	PLACE_COMMIT_TOKEN = PlaceBoot.COMMIT_TOKEN,
 	PLACE_FRAME_SECONDS = PlaceBoot.FRAME_SECONDS,
 	PLACE_BOOT_STAGES = PlaceBoot.STAGES,
-	checkpointPlan = CheckpointPlan,
-	scenarioStepJournal = ScenarioStepJournal,
 	observationSink = ObservationSink,
 	OBSERVATION_ENCODED_TAG_SUFFIX = ObservationSink.ENCODED_TAG_SUFFIX,
 	DEFAULT_OBSERVATION_REPORT_LIMITS = ObservationSink.DEFAULT_REPORT_LIMITS,

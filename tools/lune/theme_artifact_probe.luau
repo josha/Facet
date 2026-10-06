@@ -71,7 +71,7 @@ local function inspect(entry: any)
 		)
 		stop()
 		check(
-			button.isDestroyed() and sheet.isDestroyed(),
+			button:isDestroyed() and sheet:isDestroyed(),
 			name .. "/" .. palette .. ": Compose nodes survived unmount"
 		)
 		runtime:dispose()

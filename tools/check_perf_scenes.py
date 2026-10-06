@@ -103,7 +103,7 @@ THEMES = {
 
 
 def _absent(path):
-    print(f"check_perf_scenes: FAIL - {path} is missing; run tools/perf.sh first")
+    print(f"check_perf_scenes: FAIL - {path} is missing; run lune run tools/lune/perf first")
     return 1
 
 

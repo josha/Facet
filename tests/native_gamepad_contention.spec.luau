@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src") :: any
 	verifyHarness:suite("gamepad_contention (client module, headless structural spec)", function()
 		verifyHarness:case("requires cleanly under Lune — no engine global touched at module scope", {

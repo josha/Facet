@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local g = require("../src/ui/nav_radial_geometry")
 	local expect = Verify.expect
 	verifyHarness:suite("radial geometry", function()

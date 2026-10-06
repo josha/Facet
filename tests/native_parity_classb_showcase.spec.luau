@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -155,7 +155,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local down = action(world.screen, "CollectionDown")
 				Verify.expect(down ~= nil):toBe(true)
 				for _ = 1, 10 do
-					down.Pressed.fire()
+					down.Pressed:Fire()
 					local key = rowOf(world.gui.SelectedObject)
 					table.insert(visited, key or "nil")
 				end
@@ -174,9 +174,9 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local nodes = mounted(list)
 				local refused = find(nodes["row-03"], "RowHit")
 				Verify.expect(refused.Interactable):toBe(false)
-				refused.Activated.fire(nil)
+				refused.Activated:Fire(nil)
 				Verify.expect(#activated):toBe(0)
-				find(nodes["row-04"], "RowHit").Activated.fire(nil)
+				find(nodes["row-04"], "RowHit").Activated:Fire(nil)
 				Verify.expect(activated):toEqual({ "row-04" })
 				world.stop()
 			end,

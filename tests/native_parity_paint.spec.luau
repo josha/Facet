@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -868,7 +868,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect((hasRule(sheet, ".facet-badge::UIGradient"))):toBe(false)
 				local node = ruleNode(sheet, ".facet-panel::UIGradient")
 				palette:set("Light")
-				Verify.expect((node.isDestroyed())):toBe(true)
+				Verify.expect((node:isDestroyed())):toBe(true)
 				Verify.expect((hasRule(sheet, ".facet-panel::UIGradient"))):toBe(false)
 				Verify.expect((hasRule(sheet, ".facet-control::UIGradient"))):toBe(false)
 				palette:set("Dark")
@@ -1139,16 +1139,13 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local package = themes.neutralPackage()
 				local h = harness({ theme = package })
 				local original = h.engine.new
+				h.engine.onWrite(function(self, key, value)
+					if self.ClassName == "ImageLabel" then
+						table.insert(writes, key)
+					end
+				end)
 				h.engine.new = function(className: string)
 					local node = original(className)
-					if className == "ImageLabel" then
-						local meta = getmetatable(node)
-						local assign = meta.__newindex
-						meta.__newindex = function(self, key, value)
-							table.insert(writes, key)
-							assign(self, key, value)
-						end
-					end
 					return node
 				end
 				local root, stop = mount(h, function()
@@ -1395,7 +1392,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 					Verify.expect((hovering())):toBe(false)
 					pressed = {}
-					input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement })
+					input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement })
 					Verify.expect((hovering())):toBe(true)
 					input.PreferredInput = E.PreferredInput.Touch
 					Verify.expect((hovering())):toBe(false)
@@ -1403,7 +1400,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 					Verify.expect((hovering())):toBe(false)
 					pressed = { { KeyCode = E.KeyCode.LeftShift }, { KeyCode = E.KeyCode.C } }
-					input.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.C })
+					input.InputBegan:Fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.C })
 					Verify.expect((hovering())):toBe(true)
 					stop()
 					h.dispose()
@@ -1435,7 +1432,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local sheet, stop = sheetFor(h, themes.neutralPackage())
 				environment.game = nil
 				pressed = {}
-				input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement })
+				input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement })
 				Verify.expect((hasRule(sheet, ".facet-button:Hover"))):toBe(true)
 				stop()
 				h.dispose()

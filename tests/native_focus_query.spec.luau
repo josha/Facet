@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -427,10 +427,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local w = world(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({ UI.Button("A")({ label = "A" }) :: unknown, UI.Button("B")({ label = "B" }) })
 				end)
-				local before = w.engine.heartbeat.count()
+				local before = engineLib.connections(w.engine.heartbeat)
 				w.gui.SelectedObject = w.place("A", 0, 0, 100, 44)
 				w.UI.focusQuery()
-				Verify.expect((w.engine.heartbeat.count())):toBe(before)
+				Verify.expect((engineLib.connections(w.engine.heartbeat))):toBe(before)
 				w.stop()
 			end,
 		})

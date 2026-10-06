@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
@@ -61,7 +61,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					built.model.section:set(id)
 				end
 				stop()
-				Verify.expect((root.isDestroyed())):toBe(true)
+				Verify.expect((root:isDestroyed())):toBe(true)
 			end,
 		})
 		verifyHarness:case("keeps Cartwheel brew commands, rejected purchase retry and guild validation", {

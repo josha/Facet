@@ -7,19 +7,19 @@ from `src/init.luau`, the commit from `git rev-parse HEAD`, the source hash from
 the `src/**/*.luau` tree itself. Nothing here invents a number, and nothing here
 trusts a number a human typed without checking it against the repository first.
 
-WHAT THIS FILE IS. `tools/package.sh` is a three-line wrapper; this is the
+WHAT THIS FILE IS. `python3 tools/package.py` is a three-line wrapper; this is the
 program. It has no dependencies outside the Python standard library, and its
 network layer is `urllib` behind ONE function (`_api`) so a fake transport is
 total — a test can drive create/publish end to end and no packet leaves the
 machine.
 
-    tools/package.sh build      # rebuild build/Facet.rbxm + build/Facet.manifest.json
-    tools/package.sh status     # this tree vs the last receipt: drift, dirt, semver
-    tools/package.sh verify     # build + tree inspection + purity + packaged canary
-    tools/package.sh create     # mint the asset (DRY RUN unless --confirm)
-    tools/package.sh publish    # push a revision (DRY RUN unless --confirm)
-    tools/package.sh rollback   # print both rollback procedures; never uploads
-    tools/package.sh stamp      # record a human's Studio verification on a receipt
+    python3 tools/package.py build      # rebuild build/Facet.rbxm + build/Facet.manifest.json
+    python3 tools/package.py status     # this tree vs the last receipt: drift, dirt, semver
+    python3 tools/package.py verify     # build + tree inspection + purity + packaged canary
+    python3 tools/package.py create     # mint the asset (DRY RUN unless --confirm)
+    python3 tools/package.py publish    # push a revision (DRY RUN unless --confirm)
+    python3 tools/package.py rollback   # print both rollback procedures; never uploads
+    python3 tools/package.py stamp      # record a human's Studio verification on a receipt
 
 `build`, `status` and `verify` are offline and are the default working commands.
 `create` and `publish` print exactly what they WOULD send and every guard's
@@ -98,13 +98,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SRC = os.path.join(REPO, "src")
 BUILD = os.path.join(REPO, "build")
-BUILD_MODEL = os.path.join(HERE, "build_model.sh")
+BUILD_MODEL = ["lune", "run", os.path.join(HERE, "lune", "build"), "model"]
 PURITY = os.path.join(HERE, "check_library_purity.py")
 CANARY = "tools/lune/package_canary.luau"
 
 DEFAULT_CONFIG = os.path.join(REPO, "package", "facet-package.json")
 DEFAULT_RECEIPTS = os.path.join(REPO, "package", "receipts")
-GATE_EVIDENCE = os.path.join(REPO, "artifacts", "verify", "latest-release.json")
+GATE_EVIDENCE = os.path.join(REPO, "artifacts", "verify", "native", "gate", "latest.json")
 
 DEFAULT_MODEL = os.path.join(BUILD, "Facet.rbxm")
 DEFAULT_XML = os.path.join(BUILD, "Facet.rbxmx")
@@ -118,7 +118,8 @@ ASSET_TYPE = "Model"
 BUILD_SCHEMA = "facet-package/1"
 MANIFEST_SCHEMA = "facet-package-manifest/1"
 RECEIPT_SCHEMA = "facet-package-receipt/1"
-GATE_SCHEMA = "facet-release-gate/1"
+GATE_SCHEMA = "verify-gate/1"
+GATE_ID = "facet"
 
 
 
@@ -388,7 +389,7 @@ def load_manifest(path=DEFAULT_MANIFEST):
 
 def build_model(output=None, publisher=False, quiet=False):
 
-    args = [BUILD_MODEL]
+    args = list(BUILD_MODEL)
     if output:
         args.append(output)
     if publisher:
@@ -531,13 +532,25 @@ def read_gate_evidence(path=None):
         return None
     try:
         with open(path) as handle:
-            document = json.load(handle)
+            outcome = json.load(handle)
     except ValueError:
         return None
-    if not isinstance(document, dict):
+    if not isinstance(outcome, dict):
         return None
-    evidence = document.get("gateEvidence")
-    return evidence if isinstance(evidence, dict) else None
+    acceptance, build = outcome.get("acceptance"), outcome.get("build")
+    if not isinstance(acceptance, dict) or not isinstance(build, dict) or outcome.get("gate") != GATE_ID:
+        return None
+    completed = datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
+    return {
+        "schema": f"verify-gate/{outcome.get('schemaVersion')}",
+        "tier": "release" if acceptance.get("complete") is True else "selected",
+        "status": "PASS" if acceptance.get("releasable") is True else str(acceptance.get("verdict")),
+        "commit": build.get("commit"),
+        "treeDirty": build.get("clean") is not True,
+        "sourceHash": build.get("digest"),
+        "completedAt": completed.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "runId": outcome.get("runId"),
+    }
 
 
 
@@ -595,7 +608,7 @@ def decide(facts):
     if facts.get("manifest_hash") is None:
         refuse(
             "build-drift",
-            "there is no build/Facet.manifest.json to compare against; run `tools/package.sh build` (or `verify`) "
+            "there is no build/Facet.manifest.json to compare against; run `python3 tools/package.py build` (or `verify`) "
             "so there is a recorded build of this tree",
         )
     elif facts.get("fresh_build_hash") != facts.get("manifest_hash"):
@@ -668,7 +681,7 @@ def decide(facts):
         refuse(
             "gate-evidence-missing",
             f"no usable release-gate evidence at {shown(GATE_EVIDENCE)} — the file must exist and carry a "
-            f"`gateEvidence` object; the release tier must run first",
+            f"Verify gate outcome with its build binding; the release tier must run first",
         )
     else:
         mark("gate-evidence-schema", "gate-evidence-tier", "gate-evidence-failed", "gate-evidence-dirty",
@@ -1006,7 +1019,7 @@ def write_receipt(receipts_dir, config, facts, *, operation_path, asset_revision
 
         "gateRun": {
             key: (gate or {}).get(key)
-            for key in ("schema", "tier", "status", "commit", "treeDirty", "sourceHash", "completedAt")
+            for key in ("schema", "tier", "status", "commit", "treeDirty", "sourceHash", "completedAt", "runId")
         },
         "studio_verification": {"status": "pending", "by": None, "date": None, "notes": None},
     }
@@ -1123,7 +1136,7 @@ def cmd_status(args):
 
     gate = read_gate_evidence()
     if gate is None:
-        detail = "absent" if not os.path.isfile(GATE_EVIDENCE) else "present but carries no readable gateEvidence"
+        detail = "absent" if not os.path.isfile(GATE_EVIDENCE) else "present but carries no readable Verify gate outcome"
         print(f"  gate evidence    {detail} ({shown(GATE_EVIDENCE)})")
     else:
         agrees = (
@@ -1222,7 +1235,7 @@ def studio_publisher_steps(config, verb):
         print("     Ownership:   the account named in package/facet-package.json's creator.")
         print("                  Ownership transfers are NOT supported by the asset system — choose once.")
         print("  4. Copy the asset id from the new PackageLink's PackageId.")
-        print("  5. Re-run: tools/package.sh create --confirm --version <v> --commit <sha> --asset-id <id>")
+        print("  5. Re-run: python3 tools/package.py create --confirm --version <v> --commit <sha> --asset-id <id>")
     else:
         print("  3. Right-click it and choose 'Publish to Package'.")
         print("  4. Add a version description naming the version and commit above.")
@@ -1823,19 +1836,11 @@ def _selftest_transport():
 
         gate_path = os.path.join(work, "latest-release.json")
         gate_document = {
-            "schema": "facet-verify-run/1",
-            "tier": "release",
-            "status": "PASS",
-            "completedAt": now_iso(),
-            "gateEvidence": {
-                "schema": GATE_SCHEMA,
-                "tier": "release",
-                "status": "PASS",
-                "commit": commit,
-                "treeDirty": False,
-                "sourceHash": source_hash(),
-                "completedAt": now_iso(),
-            },
+            "schemaVersion": 1,
+            "gate": GATE_ID,
+            "runId": "selftest-run",
+            "build": {"commit": commit, "tree": "t" * 40, "clean": True, "digest": source_hash()},
+            "acceptance": {"verdict": "release", "releasable": True, "complete": True},
         }
         write_atomic(gate_path, json.dumps(gate_document, indent=2))
 
@@ -1844,19 +1849,33 @@ def _selftest_transport():
 
 
         empty_path = os.path.join(work, "no-evidence.json")
-        write_atomic(empty_path, json.dumps({"schema": "facet-verify-run/1", "status": "PASS"}))
+        write_atomic(empty_path, json.dumps({"schemaVersion": 1, "gate": GATE_ID, "acceptance": {"releasable": True}}))
+        foreign_path = os.path.join(work, "foreign.json")
+        write_atomic(foreign_path, json.dumps(dict(gate_document, gate="another-gate")))
+        deferred_path = os.path.join(work, "deferred.json")
+        write_atomic(deferred_path, json.dumps(dict(gate_document, acceptance={"verdict": "deferred", "releasable": False, "complete": True})))
+        selected_path = os.path.join(work, "selected.json")
+        write_atomic(selected_path, json.dumps(dict(gate_document, acceptance={"verdict": "selected", "releasable": False, "complete": False})))
+        dirty_path = os.path.join(work, "dirty.json")
+        write_atomic(dirty_path, json.dumps(dict(gate_document, build=dict(gate_document["build"], clean=False))))
         broken_path = os.path.join(work, "broken.json")
         write_atomic(broken_path, "{ this is not json")
         reader_cases = [
             ("an absent file", os.path.join(work, "nothing-here.json"), None),
-            ("a file with no gateEvidence object", empty_path, None),
+            ("an outcome with no build binding", empty_path, None),
             ("an unreadable file", broken_path, None),
-            ("the coordinator's document", gate_path, gate_document["gateEvidence"]),
+            ("another gate's outcome", foreign_path, None),
+            ("the releasable outcome", gate_path, ("release", "PASS", False)),
+            ("an outcome with an environment deferral", deferred_path, ("release", "deferred", False)),
+            ("a focused outcome", selected_path, ("selected", "selected", False)),
+            ("an outcome from a dirty tree", dirty_path, ("release", "PASS", True)),
         ]
         for label, path, want in reader_cases:
             got = read_gate_evidence(path)
-            if got == want:
-                print(f"  [ ok  ] read_gate_evidence: {label} -> {'the evidence object' if want else 'missing'}")
+            seen = got and (got["tier"], got["status"], got["treeDirty"])
+            bound = got is None or (got["schema"] == GATE_SCHEMA and got["commit"] == commit and got["sourceHash"] == source_hash())
+            if seen == want and bound:
+                print(f"  [ ok  ] read_gate_evidence: {label} -> {want or 'missing'}")
             else:
                 ok = False
                 print(f"  [WRONG] read_gate_evidence: {label} -> {got!r}")
@@ -2046,20 +2065,23 @@ def _selftest_transport():
 
 
 def main():
+    synced = subprocess.run([sys.executable, os.path.join(HERE, "sync_compose.py"), "--check"])
+    if synced.returncode != 0:
+        return synced.returncode
     parser = argparse.ArgumentParser(prog="package.py", description=CLI_HELP.splitlines()[0])
     parser.add_argument("--selftest", action="store_true", help="prove every refusal and drive the fake transport")
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument("--receipts", default=DEFAULT_RECEIPTS)
     sub = parser.add_subparsers(dest="command")
 
-    stage_parser = sub.add_parser("stage", help="regenerate build/.stage/Distribution (called by build_model.sh)")
+    stage_parser = sub.add_parser("stage", help="regenerate build/.stage/Distribution (called by the model build)")
     stage_parser.add_argument(
-        "--out", default=None, help="staging directory (build_model.sh passes a per-invocation one)"
+        "--out", default=None, help="staging directory (the model build passes a per-invocation one)"
     )
     stage_parser.add_argument("--quiet", action="store_true")
     stage_parser.set_defaults(func=cmd_stage)
 
-    manifest_parser = sub.add_parser("manifest", help="write the semantic manifest (called by build_model.sh)")
+    manifest_parser = sub.add_parser("manifest", help="write the semantic manifest (called by the model build)")
     manifest_parser.add_argument("--model", required=True, help="the .rbxmx twin to walk")
     manifest_parser.add_argument("--artifact", required=True, help="the artifact whose sha256 is recorded")
     manifest_parser.add_argument("--out", required=True)

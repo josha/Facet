@@ -454,70 +454,165 @@ local UDim2 = {
 	end,
 }
 
-export type EnumMember = { _enum: string }
+export type EnumMember = { _enum: string, _family: string }
 export type EnumCategory = { [string]: EnumMember }
 export type EnumValue = { [string]: EnumCategory }
 
+local families = setmetatable({} :: { [unknown]: string }, { __mode = "k" })
+local enumItemMt = {
+	__tostring = function(item: EnumMember): string
+		return ("Enum.%s.%s"):format(item._family, item._enum)
+	end,
+}
 local memberMt = {}
 memberMt.__index = function(category: EnumCategory, member: string): EnumMember
-	local value = { _enum = member }
+	local value = (setmetatable({ _enum = member, _family = families[category] }, enumItemMt) :: unknown) :: EnumMember
 	rawset(category, member, value)
 	return value
 end
 local enumMt = {}
 enumMt.__index = function(enum: EnumValue, category: string): EnumCategory
 	local members = (setmetatable({}, memberMt) :: unknown) :: EnumCategory
+	families[members] = category
 	rawset(enum, category, members)
 	return members
 end
 local Enum = (setmetatable({}, enumMt) :: unknown) :: EnumValue
 
+local shellMt: { [string]: { [string]: unknown } } = {
+	NumberSequenceKeypoint = {},
+	ColorSequenceKeypoint = {},
+	NumberRange = {},
+	NumberSequence = {},
+	ColorSequence = {},
+	Rect = {},
+	TweenInfo = {},
+	FloatCurveKey = {},
+	Path2DControlPoint = {},
+}
+
+local function tag<T>(value: T, metatable: {}): T
+	setmetatable((value :: unknown) :: {}, metatable)
+	return value
+end
+
 local NumberSequenceKeypoint = {
 	new = function(t: number, v: number, _envelope: number?): { Time: number, Value: number }
-		return { Time = t, Value = v }
+		return tag({ Time = t, Value = v }, shellMt.NumberSequenceKeypoint)
 	end,
 }
 
 local ColorSequenceKeypoint = {
 	new = function<T>(t: number, color: T): { Time: number, Value: T }
-		return { Time = t, Value = color }
+		return tag({ Time = t, Value = color }, shellMt.ColorSequenceKeypoint)
 	end,
 }
 
 local NumberRange = {
 	new = function(min: number, max: number?): { Min: number, Max: number }
-		return { Min = min, Max = max or min }
+		return tag({ Min = min, Max = max or min }, shellMt.NumberRange)
 	end,
 }
 
 local NumberSequence = {
 	new = function<T>(value: T): { _ns: T }
-		return { _ns = value }
+		return tag({ _ns = value }, shellMt.NumberSequence)
 	end,
 }
 
 local ColorSequence = {
 	new = function<T>(value: T): { _cs: T }
-		return { _cs = value }
+		return tag({ _cs = value }, shellMt.ColorSequence)
 	end,
 }
 
 local Rect = {
 	new = function(_x0: number?, _y0: number?, _x1: number?, _y1: number?): { _rect: boolean }
-		return { _rect = true }
+		return tag({ _rect = true }, shellMt.Rect)
 	end,
 }
 
+export type TweenInfoValue = {
+	Time: number,
+	EasingStyle: EnumMember,
+	EasingDirection: EnumMember,
+	RepeatCount: number,
+	Reverses: boolean,
+	DelayTime: number,
+}
+
+shellMt.TweenInfo.__eq = function(a: TweenInfoValue, b: TweenInfoValue): boolean
+	return a.Time == b.Time
+		and a.EasingStyle == b.EasingStyle
+		and a.EasingDirection == b.EasingDirection
+		and a.RepeatCount == b.RepeatCount
+		and a.Reverses == b.Reverses
+		and a.DelayTime == b.DelayTime
+end
+
 local TweenInfo = {
 	new = function(
-		_time: number?,
-		_style: unknown,
-		_dir: unknown,
-		_count: number?,
-		_reverses: boolean?,
-		_delay: number?
-	): { _tweenInfo: boolean }
-		return { _tweenInfo = true }
+		time: number?,
+		style: EnumMember?,
+		direction: EnumMember?,
+		count: number?,
+		reverses: boolean?,
+		delayTime: number?
+	): TweenInfoValue
+		return tag({
+			Time = time or 1,
+			EasingStyle = style or Enum.EasingStyle.Quad,
+			EasingDirection = direction or Enum.EasingDirection.Out,
+			RepeatCount = count or 0,
+			Reverses = reverses or false,
+			DelayTime = delayTime or 0,
+		}, shellMt.TweenInfo)
+	end,
+}
+
+export type FloatCurveKeyValue = {
+	Time: number,
+	Value: number,
+	Interpolation: EnumMember,
+	LeftTangent: number?,
+	RightTangent: number?,
+}
+
+shellMt.FloatCurveKey.__eq = function(a: FloatCurveKeyValue, b: FloatCurveKeyValue): boolean
+	return a.Time == b.Time
+		and a.Value == b.Value
+		and a.Interpolation == b.Interpolation
+		and a.LeftTangent == b.LeftTangent
+		and a.RightTangent == b.RightTangent
+end
+
+local FloatCurveKey = {
+	new = function(time: number, value: number, interpolation: EnumMember): FloatCurveKeyValue
+		return tag({
+			Time = time,
+			Value = value,
+			Interpolation = interpolation,
+		}, shellMt.FloatCurveKey)
+	end,
+}
+
+export type Path2DControlPointValue = {
+	Position: UDim2Value,
+	LeftTangent: UDim2Value,
+	RightTangent: UDim2Value,
+}
+
+shellMt.Path2DControlPoint.__eq = function(a: Path2DControlPointValue, b: Path2DControlPointValue): boolean
+	return a.Position == b.Position and a.LeftTangent == b.LeftTangent and a.RightTangent == b.RightTangent
+end
+
+local Path2DControlPoint = {
+	new = function(position: UDim2Value, leftTangent: UDim2Value?, rightTangent: UDim2Value?): Path2DControlPointValue
+		return tag({
+			Position = position,
+			LeftTangent = leftTangent or UDim2.new(0, 0, 0, 0),
+			RightTangent = rightTangent or UDim2.new(0, 0, 0, 0),
+		}, shellMt.Path2DControlPoint)
 	end,
 }
 
@@ -533,13 +628,43 @@ local names: { [unknown]: string } = {
 	[v2Mt] = "Vector2",
 	[udimMt] = "UDim",
 	[udim2Mt] = "UDim2",
+	[enumItemMt] = "EnumItem",
 }
+for name, metatable in shellMt do
+	names[metatable] = name
+end
+
+local ATTRIBUTE_TYPES: { [string]: boolean } = {
+	Vector2 = true,
+	Vector3 = true,
+	Color3 = true,
+	UDim = true,
+	UDim2 = true,
+	CFrame = true,
+	NumberRange = true,
+	NumberSequence = true,
+	ColorSequence = true,
+	Rect = true,
+	TweenInfo = true,
+	EnumItem = true,
+	BrickColor = true,
+	Font = true,
+	Instance = true,
+}
+
+local function enumType(value: unknown): string
+	return (value :: EnumMember)._family
+end
 
 local function typeName(value: unknown): string?
 	if type(value) ~= "table" then
 		return nil
 	end
 	return names[((getmetatable :: unknown) :: (unknown) -> unknown)(value)]
+end
+
+local function isAttributeType(name: string): boolean
+	return ATTRIBUTE_TYPES[name] == true
 end
 
 local function readCFrame(value: CFrameValue): (number, number, number, { number })
@@ -562,6 +687,10 @@ return {
 	ColorSequence = ColorSequence,
 	Rect = Rect,
 	TweenInfo = TweenInfo,
+	FloatCurveKey = FloatCurveKey,
+	Path2DControlPoint = Path2DControlPoint,
 	typeName = typeName,
+	isAttributeType = isAttributeType,
+	enumType = enumType,
 	readCFrame = readCFrame,
 }

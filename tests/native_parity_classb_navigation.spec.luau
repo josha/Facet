@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -468,7 +468,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 				local visited = {}
 				for _ = 1, 12 do
-					traverse.Pressed.fire()
+					traverse.Pressed:Fire()
 					local selected = world.gui.SelectedObject
 					local label = if within(selected, innerStrip)
 						then "inner:" .. selected.Name
@@ -485,7 +485,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local innerAt, pageAt = nil, nil
 				world.gui.SelectedObject = nil
 				for index = 1, 5 do
-					traverse.Pressed.fire()
+					traverse.Pressed:Fire()
 					local selected = world.gui.SelectedObject
 					if within(selected, innerStrip) and innerAt == nil then
 						innerAt = index

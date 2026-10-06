@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -31,24 +31,21 @@ return function(verifyHarness: Verify.Harness, tier: string)
 	local function recordingEngine()
 		local engine = engineLib.new()
 		local create = engine.new
+		engine.onWrite(function(instance, property, value)
+			if property == "Text" then
+				assert(type(value) == "string", instance.ClassName .. ".Text requires a string")
+			end
+			if type(property) == "string" and not SKIPPED[property] then
+				local keys = written[instance.ClassName]
+				if keys == nil then
+					keys = {}
+					written[instance.ClassName] = keys
+				end
+				keys[property] = true
+			end
+		end)
 		engine.new = function(className)
 			local node = create(className)
-			local metatable = getmetatable(node)
-			local assign = metatable.__newindex
-			metatable.__newindex = function(instance, property, value)
-				if property == "Text" then
-					assert(type(value) == "string", className .. ".Text requires a string")
-				end
-				if type(property) == "string" and not SKIPPED[property] then
-					local keys = written[className]
-					if keys == nil then
-						keys = {}
-						written[className] = keys
-					end
-					keys[property] = true
-				end
-				assign(instance, property, value)
-			end
 			return node
 		end
 		return engine
@@ -325,7 +322,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				measured.measure(settling.root, settling.engine, measured.TINY)
 				Verify.expect(settling.built.report().forms.Tasks):toBe("hidden")
 				Verify.expect(settling.built.report().forms):toEqual(fresh.built.report().forms)
-				settling.engine.heartbeat.fire(1)
+				settling.engine.heartbeat:Fire(1)
 				Verify.expect((firstDifference(painted(settling.target), painted(fresh.target)))):toBe("none")
 				settling.stop()
 				fresh.stop()
@@ -509,7 +506,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						w.gui.SelectedObject = trigger
 					end
 					local function choose(id: string)
-						trigger.Activated.fire(event, 1)
+						trigger.Activated:Fire(event, 1)
 						local item = find(w.target, id)
 						Verify.expect(`{input} {id} item present={item ~= nil}`):toBe(`{input} {id} item present=true`)
 						if directional then
@@ -519,7 +516,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 						else
 							Verify.expect(w.gui.SelectedObject):toBe(nil)
 						end
-						item.Activated.fire(event, 1)
+						item.Activated:Fire(event, 1)
 						Verify.expect((find(w.target, id))):toBe(nil)
 						Verify.expect(w.gui.SelectedObject):toBe(if directional then trigger else nil)
 					end
@@ -533,7 +530,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect(notice:FindFirstChildWhichIsA("TextButton").Text):toBe("Supplies delivered")
 					Verify.expect(notice.LayoutOrder < find(w.root, "HudBody").LayoutOrder):toBe(true)
 					Verify.expect(w.gui.SelectedObject):toBe(if directional then trigger else nil)
-					trigger.Activated.fire(event, 1)
+					trigger.Activated:Fire(event, 1)
 					Verify.expect(find(w.target, "damage") ~= nil):toBe(true)
 					local back = find(w.target, "ModalBack")
 					local keys = {}
@@ -542,11 +539,11 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					end
 					Verify.expect(keys["Enum.KeyCode.ButtonB"]):toBe(true)
 					Verify.expect(keys["Enum.KeyCode.Escape"]):toBe(true)
-					back.Pressed.fire()
+					back.Pressed:Fire()
 					Verify.expect((find(w.target, "damage"))):toBe(nil)
 					Verify.expect(w.gui.SelectedObject):toBe(if directional then trigger else nil)
 					Verify.expect(notice.Visible):toBe(true)
-					notice:FindFirstChildWhichIsA("TextButton").Activated.fire(event, 1)
+					notice:FindFirstChildWhichIsA("TextButton").Activated:Fire(event, 1)
 					Verify.expect(notice.Visible):toBe(false)
 					w.stop()
 				end,
@@ -673,7 +670,6 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local gui = engine.new("GuiService")
 				local sent: { { kind: string, payload: any } } = {}
 				local remote = engine.new("RemoteEvent")
-				remote.OnClientEvent = engine.heartbeat
 				remote.FireServer = function(_, message)
 					table.insert(sent, message)
 				end
@@ -727,7 +723,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(surface.Active):toBe(false)
 				Verify.expect(context.Enabled):toBe(false)
 				Verify.expect(gui.SelectedObject):toBe(outside)
-				remote.OnClientEvent.fire({
+				remote.OnClientEvent:Fire({
 					kind = "session" :: "session",
 					token = "s1",
 					revision = 1,
@@ -746,16 +742,16 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				end
 				Verify.expect(first):toBe(expected)
 				Verify.expect(first):toBe(find(surface, "doorStep"))
-				leave.Pressed.fire()
+				leave.Pressed:Fire()
 				Verify.expect(built.report().lastExit):toBe("cancel")
 				Verify.expect(built.report().terminal.phase):toBe("exited")
-				Verify.expect((surface.isDestroyed())):toBe(false)
+				Verify.expect((surface:isDestroyed())):toBe(false)
 				Verify.expect(surface.Parent):toBe(inputTarget)
 				Verify.expect(surface.Active):toBe(false)
 				Verify.expect(context.Enabled):toBe(false)
 				Verify.expect(gui.SelectedObject):toBe(outside)
 				Verify.expect(sent[#sent].kind):toBe("release")
-				remote.OnClientEvent.fire({
+				remote.OnClientEvent:Fire({
 					kind = "session" :: "session",
 					token = "s2",
 					revision = 2,
@@ -764,7 +760,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(surface.Active):toBe(true)
 				Verify.expect(built.report().terminal.phase):toBe("engaged")
 				stop()
-				Verify.expect((surface.isDestroyed())):toBe(true)
+				Verify.expect((surface:isDestroyed())):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -1044,31 +1040,31 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					Verify.expect((shown("Status"))):toBe("idle")
 					Verify.expect((shown("Draft"))):toBe("What you see now: music off, volume 10")
 					Verify.expect((shown("Confirmed"))):toBe("Server confirmed: music off, volume 10 (revision 1)")
-					find(node, "Music").Activated.fire(touch, 1)
+					find(node, "Music").Activated:Fire(touch, 1)
 					Verify.expect(built.report().draft.music):toBe(true)
 					Verify.expect(built.report().status):toBe("pending")
 					Verify.expect(built.report().server.music):toBe(false)
 					Verify.expect((shown("Status"))):toBe("pending")
 					Verify.expect((shown("Draft"))):toBe("What you see now: music on, volume 10")
 					Verify.expect((shown("Confirmed"))):toBe("Server confirmed: music off, volume 10 (revision 1)")
-					find(node, "Deliver").Activated.fire(touch, 1)
+					find(node, "Deliver").Activated:Fire(touch, 1)
 					Verify.expect(built.report().status):toBe("confirmed")
 					Verify.expect(built.report().server.music):toBe(true)
 					Verify.expect(built.report().server.revision):toBe(2)
 					Verify.expect(built.report().draft.music):toBe(true)
 					Verify.expect((shown("Status"))):toBe("confirmed")
 					Verify.expect((shown("Confirmed"))):toBe("Server confirmed: music on, volume 10 (revision 2)")
-					find(node, "Music").Activated.fire(touch, 1)
+					find(node, "Music").Activated:Fire(touch, 1)
 					Verify.expect(built.report().status):toBe("pending")
-					find(node, "Deliver").Activated.fire(touch, 1)
+					find(node, "Deliver").Activated:Fire(touch, 1)
 					Verify.expect(built.report().draft.music):toBe(false)
 					Verify.expect(built.report().server.music):toBe(false)
 					Verify.expect(built.report().status):toBe("confirmed")
-					find(node, "Invalid").Activated.fire(touch, 1)
+					find(node, "Invalid").Activated:Fire(touch, 1)
 					Verify.expect(built.report().draft.volume):toBe(99)
 					Verify.expect(built.report().status):toBe("pending")
 					Verify.expect((shown("Draft"))):toBe("What you see now: music off, volume 99")
-					find(node, "Deliver").Activated.fire(touch, 1)
+					find(node, "Deliver").Activated:Fire(touch, 1)
 					Verify.expect(built.report().status):toBe("rejected")
 					Verify.expect(built.report().draft.volume):toBe(10)
 					Verify.expect(built.report().server.revision):toBe(3)

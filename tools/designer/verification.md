@@ -25,15 +25,15 @@ Latest-main PR verification base: `c55ee609`.
   added. The custom source remained intact.
 - The phone portrait and tablet landscape simulators rendered the
   editor. The simulator was reset after testing.
-- `tools/verify.sh full` passed: 3,605 tests passed and one test was deferred.
+- `lune run tools/lune/verify full` passed: 3,605 tests passed and one test was deferred.
   Of 74 producers, 72 passed. The performance gate and its evidence check
   reported host timing failures rather than functional failures.
-- A separate `tools/bench.sh` run passed after full verification completed.
+- A separate `lune run tools/lune/bench` run passed after full verification completed.
   The full run reported six host timing violations. The earlier baseline also
   had environment failures for these two performance producers. No functional
   regression was reported.
-  `tools/package.sh build` and
-  `tools/package.sh status` completed. The library package was not published.
+  `python3 tools/package.py build` and
+  `python3 tools/package.py status` completed. The library package was not published.
 
 ## Expanded editor checks
 

@@ -5,7 +5,7 @@ text-size and theme previews. The control list uses larger text and taller rows.
 
 ## Build and run
 
-From this directory, run `./build.sh`, then open
+From the repository root, run `lune run tools/lune/build lab`, then open
 `build/Facet-Lab.rbxl` in Roblox Studio and start Play.
 The build checks catalog coverage and keeps all generated outputs in `build/`.
 

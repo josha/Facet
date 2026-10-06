@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
@@ -88,7 +88,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			E = engine.types.Enum,
 			step = function(count: number?)
 				for _ = 1, count or 1 do
-					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
 				end
 			end,
 			stop = function()
@@ -263,7 +263,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local menu = world(function(UI: FacetControls)
 					return UI.Picker "P" { style = "menu" :: "menu", selected = Compose.cell("normal"), options = THREE }
 				end)
-				find(menu.screen, "Trigger").Activated.fire()
+				find(menu.screen, "Trigger").Activated:Fire()
 				local row
 				for _, node in menu.screen:GetDescendants() do
 					if node.Name == "normal" and node:HasTag("facet-menu-item") then
@@ -528,15 +528,15 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					frames += 1
 				end)
 				local segment = find(find(w.screen, "Segments"), "hard")
-				segment.Activated.fire()
+				segment.Activated:Fire()
 				expect((segment:HasTag("facet-segment-current"))):toBe(true)
 				expect((segment:HasTag("facet-selected"))):toBe(true)
 				local toggle = find(w.screen, "Hat")
-				toggle.Activated.fire()
+				toggle.Activated:Fire()
 				expect((toggle:HasTag("facet-selected"))):toBe(true)
 				expect((find(toggle, "Indicator"):HasTag("facet-toggle-on"))):toBe(true)
 				local tab = find(find(w.screen, "Tabs"), "two")
-				tab.Activated.fire()
+				tab.Activated:Fire()
 				expect((tab:HasTag("facet-tab-current"))):toBe(true)
 				expect((tab:HasTag("facet-selected"))):toBe(true)
 				expect(frames):toBe(0)
@@ -689,14 +689,14 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				local sampled = 0
 				for _ = 1, 30 do
 					w.step()
-					if not detail.isDestroyed() and detail.Position.X.Scale < 1 and root.Visible then
+					if not detail:isDestroyed() and detail.Position.X.Scale < 1 and root.Visible then
 						sampled += 1
 						opaque(w, { root, detail }, colour)
 					end
 				end
 				expect(sampled):toBeGreaterThan(5)
 				w.step(60)
-				expect((detail.isDestroyed())):toBe(true)
+				expect((detail:isDestroyed())):toBe(true)
 				expect(root.BackgroundTransparency):toBe(1)
 				w.stop()
 			end,

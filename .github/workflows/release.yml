@@ -2,7 +2,7 @@
 #
 # THIS WORKFLOW NEVER RUNS ON A PUSH. It has one trigger, `workflow_dispatch`,
 # and a human supplies the version and the commit. It is the CI wrapper around
-# `tools/release.sh`, which is itself the wrapper around `tools/package.sh
+# `lune run tools/lune/release`, which is itself the wrapper around `python3 tools/package.py
 # publish --confirm` — every guard in `tools/package.py` still applies here, and
 # a guard that refuses stops the job.
 #
@@ -69,7 +69,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.commit }}
-          # release.sh makes its own worktree, so it needs the whole history
+          # the release script makes its own worktree, so it needs the whole history
           fetch-depth: 0
 
       - name: Install the pinned toolchain (rokit)
@@ -93,7 +93,7 @@ jobs:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
           VERSION: ${{ inputs.version }}
           COMMIT: ${{ inputs.commit }}
-        run: tools/release.sh "$VERSION" "$COMMIT"
+        run: lune run tools/lune/release "$VERSION" "$COMMIT"
 
       - name: Upload the receipt
         if: always()

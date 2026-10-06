@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -76,10 +76,10 @@ return function(verifyHarness: Verify.Harness, tier: string)
 					return Host.Frame({ button :: unknown })
 				end, root)
 				Verify.expect(input.Enabled):toBe(true)
-				action.Pressed.fire()
+				action.Pressed:Fire()
 				panel.Visible = false
 				Verify.expect(input.Enabled):toBe(false)
-				action.Pressed.fire()
+				action.Pressed:Fire()
 				panel.Visible = true
 				root.Enabled = false
 				Verify.expect(input.Enabled):toBe(false)
@@ -90,8 +90,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(input.Enabled):toBe(true)
 				Verify.expect(activated):toBe(1)
 				stop()
-				Verify.expect((action.Pressed.count())):toBe(0)
-				Verify.expect((root:GetPropertyChangedSignal("Enabled").count())):toBe(0)
+				Verify.expect((engineLib.connections(action.Pressed))):toBe(0)
+				Verify.expect((engineLib.connections(root:GetPropertyChangedSignal("Enabled")))):toBe(0)
 				runtime:dispose()
 			end,
 		})

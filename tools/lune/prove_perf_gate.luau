@@ -150,7 +150,7 @@ artifact.writeJson(ROW_PATH, {
 	evidenceLevel = "E1",
 	gateFailedAsExpected = ok and restored,
 	trend = {
-		method = `wrapped scene '{TARGET_SCENE}' run() to do {FACTOR}x its own work; ran the shipped tools/perf.sh unchanged`,
+		method = `wrapped scene '{TARGET_SCENE}' run() to do {FACTOR}x its own work; ran the shipped lune run tools/lune/perf unchanged`,
 		exitCode = injectedCode,
 		failed = trendFailed,
 		namedTheScene = namedScene,
@@ -175,7 +175,7 @@ artifact.writeJson(ROW_PATH, {
 	},
 	note = "Reproduce: FACET_PERF_INJECT_REGRESSION=" .. TARGET_SCENE .. " FACET_PERF_INJECT_FACTOR=" .. tostring(
 		FACTOR
-	) .. " tools/perf.sh (expect exit 2), then tools/perf.sh (expect exit 0).",
+	) .. " lune run tools/lune/perf (expect exit 2), then lune run tools/lune/perf (expect exit 0).",
 })
 
 if not ok then

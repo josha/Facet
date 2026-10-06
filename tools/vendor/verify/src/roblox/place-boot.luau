@@ -32,7 +32,7 @@ export type TreeDeps<B = unknown> = {
 
 export type Viewport = { x: number, y: number }
 
-export type Witness = {
+export type Subject = {
 	name: string,
 	userId: number,
 	jobId: string,
@@ -63,7 +63,7 @@ export type Attributes = {
 export type Config = {
 	projectPath: string,
 	identity: Identity,
-	witness: Witness,
+	subject: Subject,
 	aliases: { [string]: string },
 	firstViewport: Viewport,
 	finalViewport: Viewport,
@@ -437,8 +437,8 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 		host = deps.host,
 	})
 	local watcher = config.observe
-	local witnessed: Instance? = nil
-	local witnessedGui: Instance? = nil
+	local identified: Instance? = nil
+	local identifiedGui: Instance? = nil
 	local function reachedStage(stage: Stage)
 		if watcher == nil then
 			return
@@ -446,8 +446,8 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 		(watcher :: Observer)(stage, {
 			engine = engine,
 			runtime = runtime,
-			player = witnessed,
-			playerGui = witnessedGui,
+			player = identified,
+			playerGui = identifiedGui,
 		})
 	end
 
@@ -463,7 +463,7 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 
 	engine.stateOf(engine.game).values.GameId = config.identity.universeId
 	engine.stateOf(engine.game).values.PlaceId = config.identity.placeId
-	engine.stateOf(engine.game).values.JobId = config.witness.jobId
+	engine.stateOf(engine.game).values.JobId = config.subject.jobId
 	engine.stateOf(engine.game).values.PlaceVersion = config.identity.placeVersion
 
 	local players = engine.service "Players"
@@ -498,9 +498,9 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 	reachedStage "server"
 
 	local player = engine.newInstance("Player", true)
-	engine.stateOf(player).name = config.witness.name
-	engine.stateOf(player).values.UserId = config.witness.userId
-	engine.stateOf(player).values.DisplayName = config.witness.name
+	engine.stateOf(player).name = config.subject.name
+	engine.stateOf(player).values.UserId = config.subject.userId
+	engine.stateOf(player).values.DisplayName = config.subject.name
 	local playerGui = engine.newInstance("PlayerGui", true)
 	engine.stateOf(playerGui).name = "PlayerGui"
 	playerGui.Parent = player
@@ -524,8 +524,8 @@ local function run<B>(config: Config, deps: Deps<B>): Report
 	for _ = 1, 2 do
 		frameOnce(engine, runtime)
 	end
-	witnessed = player
-	witnessedGui = playerGui
+	identified = player
+	identifiedGui = playerGui
 	reachedStage "player"
 
 	local clientNames: { string } = {}

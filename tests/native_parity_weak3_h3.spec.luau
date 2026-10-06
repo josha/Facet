@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -127,7 +127,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 		end
 		local function tap(w: World, x: number, y: number)
 			local E = w.engine.types.Enum
-			w.input.InputBegan.fire({
+			w.input.InputBegan:Fire({
 				UserInputType = E.UserInputType.Touch,
 				UserInputState = E.UserInputState.Begin,
 				Position = w.engine.types.Vector3.new(x, y, 0),
@@ -150,18 +150,18 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				run = function()
 					local w, state = rowsWorld("destructive", false)
 					state.open.a:set("trailing")
-					w.engine.heartbeat.fire(0.3)
-					find(find(w.screen, "a"), "Delete").Activated.fire()
+					w.engine.heartbeat:Fire(0.3)
+					find(find(w.screen, "a"), "Delete").Activated:Fire()
 					Verify.expect(state.fired):toEqual({})
 					tap(w, 100, 60)
-					find(find(w.screen, "b"), "Body").Activated.fire()
+					find(find(w.screen, "b"), "Body").Activated:Fire()
 					Verify.expect(state.content.b):toBe(1)
 					Verify.expect((state.open.b:peek())):toBeNil()
 					Verify.expect(state.fired):toEqual({})
-					w.engine.heartbeat.fire(0.3)
+					w.engine.heartbeat:Fire(0.3)
 					Verify.expect(state.fired):toEqual({ "a" })
 					for _ = 1, 30 do
-						w.engine.heartbeat.fire(0.1)
+						w.engine.heartbeat:Fire(0.1)
 					end
 					Verify.expect(state.fired):toEqual({ "a" })
 					Verify.expect((state.open.a:peek())):toBeNil()
@@ -182,7 +182,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(w.gui.SelectedObject):toBeNil()
 				Verify.expect((sinking(w))):toEqual({})
 				tap(w, 640, 540)
-				find(w.screen, "Boost").Activated.fire()
+				find(w.screen, "Boost").Activated:Fire()
 				Verify.expect(state.hud):toBe(1)
 				Verify.expect(gameplay):toBe(1)
 				Verify.expect((state.open.a:peek())):toBeNil()
@@ -190,7 +190,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 				Verify.expect(w.gui.SelectedObject):toBeNil()
 				Verify.expect((sinking(w))):toEqual({})
 				tap(w, 640, 540)
-				find(w.screen, "Boost").Activated.fire()
+				find(w.screen, "Boost").Activated:Fire()
 				Verify.expect(state.hud):toBe(2)
 				Verify.expect(gameplay):toBe(2)
 				Verify.expect((state.open.a:peek())):toBeNil()

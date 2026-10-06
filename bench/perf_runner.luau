@@ -1,4 +1,5 @@
 --!strict
+local NativeEngine = require("../tests/lib/native_engine")
 
 local process = require("@lune/process")
 local Verify = require("../tools/vendor/verify/src/core")
@@ -254,7 +255,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local liveConnections: any = registrations
 	if state.engine and state.target then
 		instances = #state.target:GetDescendants()
-		local connections = state.engine.heartbeat.count() + state.target:connectionCount()
+		local connections = NativeEngine.connections(state.engine.heartbeat) + state.target:connectionCount()
 		for _, node in state.target:GetDescendants() do
 			connections += node:connectionCount()
 		end

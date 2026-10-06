@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -686,7 +686,7 @@ return function(verifyHarness: Verify.Harness, tier: string)
 							options = THREE,
 						}
 					end)
-					find(world.root, "Trigger").Activated.fire()
+					find(world.root, "Trigger").Activated:Fire()
 					local panel = find(world.root, "MenuPanel")
 					local row = find(panel, "normal")
 					local title = find(row, "Title")
