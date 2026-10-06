@@ -42,10 +42,10 @@ property.
    `lune run tools/lune/perf_paired_scene <scene>`. The runner calls the
    unmodified `perf_runner.runScene` of the commit, with the scene, warm-up and
    sample counts of the commit, at the reference profile (`floorAndroid`).
-   `main` cannot run its full `tools/perf.sh` matrix, because three scenes fail
+   `main` cannot run its full `lune run tools/lune/perf` matrix, because three scenes fail
    setup. A new process for each scene isolates that failure. All commits use
    the same method.
-4. After the scenes, the round runs the `tools/bench.sh` of the commit.
+4. After the scenes, the round runs the `lune run tools/lune/bench` of the commit.
 5. `tools/perf_paired.py report` calculates these values:
    - `p50` and `p95`: the median over the rounds of the p50 and p95 of each run,
      in ms.
@@ -360,7 +360,7 @@ Paired run, 8 rounds, `--skip-bench`, six style scenes:
 | shadow-storm | 0.0108 | 0.0001 | 0.012 | 0.01-0.02 | 0.0236 | 0.0002 | 0.008 | 0.00-0.02 | 0.0129-0.0383 | 0.0002-0.0005 |  |
 | dense-hud | 0.5703 | 0.0241 | 0.042 | 0.04-0.04 | 1.1749 | 0.0351 | 0.030 | 0.02-0.06 | 1.0262-1.9367 | 0.0270-0.0755 |  |
 
-Checks on the prototype: `tools/verify.sh fast` has the same result as `cand`
+Checks on the prototype: `lune run tools/lune/verify fast` has the same result as `cand`
 (suite 654 passed, one more test; the coverage producer has the same three
 pending live risks). `python3 tools/check_types.py` and StyLua pass. The new
 test "swaps palette colors through StyleSheet tokens without rewriting rules"
@@ -398,9 +398,9 @@ This benchmark does not call Facet code.
 
 | Check | Result |
 |---|---|
-| `tools/verify.sh fast`, suite | 653 passed |
-| `tools/verify.sh fast`, coverage producer | FAIL: 3 pending live Studio risks (the collection toolbar under phone and largest text, the shell reservation under themes and largest text, haptic motor output on physical devices) |
-| `tools/verify.sh fast`, other producers | PASS |
+| `lune run tools/lune/verify fast`, suite | 653 passed |
+| `lune run tools/lune/verify fast`, coverage producer | FAIL: 3 pending live Studio risks (the collection toolbar under phone and largest text, the shell reservation under themes and largest text, haptic motor output on physical devices) |
+| `lune run tools/lune/verify fast`, other producers | PASS |
 | `python3 tools/check_types.py` | PASS |
 | `stylua --check src tests tools bench examples` | PASS |
 

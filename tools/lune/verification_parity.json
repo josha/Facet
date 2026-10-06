@@ -1867,7 +1867,7 @@
         "environment": "package",
         "status": "equivalent",
         "candidate": "package-verify",
-        "note": "Runs tools/package.sh verify as one producer.",
+        "note": "Runs python3 tools/package.py verify as one producer.",
         "tiers": [
           "full",
           "release"
@@ -3514,7 +3514,7 @@
       "candidateCases": [
         "native_parity_apps::Gallery shell::boots a scenario over an example over a demo and the default demo without attributes"
       ],
-      "apiPromise": "examples/gallery/client/init.client.luau:18-38 (Facet_Demo/Facet_Scenario/Facet_Example); relied on by tools/build_places.sh and tools/build_reference_places.sh",
+      "apiPromise": "examples/gallery/client/init.client.luau:18-38 (Facet_Demo/Facet_Scenario/Facet_Example); relied on by lune run tools/lune/build places and lune run tools/lune/build reference",
       "gap": {
         "description": "The precedence logic is inline in init.client.luau and untested.",
         "headlessTestable": true,
@@ -8975,7 +8975,7 @@
         "native_parity_strength_lifetime::lifetime parity strength::returns the performance lab to its floor through repeated mount ramp laps",
         "native_parity_weak3_rows::native parity weak3 rows: declared mount ramp ceiling::returns the performance lab to its floor after every rung of a second ramp lap to 40000 rows"
       ],
-      "weaker": "The ramp to the declared 10000 and 40000 row ceiling runs only at the release tier (the maintainer tier), so tools/verify.sh full stays tractable; the working and full tiers run the short 40, 80 and 120 row ladder."
+      "weaker": "The ramp to the declared 10000 and 40000 row ceiling runs only at the release tier (the maintainer tier), so lune run tools/lune/verify full stays tractable; the working and full tiers run the short 40, 80 and 120 row ladder."
     },
     {
       "id": "apps-132",
@@ -37365,7 +37365,7 @@
       "candidateCases": [
         "native_parity_apps::Public surface, catalog and theme corpus::gives every theme module a role and derives the eight shippable packages"
       ],
-      "apiPromise": "tools/lune/theme_packages.luau shippable()/artifactName(), consumed by tools/build_themes.sh and theme_artifacts.luau",
+      "apiPromise": "tools/lune/theme_packages.luau shippable()/artifactName(), consumed by lune run tools/lune/build themes and theme_artifacts.luau",
       "gap": {
         "description": "Exercised only indirectly by the full-tier producers theme-builds and theme-artifacts (the selftest expects a problem mentioning 'PixelQuest'); no spec asserts shippable()== the 8 names or artifactName mappings.",
         "headlessTestable": true,

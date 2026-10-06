@@ -1,6 +1,6 @@
 # Native Compose and Roblox performance evidence
 
-`tools/bench.sh` runs the same named microbenchmark subjects and CPU yardstick against the unchanged `baseline.json`. `tools/perf.sh` runs all 27 controlled scene names against the unchanged `perf_budgets.json`. `tests/native_perf.spec.luau` checks the registry against every versioned controlled budget and exercises every subject, including teardown.
+`lune run tools/lune/bench` runs the same named microbenchmark subjects and CPU yardstick against the unchanged `baseline.json`. `lune run tools/lune/perf` runs all 27 controlled scene names against the unchanged `perf_budgets.json`. `tests/native_perf.spec.luau` checks the registry against every versioned controlled budget and exercises every subject, including teardown.
 
 The workload data generator remains `perf-dataset/1`, with the same deterministic seed and image keys. The live performance lab and controlled headless scenes share the native workload constructors. The lab also offers fully mounted native lists, row-count ramps, resizing and host movement.
 

@@ -35,7 +35,7 @@ end
 print("package_canary")
 
 if not fs.isFile(MODEL_XML) then
-	fail(`{MODEL_XML} is missing — run tools/package.sh build first`)
+	fail(`{MODEL_XML} is missing — run python3 tools/package.py build first`)
 end
 
 local roots = roblox.deserializeModel(fs.readFile(MODEL_XML))

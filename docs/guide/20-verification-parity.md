@@ -31,7 +31,7 @@ where.
   weaker replacement. The five Studio producers of the performance lab have
   their evidence. See [Producers](#producers).
 - A complete run writes the Verify gate outcome to
-  `artifacts/verify/latest-<tier>.json`. `tools/package.sh publish` reads the `release` file and
+  `artifacts/verify/latest-<tier>.json`. `python3 tools/package.py publish` reads the `release` file and
   refuses anything but a clean, passing run of the same source.
 - The audit found 10 defects in `src` and 3 in the examples. All of them
   are fixed. The parity tests found and fixed 18 more defects in `src` and
@@ -252,7 +252,7 @@ or retired with its subject.
 ### How the candidate runs its producers
 
 `tools/lune/gate.luau` declares the producers as one Verify gate.
-`tools/verify.sh <tier>` selects every producer of that tier and of the lower
+`lune run tools/lune/verify <tier>` selects every producer of that tier and of the lower
 tiers. Use `--explain` to see each selected producer, its environment, its tier
 and the main producers that it replaces.
 
@@ -272,7 +272,7 @@ Main put `perf` and `bench` in the `release` tier only, and its `full` tier
 read a recorded report. The candidate runs `perf` and `bench` in `full`, and
 then checks the report of the same run.
 
-At the producer recheck, `tools/verify.sh full --explain` selected 71
+At the producer recheck, `lune run tools/lune/verify full --explain` selected 71
 producers: 61 passed, 9 reported `FAIL_ENVIRONMENT` and 1 failed. The failure
 is `coverage`, because `tools/lune/parity_blockers.json` lists three pending
 live risks. The `FAIL_ENVIRONMENT` results are the five Studio evidence modes,
@@ -324,7 +324,7 @@ Studio sessions during the run, so its timings are not reference timings.
 | `check_types` | `types` | full, release |  |
 | `check_types-selftest` | `types-selftest` | full, release |  |
 | `doctor` | `doctor` | full, release |  |
-| `package-verify` | `package-verify` | full, release | Runs tools/package.sh verify as one producer. |
+| `package-verify` | `package-verify` | full, release | Runs python3 tools/package.py verify as one producer. |
 | `stylua-check-check-src-tests-tools-bench-examples` | `format` | fast, full, release |  |
 | `stylua-check-check-src-tests-tools-examples` | `format` | fast, full, release | Subsumed by the wider format producer. |
 | `suite` | `suite` | fast, full, release | Runs 33+1 native specs (674 cases) instead of 496 specs (10,848 cases). See the contract table. |
@@ -453,7 +453,7 @@ A complete `full` or `release` run writes the Verify gate outcome to
 `artifacts/verify/latest-<tier>.json`. Its `build` object holds the commit, the
 tree, whether the tree was clean when the run started, and the package source
 hash. Its `acceptance` object holds the verdict.
-`tools/package.sh publish` reads `artifacts/verify/latest-release.json`. It
+`python3 tools/package.py publish` reads `artifacts/verify/latest-release.json`. It
 refuses a missing file, an incomplete gate, a verdict other than `release`, a
 dirty tree and a different source hash. Only a clean, releasable `release` run
 allows a publish.

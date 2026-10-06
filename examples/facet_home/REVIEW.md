@@ -62,7 +62,7 @@ console navigation still need fresh evidence.
 
 ## Verification
 
-`tools/verify.sh full` passed its current native gate: 74 producers selected,
+`lune run tools/lune/verify full` passed its current native gate: 74 producers selected,
 72 passed, and two reported performance environment failures. The clean main
 baseline had the same two failures and the same six host timing violations.
 The suite passed 3,632 cases, with one case deferred. Historical parity remains
@@ -77,6 +77,6 @@ The shipped-client export census previously read type annotations as runtime
 member calls. It now recognizes declared type annotations, including function
 parameter types, and still rejects missing runtime exports and missing types.
 
-`tools/bench.sh` and `tools/package.sh build` passed in the final full run.
-`tools/package.sh status` completed and reported existing publication drift and
+`lune run tools/lune/bench` and `python3 tools/package.py build` passed in the final full run.
+`python3 tools/package.py status` completed and reported existing publication drift and
 missing release evidence. This work does not publish the Facet package.

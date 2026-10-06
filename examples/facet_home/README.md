@@ -14,7 +14,7 @@ It does not replace Roblox discovery, accounts, chat, or moderation.
 From the repository root:
 
 ```sh
-examples/facet_home/build.sh
+lune run tools/lune/build home
 ```
 
 Open `build/Facet-Home.rbxl` in Studio and start Play. Each player gets a room.

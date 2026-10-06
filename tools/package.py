@@ -7,19 +7,19 @@ from `src/init.luau`, the commit from `git rev-parse HEAD`, the source hash from
 the `src/**/*.luau` tree itself. Nothing here invents a number, and nothing here
 trusts a number a human typed without checking it against the repository first.
 
-WHAT THIS FILE IS. `tools/package.sh` is a three-line wrapper; this is the
+WHAT THIS FILE IS. `python3 tools/package.py` is a three-line wrapper; this is the
 program. It has no dependencies outside the Python standard library, and its
 network layer is `urllib` behind ONE function (`_api`) so a fake transport is
 total — a test can drive create/publish end to end and no packet leaves the
 machine.
 
-    tools/package.sh build      # rebuild build/Facet.rbxm + build/Facet.manifest.json
-    tools/package.sh status     # this tree vs the last receipt: drift, dirt, semver
-    tools/package.sh verify     # build + tree inspection + purity + packaged canary
-    tools/package.sh create     # mint the asset (DRY RUN unless --confirm)
-    tools/package.sh publish    # push a revision (DRY RUN unless --confirm)
-    tools/package.sh rollback   # print both rollback procedures; never uploads
-    tools/package.sh stamp      # record a human's Studio verification on a receipt
+    python3 tools/package.py build      # rebuild build/Facet.rbxm + build/Facet.manifest.json
+    python3 tools/package.py status     # this tree vs the last receipt: drift, dirt, semver
+    python3 tools/package.py verify     # build + tree inspection + purity + packaged canary
+    python3 tools/package.py create     # mint the asset (DRY RUN unless --confirm)
+    python3 tools/package.py publish    # push a revision (DRY RUN unless --confirm)
+    python3 tools/package.py rollback   # print both rollback procedures; never uploads
+    python3 tools/package.py stamp      # record a human's Studio verification on a receipt
 
 `build`, `status` and `verify` are offline and are the default working commands.
 `create` and `publish` print exactly what they WOULD send and every guard's
@@ -98,7 +98,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SRC = os.path.join(REPO, "src")
 BUILD = os.path.join(REPO, "build")
-BUILD_MODEL = os.path.join(HERE, "build_model.sh")
+BUILD_MODEL = ["lune", "run", os.path.join(HERE, "lune", "build"), "model"]
 PURITY = os.path.join(HERE, "check_library_purity.py")
 CANARY = "tools/lune/package_canary.luau"
 
@@ -389,7 +389,7 @@ def load_manifest(path=DEFAULT_MANIFEST):
 
 def build_model(output=None, publisher=False, quiet=False):
 
-    args = [BUILD_MODEL]
+    args = list(BUILD_MODEL)
     if output:
         args.append(output)
     if publisher:
@@ -608,7 +608,7 @@ def decide(facts):
     if facts.get("manifest_hash") is None:
         refuse(
             "build-drift",
-            "there is no build/Facet.manifest.json to compare against; run `tools/package.sh build` (or `verify`) "
+            "there is no build/Facet.manifest.json to compare against; run `python3 tools/package.py build` (or `verify`) "
             "so there is a recorded build of this tree",
         )
     elif facts.get("fresh_build_hash") != facts.get("manifest_hash"):
@@ -1235,7 +1235,7 @@ def studio_publisher_steps(config, verb):
         print("     Ownership:   the account named in package/facet-package.json's creator.")
         print("                  Ownership transfers are NOT supported by the asset system — choose once.")
         print("  4. Copy the asset id from the new PackageLink's PackageId.")
-        print("  5. Re-run: tools/package.sh create --confirm --version <v> --commit <sha> --asset-id <id>")
+        print("  5. Re-run: python3 tools/package.py create --confirm --version <v> --commit <sha> --asset-id <id>")
     else:
         print("  3. Right-click it and choose 'Publish to Package'.")
         print("  4. Add a version description naming the version and commit above.")
@@ -2065,20 +2065,23 @@ def _selftest_transport():
 
 
 def main():
+    synced = subprocess.run([sys.executable, os.path.join(HERE, "sync_compose.py"), "--check"])
+    if synced.returncode != 0:
+        return synced.returncode
     parser = argparse.ArgumentParser(prog="package.py", description=CLI_HELP.splitlines()[0])
     parser.add_argument("--selftest", action="store_true", help="prove every refusal and drive the fake transport")
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument("--receipts", default=DEFAULT_RECEIPTS)
     sub = parser.add_subparsers(dest="command")
 
-    stage_parser = sub.add_parser("stage", help="regenerate build/.stage/Distribution (called by build_model.sh)")
+    stage_parser = sub.add_parser("stage", help="regenerate build/.stage/Distribution (called by the model build)")
     stage_parser.add_argument(
-        "--out", default=None, help="staging directory (build_model.sh passes a per-invocation one)"
+        "--out", default=None, help="staging directory (the model build passes a per-invocation one)"
     )
     stage_parser.add_argument("--quiet", action="store_true")
     stage_parser.set_defaults(func=cmd_stage)
 
-    manifest_parser = sub.add_parser("manifest", help="write the semantic manifest (called by build_model.sh)")
+    manifest_parser = sub.add_parser("manifest", help="write the semantic manifest (called by the model build)")
     manifest_parser.add_argument("--model", required=True, help="the .rbxmx twin to walk")
     manifest_parser.add_argument("--artifact", required=True, help="the artifact whose sha256 is recorded")
     manifest_parser.add_argument("--out", required=True)

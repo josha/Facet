@@ -260,9 +260,9 @@ local function main()
 			explained = true
 		else
 			print(
-				"usage: tools/verify.sh [affected|fast|full|release] [--rerun [PRODUCER]] [--reference-host] [--explain]"
+				"usage: lune run tools/lune/verify [affected|fast|full|release] [--rerun [PRODUCER]] [--reference-host] [--explain]"
 			)
-			print("       tools/verify.sh spec SPEC... [--tier full|release]")
+			print("       lune run tools/lune/verify spec SPEC... [--tier full|release]")
 			process.exit(2)
 		end
 		index += 1

@@ -121,7 +121,7 @@ Record `Facet.VERSION` where you will see it.
 
 `build/Facet.rbxm` is the whole library as one `ModuleScript`. In Studio,
 right-click `ReplicatedStorage` and choose **Insert from File**. Build it with
-`tools/build_model.sh`. [Installing without Rojo](docs/guide/08-without-rojo.md)
+`lune run tools/lune/build model`. [Installing without Rojo](docs/guide/08-without-rojo.md)
 covers this route.
 
 ## Examples
@@ -133,7 +133,7 @@ covers this route.
 - **[`examples/facet_farm/`](examples/facet_farm/)**: a farming game with crops,
   tools and a seed market. Open the checked-in
   [Facet Farm](examples/places/Facet-Farm.rbxl) place in Studio. Rebuild the
-  maintained places with `tools/build_places.sh`.
+  maintained places with `lune run tools/lune/build places`.
 - **[`examples/consumer/`](examples/consumer/)**: the smallest complete project.
 - **`examples/gallery/`**: every demo and every shipped theme. Build it with
   `rojo build examples/gallery.project.json -o build/Facet-Gallery.rbxl`.
@@ -158,25 +158,25 @@ covers this route.
 
 ```sh
 rokit install                        # the pinned toolchain: Rojo, luau-lsp, Lune, StyLua
-tools/verify.sh affected             # the smallest safe set for what you changed
-tools/verify.sh fast                 # the inner-loop tier
-tools/verify.sh full                 # every deterministic check, exactly once
-tools/verify.sh release              # full, plus the build, package and evidence producers
-tools/verify.sh spec <spec-name>     # one spec file
-tools/bench.sh                       # benchmarks
+lune run tools/lune/verify affected             # the smallest safe set for what you changed
+lune run tools/lune/verify fast                 # the inner-loop tier
+lune run tools/lune/verify full                 # every deterministic check, exactly once
+lune run tools/lune/verify release              # full, plus the build, package and evidence producers
+lune run tools/lune/verify spec <spec-name>     # one spec file
+lune run tools/lune/bench                       # benchmarks
 ```
 
 Builds and the distributable package:
 
 ```sh
-tools/build_model.sh                 # build/Facet.rbxm, the library as one model file
-tools/build_themes.sh                # build/themes/<Name>.rbxm, one per reference theme
-tools/package.sh build               # the package artifact and its manifest
-tools/package.sh status              # does the built artifact still match the source?
-tools/doctor.sh                      # the toolchain and the library invariants
+lune run tools/lune/build model                 # build/Facet.rbxm, the library as one model file
+lune run tools/lune/build themes                # build/themes/<Name>.rbxm, one per reference theme
+python3 tools/package.py build               # the package artifact and its manifest
+python3 tools/package.py status              # does the built artifact still match the source?
+lune run tools/lune/build doctor                      # the toolchain and the library invariants
 ```
 
-`tools/package.sh build` and `status` are offline. Publishing the asset needs a
+`python3 tools/package.py build` and `status` are offline. Publishing the asset needs a
 credential that is never stored in this repository.
 
 ## State and Compose

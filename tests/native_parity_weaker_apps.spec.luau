@@ -267,11 +267,11 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(`{other}: {string.find(source, other, 1, true) ~= nil}`):toBe(`{other}: false`)
 			end
 		end
-		local place = fs.readFile("tools/build_reference_places.sh")
-		Verify.expect(string.find(place, `"{scenario}|Facet-Ref-{title}"`, 1, true) ~= nil):toBe(true)
+		local place = fs.readFile("tools/lune/build.luau")
+		Verify.expect(string.find(place, `\{ "{scenario}", "Facet-Ref-{title}" }`, 1, true) ~= nil):toBe(true)
 		local folders = { FacetScenarios = "gallery/scenarios", FacetReference = "reference" }
 		for folder, path in folders do
-			Verify.expect(string.find(place, `"{folder}": \{ "\\$path": "{path}" }`, 1, true) ~= nil):toBe(true)
+			Verify.expect(string.find(place, `{folder} = "{path}"`, 1, true) ~= nil):toBe(true)
 			for _, project in { "examples/gallery.project.json", "examples/showcase.project.json" } do
 				local tree = serde.decode("json", fs.readFile(project)).tree
 				Verify.expect(`{project} {folder}: {tree.ReplicatedStorage[folder]["$path"]}`)

@@ -17,7 +17,7 @@ from strip_comments import strip_luau as strip_luau_comments
 REPO = os.path.dirname(HERE)
 SRC = os.path.join(REPO, "src")
 THEMES_DIR = os.path.join(REPO, "examples", "themes")
-BUILD_MODEL = os.path.join(HERE, "build_model.sh")
+BUILD_MODEL = ["lune", "run", os.path.join(HERE, "lune", "build"), "model"]
 
 
 NEUTRAL_ID = "facet-neutral"
@@ -164,7 +164,7 @@ def check(src_root=SRC, model_xml=None, skip_build=False, themes_dir=THEMES_DIR)
             temp = tempfile.mkdtemp(prefix="facet-purity-")
             model_xml = os.path.join(temp, "Facet.rbxmx")
             result = subprocess.run(
-                [BUILD_MODEL, model_xml], cwd=REPO, env=env(), capture_output=True, text=True
+                [*BUILD_MODEL, model_xml], cwd=REPO, env=env(), capture_output=True, text=True
             )
             if result.returncode != 0:
                 sys.stderr.write(result.stdout + result.stderr)
@@ -241,7 +241,7 @@ def selftest():
         scratch_src = os.path.join(work, "src")
         shutil.copytree(SRC, scratch_src)
         model_xml = os.path.join(work, "Facet.rbxmx")
-        result = subprocess.run([BUILD_MODEL, model_xml], cwd=REPO, env=env(), capture_output=True, text=True)
+        result = subprocess.run([*BUILD_MODEL, model_xml], cwd=REPO, env=env(), capture_output=True, text=True)
         if result.returncode != 0:
             sys.stderr.write(result.stdout + result.stderr)
             return False

@@ -2,7 +2,7 @@
 
 ## Running the benchmarks
 
-Run `tools/bench.sh` when no verification or build runs at the same time.
+Run `lune run tools/lune/bench` when no verification or build runs at the same time.
 
 When you change the implementation, keep the population, mutation and
 lifecycle intent of each workload. Do not compare a removed Facet layout phase
@@ -40,7 +40,7 @@ timings together with their host context. A change of runner does not prove a
 runtime speedup.
 
 The timing budgets block a run only on a reference host, which runs
-`tools/verify.sh full --reference-host`. On every other host, CI included, a
+`lune run tools/lune/verify full --reference-host`. On every other host, CI included, a
 failed timing budget is a `deferred` producer. The report shows it, and the run
 continues. A release run blocks on it everywhere. The workload checks
 (`perf-scenes`) do not measure time. They block on every host.

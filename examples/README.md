@@ -34,7 +34,7 @@ host mounts them with the runtime pieces that `Facet.app` uses.
 | A complete multi-surface showcase | [Virtual monitors](virtual_monitors/README.md) |
 | A farming game with crop growth, tools and a seed market | [Facet Farm](facet_farm/README.md) |
 
-The checked-in places are in `examples/places`. Run `tools/build_places.sh`
+The checked-in places are in `examples/places`. Run `lune run tools/lune/build places`
 to rebuild the maintained examples, including
 [Virtual Monitors](places/Facet-VirtualMonitors.rbxl) and
 [Facet Farm](places/Facet-Farm.rbxl). Facet Flap is part of Virtual Monitors.

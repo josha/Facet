@@ -113,7 +113,7 @@ if mode == "baseline" then
 				ceilingMs = ceilingMs,
 				hint = `scene '{r.scene}' ({r.requirement}) exceeded its headless trend budget — `
 					.. `profile the reactive/layout path it exercises; re-baseline with `
-					.. `'tools/perf.sh baseline' ONLY if the cost is intended`,
+					.. `'lune run tools/lune/perf baseline' ONLY if the cost is intended`,
 			}
 		end
 	end
@@ -174,7 +174,7 @@ if mode == "baseline" then
 	process.exit(0)
 end
 
-assert(fs.isFile(BUDGETS_PATH), `perf: missing {BUDGETS_PATH} (hint: run 'tools/perf.sh baseline' first)`)
+assert(fs.isFile(BUDGETS_PATH), `perf: missing {BUDGETS_PATH} (hint: run 'lune run tools/lune/perf baseline' first)`)
 local budgets = serde.decode("json", fs.readFile(BUDGETS_PATH))
 
 local ingested = {}

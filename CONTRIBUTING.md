@@ -26,7 +26,7 @@ directives and notices.
    pinned pre-cutover commit to account for removed and replaced specs. CI also
    fetches this history.
 2. While you edit, run the targeted behavioral specs.
-3. Run `tools/verify.sh full` for a completed change. Read its report,
+3. Run `lune run tools/lune/verify full` for a completed change. Read its report,
    including the unmapped legacy behavioral coverage. A passing subset from a
    new runner is not full parity.
 
@@ -38,7 +38,7 @@ replaces. Use `--rerun <producer>` for a focused run. A focused run is not
 tier evidence. A studio, device or timing producer that exits 2 is `deferred`:
 its evidence is not recorded, or a host timing budget failed. The `full` tier
 reports the deferral and continues. The `release` tier is the complete gate and
-is not releasable with a deferral. `tools/package.sh publish` accepts only a
+is not releasable with a deferral. `python3 tools/package.py publish` accepts only a
 releasable `artifacts/verify/latest-release.json` whose build binding matches
 the clean source.
 The [producer comparison](docs/guide/20-verification-parity.md#producers) lists
@@ -60,7 +60,7 @@ A slow case can require the `full` or `release` tier. Give the case the tag
 `tier:full` or `tier:release`, and record the tier in the case inventory.
 Below that tier, Verify records the case as deselected. The 40000-row mount
 ramp requires `release`.
-`tools/verify.sh spec <spec> ...` runs the named sources below the release
+`lune run tools/lune/verify spec <spec> ...` runs the named sources below the release
 tier. Use `--tier release` to include the release cases. Each source runs in
 its own Lune worker through the Verify gate. The full gate runs the committed
 plan the same way with four workers. A worker failure, a missing or foreign
@@ -86,13 +86,13 @@ the required `types` producer. A passing run needs zero owned diagnostics and
 all negative probes rejected. Compare its failures with main and report them
 separately from the required solver.
 
-Run `tools/bench.sh` when no other verification load runs. Keep the workload
+Run `lune run tools/lune/bench` when no other verification load runs. Keep the workload
 intent and the checked-in baselines. Report changed measurement boundaries and
 preexisting threshold failures explicitly. For real layout and input evidence,
 exercise the maintained gallery and the virtual monitors in Roblox Studio.
 
-After a source change, run `tools/package.sh build` and
-`tools/package.sh status`. Cloud publication is not part of a code change.
+After a source change, run `python3 tools/package.py build` and
+`python3 tools/package.py status`. Cloud publication is not part of a code change.
 
 ## Versioning
 

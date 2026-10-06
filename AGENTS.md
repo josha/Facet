@@ -60,8 +60,8 @@ contract.
 
 - Verify behavior with meaningful tests. Geometry and input also need live
   Studio evidence. A native engine double does not prove engine behavior.
-- Before you propose a completed change, run `tools/verify.sh full`,
-  `tools/bench.sh`, `tools/package.sh build` and `tools/package.sh status`.
+- Before you propose a completed change, run `lune run tools/lune/verify full`,
+  `lune run tools/lune/bench`, `python3 tools/package.py build` and `python3 tools/package.py status`.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
 - A passing native `full` run is not equivalent to the historical coverage on

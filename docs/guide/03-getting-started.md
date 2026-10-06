@@ -121,7 +121,7 @@ native layout, `StyleSheet` paint, text measurement, device input or engine
 performance. Those need a Studio check.
 
 Inside this repository, put a spec under `tests/` and run it with
-`tools/verify.sh spec <name>`.
+`lune run tools/lune/verify spec <name>`.
 
 ## Using Facet in a game that already uses Compose
 

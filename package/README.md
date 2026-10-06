@@ -24,16 +24,16 @@ fully implemented. Until then, they refuse to run.
 ## The commands
 
 ```
-tools/package.sh build      rebuild build/Facet.rbxm + build/Facet.manifest.json
-tools/package.sh status     this tree against the last receipt
-tools/package.sh verify     build + tree inspection + purity + packaged canary
-tools/package.sh create     mint the asset       (DRY RUN unless --confirm)
-tools/package.sh publish    push a new revision  (DRY RUN unless --confirm)
-tools/package.sh rollback   print both rollback procedures; never uploads
-tools/package.sh stamp      record a Studio verification on a receipt
+python3 tools/package.py build      rebuild build/Facet.rbxm + build/Facet.manifest.json
+python3 tools/package.py status     this tree against the last receipt
+python3 tools/package.py verify     build + tree inspection + purity + packaged canary
+python3 tools/package.py create     mint the asset       (DRY RUN unless --confirm)
+python3 tools/package.py publish    push a new revision  (DRY RUN unless --confirm)
+python3 tools/package.py rollback   print both rollback procedures; never uploads
+python3 tools/package.py stamp      record a Studio verification on a receipt
 ```
 
-`tools/package.sh` is a wrapper. The program is `tools/package.py`. It uses only
+`python3 tools/package.py` is a wrapper. The program is `tools/package.py`. It uses only
 the Python standard library.
 
 **`build`, `status` and `verify` are offline.** They are the everyday commands.
@@ -58,7 +58,7 @@ with 0 and does not use the network. Only `--confirm` sends a request, and
 
 ### build
 
-`build` runs `tools/build_model.sh`. This script is the **only** Rojo mapping for
+`build` runs `lune run tools/lune/build model`. This script is the **only** Rojo mapping for
 the distribution. Keep it the only one. It makes these files:
 
 - `build/Facet.rbxm`: the artifact. It is one `ModuleScript` named `Facet`
@@ -71,7 +71,7 @@ the distribution. Keep it the only one. It makes these files:
 
 `build/` is in `.gitignore`. Nothing in it is committed.
 
-`tools/build_model.sh --publisher` also builds `build/FacetPublisher.rbxl`, the
+`lune run tools/lune/build model --publisher` also builds `build/FacetPublisher.rbxl`, the
 canonical publisher place. In this place, `ReplicatedStorage.Facet` is the
 artifact that the same build made. The script uses the built model. It does not
 map `src/` a second time.
@@ -197,8 +197,8 @@ call.**
 
 The configured route is a recorded decision, not a default. `--route` can
 override it for one invocation, but only together with `--allow-route-override`.
-Otherwise the run refuses with `route-override`. `tools/release.sh` forwards its
-trailing arguments to `package.sh`. Without that guard, a bare
+Otherwise the run refuses with `route-override`. `lune run tools/lune/release` forwards its
+trailing arguments to `package.py`. Without that guard, a bare
 `--route open-cloud` could arrive from two layers away and change an approved
 Studio release into an unapproved `PATCH`.
 
@@ -227,7 +227,7 @@ answers that question, roll back on the route that published the version.
 ### stamp
 
 ```
-tools/package.sh stamp --receipt package/receipts/<file>.json \
+python3 tools/package.py stamp --receipt package/receipts/<file>.json \
     --studio-verified --by "<who>" --notes "<what you saw>"
 ```
 
@@ -281,7 +281,7 @@ The release-gate guard reads `artifacts/verify/latest-release.json` and takes
 **one object from it**: `gateEvidence`.
 
 **Current gap:** on this branch, no producer writes
-`artifacts/verify/latest-release.json`. `tools/verify.sh release` writes
+`artifacts/verify/latest-release.json`. `lune run tools/lune/verify release` writes
 `artifacts/verify/native/report.json`, which has no `gateEvidence`. Thus the
 guard refuses every `publish` with `gate-evidence-missing` until a producer of
 this file is restored. The format below is the format that the guard expects.
@@ -371,7 +371,7 @@ opening the receipts directory. The receipts stay the authority.
 ## The release procedure
 
 ```
-tools/release.sh <version> <commit>
+lune run tools/lune/release <version> <commit>
 ```
 
 The script does these steps:
@@ -380,10 +380,10 @@ The script does these steps:
    an unconfigured asset id.
 2. It checks out the named commit into a temporary git worktree.
 3. It runs the release gate again in that worktree with
-   `tools/verify.sh release`.
+   `lune run tools/lune/verify release`.
 4. It builds in the worktree, so that the drift guard has a recorded manifest
    to compare against.
-5. It runs `tools/package.sh publish --confirm` with every guard still active.
+5. It runs `python3 tools/package.py publish --confirm` with every guard still active.
 6. It polls and reads back.
 7. It copies the new receipt and `package/facet-package.json` into the main
    tree.
