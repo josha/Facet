@@ -46,7 +46,7 @@ local function layerStack<V, K>(options: Options<V, K>): Children.Directive
 	local render =
 		Support.builderOf(settings.render, "LayerStack", "render") :: (Types.Readable<V>, Types.Readable<State>, K) -> Host.Node
 	local keyOf: (value: V, index: number) -> K = if settings.key == nil
-		then (identity :: any) :: (value: V, index: number) -> K
+		then (identity :: unknown) :: (value: V, index: number) -> K
 		else Support.builderOf(settings.key, "LayerStack", "key")
 	local retention: Retention = settings.retention or "all"
 	if retention ~= "all" and retention ~= "top" then

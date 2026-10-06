@@ -11,7 +11,7 @@ export type Codec<T> = {
 	normalise: ((components: { number }) -> ())?,
 }
 
-local registry: { [string]: Codec<any> } = {}
+local registry: { [string]: unknown } = {}
 
 local function register<T>(typeName: string, codec: Codec<T>)
 	if type(typeName) ~= "string" or typeName == "" then
@@ -33,7 +33,7 @@ local function register<T>(typeName: string, codec: Codec<T>)
 	registry[typeName] = codec
 end
 
-local function codecFor(typeName: string): Codec<any>
+local function codecFor<T>(typeName: string): Codec<T>
 	local codec = registry[typeName]
 	if codec == nil then
 		Diagnostics.raise("animation/no-codec", ("nothing knows how to animate a %s"):format(typeName), {
@@ -42,7 +42,7 @@ local function codecFor(typeName: string): Codec<any>
 			fix = ("call Compose.registerCodec(%q, ...), or animate the numbers inside it"):format(typeName),
 		})
 	end
-	return codec :: Codec<any>
+	return codec :: Codec<T>
 end
 
 local function registered(): { string }

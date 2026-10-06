@@ -11,31 +11,57 @@ type Activation = { owner: Owner.Owner, thread: thread }
 
 local activations: { Activation } = {}
 
-local function current(): Owner.Owner?
-	local context = Graph.evaluationContext()
-	if context ~= nil then
-		local record = Owner.runScopeOf(context)
-		if record ~= nil and #activations <= record.base then
-			return record.scope
+local function depth(): number
+	local running = coroutine.running()
+	local count = 0
+	for _, activation in activations do
+		if activation.thread == running or coroutine.status(activation.thread) == "normal" then
+			count += 1
 		end
 	end
+	return count
+end
+
+local function current(): Owner.Owner?
 	local running = coroutine.running()
+	local explicit: Owner.Owner? = nil
 	local inherited: Owner.Owner? = nil
+	local seen: { [thread]: boolean } = {}
+	local ambiguous = false
 	for index = #activations, 1, -1 do
 		local activation = activations[index]
 		if activation.thread == running then
-			return activation.owner
-		end
-		local status = coroutine.status(activation.thread)
-		if status == "normal" then
-			if inherited == nil then
-				inherited = activation.owner
+			if explicit == nil then
+				explicit = activation.owner
 			end
-		elseif status == "dead" then
-			table.remove(activations, index)
+		else
+			local status = coroutine.status(activation.thread)
+			if status == "normal" and not seen[activation.thread] then
+				seen[activation.thread] = true
+				if inherited == nil then
+					inherited = activation.owner
+				elseif inherited ~= activation.owner then
+					ambiguous = true
+				end
+			elseif status == "dead" then
+				table.remove(activations, index)
+			end
 		end
 	end
-	return inherited
+	if explicit == nil and ambiguous then
+		Diagnostics.raise("owner/no-active-owner", "resumer owners are ambiguous", {
+			contract = "a callback cannot infer the order of distinct resumer owners",
+			fix = "bind the child callback with Compose.bindOwner or activate its owner with Compose.withOwner",
+		})
+	end
+	local context = Graph.evaluationContext()
+	if context ~= nil then
+		local record = Owner.runScopeOf(context)
+		if record ~= nil and depth() <= record.base then
+			return record.scope
+		end
+	end
+	return explicit or inherited
 end
 
 local function push(owner: Owner.Owner): Activation
@@ -54,10 +80,6 @@ local function pop(activation: Activation)
 	if index ~= nil then
 		table.remove(activations, index)
 	end
-end
-
-local function depth(): number
-	return #activations
 end
 
 local function release<T...>(activation: Activation, ok: boolean, ...: T...): T...

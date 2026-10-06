@@ -1,0 +1,13 @@
+# Verify contracts
+
+- [Run cases](running.md): the default command, host selection, fixture setup and evidence.
+- [Laws](laws.md): lifecycle, evidence, host boundaries and behavioral falsifiers.
+- [API](api.md): public surfaces and receipt semantics.
+- [Execution](execution.md): plans, hosts, workers and transport.
+- [Experience verification](experience.md): shared harness cases, native actors, simulated networking and performance limits.
+- [Consumer diagnostics](lint.md): portable specification and production graph checks.
+- [Source rights](../PROVENANCE.md): original source, MIT grant and public distribution.
+
+[AGENTS](../AGENTS.md) owns contribution procedure. The
+[consumer skill](../.agents/skills/verify/SKILL.md) owns adoption procedure. A document describes a
+contract; only an actual run produces evidence.

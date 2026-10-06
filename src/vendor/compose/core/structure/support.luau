@@ -81,7 +81,7 @@ end
 
 local function builderOf<F>(value: F, primitive: string, field: string): F
 	if type(value) == "function" then
-		return value
+		return value :: F
 	end
 	Diagnostics.raise(
 		"structure/builder-not-a-function",
@@ -160,7 +160,7 @@ local function optionsOf<T>(value: T, primitive: string, fields: string): T
 		)
 	end
 	if type(value) == "table" then
-		return value
+		return value :: T
 	end
 	Diagnostics.raise("structure/options-not-a-table", ("%s takes one table of named options"):format(primitive), {
 		primitive = primitive,

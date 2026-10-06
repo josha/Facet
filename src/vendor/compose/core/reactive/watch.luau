@@ -113,15 +113,17 @@ local function enqueue(consumer: Consumer)
 end
 
 local function create(reactor: Reactor, body: Body): Watch
-	return setmetatable({
-		state = Graph.DIRTY,
-		dependencies = {},
-		reads = 0,
-		reactor = reactor,
-		body = body,
-		queued = false,
-		released = false,
-	}, WATCH) :: any
+	return (
+		setmetatable({
+			state = Graph.DIRTY,
+			dependencies = {} :: { Edge },
+			reads = 0,
+			reactor = reactor,
+			body = body,
+			queued = false,
+			released = false,
+		}, WATCH) :: unknown
+	) :: Watch
 end
 
 local function start(self: Watch, label: string?): Dispose
@@ -155,7 +157,7 @@ local function watchGuarded(reactor: Reactor, body: Body, label: string?): Dispo
 end
 
 local function watchStatic<T>(reactor: Reactor, producer: Types.Readable<T>, body: (value: T) -> ()): Dispose
-	local member = StaticSink.add((producer :: any) :: StaticSink.Host, reactor, body)
+	local member = StaticSink.add((producer :: unknown) :: StaticSink.Host, reactor, body)
 	return function()
 		StaticSink.release(member)
 	end
@@ -179,7 +181,7 @@ local function unfuse(member: Sink.Member)
 			end
 		end
 	end
-	local producer = sink.edge[Graph.PRODUCER]
+	local producer = sink.edge[Graph.PRODUCER] :: Sink.Host
 	Sink.releaseIfEmpty(sink, producer)
 	self.sink = false
 
@@ -198,7 +200,7 @@ local function fuseIfTerminal(self: Watch)
 	if #dependencies ~= 1 then
 		return
 	end
-	local producer: Sink.Host = dependencies[1][Graph.PRODUCER]
+	local producer: Sink.Host = dependencies[1][Graph.PRODUCER] :: Sink.Host
 
 	if producer.derived then
 		return

@@ -22,7 +22,7 @@ MANIFEST = os.path.join(REPO, "build", "themes", "manifest.json")
 
 
 
-COPIED_TREES = ("src",)
+COPIED_TREES = ("src", os.path.join("tools", "vendor", "verify"))
 COPIED_FILES = (
     "rokit.toml",
     os.path.join("tests", "lib", "native_engine.luau"),

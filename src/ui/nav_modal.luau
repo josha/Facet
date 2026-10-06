@@ -49,8 +49,17 @@ return function(ctx: Types.Context): Nav.Surfaces
 		for index = 1, select("#", ...) do
 			local content = select(index, ...)
 			if content and type(content) ~= "function" then
+				local node = content :: Instance
+				local parent = node.Parent
+				if parent then
+					runtime.mount(function()
+						return runtime.borrow(node)
+					end, parent)
+				end
 				Compose.cleanup(function()
-					(content :: Instance).Parent = nil
+					if node.Parent ~= nil then
+						node.Parent = nil
+					end
 				end)
 			end
 		end
@@ -132,7 +141,17 @@ return function(ctx: Types.Context): Nav.Surfaces
 				return function(use: ComposeTypes.Use): UDim
 					return ctx.types.UDim.new(
 						0,
-						inset(authored.Offset, name, slot, use) + (if extra then extra(name, use) else 0)
+						inset(
+							if authored.Scale == 0
+									and authored.Offset == 0
+									and extra == nil
+									and (slot == nil or slot == "panel")
+								then ctx.metric("space.m", use)
+								else authored.Offset,
+							name,
+							slot,
+							use
+						) + (if extra then extra(name, use) else 0)
 					)
 				end
 			end

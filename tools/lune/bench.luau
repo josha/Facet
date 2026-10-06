@@ -4,6 +4,7 @@ local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 local process = require("@lune/process")
 local artifact = require("./artifact")
+local Verify = require("../vendor/verify/src/core")
 
 local scenarios = require("../../bench/scenarios")
 
@@ -19,11 +20,6 @@ local YARDSTICK = "zz-yardstick-cpu"
 if #scenarios == 0 then
 	print("bench: FAIL - no scenarios registered in bench/scenarios.luau (hint: land the core bake-off scenarios)")
 	process.exit(1)
-end
-
-local function percentile(sorted: { number }, p: number): number
-	local idx = math.max(1, math.ceil(p * #sorted))
-	return sorted[idx]
 end
 
 local baseline: any = nil
@@ -65,15 +61,19 @@ local function measure(scenario: any): any?
 		if scenario.teardown then
 			scenario.teardown(state)
 		end
-		table.sort(samples)
+		local summary = Verify.performance.summarize({
+			samples = samples,
+			unit = "ms",
+			context = { environment = "facet-lune", signal = scenario.name, timing = "observed" },
+		})
 		entry = {
 			name = scenario.name,
 			requirement = scenario.requirement,
 			samples = sampleCount,
 			warmup = warmupCount,
-			p50_ms = percentile(samples, 0.50),
-			p95_ms = percentile(samples, 0.95),
-			p99_ms = percentile(samples, 0.99),
+			p50_ms = assert(summary.p50),
+			p95_ms = assert(summary.p95),
+			p99_ms = assert(summary.p99),
 			heapNetKb = heapLast - heapFirst,
 			heapSwingKb = heapMax - heapMin,
 			regression = false,

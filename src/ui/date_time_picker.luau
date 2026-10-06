@@ -954,8 +954,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				Selectable = function(use: Use)
 					return interactive(use) and not use(outside)
 				end,
-				NextSelectionUp = (up :: unknown) :: Shared.Value<GuiObject>,
-				NextSelectionDown = (down :: unknown) :: Shared.Value<GuiObject>,
+				NextSelectionUp = (up :: unknown) :: Shared.Value<GuiObject?>,
+				NextSelectionDown = (down :: unknown) :: Shared.Value<GuiObject?>,
 				onActivate = function()
 					if swallowTap then
 						swallowTap = false

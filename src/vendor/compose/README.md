@@ -21,9 +21,7 @@ python3 tools/sync_compose.py --bump <full 40-character commit>
 ```
 
 `--bump` changes the commit name, both hash inventories and the files together,
-from one archive of that commit. It prints the snapshot files that changed and
-any document that still names the previous commit. Then re-record the
-provenance receipt and run `tools/verify.sh full`.
+from one archive of that commit. Then update the provenance receipt and run `tools/verify.sh full`.
 
 Do not edit `commit` by hand. `--check` compares the files with the lock's
 inventory; it cannot ask, offline, whether that inventory came from the commit
@@ -35,10 +33,10 @@ To read from a local checkout instead of the network, add
 
 ## Current upstream provenance
 
-The snapshot comes from official `voidmeld/compose` main at
-`dbf518ac3d28846c81ab0cf8f74cbc76ad22b30a`. The sync tool read that commit
-from a Git fetch of the official repository. Both file inventories match the
-archive; there are no local patches. This commit includes the rectangle focus
-policy contributed in [Compose PR 2](https://github.com/voidmeld/compose/pull/2),
-applied upstream as `333c7fa997a6e0a73b8311187f65b0143e55051a`. Facet calls
-`Compose.focusNeighbor` and no longer carries its own copy of that policy.
+The snapshot source and integrity inventories are recorded in `UPSTREAM.lock`.
+The source files are copied from one archive. Relative links in copied agent
+guides that point outside the guide directory are changed to links to that
+commit on GitHub. The guide inventory records the relocated bytes.
+
+The tracked snapshot verifies without access to upstream Git history. A force
+push or deleted upstream commit does not affect a fresh Facet checkout.

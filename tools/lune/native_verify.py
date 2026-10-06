@@ -191,6 +191,16 @@ def inventory():
                 failures.append(f"product parity {item['id']}: {'; '.join(item['remaining'])}")
             elif not item.get("cases") and not item.get("liveEvidence"):
                 failures.append(f"product parity {item['id']}: resolved without behavioral or live evidence")
+    plan_path = ROOT / "tests/plan.json"
+    if plan_path.is_file():
+        plan = json.loads(plan_path.read_text())
+        units = plan.get("units", [])
+        declared = [unit.get("id") for unit in units]
+        if len(declared) != len(set(declared)) or set(declared) != set(selected):
+            failures.append("executable specs differ from the committed Verify plan")
+        if any(unit.get("locator") != f"tests/{unit.get('id')}.spec.luau" for unit in units):
+            failures.append("Verify plan locators do not match their declared spec IDs")
+        selected = [name for name in declared if name in selected]
     return records, selected, failures
 
 
@@ -234,37 +244,47 @@ def mapped_cases(replacement):
 TIER_ORDER = ("affected", "fast", "full", "release")
 
 
-def gated_below(case, tier):
-    gate = case.get("tier")
-    return gate in TIER_ORDER and tier in TIER_ORDER and TIER_ORDER.index(gate) > TIER_ORDER.index(tier)
+def deferred_case(case, tier):
+    reason = case.get("skipReason") or ""
+    gate = reason.removeprefix("tier:")
+    return reason.startswith("tier:") and gate in ("full", "release") and tier in TIER_ORDER and TIER_ORDER.index(gate) > TIER_ORDER.index(tier)
 
 
 def deferred_cases(suite, tier):
-    return {case.get("id") for case in suite.get("cases", []) if case.get("status") == "skip" and gated_below(case, tier)}
+    return {case.get("id") for case in suite.get("report", {}).get("results", []) if case.get("status") == "skipped" and deferred_case(case, tier)}
 
 
 def validate_suite(suite, selected, tier):
     failures = []
-    cases = suite.get("cases", [])
+    report = suite.get("report", {})
+    cases = report.get("results", [])
     identifiers = [case.get("id") for case in cases]
-    reported = {case.get("spec") for case in cases}
-    skipped = [case for case in cases if case.get("status") == "skip"]
-    if suite.get("tier") != tier:
-        failures.append(f"suite ran at tier {suite.get('tier')!r}, expected {tier!r}")
+    reported = {case.get("source") for case in cases}
+    skipped = [case for case in cases if case.get("status") == "skipped"]
+    if report.get("schemaVersion") != 1 or report.get("environment", {}).get("tier") != tier:
+        failures.append("suite did not report the expected Verify schema and tier")
+    if suite.get("provenance", {}).get("complete") is not True:
+        failures.append("suite did not execute its complete Verify plan")
     if not cases:
         failures.append("suite reported no test cases")
     if len(identifiers) != len(set(identifiers)) or any(not isinstance(value, str) or not value for value in identifiers):
         failures.append("suite reported missing or duplicate case IDs")
     if reported != set(selected):
         failures.append(f"suite spec census differs: missing={sorted(set(selected) - reported)} unexpected={sorted(reported - set(selected))}")
-    if suite.get("registeredSpecs") != len(selected) or suite.get("reportedSpecs") != len(selected):
-        failures.append("suite spec totals do not match selected inventory")
-    if any(not gated_below(case, tier) for case in skipped):
+    if any(not deferred_case(case, tier) for case in skipped):
         failures.append("suite skipped a case that its tier must run")
-    if suite.get("skipped", 0) != len(skipped):
-        failures.append("suite skipped totals do not match its cases")
-    if suite.get("passed") != len(cases) - len(skipped) or suite.get("failed") != 0 or any(case.get("status") not in ("pass", "skip") for case in cases):
+    if report.get("skipped", 0) != len(skipped) or report.get("total") != len(cases):
+        failures.append("suite totals do not match its cases")
+    if report.get("passed") != len(cases) - len(skipped) or report.get("failed") != 0 or any(case.get("status") not in ("passed", "skipped") for case in cases):
         failures.append("suite did not pass every registered case")
+    expected_path = ROOT / "tests/case_inventory.json"
+    if expected_path.is_file():
+        expected = [case for case in json.loads(expected_path.read_text())["cases"] if case["source"] in selected]
+        if set(identifiers) != {case["id"] for case in expected}:
+            failures.append("suite case IDs differ from the committed migration census")
+        gates = {case["id"]: case.get("tier") for case in expected}
+        if any(case.get("skipReason") != "tier:" + str(gates.get(case.get("id"))) for case in skipped):
+            failures.append("suite deferred a case without its committed tier requirement")
     return failures
 
 
@@ -281,6 +301,10 @@ def producer(name, command, tiers, environment="deterministic", replaces=()):
 def producers_for(tier):
     catalog = [
         producer("vendor", ["python3", "tools/sync_compose.py", "--check"], WORKING),
+        producer("verify-vendor", ["python3", "tools/sync_verify.py", "--check"], WORKING),
+        producer("snapshot-sync-selftest", ["python3", "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_snapshot_sync.py"], WORKING),
+        producer("verify-integration", ["lune", "run", "tools/lune/verify_integration"], WORKING),
+        producer("verify-census", ["lune", "run", "tools/lune/verify_census"], WORKING),
         producer("verification-selftest", ["python3", "tools/lune/native_verify_selftest.py"], WORKING, replaces=["verify-selftest"]),
         producer("comments", ["python3", "tools/strip_comments.py", "--check"], WORKING, replaces=["check_comment_codes"]),
         producer("comments-selftest", ["python3", "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_strip_comments.py"], WORKING, replaces=["check_comment_codes-selftest"]),
@@ -425,29 +449,26 @@ def run():
         print(f"{entry['id']}: {entry['status']} ({len(entry['findings'])} findings)", flush=True)
         for finding in entry["findings"][:15]:
             print(f"  {finding}", flush=True)
-    for entry in catalog:
-        name, command = entry["id"], entry["command"]
-        if args.rerun and args.rerun != name:
-            continue
-        print(f"{name}: RUN {' '.join(command)}", flush=True)
-        started = time.monotonic()
-        if name == "suite":
+    dispatched = [entry for entry in catalog if not args.rerun or args.rerun == entry["id"]]
+    if dispatched:
+        producer_input = ARTIFACTS / "producers-input.json"
+        producer_output = ARTIFACTS / "producers.json"
+        producer_output.unlink(missing_ok=True)
+        if any(entry["id"] == "suite" for entry in dispatched):
             (ARTIFACTS / "suite.json").unlink(missing_ok=True)
-        with (ARTIFACTS / f"{name}.log").open("w") as output:
-            result = subprocess.run(command, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT, check=False)
-        status = producer_status(result.returncode, entry["environment"], args.reference_host)
-        producers.append({"id": name, "exitCode": result.returncode, "status": status, "environment": entry["environment"], "replaces": entry["replaces"], "seconds": time.monotonic() - started, "log": f"artifacts/verify/native/{name}.log"})
-        print(f"{name}: {status} ({time.monotonic() - started:.1f}s)", flush=True)
-        if result.returncode:
-            text = (ARTIFACTS / f"{name}.log").read_text()
-            lines = text.splitlines()
-            failed = [index for index, line in enumerate(lines) if "\u2717" in line]
-            if failed:
-                print(f"{name}: {len(failed)} failed case(s):", flush=True)
-                for index in failed[:40]:
-                    for line in lines[index:index + 3]:
-                        print(f"  {line.strip()}", flush=True)
-            print(text[-5000:], flush=True)
+        producer_input.write_text(json.dumps({"tier": args.tier, "commit": gate_commit, "referenceHost": args.reference_host, "producers": dispatched}) + "\n")
+        result = subprocess.run(["lune", "run", "tools/lune/verify_producers", str(producer_input), str(producer_output)], cwd=ROOT, check=False)
+        if producer_output.is_file():
+            produced = json.loads(producer_output.read_text())
+            rows = produced.get("producers", [])
+            execution = produced.get("execution", {})
+            expected = [entry["id"] for entry in dispatched]
+            if result.returncode == 0 and [entry.get("id") for entry in rows] == expected and execution.get("provenance", {}).get("complete") is True:
+                producers.extend(rows)
+            else:
+                producers.append({"id": "producer-execution", "status": "FAIL", "exitCode": 1, "environment": "deterministic", "replaces": [], "findings": ["Verify did not account for the complete dispatched producer plan"]})
+        else:
+            producers.append({"id": "producer-execution", "status": "FAIL", "exitCode": 1, "environment": "deterministic", "replaces": [], "findings": ["Verify produced no current-run execution receipt"]})
     if any(entry["id"] == "suite" for entry in producers):
         suite_path = ARTIFACTS / "suite.json"
         case_failures = []
@@ -455,7 +476,7 @@ def run():
         if suite_path.exists():
             suite = json.loads(suite_path.read_text())
             case_failures.extend(validate_suite(suite, selected, args.tier))
-            passed_cases = {case["id"] for case in suite["cases"] if case["status"] == "pass"} | deferred_cases(suite, args.tier)
+            passed_cases = {case["id"] for case in suite["report"]["results"] if case["status"] == "passed"} | deferred_cases(suite, args.tier)
         else:
             case_failures.append("suite produced no current-run result file")
         for record in records:

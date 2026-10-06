@@ -35,7 +35,7 @@ export type Owner = {
 
 local DISPOSE, PREVIOUS, NEXT, ATTACHED, AFTER_DISPOSE = 1, 2, 3, 4, 5
 
-type Entry = { any }
+type Entry = { Dispose | Entry | boolean | nil }
 
 local function noop() end
 
@@ -55,13 +55,13 @@ local function raiseAll(failures: { unknown })
 end
 
 local function releaseEntry(entry: Entry, failures: { unknown })
-	local afterDispose = entry[AFTER_DISPOSE]
+	local afterDispose = entry[AFTER_DISPOSE] :: Dispose?
 	if afterDispose == nil then
-		entry[DISPOSE]()
+		(entry[DISPOSE] :: Dispose)()
 		return
 	end
 	entry[AFTER_DISPOSE] = nil
-	local ok, failure: unknown = pcall(entry[DISPOSE])
+	local ok, failure: unknown = pcall(entry[DISPOSE] :: Dispose)
 	if not ok then
 		table.insert(failures, failure)
 	end
@@ -73,7 +73,7 @@ end
 
 export type RunScope = { scope: Owner, base: number }
 
-local runScopes: { [unknown]: RunScope } = setmetatable({}, { __mode = "k" }) :: any
+local runScopes = (setmetatable({} :: { [unknown]: RunScope }, { __mode = "k" }) :: unknown) :: { [unknown]: RunScope }
 local activationDepth: () -> number = function(): number
 	return 0
 end
@@ -94,8 +94,8 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 	local detachFromParent: Dispose? = nil
 
 	local function unlink(entry: Entry)
-		local previous = entry[PREVIOUS]
-		local following = entry[NEXT]
+		local previous = entry[PREVIOUS] :: Entry?
+		local following = entry[NEXT] :: Entry?
 		if previous ~= nil then
 			previous[NEXT] = following
 		else
@@ -133,7 +133,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 			end
 			unlink(entry)
 			if entry[AFTER_DISPOSE] == nil then
-				entry[DISPOSE]()
+				(entry[DISPOSE] :: Dispose)()
 				return
 			end
 			local failures: { unknown } = {}
@@ -157,7 +157,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 				if entry == nil or entry == boundaryEntry then
 					break
 				end
-				pending = entry[NEXT]
+				pending = entry[NEXT] :: Entry?
 				unlink(entry)
 				releaseEntry(entry, failures)
 			end
@@ -200,7 +200,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		local function releaseRest()
 			while pending ~= nil do
 				local entry = pending
-				pending = entry[NEXT]
+				pending = entry[NEXT] :: Entry?
 				entry[PREVIOUS] = nil
 				entry[NEXT] = nil
 				entry[ATTACHED] = false
@@ -295,9 +295,9 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 					current = createChild()
 					run = current
 				end
-				return ((current :: any) :: { [string]: unknown })[key]
+				return ((current :: unknown) :: { [string]: unknown })[key]
 			end,
-		}) :: any
+		})
 		local function release()
 			local current = run
 			if current ~= nil then
@@ -305,7 +305,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 				current.dispose()
 			end
 		end
-		local record: RunScope = { scope = scope :: Owner, base = 0 }
+		local record: RunScope = { scope = (scope :: unknown) :: Owner, base = 0 }
 		local registered = false
 		local function scoped(use: Types.Use)
 			if run ~= nil then
@@ -377,6 +377,7 @@ end
 
 return {
 	createOwner = createOwner,
+	raiseAll = raiseAll,
 	installActivationDepth = installActivationDepth,
 	runScopeOf = runScopeOf,
 }

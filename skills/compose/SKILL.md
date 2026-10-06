@@ -1,6 +1,6 @@
 ---
 name: compose
-description: Invoke only while consuming Compose's public scene-composition and ownership API in a Luau application. Do not invoke it to change Compose itself, or for game logic, scheduling, networking, physics, persistence, or asset loading.
+description: Invoke only while consuming Compose's public scene-composition and ownership API in a Luau application. Do not invoke it to change Compose itself, or for game logic, networking, physics, persistence, or asset loading.
 ---
 
 # Compose consumer
@@ -15,7 +15,10 @@ This skill helps a Luau application consume Compose's public scene-composition a
    Keep instance state inside the component. Return composition. Use stable keys for structural changes.
 3. Use `borrow` for nodes Compose must not destroy. Use `adopt` for a whole node it must destroy.
    Bind external handles to an owner. If ownership is undecided, stop with `HOLD: ownership or lifetime undecided`.
-4. Run `lute run tools/compose-check.luau --root <source>` when pinned tools exist.
+4. Reproduce the changed behavior with the consumer's host, ownership root and inputs. For layout
+   repairs, inspect final geometry and hit targets, including safe areas and resizing. A copied
+   layout formula does not test the composed result.
+5. Run `lute run tools/compose-check.luau --root <source>` when pinned tools exist.
    Check the changed behavior and ownership with focused consumer tests. Run the application's full gate on the frozen integration candidate.
    Record the dependency pin, candidate, check result and evidence path.
 

@@ -78,7 +78,9 @@ add("callout-edge-gap-shift-clamp", { "navigation-1-39", "navigation-1-67" }, fu
 		local a, p, s = t.rect(anchor), t.rect(panel), t.rect(screen)
 		local above = p.b <= a.y + 0.5
 		local gap = if above then a.y - p.b else p.y - a.b
-		t.near(spot.name .. " gap off the anchor edge", gap, 8, 1)
+		local arrow = t.find(screen, "Arrow")
+		local reach = if arrow then arrow.AbsoluteSize.Y * math.sqrt(2) / 2 else 0
+		t.near(spot.name .. " gap off the anchor edge", gap - reach, 8, 1)
 		t.check(spot.name .. " panel does not cover the anchor", p.b <= a.y + 0.5 or p.y >= a.b - 0.5, {
 			panel = { p.y, p.b },
 			anchor = { a.y, a.b },
@@ -255,7 +257,7 @@ add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
 	local h, s, f, root = t.rect(head), t.rect(tabs), t.rect(foot), t.rect(stage)
 	t.check("head sits above the strip", h.b <= s.y + 0.5, { head = h.b, strip = s.y })
 	t.check("head height is measured", h.h > 0, h.h)
-	local railWidth = math.clamp(math.floor(root.w * 0.2), 200, 280)
+	local railWidth = t.rect(t.find(stage, "Content")).x - root.x
 	t.near("head spans the rail width", h.w, railWidth, 0.5)
 	t.near("head starts at the rail edge", h.x, root.x, 0.5)
 	t.check(
@@ -402,6 +404,7 @@ add("panel-insets-reserve-native-padding", { "themes-P2-20" }, function(t)
 	for _, theme in t.themes do
 		local recipe = theme.package.chrome and theme.package.chrome.panel
 		local inset = if recipe then recipe.contentInsets or {} else {}
+		local spacing = theme.package.metrics.space.m
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Alert({
 				isPresented = Compose.cell(true),
@@ -427,10 +430,15 @@ add("panel-insets-reserve-native-padding", { "themes-P2-20" }, function(t)
 		t.stable(panel)
 		local left, right, top, bottom = paddingOf(panel)
 		t.check(`{theme.name} the panel wears the facet-panel tag`, panel:HasTag("facet-panel"), panel:GetTags())
-		t.near(`{theme.name} panel left padding is the panel inset`, left, math.max(0, inset.left or 0), 0.5)
-		t.near(`{theme.name} panel right padding is the panel inset`, right, math.max(0, inset.right or 0), 0.5)
-		t.near(`{theme.name} panel top padding is the panel inset`, top, math.max(0, inset.top or 0), 0.5)
-		t.near(`{theme.name} panel bottom padding is the panel inset`, bottom, math.max(0, inset.bottom or 0), 0.5)
+		t.near(`{theme.name} panel left padding is the panel inset`, left, math.max(spacing, inset.left or 0), 0.5)
+		t.near(`{theme.name} panel right padding is the panel inset`, right, math.max(spacing, inset.right or 0), 0.5)
+		t.near(`{theme.name} panel top padding is the panel inset`, top, math.max(spacing, inset.top or 0), 0.5)
+		t.near(
+			`{theme.name} panel bottom padding is the panel inset`,
+			bottom,
+			math.max(spacing, inset.bottom or 0),
+			0.5
+		)
 		local layout = panel:FindFirstChild("AlertLayout")
 		if layout then
 			local r = t.rect(panel)

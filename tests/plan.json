@@ -1,0 +1,1060 @@
+{
+  "schemaVersion": 1,
+  "id": "facet-corpus",
+  "policy": {
+    "caseIdStyle": "bare",
+    "batchCount": 1
+  },
+  "units": [
+    {
+      "id": "example_word_data",
+      "locator": "tests/example_word_data.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "facet_design_bindings",
+      "locator": "tests/facet_design_bindings.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "facet_designer",
+      "locator": "tests/facet_designer.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "facet_home",
+      "locator": "tests/facet_home.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "motion_tokens",
+      "locator": "tests/motion_tokens.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_a11y_l10n_corpus",
+      "locator": "tests/native_a11y_l10n_corpus.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_adaptive_layout",
+      "locator": "tests/native_adaptive_layout.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_callout_help",
+      "locator": "tests/native_callout_help.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_card",
+      "locator": "tests/native_card.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_chip_edit",
+      "locator": "tests/native_chip_edit.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_collections",
+      "locator": "tests/native_collections.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_color_picker",
+      "locator": "tests/native_color_picker.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_compose_binding",
+      "locator": "tests/native_compose_binding.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_compose_contract",
+      "locator": "tests/native_compose_contract.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_composition",
+      "locator": "tests/native_composition.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_conformance",
+      "locator": "tests/native_conformance.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_content_navigation",
+      "locator": "tests/native_content_navigation.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_control_polish",
+      "locator": "tests/native_control_polish.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_date_time_picker",
+      "locator": "tests/native_date_time_picker.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_dialog",
+      "locator": "tests/native_dialog.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_documentation",
+      "locator": "tests/native_documentation.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_drag_session",
+      "locator": "tests/native_drag_session.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_engine_enums",
+      "locator": "tests/native_engine_enums.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_environment",
+      "locator": "tests/native_environment.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_facet_farm",
+      "locator": "tests/native_facet_farm.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_facet_flap",
+      "locator": "tests/native_facet_flap.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_fields",
+      "locator": "tests/native_fields.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_focus_model",
+      "locator": "tests/native_focus_model.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_focus_query",
+      "locator": "tests/native_focus_query.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_focus_stops",
+      "locator": "tests/native_focus_stops.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_focus_walk",
+      "locator": "tests/native_focus_walk.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_foundation_parity",
+      "locator": "tests/native_foundation_parity.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_gallery",
+      "locator": "tests/native_gallery.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_gallery_collections",
+      "locator": "tests/native_gallery_collections.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_gallery_parity",
+      "locator": "tests/native_gallery_parity.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_gallery_pickers",
+      "locator": "tests/native_gallery_pickers.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_gallery_shell",
+      "locator": "tests/native_gallery_shell.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_gallery_workflows",
+      "locator": "tests/native_gallery_workflows.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_gamepad_contention",
+      "locator": "tests/native_gamepad_contention.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_games",
+      "locator": "tests/native_games.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_hud",
+      "locator": "tests/native_hud.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_inputs",
+      "locator": "tests/native_inputs.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_lab_audit_parity",
+      "locator": "tests/native_lab_audit_parity.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_layout",
+      "locator": "tests/native_layout.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_layout_unit",
+      "locator": "tests/native_layout_unit.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_list_rows",
+      "locator": "tests/native_list_rows.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_menu_parity",
+      "locator": "tests/native_menu_parity.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_modal_input",
+      "locator": "tests/native_modal_input.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_monitor_geometry",
+      "locator": "tests/native_monitor_geometry.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_motion_level",
+      "locator": "tests/native_motion_level.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_motion_rest",
+      "locator": "tests/native_motion_rest.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_navigation",
+      "locator": "tests/native_navigation.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_navigation_split_view",
+      "locator": "tests/native_navigation_split_view.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_notice_navbar",
+      "locator": "tests/native_notice_navbar.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_number_input",
+      "locator": "tests/native_number_input.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_outpost_rules",
+      "locator": "tests/native_outpost_rules.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_outpost_terminal",
+      "locator": "tests/native_outpost_terminal.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_overlay_arrival",
+      "locator": "tests/native_overlay_arrival.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_overlay_reach",
+      "locator": "tests/native_overlay_reach.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_overlays_gallery",
+      "locator": "tests/native_overlays_gallery.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_pagination",
+      "locator": "tests/native_pagination.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_apps",
+      "locator": "tests/native_parity_apps.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_classb_collections",
+      "locator": "tests/native_parity_classb_collections.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_classb_input",
+      "locator": "tests/native_parity_classb_input.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_classb_keyboard",
+      "locator": "tests/native_parity_classb_keyboard.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_classb_navigation",
+      "locator": "tests/native_parity_classb_navigation.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_classb_showcase",
+      "locator": "tests/native_parity_classb_showcase.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_classb_themes",
+      "locator": "tests/native_parity_classb_themes.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_controls",
+      "locator": "tests/native_parity_controls.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_gaps",
+      "locator": "tests/native_parity_gaps.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_media",
+      "locator": "tests/native_parity_media.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_navigation",
+      "locator": "tests/native_parity_navigation.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_paint",
+      "locator": "tests/native_parity_paint.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_restore",
+      "locator": "tests/native_parity_restore.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_strength_icons",
+      "locator": "tests/native_parity_strength_icons.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_strength_lifetime",
+      "locator": "tests/native_parity_strength_lifetime.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_strength_motion",
+      "locator": "tests/native_parity_strength_motion.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_strength_paint",
+      "locator": "tests/native_parity_strength_paint.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_strength_surface",
+      "locator": "tests/native_parity_strength_surface.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_strength_textperf",
+      "locator": "tests/native_parity_strength_textperf.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_strength_themepkg",
+      "locator": "tests/native_parity_strength_themepkg.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_themes",
+      "locator": "tests/native_parity_themes.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weak3_h1",
+      "locator": "tests/native_parity_weak3_h1.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weak3_h2",
+      "locator": "tests/native_parity_weak3_h2.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weak3_h3",
+      "locator": "tests/native_parity_weak3_h3.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weak3_radial",
+      "locator": "tests/native_parity_weak3_radial.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weak3_rows",
+      "locator": "tests/native_parity_weak3_rows.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_actions",
+      "locator": "tests/native_parity_weaker_actions.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_apps",
+      "locator": "tests/native_parity_weaker_apps.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_editing",
+      "locator": "tests/native_parity_weaker_editing.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_focus",
+      "locator": "tests/native_parity_weaker_focus.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_foundation",
+      "locator": "tests/native_parity_weaker_foundation.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_gallery",
+      "locator": "tests/native_parity_weaker_gallery.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_hud",
+      "locator": "tests/native_parity_weaker_hud.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_menus",
+      "locator": "tests/native_parity_weaker_menus.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_navigation",
+      "locator": "tests/native_parity_weaker_navigation.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_paint",
+      "locator": "tests/native_parity_weaker_paint.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_pickers",
+      "locator": "tests/native_parity_weaker_pickers.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_pointer",
+      "locator": "tests/native_parity_weaker_pointer.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_rows",
+      "locator": "tests/native_parity_weaker_rows.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_scrolling",
+      "locator": "tests/native_parity_weaker_scrolling.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_selection",
+      "locator": "tests/native_parity_weaker_selection.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_showcase",
+      "locator": "tests/native_parity_weaker_showcase.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_surfaces",
+      "locator": "tests/native_parity_weaker_surfaces.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_tables",
+      "locator": "tests/native_parity_weaker_tables.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_values",
+      "locator": "tests/native_parity_weaker_values.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_parity_weaker_virtual",
+      "locator": "tests/native_parity_weaker_virtual.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_perf",
+      "locator": "tests/native_perf.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_perf_dataset",
+      "locator": "tests/native_perf_dataset.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_perf_evidence",
+      "locator": "tests/native_perf_evidence.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_perf_lab",
+      "locator": "tests/native_perf_lab.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_perf_principles",
+      "locator": "tests/native_perf_principles.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_perf_runner",
+      "locator": "tests/native_perf_runner.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_picker_fields",
+      "locator": "tests/native_picker_fields.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_picker_models",
+      "locator": "tests/native_picker_models.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_popover",
+      "locator": "tests/native_popover.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_ported_behaviours",
+      "locator": "tests/native_ported_behaviours.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_presence",
+      "locator": "tests/native_presence.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_presentation_motion",
+      "locator": "tests/native_presentation_motion.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_press_sweep",
+      "locator": "tests/native_press_sweep.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_preview_updates",
+      "locator": "tests/native_preview_updates.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_public_surface",
+      "locator": "tests/native_public_surface.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_radial_controls",
+      "locator": "tests/native_radial_controls.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_reference_apps",
+      "locator": "tests/native_reference_apps.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_registration",
+      "locator": "tests/native_registration.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_restored_controls",
+      "locator": "tests/native_restored_controls.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_scroll_chain",
+      "locator": "tests/native_scroll_chain.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_scroll_measure",
+      "locator": "tests/native_scroll_measure.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_selection_parity",
+      "locator": "tests/native_selection_parity.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_settle",
+      "locator": "tests/native_settle.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_sheet_parts",
+      "locator": "tests/native_sheet_parts.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_showcase_demos",
+      "locator": "tests/native_showcase_demos.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_slider_shapes",
+      "locator": "tests/native_slider_shapes.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_stage_presence",
+      "locator": "tests/native_stage_presence.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_step_indicator",
+      "locator": "tests/native_step_indicator.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_stress",
+      "locator": "tests/native_stress.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_ten_foot",
+      "locator": "tests/native_ten_foot.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_text_preference",
+      "locator": "tests/native_text_preference.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_text_press",
+      "locator": "tests/native_text_press.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_themed_edges",
+      "locator": "tests/native_themed_edges.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_themes_media",
+      "locator": "tests/native_themes_media.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_toast_action",
+      "locator": "tests/native_toast_action.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_toggle_row",
+      "locator": "tests/native_toggle_row.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_virtual_monitors",
+      "locator": "tests/native_virtual_monitors.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_virtual_monitors_coverage",
+      "locator": "tests/native_virtual_monitors_coverage.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_vote",
+      "locator": "tests/native_vote.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "overlay_placement",
+      "locator": "tests/overlay_placement.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "radial_geometry",
+      "locator": "tests/radial_geometry.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "scenario_require_paths",
+      "locator": "tests/scenario_require_paths.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "sheet_release",
+      "locator": "tests/sheet_release.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    }
+  ]
+}

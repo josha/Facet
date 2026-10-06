@@ -137,7 +137,7 @@ VENDOR_ALLOWLIST = [
     ("tests/native_parity_navigation.spec.luau", re.compile(r'"iphone", "ipad"'),
      "a negative test lists device names to prove no control branches on one",
      "when the device-name guard moves to a shared helper"),
-    ("tests/native_parity_weaker_pointer.spec.luau", re.compile(r'"iphone", "ipad"'),
+    ("tests/native_parity_weaker_pointer.spec.luau", re.compile(r'^\s*"(?:iphone|ipad|macos|ios|tvos)"[,]?\s*$|"iphone", "ipad"'),
      "a negative test lists device names to prove no control branches on one",
      "when the device-name guard moves to a shared helper"),
     ("tools/check_brand_drift.py", VENDOR,
@@ -181,6 +181,7 @@ VENDOR_ALLOWLIST = [
 ]
 
 EXCLUDED_TREES = (
+    ("tools/vendor/", "generated upstream test dependencies checked by their integrity pins"),
     ("artifacts/", "gate evidence records the name it was earned under"),
     ("docs/superpowers/", "the frozen original design spec"),
     (".superpowers/", "controller scratch, git-ignored"),

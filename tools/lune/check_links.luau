@@ -194,7 +194,7 @@ local function documents(list: Allowlist): { string }
 	local seen: { [string]: boolean } = {}
 	local found: { string } = {}
 	local function consider(path: string)
-		if seen[path] or isArchived(path) or not isPublic(path, list) then
+		if seen[path] or isArchived(path) or not isPublic(path, list) or string.sub(path, 1, 13) == "tools/vendor/" then
 			return
 		end
 		seen[path] = true

@@ -2,6 +2,7 @@
 local HttpService = game:GetService("HttpService")
 local storage = game:GetService("ReplicatedStorage")
 
+local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
 local relay = {}
 
 function relay.start(base: string): string
@@ -11,25 +12,25 @@ function relay.start(base: string): string
 	end
 	local created = Instance.new("RemoteEvent")
 	created.Name = "FacetLiveRelay"
-	local parts: { [string]: { string } } = {}
-	created.OnServerEvent:Connect(function(_, name: string, index: number, count: number, text: string, dir: string?)
+	local parts: { [string]: { any } } = {}
+	created.OnServerEvent:Connect(function(_, name: string, segment: any, dir: string?)
 		local folder = if dir == "perf" or dir == "atlas" then dir else "live"
 		if not string.match(name, "^[%w%-_]+$") then
 			return
 		end
 		local list = parts[name] or {}
 		parts[name] = list
-		list[index] = text
-		for position = 1, count do
-			if list[position] == nil then
-				return
-			end
+		table.insert(list, segment)
+		local text, problem = Verify.reassembleSegments(list)
+		if not text then
+			created:SetAttribute(name, tostring(problem))
+			return
 		end
 		parts[name] = nil
 		local ok, result = pcall(function()
 			return HttpService:PostAsync(
 				`{base}/save?dir={folder}&name={name}`,
-				table.concat(list, "", 1, count),
+				text,
 				Enum.HttpContentType.ApplicationJson
 			)
 		end)

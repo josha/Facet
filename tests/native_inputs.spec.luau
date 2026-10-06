@@ -1,2701 +1,3005 @@
 --!strict
+local Verify = require("../tools/vendor/verify/src/core")
 
-type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
-type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
-local FixtureEngineTypes = require("../src/ui/engine_types")
-local requireDynamic = require :: (any) -> any
-type Readable<T> = { peek: (Readable<T>) -> T }
-type Use = <T>(Readable<T>) -> T
-local SharedTypes = require("../src/ui/control_types")
-local t = require("./lib/testkit")
-local Compose = require("../src/vendor/compose/core")
-local Roblox = require("../src/vendor/compose/roblox")
-local context = require("../src/ui/context")
-local register = require("../src/ui/inputs")
-local Facet = require("../src")
-local engineLib = require("./lib/native_engine")
+return function(verifyHarness: Verify.Harness, tier: string)
+	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+	type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
+	local FixtureEngineTypes = require("../src/ui/engine_types")
+	local requireDynamic = require :: (any) -> any
+	type Readable<T> = { peek: (Readable<T>) -> T }
+	type Use = <T>(Readable<T>) -> T
+	local SharedTypes = require("../src/ui/control_types")
 
-local function world(build: (SharedTypes.Controls, any, Compose.Runtime) -> unknown, configure: ((any) -> any)?)
-	local engine = engineLib.new()
-	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-	local UI = ({} :: unknown) :: SharedTypes.Controls
-	local options: SharedTypes.Config = if configure then configure(engine) else {}
-	options.types = engine.types
-	local ctx = context(Compose, runtime, options)
-	register(ctx, UI)
-	local stop, node: any = runtime.mount(function()
-		return build(UI, engine, runtime)
-	end, engine.new("ScreenGui"))
-	return node, stop, engine, runtime, ctx
-end
+	local Compose = require("../src/vendor/compose/core")
+	local Roblox = require("../src/vendor/compose/roblox")
+	local context = require("../src/ui/context")
+	local register = require("../src/ui/inputs")
+	local Facet = require("../src")
+	local engineLib = require("./lib/native_engine")
 
-local function find(root: any, name: string): any
-	if root.Name == name then
-		return root
+	local function world(build: (SharedTypes.Controls, any, Compose.Runtime) -> unknown, configure: ((any) -> any)?)
+		local engine = engineLib.new()
+		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+		local UI = ({} :: unknown) :: SharedTypes.Controls
+		local options: SharedTypes.Config = if configure then configure(engine) else {}
+		options.types = engine.types
+		local ctx = context(Compose, runtime, options)
+		register(ctx, UI)
+		local stop, node: any = runtime.mount(function()
+			return build(UI, engine, runtime)
+		end, engine.new("ScreenGui"))
+		return node, stop, engine, runtime, ctx
 	end
-	for _, child in root:GetChildren() do
-		local found = find(child, name)
-		if found then
-			return found
+
+	local function find(root: any, name: string): any
+		if root.Name == name then
+			return root
 		end
+		for _, child in root:GetChildren() do
+			local found = find(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
 	end
-	return nil
-end
 
-local function enabledAction(root, name)
-	for _, child in root:GetChildren() do
-		if child:IsA("InputContext") and child.Enabled then
-			local action = child:FindFirstChild(name)
-			if action then
-				return action
-			end
-		end
-	end
-	return nil
-end
-
-t.describe("native input controls", function()
-	t.it("keeps the control height under an authored full-width Button size", function()
-		local node, stop = world(function(UI: FacetControls, engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button("Wide")({
-					label = "Go",
-					Size = engine.types.UDim2.new(1, 0, 0, 0),
-					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-					onActivate = function() end,
-				}) :: unknown,
-				UI.Button("Short")({
-					label = "Go",
-					Size = engine.types.UDim2.new(1, 0, 0, 24),
-					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
-					onActivate = function() end,
-				}),
-			})
-		end)
-		local wide = find(node, "Wide")
-		t.expect(wide.Size.X.Scale).toBe(1)
-		t.expect(wide.Size.Y.Offset >= 44).toBe(true)
-		t.expect(find(node, "Short").Size.Y.Offset).toBe(24)
-		stop()
-	end)
-
-	t.it("delivers only the final native Chip and ShortcutHint roots to refs", function()
-		local chipRefs: { GuiObject } = {}
-		local hintRefs: { GuiObject } = {}
-		local node, stop = world(function(UI: FacetControls, engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Chip({
-					selected = Compose.cell(false),
-					editing = Compose.cell(true),
-					onRemove = function() end,
-					ref = function(root: Frame | TextButton)
-						table.insert(chipRefs, root)
-					end,
-				}) :: unknown,
-				UI.ShortcutHint({
-					action = engine.new("InputAction"),
-					ref = function(root: Frame | TextLabel)
-						table.insert(hintRefs, root)
-					end,
-				}),
-			})
-		end)
-		t.expect(#chipRefs).toBe(1)
-		t.expect(#hintRefs).toBe(1)
-		t.expect(chipRefs[1].ClassName).toBe("TextButton")
-		t.expect(hintRefs[1].ClassName).toBe("Frame")
-		t.expect(chipRefs[1].Parent).toBe(node)
-		t.expect(hintRefs[1].Parent).toBe(node)
-		stop()
-	end)
-
-	t.it("finishes an activation that removes its own Button without reading released state", function()
-		local shown = Compose.cell(true)
-		local presses = 0
-		local node, stop = world(function(UI: FacetControls, _engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				Compose.show(shown, function()
-					local allowed = Compose.formula(function(use: Use)
-						return use(shown)
-					end)
-					return UI.Button "Dismiss" {
-						label = "Dismiss",
-						enabled = allowed,
-						onActivate = function()
-							presses += 1
-							shown:set(false)
-						end,
-					}
-				end),
-			})
-		end)
-		local button = find(node, "Dismiss")
-		button.Activated.fire()
-		t.expect(presses).toBe(1)
-		t.expect(find(node, "Dismiss")).toBe(nil)
-		stop()
-	end)
-
-	t.it("uses native properties and events and releases them with its Compose owner", function()
-		local value, enabled = Compose.cell("Before"), Compose.cell(true)
-		local activated, nativeEvent = 0, 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button("Continue")({
-				label = value,
-				enabled = enabled,
-				Attributes = { task = "continue" } :: FixtureEngineTypes.Attributes,
-				onActivate = function()
-					activated += 1
-				end,
-				[Compose.event("MouseEnter")] = function()
-					nativeEvent += 1
-				end,
-			})
-		end)
-		t.expect(node.Text).toBe("Before")
-		t.expect(node:GetAttribute("task")).toBe("continue")
-		value:set("After")
-		t.expect(node.Text).toBe("After")
-		t.expect(find(node, "Label")).toBe(nil)
-		node.Text = "Native text"
-		t.expect(node.Text).toBe("Native text")
-		node.Activated.fire()
-		node.MouseEnter.fire()
-		enabled:set(false)
-		node.Activated.fire()
-		t.expect(activated).toBe(1)
-		t.expect(nativeEvent).toBe(1)
-		t.expect(node.Interactable).toBe(false)
-		stop()
-		t.expect(node.Activated.count()).toBe(0)
-		t.expect(node.MouseEnter.count()).toBe(0)
-	end)
-
-	t.it("keeps Toggle requests controlled and clears a writable mixed state", function()
-		local value, mixed = Compose.cell(false), Compose.cell(true)
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Toggle({
-				value = value,
-				mixed = mixed,
-				presentation = "checkbox" :: "checkbox",
-				label = "Enabled",
-			})
-		end)
-		node.Activated.fire()
-		t.expect(value:peek()).toBe(true)
-		t.expect(mixed:peek()).toBe(false)
-		stop()
-		local request
-		node, stop = world(function(UI: FacetControls)
-			return UI.Toggle({
-				value = value,
-				label = "Controlled",
-				onChange = function(nextValue)
-					request = nextValue
-				end,
-			})
-		end)
-		node.Activated.fire()
-		t.expect(request).toBe(false)
-		t.expect(value:peek()).toBe(true)
-		stop()
-	end)
-
-	t.it("an authored-width Button keeps one em of label room inside the theme padding", function()
-		for _, case: { themeName: string, themeModule: string | nil, inset: number } in
-			{
-				{ themeName = "neutral", themeModule = nil, inset = 0 },
-				{ themeName = "parchment", themeModule = "fantasy_parchment", inset = 24 },
-			} :: { { themeName: string, themeModule: string | nil, inset: number } }
-		do
-			local package = if case.themeModule
-				then requireDynamic("../examples/themes/" .. case.themeModule).build(Facet.themes)
-				else nil
-			local node, stop = world(function(UI: FacetControls, engine)
-				return UI.Button({ label = "Ed", Size = engine.types.UDim2.fromOffset(52, 40) })
-			end, function()
-				return { theme = package }
-			end)
-			local limit = node:FindFirstChildWhichIsA("UISizeConstraint")
-			t.expect(limit ~= nil).toBe(true)
-			local metrics = (package or Facet.themes.neutralPackage()).metrics
-			local em, paddingX = metrics.typography.control.size, metrics.controlSizes.regular.paddingX
-			t.expect(`{case.themeName}:{limit.MinSize.X}`).toBe(`{case.themeName}:{2 * paddingX + case.inset + em}`)
-			stop()
-		end
-	end)
-
-	t.it("a busy Button reserves its dots on a real UIPadding, so a hugging parent grows with it", function()
-		local busy = Compose.cell(false)
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button({ label = "Retry sync", appearance = "link", busy = busy })
-		end)
-		local padding = node:FindFirstChildWhichIsA("UIPadding")
-		t.expect(padding ~= nil).toBe(true)
-		t.expect(padding.PaddingRight.Offset).toBe(0)
-		busy:set(true)
-		t.expect(padding.PaddingRight.Offset).toBe(32)
-		busy:set(false)
-		t.expect(padding.PaddingRight.Offset).toBe(0)
-		stop()
-	end)
-
-	t.it("keeps Toggle native eligibility semantics and theme tags synchronized with one ref delivery", function()
-		local value, enabled, busy = Compose.cell(true), Compose.cell(true), Compose.cell(false)
-		local role, appearance, size, name =
-			Compose.cell("default" :: "cancel" | "default" | "destructive" | "onIndicator"),
-			Compose.cell("standard"),
-			Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall"),
-			Compose.cell("Ready")
-		local references, changes = 0, 0
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Toggle({
-				value = value,
-				enabled = enabled,
-				busy = busy,
-				role = role,
-				appearance = appearance,
-				controlSize = size,
-				name = name,
-				ref = function()
-					references += 1
-				end,
-				onChange = function(nextValue)
-					changes += 1
-					value:set(nextValue)
-				end,
-			})
-		end)
-		t.expect(references).toBe(1)
-		t.expect(node:GetAttribute("selected")).toBe(true)
-		t.expect(node:HasTag("facet-selected")).toBe(true)
-		role:set("destructive")
-		appearance:set("emphasis")
-		size:set("large")
-		name:set("Confirm")
-		t.expect(node:HasTag("facet-role-default")).toBe(false)
-		t.expect(node:HasTag("facet-role-destructive")).toBe(true)
-		t.expect(node:HasTag("facet-accent")).toBe(true)
-		t.expect(node:GetAttribute("role")).toBe("destructive")
-		t.expect(node:GetAttribute("appearance")).toBe("emphasis")
-		t.expect(node:GetAttribute("controlSize")).toBe("large")
-		t.expect(node:GetAttribute("label")).toBe("Confirm")
-		busy:set(true)
-		t.expect(node.Interactable).toBe(false)
-		t.expect(node:HasTag("facet-busy")).toBe(true)
-		t.expect(node:HasTag("facet-disabled")).toBe(true)
-		node.Activated.fire()
-		t.expect(changes).toBe(0)
-		busy:set(false)
-		node.Activated.fire()
-		t.expect(changes).toBe(1)
-		t.expect(node:GetAttribute("selected")).toBe(false)
-		t.expect(node:HasTag("facet-selected")).toBe(false)
-		for _ = 1, 60 do
-			engine.heartbeat.fire(1 / 60)
-		end
-		t.expect(find(node, "Mark").Position.X.Scale).toBeCloseTo(0.3)
-		enabled:set(false)
-		t.expect(node.Selectable).toBe(false)
-		node.Activated.fire()
-		t.expect(changes).toBe(1)
-		stop()
-	end)
-
-	t.it("distinguishes edits from external model updates and disconnects observation", function()
-		local value = Compose.cell("First")
-		local edits, commits = {}, {}
-		local node, stop = world(function(UI: FacetControls)
-			return UI.TextInput({
-				value = value,
-				onChange = function(text)
-					value:set(text)
-					table.insert(edits, text)
-				end,
-				onCommit = function(text: string, reason: "focusLost" | "submit")
-					table.insert(commits, { text, reason })
-				end,
-			})
-		end)
-		value:set("External")
-		t.expect(node.Text).toBe("External")
-		t.expect(#edits).toBe(0)
-		node:CaptureFocus()
-		node.Text = "User"
-		t.expect(value:peek()).toBe("User")
-		t.expect(#edits).toBe(1)
-		value:set("Model while focused")
-		t.expect(node.Text).toBe("Model while focused")
-		t.expect(#edits).toBe(1)
-		node:ReleaseFocus(true)
-		t.expect(commits[1][1]).toBe("Model while focused")
-		t.expect(commits[1][2]).toBe("submit")
-		stop()
-		t.expect(node:GetPropertyChangedSignal("Text").count()).toBe(0)
-	end)
-
-	t.it("limits UTF-8 characters, rejects validation and restores an edit on cancel", function()
-		local value, edits, canceled = Compose.cell("old"), 0, 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.TextInput({
-				value = value,
-				maxLength = 3,
-				validate = function(text)
-					return if text == "bad" then nil else text
-				end,
-				onChange = function(text)
-					value:set(text)
-					edits += 1
-				end,
-				onCancel = function()
-					canceled += 1
-				end,
-			})
-		end)
-		node:CaptureFocus()
-		node.Text = "é🙂好x"
-		t.expect(value:peek()).toBe("é🙂好")
-		t.expect(node.Text).toBe("é🙂好")
-		node.Text = "bad"
-		t.expect(value:peek()).toBe("é🙂好")
-		t.expect(node.Text).toBe("é🙂好")
-		t.expect(edits).toBe(1)
-		find(node.Parent, "Cancel").Pressed.fire()
-		t.expect(value:peek()).toBe("old")
-		t.expect(node.Text).toBe("old")
-		t.expect(canceled).toBe(1)
-		t.expect(node:IsFocused()).toBe(false)
-		stop()
-	end)
-
-	t.it("commits and formats finite numeric input, clamps out-of-range input and refuses a non-number", function()
-		local value, number, invalid = Compose.cell("2"), Compose.cell(2), Compose.cell(false)
-		local commits = 0
-		local reasons = {}
-		local node, stop = world(function(UI: FacetControls)
-			return UI.TextInput({
-				value = value,
-				numericValue = number,
-				invalid = invalid,
-				presentation = "number" :: "number",
-				min = 1,
-				max = 10,
-				format = function(n)
-					return string.format("%.1f", n)
-				end,
-				onCommit = function(committed, reason)
-					commits += 1
-					table.insert(reasons, `{committed}:{reason}`)
-				end,
-			})
-		end)
-		node:CaptureFocus()
-		node.Text = "7"
-		node:ReleaseFocus(true)
-		t.expect(number:peek()).toBe(7)
-		t.expect(value:peek()).toBe("7.0")
-		t.expect(node.Text).toBe("7.0")
-		t.expect(commits).toBe(1)
-		node:CaptureFocus()
-		node.Text = "11"
-		node:ReleaseFocus(true)
-		t.expect(number:peek()).toBe(10)
-		t.expect(value:peek()).toBe("10.0")
-		t.expect(invalid:peek()).toBe(false)
-		node:CaptureFocus()
-		node.Text = "1e1"
-		node:ReleaseFocus(true)
-		t.expect(number:peek()).toBe(10)
-		t.expect(commits).toBe(2)
-		t.expect(invalid:peek()).toBe(true)
-		t.expect(table.concat(reasons, " ")).toBe("7:submit 10:clamped")
-		stop()
-	end)
-
-	t.it("steps from the minimum, respects live stepping and gates all activation", function()
-		local value, step, enabled = Compose.cell(5), Compose.cell(5), Compose.cell(true)
-		local changes = 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Stepper({
-				value = value,
-				min = 5,
-				max = 25,
-				step = step,
-				enabled = enabled,
-				onChange = function(nextValue)
-					value:set(nextValue)
-					changes += 1
-				end,
-			})
-		end)
-		t.expect(find(node, "Increase"):FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
-		t.expect(find(node, "Increase").Text).toBe("")
-		t.expect(find(node, "Decrease"):GetAttribute("label")).toBe("Decrease")
-		local decreaseTitle = find(node, "Decrease"):FindFirstChild("Title", true)
-		t.expect(decreaseTitle == nil or decreaseTitle.Text == "").toBe(true)
-		find(node, "Increase").Activated.fire()
-		t.expect(value:peek()).toBe(10)
-		step:set(2)
-		find(node, "Increase").Activated.fire()
-		t.expect(value:peek()).toBe(13)
-		enabled:set(false)
-		find(node, "Increase").Activated.fire()
-		t.expect(value:peek()).toBe(13)
-		t.expect(changes).toBe(2)
-		stop()
-	end)
-
-	t.it("lets the native drag detector drive one bounded slider model and cancel", function()
-		local value, commits = Compose.cell(25), 0
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Slider({
-				value = value,
-				min = 0,
-				max = 100,
-				step = 5,
-				onCommit = function()
-					commits += 1
-				end,
-			})
-		end)
-		local track, drag = find(node, "Track"), find(node, "Drag")
-		node.SelectionGained.fire()
-		track.AbsoluteSize = engine.types.Vector2.new(200, 44)
-		track.AbsolutePosition = engine.types.Vector2.new(20, 0)
-		drag.DragStart.fire(engine.types.Vector2.new(164, 0))
-		t.expect(value:peek()).toBe(75)
-		drag.DragContinue.fire(engine.types.Vector2.new(500, 0))
-		t.expect(value:peek()).toBe(100)
-		find(node.Parent, "Cancel").Pressed.fire()
-		t.expect(value:peek()).toBe(25)
-		t.expect(commits).toBe(0)
-		drag.DragStart.fire(engine.types.Vector2.new(120, 0))
-		drag.DragEnd.fire()
-		t.expect(value:peek()).toBe(50)
-		t.expect(commits).toBe(1)
-		stop()
-	end)
-
-	t.it("keeps authored slider widths with an inline readout and a vertically sized row presentation", function()
-		local value = Compose.cell(0.5)
-		local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Slider "Inline" { value = value, Size = engine.types.UDim2.fromOffset(80, 36) } :: unknown,
-				UI.Slider "Row" { value = value, row = { title = "Volume", description = "Playback level" } },
-				UI.Slider "Fixed" { value = value, AutomaticSize = engine.types.Enum.AutomaticSize.None },
-			})
-		end)
-		local inline, row, fixed = find(node, "Inline"), find(node, "Row"), find(node, "Fixed")
-		t.expect(inline.Size.X.Offset).toBe(80)
-		t.expect(inline.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
-		t.expect(inline:FindFirstChildWhichIsA("UIListLayout").FillDirection)
-			.toBe(engine.types.Enum.FillDirection.Horizontal)
-		t.expect(inline:FindFirstChildWhichIsA("UIListLayout").VerticalAlignment)
-			.toBe(engine.types.Enum.VerticalAlignment.Center)
-		t.expect(find(inline, "Track"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
-			.toBe(engine.types.Enum.UIFlexMode.Fill)
-		t.expect(find(inline, "Track").Size.Y.Offset).toBe(44)
-		t.expect(find(inline, "Value").Text).toBe("0.5")
-		value:set(0.75)
-		t.expect(find(inline, "Value").Text).toBe("0.75")
-		t.expect(row.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
-		t.expect(find(row, "Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
-			.toBe(engine.types.Enum.FillDirection.Horizontal)
-		t.expect(row:HasTag("facet-slider-settings")).toBe(true)
-		t.expect(row.BackgroundTransparency).toBe(1)
-		t.expect(row:FindFirstChildWhichIsA("UIPadding") ~= nil).toBe(true)
-		t.expect(find(row, "Captions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
-			.toBe(engine.types.Enum.FillDirection.Vertical)
-		t.expect(find(row, "Value").Parent).toBe(find(row, "Header"))
-		t.expect(find(row, "Description").Text).toBe("Playback level")
-		t.expect(fixed.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
-		stop()
-	end)
-
-	t.it("supports clearing a rating and keeps read-only levels inert", function()
-		local value = Compose.cell(3)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Rating({ value = value })
-		end)
-		node.AbsoluteSize = engine.types.Vector2.new(100, 44)
-		node.Activated.fire({ Position = engine.types.Vector2.new(50, 0) })
-		t.expect(value:peek()).toBe(0)
-		node.Activated.fire({ Position = engine.types.Vector2.new(90, 0) })
-		t.expect(value:peek()).toBe(5)
-		stop()
-		node, stop = world(function(UI: FacetControls)
-			return UI.LevelPicker({ value = value, readOnly = true })
-		end)
-		node.Activated.fire({ Position = engine.types.Vector2.new(10, 0) })
-		t.expect(value:peek()).toBe(5)
-		stop()
-	end)
-	t.it("clears search fields and submits the on-screen keyboard only once", function()
-		local value, commits, changes = Compose.cell("search"), 0, 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.TextInput({
-				value = value,
-				presentation = "search" :: "search",
-				onChange = function(nextValue)
-					value:set(nextValue)
-					changes += 1
-				end,
-				onCommit = function()
-					commits += 1
-				end,
-			})
-		end)
-		local clear = find(node, "Clear")
-		t.expect(clear.Visible).toBe(true)
-		t.expect(clear:GetAttribute("label")).toBe("Clear")
-		t.expect(clear:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
-		t.expect(clear:FindFirstChild("Title", true)).toBeNil()
-		t.expect(clear.Text).toBe("")
-		t.expect(clear.Size.Y.Offset > 0 and clear.Size.Y.Offset < 36).toBe(true)
-		t.expect(clear:HasTag("facet-shape-circle")).toBe(true)
-		clear.Activated.fire()
-		t.expect(value:peek()).toBe("")
-		t.expect(clear.Visible).toBe(false)
-		t.expect(changes).toBe(1)
-		local field = find(node, "Field")
-		field:CaptureFocus()
-		field.Text = "find"
-		field.ReturnPressedFromOnScreenKeyboard.fire()
-		t.expect(commits).toBe(1)
-		t.expect(field:IsFocused()).toBe(false)
-		stop()
-	end)
-
-	t.it("repeats while held and cancels native frame subscriptions on disposal", function()
-		local activated = 0
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({
-				label = "Repeat",
-				repeatDelay = 0.4,
-				repeatInterval = 0.1,
-				onActivate = function()
-					activated += 1
-				end,
-			})
-		end)
-		local input = {
-			UserInputType = engine.types.Enum.UserInputType.MouseButton1,
-			KeyCode = engine.types.Enum.KeyCode:FromValue(0),
-		}
-		node.InputBegan.fire(input)
-		engine.heartbeat.fire(0.4)
-		engine.heartbeat.fire(0.1)
-		t.expect(activated).toBe(2)
-		node.InputEnded.fire(input)
-		node.Activated.fire()
-		t.expect(activated).toBe(2)
-		stop()
-		engine.heartbeat.fire(1)
-		t.expect(activated).toBe(2)
-		t.expect(engine.heartbeat.count()).toBe(0)
-	end)
-	t.it("reports a pointer cancel when onPointerCancel is the only pointer option", function()
-		local cancels = 0
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button "Hold" {
-				label = "Hold",
-				onPointerCancel = function()
-					cancels += 1
-				end,
-			}
-		end)
-		node.InputBegan.fire({
-			UserInputType = engine.types.Enum.UserInputType.MouseButton1,
-			KeyCode = engine.types.Enum.KeyCode:FromValue(0),
-		})
-		node.MouseLeave.fire()
-		t.expect(cancels).toBe(1)
-		node.MouseLeave.fire()
-		t.expect(cancels).toBe(1)
-		stop()
-	end)
-
-	t.it("follows GuiService.ReducedMotionEnabled for pop, validation pulse and busy dots", function()
-		local gui
-		local busy, value, number = Compose.cell(false), Compose.cell("2"), Compose.cell(2)
-		local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "Pop" { label = "Pop", pop = true, busy = busy, onActivate = function() end } :: unknown,
-				UI.TextInput "Amount" {
-					value = value,
-					numericValue = number,
-					presentation = "number" :: "number",
-					max = 10,
-				},
-			})
-		end, function(engine)
-			gui = engine.new("GuiService")
-			gui.ReducedMotionEnabled = true
-			return { guiService = gui, services = { GuiService = gui } }
-		end)
-		local button, field = find(root, "Pop"), find(root, "Amount")
-		local scale = button:FindFirstChildWhichIsA("UIScale")
-		button.Activated.fire()
-		engine.heartbeat.fire(0.1)
-		t.expect(scale.Scale).toBe(1)
-		field:CaptureFocus()
-		field.Text = "11"
-		field:ReleaseFocus(true)
-		engine.heartbeat.fire(0.08)
-		t.expect(find(field, "ValidationPulse").Scale).toBe(1)
-		busy:set(true)
-		engine.heartbeat.fire(0.3)
-		t.expect(find(button, "Dot1").BackgroundTransparency).toBe(0)
-		busy:set(false)
-		gui.ReducedMotionEnabled = false
-		button.Activated.fire()
-		engine.heartbeat.fire(0.1)
-		t.expect(scale.Scale > 1).toBe(true)
-		stop()
-	end)
-
-	t.it("does not commit a number TextInput that its parse callback disables", function()
-		local value, number, enabled, commits = Compose.cell("2"), Compose.cell(2), Compose.cell(true), 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.TextInput "Amount" {
-				value = value,
-				numericValue = number,
-				presentation = "number" :: "number",
-				enabled = enabled,
-				parse = function(text)
-					enabled:set(false)
-					return tonumber(text)
-				end,
-				onCommit = function()
-					commits += 1
-				end,
-			}
-		end)
-		node:CaptureFocus()
-		node.Text = "5"
-		node:ReleaseFocus(true)
-		t.expect(commits).toBe(0)
-		t.expect(number:peek()).toBe(2)
-		stop()
-	end)
-
-	t.it("accepts a readable Button corners value and follows it", function()
-		local corners = Compose.cell("square" :: "pill" | "square")
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button "Corners" { label = "Corners", corners = corners }
-		end)
-		local corner = node:FindFirstChildWhichIsA("UICorner")
-		t.expect(corner.CornerRadius.Scale).toBe(0)
-		corners:set("pill")
-		t.expect(corner.CornerRadius.Scale).toBe(1)
-		stop()
-		t.expect(function()
-			world(function(UI: FacetControls)
-				return UI.Button "Corners"({ label = "Corners", corners = "round" } :: any)
-			end)
-		end).toThrow()
-	end)
-
-	t.it("edits a controlled map field without duplicating durable state", function()
-		local notes = Compose.cell({ item = "saved" })
-		local requests = 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.TextInput({
-				value = function(use: Use)
-					return use(notes).item
-				end,
-				onChange = function(value)
-					requests += 1
-					if value ~= "rejected" then
-						notes:set({ item = value })
-					end
-				end,
-			})
-		end)
-		node:CaptureFocus()
-		node.Text = "updated"
-		t.expect(notes:peek().item).toBe("updated")
-		t.expect(requests).toBe(1)
-		node.Text = "rejected"
-		t.expect(node.Text).toBe("updated")
-		notes:set({ item = "external" })
-		t.expect(requests).toBe(2)
-		t.expect(node.Text).toBe("external")
-		find(node.Parent, "Cancel").Pressed.fire()
-		t.expect(notes:peek().item).toBe("saved")
-		t.expect(requests).toBe(3)
-		stop()
-	end)
-	t.it("does not mutate writable controlled models before callbacks accept requests", function()
-		local value = Compose.cell(3)
-		local requested: number | string | nil = nil
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Stepper({
-				value = value,
-				min = 0,
-				max = 10,
-				onChange = function(nextValue)
-					requested = nextValue
-				end,
-			})
-		end)
-		find(node, "Increase").Activated.fire()
-		t.expect(requested).toBe(4)
-		t.expect(value:peek()).toBe(3)
-		stop()
-		local text = Compose.cell("accepted")
-		node, stop = world(function(UI: FacetControls)
-			return UI.TextInput({
-				value = text,
-				onChange = function(nextValue)
-					requested = nextValue
-				end,
-			})
-		end)
-		node:CaptureFocus()
-		node.Text = "rejected"
-		t.expect(requested).toBe("rejected")
-		t.expect(text:peek()).toBe("accepted")
-		t.expect(node.Text).toBe("accepted")
-		stop()
-	end)
-	t.it("owns busy animation only while visible and suppresses busy activation", function()
-		local busy, actions = Compose.cell(false), 0
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({
-				label = "Loading",
-				busy = busy,
-				onActivate = function()
-					actions += 1
-				end,
-			})
-		end)
-		t.expect(find(node, "Busy")).toBe(nil)
-		t.expect(engine.heartbeat.count()).toBe(0)
-		for _ = 1, 3 do
-			busy:set(true)
-			t.expect(find(node, "Busy") ~= nil).toBe(true)
-			t.expect(engine.heartbeat.count()).toBe(1)
-			node.Activated.fire()
-			t.expect(node.Selectable).toBe(false)
-			busy:set(false)
-			t.expect(find(node, "Busy")).toBe(nil)
-			t.expect(engine.heartbeat.count()).toBe(0)
-		end
-		t.expect(actions).toBe(0)
-		node.Activated.fire()
-		t.expect(actions).toBe(1)
-		stop()
-	end)
-
-	t.it("restarts Compose pop feedback and obeys live reduced motion", function()
-		local reduced = Compose.cell(false)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({ label = "Pop", pop = true, onActivate = function() end })
-		end, function()
-			return {
-				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
-					return if use(reduced) then "none" else "normal"
-				end) :: unknown) :: MotionLevel,
-			}
-		end)
-		local scale = find(node, "Pop")
-		t.expect(scale.Scale).toBe(1)
-		node.Activated.fire()
-		engine.heartbeat.fire(0.1)
-		t.expect(scale.Scale > 1).toBe(true)
-		local current = scale.Scale
-		node.Activated.fire()
-		t.expect(scale.Scale).toBeCloseTo(current)
-		reduced:set(true)
-		t.expect(scale.Scale).toBe(1)
-		node.Activated.fire()
-		engine.heartbeat.fire(1)
-		t.expect(scale.Scale).toBe(1)
-		stop()
-		t.expect(engine.heartbeat.count()).toBe(0)
-	end)
-
-	t.it("uses native circle constraints and updates semantic roles without paint writes", function()
-		local role = Compose.cell("default" :: "cancel" | "default" | "destructive" | "onIndicator")
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button({
-				label = "A meaningful long name",
-				icon = "rbxassetid://1",
-				shape = "circle" :: "circle",
-				role = role,
-			})
-		end)
-		t.expect(find(node, "UIAspectRatioConstraint").AspectRatio).toBe(1)
-		t.expect(find(node, "UICorner").CornerRadius.Scale).toBe(1)
-		t.expect(find(node, "LeadingIcon").Image).toBe("rbxassetid://1")
-		t.expect(node:GetAttribute("label")).toBe("A meaningful long name")
-		t.expect(node:HasTag("facet-role-default")).toBe(true)
-		role:set("destructive")
-		t.expect(node:HasTag("facet-role-default")).toBe(false)
-		t.expect(node:HasTag("facet-role-destructive")).toBe(true)
-		stop()
-	end)
-
-	t.it("chooses compact button text from native measurements and restores the full caption", function()
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({ label = "Continue to checkout", compactLabel = "Continue" })
-		end)
-		local measure = find(node, "FullLabelMeasure")
-		measure.TextBounds = engine.types.Vector2.new(180, 20)
-		node.AbsoluteSize = engine.types.Vector2.new(110, 44)
-		t.expect(node.Text).toBe("Continue")
-		node.AbsoluteSize = engine.types.Vector2.new(240, 44)
-		t.expect(node.Text).toBe("Continue to checkout")
-		stop()
-	end)
-
-	t.it("deduplicates shortcut/default bindings and yields shortcuts during native text editing", function()
-		local editing, actions = false, 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button({
-				label = "Default",
-				shortcut = { keyCode = "Return" },
-				dialogAction = "default" :: "default",
-				onActivate = function()
-					actions += 1
-				end,
-			})
-		end, function()
-			return {
-				services = {
-					UserInputService = {
-						GetFocusedTextBox = function()
-							return if editing then {} else nil
-						end,
-					},
-				},
-			}
-		end)
-		local action = find(node.Parent, "Shortcut")
-		t.expect(#action:GetChildren()).toBe(1)
-		action.Pressed.fire()
-		t.expect(actions).toBe(1)
-		editing = true
-		action.Pressed.fire()
-		t.expect(actions).toBe(1)
-		stop()
-		t.expect(action.Pressed.count()).toBe(0)
-	end)
-
-	t.it("binds one shortcut action to the key and the dialog button and activates once per press", function()
-		local actions = 0
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button({
-				label = "Close",
-				shortcut = { keyCode = "K" },
-				dialogAction = "cancel" :: "cancel",
-				onActivate = function()
-					actions += 1
-				end,
-			})
-		end)
-		local action = find(node.Parent, "Shortcut")
-		local keys = {}
-		for _, binding in action:GetChildren() do
-			table.insert(keys, binding.KeyCode.Name)
-		end
-		table.sort(keys)
-		t.expect(table.concat(keys, ",")).toBe("ButtonB,K")
-		action.Pressed.fire()
-		t.expect(actions).toBe(1)
-		node.Activated.fire()
-		t.expect(actions).toBe(2)
-		stop()
-	end)
-
-	t.it(
-		"keeps an authored Button width: a truncating label stays on one line and an icon button does not grow",
-		function()
-			local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
-				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-					UI.Button "Plain" {
-						label = "Edit item",
-						TextTruncate = engine.types.Enum.TextTruncate.AtEnd,
-						Size = engine.types.UDim2.fromOffset(52, 40),
-					} :: unknown,
-					UI.Button "Iconed" {
-						label = "Edit",
-						icon = "edit",
-						Size = engine.types.UDim2.fromOffset(52, 40),
-					},
-				})
-			end)
-			local E = engine.types.Enum
-			local plain, iconed = find(node, "Plain"), find(node, "Iconed")
-			t.expect(`{plain.TextWrapped} {plain.TextTruncate.Name} {plain.AutomaticSize.Name}`).toBe("false AtEnd Y")
-			t.expect(iconed.AutomaticSize).toBe(E.AutomaticSize.Y)
-			t.expect(find(iconed, "Content").AutomaticSize).toBe(E.AutomaticSize.None)
-			local title = find(iconed, "Title")
-			t.expect(title.TextTruncate).toBe(E.TextTruncate.AtEnd)
-			t.expect(title:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(E.UIFlexMode.Shrink)
-			stop()
-		end
-	)
-
-	t.it("bounds reactive fixed-width icon captions and leaves native automatic colors opt-in", function()
-		local width = Compose.cell(108)
-		local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "Zoom" {
-					label = "Zoom: Width",
-					trailingIcon = "chevron.down",
-					Size = function(use: Use)
-						return engine.types.UDim2.fromOffset(use(width), 44)
-					end,
-					AutomaticSize = engine.types.Enum.AutomaticSize.None,
-				} :: unknown,
-				UI.Button "NativeColors" { label = "Native", AutoButtonColor = true },
-			})
-		end)
-		local zoom = find(node, "Zoom")
-		t.expect(zoom.AutoButtonColor).toBe(false)
-		t.expect(find(node, "NativeColors").AutoButtonColor).toBe(true)
-		t.expect(find(zoom, "Content").AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
-		t.expect(find(zoom, "Title").TextTruncate).toBe(engine.types.Enum.TextTruncate.AtEnd)
-		width:set(84)
-		t.expect(zoom.Size.X.Offset).toBe(84)
-		t.expect(zoom.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
-		stop()
-	end)
-
-	t.it("sizes a Toggle label from a pixel textSize or a type role", function()
-		local node, stop = world(function(UI: FacetControls, engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Toggle "Pixels" { label = "Sound", value = Compose.cell(false), textSize = 24 } :: unknown,
-				UI.Toggle "Role" { label = "Music", value = Compose.cell(false), textSize = "heading" },
-			})
-		end)
-		t.expect(find(node, "Pixels").TextSize).toBe(24)
-		t.expect(find(node, "Role"):HasTag("facet-type-heading")).toBe(true)
-		stop()
-	end)
-
-	t.it("flips a Toggle as paint only: its box, text and padding stay put", function()
-		local value = Compose.cell(false)
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Toggle({ label = "Sound", value = value })
-		end)
-		local function shape()
-			return `{node.Size} {node.AutomaticSize.Name} {node.Text} {node.TextWrapped}`
-		end
-		local before = shape()
-		t.expect(node.TextWrapped).toBe(false)
-		value:set(true)
-		t.expect(shape()).toBe(before)
-		value:set(false)
-		t.expect(shape()).toBe(before)
-		stop()
-	end)
-
-	t.it("centres the checkbox mark and tick on the box in every state", function()
-		local value = Compose.cell(false)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Toggle({ label = "Agree", presentation = "checkbox" :: "checkbox", value = value })
-		end)
-		local centre = engine.types.Vector2.new(0.5, 0.5)
-		local middle = engine.types.UDim2.fromScale(0.5, 0.5)
-		for _, state in { false, true, false } do
-			value:set(state)
-			for _, name in { "Mark", "Check" } do
-				local glyph = find(node, name)
-				t.expect(glyph.AnchorPoint).toBe(centre)
-				t.expect(glyph.Position).toBe(middle)
-			end
-		end
-		stop()
-	end)
-
-	t.it("wraps a settings row description inside its column so it never runs under the switch", function()
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Toggle({
-				row = { title = "Show hints", description = "Adds a short line of help under each control" },
-				value = Compose.cell(true),
-			})
-		end)
-		local description = find(node, "Description")
-		t.expect(description.TextWrapped).toBe(true)
-		t.expect(description.Size).toBe(engine.types.UDim2.fromScale(1, 0))
-		t.expect(description.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
-		t.expect(description.Parent.Size).toBe(engine.types.UDim2.fromScale(0, 0))
-		stop()
-	end)
-
-	t.it("floors a compact Button to the minimum touch target on touch and gamepad devices only", function()
-		local input
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({ label = "Tip", controlSize = "xsmall" :: "xsmall" })
-		end, function(engine)
-			input = engine.new("UserInputService")
-			input.GetFocusedTextBox = function()
-				return nil
-			end
-			input.TouchEnabled = true
-			return { services = { UserInputService = input } }
-		end)
-		local floor = node:FindFirstChild("TargetFloor")
-		local minimum = require("../src/ui/themes")(Compose).neutralPackage().metrics.targetSizes.minimum
-		t.expect(floor.MinSize).toBe(engine.types.Vector2.new(minimum, minimum))
-		input.TouchEnabled = false
-		t.expect(floor.MinSize).toBe(engine.types.Vector2.zero)
-		input.GamepadEnabled = true
-		t.expect(floor.MinSize).toBe(engine.types.Vector2.new(minimum, minimum))
-		stop()
-	end)
-
-	t.it("combines bounded caption and touch minimums in one native size constraint", function()
-		local input
-		local node, stop, engine = world(function(UI: FacetControls, engine)
-			return UI.Button {
-				label = "Zoom: Width",
-				trailingIcon = "chevron.down",
-				controlSize = "compact" :: "compact",
-				Size = engine.types.UDim2.fromOffset(108, 32),
-				AutomaticSize = engine.types.Enum.AutomaticSize.None,
-			}
-		end, function(engine)
-			input = engine.new("UserInputService")
-			input.GetFocusedTextBox = function()
-				return nil
-			end
-			input.TouchEnabled = true
-			return { services = { UserInputService = input } }
-		end)
-		local constraints = {}
-		for _, child in node:GetChildren() do
-			if child:IsA("UISizeConstraint") then
-				table.insert(constraints, child)
-			end
-		end
-		t.expect(#constraints).toBe(1)
-		t.expect(constraints[1].MinSize.Y).toBe(44)
-		input.TouchEnabled = false
-		t.expect(constraints[1].MinSize.Y).toBe(0)
-		input.GamepadEnabled = true
-		t.expect(constraints[1].MinSize.Y).toBe(44)
-		stop()
-	end)
-
-	t.it("escapes an underlined label for RichText", function()
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button({ label = "a<b", underline = "always" :: "always" })
-		end)
-		t.expect(node.RichText).toBe(true)
-		t.expect(node.Text).toBe("<u>a&lt;b</u>")
-		stop()
-	end)
-
-	t.it("clamps a fixed-size button's icon to its content box and never to zero", function()
-		local node, stop, engine = world(function(UI: FacetControls, host, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "Tight" {
-					icon = "rbxassetid://1",
-					Size = host.types.UDim2.fromOffset(20, 20),
-					AutomaticSize = host.types.Enum.AutomaticSize.None,
-				} :: unknown,
-				UI.Button "Free" { icon = "rbxassetid://1", label = "Free" },
-			})
-		end)
-		local tight = find(node, "Tight")
-		local content = find(tight, "Content")
-		local glyph = find(tight, "LeadingIcon")
-		local limit = glyph:FindFirstChildWhichIsA("UISizeConstraint")
-		t.expect(limit ~= nil).toBe(true)
-		content.AbsoluteSize = engine.types.Vector2.new(4, 6)
-		t.expect(limit.MaxSize.X).toBe(4)
-		t.expect(limit.MaxSize.Y).toBe(4)
-		content.AbsoluteSize = engine.types.Vector2.new(0, 0)
-		t.expect(limit.MaxSize.X).toBe(1)
-		t.expect(content.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
-		t.expect(find(find(node, "Free"), "LeadingIcon"):FindFirstChildWhichIsA("UISizeConstraint")).toBe(nil)
-		stop()
-	end)
-
-	t.it("lets a shifted shortcut preempt an unmodified shortcut on the same key", function()
-		local node, stop = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "Plain" { label = "Plain", shortcut = { keyCode = "K" } } :: unknown,
-				UI.Button "Shifted" { label = "Shifted", shortcut = { keyCode = "K", modifiers = { shift = true } } },
-			})
-		end)
-		local contexts = {}
-		for _, child in node.Parent:GetDescendants() do
-			if child:IsA("InputContext") and child.Name == "FacetShortcut" then
-				local binding = child:FindFirstChild("Shortcut"):GetChildren()[1]
-				local shifted = string.find(tostring(binding.PrimaryModifier), "Shift", 1, true) ~= nil
-				contexts[if shifted then "shifted" else "plain"] = child
-			end
-		end
-		t.expect(contexts.plain ~= nil and contexts.shifted ~= nil).toBe(true)
-		t.expect(contexts.shifted.Priority > contexts.plain.Priority).toBe(true)
-		t.expect(contexts.shifted.Sink).toBe(true)
-		t.expect(contexts.plain.Sink).toBe(false)
-		stop()
-	end)
-
-	t.it("blocks background held repeats when a Compose-owned modal becomes active", function()
-		local actions = 0
-		local node, stop, engine, runtime, ctx = world(function(UI: FacetControls)
-			return UI.Button({
-				label = "Repeat",
-				repeatInterval = 0.1,
-				onActivate = function()
-					actions += 1
-				end,
-			})
-		end)
-		node.InputBegan.fire({
-			UserInputType = engine.types.Enum.UserInputType.MouseButton1,
-			KeyCode = engine.types.Enum.KeyCode:FromValue(0),
-		})
-		engine.heartbeat.fire(0.4)
-		t.expect(actions).toBe(1)
-		local modal = engine.new("Frame")
-		modal.Parent = node.Parent
-		ctx.modalScopes:set({ modal })
-		engine.heartbeat.fire(0.4)
-		t.expect(actions).toBe(1)
-		ctx.modalScopes:set({})
-		engine.heartbeat.fire(0.4)
-		t.expect(actions).toBe(1)
-		stop()
-		runtime:dispose()
-	end)
-
-	t.it("keeps level marks inert with one focus target and a cancellable native scrub", function()
-		local value = Compose.cell(2)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.LevelPicker({ value = value, count = 5 })
-		end)
-		node.AbsoluteSize = engine.types.Vector2.new(100, 44)
-		local selectable = if node.Selectable then 1 else 0
-		for _, child in node:GetDescendants() do
-			if child:IsA("GuiObject") and child.Selectable then
-				selectable += 1
-			end
-		end
-		t.expect(selectable).toBe(1)
-		t.expect(find(node, "Level3").ClassName).toBe("Frame")
-		t.expect(find(node.Parent, "FacetIncrease")).toBe(nil)
-		node.SelectionGained.fire()
-		t.expect(find(node.Parent, "FacetIncrease").Enabled).toBe(true)
-		find(node, "Scrub").DragStart.fire(engine.types.Vector2.new(90, 0))
-		t.expect(value:peek()).toBe(5)
-		find(node, "Scrub").DragContinue.fire(engine.types.Vector2.new(10, 0))
-		t.expect(value:peek()).toBe(1)
-		find(node.Parent, "Cancel").Pressed.fire()
-		t.expect(value:peek()).toBe(2)
-		stop()
-	end)
-
-	t.it("paints live level assets and tint while allowing an omitted tint to return to native styles", function()
-		local value = Compose.cell(1)
-		local node, stop, engine = world(function(UI: FacetControls, engine)
-			return UI.LevelPicker({
-				value = value,
-				segment = "image" :: "image",
-				images = { filled = "rbxassetid://1", empty = "rbxassetid://2" },
-				tint = { filled = engine.types.Color3.new(1, 0, 0) },
-			})
-		end)
-		local first = find(node, "Level1")
-		t.expect(first.Image).toBe("rbxassetid://1")
-		t.expect(first.ImageColor3).toBe(engine.types.Color3.new(1, 0, 0))
-		value:set(0)
-		t.expect(first.Image).toBe("rbxassetid://2")
-		t.expect(first.ImageColor3 == engine.types.Color3.new(1, 0, 0)).toBe(false)
-		stop()
-	end)
-
-	t.it("marks filled bar levels with a tag and keeps the shortest bar visible", function()
-		local value = Compose.cell(2)
-		local node, stop = world(function(UI: FacetControls)
-			return UI.LevelPicker({ value = value, count = 10 })
-		end)
-		local first, third = find(node, "Level1"), find(node, "Level3")
-		t.expect(first:HasTag("facet-level-segment")).toBe(true)
-		t.expect(first:HasTag("facet-level-on")).toBe(true)
-		t.expect(third:HasTag("facet-level-on")).toBe(false)
-		t.expect(first.Size.Y.Offset).toBe(7)
-		value:set(3)
-		t.expect(third:HasTag("facet-level-on")).toBe(true)
-		value:set(0)
-		t.expect(first:HasTag("facet-level-on")).toBe(false)
-		stop()
-	end)
-
-	t.it("shares finite bound arithmetic, live steps and formatter fallback across value controls", function()
-		local make = require("../src/ui/input_value")
-		local step = Compose.cell(0.25)
-		local function read<T>(value: T | Compose.Readable<T> | Compose.Formula<T> | Compose.Body<T>, use: Use?): T
-			return (if Compose.isReadable(value) then (value :: any):peek() else value) :: T
-		end
-		local model = make({
-			min = 0,
-			max = 1,
-			step = step,
-			format = function(value)
-				if value == 0.5 then
-					error("no format")
+	local function enabledAction(root, name)
+		for _, child in root:GetChildren() do
+			if child:IsA("InputContext") and child.Enabled then
+				local action = child:FindFirstChild(name)
+				if action then
+					return action
 				end
-				return tostring(value) .. "x"
+			end
+		end
+		return nil
+	end
+
+	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("keeps the control height under an authored full-width Button size", {
+			id = "native_inputs::native input controls::keeps the control height under an authored full-width Button size",
+			run = function()
+				local node, stop = world(function(UI: FacetControls, engine, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button("Wide")({
+							label = "Go",
+							Size = engine.types.UDim2.new(1, 0, 0, 0),
+							AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+							onActivate = function() end,
+						}) :: unknown,
+						UI.Button("Short")({
+							label = "Go",
+							Size = engine.types.UDim2.new(1, 0, 0, 24),
+							AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+							onActivate = function() end,
+						}),
+					})
+				end)
+				local wide = find(node, "Wide")
+				Verify.expect(wide.Size.X.Scale):toBe(1)
+				Verify.expect(wide.Size.Y.Offset >= 44):toBe(true)
+				Verify.expect(find(node, "Short").Size.Y.Offset):toBe(24)
+				stop()
 			end,
-		}, read)
-		t.expect(model.quantize(0.3)).toBe(0.25)
-		t.expect(model.fromFraction(2)).toBe(1)
-		t.expect(model.fraction(0 / 0)).toBe(0)
-		t.expect(model.quantize(math.huge)).toBe(0)
-		t.expect(model.format(0.5)).toBe("0.5")
-		t.expect(model.format(0.75)).toBe("0.75x")
-		step:set(0.5)
-		t.expect(model.stepped(0, 1)).toBe(0.5)
-		step:set(0)
-		t.expect(function()
-			model.stepped(0, 1)
-		end).toThrow()
-		t.expect(function()
-			make({ min = 1, max = 1 }, read)
-		end).toThrow()
-	end)
-	t.it("updates explicit shortcut alternatives without owning input bindings", function()
-		local separator, chords = Compose.cell(" or "), Compose.cell({ { "Ctrl", "K" }, { "F1" } })
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.ShortcutHint({ keys = chords, separator = separator })
-		end)
-		t.expect(node.Text).toBe("Ctrl+K or F1")
-		separator:set("ou")
-		t.expect(node.Text).toBe("Ctrl+K ou F1")
-		separator:set(" / ")
-		chords:set({ { "Shift", "P" } })
-		t.expect(node.Text).toBe("Shift+P")
-		for _, instance in engine.made do
-			t.expect(instance.ClassName == "InputAction" or instance.ClassName == "InputContext").toBe(false)
-		end
-		stop()
-		t.expect(function()
-			world(function(UI: FacetControls)
-				return UI.ShortcutHint({ keys = { { "" } } })
-			end)
-		end).toThrow()
-	end)
+		})
 
-	t.it("names keys that have no printable character", function()
-		local node, stop = world(function(UI: FacetControls, engine)
-			local action, binding = engine.new("InputAction"), engine.new("InputBinding")
-			binding.KeyCode, binding.DisplayName = engine.types.Enum.KeyCode.Return, ""
-			action.PreferredBinding = binding
-			return UI.ShortcutHint({ action = action })
-		end)
-		t.expect(node:FindFirstChild("Key", true).Text).toBe("Enter")
-		stop()
-	end)
+		verifyHarness:case("delivers only the final native Chip and ShortcutHint roots to refs", {
+			id = "native_inputs::native input controls::delivers only the final native Chip and ShortcutHint roots to refs",
+			run = function()
+				local chipRefs: { GuiObject } = {}
+				local hintRefs: { GuiObject } = {}
+				local node, stop = world(function(UI: FacetControls, engine, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Chip({
+							selected = Compose.cell(false),
+							editing = Compose.cell(true),
+							onRemove = function() end,
+							ref = function(root: Frame | TextButton)
+								table.insert(chipRefs, root)
+							end,
+						}) :: unknown,
+						UI.ShortcutHint({
+							action = engine.new("InputAction"),
+							ref = function(root: Frame | TextLabel)
+								table.insert(hintRefs, root)
+							end,
+						}),
+					})
+				end)
+				Verify.expect(#chipRefs):toBe(1)
+				Verify.expect(#hintRefs):toBe(1)
+				Verify.expect(chipRefs[1].ClassName):toBe("TextButton")
+				Verify.expect(hintRefs[1].ClassName):toBe("Frame")
+				Verify.expect(chipRefs[1].Parent):toBe(node)
+				Verify.expect(hintRefs[1].Parent):toBe(node)
+				stop()
+			end,
+		})
 
-	t.it("borrows native preferred bindings and releases replaced hint observers", function()
-		local action, first, second
-		local node, stop, engine = world(function(UI: FacetControls, engine)
-			action, first, second = engine.new("InputAction"), engine.new("InputBinding"), engine.new("InputBinding")
-			first.KeyCode, first.DisplayName = engine.types.Enum.KeyCode.F, ""
-			second.KeyCode, second.DisplayName = engine.types.Enum.KeyCode.ButtonX, "Interact"
-			action.PreferredBinding = first
-			return UI.ShortcutHint({ action = action })
-		end)
-		t.expect(find(node, "Key").Text).toBe("F")
-		first.DisplayName = "Use"
-		t.expect(find(node, "Key").Text).toBe("Use")
-		action.PreferredBinding = second
-		t.expect(find(node, "Key").Text).toBe("Interact")
-		t.expect(first:GetPropertyChangedSignal("DisplayName").count()).toBe(0)
-		action.PreferredBinding = nil
-		t.expect(find(node, "Key")).toBe(nil)
-		t.expect(second:GetPropertyChangedSignal("DisplayName").count()).toBe(0)
-		stop()
-		t.expect(action.isDestroyed()).toBe(false)
-		t.expect(action:GetPropertyChangedSignal("PreferredBinding").count()).toBe(0)
-	end)
+		verifyHarness:case("finishes an activation that removes its own Button without reading released state", {
+			id = "native_inputs::native input controls::finishes an activation that removes its own Button without reading released state",
+			run = function()
+				local shown = Compose.cell(true)
+				local presses = 0
+				local node, stop = world(function(UI: FacetControls, _engine, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						Compose.show(shown, function()
+							local allowed = Compose.formula(function(use: Use)
+								return use(shown)
+							end)
+							return UI.Button "Dismiss" {
+								label = "Dismiss",
+								enabled = allowed,
+								onActivate = function()
+									presses += 1
+									shown:set(false)
+								end,
+							}
+						end),
+					})
+				end)
+				local button = find(node, "Dismiss")
+				button.Activated.fire()
+				Verify.expect(presses):toBe(1)
+				Verify.expect((find(node, "Dismiss"))):toBe(nil)
+				stop()
+			end,
+		})
 
-	t.it("reflows Button and circle sizes from live theme metrics and control rungs", function()
-		local theme = Compose.cell(
-			{ metrics = { controlSizes = { regular = { height = 52 }, large = { height = 70 } } } } :: { metrics: { controlSizes: { [string]: { height: number } } } }
-		)
-		local size = Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall")
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Button({ label = "Go", controlSize = size, shape = "circle" :: "circle" })
-		end, function()
-			return { theme = theme }
-		end)
-		t.expect(node.Size.X.Offset).toBe(52)
-		t.expect(node.Size.Y.Offset).toBe(52)
-		size:set("large")
-		t.expect(node.Size.X.Offset).toBe(70)
-		t.expect(node.Size.Y.Offset).toBe(70)
-		theme:set({ metrics = { controlSizes = { large = { height = 64 } } } })
-		t.expect(node.Size.Y.Offset).toBe(64)
-		stop()
-	end)
-	t.it("keeps an authored circle axis dominant instead of fitting inside a zero box", function()
-		for _, case: { x: number, y: number, axis: "Width" | "Height" } in
-			{ { x = 32, y = 0, axis = "Width" :: "Width" }, { x = 0, y = 72, axis = "Height" :: "Height" } } :: { { x: number, y: number, axis: "Width" | "Height" } }
-		do
-			local node, stop, engine = world(function(UI: FacetControls, engine)
-				return UI.Button({
-					label = "Close",
-					shape = "circle" :: "circle",
-					controlSize = "compact" :: "compact",
-					Size = engine.types.UDim2.fromOffset(case.x, case.y),
-				})
-			end)
-			local aspect = node:FindFirstChildWhichIsA("UIAspectRatioConstraint")
-			t.expect(aspect.AspectRatio).toBe(1)
-			t.expect(aspect.AspectType).toBe(engine.types.Enum.AspectType.ScaleWithParentSize)
-			t.expect(aspect.DominantAxis).toBe(assert(engine.types.Enum.DominantAxis:FromName(case.axis)))
-			t.expect(node.Size.X.Offset).toBe(case.x)
-			t.expect(node.Size.Y.Offset).toBe(case.y)
-			stop()
-		end
-		local node, stop, engine = world(function(UI: FacetControls, engine)
-			return UI.Button({
-				label = "Close",
-				shape = "circle" :: "circle",
-				Size = engine.types.UDim2.fromOffset(40, 40),
-			})
-		end)
-		t.expect(node:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectType)
-			.toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
-		stop()
-	end)
-	t.it("shows numeric validation text with interruptible reduced-motion-aware feedback", function()
-		local value, number, reduced = Compose.cell("2"), Compose.cell(2), Compose.cell(false)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.TextInput({
-				value = value,
-				numericValue = number,
-				presentation = "number" :: "number",
-				min = 1,
-				max = 10,
-			})
-		end, function()
-			return {
-				motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
-					return if use(reduced) then "none" else "normal"
-				end) :: unknown) :: MotionLevel,
-			}
-		end)
-		node.TextBounds = engine.types.Vector2.new(20, 20)
-		local label = find(node, "ValidationMessage")
-		label.TextBounds = engine.types.Vector2.new(200, 18)
-		node:CaptureFocus()
-		node.Text = "1.2.3"
-		node:ReleaseFocus(true)
-		t.expect(label.Text).toBe("Enter a valid number.")
-		t.expect(label.Visible).toBe(true)
-		t.expect(node.Size.Y.Offset >= 54).toBe(true)
-		engine.heartbeat.fire(0.08)
-		t.expect(find(node, "ValidationPulse").Scale < 1).toBe(true)
-		reduced:set(true)
-		t.expect(find(node, "ValidationPulse").Scale).toBe(1)
-		node:CaptureFocus()
-		node.Text = "3"
-		node:ReleaseFocus(true)
-		t.expect(number:peek()).toBe(3)
-		t.expect(label.Visible).toBe(false)
-		stop()
-		t.expect(engine.heartbeat.count()).toBe(0)
-	end)
+		verifyHarness:case("uses native properties and events and releases them with its Compose owner", {
+			id = "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+			run = function()
+				local value, enabled = Compose.cell("Before"), Compose.cell(true)
+				local activated, nativeEvent = 0, 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button("Continue")({
+						label = value,
+						enabled = enabled,
+						Attributes = { task = "continue" } :: FixtureEngineTypes.Attributes,
+						onActivate = function()
+							activated += 1
+						end,
+						[Compose.event("MouseEnter")] = function()
+							nativeEvent += 1
+						end,
+					})
+				end)
+				Verify.expect(node.Text):toBe("Before")
+				Verify.expect((node:GetAttribute("task"))):toBe("continue")
+				value:set("After")
+				Verify.expect(node.Text):toBe("After")
+				Verify.expect((find(node, "Label"))):toBe(nil)
+				node.Text = "Native text"
+				Verify.expect(node.Text):toBe("Native text")
+				node.Activated.fire()
+				node.MouseEnter.fire()
+				enabled:set(false)
+				node.Activated.fire()
+				Verify.expect(activated):toBe(1)
+				Verify.expect(nativeEvent):toBe(1)
+				Verify.expect(node.Interactable):toBe(false)
+				stop()
+				Verify.expect((node.Activated.count())):toBe(0)
+				Verify.expect((node.MouseEnter.count())):toBe(0)
+			end,
+		})
 
-	t.it("reflects external invalid state and rejects malformed invalid and numeric declarations", function()
-		local invalid, value = Compose.cell(false), Compose.cell("ready")
-		local node, stop = world(function(UI: FacetControls)
-			return UI.TextInput({ value = value, invalid = invalid })
-		end)
-		invalid:set(true)
-		t.expect(find(node, "ValidationMessage").Visible).toBe(true)
-		invalid:set(false)
-		t.expect(find(node, "ValidationMessage").Visible).toBe(false)
-		stop()
-		t.expect(function()
-			world(function(UI: FacetControls)
-				return UI.TextInput({ value = value, invalid = true } :: any)
-			end)
-		end).toThrow()
-		t.expect(function()
-			world(function(UI: FacetControls)
-				return UI.TextInput({ value = value, presentation = "number" } :: any)
-			end)
-		end).toThrow()
-	end)
+		verifyHarness:case("keeps Toggle requests controlled and clears a writable mixed state", {
+			id = "native_inputs::native input controls::keeps Toggle requests controlled and clears a writable mixed state",
+			run = function()
+				local value, mixed = Compose.cell(false), Compose.cell(true)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Toggle({
+						value = value,
+						mixed = mixed,
+						presentation = "checkbox" :: "checkbox",
+						label = "Enabled",
+					})
+				end)
+				node.Activated.fire()
+				Verify.expect((value:peek())):toBe(true)
+				Verify.expect((mixed:peek())):toBe(false)
+				stop()
+				local request
+				node, stop = world(function(UI: FacetControls)
+					return UI.Toggle({
+						value = value,
+						label = "Controlled",
+						onChange = function(nextValue)
+							request = nextValue
+						end,
+					})
+				end)
+				node.Activated.fire()
+				Verify.expect(request):toBe(false)
+				Verify.expect((value:peek())):toBe(true)
+				stop()
+			end,
+		})
 
-	t.it("honors every clear-button mode and ends disabled edits without a commit", function()
-		for _, mode in
-			{ "never", "always", "whileEditing", "unlessEditing" } :: { "always" | "never" | "unlessEditing" | "whileEditing" }
-		do
-			local value, enabled, commits = Compose.cell("text"), Compose.cell(true), 0
-			local node, stop = world(function(UI: FacetControls)
-				return UI.TextInput({
-					value = value,
-					enabled = enabled,
-					clearButtonMode = mode :: "always" | "never" | "unlessEditing" | "whileEditing",
-					onCommit = function()
-						commits += 1
-					end,
-				})
-			end)
-			local clear = find(node, "Clear")
-			if mode == "never" then
-				t.expect(clear).toBe(nil)
-			else
-				t.expect(clear.Visible).toBe(mode ~= "whileEditing")
-			end
-			node:CaptureFocus()
-			if clear then
-				t.expect(clear.Visible).toBe(mode ~= "unlessEditing")
-			end
-			t.expect(find(node.Parent, "FacetTextEditing").Enabled).toBe(true)
-			enabled:set(false)
-			t.expect(node:IsFocused()).toBe(false)
-			t.expect(node.Selectable).toBe(false)
-			t.expect(find(node.Parent, "FacetTextEditing").Enabled).toBe(false)
-			t.expect(commits).toBe(0)
-			if clear then
-				t.expect(clear.Visible).toBe(false)
-			end
-			stop()
-		end
-	end)
-	t.it("removes keyed chips toward the next then previous native target and caller fallback", function()
-		local items, gui, fallback = Compose.cell({ "A", "B", "C" }), nil, nil
-		local node, stop = world(function(UI: FacetControls, engine, runtime)
-			fallback = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Fallback" {}
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				fallback :: unknown,
-				Compose.keyed({
-					from = items,
-					render = function(current, index): GuiObject
-						local id = current:peek()
-						return UI.Chip({
-							Name = id,
-							label = id,
-							LayoutOrder = index,
-							removeFocusFallback = fallback :: GuiObject,
-							onRemove = function()
-								items:update(function(before)
-									local after = {}
-									for _, value in before do
-										if value ~= id then
-											table.insert(after, value)
-										end
-									end
-									return after
-								end)
+		verifyHarness:case("an authored-width Button keeps one em of label room inside the theme padding", {
+			id = "native_inputs::native input controls::an authored-width Button keeps one em of label room inside the theme padding",
+			run = function()
+				for _, case: { themeName: string, themeModule: string | nil, inset: number } in
+					{
+						{ themeName = "neutral", themeModule = nil, inset = 0 },
+						{ themeName = "parchment", themeModule = "fantasy_parchment", inset = 24 },
+					} :: { { themeName: string, themeModule: string | nil, inset: number } }
+				do
+					local package = if case.themeModule
+						then requireDynamic("../examples/themes/" .. case.themeModule).build(Facet.themes)
+						else nil
+					local node, stop = world(function(UI: FacetControls, engine)
+						return UI.Button({ label = "Ed", Size = engine.types.UDim2.fromOffset(52, 40) })
+					end, function()
+						return { theme = package }
+					end)
+					local limit = node:FindFirstChildWhichIsA("UISizeConstraint")
+					Verify.expect(limit ~= nil):toBe(true)
+					local metrics = (package or Facet.themes.neutralPackage()).metrics
+					local em, paddingX = metrics.typography.control.size, metrics.controlSizes.regular.paddingX
+					Verify.expect(`{case.themeName}:{limit.MinSize.X}`)
+						:toBe(`{case.themeName}:{2 * paddingX + case.inset + em}`)
+					stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("a busy Button reserves its dots on a real UIPadding, so a hugging parent grows with it", {
+			id = "native_inputs::native input controls::a busy Button reserves its dots on a real UIPadding, so a hugging parent grows with it",
+			run = function()
+				local busy = Compose.cell(false)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({ label = "Retry sync", appearance = "link", busy = busy })
+				end)
+				local padding = node:FindFirstChildWhichIsA("UIPadding")
+				Verify.expect(padding ~= nil):toBe(true)
+				Verify.expect(padding.PaddingRight.Offset):toBe(0)
+				busy:set(true)
+				Verify.expect(padding.PaddingRight.Offset):toBe(32)
+				busy:set(false)
+				Verify.expect(padding.PaddingRight.Offset):toBe(0)
+				stop()
+			end,
+		})
+
+		verifyHarness:case(
+			"keeps Toggle native eligibility semantics and theme tags synchronized with one ref delivery",
+			{
+				id = "native_inputs::native input controls::keeps Toggle native eligibility semantics and theme tags synchronized with one ref delivery",
+				run = function()
+					local value, enabled, busy = Compose.cell(true), Compose.cell(true), Compose.cell(false)
+					local role, appearance, size, name =
+						Compose.cell("default" :: "cancel" | "default" | "destructive" | "onIndicator"),
+						Compose.cell("standard"),
+						Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall"),
+						Compose.cell("Ready")
+					local references, changes = 0, 0
+					local node, stop, engine = world(function(UI: FacetControls)
+						return UI.Toggle({
+							value = value,
+							enabled = enabled,
+							busy = busy,
+							role = role,
+							appearance = appearance,
+							controlSize = size,
+							name = name,
+							ref = function()
+								references += 1
+							end,
+							onChange = function(nextValue)
+								changes += 1
+								value:set(nextValue)
 							end,
 						})
-					end,
-				}),
-			})
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui } }
-		end)
-		local function remove(id)
-			local target = find(node, id)
-			gui.SelectedObject = target
-			target.Activated.fire()
-		end
-		remove("B")
-		t.expect(gui.SelectedObject).toBe(find(node, "C"))
-		remove("C")
-		t.expect(gui.SelectedObject).toBe(find(node, "A"))
-		remove("A")
-		t.expect(gui.SelectedObject).toBe(fallback)
-		stop()
-	end)
-
-	t.it("does not steal focus after a delayed chip removal request", function()
-		local show, gui, fallback, other = Compose.cell(true), nil, nil, nil
-		local node, stop = world(function(UI: FacetControls, engine, runtime)
-			fallback = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Fallback" {}
-			other = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Other" {}
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				fallback :: unknown,
-				other,
-				Compose.show(show, function()
-					return UI.Chip "Delayed" {
-						label = "Delayed",
-						removeFocusFallback = fallback :: GuiObject,
-						onRemove = function() end,
-					}
-				end),
-			})
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui } }
-		end)
-		local remove = find(node, "Delayed")
-		gui.SelectedObject = remove
-		remove.Activated.fire()
-		t.expect(gui.SelectedObject).toBe(remove)
-		gui.SelectedObject = other
-		show:set(false)
-		t.expect(gui.SelectedObject).toBe(other)
-		stop()
-	end)
-
-	t.it("keeps mixed checkbox geometry live and validates presentation-specific options", function()
-		local value, mixed = Compose.cell(false), Compose.cell(true)
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Toggle({
-				value = value,
-				mixed = mixed,
-				presentation = "checkbox" :: "checkbox",
-				indicatorPosition = "trailing" :: "trailing",
-				row = { title = "Mode", description = "Use the current setting" },
-			})
-		end)
-		t.expect(find(node, "Mark").Size.Y.Offset).toBe(4)
-		t.expect(find(node, "Mark").Visible).toBe(true)
-		t.expect(find(node, "Check").Visible).toBe(false)
-		mixed:set(false)
-		t.expect(find(node, "Mark").Visible).toBe(false)
-		t.expect(find(node, "Check").Visible).toBe(false)
-		value:set(true)
-		t.expect(find(node, "Mark").Visible).toBe(false)
-		t.expect(find(node, "Check").Visible).toBe(true)
-		stop()
-		t.expect(function()
-			world(function(UI: FacetControls)
-				return UI.Toggle({ value = value, mixed = mixed, presentation = "switch" :: "switch" })
-			end)
-		end).toThrow()
-	end)
-	t.it(
-		"a switch knob glides between its ends, reverses mid-flight without a jump, and lands at once under none",
-		function()
-			local value = Compose.cell(false)
-			local node, stop, engine = world(function(UI: FacetControls)
-				return UI.Toggle({ label = "Music", value = value, presentation = "switch" :: "switch" })
-			end)
-			local mark = find(node, "Mark")
-			t.expect(mark.Position.X.Scale).toBeCloseTo(0.3, 1e-3)
-			value:set(true)
-			engine.heartbeat.fire(1 / 60)
-			local first = mark.Position.X.Scale
-			t.expect(first > 0.3 and first < 0.7).toBe(true)
-			engine.heartbeat.fire(1 / 60)
-			engine.heartbeat.fire(1 / 60)
-			local before = mark.Position.X.Scale
-			value:set(false)
-			engine.heartbeat.fire(1 / 60)
-			t.expect(math.abs(mark.Position.X.Scale - before) < 0.1).toBe(true)
-			for _ = 1, 60 do
-				engine.heartbeat.fire(1 / 60)
-			end
-			t.expect(mark.Position.X.Scale).toBeCloseTo(0.3, 1e-3)
-			value:set(true)
-			for _ = 1, 60 do
-				engine.heartbeat.fire(1 / 60)
-			end
-			t.expect(mark.Position.X.Scale).toBeCloseTo(0.7, 1e-3)
-			t.expect(engine.heartbeat.count()).toBe(0)
-			stop()
-			local snapped = Compose.cell(false)
-			local snapNode, stopSnap = world(function(UI: FacetControls)
-				return UI.Toggle({ label = "Music", value = snapped, presentation = "switch" :: "switch" })
-			end, function()
-				return { motionLevel = "none" }
-			end)
-			snapped:set(true)
-			t.expect(find(snapNode, "Mark").Position.X.Scale).toBeCloseTo(0.7, 1e-3)
-			stopSnap()
-		end
-	)
-	t.it("plays the application press haptic only for controls that change a state or a value", function()
-		local effect, own
-		local opted = Compose.cell(false)
-		local node, stop = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "Plain" { label = "Play" } :: unknown,
-				UI.Button "Opted" { label = "Buy", haptic = true },
-				UI.Button "Switched" { label = "Maybe", haptic = opted },
-				UI.Button "Custom" { label = "Play", PressHapticEffect = own },
-				UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
-				UI.Chip "Filter" { label = "Filter", selected = Compose.cell(false) },
-				UI.Stepper "Count" { value = Compose.cell(1), min = 0, max = 5 },
-				UI.Rating "Stars" { value = Compose.cell(2) },
-				UI.LevelPicker "Level" { value = Compose.cell(2) },
-			})
-		end, function(engine)
-			effect, own = engine.new("HapticEffect"), engine.new("HapticEffect")
-			return { pressHaptic = effect }
-		end)
-		t.expect(find(node, "Plain").PressHapticEffect).toBe(nil)
-		t.expect(find(node, "Opted").PressHapticEffect).toBe(effect)
-		t.expect(find(node, "Switched").PressHapticEffect).toBe(nil)
-		opted:set(true)
-		t.expect(find(node, "Switched").PressHapticEffect).toBe(effect)
-		opted:set(false)
-		t.expect(find(node, "Switched").PressHapticEffect).toBe(nil)
-		t.expect(find(node, "Custom").PressHapticEffect).toBe(own)
-		for _, name in { "Sound", "Filter", "Decrease", "Increase", "Stars", "Level" } do
-			t.expect(find(node, name).PressHapticEffect).toBe(effect)
-		end
-		stop()
-	end)
-
-	t.it("maps the named feedback kinds onto pooled engine haptic effects", function()
-		local kind = Compose.cell("error" :: "error" | "impact" | "selection" | "success" | "warning" | boolean)
-		local UIref
-		local node, stop, engine = world(function(UI: FacetControls, _, runtime)
-			UIref = UI
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "Saved" { label = "Save", haptic = "success" :: "success" } :: unknown,
-				UI.Button "Again" { label = "Save", haptic = "success" :: "success" },
-				UI.Button "Careful" { label = "Sell", haptic = "warning" :: "warning" },
-				UI.Button "Live" { label = "Try", haptic = kind },
-				UI.Button "Plain" { label = "Go", haptic = true },
-				UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
-			})
-		end, function()
-			return { pressHaptic = "selection" }
-		end)
-		local E = engine.types.Enum
-		local saved = find(node, "Saved").PressHapticEffect
-		t.expect(saved.ClassName).toBe("HapticEffect")
-		t.expect(saved.Type).toBe(E.HapticEffectType.UINotification)
-		t.expect(find(node, "Again").PressHapticEffect).toBe(saved)
-		local warning = find(node, "Careful").PressHapticEffect
-		t.expect(warning.Type).toBe(E.HapticEffectType.Custom)
-		t.expect(#warning.WaveformKeys >= 4).toBe(true)
-		for _, key in warning.WaveformKeys do
-			t.expect(key.Value == 0 or key.Value >= 0.3).toBe(true)
-		end
-		local live = find(node, "Live")
-		t.expect(live.PressHapticEffect.Type).toBe(E.HapticEffectType.Custom)
-		t.expect(live.PressHapticEffect == warning).toBe(false)
-		kind:set("impact")
-		t.expect(live.PressHapticEffect.Type).toBe(E.HapticEffectType.GameplayCollision)
-		kind:set(false)
-		t.expect(live.PressHapticEffect).toBe(nil)
-		t.expect(find(node, "Plain").PressHapticEffect.Type).toBe(E.HapticEffectType.UIClick)
-		t.expect(find(node, "Sound").PressHapticEffect).toBe(find(node, "Plain").PressHapticEffect)
-		UIref.feedback("success")
-		t.expect(saved.PlayCount).toBe(1)
-		t.expect(function()
-			UIref.feedback("boom" :: any)
-		end).toThrow()
-		t.expect(function()
-			world(function(UI: FacetControls)
-				return UI.Button({ label = "Bad", haptic = "boom" } :: any)
-			end)
-		end).toThrow()
-		stop()
-		node, stop = world(function(UI: FacetControls)
-			return UI.Button "Bare" { label = "Go", haptic = true }
-		end)
-		t.expect(node.PressHapticEffect).toBe(nil)
-		stop()
-	end)
-
-	t.it("plays the press haptic once for each slider detent and never for a continuous slider", function()
-		local stepped, continuous, plays = Compose.cell(25), Compose.cell(0.5), 0
-		local effect = {
-			Play = function()
-				plays += 1
-			end,
-		}
-		local node, stop, engine = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Slider "Stepped" { value = stepped, min = 0, max = 100, step = 25 } :: unknown,
-				UI.Slider "Continuous" { value = continuous },
-			})
-		end, function()
-			return { pressHaptic = effect }
-		end)
-		local V = engine.types.Vector2
-		local track, drag = find(find(node, "Stepped"), "Track"), find(find(node, "Stepped"), "Drag")
-		track.AbsoluteSize = V.new(200, 44)
-		track.AbsolutePosition = V.new(0, 0)
-		drag.DragStart.fire(V.new(50, 0))
-		t.expect(stepped:peek()).toBe(25)
-		t.expect(plays).toBe(0)
-		for x = 51, 150 do
-			drag.DragContinue.fire(V.new(x, 0))
-		end
-		t.expect(stepped:peek()).toBe(75)
-		t.expect(plays).toBe(2)
-		drag.DragEnd.fire()
-		local free, freeDrag = find(find(node, "Continuous"), "Track"), find(find(node, "Continuous"), "Drag")
-		free.AbsoluteSize = V.new(200, 44)
-		free.AbsolutePosition = V.new(0, 0)
-		freeDrag.DragStart.fire(V.new(10, 0))
-		for x = 11, 190 do
-			freeDrag.DragContinue.fire(V.new(x, 0))
-		end
-		freeDrag.DragEnd.fire()
-		t.expect(continuous:peek() > 0.9).toBe(true)
-		t.expect(plays).toBe(2)
-		stop()
-	end)
-
-	t.it("fills the width with a row button unless a size is given", function()
-		local row, rowStop = world(function(UI: FacetControls)
-			return UI.Button({ row = { title = "Coast" }, onActivate = function() end })
-		end)
-		t.expect(row.Size.X.Scale).toBe(1)
-		t.expect(row:FindFirstChild("Disclosure", true) ~= nil).toBe(true)
-		rowStop()
-		local fixed, fixedStop = world(function(UI: FacetControls, engine)
-			return UI.Button({ row = { title = "Coast" }, Size = engine.types.UDim2.fromOffset(120, 44) })
-		end)
-		t.expect(fixed.Size.X.Offset).toBe(120)
-		fixedStop()
-	end)
-
-	t.it("mirrors native caption alignment and typography without a text geometry solver", function()
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({ label = "Centered" })
-		end, function()
-			return {
-				theme = {
-					identity = {},
-					chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
-					assets = { control = { content = "rbxassetid://123" } },
-				},
+					end)
+					Verify.expect(references):toBe(1)
+					Verify.expect((node:GetAttribute("selected"))):toBe(true)
+					Verify.expect((node:HasTag("facet-selected"))):toBe(true)
+					role:set("destructive")
+					appearance:set("emphasis")
+					size:set("large")
+					name:set("Confirm")
+					Verify.expect((node:HasTag("facet-role-default"))):toBe(false)
+					Verify.expect((node:HasTag("facet-role-destructive"))):toBe(true)
+					Verify.expect((node:HasTag("facet-accent"))):toBe(true)
+					Verify.expect((node:GetAttribute("role"))):toBe("destructive")
+					Verify.expect((node:GetAttribute("appearance"))):toBe("emphasis")
+					Verify.expect((node:GetAttribute("controlSize"))):toBe("large")
+					Verify.expect((node:GetAttribute("label"))):toBe("Confirm")
+					busy:set(true)
+					Verify.expect(node.Interactable):toBe(false)
+					Verify.expect((node:HasTag("facet-busy"))):toBe(true)
+					Verify.expect((node:HasTag("facet-disabled"))):toBe(true)
+					node.Activated.fire()
+					Verify.expect(changes):toBe(0)
+					busy:set(false)
+					node.Activated.fire()
+					Verify.expect(changes):toBe(1)
+					Verify.expect((node:GetAttribute("selected"))):toBe(false)
+					Verify.expect((node:HasTag("facet-selected"))):toBe(false)
+					for _ = 1, 60 do
+						engine.heartbeat.fire(1 / 60)
+					end
+					Verify.expect(find(node, "Mark").Position.X.Scale):toBeCloseTo(0.3, 1e-4)
+					enabled:set(false)
+					Verify.expect(node.Selectable):toBe(false)
+					node.Activated.fire()
+					Verify.expect(changes):toBe(1)
+					stop()
+				end,
 			}
-		end)
-		local caption = find(node, "Label")
-		t.expect(caption.TextXAlignment).toBe(node.TextXAlignment)
-		t.expect(caption.TextYAlignment).toBe(node.TextYAlignment)
-		node.AbsoluteSize = engine.types.Vector2.new(67, 44)
-		caption.Parent.Parent.AbsoluteSize = engine.types.Vector2.new(1, 1)
-		t.expect(caption.Parent.Size).toBe(engine.types.UDim2.fromOffset(67, 44))
-		t.expect(caption.Parent.Parent.Size).toBe(engine.types.UDim2.fromOffset(1, 1))
-		t.expect(caption.Parent.Parent.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
-		node.TextSize = 44
-		node.TextXAlignment = engine.types.Enum.TextXAlignment.Right
-		t.expect(caption.TextSize).toBe(44)
-		t.expect(caption.TextXAlignment).toBe(engine.types.Enum.TextXAlignment.Right)
-		t.expect(node.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.XY)
-		stop()
-	end)
-	t.it("replaces native hint art when the preferred asset changes representation", function()
-		local binding
-		local node, stop = world(function(UI: FacetControls, engine)
-			local action = engine.new("InputAction")
-			binding = engine.new("InputBinding")
-			binding.KeyCode = engine.types.Enum.KeyCode.ButtonX
-			action.PreferredBinding = binding
-			return UI.ShortcutHint({ action = action })
-		end, function()
-			return {
-				services = {
-					UserInputService = {
-						GetImageForKeyCode = function()
-							return "rbxassetid://123"
+		)
+
+		verifyHarness:case("distinguishes edits from external model updates and disconnects observation", {
+			id = "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+			run = function()
+				local value = Compose.cell("First")
+				local edits, commits = {}, {}
+				local node, stop = world(function(UI: FacetControls)
+					return UI.TextInput({
+						value = value,
+						onChange = function(text)
+							value:set(text)
+							table.insert(edits, text)
 						end,
-					},
-				},
+						onCommit = function(text: string, reason: "focusLost" | "submit")
+							table.insert(commits, { text, reason })
+						end,
+					})
+				end)
+				value:set("External")
+				Verify.expect(node.Text):toBe("External")
+				Verify.expect(#edits):toBe(0)
+				node:CaptureFocus()
+				node.Text = "User"
+				Verify.expect((value:peek())):toBe("User")
+				Verify.expect(#edits):toBe(1)
+				value:set("Model while focused")
+				Verify.expect(node.Text):toBe("Model while focused")
+				Verify.expect(#edits):toBe(1)
+				node:ReleaseFocus(true)
+				Verify.expect(commits[1][1]):toBe("Model while focused")
+				Verify.expect(commits[1][2]):toBe("submit")
+				stop()
+				Verify.expect((node:GetPropertyChangedSignal("Text").count())):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("limits UTF-8 characters, rejects validation and restores an edit on cancel", {
+			id = "native_inputs::native input controls::limits UTF-8 characters, rejects validation and restores an edit on cancel",
+			run = function()
+				local value, edits, canceled = Compose.cell("old"), 0, 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.TextInput({
+						value = value,
+						maxLength = 3,
+						validate = function(text)
+							return if text == "bad" then nil else text
+						end,
+						onChange = function(text)
+							value:set(text)
+							edits += 1
+						end,
+						onCancel = function()
+							canceled += 1
+						end,
+					})
+				end)
+				node:CaptureFocus()
+				node.Text = "é🙂好x"
+				Verify.expect((value:peek())):toBe("é🙂好")
+				Verify.expect(node.Text):toBe("é🙂好")
+				node.Text = "bad"
+				Verify.expect((value:peek())):toBe("é🙂好")
+				Verify.expect(node.Text):toBe("é🙂好")
+				Verify.expect(edits):toBe(1)
+				find(node.Parent, "Cancel").Pressed.fire()
+				Verify.expect((value:peek())):toBe("old")
+				Verify.expect(node.Text):toBe("old")
+				Verify.expect(canceled):toBe(1)
+				Verify.expect((node:IsFocused())):toBe(false)
+				stop()
+			end,
+		})
+
+		verifyHarness:case(
+			"commits and formats finite numeric input, clamps out-of-range input and refuses a non-number",
+			{
+				id = "native_inputs::native input controls::commits and formats finite numeric input, clamps out-of-range input and refuses a non-number",
+				run = function()
+					local value, number, invalid = Compose.cell("2"), Compose.cell(2), Compose.cell(false)
+					local commits = 0
+					local reasons = {}
+					local node, stop = world(function(UI: FacetControls)
+						return UI.TextInput({
+							value = value,
+							numericValue = number,
+							invalid = invalid,
+							presentation = "number" :: "number",
+							min = 1,
+							max = 10,
+							format = function(n)
+								return string.format("%.1f", n)
+							end,
+							onCommit = function(committed, reason)
+								commits += 1
+								table.insert(reasons, `{committed}:{reason}`)
+							end,
+						})
+					end)
+					node:CaptureFocus()
+					node.Text = "7"
+					node:ReleaseFocus(true)
+					Verify.expect((number:peek())):toBe(7)
+					Verify.expect((value:peek())):toBe("7.0")
+					Verify.expect(node.Text):toBe("7.0")
+					Verify.expect(commits):toBe(1)
+					node:CaptureFocus()
+					node.Text = "11"
+					node:ReleaseFocus(true)
+					Verify.expect((number:peek())):toBe(10)
+					Verify.expect((value:peek())):toBe("10.0")
+					Verify.expect((invalid:peek())):toBe(false)
+					node:CaptureFocus()
+					node.Text = "1e1"
+					node:ReleaseFocus(true)
+					Verify.expect((number:peek())):toBe(10)
+					Verify.expect(commits):toBe(2)
+					Verify.expect((invalid:peek())):toBe(true)
+					Verify.expect((table.concat(reasons, " "))):toBe("7:submit 10:clamped")
+					stop()
+				end,
 			}
-		end)
-		local platform = find(node, "Glyph")
-		t.expect(platform.Image).toBe("rbxassetid://123")
-		local content = { SourceType = { Name = "Uri" }, Uri = "rbxassetid://456" }
-		binding.DisplayImage = content
-		local custom = find(node, "Glyph")
-		t.expect(platform.isDestroyed()).toBe(true)
-		t.expect(custom.ImageContent).toBe(content)
-		binding.DisplayImage = nil
-		t.expect(custom.isDestroyed()).toBe(true)
-		t.expect(find(node, "Glyph").Image).toBe("rbxassetid://123")
-		stop()
-	end)
+		)
 
-	t.it("gives native dialog contexts ordered sink priority and live eligibility", function()
-		local firstEnabled = Compose.cell(false)
-		local node, stop, engine = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "First" { dialogAction = "default" :: "default", enabled = firstEnabled } :: unknown,
-				UI.Button "Second" { dialogAction = "default" :: "default" },
-			})
-		end)
-		local contexts = {}
-		for _, instance in engine.made do
-			if instance.ClassName == "InputContext" then
-				table.insert(contexts, instance)
-			end
-		end
-		t.expect(#contexts).toBe(2)
-		t.expect(contexts[1].Priority > contexts[2].Priority).toBe(true)
-		t.expect(contexts[1].Sink).toBe(true)
-		t.expect(contexts[1].Enabled).toBe(false)
-		t.expect(contexts[2].Enabled).toBe(true)
-		firstEnabled:set(true)
-		t.expect(contexts[1].Enabled).toBe(true)
-		find(node, "First").Visible = false
-		t.expect(contexts[1].Enabled).toBe(false)
-		stop()
-		t.expect(contexts[1].isDestroyed()).toBe(true)
-	end)
-	t.it("a held arrow repeats up to the bound and the axis stays owned at the bound", function()
-		local value = Compose.cell(95)
-		local gui
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Slider({ value = value, min = 0, max = 100, step = 1 })
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui }, guiService = gui }
-		end)
-		gui.SelectedObject = node
-		local increase = enabledAction(node.Parent, "IncreaseArrow")
-		increase.Pressed.fire()
-		for _ = 1, 20 do
-			engine.heartbeat.fire(0.1)
-		end
-		t.expect(value:peek()).toBe(100)
-		t.expect(increase.Parent.Enabled).toBe(true)
-		increase.Released.fire()
-		t.expect(increase.Parent.Enabled).toBe(true)
-		increase.Pressed.fire()
-		increase.Released.fire()
-		t.expect(value:peek()).toBe(100)
-		stop()
-	end)
+		verifyHarness:case("steps from the minimum, respects live stepping and gates all activation", {
+			id = "native_inputs::native input controls::steps from the minimum, respects live stepping and gates all activation",
+			run = function()
+				local value, step, enabled = Compose.cell(5), Compose.cell(5), Compose.cell(true)
+				local changes = 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Stepper({
+						value = value,
+						min = 5,
+						max = 25,
+						step = step,
+						enabled = enabled,
+						onChange = function(nextValue)
+							value:set(nextValue)
+							changes += 1
+						end,
+					})
+				end)
+				Verify.expect(find(node, "Increase"):FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
+				Verify.expect(find(node, "Increase").Text):toBe("")
+				Verify.expect((find(node, "Decrease"):GetAttribute("label"))):toBe("Decrease")
+				local decreaseTitle = find(node, "Decrease"):FindFirstChild("Title", true)
+				Verify.expect(decreaseTitle == nil or decreaseTitle.Text == ""):toBe(true)
+				find(node, "Increase").Activated.fire()
+				Verify.expect((value:peek())):toBe(10)
+				step:set(2)
+				find(node, "Increase").Activated.fire()
+				Verify.expect((value:peek())):toBe(13)
+				enabled:set(false)
+				find(node, "Increase").Activated.fire()
+				Verify.expect((value:peek())):toBe(13)
+				Verify.expect(changes):toBe(2)
+				stop()
+			end,
+		})
 
-	t.it("keeps the axis at value bounds and rearms on focus return", function()
-		local value = Compose.cell(4)
-		local node, stop = world(function(UI: FacetControls)
-			return UI.Rating({ value = value })
-		end)
-		t.expect(find(node.Parent, "IncreaseArrow")).toBe(nil)
-		node.SelectionGained.fire()
-		local increase = find(node.Parent, "IncreaseArrow")
-		local decrease = find(node.Parent, "DecreaseArrow")
-		local bumper = find(node.Parent, "Increase")
-		t.expect(increase.Parent.Enabled).toBe(true)
-		increase.Pressed.fire()
-		t.expect(value:peek()).toBe(5)
-		t.expect(increase.Parent.Enabled).toBe(true)
-		increase.Released.fire()
-		t.expect(increase.Parent.Enabled).toBe(true)
-		increase.Pressed.fire()
-		increase.Released.fire()
-		t.expect(value:peek()).toBe(5)
-		t.expect(bumper.Parent.Enabled).toBe(true)
-		t.expect(decrease.Parent.Enabled).toBe(true)
-		decrease.Pressed.fire()
-		t.expect(value:peek()).toBe(4)
-		t.expect(increase.Parent.Enabled).toBe(true)
-		node.SelectionLost.fire()
-		t.expect(increase.isDestroyed()).toBe(true)
-		t.expect(find(node.Parent, "IncreaseArrow")).toBe(nil)
-		node.SelectionGained.fire()
-		local rearmed = find(node.Parent, "IncreaseArrow")
-		t.expect(rearmed ~= increase).toBe(true)
-		t.expect(rearmed.Parent.Enabled).toBe(true)
-		rearmed.Pressed.fire()
-		t.expect(value:peek()).toBe(5)
-		stop()
-	end)
-	t.it("cancels slider pointer ownership on native gamepad handoff and reports bounded semantics", function()
-		local value, input, commits = Compose.cell(0.5), nil, 0
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Slider({
-				value = value,
-				min = 0,
-				max = 1,
-				tapToPosition = false,
-				onCommit = function()
-					commits += 1
+		verifyHarness:case("lets the native drag detector drive one bounded slider model and cancel", {
+			id = "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+			run = function()
+				local value, commits = Compose.cell(25), 0
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Slider({
+						value = value,
+						min = 0,
+						max = 100,
+						step = 5,
+						onCommit = function()
+							commits += 1
+						end,
+					})
+				end)
+				local track, drag = find(node, "Track"), find(node, "Drag")
+				node.SelectionGained.fire()
+				track.AbsoluteSize = engine.types.Vector2.new(200, 44)
+				track.AbsolutePosition = engine.types.Vector2.new(20, 0)
+				drag.DragStart.fire(engine.types.Vector2.new(164, 0))
+				Verify.expect((value:peek())):toBe(75)
+				drag.DragContinue.fire(engine.types.Vector2.new(500, 0))
+				Verify.expect((value:peek())):toBe(100)
+				find(node.Parent, "Cancel").Pressed.fire()
+				Verify.expect((value:peek())):toBe(25)
+				Verify.expect(commits):toBe(0)
+				drag.DragStart.fire(engine.types.Vector2.new(120, 0))
+				drag.DragEnd.fire()
+				Verify.expect((value:peek())):toBe(50)
+				Verify.expect(commits):toBe(1)
+				stop()
+			end,
+		})
+
+		verifyHarness:case(
+			"keeps authored slider widths with an inline readout and a vertically sized row presentation",
+			{
+				id = "native_inputs::native input controls::keeps authored slider widths with an inline readout and a vertically sized row presentation",
+				run = function()
+					local value = Compose.cell(0.5)
+					local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+							UI.Slider "Inline" { value = value, Size = engine.types.UDim2.fromOffset(80, 36) } :: unknown,
+							UI.Slider "Row" { value = value, row = { title = "Volume", description = "Playback level" } },
+							UI.Slider "Fixed" { value = value, AutomaticSize = engine.types.Enum.AutomaticSize.None },
+						})
+					end)
+					local inline, row, fixed = find(node, "Inline"), find(node, "Row"), find(node, "Fixed")
+					Verify.expect(inline.Size.X.Offset):toBe(80)
+					Verify.expect(inline.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+					Verify.expect(inline:FindFirstChildWhichIsA("UIListLayout").FillDirection)
+						:toBe(engine.types.Enum.FillDirection.Horizontal)
+					Verify.expect(inline:FindFirstChildWhichIsA("UIListLayout").VerticalAlignment)
+						:toBe(engine.types.Enum.VerticalAlignment.Center)
+					Verify.expect(find(inline, "Track"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+						:toBe(engine.types.Enum.UIFlexMode.Fill)
+					Verify.expect(find(inline, "Track").Size.Y.Offset):toBe(44)
+					Verify.expect(find(inline, "Value").Text):toBe("0.5")
+					value:set(0.75)
+					Verify.expect(find(inline, "Value").Text):toBe("0.75")
+					Verify.expect(row.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+					Verify.expect(find(row, "Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+						:toBe(engine.types.Enum.FillDirection.Horizontal)
+					Verify.expect((row:HasTag("facet-slider-settings"))):toBe(true)
+					Verify.expect(row.BackgroundTransparency):toBe(1)
+					Verify.expect(row:FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
+					Verify.expect(find(row, "Captions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+						:toBe(engine.types.Enum.FillDirection.Vertical)
+					Verify.expect(find(row, "Value").Parent):toBe(find(row, "Header"))
+					Verify.expect(find(row, "Description").Text):toBe("Playback level")
+					Verify.expect(fixed.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+					stop()
 				end,
-			})
-		end, function(engine)
-			input = engine.new("UserInputService")
-			return { services = { UserInputService = input } }
-		end)
-		local track, detector = find(node, "Track"), find(node, "Drag")
-		track.AbsoluteSize = engine.types.Vector2.new(100, 44)
-		detector.DragStart.fire(engine.types.Vector2.new(80, 0))
-		t.expect(value:peek()).toBe(0.5)
-		detector.DragContinue.fire(engine.types.Vector2.new(80.4, 0))
-		t.expect(value:peek()).toBeCloseTo(0.9)
-		t.expect(node:GetAttribute("semanticValue")).toBe("0.9 of 0 to 1")
-		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
-		t.expect(value:peek()).toBe(0.5)
-		detector.DragEnd.fire()
-		t.expect(commits).toBe(0)
-		value:set(4)
-		t.expect(node:GetAttribute("value")).toBe(1)
-		t.expect(node:GetAttribute("semanticValue")).toBe("1 of 0 to 1")
-		stop()
-	end)
-	t.it("ends a multiline edit when a native ancestor disables without late mutation", function()
-		local value, commits = Compose.cell("line one\nline two"), 0
-		local node, stop, engine = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.TextInput "Editor" {
-					value = value,
-					multiline = true,
-					onCommit = function()
-						commits += 1
-					end,
-				},
-			})
-		end)
-		local editor = find(node, "Editor")
-		t.expect(editor.MultiLine).toBe(true)
-		editor:CaptureFocus()
-		editor.Text = "first\nsecond\n"
-		t.expect(value:peek()).toBe("first\nsecond\n")
-		editor.ReturnPressedFromOnScreenKeyboard.fire()
-		t.expect(commits).toBe(0)
-		t.expect(editor:IsFocused()).toBe(true)
-		node.Interactable = false
-		t.expect(editor:IsFocused()).toBe(false)
-		editor.Text = "late mutation"
-		editor.FocusLost.fire(true)
-		t.expect(value:peek()).toBe("first\nsecond\n")
-		t.expect(commits).toBe(0)
-		node.Interactable = true
-		editor:CaptureFocus()
-		editor.Text = "accepted"
-		editor:ReleaseFocus(false)
-		t.expect(commits).toBe(1)
-		stop()
-	end)
+			}
+		)
 
-	t.it("grows a multiline field from an unclamped measure of its wrapped text", function()
-		local node, stop, engine = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.TextInput "Notes" { value = Compose.cell("a\nb\n"), onChange = function() end, multiline = true },
-			})
-		end)
-		local field = find(node, "Notes")
-		local measure = find(field, "Measure")
-		t.expect(measure ~= nil).toBe(true)
-		t.expect(measure:IsA("TextLabel")).toBe(true)
-		t.expect(measure.TextTransparency).toBe(1)
-		t.expect(measure.Text).toBe("a\nb\n ")
-		t.expect(field.Size.Y.Offset).toBe(96)
-		t.expect(measure.Visible).toBe(false)
-		measure.TextBounds = engine.types.Vector2.new(280, 300)
-		t.expect(field.Size.Y.Offset).toBe(316)
-		stop()
-	end)
+		verifyHarness:case("supports clearing a rating and keeps read-only levels inert", {
+			id = "native_inputs::native input controls::supports clearing a rating and keeps read-only levels inert",
+			run = function()
+				local value = Compose.cell(3)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Rating({ value = value })
+				end)
+				node.AbsoluteSize = engine.types.Vector2.new(100, 44)
+				node.Activated.fire({ Position = engine.types.Vector2.new(50, 0) })
+				Verify.expect((value:peek())):toBe(0)
+				node.Activated.fire({ Position = engine.types.Vector2.new(90, 0) })
+				Verify.expect((value:peek())):toBe(5)
+				stop()
+				node, stop = world(function(UI: FacetControls)
+					return UI.LevelPicker({ value = value, readOnly = true })
+				end)
+				node.Activated.fire({ Position = engine.types.Vector2.new(10, 0) })
+				Verify.expect((value:peek())):toBe(5)
+				stop()
+			end,
+		})
+		verifyHarness:case("clears search fields and submits the on-screen keyboard only once", {
+			id = "native_inputs::native input controls::clears search fields and submits the on-screen keyboard only once",
+			run = function()
+				local value, commits, changes = Compose.cell("search"), 0, 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.TextInput({
+						value = value,
+						presentation = "search" :: "search",
+						onChange = function(nextValue)
+							value:set(nextValue)
+							changes += 1
+						end,
+						onCommit = function()
+							commits += 1
+						end,
+					})
+				end)
+				local clear = find(node, "Clear")
+				Verify.expect(clear.Visible):toBe(true)
+				Verify.expect((clear:GetAttribute("label"))):toBe("Clear")
+				Verify.expect(clear:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
+				Verify.expect((clear:FindFirstChild("Title", true))):toBeNil()
+				Verify.expect(clear.Text):toBe("")
+				Verify.expect(clear.Size.Y.Offset > 0 and clear.Size.Y.Offset < 36):toBe(true)
+				Verify.expect((clear:HasTag("facet-shape-circle"))):toBe(true)
+				clear.Activated.fire()
+				Verify.expect((value:peek())):toBe("")
+				Verify.expect(clear.Visible):toBe(false)
+				Verify.expect(changes):toBe(1)
+				local field = find(node, "Field")
+				field:CaptureFocus()
+				field.Text = "find"
+				field.ReturnPressedFromOnScreenKeyboard.fire()
+				Verify.expect(commits):toBe(1)
+				Verify.expect((field:IsFocused())):toBe(false)
+				stop()
+			end,
+		})
 
-	t.it("commits a touch edit when touch leaves with no keyboard and carries it otherwise", function()
-		local value, reasons, input = Compose.cell("seed"), {}, nil
-		local node, stop = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.TextInput "Name" {
-					value = value,
-					onCommit = function(_, reason)
-						table.insert(reasons, reason)
-					end,
-				},
-			})
-		end, function(engine)
-			input = engine.new("UserInputService")
-			input.TouchEnabled = true
-			input.KeyboardEnabled = false
-			return { services = { UserInputService = input } }
-		end)
-		local field = find(node, "Name")
-		field:CaptureFocus()
-		field.Text = "hi"
-		input.GamepadEnabled = true
-		t.expect(field:IsFocused()).toBe(true)
-		input.KeyboardEnabled = true
-		input.TouchEnabled = false
-		t.expect(field:IsFocused()).toBe(true)
-		t.expect(#reasons).toBe(0)
-		input.TouchEnabled = true
-		input.KeyboardEnabled = false
-		t.expect(field:IsFocused()).toBe(true)
-		input.TouchEnabled = false
-		t.expect(field:IsFocused()).toBe(false)
-		t.expect(reasons).toEqual({ "focusLost" })
-		t.expect(value:peek()).toBe("hi")
-		stop()
-	end)
+		verifyHarness:case("repeats while held and cancels native frame subscriptions on disposal", {
+			id = "native_inputs::native input controls::repeats while held and cancels native frame subscriptions on disposal",
+			run = function()
+				local activated = 0
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({
+						label = "Repeat",
+						repeatDelay = 0.4,
+						repeatInterval = 0.1,
+						onActivate = function()
+							activated += 1
+						end,
+					})
+				end)
+				local input = {
+					UserInputType = engine.types.Enum.UserInputType.MouseButton1,
+					KeyCode = engine.types.Enum.KeyCode:FromValue(0),
+				}
+				node.InputBegan.fire(input)
+				engine.heartbeat.fire(0.4)
+				engine.heartbeat.fire(0.1)
+				Verify.expect(activated):toBe(2)
+				node.InputEnded.fire(input)
+				node.Activated.fire()
+				Verify.expect(activated):toBe(2)
+				stop()
+				engine.heartbeat.fire(1)
+				Verify.expect(activated):toBe(2)
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+			end,
+		})
+		verifyHarness:case("reports a pointer cancel when onPointerCancel is the only pointer option", {
+			id = "native_inputs::native input controls::reports a pointer cancel when onPointerCancel is the only pointer option",
+			run = function()
+				local cancels = 0
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button "Hold" {
+						label = "Hold",
+						onPointerCancel = function()
+							cancels += 1
+						end,
+					}
+				end)
+				node.InputBegan.fire({
+					UserInputType = engine.types.Enum.UserInputType.MouseButton1,
+					KeyCode = engine.types.Enum.KeyCode:FromValue(0),
+				})
+				node.MouseLeave.fire()
+				Verify.expect(cancels):toBe(1)
+				node.MouseLeave.fire()
+				Verify.expect(cancels):toBe(1)
+				stop()
+			end,
+		})
 
-	t.it("keeps composite control roots transparent instead of exposing native stock plates", function()
-		local node, stop = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Stepper "Stepper" { value = Compose.cell(0) } :: unknown,
-				UI.Slider "Slider" { value = Compose.cell(0) },
-				UI.Rating "Rating" { value = Compose.cell(0) },
-				UI.LevelPicker "Level" { value = Compose.cell(0) },
-			})
-		end)
-		for _, name in { "Stepper", "Slider", "Rating", "Level" } do
-			t.expect(find(node, name).BackgroundTransparency).toBe(1)
-		end
-		t.expect(find(node, "Stepper").BorderSizePixel).toBe(0)
-		stop()
-	end)
-	t.it("retains native keyboard activation after first focus and gates it on live selection", function()
-		local activated = 0
-		local firstEnabled = Compose.cell(true)
-		local node, stop, engine = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "First" {
-					label = "First",
-					enabled = firstEnabled,
-					onActivate = function()
-						activated += 1
-					end,
-				} :: unknown,
-				UI.Button "Second" {
-					label = "Second",
-					onActivate = function()
-						activated += 10
-					end,
-				},
-			})
-		end)
-		local first, second = find(node, "First"), find(node, "Second")
-		t.expect(find(node.Parent, "Activate")).toBe(nil)
-		first.SelectionGained.fire()
-		local action = enabledAction(node.Parent, "Activate")
-		t.expect(action ~= nil).toBe(true)
-		t.expect(action.Parent.Parent).toBe(node.Parent)
-		action.Pressed.fire()
-		t.expect(activated).toBe(1)
-		first.SelectionLost.fire()
-		t.expect(action.isDestroyed()).toBe(false)
-		t.expect(action.Parent.Enabled).toBe(false)
-		action.Pressed.fire()
-		t.expect(activated).toBe(1)
-		first.SelectionGained.fire()
-		t.expect(enabledAction(node.Parent, "Activate")).toBe(action)
-		action.Pressed.fire()
-		t.expect(activated).toBe(2)
-		first.Visible = false
-		t.expect(action.Parent.Enabled).toBe(false)
-		action.Pressed.fire()
-		t.expect(activated).toBe(2)
-		first.Visible = true
-		firstEnabled:set(false)
-		t.expect(action.Parent.Enabled).toBe(false)
-		action.Pressed.fire()
-		t.expect(activated).toBe(2)
-		firstEnabled:set(true)
-		t.expect(enabledAction(node.Parent, "Activate")).toBe(action)
-		first.SelectionLost.fire()
-		second.SelectionGained.fire()
-		local secondAction = enabledAction(node.Parent, "Activate")
-		t.expect(secondAction ~= action).toBe(true)
-		action.Pressed.fire()
-		t.expect(activated).toBe(2)
-		secondAction.Pressed.fire()
-		t.expect(activated).toBe(12)
-		stop()
-		t.expect(action.isDestroyed()).toBe(true)
-		t.expect(secondAction.isDestroyed()).toBe(true)
-		action.Pressed.fire()
-		secondAction.Pressed.fire()
-		t.expect(activated).toBe(12)
-		t.expect(first.SelectionGained.count()).toBe(0)
-	end)
-	t.it("activates programmatically selected buttons through the native GuiService property", function()
-		local gui, firstCalls, secondCalls = nil, 0, 0
-		local node, stop = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Button "First" {
-					label = "First",
-					onActivate = function()
-						firstCalls += 1
-					end,
-				} :: unknown,
-				UI.Button "Second" {
-					label = "Second",
-					onActivate = function()
-						secondCalls += 1
-					end,
-				},
-			})
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui } }
-		end)
-		local first, second = find(node, "First"), find(node, "Second")
-		t.expect(find(node.Parent, "Activate")).toBe(nil)
-		gui.SelectedObject = first
-		local action = enabledAction(node.Parent, "Activate")
-		t.expect(action ~= nil).toBe(true)
-		t.expect(action.Parent.Enabled).toBe(true)
-		action.Pressed.fire()
-		t.expect(firstCalls).toBe(1)
-		gui.SelectedObject = second
-		t.expect(action.isDestroyed()).toBe(false)
-		t.expect(action.Parent.Enabled).toBe(false)
-		local secondAction = enabledAction(node.Parent, "Activate")
-		t.expect(secondAction ~= action).toBe(true)
-		action.Pressed.fire()
-		secondAction.Pressed.fire()
-		t.expect(firstCalls).toBe(1)
-		t.expect(secondCalls).toBe(1)
-		gui.SelectedObject = nil
-		t.expect(enabledAction(node.Parent, "Activate")).toBe(nil)
-		action.Pressed.fire()
-		secondAction.Pressed.fire()
-		t.expect(firstCalls).toBe(1)
-		t.expect(secondCalls).toBe(1)
-		gui.SelectedObject = first
-		t.expect(enabledAction(node.Parent, "Activate")).toBe(action)
-		t.expect(secondAction.Parent.Enabled).toBe(false)
-		action.Pressed.fire()
-		t.expect(firstCalls).toBe(2)
-		stop()
-		t.expect(action.isDestroyed()).toBe(true)
-		t.expect(secondAction.isDestroyed()).toBe(true)
-		t.expect(gui:GetPropertyChangedSignal("SelectedObject").count()).toBe(0)
-	end)
+		verifyHarness:case("follows GuiService.ReducedMotionEnabled for pop, validation pulse and busy dots", {
+			id = "native_inputs::native input controls::follows GuiService.ReducedMotionEnabled for pop, validation pulse and busy dots",
+			run = function()
+				local gui
+				local busy, value, number = Compose.cell(false), Compose.cell("2"), Compose.cell(2)
+				local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "Pop" { label = "Pop", pop = true, busy = busy, onActivate = function() end } :: unknown,
+						UI.TextInput "Amount" {
+							value = value,
+							numericValue = number,
+							presentation = "number" :: "number",
+							max = 10,
+						},
+					})
+				end, function(engine)
+					gui = engine.new("GuiService")
+					gui.ReducedMotionEnabled = true
+					return { guiService = gui, services = { GuiService = gui } }
+				end)
+				local button, field = find(root, "Pop"), find(root, "Amount")
+				local scale = button:FindFirstChildWhichIsA("UIScale")
+				button.Activated.fire()
+				engine.heartbeat.fire(0.1)
+				Verify.expect(scale.Scale):toBe(1)
+				field:CaptureFocus()
+				field.Text = "11"
+				field:ReleaseFocus(true)
+				engine.heartbeat.fire(0.08)
+				Verify.expect(find(field, "ValidationPulse").Scale):toBe(1)
+				busy:set(true)
+				engine.heartbeat.fire(0.3)
+				Verify.expect(find(button, "Dot1").BackgroundTransparency):toBe(0)
+				busy:set(false)
+				gui.ReducedMotionEnabled = false
+				button.Activated.fire()
+				engine.heartbeat.fire(0.1)
+				Verify.expect(scale.Scale > 1):toBe(true)
+				stop()
+			end,
+		})
 
-	t.it("allocates mirrored captions only while a reactive native theme has control artwork", function()
-		local neutral = { identity = {}, chrome = {} }
-		local artwork = {
-			identity = {},
-			chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
-			assets = { control = { content = "rbxassetid://123" } },
-		}
-		local theme = Compose.cell(neutral)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({ label = "Caption" })
-		end, function()
-			return { theme = theme }
-		end)
-		t.expect(find(node, "Label")).toBe(nil)
-		t.expect(node:GetPropertyChangedSignal("FontFace").count()).toBe(0)
-		theme:set(artwork)
-		local label = find(node, "Label")
-		local bounds, boundary = label.Parent, label.Parent.Parent
-		t.expect(label.Text).toBe("Caption")
-		t.expect(node:HasTag("facet-button-captioned")).toBe(true)
-		theme:set(neutral)
-		t.expect(label.isDestroyed()).toBe(false)
-		t.expect(boundary.Visible).toBe(false)
-		t.expect(node:HasTag("facet-button-captioned")).toBe(false)
-		node.Text = "Retained caption"
-		node.TextSize = 22
-		node.AbsoluteSize = engine.types.Vector2.new(80, 44)
-		boundary.AbsoluteSize = engine.types.Vector2.new(2, 2)
-		for _ = 1, 100 do
-			theme:set(artwork)
-			t.expect(find(node, "Label")).toBe(label)
-			t.expect(boundary.Visible).toBe(true)
-			t.expect(node:HasTag("facet-button-captioned")).toBe(true)
-			theme:set(neutral)
-			t.expect(boundary.Visible).toBe(false)
-			t.expect(node:HasTag("facet-button-captioned")).toBe(false)
-		end
-		theme:set(artwork)
-		t.expect(label.Text).toBe("Retained caption")
-		t.expect(label.TextSize).toBe(22)
-		t.expect(bounds.Size).toBe(engine.types.UDim2.fromOffset(40, 22))
-		local created = 0
-		for _, item in engine.made do
-			if item.Name == "Label" or item.Name == "LabelBounds" or item.Name == "LabelBoundary" then
-				created += 1
-			end
-		end
-		t.expect(created).toBe(3)
-		stop()
-		t.expect(label.isDestroyed()).toBe(true)
-		t.expect(bounds.isDestroyed()).toBe(true)
-		t.expect(boundary.isDestroyed()).toBe(true)
-		t.expect(node:GetPropertyChangedSignal("FontFace").count()).toBe(0)
-	end)
+		verifyHarness:case("does not commit a number TextInput that its parse callback disables", {
+			id = "native_inputs::native input controls::does not commit a number TextInput that its parse callback disables",
+			run = function()
+				local value, number, enabled, commits = Compose.cell("2"), Compose.cell(2), Compose.cell(true), 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.TextInput "Amount" {
+						value = value,
+						numericValue = number,
+						presentation = "number" :: "number",
+						enabled = enabled,
+						parse = function(text)
+							enabled:set(false)
+							return tonumber(text)
+						end,
+						onCommit = function()
+							commits += 1
+						end,
+					}
+				end)
+				node:CaptureFocus()
+				node.Text = "5"
+				node:ReleaseFocus(true)
+				Verify.expect(commits):toBe(0)
+				Verify.expect((number:peek())):toBe(2)
+				stop()
+			end,
+		})
 
-	t.it("lays out image buttons vertically inside their authored card bounds and keeps the image ratio", function()
-		local node, stop, engine = world(function(UI: FacetControls, engine)
-			return UI.Button({
-				label = "A driver with a descriptive title",
-				subtitle = "A longer description that must wrap inside the card.",
-				image = "rbxassetid://123",
-				imageAspectRatio = 2,
-				Size = engine.types.UDim2.fromOffset(240, 260),
-			})
-		end)
-		t.expect(node.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
-		t.expect(find(node, "Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
-			.toBe(engine.types.Enum.FillDirection.Vertical)
-		t.expect(find(node, "Title").TextWrapped).toBe(true)
-		t.expect(find(node, "Title").Size.X.Scale).toBe(1)
-		t.expect(find(node, "Description").TextWrapped).toBe(true)
-		t.expect(find(node, "Content").Size.Y.Scale).toBe(1)
-		local media = find(node, "Media")
-		t.expect(media:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(engine.types.Enum.UIFlexMode.Fill)
-		t.expect(media:FindFirstChildWhichIsA("UIAspectRatioConstraint")).toBe(nil)
-		local image = find(media, "Image")
-		local ratio = image:FindFirstChildWhichIsA("UIAspectRatioConstraint")
-		t.expect(ratio ~= nil and ratio.AspectRatio).toBe(2)
-		t.expect(ratio.AspectType).toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
-		t.expect(image.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
-		t.expect(image.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
-		stop()
-	end)
-	t.it("allocates native value actions only for the selected control, never for a part inside it", function()
-		local gui, stepperValue, sliderValue = nil, Compose.cell(3), Compose.cell(0.5)
-		local enabled = Compose.cell(true)
-		local node, stop, engine = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Stepper "Stepper" { value = stepperValue, max = 10, enabled = enabled } :: unknown,
-				UI.Slider "Slider" { value = sliderValue },
-			})
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui } }
-		end)
-		local function activeContextCount()
-			local count = 0
-			for _, object in node.Parent:GetDescendants() do
-				if object.ClassName == "InputContext" and object.Enabled then
-					count += 1
+		verifyHarness:case("accepts a readable Button corners value and follows it", {
+			id = "native_inputs::native input controls::accepts a readable Button corners value and follows it",
+			run = function()
+				local corners = Compose.cell("square" :: "pill" | "square")
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button "Corners" { label = "Corners", corners = corners }
+				end)
+				local corner = node:FindFirstChildWhichIsA("UICorner")
+				Verify.expect(corner.CornerRadius.Scale):toBe(0)
+				corners:set("pill")
+				Verify.expect(corner.CornerRadius.Scale):toBe(1)
+				stop()
+				Verify.expect(function()
+					world(function(UI: FacetControls)
+						return UI.Button "Corners"({ label = "Corners", corners = "round" } :: any)
+					end)
+				end):toThrow()
+			end,
+		})
+
+		verifyHarness:case("edits a controlled map field without duplicating durable state", {
+			id = "native_inputs::native input controls::edits a controlled map field without duplicating durable state",
+			run = function()
+				local notes = Compose.cell({ item = "saved" })
+				local requests = 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.TextInput({
+						value = function(use: Use)
+							return use(notes).item
+						end,
+						onChange = function(value)
+							requests += 1
+							if value ~= "rejected" then
+								notes:set({ item = value })
+							end
+						end,
+					})
+				end)
+				node:CaptureFocus()
+				node.Text = "updated"
+				Verify.expect(notes:peek().item):toBe("updated")
+				Verify.expect(requests):toBe(1)
+				node.Text = "rejected"
+				Verify.expect(node.Text):toBe("updated")
+				notes:set({ item = "external" })
+				Verify.expect(requests):toBe(2)
+				Verify.expect(node.Text):toBe("external")
+				find(node.Parent, "Cancel").Pressed.fire()
+				Verify.expect(notes:peek().item):toBe("saved")
+				Verify.expect(requests):toBe(3)
+				stop()
+			end,
+		})
+		verifyHarness:case("does not mutate writable controlled models before callbacks accept requests", {
+			id = "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+			run = function()
+				local value = Compose.cell(3)
+				local requested: number | string | nil = nil
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Stepper({
+						value = value,
+						min = 0,
+						max = 10,
+						onChange = function(nextValue)
+							requested = nextValue
+						end,
+					})
+				end)
+				find(node, "Increase").Activated.fire()
+				Verify.expect(requested):toBe(4)
+				Verify.expect((value:peek())):toBe(3)
+				stop()
+				local text = Compose.cell("accepted")
+				node, stop = world(function(UI: FacetControls)
+					return UI.TextInput({
+						value = text,
+						onChange = function(nextValue)
+							requested = nextValue
+						end,
+					})
+				end)
+				node:CaptureFocus()
+				node.Text = "rejected"
+				Verify.expect(requested):toBe("rejected")
+				Verify.expect((text:peek())):toBe("accepted")
+				Verify.expect(node.Text):toBe("accepted")
+				stop()
+			end,
+		})
+		verifyHarness:case("owns busy animation only while visible and suppresses busy activation", {
+			id = "native_inputs::native input controls::owns busy animation only while visible and suppresses busy activation",
+			run = function()
+				local busy, actions = Compose.cell(false), 0
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({
+						label = "Loading",
+						busy = busy,
+						onActivate = function()
+							actions += 1
+						end,
+					})
+				end)
+				Verify.expect((find(node, "Busy"))):toBe(nil)
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				for _ = 1, 3 do
+					busy:set(true)
+					Verify.expect(find(node, "Busy") ~= nil):toBe(true)
+					Verify.expect((engine.heartbeat.count())):toBe(1)
+					node.Activated.fire()
+					Verify.expect(node.Selectable):toBe(false)
+					busy:set(false)
+					Verify.expect((find(node, "Busy"))):toBe(nil)
+					Verify.expect((engine.heartbeat.count())):toBe(0)
 				end
-			end
-			return count
-		end
-		t.expect(activeContextCount()).toBe(0)
-		gui.SelectedObject = find(node, "Slider")
-		t.expect(activeContextCount()).toBe(5)
-		local sliderAction = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
-		sliderAction.Pressed.fire()
-		t.expect(sliderValue:peek()).toBe(0.51)
-		local stepper = find(node, "Stepper")
-		gui.SelectedObject = stepper
-		t.expect(activeContextCount()).toBe(4)
-		t.expect(sliderAction.isDestroyed()).toBe(true)
-		t.expect(engine.heartbeat.count()).toBe(0)
-		local action = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
-		action.Pressed.fire()
-		t.expect(stepperValue:peek()).toBe(4)
-		enabled:set(false)
-		t.expect(activeContextCount()).toBe(0)
-		t.expect(action.isDestroyed()).toBe(true)
-		t.expect(engine.heartbeat.count()).toBe(0)
-		enabled:set(true)
-		t.expect(activeContextCount()).toBe(4)
-		gui.SelectedObject = nil
-		t.expect(activeContextCount()).toBe(0)
-		stop()
-		local initial, initialStop = world(function(UI: FacetControls)
-			return UI.Stepper({
-				value = stepperValue,
-				max = 10,
-				ref = function(root)
-					gui.SelectedObject = root
-				end,
-			})
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui } }
-		end)
-		local initialAction = find(initial.Parent, "FacetIncrease"):FindFirstChild("Increase")
-		t.expect(initialAction.Parent.Enabled).toBe(true)
-		initialAction.Pressed.fire()
-		t.expect(stepperValue:peek()).toBe(5)
-		initialStop()
-		t.expect(initialAction.isDestroyed()).toBe(true)
-	end)
-
-	t.it("repeats a held Stepper button and a repeating Button only while held", function()
-		local value = Compose.cell(0)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Stepper({ value = value, max = 100 })
-		end)
-		local held = {
-			UserInputType = engine.types.Enum.UserInputType.Touch,
-			KeyCode = engine.types.Enum.KeyCode:FromValue(0),
-		}
-		local increase = find(node, "Increase")
-		t.expect(engine.heartbeat.count()).toBe(0)
-		increase.InputBegan.fire(held)
-		t.expect(engine.heartbeat.count()).toBe(1)
-		engine.heartbeat.fire(0.4)
-		engine.heartbeat.fire(0.1)
-		t.expect(value:peek()).toBe(2)
-		increase.InputEnded.fire(held)
-		t.expect(engine.heartbeat.count()).toBe(0)
-		stop()
-	end)
-
-	t.it("lets a game control opt into keyboard and gamepad adjustment with UI.adjustable", function()
-		local steps, calls = {}, 0
-		local gui
-		local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
-			local dial = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
-				Name = "Dial",
-				Selectable = true,
-			})
-			UI.adjustable(dial, {
-				onAdjust = function(direction)
-					calls += 1
-					table.insert(steps, direction)
-				end,
-				axis = "vertical" :: "vertical",
-				repeats = true,
-			})
-			local knob = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
-				Name = "Knob",
-				Selectable = true,
-			})
-			UI.adjustable(knob, {
-				onAdjust = function(direction)
-					table.insert(steps, direction * 10)
-				end,
-				axis = "none" :: "none",
-			})
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ dial :: unknown, knob })
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui }, guiService = gui }
-		end)
-		local dial, knob, screen = find(node, "Dial"), find(node, "Knob"), node.Parent
-		t.expect(enabledAction(screen, "IncreaseArrow")).toBe(nil)
-		gui.SelectedObject = dial
-		local up = enabledAction(screen, "IncreaseArrow")
-		t.expect(up ~= nil).toBe(true)
-		t.expect(up:FindFirstChildWhichIsA("InputBinding").KeyCode).toBe(engine.types.Enum.KeyCode.Up)
-		up.Pressed.fire()
-		t.expect(steps[1]).toBe(1)
-		engine.heartbeat.fire(0.4)
-		t.expect(steps[2]).toBe(1)
-		up.Released.fire()
-		t.expect(engine.heartbeat.count()).toBe(0)
-		enabledAction(screen, "Decrease").Pressed.fire()
-		t.expect(steps[3]).toBe(-1)
-		gui.SelectedObject = knob
-		t.expect(enabledAction(screen, "IncreaseArrow")).toBe(nil)
-		local shoulder = enabledAction(screen, "Increase")
-		shoulder.Pressed.fire()
-		t.expect(steps[4]).toBe(10)
-		engine.heartbeat.fire(1)
-		t.expect(#steps).toBe(4)
-		t.expect(engine.heartbeat.count()).toBe(0)
-		stop()
-		t.expect(calls).toBe(3)
-	end)
-
-	t.it("makes the Slider its one selection stop and draws the engine ring on its thumb", function()
-		local value = Compose.cell(0.5)
-		local gui
-		local node, stop = world(function(UI: FacetControls, _, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				UI.Slider "Volume" { value = value, step = 0.1 } :: unknown,
-				UI.Slider "Hidden" { value = Compose.cell(0.5), thumb = "auto" :: "auto" },
-			})
-		end, function(engine)
-			gui = engine.new("GuiService")
-			return { services = { GuiService = gui }, guiService = gui }
-		end)
-		local volume = find(node, "Volume")
-		local thumb, track = find(volume, "ThumbStop"), find(volume, "Track")
-		t.expect(volume.Selectable).toBe(true)
-		t.expect(thumb.Selectable).toBe(false)
-		t.expect(track.Selectable).toBe(false)
-		t.expect(volume:GetAttribute("FacetFocusPart")).toBe("Track/ThumbStop")
-		t.expect(find(find(node, "Hidden"), "Track").Selectable).toBe(false)
-		t.expect(find(node, "Hidden"):GetAttribute("FacetFocusPart")).toBe("Track")
-		gui.SelectedObject = volume
-		enabledAction(node.Parent, "IncreaseArrow").Pressed.fire()
-		t.expect(math.abs(value:peek() - 0.6) < 1e-9).toBe(true)
-		stop()
-	end)
-
-	t.it("repeats focused value adjustments with bounded catch-up and no idle frame subscription", function()
-		local value = Compose.cell(0)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Stepper({ value = value, max = 100 })
-		end)
-		t.expect(engine.heartbeat.count()).toBe(0)
-		node.SelectionGained.fire()
-		local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
-		increase.Pressed.fire()
-		t.expect(value:peek()).toBe(1)
-		t.expect(engine.heartbeat.count()).toBe(1)
-		engine.heartbeat.fire(0.35)
-		t.expect(value:peek()).toBe(1)
-		engine.heartbeat.fire(0.25)
-		t.expect(value:peek()).toBe(4)
-		engine.heartbeat.fire(20)
-		t.expect(value:peek()).toBe(9)
-		increase.Released.fire()
-		t.expect(engine.heartbeat.count()).toBe(0)
-		increase.Pressed.fire()
-		node.SelectionLost.fire()
-		t.expect(engine.heartbeat.count()).toBe(0)
-		stop()
-		t.expect(engine.heartbeat.count()).toBe(0)
-	end)
-	t.it("a Stepper's repeatDelay and repeatInterval govern its held arrows and its held buttons alike", function()
-		local value = Compose.cell(0)
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Stepper({ value = value, max = 100, repeatDelay = 1, repeatInterval = 0.5 })
-		end)
-		node.SelectionGained.fire()
-		local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
-		increase.Pressed.fire()
-		engine.heartbeat.fire(0.9)
-		t.expect(value:peek()).toBe(1)
-		engine.heartbeat.fire(0.2)
-		t.expect(value:peek()).toBe(2)
-		engine.heartbeat.fire(0.5)
-		t.expect(value:peek()).toBe(3)
-		increase.Released.fire()
-		local button
-		for _, child in node:GetDescendants() do
-			if child.ClassName == "TextButton" and child.Name == "Increase" then
-				button = child
-			end
-		end
-		button.InputBegan.fire({
-			UserInputType = engine.types.Enum.UserInputType.MouseButton1,
-			KeyCode = engine.types.Enum.KeyCode:FromValue(0),
+				Verify.expect(actions):toBe(0)
+				node.Activated.fire()
+				Verify.expect(actions):toBe(1)
+				stop()
+			end,
 		})
-		engine.heartbeat.fire(0.9)
-		t.expect(value:peek()).toBe(3)
-		engine.heartbeat.fire(0.2)
-		t.expect(value:peek()).toBe(4)
-		stop()
-	end)
 
-	t.it("uses native Toggle text and reserved padding while retaining rich hints and live theme insets", function()
-		local label, rung = Compose.cell("Music"), Compose.cell("compact" :: "compact" | "large" | "regular" | "xsmall")
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Toggle({ value = Compose.cell(false), label = label, controlSize = rung })
-		end)
-		t.expect(node.Text).toBe("Music")
-		t.expect(node:FindFirstChildWhichIsA("TextLabel", true)).toBe(nil)
-		t.expect(node:FindFirstChildWhichIsA("UIListLayout", true)).toBe(nil)
-		t.expect(#node:GetDescendants()).toBe(5)
-		local padding = node:FindFirstChildWhichIsA("UIPadding")
-		t.expect(padding.PaddingLeft.Offset).toBe(40)
-		t.expect(padding.PaddingRight.Offset).toBe(0)
-		t.expect(find(node, "Indicator").Position.X.Offset).toBe(-40)
-		label:set("Music and effects")
-		rung:set("large")
-		t.expect(node.Text).toBe("Music and effects")
-		t.expect(padding.PaddingLeft.Offset).toBe(52)
-		stop()
-		local themes = require("../src/ui/themes")(Compose)
-		local package = themes.neutralPackage()
-		assert(package.chrome).control = { kind = "native" :: "native", contentInsets = { left = 24, right = 28 } }
-		local selected = Compose.cell(package)
-		node, stop = world(function(UI: FacetControls)
-			return UI.Toggle({
-				value = Compose.cell(false),
-				label = "Sound",
-				presentation = "checkbox" :: "checkbox",
-				indicatorPosition = "trailing" :: "trailing",
-			})
-		end, function()
-			return { theme = selected }
-		end)
-		padding = node:FindFirstChildWhichIsA("UIPadding")
-		t.expect(padding.PaddingLeft.Offset).toBe(24)
-		t.expect(padding.PaddingRight.Offset).toBe(60)
-		t.expect(find(node, "Indicator").Position.X.Scale).toBe(1)
-		local nextPackage = themes.neutralPackage()
-		assert(nextPackage.chrome).control = { kind = "native" :: "native", contentInsets = { left = 30, right = 36 } }
-		selected:set(nextPackage)
-		t.expect(padding.PaddingLeft.Offset).toBe(30)
-		t.expect(padding.PaddingRight.Offset).toBe(68)
-		stop()
-		local hint = Compose.cell("Initial hint")
-		node, stop = world(function(UI: FacetControls)
-			return UI.Toggle({ value = Compose.cell(false), label = "Assistance", hint = hint })
-		end)
-		local caption
-		for _, child in node:GetDescendants() do
-			if child:IsA("TextLabel") and child.Text == "Initial hint" then
-				caption = child
-			end
-		end
-		t.expect(caption ~= nil).toBe(true)
-		hint:set("Updated hint")
-		t.expect(caption.Text).toBe("Updated hint")
-		t.expect(node:FindFirstChildWhichIsA("UIListLayout", true) ~= nil).toBe(true)
-		stop()
-	end)
-
-	t.it("isolates artwork and mirrored captions from native automatic sizing while following real padding", function()
-		local theme = Compose.cell({ identity = {}, chrome = {} })
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({ label = "Enter" })
-		end, function()
-			return { theme = theme }
-		end)
-		local nativeSize, automaticSize = node.Size, node.AutomaticSize
-		node.AbsoluteSize = engine.types.Vector2.new(67, 44)
-		theme:set({
-			identity = {},
-			chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
-			assets = { control = { content = "rbxassetid://123" } },
+		verifyHarness:case("restarts Compose pop feedback and obeys live reduced motion", {
+			id = "native_inputs::native input controls::restarts Compose pop feedback and obeys live reduced motion",
+			run = function()
+				local reduced = Compose.cell(false)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({ label = "Pop", pop = true, onActivate = function() end })
+				end, function()
+					return {
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
+							return if use(reduced) then "none" else "normal"
+						end) :: unknown) :: MotionLevel,
+					}
+				end)
+				local scale = find(node, "Pop")
+				Verify.expect(scale.Scale):toBe(1)
+				node.Activated.fire()
+				engine.heartbeat.fire(0.1)
+				Verify.expect(scale.Scale > 1):toBe(true)
+				local current = scale.Scale
+				node.Activated.fire()
+				Verify.expect(scale.Scale):toBeCloseTo(current, 1e-4)
+				reduced:set(true)
+				Verify.expect(scale.Scale):toBe(1)
+				node.Activated.fire()
+				engine.heartbeat.fire(1)
+				Verify.expect(scale.Scale):toBe(1)
+				stop()
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+			end,
 		})
-		local skin, label = find(node, "SkinBounds"), find(node, "LabelBounds")
-		for _, decoration in { skin, label } do
-			decoration.Parent.AbsoluteSize = engine.types.Vector2.new(1, 1)
-			t.expect(decoration.Parent.Parent).toBe(node)
-			t.expect(decoration.Parent.Size).toBe(engine.types.UDim2.fromOffset(1, 1))
-			t.expect(decoration.Parent.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
-			t.expect(decoration.Parent.ClipsDescendants).toBe(false)
-		end
-		local padding = node:FindFirstChildWhichIsA("UIPadding")
-		padding.PaddingLeft = engine.types.UDim.new(0.1, 2)
-		padding.PaddingRight = engine.types.UDim.new(0, 5)
-		padding.PaddingTop = engine.types.UDim.new(0, 3)
-		padding.PaddingBottom = engine.types.UDim.new(0, 4)
-		padding.Parent = node
-		t.expect(skin.Size).toBe(engine.types.UDim2.fromOffset(67, 44))
-		t.expect(skin.Position).toBe(engine.types.UDim2.fromOffset(6, 5))
-		t.expect(skin.AnchorPoint).toBe(engine.types.Vector2.new(1, 1))
 
-		t.expect(label.Size).toBe(engine.types.UDim2.fromOffset(54, 37))
-		t.expect(label.Size.Y.Offset).toBe(37)
-		t.expect(label.Position).toBe(engine.types.UDim2.fromOffset(1, 1))
-		padding.PaddingLeft = engine.types.UDim.new(0, 12)
-		t.expect(skin.Position.X.Offset).toBe(6)
-		t.expect(label.Size.X.Offset).toBe(50)
-		node.AbsoluteSize = engine.types.Vector2.new(80, 50)
-		t.expect(skin.Size).toBe(engine.types.UDim2.fromOffset(80, 50))
-		t.expect(label.Size).toBe(engine.types.UDim2.fromOffset(63, 43))
-		t.expect(node.Size).toBe(nativeSize)
-		t.expect(node.AutomaticSize).toBe(automaticSize)
-		padding.Parent = nil
-		t.expect(skin.Position).toBe(engine.types.UDim2.fromOffset(1, 1))
-		t.expect(label.Size).toBe(engine.types.UDim2.fromOffset(80, 50))
-		t.expect(padding:GetPropertyChangedSignal("PaddingLeft").count()).toBe(0)
-		stop()
-		t.expect(node:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
-		t.expect(node.ChildAdded.count()).toBe(0)
-		t.expect(node.ChildRemoved.count()).toBe(0)
-	end)
+		verifyHarness:case("uses native circle constraints and updates semantic roles without paint writes", {
+			id = "native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes",
+			run = function()
+				local role = Compose.cell("default" :: "cancel" | "default" | "destructive" | "onIndicator")
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({
+						label = "A meaningful long name",
+						icon = "rbxassetid://1",
+						shape = "circle" :: "circle",
+						role = role,
+					})
+				end)
+				Verify.expect(find(node, "UIAspectRatioConstraint").AspectRatio):toBe(1)
+				Verify.expect(find(node, "UICorner").CornerRadius.Scale):toBe(1)
+				Verify.expect(find(node, "LeadingIcon").Image):toBe("rbxassetid://1")
+				Verify.expect((node:GetAttribute("label"))):toBe("A meaningful long name")
+				Verify.expect((node:HasTag("facet-role-default"))):toBe(true)
+				role:set("destructive")
+				Verify.expect((node:HasTag("facet-role-default"))):toBe(false)
+				Verify.expect((node:HasTag("facet-role-destructive"))):toBe(true)
+				stop()
+			end,
+		})
 
-	t.it("converts rendered decoration bounds through the native one pixel scale reference", function()
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Button({ label = "Enter" })
-		end, function()
-			return {
-				theme = {
+		verifyHarness:case("chooses compact button text from native measurements and restores the full caption", {
+			id = "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({ label = "Continue to checkout", compactLabel = "Continue" })
+				end)
+				local measure = find(node, "FullLabelMeasure")
+				measure.TextBounds = engine.types.Vector2.new(180, 20)
+				node.AbsoluteSize = engine.types.Vector2.new(110, 44)
+				Verify.expect(node.Text):toBe("Continue")
+				node.AbsoluteSize = engine.types.Vector2.new(240, 44)
+				Verify.expect(node.Text):toBe("Continue to checkout")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("deduplicates shortcut/default bindings and yields shortcuts during native text editing", {
+			id = "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
+			run = function()
+				local editing, actions = false, 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({
+						label = "Default",
+						shortcut = { keyCode = "Return" },
+						dialogAction = "default" :: "default",
+						onActivate = function()
+							actions += 1
+						end,
+					})
+				end, function()
+					return {
+						services = {
+							UserInputService = {
+								GetFocusedTextBox = function()
+									return if editing then {} else nil
+								end,
+							},
+						},
+					}
+				end)
+				local action = find(node.Parent, "Shortcut")
+				Verify.expect(#action:GetChildren()):toBe(1)
+				action.Pressed.fire()
+				Verify.expect(actions):toBe(1)
+				editing = true
+				action.Pressed.fire()
+				Verify.expect(actions):toBe(1)
+				stop()
+				Verify.expect((action.Pressed.count())):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("binds one shortcut action to the key and the dialog button and activates once per press", {
+			id = "native_inputs::native input controls::binds one shortcut action to the key and the dialog button and activates once per press",
+			run = function()
+				local actions = 0
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({
+						label = "Close",
+						shortcut = { keyCode = "K" },
+						dialogAction = "cancel" :: "cancel",
+						onActivate = function()
+							actions += 1
+						end,
+					})
+				end)
+				local action = find(node.Parent, "Shortcut")
+				local keys = {}
+				for _, binding in action:GetChildren() do
+					table.insert(keys, binding.KeyCode.Name)
+				end
+				table.sort(keys)
+				Verify.expect((table.concat(keys, ","))):toBe("ButtonB,K")
+				action.Pressed.fire()
+				Verify.expect(actions):toBe(1)
+				node.Activated.fire()
+				Verify.expect(actions):toBe(2)
+				stop()
+			end,
+		})
+
+		verifyHarness:case(
+			"keeps an authored Button width: a truncating label stays on one line and an icon button does not grow",
+			{
+				id = "native_inputs::native input controls::keeps an authored Button width: a truncating label stays on one line and an icon button does not grow",
+				run = function()
+					local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+							UI.Button "Plain" {
+								label = "Edit item",
+								TextTruncate = engine.types.Enum.TextTruncate.AtEnd,
+								Size = engine.types.UDim2.fromOffset(52, 40),
+							} :: unknown,
+							UI.Button "Iconed" {
+								label = "Edit",
+								icon = "edit",
+								Size = engine.types.UDim2.fromOffset(52, 40),
+							},
+						})
+					end)
+					local E = engine.types.Enum
+					local plain, iconed = find(node, "Plain"), find(node, "Iconed")
+					Verify.expect(`{plain.TextWrapped} {plain.TextTruncate.Name} {plain.AutomaticSize.Name}`)
+						:toBe("false AtEnd Y")
+					Verify.expect(iconed.AutomaticSize):toBe(E.AutomaticSize.Y)
+					Verify.expect(find(iconed, "Content").AutomaticSize):toBe(E.AutomaticSize.None)
+					local title = find(iconed, "Title")
+					Verify.expect(title.TextTruncate):toBe(E.TextTruncate.AtEnd)
+					Verify.expect(title:FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(E.UIFlexMode.Shrink)
+					stop()
+				end,
+			}
+		)
+
+		verifyHarness:case("bounds reactive fixed-width icon captions and leaves native automatic colors opt-in", {
+			id = "native_inputs::native input controls::bounds reactive fixed-width icon captions and leaves native automatic colors opt-in",
+			run = function()
+				local width = Compose.cell(108)
+				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "Zoom" {
+							label = "Zoom: Width",
+							trailingIcon = "chevron.down",
+							Size = function(use: Use)
+								return engine.types.UDim2.fromOffset(use(width), 44)
+							end,
+							AutomaticSize = engine.types.Enum.AutomaticSize.None,
+						} :: unknown,
+						UI.Button "NativeColors" { label = "Native", AutoButtonColor = true },
+					})
+				end)
+				local zoom = find(node, "Zoom")
+				Verify.expect(zoom.AutoButtonColor):toBe(false)
+				Verify.expect(find(node, "NativeColors").AutoButtonColor):toBe(true)
+				Verify.expect(find(zoom, "Content").AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				Verify.expect(find(zoom, "Title").TextTruncate):toBe(engine.types.Enum.TextTruncate.AtEnd)
+				width:set(84)
+				Verify.expect(zoom.Size.X.Offset):toBe(84)
+				Verify.expect(zoom.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("sizes a Toggle label from a pixel textSize or a type role", {
+			id = "native_inputs::native input controls::sizes a Toggle label from a pixel textSize or a type role",
+			run = function()
+				local node, stop = world(function(UI: FacetControls, engine, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Toggle "Pixels" { label = "Sound", value = Compose.cell(false), textSize = 24 } :: unknown,
+						UI.Toggle "Role" { label = "Music", value = Compose.cell(false), textSize = "heading" },
+					})
+				end)
+				Verify.expect(find(node, "Pixels").TextSize):toBe(24)
+				Verify.expect((find(node, "Role"):HasTag("facet-type-heading"))):toBe(true)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("flips a Toggle as paint only: its box, text and padding stay put", {
+			id = "native_inputs::native input controls::flips a Toggle as paint only: its box, text and padding stay put",
+			run = function()
+				local value = Compose.cell(false)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Toggle({ label = "Sound", value = value })
+				end)
+				local function shape()
+					return `{node.Size} {node.AutomaticSize.Name} {node.Text} {node.TextWrapped}`
+				end
+				local before = shape()
+				Verify.expect(node.TextWrapped):toBe(false)
+				value:set(true)
+				Verify.expect((shape())):toBe(before)
+				value:set(false)
+				Verify.expect((shape())):toBe(before)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("centres the checkbox mark and tick on the box in every state", {
+			id = "native_inputs::native input controls::centres the checkbox mark and tick on the box in every state",
+			run = function()
+				local value = Compose.cell(false)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Toggle({ label = "Agree", presentation = "checkbox" :: "checkbox", value = value })
+				end)
+				local centre = engine.types.Vector2.new(0.5, 0.5)
+				local middle = engine.types.UDim2.fromScale(0.5, 0.5)
+				for _, state in { false, true, false } do
+					value:set(state)
+					for _, name in { "Mark", "Check" } do
+						local glyph = find(node, name)
+						Verify.expect(glyph.AnchorPoint):toBe(centre)
+						Verify.expect(glyph.Position):toBe(middle)
+					end
+				end
+				stop()
+			end,
+		})
+
+		verifyHarness:case("wraps a settings row description inside its column so it never runs under the switch", {
+			id = "native_inputs::native input controls::wraps a settings row description inside its column so it never runs under the switch",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Toggle({
+						row = { title = "Show hints", description = "Adds a short line of help under each control" },
+						value = Compose.cell(true),
+					})
+				end)
+				local description = find(node, "Description")
+				Verify.expect(description.TextWrapped):toBe(true)
+				Verify.expect(description.Size):toBe(engine.types.UDim2.fromScale(1, 0))
+				Verify.expect(description.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				Verify.expect(description.Parent.Size):toBe(engine.types.UDim2.fromScale(0, 0))
+				stop()
+			end,
+		})
+
+		verifyHarness:case("floors a compact Button to the minimum touch target on touch and gamepad devices only", {
+			id = "native_inputs::native input controls::floors a compact Button to the minimum touch target on touch and gamepad devices only",
+			run = function()
+				local input
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({ label = "Tip", controlSize = "xsmall" :: "xsmall" })
+				end, function(engine)
+					input = engine.new("UserInputService")
+					input.GetFocusedTextBox = function()
+						return nil
+					end
+					input.TouchEnabled = true
+					return { services = { UserInputService = input } }
+				end)
+				local floor = node:FindFirstChild("TargetFloor")
+				local minimum = require("../src/ui/themes")(Compose).neutralPackage().metrics.targetSizes.minimum
+				Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(minimum, minimum))
+				input.TouchEnabled = false
+				Verify.expect(floor.MinSize):toBe(engine.types.Vector2.zero)
+				input.GamepadEnabled = true
+				Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(minimum, minimum))
+				stop()
+			end,
+		})
+
+		verifyHarness:case("combines bounded caption and touch minimums in one native size constraint", {
+			id = "native_inputs::native input controls::combines bounded caption and touch minimums in one native size constraint",
+			run = function()
+				local input
+				local node, stop, engine = world(function(UI: FacetControls, engine)
+					return UI.Button {
+						label = "Zoom: Width",
+						trailingIcon = "chevron.down",
+						controlSize = "compact" :: "compact",
+						Size = engine.types.UDim2.fromOffset(108, 32),
+						AutomaticSize = engine.types.Enum.AutomaticSize.None,
+					}
+				end, function(engine)
+					input = engine.new("UserInputService")
+					input.GetFocusedTextBox = function()
+						return nil
+					end
+					input.TouchEnabled = true
+					return { services = { UserInputService = input } }
+				end)
+				local constraints = {}
+				for _, child in node:GetChildren() do
+					if child:IsA("UISizeConstraint") then
+						table.insert(constraints, child)
+					end
+				end
+				Verify.expect(#constraints):toBe(1)
+				Verify.expect(constraints[1].MinSize.Y):toBe(44)
+				input.TouchEnabled = false
+				Verify.expect(constraints[1].MinSize.Y):toBe(0)
+				input.GamepadEnabled = true
+				Verify.expect(constraints[1].MinSize.Y):toBe(44)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("escapes an underlined label for RichText", {
+			id = "native_inputs::native input controls::escapes an underlined label for RichText",
+			run = function()
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({ label = "a<b", underline = "always" :: "always" })
+				end)
+				Verify.expect(node.RichText):toBe(true)
+				Verify.expect(node.Text):toBe("<u>a&lt;b</u>")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("clamps a fixed-size button's icon to its content box and never to zero", {
+			id = "native_inputs::native input controls::clamps a fixed-size button's icon to its content box and never to zero",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, host, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "Tight" {
+							icon = "rbxassetid://1",
+							Size = host.types.UDim2.fromOffset(20, 20),
+							AutomaticSize = host.types.Enum.AutomaticSize.None,
+						} :: unknown,
+						UI.Button "Free" { icon = "rbxassetid://1", label = "Free" },
+					})
+				end)
+				local tight = find(node, "Tight")
+				local content = find(tight, "Content")
+				local glyph = find(tight, "LeadingIcon")
+				local limit = glyph:FindFirstChildWhichIsA("UISizeConstraint")
+				Verify.expect(limit ~= nil):toBe(true)
+				content.AbsoluteSize = engine.types.Vector2.new(4, 6)
+				Verify.expect(limit.MaxSize.X):toBe(4)
+				Verify.expect(limit.MaxSize.Y):toBe(4)
+				content.AbsoluteSize = engine.types.Vector2.new(0, 0)
+				Verify.expect(limit.MaxSize.X):toBe(1)
+				Verify.expect(content.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				Verify.expect((find(find(node, "Free"), "LeadingIcon"):FindFirstChildWhichIsA("UISizeConstraint")))
+					:toBe(nil)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("lets a shifted shortcut preempt an unmodified shortcut on the same key", {
+			id = "native_inputs::native input controls::lets a shifted shortcut preempt an unmodified shortcut on the same key",
+			run = function()
+				local node, stop = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "Plain" { label = "Plain", shortcut = { keyCode = "K" } } :: unknown,
+						UI.Button "Shifted" {
+							label = "Shifted",
+							shortcut = { keyCode = "K", modifiers = { shift = true } },
+						},
+					})
+				end)
+				local contexts = {}
+				for _, child in node.Parent:GetDescendants() do
+					if child:IsA("InputContext") and child.Name == "FacetShortcut" then
+						local binding = child:FindFirstChild("Shortcut"):GetChildren()[1]
+						local shifted = string.find(tostring(binding.PrimaryModifier), "Shift", 1, true) ~= nil
+						contexts[if shifted then "shifted" else "plain"] = child
+					end
+				end
+				Verify.expect(contexts.plain ~= nil and contexts.shifted ~= nil):toBe(true)
+				Verify.expect(contexts.shifted.Priority > contexts.plain.Priority):toBe(true)
+				Verify.expect(contexts.shifted.Sink):toBe(true)
+				Verify.expect(contexts.plain.Sink):toBe(false)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("blocks background held repeats when a Compose-owned modal becomes active", {
+			id = "native_inputs::native input controls::blocks background held repeats when a Compose-owned modal becomes active",
+			run = function()
+				local actions = 0
+				local node, stop, engine, runtime, ctx = world(function(UI: FacetControls)
+					return UI.Button({
+						label = "Repeat",
+						repeatInterval = 0.1,
+						onActivate = function()
+							actions += 1
+						end,
+					})
+				end)
+				node.InputBegan.fire({
+					UserInputType = engine.types.Enum.UserInputType.MouseButton1,
+					KeyCode = engine.types.Enum.KeyCode:FromValue(0),
+				})
+				engine.heartbeat.fire(0.4)
+				Verify.expect(actions):toBe(1)
+				local modal = engine.new("Frame")
+				modal.Parent = node.Parent
+				ctx.modalScopes:set({ modal })
+				engine.heartbeat.fire(0.4)
+				Verify.expect(actions):toBe(1)
+				ctx.modalScopes:set({})
+				engine.heartbeat.fire(0.4)
+				Verify.expect(actions):toBe(1)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("keeps level marks inert with one focus target and a cancellable native scrub", {
+			id = "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
+			run = function()
+				local value = Compose.cell(2)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.LevelPicker({ value = value, count = 5 })
+				end)
+				node.AbsoluteSize = engine.types.Vector2.new(100, 44)
+				local selectable = if node.Selectable then 1 else 0
+				for _, child in node:GetDescendants() do
+					if child:IsA("GuiObject") and child.Selectable then
+						selectable += 1
+					end
+				end
+				Verify.expect(selectable):toBe(1)
+				Verify.expect(find(node, "Level3").ClassName):toBe("Frame")
+				Verify.expect((find(node.Parent, "FacetIncrease"))):toBe(nil)
+				node.SelectionGained.fire()
+				Verify.expect(find(node.Parent, "FacetIncrease").Enabled):toBe(true)
+				find(node, "Scrub").DragStart.fire(engine.types.Vector2.new(90, 0))
+				Verify.expect((value:peek())):toBe(5)
+				find(node, "Scrub").DragContinue.fire(engine.types.Vector2.new(10, 0))
+				Verify.expect((value:peek())):toBe(1)
+				find(node.Parent, "Cancel").Pressed.fire()
+				Verify.expect((value:peek())):toBe(2)
+				stop()
+			end,
+		})
+
+		verifyHarness:case(
+			"paints live level assets and tint while allowing an omitted tint to return to native styles",
+			{
+				id = "native_inputs::native input controls::paints live level assets and tint while allowing an omitted tint to return to native styles",
+				run = function()
+					local value = Compose.cell(1)
+					local node, stop, engine = world(function(UI: FacetControls, engine)
+						return UI.LevelPicker({
+							value = value,
+							segment = "image" :: "image",
+							images = { filled = "rbxassetid://1", empty = "rbxassetid://2" },
+							tint = { filled = engine.types.Color3.new(1, 0, 0) },
+						})
+					end)
+					local first = find(node, "Level1")
+					Verify.expect(first.Image):toBe("rbxassetid://1")
+					Verify.expect(first.ImageColor3):toBe(engine.types.Color3.new(1, 0, 0))
+					value:set(0)
+					Verify.expect(first.Image):toBe("rbxassetid://2")
+					Verify.expect(first.ImageColor3 == engine.types.Color3.new(1, 0, 0)):toBe(false)
+					stop()
+				end,
+			}
+		)
+
+		verifyHarness:case("marks filled bar levels with a tag and keeps the shortest bar visible", {
+			id = "native_inputs::native input controls::marks filled bar levels with a tag and keeps the shortest bar visible",
+			run = function()
+				local value = Compose.cell(2)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.LevelPicker({ value = value, count = 10 })
+				end)
+				local first, third = find(node, "Level1"), find(node, "Level3")
+				Verify.expect((first:HasTag("facet-level-segment"))):toBe(true)
+				Verify.expect((first:HasTag("facet-level-on"))):toBe(true)
+				Verify.expect((third:HasTag("facet-level-on"))):toBe(false)
+				Verify.expect(first.Size.Y.Offset):toBe(7)
+				value:set(3)
+				Verify.expect((third:HasTag("facet-level-on"))):toBe(true)
+				value:set(0)
+				Verify.expect((first:HasTag("facet-level-on"))):toBe(false)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("shares finite bound arithmetic, live steps and formatter fallback across value controls", {
+			id = "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls",
+			run = function()
+				local make = require("../src/ui/input_value")
+				local step = Compose.cell(0.25)
+				local function read<T>(value: T | Compose.Readable<T> | Compose.Formula<T> | Compose.Body<T>, use: Use?): T
+					return (if Compose.isReadable(value) then (value :: any):peek() else value) :: T
+				end
+				local model = make({
+					min = 0,
+					max = 1,
+					step = step,
+					format = function(value)
+						if value == 0.5 then
+							error("no format")
+						end
+						return tostring(value) .. "x"
+					end,
+				}, read)
+				Verify.expect((model.quantize(0.3))):toBe(0.25)
+				Verify.expect((model.fromFraction(2))):toBe(1)
+				Verify.expect((model.fraction(0 / 0))):toBe(0)
+				Verify.expect((model.quantize(math.huge))):toBe(0)
+				Verify.expect((model.format(0.5))):toBe("0.5")
+				Verify.expect((model.format(0.75))):toBe("0.75x")
+				step:set(0.5)
+				Verify.expect((model.stepped(0, 1))):toBe(0.5)
+				step:set(0)
+				Verify.expect(function()
+					model.stepped(0, 1)
+				end):toThrow()
+				Verify.expect(function()
+					make({ min = 1, max = 1 }, read)
+				end):toThrow()
+			end,
+		})
+		verifyHarness:case("updates explicit shortcut alternatives without owning input bindings", {
+			id = "native_inputs::native input controls::updates explicit shortcut alternatives without owning input bindings",
+			run = function()
+				local separator, chords = Compose.cell(" or "), Compose.cell({ { "Ctrl", "K" }, { "F1" } })
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.ShortcutHint({ keys = chords, separator = separator })
+				end)
+				Verify.expect(node.Text):toBe("Ctrl+K or F1")
+				separator:set("ou")
+				Verify.expect(node.Text):toBe("Ctrl+K ou F1")
+				separator:set(" / ")
+				chords:set({ { "Shift", "P" } })
+				Verify.expect(node.Text):toBe("Shift+P")
+				for _, instance in engine.made do
+					Verify.expect(instance.ClassName == "InputAction" or instance.ClassName == "InputContext")
+						:toBe(false)
+				end
+				stop()
+				Verify.expect(function()
+					world(function(UI: FacetControls)
+						return UI.ShortcutHint({ keys = { { "" } } })
+					end)
+				end):toThrow()
+			end,
+		})
+
+		verifyHarness:case("names keys that have no printable character", {
+			id = "native_inputs::native input controls::names keys that have no printable character",
+			run = function()
+				local node, stop = world(function(UI: FacetControls, engine)
+					local action, binding = engine.new("InputAction"), engine.new("InputBinding")
+					binding.KeyCode, binding.DisplayName = engine.types.Enum.KeyCode.Return, ""
+					action.PreferredBinding = binding
+					return UI.ShortcutHint({ action = action })
+				end)
+				Verify.expect(node:FindFirstChild("Key", true).Text):toBe("Enter")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("borrows native preferred bindings and releases replaced hint observers", {
+			id = "native_inputs::native input controls::borrows native preferred bindings and releases replaced hint observers",
+			run = function()
+				local action, first, second
+				local node, stop, engine = world(function(UI: FacetControls, engine)
+					action, first, second =
+						engine.new("InputAction"), engine.new("InputBinding"), engine.new("InputBinding")
+					first.KeyCode, first.DisplayName = engine.types.Enum.KeyCode.F, ""
+					second.KeyCode, second.DisplayName = engine.types.Enum.KeyCode.ButtonX, "Interact"
+					action.PreferredBinding = first
+					return UI.ShortcutHint({ action = action })
+				end)
+				Verify.expect(find(node, "Key").Text):toBe("F")
+				first.DisplayName = "Use"
+				Verify.expect(find(node, "Key").Text):toBe("Use")
+				action.PreferredBinding = second
+				Verify.expect(find(node, "Key").Text):toBe("Interact")
+				Verify.expect((first:GetPropertyChangedSignal("DisplayName").count())):toBe(0)
+				action.PreferredBinding = nil
+				Verify.expect((find(node, "Key"))):toBe(nil)
+				Verify.expect((second:GetPropertyChangedSignal("DisplayName").count())):toBe(0)
+				stop()
+				Verify.expect((action.isDestroyed())):toBe(false)
+				Verify.expect((action:GetPropertyChangedSignal("PreferredBinding").count())):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("reflows Button and circle sizes from live theme metrics and control rungs", {
+			id = "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
+			run = function()
+				local theme = Compose.cell(
+					{ metrics = { controlSizes = { regular = { height = 52 }, large = { height = 70 } } } } :: { metrics: { controlSizes: { [string]: { height: number } } } }
+				)
+				local size = Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall")
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({ label = "Go", controlSize = size, shape = "circle" :: "circle" })
+				end, function()
+					return { theme = theme }
+				end)
+				Verify.expect(node.Size.X.Offset):toBe(52)
+				Verify.expect(node.Size.Y.Offset):toBe(52)
+				size:set("large")
+				Verify.expect(node.Size.X.Offset):toBe(70)
+				Verify.expect(node.Size.Y.Offset):toBe(70)
+				theme:set({ metrics = { controlSizes = { large = { height = 64 } } } })
+				Verify.expect(node.Size.Y.Offset):toBe(64)
+				stop()
+			end,
+		})
+		verifyHarness:case("keeps an authored circle axis dominant instead of fitting inside a zero box", {
+			id = "native_inputs::native input controls::keeps an authored circle axis dominant instead of fitting inside a zero box",
+			run = function()
+				for _, case: { x: number, y: number, axis: "Width" | "Height" } in
+					{ { x = 32, y = 0, axis = "Width" :: "Width" }, { x = 0, y = 72, axis = "Height" :: "Height" } } :: { { x: number, y: number, axis: "Width" | "Height" } }
+				do
+					local node, stop, engine = world(function(UI: FacetControls, engine)
+						return UI.Button({
+							label = "Close",
+							shape = "circle" :: "circle",
+							controlSize = "compact" :: "compact",
+							Size = engine.types.UDim2.fromOffset(case.x, case.y),
+						})
+					end)
+					local aspect = node:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+					Verify.expect(aspect.AspectRatio):toBe(1)
+					Verify.expect(aspect.AspectType):toBe(engine.types.Enum.AspectType.ScaleWithParentSize)
+					Verify.expect(aspect.DominantAxis):toBe(assert(engine.types.Enum.DominantAxis:FromName(case.axis)))
+					Verify.expect(node.Size.X.Offset):toBe(case.x)
+					Verify.expect(node.Size.Y.Offset):toBe(case.y)
+					stop()
+				end
+				local node, stop, engine = world(function(UI: FacetControls, engine)
+					return UI.Button({
+						label = "Close",
+						shape = "circle" :: "circle",
+						Size = engine.types.UDim2.fromOffset(40, 40),
+					})
+				end)
+				Verify.expect(node:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectType)
+					:toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
+				stop()
+			end,
+		})
+		verifyHarness:case("shows numeric validation text with interruptible reduced-motion-aware feedback", {
+			id = "native_inputs::native input controls::shows numeric validation text with interruptible reduced-motion-aware feedback",
+			run = function()
+				local value, number, reduced = Compose.cell("2"), Compose.cell(2), Compose.cell(false)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.TextInput({
+						value = value,
+						numericValue = number,
+						presentation = "number" :: "number",
+						min = 1,
+						max = 10,
+					})
+				end, function()
+					return {
+						motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
+							return if use(reduced) then "none" else "normal"
+						end) :: unknown) :: MotionLevel,
+					}
+				end)
+				node.TextBounds = engine.types.Vector2.new(20, 20)
+				local label = find(node, "ValidationMessage")
+				label.TextBounds = engine.types.Vector2.new(200, 18)
+				node:CaptureFocus()
+				node.Text = "1.2.3"
+				node:ReleaseFocus(true)
+				Verify.expect(label.Text):toBe("Enter a valid number.")
+				Verify.expect(label.Visible):toBe(true)
+				Verify.expect(node.Size.Y.Offset >= 54):toBe(true)
+				engine.heartbeat.fire(0.08)
+				Verify.expect(find(node, "ValidationPulse").Scale < 1):toBe(true)
+				reduced:set(true)
+				Verify.expect(find(node, "ValidationPulse").Scale):toBe(1)
+				node:CaptureFocus()
+				node.Text = "3"
+				node:ReleaseFocus(true)
+				Verify.expect((number:peek())):toBe(3)
+				Verify.expect(label.Visible):toBe(false)
+				stop()
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("reflects external invalid state and rejects malformed invalid and numeric declarations", {
+			id = "native_inputs::native input controls::reflects external invalid state and rejects malformed invalid and numeric declarations",
+			run = function()
+				local invalid, value = Compose.cell(false), Compose.cell("ready")
+				local node, stop = world(function(UI: FacetControls)
+					return UI.TextInput({ value = value, invalid = invalid })
+				end)
+				invalid:set(true)
+				Verify.expect(find(node, "ValidationMessage").Visible):toBe(true)
+				invalid:set(false)
+				Verify.expect(find(node, "ValidationMessage").Visible):toBe(false)
+				stop()
+				Verify.expect(function()
+					world(function(UI: FacetControls)
+						return UI.TextInput({ value = value, invalid = true } :: any)
+					end)
+				end):toThrow()
+				Verify.expect(function()
+					world(function(UI: FacetControls)
+						return UI.TextInput({ value = value, presentation = "number" } :: any)
+					end)
+				end):toThrow()
+			end,
+		})
+
+		verifyHarness:case("honors every clear-button mode and ends disabled edits without a commit", {
+			id = "native_inputs::native input controls::honors every clear-button mode and ends disabled edits without a commit",
+			run = function()
+				for _, mode in
+					{ "never", "always", "whileEditing", "unlessEditing" } :: { "always" | "never" | "unlessEditing" | "whileEditing" }
+				do
+					local value, enabled, commits = Compose.cell("text"), Compose.cell(true), 0
+					local node, stop = world(function(UI: FacetControls)
+						return UI.TextInput({
+							value = value,
+							enabled = enabled,
+							clearButtonMode = mode :: "always" | "never" | "unlessEditing" | "whileEditing",
+							onCommit = function()
+								commits += 1
+							end,
+						})
+					end)
+					local clear = find(node, "Clear")
+					if mode == "never" then
+						Verify.expect(clear):toBe(nil)
+					else
+						Verify.expect(clear.Visible):toBe(mode ~= "whileEditing")
+					end
+					node:CaptureFocus()
+					if clear then
+						Verify.expect(clear.Visible):toBe(mode ~= "unlessEditing")
+					end
+					Verify.expect(find(node.Parent, "FacetTextEditing").Enabled):toBe(true)
+					enabled:set(false)
+					Verify.expect((node:IsFocused())):toBe(false)
+					Verify.expect(node.Selectable):toBe(false)
+					Verify.expect(find(node.Parent, "FacetTextEditing").Enabled):toBe(false)
+					Verify.expect(commits):toBe(0)
+					if clear then
+						Verify.expect(clear.Visible):toBe(false)
+					end
+					stop()
+				end
+			end,
+		})
+		verifyHarness:case("removes keyed chips toward the next then previous native target and caller fallback", {
+			id = "native_inputs::native input controls::removes keyed chips toward the next then previous native target and caller fallback",
+			run = function()
+				local items, gui, fallback = Compose.cell({ "A", "B", "C" }), nil, nil
+				local node, stop = world(function(UI: FacetControls, engine, runtime)
+					fallback = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Fallback" {}
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						fallback :: unknown,
+						Compose.keyed({
+							from = items,
+							render = function(current, index): GuiObject
+								local id = current:peek()
+								return UI.Chip({
+									Name = id,
+									label = id,
+									LayoutOrder = index,
+									removeFocusFallback = fallback :: GuiObject,
+									onRemove = function()
+										items:update(function(before)
+											local after = {}
+											for _, value in before do
+												if value ~= id then
+													table.insert(after, value)
+												end
+											end
+											return after
+										end)
+									end,
+								})
+							end,
+						}),
+					})
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui } }
+				end)
+				local function remove(id)
+					local target = find(node, id)
+					gui.SelectedObject = target
+					target.Activated.fire()
+				end
+				remove("B")
+				Verify.expect(gui.SelectedObject):toBe(find(node, "C"))
+				remove("C")
+				Verify.expect(gui.SelectedObject):toBe(find(node, "A"))
+				remove("A")
+				Verify.expect(gui.SelectedObject):toBe(fallback)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("does not steal focus after a delayed chip removal request", {
+			id = "native_inputs::native input controls::does not steal focus after a delayed chip removal request",
+			run = function()
+				local show, gui, fallback, other = Compose.cell(true), nil, nil, nil
+				local node, stop = world(function(UI: FacetControls, engine, runtime)
+					fallback = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Fallback" {}
+					other = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor) "Other" {}
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						fallback :: unknown,
+						other,
+						Compose.show(show, function()
+							return UI.Chip "Delayed" {
+								label = "Delayed",
+								removeFocusFallback = fallback :: GuiObject,
+								onRemove = function() end,
+							}
+						end),
+					})
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui } }
+				end)
+				local remove = find(node, "Delayed")
+				gui.SelectedObject = remove
+				remove.Activated.fire()
+				Verify.expect(gui.SelectedObject):toBe(remove)
+				gui.SelectedObject = other
+				show:set(false)
+				Verify.expect(gui.SelectedObject):toBe(other)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("keeps mixed checkbox geometry live and validates presentation-specific options", {
+			id = "native_inputs::native input controls::keeps mixed checkbox geometry live and validates presentation-specific options",
+			run = function()
+				local value, mixed = Compose.cell(false), Compose.cell(true)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Toggle({
+						value = value,
+						mixed = mixed,
+						presentation = "checkbox" :: "checkbox",
+						indicatorPosition = "trailing" :: "trailing",
+						row = { title = "Mode", description = "Use the current setting" },
+					})
+				end)
+				Verify.expect(find(node, "Mark").Size.Y.Offset):toBe(4)
+				Verify.expect(find(node, "Mark").Visible):toBe(true)
+				Verify.expect(find(node, "Check").Visible):toBe(false)
+				mixed:set(false)
+				Verify.expect(find(node, "Mark").Visible):toBe(false)
+				Verify.expect(find(node, "Check").Visible):toBe(false)
+				value:set(true)
+				Verify.expect(find(node, "Mark").Visible):toBe(false)
+				Verify.expect(find(node, "Check").Visible):toBe(true)
+				stop()
+				Verify.expect(function()
+					world(function(UI: FacetControls)
+						return UI.Toggle({ value = value, mixed = mixed, presentation = "switch" :: "switch" })
+					end)
+				end):toThrow()
+			end,
+		})
+		verifyHarness:case(
+			"a switch knob glides between its ends, reverses mid-flight without a jump, and lands at once under none",
+			{
+				id = "native_inputs::native input controls::a switch knob glides between its ends, reverses mid-flight without a jump, and lands at once under none",
+				run = function()
+					local value = Compose.cell(false)
+					local node, stop, engine = world(function(UI: FacetControls)
+						return UI.Toggle({ label = "Music", value = value, presentation = "switch" :: "switch" })
+					end)
+					local mark = find(node, "Mark")
+					Verify.expect(mark.Position.X.Scale):toBeCloseTo(0.3, 1e-3)
+					value:set(true)
+					engine.heartbeat.fire(1 / 60)
+					local first = mark.Position.X.Scale
+					Verify.expect(first > 0.3 and first < 0.7):toBe(true)
+					engine.heartbeat.fire(1 / 60)
+					engine.heartbeat.fire(1 / 60)
+					local before = mark.Position.X.Scale
+					value:set(false)
+					engine.heartbeat.fire(1 / 60)
+					Verify.expect(math.abs(mark.Position.X.Scale - before) < 0.1):toBe(true)
+					for _ = 1, 60 do
+						engine.heartbeat.fire(1 / 60)
+					end
+					Verify.expect(mark.Position.X.Scale):toBeCloseTo(0.3, 1e-3)
+					value:set(true)
+					for _ = 1, 60 do
+						engine.heartbeat.fire(1 / 60)
+					end
+					Verify.expect(mark.Position.X.Scale):toBeCloseTo(0.7, 1e-3)
+					Verify.expect((engine.heartbeat.count())):toBe(0)
+					stop()
+					local snapped = Compose.cell(false)
+					local snapNode, stopSnap = world(function(UI: FacetControls)
+						return UI.Toggle({ label = "Music", value = snapped, presentation = "switch" :: "switch" })
+					end, function()
+						return { motionLevel = "none" }
+					end)
+					snapped:set(true)
+					Verify.expect(find(snapNode, "Mark").Position.X.Scale):toBeCloseTo(0.7, 1e-3)
+					stopSnap()
+				end,
+			}
+		)
+		verifyHarness:case("plays the application press haptic only for controls that change a state or a value", {
+			id = "native_inputs::native input controls::plays the application press haptic only for controls that change a state or a value",
+			run = function()
+				local effect, own
+				local opted = Compose.cell(false)
+				local node, stop = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "Plain" { label = "Play" } :: unknown,
+						UI.Button "Opted" { label = "Buy", haptic = true },
+						UI.Button "Switched" { label = "Maybe", haptic = opted },
+						UI.Button "Custom" { label = "Play", PressHapticEffect = own },
+						UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
+						UI.Chip "Filter" { label = "Filter", selected = Compose.cell(false) },
+						UI.Stepper "Count" { value = Compose.cell(1), min = 0, max = 5 },
+						UI.Rating "Stars" { value = Compose.cell(2) },
+						UI.LevelPicker "Level" { value = Compose.cell(2) },
+					})
+				end, function(engine)
+					effect, own = engine.new("HapticEffect"), engine.new("HapticEffect")
+					return { pressHaptic = effect }
+				end)
+				Verify.expect(find(node, "Plain").PressHapticEffect):toBe(nil)
+				Verify.expect(find(node, "Opted").PressHapticEffect):toBe(effect)
+				Verify.expect(find(node, "Switched").PressHapticEffect):toBe(nil)
+				opted:set(true)
+				Verify.expect(find(node, "Switched").PressHapticEffect):toBe(effect)
+				opted:set(false)
+				Verify.expect(find(node, "Switched").PressHapticEffect):toBe(nil)
+				Verify.expect(find(node, "Custom").PressHapticEffect):toBe(own)
+				for _, name in { "Sound", "Filter", "Decrease", "Increase", "Stars", "Level" } do
+					Verify.expect(find(node, name).PressHapticEffect):toBe(effect)
+				end
+				stop()
+			end,
+		})
+
+		verifyHarness:case("maps the named feedback kinds onto pooled engine haptic effects", {
+			id = "native_inputs::native input controls::maps the named feedback kinds onto pooled engine haptic effects",
+			run = function()
+				local kind = Compose.cell("error" :: "error" | "impact" | "selection" | "success" | "warning" | boolean)
+				local UIref
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
+					UIref = UI
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "Saved" { label = "Save", haptic = "success" :: "success" } :: unknown,
+						UI.Button "Again" { label = "Save", haptic = "success" :: "success" },
+						UI.Button "Careful" { label = "Sell", haptic = "warning" :: "warning" },
+						UI.Button "Live" { label = "Try", haptic = kind },
+						UI.Button "Plain" { label = "Go", haptic = true },
+						UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
+					})
+				end, function()
+					return { pressHaptic = "selection" }
+				end)
+				local E = engine.types.Enum
+				local saved = find(node, "Saved").PressHapticEffect
+				Verify.expect(saved.ClassName):toBe("HapticEffect")
+				Verify.expect(saved.Type):toBe(E.HapticEffectType.UINotification)
+				Verify.expect(find(node, "Again").PressHapticEffect):toBe(saved)
+				local warning = find(node, "Careful").PressHapticEffect
+				Verify.expect(warning.Type):toBe(E.HapticEffectType.Custom)
+				Verify.expect(#warning.WaveformKeys >= 4):toBe(true)
+				for _, key in warning.WaveformKeys do
+					Verify.expect(key.Value == 0 or key.Value >= 0.3):toBe(true)
+				end
+				local live = find(node, "Live")
+				Verify.expect(live.PressHapticEffect.Type):toBe(E.HapticEffectType.Custom)
+				Verify.expect(live.PressHapticEffect == warning):toBe(false)
+				kind:set("impact")
+				Verify.expect(live.PressHapticEffect.Type):toBe(E.HapticEffectType.GameplayCollision)
+				kind:set(false)
+				Verify.expect(live.PressHapticEffect):toBe(nil)
+				Verify.expect(find(node, "Plain").PressHapticEffect.Type):toBe(E.HapticEffectType.UIClick)
+				Verify.expect(find(node, "Sound").PressHapticEffect):toBe(find(node, "Plain").PressHapticEffect)
+				UIref.feedback("success")
+				Verify.expect(saved.PlayCount):toBe(1)
+				Verify.expect(function()
+					UIref.feedback("boom" :: any)
+				end):toThrow()
+				Verify.expect(function()
+					world(function(UI: FacetControls)
+						return UI.Button({ label = "Bad", haptic = "boom" } :: any)
+					end)
+				end):toThrow()
+				stop()
+				node, stop = world(function(UI: FacetControls)
+					return UI.Button "Bare" { label = "Go", haptic = true }
+				end)
+				Verify.expect(node.PressHapticEffect):toBe(nil)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("plays the press haptic once for each slider detent and never for a continuous slider", {
+			id = "native_inputs::native input controls::plays the press haptic once for each slider detent and never for a continuous slider",
+			run = function()
+				local stepped, continuous, plays = Compose.cell(25), Compose.cell(0.5), 0
+				local effect = {
+					Play = function()
+						plays += 1
+					end,
+				}
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Slider "Stepped" { value = stepped, min = 0, max = 100, step = 25 } :: unknown,
+						UI.Slider "Continuous" { value = continuous },
+					})
+				end, function()
+					return { pressHaptic = effect }
+				end)
+				local V = engine.types.Vector2
+				local track, drag = find(find(node, "Stepped"), "Track"), find(find(node, "Stepped"), "Drag")
+				track.AbsoluteSize = V.new(200, 44)
+				track.AbsolutePosition = V.new(0, 0)
+				drag.DragStart.fire(V.new(50, 0))
+				Verify.expect((stepped:peek())):toBe(25)
+				Verify.expect(plays):toBe(0)
+				for x = 51, 150 do
+					drag.DragContinue.fire(V.new(x, 0))
+				end
+				Verify.expect((stepped:peek())):toBe(75)
+				Verify.expect(plays):toBe(2)
+				drag.DragEnd.fire()
+				local free, freeDrag = find(find(node, "Continuous"), "Track"), find(find(node, "Continuous"), "Drag")
+				free.AbsoluteSize = V.new(200, 44)
+				free.AbsolutePosition = V.new(0, 0)
+				freeDrag.DragStart.fire(V.new(10, 0))
+				for x = 11, 190 do
+					freeDrag.DragContinue.fire(V.new(x, 0))
+				end
+				freeDrag.DragEnd.fire()
+				Verify.expect(continuous:peek() > 0.9):toBe(true)
+				Verify.expect(plays):toBe(2)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("fills the width with a row button unless a size is given", {
+			id = "native_inputs::native input controls::fills the width with a row button unless a size is given",
+			run = function()
+				local row, rowStop = world(function(UI: FacetControls)
+					return UI.Button({ row = { title = "Coast" }, onActivate = function() end })
+				end)
+				Verify.expect(row.Size.X.Scale):toBe(1)
+				Verify.expect(row:FindFirstChild("Disclosure", true) ~= nil):toBe(true)
+				rowStop()
+				local fixed, fixedStop = world(function(UI: FacetControls, engine)
+					return UI.Button({ row = { title = "Coast" }, Size = engine.types.UDim2.fromOffset(120, 44) })
+				end)
+				Verify.expect(fixed.Size.X.Offset):toBe(120)
+				fixedStop()
+			end,
+		})
+
+		verifyHarness:case("mirrors native caption alignment and typography without a text geometry solver", {
+			id = "native_inputs::native input controls::mirrors native caption alignment and typography without a text geometry solver",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({ label = "Centered" })
+				end, function()
+					return {
+						theme = {
+							identity = {},
+							chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
+							assets = { control = { content = "rbxassetid://123" } },
+						},
+					}
+				end)
+				local caption = find(node, "Label")
+				Verify.expect(caption.TextXAlignment):toBe(node.TextXAlignment)
+				Verify.expect(caption.TextYAlignment):toBe(node.TextYAlignment)
+				node.AbsoluteSize = engine.types.Vector2.new(67, 44)
+				caption.Parent.Parent.AbsoluteSize = engine.types.Vector2.new(1, 1)
+				Verify.expect(caption.Parent.Size):toBe(engine.types.UDim2.fromOffset(67, 44))
+				Verify.expect(caption.Parent.Parent.Size):toBe(engine.types.UDim2.fromOffset(1, 1))
+				Verify.expect(caption.Parent.Parent.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				node.TextSize = 44
+				node.TextXAlignment = engine.types.Enum.TextXAlignment.Right
+				Verify.expect(caption.TextSize):toBe(44)
+				Verify.expect(caption.TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Right)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
+				stop()
+			end,
+		})
+		verifyHarness:case("replaces native hint art when the preferred asset changes representation", {
+			id = "native_inputs::native input controls::replaces native hint art when the preferred asset changes representation",
+			run = function()
+				local binding
+				local node, stop = world(function(UI: FacetControls, engine)
+					local action = engine.new("InputAction")
+					binding = engine.new("InputBinding")
+					binding.KeyCode = engine.types.Enum.KeyCode.ButtonX
+					action.PreferredBinding = binding
+					return UI.ShortcutHint({ action = action })
+				end, function()
+					return {
+						services = {
+							UserInputService = {
+								GetImageForKeyCode = function()
+									return "rbxassetid://123"
+								end,
+							},
+						},
+					}
+				end)
+				local platform = find(node, "Glyph")
+				Verify.expect(platform.Image):toBe("rbxassetid://123")
+				local content = { SourceType = { Name = "Uri" }, Uri = "rbxassetid://456" }
+				binding.DisplayImage = content
+				local custom = find(node, "Glyph")
+				Verify.expect((platform.isDestroyed())):toBe(true)
+				Verify.expect(custom.ImageContent):toBe(content)
+				binding.DisplayImage = nil
+				Verify.expect((custom.isDestroyed())):toBe(true)
+				Verify.expect(find(node, "Glyph").Image):toBe("rbxassetid://123")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("gives native dialog contexts ordered sink priority and live eligibility", {
+			id = "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
+			run = function()
+				local firstEnabled = Compose.cell(false)
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "First" { dialogAction = "default" :: "default", enabled = firstEnabled } :: unknown,
+						UI.Button "Second" { dialogAction = "default" :: "default" },
+					})
+				end)
+				local contexts = {}
+				for _, instance in engine.made do
+					if instance.ClassName == "InputContext" then
+						table.insert(contexts, instance)
+					end
+				end
+				Verify.expect(#contexts):toBe(2)
+				Verify.expect(contexts[1].Priority > contexts[2].Priority):toBe(true)
+				Verify.expect(contexts[1].Sink):toBe(true)
+				Verify.expect(contexts[1].Enabled):toBe(false)
+				Verify.expect(contexts[2].Enabled):toBe(true)
+				firstEnabled:set(true)
+				Verify.expect(contexts[1].Enabled):toBe(true)
+				find(node, "First").Visible = false
+				Verify.expect(contexts[1].Enabled):toBe(false)
+				stop()
+				Verify.expect((contexts[1].isDestroyed())):toBe(true)
+			end,
+		})
+		verifyHarness:case("a held arrow repeats up to the bound and the axis stays owned at the bound", {
+			id = "native_inputs::native input controls::a held arrow repeats up to the bound and the axis stays owned at the bound",
+			run = function()
+				local value = Compose.cell(95)
+				local gui
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Slider({ value = value, min = 0, max = 100, step = 1 })
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui }, guiService = gui }
+				end)
+				gui.SelectedObject = node
+				local increase = enabledAction(node.Parent, "IncreaseArrow")
+				increase.Pressed.fire()
+				for _ = 1, 20 do
+					engine.heartbeat.fire(0.1)
+				end
+				Verify.expect((value:peek())):toBe(100)
+				Verify.expect(increase.Parent.Enabled):toBe(true)
+				increase.Released.fire()
+				Verify.expect(increase.Parent.Enabled):toBe(true)
+				increase.Pressed.fire()
+				increase.Released.fire()
+				Verify.expect((value:peek())):toBe(100)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("keeps the axis at value bounds and rearms on focus return", {
+			id = "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+			run = function()
+				local value = Compose.cell(4)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Rating({ value = value })
+				end)
+				Verify.expect((find(node.Parent, "IncreaseArrow"))):toBe(nil)
+				node.SelectionGained.fire()
+				local increase = find(node.Parent, "IncreaseArrow")
+				local decrease = find(node.Parent, "DecreaseArrow")
+				local bumper = find(node.Parent, "Increase")
+				Verify.expect(increase.Parent.Enabled):toBe(true)
+				increase.Pressed.fire()
+				Verify.expect((value:peek())):toBe(5)
+				Verify.expect(increase.Parent.Enabled):toBe(true)
+				increase.Released.fire()
+				Verify.expect(increase.Parent.Enabled):toBe(true)
+				increase.Pressed.fire()
+				increase.Released.fire()
+				Verify.expect((value:peek())):toBe(5)
+				Verify.expect(bumper.Parent.Enabled):toBe(true)
+				Verify.expect(decrease.Parent.Enabled):toBe(true)
+				decrease.Pressed.fire()
+				Verify.expect((value:peek())):toBe(4)
+				Verify.expect(increase.Parent.Enabled):toBe(true)
+				node.SelectionLost.fire()
+				Verify.expect((increase.isDestroyed())):toBe(true)
+				Verify.expect((find(node.Parent, "IncreaseArrow"))):toBe(nil)
+				node.SelectionGained.fire()
+				local rearmed = find(node.Parent, "IncreaseArrow")
+				Verify.expect(rearmed ~= increase):toBe(true)
+				Verify.expect(rearmed.Parent.Enabled):toBe(true)
+				rearmed.Pressed.fire()
+				Verify.expect((value:peek())):toBe(5)
+				stop()
+			end,
+		})
+		verifyHarness:case("cancels slider pointer ownership on native gamepad handoff and reports bounded semantics", {
+			id = "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics",
+			run = function()
+				local value, input, commits = Compose.cell(0.5), nil, 0
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Slider({
+						value = value,
+						min = 0,
+						max = 1,
+						tapToPosition = false,
+						onCommit = function()
+							commits += 1
+						end,
+					})
+				end, function(engine)
+					input = engine.new("UserInputService")
+					return { services = { UserInputService = input } }
+				end)
+				local track, detector = find(node, "Track"), find(node, "Drag")
+				track.AbsoluteSize = engine.types.Vector2.new(100, 44)
+				detector.DragStart.fire(engine.types.Vector2.new(80, 0))
+				Verify.expect((value:peek())):toBe(0.5)
+				detector.DragContinue.fire(engine.types.Vector2.new(80.4, 0))
+				Verify.expect((value:peek())):toBeCloseTo(0.9, 1e-4)
+				Verify.expect((node:GetAttribute("semanticValue"))):toBe("0.9 of 0 to 1")
+				input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+				Verify.expect((value:peek())):toBe(0.5)
+				detector.DragEnd.fire()
+				Verify.expect(commits):toBe(0)
+				value:set(4)
+				Verify.expect((node:GetAttribute("value"))):toBe(1)
+				Verify.expect((node:GetAttribute("semanticValue"))):toBe("1 of 0 to 1")
+				stop()
+			end,
+		})
+		verifyHarness:case("ends a multiline edit when a native ancestor disables without late mutation", {
+			id = "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation",
+			run = function()
+				local value, commits = Compose.cell("line one\nline two"), 0
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.TextInput "Editor" {
+							value = value,
+							multiline = true,
+							onCommit = function()
+								commits += 1
+							end,
+						},
+					})
+				end)
+				local editor = find(node, "Editor")
+				Verify.expect(editor.MultiLine):toBe(true)
+				editor:CaptureFocus()
+				editor.Text = "first\nsecond\n"
+				Verify.expect((value:peek())):toBe("first\nsecond\n")
+				editor.ReturnPressedFromOnScreenKeyboard.fire()
+				Verify.expect(commits):toBe(0)
+				Verify.expect((editor:IsFocused())):toBe(true)
+				node.Interactable = false
+				Verify.expect((editor:IsFocused())):toBe(false)
+				editor.Text = "late mutation"
+				editor.FocusLost.fire(true)
+				Verify.expect((value:peek())):toBe("first\nsecond\n")
+				Verify.expect(commits):toBe(0)
+				node.Interactable = true
+				editor:CaptureFocus()
+				editor.Text = "accepted"
+				editor:ReleaseFocus(false)
+				Verify.expect(commits):toBe(1)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("grows a multiline field from an unclamped measure of its wrapped text", {
+			id = "native_inputs::native input controls::grows a multiline field from an unclamped measure of its wrapped text",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.TextInput "Notes" {
+							value = Compose.cell("a\nb\n"),
+							onChange = function() end,
+							multiline = true,
+						},
+					})
+				end)
+				local field = find(node, "Notes")
+				local measure = find(field, "Measure")
+				Verify.expect(measure ~= nil):toBe(true)
+				Verify.expect((measure:IsA("TextLabel"))):toBe(true)
+				Verify.expect(measure.TextTransparency):toBe(1)
+				Verify.expect(measure.Text):toBe("a\nb\n ")
+				Verify.expect(field.Size.Y.Offset):toBe(96)
+				Verify.expect(measure.Visible):toBe(false)
+				measure.TextBounds = engine.types.Vector2.new(280, 300)
+				Verify.expect(field.Size.Y.Offset):toBe(316)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("commits a touch edit when touch leaves with no keyboard and carries it otherwise", {
+			id = "native_inputs::native input controls::commits a touch edit when touch leaves with no keyboard and carries it otherwise",
+			run = function()
+				local value, reasons, input = Compose.cell("seed"), {}, nil
+				local node, stop = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.TextInput "Name" {
+							value = value,
+							onCommit = function(_, reason)
+								table.insert(reasons, reason)
+							end,
+						},
+					})
+				end, function(engine)
+					input = engine.new("UserInputService")
+					input.TouchEnabled = true
+					input.KeyboardEnabled = false
+					return { services = { UserInputService = input } }
+				end)
+				local field = find(node, "Name")
+				field:CaptureFocus()
+				field.Text = "hi"
+				input.GamepadEnabled = true
+				Verify.expect((field:IsFocused())):toBe(true)
+				input.KeyboardEnabled = true
+				input.TouchEnabled = false
+				Verify.expect((field:IsFocused())):toBe(true)
+				Verify.expect(#reasons):toBe(0)
+				input.TouchEnabled = true
+				input.KeyboardEnabled = false
+				Verify.expect((field:IsFocused())):toBe(true)
+				input.TouchEnabled = false
+				Verify.expect((field:IsFocused())):toBe(false)
+				Verify.expect(reasons):toEqual({ "focusLost" })
+				Verify.expect((value:peek())):toBe("hi")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("keeps composite control roots transparent instead of exposing native stock plates", {
+			id = "native_inputs::native input controls::keeps composite control roots transparent instead of exposing native stock plates",
+			run = function()
+				local node, stop = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Stepper "Stepper" { value = Compose.cell(0) } :: unknown,
+						UI.Slider "Slider" { value = Compose.cell(0) },
+						UI.Rating "Rating" { value = Compose.cell(0) },
+						UI.LevelPicker "Level" { value = Compose.cell(0) },
+					})
+				end)
+				for _, name in { "Stepper", "Slider", "Rating", "Level" } do
+					Verify.expect(find(node, name).BackgroundTransparency):toBe(1)
+				end
+				Verify.expect(find(node, "Stepper").BorderSizePixel):toBe(0)
+				stop()
+			end,
+		})
+		verifyHarness:case("retains native keyboard activation after first focus and gates it on live selection", {
+			id = "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+			run = function()
+				local activated = 0
+				local firstEnabled = Compose.cell(true)
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "First" {
+							label = "First",
+							enabled = firstEnabled,
+							onActivate = function()
+								activated += 1
+							end,
+						} :: unknown,
+						UI.Button "Second" {
+							label = "Second",
+							onActivate = function()
+								activated += 10
+							end,
+						},
+					})
+				end)
+				local first, second = find(node, "First"), find(node, "Second")
+				Verify.expect((find(node.Parent, "Activate"))):toBe(nil)
+				first.SelectionGained.fire()
+				local action = enabledAction(node.Parent, "Activate")
+				Verify.expect(action ~= nil):toBe(true)
+				Verify.expect(action.Parent.Parent):toBe(node.Parent)
+				action.Pressed.fire()
+				Verify.expect(activated):toBe(1)
+				first.SelectionLost.fire()
+				Verify.expect((action.isDestroyed())):toBe(false)
+				Verify.expect(action.Parent.Enabled):toBe(false)
+				action.Pressed.fire()
+				Verify.expect(activated):toBe(1)
+				first.SelectionGained.fire()
+				Verify.expect((enabledAction(node.Parent, "Activate"))):toBe(action)
+				action.Pressed.fire()
+				Verify.expect(activated):toBe(2)
+				first.Visible = false
+				Verify.expect(action.Parent.Enabled):toBe(false)
+				action.Pressed.fire()
+				Verify.expect(activated):toBe(2)
+				first.Visible = true
+				firstEnabled:set(false)
+				Verify.expect(action.Parent.Enabled):toBe(false)
+				action.Pressed.fire()
+				Verify.expect(activated):toBe(2)
+				firstEnabled:set(true)
+				Verify.expect((enabledAction(node.Parent, "Activate"))):toBe(action)
+				first.SelectionLost.fire()
+				second.SelectionGained.fire()
+				local secondAction = enabledAction(node.Parent, "Activate")
+				Verify.expect(secondAction ~= action):toBe(true)
+				action.Pressed.fire()
+				Verify.expect(activated):toBe(2)
+				secondAction.Pressed.fire()
+				Verify.expect(activated):toBe(12)
+				stop()
+				Verify.expect((action.isDestroyed())):toBe(true)
+				Verify.expect((secondAction.isDestroyed())):toBe(true)
+				action.Pressed.fire()
+				secondAction.Pressed.fire()
+				Verify.expect(activated):toBe(12)
+				Verify.expect((first.SelectionGained.count())):toBe(0)
+			end,
+		})
+		verifyHarness:case("activates programmatically selected buttons through the native GuiService property", {
+			id = "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property",
+			run = function()
+				local gui, firstCalls, secondCalls = nil, 0, 0
+				local node, stop = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Button "First" {
+							label = "First",
+							onActivate = function()
+								firstCalls += 1
+							end,
+						} :: unknown,
+						UI.Button "Second" {
+							label = "Second",
+							onActivate = function()
+								secondCalls += 1
+							end,
+						},
+					})
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui } }
+				end)
+				local first, second = find(node, "First"), find(node, "Second")
+				Verify.expect((find(node.Parent, "Activate"))):toBe(nil)
+				gui.SelectedObject = first
+				local action = enabledAction(node.Parent, "Activate")
+				Verify.expect(action ~= nil):toBe(true)
+				Verify.expect(action.Parent.Enabled):toBe(true)
+				action.Pressed.fire()
+				Verify.expect(firstCalls):toBe(1)
+				gui.SelectedObject = second
+				Verify.expect((action.isDestroyed())):toBe(false)
+				Verify.expect(action.Parent.Enabled):toBe(false)
+				local secondAction = enabledAction(node.Parent, "Activate")
+				Verify.expect(secondAction ~= action):toBe(true)
+				action.Pressed.fire()
+				secondAction.Pressed.fire()
+				Verify.expect(firstCalls):toBe(1)
+				Verify.expect(secondCalls):toBe(1)
+				gui.SelectedObject = nil
+				Verify.expect((enabledAction(node.Parent, "Activate"))):toBe(nil)
+				action.Pressed.fire()
+				secondAction.Pressed.fire()
+				Verify.expect(firstCalls):toBe(1)
+				Verify.expect(secondCalls):toBe(1)
+				gui.SelectedObject = first
+				Verify.expect((enabledAction(node.Parent, "Activate"))):toBe(action)
+				Verify.expect(secondAction.Parent.Enabled):toBe(false)
+				action.Pressed.fire()
+				Verify.expect(firstCalls):toBe(2)
+				stop()
+				Verify.expect((action.isDestroyed())):toBe(true)
+				Verify.expect((secondAction.isDestroyed())):toBe(true)
+				Verify.expect((gui:GetPropertyChangedSignal("SelectedObject").count())):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("allocates mirrored captions only while a reactive native theme has control artwork", {
+			id = "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
+			run = function()
+				local neutral = { identity = {}, chrome = {} }
+				local artwork = {
 					identity = {},
 					chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
 					assets = { control = { content = "rbxassetid://123" } },
-				},
+				}
+				local theme = Compose.cell(neutral)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({ label = "Caption" })
+				end, function()
+					return { theme = theme }
+				end)
+				Verify.expect((find(node, "Label"))):toBe(nil)
+				Verify.expect((node:GetPropertyChangedSignal("FontFace").count())):toBe(0)
+				theme:set(artwork)
+				local label = find(node, "Label")
+				local bounds, boundary = label.Parent, label.Parent.Parent
+				Verify.expect(label.Text):toBe("Caption")
+				Verify.expect((node:HasTag("facet-button-captioned"))):toBe(true)
+				theme:set(neutral)
+				Verify.expect((label.isDestroyed())):toBe(false)
+				Verify.expect(boundary.Visible):toBe(false)
+				Verify.expect((node:HasTag("facet-button-captioned"))):toBe(false)
+				node.Text = "Retained caption"
+				node.TextSize = 22
+				node.AbsoluteSize = engine.types.Vector2.new(80, 44)
+				boundary.AbsoluteSize = engine.types.Vector2.new(2, 2)
+				for _ = 1, 100 do
+					theme:set(artwork)
+					Verify.expect((find(node, "Label"))):toBe(label)
+					Verify.expect(boundary.Visible):toBe(true)
+					Verify.expect((node:HasTag("facet-button-captioned"))):toBe(true)
+					theme:set(neutral)
+					Verify.expect(boundary.Visible):toBe(false)
+					Verify.expect((node:HasTag("facet-button-captioned"))):toBe(false)
+				end
+				theme:set(artwork)
+				Verify.expect(label.Text):toBe("Retained caption")
+				Verify.expect(label.TextSize):toBe(22)
+				Verify.expect(bounds.Size):toBe(engine.types.UDim2.fromOffset(40, 22))
+				local created = 0
+				for _, item in engine.made do
+					if item.Name == "Label" or item.Name == "LabelBounds" or item.Name == "LabelBoundary" then
+						created += 1
+					end
+				end
+				Verify.expect(created):toBe(3)
+				stop()
+				Verify.expect((label.isDestroyed())):toBe(true)
+				Verify.expect((bounds.isDestroyed())):toBe(true)
+				Verify.expect((boundary.isDestroyed())):toBe(true)
+				Verify.expect((node:GetPropertyChangedSignal("FontFace").count())):toBe(0)
+			end,
+		})
+
+		verifyHarness:case(
+			"lays out image buttons vertically inside their authored card bounds and keeps the image ratio",
+			{
+				id = "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds and keeps the image ratio",
+				run = function()
+					local node, stop, engine = world(function(UI: FacetControls, engine)
+						return UI.Button({
+							label = "A driver with a descriptive title",
+							subtitle = "A longer description that must wrap inside the card.",
+							image = "rbxassetid://123",
+							imageAspectRatio = 2,
+							Size = engine.types.UDim2.fromOffset(240, 260),
+						})
+					end)
+					Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+					Verify.expect(find(node, "Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+						:toBe(engine.types.Enum.FillDirection.Vertical)
+					Verify.expect(find(node, "Title").TextWrapped):toBe(true)
+					Verify.expect(find(node, "Title").Size.X.Scale):toBe(1)
+					Verify.expect(find(node, "Description").TextWrapped):toBe(true)
+					Verify.expect(find(node, "Content").Size.Y.Scale):toBe(1)
+					local media = find(node, "Media")
+					Verify.expect(media:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+						:toBe(engine.types.Enum.UIFlexMode.Fill)
+					Verify.expect((media:FindFirstChildWhichIsA("UIAspectRatioConstraint"))):toBe(nil)
+					local image = find(media, "Image")
+					local ratio = image:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+					Verify.expect(ratio ~= nil and ratio.AspectRatio):toBe(2)
+					Verify.expect(ratio.AspectType):toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
+					Verify.expect(image.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 0.5))
+					Verify.expect(image.Position):toBe(engine.types.UDim2.fromScale(0.5, 0.5))
+					stop()
+				end,
 			}
-		end)
-		local skin, label = find(node, "SkinBounds"), find(node, "LabelBounds")
-		node.AbsoluteSize = engine.types.Vector2.new(100, 55)
-		t.expect(skin.Size).toBe(engine.types.UDim2.fromOffset(0, 0))
-		t.expect(label.Size).toBe(engine.types.UDim2.fromOffset(0, 0))
-		for _, scale in { 1.25, 0.5, 2, 0.75, 1.25, 1 } do
-			node.AbsoluteSize = engine.types.Vector2.new(80 * scale, 44 * scale)
-			for _, decoration in { skin, label } do
-				decoration.Parent.AbsoluteSize = engine.types.Vector2.new(scale, scale)
-				t.expect(decoration.Size).toBe(engine.types.UDim2.fromOffset(80, 44))
-				t.expect(decoration.Parent.Size).toBe(engine.types.UDim2.fromOffset(1, 1))
-			end
-		end
-		local padding = node:FindFirstChildWhichIsA("UIPadding")
-		padding.PaddingLeft = engine.types.UDim.new(0, 12)
-		padding.PaddingRight = engine.types.UDim.new(0, 8)
-		padding.Parent = node
-		node.AbsoluteSize = engine.types.Vector2.new(100, 55)
-		skin.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
-		label.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
-		t.expect(skin.Size).toBe(engine.types.UDim2.fromOffset(80, 44))
-		t.expect(skin.Position).toBe(engine.types.UDim2.fromOffset(9, 1))
-		t.expect(label.Size).toBe(engine.types.UDim2.fromOffset(60, 44))
-		local skinBoundary, captionBoundary = skin.Parent, label.Parent
-		stop()
-		t.expect(skinBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
-		t.expect(captionBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
-	end)
+		)
+		verifyHarness:case("allocates native value actions only for the selected control, never for a part inside it", {
+			id = "native_inputs::native input controls::allocates native value actions only for the selected control, never for a part inside it",
+			run = function()
+				local gui, stepperValue, sliderValue = nil, Compose.cell(3), Compose.cell(0.5)
+				local enabled = Compose.cell(true)
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Stepper "Stepper" { value = stepperValue, max = 10, enabled = enabled } :: unknown,
+						UI.Slider "Slider" { value = sliderValue },
+					})
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui } }
+				end)
+				local function activeContextCount()
+					local count = 0
+					for _, object in node.Parent:GetDescendants() do
+						if object.ClassName == "InputContext" and object.Enabled then
+							count += 1
+						end
+					end
+					return count
+				end
+				Verify.expect((activeContextCount())):toBe(0)
+				gui.SelectedObject = find(node, "Slider")
+				Verify.expect((activeContextCount())):toBe(5)
+				local sliderAction = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				sliderAction.Pressed.fire()
+				Verify.expect((sliderValue:peek())):toBe(0.51)
+				local stepper = find(node, "Stepper")
+				gui.SelectedObject = stepper
+				Verify.expect((activeContextCount())):toBe(4)
+				Verify.expect((sliderAction.isDestroyed())):toBe(true)
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				local action = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				action.Pressed.fire()
+				Verify.expect((stepperValue:peek())):toBe(4)
+				enabled:set(false)
+				Verify.expect((activeContextCount())):toBe(0)
+				Verify.expect((action.isDestroyed())):toBe(true)
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				enabled:set(true)
+				Verify.expect((activeContextCount())):toBe(4)
+				gui.SelectedObject = nil
+				Verify.expect((activeContextCount())):toBe(0)
+				stop()
+				local initial, initialStop = world(function(UI: FacetControls)
+					return UI.Stepper({
+						value = stepperValue,
+						max = 10,
+						ref = function(root)
+							gui.SelectedObject = root
+						end,
+					})
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui } }
+				end)
+				local initialAction = find(initial.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				Verify.expect(initialAction.Parent.Enabled):toBe(true)
+				initialAction.Pressed.fire()
+				Verify.expect((stepperValue:peek())):toBe(5)
+				initialStop()
+				Verify.expect((initialAction.isDestroyed())):toBe(true)
+			end,
+		})
 
-	t.it("a touch rating tightens its spacing to fit a fixed-width holder, such as a Table column", function()
-		local input
-		local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-				Name = "Column",
-				Size = engine.types.UDim2.fromOffset(144, 44),
-				UI.Rating "Stars" { value = Compose.cell(3) },
-			})
-		end, function(engine)
-			input = engine.new("UserInputService")
-			input.TouchEnabled = true
-			return { services = { UserInputService = input } }
-		end)
-		local V = engine.types.Vector2
-		local node = find(root, "Stars")
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
-		local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
-		mark.AbsoluteSize = V.new(20, 20)
-		root.AbsoluteSize = V.new(144, 44)
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 11)
-		mark.AbsoluteSize = V.new(40, 40)
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
-		root.AbsoluteSize = V.new(800, 88)
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
-		stop()
-	end)
+		verifyHarness:case("repeats a held Stepper button and a repeating Button only while held", {
+			id = "native_inputs::native input controls::repeats a held Stepper button and a repeating Button only while held",
+			run = function()
+				local value = Compose.cell(0)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Stepper({ value = value, max = 100 })
+				end)
+				local held = {
+					UserInputType = engine.types.Enum.UserInputType.Touch,
+					KeyCode = engine.types.Enum.KeyCode:FromValue(0),
+				}
+				local increase = find(node, "Increase")
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				increase.InputBegan.fire(held)
+				Verify.expect((engine.heartbeat.count())):toBe(1)
+				engine.heartbeat.fire(0.4)
+				engine.heartbeat.fire(0.1)
+				Verify.expect((value:peek())):toBe(2)
+				increase.InputEnded.fire(held)
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				stop()
+			end,
+		})
 
-	t.it("a rating spaces its stars to the touch target when touch is the effective input", function()
-		local input
-		local node, stop, engine = world(function(UI: FacetControls)
-			return UI.Rating({ value = Compose.cell(3) })
-		end, function(engine)
-			input = engine.new("UserInputService")
-			return { services = { UserInputService = input } }
-		end)
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
-		input.GamepadEnabled = true
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
-		input.TouchEnabled = true
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
-		t.expect(find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(24)
-		input.MouseEnabled = true
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
-		input.PreferredInput = engine.types.Enum.PreferredInput.Touch
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
-		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
-		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
-		stop()
-	end)
-	t.it(
-		"a touch level picker shrinks beside a sibling in a row and spaces its marks to the width it is drawn at",
-		function()
-			local input
-			local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
-				return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-					Name = "Pair",
-					Size = engine.types.UDim2.fromOffset(337, 44),
-					UI.LevelPicker "Bars" { value = Compose.cell(2), count = 10 },
-				})
-			end, function(engine)
-				input = engine.new("UserInputService")
+		verifyHarness:case("lets a game control opt into keyboard and gamepad adjustment with UI.adjustable", {
+			id = "native_inputs::native input controls::lets a game control opt into keyboard and gamepad adjustment with UI.adjustable",
+			run = function()
+				local steps, calls = {}, 0
+				local gui
+				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					local dial = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
+						Name = "Dial",
+						Selectable = true,
+					})
+					UI.adjustable(dial, {
+						onAdjust = function(direction)
+							calls += 1
+							table.insert(steps, direction)
+						end,
+						axis = "vertical" :: "vertical",
+						repeats = true,
+					})
+					local knob = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
+						Name = "Knob",
+						Selectable = true,
+					})
+					UI.adjustable(knob, {
+						onAdjust = function(direction)
+							table.insert(steps, direction * 10)
+						end,
+						axis = "none" :: "none",
+					})
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ dial :: unknown, knob })
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui }, guiService = gui }
+				end)
+				local dial, knob, screen = find(node, "Dial"), find(node, "Knob"), node.Parent
+				Verify.expect((enabledAction(screen, "IncreaseArrow"))):toBe(nil)
+				gui.SelectedObject = dial
+				local up = enabledAction(screen, "IncreaseArrow")
+				Verify.expect(up ~= nil):toBe(true)
+				Verify.expect(up:FindFirstChildWhichIsA("InputBinding").KeyCode):toBe(engine.types.Enum.KeyCode.Up)
+				up.Pressed.fire()
+				Verify.expect(steps[1]):toBe(1)
+				engine.heartbeat.fire(0.4)
+				Verify.expect(steps[2]):toBe(1)
+				up.Released.fire()
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				enabledAction(screen, "Decrease").Pressed.fire()
+				Verify.expect(steps[3]):toBe(-1)
+				gui.SelectedObject = knob
+				Verify.expect((enabledAction(screen, "IncreaseArrow"))):toBe(nil)
+				local shoulder = enabledAction(screen, "Increase")
+				shoulder.Pressed.fire()
+				Verify.expect(steps[4]):toBe(10)
+				engine.heartbeat.fire(1)
+				Verify.expect(#steps):toBe(4)
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				stop()
+				Verify.expect(calls):toBe(3)
+			end,
+		})
+
+		verifyHarness:case("makes the Slider its one selection stop and draws the engine ring on its thumb", {
+			id = "native_inputs::native input controls::makes the Slider its one selection stop and draws the engine ring on its thumb",
+			run = function()
+				local value = Compose.cell(0.5)
+				local gui
+				local node, stop = world(function(UI: FacetControls, _, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						UI.Slider "Volume" { value = value, step = 0.1 } :: unknown,
+						UI.Slider "Hidden" { value = Compose.cell(0.5), thumb = "auto" :: "auto" },
+					})
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui }, guiService = gui }
+				end)
+				local volume = find(node, "Volume")
+				local thumb, track = find(volume, "ThumbStop"), find(volume, "Track")
+				Verify.expect(volume.Selectable):toBe(true)
+				Verify.expect(thumb.Selectable):toBe(false)
+				Verify.expect(track.Selectable):toBe(false)
+				Verify.expect((volume:GetAttribute("FacetFocusPart"))):toBe("Track/ThumbStop")
+				Verify.expect(find(find(node, "Hidden"), "Track").Selectable):toBe(false)
+				Verify.expect((find(node, "Hidden"):GetAttribute("FacetFocusPart"))):toBe("Track")
+				gui.SelectedObject = volume
+				enabledAction(node.Parent, "IncreaseArrow").Pressed.fire()
+				Verify.expect(math.abs(value:peek() - 0.6) < 1e-9):toBe(true)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("repeats focused value adjustments with bounded catch-up and no idle frame subscription", {
+			id = "native_inputs::native input controls::repeats focused value adjustments with bounded catch-up and no idle frame subscription",
+			run = function()
+				local value = Compose.cell(0)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Stepper({ value = value, max = 100 })
+				end)
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				node.SelectionGained.fire()
+				local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				increase.Pressed.fire()
+				Verify.expect((value:peek())):toBe(1)
+				Verify.expect((engine.heartbeat.count())):toBe(1)
+				engine.heartbeat.fire(0.35)
+				Verify.expect((value:peek())):toBe(1)
+				engine.heartbeat.fire(0.25)
+				Verify.expect((value:peek())):toBe(4)
+				engine.heartbeat.fire(20)
+				Verify.expect((value:peek())):toBe(9)
+				increase.Released.fire()
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				increase.Pressed.fire()
+				node.SelectionLost.fire()
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+				stop()
+				Verify.expect((engine.heartbeat.count())):toBe(0)
+			end,
+		})
+		verifyHarness:case(
+			"a Stepper's repeatDelay and repeatInterval govern its held arrows and its held buttons alike",
+			{
+				id = "native_inputs::native input controls::a Stepper's repeatDelay and repeatInterval govern its held arrows and its held buttons alike",
+				run = function()
+					local value = Compose.cell(0)
+					local node, stop, engine = world(function(UI: FacetControls)
+						return UI.Stepper({ value = value, max = 100, repeatDelay = 1, repeatInterval = 0.5 })
+					end)
+					node.SelectionGained.fire()
+					local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+					increase.Pressed.fire()
+					engine.heartbeat.fire(0.9)
+					Verify.expect((value:peek())):toBe(1)
+					engine.heartbeat.fire(0.2)
+					Verify.expect((value:peek())):toBe(2)
+					engine.heartbeat.fire(0.5)
+					Verify.expect((value:peek())):toBe(3)
+					increase.Released.fire()
+					local button
+					for _, child in node:GetDescendants() do
+						if child.ClassName == "TextButton" and child.Name == "Increase" then
+							button = child
+						end
+					end
+					button.InputBegan.fire({
+						UserInputType = engine.types.Enum.UserInputType.MouseButton1,
+						KeyCode = engine.types.Enum.KeyCode:FromValue(0),
+					})
+					engine.heartbeat.fire(0.9)
+					Verify.expect((value:peek())):toBe(3)
+					engine.heartbeat.fire(0.2)
+					Verify.expect((value:peek())):toBe(4)
+					stop()
+				end,
+			}
+		)
+
+		verifyHarness:case(
+			"uses native Toggle text and reserved padding while retaining rich hints and live theme insets",
+			{
+				id = "native_inputs::native input controls::uses native Toggle text and reserved padding while retaining rich hints and live theme insets",
+				run = function()
+					local label, rung =
+						Compose.cell("Music"), Compose.cell("compact" :: "compact" | "large" | "regular" | "xsmall")
+					local node, stop, engine = world(function(UI: FacetControls)
+						return UI.Toggle({ value = Compose.cell(false), label = label, controlSize = rung })
+					end)
+					Verify.expect(node.Text):toBe("Music")
+					Verify.expect((node:FindFirstChildWhichIsA("TextLabel", true))):toBe(nil)
+					Verify.expect((node:FindFirstChildWhichIsA("UIListLayout", true))):toBe(nil)
+					Verify.expect(#node:GetDescendants()):toBe(5)
+					local padding = node:FindFirstChildWhichIsA("UIPadding")
+					Verify.expect(padding.PaddingLeft.Offset):toBe(40)
+					Verify.expect(padding.PaddingRight.Offset):toBe(0)
+					Verify.expect(find(node, "Indicator").Position.X.Offset):toBe(-40)
+					label:set("Music and effects")
+					rung:set("large")
+					Verify.expect(node.Text):toBe("Music and effects")
+					Verify.expect(padding.PaddingLeft.Offset):toBe(52)
+					stop()
+					local themes = require("../src/ui/themes")(Compose)
+					local package = themes.neutralPackage()
+					assert(package.chrome).control =
+						{ kind = "native" :: "native", contentInsets = { left = 24, right = 28 } }
+					local selected = Compose.cell(package)
+					node, stop = world(function(UI: FacetControls)
+						return UI.Toggle({
+							value = Compose.cell(false),
+							label = "Sound",
+							presentation = "checkbox" :: "checkbox",
+							indicatorPosition = "trailing" :: "trailing",
+						})
+					end, function()
+						return { theme = selected }
+					end)
+					padding = node:FindFirstChildWhichIsA("UIPadding")
+					Verify.expect(padding.PaddingLeft.Offset):toBe(24)
+					Verify.expect(padding.PaddingRight.Offset):toBe(60)
+					Verify.expect(find(node, "Indicator").Position.X.Scale):toBe(1)
+					local nextPackage = themes.neutralPackage()
+					assert(nextPackage.chrome).control =
+						{ kind = "native" :: "native", contentInsets = { left = 30, right = 36 } }
+					selected:set(nextPackage)
+					Verify.expect(padding.PaddingLeft.Offset):toBe(30)
+					Verify.expect(padding.PaddingRight.Offset):toBe(68)
+					stop()
+					local hint = Compose.cell("Initial hint")
+					node, stop = world(function(UI: FacetControls)
+						return UI.Toggle({ value = Compose.cell(false), label = "Assistance", hint = hint })
+					end)
+					local caption
+					for _, child in node:GetDescendants() do
+						if child:IsA("TextLabel") and child.Text == "Initial hint" then
+							caption = child
+						end
+					end
+					Verify.expect(caption ~= nil):toBe(true)
+					hint:set("Updated hint")
+					Verify.expect(caption.Text):toBe("Updated hint")
+					Verify.expect(node:FindFirstChildWhichIsA("UIListLayout", true) ~= nil):toBe(true)
+					stop()
+				end,
+			}
+		)
+
+		verifyHarness:case(
+			"isolates artwork and mirrored captions from native automatic sizing while following real padding",
+			{
+				id = "native_inputs::native input controls::isolates artwork and mirrored captions from native automatic sizing while following real padding",
+				run = function()
+					local theme = Compose.cell({ identity = {}, chrome = {} })
+					local node, stop, engine = world(function(UI: FacetControls)
+						return UI.Button({ label = "Enter" })
+					end, function()
+						return { theme = theme }
+					end)
+					local nativeSize, automaticSize = node.Size, node.AutomaticSize
+					node.AbsoluteSize = engine.types.Vector2.new(67, 44)
+					theme:set({
+						identity = {},
+						chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
+						assets = { control = { content = "rbxassetid://123" } },
+					})
+					local skin, label = find(node, "SkinBounds"), find(node, "LabelBounds")
+					for _, decoration in { skin, label } do
+						decoration.Parent.AbsoluteSize = engine.types.Vector2.new(1, 1)
+						Verify.expect(decoration.Parent.Parent):toBe(node)
+						Verify.expect(decoration.Parent.Size):toBe(engine.types.UDim2.fromOffset(1, 1))
+						Verify.expect(decoration.Parent.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+						Verify.expect(decoration.Parent.ClipsDescendants):toBe(false)
+					end
+					local padding = node:FindFirstChildWhichIsA("UIPadding")
+					padding.PaddingLeft = engine.types.UDim.new(0.1, 2)
+					padding.PaddingRight = engine.types.UDim.new(0, 5)
+					padding.PaddingTop = engine.types.UDim.new(0, 3)
+					padding.PaddingBottom = engine.types.UDim.new(0, 4)
+					padding.Parent = node
+					Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(67, 44))
+					Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(6, 5))
+					Verify.expect(skin.AnchorPoint):toBe(engine.types.Vector2.new(1, 1))
+
+					Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(54, 37))
+					Verify.expect(label.Size.Y.Offset):toBe(37)
+					Verify.expect(label.Position):toBe(engine.types.UDim2.fromOffset(1, 1))
+					padding.PaddingLeft = engine.types.UDim.new(0, 12)
+					Verify.expect(skin.Position.X.Offset):toBe(6)
+					Verify.expect(label.Size.X.Offset):toBe(50)
+					node.AbsoluteSize = engine.types.Vector2.new(80, 50)
+					Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(80, 50))
+					Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(63, 43))
+					Verify.expect(node.Size):toBe(nativeSize)
+					Verify.expect(node.AutomaticSize):toBe(automaticSize)
+					padding.Parent = nil
+					Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(1, 1))
+					Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(80, 50))
+					Verify.expect((padding:GetPropertyChangedSignal("PaddingLeft").count())):toBe(0)
+					stop()
+					Verify.expect((node:GetPropertyChangedSignal("AbsoluteSize").count())):toBe(0)
+					Verify.expect((node.ChildAdded.count())):toBe(0)
+					Verify.expect((node.ChildRemoved.count())):toBe(0)
+				end,
+			}
+		)
+
+		verifyHarness:case("converts rendered decoration bounds through the native one pixel scale reference", {
+			id = "native_inputs::native input controls::converts rendered decoration bounds through the native one pixel scale reference",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button({ label = "Enter" })
+				end, function()
+					return {
+						theme = {
+							identity = {},
+							chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
+							assets = { control = { content = "rbxassetid://123" } },
+						},
+					}
+				end)
+				local skin, label = find(node, "SkinBounds"), find(node, "LabelBounds")
+				node.AbsoluteSize = engine.types.Vector2.new(100, 55)
+				Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(0, 0))
+				Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(0, 0))
+				for _, scale in { 1.25, 0.5, 2, 0.75, 1.25, 1 } do
+					node.AbsoluteSize = engine.types.Vector2.new(80 * scale, 44 * scale)
+					for _, decoration in { skin, label } do
+						decoration.Parent.AbsoluteSize = engine.types.Vector2.new(scale, scale)
+						Verify.expect(decoration.Size):toBe(engine.types.UDim2.fromOffset(80, 44))
+						Verify.expect(decoration.Parent.Size):toBe(engine.types.UDim2.fromOffset(1, 1))
+					end
+				end
+				local padding = node:FindFirstChildWhichIsA("UIPadding")
+				padding.PaddingLeft = engine.types.UDim.new(0, 12)
+				padding.PaddingRight = engine.types.UDim.new(0, 8)
+				padding.Parent = node
+				node.AbsoluteSize = engine.types.Vector2.new(100, 55)
+				skin.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
+				label.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
+				Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(80, 44))
+				Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(9, 1))
+				Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(60, 44))
+				local skinBoundary, captionBoundary = skin.Parent, label.Parent
+				stop()
+				Verify.expect((skinBoundary:GetPropertyChangedSignal("AbsoluteSize").count())):toBe(0)
+				Verify.expect((captionBoundary:GetPropertyChangedSignal("AbsoluteSize").count())):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("a touch rating tightens its spacing to fit a fixed-width holder, such as a Table column", {
+			id = "native_inputs::native input controls::a touch rating tightens its spacing to fit a fixed-width holder, such as a Table column",
+			run = function()
+				local input
+				local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						Name = "Column",
+						Size = engine.types.UDim2.fromOffset(144, 44),
+						UI.Rating "Stars" { value = Compose.cell(3) },
+					})
+				end, function(engine)
+					input = engine.new("UserInputService")
+					input.TouchEnabled = true
+					return { services = { UserInputService = input } }
+				end)
+				local V = engine.types.Vector2
+				local node = find(root, "Stars")
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 24)
+				local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
+				mark.AbsoluteSize = V.new(20, 20)
+				root.AbsoluteSize = V.new(144, 44)
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 11)
+				mark.AbsoluteSize = V.new(40, 40)
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 2)
+				root.AbsoluteSize = V.new(800, 88)
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 24)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("a rating spaces its stars to the touch target when touch is the effective input", {
+			id = "native_inputs::native input controls::a rating spaces its stars to the touch target when touch is the effective input",
+			run = function()
+				local input
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Rating({ value = Compose.cell(3) })
+				end, function(engine)
+					input = engine.new("UserInputService")
+					return { services = { UserInputService = input } }
+				end)
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 2)
+				input.GamepadEnabled = true
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 2)
 				input.TouchEnabled = true
-				return { services = { UserInputService = input } }
-			end)
-			local V = engine.types.Vector2
-			local node = find(root, "Bars")
-			local flex = node:FindFirstChildWhichIsA("UIFlexItem")
-			t.expect(flex and flex.FlexMode).toBe(engine.types.Enum.UIFlexMode.Shrink)
-			local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
-			local spacing = find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout")
-			mark.AbsoluteSize = V.new(20, 20)
-			root.AbsoluteSize = V.new(337, 44)
-			t.expect(node.Size.X.Offset).toBe(10 * 20 + 9 * 15)
-			node.AbsoluteSize = V.new(10 * 20 + 9 * 15, 44)
-			t.expect(spacing.Padding.Offset).toBe(15)
-			node.AbsoluteSize = V.new(10 * 20 + 9 * 6, 44)
-			t.expect(spacing.Padding.Offset).toBe(6)
-			stop()
-		end
-	)
-end)
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 24)
+				Verify.expect(find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout").Padding.Offset):toBe(24)
+				input.MouseEnabled = true
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 2)
+				input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 24)
+				input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 2)
+				stop()
+			end,
+		})
+		verifyHarness:case(
+			"a touch level picker shrinks beside a sibling in a row and spaces its marks to the width it is drawn at",
+			{
+				id = "native_inputs::native input controls::a touch level picker shrinks beside a sibling in a row and spaces its marks to the width it is drawn at",
+				run = function()
+					local input
+					local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+							Name = "Pair",
+							Size = engine.types.UDim2.fromOffset(337, 44),
+							UI.LevelPicker "Bars" { value = Compose.cell(2), count = 10 },
+						})
+					end, function(engine)
+						input = engine.new("UserInputService")
+						input.TouchEnabled = true
+						return { services = { UserInputService = input } }
+					end)
+					local V = engine.types.Vector2
+					local node = find(root, "Bars")
+					local flex = node:FindFirstChildWhichIsA("UIFlexItem")
+					Verify.expect(flex and flex.FlexMode):toBe(engine.types.Enum.UIFlexMode.Shrink)
+					local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
+					local spacing = find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout")
+					mark.AbsoluteSize = V.new(20, 20)
+					root.AbsoluteSize = V.new(337, 44)
+					Verify.expect(node.Size.X.Offset):toBe(10 * 20 + 9 * 15)
+					node.AbsoluteSize = V.new(10 * 20 + 9 * 15, 44)
+					Verify.expect(spacing.Padding.Offset):toBe(15)
+					node.AbsoluteSize = V.new(10 * 20 + 9 * 6, 44)
+					Verify.expect(spacing.Padding.Offset):toBe(6)
+					stop()
+				end,
+			}
+		)
+	end)
+end

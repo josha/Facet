@@ -9,6 +9,7 @@ local AsyncBoundary = require "@self/async/boundary"
 local AsyncShared = require "@self/async/shared"
 local Diagnostics = require "@self/diagnostics"
 local FocusScope = require "@self/focus-scope"
+local Geometry = require "@self/geometry"
 local FocusNeighbor = require "@self/focus-neighbor"
 local Graph = require "@self/reactive/graph"
 local Inspect = require "@self/ownership/inspect"
@@ -20,6 +21,7 @@ local OwnerModule = require "@self/ownership/owner"
 local PoolModule = require "@self/pool"
 local Root = require "@self/ownership/root"
 local RootScopeModule = require "@self/ownership/root-scope"
+local SlotModule = require "@self/slot"
 local RuntimeModule = require "@self/runtime"
 local StructureFragment = require "@self/structure/fragment"
 local StructureIndexes = require "@self/structure/indexes"
@@ -99,6 +101,18 @@ export type Codec<T> = AnimationCodec.Codec<T>
 export type SpringState = AnimationSpring.State
 export type SpringOptions = RuntimeModule.SpringOptions
 export type TweenOptions = RuntimeModule.TweenOptions
+export type RampOptions = RuntimeModule.RampOptions
+export type Ramp<T> = RuntimeModule.Ramp<T>
+export type Scheduler = RuntimeModule.Scheduler
+export type Slot = SlotModule.Slot
+
+export type GeometrySize = Geometry.Size
+export type GeometryInsets = Geometry.Insets
+export type GeometryAnchor = Geometry.Anchor
+export type GeometryFrame = Geometry.Frame
+export type GeometryBounds = Geometry.Bounds
+export type GeometryFitOptions = Geometry.FitOptions
+export type GeometryClearOptions<R> = Geometry.ClearOptions<R>
 
 export type SharedResourceFactory<T> = AsyncShared.Factory<T>
 export type AcquireSharedResource<T> = AsyncShared.Acquire<T>
@@ -324,6 +338,8 @@ return {
 	focusNeighbor = FocusNeighbor,
 	createPool = PoolModule,
 	createKeyedCache = KeyedCacheModule,
+	createSlot = SlotModule,
+	geometry = Geometry,
 
 	easing = AnimationEasing,
 	registerCodec = AnimationCodec.register,

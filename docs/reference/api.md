@@ -24,10 +24,11 @@ and styling. This reference describes the `0.12.0` surface.
 | `recipes` | Opt-in helpers. `recipes.arithmetic.parse` is a bounded arithmetic parser for a number field. See [Recipes](#recipes). |
 | `bind(Compose, Roblox)` | Returns a Facet table whose `controls` and `themes` use the Compose core module and the Compose Roblox module that you give. See [Your own Compose](#your-own-compose). |
 
-The pinned Compose includes `Compose.focusNeighbor` for directional selection over
+The pinned Compose includes `Compose.createSlot` for owned native instances and
+`Compose.geometry` for geometry calculations. It includes `Compose.focusNeighbor` for directional selection over
 rectangles and `Compose.TileCollection` for camera-windowed tile scenes. Facet
 uses `focusNeighbor` for its directional focus queries. See the
-[upstream Compose API](https://github.com/voidmeld/compose/blob/dbf518ac3d28846c81ab0cf8f74cbc76ad22b30a/docs/api.md)
+[upstream Compose API](https://github.com/voidmeld/compose/blob/49668e8cb27d5e2b273be8fe057145a44ffde562/docs/api.md)
 for these Compose contracts.
 
 ### Types
@@ -3182,7 +3183,8 @@ choose. For rows of text, use VirtualList or Table.
   `browseTarget` has no stop of its own, so it shows its actions at rest.
 - The plate is a Frame directly below the body in the card's own layout.
   With `automatic`, it paints a panel surface under the action row. The
-  primary action fills the row and More is an icon button at its end. With
+  primary action fills the row and More is an icon button at its end.
+  A card with no primary action and no menu does not paint an empty plate. With
   `always`, the row has no plate and sits a small gap below the body. The plate
   is always laid out, so the card size never changes and the siblings never move.
   At rest it is transparent and not `Interactable`, so its actions take no
@@ -3195,9 +3197,8 @@ choose. For rows of text, use VirtualList or Table.
   not lift and shows no shadow: a tap on the body, the primary action or More
   gives only the press paint of that control. The lift is for pointer hover,
   selection and a held mouse press. The scale is paint only: the artwork height
-  uses the width without the lift, so the card size does not change. Outside a
-  layout, the card offsets its `Position` by half of the growth, so it grows
-  evenly around its centre. Keep gutters of at least half the scaled growth
+  uses the width without the lift, so the card size does not change. When no `Position` is supplied, the card uses its native `AnchorPoint`
+  to grow evenly around its centre without integer position steps. Keep gutters of at least half the scaled growth
   around each card. Reduced motion keeps only the shadow.
   When a `browseTarget` exists, the card puts a `UIScale` named `CardLift` with
   the same scale on it, so the selection ring grows with the card.

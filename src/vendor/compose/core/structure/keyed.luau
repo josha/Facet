@@ -45,7 +45,7 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 	if keyOf ~= nil then
 		key = Support.builderOf(keyOf, "keyed", "key")
 	else
-		key = (identity :: any) :: (value: V, index: number) -> K
+		key = (identity :: unknown) :: (value: V, index: number) -> K
 	end
 
 	return function(mountPoint: Children.MountPoint)

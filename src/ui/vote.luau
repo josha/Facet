@@ -186,8 +186,12 @@ return function(
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
 			Attributes = {
-				FacetValue = value,
-				FacetReadOnly = readOnly,
+				FacetValue = function(use: ComposeTypes.Use)
+					return read(value, use)
+				end,
+				FacetReadOnly = function(use: ComposeTypes.Use): boolean
+					return use(readOnly)
+				end,
 			} :: Types.Attributes,
 			Host.UIListLayout({
 				FillDirection = E.FillDirection.Horizontal,

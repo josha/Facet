@@ -69,7 +69,7 @@ local function create(): Reactor
 		drainAbandoned = false
 		local openedAt = if statsOn.enabled then profile.nowOrNil() else nil
 
-		local context = Graph.evaluationContext()
+		local context = Graph.captureEvaluationContext()
 		repeat
 			local ok, err = xpcall(runRest, traceback)
 			if not ok then
@@ -189,7 +189,7 @@ local function create(): Reactor
 		end
 
 		batching = true
-		local context = Graph.evaluationContext()
+		local context = Graph.captureEvaluationContext()
 		local ok, err = xpcall(watch.run, traceback, watch)
 		if not ok then
 			Graph.restoreEvaluationContext(context)

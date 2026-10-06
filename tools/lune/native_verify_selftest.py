@@ -11,6 +11,20 @@ verify = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verify)
 
 
+def suite_fixture(tier, cases):
+    return {"provenance": {"complete": True}, "report": {"schemaVersion": 1, "environment": {"tier": tier}, "results": cases, "passed": sum(case["status"] == "passed" for case in cases), "failed": sum(case["status"] == "failed" for case in cases), "skipped": sum(case["status"] == "skipped" for case in cases), "total": len(cases)}}
+
+
+def execute_producer_fixture(command, execute):
+    inputs = json.loads(Path(command[3]).read_text())
+    records = []
+    for producer in inputs["producers"]:
+        result = execute(producer["command"])
+        records.append({**producer, "exitCode": result.returncode, "status": verify.producer_status(result.returncode, producer["environment"], inputs["referenceHost"])})
+    Path(command[4]).write_text(json.dumps({"execution": {"provenance": {"complete": True}}, "producers": records}))
+    return type("Result", (), {"returncode": 0})()
+
+
 class NativeVerificationTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -144,9 +158,11 @@ return require("./actual")''')
         commands = []
 
         def execute(command, **kwargs):
+            if command[:3] == ["lune", "run", "tools/lune/verify_producers"]:
+                return execute_producer_fixture(command, execute)
             commands.append(command)
             if command == ["lune", "run", "tools/lune/native_verify_suite", "full"]:
-                (artifacts / "suite.json").write_text(json.dumps({"tier": "full", "cases": [{"id": "native_sample::sample", "spec": "native_sample", "status": "pass"}], "registeredSpecs": 1, "reportedSpecs": 1, "passed": 1, "failed": 0}))
+                (artifacts / "suite.json").write_text(json.dumps(suite_fixture("full", [{"id": "native_sample::sample", "source": "native_sample", "status": "passed"}])))
             if command == ["bash", "tools/perf.sh"]:
                 performance.parent.mkdir(parents=True, exist_ok=True)
                 performance.write_text("{}")
@@ -171,28 +187,28 @@ return require("./actual")''')
             self.assertIn(command, commands)
 
     def test_suite_census_rejects_missing_duplicate_failed_and_forged_results(self):
-        case = {"id": "sample::one", "spec": "sample", "status": "pass"}
-        clean = {"tier": "full", "cases": [case], "registeredSpecs": 1, "reportedSpecs": 1, "passed": 1, "failed": 0}
+        case = {"id": "sample::one", "source": "sample", "status": "passed"}
+        clean = suite_fixture("full", [case])
         self.assertEqual(verify.validate_suite(clean, ["sample"], "full"), [])
-        for change in ({"tier": "fast"}, {"cases": []}, {"cases": [case, case], "passed": 2}, {"registeredSpecs": 0}, {"reportedSpecs": 0}, {"passed": 0}, {"failed": 1}, {"cases": [dict(case, status="fail")]}, {"cases": [dict(case, spec="other")]}):
+        changes = [{"environment": {"tier": "fast"}}, {"results": []}, {"results": [case, case], "passed": 2, "total": 2}, {"passed": 0}, {"failed": 1}, {"results": [dict(case, status="failed")]}, {"results": [dict(case, source="other")]}, {"total": 0}, {"schemaVersion": 0}]
+        for change in changes:
             with self.subTest(change=change):
-                self.assertTrue(verify.validate_suite(dict(clean, **change), ["sample"], "full"))
+                self.assertTrue(verify.validate_suite({**clean, "report": {**clean["report"], **change}}, ["sample"], "full"))
+        self.assertTrue(verify.validate_suite({**clean, "provenance": {"complete": False}}, ["sample"], "full"))
 
     def test_suite_accepts_a_tier_gated_case_only_below_its_tier(self):
-        case = {"id": "sample::one", "spec": "sample", "status": "pass"}
-        gated = {"id": "sample::ramp", "spec": "sample", "status": "skip", "tier": "full"}
-        suite = {"cases": [case, gated], "registeredSpecs": 1, "reportedSpecs": 1, "passed": 1, "failed": 0, "skipped": 1}
+        case = {"id": "sample::one", "source": "sample", "status": "passed"}
+        gated = {"id": "sample::ramp", "source": "sample", "status": "skipped", "skipReason": "tier:full"}
         for tier in ("affected", "fast"):
-            with self.subTest(tier=tier):
-                self.assertEqual(verify.validate_suite(dict(suite, tier=tier), ["sample"], tier), [])
-                self.assertEqual(verify.deferred_cases(dict(suite, tier=tier), tier), {"sample::ramp"})
+            suite = suite_fixture(tier, [case, gated])
+            self.assertEqual(verify.validate_suite(suite, ["sample"], tier), [])
+            self.assertEqual(verify.deferred_cases(suite, tier), {"sample::ramp"})
         for tier in ("full", "release"):
-            with self.subTest(tier=tier):
-                self.assertTrue(verify.validate_suite(dict(suite, tier=tier), ["sample"], tier))
-                self.assertEqual(verify.deferred_cases(dict(suite, tier=tier), tier), set())
-        for change in ({"cases": [case, dict(gated, tier=None)]}, {"cases": [case, dict(gated, tier="fast")]}, {"cases": [case, dict(gated, tier="unknown")]}, {"skipped": 0}, {"passed": 2}):
-            with self.subTest(change=change):
-                self.assertTrue(verify.validate_suite(dict(suite, tier="fast", **change), ["sample"], "fast"))
+            suite = suite_fixture(tier, [case, gated])
+            self.assertTrue(verify.validate_suite(suite, ["sample"], tier))
+            self.assertEqual(verify.deferred_cases(suite, tier), set())
+        for reason in (None, "tier:fast", "tier:unknown"):
+            self.assertTrue(verify.validate_suite(suite_fixture("fast", [case, dict(gated, skipReason=reason)]), ["sample"], "fast"))
 
     def test_architecture_rejects_example_imports_of_private_modules_and_extra_vendors(self):
         self.write("src/ui/private.luau", "return {}")
@@ -234,12 +250,14 @@ return require("./actual")''')
         artifacts = self.root / "artifacts/verify/native"
 
         def execute(command, **kwargs):
+            if command[:3] == ["lune", "run", "tools/lune/verify_producers"]:
+                return execute_producer_fixture(command, execute)
             if command[:2] == ["git", "rev-parse"]:
                 return type("Result", (), {"returncode": 0, "stdout": "c" * 40})()
             if command[:2] == ["git", "status"]:
                 return type("Result", (), {"returncode": 0, "stdout": ""})()
             if command[:3] == ["lune", "run", "tools/lune/native_verify_suite"]:
-                (artifacts / "suite.json").write_text(json.dumps({"tier": command[3], "cases": [{"id": "native_sample::sample", "spec": "native_sample", "status": "pass"}], "registeredSpecs": 1, "reportedSpecs": 1, "passed": 1, "failed": 0}))
+                (artifacts / "suite.json").write_text(json.dumps(suite_fixture(command[3], [{"id": "native_sample::sample", "source": "native_sample", "status": "passed"}])))
             code = 2 if command == ["python3", "tools/check_perf_gate_evidence.py", "studio"] else 0
             return type("Result", (), {"returncode": code, "stdout": ""})()
 
