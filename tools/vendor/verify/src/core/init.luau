@@ -3,13 +3,8 @@
 local Operations = require "@self/operations"
 local Performance = require "@self/performance"
 
-local Benchmark = require "@self/benchmark"
 local Capability = require "@self/capability"
-local EvidenceSeal = require "@self/evidence-seal"
-local EvidenceValidation = require "@self/evidence-validation"
 local Execution = require "@self/execution"
-local Gate = require "@self/gate"
-local GateTypes = require "@self/gate-types"
 local HarnessModule = require "@self/harness"
 local Manifest = require "@self/manifest"
 local Matchers = require "@self/matchers"
@@ -96,40 +91,6 @@ export type EvidenceMemorySink = Provenance.MemorySink
 export type EvidenceContent = Provenance.Content
 export type EvidenceMeta = Provenance.Meta
 export type EvidenceStat = Provenance.Stat
-export type EvidenceIssue = EvidenceValidation.Issue
-export type EvidenceExpectedBuild = EvidenceValidation.Expected
-export type EvidenceRequirement = EvidenceValidation.Requirement
-export type EvidenceAttestation = EvidenceValidation.Attestation
-export type EvidencePolicy = EvidenceValidation.Policy
-export type EvidenceResult = EvidenceValidation.Result
-export type SealOptions = EvidenceSeal.SealOptions
-export type SealIssue = EvidenceSeal.Issue
-export type Sealed = EvidenceSeal.Sealed
-export type ReviewBinding = EvidenceSeal.ReviewBinding
-
-export type BenchmarkSpec = Benchmark.Spec
-export type BenchmarkResult = Benchmark.Result
-export type BenchmarkBaseline = Benchmark.Baseline
-export type BenchmarkYardstick = Benchmark.Yardstick
-export type BenchmarkInvalid = Benchmark.Invalid
-export type BenchmarkClock = Benchmark.Clock
-
-export type GateDraft = GateTypes.GateDraft
-export type GateProducerDraft = GateTypes.ProducerDraft
-export type GatePolicyDraft = GateTypes.PolicyDraft
-export type Gate = GateTypes.Gate
-export type GateSelection = GateTypes.Selection
-export type GateReuse = GateTypes.Reuse
-export type GateJob = GateTypes.Job
-export type GateJobOutcome = GateTypes.JobOutcome
-export type GateTask = GateTypes.Task
-export type GateExecutor = GateTypes.Executor
-export type GateRunOptions = GateTypes.RunOptions
-export type GateExitClass = GateTypes.ExitClass
-export type GateReportExpectation = GateTypes.ReportExpectation
-export type GateRecord = GateTypes.ProducerRecord
-export type GateAcceptance = GateTypes.Acceptance
-export type GateOutcome = GateTypes.Outcome
 
 export type MediaAudioWindow = Media.AudioWindow
 export type MediaResolvedAudioWindow = Media.ResolvedAudioWindow
@@ -160,11 +121,6 @@ return {
 	runCase = HarnessModule.runCase,
 	runCases = HarnessModule.runCases,
 	performance = Performance,
-	benchmark = Benchmark,
-	defineGate = Gate.define,
-	runGate = Gate.run,
-	formatGate = Gate.format,
-	GATE_SCHEMA_VERSION = Gate.SCHEMA_VERSION,
 	SCHEMA_VERSION = ReportModel.SCHEMA_VERSION,
 	MANIFEST_SCHEMA_VERSION = Manifest.SCHEMA_VERSION,
 	PLAN_SCHEMA_VERSION = Plan.SCHEMA_VERSION,
@@ -194,10 +150,6 @@ return {
 	accountPlan = Execution.account,
 	createSession = SessionModule.create,
 	waitUntil = Wait.waitUntil,
-	sealEvidence = EvidenceSeal.seal,
-	bindReview = EvidenceSeal.bindReview,
-	validateEvidence = EvidenceValidation.validate,
-	explainEvidence = EvidenceValidation.explain,
 	memorySink = Provenance.memorySink,
 	mediaAudioWindow = Media.audioWindow,
 	mediaProbeSummary = Media.probeSummary,

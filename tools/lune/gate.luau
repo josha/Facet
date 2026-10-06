@@ -2,6 +2,7 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
+local Gate = require("../vendor/verify/src/gate")
 local Lune = require("../vendor/verify/src/lune")
 local Verify = require("../vendor/verify/src/core")
 
@@ -27,7 +28,7 @@ export type Entry = {
 	environment: string,
 	kind: ("command" | "build")?,
 	after: { string }?,
-	report: Verify.GateReportExpectation?,
+	report: Gate.ReportExpectation?,
 	deadlineSeconds: number?,
 	replaces: { string }?,
 }
@@ -69,8 +70,8 @@ local function catalog(tier: string): { Entry }
 	return entries
 end
 
-local function define(entries: { Entry }, referenceHost: boolean, id: string?): Verify.Gate
-	local producers: { Verify.GateProducerDraft } = {}
+local function define(entries: { Entry }, referenceHost: boolean, id: string?): Gate.Definition
+	local producers: { Gate.ProducerDraft } = {}
 	local deferrals: { [string]: string } = {}
 	for _, entry in entries do
 		local reason = DEFERRAL[entry.environment]
@@ -87,17 +88,17 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 			after = entry.after,
 			report = entry.report,
 			deadlineSeconds = entry.deadlineSeconds,
-			exit = if deferrable then { [2] = "deferred" :: Verify.GateExitClass } else nil,
+			exit = if deferrable then { [2] = "deferred" :: Gate.ExitClass } else nil,
 		})
 	end
-	return Verify.defineGate({
+	return Gate.define({
 		id = id or "facet",
 		producers = producers,
 		policy = { concurrency = 1, commandDeadlineSeconds = 1800, deferrals = deferrals },
 	})
 end
 
-local function selection(tier: string, rerun: string?): Verify.GateSelection?
+local function selection(tier: string, rerun: string?): Gate.Selection?
 	assert(table.find(TIERS, tier), "unknown tier: " .. tier)
 	if rerun ~= nil then
 		return { ids = { rerun }, tiers = SELECTED[tier] }
@@ -105,7 +106,7 @@ local function selection(tier: string, rerun: string?): Verify.GateSelection?
 	return if SELECTED[tier] then { tiers = SELECTED[tier] } else nil
 end
 
-local function tierComplete(outcome: Verify.GateOutcome, tier: string, rerun: string?): boolean
+local function tierComplete(outcome: Gate.Outcome, tier: string, rerun: string?): boolean
 	if rerun ~= nil then
 		return false
 	end
@@ -119,7 +120,7 @@ local function tierComplete(outcome: Verify.GateOutcome, tier: string, rerun: st
 	return true
 end
 
-local function conclusion(outcome: Verify.GateOutcome, tier: string, rerun: string?): (string, number)
+local function conclusion(outcome: Gate.Outcome, tier: string, rerun: string?): (string, number)
 	local acceptance = outcome.acceptance
 	if acceptance.verdict == "failed" then
 		return "FAIL", 1
@@ -218,7 +219,7 @@ local function main()
 			referenceHost = tostring(referenceHost),
 			historicalParity = "not-established",
 		},
-		observe = function(record: Verify.GateRecord)
+		observe = function(record: Gate.Record)
 			if record.status == "not_selected" then
 				return
 			end
@@ -233,7 +234,7 @@ local function main()
 			end
 		end,
 	})
-	print(Verify.formatGate(outcome))
+	print(Gate.format(outcome))
 	local status, code = conclusion(outcome, tier, rerun)
 	fs.writeFile(`{ARTIFACTS}/report.json`, serde.encode("json", outcome, true))
 	if tierComplete(outcome, tier, rerun) then

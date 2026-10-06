@@ -1,8 +1,8 @@
 --!strict
 
-local Benchmark = require "./benchmark"
-local Provenance = require "./provenance"
-local Types = require "./types"
+local Benchmark = require "../benchmark"
+local Provenance = require "../core/provenance"
+local Types = require "../core/types"
 
 export type Kind = "tests" | "command" | "build" | "native" | "benchmark"
 export type ExitClass = "passed" | "failed" | "deferred" | "unsupported"
@@ -28,6 +28,7 @@ export type ProducerDraft = {
 	report: ReportExpectation?,
 	worker: string?,
 	locators: { string }?,
+	silent: { string }?,
 	benchmark: Benchmark.Spec?,
 }
 
@@ -47,6 +48,7 @@ export type Producer = {
 	report: ReportExpectation?,
 	worker: string?,
 	locators: { string },
+	silent: { string },
 	benchmark: Benchmark.Spec?,
 }
 

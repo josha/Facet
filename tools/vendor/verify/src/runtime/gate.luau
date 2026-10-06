@@ -5,20 +5,21 @@ local Bounded = require "./bounded"
 local Files = require "./files"
 local Host = require "./host"
 local Verify = require "../core"
+local Gate = require "../gate"
 local Wire = require "./wire"
 
 export type Options = {
 	runId: string?,
 	directory: string?,
 	build: Verify.EvidenceBuild?,
-	selection: Verify.GateSelection?,
-	reuse: { [string]: Verify.GateReuse }?,
+	selection: Gate.Selection?,
+	reuse: { [string]: Gate.Reuse }?,
 	capabilities: { string }?,
 	environment: { [string]: string }?,
 	name: string?,
 	logBytes: number?,
 	pollSeconds: number?,
-	observe: ((record: Verify.GateRecord) -> ())?,
+	observe: ((record: Gate.Record) -> ())?,
 	command: { string }?,
 	now: (() -> number)?,
 	wait: ((seconds: number) -> ())?,
@@ -26,8 +27,8 @@ export type Options = {
 }
 
 export type Gate = {
-	run: (gate: Verify.Gate, options: Options?) -> Verify.GateOutcome,
-	executor: (options: Options, directory: string, runId: string) -> Verify.GateExecutor,
+	run: (gate: Gate.Definition, options: Options?) -> Gate.Outcome,
+	executor: (options: Options, directory: string, runId: string) -> Gate.Executor,
 	writeReport: (path: string, runId: string, report: Verify.Report) -> (),
 }
 
@@ -68,15 +69,15 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 		runtime.fs.write(path, runtime.json.encode { runId = runId, report = Verify.decode(report) })
 	end
 
-	local function executor(options: Options, directory: string, runId: string): Verify.GateExecutor
+	local function executor(options: Options, directory: string, runId: string): Gate.Executor
 		local now = options.now or runtime.time.clock
 		local wait = options.wait or runtime.time.wait
 		files.ensureDirectory(directory)
 
-		local function start(job: Verify.GateJob): Verify.GateTask
+		local function start(job: Gate.Job): Gate.Task
 			local stem = ("%s/%s"):format(directory, safeName(job.id))
-			local result: Verify.GateJobOutcome? = nil
-			local poll = function(): Verify.GateJobOutcome?
+			local result: Gate.JobOutcome? = nil
+			local poll = function(): Gate.JobOutcome?
 				return result
 			end
 			if job.kind == "tests" then
@@ -183,7 +184,7 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 		return { now = now, wait = wait, start = start }
 	end
 
-	local function run(gate: Verify.Gate, options: Options?): Verify.GateOutcome
+	local function run(gate: Gate.Definition, options: Options?): Gate.Outcome
 		local settings: Options = if options ~= nil then options else {}
 		local runId = settings.runId or newRunId()
 		local directory = ("%s/%s"):format(settings.directory or runtime.defaultDirectory .. "/gate", safeName(runId))
@@ -197,7 +198,7 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 		for key, value in supplied do
 			environment[key] = value
 		end
-		return Verify.runGate(gate, executor(settings, directory, runId), {
+		return Gate.run(gate, executor(settings, directory, runId), {
 			runId = runId,
 			build = settings.build,
 			selection = settings.selection,

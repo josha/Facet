@@ -1,13 +1,13 @@
 --!strict
 
-local Benchmark = require "./benchmark"
-local Capability = require "./capability"
-local Execution = require "./execution"
+local Benchmark = require "../benchmark"
+local Capability = require "../core/capability"
+local Execution = require "../core/execution"
 local GateJob = require "./gate-job"
 local GateTypes = require "./gate-types"
-local Plan = require "./plan"
-local ReportModel = require "./report"
-local Types = require "./types"
+local Plan = require "../core/plan"
+local ReportModel = require "../core/report"
+local Types = require "../core/types"
 
 type Producer = GateTypes.Producer
 type ProducerRecord = GateTypes.ProducerRecord
@@ -88,6 +88,7 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 	end
 	local argv: { string } = {}
 	local locators: { string } = {}
+	local silent: { string } = {}
 	local exit: { [number]: GateTypes.ExitClass } = {}
 	if kind == "tests" then
 		if type(draft.worker) ~= "string" or draft.worker == "" then
@@ -96,6 +97,12 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 		locators = ordered(draft.locators, label .. ".locators")
 		if #locators == 0 then
 			error(label .. " lists no test module", 3)
+		end
+		silent = ordered(draft.silent, label .. ".silent")
+		for _, locator in silent do
+			if table.find(locators, locator) == nil then
+				error(("%s.silent names %s, which is not one of its locators"):format(label, locator), 3)
+			end
 		end
 		if
 			draft.argv ~= nil
@@ -118,6 +125,7 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 			or draft.report ~= nil
 			or draft.worker ~= nil
 			or draft.locators ~= nil
+			or draft.silent ~= nil
 			or draft.env ~= nil
 			or draft.cwd ~= nil
 		then
@@ -128,7 +136,7 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 		if #argv == 0 then
 			error(label .. " needs a command", 3)
 		end
-		if draft.worker ~= nil or draft.locators ~= nil or draft.benchmark ~= nil then
+		if draft.worker ~= nil or draft.locators ~= nil or draft.silent ~= nil or draft.benchmark ~= nil then
 			error(label .. " is a command producer and takes argv, env, cwd, exit and report", 3)
 		end
 		local declaredExit: { [number]: GateTypes.ExitClass } = if draft.exit ~= nil then draft.exit else {}
@@ -183,6 +191,7 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 		report = expectation,
 		worker = draft.worker,
 		locators = locators,
+		silent = silent,
 		benchmark = draft.benchmark,
 	}
 end
@@ -291,6 +300,7 @@ local function digestOf(id: string, producers: { Producer }, policy: GateTypes.P
 					else "",
 				tostring(producer.worker),
 				table.concat(producer.locators, ","),
+				table.concat(producer.silent, ","),
 				if spec ~= nil
 					then ("%s|%s|%d|%d|%s|%s"):format(
 						spec.name,
@@ -1015,8 +1025,65 @@ local function format(outcome: GateTypes.Outcome): string
 	return table.concat(lines, "\n")
 end
 
+export type ShardOptions = {
+	prefix: string,
+	worker: string,
+	count: number,
+	mode: Types.BatchingMode?,
+	silent: { string }?,
+	tier: string?,
+	tags: { string }?,
+	requires: { string }?,
+	deadlineSeconds: number?,
+}
+
+local function shard(plan: Types.PlanDraft, options: ShardOptions): { GateTypes.ProducerDraft }
+	local silent: { [string]: boolean } = {}
+	local declared: { string } = options.silent or {}
+	for _, locator in declared do
+		silent[locator] = true
+	end
+	local drafts: { GateTypes.ProducerDraft } = {}
+	for _, batch in Plan.partition(plan, options.count, options.mode) do
+		local locators: { string } = {}
+		local quiet: { string } = {}
+		for _, unit in batch.units do
+			table.insert(locators, unit.locator)
+			if silent[unit.locator] then
+				table.insert(quiet, unit.locator)
+			end
+		end
+		if #locators > 0 then
+			table.insert(drafts, {
+				id = ("%s-%d"):format(options.prefix, batch.index),
+				kind = "tests",
+				worker = options.worker,
+				locators = locators,
+				silent = quiet,
+				tier = options.tier,
+				tags = options.tags,
+				requires = options.requires,
+				deadlineSeconds = options.deadlineSeconds,
+			})
+		end
+	end
+	return drafts
+end
+
+local function testCases(outcome: GateTypes.Outcome): Report
+	local own: { string } = {}
+	for _, record in outcome.producers do
+		if record.kind == "tests" then
+			table.insert(own, record.id)
+		end
+	end
+	return ReportModel.without(outcome.execution.report, own)
+end
+
 return {
 	SCHEMA_VERSION = SCHEMA_VERSION,
+	shard = shard,
+	testCases = testCases,
 	DEFAULT_COMMAND_DEADLINE = DEFAULT_COMMAND_DEADLINE,
 	define = define,
 	run = run,

@@ -6,7 +6,7 @@ its workloads, its project policy and small bindings.
 
 ## What Verify owns
 
-- `Core.defineGate` and `Lune.gate.run` run every producer as one plan. They
+- `Gate.define` and `Lune.gate.run` run every producer as one plan. They
   bound each process group, keep the logs, apply the selection and compute the
   verdict. `tools/lune/producers.json` declares the producers.
   `tools/lune/gate.luau` binds the tier, the deferral policy and the build

@@ -23,6 +23,7 @@ local Bdd = require(path.to.verify.bdd)
 ```
 
 Optional packages are [`Lute`](../src/lute/init.luau), [`Roblox`](../src/roblox/init.luau),
+[`Gate`](../src/gate/init.luau) and [`Evidence`](../src/evidence/init.luau) (host-side; places mount only core),
 [`Host`](../src/host/init.luau) and [`Consumer`](../src/consumer/init.luau).
 The entry points export their public functions and types. See the
 [working example](../examples/basic.luau) for a directly executable case and report.
@@ -326,8 +327,8 @@ locator meaning and an authorized host.
 | `Core.negotiate`, `explainCapabilities` | Determine and explain capability support. |
 | `Core.execute(plan, host, options?)` | Execute batches with lifecycle and failure accounting. |
 
-| `Core.defineGate`, `runGate`, `formatGate`; `Lute.gate` and `Lune.gate` (`run`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
-| `Core.benchmark.case`, `run` | Warmup, sampling, baseline and stability checks reported as an ordinary case. See [benchmarks](experience.md#benchmarks). |
+| `Gate.define`, `run`, `format`, `shard`, `testCases` (package `src/gate`); `Lute.gate` and `Lune.gate` (`run`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
+| `Benchmark.case`, `run` (`src/benchmark.luau`) | Warmup, sampling, baseline and stability checks reported as an ordinary case. See [benchmarks](experience.md#benchmarks). |
 
 See [the execution contract](execution.md) for fixtures, deadlines, retries and Lute workers. [`Host.fake`](../src/host/init.luau) injects missing, duplicate, reordered, failed and
 cancelled deliveries without external effects.
@@ -386,7 +387,9 @@ enforced and `close` restores the declared prior mode without closing Studio. `a
 `Lute.openCloud.host({ connection, codeForBatch, ... })` returns a `Core.Host`; `Lute.platform.run` and
 `tools/run.luau` accept `host = "open-cloud"` with `cloud` options. The caller supplies `request` and
 `authorize`; outcomes report `passed`, `delivery`, task state, `handle`, logs and `timing`. A complete task
-is not a pass without a run-bound all-passed report; a local timeout never cancels. See
+is not a pass without a run-bound all-passed report; a local timeout never cancels. `submit`, `poll`, `logs` and
+`binding = "caller"` (script bytes unchanged, raw `results` and `task`, no report claim) serve callers that bind runs
+themselves. See
 [Open Cloud execution](execution.md#open-cloud-execution).
 
 ### Evidence provenance
@@ -396,12 +399,12 @@ actor, checkpoint, build (`commit`, `tree`, `clean`, `digest`), executing host a
 origin), caller-declared `device` class and `capturedAt`. A `Review` may carry `kind` (`visual` or `audio`) and
 `judged`, the content hashes the reviewer saw. The report decoder keeps both; no second receipt exists.
 
-- `Core.sealEvidence(report, { runId, build, device, now, hash, read, sink })` reads each artifact, stores its
+- `Evidence.seal(report, { runId, build, device, now, hash, read, sink })` reads each artifact, stores its
   bytes in `sink` and returns `{ report, issues }`. An unreadable, unstorable or unconfirmed artifact stays
   unsealed and reported. `Lute.evidenceStore.seal` binds the Lute hash, file reader and clock.
-- `Core.bindReview(report, { caseId, actor, checkpoint, kind, judged })` binds a recorded review to the content
+- `Evidence.bindReview(report, { caseId, actor, checkpoint, kind, judged })` binds a recorded review to the content
   hashes the reviewer actually judged. Hash what the reviewer saw, not what is stored later.
-- `Core.validateEvidence(report, policy)` returns `{ ok, issues, verified }` and re-hashes every artifact through
+- `Evidence.validate(report, policy)` returns `{ ok, issues, verified }` and re-hashes every artifact through
   `policy.store`. The policy declares the expected build (`requireClean` refuses dirty builds), `now`,
   `maxAgeSeconds`, `maxSkewSeconds`, optional `runId`, `hosts` and `capabilities`, and `required` coverage:
   `{ caseId, actors, checkpoints, devices, mediaType?, reviews? }` expanded as a cross product. It rejects
@@ -519,6 +522,16 @@ operation, marking injected failures. `accounting` and `close` return live objec
 faults. `instanceHost(actor)` reuses the same environment. `Lune.fixture(options?)` (`src/lune`) binds
 `@lune/roblox`'s real database and datatypes to it; `lune run examples/lune-fixture.luau` shows a consumer.
 Application-specific UI expectations stay with the consumer.
+
+Under Lute, a serialized reflection snapshot replaces the Lune database at test time.
+`lune run tools/export-reflection.luau <out.json> [--classes=A,B,...]` writes a deterministic, compact snapshot of the named classes
+and their superclasses: property types, scriptability, tags and the defaults of Vector3, Vector2, Color3, UDim, UDim2,
+CFrame, EnumItem, string, number and boolean values (other default types are omitted). Without `--classes` it exports
+every class. `Lute.fixture.bridge(path | snapshot, options?)` builds the same bridge from that file with no Lune runtime;
+`Roblox.reflectionSnapshot.database(snapshot)` and `.bridge(snapshot, options?)` are the portable forms. Values are
+Verify datatypes, so enum items carry their family (`Enum.Material.Plastic`) and are checked against the property's enum.
+A Lune test compares the snapshot path with the native bridge for classes, properties, defaults and accepted and refused
+writes. Regenerate a committed snapshot after a Roblox API update; the Lune test fails when a fixture is stale.
 
 This is simulated behavior validated against engine metadata, not engine parity: instances are Luau tables,
 defaults and property types come from the database, and events, methods, layout, rendering, input and

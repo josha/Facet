@@ -1,10 +1,10 @@
 --!strict
 
-local Benchmark = require "./benchmark"
+local Benchmark = require "../benchmark"
 local GateTypes = require "./gate-types"
-local Harness = require "./harness"
-local ReportModel = require "./report"
-local Types = require "./types"
+local Harness = require "../core/harness"
+local ReportModel = require "../core/report"
+local Types = require "../core/types"
 
 type Producer = GateTypes.Producer
 type Report = Types.Report
@@ -152,7 +152,7 @@ local function accounting(producer: Producer, report: Report): string?
 	if producer.kind == "tests" then
 		local silent: { string } = {}
 		for _, wanted in producer.locators do
-			local seen = false
+			local seen = table.find(producer.silent, wanted) ~= nil
 			for _, result in report.results do
 				if result.source == wanted then
 					seen = true

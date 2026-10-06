@@ -5,6 +5,7 @@ local Binding = require "../runtime/binding"
 local Bounded = require "../runtime/bounded"
 local Gate = require "../runtime/gate"
 local FixtureBridge = require "../roblox/fixture-bridge"
+local ReflectionExport = require "./reflection-export"
 local Host = require "../runtime/host"
 local LuneReflection = require "./reflection"
 local Receipt = require "../runtime/receipt"
@@ -58,6 +59,8 @@ return {
 	checkReceipt = Receipt.check,
 	encodeReceipt = Receipt.encode,
 	fixture = LuneReflection.create,
+	exportReflection = ReflectionExport.create,
+	serializeSnapshot = ReflectionExport.serialize,
 	fixtureFrom = LuneReflection.createFrom,
 	HOST_CAPABILITIES = Host.DEFAULT_CAPABILITIES,
 }

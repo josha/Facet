@@ -847,6 +847,9 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			if state.class.events[key] then
 				return signalFor(state, key)
 			end
+			if type(state.class.methods[key]) == "function" then
+				return memberMethod(object, state, key)
+			end
 			local builtin = universal(object, state, key)
 			if builtin ~= nil then
 				return builtin

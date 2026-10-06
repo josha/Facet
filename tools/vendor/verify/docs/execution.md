@@ -98,16 +98,22 @@ not type them; a pass proves Luau logic under Lune, not Lute, Studio or Player b
 
 ## Declarative gates
 
-`Core.defineGate({ id, producers, policy? })` declares what must be produced. `Lute.gate.run(gate, options?)` and
+`Gate.define({ id, producers, policy? })` declares what must be produced. `Lute.gate.run(gate, options?)` and
 `Lune.gate.run` execute it through `Core.execute`: one plan, one `Core.Report`, no second scheduler or receipt. Both
-are bindings over `src/runtime/gate.luau`; another host calls `Core.runGate(gate, executor, { runId, ... })` with an
+are bindings over `src/runtime/gate.luau`; another host calls `Gate.run(gate, executor, { runId, ... })` with an
 injected `{ now, wait, start }`.
 
 | Producer | Fields | Runs |
 | --- | --- | --- |
-| `tests` | `worker`, `locators` | Ordinary spec modules in one [Lute worker](#lute-workers) process. Every locator must report a case. |
+| `tests` | `worker`, `locators`, `silent?` | Ordinary spec modules in one [Lute worker](#lute-workers) process. Every locator must report a case unless `silent` names it; a silent module may report none because another module requires it. `silent` is declared, never inferred. |
 | `command`, `build`, `native` | `argv`, `env?`, `cwd?`, `exit?`, `report?` | An argument vector in a bounded process group, with `env` added to the inherited environment and `cwd` set through the runtime binding (no shell wrapper). `native` must name its host in `requires`. |
 | `benchmark` | `benchmark` | A [benchmark](experience.md#benchmarks) in this process, alone by default. |
+
+`Gate.shard(plan, { prefix, worker, count, mode?, silent?, ... })` turns a consumer's plan into `tests` producer
+drafts. It uses `partitionPlan`, so fixture groups stay whole and weights balance, and it carries the `silent` names
+that fall in each shard. With `policy.concurrency` the shards run in parallel without losing the plan's structure.
+`Gate.testCases(outcome)` returns the execution report without the producer-level case each `tests` producer adds,
+so counts show only the modules' own cases.
 
 Every producer has a unique `id` and may set `after`, `tier`, `tags`, `requires`, `deadlineSeconds` (default
 `policy.commandDeadlineSeconds`, 300) and `exclusive`. Policy sets `concurrency` (default 1), whole-run
@@ -137,7 +143,7 @@ Every producer has a unique `id` and may set `after`, `tier`, `tags`, `requires`
 - **Build binding.** `options.build` (an `EvidenceBuild`, see [Evidence provenance](api.md#evidence-provenance)) is recorded in
   the report environment and the outcome. When set, a reused receipt must carry the same build digest or the producer fails.
 - **Outcome.** `{ runId, digest, build?, execution, producers, acceptance }`. Every declared producer has a record (status, exit
-  code, bounded log tails, case ids, reuse, deferral). `execution.report` is the receipt; `Core.formatGate` renders it.
+  code, bounded log tails, case ids, reuse, deferral). `execution.report` is the receipt; `Gate.format` renders it.
   Full logs are written under `<directory>/<runId>/`.
 
 Limits: a benchmark runs in the gate's own process and stops only cooperatively between samples; the gate digest
@@ -267,6 +273,18 @@ the request function adds authentication and performs the HTTP call; an exchange
 - Task logs are fetched (bounded by `logPages`, `logBytes`) after a terminal state into `logs`;
   fetch problems and transient poll failures are listed in `diagnostics`. `timing` carries measured
   `submitSeconds`, `pollSeconds`, `totalSeconds` and `polls`; the `tools/run.luau` output prints them.
+
+Granular operations sit beside `run`. `session.submit(input)` creates the task and returns
+`{ status, delivery, handle?, state?, task?, detail? }` with the task path available before any poll.
+`session.poll(handle)` polls to a terminal state or the deadline without fetching logs, and `session.logs(handle)`
+fetches them separately as `{ ok, text, delivery, diagnostics }`; `reconcile` polls and fetches logs. All use the
+same authorize hook, deadlines, delivery states and handle ownership checks.
+
+`input.binding = "caller"` submits `code` unchanged, with no run id prefix. The caller binds the task to its
+evidence, for example by the digest of the bytes it sent. Outcomes then report `binding = "caller"`, never carry a
+report and are never `passed`; a `COMPLETE` task is `returned` and a failed or cancelled one `faulted`. Every outcome
+exposes `results` (the raw task output results) and `task` (the raw decoded terminal task JSON). The default
+`binding = "run"` is unchanged.
 
 The host declares `open-cloud-server`. It has no physics simulation, no auto-started place scripts,
 no joined clients and no input, replication, rendering, audio, capture or judgment. A unit requiring

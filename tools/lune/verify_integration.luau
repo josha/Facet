@@ -5,6 +5,7 @@ local serde = require("@lune/serde")
 local task = require("@lune/task")
 local Lune = require("../vendor/verify/src/lune")
 local Verify = require("../vendor/verify/src/core")
+local Gate = require("../vendor/verify/src/gate")
 local gate = require("./gate")
 local suite = require("./suite")
 
@@ -77,7 +78,7 @@ local function command(id: string, script: string, environment: string?, tier: s
 	}
 end
 
-local function reporter(id: string, mode: string, expectation: Verify.GateReportExpectation?): gate.Entry
+local function reporter(id: string, mode: string, expectation: Gate.ReportExpectation?): gate.Entry
 	local path = `{directory}/reporter.luau`
 	fs.writeFile(
 		path,
@@ -110,7 +111,7 @@ local sequence = 0
 local function runGate(
 	entries: { gate.Entry },
 	options: { referenceHost: boolean?, tier: string?, rerun: string? }?
-): Verify.GateOutcome
+): Gate.Outcome
 	sequence += 1
 	local settings: { referenceHost: boolean?, tier: string?, rerun: string? } = options or {}
 	local definition = gate.define(entries, settings.referenceHost == true, `fixture-{sequence}`)
@@ -120,7 +121,7 @@ local function runGate(
 	})
 end
 
-local function status(outcome: Verify.GateOutcome, id: string): string
+local function status(outcome: Gate.Outcome, id: string): string
 	for _, record in outcome.producers do
 		if record.id == id then
 			return record.status

@@ -454,19 +454,26 @@ local UDim2 = {
 	end,
 }
 
-export type EnumMember = { _enum: string }
+export type EnumMember = { _enum: string, _family: string }
 export type EnumCategory = { [string]: EnumMember }
 export type EnumValue = { [string]: EnumCategory }
 
+local families = setmetatable({} :: { [unknown]: string }, { __mode = "k" })
+local enumItemMt = {
+	__tostring = function(item: EnumMember): string
+		return ("Enum.%s.%s"):format(item._family, item._enum)
+	end,
+}
 local memberMt = {}
 memberMt.__index = function(category: EnumCategory, member: string): EnumMember
-	local value = { _enum = member }
+	local value = (setmetatable({ _enum = member, _family = families[category] }, enumItemMt) :: unknown) :: EnumMember
 	rawset(category, member, value)
 	return value
 end
 local enumMt = {}
 enumMt.__index = function(enum: EnumValue, category: string): EnumCategory
 	local members = (setmetatable({}, memberMt) :: unknown) :: EnumCategory
+	families[members] = category
 	rawset(enum, category, members)
 	return members
 end
@@ -533,7 +540,12 @@ local names: { [unknown]: string } = {
 	[v2Mt] = "Vector2",
 	[udimMt] = "UDim",
 	[udim2Mt] = "UDim2",
+	[enumItemMt] = "EnumItem",
 }
+
+local function enumType(value: unknown): string
+	return (value :: EnumMember)._family
+end
 
 local function typeName(value: unknown): string?
 	if type(value) ~= "table" then
@@ -563,5 +575,6 @@ return {
 	Rect = Rect,
 	TweenInfo = TweenInfo,
 	typeName = typeName,
+	enumType = enumType,
 	readCFrame = readCFrame,
 }

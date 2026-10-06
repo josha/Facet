@@ -1,8 +1,8 @@
 --!strict
 
-local Provenance = require "./provenance"
-local Report = require "./report"
-local Types = require "./types"
+local Provenance = require "../core/provenance"
+local Report = require "../core/report"
+local Types = require "../core/types"
 
 type Artifact = Types.Artifact
 

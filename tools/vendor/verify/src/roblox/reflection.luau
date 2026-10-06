@@ -89,15 +89,20 @@ local function create(options: Options): Environment.Environment
 		Int32 = true,
 		Int64 = true,
 	}
-	return Environment.create {
+	local doubles: { [string]: boolean } = {}
+	local environment = Environment.create {
 		builtins = false,
 		classes = definitions,
 		defaultProperty = function(className, key, fallback)
 			if key == "Name" then
 				return className
 			end
-			if properties[className][key] then
-				return defaults[className][key]
+			local declared = properties[className]
+			if declared ~= nil and declared[key] then
+				local value = defaults[className][key]
+				if value ~= nil then
+					return value
+				end
 			end
 			return fallback
 		end,
@@ -108,7 +113,8 @@ local function create(options: Options): Environment.Environment
 				end
 				return
 			end
-			local property = properties[className][key]
+			local known = if doubles[className] then nil else properties[className]
+			local property = if known ~= nil then known[key] else nil
 			if not property then
 				if options.validateProperty then
 					options.validateProperty(className, key, value, operation)
@@ -130,6 +136,8 @@ local function create(options: Options): Environment.Environment
 				valid = type(value) == "number"
 			elseif expected == "bool" or expected == "Bool" then
 				valid = type(value) == "boolean"
+			elseif expected == "Content" or expected == "ContentId" then
+				valid = actual == "string" or actual == expected
 			elseif expected == "Ref" then
 				valid = value == nil or Environment.isInstance(value)
 			elseif expected:sub(1, 5) == "Enum." then
@@ -151,5 +159,11 @@ local function create(options: Options): Environment.Environment
 			end
 		end,
 	}
+	local define = environment.defineClass
+	environment.defineClass = function(className, spec, defineOptions)
+		doubles[className] = true
+		define(className, spec, defineOptions)
+	end
+	return environment
 end
 return { create = create }

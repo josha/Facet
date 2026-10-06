@@ -5,6 +5,7 @@ local EnvironmentEngineAdapter = require "@self/environment-engine"
 local Reflection = require "@self/reflection"
 local UiFakes = require "@self/ui-fakes"
 local FixtureBridge = require "@self/fixture-bridge"
+local ReflectionSnapshot = require "@self/reflection-snapshot"
 local Multiplayer = require "@self/multiplayer"
 local InputHost = require "@self/input-host"
 local PlayerHost = require "@self/player-host"
@@ -53,6 +54,7 @@ export type EnvironmentEngineLibrary<
 > = EnvironmentEngineAdapter.Library<V2, V3, C3, U1, U2, CF>
 export type ReflectionOptions = Reflection.Options
 export type ReflectionDatabase = Reflection.Database
+export type ReflectionClass = Reflection.Class
 export type UiFakeOptions = UiFakes.Options
 export type FixtureBridgeOptions<
 	V2 = EnvironmentEngineVector2,
@@ -63,6 +65,9 @@ export type FixtureBridgeOptions<
 	CF = EnvironmentEngineCFrame
 > = FixtureBridge.Options<V2, V3, C3, U1, U2, CF>
 export type FixtureBridge = FixtureBridge.Bridge
+export type ReflectionSnapshot = ReflectionSnapshot.Snapshot
+export type ReflectionSnapshotClass = ReflectionSnapshot.ClassEntry
+export type ReflectionSnapshotOptions = ReflectionSnapshot.Options
 export type FixtureAccounting = FixtureBridge.Accounting
 export type FixtureFaults = FixtureBridge.Faults
 export type EnvironmentEvent = Environment.Event
@@ -154,6 +159,7 @@ return {
 	reflection = Reflection,
 	uiFakes = UiFakes,
 	fixtureBridge = FixtureBridge.create,
+	reflectionSnapshot = ReflectionSnapshot,
 	multiplayer = Multiplayer,
 	inputHost = InputHost,
 	reportChannel = ReportChannel,

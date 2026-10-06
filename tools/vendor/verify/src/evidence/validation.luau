@@ -1,9 +1,9 @@
 --!strict
 
-local Capability = require "./capability"
-local Provenance = require "./provenance"
-local Shape = require "./shape"
-local Types = require "./types"
+local Capability = require "../core/capability"
+local Provenance = require "../core/provenance"
+local Shape = require "../core/shape"
+local Types = require "../core/types"
 
 type Artifact = Types.Artifact
 type Checkpoint = Types.Checkpoint

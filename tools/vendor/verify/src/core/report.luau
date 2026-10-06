@@ -545,6 +545,23 @@ local function merge(reports: { Report }, executor: string, environment: { [stri
 	return finish(into, executor, environment)
 end
 
+local function without(report: Report, dropped: { string }): Report
+	local skip: { [string]: boolean } = {}
+	for _, id in dropped do
+		skip[id] = true
+	end
+	local source = decode(report)
+	local into = newAccumulator()
+	absorbEnvelope(into, source)
+	for _, result in source.results do
+		if not skip[result.id] then
+			into.ids[result.id] = "1"
+			table.insert(into.results, result)
+		end
+	end
+	return finish(into, source.executor, source.environment)
+end
+
 local function compose(payloads: { Types.ShardPayload }, executor: string, environment: { [string]: string }): Report
 	if executor == "" then
 		error("composed report executor must not be empty", 2)
@@ -814,6 +831,7 @@ return {
 	counts = counts,
 	decode = decode,
 	merge = merge,
+	without = without,
 	compose = compose,
 	canonical = canonical,
 	verdictDigest = verdictDigest,
