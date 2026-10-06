@@ -74,6 +74,8 @@ export type CaseOptions = {
 	limitations: { string }?,
 }
 
+local DESELECTED_PREFIX = "deselected: "
+
 export type SelectionSubject = Types.SelectionSubject
 export type SelectionPredicate = Types.SelectionPredicate
 export type Selection = {
@@ -82,6 +84,7 @@ export type Selection = {
 	tags: { string }?,
 	capabilities: { string }?,
 	predicate: SelectionPredicate?,
+	account: boolean?,
 }
 
 export type RunOptions = {
@@ -981,6 +984,11 @@ local function createHarness(options: { now: () -> number, source: string?, pref
 						result.status = "unsupported"
 					end
 					table.insert(results, result)
+				elseif runOptions.selection ~= nil and runOptions.selection.account == true then
+					local skipped = table.clone(entry)
+					skipped.requires = {}
+					skipped.skipReason = DESELECTED_PREFIX .. "the run's selection did not include this case"
+					table.insert(results, executeCase(suite, skipped, available, runOrigin, invoker, runOptions))
 				end
 			end
 			for _, child in suite.children do
@@ -1126,6 +1134,7 @@ local function runCases(specs: { NamedCase }, options: RunOptions, now: () -> nu
 end
 
 return {
+	DESELECTED_PREFIX = DESELECTED_PREFIX,
 	createHarness = createHarness,
 	runCase = runCase,
 	runCases = runCases,

@@ -7,6 +7,7 @@ export type Options = {
 	measureText: ((text: string, size: number, font: unknown, bounds: unknown) -> unknown)?,
 	measureBounds: ((parameters: unknown) -> unknown)?,
 	methods: { [string]: Environment.Method }?,
+	validate: (((className: string, property: string) -> boolean) | false)?,
 }
 export type Controller = { focused: () -> Instance?, close: () -> () }
 

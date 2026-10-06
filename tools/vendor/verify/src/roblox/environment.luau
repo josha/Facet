@@ -97,6 +97,13 @@ export type Event = {
 }
 
 export type CloneHook = (source: Instance, copy: Instance, remap: (Instance) -> Instance) -> ()
+export type CreateHook = (object: Instance) -> ()
+
+export type SignalHandle = {
+	fire: (...unknown) -> (),
+	connections: () -> number,
+	fires: () -> number,
+}
 
 export type Environment = {
 	root: Instance,
@@ -131,6 +138,8 @@ export type Environment = {
 	pendingFailures: () -> number,
 	observe: (listener: (event: Event) -> ()) -> Connection,
 	onClone: (hook: CloneHook) -> Connection,
+	onCreate: (hook: CreateHook) -> Connection,
+	signalOf: (object: Instance, event: string) -> SignalHandle,
 }
 
 type Resolved = {
@@ -351,6 +360,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 
 	local observers: { { listener: (event: Event) -> (), connected: boolean } } = {}
 	local cloneHooks: { { hook: CloneHook, connected: boolean } } = {}
+	local createHooks: { { hook: CreateHook, connected: boolean } } = {}
 
 	local function inject(operation: Operation, subject: string, member: string?)
 		local remaining = failures[operation]
@@ -366,8 +376,12 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		end
 	end
 
+	local meters =
+		setmetatable({} :: { [unknown]: { connections: () -> number, fires: () -> number } }, { __mode = "k" })
+
 	local function newSignal<A...>(): Signal<A...>
 		local live: { { handler: (A...) -> (), connected: boolean, connection: Connection } } = {}
+		local fired = 0
 		local signal = {} :: Signal<A...>
 		function signal:Connect(handler: (A...) -> ()): Connection
 			local connection = { Connected = true } :: Connection
@@ -389,6 +403,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			return connection :: Connection
 		end
 		function signal:Fire(...: A...)
+			fired += 1
 			for _, record in table.clone(live) do
 				if record.connected then
 					local ok, thrown: unknown = pcall(record.handler, ...)
@@ -404,6 +419,14 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			end
 			table.clear(live)
 		end
+		meters[signal] = {
+			connections = function(): number
+				return #live
+			end,
+			fires = function(): number
+				return fired
+			end,
+		}
 		return signal :: Signal<A...>
 	end
 
@@ -564,8 +587,13 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			error("attribute names must not start with RBX", 4)
 		end
 		local kind = type(value)
-		if kind == "table" or kind == "function" or kind == "thread" then
-			error(("attribute %q cannot hold a %s"):format(name, kind), 4)
+		if kind ~= "string" and kind ~= "number" and kind ~= "boolean" and value ~= nil then
+			local described = if kind == "table"
+				then (if isObject(value) then "Instance" else Datatypes.typeName(value) or kind)
+				else typeof(value)
+			if not Datatypes.isAttributeType(described) then
+				error(("attribute %q cannot hold a %s"):format(name, described), 4)
+			end
 		end
 		if
 			type(value) == "string"
@@ -700,10 +728,12 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 					return nil
 				end
 				local copies: { [Instance]: Instance } = {}
+				local originals: { Instance } = {}
 				local function copyTree(original: Instance): Instance
 					local source = stateOf(original)
 					local copy = newObject(source.className, nil, false)
 					copies[original] = copy
+					table.insert(originals, original)
 					for _, child in source.children do
 						if stateOf(child).values.Archivable ~= false then
 							local childCopy = copyTree(child)
@@ -727,7 +757,8 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 					local function remap(value: Instance): Instance
 						return copies[value] or value
 					end
-					for original, copy in copies do
+					for _, original in originals do
+						local copy = copies[original]
 						for _, entry in table.clone(cloneHooks) do
 							if entry.connected then
 								entry.hook(original, copy, remap)
@@ -847,6 +878,9 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			if state.class.events[key] then
 				return signalFor(state, key)
 			end
+			if type(state.class.methods[key]) == "function" then
+				return memberMethod(object, state, key)
+			end
 			local builtin = universal(object, state, key)
 			if builtin ~= nil then
 				return builtin
@@ -923,6 +957,11 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		)
 		if not isRoot then
 			alive += 1
+		end
+		for _, entry in table.clone(createHooks) do
+			if entry.connected then
+				entry.hook(object)
+			end
 		end
 		local initial: { [unknown]: unknown } = props or {}
 		for key, value in initial do
@@ -1124,6 +1163,35 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			end
 		end
 		return connection
+	end
+	environment.onCreate = function(hook: CreateHook): Connection
+		local entry = { hook = hook, connected = true }
+		table.insert(createHooks, entry)
+		local connection = { Connected = true } :: Connection
+		function connection:Disconnect()
+			entry.connected = false
+			connection.Connected = false
+			local index = table.find(createHooks, entry)
+			if index ~= nil then
+				table.remove(createHooks, index)
+			end
+		end
+		return connection
+	end
+	environment.signalOf = function(object: Instance, event: string): SignalHandle
+		local state = stateOf(object)
+		if not state.class.events[event] then
+			memberError(state, event)
+		end
+		local signal = signalFor(state, event)
+		local meter = meters[signal]
+		return {
+			fire = function(...: unknown)
+				signal:Fire(...)
+			end,
+			connections = meter.connections,
+			fires = meter.fires,
+		}
 	end
 	return environment :: Environment
 end

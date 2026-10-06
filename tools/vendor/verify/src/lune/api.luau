@@ -18,6 +18,7 @@ export type Runtime = Binding.Runtime
 export type HostOptions = Host.Options
 export type WorkerOperations = Worker.Operations
 export type WorkerOptions = Worker.Options
+export type WorkerArguments = Worker.Arguments
 export type LoadDisposition = Worker.LoadDisposition
 export type Registrar = Worker.Registrar
 export type SelfRegisteringWorkerOperations = Worker.SelfRegisteringOperations
@@ -49,6 +50,7 @@ return {
 	gate = gate,
 	runBounded = runBounded,
 	worker = worker.main,
+	workerArguments = worker.arguments,
 	selfRegisteringWorker = worker.mainSelfRegistering,
 	runWorkerBatch = worker.runBatch,
 	runSelfRegisteringWorkerBatch = worker.runBatchSelfRegistering,

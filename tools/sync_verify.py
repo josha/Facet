@@ -17,6 +17,7 @@ if __name__ == "__main__":
             "src/lune",
             "src/gate",
             "src/evidence",
+            "src/benchmark.luau",
             "src/runtime",
             "src/bdd.luau",
             "LICENSE",

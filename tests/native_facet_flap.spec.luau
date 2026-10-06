@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local flap = require("../examples/virtual_monitors/flap_model")
 

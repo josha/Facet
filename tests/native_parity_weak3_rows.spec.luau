@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
@@ -70,11 +70,8 @@ return function(verifyHarness: Verify.Harness, tier: string)
 			"returns the performance lab to its floor after every rung of a second ramp lap to 40000 rows",
 			{
 				id = "native_parity_weak3_rows::native parity weak3 rows: declared mount ramp ceiling::returns the performance lab to its floor after every rung of a second ramp lap to 40000 rows",
-				run = function(context)
-					if not (tier == "release") then
-						context:skip("tier:release")
-					end
-
+				tags = { "tier:release" },
+				run = function()
 					inspected(function()
 						local lab = require("../examples/performance/lab/perf_lab") :: any
 						local dataset = require("../examples/performance/lab/dataset") :: any

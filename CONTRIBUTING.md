@@ -44,8 +44,7 @@ the clean source.
 The [producer comparison](docs/guide/20-verification-parity.md#producers) lists
 each main producer and its native status.
 
-Specs return a registration function. The runner supplies a Verify harness and
-the selected tier. Use `harness:suite`, `harness:case`, and
+Specs return a registration function. The worker supplies a Verify harness. Use `harness:suite`, `harness:case`, and
 `Verify.expect(value):toBe(expected)`. Give each case an explicit, stable `id`.
 Verify owns assertions, case cleanup, and reports. The consumer gate owns
 coverage and release acceptance.
@@ -57,16 +56,16 @@ census includes the retained `native_toast` source; its replacement mapping
 excludes it from the full plan, as before the migration. You can still run it
 with the single-source command.
 
-A slow case can require the `full` or `release` tier. Use the supplied tier to
-call `context:skip("tier:full")` or `context:skip("tier:release")` below that
-tier, and record the requirement in the case inventory. The gate accepts only
-these declared deferrals. The 40000-row mount ramp requires `release`.
-`lune run tools/lune/suite_cli <spec> ...` runs the named sources in the `one` tier. Use
-`--tier full` or `--tier release` to run a higher tier. Without a source name,
-the command runs the committed plan. Each source runs in its own Lune worker
-through the Verify Lune host. The full gate uses the same command with four
-workers. A worker failure, a missing or foreign receipt, or a census difference
-fails the command. Verify stops the worker process group at its deadline.
+A slow case can require the `full` or `release` tier. Give the case the tag
+`tier:full` or `tier:release`, and record the tier in the case inventory.
+Below that tier, Verify records the case as deselected. The 40000-row mount
+ramp requires `release`.
+`tools/verify.sh spec <spec> ...` runs the named sources below the release
+tier. Use `--tier release` to include the release cases. Each source runs in
+its own Lune worker through the Verify gate. The full gate runs the committed
+plan the same way with four workers. A worker failure, a missing or foreign
+receipt, or a census difference fails the producer. Verify stops the worker
+process group at its deadline.
 
 Verify is pinned under `tools/vendor/verify`. It is a generated, read-only test
 dependency and is not part of the Facet model. Run

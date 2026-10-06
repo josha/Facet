@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 

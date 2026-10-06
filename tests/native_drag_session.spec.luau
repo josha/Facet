@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src") :: any
 	local context = require("../src/ui/context")
 	local sessionOf = require("../src/ui/drag_session")

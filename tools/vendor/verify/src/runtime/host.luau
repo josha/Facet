@@ -24,6 +24,7 @@ export type Options = {
 	now: (() -> number)?,
 	cancelled: (() -> boolean)?,
 	receipts: ("report" | "bound")?,
+	arguments: { string }?,
 }
 
 local DEFAULT_CAPABILITIES = { "local-luau", "worker" }
@@ -32,6 +33,29 @@ local runSequence = 0
 
 local function safeName(id: string): string
 	return (string.gsub(id, "[^%w%-_]", "-"))
+end
+
+local function recordsLoadFailure(report: unknown): boolean
+	if type(report) ~= "table" then
+		return false
+	end
+	local results = (report :: { [string]: unknown }).results
+	if type(results) ~= "table" then
+		return false
+	end
+	for _, result in results :: { unknown } do
+		if type(result) == "table" then
+			local row = result :: { [string]: unknown }
+			if
+				type(row.id) == "string"
+				and string.match(row.id :: string, "^unit:.+:load$") ~= nil
+				and row.status ~= "passed"
+			then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 local function create(runtime: Binding.Runtime, options: Options): Verify.Host
@@ -71,6 +95,13 @@ local function create(runtime: Binding.Runtime, options: Options): Verify.Host
 		table.insert(argv, resultPath)
 		if runId ~= nil then
 			table.insert(argv, runId)
+		end
+		local extras: { string } = if options.arguments ~= nil then options.arguments else {}
+		if #extras > 0 then
+			table.insert(argv, "--")
+			for _, extra in extras do
+				table.insert(argv, extra)
+			end
 		end
 
 		local started, result: unknown =
@@ -112,7 +143,7 @@ local function create(runtime: Binding.Runtime, options: Options): Verify.Host
 					detail = ("the worker wrote a %s receipt: %s%s"):format(verdict.kind, verdict.detail, logged),
 				}
 			end
-			if outcome.exitcode ~= 0 then
+			if outcome.exitcode ~= 0 and not recordsLoadFailure(verdict.report) then
 				return {
 					status = "faulted",
 					detail = ("the worker exited %d yet wrote a valid receipt%s"):format(outcome.exitcode, logged),

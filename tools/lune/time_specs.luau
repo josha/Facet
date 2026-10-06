@@ -2,11 +2,10 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
-local suite = require("./suite")
-local execution, plan = suite.execute({ tier = "full", jobs = 1 })
+local outcome = serde.decode("json", fs.readFile(process.args[1] or "artifacts/verify/native/report.json"))
 local rows = {}
 local bySource = {}
-for _, result in execution.report.results do
+for _, result in outcome.execution.report.results do
 	local source = result.source or "unknown"
 	local row = bySource[source]
 	if not row then
@@ -17,14 +16,10 @@ for _, result in execution.report.results do
 	row.cases += 1
 	row.casesMs += result.durationMicros / 1000
 end
-local output = process.args[1] or "artifacts/spec-timings.json"
-fs.writeFile(output, serde.encode("json", { execution = execution, sources = rows }, true))
 local lines = { "spec\tcases\tcases_ms" }
 for _, row in rows do
 	table.insert(lines, `{row.spec}\t{row.cases}\t{row.casesMs}`)
 end
-fs.writeFile(output .. ".tsv", table.concat(lines, "\n") .. "\n")
-print(`spec timings: {output} and {output}.tsv`)
-if #suite.findings(execution, plan, "full") > 0 then
-	process.exit(1)
-end
+local output = process.args[2] or "artifacts/spec-timings.tsv"
+fs.writeFile(output, table.concat(lines, "\n") .. "\n")
+print(`spec timings from the last gate outcome: {output}`)

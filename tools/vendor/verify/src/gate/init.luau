@@ -19,6 +19,7 @@ export type ExitClass = GateTypes.ExitClass
 export type ReportExpectation = GateTypes.ReportExpectation
 export type Record = GateTypes.ProducerRecord
 export type Acceptance = GateTypes.Acceptance
+export type Scope = GateTypes.Scope
 export type Outcome = GateTypes.Outcome
 
 return {
@@ -28,4 +29,7 @@ return {
 	testCases = Gate.testCases,
 	run = Gate.run,
 	format = Gate.format,
+	explain = Gate.explain,
+	list = Gate.list,
+	rerun = Gate.rerun,
 }

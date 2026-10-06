@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
 	type ControlSizeValue = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
 

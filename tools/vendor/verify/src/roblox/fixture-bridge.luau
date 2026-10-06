@@ -37,6 +37,12 @@ export type Faults = {
 	assertConsumed: () -> (),
 }
 
+export type Tracking = {
+	created: { Environment.Instance },
+	cloned: { { source: Environment.Instance, copy: Environment.Instance } },
+	stop: () -> (),
+}
+
 export type Bridge = {
 	environment: Environment.Environment,
 	engine: Adapter.Engine,
@@ -45,6 +51,7 @@ export type Bridge = {
 	faults: Faults,
 	hasClass: (className: string) -> boolean,
 	observe: (listener: (event: Environment.Event) -> ()) -> Environment.Connection,
+	track: () -> Tracking,
 	record: () -> { events: { Environment.Event }, stop: () -> () },
 	instanceHost: (actor: string) -> InstanceHost.Simulated,
 	accounting: () -> Accounting,
@@ -83,20 +90,30 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 	local settings = (options :: unknown) :: Options
 	local unavailable: { string } = {}
 	local ui = settings.ui
+	local validate = if type(ui) == "table" then ui.validate else nil
+	local uiValidates = ui ~= false and validate ~= false
+	local selectUi = if type(validate) == "function" then validate else nil
+	local supplied = settings.validateProperty
+	local validator: ((className: string, property: string, value: unknown, operation: "set" | "poke") -> ())? = nil
+	if uiValidates then
+		validator = function(className, property, value, operation)
+			if property == "SelectedObject" and (selectUi == nil or selectUi(className, property)) then
+				UiFakes.validateProperty(className, property, value, operation)
+			end
+			if supplied ~= nil then
+				supplied(className, property, value, operation)
+			end
+		end
+	else
+		validator = supplied
+	end
 	local environment = Reflection.create {
 		database = settings.database,
 		typeName = settings.typeName,
 		enumType = settings.enumType,
 		classes = overlays(settings, unavailable),
 		referenceClass = settings.referenceClass,
-		validateProperty = function(className, property, value, operation)
-			if ui ~= false then
-				UiFakes.validateProperty(className, property, value, operation)
-			end
-			if settings.validateProperty ~= nil then
-				settings.validateProperty(className, property, value, operation)
-			end
-		end,
+		validateProperty = validator,
 	}
 	local controller: UiFakes.Controller? = if ui ~= false
 		then UiFakes.attach(environment, ui :: UiFakes.Options?)
@@ -135,6 +152,25 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 		}
 	end
 
+	local function track(): Tracking
+		local created: { Environment.Instance } = {}
+		local cloned: { { source: Environment.Instance, copy: Environment.Instance } } = {}
+		local creating = environment.onCreate(function(object: Environment.Instance)
+			table.insert(created, object)
+		end)
+		local cloning = environment.onClone(function(source: Environment.Instance, copy: Environment.Instance)
+			table.insert(cloned, { source = source, copy = copy })
+		end)
+		return {
+			created = created,
+			cloned = cloned,
+			stop = function()
+				creating:Disconnect()
+				cloning:Disconnect()
+			end,
+		}
+	end
+
 	return {
 		environment = environment,
 		engine = engine,
@@ -145,6 +181,7 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 			return settings.database:GetClass(className) ~= nil
 		end,
 		observe = environment.observe,
+		track = track,
 		record = record,
 		instanceHost = function(actor: string): InstanceHost.Simulated
 			return InstanceHost.simulated(actor, environment)

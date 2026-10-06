@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local placement = require("../src/ui/overlay_placement")
 
 	local SAFE = { x = 0, y = 0, w = 800, h = 600 }

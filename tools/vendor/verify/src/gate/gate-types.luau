@@ -1,6 +1,6 @@
 --!strict
 
-local Benchmark = require "../core/benchmark"
+local Benchmark = require "../benchmark"
 local Provenance = require "../core/provenance"
 local Types = require "../core/types"
 
@@ -10,6 +10,7 @@ export type ExitClass = "passed" | "failed" | "deferred" | "unsupported"
 export type ReportExpectation = {
 	cases: { string }?,
 	minimum: number?,
+	exact: boolean?,
 }
 
 export type ProducerDraft = {
@@ -17,6 +18,7 @@ export type ProducerDraft = {
 	kind: Kind,
 	after: { string }?,
 	tier: string?,
+	why: string?,
 	tags: { string }?,
 	requires: { string }?,
 	deadlineSeconds: number?,
@@ -27,8 +29,14 @@ export type ProducerDraft = {
 	cwd: string?,
 	report: ReportExpectation?,
 	worker: string?,
+	command: { string }?,
 	locators: { string }?,
 	silent: { string }?,
+	isolate: boolean?,
+	workers: number?,
+	sourceDeadlineSeconds: number?,
+	args: { string }?,
+	cases: { string }?,
 	benchmark: Benchmark.Spec?,
 }
 
@@ -37,6 +45,7 @@ export type Producer = {
 	kind: Kind,
 	after: { string },
 	tier: string?,
+	why: string?,
 	tags: { string },
 	requires: { string },
 	deadlineSeconds: number,
@@ -47,8 +56,14 @@ export type Producer = {
 	cwd: string?,
 	report: ReportExpectation?,
 	worker: string?,
+	command: { string }?,
 	locators: { string },
 	silent: { string },
+	isolate: boolean,
+	workers: number,
+	sourceDeadlineSeconds: number?,
+	args: { string },
+	cases: { string }?,
 	benchmark: Benchmark.Spec?,
 }
 
@@ -91,6 +106,7 @@ export type Selection = {
 	ids: { string }?,
 	tiers: { string }?,
 	tags: { string }?,
+	cases: { string }?,
 }
 
 export type Reuse = {
@@ -107,7 +123,14 @@ export type Job = {
 	env: { [string]: string },
 	cwd: string?,
 	worker: string?,
+	command: { string }?,
 	locators: { string },
+	args: { string },
+	isolate: boolean,
+	workers: number,
+	sourceDeadlineSeconds: number?,
+	tiers: { string },
+	cases: { string },
 	runId: string,
 	expectsReport: boolean,
 	deadlineSeconds: number,
@@ -170,6 +193,7 @@ export type ProducerRecord = {
 	id: string,
 	kind: Kind,
 	tier: string?,
+	why: string?,
 	status: Status,
 	selected: boolean,
 	pulledByDependency: boolean,
@@ -180,6 +204,7 @@ export type ProducerRecord = {
 	log: Log?,
 	reportAccounted: boolean,
 	caseIds: { string },
+	deselected: { string },
 	reused: boolean,
 	reuseReference: string?,
 	deferral: string?,
@@ -198,6 +223,21 @@ export type Acceptance = {
 	deferred: { string },
 	reused: { string },
 	notSelected: { string },
+	skippedByTier: { string },
+	deselected: { string },
+}
+
+export type Scope = {
+	complete: boolean,
+	label: string,
+	ids: { string },
+	tiers: { string },
+	tags: { string },
+	cases: { string },
+	selected: { string },
+	notSelected: { string },
+	skippedByTier: { string },
+	deselected: { string },
 }
 
 export type Outcome = {
@@ -206,6 +246,7 @@ export type Outcome = {
 	digest: string,
 	runId: string,
 	build: Provenance.Build?,
+	scope: Scope,
 	execution: Types.ExecutionReport,
 	producers: { ProducerRecord },
 	acceptance: Acceptance,

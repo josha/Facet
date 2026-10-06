@@ -1,6 +1,6 @@
 --!strict
 
-local Benchmark = require "../core/benchmark"
+local Benchmark = require "../benchmark"
 local GateTypes = require "./gate-types"
 local Harness = require "../core/harness"
 local ReportModel = require "../core/report"
@@ -26,6 +26,7 @@ export type Built = {
 	detail: string?,
 	accounted: boolean,
 	caseIds: { string },
+	deselected: { string },
 	deferral: string?,
 }
 
@@ -78,6 +79,22 @@ local function ids(report: Report): { string }
 	return found
 end
 
+local function isDeselected(result: Types.CaseResult): boolean
+	return result.status == "skipped"
+		and result.skipReason ~= nil
+		and string.sub(result.skipReason, 1, #Harness.DESELECTED_PREFIX) == Harness.DESELECTED_PREFIX
+end
+
+local function deselectedOf(report: Report, producer: Producer): { string }
+	local found: { string } = {}
+	for _, result in report.results do
+		if result.id ~= producer.id and isDeselected(result) then
+			table.insert(found, result.id)
+		end
+	end
+	return found
+end
+
 local function producerResult(report: Report, producer: Producer): Types.CaseResult?
 	for _, result in report.results do
 		if result.id == producer.id then
@@ -114,16 +131,35 @@ local function statusOf(report: Report, producer: Producer): (Status, string?)
 	end
 	local notPassed = 0
 	local adopted = 0
+	local sample: { string } = {}
 	for _, result in report.results do
-		if result.id ~= producer.id then
+		if result.id ~= producer.id and not isDeselected(result) then
 			adopted += 1
 			if result.status ~= "passed" then
 				notPassed += 1
+				if #sample < 3 then
+					local failure = result.failures[1]
+					table.insert(
+						sample,
+						("%s [%s] %s%s"):format(
+							result.id,
+							if result.source ~= nil then result.source else producer.id,
+							result.status,
+							if failure ~= nil then ": " .. failure.message else ""
+						)
+					)
+				end
 			end
 		end
 	end
 	if notPassed > 0 then
-		return "failed", ("%d of %d reported case(s) did not pass"):format(notPassed, adopted)
+		return "failed",
+			("%d of %d reported case(s) did not pass: %s%s"):format(
+				notPassed,
+				adopted,
+				table.concat(sample, "; "),
+				if notPassed > #sample then "; ..." else ""
+			)
 	end
 	return "passed", nil
 end
@@ -148,6 +184,41 @@ local function receive(producer: Producer, document: unknown, ctx: Context, bare
 	return report :: Report, nil
 end
 
+local function census(declared: { string }, report: Report, producer: Producer): string?
+	local wanted: { [string]: boolean } = {}
+	for _, id in declared do
+		wanted[id] = true
+	end
+	local present: { [string]: boolean } = {}
+	local extra: { string } = {}
+	for _, result in report.results do
+		if present[result.id] then
+			table.insert(extra, result.id .. " (duplicate)")
+		end
+		present[result.id] = true
+		if not wanted[result.id] then
+			table.insert(extra, result.id)
+		end
+	end
+	local missing: { string } = {}
+	for _, id in declared do
+		if not present[id] then
+			table.insert(missing, id)
+		end
+	end
+	if #missing == 0 and #extra == 0 then
+		return nil
+	end
+	local parts: { string } = {}
+	if #missing > 0 then
+		table.insert(parts, "missing case(s): " .. table.concat(missing, ", "))
+	end
+	if #extra > 0 then
+		table.insert(parts, "unexpected case(s): " .. table.concat(extra, ", "))
+	end
+	return ("case census of %s does not match: %s"):format(producer.id, table.concat(parts, "; "))
+end
+
 local function accounting(producer: Producer, report: Report): string?
 	if producer.kind == "tests" then
 		local silent: { string } = {}
@@ -169,6 +240,9 @@ local function accounting(producer: Producer, report: Report): string?
 		if report.total == 0 then
 			return "the report accounts for no case"
 		end
+		if producer.cases ~= nil then
+			return census(producer.cases, report, producer)
+		end
 		return nil
 	end
 	local expectation = producer.report
@@ -177,6 +251,9 @@ local function accounting(producer: Producer, report: Report): string?
 		return ("the report has %d case(s); at least %d required"):format(report.total, minimum)
 	end
 	if expectation ~= nil and expectation.cases ~= nil then
+		if expectation.exact == true then
+			return census(expectation.cases, report, producer)
+		end
 		local present: { [string]: boolean } = {}
 		for _, result in report.results do
 			present[result.id] = true
@@ -223,6 +300,7 @@ local function finish(
 		detail = detail,
 		accounted = accounted,
 		caseIds = ids(report),
+		deselected = deselectedOf(report, producer),
 		deferral = if status == "deferred" then deferral else nil,
 	}
 end
@@ -356,6 +434,7 @@ local function blocked(producer: Producer, ctx: Context, by: string, status: str
 		detail = ("blocked by %s (%s)"):format(by, status),
 		accounted = false,
 		caseIds = { producer.id },
+		deselected = {},
 		deferral = nil,
 	}
 end
@@ -376,6 +455,7 @@ local function notRun(
 		detail = reason,
 		accounted = false,
 		caseIds = { producer.id },
+		deselected = {},
 		deferral = nil,
 	}
 end
@@ -388,6 +468,7 @@ local function refusedReuse(producer: Producer, ctx: Context, reason: string): B
 		detail = reason,
 		accounted = false,
 		caseIds = { producer.id },
+		deselected = {},
 		deferral = nil,
 	}
 end

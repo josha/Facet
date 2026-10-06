@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local spatial = require("../examples/virtual_monitors/spatial")
 
 	verifyHarness:suite("native monitor geometry", function()

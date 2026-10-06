@@ -154,28 +154,19 @@ return require("./actual")''')
         self.assertTrue(any("renderer.luau" in issue for issue in failures))
         self.assertTrue(any("removed Facet scaffolding API" in issue for issue in failures))
 
-    def receipt(self, tier, cases):
-        return self.write("suite.json", json.dumps({"report": {"environment": {"tier": tier}, "results": cases}}))
-
-    def test_mapped_replacement_cases_must_pass_in_the_current_receipt(self):
+    def test_mapped_replacement_cases_must_be_in_the_census_of_a_planned_source(self):
+        self.write("tests/case_inventory.json", json.dumps({"cases": [
+            {"id": "sample::one", "source": "sample"},
+            {"id": "sample::two", "source": "sample"},
+            {"id": "other::one", "source": "other"},
+        ]}))
         records = [{"spec": "old", "replacement": {"cases": ["sample::one"], "caseMappings": {"legacy": ["sample::two"]}}}]
-        passed = [{"id": "sample::one", "status": "passed"}, {"id": "sample::two", "status": "passed"}]
-        self.assertEqual(coverage.replacement_findings(records, self.receipt("full", passed), "full"), [])
-        failed = [passed[0], {"id": "sample::two", "status": "failed"}]
-        self.assertEqual(len(coverage.replacement_findings(records, self.receipt("full", failed), "full")), 1)
-        self.assertEqual(len(coverage.replacement_findings(records, self.receipt("full", passed[:1]), "full")), 1)
-        self.assertTrue(coverage.replacement_findings(records, self.root / "absent.json", "full"))
-        self.assertTrue(coverage.replacement_findings(records, self.receipt("fast", passed), "full"))
-
-    def test_a_tier_gated_replacement_case_is_accepted_only_below_its_tier(self):
-        records = [{"spec": "old", "replacement": {"cases": ["sample::ramp"]}}]
-        gated = [{"id": "sample::ramp", "status": "skipped", "skipReason": "tier:release"}]
-        for tier in ("fast", "full"):
-            self.assertEqual(coverage.replacement_findings(records, self.receipt(tier, gated), tier), [])
-        self.assertTrue(coverage.replacement_findings(records, self.receipt("release", gated), "release"))
-        for reason in (None, "tier:fast", "tier:unknown", "no setup"):
-            unapproved = [dict(gated[0], skipReason=reason)]
-            self.assertTrue(coverage.replacement_findings(records, self.receipt("full", unapproved), "full"))
+        self.assertEqual(coverage.replacement_findings(records, ["sample"]), [])
+        self.assertEqual(len(coverage.replacement_findings(records, ["other"])), 2)
+        absent = [{"spec": "old", "replacement": {"cases": ["sample::three"]}}]
+        self.assertEqual(len(coverage.replacement_findings(absent, ["sample"])), 1)
+        unplanned = [{"spec": "old", "replacement": {"cases": ["other::one"]}}]
+        self.assertEqual(len(coverage.replacement_findings(unplanned, ["sample"])), 1)
 
 
 if __name__ == "__main__":

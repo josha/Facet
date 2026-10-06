@@ -7,7 +7,6 @@ local Lune = require("../vendor/verify/src/lune")
 local Verify = require("../vendor/verify/src/core")
 local Gate = require("../vendor/verify/src/gate")
 local gate = require("./gate")
-local suite = require("./suite")
 
 local harness = Verify.createHarness({ source = "facet-verify-integration", now = os.clock })
 local directory = "artifacts/verify/integration"
@@ -17,34 +16,9 @@ if fs.isDir(directory) then
 end
 fs.writeDir(directory)
 
-local function source(name: string, text: string): Verify.Plan
+local function source(name: string, text: string): string
 	fs.writeFile(`{directory}/{name}.luau`, text)
-	return Verify.validatePlan({
-		id = name,
-		policy = { caseIdStyle = "bare" },
-		units = { { id = name, locator = `{directory}/{name}.luau` } },
-	})
-end
-
-local function run(plan: Verify.Plan, tier: string, worker: string?, deadline: number?): Verify.ExecutionReport
-	return (
-		suite.execute({
-			tier = tier,
-			plan = plan,
-			worker = worker,
-			directory = `{directory}/receipts`,
-			deadlineSeconds = deadline or 60,
-			jobs = 1,
-		})
-	)
-end
-
-local function inventory(plan: Verify.Plan, cases: { [string]: string | boolean }): suite.Inventory
-	local rows = {}
-	for id, tier in cases do
-		table.insert(rows, { id = id, source = plan.units[1].id, tier = if type(tier) == "string" then tier else nil })
-	end
-	return { cases = rows }
+	return `{directory}/{name}.luau`
 end
 
 local function worker(name: string, body: string): string
@@ -61,12 +35,26 @@ local function worker(name: string, body: string): string
 			"local output, runId = process.args[2], process.args[3]",
 			"local harness = Verify.createHarness({ now = os.clock, source = batch.units[1].locator, prefixIds = false })",
 			'harness:case("ok", { id = "ok", run = function() end })',
-			'local report = harness:run({ executor = "fixture", environment = { runtime = "lune", tier = "full" }, capabilities = { "local-luau" } })',
+			'local report = harness:run({ executor = "fixture", environment = { runtime = "lune" }, capabilities = { "local-luau" } })',
 			"local function receipt(run, id) return Lune.encodeReceipt(Lune.runtime.json, run, id, report) end",
 			body,
 		}, "\n")
 	)
 	return path
+end
+
+local function tests(id: string, locators: { string }, cases: { string }?, custom: string?): gate.Entry
+	return {
+		id = id,
+		tier = "fast",
+		environment = "deterministic",
+		kind = "tests",
+		worker = custom or "tests/worker.luau",
+		locators = locators,
+		cases = cases,
+		workers = 4,
+		deadlineSeconds = 60,
+	}
 end
 
 local function command(id: string, script: string, environment: string?, tier: string?): gate.Entry
@@ -115,109 +103,136 @@ local function runGate(
 	sequence += 1
 	local settings: { referenceHost: boolean?, tier: string?, rerun: string? } = options or {}
 	local definition = gate.define(entries, settings.referenceHost == true, `fixture-{sequence}`)
-	return Lune.gate.run(definition, {
-		directory = `{directory}/gate`,
-		selection = gate.selection(settings.tier or "release", settings.rerun),
-	})
+	local chosen = gate.selection(settings.tier or "release")
+	if settings.rerun then
+		chosen = { ids = { settings.rerun }, tiers = if chosen then chosen.tiers else nil }
+	end
+	return Lune.gate.run(definition, { directory = `{directory}/gate`, selection = chosen })
 end
 
-local function status(outcome: Gate.Outcome, id: string): string
-	for _, record in outcome.producers do
-		if record.id == id then
-			return record.status
+local function record(outcome: Gate.Outcome, id: string): Gate.Record
+	for _, entry in outcome.producers do
+		if entry.id == id then
+			return entry
 		end
 	end
 	error("no producer record: " .. id)
 end
 
-harness:suite("Suite execution through the Verify Lune host", function()
-	harness:case("accounts for missing, load, registration, non-function and empty sources", function(context)
-		local missing = Verify.validatePlan({
-			id = "missing",
-			policy = { caseIdStyle = "bare" },
-			units = { { id = "missing", locator = `{directory}/missing.luau` } },
-		})
-		local plans: { [string]: Verify.Plan } = {
-			missing = missing,
-			broken = source("broken", 'error("broken source")'),
-			registration = source("registration", 'return function() error("broken registration") end'),
-			value = source("value", "return {}"),
-			empty = source("empty", "return function() end"),
-		}
-		local accepted = {}
-		for name, plan in plans do
-			local execution = run(plan, "full")
-			if #suite.findings(execution, plan, "full", { cases = {} }) == 0 or execution.report.passed > 0 then
-				table.insert(accepted, name)
-			end
+local function status(outcome: Gate.Outcome, id: string): string
+	return record(outcome, id).status
+end
+
+local function case(outcome: Gate.Outcome, id: string): Verify.CaseResult
+	for _, result in outcome.execution.report.results do
+		if result.id == id then
+			return result
 		end
-		context:expect(accepted):toEqual({})
-		context:expect(run(plans.broken, "full").report.results[1].id):toBe("unit:broken:faulted")
-		context:expect(run(plans.value, "full").report.results[1].id):toBe("unit:value:load")
-		context:expect(run(plans.registration, "full").report.results[1].id):toBe("unit:registration:registration")
-		context:expect(run(plans.empty, "full").report.failed > 0):toBe(true)
+	end
+	error("no case result: " .. id)
+end
+
+harness:suite("Suite execution through the Verify gate", function()
+	harness:case("fails missing, load, registration, non-function and empty sources by name", function(context)
+		local outcome = runGate({
+			tests("missing", { `{directory}/missing.luau` }),
+			tests("broken", { source("broken", 'error("broken source")') }),
+			tests("registration", { source("registration", 'return function() error("broken registration") end') }),
+			tests("value", { source("value", "return {}") }),
+			tests("empty", { source("empty", "return function() end") }),
+			tests(
+				"passing",
+				{ source("passing", 'return function(h) h:case("one",{id="one",run=function() end}) end') }
+			),
+		})
+		for _, id in { "missing", "broken", "registration", "value", "empty" } do
+			context:expect(`{id}: {status(outcome, id)}`):toBe(`{id}: failed`)
+		end
+		context:expect(status(outcome, "passing")):toBe("passed")
+		context:expect(outcome.acceptance.verdict):toBe("failed")
 	end)
 	harness:case("preserves case and cleanup failures independently", function(context)
-		local plan = source(
-			"cleanup",
-			'return function(h) h:case("fails", { id="fails", run=function(c) c:defer(function() error("cleanup failure") end) error("body failure") end }) end'
-		)
-		local execution = run(plan, "full")
-		local result = execution.report.results[1]
+		local outcome = runGate({
+			tests("cleanup", {
+				source(
+					"cleanup",
+					'return function(h) h:case("fails", { id="fails", run=function(c) c:defer(function() error("cleanup failure") end) error("body failure") end }) end'
+				),
+			}),
+		})
+		local result = case(outcome, "fails")
+		context:expect(status(outcome, "cleanup")):toBe("failed")
 		context:expect(result.status):toBe("failed")
 		context:expect(#result.failures):toBe(2)
 		context:expect(result.failures[1].phase):toBe("case")
 		context:expect(result.failures[2].phase):toBe("cleanup")
-		context:expect(#suite.findings(execution, plan, "full", inventory(plan, { fails = true })) > 0):toBe(true)
 	end)
 	harness:case("rejects duplicate IDs, unapproved skips and census drift", function(context)
-		local duplicate = source(
-			"duplicate",
-			'return function(h) h:case("one",{id="same",run=function() end}) h:case("two",{id="same",run=function() end}) end'
-		)
-		context
-			:expect(
-				#suite.findings(run(duplicate, "full"), duplicate, "full", inventory(duplicate, { same = true })) > 0
-			)
-			:toBe(true)
-		local skipped = source("skipped", 'return function(h) h:skip("absent", "no setup") end')
-		context:expect(#suite.findings(run(skipped, "full"), skipped, "full", inventory(skipped, {})) > 0):toBe(true)
-		local passing =
-			source("passing", 'return function(h) h:case("one",{id="one",run=function(c) c:expect(1):toBe(1) end}) end')
-		local execution = run(passing, "full")
-		context:expect(suite.findings(execution, passing, "full", inventory(passing, { one = true }))):toEqual({})
-		context:expect(#suite.findings(execution, passing, "full", inventory(passing, {})) > 0):toBe(true)
-		context
-			:expect(#suite.findings(execution, passing, "full", inventory(passing, { one = true, two = true })) > 0)
-			:toBe(true)
-		context:expect(#suite.findings(execution, passing, "fast", inventory(passing, { one = true })) > 0):toBe(true)
+		local one = 'return function(h) h:case("one",{id="one",run=function(c) c:expect(1):toBe(1) end}) end'
+		local outcome = runGate({
+			tests("duplicate", {
+				source(
+					"duplicate",
+					'return function(h) h:case("one",{id="same",run=function() end}) h:case("two",{id="same",run=function() end}) end'
+				),
+			}),
+			tests("skipped", { source("skipped", 'return function(h) h:skip("absent", "no setup") end') }),
+			tests("exact", { source("exact", one) }, { "one" }),
+			tests("unexpected", {
+				source(
+					"unexpected",
+					'return function(h) h:case("one",{id="one",run=function() end}) h:case("extra",{id="extra",run=function() end}) end'
+				),
+			}, { "one" }),
+			tests("absent", { source("absent", one) }, { "one", "two" }),
+		})
+		context:expect(status(outcome, "exact")):toBe("passed")
+		for _, id in { "duplicate", "skipped", "unexpected", "absent" } do
+			context:expect(`{id}: {status(outcome, id)}`):toBe(`{id}: failed`)
+		end
 	end)
 	harness:case("keeps the release-only case out of lower tiers and requires it at release", function(context)
-		local plan = source(
-			"release",
-			'return function(h,tier) h:case("always",{id="always",run=function() end}) h:case("ramp",{id="ramp",run=function(c) if tier ~= "release" then c:skip("tier:release") end c:expect(true):toBe(true) end}) end'
-		)
-		local committed = inventory(plan, { always = true, ramp = "release" })
-		local lower = run(plan, "full")
-		local release = run(plan, "release")
-		context:expect(lower.report.skipped):toBe(1)
-		context:expect(release.report.passed):toBe(2)
-		context:expect(suite.findings(lower, plan, "full", committed)):toEqual({})
-		context:expect(suite.findings(release, plan, "release", committed)):toEqual({})
-		context:expect(#suite.findings(lower, plan, "release", committed) > 0):toBe(true)
-		context
-			:expect(#suite.findings(lower, plan, "full", inventory(plan, { always = true, ramp = true })) > 0)
-			:toBe(true)
-		local adopted = suite.tierReport(lower, "full")
-		context:expect(adopted.total):toBe(1)
-		context:expect(adopted.passed):toBe(1)
-		context:expect(adopted.skipped):toBe(0)
-		context:expect(suite.tierReport(release, "release").total):toBe(2)
+		local entries = {
+			tests("tiered", {
+				source(
+					"tiered",
+					'return function(h) h:case("always",{id="always",run=function() end}) h:case("ramp",{id="ramp",tags={"tier:release"},run=function(c) c:expect(true):toBe(true) end}) end'
+				),
+			}, { "always", "ramp" }),
+		}
+		local lower = runGate(entries, { tier = "fast" })
+		context:expect(status(lower, "tiered")):toBe("passed")
+		context:expect(record(lower, "tiered").deselected):toEqual({ "ramp" })
+		context:expect(case(lower, "ramp").status):toBe("skipped")
+		context:expect(lower.scope.complete):toBe(false)
+		context:expect(lower.acceptance.releasable):toBe(false)
+		local release = runGate(entries, { tier = "release" })
+		context:expect(case(release, "ramp").status):toBe("passed")
+		context:expect(record(release, "tiered").deselected):toEqual({})
+		context:expect(release.acceptance.releasable):toBe(true)
+		local broken = runGate({
+			tests("tiered", {
+				source(
+					"failing-ramp",
+					'return function(h) h:case("ramp",{id="ramp",tags={"tier:release"},run=function() error("ramp failed") end}) h:case("always",{id="always",run=function() end}) end'
+				),
+			}, { "always", "ramp" }),
+		}, { tier = "release" })
+		context:expect(status(broken, "tiered")):toBe("failed")
+		local inBody = runGate({
+			tests("tiered", {
+				source(
+					"in-body",
+					'return function(h) h:case("ramp",{id="ramp",run=function(c) c:skip("tier:release") end}) end'
+				),
+			}, { "ramp" }),
+		}, { tier = "fast" })
+		context:expect(status(inBody, "tiered")):toBe("failed")
 	end)
 	harness:case(
 		"rejects missing, empty, malformed, foreign, stale and contradictory worker receipts",
 		function(context)
-			local plan = source("receipt", "return function() end")
+			local locator = source("receipt", "return function() end")
 			local faults: { [string]: string } = {
 				silent = "",
 				empty = 'fs.writeFile(output, "")',
@@ -227,29 +242,36 @@ harness:suite("Suite execution through the Verify Lune host", function()
 				invalid = 'fs.writeFile(output, serde.encode("json", { receiptVersion = 1, runId = runId, batchId = batch.id, report = { total = 5 } }))',
 				contradictory = "fs.writeFile(output, receipt(runId, batch.id)) process.exit(1)",
 			}
-			local unnoticed = {}
+			local entries = {
+				tests(
+					"accepted",
+					{ locator },
+					nil,
+					worker("accepted", "fs.writeFile(output, receipt(runId, batch.id))")
+				),
+			}
 			for name, body in faults do
-				local execution = run(plan, "full", worker(name, body))
-				if execution.report.passed > 0 or #suite.findings(execution, plan, "full", { cases = {} }) == 0 then
-					table.insert(unnoticed, name)
-				end
+				table.insert(entries, tests(name, { locator }, nil, worker(name, body)))
 			end
-			context:expect(unnoticed):toEqual({})
-			local accepted = run(plan, "full", worker("accepted", "fs.writeFile(output, receipt(runId, batch.id))"))
-			context:expect(accepted.report.passed):toBe(1)
+			local outcome = runGate(entries)
+			context:expect(status(outcome, "accepted")):toBe("passed")
+			for name in faults do
+				context:expect(`{name}: {status(outcome, name)}`):toBe(`{name}: failed`)
+			end
 		end
 	)
 	harness:case("stops a timed-out worker and its descendants", function(context)
 		local marker = `{directory}/descendant-survived`
-		local plan = source("hang", "return function() end")
-		local execution = run(
-			plan,
-			"full",
-			worker("hang", `process.exec("/bin/sh", \{ "-c", "(sleep 3; touch {marker}) & sleep 30" })`),
-			1
+		local hung = tests(
+			"hang",
+			{ source("hang", "return function() end") },
+			nil,
+			worker("hang", `process.exec("/bin/sh", \{ "-c", "(sleep 3; touch {marker}) & sleep 30" })`)
 		)
-		context:expect(execution.report.timedOut):toBe(1)
-		context:expect(#suite.findings(execution, plan, "full", { cases = {} }) > 0):toBe(true)
+		hung.deadlineSeconds = 1
+		local outcome = runGate({ hung })
+		context:expect(status(outcome, "hang") ~= "passed"):toBe(true)
+		context:expect(outcome.execution.report.timedOut + outcome.execution.report.failed > 0):toBe(true)
 		task.wait(4)
 		context:expect(fs.isFile(marker)):toBe(false)
 	end)
@@ -287,28 +309,28 @@ harness:suite("Facet gate through Verify", function()
 		}
 		local release = runGate(clean, { tier = "release" })
 		context:expect(release.acceptance.releasable):toBe(true)
-		context:expect(select(2, gate.conclusion(release, "release", nil))):toBe(0)
+		context:expect(select(2, gate.conclusion(release, "release"))):toBe(0)
 		local full = runGate(clean, { tier = "full" })
 		context:expect(full.acceptance.verdict):toBe("selected")
 		context:expect(full.acceptance.releasable):toBe(false)
-		context:expect(gate.tierComplete(full, "full", nil)):toBe(true)
+		context:expect(gate.completeTier(full)):toBe(true)
 		context:expect(status(full, "gate")):toBe("not_selected")
-		context:expect((gate.conclusion(full, "full", nil))):toContain("complete full tier")
+		context:expect((gate.conclusion(full, "full"))):toContain("complete full tier")
 		local focused = runGate(clean, { tier = "full", rerun = "fast" })
-		context:expect(gate.tierComplete(focused, "full", "fast")):toBe(false)
-		context:expect((gate.conclusion(focused, "full", "fast"))):toContain("PASS_SELECTED")
+		context:expect(gate.completeTier(focused)):toBe(false)
+		context:expect((gate.conclusion(focused, "full"))):toContain("PASS_SELECTED")
 		local fast = runGate(clean, { tier = "fast" })
-		context:expect((gate.conclusion(fast, "fast", nil))):toContain("PASS_PARTIAL")
+		context:expect((gate.conclusion(fast, "fast"))):toContain("PASS_PARTIAL")
 		local deferred = { command("fast", "exit 0"), command("live", "exit 2", "studio", "full") }
 		local lower = runGate(deferred, { tier = "full" })
 		context:expect(lower.acceptance.deferred):toEqual({ "live" })
-		context:expect(select(2, gate.conclusion(lower, "full", nil))):toBe(0)
+		context:expect(select(2, gate.conclusion(lower, "full"))):toBe(0)
 		local blocked = runGate(deferred, { tier = "release" })
 		context:expect(blocked.acceptance.verdict):toBe("deferred")
 		context:expect(blocked.acceptance.releasable):toBe(false)
-		context:expect(select(2, gate.conclusion(blocked, "release", nil))):toBe(1)
+		context:expect(select(2, gate.conclusion(blocked, "release"))):toBe(1)
 		local failed = runGate({ command("fast", "exit 1") }, { tier = "fast" })
-		context:expect(select(2, gate.conclusion(failed, "fast", nil))):toBe(1)
+		context:expect(select(2, gate.conclusion(failed, "fast"))):toBe(1)
 		context
 			:expect(function()
 				runGate(clean, { tier = "full", rerun = "absent" })
@@ -354,7 +376,7 @@ harness:suite("Facet gate through Verify", function()
 	harness:case("declares every committed producer once with its tier and suite census", function(context)
 		local tiers = { fast = 0, full = 0, release = 0 }
 		local seen = {}
-		local entries = gate.catalog("full")
+		local entries = gate.catalog()
 		for _, entry in entries do
 			context:expect(seen[entry.id]):toBeNil()
 			seen[entry.id] = entry
@@ -363,8 +385,9 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(tiers):toEqual({ fast = 19, full = 59, release = 2 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
-		context:expect(#assert(assert(seen["suite"].report).cases)):toBe(3730)
-		context:expect(#assert(assert(gate.catalog("release")[12].report).cases)):toBe(3731)
+		context:expect(#assert(seen["suite"].cases)):toBe(3731)
+		context:expect(#assert(seen["suite"].locators)):toBe(150)
+		context:expect(seen["suite"].kind):toBe("tests")
 		local definition = gate.define(entries, false)
 		context:expect(definition.policy.deferrals["live-evidence"] ~= nil):toBe(true)
 		context:expect(definition.policy.deferrals["bench"] ~= nil):toBe(true)

@@ -1,36 +1,37 @@
 # Lint policy
 
-The complete gate runs `lute lint -c lint.config.luau` on each maintained Luau tree. It also runs
-`luau-lsp analyze` in strict mode for every maintained source, test, tool, example and lint
-configuration. Exported records and callbacks carry concrete types. Dynamic host members, arbitrary
-assertion values and heterogeneous callback arguments remain explicit boundaries; a strict directive
-alone does not prove those values safe. The analyzer checks consumers against the installed SDK types;
-it excludes diagnostics inside external SDK and generated build directories.
+The gate runs `lute lint -c lint.config.luau` on each maintained Luau tree. It also runs `luau-lsp analyze`
+in strict mode on every source, test, tool, example and lint configuration file.
+The analyzer checks consumers against the installed SDK types. It ignores diagnostics inside external SDK and generated build directories.
 
-`tools/check-no-any.luau` parses every maintained Luau file, including tests, tools and examples.
-Each file must start with `--!strict`. Explicit `any` types and `--!nonstrict` or `--!nocheck`
-directives fail the gate. Use concrete types, correlated generics and validated `unknown` at
-external boundaries. Do not hide weak typing behind aliases or unchecked boundary casts.
+Exported records and callbacks carry concrete types. Dynamic host members, arbitrary assertion values and
+heterogeneous callback arguments stay explicit boundaries. A strict directive alone does not prove those values safe.
 
-The explicit configuration keeps Lute's defect rules on. It turns off only
-`global_function_in_scope` and `unused_variable`. At the pinned runtime, those two rules misreport
-forward-declared recursion and locals used as assignment-target bases. `luau-lsp` retains the real
-unused-local signal.
+`tools/check-no-any.luau` parses every maintained Luau file. Each file must start with `--!strict`.
+Explicit `any` types and `--!nonstrict` or `--!nocheck` directives fail the gate.
+Use concrete types, correlated generics and validated `unknown` at external boundaries.
+Do not hide weak typing behind aliases or unchecked casts.
 
-`verify-check` is the consumer-semantic layer:
+The lint configuration keeps the Lute defect rules on. It turns off only `global_function_in_scope` and `unused_variable`.
+At the pinned runtime, those two rules misreport forward-declared recursion and locals used as assignment-target bases.
+`luau-lsp` keeps the real unused-local signal.
+
+## Consumer specifications
+
+`verify-check` checks consumer specifications:
 
 ```console
 lute run tools/verify-check.luau path/to/specifications
 ```
 
-It recognizes `*.verify.luau` as portable specifications, with `*.lute.verify.luau` and
-`*.roblox.verify.luau` as explicit host variants. It rejects ambient scheduling, clocks, and host
-access in portable specifications. It rejects external mutation authority in every specification.
-It rejects unmeasured `--!native` annotations. These are architectural checks a general-purpose
-linter cannot infer.
+It treats `*.verify.luau` as a portable specification. `*.lute.verify.luau` and `*.roblox.verify.luau` are explicit host variants.
+It rejects ambient scheduling, clocks and host access in portable specifications.
+It rejects external mutation authority in every specification.
+It rejects unmeasured `--!native` annotations.
+A general-purpose linter cannot infer these architectural checks.
 
-The tool calls `Consumer.scanTree(root, { listDir, readFile })`
-([public consumer root](../src/consumer/init.luau)). `scanTree` owns traversal, specification detection, and exemption tracking.
-Consumer lint runners can reuse this work when integrating `Consumer.scan`/`scanProductionPaths`.
-`scanTree` also runs `scanProductionPaths` over every discovered path, including files that are not specifications.
-The same call detects `.verify.luau` files or Verify imports in a production source graph.
+The tool calls `Consumer.scanTree(root, { listDir, readFile })` ([public consumer root](../src/consumer/init.luau)).
+`scanTree` owns traversal, specification detection and exemption tracking.
+It also runs `scanProductionPaths` over every discovered path, including files that are not specifications.
+The same call detects `.verify.luau` files and Verify imports in a production source graph.
+A consumer lint runner can reuse `Consumer.scan` and `scanProductionPaths`.

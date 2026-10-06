@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local Vector3 = require("@lune/roblox").Vector3
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")

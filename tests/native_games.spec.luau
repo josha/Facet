@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)

@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 	type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
 

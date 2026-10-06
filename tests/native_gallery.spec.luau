@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)

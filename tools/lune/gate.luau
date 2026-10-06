@@ -19,53 +19,72 @@ local DEFERRAL = {
 }
 local ARTIFACTS = "artifacts/verify/native"
 local CATALOG = "tools/lune/producers.json"
-local SUITE_RECEIPT = ARTIFACTS .. "/suite.json"
+local CENSUS = "tests/case_inventory.json"
+local WORKER = "tests/worker.luau"
 
 export type Entry = {
 	id: string,
-	argv: { string },
 	tier: string,
 	environment: string,
-	kind: ("command" | "build")?,
+	kind: ("command" | "build" | "tests")?,
+	argv: { string }?,
 	after: { string }?,
 	report: Gate.ReportExpectation?,
 	deadlineSeconds: number?,
 	replaces: { string }?,
+	worker: string?,
+	locators: { string }?,
+	cases: { string }?,
+	workers: number?,
+	sourceDeadlineSeconds: number?,
 }
 
-local function expectedCases(tier: string): { string }
-	local plan = serde.decode("json", fs.readFile("tests/plan.json"))
-	local planned = {}
-	for _, unit in plan.units do
-		planned[unit.id] = true
-	end
+local function census(path: string, sources: { [string]: boolean }): { string }
 	local cases = {}
-	for _, case in serde.decode("json", fs.readFile("tests/case_inventory.json")).cases do
-		local gated = case.tier ~= nil and (table.find(TIERS, case.tier) or 0) > (table.find(TIERS, tier) or 0)
-		if planned[case.source] and not gated then
+	for _, case in serde.decode("json", fs.readFile(path)).cases do
+		if sources[case.source] then
 			table.insert(cases, case.id)
 		end
 	end
 	return cases
 end
 
-local function catalog(tier: string): { Entry }
+local function sources(names: { string }): ({ string }, { [string]: boolean })
+	local locators, named = {}, {}
+	for _, name in names do
+		assert(fs.isFile(`tests/{name}.spec.luau`), "unknown spec: " .. name)
+		table.insert(locators, `tests/{name}.spec.luau`)
+		named[name] = true
+	end
+	return locators, named
+end
+
+local function catalog(): { Entry }
 	local entries: { Entry } = {}
 	for _, producer in serde.decode("json", fs.readFile(CATALOG)).producers do
-		local command = string.gsub(producer.run, "{tier}", tier)
-		command = string.gsub(command, "{suite}", SUITE_RECEIPT)
-		local cases = if producer.report == "census" then expectedCases(tier) else nil
-		table.insert(entries, {
+		local entry: Entry = {
 			id = producer.id,
-			argv = string.split(command, " "),
 			tier = producer.tier,
 			environment = producer.environment or "deterministic",
 			kind = producer.kind,
+			argv = if producer.run then string.split(producer.run, " ") else nil,
 			after = producer.after,
-			report = if cases then { minimum = #cases, cases = cases } else nil,
 			deadlineSeconds = producer.deadlineSeconds,
 			replaces = producer.replaces,
-		})
+			worker = producer.worker,
+			workers = producer.workers,
+			sourceDeadlineSeconds = producer.sourceDeadlineSeconds,
+		}
+		if producer.plan then
+			local names = {}
+			for _, unit in serde.decode("json", fs.readFile(producer.plan)).units do
+				assert(unit.locator == `tests/{unit.id}.spec.luau`, "plan locator differs from its source: " .. unit.id)
+				table.insert(names, unit.id)
+			end
+			local locators, named = sources(names)
+			entry.locators, entry.cases = locators, census(producer.census, named)
+		end
+		table.insert(entries, entry)
 	end
 	return entries
 end
@@ -79,9 +98,11 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 		if deferrable then
 			deferrals[entry.id] = reason
 		end
+		local tests = entry.kind == "tests"
 		table.insert(producers, {
 			id = entry.id,
 			kind = entry.kind or "command",
+			why = if entry.replaces then "replaces " .. table.concat(entry.replaces, ", ") else nil,
 			argv = entry.argv,
 			tier = entry.tier,
 			tags = { entry.environment },
@@ -89,6 +110,12 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 			report = entry.report,
 			deadlineSeconds = entry.deadlineSeconds,
 			exit = if deferrable then { [2] = "deferred" :: Gate.ExitClass } else nil,
+			worker = entry.worker,
+			locators = entry.locators,
+			cases = entry.cases,
+			isolate = if tests then true else nil,
+			workers = entry.workers,
+			sourceDeadlineSeconds = entry.sourceDeadlineSeconds,
 		})
 	end
 	return Gate.define({
@@ -98,29 +125,17 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 	})
 end
 
-local function selection(tier: string, rerun: string?): Gate.Selection?
+local function selection(tier: string): Gate.Selection?
 	assert(table.find(TIERS, tier), "unknown tier: " .. tier)
-	if rerun ~= nil then
-		return { ids = { rerun }, tiers = SELECTED[tier] }
-	end
 	return if SELECTED[tier] then { tiers = SELECTED[tier] } else nil
 end
 
-local function tierComplete(outcome: Gate.Outcome, tier: string, rerun: string?): boolean
-	if rerun ~= nil then
-		return false
-	end
-	local tiers = SELECTED[tier]
-	for _, record in outcome.producers do
-		local wanted = tiers == nil or table.find(tiers, record.tier :: string) ~= nil
-		if wanted and (not record.selected or record.status == "not_run" or record.status == "not_selected") then
-			return false
-		end
-	end
-	return true
+local function completeTier(outcome: Gate.Outcome): boolean
+	local scope = outcome.scope
+	return #scope.ids == 0 and #scope.cases == 0 and #scope.notSelected == #scope.skippedByTier
 end
 
-local function conclusion(outcome: Gate.Outcome, tier: string, rerun: string?): (string, number)
+local function conclusion(outcome: Gate.Outcome, tier: string): (string, number)
 	local acceptance = outcome.acceptance
 	if acceptance.verdict == "failed" then
 		return "FAIL", 1
@@ -128,11 +143,11 @@ local function conclusion(outcome: Gate.Outcome, tier: string, rerun: string?): 
 	if acceptance.releasable then
 		return "PASS (releasable)", 0
 	end
-	if tier == "release" and rerun == nil then
-		return "FAIL (environment deferrals block release)", 1
-	end
-	if not tierComplete(outcome, tier, rerun) then
+	if not completeTier(outcome) then
 		return "PASS_SELECTED (focused run; not the tier)", 0
+	end
+	if tier == "release" then
+		return "FAIL (environment deferrals block release)", 1
 	end
 	local deferred = #acceptance.deferred
 	local suffix = if deferred > 0 then `; {deferred} environment deferral(s)` else ""
@@ -159,61 +174,11 @@ local function build(): Verify.EvidenceBuild
 	}
 end
 
-local function explain(entries: { Entry }, tier: string)
-	print(
-		`Selection: every producer whose tier is in the '{tier}' run. Each command runs afresh; no stored result is reused.`
-	)
-	print(
-		"Status: exit 0 passes. Exit 2 from a studio, device or perf producer is an explicit deferral: the evidence is not recorded on this host. --reference-host makes a perf deferral a failure. A deferral is reported and is never releasable."
-	)
-	local tiers = SELECTED[tier]
-	for _, entry in entries do
-		if tiers == nil or table.find(tiers, entry.tier) then
-			local replaces = if entry.replaces then ` replaces {table.concat(entry.replaces, ", ")}` else ""
-			print(`  {entry.id} [{entry.environment}; tier {entry.tier}]{replaces}: {table.concat(entry.argv, " ")}`)
-		end
-	end
-end
-
-local function main()
-	local tier = "full"
-	local rerun: string? = nil
-	local referenceHost = false
-	local explained = false
-	local index = 1
-	while index <= #process.args do
-		local flag = process.args[index]
-		if table.find(TIERS, flag) then
-			tier = flag
-		elseif flag == "--rerun" then
-			index += 1
-			rerun = assert(process.args[index], "--rerun needs a producer id")
-		elseif flag == "--reference-host" then
-			referenceHost = true
-		elseif flag == "--explain" then
-			explained = true
-		else
-			print(
-				"usage: tools/verify.sh [affected|fast|full|release] [--rerun PRODUCER] [--reference-host] [--explain]"
-			)
-			process.exit(2)
-		end
-		index += 1
-	end
-	local entries = catalog(tier)
-	local gate = define(entries, referenceHost)
-	fs.writeDir(ARTIFACTS)
-	print(`Facet verification gate: {tier}; {#entries} producers declared.`)
-	print(
-		"Historical parity: NOT ESTABLISHED. See docs/guide/20-verification-parity.md for the producer and assertion comparison with main."
-	)
-	if explained then
-		explain(entries, tier)
-	end
+local function run(gate: Gate.Definition, tier: string, chosen: Gate.Selection?, referenceHost: boolean): Gate.Outcome
 	local outcome = Lune.gate.run(gate, {
 		directory = ARTIFACTS .. "/gate",
 		build = build(),
-		selection = selection(tier, rerun),
+		selection = chosen,
 		environment = {
 			tier = tier,
 			referenceHost = tostring(referenceHost),
@@ -234,13 +199,107 @@ local function main()
 			end
 		end,
 	})
-	print(Gate.format(outcome))
-	local status, code = conclusion(outcome, tier, rerun)
-	fs.writeFile(`{ARTIFACTS}/report.json`, serde.encode("json", outcome, true))
-	if tierComplete(outcome, tier, rerun) then
-		fs.writeFile(`artifacts/verify/latest-{tier}.json`, serde.encode("json", outcome, true))
+	for _, result in outcome.execution.report.results do
+		if result.status == "failed" or result.status == "timed_out" then
+			print(`{result.status}: {result.id}`)
+			for _, failure in result.failures do
+				print(`  {failure.phase}: {failure.message}`)
+			end
+		end
 	end
-	print(`facet {tier}: {status}; {ARTIFACTS}/report.json`)
+	print(Gate.format(outcome))
+	return outcome
+end
+
+local function specs(names: { string }, tier: string): Gate.Outcome
+	local locators, named = sources(names)
+	local gate = define({
+		{
+			id = "specs",
+			tier = "fast",
+			environment = "deterministic",
+			kind = "tests",
+			worker = WORKER,
+			locators = locators,
+			cases = census(CENSUS, named),
+			workers = 4,
+			deadlineSeconds = 3600,
+			sourceDeadlineSeconds = 600,
+		},
+	}, false, "facet-specs")
+	return run(gate, tier, if tier == "release" then nil else { tiers = { "fast" } }, false)
+end
+
+local function main()
+	local tier: string? = nil
+	local rerun: string | boolean = false
+	local referenceHost, explained, focused = false, false, false
+	local names: { string } = {}
+	local index = 1
+	while index <= #process.args do
+		local flag = process.args[index]
+		local following = process.args[index + 1]
+		if flag == "spec" and index == 1 then
+			focused = true
+		elseif flag == "--tier" and focused and following then
+			index += 1
+			tier = following
+		elseif focused and string.sub(flag, 1, 2) ~= "--" then
+			table.insert(names, flag)
+		elseif table.find(TIERS, flag) and not focused then
+			tier = flag
+		elseif flag == "--rerun" then
+			rerun = true
+			if following and string.sub(following, 1, 2) ~= "--" and not table.find(TIERS, following) then
+				index += 1
+				rerun = following
+			end
+		elseif flag == "--reference-host" then
+			referenceHost = true
+		elseif flag == "--explain" then
+			explained = true
+		else
+			print(
+				"usage: tools/verify.sh [affected|fast|full|release] [--rerun [PRODUCER]] [--reference-host] [--explain]"
+			)
+			print("       tools/verify.sh spec SPEC... [--tier full|release]")
+			process.exit(2)
+		end
+		index += 1
+	end
+	fs.writeDir(ARTIFACTS)
+	if focused then
+		assert(#names > 0, "name at least one spec")
+		local outcome = specs(names, tier or "full")
+		process.exit(if outcome.acceptance.verdict == "failed" then 1 else 0)
+	end
+	local chosenTier = tier or "full"
+	local gate = define(catalog(), referenceHost)
+	print(`Facet verification gate: {chosenTier}; {#gate.producers} producers declared.`)
+	print(
+		"Historical parity: NOT ESTABLISHED. See docs/guide/20-verification-parity.md for the producer and assertion comparison with main."
+	)
+	if explained then
+		print(
+			"Exit 2 from a studio, device or perf producer is an explicit deferral: the evidence is not recorded on this host. --reference-host makes a perf deferral a failure. A deferral is never releasable."
+		)
+		print(Gate.list(gate))
+	end
+	local chosen = selection(chosenTier)
+	if rerun == true then
+		local previous, problem = Lune.gate.last(gate, { directory = ARTIFACTS .. "/gate" })
+		chosen = Gate.rerun((assert(previous, problem)))
+		assert(chosen, "the last run left nothing to rerun")
+	elseif rerun then
+		chosen = { ids = { rerun :: string }, tiers = SELECTED[chosenTier] }
+	end
+	local outcome = run(gate, chosenTier, chosen, referenceHost)
+	local status, code = conclusion(outcome, chosenTier)
+	fs.writeFile(`{ARTIFACTS}/report.json`, serde.encode("json", outcome, true))
+	if completeTier(outcome) then
+		fs.writeFile(`artifacts/verify/latest-{chosenTier}.json`, serde.encode("json", outcome, true))
+	end
+	print(`facet {chosenTier}: {status}; {ARTIFACTS}/report.json`)
 	process.exit(code)
 end
 
@@ -249,6 +308,7 @@ return {
 	define = define,
 	selection = selection,
 	conclusion = conclusion,
-	tierComplete = tierComplete,
+	completeTier = completeTier,
+	specs = specs,
 	main = main,
 }

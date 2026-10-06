@@ -12,6 +12,11 @@ export type Build = {
 	digest: string,
 }
 
+export type Subject = {
+	runId: string,
+	build: Build?,
+}
+
 export type Provenance = {
 	runId: string,
 	caseId: string,

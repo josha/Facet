@@ -3,6 +3,7 @@
 local Seal = require "@self/seal"
 local Validation = require "@self/validation"
 
+export type Subject = Seal.Subject
 export type Issue = Validation.Issue
 export type ExpectedBuild = Validation.Expected
 export type Requirement = Validation.Requirement

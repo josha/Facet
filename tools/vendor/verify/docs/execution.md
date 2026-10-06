@@ -49,7 +49,7 @@ decode media measurements. Decoding alone provides no visual or audible judgment
 
 ## Lute workers
 
-`Lute.host({worker, command?, directory, capabilities?, ...})` starts one process per batch.
+`Lute.host({worker, command?, directory, capabilities?, arguments?, ...})` starts one process per batch; `arguments` follow a `--` after the run id and `Lute.workerArguments()` returns them with the run id and the selection the worker derives from `--case=`, `--tag=` and `--tier=`.
 The worker process group is bounded by the batch deadline or host `deadlineSeconds` (default 60).
 Use a separate directory for each concurrent run; its batch inputs and reports remain available for
 failure diagnosis. Consumer output files remain the consumer's isolation responsibility.
@@ -85,7 +85,7 @@ A Lune host defaults to `receipts = "bound"`: the host passes a unique run id as
 and the worker writes `{ receiptVersion, runId, batchId, report }` to a per-run file. The host returns a report
 only when the receipt parses, belongs to this run and batch, decodes as a valid report and the worker exited
 zero. Missing, malformed, stale (other run), foreign (other batch) or invalid receipts, a nonzero exit beside a
-receipt, an unstartable or absent worker and every timeout are faults or timeouts, never a pass. Worker
+receipt, an unstartable or absent worker and every timeout are faults or timeouts, never a pass. A worker that exits nonzero beside a valid receipt that records a failed or unsupported load (`unit:<id>:load`) is returned, not faulted: Lune exits 1 after a module raised at `require` even inside `pcall`. Any other nonzero exit beside a receipt stays a fault. Worker
 output is kept beside the receipt as `*-worker.log` and named in the fault detail. `receipts = "report"` (the
 Lute default) accepts a plain report and ignores the exit status. Load, registration and empty-discovery
 outcomes are the ordinary case results and `Core.execute` facts.
@@ -94,7 +94,7 @@ The batch deadline kills the worker's POSIX process group, including grandchildr
 Limits: macOS and Linux only; `lune` must be on `PATH` or named in `command`; each worker resolves its own
 `require` paths relative to its script; `@lune/*` services are loaded dynamically, so static analysis does
 not type them; a pass proves Luau logic under Lune, not Lute, Studio or Player behavior.
-`tools/lune-test.luau` drives real `lune` subprocesses for these claims.
+The `lune-specs` producer of the [repository gate](running.md#repository-gate) drives real `lune` subprocesses for these claims.
 
 ## Declarative gates
 
@@ -105,7 +105,7 @@ injected `{ now, wait, start }`.
 
 | Producer | Fields | Runs |
 | --- | --- | --- |
-| `tests` | `worker`, `locators`, `silent?` | Ordinary spec modules in one [Lute worker](#lute-workers) process. Every locator must report a case unless `silent` names it; a silent module may report none because another module requires it. `silent` is declared, never inferred. |
+| `tests` | `worker`, `locators`, `command?`, `silent?`, `isolate?`, `workers?`, `sourceDeadlineSeconds?`, `args?`, `cases?` | Ordinary spec modules in one [Lute worker](#lute-workers) process (`command` replaces the gate's worker command, for example `{ "lune", "run" }` for a [Lune worker](#lune-workers)), or with `isolate` one worker process per locator (`workers` at a time) accounted as this one producer. `sourceDeadlineSeconds` bounds each isolated source, also by the producer deadline, so one hung source times out alone. Every locator must report a case unless `silent` names it; a silent module may report none because another module requires it. `silent` is declared, never inferred. `cases` declares the exact case census: a missing or an unexpected case fails the producer. `args` are passed to each worker after `--`. A load, registration, hang or fault of one isolated source becomes a failed or timed-out case attributed to that source's locator, counted once. |
 | `command`, `build`, `native` | `argv`, `env?`, `cwd?`, `exit?`, `report?` | An argument vector in a bounded process group, with `env` added to the inherited environment and `cwd` set through the runtime binding (no shell wrapper). `native` must name its host in `requires`. |
 | `benchmark` | `benchmark` | A [benchmark](experience.md#benchmarks) in this process, alone by default. |
 
@@ -113,9 +113,9 @@ injected `{ now, wait, start }`.
 drafts. It uses `partitionPlan`, so fixture groups stay whole and weights balance, and it carries the `silent` names
 that fall in each shard. With `policy.concurrency` the shards run in parallel without losing the plan's structure.
 `Gate.testCases(outcome)` returns the execution report without the producer-level case each `tests` producer adds,
-so counts show only the modules' own cases.
+so counts show only the modules' own cases (it uses the report's own `without`, not a recount).
 
-Every producer has a unique `id` and may set `after`, `tier`, `tags`, `requires`, `deadlineSeconds` (default
+Every producer has a unique `id` and may set `why` (one line shown by `Gate.list` and `Gate.explain`), `after`, `tier`, `tags`, `requires`, `deadlineSeconds` (default
 `policy.commandDeadlineSeconds`, 300) and `exclusive`. Policy sets `concurrency` (default 1), whole-run
 `deadlineSeconds`, `failFast`, `deferrals` and `reuse`.
 
@@ -125,14 +125,27 @@ Every producer has a unique `id` and may set `after`, `tier`, `tags`, `requires`
   (whole seconds, rounded up). The run deadline clamps each start; producers it prevents from starting
   are `timed_out`.
 - **Exit and reports.** Exit zero passes unless `exit` maps the code to `passed`, `failed`, `deferred` or
-  `unsupported`. A producer with `report` must also deliver a current-run report: `{report}` and `{run}` in
+  `unsupported`. A producer with `report` must also deliver a current-run report: `{report}`, `{run}`, `{tier}` and `{cases}` in
   `argv` become the report path and run id, and the command writes `Lute.gate.writeReport(path, run, report)`,
   the `{ runId, report }` envelope used by the Roblox report channel. The old file is deleted first; another run id, an undecodable
-  report, fewer than `report.minimum` cases or a missing `report.cases` entry fails. Exit and report must agree.
+  report, fewer than `report.minimum` cases or a missing `report.cases` entry fails; `report.exact` also rejects a case `report.cases` does not name. Exit and report must agree.
   Adopted cases are named `<producer>:<case>`.
-- **Selection.** `{ ids, tiers, tags }` narrows the run (all given kinds must match; any listed value of one kind).
+- **Selection.** `{ ids, tiers, tags, cases }` narrows the run (all given kinds must match; any listed value of one kind).
   Dependencies are pulled in and marked. Unknown or empty selections raise. Anything short of every producer yields
-  verdict `selected`, never `release`.
+  verdict `selected`, never `release`. `outcome.scope` states what ran: `complete`, a `label`, the requested filters,
+  `selected`, `notSelected`, `skippedByTier` (a declared tier other than the selected one, with the reason on each
+  record) and `deselected` cases; `Gate.format` prints them. `tiers` and `cases` reach every `tests` worker as
+  `--tier=` and `--case=` and a command's `{tier}` and `{cases}` placeholders. A worker started by `Lute.worker` or
+  `Lune.worker` runs a case tagged `tier:<name>` only in that tier (untagged cases run in every tier) and records each
+  other case as `skipped` with a `deselected:` reason (`Selection.account`); a deselected case is neither a pass nor a
+  failure, never recounted, and keeps the run `selected`. Named `cases` that no selected producer reported fail the run;
+  `cases` alone select the producers whose `cases` census declares them.
+- **Entry points.** `Gate.rerun(outcome)` returns the selection of the producers that did not pass, narrowed to their
+  failing cases when every one reported such cases. `Gate.explain(outcome, id)` says why a producer or case was
+  selected, pulled in, not selected (and why), deferred, blocked, failed or reused; `Gate.list(gate)` lists producers.
+  `Lute.gate.run` and `Lune.gate.run` keep `outcome.json` in the run directory and `latest.json` in the base directory;
+  `last(gate)` returns it only for the same gate digest. `tools/gate.luau` exposes them as `--tier`, `--case`,
+  `--rerun`, `--explain` and `--list`.
 - **Acceptance.** `outcome.acceptance.verdict` is `release`, `deferred`, `selected` or `failed`; only `release`
   is `releasable`. A missing host capability is `unsupported` and fails. `policy.deferrals[id] = reason` makes an
   unsupported producer, or an exit code classed `deferred`, `deferred` instead; unnamed ones fail. A deferral is explicit and
@@ -140,9 +153,9 @@ Every producer has a unique `id` and may set `after`, `tier`, `tags`, `requires`
 - **Reuse.** `options.reuse[id] = { report, reference, validatedBy }` satisfies a producer without running it, only for
   ids in `policy.reuse`. The report is decoded and accounted like any other and the result is marked `reused` with a
   limitation. The caller validates that the receipt matches the current artifact; Verify cannot.
-- **Build binding.** `options.build` (an `EvidenceBuild`, see [Evidence provenance](api.md#evidence-provenance)) is recorded in
+- **Build binding.** `options.build` (an `EvidenceBuild`, the one source/tree/cleanliness identity, see [Evidence provenance](api.md#evidence-provenance)) is recorded in
   the report environment and the outcome. When set, a reused receipt must carry the same build digest or the producer fails.
-- **Outcome.** `{ runId, digest, build?, execution, producers, acceptance }`. Every declared producer has a record (status, exit
+- **Outcome.** `{ runId, digest, build?, scope, execution, producers, acceptance }`. Every declared producer has a record (status, exit
   code, bounded log tails, case ids, reuse, deferral). `execution.report` is the receipt; `Gate.format` renders it.
   Full logs are written under `<directory>/<runId>/`.
 

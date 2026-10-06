@@ -281,6 +281,7 @@ local function copyEvidence(value: unknown, steps: { StepResult }): Types.Eviden
 			maximum = optionalNumber(limits.maximum),
 			threshold = optionalNumber(limits.threshold),
 			aboveThresholdRatio = optionalNumber(limits.aboveThresholdRatio),
+			measureOnly = if limits.measureOnly == true then true else nil,
 		}
 		local evaluation = Performance.evaluate(Performance.summarize(copiedInput), copiedLimits)
 		assert(Matchers.deepEqual(evaluation, row.evaluation), "performance evaluation mismatch")

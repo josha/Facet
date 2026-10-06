@@ -10,7 +10,6 @@ from check_architecture import missing_dependencies
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / "artifacts/verify/native"
 HISTORICAL_BASELINE = "a8c8895673c0745506908b66dc89f8cead6b66f3"
-TIERS = ("one", "affected", "fast", "full", "release")
 
 
 def inventory():
@@ -110,38 +109,26 @@ def mapped_cases(replacement):
     return cases
 
 
-def replacement_findings(records, receipt, tier):
-    if not receipt.is_file():
-        return ["suite produced no current-run result file"]
-    execution = json.loads(receipt.read_text())
-    cases = execution.get("report", {}).get("results", [])
-    satisfied = set()
-    for case in cases:
-        reason = case.get("skipReason") or ""
-        gate = reason.removeprefix("tier:")
-        deferred = case.get("status") == "skipped" and reason.startswith("tier:") and gate in TIERS and TIERS.index(gate) > TIERS.index(tier)
-        if case.get("status") == "passed" or deferred:
-            satisfied.add(case.get("id"))
+def replacement_findings(records, selected):
+    census = json.loads((ROOT / "tests/case_inventory.json").read_text())["cases"]
+    planned = {case["id"] for case in census if case["source"] in selected}
     failures = []
-    if execution.get("report", {}).get("environment", {}).get("tier") != tier:
-        failures.append("suite receipt does not carry the requested tier")
     for record in records:
         for case in mapped_cases(record.get("replacement") or {}):
-            if case not in satisfied:
-                failures.append(f"{record['spec']}: mapped replacement case did not pass: {case}")
+            if case not in planned:
+                failures.append(f"{record['spec']}: mapped replacement case is not in the gate's case census: {case}")
     return failures
 
 
 def main():
     parser = argparse.ArgumentParser(description="Check the historical coverage mappings against the committed Verify plan.")
-    parser.add_argument("--cases", type=Path, help="suite execution receipt; also require every mapped replacement case to pass")
-    parser.add_argument("--tier", choices=TIERS, default="full")
+    parser.add_argument("--cases", action="store_true", help="require every mapped replacement case in the census that the suite producer must pass")
     args = parser.parse_args()
     records, selected, failures = inventory()
     name = "coverage"
     if args.cases:
         name = "replacement-cases"
-        failures = replacement_findings(records, args.cases, args.tier)
+        failures = replacement_findings(records, selected)
     else:
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
         (ARTIFACTS / "coverage.json").write_text(json.dumps({"schema": "facet-native-coverage/1", "specs": records, "unresolved": failures}, indent=2) + "\n")

@@ -183,17 +183,18 @@ input, distinct from the character motion operations in `playerHost`.
 
 ## Benchmarks
 
-`Verify.benchmark.case(spec)` is an ordinary case; `Verify.benchmark.run(spec)` returns the raw result. A spec supplies
-`name`, `unit` (`seconds`, `milliseconds`, `microseconds`), `workload`, `warmup`, `samples`, `iterations?`, `budget`
-(`p50`, `p95`, `p99`, `maximum`), `environment = { observed, accepted? }` and optionally `maxSpread`, `yardstick`,
-`baseline` with `acceptedBaselines`, `deadlineSeconds` and an injectable `clock` (default `os.clock`; a gate supplies its own).
+`Benchmark.case(spec)` (`src/benchmark.luau`, host-side) is an ordinary case; `Benchmark.run(spec)` returns the raw result. A spec supplies
+`name`, `unit` (`seconds`, `milliseconds`, `microseconds`), `workload`, `warmup`, `samples`, `iterations?`, `budget?`
+(`p50`, `p95`, `p99`, `maximum`; none means the case passes as measured only, with that limitation and evaluation reason `measured`, and acceptance policy decides), `environment = { observed, accepted? }` and optionally `maxSpread`, `yardstick`,
+`baseline` (a `value` or recorded `samples`, and optionally the `yardstick` it was recorded with, which normalizes the comparison across machines) with `acceptedBaselines`, `judge` (a callback over the raw samples and summary returning a refusal message), `setup`/`teardown` (once, untimed), `beforeSample`/`afterSample` (every sample, untimed), `heap` (`{ probe, unit, maximumGrowth? }`), `deadlineSeconds` and an injectable `clock` (default `os.clock`; a gate supplies its own).
 The consumer owns identities, budgets and units; no machine is a universal baseline.
 
-Warmup runs are untimed. Exactly `samples` timed samples follow, each `iterations` runs averaged. The run is never retried.
+`Benchmark.collection({ name, yardstick, benchmarks })` is one case whose members share a yardstick measured before and after the whole collection (`Benchmark.collect` returns the raw result). After the second reading each member's baseline comparison (including `baseline.yardstick` normalization) and `judge` run with the collection's before and after yardstick samples; the judge view carries them raw (`yardstickBefore`, `yardstickAfter`) and summarized (`yardstickBeforeSummary`, `yardstickAfterSummary`) so a caller can apply its own normalization and rules. A drifting yardstick marks the members unsupported and skips their judges. Warmup runs are untimed. Exactly `samples` timed samples follow, each `iterations` runs averaged. The run is never retried.
 All raw samples are kept in the case's measurement evidence. Within budget passes; over budget or a baseline
 regression beyond `tolerance` fails. Anything that makes the numbers untrustworthy is reported as missing
 `measurement:<reason>` (unsupported unless the budget also failed): `environment_mismatch`, `baseline_mismatch`
 (identity, environment or unit), `unstable` (`(p95 - p50) / p50 > maxSpread`), `yardstick_unstable`,
-`yardstick_drift` (a fixed CPU workload sampled before and after moves more than `maxDrift`), `deadline_exceeded`.
+`yardstick_drift` (a fixed CPU workload sampled before and after moves more than `maxDrift`), `heap_unsupported` (the probe returned no reading), `deadline_exceeded`.
 Environment or baseline mismatch skips the workload. A raising workload or invalid clock fails.
 
+`Benchmark.luauHeap` reads `collectgarbage('count')` where the runtime exposes it (Lune); Lute 1.0 does not, so it reports `heap_unsupported`. It never forces a collection. A summary also carries `total` and `deviation`.

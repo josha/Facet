@@ -27,9 +27,12 @@ export type Options = {
 }
 
 export type Gate = {
+	DEFAULT_DIRECTORY: string,
+	DEFAULT_CAPABILITIES: { string },
 	run: (gate: Gate.Definition, options: Options?) -> Gate.Outcome,
 	executor: (options: Options, directory: string, runId: string) -> Gate.Executor,
 	writeReport: (path: string, runId: string, report: Verify.Report) -> (),
+	last: (gate: Gate.Definition, options: Options?) -> (Gate.Outcome?, string?),
 }
 
 local DEFAULT_CAPABILITIES = { "local-luau", "process" }
@@ -40,14 +43,20 @@ local function safeName(id: string): string
 	return (string.gsub(id, "[^%w%-_]", "-"))
 end
 
-local function substitute(argv: { string }, reportPath: string, runId: string): { string }
+local function substitute(argv: { string }, reportPath: string, job: Gate.Job): { string }
 	local result: { string } = {}
 	for _, value in argv do
 		local replaced = string.gsub(value, "{report}", function()
 			return reportPath
 		end)
 		replaced = string.gsub(replaced, "{run}", function()
-			return runId
+			return job.runId
+		end)
+		replaced = string.gsub(replaced, "{tier}", function()
+			return table.concat(job.tiers, ",")
+		end)
+		replaced = string.gsub(replaced, "{cases}", function()
+			return table.concat(job.cases, ",")
 		end)
 		table.insert(result, replaced)
 	end
@@ -81,17 +90,9 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 				return result
 			end
 			if job.kind == "tests" then
-				local host = Host.create(runtime, {
-					worker = job.worker :: string,
-					command = options.command,
-					directory = stem .. "-worker",
-					deadlineSeconds = job.deadlineSeconds,
-					name = "verify-gate-tests",
-					receipts = receipts,
-				})
-				local units: { Verify.PlanUnit } = {}
-				for _, locator in job.locators do
-					table.insert(units, {
+				local name = "verify-gate-tests"
+				local function unitFor(locator: string): Verify.PlanUnit
+					return {
 						id = job.id .. ":" .. locator,
 						locator = locator,
 						group = nil,
@@ -99,32 +100,138 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 						requires = {},
 						deadlineSeconds = nil,
 						weight = 1,
+					}
+				end
+				local function hostFor(suffix: string, deadline: number): Verify.Host
+					return Host.create(runtime, {
+						worker = job.worker :: string,
+						command = job.command or options.command,
+						directory = stem .. "-worker" .. suffix,
+						deadlineSeconds = deadline,
+						name = name,
+						receipts = receipts,
+						arguments = job.args,
 					})
 				end
-				local batch: Verify.PlanBatch =
-					{ id = safeName(job.id), index = 1, units = units, deadlineSeconds = job.deadlineSeconds }
+				local started = runtime.time.clock()
 				runtime.time.spawn(function()
-					local ran, outcome: unknown = pcall(host.runBatch, batch)
-					if not ran then
+					if not job.isolate then
+						local units: { Verify.PlanUnit } = {}
+						for _, locator in job.locators do
+							table.insert(units, unitFor(locator))
+						end
+						local batch: Verify.PlanBatch =
+							{ id = safeName(job.id), index = 1, units = units, deadlineSeconds = job.deadlineSeconds }
+						local ran, outcome: unknown = pcall(hostFor("", job.deadlineSeconds).runBatch, batch)
+						if not ran then
+							result = {
+								started = false,
+								exitcode = -1,
+								timedOut = false,
+								stdout = "",
+								stderr = "",
+								detail = tostring(outcome),
+							}
+							return
+						end
+						local batchOutcome = outcome :: Verify.BatchOutcome
 						result = {
-							started = false,
-							exitcode = -1,
-							timedOut = false,
+							started = true,
+							exitcode = if batchOutcome.status == "returned" then 0 else 1,
+							timedOut = batchOutcome.status == "timed_out",
 							stdout = "",
 							stderr = "",
-							detail = tostring(outcome),
+							report = batchOutcome.report,
+							detail = batchOutcome.detail,
 						}
 						return
 					end
-					local batchOutcome = outcome :: Verify.BatchOutcome
+					local reports: { [number]: Verify.Report } = {}
+					local function runOne(index: number)
+						local locator = job.locators[index]
+						local unit = unitFor(locator)
+						local left = job.deadlineSeconds - (runtime.time.clock() - started)
+						local remaining = if job.sourceDeadlineSeconds ~= nil
+							then math.min(left, job.sourceDeadlineSeconds)
+							else left
+						local timedOut = false
+						local detail = "the worker did not run"
+						if left <= 0 then
+							timedOut = true
+							detail = "not started: the producer deadline elapsed"
+						else
+							local batch: Verify.PlanBatch = {
+								id = ("%s-%d"):format(safeName(job.id), index),
+								index = 1,
+								units = { unit },
+								deadlineSeconds = remaining,
+							}
+							local ran, outcome: unknown =
+								pcall(hostFor("-" .. tostring(index), remaining).runBatch, batch)
+							if ran then
+								local batchOutcome = outcome :: Verify.BatchOutcome
+								if batchOutcome.status == "returned" and batchOutcome.report ~= nil then
+									reports[index] = Verify.decode(batchOutcome.report)
+									return
+								end
+								timedOut = batchOutcome.status == "timed_out"
+								detail = batchOutcome.detail or batchOutcome.status
+							else
+								detail = tostring(outcome)
+							end
+						end
+						reports[index] = Verify.syntheticReport {
+							executor = name,
+							environment = { runtime = runtime.name },
+							capabilities = Host.DEFAULT_CAPABILITIES,
+							id = ("unit:%s:worker"):format(unit.id),
+							source = locator,
+							name = unit.id,
+							status = if timedOut then "timed_out" else "failed",
+							phase = "executor",
+							message = detail,
+						}
+					end
+					local nextIndex = 1
+					local active = 0
+					for _ = 1, math.min(job.workers, #job.locators) do
+						active += 1
+						runtime.time.spawn(function()
+							while nextIndex <= #job.locators do
+								local index = nextIndex
+								nextIndex += 1
+								local ran, thrown: unknown = pcall(runOne, index)
+								if not ran then
+									reports[index] = Verify.syntheticReport {
+										executor = name,
+										environment = { runtime = runtime.name },
+										capabilities = Host.DEFAULT_CAPABILITIES,
+										id = ("unit:%s:worker"):format(unitFor(job.locators[index]).id),
+										source = job.locators[index],
+										name = job.locators[index],
+										status = "failed",
+										phase = "executor",
+										message = tostring(thrown),
+									}
+								end
+							end
+							active -= 1
+						end)
+					end
+					while active > 0 do
+						runtime.time.wait(0.005)
+					end
+					local ordered: { Verify.Report } = {}
+					for index = 1, #job.locators do
+						table.insert(ordered, reports[index])
+					end
 					result = {
 						started = true,
-						exitcode = if batchOutcome.status == "returned" then 0 else 1,
-						timedOut = batchOutcome.status == "timed_out",
+						exitcode = 0,
+						timedOut = false,
 						stdout = "",
 						stderr = "",
-						report = batchOutcome.report,
-						detail = batchOutcome.detail,
+						report = Verify.merge(ordered, name, { runtime = runtime.name }),
 					}
 				end)
 				return { poll = poll }
@@ -134,7 +241,7 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 			local logPath = stem .. ".log"
 			files.removeIfPresent(reportPath)
 			files.removeIfPresent(logPath)
-			local argv = substitute(job.argv, reportPath, runId)
+			local argv = substitute(job.argv, reportPath, job)
 			runtime.time.spawn(function()
 				local ran =
 					Bounded.run(argv, job.deadlineSeconds, runtime.process.run, { env = job.env, cwd = job.cwd })
@@ -184,10 +291,14 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 		return { now = now, wait = wait, start = start }
 	end
 
+	local function baseOf(settings: Options): string
+		return settings.directory or runtime.defaultDirectory .. "/gate"
+	end
+
 	local function run(gate: Gate.Definition, options: Options?): Gate.Outcome
 		local settings: Options = if options ~= nil then options else {}
 		local runId = settings.runId or newRunId()
-		local directory = ("%s/%s"):format(settings.directory or runtime.defaultDirectory .. "/gate", safeName(runId))
+		local directory = ("%s/%s"):format(baseOf(settings), safeName(runId))
 		local capabilities: { string } = table.clone(DEFAULT_CAPABILITIES)
 		local extra: { string } = if settings.capabilities ~= nil then settings.capabilities else {}
 		for _, capability in extra do
@@ -198,7 +309,7 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 		for key, value in supplied do
 			environment[key] = value
 		end
-		return Gate.run(gate, executor(settings, directory, runId), {
+		local outcome = Gate.run(gate, executor(settings, directory, runId), {
 			runId = runId,
 			build = settings.build,
 			selection = settings.selection,
@@ -211,9 +322,43 @@ local function create(runtime: Binding.Runtime, receipts: ("report" | "bound")?)
 			observe = settings.observe,
 			fixtures = settings.fixtures,
 		})
+		local encoded = runtime.json.encode(outcome)
+		runtime.fs.write(directory .. "/outcome.json", encoded)
+		runtime.fs.write(baseOf(settings) .. "/latest.json", encoded)
+		return outcome
 	end
 
-	return { run = run, executor = executor, writeReport = writeReport }
+	local function last(gate: Gate.Definition, options: Options?): (Gate.Outcome?, string?)
+		local path = baseOf(if options ~= nil then options else {}) .. "/latest.json"
+		if not runtime.fs.exists(path) then
+			return nil, "no earlier outcome at " .. path
+		end
+		local parsed, value: unknown = pcall(function(): unknown
+			return wire.parse(runtime.fs.read(path))
+		end)
+		if not parsed or type(value) ~= "table" then
+			return nil, "the earlier outcome is unreadable"
+		end
+		local outcome = value :: Gate.Outcome
+		if outcome.gate ~= gate.id or outcome.digest ~= gate.digest then
+			return nil, "the earlier outcome belongs to another gate definition"
+		end
+		local decoded, report: unknown = pcall(Verify.decode, outcome.execution.report)
+		if not decoded then
+			return nil, "the earlier outcome holds an invalid report: " .. tostring(report)
+		end
+		outcome.execution.report = report :: Verify.Report
+		return outcome, nil
+	end
+
+	return {
+		DEFAULT_DIRECTORY = baseOf {},
+		DEFAULT_CAPABILITIES = DEFAULT_CAPABILITIES,
+		run = run,
+		executor = executor,
+		writeReport = writeReport,
+		last = last,
+	}
 end
 
 return {

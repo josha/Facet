@@ -15,7 +15,7 @@ export type Expected = {
 	digest: string,
 	commit: string?,
 	tree: string?,
-	requireClean: boolean,
+	requireClean: boolean?,
 }
 
 export type Requirement = {
@@ -30,11 +30,13 @@ export type Requirement = {
 export type Attestation = (artifact: Artifact, provenance: Provenance.Provenance) -> boolean
 
 export type Policy = {
+	from: Provenance.Subject?,
 	runId: string?,
-	build: Expected,
+	build: Expected?,
+	requireClean: boolean?,
 	now: () -> number,
-	maxAgeSeconds: number,
-	maxSkewSeconds: number,
+	maxAgeSeconds: number?,
+	maxSkewSeconds: number?,
 	hosts: { string }?,
 	capabilities: { string }?,
 	required: { Requirement },
@@ -76,13 +78,31 @@ local function contains(values: { string }, wanted: string): boolean
 	return table.find(values, wanted) ~= nil
 end
 
+local DEFAULT_MAX_AGE_SECONDS = 3600
+local DEFAULT_MAX_SKEW_SECONDS = 5
+
 local function validate(report: Types.Report, policy: Policy): Result
-	assert(
-		Shape.finiteNonnegative(policy.maxAgeSeconds) and policy.maxAgeSeconds > 0,
-		"maxAgeSeconds must be a positive finite number"
-	)
-	assert(Shape.finiteNonnegative(policy.maxSkewSeconds), "maxSkewSeconds must be a finite non-negative number")
-	assert(policy.build.digest ~= "", "the expected build needs a digest")
+	local maxAge = if policy.maxAgeSeconds ~= nil then policy.maxAgeSeconds else DEFAULT_MAX_AGE_SECONDS
+	local maxSkew = if policy.maxSkewSeconds ~= nil then policy.maxSkewSeconds else DEFAULT_MAX_SKEW_SECONDS
+	assert(Shape.finiteNonnegative(maxAge) and maxAge > 0, "maxAgeSeconds must be a positive finite number")
+	assert(Shape.finiteNonnegative(maxSkew), "maxSkewSeconds must be a finite non-negative number")
+	local expectedRun = if policy.runId ~= nil
+		then policy.runId
+		elseif policy.from ~= nil then policy.from.runId
+		else nil
+	local expected: Expected? = policy.build
+	if expected == nil and policy.from ~= nil and policy.from.build ~= nil then
+		local subject = Provenance.copyBuild(policy.from.build, "from.build")
+		expected = {
+			digest = subject.digest,
+			commit = subject.commit,
+			tree = subject.tree,
+			requireClean = policy.requireClean ~= false,
+		}
+	end
+	assert(expected ~= nil, "validation needs the expected build, directly or from an outcome that carries one")
+	assert(expected.digest ~= "", "the expected build needs a digest")
+	local requireClean = if expected.requireClean ~= nil then expected.requireClean else policy.requireClean ~= false
 	assert(#policy.required > 0, "required coverage must not be empty")
 	local now = policy.now()
 	assert(Shape.finiteNonnegative(now), "the injected clock must return a finite non-negative time")
@@ -170,18 +190,18 @@ local function validate(report: Types.Report, policy: Policy): Result
 		if provenance.caseId ~= result.id or provenance.actor ~= actor or provenance.checkpoint ~= checkpoint then
 			bad("wrong_identity", "provenance names a different case, actor or checkpoint than where it is filed")
 		end
-		if policy.runId ~= nil and provenance.runId ~= policy.runId then
-			bad("wrong_run", ("captured by run %s, expected %s"):format(provenance.runId, policy.runId))
+		if expectedRun ~= nil and provenance.runId ~= expectedRun then
+			bad("wrong_run", ("captured by run %s, expected %s"):format(provenance.runId, expectedRun))
 		end
 		local build = provenance.build
 		if
-			build.digest ~= policy.build.digest
-			or (policy.build.commit ~= nil and build.commit ~= policy.build.commit)
-			or (policy.build.tree ~= nil and build.tree ~= policy.build.tree)
+			build.digest ~= expected.digest
+			or (expected.commit ~= nil and build.commit ~= expected.commit)
+			or (expected.tree ~= nil and build.tree ~= expected.tree)
 		then
-			bad("build_mismatch", ("captured against build %s, expected %s"):format(build.digest, policy.build.digest))
+			bad("build_mismatch", ("captured against build %s, expected %s"):format(build.digest, expected.digest))
 		end
-		if policy.build.requireClean and not build.clean then
+		if requireClean and not build.clean then
 			bad("build_dirty", "captured from a build with uncommitted changes")
 		end
 		if policy.hosts ~= nil and not contains(policy.hosts, provenance.host) then
@@ -194,10 +214,10 @@ local function validate(report: Types.Report, policy: Policy): Result
 			end
 		end
 		local age = now - provenance.capturedAt
-		if age < -policy.maxSkewSeconds then
+		if age < -maxSkew then
 			bad("future_capture", ("captured %.3f seconds after the validation clock"):format(-age))
-		elseif age > policy.maxAgeSeconds then
-			bad("stale", ("captured %.3f seconds ago; at most %.3f allowed"):format(age, policy.maxAgeSeconds))
+		elseif age > maxAge then
+			bad("stale", ("captured %.3f seconds ago; at most %.3f allowed"):format(age, maxAge))
 		end
 		local attest = if policy.attest ~= nil then policy.attest[provenance.device] else nil
 		if provenance.device == "physical" and attest == nil then

@@ -6,4 +6,4 @@ The client makes an app with `Facet.app` and mounts the screen with `app.mount`.
 
 The same screen module runs in the native gallery tests. `Facet.app` adds no environment, renderer or scene wrapper.
 
-Run `lune run tools/lune/suite_cli native_gallery` for the gallery and consumer checks.
+Run `tools/verify.sh spec native_gallery` for the gallery and consumer checks.

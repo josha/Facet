@@ -6,11 +6,14 @@ local Types = require "../core/types"
 
 type Artifact = Types.Artifact
 
+export type Subject = Provenance.Subject
+
 export type Issue = { code: string, subject: string, detail: string }
 
 export type SealOptions = {
-	runId: string,
-	build: Provenance.Build,
+	from: Provenance.Subject?,
+	runId: string?,
+	build: Provenance.Build?,
 	device: string,
 	now: () -> number,
 	hash: Provenance.Hasher,
@@ -29,8 +32,11 @@ export type ReviewBinding = {
 }
 
 local function seal(report: Types.Report, options: SealOptions): Sealed
-	assert(options.runId ~= "" and options.device ~= "", "sealing needs a run id and a device class")
-	local build = Provenance.copyBuild(options.build, "build")
+	local runId = if options.runId ~= nil then options.runId elseif options.from ~= nil then options.from.runId else ""
+	local source = if options.build ~= nil then options.build elseif options.from ~= nil then options.from.build else nil
+	assert(runId ~= "" and options.device ~= "", "sealing needs a run id and a device class")
+	assert(source ~= nil, "sealing needs the build, directly or from an outcome that carries one")
+	local build = Provenance.copyBuild(source, "build")
 	local copy = Report.decode(report)
 	local issues: { Issue } = {}
 	local function one(artifact: Artifact, caseId: string, actor: string?, checkpoint: string?, origin: Types.Origin)
@@ -81,7 +87,7 @@ local function seal(report: Types.Report, options: SealOptions): Sealed
 		artifact.sha256 = digest
 		artifact.size = #bytes
 		artifact.provenance = {
-			runId = options.runId,
+			runId = runId,
 			caseId = caseId,
 			actor = actor,
 			checkpoint = checkpoint,

@@ -176,7 +176,8 @@ local function new(options: any?): Engine
 	local attributeValues = {}
 	local attributeTokens = setmetatable({}, { __mode = "k" })
 	local signalAdapters = setmetatable({}, { __mode = "kv" })
-	local environment = VerifyRoblox.reflection.create({
+	local environment: VerifyRoblox.Environment
+	local bridge = VerifyRoblox.fixtureBridge({
 		database = database,
 		typeName = function(value: any)
 			if type(value) == "table" then
@@ -191,7 +192,20 @@ local function new(options: any?): Engine
 			return tostring((value :: any).EnumType)
 		end,
 		classes = classes,
+		library = (
+				{ typeName = typeof, datatypes = Roblox } :: unknown
+			) :: VerifyRoblox.EnvironmentEngineLibrary<any, any, any, any, any, any>,
+		ui = {
+			validate = false,
+			methods = {
+				["UIPageLayout.JumpTo"] = function(object, page)
+					assert(VerifyRoblox.isInstance(object), "page layout fake requires an instance")
+					environment.poke(object :: VerifyRoblox.Instance, "CurrentPage", page)
+				end,
+			},
+		},
 	})
+	environment = bridge.environment
 	local function raiseHandlerErrors()
 		if #environment.errors > 0 then
 			local message = table.concat(environment.errors, "\n")
@@ -242,14 +256,6 @@ local function new(options: any?): Engine
 		signalAdapters[actual] = adapter
 		return adapter
 	end
-	VerifyRoblox.uiFakes.attach(environment, {
-		methods = {
-			["UIPageLayout.JumpTo"] = function(object, page)
-				assert(VerifyRoblox.isInstance(object), "page layout fake requires an instance")
-				environment.poke(object :: VerifyRoblox.Instance, "CurrentPage", page)
-			end,
-		},
-	})
 	local function facade(actual: any): any
 		local className = actual.ClassName
 		local overrides: { [string]: any } = {}
@@ -289,23 +295,6 @@ local function new(options: any?): Engine
 					values[key] = attributeValues[value] or value
 				end
 				return values
-			end,
-			Clone = function()
-				local copy = actual:Clone()
-				if not copy then
-					return nil
-				end
-				local function adopt(target: any)
-					wrap(target)
-					if target:IsA("ViewportFrame") then
-						environment.poke(target, "CurrentCamera", nil)
-					end
-					for _, child in target:GetChildren() do
-						adopt(child)
-					end
-				end
-				adopt(copy)
-				return wrap(copy)
 			end,
 			Play = function()
 				node.PlayCount = (node.PlayCount or 0) + 1
@@ -447,7 +436,7 @@ local function new(options: any?): Engine
 		return node
 	end
 	local function create(className: string): any
-		return facade(environment.createInstance(className))
+		return wrap(environment.createInstance(className))
 	end
 	function wrap(value: any): any
 		if facades[value] then
@@ -461,6 +450,14 @@ local function new(options: any?): Engine
 		end
 		return value
 	end
+	environment.onCreate(function(object)
+		wrap(object)
+	end)
+	environment.onClone(function(_, copy)
+		if copy:IsA("ViewportFrame") then
+			environment.poke(copy, "CurrentCamera", nil)
+		end
+	end)
 	local heartbeat = adaptSignal(environment.heartbeat)
 
 	local types: any = table.clone(Roblox)
@@ -531,18 +528,14 @@ local function new(options: any?): Engine
 		end,
 	}
 
-	local engine: any = VerifyRoblox.environmentEngine(
-		environment,
-		(
-				{ typeName = typeof, datatypes = Roblox } :: unknown
-			) :: VerifyRoblox.EnvironmentEngineLibrary<any, any, any, any, any, any>
-	)
+	local engine: any = bridge.engine
 	engine.new = create
 	engine.heartbeat = heartbeat
 	engine.clock = os.clock
 	engine.census = function()
 		assert(not options or options.recordCreated ~= false, "census requires recording all created instances")
-		return { live = environment.liveObjects(), connections = environment.liveConnections() }
+		local accounting = bridge.accounting()
+		return { live = accounting.objects, connections = accounting.connections }
 	end
 	engine.made = made
 	engine.rejectedSelections = rejectedSelections

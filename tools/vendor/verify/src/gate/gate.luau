@@ -1,6 +1,6 @@
 --!strict
 
-local Benchmark = require "../core/benchmark"
+local Benchmark = require "../benchmark"
 local Capability = require "../core/capability"
 local Execution = require "../core/execution"
 local GateJob = require "./gate-job"
@@ -86,6 +86,24 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 	if kind ~= "tests" and kind ~= "command" and kind ~= "build" and kind ~= "native" and kind ~= "benchmark" then
 		error(label .. " has an unknown kind", 3)
 	end
+	if
+		kind ~= "tests"
+		and (
+			draft.isolate ~= nil
+			or draft.workers ~= nil
+			or draft.sourceDeadlineSeconds ~= nil
+			or draft.args ~= nil
+			or draft.cases ~= nil
+			or draft.command ~= nil
+		)
+	then
+		error(
+			label .. " takes isolate, workers, sourceDeadlineSeconds, args, cases and command only as a tests producer",
+			3
+		)
+	end
+	local workers = 1
+	local cases: { string }? = nil
 	local argv: { string } = {}
 	local locators: { string } = {}
 	local silent: { string } = {}
@@ -99,6 +117,24 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 			error(label .. " lists no test module", 3)
 		end
 		silent = ordered(draft.silent, label .. ".silent")
+		if draft.workers ~= nil then
+			if draft.isolate ~= true then
+				error(label .. ".workers needs isolate = true", 3)
+			end
+			workers = positiveWhole(draft.workers, 1, label .. ".workers")
+		end
+		if draft.sourceDeadlineSeconds ~= nil and draft.isolate ~= true then
+			error(label .. ".sourceDeadlineSeconds needs isolate = true", 3)
+		end
+		if draft.command ~= nil and #arguments(draft.command, label .. ".command") == 0 then
+			error(label .. ".command must name the program that starts the worker", 3)
+		end
+		if draft.cases ~= nil then
+			cases = ordered(draft.cases, label .. ".cases")
+			if #(cases :: { string }) == 0 then
+				error(label .. ".cases must declare at least one case", 3)
+			end
+		end
 		for _, locator in silent do
 			if table.find(locators, locator) == nil then
 				error(("%s.silent names %s, which is not one of its locators"):format(label, locator), 3)
@@ -167,10 +203,16 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 		if expectation.cases ~= nil then
 			ordered(expectation.cases, label .. ".report.cases")
 		end
+		if expectation.exact == true and expectation.cases == nil then
+			error(label .. ".report.exact needs report.cases", 3)
+		end
 	end
 	local requires = strings(draft.requires, label .. ".requires")
 	if kind == "native" and #requires == 0 then
 		error(label .. " is native and must name the host capability it requires", 3)
+	end
+	if draft.why ~= nil and (type(draft.why) ~= "string" or string.find(draft.why, "%S") == nil) then
+		error(label .. ".why must be a non-empty explanation", 3)
 	end
 	if draft.tier ~= nil and draft.tier == "" then
 		error(label .. ".tier must not be empty", 3)
@@ -180,6 +222,7 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 		kind = kind,
 		after = ordered(draft.after, label .. ".after"),
 		tier = draft.tier,
+		why = draft.why,
 		tags = strings(draft.tags, label .. ".tags"),
 		requires = requires,
 		deadlineSeconds = positiveSeconds(draft.deadlineSeconds, label .. ".deadlineSeconds") or defaultDeadline,
@@ -190,8 +233,14 @@ local function normalizeProducer(draft: GateTypes.ProducerDraft, defaultDeadline
 		cwd = draft.cwd,
 		report = expectation,
 		worker = draft.worker,
+		command = if draft.command ~= nil then arguments(draft.command, label .. ".command") else nil,
 		locators = locators,
 		silent = silent,
+		isolate = draft.isolate == true,
+		workers = workers,
+		sourceDeadlineSeconds = positiveSeconds(draft.sourceDeadlineSeconds, label .. ".sourceDeadlineSeconds"),
+		args = arguments(draft.args, label .. ".args"),
+		cases = cases,
 		benchmark = draft.benchmark,
 	}
 end
@@ -271,6 +320,7 @@ local function digestOf(id: string, producers: { Producer }, policy: GateTypes.P
 		table.sort(codes)
 		local report = producer.report
 		local spec = producer.benchmark
+		local budget: Benchmark.Budget = if spec ~= nil and spec.budget ~= nil then spec.budget else {}
 		table.insert(
 			pieces,
 			table.concat({
@@ -293,12 +343,21 @@ local function digestOf(id: string, producers: { Producer }, policy: GateTypes.P
 				end)(),
 				table.concat(codes, ","),
 				if report ~= nil
-					then ("%s|%s"):format(
+					then ("%s|%s|%s"):format(
 						tostring(report.minimum),
-						table.concat(if report.cases ~= nil then report.cases else {}, ",")
+						table.concat(if report.cases ~= nil then report.cases else {}, ","),
+						tostring(report.exact == true)
 					)
 					else "",
+				("%s|%d|%s|%s|%s"):format(
+					tostring(producer.isolate),
+					producer.workers,
+					tostring(producer.sourceDeadlineSeconds),
+					table.concat(producer.args, "\0"),
+					table.concat(if producer.cases ~= nil then producer.cases else {}, ",")
+				),
 				tostring(producer.worker),
+				table.concat(if producer.command ~= nil then producer.command else {}, "\0"),
 				table.concat(producer.locators, ","),
 				table.concat(producer.silent, ","),
 				if spec ~= nil
@@ -307,10 +366,7 @@ local function digestOf(id: string, producers: { Producer }, policy: GateTypes.P
 						spec.unit,
 						spec.warmup,
 						spec.samples,
-						tostring(spec.budget.p50)
-							.. tostring(spec.budget.p95)
-							.. tostring(spec.budget.p99)
-							.. tostring(spec.budget.maximum),
+						tostring(budget.p50) .. tostring(budget.p95) .. tostring(budget.p99) .. tostring(budget.maximum),
 						spec.environment.observed
 					)
 					else "",
@@ -409,16 +465,28 @@ local function producerOf(gate: Gate, id: string): Producer
 	error("unknown producer " .. id, 2)
 end
 
-local function resolve(gate: Gate, selection: GateTypes.Selection?): ({ string }?, { [string]: boolean })
-	local pulled: { [string]: boolean } = {}
+type Resolved = {
+	ids: { string }?,
+	pulled: { [string]: boolean },
+	reasons: { [string]: string },
+	byTier: { [string]: boolean },
+}
+
+local function listed(values: { string }?): { string }
+	return if values ~= nil then values else {}
+end
+
+local function resolve(gate: Gate, selection: GateTypes.Selection?): Resolved
+	local resolved: Resolved = { ids = nil, pulled = {}, reasons = {}, byTier = {} }
 	if selection == nil then
-		return nil, pulled
+		return resolved
 	end
-	local ids = selection.ids
-	local tiers = selection.tiers
-	local tags = selection.tags
-	if (ids == nil or #ids == 0) and (tiers == nil or #tiers == 0) and (tags == nil or #tags == 0) then
-		error("a gate selection must name at least one id, tier or tag", 3)
+	local askedIds = listed(selection.ids)
+	local askedTiers = listed(selection.tiers)
+	local askedTags = listed(selection.tags)
+	local askedCases = listed(selection.cases)
+	if #askedIds == 0 and #askedTiers == 0 and #askedTags == 0 and #askedCases == 0 then
+		error("a gate selection must name at least one id, tier, tag or case", 3)
 	end
 	local known: { [string]: boolean } = {}
 	local present: { [string]: boolean } = {}
@@ -428,29 +496,48 @@ local function resolve(gate: Gate, selection: GateTypes.Selection?): ({ string }
 			present[tag] = true
 		end
 	end
-	local askedIds: { string } = if ids ~= nil then ids else {}
 	for _, id in askedIds do
 		if not known[id] then
 			error(("selection names unknown producer %q"):format(id), 3)
 		end
 	end
 	local wanted: { string } = {}
-	local askedTiers: { string } = if tiers ~= nil then tiers else {}
 	for _, tier in askedTiers do
 		if not present["tier:" .. tier] then
 			error(("selection names unknown tier %q"):format(tier), 3)
 		end
 		table.insert(wanted, "tier:" .. tier)
 	end
-	local askedTags: { string } = if tags ~= nil then tags else {}
 	for _, tag in askedTags do
 		if not present[tag] then
 			error(("selection names unknown tag %q"):format(tag), 3)
 		end
 		table.insert(wanted, tag)
 	end
+	local ownerIds: { string } = {}
+	if #askedIds == 0 and #wanted == 0 then
+		for _, case in askedCases do
+			local owned = false
+			for _, producer in gate.producers do
+				if producer.cases ~= nil and table.find(producer.cases, case) ~= nil then
+					owned = true
+					if table.find(ownerIds, producer.id) == nil then
+						table.insert(ownerIds, producer.id)
+					end
+				end
+			end
+			if not owned then
+				error(
+					("selection names case %q, which no producer declares; name the producer with ids or declare its cases"):format(
+						case
+					),
+					3
+				)
+			end
+		end
+	end
 	local picked = Plan.select(gate.plan, {
-		ids = if ids ~= nil and #ids > 0 then ids else nil,
+		ids = if #askedIds > 0 then askedIds elseif #ownerIds > 0 then ownerIds else nil,
 		tags = if #wanted > 0 then wanted else nil,
 	})
 	if #picked.units == 0 then
@@ -476,11 +563,33 @@ local function resolve(gate: Gate, selection: GateTypes.Selection?): ({ string }
 		if chosen[producer.id] then
 			table.insert(result, producer.id)
 			if not direct[producer.id] then
-				pulled[producer.id] = true
+				resolved.pulled[producer.id] = true
+			end
+		else
+			local tier = producer.tier
+			if #askedTiers > 0 and (tier == nil or table.find(askedTiers, tier) == nil) then
+				resolved.reasons[producer.id] = if tier == nil
+					then ("not selected: it declares no tier and the run selected tier %s"):format(
+						table.concat(askedTiers, ", ")
+					)
+					else ("not selected: its tier %s is not among the selected tier %s"):format(
+						tier,
+						table.concat(askedTiers, ", ")
+					)
+				resolved.byTier[producer.id] = tier ~= nil
+			elseif #askedIds > 0 then
+				resolved.reasons[producer.id] = "not selected: the run named other producers"
+			elseif #askedTags > 0 then
+				resolved.reasons[producer.id] = ("not selected: it carries none of the selected tag(s) %s"):format(
+					table.concat(askedTags, ", ")
+				)
+			else
+				resolved.reasons[producer.id] = "not selected: it declares none of the selected cases"
 			end
 		end
 	end
-	return result, pulled
+	resolved.ids = result
+	return resolved
 end
 
 local function micros(seconds: number): number
@@ -546,6 +655,7 @@ local function schedule(
 			id = producer.id,
 			kind = producer.kind,
 			tier = producer.tier,
+			why = producer.why,
 			status = built.status,
 			selected = true,
 			pulledByDependency = false,
@@ -556,6 +666,7 @@ local function schedule(
 			log = log,
 			reportAccounted = built.accounted,
 			caseIds = built.caseIds,
+			deselected = built.deselected,
 			reused = reuse ~= nil and built.status ~= "failed",
 			reuseReference = if reuse ~= nil then reuse.reference else nil,
 			deferral = built.deferral,
@@ -634,6 +745,15 @@ local function schedule(
 		local deadline = if remaining ~= nil
 			then math.min(producer.deadlineSeconds, remaining)
 			else producer.deadlineSeconds
+		local tiers = listed(if options.selection ~= nil then options.selection.tiers else nil)
+		local cases = listed(if options.selection ~= nil then options.selection.cases else nil)
+		local args = table.clone(producer.args)
+		if #tiers > 0 then
+			table.insert(args, "--tier=" .. table.concat(tiers, ","))
+		end
+		for _, case in cases do
+			table.insert(args, "--case=" .. case)
+		end
 		local job: GateTypes.Job = {
 			id = producer.id,
 			kind = producer.kind :: "tests" | "command" | "build" | "native",
@@ -641,7 +761,14 @@ local function schedule(
 			env = producer.env,
 			cwd = producer.cwd,
 			worker = producer.worker,
+			command = producer.command,
 			locators = producer.locators,
+			args = args,
+			isolate = producer.isolate,
+			workers = producer.workers,
+			sourceDeadlineSeconds = producer.sourceDeadlineSeconds,
+			tiers = tiers,
+			cases = cases,
 			runId = options.runId,
 			expectsReport = producer.kind == "tests" or producer.report ~= nil,
 			deadlineSeconds = deadline,
@@ -784,10 +911,11 @@ local function placeholder(
 	selected: boolean,
 	declared: { string },
 	gate: Gate,
-	execution: Types.ExecutionReport
+	execution: Types.ExecutionReport,
+	reason: string?
 ): ProducerRecord
 	local status: Status = "not_selected"
-	local detail: string? = nil
+	local detail: string? = reason
 	if selected then
 		local negotiation = Capability.negotiate(declared, Capability.union(gate.policy.requires, producer.requires))
 		if not negotiation.satisfied then
@@ -804,6 +932,7 @@ local function placeholder(
 		id = producer.id,
 		kind = producer.kind,
 		tier = producer.tier,
+		why = producer.why,
 		status = status,
 		selected = selected,
 		pulledByDependency = false,
@@ -814,6 +943,7 @@ local function placeholder(
 		log = nil,
 		reportAccounted = false,
 		caseIds = {},
+		deselected = {},
 		reused = false,
 		reuseReference = nil,
 		deferral = nil,
@@ -821,7 +951,12 @@ local function placeholder(
 	}
 end
 
-local function accept(gate: Gate, execution: Types.ExecutionReport, records: { ProducerRecord }): GateTypes.Acceptance
+local function accept(
+	execution: Types.ExecutionReport,
+	records: { ProducerRecord },
+	scope: GateTypes.Scope,
+	missingCases: { string }
+): GateTypes.Acceptance
 	local passed: { string } = {}
 	local failed: { string } = {}
 	local deferred: { string } = {}
@@ -848,6 +983,13 @@ local function accept(gate: Gate, execution: Types.ExecutionReport, records: { P
 		end
 	end
 	local unaccounted = false
+	if #missingCases > 0 then
+		unaccounted = true
+		table.insert(
+			reasons,
+			("selected case(s) were not found in any selected producer: %s"):format(table.concat(missingCases, ", "))
+		)
+	end
 	for _, fact in execution.facts do
 		if fact.severity == "failure" then
 			unaccounted = true
@@ -863,11 +1005,11 @@ local function accept(gate: Gate, execution: Types.ExecutionReport, records: { P
 		unaccounted = true
 		table.insert(reasons, "the report holds failing cases that no producer record accounts for")
 	end
-	if #failed == 0 and #deferred == 0 and report.passed ~= report.total then
+	if #failed == 0 and #deferred == 0 and report.passed + #scope.deselected ~= report.total then
 		unaccounted = true
 		table.insert(reasons, "the report holds cases that did not pass although every producer record passed")
 	end
-	local complete = execution.provenance.complete
+	local complete = scope.complete
 	local verdict: GateTypes.Verdict
 	if #failed > 0 or unaccounted then
 		verdict = "failed"
@@ -875,7 +1017,11 @@ local function accept(gate: Gate, execution: Types.ExecutionReport, records: { P
 		verdict = "selected"
 		table.insert(
 			reasons,
-			("%d of %d producer(s) were selected; this is not the complete gate"):format(#passed + #deferred, #records)
+			("%d of %d producer(s) were selected%s; this is not the complete gate"):format(
+				#passed + #deferred,
+				#records,
+				if #scope.deselected > 0 then (" and %d case(s) were deselected"):format(#scope.deselected) else ""
+			)
 		)
 	elseif #deferred > 0 then
 		verdict = "deferred"
@@ -892,6 +1038,106 @@ local function accept(gate: Gate, execution: Types.ExecutionReport, records: { P
 		deferred = deferred,
 		reused = reused,
 		notSelected = notSelected,
+		skippedByTier = scope.skippedByTier,
+		deselected = scope.deselected,
+	}
+end
+
+local function copied(values: { string }?): { string }
+	return table.clone(listed(values))
+end
+
+local function missingCases(records: { ProducerRecord }, requested: GateTypes.Selection): { string }
+	local asked = listed(requested.cases)
+	local found: { [string]: boolean } = {}
+	for _, record in records do
+		local skipped: { [string]: boolean } = {}
+		for _, id in record.deselected do
+			skipped[id] = true
+		end
+		for _, id in record.caseIds do
+			if not skipped[id] and id ~= record.id then
+				found[id] = true
+				local prefix = record.id .. ":"
+				if string.sub(id, 1, #prefix) == prefix then
+					found[string.sub(id, #prefix + 1)] = true
+				end
+			end
+		end
+	end
+	local missing: { string } = {}
+	for _, id in asked do
+		if not found[id] then
+			table.insert(missing, id)
+		end
+	end
+	return missing
+end
+
+local function scopeOf(
+	gate: Gate,
+	execution: Types.ExecutionReport,
+	records: { ProducerRecord },
+	resolved: Resolved,
+	requested: GateTypes.Selection
+): GateTypes.Scope
+	local selected: { string } = {}
+	local notSelected: { string } = {}
+	local skippedByTier: { string } = {}
+	local deselected: { string } = {}
+	for _, record in records do
+		if record.status == "not_selected" then
+			table.insert(notSelected, record.id)
+			if resolved.byTier[record.id] then
+				table.insert(skippedByTier, record.id)
+			end
+		else
+			table.insert(selected, record.id)
+		end
+		for _, id in record.deselected do
+			table.insert(deselected, id)
+		end
+	end
+	local complete = execution.provenance.complete and #deselected == 0
+	local label = "complete"
+	if not complete then
+		local parts: { string } = {}
+		local tiers = listed(requested.tiers)
+		local ids = listed(requested.ids)
+		local tags = listed(requested.tags)
+		local cases = listed(requested.cases)
+		if #tiers > 0 then
+			table.insert(parts, "tier " .. table.concat(tiers, ","))
+		end
+		if #ids > 0 then
+			table.insert(parts, "ids " .. table.concat(ids, ","))
+		end
+		if #tags > 0 then
+			table.insert(parts, "tags " .. table.concat(tags, ","))
+		end
+		if #cases > 0 then
+			table.insert(parts, "cases " .. table.concat(cases, ","))
+		end
+		label = ("selected %s: %d of %d producers, %d not selected (%d by tier), %d case(s) deselected"):format(
+			if #parts > 0 then table.concat(parts, "; ") else "run",
+			#selected,
+			#gate.producers,
+			#notSelected,
+			#skippedByTier,
+			#deselected
+		)
+	end
+	return {
+		complete = complete,
+		label = label,
+		ids = copied(requested.ids),
+		tiers = copied(requested.tiers),
+		tags = copied(requested.tags),
+		cases = copied(requested.cases),
+		selected = selected,
+		notSelected = notSelected,
+		skippedByTier = skippedByTier,
+		deselected = deselected,
 	}
 end
 
@@ -911,7 +1157,8 @@ local function run(gate: Gate, executor: GateTypes.Executor, options: GateTypes.
 	for id in offered do
 		producerOf(gate, id)
 	end
-	local ids, pulled = resolve(gate, options.selection)
+	local resolved = resolve(gate, options.selection)
+	local ids = resolved.ids
 	local declared = Capability.sorted(options.capabilities, "gate capabilities")
 	local name = options.name or "verify-gate"
 	local environment: { [string]: string } = {}
@@ -963,10 +1210,10 @@ local function run(gate: Gate, executor: GateTypes.Executor, options: GateTypes.
 		local selected = ids == nil or selectedSet[producer.id] == true
 		local record = records[producer.id]
 		if record == nil then
-			record = placeholder(producer, selected, declared, gate, execution)
+			record = placeholder(producer, selected, declared, gate, execution, resolved.reasons[producer.id])
 		end
 		record.selected = selected
-		record.pulledByDependency = pulled[producer.id] == true
+		record.pulledByDependency = resolved.pulled[producer.id] == true
 		local reason = gate.policy.deferrals[producer.id]
 		if record.status == "unsupported" and reason ~= nil then
 			record.status = "deferred"
@@ -974,21 +1221,25 @@ local function run(gate: Gate, executor: GateTypes.Executor, options: GateTypes.
 		end
 		table.insert(list, record)
 	end
+	local requested: GateTypes.Selection = if options.selection ~= nil then options.selection else {}
+	local scope = scopeOf(gate, execution, list, resolved, requested)
 	return {
 		schemaVersion = SCHEMA_VERSION,
 		gate = gate.id,
 		digest = gate.digest,
 		runId = options.runId,
 		build = options.build,
+		scope = scope,
 		execution = execution,
 		producers = list,
-		acceptance = accept(gate, execution, list),
+		acceptance = accept(execution, list, scope, missingCases(list, requested)),
 	}
 end
 
 local function format(outcome: GateTypes.Outcome): string
 	local lines: { string } = {
 		("gate %s run %s [%s]"):format(outcome.gate, outcome.runId, outcome.digest),
+		"scope: " .. outcome.scope.label,
 	}
 	for _, record in outcome.producers do
 		local flags: { string } = {}
@@ -1022,7 +1273,145 @@ local function format(outcome: GateTypes.Outcome): string
 			table.insert(lines, "  " .. reason)
 		end
 	end
+	if #acceptance.skippedByTier > 0 then
+		table.insert(
+			lines,
+			("skipped by tier (%d): %s"):format(#acceptance.skippedByTier, table.concat(acceptance.skippedByTier, ", "))
+		)
+	end
+	if #acceptance.deselected > 0 then
+		table.insert(
+			lines,
+			("deselected cases (%d): %s"):format(#acceptance.deselected, table.concat(acceptance.deselected, ", "))
+		)
+	end
 	return table.concat(lines, "\n")
+end
+
+local function explain(outcome: GateTypes.Outcome, id: string): string?
+	local lines: { string } = {}
+	for _, record in outcome.producers do
+		if record.id == id then
+			table.insert(
+				lines,
+				("producer %s (%s%s): %s"):format(
+					record.id,
+					record.kind,
+					if record.tier ~= nil then ", tier " .. record.tier else "",
+					record.status
+				)
+			)
+			if record.why ~= nil then
+				table.insert(lines, "  why it exists: " .. record.why)
+			end
+			if not record.selected then
+				table.insert(lines, "  " .. (record.detail or "not selected"))
+			elseif record.pulledByDependency then
+				table.insert(lines, "  selected because a selected producer runs after it")
+			else
+				table.insert(lines, "  selected by this run: " .. outcome.scope.label)
+			end
+			if record.selected and record.detail ~= nil then
+				table.insert(lines, "  " .. record.detail)
+			end
+			if record.deferral ~= nil then
+				table.insert(lines, "  deferred: " .. record.deferral)
+			end
+			if record.blockedBy ~= nil then
+				table.insert(lines, "  blocked by " .. record.blockedBy)
+			end
+			if record.reused then
+				table.insert(lines, "  reused from " .. tostring(record.reuseReference))
+			end
+			table.insert(lines, ("  %d case(s) reported, %d deselected"):format(#record.caseIds, #record.deselected))
+			if record.log ~= nil and record.log.reference ~= nil then
+				table.insert(lines, "  log: " .. record.log.reference)
+			end
+			return table.concat(lines, "\n")
+		end
+	end
+	for _, result in outcome.execution.report.results do
+		if result.id == id then
+			table.insert(
+				lines,
+				("case %s%s: %s"):format(
+					result.id,
+					if result.source ~= nil then " [" .. result.source .. "]" else "",
+					result.status
+				)
+			)
+			for _, record in outcome.producers do
+				if table.find(record.caseIds, id) ~= nil and record.id ~= id then
+					table.insert(lines, ("  adopted by producer %s (%s)"):format(record.id, record.status))
+				end
+			end
+			if result.skipReason ~= nil then
+				table.insert(lines, "  skipped: " .. result.skipReason)
+			end
+			for _, failure in result.failures do
+				table.insert(lines, ("  %s %s: %s"):format(failure.phase, failure.outcome, failure.message))
+			end
+			if #result.missingCapabilities > 0 then
+				table.insert(lines, "  missing: " .. table.concat(result.missingCapabilities, ", "))
+			end
+			return table.concat(lines, "\n")
+		end
+	end
+	return nil
+end
+
+local function list(gate: Gate): string
+	local lines: { string } = {}
+	for _, producer in gate.producers do
+		table.insert(
+			lines,
+			("%-14s %-9s %-8s%s%s"):format(
+				producer.id,
+				producer.kind,
+				if producer.tier ~= nil then producer.tier else "-",
+				if #producer.after > 0 then " after " .. table.concat(producer.after, ",") else "",
+				if producer.why ~= nil then "  " .. producer.why else ""
+			)
+		)
+	end
+	return table.concat(lines, "\n")
+end
+
+local function rerun(outcome: GateTypes.Outcome): GateTypes.Selection?
+	local ids: { string } = {}
+	local cases: { string } = {}
+	local narrowable = true
+	local byId: { [string]: Types.CaseResult } = {}
+	for _, result in outcome.execution.report.results do
+		byId[result.id] = result
+	end
+	for _, record in outcome.producers do
+		if record.selected and record.status ~= "passed" and record.status ~= "deferred" then
+			table.insert(ids, record.id)
+			local before = #cases
+			if record.kind == "tests" or record.kind == "command" then
+				local prefix = if record.kind == "command" then record.id .. ":" else ""
+				for _, caseId in record.caseIds do
+					local result = byId[caseId]
+					if
+						result ~= nil
+						and caseId ~= record.id
+						and result.status ~= "passed"
+						and result.status ~= "skipped"
+					then
+						table.insert(cases, string.sub(caseId, #prefix + 1))
+					end
+				end
+			end
+			if #cases == before then
+				narrowable = false
+			end
+		end
+	end
+	if #ids == 0 then
+		return nil
+	end
+	return { ids = ids, cases = if narrowable then cases else nil }
 end
 
 export type ShardOptions = {
@@ -1088,4 +1477,7 @@ return {
 	define = define,
 	run = run,
 	format = format,
+	explain = explain,
+	list = list,
+	rerun = rerun,
 }

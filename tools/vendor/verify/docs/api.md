@@ -10,7 +10,7 @@ multiple sources or collect observations elsewhere.
 | Compare values or record calls | [Assertions and spies](#assertions-and-spies) |
 | Read, validate or combine results | [Reports and transport](#reports-and-transport) |
 | Schedule work across executors | [Execution plans](#execution-plans) |
-| Judge observations collected by a host | [Remote observations](#remote-observations) |
+| Judge observations collected by a host | [Host observations](#host-observations) |
 | Capture a scenario, window or place fixture | [Host adapters](#host-adapters) |
 | Prove evidence is current, intact, reviewed and covers what you require | [Evidence provenance](#evidence-provenance) |
 | Test engine-facing logic without Roblox | [Simulated environment](#simulated-environment) |
@@ -42,7 +42,7 @@ Importing Verify does not create a shared registry.
 
 `harness:run` returns failed and unsupported results in its report; it does not set the process exit code.
 The caller must judge the report and make its command fail when the required claim is unmet.
-See the [repository runner](../tools/test.luau) for a nonempty, all-passing corpus check.
+The [repository gate](running.md#repository-gate) is a nonempty, all-passing corpus check.
 
 ```luau
 local tick = 0
@@ -327,8 +327,8 @@ locator meaning and an authorized host.
 | `Core.negotiate`, `explainCapabilities` | Determine and explain capability support. |
 | `Core.execute(plan, host, options?)` | Execute batches with lifecycle and failure accounting. |
 
-| `Gate.define`, `run`, `format`, `shard`, `testCases` (package `src/gate`); `Lute.gate` and `Lune.gate` (`run`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
-| `Core.benchmark.case`, `run` | Warmup, sampling, baseline and stability checks reported as an ordinary case. See [benchmarks](experience.md#benchmarks). |
+| `Gate.define`, `run`, `format`, `shard`, `testCases`, `rerun`, `explain`, `list` (package `src/gate`); `Lute.gate` and `Lune.gate` (`run`, `last`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
+| `Benchmark.case`, `run`, `collection`, `collect` (`src/benchmark.luau`) | Warmup, sampling, baseline and stability checks reported as an ordinary case. See [benchmarks](experience.md#benchmarks). |
 
 See [the execution contract](execution.md) for fixtures, deadlines, retries and Lute workers. [`Host.fake`](../src/host/init.luau) injects missing, duplicate, reordered, failed and
 cancelled deliveries without external effects.
@@ -399,21 +399,24 @@ actor, checkpoint, build (`commit`, `tree`, `clean`, `digest`), executing host a
 origin), caller-declared `device` class and `capturedAt`. A `Review` may carry `kind` (`visual` or `audio`) and
 `judged`, the content hashes the reviewer saw. The report decoder keeps both; no second receipt exists.
 
-- `Evidence.seal(report, { runId, build, device, now, hash, read, sink })` reads each artifact, stores its
-  bytes in `sink` and returns `{ report, issues }`. An unreadable, unstorable or unconfirmed artifact stays
-  unsealed and reported. `Lute.evidenceStore.seal` binds the Lute hash, file reader and clock.
+- `Evidence.seal(report, { from, device, now, hash, read, sink })` reads each artifact, stores its
+  bytes in `sink` and returns `{ report, issues }`. `from` is any `{ runId, build }`, such as a gate outcome, in place of
+  `runId` and `build`. An unreadable, unstorable or unconfirmed artifact stays unsealed and reported.
+  `Lute.evidenceStore.seal` binds the Lute hash, file reader, clock and a local directory store, so
+  `seal(outcome.execution.report, { from = outcome, device })` is the whole call.
 - `Evidence.bindReview(report, { caseId, actor, checkpoint, kind, judged })` binds a recorded review to the content
   hashes the reviewer actually judged. Hash what the reviewer saw, not what is stored later.
 - `Evidence.validate(report, policy)` returns `{ ok, issues, verified }` and re-hashes every artifact through
-  `policy.store`. The policy declares the expected build (`requireClean` refuses dirty builds), `now`,
-  `maxAgeSeconds`, `maxSkewSeconds`, optional `runId`, `hosts` and `capabilities`, and `required` coverage:
+  `policy.store`. The policy declares the expected build (from `from`, or `build`; `requireClean` refuses dirty
+  builds and defaults to true with `from`), `now`, `maxAgeSeconds` (default 3600), `maxSkewSeconds` (default 5), optional
+  `runId`, `hosts` and `capabilities`, and `required` coverage:
   `{ caseId, actors, checkpoints, devices, mediaType?, reviews? }` expanded as a cross product. It rejects
   mismatched builds, stale or future captures, missing coverage, a wrong run, host, actor, checkpoint or device,
   duplicate or conflicting observations, missing identity, changed or unavailable artifacts, and missing,
   unbound, failed or wrong-artifact reviews. An empty policy or invalid clock raises instead of passing.
 - A sink is `{ put(content, meta) -> reference, get(reference) -> bytes, stat(reference) -> { size } }`, supplied
   by the caller. `Lute.evidenceStore.localDirectory(path)` is the content-addressed reference sink and
-  `Core.memorySink(hash)` a portable one. Validation needs only `get`, `stat`, a hasher and a clock, so it runs
+  `Core.memorySink(hash)` a portable one. `Lute.evidenceStore.validate(report, { from, required })` fills the store, hash and clock; Lune has no local store binding, so pass `hash`, `read` and a sink to `Evidence`. Validation needs only `get`, `stat`, a hasher and a clock, so it runs
   unchanged under Lute and Lune: `lute run examples/evidence-provenance/lute.luau` and
   `lune run examples/evidence-provenance/lune.luau`.
 
@@ -452,7 +455,7 @@ properties and per-class methods are dynamic schema boundaries. Their values sti
 consumer's class contract; assigning a method dictionary does not prove its signatures.
 
 `Roblox.datatypes` holds `Vector2`, `Vector3`, `Color3`, `UDim`, `UDim2` and `CFrame` constructors with
-value equality, the other constructor shells and a permissive `Enum`, `typeName(value)` and
+value equality, the other constructor shells (each typed by `typeName`) and a permissive `Enum`, `typeName(value)` and
 `readCFrame(cframe) -> (x, y, z, {nine rotation numbers})`. `Animator:LoadAnimation` returns a track whose
 `Play`, `Stop` and `AdjustSpeed` change `IsPlaying` and `Speed` and fire `Stopped` and `Ended`; no frames
 are blended. The package exports `DatatypeVector2`, `DatatypeVector3`, `DatatypeCFrame`,
@@ -462,7 +465,12 @@ describe the simulated surface, not every native Roblox member.
 Instances support `Parent`, `Name`, children events, `Destroy` (locks the parent, destroys descendants,
 disconnects the instance's signals), find/ancestor/`GetFullName`, attributes with change signals, and
 property change signals that fire only on change. Signals fire in connect order and skip a connection
-disconnected during the fire. Reading a name that is not a property, event or method returns the first
+disconnected during the fire. `signalOf(object, event)` returns `{ fire, connections, fires }` for one event so a test
+can fire it and count its live connections and fires; `onCreate(hook)` sees every new instance, clone copies included.
+Attributes accept the value types the engine accepts, as observed: string, number, boolean, nil, BrickColor, CFrame,
+Color3, ColorSequence, EnumItem, Font, Instance, NumberRange, NumberSequence, Rect, TweenInfo, UDim, UDim2, Vector2 and
+Vector3. Every other value, including tables, functions and buffers, is refused by type name. Native userdata is judged by
+its `typeof` name against the same list. Reading a name that is not a property, event or method returns the first
 child with that `Name`, as the engine does; a property, event or method of that name wins. Any other
 unknown read, and every unknown write, raises the engine's "is not a valid member" error. `defineClass`
 refuses an existing class, builtin included, unless called as `defineClass(name, spec, {replace = true})`;
@@ -477,7 +485,9 @@ The built-in schemas are a small declared test surface, not a complete Roblox re
 Use the [reflection and UI adapters](#reflection-and-explicit-ui-fakes) for standard integration.
 Custom environments may supply `defaultProperty(className, property, fallback)` and
 `validateProperty(className, property, value, operation)`. A returned `false` is a real default;
-return `fallback` for an unmapped property. Validation runs before mutation. `operation` is `set`
+return `fallback` for an unmapped property. A class property declared as `false` has no default and reads
+`nil`; reflection declares every database property that way, so a property the database stores no default for reads
+`nil` unless the consumer's overlay declares a value, and a stored `false` stays `false`. Validation runs before mutation. `operation` is `set`
 for authored assignments or `poke` for simulated engine changes. Explicit fakes do not establish
 native rendering or input fidelity.
 
@@ -515,8 +525,10 @@ no Lune runtime. `lune run tools/check-reflection.luau` checks the real integrat
 `Roblox.fixtureBridge { database, typeName, enumType?, library?, classes?, referenceClass?, validateProperty?, ui? }`
 composes reflection, the simulator's event metadata, UI fakes and the engine seam over one environment.
 UI fake classes the database lacks are listed in `unavailable`, not invented; `ui = false` omits them and
-`classes` entries replace the defaults. It returns `{ environment, engine, ui, unavailable, faults, hasClass,
-observe, record, instanceHost, accounting, close }`. `faults` wraps `failNext` and `assertConsumed` refuses an
+`classes` entries replace the defaults. `ui.validate(className, property)` keeps UI property validation for the
+pairs it accepts and relaxes the rest while every fake stays installed; `ui = { validate = false }` installs no UI validator. UI validation acts only on `SelectedObject`, so every other write makes no extra call. It returns `{ environment, engine, ui,
+unavailable, faults, hasClass, observe, track, record, instanceHost, accounting, close }`. `track()` lists created
+instances and cloned `{ source, copy }` pairs until `stop()`. `faults` wraps `failNext` and `assertConsumed` refuses an
 injection that never fired. `observe`/`record` report each create, property, attribute, parent and destroy
 operation, marking injected failures. `accounting` and `close` return live objects, connections and pending
 faults. `instanceHost(actor)` reuses the same environment. `Lune.fixture(options?)` (`src/lune`) binds

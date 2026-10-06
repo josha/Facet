@@ -8,6 +8,8 @@ export type Summary = {
 	sampleCount: number,
 	minimum: number?,
 	mean: number?,
+	total: number?,
+	deviation: number?,
 	p50: number?,
 	p95: number?,
 	p99: number?,
@@ -25,6 +27,7 @@ export type Limits = {
 	maximum: number?,
 	aboveThresholdRatio: number?,
 	threshold: number?,
+	measureOnly: boolean?,
 }
 export type Metric = "p50" | "p95" | "p99" | "maximum" | "aboveThresholdRatio"
 export type Violation = { metric: Metric, observed: number, limit: number }
@@ -32,6 +35,7 @@ export type Evaluation = {
 	status: "passed" | "failed" | "unsupported",
 	reason: "within_limits"
 		| "limit_exceeded"
+		| "measured"
 		| "unmeasured"
 		| "insufficient_samples"
 		| "simulated"
@@ -78,12 +82,18 @@ local function summarize(input: Input): Summary
 	local sorted = table.clone(input.samples)
 	table.sort(sorted)
 	local mean = 0
+	local total = 0
 	local above = 0
 	for index, value in sorted do
+		total += value
 		mean += (value - mean) / index
 		if input.threshold ~= nil and value > input.threshold then
 			above += 1
 		end
+	end
+	local squares = 0
+	for _, value in sorted do
+		squares += (value - mean) ^ 2
 	end
 	return {
 		unit = input.unit,
@@ -91,6 +101,8 @@ local function summarize(input: Input): Summary
 		sampleCount = count,
 		minimum = sorted[1],
 		mean = if count > 0 then mean else nil,
+		total = if count > 0 then total else nil,
+		deviation = if count > 0 then math.sqrt(squares / count) else nil,
 		p50 = nearestRank(sorted, 0.5),
 		p95 = nearestRank(sorted, 0.95),
 		p99 = nearestRank(sorted, 0.99),
@@ -127,7 +139,7 @@ local function evaluate(summary: Summary, limits: Limits): Evaluation
 			declared += 1
 		end
 	end
-	assert(declared > 0, "at least one performance limit is required")
+	assert(declared > 0 or limits.measureOnly == true, "at least one performance limit is required")
 	if limits.aboveThresholdRatio ~= nil then
 		assert(limits.aboveThresholdRatio <= 1, "ratio limit must not exceed one")
 		assert(
@@ -153,6 +165,11 @@ local function evaluate(summary: Summary, limits: Limits): Evaluation
 	end
 	if limits.aboveThresholdRatio ~= nil and summary.threshold ~= limits.threshold then
 		result.reason = "threshold_mismatch"
+		return result
+	end
+	if declared == 0 then
+		result.status = "passed"
+		result.reason = "measured"
 		return result
 	end
 	for _, check in checks do

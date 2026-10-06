@@ -44,7 +44,7 @@ local function create(options: Options): Environment.Environment
 		for key, property in class.Properties do
 			if key ~= "ClassName" and key ~= "Parent" then
 				members[key] = property
-				declared[key] = true
+				declared[key] = false
 			end
 		end
 		for key, value in class.DefaultProperties do
@@ -99,7 +99,10 @@ local function create(options: Options): Environment.Environment
 			end
 			local declared = properties[className]
 			if declared ~= nil and declared[key] then
-				return defaults[className][key]
+				local value = defaults[className][key]
+				if value ~= nil then
+					return value
+				end
 			end
 			return fallback
 		end,

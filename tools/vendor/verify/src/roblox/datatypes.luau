@@ -479,39 +479,54 @@ enumMt.__index = function(enum: EnumValue, category: string): EnumCategory
 end
 local Enum = (setmetatable({}, enumMt) :: unknown) :: EnumValue
 
+local shellMt: { [string]: {} } = {
+	NumberSequenceKeypoint = {},
+	ColorSequenceKeypoint = {},
+	NumberRange = {},
+	NumberSequence = {},
+	ColorSequence = {},
+	Rect = {},
+	TweenInfo = {},
+}
+
+local function tag<T>(value: T, metatable: {}): T
+	setmetatable((value :: unknown) :: {}, metatable)
+	return value
+end
+
 local NumberSequenceKeypoint = {
 	new = function(t: number, v: number, _envelope: number?): { Time: number, Value: number }
-		return { Time = t, Value = v }
+		return tag({ Time = t, Value = v }, shellMt.NumberSequenceKeypoint)
 	end,
 }
 
 local ColorSequenceKeypoint = {
 	new = function<T>(t: number, color: T): { Time: number, Value: T }
-		return { Time = t, Value = color }
+		return tag({ Time = t, Value = color }, shellMt.ColorSequenceKeypoint)
 	end,
 }
 
 local NumberRange = {
 	new = function(min: number, max: number?): { Min: number, Max: number }
-		return { Min = min, Max = max or min }
+		return tag({ Min = min, Max = max or min }, shellMt.NumberRange)
 	end,
 }
 
 local NumberSequence = {
 	new = function<T>(value: T): { _ns: T }
-		return { _ns = value }
+		return tag({ _ns = value }, shellMt.NumberSequence)
 	end,
 }
 
 local ColorSequence = {
 	new = function<T>(value: T): { _cs: T }
-		return { _cs = value }
+		return tag({ _cs = value }, shellMt.ColorSequence)
 	end,
 }
 
 local Rect = {
 	new = function(_x0: number?, _y0: number?, _x1: number?, _y1: number?): { _rect: boolean }
-		return { _rect = true }
+		return tag({ _rect = true }, shellMt.Rect)
 	end,
 }
 
@@ -524,7 +539,7 @@ local TweenInfo = {
 		_reverses: boolean?,
 		_delay: number?
 	): { _tweenInfo: boolean }
-		return { _tweenInfo = true }
+		return tag({ _tweenInfo = true }, shellMt.TweenInfo)
 	end,
 }
 
@@ -542,6 +557,27 @@ local names: { [unknown]: string } = {
 	[udim2Mt] = "UDim2",
 	[enumItemMt] = "EnumItem",
 }
+for name, metatable in shellMt do
+	names[metatable] = name
+end
+
+local ATTRIBUTE_TYPES: { [string]: boolean } = {
+	Vector2 = true,
+	Vector3 = true,
+	Color3 = true,
+	UDim = true,
+	UDim2 = true,
+	CFrame = true,
+	NumberRange = true,
+	NumberSequence = true,
+	ColorSequence = true,
+	Rect = true,
+	TweenInfo = true,
+	EnumItem = true,
+	BrickColor = true,
+	Font = true,
+	Instance = true,
+}
 
 local function enumType(value: unknown): string
 	return (value :: EnumMember)._family
@@ -552,6 +588,10 @@ local function typeName(value: unknown): string?
 		return nil
 	end
 	return names[((getmetatable :: unknown) :: (unknown) -> unknown)(value)]
+end
+
+local function isAttributeType(name: string): boolean
+	return ATTRIBUTE_TYPES[name] == true
 end
 
 local function readCFrame(value: CFrameValue): (number, number, number, { number })
@@ -575,6 +615,7 @@ return {
 	Rect = Rect,
 	TweenInfo = TweenInfo,
 	typeName = typeName,
+	isAttributeType = isAttributeType,
 	enumType = enumType,
 	readCFrame = readCFrame,
 }

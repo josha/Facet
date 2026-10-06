@@ -1,7 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
 
-return function(verifyHarness: Verify.Harness, tier: string)
+return function(verifyHarness: Verify.Harness)
 	local nativeApp = require("../bench/native_app")
 	local lab = require("../examples/performance/lab/perf_lab")
 	local modules = {

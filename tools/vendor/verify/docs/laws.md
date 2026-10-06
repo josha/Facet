@@ -9,7 +9,7 @@ A recorded verdict provides evidence of that execution. It grants no publication
 | Setup, case, teardown and cleanup failures remain independently visible. Cleanup runs once, newest first. | [tests/core.spec.luau](../tests/core.spec.luau), [tests/worker.spec.luau](../tests/worker.spec.luau) |
 | Missing capability is unsupported; deliberate omission is skipped. Neither passes. Empty, partial and focused runs cannot establish complete acceptance. | [tests/core.spec.luau](../tests/core.spec.luau), [tests/execution.spec.luau](../tests/execution.spec.luau), [tests/foundation.spec.luau](../tests/foundation.spec.luau) |
 | A plan accounts for every unit and attempt. Host failures, missing/duplicate results and disagreeing retries cannot become green. | [tests/execution.spec.luau](../tests/execution.spec.luau), [tests/worker.spec.luau](../tests/worker.spec.luau) |
-| A gate accounts every declared producer. A selected run is never complete, an exit-zero producer needs its current-run report, and an unsupported host or unpermitted deferral never passes. A benchmark keeps raw samples and reports an invalid run as such. | [tests/gate.spec.luau](../tests/gate.spec.luau), [tests/lute-gate.spec.luau](../tests/lute-gate.spec.luau), [tests/benchmark.spec.luau](../tests/benchmark.spec.luau) |
+| A gate accounts every declared producer and, with a declared census, every case. A selected run, including one that deselected cases, is never complete and states its scope, an exit-zero producer needs its current-run report, and an unsupported host or unpermitted deferral never passes. A benchmark keeps raw samples and reports an invalid run as such. | [tests/gate.spec.luau](../tests/gate.spec.luau), [tests/lute-gate.spec.luau](../tests/lute-gate.spec.luau), [tests/benchmark.spec.luau](../tests/benchmark.spec.luau) |
 | Receipts retain source, executor, environment, failures and limitations. Malformed counts, schema drift, truncated/mixed/conflicting transport and duplicate cases fail closed. | [tests/core.spec.luau](../tests/core.spec.luau), [tests/foundation.spec.luau](../tests/foundation.spec.luau), [tests/adapters.spec.luau](../tests/adapters.spec.luau) |
 | Evidence is current, from the declared build, intact when re-hashed from the caller's sink, covers every required case, actor, checkpoint and device class, and any required review names the exact artifacts judged. Metadata never proves quality or physical-device use; a sink outage is never green. | [tests/evidence-provenance.spec.luau](../tests/evidence-provenance.spec.luau) |
 | A wait names the condition, how long it waited and the last observed state when it times out or is cancelled. Polling repeats no mutation. Only a host that can kill the work enforces a bound. | [tests/wait.spec.luau](../tests/wait.spec.luau), [tests/bounded.spec.luau](../tests/bounded.spec.luau) |
@@ -22,8 +22,8 @@ Portable module graphs must resolve in the engine tree; [tests/requires.spec.lua
 closure. Fake place/instance hosts test declared behavior and refusal paths, not engine truth.
 
 The gate runs format, lint, types, behavioral tests and source-boundary checks on current bytes.
-The optional `--native` gate executes the reference Studio conformance cases. The portable gate does not.
-Neither gate authenticates an image, establishes audio/input quality, measures
-production performance, or proves the caller's expected claims are complete. The consumer must bind
-its real run, source/tree, destination and artifact bytes. It must retain the current result in its own
-operation record. Laws cannot substitute for those observations.
+The portable gate does not run the reference Studio conformance cases. Add `--native` to run them.
+Neither gate authenticates an image, establishes audio or input quality, measures production performance,
+or proves that the consumer's expected claims are complete.
+The consumer must bind its real run, source tree, destination and artifact bytes.
+The consumer must keep the current result in its own operation record. Laws cannot replace those observations.

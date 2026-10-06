@@ -1,12 +1,12 @@
 # Run cases
 
-Use one command for simulator, Studio, published Player and Open Cloud tests. Each entry returns ordinary
-named cases and harness options. Each host produces the standard report. There is no separate
-end-to-end case language.
+Use one command to run cases on the simulator, Studio, a published Player or Open Cloud.
+Each entry returns ordinary named cases and harness options. Each host produces the standard report.
+Verify has no separate end-to-end case language.
 
-Run from a workspace containing both the framework and test modules. Paths are relative to that
-working directory. Lute cannot resolve a test module outside its loading root; use their common parent
-as the working directory rather than an external `/tmp` entry.
+Run from a workspace that contains both the framework and the test modules. Paths are relative to the working directory.
+Lute cannot resolve a test module outside its loading root. Use their common parent as the working directory.
+Do not use an external `/tmp` entry.
 
 From this repository:
 
@@ -17,14 +17,15 @@ lute run tools/run.luau --entry examples/platform-entry.luau --case instance-sta
 ```
 
 The first two commands run the same assertions against simulated and native instances.
-[The entry](../examples/platform-entry.luau) chooses the host binding. It exports a function receiving
-`simulator`, `studio` or `player` and returning `{ cases, options, now }`. `cases` contains
-`Core.NamedCase` values with explicit unique IDs. `options` is `Core.RunOptions`; `now` is the clock.
-Bind per-case resources through `options.bind`. The harness owns their cleanup.
+[The entry](../examples/platform-entry.luau) chooses the host binding.
+It exports a function that receives `simulator`, `studio` or `player` and returns `{ cases, options, now }`.
+`cases` contains `Core.NamedCase` values with explicit unique IDs. `options` is `Core.RunOptions`. `now` is the clock.
+Bind per-case resources through `options.bind`. The harness cleans them up.
 
-`Core.runCases(cases, options, now, ids?)` validates the collection and exact selection before execution.
-Reports record whether selection was explicit and the available case count. Unknown, duplicate or empty selections fail. An omitted selection runs every case. Do not also set
-`options.selection`. Each case declares a finite timeout and the capabilities its observations need.
+`Core.runCases(cases, options, now, ids?)` validates the collection and the exact selection before it runs.
+Reports record whether the selection was explicit and the number of available cases.
+An unknown, duplicate or empty selection fails. If you omit the selection, every case runs.
+Do not also set `options.selection`. Each case declares a finite timeout and the capabilities its observations need.
 
 ## Commands and evidence
 
@@ -67,15 +68,39 @@ needs both views. Missing required evidence adds a failed case to the same repor
 ```sh
 lute run examples/gate.luau [producer-id ...]
 lute run examples/benchmark.luau
-lute run tools/gate.luau [--native] [--only producer]...
 ```
 
-The last command also drives the Lune checks, which need `lune` on `PATH`.
+[The gate example](../examples/gate.luau) runs build, test-module, benchmark and deferred native producers as one plan.
+It prints the verdict. If you name producer ids, it runs only those and prints `selected`.
+See [declarative gates](execution.md#declarative-gates) and [benchmarks](experience.md#benchmarks).
 
-[The gate example](../examples/gate.luau) runs build, test-module, benchmark and deferred native producers as one plan and prints the
-verdict; naming ids narrows it, which prints `selected`. `tools/gate.luau` is this repository's own declarative gate:
-`--only` narrows, and the native producers are deferred unless `--native` is given. See
-[declarative gates](execution.md#declarative-gates) and [benchmarks](experience.md#benchmarks).
+## Repository gate
+
+`tools/gate.luau` is the one command that checks this repository. It runs the static checks, the Lute specs in `tests`,
+the Lune specs in `tests/lune`, the examples and the boundary checks. Every test corpus runs through the `tests` producer.
+The Lune specs run in real `lune` processes, so `lune` must be on `PATH`.
+
+```sh
+lute run tools/gate.luau [--native] [--only producer]... [--tier name]... [--case id]... [--file spec]... [--rerun] [--explain id] [--list]
+```
+
+| Goal | Command |
+| --- | --- |
+| Run the whole gate | `lute run tools/gate.luau` |
+| Run one spec file | `lute run tools/gate.luau --file tests/wait.spec.luau` |
+| Run one case | `lute run tools/gate.luau --only specs --case "<case id>"` |
+| Run one tier (`static` or `behavior`) | `lute run tools/gate.luau --tier behavior` |
+| Run one producer | `lute run tools/gate.luau --only lune-specs` |
+| Repeat what the last run did not pass | `lute run tools/gate.luau --rerun` |
+| Explain why a producer or case ran, failed or was skipped | `lute run tools/gate.luau --explain specs` |
+| List the producers | `lute run tools/gate.luau --list` |
+| Include the native Studio checks | `lute run tools/gate.luau --native` |
+
+A case id is `<spec file>::<suite> > <case>`. Use `--only lune-specs` with a Lune spec case.
+`--file` takes a spec file from either corpus and selects its producer. A narrowed run prints `NARROWED` and is not the gate.
+Deferred native producers need `--native` and the reference Studio host.
+`--rerun` and `--explain` read the last outcome of the same producer set.
+After a `--file` run, the producer set changes, so use the same `--file` again.
 
 ## Multiplayer
 

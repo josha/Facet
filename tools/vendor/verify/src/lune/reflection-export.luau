@@ -29,7 +29,18 @@ local function encode(value: unknown, kind: string): unknown
 			return { ["$"] = "number", v = "-inf" }
 		end
 		return value
-	elseif kind == "string" or kind == "boolean" then
+	elseif kind == "string" then
+		local text = value :: string
+		if utf8.len(text) == nil then
+			return {
+				["$"] = "bytes",
+				v = (string.gsub(text, ".", function(character: string): string
+					return string.format("%02x", string.byte(character))
+				end)),
+			}
+		end
+		return text
+	elseif kind == "boolean" then
 		return value
 	end
 	local fields = value :: { [string]: unknown }
