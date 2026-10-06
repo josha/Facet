@@ -86,7 +86,8 @@ end
 
 local failed = false
 for _, suite in suites do
-	local options = `\{ runId = runId, only = {if only then string.format("%q", only) else "nil"} }`
+	local options =
+		`\{ runId = runId, progressToken = progressToken, only = {if only then string.format("%q", only) else "nil"} }`
 	local code = table.concat({
 		"local storage = game:GetService('ReplicatedStorage')",
 		"local live = require(storage:WaitForChild('FacetLive'))",

@@ -13,6 +13,7 @@ local Wire = require "./wire"
 local Mcp = require "./studio-mcp"
 local ProgressChannel = require "../roblox/progress-channel"
 local ProgressFile = require "./progress-file"
+local Processes = require "./studio-processes"
 local Reply = require "./studio-reply"
 
 local CALL_SECONDS = 30
@@ -65,6 +66,8 @@ local function worker(path: string)
 	local deadline = os.clock() + seconds
 	local connection = Mcp.connect(textField "mcpExecutable", directory .. "/mcp", deadline)
 	local pid: number? = nil
+	local before = Processes.snapshot()
+	local studioId: string? = nil
 	local ok, reason = pcall(function()
 		local previous = studios(connection)
 		local launched = process.run {
@@ -94,6 +97,7 @@ local function worker(path: string)
 			end
 		end
 		local id = selected :: string
+		studioId = id
 		local token = string.format("%q", runId)
 		local edit = Reply.texts(connection.call("execute_luau", {
 			studio_id = id,
@@ -106,13 +110,44 @@ local function worker(path: string)
 		local progressPath = fields.progressFile
 		local polling = type(progressPath) == "string" and progressPath ~= ""
 		local polled = 0
+		local progressToken = Detached.tokenFor(runId)
+		local rejected, foreign, failures = 0, 0, 0
+		local firstProblem: string? = nil
 		local function pollProgress()
 			local text = Reply.texts(connection.call("get_console_output", { studio_id = id }))
-			for _, event in ProgressChannel.collect(text, runId, Wire.parse) do
+			local collected = ProgressChannel.collect(text, progressToken, runId, Wire.parse)
+			rejected = math.max(rejected, collected.rejected)
+			foreign = math.max(foreign, collected.foreign)
+			if collected.first ~= nil and firstProblem == nil then
+				firstProblem = collected.first
+			end
+			for _, event in collected.events do
 				if event.sequence > polled then
 					polled = event.sequence
 					ProgressFile.append(progressPath :: string, event)
 				end
+			end
+		end
+		local function guardedPoll()
+			local ok, problem: unknown = pcall(pollProgress)
+			if not ok then
+				failures += 1
+				if firstProblem == nil then
+					firstProblem = "progress poll failed: " .. tostring(problem)
+				end
+			end
+		end
+		local function recordProgress()
+			if polling and (rejected > 0 or failures > 0) then
+				fs.writeStringToFile(
+					(progressPath :: string) .. ".diagnostics",
+					json.serialize {
+						rejected = rejected,
+						failures = failures,
+						foreign = foreign,
+						first = firstProblem or "",
+					}
+				)
 			end
 		end
 		local function engine(datamodel: string, code: string): Detached.Reply
@@ -149,6 +184,8 @@ local function worker(path: string)
 				.. token
 				.. "); local runId = "
 				.. token
+				.. "; local progressToken = "
+				.. string.format("%q", progressToken)
 				.. "; local ok, result = pcall(function() "
 				.. textField "code"
 				.. " end); game:GetService('StudioTestService'):EndTest(if ok then result else {error = tostring(result)})"
@@ -170,6 +207,8 @@ local function worker(path: string)
 				.. token
 				.. ", 'wrong Verify run'); local runId = "
 				.. token
+				.. "; local progressToken = "
+				.. string.format("%q", progressToken)
 				.. "; "
 				.. textField "code"
 		end
@@ -180,11 +219,12 @@ local function worker(path: string)
 			runId = runId,
 			deadline = deadline,
 			pollSeconds = 1,
-			onPoll = if polling then pollProgress else nil,
+			onPoll = if polling then guardedPoll else nil,
 		}
 		if polling then
-			pcall(pollProgress)
+			guardedPoll()
 		end
+		recordProgress()
 		if outcome.status ~= "done" then
 			error(outcome.detail or outcome.status, 0)
 		end
@@ -206,10 +246,24 @@ local function worker(path: string)
 		end
 		fs.writeStringToFile(directory .. "/report", Wire.encode(report))
 	end)
-	if pid ~= nil then
-		process.run { "kill", "-KILL", tostring(pid) }
+	if studioId ~= nil and fields.players ~= nil then
+		pcall(
+			connection.callRaw,
+			"execute_luau",
+			json.serialize {
+				studio_id = studioId,
+				datamodel_type = "Edit",
+				code = "pcall(function() game:GetService('StudioTestService'):EndTest({}) end) return 'ended'",
+			},
+			os.clock() + 5
+		)
 	end
 	connection.close()
+	local cleanup = Processes.reap(before, { root = pid, markers = { textField "placeName" } })
+	fs.writeStringToFile(
+		directory .. "/cleanup",
+		json.serialize { terminated = cleanup.terminated, survivors = cleanup.survivors }
+	)
 	if not ok then
 		if os.clock() >= deadline then
 			process.exit(124)
@@ -273,21 +327,42 @@ local function run(options: Options): Core.BatchOutcome
 			mcpExecutable = options.mcpExecutable or "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP",
 		}
 	)
+	local before = Processes.snapshot()
 	local result = Bounded.run({ "lute", "run", workerPath, input }, seconds + 1)
+	local parentCleanup = Processes.reap(before, { markers = { placeName } })
+	local survivors = parentCleanup.survivors
+	local recorded = Processes.read(directory .. "/cleanup")
+	if recorded ~= nil then
+		for _, pid in recorded.survivors do
+			table.insert(survivors, pid)
+		end
+	end
+	local leftover = if #survivors > 0
+		then ("; Studio processes survived cleanup and need a manual kill: %s"):format(table.concat(survivors, ","))
+		else ""
 	if result.timedOut or result.exitcode == 124 then
 		return {
 			status = "timed_out",
-			detail = "isolated Studio run exceeded its process deadline; diagnostics: " .. directory,
+			detail = "isolated Studio run exceeded its process deadline; diagnostics: " .. directory .. leftover,
 		}
 	end
 	if not result.ok then
-		return { status = "faulted", detail = result.stderr .. result.stdout .. "; diagnostics: " .. directory }
+		return {
+			status = "faulted",
+			detail = result.stderr .. result.stdout .. "; diagnostics: " .. directory .. leftover,
+		}
 	end
 	local decoded, report = pcall(function()
 		return Wire.decode(fs.readFileToString(directory .. "/report"))
 	end)
 	if not decoded then
 		return { status = "faulted", detail = "invalid or missing engine report: " .. tostring(report) }
+	end
+	if #survivors > 0 then
+		local first = (report :: Core.Report).results[1]
+		if first ~= nil then
+			table.insert(first.limitations, leftover:sub(3))
+		end
 	end
 	return { status = "returned", report = report }
 end

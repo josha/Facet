@@ -129,14 +129,18 @@ fault.
 - No result in 600 seconds: `classb_showcase`, `in47`, `live_bugs`.
 - The gamepad suites `focus_walk`, `focus_opened`, `gamepad_walk` and
   `haptics_verify` need the Controller Emulator. A new Studio process does not
-  have it. Run them with `--studio ID`. That path was not run.
+  have it. They ran with `--studio ID` in a Studio with the emulator on, and
+  `PreferredInput` was `Gamepad`. `focus_walk` passed but recorded no stops,
+  and its atlases were not kept. `focus_opened` failed 15 of 15,
+  `gamepad_walk` 12 of 12 and `haptics_verify` 1 of 1. `gamepad_walk` and the
+  committed atlases name Showcase pages that the gallery does not have now.
+  These suites need new content. That is not a harness fault.
 - `native_mechanisms_input`, `needs_live_input` and `weak3_pointer` have only
   interactive cases.
 
-Verify does not write the progress file of a Studio run at the pinned commit.
-The Studio console tool changes the run identity in each progress line, and
-Verify refuses the line. Thus the key loop for D-pad Up of the focus walk
-cannot read the `focus-upstream` step yet.
+A Studio that Verify started writes the progress file. An attached run has no
+progress file at the pinned commit. Thus the key loop for D-pad Up of the
+focus walk cannot read the `focus-upstream` step in an attached Studio yet.
 
 On a loaded host, the `table-mutation` scene is at the 1.5 factor on main and
 on this change.

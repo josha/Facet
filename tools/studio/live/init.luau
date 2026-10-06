@@ -554,8 +554,8 @@ function live.report(suite: string, options: { [string]: any }?): any
 		environment = reportEnvironment(suite),
 		capabilities = { "roblox-client" },
 		selection = { ids = selected },
-		progress = if config.runId
-			then VerifyRoblox.progressChannel.publisher(config.runId, function(value)
+		progress = if config.runId and config.progressToken
+			then VerifyRoblox.progressChannel.publisher(config.runId, config.progressToken, function(value)
 				return HttpService:JSONEncode(value)
 			end, print)
 			else nil,

@@ -315,6 +315,7 @@ The engine keeps the result in the attributes of `ReplicatedStorage`, named `Ver
 Verify clears them after a fetch.
 
 The default run limit is 90 seconds.
+A launched Studio run owns every Studio process that it starts. The worker records the Studio processes before the launch. On every exit it ends the multiplayer test with `StudioTestService:EndTest`, then sends TERM and then KILL to the Studio processes that appeared for this run: the launched Studio, its descendants, and the `-task StartServer` and `-rbxTransportToken` processes. It never signals a Studio that ran before. A process that survives both signals is listed as a limitation of the report.
 An external watchdog kills the owned worker process group, including Studio and the MCP process, on a timeout.
 Normal success and failure also terminate those owned processes.
 Case budgets stay cooperative inside the engine. The outer run limit holds even when engine code never yields.
@@ -335,7 +336,7 @@ The default portable gate does not run it and cannot establish native parity.
 Use the native gate when you change engine behavior or the launcher.
 
 Use `basePlace` to run in your own XML place. Verify copies it, mounts the modules and entry scripts, and leaves the rest untouched. See [mounting](running.md#mounting-and-custom-hosts).
-Studio runs report progress through the Studio console. The engine prints one framed `VERIFY_PROGRESS` line for each step event.
+Studio runs report progress through the Studio console. The engine prints one framed `VERIFY_PROGRESS` line for each step event. The frame holds a path-free run token, the length and a checksum of the hex-encoded event, so a rewritten frame is rejected and counted.
 The worker reads the console through `get_console_output` while the run executes and appends each new event to `progressFile`. Only the simulator path was run without Studio.
 Progress is never evidence. See [watch a run](running.md#watch-a-run).
 
