@@ -14,6 +14,7 @@ local tag = "launched"
 local deadline = 600
 local placeOnly = false
 local studio: string? = nil
+local device = "none"
 local sharedValues: { string } = {}
 local index = 2
 while index <= #process.args do
@@ -32,6 +33,9 @@ while index <= #process.args do
 			sharedValues,
 			`shared[{string.format("%q", name)}] = game:GetService('HttpService'):JSONDecode({string.format("%q", value)})`
 		)
+	elseif argument == "--device" then
+		index += 1
+		device = process.args[index]
 	elseif argument == "--studio" then
 		index += 1
 		studio = process.args[index]
@@ -47,7 +51,7 @@ while index <= #process.args do
 end
 if #suites == 0 and not placeOnly then
 	print(
-		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--shared NAME=JSON]"
+		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--shared NAME=JSON]"
 	)
 	print("       lute run tools/lute/studio_live.luau --place")
 	process.exit(2)
@@ -60,6 +64,9 @@ project.tree.ReplicatedStorage.FacetLive = { ["$path"] = "../tools/studio/live" 
 project.tree.ReplicatedStorage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 project.tree.ReplicatedStorage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
 fs.writeStringToFile(PROJECT, json.serialize(project))
+if not fs.exists("build") then
+	fs.createDirectory("build")
+end
 local built = process.run({ "rojo", "build", PROJECT, "-o", PLACE })
 fs.remove(PROJECT)
 if not built.ok then
@@ -97,7 +104,9 @@ end
 local failed = false
 for _, suite in suites do
 	local options =
-		`\{ runId = runId, progressToken = progressToken, only = {if only then string.format("%q", only) else "nil"} }`
+		`\{ runId = runId, progressToken = progressToken, device = {string.format("%q", device)}, only = {if only
+			then string.format("%q", only)
+			else "nil"} }`
 	local code = table.concat({
 		table.concat(sharedValues, "\n"),
 		"local storage = game:GetService('ReplicatedStorage')",

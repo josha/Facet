@@ -2550,5 +2550,381 @@
   "engine": "Gallery/Demos/Content/radial-menu/RadialMenu/Body/Tabs/Presentation/world",
   "query": "Gallery/Demos/Content/radial-menu/RadialMenu/Body/Tabs/Presentation/character",
   "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Sort",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "OPEN: no D-pad or stick move arrives at this stop; the live case reach-ex02 of gamepad_walk reports the same stop"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Restore",
+  "key": "reach",
+  "engine": "none",
+  "query": "none",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "none",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "query": "none",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Sort",
+  "key": "DPadRight",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "reason": "E2: the D-pad ranks the wired Sort button first; the stick, which ignores wiring, takes Resize as the query does"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "reason": "F13"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "reason": "F12"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Restore",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "none",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Filter/Input/Field",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "reason": "OPEN: recorded 2026-10-06 on the task Showcase; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "reason": "OPEN: recorded 2026-10-06 on the task Showcase; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Toolbar/Edit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/photo/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "key": "DPadRight",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/apex/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/pit/Content/RowHit",
+  "reason": "OPEN: the engine selects a control inside the selected row for Up or Down; F18 measured Left and Right only"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadRight",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Details",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/name/Resize",
+  "reason": "F18"
+ },
+ {
+  "page": "ex02",
+  "from": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/drift/Content/Reorderable/Cells/Frame/Content/DisclosingRow/Row/rating/Inset/Rating",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/neon/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Body/Items/turbo/Content/RowHit",
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+ },
+ {
+  "page": "files",
+  "from": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/12/Content/Reorderable/Cells/Frame/CellActions",
+  "key": "DPadRight",
+  "engine": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/12/Content/RowHit",
+  "query": "none",
+  "reason": "F18"
+ },
+ {
+  "page": "files",
+  "from": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/5/Content/Reorderable/Cells/Frame/CellActions",
+  "key": "DPadRight",
+  "engine": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/5/Content/RowHit",
+  "query": "none",
+  "reason": "F18"
+ },
+ {
+  "page": "files",
+  "from": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/environments/Content/Reorderable/Cells/Frame/CellActions",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/environments/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Toolbar/ViewMode/icons",
+  "reason": "F18"
+ },
+ {
+  "page": "files",
+  "from": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/6/Content/Reorderable/Cells/Frame/CellActions",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/6/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Toolbar/ViewMode/icons",
+  "reason": "F18"
+ },
+ {
+  "page": "files",
+  "from": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/13/Content/Reorderable/Cells/Frame/CellActions",
+  "key": "DPadLeft",
+  "engine": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/13/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Toolbar/ViewMode/icons",
+  "reason": "F18"
+ },
+ {
+  "page": "files",
+  "from": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Toolbar/CreateFolder",
+  "key": "DPadRight",
+  "engine": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/5/Content/RowHit",
+  "query": "PreviewRoot/Gallery/Demos/Content/files/FileViewport/CollectionWorkbench/Contents/Folders/@root/Page/Destination/Views/Sidebar/PrimaryViews/Sidebar/PrimaryView/primary/Items/4/Content/RowHit",
+  "reason": "OPEN: recorded 2026-10-06 on the task Showcase; not explained"
+ },
+ {
+  "page": "sipworks",
+  "from": "PreviewRoot/Gallery/Demos/Content/sipworks/Sipworks/Categories/Content/all/SipworksLibrary/LibrarySplit/DetailColumn/RecipeNavigation/@root/Page/Destination/ScrollingFrame/FeaturedRecipe",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/sipworks/Sipworks/Categories/Content/all/SipworksLibrary/LibrarySplit/CatalogColumn/RecipeLibrary/FindRecipe/Input/Field",
+  "query": "PreviewRoot/Gallery/Demos/Content/sipworks/Sipworks/Categories/Content/all/SipworksLibrary/LibrarySplit/CatalogColumn/RecipeLibrary/RecipeGrid/Items/copper-chai/Content/Recipe_copper-chai/Body",
+  "reason": "OPEN: recorded 2026-10-06 on the task Showcase; not explained"
+ },
+ {
+  "page": "sipworks",
+  "from": "PreviewRoot/Gallery/Demos/Content/sipworks/Sipworks/Categories/Content/all/SipworksLibrary/LibrarySplit/CatalogColumn/RecipeLibrary/RecipeGrid/Items/quiet-meadow/Content/Recipe_quiet-meadow/Body",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/sipworks/Sipworks/Categories/Content/all/SipworksLibrary/LibrarySplit/CatalogColumn/RecipeLibrary/RecipeGrid/Items/velvet-smoke/Content/Recipe_velvet-smoke/Body",
+  "query": "none",
+  "reason": "OPEN: recorded 2026-10-06 on the task Showcase; not explained"
+ },
+ {
+  "page": "sipworks",
+  "from": "PreviewRoot/Gallery/Demos/Content/sipworks/Sipworks/Categories/Content/all/SipworksLibrary/LibrarySplit/CatalogColumn/RecipeLibrary/RecipeGrid/Items/emberleaf/Content/Recipe_emberleaf/Body",
+  "key": "DPadDown",
+  "engine": "PreviewRoot/Gallery/Demos/Content/sipworks/Sipworks/Categories/Content/all/SipworksLibrary/LibrarySplit/CatalogColumn/RecipeLibrary/RecipeGrid/Items/tidepool/Content/Recipe_tidepool/Body",
+  "query": "none",
+  "reason": "OPEN: recorded 2026-10-06 on the task Showcase; not explained"
+ },
+ {
+  "page": "arcade",
+  "from": "PreviewRoot/Gallery/Demos/Content/arcade/Arcade/Categories/Content/word/WordGuess/page/kb/kbrow2/key_G",
+  "key": "DPadUp",
+  "engine": "PreviewRoot/Gallery/Demos/Content/arcade/Arcade/Categories/Content/word/WordGuess/page/kb/kbrow1/key_T",
+  "query": "PreviewRoot/Gallery/Demos/Content/arcade/Arcade/Categories/Content/word/WordGuess/page/kb/kbrow1/key_Y",
+  "reason": "OPEN: recorded 2026-10-06 on the task Showcase; not explained"
  }
 ]

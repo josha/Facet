@@ -86,6 +86,7 @@ local function environment(): { [string]: any }
 		preferredTransparency = GuiService.PreferredTransparency,
 		reducedMotion = GuiService.ReducedMotionEnabled,
 		touch = game:GetService("UserInputService").TouchEnabled,
+		preferredInput = tostring(game:GetService("UserInputService").PreferredInput),
 		studio = RunService:IsStudio(),
 		version = version(),
 		stamp = workspace:GetAttribute("Facet_SourceStamp"),
@@ -509,6 +510,25 @@ function live.report(suite: string, options: { [string]: any }?): any
 	local hidden: { ScreenGui } = {}
 	local harness =
 		Verify.createHarness({ now = os.clock, source = suite, prefixIds = false, attachments = ATTACHMENTS })
+	local device = config.device or "none"
+	pcall(function()
+		local simulator = game:GetService("StudioDeviceSimulatorService") :: any
+		if device == "none" then
+			simulator:StopSimulationAsync()
+		else
+			simulator:SetDeviceAsync(device)
+		end
+	end)
+	local viewport, steady = workspace.CurrentCamera.ViewportSize, 0
+	for _ = 1, 240 do
+		RunService.RenderStepped:Wait()
+		local now = workspace.CurrentCamera.ViewportSize
+		steady = if now == viewport then steady + 1 else 0
+		viewport = now
+		if steady >= 30 then
+			break
+		end
+	end
 	harness:afterEach(function()
 		for _, gui in hidden do
 			gui.Enabled = true

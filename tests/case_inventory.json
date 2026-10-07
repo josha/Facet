@@ -6075,6 +6075,24 @@
       "suite": "focus walk garage.json"
     },
     {
+      "id": "native_focus_walk::focus walk arcade.json::every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "name": "every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "source": "native_focus_walk",
+      "suite": "focus walk arcade.json"
+    },
+    {
+      "id": "native_focus_walk::focus walk files.json::every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "name": "every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "source": "native_focus_walk",
+      "suite": "focus walk files.json"
+    },
+    {
+      "id": "native_focus_walk::focus walk sipworks.json::every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "name": "every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "source": "native_focus_walk",
+      "suite": "focus walk sipworks.json"
+    },
+    {
       "id": "native_focus_walk::focus walk phone--all-controls_navigation_paging.json::every stop is reachable, no move is a dead end, and the engine's move is the query's",
       "name": "every stop is reachable, no move is a dead end, and the engine's move is the query's",
       "source": "native_focus_walk",
