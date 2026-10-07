@@ -4316,6 +4316,16 @@ UI.dropTarget(slot, {
 - `enabled`: a boolean or a readable. While false the source cannot be picked
   up, and it stays selectable and activatable.
 - `armOnTap`: a touch tap picks the source up (above). Default `false`.
+- `touchPickup`: `"longPress"` (default) leaves early finger movement to the
+  scroller. `"immediate"` picks the source up when the finger moves 6 pixels
+  after touch-down. A shorter movement remains a tap. The preview keeps the
+  original contact point under the finger.
+- `touchDragAxis`: `"XY"` (default), `"X"`, or `"Y"`. With immediate pickup,
+  the first movement of 6 pixels chooses the gesture. Movement mainly along
+  the selected axis starts a drag and stops the enclosing ScrollingFrame until
+  release. Movement mainly across that axis stays with the scroller for the
+  whole gesture. Use `"X"` for tiles inside a vertical scrolling list, or
+  `"Y"` inside a horizontal scrolling list.
 - `statusLabels`: show operation, rejection and pending text. Default `true`.
   Set `false` to hide these labels. Armed input instructions remain visible.
   Collection sources set this in the spec returned by `drag(items, keys)`.

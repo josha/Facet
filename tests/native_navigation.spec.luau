@@ -93,6 +93,51 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("accepts a fresh route object after departure and during reversal", {
+			id = "native_navigation::native navigation controls::accepts a fresh route object after departure and during reversal",
+			run = function()
+				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<number> })
+				local world = setup(function(UI)
+					return UI.NavigationStack {
+						path = path,
+						root = {
+							content = function()
+								return UI.Button { label = "Root" }
+							end,
+						} :: NavigationFixtures.NavigationDestination<number>,
+						destinations = {
+							match = {
+								content = function()
+									return UI.Button "Counter" { label = "Counter" }
+								end,
+							} :: NavigationFixtures.NavigationDestination<number>,
+						},
+					}
+				end)
+				for _, completed in { true, false } do
+					path:set({ { id = "match", value = 1 } })
+					world.settle()
+					path:set({})
+					if completed then
+						world.settle()
+					else
+						world.engine.heartbeat:Fire(1 / 60)
+					end
+					path:set({ { id = "match", value = 1 } })
+					world.settle()
+					local panels = 0
+					for _, node in world.screen:GetDescendants() do
+						if node.Name == "match" then
+							panels += 1
+							Verify.expect(node.Interactable):toBe(true)
+							Verify.expect(node.Visible):toBe(true)
+						end
+					end
+					Verify.expect(panels):toBe(1)
+				end
+				world.stop()
+			end,
+		})
 		verifyHarness:case("prepares CollapsibleView chrome before content paints without travel", {
 			id = "native_navigation::native navigation controls::prepares CollapsibleView chrome before content paints without travel",
 			run = function()

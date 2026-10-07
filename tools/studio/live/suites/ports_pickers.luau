@@ -1507,6 +1507,14 @@ local function phoneChecks(t: any, where: string, root: any, layer: any, portrai
 		)
 		t.inside(`{where}: Apply inside the screen`, apply, layer, 1)
 	else
+		local scroll = partOf(surface, "CalendarScroll")
+		if not found(t, `{where}: the CalendarScroll was found`, { "scroll" }, { scroll = scroll }) then
+			return
+		end
+		t.check(`{where}: the calendar scroll is native`, scroll:IsA("ScrollingFrame"), scroll.ClassName)
+		if not scroll:IsA("ScrollingFrame") then
+			return
+		end
 		local small = {}
 		for i = 1, 42 do
 			local cell = days:FindFirstChild(`D{i}`)
@@ -1519,13 +1527,13 @@ local function phoneChecks(t: any, where: string, root: any, layer: any, portrai
 		end
 		t.check(`{where}: every day cell is at least 44x44 and inside the screen width`, #small == 0, small)
 		t.check(`{where}: the calendar is capped to the screen height`, s.h <= l.h - 16 + 1, { s.h, l.h })
-		surface.CanvasPosition = Vector2.new(0, surface.AbsoluteCanvasSize.Y)
+		scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
 		t.settle(4)
 		local seen = t.clipped(apply)
 		t.check(
-			`{where}: Apply is reachable by scrolling the CalendarSurface`,
+			`{where}: Apply is reachable by scrolling the CalendarScroll`,
 			seen ~= nil and math.abs(seen.h - apply.AbsoluteSize.Y) <= 0.5,
-			{ seen = seen, canvas = surface.CanvasPosition }
+			{ seen = seen, canvas = scroll.CanvasPosition }
 		)
 		t.inside(`{where}: Apply inside the screen after scrolling`, apply, layer, 1)
 	end

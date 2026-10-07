@@ -873,10 +873,10 @@ return function(verifyHarness: Verify.Harness)
 							elseif inputName == "Touch" then engine.types.Enum.UserInputType.Touch
 							else engine.types.Enum.UserInputType.Gamepad1,
 					}
-					hit.Activated:Fire(input, 0)
+					hit.Activated:Fire(input, 1)
 					if inputName == "MouseButton1" then
 						Verify.expect(#model.path:peek()):toBe(0)
-						hit.Activated:Fire(input, 1)
+						hit.Activated:Fire(input, 2)
 					end
 					Verify.expect(model.path:peek()[1].value):toBe("environments")
 					Verify.expect((next(model.selection:peek()))):toBeNil()

@@ -99,6 +99,45 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Compose native collections", function()
+		verifyHarness:case("selects on mouse click one and activates on click two", {
+			id = "native_collections::Compose native collections::selects on mouse click one and activates on click two",
+			run = function()
+				for _, activating in { false, true } do
+					local engine, runtime, UI, target = setup()
+					local selected = Compose.cell({} :: { [number]: boolean })
+					local calls = 0
+					local stop, node: any = runtime.mount(function()
+						return UI.VirtualGrid {
+							from = records(2),
+							key = key,
+							columns = 2,
+							itemSize = 56,
+							mode = "all" :: "all",
+							selection = selected,
+							selectionMode = "multiple" :: "multiple",
+							render = function(current)
+								return button(UI, current)
+							end,
+							onActivate = if activating
+								then function()
+									calls += 1
+								end
+								else nil,
+						}
+					end, target)
+					local hit = node:FindFirstChild("1", true):FindFirstChild("RowHit", true)
+					local input = { UserInputType = engine.types.Enum.UserInputType.MouseButton1 }
+					hit.Activated:Fire(input, 1)
+					Verify.expect(selected:peek()[1]):toBe(true)
+					Verify.expect(calls):toBe(0)
+					hit.Activated:Fire(input, 2)
+					Verify.expect(selected:peek()[1]):toBe(true)
+					Verify.expect(calls):toBe(if activating then 1 else 0)
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
 		verifyHarness:case("honors optional tap pickup on touch-only collection sources", {
 			id = "native_collections::Compose native collections::honors optional tap pickup on touch-only collection sources",
 			run = function()
@@ -190,8 +229,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("selects on click zero and activates on click one for lists and grids", {
-			id = "native_collections::Compose native collections::selects on click zero and activates on click one for lists and grids",
+		verifyHarness:case("selects on click one and activates on click two for lists and grids", {
+			id = "native_collections::Compose native collections::selects on click one and activates on click two for lists and grids",
 			run = function()
 				for _, kind in { "VirtualList", "VirtualGrid" } :: { "VirtualGrid" | "VirtualList" } do
 					local engine, runtime, UI, target = setup()
@@ -219,10 +258,10 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					local hit = list:FindFirstChild("1", true):FindFirstChild("RowHit", true)
 					local mouse = { UserInputType = engine.types.Enum.UserInputType.MouseButton1 }
-					hit.Activated:Fire(mouse, 0)
+					hit.Activated:Fire(mouse, 1)
 					Verify.expect(selected:peek()[1]):toBe(true)
 					Verify.expect(activated):toBe(0)
-					hit.Activated:Fire(mouse, 1)
+					hit.Activated:Fire(mouse, 2)
 					Verify.expect(activated):toBe(1)
 					stop()
 				end

@@ -290,7 +290,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				return
 			end
 			local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
-			local double = pointer and (clicks or 0) >= 1
+			local double = pointer and (clicks or 0) >= 2
 			if not double then
 				selectRow(key, current:peek(), input)
 			end

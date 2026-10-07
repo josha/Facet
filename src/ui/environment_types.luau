@@ -82,6 +82,8 @@ export type DraggableSpec = {
 	payload: unknown,
 	enabled: Types.ValueBoolean?,
 	armOnTap: boolean?,
+	touchPickup: ("longPress" | "immediate")?,
+	touchDragAxis: ("X" | "Y" | "XY")?,
 	statusLabels: boolean?,
 	operations: { DropOperation }?,
 	valid: (() -> boolean)?,
