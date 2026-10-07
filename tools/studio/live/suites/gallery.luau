@@ -233,22 +233,37 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 		local opened = api("panel", "settings")
 		t.check(name .. " Settings section opens", opened.ok == true and opened.panel == "settings", opened)
 		t.settle(20)
-		local card = visibleNamed(t, toolbar, "ShowcasePanel")
+		local card = visibleNamed(t, gallery(), "ShowcasePanel")
 		local settings = card and visibleNamed(t, card, "Settings")
 		t.check(name .. " Settings content visible", settings ~= nil, { panel = card ~= nil })
 		if card then
-			local c = t.rect(card)
-			t.inside(name .. " Settings panel inside the screen", c, screen, 1)
-			t.check(name .. " Settings panel opens below the Showcase control", c.y >= s.b - 0.5, {
-				panel = c.y,
-				control = s.b,
-			})
+			local surface = card:FindFirstAncestor("Expanded")
+			local scroll = card:FindFirstAncestor("ExpandedScroll")
+			t.check(name .. " Settings uses the collapsible scroll form", surface ~= nil and scroll ~= nil)
+			if surface and scroll and scroll:IsA("ScrollingFrame") then
+				t.inside(name .. " Settings surface inside the screen", surface, screen, 1)
+				t.inside(
+					name .. " Settings surface includes the Showcase anchor",
+					{ x = s.x + s.w / 2, y = s.y + s.h / 2, w = 0, h = 0, r = s.x + s.w / 2, b = s.y + s.h / 2 },
+					surface,
+					1
+				)
+				t.inside(name .. " Settings scroll window inside the surface", scroll, surface, 1)
+				local content = t.rect(card)
+				local window = t.rect(scroll)
+				local bottom = content.b - window.y + scroll.CanvasPosition.Y
+				t.check(
+					name .. " Settings content reachable in the scroll canvas",
+					bottom <= math.max(scroll.AbsoluteCanvasSize.Y, window.h) + 1,
+					{ bottom = bottom, canvas = scroll.AbsoluteCanvasSize.Y }
+				)
+			end
 		end
 		if api("report", nil).panel ~= nil then
 			api("panel", nil)
 		end
-		t.settle(10)
-		t.check(name .. " Settings panel closes", visibleNamed(t, toolbar, "ShowcasePanel") == nil)
+		t.settle(40)
+		t.check(name .. " Settings panel closes", visibleNamed(t, gallery(), "ShowcasePanel") == nil)
 	end
 	api("theme", "Neutral")
 	t.settle(10)
