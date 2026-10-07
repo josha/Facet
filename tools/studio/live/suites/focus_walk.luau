@@ -59,18 +59,27 @@ table.insert(cases, {
 			if (options.only and not string.find(name, options.only, 1, true)) or index < (options.start or 1) then
 				continue
 			end
-			api("show", page.id)
-			t.settle(30)
-			if page.tab then
-				local group = string.split(page.tab, "/")[1]
-				api("tab", group)
-				t.settle(10)
-				api("tab", page.tab)
+			local function open()
+				api("show", page.id)
 				t.settle(30)
+				if page.tab then
+					local group = string.split(page.tab, "/")[1]
+					api("tab", group)
+					t.settle(10)
+					api("tab", page.tab)
+					t.settle(30)
+				end
+				focus.rest(layer)
 			end
+			local function restore()
+				game:GetService("GuiService").SelectedObject = nil
+				api("show", if page.id == "hud" then "garage" else "hud")
+				t.settle(10)
+				open()
+			end
+			open()
 			local lint = focus.lint(layer)
 			t.check(`{name} lint`, #lint == 0, lint)
-			focus.rest(layer)
 			local stops = focus.stops(layer)
 			local paths = focus.paths(layer, stops)
 			local atlas = focus.atlas(layer, name, stops, paths)
@@ -86,19 +95,26 @@ table.insert(cases, {
 				end
 			end
 			if options.keys then
-				merge("keys", focus.walk(layer, stops, paths, { "Up", "Down", "Left", "Right" }, atlas))
+				merge("keys", focus.walk(layer, stops, paths, { "Up", "Down", "Left", "Right" }, atlas, restore))
 				file ..= "--keys"
 			else
-				merge("dpad", focus.walk(layer, stops, paths, { "DPadDown", "DPadLeft", "DPadRight" }, atlas))
+				merge("dpad", focus.walk(layer, stops, paths, { "DPadDown", "DPadLeft", "DPadRight" }, atlas, restore))
 				if options.stick ~= false then
 					merge(
 						"stick",
-						focus.walk(layer, stops, paths, { "StickUp", "StickDown", "StickLeft", "StickRight" }, atlas)
+						focus.walk(
+							layer,
+							stops,
+							paths,
+							{ "StickUp", "StickDown", "StickLeft", "StickRight" },
+							atlas,
+							restore
+						)
 					)
 				end
 				if options.up then
 					local moves, offsets, scenes = live.signal("focus-upstream", function()
-						return focus.walkUp(layer, stops, paths, options.up, atlas)
+						return focus.walkUp(layer, stops, paths, options.up, atlas, restore)
 					end)
 					for path, target in moves do
 						atlas.moves.dpad[path] = atlas.moves.dpad[path] or {}

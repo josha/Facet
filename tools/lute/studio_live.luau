@@ -63,6 +63,14 @@ project.tree.Workspace["$attributes"] = { Facet_Demos = fs.readFileToString("too
 project.tree.ReplicatedStorage.FacetLive = { ["$path"] = "../tools/studio/live" }
 project.tree.ReplicatedStorage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 project.tree.ReplicatedStorage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
+local monitors: { [string]: any } = { ["$className"] = "Folder" }
+for _, entry in fs.listDirectory("examples/virtual_monitors") do
+	local name = string.match(entry.name, "^(.+)%.luau$")
+	if name and not string.find(name, "%.client$") and not string.find(name, "%.spec$") then
+		monitors[name] = { ["$path"] = "virtual_monitors/" .. entry.name }
+	end
+end
+project.tree.ReplicatedStorage.VirtualMonitors = monitors
 fs.writeStringToFile(PROJECT, json.serialize(project))
 if not fs.exists("build") then
 	fs.createDirectory("build")

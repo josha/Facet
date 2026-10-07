@@ -104,6 +104,8 @@ local function demos(screen: any): { any }
 	return list
 end
 
+local baselineDevice = "none"
+
 local function newCase(Facet: any, themes: { any }, record: { [string]: any }, context: any?)
 	local t = {}
 	local cleanups: { () -> () } = {}
@@ -444,9 +446,11 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 			t.settle(1)
 		end
 		table.insert(cleanups, 1, function()
-			pcall(function()
-				simulator:SetDeviceAsync(options.restore or "xbox")
-			end)
+			if baselineDevice == "keep" then
+				pcall(function()
+					simulator:SetDeviceAsync(options.restore or "xbox")
+				end)
+			end
 		end)
 		return workspace.CurrentCamera.ViewportSize
 	end
@@ -493,6 +497,40 @@ local function reportEnvironment(suite: string): { [string]: string }
 	return fields
 end
 
+local function baseline()
+	if baselineDevice == "keep" then
+		return
+	end
+	local input = game:GetService("UserInputService")
+	local simulated = false
+	pcall(function()
+		local simulator = game:GetService("StudioDeviceSimulatorService") :: any
+		if baselineDevice == "none" then
+			simulator:StopSimulationAsync()
+		else
+			simulator:SetDeviceAsync(baselineDevice)
+			simulated = true
+		end
+	end)
+	local viewport, steady = workspace.CurrentCamera.ViewportSize, 0
+	for frame = 1, 240 do
+		RunService.RenderStepped:Wait()
+		local now = workspace.CurrentCamera.ViewportSize
+		steady = if now == viewport then steady + 1 else 0
+		viewport = now
+		if not simulated and input.PreferredInput ~= Enum.PreferredInput.KeyboardAndMouse and frame % 10 == 1 then
+			steady = 0
+			pcall(function()
+				local virtual = (input :: any):CreateVirtualInput()
+				virtual:SendMousePosition(Vector2.new(4 + frame % 7, 4))
+			end)
+		end
+		if steady >= 30 then
+			break
+		end
+	end
+end
+
 local ATTACHMENTS = { maxBytes = 4194304, maxCount = 512, maxTotalBytes = 33554432 }
 local active: any = nil
 
@@ -510,26 +548,10 @@ function live.report(suite: string, options: { [string]: any }?): any
 	local hidden: { ScreenGui } = {}
 	local harness =
 		Verify.createHarness({ now = os.clock, source = suite, prefixIds = false, attachments = ATTACHMENTS })
-	local device = config.device or "none"
-	pcall(function()
-		local simulator = game:GetService("StudioDeviceSimulatorService") :: any
-		if device == "none" then
-			simulator:StopSimulationAsync()
-		else
-			simulator:SetDeviceAsync(device)
-		end
-	end)
-	local viewport, steady = workspace.CurrentCamera.ViewportSize, 0
-	for _ = 1, 240 do
-		RunService.RenderStepped:Wait()
-		local now = workspace.CurrentCamera.ViewportSize
-		steady = if now == viewport then steady + 1 else 0
-		viewport = now
-		if steady >= 30 then
-			break
-		end
-	end
+	baselineDevice = config.device or "none"
+	baseline()
 	harness:afterEach(function()
+		baseline()
 		for _, gui in hidden do
 			gui.Enabled = true
 		end
@@ -554,7 +576,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 						gui:IsA("ScreenGui")
 						and string.sub(gui.Name, 1, 12) == "FacetGallery"
 						and gui.Enabled
-						and not keepGallery
+						and not (if case.probe then false else keepGallery)
 					then
 						gui.Enabled = false
 						table.insert(hidden, gui)
@@ -571,6 +593,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 						t.cleanup()
 					end
 				end)
+				baseline()
 				local ran, problem = xpcall(case.run, debug.traceback, t)
 				attachNotes(context, record)
 				if not ran then

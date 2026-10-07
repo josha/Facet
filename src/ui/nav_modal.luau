@@ -244,10 +244,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local rested = rest(ctx, function(): (string, boolean)
 			local parts: { string } = {}
 			local filled = false
-			for index, size in live do
-				local value = size:peek()
+			for index, node in nodes do
+				local value = node.AbsoluteSize
 				parts[index] = `{value.X},{value.Y}`
-				local node = nodes[index]
 				if node:IsA("TextLabel") or node:IsA("TextButton") then
 					parts[index] ..= `:{node.TextBounds}`
 				end

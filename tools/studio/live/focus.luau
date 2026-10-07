@@ -6,10 +6,7 @@ local focus = {}
 
 type Builder = {
 	describe: (node: GuiObject, path: string) -> { [string]: any },
-	stops: { [string]: GuiObject },
 	containers: { [string]: GuiObject },
-	extra: { [Instance]: string },
-	taken: { [string]: boolean },
 }
 local builders: { [any]: Builder } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -143,8 +140,6 @@ function focus.atlas(
 	local view = (collector :: any).AbsoluteSize :: Vector2
 	local entries, containers = {}, {}
 	local containerNodes: { [string]: GuiObject } = {}
-	local stopNodes: { [string]: GuiObject } = {}
-	local taken: { [string]: boolean } = {}
 	local chainOf: (Instance) -> { any }
 	local function register(at: GuiObject): string
 		local path = pathOf(at, root)
@@ -200,8 +195,6 @@ function focus.atlas(
 	end
 	for _, node in stops do
 		table.insert(entries, describe(node, paths[node]))
-		stopNodes[paths[node]] = node
-		taken[paths[node]] = true
 	end
 	for _, scroller in scrollers(root) do
 		if scroller.Selectable and shown(scroller) and scroller.AbsoluteSize.X > 0 and scroller.AbsoluteSize.Y > 0 then
@@ -217,7 +210,7 @@ function focus.atlas(
 		offsets = {},
 		scenes = {},
 	}
-	builders[atlas] = { describe = describe, stops = stopNodes, containers = containerNodes, extra = {}, taken = taken }
+	builders[atlas] = { describe = describe, containers = containerNodes }
 	return atlas
 end
 
@@ -241,38 +234,49 @@ local function rested(atlas: any, entry: any, view: { [string]: { number } }): (
 	return x, y
 end
 
-function focus.scene(
-	root: Instance,
-	atlas: any,
-	paths: { [Instance]: string },
-	view: { [string]: { number } }
-): { [string]: any }?
+local function current(root: Instance): ({ [string]: GuiObject }, { [Instance]: string })
+	local paths = focus.paths(root, focus.stops(root))
+	local byPath: { [string]: GuiObject } = {}
+	for node, path in paths do
+		byPath[path] = node :: GuiObject
+	end
+	return byPath, paths
+end
+
+local function signature(byPath: { [string]: GuiObject }): { [string]: string }
+	local out = {}
+	for path, node in byPath do
+		local at, size = node.AbsolutePosition, node.AbsoluteSize
+		out[path] = `{math.round(at.X)},{math.round(at.Y)},{math.round(size.X)},{math.round(size.Y)}`
+	end
+	return out
+end
+
+local function same(a: { [string]: string }, b: { [string]: string }): boolean
+	for path, value in a do
+		if b[path] ~= value then
+			return false
+		end
+	end
+	for path in b do
+		if a[path] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+function focus.scene(atlas: any, byPath: { [string]: GuiObject }, view: { [string]: { number } }): { [string]: any }?
 	local builder = builders[atlas]
 	if builder == nil then
 		return nil
 	end
 	local rects, gone, added = {}, {}, {}
-	local present: { [GuiObject]: boolean } = {}
-	for _, node in focus.stops(root) do
-		present[node] = true
-		if paths[node] == nil then
-			local path = builder.extra[node]
-			if path == nil then
-				path = pathOf(node, root)
-				local index = 1
-				while builder.taken[path] do
-					index += 1
-					path = `{pathOf(node, root)}+{index}`
-				end
-				builder.taken[path] = true
-				builder.extra[node] = path
-			end
-			table.insert(added, builder.describe(node, path))
-		end
-	end
+	local known: { [string]: boolean } = {}
 	for _, entry in atlas.stops do
-		local node = builder.stops[entry.path]
-		if not present[node] then
+		known[entry.path] = true
+		local node: GuiObject? = byPath[entry.path]
+		if node == nil then
 			table.insert(gone, entry.path)
 		else
 			local x, y = rested(atlas, entry, view)
@@ -282,9 +286,17 @@ function focus.scene(
 			end
 		end
 	end
+	for path, node in byPath do
+		if not known[path] then
+			table.insert(added, builder.describe(node, path))
+		end
+	end
+	table.sort(added, function(a, b)
+		return a.path < b.path
+	end)
 	for path, entry in atlas.containers do
 		local node = builder.containers[path]
-		if node and node:IsDescendantOf(root) then
+		if node and node.Parent ~= nil then
 			local x, y = rested(atlas, entry, view)
 			if differs(node, entry.rect, x, y) then
 				rects[path] =
@@ -302,9 +314,12 @@ function focus.scene(
 	}
 end
 
-local function arrived(atlas: any, paths: { [Instance]: string }, now: Instance, root: Instance): string
-	local builder = builders[atlas]
-	return if builder and builder.extra[now] then builder.extra[now] else named(paths, now, root)
+local function order(stops: { GuiObject }, paths: { [Instance]: string }): { string }
+	local out = {}
+	for _, node in stops do
+		table.insert(out, paths[node])
+	end
+	return out
 end
 
 function focus.walk(
@@ -312,34 +327,45 @@ function focus.walk(
 	stops: { GuiObject },
 	paths: { [Instance]: string },
 	keys: { string },
-	atlas: any?
+	atlas: any?,
+	restore: (() -> ())?
 ): ({ [string]: { [string]: string? } }, { [string]: { [string]: any } }, {
 	[string]: { [string]: any },
 })
 	local moves, offsets = {}, {}
 	local scenes: { [string]: { [string]: any } } = {}
-	for _, node in stops do
-		if not node:IsDescendantOf(root) then
-			continue
-		end
+	for _, path in order(stops, paths) do
 		local row, view = {}, {}
 		local seen: { [string]: any } = {}
 		for _, key in keys do
-			if not pcall(function()
+			local byPath = current(root)
+			local node: GuiObject? = byPath[path]
+			if node == nil and restore then
+				restore()
+				byPath = current(root)
+				node = byPath[path]
+			end
+			if node == nil or not pcall(function()
 				GuiService.SelectedObject = node
 			end) then
-				break
+				continue
 			end
 			view[key] = settle(root)
-			seen[key] = if atlas then focus.scene(root, atlas, paths, view[key]) else nil
+			local before = current(root)
+			seen[key] = if atlas then focus.scene(atlas, before, view[key]) else nil
+			local was = signature(before)
 			live().press({ key })
 			local now = GuiService.SelectedObject
-			row[key] = if now and now ~= node then arrived(atlas, paths, now, root) else nil
+			local after, named = current(root)
+			row[key] = if now and now ~= node then named[now] or pathOf(now, root) else nil
+			if restore and now == node and not same(was, signature(after)) then
+				restore()
+			end
 		end
-		moves[paths[node]] = row
-		offsets[paths[node]] = view
+		moves[path] = row
+		offsets[path] = view
 		if next(seen) then
-			scenes[paths[node]] = seen
+			scenes[path] = seen
 		end
 	end
 	GuiService.SelectedObject = nil
@@ -351,7 +377,8 @@ function focus.walkUp(
 	stops: { GuiObject },
 	paths: { [Instance]: string },
 	timeout: number,
-	atlas: any?
+	atlas: any?,
+	restore: (() -> ())?
 ): ({ [string]: string? }, { [string]: any }, { [string]: any })
 	local arrivals = 0
 	local connection = game:GetService("UserInputService").InputBegan:Connect(function(input: InputObject)
@@ -360,8 +387,13 @@ function focus.walkUp(
 		end
 	end)
 	local moves, offsets, scenes = {}, {}, {}
-	for _, node in stops do
-		if not node:IsDescendantOf(root) then
+	for _, path in order(stops, paths) do
+		local node: GuiObject? = current(root)[path]
+		if node == nil and restore then
+			restore()
+			node = current(root)[path]
+		end
+		if node == nil then
 			continue
 		end
 		local before, view
@@ -380,7 +412,9 @@ function focus.walkUp(
 		if before == nil then
 			continue
 		end
-		local scene = if atlas then focus.scene(root, atlas, paths, view) else nil
+		local shownNow = current(root)
+		local scene = if atlas then focus.scene(atlas, shownNow, view) else nil
+		local was = signature(shownNow)
 		local started = os.clock()
 		while arrivals == before and os.clock() - started < timeout do
 			task.wait()
@@ -389,12 +423,16 @@ function focus.walkUp(
 			task.wait()
 		end
 		local now = GuiService.SelectedObject
-		moves[paths[node]] = if arrivals ~= before + 1
+		local after, named = current(root)
+		moves[path] = if arrivals ~= before + 1
 			then `unsettled:{arrivals - before}`
-			elseif now and now ~= node then arrived(atlas, paths, now, root)
+			elseif now and now ~= node then named[now] or pathOf(now, root)
 			else nil
-		offsets[paths[node]] = view
-		scenes[paths[node]] = scene
+		offsets[path] = view
+		scenes[path] = scene
+		if restore and now == node and not same(was, signature(after)) then
+			restore()
+		end
 	end
 	connection:Disconnect()
 	GuiService.SelectedObject = nil

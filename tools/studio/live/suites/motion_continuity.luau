@@ -71,7 +71,7 @@ local function checkFrames(t: any, name: string, frames: { any })
 	for _ in final.texts do
 		count += 1
 	end
-	for _, frame in frames do
+	for at, frame in frames do
 		for node, before in frame.texts do
 			local after = final.texts[node]
 			if after then
@@ -79,14 +79,15 @@ local function checkFrames(t: any, name: string, frames: { any })
 					local delta = math.abs(before[index] - after[index])
 					if delta > shift then
 						shift = delta
-						example = { node = node.Name, before = before, after = after }
+						example = { node = node.Name, before = before, after = after, frame = at, shown = frame.shown }
 					end
 				end
 				for index = 1, 4 do
 					local delta = math.abs(before[index] - after[index])
 					if delta > largest then
 						largest = delta
-						boundsExample = { node = node.Name, before = before, after = after }
+						boundsExample =
+							{ node = node.Name, before = before, after = after, frame = at, shown = frame.shown }
 					end
 				end
 			else
@@ -110,6 +111,13 @@ local function checkFrames(t: any, name: string, frames: { any })
 	end
 	if shift > 0.5 then
 		t.note(name .. " shift", example)
+	end
+	if largest > 1 or shift > 0.5 then
+		local trace = {}
+		for at = 1, math.min(#frames, 16) do
+			trace[at] = frames[at].panel
+		end
+		t.note(name .. " panel trace", trace)
 	end
 end
 
@@ -332,16 +340,22 @@ do
 									or panel:FindFirstChild("PresentationFade")
 								local alpha = if fade then fade.Transparency.Keypoints[1].Value else 0
 								if alpha < 0.95 then
-									table.insert(
-										frames,
-										snapshot(
-											panel,
-											kind ~= "Sheet"
-												and (kind ~= "Menu" or shape.X >= 600)
-												and kind ~= "Toast"
-												and kind ~= "CollapsibleView"
-										)
+									local frame = snapshot(
+										panel,
+										kind ~= "Sheet"
+											and (kind ~= "Menu" or shape.X >= 600)
+											and kind ~= "Toast"
+											and kind ~= "CollapsibleView"
 									)
+									frame.shown = t.visible(panel)
+									frame.panel = {
+										panel.AbsolutePosition.X,
+										panel.AbsolutePosition.Y,
+										panel.AbsoluteSize.X,
+										panel.AbsoluteSize.Y,
+										alpha,
+									}
+									table.insert(frames, frame)
 								end
 							end
 						end

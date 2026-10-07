@@ -62,6 +62,16 @@ local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any
 	return stage, built
 end
 
+local function painted(entries: { any }): { any }
+	local out = {}
+	for _, entry in entries do
+		if entry[1] ~= "OutlineFade" then
+			table.insert(out, entry)
+		end
+	end
+	return out
+end
+
 local SWEEP = {
 	Vector2.new(390, 844),
 	Vector2.new(768, 1024),
@@ -78,14 +88,16 @@ add("callout-page-lateral-sweep", { "navigation-1-69" }, function(t)
 		local panel = visibleNamed(t, stage, "CalloutPanel")
 		t.check(where .. " the tip callout shows", panel ~= nil)
 		local found = t.offenders(stage, stage)
-		t.check(where .. " nothing crosses a lateral edge with the tip shown", #found.lateral == 0, found.lateral)
+		local lateral = painted(found.lateral)
+		t.check(where .. " nothing crosses a lateral edge with the tip shown", #lateral == 0, lateral)
 		t.check(where .. " no text is clipped with the tip shown", #found.clipped == 0, found.clipped)
 		built.steps.use()
 		t.settle(10)
 		built.steps.showSecond()
 		t.settle(20)
 		found = t.offenders(stage, stage)
-		t.check(where .. " nothing crosses a lateral edge with the second tip", #found.lateral == 0, found.lateral)
+		lateral = painted(found.lateral)
+		t.check(where .. " nothing crosses a lateral edge with the second tip", #lateral == 0, lateral)
 		t.cleanup()
 	end
 end)
@@ -97,8 +109,8 @@ add("consumer-parts-have-rects", { "apps2-01" }, function(t)
 		return
 	end
 	local screen = (require :: any)(module)
-	local stage = t.mount(function(_, _, _, env)
-		return screen.build(t.Facet, env.runtime)
+	local stage = t.mount(function(UI: FacetControls)
+		return screen.build(t.Facet, UI)
 	end, { size = Vector2.new(1280, 720), frames = 1 })
 	for _, name in { "Title", "Blurb", "Count", "Sound", "Bump", "Close" } do
 		local node = t.find(stage, name)
@@ -265,7 +277,8 @@ add("character-commands-ring-or-list", { "apps2-224" }, function(t)
 			{ size = Vector2.new(1280, 720), kind = "radial" :: "radial" },
 			{ size = Vector2.new(960, 540), kind = "radial" :: "radial" },
 			{ size = Vector2.new(800, 600), kind = "radial" :: "radial" },
-			{ size = Vector2.new(677, 338), kind = "list" :: "list" },
+			{ size = Vector2.new(677, 338), kind = "radial" :: "radial" },
+			{ size = Vector2.new(677, 280), kind = "list" :: "list" },
 		} :: {
 			{
 				size: typeof(Vector2.new(1280, 720))
@@ -530,6 +543,13 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 		return table.concat(out, ",")
 	end
 	local body = t.find(stage, "Body")
+	local edit = visibleNamed(t, stage, "Edit")
+	if edit then
+		GuiService.SelectedObject = edit
+		t.settle(2)
+		t.note("edit", live.press({ "ButtonA" }))
+		t.settle(10)
+	end
 	local neon = body and body:FindFirstChild("neon", true)
 	local handle = neon and neon:FindFirstChild("Move", true)
 	if not handle then

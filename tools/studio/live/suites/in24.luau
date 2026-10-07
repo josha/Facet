@@ -274,7 +274,12 @@ local function scenario(t: any, name: string, patch: ((any) -> ())?, size: Vecto
 end
 
 local function touch(t: any)
-	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
+	t.device({
+		device = "iphone_14",
+		input = Enum.PreferredInput.Touch,
+		orientation = Enum.ScreenOrientation.Portrait,
+		restore = "xbox",
+	})
 	for _ = 1, 180 do
 		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
 			break
@@ -282,6 +287,26 @@ local function touch(t: any)
 		t.settle(1)
 	end
 	t.settle(10)
+end
+
+local function onPhone(run: (any) -> ()): (any) -> ()
+	return function(t: any)
+		local tenFoot = GuiService:IsTenFootInterface()
+		touch(t)
+		local ok, problem = xpcall(run, function(raised: any): any
+			return if type(raised) == "string" then debug.traceback(raised, 2) else raised
+		end, t)
+		t.cleanup()
+		if not tenFoot then
+			pcall(function()
+				(game:GetService("StudioDeviceSimulatorService") :: any):StopSimulationAsync()
+			end)
+			t.settle(30)
+		end
+		if not ok then
+			error(problem, 0)
+		end
+	end
 end
 
 local function fill(node: any): string
@@ -540,48 +565,55 @@ add("pad-page-view-pages-and-activates", { "navigation-3-41" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("touch-page-view-swipes-one-page", { "navigation-3-38" }, function(t)
-	touch(t)
-	local io = device(t)
-	local value = pagesProbe(t)
-	if not (value.pages and value.layout) then
-		t.check("the pages mount", false)
-		return
-	end
-	local function swipe(fraction: number, hold: number?)
-		local r = t.rect(value.pages)
-		local y = r.y + r.h * 0.7
-		local from = r.x + r.w * 0.5 + r.w * fraction / 2
-		local to = r.x + r.w * 0.5 - r.w * fraction / 2
-		io.drag(Vector2.new(from, y), Vector2.new(to, y), 12, hold)
+add(
+	"touch-page-view-swipes-one-page",
+	{ "navigation-3-38" },
+	onPhone(function(t)
+		local io = device(t)
+		local value = pagesProbe(t)
+		if not (value.pages and value.layout) then
+			t.check("the pages mount", false)
+			return
+		end
+		local function swipe(fraction: number, hold: number?)
+			local r = t.rect(value.pages)
+			local y = r.y + r.h * 0.7
+			local from = r.x + r.w * 0.5 + r.w * fraction / 2
+			local to = r.x + r.w * 0.5 - r.w * fraction / 2
+			io.drag(Vector2.new(from, y), Vector2.new(to, y), 12, hold)
+			t.settle(90)
+		end
+		swipe(0.6)
+		t.check("one swipe left advances one page", value.selection:peek() == "two", value.selection:peek())
+		t.check(
+			"the layout shows page two",
+			value.layout.CurrentPage and value.layout.CurrentPage.Name == "two",
+			value.layout.CurrentPage
+		)
+		swipe(0.6, 30)
+		t.check(
+			"a swipe held still before release advances one page",
+			value.selection:peek() == "three",
+			value.selection:peek()
+		)
+		swipe(-0.6)
+		t.check("a swipe right goes back one page", value.selection:peek() == "two", value.selection:peek())
+		swipe(0.03)
+		t.check(
+			"incidental movement stays on the current page",
+			value.selection:peek() == "two",
+			value.selection:peek()
+		)
+		value.selection:set("three")
+		value.selection:set("two")
 		t.settle(90)
-	end
-	swipe(0.6)
-	t.check("one swipe left advances one page", value.selection:peek() == "two", value.selection:peek())
-	t.check(
-		"the layout shows page two",
-		value.layout.CurrentPage and value.layout.CurrentPage.Name == "two",
-		value.layout.CurrentPage
-	)
-	swipe(0.6, 30)
-	t.check(
-		"a swipe held still before release advances one page",
-		value.selection:peek() == "three",
-		value.selection:peek()
-	)
-	swipe(-0.6)
-	t.check("a swipe right goes back one page", value.selection:peek() == "two", value.selection:peek())
-	swipe(0.03)
-	t.check("incidental movement stays on the current page", value.selection:peek() == "two", value.selection:peek())
-	value.selection:set("three")
-	value.selection:set("two")
-	t.settle(90)
-	t.check(
-		"an owner reversal is not swallowed",
-		value.selection:peek() == "two" and value.layout.CurrentPage.Name == "two",
-		value.layout.CurrentPage
-	)
-end)
+		t.check(
+			"an owner reversal is not swallowed",
+			value.selection:peek() == "two" and value.layout.CurrentPage.Name == "two",
+			value.layout.CurrentPage
+		)
+	end)
+)
 
 add("page-view-affordances", { "navigation-3-43" }, function(t)
 	local io = device(t)
@@ -641,34 +673,41 @@ add("page-view-affordances", { "navigation-3-43" }, function(t)
 	end
 end)
 
-add("touch-page-view-dots", { "navigation-3-43" }, function(t)
-	touch(t)
-	local io = device(t)
-	local value = pagesProbe(t)
-	local indicators = t.find(value.stage, "Indicators")
-	local dots = {}
-	for _, node in (indicators and indicators:GetDescendants() or {}) do
-		if node:IsA("GuiButton") and t.visible(node) then
-			table.insert(dots, node)
+add(
+	"touch-page-view-dots",
+	{ "navigation-3-43" },
+	onPhone(function(t)
+		local io = device(t)
+		local value = pagesProbe(t)
+		local indicators = t.find(value.stage, "Indicators")
+		local dots = {}
+		for _, node in (indicators and indicators:GetDescendants() or {}) do
+			if node:IsA("GuiButton") and t.visible(node) then
+				table.insert(dots, node)
+			end
 		end
-	end
-	table.sort(dots, function(a, b)
-		return a.AbsolutePosition.X < b.AbsolutePosition.X
-	end)
-	t.check("three dots on the phone", #dots == 3, #dots)
-	if #dots == 3 then
-		for _, dot in dots do
+		table.sort(dots, function(a, b)
+			return a.AbsolutePosition.X < b.AbsolutePosition.X
+		end)
+		t.check("three dots on the phone", #dots == 3, #dots)
+		if #dots == 3 then
+			for _, dot in dots do
+				t.check(
+					`dot {dot.Name} meets 44 px on touch`,
+					dot.AbsoluteSize.X >= 43.5 and dot.AbsoluteSize.Y >= 43.5,
+					dot.AbsoluteSize
+				)
+			end
+			io.click(centre(dots[2]))
+			t.settle(60)
 			t.check(
-				`dot {dot.Name} meets 44 px on touch`,
-				dot.AbsoluteSize.X >= 43.5 and dot.AbsoluteSize.Y >= 43.5,
-				dot.AbsoluteSize
+				"a touch tap on the second dot shows page two",
+				value.selection:peek() == "two",
+				value.selection:peek()
 			)
 		end
-		io.click(centre(dots[2]))
-		t.settle(60)
-		t.check("a touch tap on the second dot shows page two", value.selection:peek() == "two", value.selection:peek())
-	end
-end)
+	end)
+)
 
 add("component-setup-error-and-throwing-cleanup", { "apps-123" }, function(t)
 	local Facet = t.Facet
@@ -964,7 +1003,7 @@ add("icon-clamped-to-content-box", { "paint-51" }, function(t)
 	end
 end)
 
-local function sortable(t: any, count: number): any
+local function sortable(t: any, count: number, editing: boolean?): any
 	local value: any = { reorders = {}, activated = {} }
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local items = {}
@@ -981,6 +1020,7 @@ local function sortable(t: any, count: number): any
 				key = "id",
 				itemSize = 44,
 				reorderable = true,
+				editing = editing,
 				onReorder = function(keys, slot)
 					table.insert(value.reorders, { keys = keys, slot = slot })
 				end,
@@ -1026,7 +1066,7 @@ end
 
 add("reorder-mouse-thresholds", { "inputs-83", "mech2-106" }, function(t)
 	local io = device(t)
-	local value = sortable(t, 12)
+	local value = sortable(t, 12, true)
 	local handle, row = handleOf(value, "2")
 	t.check("row 2 has a move handle", handle ~= nil and row ~= nil)
 	if not (handle and row) then
@@ -1061,52 +1101,55 @@ add("reorder-mouse-thresholds", { "inputs-83", "mech2-106" }, function(t)
 	)
 end)
 
-add("touch-reorder-arms-and-pans", { "inputs-83", "inputs-209" }, function(t)
-	touch(t)
-	local io = device(t)
-	local value = sortable(t, 30)
-	local handle, row = handleOf(value, "2")
-	if not (handle and row and value.body) then
-		t.check("the list, row and handle mount", false)
-		return
-	end
-	local before = value.body.CanvasPosition.Y
-	local from = centre(row)
-	io.drag(from, from - Vector2.new(0, 150), 12)
-	t.settle(30)
-	t.note("pan on the row", { canvas = value.body.CanvasPosition.Y, reorders = value.reorders })
-	t.check(
-		"a finger that travels on the row content pans the list",
-		value.body.CanvasPosition.Y > before + 20,
-		{ before, value.body.CanvasPosition.Y }
-	)
-	t.check("and never reorders", #value.reorders == 0, value.reorders)
-	t.check("and does not activate the row", #value.activated == 0, value.activated)
-	t.settle(180)
-	value.body.CanvasPosition = Vector2.new(0, 0)
-	t.stable(value.body, 10)
-	t.check(
-		"the pan's momentum has ended before the next gesture",
-		value.body.CanvasPosition.Y == 0,
-		value.body.CanvasPosition
-	)
-	handle = handleOf(value, "2")
-	local canvasDuring = {}
-	local watch = value.body:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-		table.insert(canvasDuring, value.body.CanvasPosition.Y)
+add(
+	"touch-reorder-arms-and-pans",
+	{ "inputs-83", "inputs-209" },
+	onPhone(function(t)
+		local io = device(t)
+		local value = sortable(t, 30, true)
+		local handle, row = handleOf(value, "2")
+		if not (handle and row and value.body) then
+			t.check("the list, row and handle mount", false)
+			return
+		end
+		local before = value.body.CanvasPosition.Y
+		local from = centre(row)
+		io.drag(from, from - Vector2.new(0, 150), 12)
+		t.settle(30)
+		t.note("pan on the row", { canvas = value.body.CanvasPosition.Y, reorders = value.reorders })
+		t.check(
+			"a finger that travels on the row content pans the list",
+			value.body.CanvasPosition.Y > before + 20,
+			{ before, value.body.CanvasPosition.Y }
+		)
+		t.check("and never reorders", #value.reorders == 0, value.reorders)
+		t.check("and does not activate the row", #value.activated == 0, value.activated)
+		t.settle(180)
+		value.body.CanvasPosition = Vector2.new(0, 0)
+		t.stable(value.body, 10)
+		t.check(
+			"the pan's momentum has ended before the next gesture",
+			value.body.CanvasPosition.Y == 0,
+			value.body.CanvasPosition
+		)
+		handle = handleOf(value, "2")
+		local canvasDuring = {}
+		local watch = value.body:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+			table.insert(canvasDuring, value.body.CanvasPosition.Y)
+		end)
+		io.drag(centre(handle), centre(handle) + Vector2.new(0, 90), 14, 20)
+		t.settle(30)
+		watch:Disconnect()
+		t.note("handle drag", { reorders = value.reorders, canvas = canvasDuring })
+		t.check("a finger held on the handle then moved reorders", #value.reorders == 1, value.reorders)
+		t.check("the list does not pan under the dragged row", #canvasDuring == 0, canvasDuring)
+		t.check("the drag ends", dragging(value) == 0, dragging(value))
 	end)
-	io.drag(centre(handle), centre(handle) + Vector2.new(0, 90), 14, 20)
-	t.settle(30)
-	watch:Disconnect()
-	t.note("handle drag", { reorders = value.reorders, canvas = canvasDuring })
-	t.check("a finger held on the handle then moved reorders", #value.reorders == 1, value.reorders)
-	t.check("the list does not pan under the dragged row", #canvasDuring == 0, canvasDuring)
-	t.check("the drag ends", dragging(value) == 0, dragging(value))
-end)
+)
 
 add("wheel-scrolls-through-drag-zones", { "mech2-97" }, function(t)
 	local io = device(t)
-	local value = sortable(t, 30)
+	local value = sortable(t, 30, true)
 	local handle = handleOf(value, "2")
 	if not (handle and value.body) then
 		t.check("the handle mounts", false)
@@ -1137,7 +1180,7 @@ add("reorder-capture-released-on-teardown", { "inputs-144" }, function(t)
 			table.insert(errors, message)
 		end
 	end)
-	local value = sortable(t, 12)
+	local value = sortable(t, 12, true)
 	local handle = handleOf(value, "3")
 	if not handle then
 		watch:Disconnect()
@@ -1157,7 +1200,7 @@ add("reorder-capture-released-on-teardown", { "inputs-144" }, function(t)
 	io.up(at + Vector2.new(0, 80))
 	t.settle(6)
 	t.check("tearing the list down mid-drag raises no error", #errors == 0, errors)
-	local fresh = sortable(t, 12)
+	local fresh = sortable(t, 12, true)
 	local second = handleOf(fresh, "2")
 	io.drag(centre(second), centre(second) + Vector2.new(0, 48), 12)
 	t.settle(20)
@@ -1192,31 +1235,34 @@ add("match3-detector-tap-selects-once", { "mech2-106" }, function(t)
 	t.check("no swap happened", built.moves() == 0, built.moves())
 end)
 
-add("touch-match3-detector-tap-selects-once", { "mech2-106" }, function(t)
-	touch(t)
-	local io = device(t)
-	local stage, built = example(t, "07_match3", function(ctx)
-		ctx.reducedMotion = ctx.Compose.cell(true)
+add(
+	"touch-match3-detector-tap-selects-once",
+	{ "mech2-106" },
+	onPhone(function(t)
+		local io = device(t)
+		local stage, built = example(t, "07_match3", function(ctx)
+			ctx.reducedMotion = ctx.Compose.cell(true)
+		end)
+		t.settle(30)
+		local tile = stage:FindFirstChild("tile" .. tostring(built.tileIdAt(4, 4)), true)
+		local hit = tile and tile:FindFirstChild("hit", true)
+		if not hit then
+			t.check("a board tile mounts", false)
+			return
+		end
+		local stroke = hit:FindFirstChild("Selection")
+		io.click(centre(hit))
+		t.settle(10)
+		t.check(
+			"one touch tap on a tile selects it once",
+			stroke and stroke.Transparency == 0,
+			stroke and stroke.Transparency
+		)
+		io.click(centre(hit))
+		t.settle(10)
+		t.check("a second touch tap deselects", stroke and stroke.Transparency == 1, stroke and stroke.Transparency)
 	end)
-	t.settle(30)
-	local tile = stage:FindFirstChild("tile" .. tostring(built.tileIdAt(4, 4)), true)
-	local hit = tile and tile:FindFirstChild("hit", true)
-	if not hit then
-		t.check("a board tile mounts", false)
-		return
-	end
-	local stroke = hit:FindFirstChild("Selection")
-	io.click(centre(hit))
-	t.settle(10)
-	t.check(
-		"one touch tap on a tile selects it once",
-		stroke and stroke.Transparency == 0,
-		stroke and stroke.Transparency
-	)
-	io.click(centre(hit))
-	t.settle(10)
-	t.check("a second touch tap deselects", stroke and stroke.Transparency == 1, stroke and stroke.Transparency)
-end)
+)
 
 local function geometryWatch(nodes: { Instance }): () -> number
 	local count = 0
@@ -1793,74 +1839,80 @@ add("pad-hint-follows-gamepad", { "inputs-98", "inputs-165" }, function(t)
 	readHints(t, value, "gamepad", "ButtonX")
 end)
 
-add("touch-hint-with-no-touch-binding", { "inputs-98" }, function(t)
-	touch(t)
-	local value = hintProbe(t)
-	t.settle(10)
-	local preferred = value.action.PreferredBinding
-	t.note("touch preferred", preferred and preferred.KeyCode)
-	local hint = t.find(value.stage, "Hint")
-	t.check("the hint stays drawable on a phone", hint ~= nil)
-	t.note("touch hint", hintText(hint))
-end)
-
-add("split-long-press-vs-tap", { "inputs-211" }, function(t)
-	touch(t)
-	local io = device(t)
-	local value: any = { primary = 0, alternative = 0 }
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return Host.Frame "Holder" {
-			Position = UDim2.fromOffset(40, 240),
-			Size = UDim2.fromOffset(200, 60),
-			BackgroundTransparency = 1,
-			UI.SplitButton "Run" {
-				Size = UDim2.fromOffset(148, 44),
-				AutomaticSize = Enum.AutomaticSize.None,
-				label = "Run",
-				onActivate = function()
-					value.primary += 1
-				end,
-				items = {
-					{
-						id = "Alternate",
-						label = "Alternate",
-						onSelect = function()
-							value.alternative += 1
-						end,
-					} :: MenuItem,
-				},
-			},
-		}
-	end, { frames = 16 })
-	local primary = t.find(stage, "Primary")
-	t.check("the split primary mounts", primary ~= nil)
-	if not primary then
-		return
-	end
-	io.click(centre(primary))
-	t.settle(10)
-	t.check("a touch tap runs the primary once", value.primary == 1, value.primary)
-	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local presses: { string } = {}
-	local watch = primary.TouchLongPress:Connect(function(_, state: Enum.UserInputState)
-		table.insert(presses, state.Name)
+add(
+	"touch-hint-with-no-touch-binding",
+	{ "inputs-98" },
+	onPhone(function(t)
+		local value = hintProbe(t)
+		t.settle(10)
+		local preferred = value.action.PreferredBinding
+		t.note("touch preferred", preferred and preferred.KeyCode)
+		local hint = t.find(value.stage, "Hint")
+		t.check("the hint stays drawable on a phone", hint ~= nil)
+		t.note("touch hint", hintText(hint))
 	end)
-	io.down(centre(primary))
-	t.settle(90)
-	io.up(centre(primary))
-	t.settle(30)
-	watch:Disconnect()
-	t.note("long press states", presses)
-	t.check("the engine reports a touch long press", table.find(presses, "Begin") ~= nil, presses)
-	t.check("the long press opens the alternatives", visibleNamed(t, gui, "Alternate") ~= nil)
-	t.check("the long press does not run the primary", value.primary == 1, value.primary)
-	local alternate = visibleNamed(t, gui, "Alternate")
-	if alternate then
-		io.click(centre(alternate))
-		t.settle(20)
-		t.check("tapping the alternative runs it once", value.alternative == 1, value.alternative)
-	end
-end)
+)
+
+add(
+	"split-long-press-vs-tap",
+	{ "inputs-211" },
+	onPhone(function(t)
+		local io = device(t)
+		local value: any = { primary = 0, alternative = 0 }
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Holder" {
+				Position = UDim2.fromOffset(40, 240),
+				Size = UDim2.fromOffset(200, 60),
+				BackgroundTransparency = 1,
+				UI.SplitButton "Run" {
+					Size = UDim2.fromOffset(148, 44),
+					AutomaticSize = Enum.AutomaticSize.None,
+					label = "Run",
+					onActivate = function()
+						value.primary += 1
+					end,
+					items = {
+						{
+							id = "Alternate",
+							label = "Alternate",
+							onSelect = function()
+								value.alternative += 1
+							end,
+						} :: MenuItem,
+					},
+				},
+			}
+		end, { frames = 16 })
+		local primary = t.find(stage, "Primary")
+		t.check("the split primary mounts", primary ~= nil)
+		if not primary then
+			return
+		end
+		io.click(centre(primary))
+		t.settle(10)
+		t.check("a touch tap runs the primary once", value.primary == 1, value.primary)
+		local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+		local presses: { string } = {}
+		local watch = primary.TouchLongPress:Connect(function(_, state: Enum.UserInputState)
+			table.insert(presses, state.Name)
+		end)
+		io.down(centre(primary))
+		t.settle(90)
+		io.up(centre(primary))
+		t.settle(30)
+		watch:Disconnect()
+		t.note("long press states", presses)
+		t.check("the engine reports a touch long press", table.find(presses, "Begin") ~= nil, presses)
+		t.check("the long press opens the alternatives", visibleNamed(t, gui, "Alternate") ~= nil)
+		t.check("the long press does not run the primary", value.primary == 1, value.primary)
+		local alternate = visibleNamed(t, gui, "Alternate")
+		if alternate then
+			io.click(centre(alternate))
+			t.settle(20)
+			t.check("tapping the alternative runs it once", value.alternative == 1, value.alternative)
+		end
+	end)
+)
 
 add("pinch-is-not-a-pan", { "inputs-211" }, function(t)
 	local io = device(t)

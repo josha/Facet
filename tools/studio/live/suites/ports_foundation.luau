@@ -451,6 +451,7 @@ add("tab-rung", { "post-port26-025" }, function(t: any)
 	end
 	t.stable(strip)
 	local s = t.rect(strip)
+	t.note("input", inputFacts())
 	t.near("the strip is 44 px", s.h, 44, 0.5)
 	for _, id in { "a", "b" } do
 		local tab = strip:FindFirstChild(id, true)

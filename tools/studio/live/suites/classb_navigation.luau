@@ -236,7 +236,7 @@ add("segment-corner-concentric", { "mech3-35" }, function(t)
 		local inner = sheetRule(stage, ".facet-segment::UICorner")
 		t.check(`control {control}: the strip and its fill mount`, track ~= nil and current ~= nil)
 		if track and current and outer and inner then
-			local trackRadius = control + 2
+			local trackRadius = if control > 0 then control + 2 else 0
 			t.check(
 				`control {control}: the track keeps the theme's corner`,
 				outer.CornerRadius == UDim.new(0, trackRadius),
@@ -294,18 +294,19 @@ add("collapsible-safe-edges", { "navigation-2-06" }, function(t)
 		end, { size = size, frames = 10 })
 		expanded:set(true)
 		t.settle(20)
-		local presentation = t.find(stage, "ExpandedPresentation")
+		local gui = stage:FindFirstAncestorWhichIsA("ScreenGui")
+		local presentation = t.find(stage, "Expanded") or (gui and t.find(gui, "Expanded"))
 		t.check(where .. " the expanded view presents", presentation ~= nil)
 		if presentation then
 			t.stable(presentation)
-			local gui = stage:FindFirstAncestorWhichIsA("ScreenGui")
 			t.inside(where .. " the expanded view stays inside the screen", presentation, stage, 1)
 			t.inside(where .. " the expanded view stays inside the ScreenGui safe area", presentation, gui, 1)
 			local box, screen = t.rect(presentation), t.rect(stage)
+			local margin = t.themes[1].package.metrics.space.s
 			t.check(
-				where .. " the expanded view keeps a 16 px side margin or its 640 px cap",
-				(box.x - screen.x >= 15.5 and screen.r - box.r >= 15.5) and box.w <= 640.5,
-				{ box.x - screen.x, screen.r - box.r, box.w }
+				where .. " the expanded view keeps the theme's small space as its side margin",
+				box.x - screen.x >= margin - 0.5 and screen.r - box.r >= margin - 0.5,
+				{ box.x - screen.x, screen.r - box.r, box.w, margin }
 			)
 			local found = t.offenders(presentation, stage)
 			t.check(
@@ -463,6 +464,19 @@ add("pageview-fixed-in-scroller", { "navigation-3-48" }, function(t)
 	)
 end)
 
+local function selectedArt(package: any): boolean
+	local plate = package.chrome and package.chrome.control
+	if not plate then
+		return false
+	end
+	for _, layer in if plate.kind == "layered" then plate.layers or {} else { plate } do
+		if type(layer.asset) == "table" and layer.asset.selected ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
 add("segment-accent-plate-image-themes", { "navigation-3-51" }, function(t)
 	for _, entry in t.themes do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -479,27 +493,12 @@ add("segment-accent-plate-image-themes", { "navigation-3-51" }, function(t)
 		local current = tagged(stage, "facet-segment-current")
 		local plate = sheetRule(stage, ".facet-segment-current")
 		local ink = sheetRule(stage, ".facet-segment-current >> .facet-button-caption")
+		local selectedInk = sheetRule(stage, ".facet-skinned.facet-selected >> .facet-button-caption")
+		local art = selectedArt(entry.package)
 		t.check(`{entry.name}: one segment is current`, #current == 1, #current)
 		if current[1] and plate and ink then
 			local segment = current[1]
-			t.check(
-				`{entry.name}: the current segment paints an opaque plate`,
-				segment:GetStyled("BackgroundTransparency") == 0,
-				segment:GetStyled("BackgroundTransparency")
-			)
-			t.check(
-				`{entry.name}: the plate is the accent`,
-				segment:GetStyled("BackgroundColor3") == plate.BackgroundColor3,
-				{ segment:GetStyled("BackgroundColor3"), plate.BackgroundColor3 }
-			)
-			local caption = tagged(segment, "facet-button-caption")[1]
-			local expected = if caption then ink.TextColor3 else plate.TextColor3
-			local reader = caption or segment
-			t.check(
-				`{entry.name}: the label reads onAccent on the plate`,
-				reader:GetStyled("TextColor3") == expected,
-				{ reader:GetStyled("TextColor3"), expected }
-			)
+			local fill = t.find(stage, "SelectionFill")
 			local covering = {}
 			for _, node in segment:GetDescendants() do
 				if
@@ -511,7 +510,66 @@ add("segment-accent-plate-image-themes", { "navigation-3-51" }, function(t)
 					table.insert(covering, node.Name)
 				end
 			end
-			t.check(`{entry.name}: no art covers the plate`, #covering == 0, covering)
+			local caption = tagged(segment, "facet-button-caption")[1]
+			local reader = caption or segment
+			if art then
+				t.check(
+					`{entry.name}: the selected art replaces the sliding fill`,
+					fill == nil or not (fill.Visible and shown(fill)),
+					fill and { fill.Visible, fill:GetStyled("Visible") }
+				)
+				t.check(`{entry.name}: the current segment keeps its selected art`, #covering > 0, covering)
+				t.check(
+					`{entry.name}: the current segment paints no flat plate under the art`,
+					segment:GetStyled("BackgroundTransparency") == 1,
+					segment:GetStyled("BackgroundTransparency")
+				)
+				local expected = if caption and selectedInk then selectedInk.TextColor3 else nil
+				t.check(
+					`{entry.name}: the label reads onSelected on the art`,
+					expected ~= nil and reader:GetStyled("TextColor3") == expected,
+					{ tostring(reader:GetStyled("TextColor3")), tostring(expected) }
+				)
+			else
+				t.check(
+					`{entry.name}: the selection fill shows`,
+					fill ~= nil and fill.Visible and shown(fill),
+					fill and { fill.Visible, fill:GetStyled("Visible") }
+				)
+				if fill then
+					t.check(
+						`{entry.name}: the selection fill paints an opaque plate`,
+						fill:GetStyled("BackgroundTransparency") == 0,
+						fill:GetStyled("BackgroundTransparency")
+					)
+					t.check(
+						`{entry.name}: the plate is the accent`,
+						fill:GetStyled("BackgroundColor3") == plate.BackgroundColor3,
+						{ tostring(fill:GetStyled("BackgroundColor3")), tostring(plate.BackgroundColor3) }
+					)
+					local f, c = t.rect(fill), t.rect(segment)
+					t.check(
+						`{entry.name}: the plate lies under the current segment`,
+						math.abs(f.x - c.x) <= 1
+							and math.abs(f.y - c.y) <= 1
+							and math.abs(f.w - c.w) <= 1
+							and math.abs(f.h - c.h) <= 1,
+						{ fill = { f.x, f.y, f.w, f.h }, segment = { c.x, c.y, c.w, c.h } }
+					)
+				end
+				t.check(
+					`{entry.name}: the current segment leaves its plate to the fill`,
+					segment:GetStyled("BackgroundTransparency") == 1,
+					segment:GetStyled("BackgroundTransparency")
+				)
+				local expected = if caption then ink.TextColor3 else plate.TextColor3
+				t.check(
+					`{entry.name}: the label reads onAccent on the plate`,
+					reader:GetStyled("TextColor3") == expected,
+					{ tostring(reader:GetStyled("TextColor3")), tostring(expected) }
+				)
+				t.check(`{entry.name}: no art covers the plate`, #covering == 0, covering)
+			end
 			local other = nil
 			for _, node in tagged(stage, "facet-segment") do
 				if not node:HasTag("facet-segment-current") then
