@@ -63,6 +63,65 @@ return function(verifyHarness: Verify.Harness)
 		return w.find("ScrimFade").Transparency.Keypoints[1].Value
 	end
 
+	verifyHarness:suite("presentation motion: Calendar", function()
+		for _, level in { "normal", "limited", "none" } do
+			verifyHarness:case(`prepares calendar layout and masks panel and scrim together in {level} motion`, {
+				id = `native_presentation_motion::presentation motion: Calendar::prepares calendar layout and masks panel and scrim together in {level} motion`,
+				run = function()
+					local value = Compose.cell({ year = 2026, month = 10, day = 7, hour = 9, minute = 0 })
+					local w = overlay.new(function(UI, Host, engine, _, _)
+						return Host.Frame {
+							UI.DateTimePicker "Session" {
+								value = value,
+								onChange = function(nextValue)
+									value:set(nextValue)
+								end,
+								time = true,
+								clock = function()
+									return { year = 2026, month = 10, day = 7 }
+								end,
+							},
+						}
+					end, { motionLevel = level, size = Vector2.new(389, 762) })
+					w.input.PreferredInput = w.Enum.PreferredInput.Touch
+					w.find("Open").Activated:Fire()
+					local surface = w.find("CalendarSurface")
+					local function scrimOpacity(): number
+						return (1 - w.find("DismissOutside").BackgroundTransparency) / 0.5
+					end
+					Verify.expect(fadeKit.of(surface)):toBe(1)
+					Verify.expect(scrimOpacity()):toBe(0)
+					w.size(surface, 365, 0)
+					w.advance(FRAME)
+					Verify.expect(fadeKit.of(surface)):toBe(1)
+					w.size(surface, 365, 540)
+					w.size(w.find("Calendar"), 365, 540)
+					w.advance(FRAME)
+					Verify.expect(fadeKit.of(surface)):toBe(1)
+					w.advance(FRAME)
+					local last = fadeKit.of(surface)
+					local intermediate = last > 0 and last < 1
+					for _ = 1, 30 do
+						w.advance(FRAME)
+						local alpha = fadeKit.of(surface)
+						Verify.expect(alpha <= last):toBe(true)
+						Verify.expect(scrimOpacity()):toBeCloseTo(1 - alpha, 1e-6)
+						intermediate = intermediate or (alpha > 0 and alpha < 1)
+						last = alpha
+					end
+					Verify.expect(last):toBe(0)
+					Verify.expect(intermediate):toBe(level ~= "none")
+					Verify.expect(w.find("CalendarScroll").AutomaticCanvasSize):toBe(w.Enum.AutomaticSize.Y)
+					w.find("DismissOutside").Activated:Fire()
+					Verify.expect(w.find("Session"):GetAttribute("presented")):toBe(false)
+					w.advance(1, 60)
+					Verify.expect(w.find("CalendarSurface")):toBe(nil)
+					w.stop()
+				end,
+			})
+		end
+	end)
+
 	verifyHarness:suite("presentation motion: Dialog and CollapsibleView", function()
 		verifyHarness:case("a dialog scales from 0.94 and fades in with its scrim, frame by frame, in 0.2 seconds", {
 			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::a dialog scales from 0.94 and fades in with its scrim, frame by frame, in 0.2 seconds",

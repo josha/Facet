@@ -1,6 +1,7 @@
 --!strict
 local civil = require("./civil_date")
 local fieldChrome = require("./field_chrome")
+local materialize = require("./materialize")
 local Shared = require("./types")
 local Nav = require("./navigation_types")
 local Inputs = require("./input_types")
@@ -1792,7 +1793,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end
 			end)
 			surfaces.attach(root, {
-				surfaces.overlay(plate, presented, function()
+				surfaces.overlay(plate, presented, function(phase: Nav.PresencePhase?)
 					local layer = surfaces.parent(plate)
 					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
@@ -1819,10 +1820,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						return use(route)
 					end
 					local panel: Frame
-					local surface: ScrollingFrame
+					local surface: Frame
+					local settled = Compose.cell(false)
+					local shown = surfaces.appearance(phase, ctx.motionTiming("popover"), settled)
 					local modal = surfaces.modal(function()
 						panel = panelView(routeOf)
-						surface = Host.ScrollingFrame "CalendarSurface" {
+						local scroll = Host.ScrollingFrame "CalendarScroll" {
+							Size = D2.fromScale(1, 1),
 							BorderSizePixel = 0,
 							Selectable = false,
 							CanvasSize = D2.fromOffset(0, 0),
@@ -1832,14 +1836,27 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 							panel :: Shared.Child,
 						}
+						surface = ctx.fade {
+							Name = "CalendarSurface",
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							GroupTransparency = function(use: Use): number
+								return 1 - shown.opacity(use)
+							end,
+							scroll :: Shared.Child,
+						}
+						ctx.styled(scroll, "panel")
+						ctx.styled(scroll, "floating")
 						ctx.styled(surface, "panel")
 						ctx.styled(surface, "floating")
-						surfaces.skin(surface)
+						surfaces.skin(scroll)
 						return surface
 					end, function()
 						close("cancel")
 					end, {
 						Name = "Calendar" .. "Modal",
+						exiting = if phase then phase.exiting else nil,
+						appearance = shown.opacity,
 						initialFocus = `D{landing()}`,
 						backgroundTransparency = function(use: Use): number
 							return if use(route) == "sheet" then 0.5 else 1
@@ -1862,7 +1879,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							return D2.fromOffset(width + 32, 0)
 						end,
 					})
-					runtime.decorate(surface, {
+					local geometry: Shared.CanvasGroupNativeProps = {
 						Size = function(use: Use)
 							local function carve(side: string): number
 								return surfaces.inset(0, side, nil, use)
@@ -1912,9 +1929,15 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							end
 							return D2.fromOffset(left, math.max(8, top))
 						end,
-					})
+					}
+					runtime.decorate(surface, geometry)
+					surfaces.atRest(shown.travel, settled, { surface, panel })
+					materialize(ctx, surface, geometry, function(use: Use): number
+						local from = ctx.metric("motion.materialize.anchored", use)
+						return if use(settled) then from + (1 - from) * shown.travel(use) else 1
+					end, nil, true)
 					return modal
-				end),
+				end, { motion = ctx.motionTiming("popover") }),
 			})
 		end
 		runtime.decorate(root, {

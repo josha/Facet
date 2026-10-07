@@ -87,6 +87,52 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native text layout", function()
+		verifyHarness:case("reflows a late clipped automatic box after styled metrics have settled", {
+			id = "native_layout::native text layout::reflows a late clipped automatic box after styled metrics have settled",
+			run = function()
+				local engine: any = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local UI = Facet.controls(
+					runtime,
+					{
+						types = engine.types,
+						services = { RunService = { Heartbeat = engine.heartbeat } },
+					} :: any
+				)
+				local stop, result = runtime.mount(function()
+					return UI.Text "Value" { text = "50%" }
+				end, engine.new("ScreenGui"))
+				local label: any = result
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				local pulse = 0
+				engine.onWrite(function(node, property, value)
+					if
+						node == label
+						and property == "AutomaticSize"
+						and value == engine.types.Enum.AutomaticSize.XY
+					then
+						pulse += 1
+						label.AbsoluteSize = label.TextBounds
+					end
+				end)
+				label.AbsoluteSize = engine.types.Vector2.new(44, 12)
+				label.TextBounds = engine.types.Vector2.new(15, 13)
+				Verify.expect(pulse):toBe(0)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(pulse):toBe(1)
+				Verify.expect(label.AbsoluteSize.Y):toBe(13)
+				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(pulse):toBe(1)
+				label.AbsoluteSize = engine.types.Vector2.new(44, 12)
+				stop()
+				runtime:dispose()
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(pulse):toBe(1)
+				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+			end,
+		})
 		verifyHarness:case("reflows initial styled metrics without keeping local font overrides", {
 			id = "native_layout::native text layout::reflows initial styled metrics without keeping local font overrides",
 			run = function()
