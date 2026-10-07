@@ -138,9 +138,10 @@ fault.
 - `native_mechanisms_input`, `needs_live_input` and `weak3_pointer` have only
   interactive cases.
 
-A Studio that Verify started writes the progress file. An attached run has no
-progress file at the pinned commit. Thus the key loop for D-pad Up of the
-focus walk cannot read the `focus-upstream` step in an attached Studio yet.
+A Studio that Verify started and an attached Studio write the progress file.
+The key loop for D-pad Up of the focus walk can read the `focus-upstream`
+step there. That loop was not run, because the focus walk records no stops
+now.
 
 On a loaded host, the `table-mutation` scene is at the 1.5 factor on main and
 on this change.

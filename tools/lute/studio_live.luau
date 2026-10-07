@@ -100,6 +100,7 @@ for _, suite in suites do
 			code = code,
 			context = "Client",
 			deadlineSeconds = deadline,
+			progressFile = `artifacts/studio-live/{suite}-{tag}.progress.jsonl`,
 			attach = {
 				studioId = studio,
 				runSeconds = deadline,
