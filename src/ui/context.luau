@@ -1586,10 +1586,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						if nextSelection(target, direction) == target then
 							setNextSelection(target, direction, previous[direction])
 						end
-						local authored = selected.pinned[target]
-						if authored and nextSelection(target, direction) ~= target then
-							authored[direction] = nil
-						end
 					end
 				end
 				pinned = nil
@@ -1606,13 +1602,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				release()
 				if target then
 					pinned = target
-					local authored = selected.pinned[target] or {}
-					selected.pinned[target] = authored
 					for _, direction in directions do
 						previous[direction] = nextSelection(target, direction)
-						if previous[direction] ~= target then
-							authored[direction] = previous[direction]
-						end
 						setNextSelection(target, direction, target)
 					end
 				end
@@ -1708,12 +1699,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	function ctx.spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
 		return selected.spaceActivates(node)
-	end
-	function ctx.focusQuery(from: GuiObject?): Shared.FocusQuery
-		return selected.query(from)
-	end
-	function ctx.focusPast(origin: GuiObject, direction: Shared.FocusDirection): GuiObject?
-		return selected.past(origin, direction)
 	end
 	selected = selection(ctx)
 	track = selected.track

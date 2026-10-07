@@ -154,19 +154,21 @@ return require("./actual")''')
         self.assertTrue(any("renderer.luau" in issue for issue in failures))
         self.assertTrue(any("removed Facet scaffolding API" in issue for issue in failures))
 
-    def test_mapped_replacement_cases_must_be_in_the_census_of_a_planned_source(self):
-        self.write("tests/case_inventory.json", json.dumps({"cases": [
-            {"id": "sample::one", "source": "sample"},
-            {"id": "sample::two", "source": "sample"},
-            {"id": "other::one", "source": "other"},
-        ]}))
+    def test_mapped_replacement_cases_must_be_in_the_suite_result_of_a_planned_source(self):
+        def receipt(worker, source, ids):
+            results = [{"id": case, "source": f"tests/{source}.spec.luau", "status": "passed"} for case in ids]
+            self.write(f"artifacts/verify/native/gate/run-1/suite-worker-{worker}/suite-{worker}-result.json", json.dumps({"report": {"results": results}}))
+
+        receipt(1, "sample", ["sample::one", "sample::two"])
+        receipt(2, "other", ["other::one"])
         records = [{"spec": "old", "replacement": {"cases": ["sample::one"], "caseMappings": {"legacy": ["sample::two"]}}}]
-        self.assertEqual(coverage.replacement_findings(records, ["sample"]), [])
-        self.assertEqual(len(coverage.replacement_findings(records, ["other"])), 2)
+        self.assertEqual(coverage.replacement_findings(records, ["sample"], "run-1"), [])
+        self.assertEqual(len(coverage.replacement_findings(records, ["other"], "run-1")), 2)
         absent = [{"spec": "old", "replacement": {"cases": ["sample::three"]}}]
-        self.assertEqual(len(coverage.replacement_findings(absent, ["sample"])), 1)
+        self.assertEqual(len(coverage.replacement_findings(absent, ["sample"], "run-1")), 1)
         unplanned = [{"spec": "old", "replacement": {"cases": ["other::one"]}}]
-        self.assertEqual(len(coverage.replacement_findings(unplanned, ["sample"])), 1)
+        self.assertEqual(len(coverage.replacement_findings(unplanned, ["sample"], "run-1")), 1)
+        self.assertEqual(coverage.replacement_findings(records, ["sample"], "run-2"), ["gate run run-2 has no suite result for a planned source"])
 
 
 if __name__ == "__main__":

@@ -109,13 +109,9 @@ export type FocusSectionOptions = {
 export type ResponderOptions = Types.ResponderOptions
 export type ResponderState = Types.ResponderState
 export type Responder = Types.Responder
-export type FocusDirection = Types.FocusDirection
-export type FocusMove = Types.FocusMove
-export type FocusQuery = Types.FocusQuery
 export type EnvironmentControls = {
 	environment: (source: EnvironmentSource?) -> Environment,
 	focusRing: (playerGui: PlayerGui) -> Frame,
-	focusQuery: (from: GuiObject?) -> FocusQuery,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
 	draggable: (source: GuiObject, spec: DraggableSpec) -> (),

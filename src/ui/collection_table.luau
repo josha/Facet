@@ -507,6 +507,9 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 						BackgroundTransparency = 1,
 						ZIndex = 3,
 						Host.UIDragDetector({
+							Enabled = function(use: ComposeTypes.Use): boolean
+								return not (preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad)
+							end,
 							DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
 							DragAxis = V2.new(1, 0),
 							ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,

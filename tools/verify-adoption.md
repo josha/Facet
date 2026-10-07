@@ -1,7 +1,7 @@
 # Verify adoption receipt
 
 Facet uses the same testing platform as Compose. Verify owns execution,
-reports, deadlines, receipts, the case census, tier scope, benchmark sampling
+reports, deadlines, receipts, tier scope, benchmark sampling
 and the acceptance verdict. Facet keeps its tests, its workloads, its project
 policy and small bindings.
 
@@ -13,8 +13,9 @@ policy and small bindings.
   the build identity.
 - The `suite` producer is a `tests` producer. Verify runs each source in its
   own Lune worker, four at a time, with a deadline for each source and a
-  run-bound receipt. Its `cases` field is the committed census. A missing, an
-  unexpected or a duplicate case fails the producer.
+  run-bound receipt. `tests/plan.json` lists the sources. There is no committed
+  case list. A source that reports no case or a duplicate case fails the
+  producer.
 - A case with the tag `tier:release` runs only in the release tier. Below that
   tier, Verify records the case as deselected, and the run is not complete.
 - The gate outcome carries the build binding: commit, tree, clean state and
@@ -39,8 +40,8 @@ policy and small bindings.
 
 - Architecture and historical coverage checks are project policy. They are
   `tools/check_architecture.py` and `tools/check_coverage.py`, and the gate
-  runs them as producers. `replacement-cases` checks that each mapped case is
-  in the census that the `suite` producer must pass.
+  runs them as producers. `replacement-cases` runs after `suite`. It checks that each
+  mapped case is in the suite result of the same gate run.
 - `tools/lune/bench.luau` maps each row of `bench/baseline.json` to a Verify
   `baseline`: the 1.5 factor as a tolerance, the yardstick p95 statistic, the
   p50 metric for the scenes that use it and the 0.05 millisecond floor on p95.
@@ -80,7 +81,7 @@ never releasable.
 `tools/lune/verify_integration.luau` runs on the shared path. It covers a
 missing source, a load failure, a registration failure, a value that is not a
 function and an empty source. It covers case and cleanup failures, duplicate
-IDs, an unapproved skip, census drift and the release-only tier. It covers a
+IDs, an unapproved skip, a declared case list that differs and the release-only tier. It covers a
 missing, empty, malformed, foreign, stale, invalid and contradictory worker
 receipt, and the same faults for a producer report. It covers a deadline that
 stops the descendants of a worker and of a producer, a blocked dependent, each
@@ -125,11 +126,8 @@ not have it. They ran with `--studio ID` in a Studio with the emulator on:
 haptics suites in one playtest. Run it by hand.
 
 The focus walk recorded atlases for the six Showcase pages, with the D-pad Up
-pass. The atlases of `hud` and `garage` agree with `UI.focusQuery` and are
-committed. The atlases of `arcade`, `sipworks`, `files` and `ex02` disagree
-with `UI.focusQuery` (1, 3, 6 and 37 problems). They are not committed, and
-the committed `ex02` atlas is the earlier one. The atlases of the pages that
-the Showcase does not have now are unchanged.
+pass. `UI.focusQuery` and the list of engine differences are removed. The
+headless case reads the moves of the engine in each atlas.
 
 `native_mechanisms_input`, `needs_live_input` and `weak3_pointer` have only
 interactive cases.

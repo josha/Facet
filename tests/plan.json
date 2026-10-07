@@ -203,13 +203,6 @@
       ]
     },
     {
-      "id": "native_focus_query",
-      "locator": "tests/native_focus_query.spec.luau",
-      "requires": [
-        "local-luau"
-      ]
-    },
-    {
       "id": "native_focus_stops",
       "locator": "tests/native_focus_stops.spec.luau",
       "requires": [
@@ -975,6 +968,13 @@
     {
       "id": "native_text_press",
       "locator": "tests/native_text_press.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_toast_schedule",
+      "locator": "tests/native_toast_schedule.spec.luau",
       "requires": [
         "local-luau"
       ]

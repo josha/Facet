@@ -260,10 +260,10 @@ them with `--shared 'FacetFocusWalk={"up":3}'`:
 
 Each atlas is an attachment with the directory `atlas`, and the command
 writes it in `tests/fixtures/focus_atlas`. The headless spec
-`native_focus_walk` replays each atlas through `UI.focusQuery` with the recorded
-scroll offsets and scene of each move, and fails on an unreachable stop, a dead end, or a D-pad or
-arrow move where the engine and the query disagree. A known engine difference
-is listed in `divergences.json` with its fact id from the input guide.
+`native_focus_walk` reads the moves that the engine made in each atlas. It
+fails when a stop cannot be reached from the first stop, when a move lands on
+a control that the atlas does not know, or when a move did not settle. It
+does the reach check only for an atlas that has the scene of each move.
 `FACET_FOCUS_ATLAS` points the spec at another atlas directory, and
 `FACET_FOCUS_WALK_REPORT` names a directory for a JSON report per failing page.
 

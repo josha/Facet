@@ -50,22 +50,21 @@ Specs return a registration function. The worker supplies a Verify harness. Use 
 Verify owns assertions, case cleanup, and reports. The consumer gate owns
 coverage and release acceptance.
 
-`tests/plan.json` declares the complete executable corpus. Add a new source to
-that plan. `tests/case_inventory.json` records the case census. Add its case IDs
-when you add behavior. The gate rejects a missing or extra case. The migration
-census includes the retained `native_toast` source; its replacement mapping
-excludes it from the full plan, as before the migration. You can still run it
-with the single-source command.
+`tests/plan.json` declares the complete executable corpus. It lists the spec
+sources. Add a new source to that plan. There is no committed case list. The
+gate runs each case that a planned source registers. The replacement mapping
+of the retained `native_toast` source excludes it from the full plan. You can
+still run it with the single-source command.
 
 A slow case can require the `full` or `release` tier. Give the case the tag
-`tier:full` or `tier:release`, and record the tier in the case inventory.
+`tier:full` or `tier:release`.
 Below that tier, Verify records the case as deselected. The 40000-row mount
 ramp requires `release`.
 `lune run tools/lune/verify spec <spec> ...` runs the named sources below the release
 tier. Use `--tier release` to include the release cases. Each source runs in
 its own Lune worker through the Verify gate. The full gate runs the committed
 plan the same way with four workers. A worker failure, a missing or foreign
-receipt, or a census difference fails the producer. Verify stops the worker
+receipt, or a source that reports no case fails the producer. Verify stops the worker
 process group at its deadline.
 
 Verify is pinned under `tools/vendor/verify`. It is a generated, read-only test

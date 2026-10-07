@@ -109,26 +109,37 @@ def mapped_cases(replacement):
     return cases
 
 
-def replacement_findings(records, selected):
-    census = json.loads((ROOT / "tests/case_inventory.json").read_text())["cases"]
-    planned = {case["id"] for case in census if case["source"] in selected}
+def suite_cases(run, selected):
+    sources = {f"tests/{name}.spec.luau" for name in selected}
+    cases = set()
+    for path in (ROOT / "artifacts/verify/native/gate" / run).glob("suite-worker-*/*-result.json"):
+        for result in json.loads(path.read_text())["report"]["results"]:
+            if result.get("source") in sources:
+                cases.add(result["id"])
+    return cases
+
+
+def replacement_findings(records, selected, run):
+    reported = suite_cases(run, selected)
+    if not reported:
+        return [f"gate run {run} has no suite result for a planned source"]
     failures = []
     for record in records:
         for case in mapped_cases(record.get("replacement") or {}):
-            if case not in planned:
-                failures.append(f"{record['spec']}: mapped replacement case is not in the gate's case census: {case}")
+            if case not in reported:
+                failures.append(f"{record['spec']}: mapped replacement case is not in the suite result of gate run {run}: {case}")
     return failures
 
 
 def main():
     parser = argparse.ArgumentParser(description="Check the historical coverage mappings against the committed Verify plan.")
-    parser.add_argument("--cases", action="store_true", help="require every mapped replacement case in the census that the suite producer must pass")
+    parser.add_argument("--cases", metavar="RUN", help="require every mapped replacement case in the suite result of this gate run")
     args = parser.parse_args()
     records, selected, failures = inventory()
     name = "coverage"
     if args.cases:
         name = "replacement-cases"
-        failures = replacement_findings(records, selected)
+        failures = replacement_findings(records, selected, args.cases)
     else:
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
         (ARTIFACTS / "coverage.json").write_text(json.dumps({"schema": "facet-native-coverage/1", "specs": records, "unresolved": failures}, indent=2) + "\n")

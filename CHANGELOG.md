@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Breaking: `UI.focusQuery` and the types `FocusQuery`, `FocusMove` and
+  `FocusDirection` are removed. The engine makes each gamepad and arrow move.
+  A value control keeps the selection on its axis only while its value can
+  change in that direction. At its limit, the engine moves the selection. A
+  tree row with nothing to collapse or expand lets the engine move the
+  selection.
+
 - A Table header works with a gamepad. The column divider is not a selection
   stop when the gamepad is the preferred input, thus the D-pad and the stick
   move from one heading to the next. While a heading is selected, L1 makes its

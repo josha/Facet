@@ -427,7 +427,21 @@ return function<V, K>(
 					and selected:IsDescendantOf(root)
 					and (selected.Name == "RowHit" or selected.Name == "Disclosure")
 			end
-			ctx.action(root, "OutlineExpand", { E.KeyCode.Right, E.KeyCode.DPadRight }, enabled, function()
+			local function current(use: ComposeTypes.Use): any
+				local key = if controls.current then use(controls.current) else nil
+				return if key ~= nil then use(data).byKey[key] else nil
+			end
+			local function expands(use: ComposeTypes.Use): boolean
+				local node = current(use)
+				return enabled(use) and node ~= nil and node.branch == true
+			end
+			local function collapses(use: ComposeTypes.Use): boolean
+				local node = current(use)
+				return enabled(use)
+					and node ~= nil
+					and ((node.branch == true and use(expanded)[node.key] == true) or node.parent ~= nil)
+			end
+			ctx.action(root, "OutlineExpand", { E.KeyCode.Right, E.KeyCode.DPadRight }, expands, function()
 				local key = controls.current and controls.current:peek()
 				local node = if key ~= nil then data:peek().byKey[key] else nil
 				if node and node.branch then
@@ -443,7 +457,7 @@ return function<V, K>(
 					end
 				end
 			end, { priority = 300, capture = true })
-			ctx.action(root, "OutlineCollapse", { E.KeyCode.Left, E.KeyCode.DPadLeft }, enabled, function()
+			ctx.action(root, "OutlineCollapse", { E.KeyCode.Left, E.KeyCode.DPadLeft }, collapses, function()
 				local key = controls.current and controls.current:peek()
 				local node = if key ~= nil then data:peek().byKey[key] else nil
 				if node then
@@ -451,11 +465,6 @@ return function<V, K>(
 						change(node.key, false)
 					elseif node.parent ~= nil and controls.focus then
 						controls.focus(node.parent)
-					elseif gui then
-						local target = ctx.focusPast(root, "Left")
-						if target then
-							gui.SelectedObject = target
-						end
 					end
 				end
 			end, { priority = 300, capture = true })

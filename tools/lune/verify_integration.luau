@@ -383,7 +383,7 @@ harness:suite("Facet gate through Verify", function()
 		task.wait(4)
 		context:expect(fs.isFile(marker)):toBe(false)
 	end)
-	harness:case("declares every committed producer once with its tier and suite census", function(context)
+	harness:case("declares every committed producer once with its tier and suite plan", function(context)
 		local tiers = { fast = 0, full = 0, release = 0 }
 		local seen = {}
 		local definition = gate.draft(false)
@@ -392,20 +392,17 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 19, full = 59, release = 2 })
+		context:expect(tiers):toEqual({ fast = 18, full = 59, release = 2 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
 		local plan = serde.decode("json", fs.readFile("tests/plan.json"))
-		local planned, expected = {}, 0
+		local locators = {}
 		for _, unit in plan.units do
-			planned[unit.id] = true
+			table.insert(locators, unit.locator)
 		end
-		for _, entry in serde.decode("json", fs.readFile("tests/case_inventory.json")).cases do
-			expected += if planned[entry.source] then 1 else 0
-		end
-		context:expect(expected > 3700):toBe(true)
-		context:expect(#assert(seen["suite"].cases)):toBe(expected)
-		context:expect(#assert(seen["suite"].locators)):toBe(#plan.units)
+		context:expect(#locators > 100):toBe(true)
+		context:expect(seen["suite"].locators):toEqual(locators)
+		context:expect(seen["suite"].cases):toBeNil()
 		context:expect(seen["suite"].isolate):toBe(true)
 		context:expect(seen["suite"].sourceDeadlineSeconds):toBe(600)
 		local deferrals = assert(assert(definition.policy).deferrals)
@@ -419,6 +416,9 @@ harness:suite("Facet gate through Verify", function()
 		end
 		context:expect(order["suite"] < order["replacement-cases"]):toBe(true)
 		context:expect(seen["replacement-cases"].after):toEqual({ "suite" })
+		context
+			:expect(seen["replacement-cases"].argv)
+			:toEqual({ "python3", "tools/check_coverage.py", "--cases", "{run}" })
 		for _, reader in { "perf-budgets", "perf-metrics", "perf-scenes", "perf-gate-evidence-budgets" } do
 			context:expect(order["perf"] < order[reader]):toBe(true)
 		end

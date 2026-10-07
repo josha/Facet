@@ -129,49 +129,46 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"a fresh press at a limit passes to the next control that way; a held press stops at the limit",
-			{
-				id = "native_focus_stops::an adjustable claims its axis on its own stop only::a fresh press at a limit passes to the next control that way; a held press stops at the limit",
-				run = function()
-					local left, right = Compose.cell(8), Compose.cell(3)
-					local w = setup(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
-							UI.Stepper("A")({ value = left, max = 10 }) :: unknown,
-							UI.Stepper("B")({ value = right, max = 10 }),
-						})
-					end)
-					local V = w.engine.types.Vector2
-					local a, b = w.find("A"), w.find("B")
-					a.AbsolutePosition, a.AbsoluteSize = V.new(0, 0), V.new(200, 44)
-					b.AbsolutePosition, b.AbsoluteSize = V.new(220, 0), V.new(200, 44)
-					w.gui.SelectedObject = a
-					w.stick(1, 0)
-					Verify.expect((left:peek())):toBe(9)
-					for _ = 1, 6 do
-						w.engine.heartbeat:Fire(0.41)
-					end
-					Verify.expect((left:peek())):toBe(10)
-					Verify.expect(w.gui.SelectedObject):toBe(a)
-					w.stickEnded()
-					w.stick(1, 0)
-					Verify.expect(w.gui.SelectedObject):toBe(b)
-					w.stickEnded()
-					w.gui.SelectedObject = a
-					w.press("DPadRight")
-					Verify.expect(w.gui.SelectedObject):toBe(b)
-					Verify.expect((right:peek())):toBe(3)
-					w.press("DPadLeft")
-					w.press("DPadLeft")
-					w.press("DPadLeft")
-					Verify.expect((right:peek())):toBe(0)
-					Verify.expect(w.gui.SelectedObject):toBe(b)
-					w.press("DPadLeft")
-					Verify.expect(w.gui.SelectedObject):toBe(a)
-					w.stop()
-				end,
-			}
-		)
+		verifyHarness:case("at a limit the stop frees that direction for the engine; a held press stops at the limit", {
+			id = "native_focus_stops::an adjustable claims its axis on its own stop only::at a limit the stop frees that direction for the engine; a held press stops at the limit",
+			run = function()
+				local left, right = Compose.cell(8), Compose.cell(3)
+				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame({
+						UI.Stepper("A")({ value = left, max = 10 }) :: unknown,
+						UI.Stepper("B")({ value = right, max = 10 }),
+					})
+				end)
+				local V = w.engine.types.Vector2
+				local a, b = w.find("A"), w.find("B")
+				a.AbsolutePosition, a.AbsoluteSize = V.new(0, 0), V.new(200, 44)
+				b.AbsolutePosition, b.AbsoluteSize = V.new(220, 0), V.new(200, 44)
+				w.gui.SelectedObject = a
+				w.stick(1, 0)
+				Verify.expect((left:peek())):toBe(9)
+				for _ = 1, 6 do
+					w.engine.heartbeat:Fire(0.41)
+				end
+				Verify.expect((left:peek())):toBe(10)
+				Verify.expect(w.gui.SelectedObject):toBe(a)
+				w.stickEnded()
+				Verify.expect(a.NextSelectionRight):toBe(nil)
+				Verify.expect(a.NextSelectionLeft):toBe(a)
+				w.press("DPadRight")
+				Verify.expect((left:peek())):toBe(10)
+				w.gui.SelectedObject = b
+				Verify.expect(b.NextSelectionLeft):toBe(b)
+				Verify.expect(b.NextSelectionRight):toBe(b)
+				w.press("DPadLeft")
+				w.press("DPadLeft")
+				w.press("DPadLeft")
+				Verify.expect((right:peek())):toBe(0)
+				Verify.expect(w.gui.SelectedObject):toBe(b)
+				Verify.expect(b.NextSelectionLeft):toBe(nil)
+				Verify.expect(b.NextSelectionRight):toBe(b)
+				w.stop()
+			end,
+		})
 
 		local function pair(w: any, extra: any?): (any, any)
 			local V = w.engine.types.Vector2
@@ -204,29 +201,32 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case("at a limit the hand-off follows the game's own NextSelection link, as focusQuery reports", {
-			id = "native_focus_stops::an adjustable claims its axis on its own stop only::at a limit the hand-off follows the game's own NextSelection link, as focusQuery reports",
-			run = function()
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Stepper("A")({ value = Compose.cell(10), max = 10 }) :: unknown,
-						UI.Stepper("B")({ value = Compose.cell(3), max = 10 }),
-						UI.Button("C")({ label = "C" }),
-					})
-				end)
-				local a = pair(w)
-				local c = w.find("C")
-				c.AbsolutePosition, c.AbsoluteSize =
-					w.engine.types.Vector2.new(0, 300), w.engine.types.Vector2.new(200, 44)
-				a.NextSelectionRight = c
-				w.gui.SelectedObject = a
-				Verify.expect(w.UI.focusQuery(a).Right.target):toBe(c)
-				w.press("DPadRight")
-				Verify.expect(w.gui.SelectedObject):toBe(c)
-				Verify.expect(a.NextSelectionRight):toBe(c)
-				w.stop()
-			end,
-		})
+		verifyHarness:case(
+			"at a limit the stop keeps the game's own NextSelection link, so the engine moves the selection",
+			{
+				id = "native_focus_stops::an adjustable claims its axis on its own stop only::at a limit the stop keeps the game's own NextSelection link, so the engine moves the selection",
+				run = function()
+					local w = setup(function(UI: FacetControls, Host: RobloxHost)
+						return Host.Frame({
+							UI.Stepper("A")({ value = Compose.cell(10), max = 10 }) :: unknown,
+							UI.Stepper("B")({ value = Compose.cell(3), max = 10 }),
+							UI.Button("C")({ label = "C" }),
+						})
+					end)
+					local a = pair(w)
+					local c = w.find("C")
+					c.AbsolutePosition, c.AbsoluteSize =
+						w.engine.types.Vector2.new(0, 300), w.engine.types.Vector2.new(200, 44)
+					a.NextSelectionRight = c
+					w.gui.SelectedObject = a
+					Verify.expect(a.NextSelectionRight):toBe(c)
+					Verify.expect(a.NextSelectionLeft):toBe(a)
+					w.press("DPadRight")
+					Verify.expect(a.NextSelectionRight):toBe(c)
+					w.stop()
+				end,
+			}
+		)
 
 		verifyHarness:case("the stick, like the D-pad, leaves a stop under a non-interactable ancestor alone", {
 			id = "native_focus_stops::an adjustable claims its axis on its own stop only::the stick, like the D-pad, leaves a stop under a non-interactable ancestor alone",
@@ -307,8 +307,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("keeps the axis at a bound: Left at the minimum stays and changes nothing", {
-			id = "native_focus_stops::an adjustable claims its axis on its own stop only::keeps the axis at a bound: Left at the minimum stays and changes nothing",
+		verifyHarness:case("at the minimum Left changes nothing and is free for the engine; Right stays on the axis", {
+			id = "native_focus_stops::an adjustable claims its axis on its own stop only::at the minimum Left changes nothing and is free for the engine; Right stays on the axis",
 			run = function()
 				local value = Compose.cell(0)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
@@ -316,13 +316,14 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local stepper = w.find("Volume")
 				w.gui.SelectedObject = stepper
-				Verify.expect(stepper.NextSelectionLeft):toBe(stepper)
+				Verify.expect(stepper.NextSelectionLeft):toBe(nil)
 				Verify.expect(stepper.NextSelectionRight):toBe(stepper)
 				Verify.expect(stepper.NextSelectionUp):toBe(nil)
 				w.press("DPadLeft")
 				Verify.expect((value:peek())):toBe(0)
 				w.press("DPadRight")
 				Verify.expect((value:peek())):toBe(1)
+				Verify.expect(stepper.NextSelectionLeft):toBe(stepper)
 				w.gui.SelectedObject = nil
 				Verify.expect(stepper.NextSelectionLeft):toBe(nil)
 				w.stop()

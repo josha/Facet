@@ -84,7 +84,6 @@ export type Controls = {
 	ColorPicker: typeof(((nil :: unknown) :: Colors.ColorPickerControls).ColorPicker),
 	environment: typeof(((nil :: unknown) :: Env.EnvironmentControls).environment),
 	focusRing: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusRing),
-	focusQuery: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusQuery),
 	focusSection: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusSection),
 	responder: typeof(((nil :: unknown) :: Env.EnvironmentControls).responder),
 	adjustable: typeof(((nil :: unknown) :: Inputs.InputControls).adjustable),

@@ -285,7 +285,6 @@ return function(verifyHarness: Verify.Harness)
 						scrollToVisible = "ScrollOptions",
 						focusRing = "Environment",
 						focusSection = "Environment",
-						focusQuery = "FocusQuery",
 						responder = "Environment",
 						draggable = "DraggableSpec",
 						dropTarget = "DropTargetSpec",

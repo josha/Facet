@@ -4191,32 +4191,6 @@ Compose.show(open, function()
 end)
 ```
 
-### focusQuery
-
-`UI.focusQuery(from?) -> FocusQuery` says what a D-pad or arrow move from
-`from` (default: the selected object) selects and why, without moving. Each of
-`Up`, `Down`, `Left`, `Right` is `{ target, rule }`. `rule` is `"capture"` (a
-value control keeps that axis, whether or not it is selected yet), `"link"` (a
-`NextSelection*` link to a shown, selectable object; a link to a hidden or
-unselectable one is ignored), `"beam"`
-(Facet's model of the engine's own choice, measured in Studio: a candidate is
-ahead when its near edge is past the control's centre and, unless it overlaps
-on the cross axis, it ends past the control's leading edge; candidates that
-overlap on the cross axis come first, nearest edge first; then candidates whose
-centre lies within 45 degrees of the move from the middle of the leading edge,
-by the smallest centre offset plus 0.028 times the distance along the move;
-then the rest, by centre offset over the distance along the move to the power
-0.15),
-`"stop"` (a `SelectionGroup` with `SelectionBehavior` `Stop`) or `"none"`. The
-candidates are the ones Tab visits plus every selectable scroll container, minus zero-size objects, objects outside
-the screen, and children of a scroll container that does not hold `from` where
-its window is clipped or off the screen; a selectable scrolling frame ranks by its own rectangle like a
-control, and the query reports the control it passes the selection to; enclosing `SelectionGroup`s are searched from
-the innermost out, and the first one whose `SelectionBehavior` is `Stop` in
-that direction ends the search. The engine still
-performs every move; tests and tools use the query to check navigation without
-a device. The query does no per-frame work.
-
 ### responder
 
 `UI.responder(root, options?) -> Responder` declares how the surface `root`
