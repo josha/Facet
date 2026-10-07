@@ -26,7 +26,13 @@ return function(ctx: any)
 			Size = D2.new(1, 0, 0, 120),
 			Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(480, math.huge) },
 			drag = function(items)
-				return { payload = items[1], operations = { "copy", "apply" }, onStart = onStart, onEnd = onEnd }
+				return {
+					payload = items[1],
+					operations = { "copy", "apply" },
+					armOnTap = true,
+					onStart = onStart,
+					onEnd = onEnd,
+				}
 			end,
 			render = function(current)
 				local item = current:peek()
@@ -52,16 +58,16 @@ return function(ctx: any)
 	local env = UI.environment()
 	local notice = C.cell("Choose an asset above, then drag it onto an object below.")
 	local picked, keyboard = C.cell(nil), C.cell(false)
-	local mesh, undo = C.cell(nil), C.cell(nil)
+	local texture, undo = C.cell(""), C.cell(nil)
 	local angle = C.cell(0)
 	local world = ctx.worldTarget
 	local camera = world and world.CurrentCamera
 	local bounds =
 		Host.Frame { Name = "WorldDropArea", Size = D2.fromScale(1, 1), BackgroundTransparency = 1, UI.fill() }
-	local block, model
+	local block, canvas
 	if world then
 		local stop
-		stop, model = ctx.runtime.mount(function()
+		stop = ctx.runtime.mount(function()
 			block = Host.Part {
 				Name = "PaintBlock",
 				Anchored = true,
@@ -69,7 +75,16 @@ return function(ctx: any)
 				Position = V3.new(-2.5, 6003, 0),
 				Color = palette.Gray,
 			}
-			return Host.Model { Name = "FacetAppearanceWorld", block }
+			canvas = Host.Part {
+				Name = "ImageCanvas",
+				Anchored = true,
+				Size = V3.new(4, 4, 0.1),
+				Position = V3.new(2.5, 6003, 0),
+				Color = palette.None,
+				Host.Decal { Face = E.NormalId.Front, Texture = texture },
+				Host.Decal { Face = E.NormalId.Back, Texture = texture },
+			}
+			return Host.Model { Name = "FacetAppearanceWorld", block, canvas }
 		end, world)
 		C.cleanup(stop)
 	end
@@ -109,62 +124,6 @@ return function(ctx: any)
 			camera.CameraType, camera.CFrame, camera.FieldOfView = oldType, oldFrame, oldFov
 		end)
 	end
-	local alive, meshContent = true, nil
-	C.cleanup(function()
-		alive = false
-		if meshContent then
-			meshContent:Destroy()
-		end
-	end)
-	if game and model then
-		task.spawn(function()
-			local editable
-			local ok, result = pcall(function()
-				local service = game:GetService("AssetService")
-				editable = service:CreateEditableMesh()
-				assert(editable, "The mesh memory budget is exhausted")
-				local vertices = {
-					editable:AddVertex(V3.new(-2, -2, 0)),
-					editable:AddVertex(V3.new(2, -2, 0)),
-					editable:AddVertex(V3.new(2, 2, 0)),
-					editable:AddVertex(V3.new(-2, 2, 0)),
-				}
-				local uv = {
-					editable:AddUV(V2.new(0, 1)),
-					editable:AddUV(V2.new(1, 1)),
-					editable:AddUV(V2.new(1, 0)),
-					editable:AddUV(V2.new(0, 0)),
-				}
-				local first, second =
-					editable:AddTriangle(vertices[1], vertices[2], vertices[3]),
-					editable:AddTriangle(vertices[1], vertices[3], vertices[4])
-				editable:SetFaceUVs(first, { uv[1], uv[2], uv[3] })
-				editable:SetFaceUVs(second, { uv[1], uv[3], uv[4] })
-				return service:CreateMeshPartAsync(Content.fromObject(editable))
-			end)
-			if not alive then
-				if ok then
-					result:Destroy()
-				end
-				if editable then
-					editable:Destroy()
-				end
-				return
-			end
-			if ok then
-				result.Name, result.Anchored, result.DoubleSided = "ImageCanvas", true, true
-				result.Position, result.Size = V3.new(2.5, 6003, 0), V3.new(4, 4, 0.1)
-				result.Parent = model
-				meshContent = editable
-				mesh:set(result)
-			else
-				notice:set("The editable mesh could not load: " .. tostring(result))
-			end
-			if not ok and editable then
-				editable:Destroy()
-			end
-		end)
-	end
 	local function targetSpec(target, focus)
 		return {
 			operation = "apply",
@@ -178,13 +137,15 @@ return function(ctx: any)
 				end
 				local image = payload.kind == "image"
 					or (payload.kind == "files" and #payload.items == 1 and payload.items[1].kind == "Image")
-				return image and target:IsA("MeshPart"), "Images need a mesh canvas; colors can paint either object"
+				return image and target == canvas, "Images need the canvas; colors can paint either object"
 			end,
 			onUpdate = function(_, info, accepted, reason)
 				notice:set(
 					if accepted
 						then (if info.mode == "armed"
-							then "Press Enter or A to apply to the "
+							then (if env.effectiveInput:peek() == "Touch"
+								then "Tap Apply here for the "
+								else "Press Enter or A to apply to the ")
 							else "Release to apply to the ") .. (if target == block then "block" else "canvas")
 						else reason
 				)
@@ -193,14 +154,16 @@ return function(ctx: any)
 				undo:set({
 					target = target,
 					color = target.Color,
-					texture = if target:IsA("MeshPart") then target.TextureID else nil,
+					texture = if target == canvas then texture:peek() else nil,
 				})
 				if payload.kind == "color" then
 					target.Color = payload.value
 				else
-					target.TextureID = if payload.kind == "image"
-						then payload.assetId
-						else payload.items[1].assetId or "rbxassetid://75342910516929"
+					texture:set(
+						if payload.kind == "image"
+							then payload.assetId
+							else payload.items[1].assetId or "rbxassetid://75342910516929"
+					)
 				end
 				notice:set(
 					"Applied "
@@ -273,7 +236,7 @@ return function(ctx: any)
 			UI.Text {
 				text = function(use)
 					if use(env.effectiveInput) == "Touch" then
-						return "Hold an asset, then drag it onto an object."
+						return "Tap an asset, then tap Apply here. You can also hold and drag it onto an object."
 					end
 					if showDestinations(use) then
 						return "Pick up an asset with Enter or A, then choose Apply here. Escape or B cancels."
@@ -316,11 +279,7 @@ return function(ctx: any)
 			gap = "m",
 			align = "center",
 			if block then destination(block, "ChooseBlock", "Block", "Drop a color here") else nil,
-			C.show(function(use)
-				return use(mesh) ~= nil
-			end, function()
-				return destination(mesh:peek(), "ChooseCanvas", "Canvas", "Drop an image or color here")
-			end),
+			if canvas then destination(canvas, "ChooseCanvas", "Canvas", "Drop an image or color here") else nil,
 		},
 		UI.HStack {
 			Name = "WorldStatus",
@@ -351,7 +310,7 @@ return function(ctx: any)
 					if prior and prior.target.Parent then
 						prior.target.Color = prior.color
 						if prior.texture then
-							prior.target.TextureID = prior.texture
+							texture:set(prior.texture)
 						end
 					end
 					undo:set(nil)
@@ -365,9 +324,8 @@ return function(ctx: any)
 					if block then
 						block.Color = palette.Gray
 					end
-					local canvas = mesh:peek()
 					if canvas then
-						canvas.TextureID = ""
+						texture:set("")
 						canvas.Color = palette.None
 					end
 					undo:set(nil)

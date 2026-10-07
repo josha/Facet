@@ -4287,7 +4287,8 @@ input ends in the same drop:
   puts the source back. On a Facet Button source or target this is the
   Button's activation is consumed. Its ordinary `onActivate` does not run.
 - `armOnTap = true`: a touch tap on the source picks it up, the list under it
-  still scrolls, and a tap on a target drops it.
+  still scrolls, and a tap on a target drops it. Collection `drag` callbacks
+  can return this option to enable the same pickup on a row or grid cell.
 
 While the source is held it has the `facet-drag-held` tag and the
 `FacetDragHeld` attribute. Every theme hides its text and icons, so its plate

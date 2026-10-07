@@ -99,6 +99,52 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Compose native collections", function()
+		verifyHarness:case("honors optional tap pickup on touch-only collection sources", {
+			id = "native_collections::Compose native collections::honors optional tap pickup on touch-only collection sources",
+			run = function()
+				for _, enabled in { false, true } do
+					local engine, runtime, UI, target, _, ctx = setup({
+						userInputService = {
+							TouchEnabled = true,
+							KeyboardEnabled = false,
+							MouseEnabled = false,
+							GamepadEnabled = false,
+						},
+					})
+					local stop, node: any = runtime.mount(function()
+						return UI.VirtualGrid {
+							from = records(2),
+							key = key,
+							mode = "all" :: "all",
+							itemSize = 80,
+							columns = 2,
+							drag = function(items): FixtureEnvironmentTypes.DraggableSpec
+								return { payload = items[1], armOnTap = enabled }
+							end,
+							render = function(): GuiObject
+								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+							end,
+						}
+					end, target)
+					local session = require("../src/ui/drag_session")(ctx)
+					local tap = {
+						UserInputType = engine.types.Enum.UserInputType.Touch,
+						UserInputState = engine.types.Enum.UserInputState.End,
+					}
+					node:FindFirstChild("1", true):FindFirstChild("RowHit", true).Activated:Fire(tap, 1)
+					local state = session.state:peek()
+					Verify.expect(state ~= nil):toBe(enabled)
+					if enabled then
+						Verify.expect(state.mode):toBe("armed")
+						Verify.expect(state.payload.id):toBe(1)
+						assert(ctx.config.userInputService).TouchEnabled = false
+						Verify.expect(session.state:peek()):toBe(nil)
+					end
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
 		verifyHarness:case("paints list and grid selection on the cell owner and clears recycled state", {
 			id = "native_collections::Compose native collections::paints list and grid selection on the cell owner and clears recycled state",
 			run = function()
