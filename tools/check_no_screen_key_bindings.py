@@ -57,8 +57,8 @@ PINS = {
         "the ShortcutHint recipe owns the InputAction that the hint describes, as docs/reference/api.md documents for its action option",
     ),
     "examples/gallery/client/screen.luau": (
-        3,
-        "the Showcase chrome declares LB, RB and the backquote toggle for its demo and settings panel in its own sinking InputContext under ctx.inputTarget, as before 0.12",
+        1,
+        "the Showcase chrome declares LB and backquote through one InputBinding factory in owned InputContexts; CollapsibleView owns cancellation",
     ),
     "examples/virtual_monitors/main.client.luau": (
         2,
