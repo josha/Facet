@@ -520,17 +520,7 @@ function screen.build(ctx: any)
 		return use(environmentFacts.effectiveInput) == "Gamepad"
 	end
 	local function closePanel()
-		local gui = ctx.guiService
-		local card = gui and gui.SelectedObject and gui.SelectedObject:FindFirstAncestor("ShowcasePanel")
-		local trigger = card and card.Parent and card.Parent:FindFirstChild("Showcase", true)
 		panelOpen:set(false)
-		if trigger then
-			task.defer(function()
-				if trigger.Parent then
-					gui.SelectedObject = trigger
-				end
-			end)
-		end
 	end
 	local function request(want)
 		local open = panelOpen:peek()
@@ -570,35 +560,24 @@ function screen.build(ctx: any)
 			Sink = true,
 			action("Activate", Enum.KeyCode.ButtonL1, nil),
 		}
-		Host.InputContext "ShowcasePanelCancel" {
-			Parent = ctx.inputTarget,
-			Priority = 2000,
-			Sink = true,
-			Enabled = panelOpen,
-			Host.InputAction "Cancel" {
-				Type = Enum.InputActionType.Bool,
-				Pressed = closePanel,
-				Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonB }) :: unknown,
-				Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }),
-			},
-		}
 	end
 
-	local function settingsWidth(use: Use)
-		if use(section) ~= "settings" then
-			return 0
-		end
-		local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
-		return math.min(460 * use(environment.metricScale), size.width - 28)
-	end
 	local function demoList()
 		local demoButtons = {}
+		local demos = ctx.demos or catalogue.list()
 		for index, tab in tabs do
 			table.insert(
 				demoButtons,
 				UI.Button("Demo-" .. tab.id)({
 					LayoutOrder = index,
-					label = tab.label,
+					row = { title = tab.label, description = demos[index].blurb },
+					textSize = "strong",
+					appearance = function(use: Use)
+						return if use(selected) == tab.id then "standard" else "utility"
+					end,
+					trailingIcon = function(use: Use)
+						return if use(selected) == tab.id then "checkmark" else "chevron.trailing"
+					end,
 					selected = function(use: Use)
 						return use(selected) == tab.id
 					end,
@@ -611,17 +590,15 @@ function screen.build(ctx: any)
 		end
 		return UI.VStack "DemoList" {
 			gap = "xs",
-			align = "center" :: "center",
+			align = "start" :: "start",
 			width = "fill" :: "fill",
 			table.unpack((demoButtons :: unknown) :: { unknown }),
 		}
 	end
 	local function panel()
-		local content = Compose.cell(0)
-		local scroll = UI.ScrollView "PanelScroll" {
+		return UI.VStack "ShowcasePanel" {
 			gap = "s",
 			width = "fill" :: "fill",
-			height = "fill" :: "fill",
 			UI.Picker "Section" {
 				style = "segmented" :: "segmented",
 				selected = section,
@@ -634,51 +611,6 @@ function screen.build(ctx: any)
 				return use(section) == "demos"
 			end, demoList, settingsContent),
 		}
-		local card = UI.VStack "ShowcasePanel" {
-			padding = "s",
-			width = function(use: Use)
-				local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
-				return math.min(460 * use(environment.metricScale), size.width - 28)
-			end,
-			height = function(use: Use)
-				local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
-				local framed = use(ctx.device) and use(ctx.device).width
-				local reserved = if framed or not ctx.topInset then 0 else use(ctx.topInset)
-				return math.min(use(content), math.max(120, size.height - reserved - toolbarHeight(use) - 16))
-			end,
-			SelectionGroup = true,
-			SelectionBehaviorLeft = Enum.SelectionBehavior.Stop,
-			SelectionBehaviorRight = Enum.SelectionBehavior.Stop,
-			SelectionBehaviorDown = Enum.SelectionBehavior.Stop,
-			Host.UIStroke {} :: unknown,
-			Host.UISizeConstraint {
-				MinSize = function(use: Use)
-					return ctx.types.Vector2.new(settingsWidth(use), 0)
-				end,
-				MaxSize = function(use: Use)
-					local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
-					local wide = settingsWidth(use)
-					return ctx.types.Vector2.new(if wide > 0 then wide else size.width - 28, math.huge)
-				end,
-			},
-			scroll,
-		}
-		card:AddTag("facet-panel")
-		card:AddTag("facet-floating")
-		local list = scroll:FindFirstChildWhichIsA("UIListLayout")
-		local inset = card:FindFirstChildWhichIsA("UIPadding")
-		local function measure()
-			local scale = ctx.previewScale:peek()
-			local pad = if inset then inset.PaddingTop.Offset + inset.PaddingBottom.Offset else 0
-			content:set(math.ceil(list.AbsoluteContentSize.Y / (if scale > 0 then scale else 1)) + pad)
-		end
-		local resized = list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(measure)
-		Compose.cleanup(function()
-			resized:Disconnect()
-		end)
-		measure()
-		UI.focusSection(card, { focusOnAppear = true, returnFocus = true })
-		return card
 	end
 	local function hint(name: string, text)
 		return UI.Text(name)({
@@ -698,13 +630,12 @@ function screen.build(ctx: any)
 			VerticalAlignment = Enum.VerticalAlignment.Top,
 		}) :: unknown,
 		hint("MenuHint", "LB"),
-		UI.Button "Showcase" {
+		UI.CollapsibleView "Showcase" {
 			label = function(use: Use)
-				return if use(panelOpen) then "Close" else titles[use(selected)] or "Demos"
+				return titles[use(selected)] or "Demos"
 			end,
-			onActivate = function()
-				request(nil)
-			end,
+			expanded = panelOpen,
+			content = panel,
 		},
 		Compose.show(function(use: Use)
 			local layout = use(ctx.categoryLayout)
@@ -741,7 +672,6 @@ function screen.build(ctx: any)
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 			row,
-			Compose.show(panelOpen, panel),
 		},
 	}
 	local rowSize = row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
@@ -780,19 +710,6 @@ function screen.build(ctx: any)
 		end,
 
 		toolbar,
-		Compose.show(panelOpen, function()
-			return Host.TextButton "ShowcaseDismiss" {
-				ZIndex = 2,
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Text = "",
-				AutoButtonColor = false,
-				Selectable = false,
-				Activated = function()
-					panelOpen:set(false)
-				end,
-			}
-		end),
 		UI.TabView "Demos" {
 			selection = selected,
 			tabs = tabs,
