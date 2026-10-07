@@ -11,10 +11,11 @@ type Case = {
 	setup: ((any) -> any)?,
 	steps: { [string]: (any, any) -> () }?,
 	keepGallery: boolean?,
+	probe: boolean?,
 }
 local cases: { Case } = {}
 local function add(id: string, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = {}, run = run })
+	table.insert(cases, { id = id, contracts = {}, run = run, probe = true })
 end
 
 local function live(): any

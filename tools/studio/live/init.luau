@@ -576,7 +576,11 @@ function live.report(suite: string, options: { [string]: any }?): any
 				if not ran then
 					error(problem, 0)
 				end
-				context:expect(#record.checks):toBeGreaterThan(0)
+				if case.probe then
+					context:expect(next(record.notes) ~= nil):toBe(true)
+				else
+					context:expect(#record.checks):toBeGreaterThan(0)
+				end
 			end,
 		})
 	end

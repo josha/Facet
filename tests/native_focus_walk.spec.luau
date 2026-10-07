@@ -41,7 +41,7 @@ return function(verifyHarness: Verify.Harness)
 		return false
 	end
 
-	local function replay(atlas: any): (any, { [string]: any }, (offsets: any) -> (), () -> ())
+	local function replay(atlas: any): (any, { [string]: any }, (offsets: any, scene: any) -> (), () -> ())
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
@@ -124,7 +124,24 @@ return function(verifyHarness: Verify.Harness)
 				byPath[entry.path]["NextSelection" .. direction] = byPath[target]
 			end
 		end
-		local function scroll(offsets: any)
+		local extras: { [string]: any } = {}
+		local function extra(entry: any): any
+			local node = extras[entry.path]
+			if node == nil then
+				node = engine.new("Frame")
+				node.Name = entry.path
+				node.Selectable = true
+				if entry.adjustable then
+					node:AddTag("facet-adjustable")
+					node:SetAttribute("axis", entry.adjustable)
+				end
+				node.Parent = container(entry.chain[1])
+				extras[entry.path] = node
+				byPath[entry.path] = node
+			end
+			return node
+		end
+		local function scroll(offsets: any, scene: any)
 			for _, item in placed do
 				local x, y = item.rect[1], item.rect[2]
 				for _, path in item.chain do
@@ -135,9 +152,38 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end
 				item.node.AbsolutePosition = Vector2.new(x, y)
+				item.node.AbsoluteSize = Vector2.new(item.rect[3], item.rect[4])
+				item.node.Visible = true
+			end
+			for _, node in extras do
+				node.Visible = false
+			end
+			if scene == nil then
+				return
+			end
+			for path, rect in scene.rects or {} do
+				local node = byPath[path] or frames[path]
+				if node then
+					node.AbsolutePosition = Vector2.new(rect[1], rect[2])
+					node.AbsoluteSize = Vector2.new(rect[3], rect[4])
+				end
+			end
+			for _, path in scene.gone or {} do
+				byPath[path].Visible = false
+			end
+			for _, entry in scene.added or {} do
+				local node = extra(entry)
+				node.Visible = true
+				node.AbsolutePosition = Vector2.new(entry.rect[1], entry.rect[2])
+				node.AbsoluteSize = Vector2.new(entry.rect[3], entry.rect[4])
+			end
+			for _, entry in scene.added or {} do
+				for direction, target in entry.links do
+					extras[entry.path]["NextSelection" .. direction] = byPath[target]
+				end
 			end
 		end
-		scroll(nil)
+		scroll(nil, nil)
 		gui.SelectedObject = byPath[atlas.stops[1].path]
 		return UI, byPath, scroll, function()
 			stop()
@@ -152,6 +198,10 @@ return function(verifyHarness: Verify.Harness)
 			local pass = serde.decode("json", fs.readFile(keys))
 			atlas.moves.keys = pass.moves.keys
 			atlas.offsets.keys = pass.offsets.keys
+			if pass.scenes then
+				atlas.scenes = atlas.scenes or {}
+				atlas.scenes.keys = pass.scenes.keys
+			end
 		end
 		return atlas
 	end
@@ -204,7 +254,10 @@ return function(verifyHarness: Verify.Harness)
 		while queue[head] do
 			local path = queue[head]
 			head += 1
-			scroll((((atlas.offsets or {}).dpad or {})[path] or {}).DPadDown)
+			scroll(
+				(((atlas.offsets or {}).dpad or {})[path] or {}).DPadDown,
+				(((atlas.scenes or {}).dpad or {})[path] or {}).DPadDown
+			)
 			assert(byPath[path], `no stop {path}`)
 			for direction, move in UI.focusQuery(byPath[path]) do
 				local target = move.target
@@ -240,7 +293,10 @@ return function(verifyHarness: Verify.Harness)
 		for _, family in { "dpad", "keys" } do
 			for from, row in atlas.moves[family] or {} do
 				for key, engineTarget in row do
-					scroll(((atlas.offsets[family] or {})[from] or {})[key])
+					scroll(
+						((atlas.offsets[family] or {})[from] or {})[key],
+						(((atlas.scenes or {})[family] or {})[from] or {})[key]
+					)
 					local predicted = UI.focusQuery(byPath[from])[KEY_DIRECTION[key]]
 					local query = if predicted.target and predicted.target ~= byPath[from]
 						then predicted.target.Name

@@ -25,25 +25,31 @@ local report = L.case("facet-lab", "focus-walk", function()
 		local paths = focus.paths(root, stops)
 		local atlas = focus.atlas(root, "lab/" .. id, stops, paths)
 		atlas.lint = lint
-		local function merge(family, moves, offsets)
+		local function merge(family, moves, offsets, scenes)
 			atlas.moves[family] = atlas.moves[family] or {}
 			atlas.offsets[family] = atlas.offsets[family] or {}
+			atlas.scenes[family] = atlas.scenes[family] or {}
 			for path, row in moves do
 				atlas.moves[family][path] = row
 				atlas.offsets[family][path] = offsets[path]
+				atlas.scenes[family][path] = scenes[path]
 			end
 		end
-		merge("dpad", focus.walk(root, stops, paths, { "DPadDown", "DPadLeft", "DPadRight" }))
+		merge("dpad", focus.walk(root, stops, paths, { "DPadDown", "DPadLeft", "DPadRight" }, atlas))
 		if options.stick ~= false then
-			merge("stick", focus.walk(root, stops, paths, { "StickUp", "StickDown", "StickLeft", "StickRight" }))
+			merge("stick", focus.walk(root, stops, paths, { "StickUp", "StickDown", "StickLeft", "StickRight" }, atlas))
 		end
 		if options.up then
-			local moves, offsets = L.signal("focus-upstream", function()
-				return focus.walkUp(root, stops, paths, options.up)
+			local moves, offsets, scenes = L.signal("focus-upstream", function()
+				return focus.walkUp(root, stops, paths, options.up, atlas)
 			end)
 			for path, target in moves do
 				atlas.moves.dpad[path].DPadUp = target
 				atlas.offsets.dpad[path].DPadUp = offsets[path]
+				if scenes[path] then
+					atlas.scenes.dpad[path] = atlas.scenes.dpad[path] or {}
+					atlas.scenes.dpad[path].DPadUp = scenes[path]
+				end
 			end
 		end
 		L.save("lab--" .. string.gsub(id, "[^%w%-]", "_"), HttpService:JSONEncode(atlas), "live")
