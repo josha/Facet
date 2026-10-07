@@ -167,8 +167,8 @@ for _, suite in suites do
 		print("attachment: " .. issue)
 	end
 	print(
-		`{suite}: {report.passed} passed, {report.failed} failed of {report.total}; artifacts/studio-live/{suite}-{tag}.json`
+		`{suite}: {report.passed} passed, {report.failed} failed, {report.unsupported} unsupported of {report.total}; artifacts/studio-live/{suite}-{tag}.json`
 	)
-	failed = failed or report.passed ~= report.total or #issues > 0
+	failed = failed or report.passed + report.unsupported ~= report.total or report.passed == 0 or #issues > 0
 end
 process.exit(if failed then 1 else 0)

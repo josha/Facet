@@ -864,6 +864,7 @@ local function radial(t: any, options: { [string]: any }?): { [string]: any }
 				slot = entry[1] :: "N" | "E" | "S" | "W",
 				label = entry[1],
 				icon = entry[2],
+				labelStyle = if config.iconOnly then "icon" :: "icon" else nil,
 				completion = "stay" :: "stay",
 				onSelect = function()
 					table.insert(value.fired, entry[1])
@@ -874,7 +875,6 @@ local function radial(t: any, options: { [string]: any }?): { [string]: any }
 			isPresented = value.open,
 			items = items,
 			preset = config.preset,
-			labelStyle = if config.iconOnly then "icon" else nil,
 		}
 	end, {
 		size = (config.size or Vector2.new(800, 600)) / (config.scale or 1),

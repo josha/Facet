@@ -221,9 +221,9 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case(
-			"level picker keyboard and gamepad adjust only while selected and hold the axis at the limit",
+			"level picker keyboard and gamepad adjust only while selected and release the axis at the limit",
 			{
-				id = "native_parity_weaker_values::native parity weaker values::level picker keyboard and gamepad adjust only while selected and hold the axis at the limit",
+				id = "native_parity_weaker_values::native parity weaker values::level picker keyboard and gamepad adjust only while selected and release the axis at the limit",
 				run = function()
 					local value = Compose.cell(2)
 					local world = setup(function(UI, Host)
@@ -255,11 +255,7 @@ return function(verifyHarness: Verify.Harness)
 					right.Pressed:Fire()
 					right.Released:Fire()
 					Verify.expect((value:peek())):toBe(10)
-					local held = action(world.root, "IncreaseArrow")
-					Verify.expect(held ~= nil):toBe(true)
-					held.Pressed:Fire()
-					held.Released:Fire()
-					Verify.expect((value:peek())):toBe(10)
+					Verify.expect((action(world.root, "IncreaseArrow"))):toBeNil()
 					Verify.expect(action(world.root, "Increase") ~= nil):toBe(true)
 					Verify.expect(action(world.root, "DecreaseArrow") ~= nil):toBe(true)
 					world.stop()

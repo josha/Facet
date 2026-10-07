@@ -695,14 +695,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							"iconSize",
 							use
 						)
+						local caption = read(spec.label, use)
+						local captioned = caption ~= nil and caption ~= ""
+						local content = if captioned
+							then ctx.metric("typography.control.size", use) + glyphs * (glyphSide + contentGap)
+							else glyphs * glyphSide + math.max(0, glyphs - 1) * contentGap
 						return V2.new(
 							math.max(
 								minimum,
 								2 * ctx.controlSize(spec.controlSize, "paddingX", use)
 									+ (carve.left or 0)
 									+ (carve.right or 0)
-									+ ctx.metric("typography.control.size", use)
-									+ glyphs * (glyphSide + contentGap)
+									+ content
 							),
 							minimum
 						)

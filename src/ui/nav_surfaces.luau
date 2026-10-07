@@ -167,10 +167,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end, words)
 			end
 			local caption = captions and captions:FindFirstChild("Description")
-			if captions and captions:IsA("GuiObject") and caption and caption:IsA("TextLabel") then
-				captions.AutomaticSize = E.AutomaticSize.Y
-				caption.Size = D2.new(1, 0, 0, 0)
-				caption.AutomaticSize = E.AutomaticSize.Y
+			if caption and caption:IsA("TextLabel") then
 				caption.TextWrapped = true
 			end
 		end

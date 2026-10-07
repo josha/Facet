@@ -456,19 +456,25 @@ function focus.opened(
 		task.wait()
 	end
 	local entered = os.clock() - started
-	local inside, stable = {}, 0
-	while stable < 3 and os.clock() - started < 4 do
-		task.wait(0.15)
-		local now = {}
-		for _, node in focus.stops(root) do
-			if not before[node] then
-				table.insert(now, node)
+	local inside: { GuiObject } = {}
+	local function gather(limit: number)
+		local stable = 0
+		local from = os.clock()
+		inside = {}
+		while stable < 3 and os.clock() - from < limit do
+			task.wait(0.15)
+			local now = {}
+			for _, node in focus.stops(root) do
+				if not before[node] then
+					table.insert(now, node)
+				end
 			end
+			stable = if #now == #inside then stable + 1 else 0
+			inside = now
 		end
-		stable = if #now == #inside then stable + 1 else 0
-		inside = now
+		settle(root)
 	end
-	settle(root)
+	gather(4)
 	local landed = GuiService.SelectedObject
 	if landed and not before[landed] and not table.find(inside, landed) then
 		table.insert(inside, landed)
@@ -491,17 +497,32 @@ function focus.opened(
 	end
 	local behind = {}
 	for node in before do
-		behind[pathOf(node, root)] = true
+		if node.Parent ~= trigger.Parent then
+			behind[pathOf(node, root)] = true
+		end
 	end
 	local walked = table.clone(inside)
 	if not report.landedInside then
 		table.insert(walked, trigger)
 		paths[trigger] = report.trigger
 	end
-	local moves = focus.walk(root, walked, paths, keys.moves)
+	local function reopen()
+		local presses = 0
+		gather(1)
+		while #inside > 0 and presses < 4 do
+			live().press({ keys.close }, 20)
+			presses += 1
+			gather(1)
+		end
+		GuiService.SelectedObject = trigger
+		settle(root)
+		live().press({ keys.open }, 2)
+		gather(4)
+	end
+	local moves = focus.walk(root, walked, paths, keys.moves, nil, reopen)
 	if keys.up then
 		local up = live().signal("focus-upstream", function()
-			return focus.walkUp(root, walked, paths, keys.up)
+			return focus.walkUp(root, walked, paths, keys.up, nil, reopen)
 		end)
 		for path, target in up do
 			moves[path] = moves[path] or {}

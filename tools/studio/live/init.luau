@@ -538,6 +538,20 @@ local function attachNotes(context: any, record: { [string]: any })
 	end
 end
 
+local GAMEPAD_SUITES: { [string]: boolean } =
+	{ focus_opened = true, focus_probe = true, focus_walk = true, gamepad_walk = true }
+
+local function inputCapability(): string
+	local input = game:GetService("UserInputService")
+	return if baselineDevice == "keep" and input.GamepadEnabled then "input-gamepad" else "input-pointer"
+end
+
+local function inputRequirement(suite: string, case: { [string]: any }): string
+	local input = case.input
+		or (if GAMEPAD_SUITES[suite] or string.sub(case.id, 1, 4) == "pad-" then "gamepad" else "pointer")
+	return "input-" .. input
+end
+
 function live.report(suite: string, options: { [string]: any }?): any
 	local config: { [string]: any } = options or {}
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
@@ -556,6 +570,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 		table.clear(hidden)
 	end)
 	local keepGallery = if config.keepGallery ~= nil then config.keepGallery else suite ~= "layout_geometry"
+	local capabilities = { "roblox-client", inputCapability() }
 	local records = {}
 	local selected = {}
 	for _, case in live.cases(suite) do
@@ -567,7 +582,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 		end
 		harness:case(case.id, {
 			id = case.id,
-			requires = { "roblox-client" },
+			requires = { "roblox-client", inputRequirement(suite, case) },
 			run = function(context: any)
 				for _, gui in playerGui:GetChildren() do
 					if
@@ -609,7 +624,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 	local report = harness:run({
 		executor = "roblox-studio",
 		environment = reportEnvironment(suite),
-		capabilities = { "roblox-client" },
+		capabilities = capabilities,
 		selection = { ids = selected },
 		progress = if config.runId and config.progressToken
 			then VerifyRoblox.progressChannel.publisher(config.runId, config.progressToken, function(value)

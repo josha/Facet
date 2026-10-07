@@ -1247,6 +1247,7 @@ return function(verifyHarness: Verify.Harness)
 								AutomaticSize = none,
 							},
 							UI.Button "Plain" { label = "Go", Size = size },
+							UI.Button "Glyph" { icon = "rbxassetid://1", label = "", Size = size, AutomaticSize = none },
 						})
 					end, function()
 						return { theme = package }
@@ -1268,6 +1269,8 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(minimum("Both")):toBe(`{case.themeName} Both {label + 2 * (rung.iconSize + 8)}`)
 					leading:set("")
 					Verify.expect(minimum("Lead")):toBe(`{case.themeName} Lead {label}`)
+					Verify.expect(minimum("Glyph"))
+						:toBe(`{case.themeName} Glyph {label - metrics.typography.control.size + rung.iconSize}`)
 					stop()
 				end
 			end,
@@ -2109,8 +2112,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((contexts[1]:isDestroyed())):toBe(true)
 			end,
 		})
-		verifyHarness:case("a held arrow repeats up to the bound and the axis stays owned at the bound", {
-			id = "native_inputs::native input controls::a held arrow repeats up to the bound and the axis stays owned at the bound",
+		verifyHarness:case("a held arrow repeats up to the bound and releases the axis at the bound", {
+			id = "native_inputs::native input controls::a held arrow repeats up to the bound and releases the axis at the bound",
 			run = function()
 				local value = Compose.cell(95)
 				local gui
@@ -2127,18 +2130,18 @@ return function(verifyHarness: Verify.Harness)
 					engine.heartbeat:Fire(0.1)
 				end
 				Verify.expect((value:peek())):toBe(100)
-				Verify.expect(increase.Parent.Enabled):toBe(true)
+				Verify.expect(increase.Parent.Enabled):toBe(false)
 				increase.Released:Fire()
+				Verify.expect(increase.Parent.Enabled):toBe(false)
+				Verify.expect(enabledAction(node.Parent, "DecreaseArrow").Parent.Enabled):toBe(true)
+				value:set(99)
 				Verify.expect(increase.Parent.Enabled):toBe(true)
-				increase.Pressed:Fire()
-				increase.Released:Fire()
-				Verify.expect((value:peek())):toBe(100)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("keeps the axis at value bounds and rearms on focus return", {
-			id = "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+		verifyHarness:case("releases the axis at value bounds and rearms on focus return", {
+			id = "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
 			run = function()
 				local value = Compose.cell(4)
 				local node, stop = world(function(UI: FacetControls)
@@ -2152,12 +2155,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(increase.Parent.Enabled):toBe(true)
 				increase.Pressed:Fire()
 				Verify.expect((value:peek())):toBe(5)
-				Verify.expect(increase.Parent.Enabled):toBe(true)
+				Verify.expect(increase.Parent.Enabled):toBe(false)
 				increase.Released:Fire()
-				Verify.expect(increase.Parent.Enabled):toBe(true)
-				increase.Pressed:Fire()
-				increase.Released:Fire()
-				Verify.expect((value:peek())):toBe(5)
+				Verify.expect(increase.Parent.Enabled):toBe(false)
 				Verify.expect(bumper.Parent.Enabled):toBe(true)
 				Verify.expect(decrease.Parent.Enabled):toBe(true)
 				decrease.Pressed:Fire()
