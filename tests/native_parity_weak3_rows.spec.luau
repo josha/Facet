@@ -71,6 +71,7 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_parity_weak3_rows::native parity weak3 rows: declared mount ramp ceiling::returns the performance lab to its floor after every rung of a second ramp lap to 40000 rows",
 				tags = { "tier:release" },
+				requires = { "host-memory-64g" },
 				run = function()
 					inspected(function()
 						local lab = require("../examples/performance/lab/perf_lab") :: any

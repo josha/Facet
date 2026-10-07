@@ -23,6 +23,7 @@ local REGRESSION_FLOOR_MS = 0.05
 local YARDSTICK = "zz-yardstick-cpu"
 
 local UNGATED = 1e12
+local DRIFT_LIMIT = 0.15
 
 if #scenarios == 0 then
 	print("bench: FAIL - no scenarios registered in bench/scenarios.luau (hint: land the core bake-off scenarios)")
@@ -166,7 +167,9 @@ local collected = Benchmark.collect({
 		end,
 		samples = yardstickScenario.samples or SAMPLES,
 		maxSpread = UNGATED,
-		maxDrift = UNGATED,
+		maxDrift = DRIFT_LIMIT,
+		driftStatistic = "p95",
+		driftBase = "mean",
 	},
 })
 if yardstickScenario.teardown then
@@ -275,12 +278,15 @@ if not baselineHasNorm then
 	print("        baseline to get load-independent comparisons.")
 end
 
-local DRIFT_WARN_PCT = 15
-if yardstickDriftPct > DRIFT_WARN_PCT then
+local drifted = false
+for _, entry in collected.invalid do
+	drifted = drifted or entry.reason == "yardstick_drift"
+end
+if drifted then
 	failed = true
 	print("")
 	print(`  ⚠ UNTRUSTWORTHY RUN: the yardstick moved {string.format("%.1f", yardstickDriftPct)}% between the`)
-	print(`    before and after readings (warn above {DRIFT_WARN_PCT}%), so the machine was changing`)
+	print(`    before and after readings (warn above {DRIFT_LIMIT * 100}%), so the machine was changing`)
 	print("    speed while the scenes were measured. Ratios from this run are noise in")
 	print("    both directions — a regression reported here may be load, and a real one")
 	print("    may be hidden. Re-run on a quiet machine before believing either.")
@@ -299,7 +305,7 @@ artifact.writeJson("artifacts/bench.json", {
 	normalizedBy = YARDSTICK,
 	yardstickP95Ms = yardstickP95,
 	yardstickDriftPct = yardstickDriftPct,
-	proofStatus = if yardstickDriftPct > DRIFT_WARN_PCT then "unstable-host" else "stable-host-trend",
+	proofStatus = if drifted then "unstable-host" else "stable-host-trend",
 	comparisonMode = if baselineHasNorm then "normalized" else "raw-legacy",
 	results = results,
 })

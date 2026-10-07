@@ -1332,7 +1332,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			return require("./flap")(ctx)
 		end)
 	end
-	return { Discover = Discover, Avatar = Avatar, Chat = Chat, Flap = Flap, moves = UI.focusQuery }
+	return { Discover = Discover, Avatar = Avatar, Chat = Chat, Flap = Flap }
 end
 
 return screens

@@ -53,7 +53,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("toast schedule: showing, queueing and timing out", function()
 		verifyHarness:case("shows up to maxVisible and queues the rest, newest last", {
-			id = "native_toast::toast schedule: showing, queueing and timing out::shows up to maxVisible and queues the rest, newest last",
+			id = "native_toast_schedule::toast schedule: showing, queueing and timing out::shows up to maxVisible and queues the rest, newest last",
 			run = function()
 				local f = fixture()
 				for i = 1, 5 do
@@ -65,7 +65,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a toast times out after its duration and the queue promotes in that frame", {
-			id = "native_toast::toast schedule: showing, queueing and timing out::a toast times out after its duration and the queue promotes in that frame",
+			id = "native_toast_schedule::toast schedule: showing, queueing and timing out::a toast times out after its duration and the queue promotes in that frame",
 			run = function()
 				local f = fixture()
 				f.schedule.push({ data = "a", duration = 2 })
@@ -83,7 +83,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("durations and read floors are per-toast, not global", {
-			id = "native_toast::toast schedule: showing, queueing and timing out::durations and read floors are per-toast, not global",
+			id = "native_toast_schedule::toast schedule: showing, queueing and timing out::durations and read floors are per-toast, not global",
 			run = function()
 				local f = fixture()
 				f.schedule.push({ data = "short", duration = 1 })
@@ -94,7 +94,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("the defaults are the ratified numbers", {
-			id = "native_toast::toast schedule: showing, queueing and timing out::the defaults are the ratified numbers",
+			id = "native_toast_schedule::toast schedule: showing, queueing and timing out::the defaults are the ratified numbers",
 			run = function()
 				expect(toast_schedule.DEFAULTS.maxVisible):toBe(3)
 				expect(toast_schedule.DEFAULTS.queueCap):toBe(8)
@@ -106,7 +106,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("toast schedule: priority", function()
 		verifyHarness:case("the queue is priority-ordered, FIFO within a priority", {
-			id = "native_toast::toast schedule: priority::the queue is priority-ordered, FIFO within a priority",
+			id = "native_toast_schedule::toast schedule: priority::the queue is priority-ordered, FIFO within a priority",
 			run = function()
 				local f = fixture({ maxVisible = 1 })
 				f.schedule.push({ data = "first", duration = 10 })
@@ -121,7 +121,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a more urgent toast NEVER truncates a showing toast's read floor", {
-			id = "native_toast::toast schedule: priority::a more urgent toast NEVER truncates a showing toast's read floor",
+			id = "native_toast_schedule::toast schedule: priority::a more urgent toast NEVER truncates a showing toast's read floor",
 			run = function()
 				local f = fixture({ maxVisible = 1 })
 				f.schedule.push({ data = "reading", duration = 10, readFloor = 1.5 })
@@ -139,7 +139,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("preemption takes the WEAKEST showing toast, not the oldest", {
-			id = "native_toast::toast schedule: priority::preemption takes the WEAKEST showing toast, not the oldest",
+			id = "native_toast_schedule::toast schedule: priority::preemption takes the WEAKEST showing toast, not the oldest",
 			run = function()
 				local f = fixture({ maxVisible = 2 })
 				f.schedule.push({ data = "important", priority = 5, duration = 10 })
@@ -151,7 +151,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a queued toast no more urgent than the weakest showing one just waits", {
-			id = "native_toast::toast schedule: priority::a queued toast no more urgent than the weakest showing one just waits",
+			id = "native_toast_schedule::toast schedule: priority::a queued toast no more urgent than the weakest showing one just waits",
 			run = function()
 				local f = fixture({ maxVisible = 1 })
 				f.schedule.push({ data = "showing", priority = 5, duration = 10 })
@@ -165,7 +165,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("toast schedule: supersede and capacity", function()
 		verifyHarness:case("a same-key toast replaces its QUEUED predecessor immediately", {
-			id = "native_toast::toast schedule: supersede and capacity::a same-key toast replaces its QUEUED predecessor immediately",
+			id = "native_toast_schedule::toast schedule: supersede and capacity::a same-key toast replaces its QUEUED predecessor immediately",
 			run = function()
 				local f = fixture({ maxVisible = 1 })
 				f.schedule.push({ data = "hold", duration = 10 })
@@ -179,7 +179,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a same-key toast replaces a SHOWING one only once its floor is met", {
-			id = "native_toast::toast schedule: supersede and capacity::a same-key toast replaces a SHOWING one only once its floor is met",
+			id = "native_toast_schedule::toast schedule: supersede and capacity::a same-key toast replaces a SHOWING one only once its floor is met",
 			run = function()
 				local f = fixture({ maxVisible = 3 })
 				f.schedule.push({ data = "lap 1", key = "lap", duration = 10, readFloor = 1.5 })
@@ -194,7 +194,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("at the queue cap the LOWEST-priority queued toast is dropped, with a reason", {
-			id = "native_toast::toast schedule: supersede and capacity::at the queue cap the LOWEST-priority queued toast is dropped, with a reason",
+			id = "native_toast_schedule::toast schedule: supersede and capacity::at the queue cap the LOWEST-priority queued toast is dropped, with a reason",
 			run = function()
 				local f = fixture({ maxVisible = 1, queueCap = 3 })
 				f.schedule.push({ data = "showing", duration = 10 })
@@ -214,7 +214,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a newcomer that IS the least urgent thing drops itself, and says so", {
-			id = "native_toast::toast schedule: supersede and capacity::a newcomer that IS the least urgent thing drops itself, and says so",
+			id = "native_toast_schedule::toast schedule: supersede and capacity::a newcomer that IS the least urgent thing drops itself, and says so",
 			run = function()
 				local f = fixture({ maxVisible = 1, queueCap = 1 })
 				f.schedule.push({ data = "showing", duration = 10 })
@@ -227,7 +227,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a SHOWING toast is never dropped for capacity", {
-			id = "native_toast::toast schedule: supersede and capacity::a SHOWING toast is never dropped for capacity",
+			id = "native_toast_schedule::toast schedule: supersede and capacity::a SHOWING toast is never dropped for capacity",
 			run = function()
 				local f = fixture({ maxVisible = 2, queueCap = 1 })
 				f.schedule.push({ data = "a", duration = 10 })
@@ -243,7 +243,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a burst never stacks unbounded", {
-			id = "native_toast::toast schedule: supersede and capacity::a burst never stacks unbounded",
+			id = "native_toast_schedule::toast schedule: supersede and capacity::a burst never stacks unbounded",
 			run = function()
 				local f = fixture()
 				for i = 1, 200 do
@@ -258,7 +258,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("toast schedule: held entries propose instead of retiring", function()
 		verifyHarness:case("a held entry asks once per reason and stays until dismissed", {
-			id = "native_toast::toast schedule: held entries propose instead of retiring::a held entry asks once per reason and stays until dismissed",
+			id = "native_toast_schedule::toast schedule: held entries propose instead of retiring::a held entry asks once per reason and stays until dismissed",
 			run = function()
 				local asked: { string } = {}
 				local f = fixture({
@@ -283,7 +283,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a queue cap below one still lets a toast show", {
-			id = "native_toast::toast schedule: held entries propose instead of retiring::a queue cap below one still lets a toast show",
+			id = "native_toast_schedule::toast schedule: held entries propose instead of retiring::a queue cap below one still lets a toast show",
 			run = function()
 				local f = fixture({ queueCap = 0 })
 				f.schedule.push({ data = "only" })
@@ -294,7 +294,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case(
 			"a dismiss callback that pushes runs after the schedule settles, so it cannot overfill the slots",
 			{
-				id = "native_toast::toast schedule: held entries propose instead of retiring::a dismiss callback that pushes runs after the schedule settles, so it cannot overfill the slots",
+				id = "native_toast_schedule::toast schedule: held entries propose instead of retiring::a dismiss callback that pushes runs after the schedule settles, so it cannot overfill the slots",
 				run = function()
 					local now = 0
 					local schedule
@@ -323,7 +323,7 @@ return function(verifyHarness: Verify.Harness)
 		)
 
 		verifyHarness:case("an infinite duration never times out", {
-			id = "native_toast::toast schedule: held entries propose instead of retiring::an infinite duration never times out",
+			id = "native_toast_schedule::toast schedule: held entries propose instead of retiring::an infinite duration never times out",
 			run = function()
 				local f = fixture()
 				f.schedule.push({ data = "sticky", duration = math.huge })
@@ -335,7 +335,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("toast schedule: explicit dismissal", function()
 		verifyHarness:case("dismiss retires a showing toast and promotes the queue in the same call", {
-			id = "native_toast::toast schedule: explicit dismissal::dismiss retires a showing toast and promotes the queue in the same call",
+			id = "native_toast_schedule::toast schedule: explicit dismissal::dismiss retires a showing toast and promotes the queue in the same call",
 			run = function()
 				local f = fixture({ maxVisible = 1 })
 				local id = f.schedule.push({ data = "a", duration = 10 })
@@ -347,7 +347,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("dismiss finds a QUEUED toast too, and an unknown id is a false, not an error", {
-			id = "native_toast::toast schedule: explicit dismissal::dismiss finds a QUEUED toast too, and an unknown id is a false, not an error",
+			id = "native_toast_schedule::toast schedule: explicit dismissal::dismiss finds a QUEUED toast too, and an unknown id is a false, not an error",
 			run = function()
 				local f = fixture({ maxVisible = 1 })
 				f.schedule.push({ data = "a", duration = 10 })
@@ -405,7 +405,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("UI.Toast: presentation", function()
 		verifyHarness:case("shows three, queues the rest, and retires each on schedule with its reason", {
-			id = "native_toast::UI.Toast: presentation::shows three, queues the rest, and retires each on schedule with its reason",
+			id = "native_toast_schedule::UI.Toast: presentation::shows three, queues the rest, and retires each on schedule with its reason",
 			run = function()
 				local f = toasts({
 					{ message = "a", duration = 2 },
@@ -423,7 +423,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("is input-transparent and never takes the selection", {
-			id = "native_toast::UI.Toast: presentation::is input-transparent and never takes the selection",
+			id = "native_toast_schedule::UI.Toast: presentation::is input-transparent and never takes the selection",
 			run = function()
 				local f = toasts({ { message = "Saved" } })
 				local under = f.world.find("Under")
@@ -445,7 +445,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("an icon sits before the message; a bound passive toast proposes its timeout", {
-			id = "native_toast::UI.Toast: presentation::an icon sits before the message; a bound passive toast proposes its timeout",
+			id = "native_toast_schedule::UI.Toast: presentation::an icon sits before the message; a bound passive toast proposes its timeout",
 			run = function()
 				local fact = Compose.cell(true)
 				local asked: { boolean } = {}
@@ -477,7 +477,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("stacks down from the top edge and the survivors close a vacated slot", {
-			id = "native_toast::UI.Toast: presentation::stacks down from the top edge and the survivors close a vacated slot",
+			id = "native_toast_schedule::UI.Toast: presentation::stacks down from the top edge and the survivors close a vacated slot",
 			run = function()
 				local f = toasts({ { message = "a", duration = 10 }, { message = "b", duration = 10 } })
 				f.world.advance(0.1)
@@ -500,7 +500,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a bottom-docked stack grows upward from its own edge", {
-			id = "native_toast::UI.Toast: presentation::a bottom-docked stack grows upward from its own edge",
+			id = "native_toast_schedule::UI.Toast: presentation::a bottom-docked stack grows upward from its own edge",
 			run = function()
 				local f = toasts({ { message = "a", position = "bottom" } })
 				f.world.advance(0.1)
@@ -513,7 +513,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("docks clear of the app's reserved chrome on its edge, in its own or a sibling ScreenGui", {
-			id = "native_toast::UI.Toast: presentation::docks clear of the app's reserved chrome on its edge, in its own or a sibling ScreenGui",
+			id = "native_toast_schedule::UI.Toast: presentation::docks clear of the app's reserved chrome on its edge, in its own or a sibling ScreenGui",
 			run = function()
 				local f = toasts({ { message = "a", position = "bottom" }, { message = "b" } })
 				f.world.advance(0.1)
@@ -546,7 +546,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a TabView bottom bar reserves its band on its layer, and a top bar does not", {
-			id = "native_toast::UI.Toast: presentation::a TabView bottom bar reserves its band on its layer, and a top bar does not",
+			id = "native_toast_schedule::UI.Toast: presentation::a TabView bottom bar reserves its band on its layer, and a top bar does not",
 			run = function()
 				for _, case in { { placement = "bottomBar", height = 44 }, { placement = "topBar", height = 0 } } do
 					local world = overlay.new(function(UI: FacetControls, Host: RobloxHost)
@@ -581,7 +581,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a same-key toast replaces the showing one after its read floor", {
-			id = "native_toast::UI.Toast: presentation::a same-key toast replaces the showing one after its read floor",
+			id = "native_toast_schedule::UI.Toast: presentation::a same-key toast replaces the showing one after its read floor",
 			run = function()
 				local f =
 					toasts({ { message = "lap 1", key = "lap", duration = 10 }, { message = "lap 2", key = "lap" } })
@@ -595,7 +595,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("fill spans the layer less the margins; hug fits the text, centred, up to 560", {
-			id = "native_toast::UI.Toast: presentation::fill spans the layer less the margins; hug fits the text, centred, up to 560",
+			id = "native_toast_schedule::UI.Toast: presentation::fill spans the layer less the margins; hug fits the text, centred, up to 560",
 			run = function()
 				local f = toasts(
 					{ { message = "a" }, { message = "b", width = "hug" :: "hug" } },
@@ -605,14 +605,19 @@ return function(verifyHarness: Verify.Harness)
 				local list = rows(f.world)
 				expect(list[1].Size.X.Offset):toBe(800 - 32)
 				expect(list[1].Position.X.Scale):toBe(0.5)
-				expect(list[2].AutomaticSize):toBe(f.world.Enum.AutomaticSize.XY)
+				expect(list[2].AutomaticSize):toBe(f.world.Enum.AutomaticSize.Y)
 				expect(overlay.find(list[2], "WidthCap").MaxSize.X):toBe(560)
+				local probe = overlay.find(list[2], "MessageMeasure")
+				probe.TextBounds = Vector2.new(100, 16)
+				expect(list[2].Size.X.Offset):toBe(125)
+				probe.TextBounds = Vector2.new(2000, 16)
+				expect(list[2].Size.X.Offset):toBe(560)
 				f.world.stop()
 			end,
 		})
 
 		verifyHarness:case("fits the overlay that receives it and follows its resized width", {
-			id = "native_toast::UI.Toast: presentation::fits the overlay that receives it and follows its resized width",
+			id = "native_toast_schedule::UI.Toast: presentation::fits the overlay that receives it and follows its resized width",
 			run = function()
 				local presentation
 				local w = overlay.new(function(_, Host: RobloxHost, engine, _, runtime)
@@ -637,7 +642,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("fades in and out as it slides by default; fade = false only slides, keeping native text", {
-			id = "native_toast::UI.Toast: presentation::fades in and out as it slides by default; fade = false only slides, keeping native text",
+			id = "native_toast_schedule::UI.Toast: presentation::fades in and out as it slides by default; fade = false only slides, keeping native text",
 			run = function()
 				local plain = toasts(
 					{ { message = "a", duration = 1, readFloor = 0, fade = false } },
@@ -681,7 +686,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("fades on screen: halfway through its entrance the row is still half see-through", {
-			id = "native_toast::UI.Toast: presentation::fades on screen: halfway through its entrance the row is still half see-through",
+			id = "native_toast_schedule::UI.Toast: presentation::fades on screen: halfway through its entrance the row is still half see-through",
 			run = function()
 				local f = toasts({ { message = "a", duration = 1, readFloor = 0 } }, { motionLevel = "normal" })
 				f.world.advance(0.1, 6)
@@ -694,7 +699,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("refuses a malformed toast by name", {
-			id = "native_toast::UI.Toast: presentation::refuses a malformed toast by name",
+			id = "native_toast_schedule::UI.Toast: presentation::refuses a malformed toast by name",
 			run = function()
 				for index, bad in
 					{
@@ -720,7 +725,7 @@ return function(verifyHarness: Verify.Harness)
 		local Facet = require("../src") :: any
 		local engineLib = require("./lib/native_engine")
 		verifyHarness:case("owns its body, returns an id and dismiss, and releases the layer when it retires", {
-			id = "native_toast::app.presentToast::owns its body, returns an id and dismiss, and releases the layer when it retires",
+			id = "native_toast_schedule::app.presentToast::owns its body, returns an id and dismiss, and releases the layer when it retires",
 			run = function()
 				local engine: any = engineLib.new()
 				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)

@@ -3898,64 +3898,6 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			})
 		end,
 	},
-	focusQuery = {
-		host = "TabView",
-		family = "navigation",
-		alias = "Focus query",
-		purpose = "UI.focusQuery(from) reports what a D-pad or arrow move from a control would select and why "
-			.. "(capture, link, beam, stop or none), without moving the selection. Select a control below.",
-		snippet = "UI.focusQuery(selected)",
-		base = function()
-			return {}
-		end,
-		make = function(UI: FacetControls, _: Properties, c: Context): Instance
-			local selected: Cell<GuiObject?> = c.Compose.cell(nil :: GuiObject?)
-			local function cell(name: string): any
-				local node = UI.Button({ Name = name, label = name })
-				node.SelectionGained:Connect(function()
-					selected:set(node :: GuiObject)
-				end)
-				return node
-			end
-
-			local angle = 0
-			local dial = UI.Text({ Name = "Dial", textRole = "label" :: "label", text = "Dial 0°" }) :: TextLabel
-			UI.adjustable(dial, {
-				axis = "horizontal" :: "horizontal",
-				onAdjust = function(direction)
-					angle += direction * 15
-					dial.Text = `Dial {angle}°`
-				end,
-			})
-			dial.SelectionGained:Connect(function()
-				selected:set(dial :: GuiObject)
-			end)
-			local function row(direction: string): any
-				return UI.Text({
-					Name = direction,
-					textRole = "caption" :: "caption",
-					text = function(use: Use)
-						local from = use(selected)
-						if from == nil then
-							return `{direction}: —`
-						end
-						local move = UI.focusQuery(from)[direction]
-						return `{direction}: {if move.target then move.target.Name else "—"} ({move.rule})`
-					end,
-				})
-			end
-			return UI.HStack({
-				gap = "l",
-				UI.VStack({
-					gap = "xs",
-					UI.HStack({ gap = "xs", cell("A1") :: unknown, cell("A2"), cell("A3") }) :: unknown,
-					UI.HStack({ gap = "xs", cell("B1") :: unknown, dial, cell("B3") }),
-					UI.HStack({ gap = "xs", cell("C1") :: unknown, cell("C2"), cell("C3") }),
-				}) :: unknown,
-				UI.VStack({ gap = "xs", row("Up") :: unknown, row("Down"), row("Left"), row("Right") }),
-			})
-		end,
-	},
 	Toast = {
 		family = "overlays",
 		matrix = false,

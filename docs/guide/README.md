@@ -44,7 +44,6 @@ to select a control. Then read the exact contract of that control in the
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
 | One theme focus ring in place of the engine selection glow | `UI.focusRing` |
 | Selection that returns to the last item of a sidebar or other section | `UI.focusSection` |
-| What a D-pad or arrow move selects from a control, and why, without moving | `UI.focusQuery` |
 | A HUD that leaves Tab and Space to the game until the player taps it | `UI.responder` |
 | Drag and drop between your own nodes on every input | `UI.draggable`, `UI.dropTarget` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |

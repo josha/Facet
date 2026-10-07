@@ -3,6 +3,7 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local GuiService = game:GetService("GuiService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 
@@ -33,6 +34,12 @@ local function demos(): { string }
 	local out = {}
 	for _, entry in screen.list() do
 		table.insert(out, if type(entry) == "table" then entry.id else entry)
+	end
+	local added = workspace:GetAttribute("Facet_Demos")
+	if type(added) == "string" then
+		for _, entry in HttpService:JSONDecode(added) do
+			table.insert(out, entry.id)
+		end
 	end
 	return out
 end
@@ -145,6 +152,19 @@ add("disabled-subtree", {}, function(t: any)
 	end
 end)
 
+local function contentEnd(frame: ScrollingFrame): number
+	local extent = 0
+	for _, child in frame:GetChildren() do
+		if child:IsA("GuiObject") and child.Visible then
+			extent = math.max(
+				extent,
+				child.AbsolutePosition.Y - frame.AbsolutePosition.Y + frame.CanvasPosition.Y + child.AbsoluteSize.Y
+			)
+		end
+	end
+	return extent
+end
+
 local function scrollers(t: any, where: string)
 	local layer = gallery()
 	local count = 0
@@ -156,18 +176,7 @@ local function scrollers(t: any, where: string)
 		t.settle(30)
 		for _, frame in layer:GetDescendants() do
 			if frame:IsA("ScrollingFrame") and t.visible(frame) and frame.AbsoluteWindowSize.Y > 0.5 then
-				local extent = 0
-				for _, child in frame:GetChildren() do
-					if child:IsA("GuiObject") and child.Visible then
-						extent = math.max(
-							extent,
-							child.AbsolutePosition.Y
-								- frame.AbsolutePosition.Y
-								+ frame.CanvasPosition.Y
-								+ child.AbsoluteSize.Y
-						)
-					end
-				end
+				local extent = contentEnd(frame)
 				count += 1
 				t.check(
 					`{where} {id} {frame.Name} canvas holds its content`,
@@ -177,13 +186,25 @@ local function scrollers(t: any, where: string)
 					{ canvas = frame.AbsoluteCanvasSize.Y, content = extent, window = frame.AbsoluteWindowSize.Y }
 				)
 				local before = frame.CanvasPosition
-				frame.CanvasPosition = Vector2.new(before.X, frame.AbsoluteCanvasSize.Y)
-				t.settle(2)
+				local jumps = 0
+				repeat
+					local target = frame.AbsoluteCanvasSize.Y
+					frame.CanvasPosition = Vector2.new(before.X, target)
+					t.settle(2)
+					jumps += 1
+				until math.abs(frame.AbsoluteCanvasSize.Y - target) <= 1 or jumps >= 8
 				local bottom = frame.CanvasPosition.Y + frame.AbsoluteWindowSize.Y
+				local reached = contentEnd(frame)
 				t.check(
 					`{where} {id} {frame.Name} scrolls to its content end`,
-					bottom + 1 >= math.min(extent, frame.AbsoluteCanvasSize.Y),
-					{ bottom = bottom, content = extent }
+					bottom + 1 >= math.min(reached, frame.AbsoluteCanvasSize.Y),
+					{
+						bottom = bottom,
+						content = reached,
+						jumps = jumps,
+						canvas = frame.AbsoluteCanvasSize.Y,
+						window = frame.AbsoluteWindowSize.Y,
+					}
 				)
 				frame.CanvasPosition = before
 			end

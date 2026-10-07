@@ -588,10 +588,15 @@ local function underlineCheck(t: any, where: string, indicator: any, id: string)
 	t.near(`{where} the underline starts under {id}`, u.x, c.x, 1)
 	t.near(`{where} the underline spans {id}`, u.w, c.w, 1)
 	t.near(`{where} the underline sits on the strip's bottom line under {id}`, u.b, s.b, 1)
-	t.check(`{where} the underline sits inside {id}'s column`, u.y >= c.y - 0.5 and u.b <= c.b + 1, {
-		underline = { u.x, u.y, u.w, u.h },
-		cell = { c.x, c.y, c.w, c.h },
-	})
+	t.check(
+		`{where} the underline sits in the band under {id}'s column`,
+		u.x >= c.x - 1 and u.r <= c.r + 1 and u.y >= c.b - 0.5 and u.b <= s.b + 1,
+		{
+			underline = { u.x, u.y, u.w, u.h },
+			cell = { c.x, c.y, c.w, c.h },
+			strip = { s.x, s.y, s.w, s.h },
+		}
+	)
 end
 
 add("steps-underline-follows-and-springs", { "post-step-02", "post-step-03", "post-step-07" }, function(t)

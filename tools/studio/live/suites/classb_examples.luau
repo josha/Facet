@@ -124,7 +124,7 @@ add("word-board-holds-glyphs-at-every-text-size", { "apps2-27" }, function(t)
 	for _, theme in t.themes do
 		local stage, built = example(t, "05_word_game", phone, nil, theme.package)
 		t.settle(4)
-		for _, letter in { "R", "U", "L", "E", "S" } do
+		for _, letter in { "R", "U", "L", "E", "R", "S" } do
 			built.press(letter)
 		end
 		built.press("Return")
@@ -176,7 +176,7 @@ add("word-board-holds-glyphs-at-every-text-size", { "apps2-27" }, function(t)
 					table.insert(bad, { tile.Name, "letter and mark overlap", t.rect(drawn[1]), t.rect(drawn[2]) })
 				end
 			end
-			t.check(`{where} the board draws letters and marks`, seen >= 10, seen)
+			t.check(`{where} the board draws letters and marks`, seen >= 12, seen)
 			t.check(`{where} every letter and mark has a box inside its tile that holds it`, #bad == 0, bad)
 			t.inside(`{where} the board fits the phone width`, board, stage, 0.5)
 		end
@@ -567,7 +567,12 @@ add("playlist-320x640-edit-mode-cells", { "apps2-180" }, function(t)
 		end
 	end
 	t.note("320x640 edit mode first row", measures)
-	t.near("name cell measures 98 px", measures.name and measures.name.cell or 0, 98, 0.5)
+	t.near("name cell keeps its 90 px minimum width", measures.name and measures.name.cell or 0, 90, 0.5)
+	t.check(
+		"only the Artist column, which has a priority, collapses",
+		shown.name and shown.rating and not shown.artist,
+		shown
+	)
 	local collapsed = not shown.artist or not shown.rating
 	local more = row.Parent and row.Parent:FindFirstChild("Details")
 	t.check(

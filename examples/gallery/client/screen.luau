@@ -57,6 +57,7 @@ function screen.configure(ctx: { [string]: any })
 			connection:Disconnect()
 		end)
 	end
+	ctx.topInset = inset
 	ctx.metricScale = Compose.cell(nil)
 	ctx.previewScale = Compose.formula(function(use: Use)
 		local device = use(ctx.device)
@@ -641,7 +642,9 @@ function screen.build(ctx: any)
 			end,
 			height = function(use: Use)
 				local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
-				return math.min(use(content), math.max(120, size.height - toolbarHeight(use) - 16))
+				local framed = use(ctx.device) and use(ctx.device).width
+				local reserved = if framed or not ctx.topInset then 0 else use(ctx.topInset)
+				return math.min(use(content), math.max(120, size.height - reserved - toolbarHeight(use) - 16))
 			end,
 			SelectionGroup = true,
 			SelectionBehaviorLeft = Enum.SelectionBehavior.Stop,

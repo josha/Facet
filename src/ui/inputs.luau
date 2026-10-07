@@ -280,25 +280,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							return if direction < 0 then value > minimum else value < maximum
 						end
 					end
-					local function start(
-						token: unknown,
-						direction: number,
-						holding: () -> boolean,
-						directional: boolean?
-					)
+					local function start(token: unknown, direction: number, holding: () -> boolean)
 						stopRepeat()
 						local can = movable(direction)
 						if not can() then
-							local gui = ctx.config.guiService
-							if directional and gui and minimum ~= nil and maximum ~= nil and active(peekUse :: any) then
-								local way: Shared.FocusDirection = if adjust.vertical
-									then (if direction < 0 then "Down" else "Up")
-									else (if direction < 0 then "Left" else "Right")
-								local target = ctx.focusPast(node, way)
-								if target then
-									gui.SelectedObject = target
-								end
-							end
 							return
 						end
 						apply(direction)
@@ -322,9 +307,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							)
 						end
 					end
+					local function steers(direction: number): (ComposeTypes.Use) -> boolean
+						return function(use: ComposeTypes.Use): boolean
+							if not active(use) then
+								return false
+							end
+							if adjust.arrows then
+								return adjust.arrows(use, direction)
+							end
+							if minimum == nil or maximum == nil then
+								return true
+							end
+							local value = read(spec.value, use)
+							return if direction < 0 then value > minimum else value < maximum
+						end
+					end
 					local function bind(name: string, keys: Shared.ActionBindings, direction: number, arrow: boolean?)
 						local action: InputAction
-						action = ctx.action(node, name, keys, active, function()
+						action = ctx.action(node, name, keys, if arrow then steers(direction) else active, function()
 							if arrow and landing then
 								return
 							end
@@ -333,7 +333,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							local engaged = state ~= nil and state(action) == true
 							start(action, direction, function(): boolean
 								return not engaged or (state :: (InputAction) -> unknown)(action) == true
-							end, arrow)
+							end)
 						end, {
 							priority = 250,
 							capture = true,
@@ -396,7 +396,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							elseif ctx.available(node) then
 								start("stick", direction, function(): boolean
 									return leaning == direction
-								end, true)
+								end)
 							end
 						end
 						if stickInput then
@@ -429,6 +429,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end, node)
 	end
 	local icon = ctx.icon
+	local contentGap = 8
 
 	local buttonKeys = table.freeze({
 		"haptic",
@@ -686,13 +687,26 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
 							minimum = 0
 						end
+						local leadingGlyph, trailingGlyph = read(spec.icon, use), read(spec.trailingIcon, use)
+						local glyphs = (if leadingGlyph ~= nil and leadingGlyph ~= "" then 1 else 0)
+							+ (if trailingGlyph ~= nil and trailingGlyph ~= "" then 1 else 0)
+						local glyphSide = ctx.controlSize(
+							if spec.controlSize ~= nil then spec.controlSize else ctx.config.controlSize,
+							"iconSize",
+							use
+						)
+						local caption = read(spec.label, use)
+						local captioned = caption ~= nil and caption ~= ""
+						local content = if captioned
+							then ctx.metric("typography.control.size", use) + glyphs * (glyphSide + contentGap)
+							else glyphs * glyphSide + math.max(0, glyphs - 1) * contentGap
 						return V2.new(
 							math.max(
 								minimum,
 								2 * ctx.controlSize(spec.controlSize, "paddingX", use)
 									+ (carve.left or 0)
 									+ (carve.right or 0)
-									+ ctx.metric("typography.control.size", use)
+									+ content
 							),
 							minimum
 						)

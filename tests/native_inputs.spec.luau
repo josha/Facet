@@ -1220,6 +1220,62 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("an authored-width icon Button counts each icon and its gap in the minimum width", {
+			id = "native_inputs::native input controls::an authored-width icon Button counts each icon and its gap in the minimum width",
+			run = function()
+				for _, case: { themeName: string, themeModule: string | nil } in
+					{
+						{ themeName = "neutral", themeModule = nil },
+						{ themeName = "compact", themeModule = "compact_pointer" },
+						{ themeName = "pixel", themeModule = "pixel_quest" },
+					} :: { { themeName: string, themeModule: string | nil } }
+				do
+					local package = if case.themeModule
+						then requireDynamic("../examples/themes/" .. case.themeModule).build(Facet.themes)
+						else nil
+					local leading = Compose.cell("rbxassetid://1")
+					local node, stop = world(function(UI: FacetControls, host, runtime)
+						local size = host.types.UDim2.fromOffset(52, 44)
+						local none = host.types.Enum.AutomaticSize.None
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+							UI.Button "Lead" { icon = leading, label = "Go", Size = size, AutomaticSize = none } :: unknown,
+							UI.Button "Both" {
+								icon = "rbxassetid://1",
+								trailingIcon = "rbxassetid://1",
+								label = "Go",
+								Size = size,
+								AutomaticSize = none,
+							},
+							UI.Button "Plain" { label = "Go", Size = size },
+							UI.Button "Glyph" { icon = "rbxassetid://1", label = "", Size = size, AutomaticSize = none },
+						})
+					end, function()
+						return { theme = package }
+					end)
+					local metrics = (package or Facet.themes.neutralPackage()).metrics
+					local rung = metrics.controlSizes.regular
+					local skin = package and package.chrome and package.chrome.control
+					local carve = if skin then skin.contentInsets or {} else {}
+					local label = 2 * rung.paddingX
+						+ (carve.left or 0)
+						+ (carve.right or 0)
+						+ metrics.typography.control.size
+					local function minimum(name: string): string
+						local limit = find(node, name):FindFirstChildWhichIsA("UISizeConstraint")
+						return `{case.themeName} {name} {limit.MinSize.X}`
+					end
+					Verify.expect(minimum("Plain")):toBe(`{case.themeName} Plain {label}`)
+					Verify.expect(minimum("Lead")):toBe(`{case.themeName} Lead {label + rung.iconSize + 8}`)
+					Verify.expect(minimum("Both")):toBe(`{case.themeName} Both {label + 2 * (rung.iconSize + 8)}`)
+					leading:set("")
+					Verify.expect(minimum("Lead")):toBe(`{case.themeName} Lead {label}`)
+					Verify.expect(minimum("Glyph"))
+						:toBe(`{case.themeName} Glyph {label - metrics.typography.control.size + rung.iconSize}`)
+					stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("clamps a fixed-size button's icon to its content box and never to zero", {
 			id = "native_inputs::native input controls::clamps a fixed-size button's icon to its content box and never to zero",
 			run = function()
@@ -2056,8 +2112,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((contexts[1]:isDestroyed())):toBe(true)
 			end,
 		})
-		verifyHarness:case("a held arrow repeats up to the bound and the axis stays owned at the bound", {
-			id = "native_inputs::native input controls::a held arrow repeats up to the bound and the axis stays owned at the bound",
+		verifyHarness:case("a held arrow repeats up to the bound and releases the axis at the bound", {
+			id = "native_inputs::native input controls::a held arrow repeats up to the bound and releases the axis at the bound",
 			run = function()
 				local value = Compose.cell(95)
 				local gui
@@ -2074,18 +2130,18 @@ return function(verifyHarness: Verify.Harness)
 					engine.heartbeat:Fire(0.1)
 				end
 				Verify.expect((value:peek())):toBe(100)
-				Verify.expect(increase.Parent.Enabled):toBe(true)
+				Verify.expect(increase.Parent.Enabled):toBe(false)
 				increase.Released:Fire()
+				Verify.expect(increase.Parent.Enabled):toBe(false)
+				Verify.expect(enabledAction(node.Parent, "DecreaseArrow").Parent.Enabled):toBe(true)
+				value:set(99)
 				Verify.expect(increase.Parent.Enabled):toBe(true)
-				increase.Pressed:Fire()
-				increase.Released:Fire()
-				Verify.expect((value:peek())):toBe(100)
 				stop()
 			end,
 		})
 
-		verifyHarness:case("keeps the axis at value bounds and rearms on focus return", {
-			id = "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+		verifyHarness:case("releases the axis at value bounds and rearms on focus return", {
+			id = "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
 			run = function()
 				local value = Compose.cell(4)
 				local node, stop = world(function(UI: FacetControls)
@@ -2099,12 +2155,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(increase.Parent.Enabled):toBe(true)
 				increase.Pressed:Fire()
 				Verify.expect((value:peek())):toBe(5)
-				Verify.expect(increase.Parent.Enabled):toBe(true)
+				Verify.expect(increase.Parent.Enabled):toBe(false)
 				increase.Released:Fire()
-				Verify.expect(increase.Parent.Enabled):toBe(true)
-				increase.Pressed:Fire()
-				increase.Released:Fire()
-				Verify.expect((value:peek())):toBe(5)
+				Verify.expect(increase.Parent.Enabled):toBe(false)
 				Verify.expect(bumper.Parent.Enabled):toBe(true)
 				Verify.expect(decrease.Parent.Enabled):toBe(true)
 				decrease.Pressed:Fire()

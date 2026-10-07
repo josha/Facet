@@ -126,7 +126,19 @@ The Showcase stays on the screen during each suite, but not during
 `layout_geometry`. The live place also has the fixture pages of
 `tools/studio/live/fixture_demos.json`, for example `all-controls`. The
 Showcase place does not have them. The gallery reads them from the
-`Facet_Demos` attribute of `Workspace`.
+`Facet_Demos` attribute of `Workspace`. The live place also has the modules
+of `examples/virtual_monitors` in `ReplicatedStorage.VirtualMonitors`.
+
+Studio keeps the device emulation between its processes. Thus the harness
+sets the environment before each case and after each case. The default is no
+emulation and mouse input. `--device NAME` sets an emulated device, for
+example `iphone_14`. `--device keep` does not change the emulation: use it
+with `--studio ID` when the Controller Emulator is on, because a stop of the
+emulation also turns off the Controller Emulator. A case that needs a device
+calls `t.device`. The report environment records `preferredInput`.
+
+A case with `probe = true` records measurements only. It passes when it
+records a note.
 
 Each case attaches its measurements as `notes.json`. The command writes the
 attachments of a case in `artifacts/studio-live/<suite>-<tag>/<case id>/`. A
@@ -227,8 +239,12 @@ atlas: each stop's rectangle, links, value-control axis, and the chain of
 SelectionGroups and ScrollingFrames around it. It then selects each stop and
 presses DPadDown, DPadLeft and DPadRight, and the stick in four directions,
 recording where the engine moved the selection and the scroll offsets at the
-moment of the press. Options go in `shared.FacetFocusWalk`. Set them with
-`--shared 'FacetFocusWalk={"up":3}'`:
+moment of the press. It also records the scene of the move: each stop that
+moved, went away or appeared after the atlas was made. A press can change the
+page, for example when Left on a column grip makes the column narrower. When
+a press changes the page and the selection does not move, the walk shows the
+page again before the next press. Options go in `shared.FacetFocusWalk`. Set
+them with `--shared 'FacetFocusWalk={"up":3}'`:
 
 - `only`: a substring of the page name;
 - `up`: seconds to wait for D-pad Up per stop. The wait is the Verify step
@@ -244,10 +260,10 @@ moment of the press. Options go in `shared.FacetFocusWalk`. Set them with
 
 Each atlas is an attachment with the directory `atlas`, and the command
 writes it in `tests/fixtures/focus_atlas`. The headless spec
-`native_focus_walk` replays each atlas through `UI.focusQuery` with the recorded
-scroll offsets and fails on an unreachable stop, a dead end, or a D-pad or
-arrow move where the engine and the query disagree. A known engine difference
-is listed in `divergences.json` with its fact id from the input guide.
+`native_focus_walk` reads the moves that the engine made in each atlas. It
+fails when a stop cannot be reached from the first stop, when a move lands on
+a control that the atlas does not know, or when a move did not settle. It
+does the reach check only for an atlas that has the scene of each move.
 `FACET_FOCUS_ATLAS` points the spec at another atlas directory, and
 `FACET_FOCUS_WALK_REPORT` names a directory for a JSON report per failing page.
 

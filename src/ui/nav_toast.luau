@@ -358,10 +358,37 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local reduced = reducedMotion(ctx)
 		local level = motion.level(ctx)
 		local body: Instance
+		local measure: TextLabel? = nil
+		local hugWidth: ((ComposeTypes.Use) -> number)? = nil
 		if spec.content then
 			body = spec.content()
 		else
 			local message = spec.message
+			if hug then
+				local probe = ctx.text({
+					Name = "MessageMeasure",
+					Text = function(use: ComposeTypes.Use)
+						return read(message, use) or ""
+					end,
+					TextWrapped = false,
+					TextTransparency = 1,
+					Size = D2.fromOffset(0, 0),
+					AutomaticSize = E.AutomaticSize.None,
+					Visible = false,
+				})
+				measure = probe
+				local natural = ctx.layoutBounds(probe, ctx.layoutUnit(probe))
+				hugWidth = function(use: ComposeTypes.Use): number
+					local package = ctx.read(ctx.config.theme, use)
+					local panel = if package and package.chrome then package.chrome.panel else nil
+					local insets = if panel then panel.contentInsets else nil
+					return math.ceil(use(natural).X)
+						+ 1
+						+ math.max(12, if insets then insets.left or 0 else 0)
+						+ math.max(12, if insets then insets.right or 0 else 0)
+						+ (if spec.icon then ctx.controlSize(nil, "iconSize", use) + 8 else 0)
+				end
+			end
 			body = withIcon(
 				spec.icon,
 				ctx.text({
@@ -371,10 +398,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end,
 					TextWrapped = true,
 					LayoutOrder = 1,
-					Size = if hug then D2.fromOffset(0, 0) else D2.fromScale(1, 0),
-					AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
+					Size = D2.fromScale(1, 0),
+					AutomaticSize = E.AutomaticSize.Y,
 				}),
-				hug
+				false
 			)
 		end
 		local toastTiming, present = ctx.motionTiming("toast"), ctx.motionEase("present")
@@ -405,9 +432,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Interactable = false,
 			ZIndex = ROW_Z,
 			AnchorPoint = V2.new(0.5, if bottom then 1 else 0),
-			AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
+			AutomaticSize = if hug and hugWidth == nil then E.AutomaticSize.XY else E.AutomaticSize.Y,
 			Size = function(use: ComposeTypes.Use)
-				return if hug then D2.fromOffset(0, 0) else D2.fromOffset(math.max(0, use(extent).X - 32), 0)
+				local room = math.max(0, use(extent).X - 32)
+				if not hug then
+					return D2.fromOffset(room, 0)
+				end
+				return if hugWidth
+					then D2.fromOffset(math.min(HUG_MAX, room, hugWidth(use)), 0)
+					else D2.fromOffset(0, 0)
 			end,
 			Position = function(use: ComposeTypes.Use)
 				local y = if reduced(use) then target(use) else use(settle)
@@ -417,6 +450,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 			body,
 		}
+		if measure then
+			props[#props + 1] = measure
+		end
 		props[#props + 1] = ctx.padding(12, 8)
 		props[#props + 1] = ctx.corner()
 		if hug then

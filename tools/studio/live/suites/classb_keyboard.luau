@@ -5,6 +5,7 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
 type Case = {
 	id: string,
@@ -923,9 +924,12 @@ add("circle-corner-wins-in-every-package", { "inputs-46" }, function(t)
 			t.check(`{entry.name} {name} has the circle tag`, node:HasTag("facet-shape-circle"))
 			t.check(`{entry.name} {name} has one corner modifier`, #corners == 1, #corners)
 			if corners[1] then
+				local square = entry.package.metrics.radii.pill == 0
 				t.check(
-					`{entry.name} {name} corner stays fully round`,
-					corners[1]:GetStyled("CornerRadius") == UDim.new(1, 0),
+					if square
+						then `{entry.name} {name} corner is square in a theme with no pill radius`
+						else `{entry.name} {name} corner stays fully round`,
+					corners[1]:GetStyled("CornerRadius") == (if square then UDim.new(0, 0) else UDim.new(1, 0)),
 					tostring(corners[1]:GetStyled("CornerRadius"))
 				)
 			end
@@ -1162,7 +1166,12 @@ add("clear-button-trailing-and-centred", { "inputs-187" }, function(t)
 		t.check(`{where} the clear button is inside the trailing edge`, inset >= -0.5 and inset <= 12, inset)
 		t.check(`{where} the clear button is in the trailing half`, c.x > f.x + f.w / 2, { clear = c.x, field = f })
 		t.near(`{where} the clear button is vertically centred`, c.y + c.h / 2, f.y + f.h / 2, 1)
-		t.check(`{where} the clear button is a 44 px target`, c.w >= 43.5 and c.h >= 43.5, { c.w, c.h })
+		if UserInputService.TouchEnabled or UserInputService.GamepadEnabled then
+			t.check(`{where} the clear button is a 44 px target`, c.w >= 43.5 and c.h >= 43.5, { c.w, c.h })
+		else
+			t.near(`{where} the pointer clear button is 28 px wide inside the text line`, c.w, 28, 0.5)
+			t.near(`{where} the pointer clear button is 28 px tall inside the text line`, c.h, 28, 0.5)
+		end
 		t.cleanup()
 	end
 end)

@@ -11,9 +11,6 @@ export type Selection = {
 	track: (Instance) -> (),
 	responder: (Instance, Env.ResponderOptions?) -> Env.Responder,
 	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
-	query: (GuiObject?, boolean?) -> Env.FocusQuery,
-	past: (GuiObject, Env.FocusDirection) -> GuiObject?,
-	pinned: { [GuiObject]: { [string]: GuiObject? } },
 }
 
 local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true }
@@ -32,9 +29,6 @@ return function(ctx: Shared.Context): Selection
 	local registry = (
 		setmetatable({} :: { [Instance]: boolean }, { __mode = "k" }) :: unknown
 	) :: { [Instance]: boolean }
-	local pinned = (
-		setmetatable({} :: { [GuiObject]: { [string]: GuiObject? } }, { __mode = "k" }) :: unknown
-	) :: { [GuiObject]: { [string]: GuiObject? } }
 	local directionKeys = { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight }
 
 	local function ordered(parent: Instance): { Instance }
@@ -235,154 +229,6 @@ return function(ctx: Shared.Context): Selection
 			end
 		end
 		return target
-	end
-
-	local DIRECTIONS: { Env.FocusDirection } = { "Up", "Down", "Left", "Right" }
-
-	local function onScreen(node: GuiObject, left: number, top: number, right: number, bottom: number): boolean
-		local collector = collectorOf(node)
-		local view = if collector and collector:IsA("GuiBase2d") then (collector :: GuiBase2d).AbsoluteSize else nil
-		if view and view.X > 0 and view.Y > 0 then
-			return right > 0 and bottom > 0 and left < view.X and top < view.Y
-		end
-		return true
-	end
-
-	local function inView(origin: GuiObject, candidate: GuiObject): boolean
-		local at, size = candidate.AbsolutePosition, candidate.AbsoluteSize
-		local left, top, right, bottom = at.X, at.Y, at.X + size.X, at.Y + size.Y
-		local parent = candidate.Parent
-		while parent and not parent:IsA("LayerCollector") do
-			if parent:IsA("ScrollingFrame") then
-				if origin:IsDescendantOf(parent) then
-					return true
-				end
-				local box, window = parent.AbsolutePosition, parent.AbsoluteSize
-				left, top = math.max(left, box.X), math.max(top, box.Y)
-				right, bottom = math.min(right, box.X + window.X), math.min(bottom, box.Y + window.Y)
-				if right <= left or bottom <= top or not onScreen(candidate, left, top, right, bottom) then
-					return false
-				end
-			end
-			parent = parent.Parent
-		end
-		return onScreen(candidate, left, top, right, bottom)
-	end
-
-	local function groupsOf(node: GuiObject): { GuiObject }
-		local found = {}
-		local at = node.Parent
-		while at and not at:IsA("LayerCollector") do
-			if at:IsA("GuiObject") and (at :: GuiObject).SelectionGroup then
-				table.insert(found, at :: GuiObject)
-			end
-			at = at.Parent
-		end
-		return found
-	end
-
-	local function capturedAxis(origin: GuiObject, direction: string): boolean
-		if not origin:HasTag("facet-adjustable") or not origin.Selectable or not shown(origin) then
-			return false
-		end
-		local axis = origin:GetAttribute("axis")
-		if axis == "horizontal" then
-			return direction == "Left" or direction == "Right"
-		end
-		return axis == "vertical" and (direction == "Up" or direction == "Down")
-	end
-
-	local function atLimit(origin: GuiObject, direction: string): boolean
-		local value, low, high =
-			origin:GetAttribute("value"), origin:GetAttribute("minimum"), origin:GetAttribute("maximum")
-		if type(value) ~= "number" or type(low) ~= "number" or type(high) ~= "number" then
-			return false
-		end
-		local increase = direction == "Right" or direction == "Up"
-		return if increase then value >= high else value <= low
-	end
-
-	local function query(from: GuiObject?, past: boolean?): Env.FocusQuery
-		local origin = from or (if gui then gui.SelectedObject else nil)
-		local result: { [string]: Env.FocusMove } = {}
-		if origin == nil then
-			for _, direction in DIRECTIONS do
-				result[direction] = table.freeze({ target = nil, rule = "none" })
-			end
-			return table.freeze(result) :: any
-		end
-		local pool: { GuiObject } = {}
-		for _, candidate in scopeOf(origin) do
-			local size = candidate.AbsoluteSize
-			if
-				candidate ~= origin
-				and not (past and origin:IsA("ScrollingFrame") and candidate:IsDescendantOf(origin))
-				and not (candidate:IsA("ScrollingFrame") and origin:IsDescendantOf(candidate))
-				and size.X > 0
-				and size.Y > 0
-				and inView(origin, candidate)
-			then
-				table.insert(pool, candidate)
-			end
-		end
-		local groups = groupsOf(origin)
-		local function nearest(list: { GuiObject }, direction: string): GuiObject?
-			local rects = table.create(#list)
-			for index, node in list do
-				rects[index] = rectOf(node)
-			end
-			local index =
-				Compose.focusNeighbor(rectOf(origin), rects, string.lower(direction) :: ComposeTypes.FocusDirection)
-			return if index then list[index] else nil
-		end
-		local function pick(list: { GuiObject }, direction: string): GuiObject?
-			local target = nearest(list, direction)
-			while target and target:IsA("ScrollingFrame") and target:GetAttribute("FacetSelectionOwner") ~= true do
-				local inner = entryOf(target, origin)
-				target = if inner == target then nil else inner
-			end
-			return if target == origin then nil else target
-		end
-		for _, direction in DIRECTIONS do
-			local live = (origin :: any)["NextSelection" .. direction] :: GuiObject?
-			local authored = pinned[origin]
-			local link = if live ~= origin then live elseif authored then authored[direction] else nil
-			if
-				not past
-				and not (capturedAxis(origin, direction) and atLimit(origin, direction))
-				and (live == origin or capturedAxis(origin, direction))
-			then
-				result[direction] = table.freeze({ target = origin, rule = "capture" })
-				continue
-			end
-			if link and link.Selectable and shown(link) then
-				result[direction] = table.freeze({ target = link, rule = "link" })
-				continue
-			end
-			local target: GuiObject? = nil
-			local stopped = false
-			for _, group in groups do
-				local inside = {}
-				for _, node in pool do
-					if node:IsDescendantOf(group) then
-						table.insert(inside, node)
-					end
-				end
-				target = pick(inside, direction)
-				if target or (group :: any)["SelectionBehavior" .. direction] == E.SelectionBehavior.Stop then
-					stopped = target == nil
-					break
-				end
-			end
-			if target == nil and not stopped then
-				target = pick(pool, direction)
-			end
-			result[direction] = table.freeze({
-				target = target,
-				rule = if target then "beam" elseif stopped then "stop" else "none",
-			})
-		end
-		return table.freeze(result) :: any
 	end
 
 	local function wraps(node: Instance): boolean
@@ -913,10 +759,5 @@ return function(ctx: Shared.Context): Selection
 		track = track,
 		responder = responder,
 		spaceActivates = spaceActivates,
-		query = query,
-		past = function(origin: GuiObject, direction: Env.FocusDirection): GuiObject?
-			return query(origin, true)[direction].target
-		end,
-		pinned = pinned,
 	}
 end

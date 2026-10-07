@@ -9536,7 +9536,7 @@
       "class": "a",
       "candidateCases": [
         "native_inputs::native input controls::allocates native value actions only for the selected control, never for a part inside it",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return"
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return"
       ]
     },
     {
@@ -17755,9 +17755,9 @@
       "candidateCases": [
         "native_inputs::native input controls::supports clearing a rating and keeps read-only levels inert",
         "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
         "native_parity_weaker_values::native parity weaker values::level picker pointer tap and touch scrub reach the level arithmetic",
-        "native_parity_weaker_values::native parity weaker values::level picker keyboard and gamepad adjust only while selected and hold the axis at the limit",
+        "native_parity_weaker_values::native parity weaker values::level picker keyboard and gamepad adjust only while selected and release the axis at the limit",
         "native_parity_weaker_values::native parity weaker values::level picker cancels a pointer scrub back to its snapshot when the gamepad takes over",
         "native_parity_weaker_values::native parity weaker values::level picker disabled refuses pointer scrub and adjust input"
       ]
@@ -18109,7 +18109,7 @@
       "class": "a",
       "candidateCases": [
         "native_inputs::native input controls::allocates native value actions only for the selected control, never for a part inside it",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return"
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return"
       ]
     },
     {
@@ -18446,7 +18446,7 @@
       "candidateCases": [
         "native_inputs::native input controls::supports clearing a rating and keeps read-only levels inert",
         "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
         "native_parity_weaker_values::native parity weaker values::rating is one focus stop that pointer touch keyboard and gamepad all adjust",
         "native_parity_weaker_values::native parity weaker values::rating read-only and disabled refuse every input class",
         "native_parity_weaker_values::native parity weaker values::level picker read-only is not selectable and refuses pointer scrub and adjust input"
@@ -18498,8 +18498,8 @@
       "mainCases": 7,
       "class": "a",
       "candidateCases": [
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
-        "native_parity_weaker_focus::native parity weaker focus::holds the minimum-side arrow at the bound while bumpers stay bound, also inside a list row"
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
+        "native_parity_weaker_focus::native parity weaker focus::releases the minimum-side arrow at the bound while bumpers stay bound, also inside a list row"
       ]
     },
     {
@@ -40337,7 +40337,7 @@
       "mainCases": 2,
       "class": "b",
       "candidateCases": [
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return"
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return"
       ],
       "nativeMechanism": "Native gamepad and arrow selection owns horizontal movement; a selected Slider or Stepper binds Left and Right only while it is selected and yields them at its bounds. No focus chrome host exists.",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",

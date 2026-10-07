@@ -159,11 +159,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local headerLayout = headerContent and headerContent:FindFirstChildWhichIsA("UIListLayout")
 		if headerContent and headerLayout then
 			headerLayout.HorizontalAlignment = E.HorizontalAlignment.Left
-			local words = headerContent:FindFirstChild("Captions") or headerContent:FindFirstChild("Title")
-			if side == "trailing" and words then
+			local captions = headerContent:FindFirstChild("Captions")
+			local words = captions or headerContent:FindFirstChild("Title")
+			if words and (side == "trailing" or captions) then
 				runtime.mount(function()
 					return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
 				end, words)
+			end
+			local caption = captions and captions:FindFirstChild("Description")
+			if caption and caption:IsA("TextLabel") then
+				caption.TextWrapped = true
 			end
 		end
 

@@ -270,6 +270,7 @@ table.insert(cases, {
 table.insert(cases, {
 	id = "swipe-action-stretch",
 	run = function(t: any)
+		t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch })
 		local stage = t.mount(function(UI: any)
 			return UI.RowActions "Row" {
 				Position = UDim2.fromOffset(12, 240),

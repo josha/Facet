@@ -215,7 +215,6 @@ controls(runtime).dropTarget : function
 controls(runtime).environment : function
 controls(runtime).feedback : function
 controls(runtime).fill : function
-controls(runtime).focusQuery : function
 controls(runtime).focusRing : function
 controls(runtime).focusSection : function
 controls(runtime).responder : function
@@ -272,9 +271,6 @@ type Environment
 type ErrorBoundaryProps
 type Extent
 type Facet
-type FocusDirection
-type FocusMove
-type FocusQuery
 type GridProps
 type HapticKind
 type HierarchyOptions

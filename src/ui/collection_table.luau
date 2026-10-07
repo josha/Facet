@@ -491,7 +491,9 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 								return "Resize " .. tostring(read(value.label or value.id, use))
 							end) :: Types.Value<Types.AttributeValue?>,
 						},
-						Selectable = true,
+						Selectable = function(use: ComposeTypes.Use)
+							return not (preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad)
+						end,
 						AnchorPoint = V2.new(0.5, 0),
 						Position = D2.fromScale(1, 0),
 						Size = function(use: ComposeTypes.Use)
@@ -505,6 +507,9 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 						BackgroundTransparency = 1,
 						ZIndex = 3,
 						Host.UIDragDetector({
+							Enabled = function(use: ComposeTypes.Use): boolean
+								return not (preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad)
+							end,
 							DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
 							DragAxis = V2.new(1, 0),
 							ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
@@ -587,10 +592,10 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 					local function engaged(use: ComposeTypes.Use): boolean
 						return use(selected) or use(heading)
 					end
-					ctx.action(grip, "NarrowColumnKey", { E.KeyCode.Comma }, engaged, function()
+					ctx.action(grip, "NarrowColumnKey", { E.KeyCode.Comma, E.KeyCode.ButtonL1 }, engaged, function()
 						adjust(-8)
 					end, { priority = 300 })
-					ctx.action(grip, "WidenColumnKey", { E.KeyCode.Period }, engaged, function()
+					ctx.action(grip, "WidenColumnKey", { E.KeyCode.Period, E.KeyCode.ButtonR1 }, engaged, function()
 						adjust(8)
 					end, { priority = 300 })
 					ctx.action(

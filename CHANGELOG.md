@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- Breaking: `UI.focusQuery` and the types `FocusQuery`, `FocusMove` and
+  `FocusDirection` are removed. The engine makes each gamepad and arrow move.
+  A value control keeps the selection on its axis only while its value can
+  change in that direction. At its limit, the engine moves the selection. A
+  tree row with nothing to collapse or expand lets the engine move the
+  selection.
+
+- A Table header works with a gamepad. The column divider is not a selection
+  stop when the gamepad is the preferred input, thus the D-pad and the stick
+  move from one heading to the next. While a heading is selected, L1 makes its
+  column narrower and R1 makes it wider. Before, no move reached the heading
+  of a middle column, and a move across a divider changed the column width.
+
+- A Button with an icon and an authored width counts each icon and its gap in
+  the minimum width. Before, the icon left the content box at a tight width.
+
+- PageView dots have a 44 pixel target again. The painted dot is unchanged.
+
+- A range Slider draws its fill on whole pixels under the handle centres.
+  Before, the fill ended 1 pixel short of the upper handle.
+
+- A mouse drag on a selected Move handle moves the row. Before, the drag armed
+  a keyboard move. A mouse click on a Button row of a reorderable collection
+  activates the Button.
+
+- A Menu on a theme with no art carve keeps its rows in its panel. Before, the
+  panel took 16 pixels of padding that its height did not include, and a sheet
+  Menu with one row cut that row.
+
+- A Popover and a Dialog take their rest state from the live size of the
+  panel. Before, they could show one frame before their geometry was final.
+
 - `UI.Composition` puts `topbar` regions side by side in the top bar strip.
   Before, the strip stacked them vertically, so two regions overflowed it or
   stepped down. The regions now step down when their total width does not fit.

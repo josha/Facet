@@ -1068,7 +1068,8 @@ row, subtitle or hint) keeps that width, and its label truncates at the end.
 This also applies to a reactive `Size` with `AutomaticSize = None` or `Y`.
 Its content stays inside the padding, and the label shrinks before the icon.
 An authored width never leaves less than one `control` em for the label inside
-the padding and the theme carve: the Button grows to that minimum.
+the padding and the theme carve: the Button grows to that minimum. The minimum
+also holds each icon and the gap after it.
 Without an authored width, it hugs its label.
 
 ### Toggle
@@ -3459,10 +3460,18 @@ only while editing; otherwise its editor cells accept edits at all times.
 
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
 `widths` is a map of column widths. A pointer drags a heading's divider to
-resize the column. With a keyboard or gamepad, focus the divider: Left and
-Right resize, Up and Down sort by the column, and Escape or B returns focus to
-the heading. Comma and Period resize the column whose heading or divider has
-focus. `selection` is a key-set map.
+resize the column. With a keyboard, focus the divider: Left and Right resize,
+Up and Down sort by the column, and Escape returns focus to the heading. Comma
+and Period resize the column whose heading or divider has focus.
+
+With a gamepad, the divider is not a selection stop. The D-pad and the left
+stick move from one heading to the next heading. While a heading is selected,
+L1 makes its column narrower and R1 makes its column wider. Each press changes
+the width by 8 pixels, and the width stays between the column's `minWidth` and
+`maxWidth`. A column with `resizable = false` has no divider and no resize
+action.
+
+`selection` is a key-set map.
 `selectionMode` is `single`, `multiple` or `none`. When you supply
 `onSortChange`, `onWidthsChange` or `onSelectionChange`, it is a controlled
 request. Otherwise the control updates the writable cells.
@@ -4181,32 +4190,6 @@ Compose.show(open, function()
 	return detail
 end)
 ```
-
-### focusQuery
-
-`UI.focusQuery(from?) -> FocusQuery` says what a D-pad or arrow move from
-`from` (default: the selected object) selects and why, without moving. Each of
-`Up`, `Down`, `Left`, `Right` is `{ target, rule }`. `rule` is `"capture"` (a
-value control keeps that axis, whether or not it is selected yet), `"link"` (a
-`NextSelection*` link to a shown, selectable object; a link to a hidden or
-unselectable one is ignored), `"beam"`
-(Facet's model of the engine's own choice, measured in Studio: a candidate is
-ahead when its near edge is past the control's centre and, unless it overlaps
-on the cross axis, it ends past the control's leading edge; candidates that
-overlap on the cross axis come first, nearest edge first; then candidates whose
-centre lies within 45 degrees of the move from the middle of the leading edge,
-by the smallest centre offset plus 0.028 times the distance along the move;
-then the rest, by centre offset over the distance along the move to the power
-0.15),
-`"stop"` (a `SelectionGroup` with `SelectionBehavior` `Stop`) or `"none"`. The
-candidates are the ones Tab visits plus every selectable scroll container, minus zero-size objects, objects outside
-the screen, and children of a scroll container that does not hold `from` where
-its window is clipped or off the screen; a selectable scrolling frame ranks by its own rectangle like a
-control, and the query reports the control it passes the selection to; enclosing `SelectionGroup`s are searched from
-the innermost out, and the first one whose `SelectionBehavior` is `Stop` in
-that direction ends the search. The engine still
-performs every move; tests and tools use the query to check navigation without
-a device. The query does no per-frame work.
 
 ### responder
 

@@ -86,6 +86,7 @@ local function environment(): { [string]: any }
 		preferredTransparency = GuiService.PreferredTransparency,
 		reducedMotion = GuiService.ReducedMotionEnabled,
 		touch = game:GetService("UserInputService").TouchEnabled,
+		preferredInput = tostring(game:GetService("UserInputService").PreferredInput),
 		studio = RunService:IsStudio(),
 		version = version(),
 		stamp = workspace:GetAttribute("Facet_SourceStamp"),
@@ -102,6 +103,8 @@ local function demos(screen: any): { any }
 	end
 	return list
 end
+
+local baselineDevice = "none"
 
 local function newCase(Facet: any, themes: { any }, record: { [string]: any }, context: any?)
 	local t = {}
@@ -184,16 +187,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 	end
 	function t.visible(node: Instance): boolean
 		local current: Instance? = node
-		while current and current:IsA("GuiObject") do
-			if not current.Visible then
+		while current and not current:IsA("LayerCollector") do
+			if current:IsA("GuiObject") and not current.Visible then
 				return false
 			end
 			current = current.Parent
 		end
-		if current and current:IsA("LayerCollector") then
-			return current.Enabled
-		end
-		return current ~= nil
+		return current ~= nil and (current :: LayerCollector).Enabled
 	end
 	function t.mount(build: (any, any, any, any) -> any, options: { [string]: any }?): any
 		local config: { [string]: any } = options or {}
@@ -312,8 +312,8 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		local box = t.rect(node)
 		local x, y, r, b = box.x, box.y, box.r, box.b
 		local at = node.Parent
-		while at and at:IsA("GuiObject") do
-			if at.ClipsDescendants or at:IsA("ScrollingFrame") then
+		while at and not at:IsA("LayerCollector") do
+			if at:IsA("GuiObject") and (at.ClipsDescendants or at:IsA("ScrollingFrame")) then
 				local clip = t.rect(at)
 				x, y = math.max(x, clip.x), math.max(y, clip.y)
 				r, b = math.min(r, clip.r), math.min(b, clip.b)
@@ -349,6 +349,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 						(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
 						and node.ContentText ~= ""
 						and not node.TextScaled
+						and node:GetStyled("TextTransparency") < 1
 						and (node.TextBounds.X > node.AbsoluteSize.X + 0.5 or node.TextBounds.Y > node.AbsoluteSize.Y + 0.5 or (not node.TextFits and node:GetStyled(
 							"TextWrapped"
 						) == true))
@@ -443,9 +444,11 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 			t.settle(1)
 		end
 		table.insert(cleanups, 1, function()
-			pcall(function()
-				simulator:SetDeviceAsync(options.restore or "xbox")
-			end)
+			if baselineDevice == "keep" then
+				pcall(function()
+					simulator:SetDeviceAsync(options.restore or "xbox")
+				end)
+			end
 		end)
 		return workspace.CurrentCamera.ViewportSize
 	end
@@ -492,6 +495,40 @@ local function reportEnvironment(suite: string): { [string]: string }
 	return fields
 end
 
+local function baseline()
+	if baselineDevice == "keep" then
+		return
+	end
+	local input = game:GetService("UserInputService")
+	local simulated = false
+	pcall(function()
+		local simulator = game:GetService("StudioDeviceSimulatorService") :: any
+		if baselineDevice == "none" then
+			simulator:StopSimulationAsync()
+		else
+			simulator:SetDeviceAsync(baselineDevice)
+			simulated = true
+		end
+	end)
+	local viewport, steady = workspace.CurrentCamera.ViewportSize, 0
+	for frame = 1, 240 do
+		RunService.RenderStepped:Wait()
+		local now = workspace.CurrentCamera.ViewportSize
+		steady = if now == viewport then steady + 1 else 0
+		viewport = now
+		if not simulated and input.PreferredInput ~= Enum.PreferredInput.KeyboardAndMouse and frame % 10 == 1 then
+			steady = 0
+			pcall(function()
+				local virtual = (input :: any):CreateVirtualInput()
+				virtual:SendMousePosition(Vector2.new(4 + frame % 7, 4))
+			end)
+		end
+		if steady >= 30 then
+			break
+		end
+	end
+end
+
 local ATTACHMENTS = { maxBytes = 4194304, maxCount = 512, maxTotalBytes = 33554432 }
 local active: any = nil
 
@@ -499,6 +536,34 @@ local function attachNotes(context: any, record: { [string]: any })
 	if next(record.notes) ~= nil then
 		context:attach("notes.json", "application/json", HttpService:JSONEncode(record.notes))
 	end
+end
+
+local GAMEPAD_SUITES: { [string]: boolean } =
+	{ focus_opened = true, focus_probe = true, focus_walk = true, gamepad_walk = true }
+
+local GAMEPAD_CASES: { [string]: boolean } = {
+	["needs_live_c/card-rail-distant-and-shelves"] = true,
+	["needs_live_c/gallery-previews-keep-page-and-pad-routes"] = true,
+	["needs_live_c/playlist-pad-reorder-and-tray-walk"] = true,
+	["needs_live_c/radial-retiring-branch-refuses-selection"] = true,
+	["ports_pickers/picker-menu-scroll-live"] = true,
+}
+
+local function inputCapability(): string
+	local input = game:GetService("UserInputService")
+	return if baselineDevice == "keep" and input.GamepadEnabled then "input-gamepad" else "input-pointer"
+end
+
+local function inputRequirement(suite: string, case: { [string]: any }): string
+	local input = case.input
+		or (
+			if GAMEPAD_SUITES[suite]
+					or GAMEPAD_CASES[`{suite}/{case.id}`]
+					or string.sub(case.id, 1, 4) == "pad-"
+				then "gamepad"
+				else "pointer"
+		)
+	return "input-" .. input
 end
 
 function live.report(suite: string, options: { [string]: any }?): any
@@ -509,13 +574,17 @@ function live.report(suite: string, options: { [string]: any }?): any
 	local hidden: { ScreenGui } = {}
 	local harness =
 		Verify.createHarness({ now = os.clock, source = suite, prefixIds = false, attachments = ATTACHMENTS })
+	baselineDevice = config.device or "none"
+	baseline()
 	harness:afterEach(function()
+		baseline()
 		for _, gui in hidden do
 			gui.Enabled = true
 		end
 		table.clear(hidden)
 	end)
 	local keepGallery = if config.keepGallery ~= nil then config.keepGallery else suite ~= "layout_geometry"
+	local capabilities = { "roblox-client", inputCapability() }
 	local records = {}
 	local selected = {}
 	for _, case in live.cases(suite) do
@@ -527,14 +596,14 @@ function live.report(suite: string, options: { [string]: any }?): any
 		end
 		harness:case(case.id, {
 			id = case.id,
-			requires = { "roblox-client" },
+			requires = { "roblox-client", inputRequirement(suite, case) },
 			run = function(context: any)
 				for _, gui in playerGui:GetChildren() do
 					if
 						gui:IsA("ScreenGui")
 						and string.sub(gui.Name, 1, 12) == "FacetGallery"
 						and gui.Enabled
-						and not keepGallery
+						and not (if case.probe then false else keepGallery)
 					then
 						gui.Enabled = false
 						table.insert(hidden, gui)
@@ -551,12 +620,17 @@ function live.report(suite: string, options: { [string]: any }?): any
 						t.cleanup()
 					end
 				end)
+				baseline()
 				local ran, problem = xpcall(case.run, debug.traceback, t)
 				attachNotes(context, record)
 				if not ran then
 					error(problem, 0)
 				end
-				context:expect(#record.checks):toBeGreaterThan(0)
+				if case.probe then
+					context:expect(next(record.notes) ~= nil):toBe(true)
+				else
+					context:expect(#record.checks):toBeGreaterThan(0)
+				end
 			end,
 		})
 	end
@@ -564,7 +638,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 	local report = harness:run({
 		executor = "roblox-studio",
 		environment = reportEnvironment(suite),
-		capabilities = { "roblox-client" },
+		capabilities = capabilities,
 		selection = { ids = selected },
 		progress = if config.runId and config.progressToken
 			then VerifyRoblox.progressChannel.publisher(config.runId, config.progressToken, function(value)

@@ -200,46 +200,55 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 			continue
 		end
 		t.settle(20)
-		local shell = gallery():FindFirstChild("Gallery")
+		local shell = gallery():FindFirstChild("Gallery", true)
 		local toolbar = shell and shell:FindFirstChild("Toolbar")
-		local compact = toolbar == nil or not t.visible(toolbar)
-
-		local strip = assert(assert(gallery()).Parent):FindFirstChild("FacetGalleryMenu")
-		local screen = if compact and strip then t.rect(strip) else screenRect(t)
-		local settings = if compact
-			then strip and visibleNamed(t, strip, "Demos")
-			else visibleNamed(t, assert(toolbar), "Settings")
-		if not settings then
-			t.check(name .. " Settings control visible", false, { compact = compact })
+		local screen = screenRect(t)
+		local trigger = if toolbar and t.visible(toolbar) then visibleNamed(t, toolbar, "Showcase") else nil
+		if not (shell and toolbar and trigger) then
+			t.check(name .. " Showcase control visible", false, { shell = shell ~= nil, toolbar = toolbar ~= nil })
 			continue
 		end
-		local s = t.rect(settings)
-		t.inside(name .. " Settings inside the screen", s, screen, 1)
-		t.check(name .. " Settings is selectable", settings.Selectable and settings.Active, {
-			selectable = settings.Selectable,
-			active = settings.Active,
+		local s = t.rect(trigger)
+		t.inside(name .. " Showcase control inside the screen", s, screen, 1)
+		t.check(name .. " Showcase control is selectable", trigger.Selectable and trigger.Active, {
+			selectable = trigger.Selectable,
+			active = trigger.Active,
 		})
-		t.note(name .. " Settings height", s.h)
-		local label = settings:IsA("TextButton") and settings or settings:FindFirstChildWhichIsA("TextLabel", true)
+		t.note(name .. " Showcase control height", s.h)
+		local label = trigger:IsA("TextButton") and trigger or trigger:FindFirstChildWhichIsA("TextLabel", true)
 		if label then
-			t.check(name .. " Settings label fits", (label :: any).TextFits, (label :: any).TextBounds)
+			t.check(name .. " Showcase control label fits", (label :: any).TextFits, (label :: any).TextBounds)
 		end
-		local demos = shell and shell:FindFirstChild("Demos")
-		if not compact then
-			local bar = t.rect(toolbar)
-			local title = t.find(toolbar, "Title")
-			t.inside(name .. " Settings inside the reserved toolbar", s, bar, 1)
-			if title then
-				t.inside(name .. " title inside the reserved toolbar", title, bar, 1)
-			end
-			if demos then
-				t.check(name .. " content starts below the toolbar", t.rect(demos).y >= bar.b - 0.5, {
-					content = t.rect(demos).y,
-					toolbar = bar.b,
-				})
-			end
-			t.note(name .. " toolbar", { height = bar.h, settings = { s.w, s.h } })
+		local bar = t.rect(toolbar)
+		t.inside(name .. " Showcase control inside the reserved toolbar", s, bar, 1)
+		local demos = shell:FindFirstChild("Demos")
+		t.check(name .. " content mounted under the toolbar", demos ~= nil)
+		if demos then
+			t.check(name .. " content starts below the toolbar", t.rect(demos).y >= bar.b - 0.5, {
+				content = t.rect(demos).y,
+				toolbar = bar.b,
+			})
 		end
+		t.note(name .. " toolbar", { height = bar.h, control = { s.w, s.h } })
+		local opened = api("panel", "settings")
+		t.check(name .. " Settings section opens", opened.ok == true and opened.panel == "settings", opened)
+		t.settle(20)
+		local card = visibleNamed(t, toolbar, "ShowcasePanel")
+		local settings = card and visibleNamed(t, card, "Settings")
+		t.check(name .. " Settings content visible", settings ~= nil, { panel = card ~= nil })
+		if card then
+			local c = t.rect(card)
+			t.inside(name .. " Settings panel inside the screen", c, screen, 1)
+			t.check(name .. " Settings panel opens below the Showcase control", c.y >= s.b - 0.5, {
+				panel = c.y,
+				control = s.b,
+			})
+		end
+		if api("report", nil).panel ~= nil then
+			api("panel", nil)
+		end
+		t.settle(10)
+		t.check(name .. " Settings panel closes", visibleNamed(t, toolbar, "ShowcasePanel") == nil)
 	end
 	api("theme", "Neutral")
 	t.settle(10)
@@ -280,7 +289,7 @@ add("word-game-fits-the-phone", { "apps2-24" }, function(t)
 	for _ in columns do
 		columnCount += 1
 	end
-	t.check("board is 6 rows by 5 columns", count == 30 and rowCount == 6 and columnCount == 5, {
+	t.check("board is 7 rows by 6 columns", count == 42 and rowCount == 7 and columnCount == 6, {
 		tiles = count,
 		rows = rowCount,
 		columns = columnCount,

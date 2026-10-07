@@ -1907,7 +1907,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local dot = UI.Button(id)({
 					name = `Page {index} of {#spec.pages}`,
 					LayoutOrder = index,
-					Size = D2.fromOffset(28, 44),
+					Size = D2.fromOffset(44, 44),
 					AutomaticSize = E.AutomaticSize.None,
 					BackgroundTransparency = 1,
 					selected = function(use: ComposeTypes.Use): boolean

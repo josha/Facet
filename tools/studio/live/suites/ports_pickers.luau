@@ -217,7 +217,7 @@ add("fields-label-above", { "post-pickers-002", "post-pickers-005" }, function(t
 			t.settle(4)
 			local l, ti, i = t.rect(label), t.rect(title), t.rect(input)
 			t.check(`{where} {name} label sits above its Input`, l.b <= i.y + 0.5, { label = l.b, input = i.y })
-			t.check(`{where} {name} label is at least 44 px tall`, l.h >= 43.5, l.h)
+			t.near(`{where} {name} label is as tall as its title text`, l.h, ti.h, 1)
 			t.check(`{where} {name} title bottom meets the label bottom`, math.abs(ti.b - l.b) <= 1, {
 				title = { ti.y, ti.h, ti.b },
 				label = { l.y, l.h, l.b },
@@ -780,7 +780,13 @@ add("slider-axis-live", { "post-pickers-098" }, function(t)
 	fi = t.rect(fill)
 	t.check("at 90 the thumb is higher on screen than at 50", after < before - 0.5, { at50 = before, at90 = after })
 	t.near("at 90 the fill bottom still meets the track bottom", fi.b, tr.b, 1)
-	t.near("at 90 the fill is nine tenths of the track", fi.h, tr.h * 0.9, 1)
+	t.near("at 90 the fill ends at the thumb centre", fi.y, after, 1)
+	t.near(
+		"at 90 the fill is nine tenths of the thumb's travel plus half a thumb",
+		fi.h,
+		(tr.h - thumb.AbsoluteSize.Y) * 0.9 + thumb.AbsoluteSize.Y / 2,
+		1
+	)
 end)
 
 interactive(
@@ -984,9 +990,6 @@ add("slider-range-live", { "post-pickers-104", "post-pickers-105", "post-pickers
 	then
 		t.stable(knobTrack)
 		local tr = t.rect(knobTrack)
-		local function middle(node: any): number
-			return node.AbsolutePosition.X + node.AbsoluteSize.X / 2
-		end
 		t.check(
 			"the two knobs are drawn at different sizes",
 			math.abs(lowArt.AbsoluteSize.X - highArt.AbsoluteSize.X) > 4,
@@ -995,8 +998,13 @@ add("slider-range-live", { "post-pickers-104", "post-pickers-105", "post-pickers
 				highArt.AbsoluteSize,
 			}
 		)
-		t.near("the small knob at min stops at the track start", middle(lowArt), tr.x, 1)
-		t.near("the large knob at max stops at the track end", middle(highArt), tr.r, 1)
+		t.near("the small knob at min stops flush with the track start", lowArt.AbsolutePosition.X, tr.x, 1)
+		t.near(
+			"the large knob at max stops flush with the track end",
+			highArt.AbsolutePosition.X + highArt.AbsoluteSize.X,
+			tr.r,
+			1
+		)
 	end
 	t.note(
 		"not checked",
@@ -1582,11 +1590,12 @@ add("dtp-panel-hugs", { "post-pickers-158" }, function(t)
 	t.near("the header is one 44 px line", header.AbsoluteSize.Y, 44, 0.5)
 	local rule = partOf(calendar, "HeaderRule")
 	local weekdays = partOf(partOf(panes, "Pane1"), "Weekdays")
-	if rule and weekdays then
+	local column = calendar:FindFirstChildWhichIsA("UIListLayout")
+	if rule and weekdays and column then
 		t.near(
 			"no caption sits between the rule and the weekdays",
 			weekdays.AbsolutePosition.Y - (rule.AbsolutePosition.Y + rule.AbsoluteSize.Y),
-			16,
+			column.Padding.Offset,
 			1
 		)
 	else
@@ -2191,7 +2200,7 @@ add("picker-menu-scroll-live", { "post-pickers-049", "post-pickers-051", "post-p
 		end
 		if not row or not words then
 			table.insert(cut, `{name} missing`)
-		elseif not t.fits(words) or t.rect(words).r > p.r - panel.ScrollBarThickness + 0.5 then
+		elseif not t.fits(words) or t.rect(words).r > p.r - scroller.ScrollBarThickness + 0.5 then
 			table.insert(cut, { name :: unknown, words.TextBounds, words.AbsoluteSize, t.rect(words).r, p.r })
 		end
 	end
@@ -2200,7 +2209,7 @@ add("picker-menu-scroll-live", { "post-pickers-049", "post-pickers-051", "post-p
 	t.check("the chosen row d10 holds the selection", selected ~= nil and selected.Name == "d10", selectedName())
 	if selected then
 		local s = t.rect(selected)
-		local bottom = p.y + panel.AbsoluteWindowSize.Y
+		local bottom = scroller.AbsolutePosition.Y + scroller.AbsoluteWindowSize.Y
 		t.check("the chosen row is scrolled into view", s.y >= p.y - 0.5 and s.b <= bottom + 0.5, {
 			row = { s.y, s.b },
 			window = { p.y, bottom },
@@ -2345,11 +2354,9 @@ add("picker-segmented-live", { "post-pickers-058" }, function(t)
 				{ t.rect(list[index]).r, t.rect(list[index + 1]).x }
 			)
 		end
-		t.check(
-			`{themeName}: the strip reserves a whole 44 px target`,
-			strip.AbsoluteSize.Y >= 43.5,
-			strip.AbsoluteSize.Y
-		)
+		local sizes = package.metrics and package.metrics.controlSizes
+		local compact = if sizes and sizes.compact and sizes.compact.height then sizes.compact.height else 36
+		t.near(`{themeName}: the compact strip is one compact control height tall`, strip.AbsoluteSize.Y, compact, 0.5)
 		local corners = strip:FindFirstChild("Corners")
 		t.check(
 			`{themeName}: the strip has pill ends`,
@@ -2404,6 +2411,13 @@ local function colorSpec(Compose: any, extra: { [string]: any }): (any, any)
 		end
 	end
 	return spec, value
+end
+
+local function fieldLabel(node: any): boolean
+	return node.Name == "Label"
+		and node:IsA("TextButton")
+		and not node.Selectable
+		and node:FindFirstChild("Title") ~= nil
 end
 
 local function openPanel(t: any, layer: any): any
@@ -2494,12 +2508,11 @@ add("color-hidden-technique-size", { "post-pickers-169" }, function(t)
 					}
 				)
 			then
-				local tallest, sizes = 0, {}
+				local sizes = {}
 				for _, name in SHOWS do
 					local show = technique:FindFirstChild(name)
 					local height = if show then show.AbsoluteSize.Y else -1
 					sizes[name] = { height = height, visible = show and show.Visible }
-					tallest = math.max(tallest, height)
 					t.check(
 						`{screen.name} tab {ALL_MODES[index]}: {name} reports a height while {if show
 								and show.Visible
@@ -2509,10 +2522,24 @@ add("color-hidden-technique-size", { "post-pickers-169" }, function(t)
 						height
 					)
 				end
+				local shownShow = technique:FindFirstChild(SHOWS[index])
+				local tallestPicker = 0
+				for _, name in SHOWS do
+					local show = technique:FindFirstChild(name)
+					if show and name ~= "ShowBricks" then
+						tallestPicker = math.max(tallestPicker, show.AbsoluteSize.Y)
+					end
+				end
 				t.near(
-					`{screen.name} tab {ALL_MODES[index]}: Technique keeps the tallest technique's height`,
+					`{screen.name} tab {ALL_MODES[index]}: Technique is as tall as the shown technique`,
 					technique.AbsoluteSize.Y,
-					tallest,
+					if shownShow then shownShow.AbsoluteSize.Y else -1,
+					1
+				)
+				t.near(
+					`{screen.name} tab {ALL_MODES[index]}: Body is as tall as the tallest technique that is not the brick list`,
+					body.AbsoluteSize.Y,
+					tallestPicker,
 					1
 				)
 				panels[index], bodies[index] = panel.AbsoluteSize.Y, body.AbsoluteSize.Y
@@ -2897,7 +2924,16 @@ add("color-touch-bubble-room", { "post-pickers-183" }, function(t)
 		end
 		t.stable(entry.panel)
 		local bubbles = t.all(entry.panel, "Bubble")
-		t.check(`{entry.name}: the plane, hue and opacity bubbles exist`, #bubbles >= 3, #bubbles)
+		local owners = {}
+		for _, bubble in bubbles do
+			table.insert(owners, if bubble.Parent then bubble.Parent.Name else "?")
+		end
+		t.check(`{entry.name}: the hue and opacity bubbles exist`, #bubbles >= 2, owners)
+		t.check(
+			`{entry.name}: no plane bubble is built in the panel before a drag`,
+			table.find(owners, "Plane") == nil,
+			owners
+		)
 		for _, bubble in bubbles do
 			local owner = if bubble.Parent then bubble.Parent.Name else "?"
 			local b = t.rect(bubble)
@@ -2914,6 +2950,10 @@ add("color-touch-bubble-room", { "post-pickers-183" }, function(t)
 	t.note(
 		"measured without a drag",
 		"bubbles are laid out while hidden; their Visible needs a touch drag, which the input tools cannot send"
+	)
+	t.note(
+		"not checked",
+		"the plane bubble is built in the overlay layer only during a touch drag, which the input tools cannot send"
 	)
 end)
 
@@ -2995,6 +3035,7 @@ add("color-phone-sheet-apply-on-screen", { "post-pickers-182" }, function(t)
 							and t.visible(node)
 							and t.clipped(node) ~= nil
 							and (node:IsA("GuiButton") or node.Name == "Track" or node.Name == "Input" or node.Name == "Surface")
+							and not fieldLabel(node)
 							and (node.AbsoluteSize.X < 43.5 or node.AbsoluteSize.Y < 43.5)
 						then
 							table.insert(small, { node.Name, node.AbsoluteSize })
@@ -3025,6 +3066,7 @@ add("color-phone-sheet-apply-on-screen", { "post-pickers-182" }, function(t)
 							and t.visible(node)
 							and t.clipped(node) ~= nil
 							and (node:IsA("GuiButton") or node.Name == "Track" or node.Name == "Input" or node.Name == "Surface")
+							and not fieldLabel(node)
 							and (node.AbsoluteSize.X < 43.5 or node.AbsoluteSize.Y < 43.5)
 						then
 							table.insert(small, { node.Name, node.AbsoluteSize })

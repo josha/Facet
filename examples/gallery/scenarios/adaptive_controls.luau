@@ -210,8 +210,7 @@ return {
 			for i = 1, 12 do
 				local value = label("Value", "S" .. i, "caption")
 				ctx.runtime.decorate(value, {
-					Size = UDim2.fromScale(1, 1),
-					AutomaticSize = Enum.AutomaticSize.None,
+					Size = UDim2.new(1, 0, 0, 30),
 					TextXAlignment = Enum.TextXAlignment.Center,
 				})
 				table.insert(
@@ -219,7 +218,8 @@ return {
 					plate(Host.Frame({
 						Name = "Stat" .. i,
 						LayoutOrder = i,
-						Size = UDim2.fromOffset(72, 30),
+						Size = UDim2.fromOffset(72, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						value :: unknown,
 					}))
 				)
@@ -487,10 +487,11 @@ return {
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
-								Host.UIGridLayout({
+								Host.UIListLayout({
 									SortOrder = Enum.SortOrder.LayoutOrder,
-									CellSize = UDim2.fromOffset(72, 30),
-									CellPadding = UDim2.fromOffset(4, 4),
+									FillDirection = Enum.FillDirection.Horizontal,
+									Wraps = true,
+									Padding = UDim.new(0, 4),
 								}) :: unknown,
 								table.unpack(stats),
 							},

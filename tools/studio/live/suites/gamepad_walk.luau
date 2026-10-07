@@ -48,12 +48,12 @@ local function controls(t: any, layer: Instance): { GuiObject }
 	return out
 end
 
-local function walk(t: any, id: string, direction: string, limit: number)
+local function walk(t: any, id: string, direction: string, limit: number, seen: { [Instance]: boolean }): number
 	local layer = gallery()
 	local shown = api("show", id)
 	if not (shown and shown.ok) then
 		t.check(`{id} shows`, false, shown)
-		return
+		return 0
 	end
 	t.settle(30)
 	local pool = controls(t, layer)
@@ -74,7 +74,7 @@ local function walk(t: any, id: string, direction: string, limit: number)
 	start = start or pool[1]
 	if start == nil then
 		t.check(`{id} has a selectable control`, false)
-		return
+		return 0
 	end
 	local delivered = 0
 	local watch = UserInputService.InputBegan:Connect(function(input)
@@ -113,11 +113,12 @@ local function walk(t: any, id: string, direction: string, limit: number)
 	)
 	t.check(`{id} {direction} arrives as real Gamepad1 input`, delivered > 0, delivered)
 	t.check(`{id} {direction} never drops the selection`, lost == 0, lost)
-	t.check(`{id} {direction} moves the selection from control to control`, count >= math.min(3, #pool), count)
 	for node in visited do
+		seen[node] = true
 		t.check(`{id} {node.Name} reached by {direction} is on screen`, t.visible(node :: GuiObject))
 	end
 	GuiService.SelectedObject = nil
+	return #pool
 end
 
 local function demos(): { string }
@@ -134,8 +135,13 @@ add(
 	{ "apps2-10", "apps2-32", "apps2-43", "apps2-68", "apps2-169", "apps-192", "navigation-3-68" },
 	function(t: any)
 		for _, id in demos() do
-			walk(t, id, "DPadDown", 40)
-			walk(t, id, "DPadRight", 12)
+			local seen: { [Instance]: boolean } = {}
+			local pool = math.max(walk(t, id, "DPadDown", 40, seen), walk(t, id, "DPadRight", 12, seen))
+			local count = 0
+			for _ in seen do
+				count += 1
+			end
+			t.check(`{id} the d-pad moves the selection from control to control`, count >= math.min(3, pool), count)
 		end
 	end
 )
@@ -258,5 +264,66 @@ do
 		end
 	)
 end
+
+add("value-control-limit-hands-the-move-to-the-engine", { "input-engine-handoff" }, function(t: any)
+	local Compose = t.Facet.Compose
+	local value = Compose.cell(8)
+	local stage = t.mount(function(UI: any, Host: any)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.Button("Before")({
+				label = "Before",
+				Position = UDim2.fromOffset(40, 100),
+				Size = UDim2.fromOffset(120, 44),
+			}),
+			UI.Stepper("Step")({
+				value = value,
+				max = 10,
+				Position = UDim2.fromOffset(220, 100),
+				Size = UDim2.fromOffset(240, 44),
+			}),
+			UI.Button("After")({
+				label = "After",
+				Position = UDim2.fromOffset(520, 100),
+				Size = UDim2.fromOffset(120, 44),
+			}),
+		})
+	end, { size = Vector2.new(800, 300), frames = 12 })
+	local step, before, after = t.find(stage, "Step"), t.find(stage, "Before"), t.find(stage, "After")
+	local function selected(): string
+		local now = GuiService.SelectedObject
+		return if now then now.Name else "nil"
+	end
+	GuiService.SelectedObject = step
+	t.settle(6)
+	t.check("in range the stop holds its axis", step.NextSelectionRight == step and step.NextSelectionLeft == step)
+	press("DPadRight")
+	t.check("Right in range changes the value and keeps the selection", value:peek() == 9 and selected() == "Step", {
+		value:peek(),
+		selected(),
+	})
+	press("DPadRight")
+	t.check("the value reaches the maximum", value:peek() == 10 and selected() == "Step", { value:peek(), selected() })
+	t.check("at the maximum the stop frees Right", step.NextSelectionRight ~= step)
+	press("DPadRight")
+	t.check("at the maximum the engine moves Right to the next control", selected() == "After", selected())
+	t.check("the value stays at the maximum", value:peek() == 10, value:peek())
+	value:set(0)
+	GuiService.SelectedObject = step
+	t.settle(6)
+	t.check(
+		"at the minimum the stop frees Left and holds Right",
+		step.NextSelectionLeft ~= step and step.NextSelectionRight == step
+	)
+	press("DPadLeft")
+	t.check("at the minimum the engine moves Left to the previous control", selected() == "Before", selected())
+	value:set(10)
+	GuiService.SelectedObject = step
+	t.settle(6)
+	press("StickRight")
+	t.check("at the maximum the stick moves Right to the next control", selected() == "After", selected())
+	GuiService.SelectedObject = nil
+end)
 
 return cases

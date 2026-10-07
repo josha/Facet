@@ -19,20 +19,12 @@ local DEFERRAL = {
 }
 local DIRECTORY = "artifacts/verify/native/gate"
 local CATALOG = "tools/lune/producers.json"
-local CENSUS = "tests/case_inventory.json"
 
 local function tests(id: string, names: { string }): Gate.ProducerDraft
-	local locators, named = {}, {}
+	local locators = {}
 	for _, name in names do
 		assert(fs.isFile(`tests/{name}.spec.luau`), "unknown spec: " .. name)
 		table.insert(locators, `tests/{name}.spec.luau`)
-		named[name] = true
-	end
-	local cases = {}
-	for _, case in serde.decode("json", fs.readFile(CENSUS)).cases do
-		if named[case.source] then
-			table.insert(cases, case.id)
-		end
 	end
 	return {
 		id = id,
@@ -40,7 +32,6 @@ local function tests(id: string, names: { string }): Gate.ProducerDraft
 		tier = "fast",
 		worker = "tests/worker.luau",
 		locators = locators,
-		cases = cases,
 		isolate = true,
 		workers = 4,
 		deadlineSeconds = 3600,

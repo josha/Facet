@@ -45,6 +45,9 @@ local function mountModule(t: any, kind: string, name: string, size: Vector2, th
 	local built, problem
 	local ok, stage = pcall(t.mount, function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local context = t.context(UI, Host, Compose, env)
+		if context.reducedMotion == nil then
+			context.reducedMotion = Compose.cell(true)
+		end
 		local module = context.load(kind, name)
 		local result = module.build(context)
 		built = result
@@ -210,9 +213,14 @@ add("scroll-gutter-and-window", { "mech3-29", "mech3-32", "apps2-109", "apps-230
 	)
 	count:set(2)
 	t.stable(scroll)
-	t.near("without overflow the gutter is released", scroll.AbsoluteWindowSize.X, 240, 0.5)
+	t.near("without overflow the window spans the frame", scroll.AbsoluteWindowSize.X, 240, 0.5)
 	row = t.find(scroll, "Row1")
-	t.near("rows take the released gutter", row and row.AbsoluteSize.X or 0, 240, 1)
+	t.near("rows keep the persistent gutter without overflow", row and row.AbsoluteSize.X or 0, 240 - thickness, 1)
+	t.check(
+		"the persistent gutter is the vertical bar inset",
+		scroll.VerticalScrollBarInset == Enum.ScrollBarInset.Always and thickness > 0,
+		{ inset = tostring(scroll.VerticalScrollBarInset), thickness = thickness }
+	)
 	t.check(
 		"a short list does not scroll",
 		scroll.AbsoluteCanvasSize.Y <= scroll.AbsoluteWindowSize.Y + 0.5,

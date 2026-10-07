@@ -57,8 +57,9 @@ contract.
   Facet-specific cases and integration policy in this repository.
 - Declare each producer in `tools/lune/producers.json`. The Verify gate in
   `tools/lune/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
-- Keep `tests/plan.json` and `tests/case_inventory.json` aligned with the cases.
-  The full gate uses the committed plan. A focused run is not full evidence.
+- Keep `tests/plan.json` aligned with the spec files. The plan lists the spec
+  sources. There is no committed case list. The full gate uses the committed
+  plan. A focused run is not full evidence.
 - `tools/vendor/verify` is a generated, read-only test dependency. Change shared
   testing mechanisms upstream in `voidmeld/verify`, then re-pin with
   `tools/sync_verify.py`. Keep Verify out of the consumer model.

@@ -479,15 +479,7 @@ local lifetime = Compose.createRootOwner(function()
 			elseif command == "flapPause" then
 				model.flap.pause()
 			end
-			local moves = nil
-			if command == "moves" and flatViews then
-				moves = {}
-				for direction, move in flatViews.moves() do
-					moves[direction] = { target = if move.target then move.target.Name else nil, rule = move.rule }
-				end
-			end
 			return {
-				moves = moves,
 				mode = mode:peek(),
 				dark = dark:peek(),
 				accent = model.palette:peek(),

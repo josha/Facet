@@ -155,7 +155,7 @@
         "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
         "native_inputs::native input controls::paints live level assets and tint while allowing an omitted tint to return to native styles",
         "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return"
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return"
       ],
       "behaviors": [
         "Single selectable strip, inert glyph/image/bar marks, finite bounds and allowZero, controlled requests, readOnly/disabled gating, cancellable native scrub, hot-switch cancellation, semantic range attributes and live tint/asset changes.",
@@ -184,7 +184,7 @@
         "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
         "native_inputs::native input controls::paints live level assets and tint while allowing an omitted tint to return to native styles",
         "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return"
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return"
       ],
       "behaviors": [
         "Rating uses the same single-strip level implementation with glyph defaults, allowZero, controlled requests, native scrub cancellation, disabled/readOnly gates, bounded keyboard/gamepad adjustment and range semantics."
@@ -388,7 +388,7 @@
         "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
         "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
         "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
         "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics"
       ],
       "behaviors": [
@@ -725,7 +725,7 @@
       "cases": [
         "native_inputs::native input controls::repeats while held and cancels native frame subscriptions on disposal",
         "native_inputs::native input controls::blocks background held repeats when a Compose-owned modal becomes active",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
         "native_inputs::native input controls::repeats focused value adjustments with bounded catch-up and no idle frame subscription"
       ],
       "behaviors": [
@@ -750,7 +750,7 @@
         "native_inputs::native input controls::borrows native preferred bindings and releases replaced hint observers",
         "native_inputs::native input controls::replaces native hint art when the preferred asset changes representation",
         "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
         "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
         "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
       ],
@@ -859,7 +859,7 @@
         "native_inputs"
       ],
       "cases": [
-        "native_inputs::native input controls::keeps the axis at value bounds and rearms on focus return",
+        "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
         "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
         "native_inputs::native input controls::repeats focused value adjustments with bounded catch-up and no idle frame subscription",
         "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"

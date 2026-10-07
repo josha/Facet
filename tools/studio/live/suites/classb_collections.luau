@@ -254,12 +254,27 @@ add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
 	if not value or not sort then
 		return
 	end
+	local gui = stage:FindFirstAncestorWhichIsA("ScreenGui")
+	local sheet = gui and gui:FindFirstChildWhichIsA("StyleSheet")
+	local function rulePadding(node: any): UDim?
+		local found: UDim? = nil
+		for _, rule in if sheet then sheet:GetChildren() else {} do
+			if rule:IsA("StyleRule") then
+				local tag = string.match(rule.Selector, "^%.([%w%-]+)::UIPadding$")
+				local padding = if tag and node:HasTag(tag) then rule:GetProperty("PaddingLeft") else nil
+				if typeof(padding) == "UDim" then
+					found = padding
+				end
+			end
+		end
+		return found
+	end
 	local function textLeft(node: any): number
 		local left = node.AbsolutePosition.X
-		for _, child in node:GetChildren() do
-			if child:IsA("UIPadding") then
-				left += child.PaddingLeft.Offset + child.PaddingLeft.Scale * node.AbsoluteSize.X
-			end
+		local component = node:FindFirstChildWhichIsA("UIPadding")
+		local padding = if component then component:GetStyled("PaddingLeft") else rulePadding(node)
+		if padding then
+			left += padding.Offset + padding.Scale * node.AbsoluteSize.X
 		end
 		return left
 	end
@@ -271,6 +286,11 @@ add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
 	end
 	local titleNode = caption or sort
 	t.note("value", { x = value.AbsolutePosition.X, w = value.AbsoluteSize.X, padded = textLeft(value) })
+	t.check(
+		"the cell value takes its inset from a UIPadding component or a UIPadding style rule",
+		value:FindFirstChildWhichIsA("UIPadding") ~= nil or rulePadding(value) ~= nil,
+		value:GetTags()
+	)
 	t.note("cell", { x = cell.AbsolutePosition.X, y = cell.AbsolutePosition.Y, h = cell.AbsoluteSize.Y })
 	t.note("title", { x = titleNode.AbsolutePosition.X, padded = textLeft(titleNode), name = titleNode.Name })
 	t.note(
@@ -305,7 +325,7 @@ add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
 end)
 
 add("page-scroll-moves-the-table-body", { "collections-182" }, function(t)
-	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.ScrollingFrame "Page" {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.fromOffset(0, 1600),
@@ -320,6 +340,7 @@ add("page-scroll-moves-the-table-body", { "collections-182" }, function(t)
 					key = "id",
 					scrolls = false,
 					reorderable = true,
+					editing = Compose.cell(true),
 					onReorder = function() end,
 					columns = { { id = "name", label = "Name" } },
 				},
@@ -643,7 +664,7 @@ add("plate-decoration-stays-inside-the-band", { "collections-98" }, function(t)
 		end, { size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 })
 		local row = t.find(stage, "Row")
 		local tray = row:FindFirstChild("trailing")
-		local worst, narrowest, sampled, overhang = 0, math.huge, 0, 0
+		local worst, narrowest, sampled, overhang, plateWidth = 0, math.huge, 0, 0, math.huge
 		local function sample()
 			if not tray.Visible or tray.AbsoluteSize.X < 0.5 then
 				return
@@ -653,7 +674,8 @@ add("plate-decoration-stays-inside-the-band", { "collections-98" }, function(t)
 				local plate = tray:FindFirstChild(id)
 				if plate and plate.AbsoluteSize.X > 0 then
 					sampled += 1
-					narrowest = math.min(narrowest, plate.AbsoluteSize.X)
+					narrowest = math.min(narrowest, band.w)
+					plateWidth = math.min(plateWidth, plate.AbsoluteSize.X)
 					for _, node in plate:GetDescendants() do
 						if node:IsA("GuiObject") and t.visible(node) and node.AbsoluteSize.X > 0.5 then
 							local raw = t.rect(node)
@@ -678,9 +700,17 @@ add("plate-decoration-stays-inside-the-band", { "collections-98" }, function(t)
 			RunService.RenderStepped:Wait()
 			sample()
 		end
-		t.note(entry.name .. " sample", { sampled = sampled, narrowest = narrowest, rawOverhang = overhang })
+		t.note(
+			entry.name .. " sample",
+			{ sampled = sampled, narrowest = narrowest, rawOverhang = overhang, plateWidth = plateWidth }
+		)
 		t.check(entry.name .. " the flight sampled mounted plates", sampled >= 20, sampled)
-		t.check(entry.name .. " the close flight squeezed a plate below 8 px", narrowest < 8, narrowest)
+		t.check(
+			entry.name .. " the close flight narrowed the band below 8 px over a mounted plate",
+			narrowest < 8,
+			narrowest
+		)
+		t.check(entry.name .. " a fixed-width plate overhung the narrowed band before clipping", overhang > 8, overhang)
 		t.check(entry.name .. " no painted plate decoration leaves the band", worst <= 0.5, worst)
 		t.cleanup()
 	end

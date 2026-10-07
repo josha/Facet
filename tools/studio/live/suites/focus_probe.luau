@@ -11,10 +11,11 @@ type Case = {
 	setup: ((any) -> any)?,
 	steps: { [string]: (any, any) -> () }?,
 	keepGallery: boolean?,
+	probe: boolean?,
 }
 local cases: { Case } = {}
 local function add(id: string, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = {}, run = run })
+	table.insert(cases, { id = id, contracts = {}, run = run, probe = true })
 end
 
 local function live(): any
@@ -569,5 +570,86 @@ add("F11-selection-image-part", function(t)
 	})
 	GuiService.SelectedObject = nil
 end)
+
+local ALL = { "DPadDown", "DPadLeft", "DPadRight", "StickUp", "StickDown", "StickLeft", "StickRight" }
+
+local function rowScene(t: any, inner: { { string | number } }, sibling: boolean): Instance
+	return t.mount(function(_, Host: RobloxHost)
+		local children: { unknown } = {}
+		local nested: { unknown } = {}
+		for _, item in inner do
+			local node = box(
+				Host,
+				item[1] :: string,
+				(item[2] :: number) - (if sibling then 0 else 100),
+				(item[3] :: number) - (if sibling then 0 else 300),
+				item[4] :: number,
+				item[5] :: number
+			)
+			table.insert(if sibling then children else nested, node)
+		end
+		local row = Host.Frame({
+			Name = "Row",
+			Position = UDim2.fromOffset(100, 300),
+			Size = UDim2.fromOffset(800, 60),
+			Selectable = true,
+			BackgroundTransparency = 0.5,
+			table.unpack(nested),
+		})
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			row :: unknown,
+			box(Host, "Above", 100, 200, 800, 44),
+			box(Host, "Below", 100, 400, 800, 44),
+			box(Host, "LeftOut", 20, 308, 60, 44),
+			box(Host, "RightOut", 920, 308, 60, 44),
+			table.unpack(children),
+		})
+	end, { size = Vector2.new(1000, 700) })
+end
+
+local ROW_SCENES: { { name: string, inner: { { string | number } } } } = {
+	{ name = "right", inner = { { "InRight", 760, 308, 108, 44 } } },
+	{ name = "left", inner = { { "InLeft", 120, 308, 108, 44 } } },
+	{ name = "centre", inner = { { "InCentre", 446, 308, 108, 44 } } },
+	{ name = "both", inner = { { "InLeft", 120, 308, 108, 44 }, { "InRight", 760, 308, 108, 44 } } },
+	{
+		name = "three",
+		inner = { { "InLeft", 120, 308, 108, 44 }, { "InCentre", 446, 308, 108, 44 }, { "InRight", 760, 308, 108, 44 } },
+	},
+	{ name = "tall", inner = { { "InTall", 760, 290, 108, 80 } } },
+	{ name = "edge", inner = { { "InEdge", 860, 308, 108, 44 } } },
+}
+
+for _, sibling in { true, false } do
+	for _, scene in ROW_SCENES do
+		local kind = if sibling then "sibling" else "child"
+		add(`F19-row-{scene.name}-{kind}`, function(t)
+			local world = rowScene(t, scene.inner, sibling)
+			local rects = {}
+			for _, node in world:GetDescendants() do
+				if node:IsA("GuiObject") and node.Selectable then
+					rects[node.Name] = {
+						node.AbsolutePosition.X,
+						node.AbsolutePosition.Y,
+						node.AbsoluteSize.X,
+						node.AbsoluteSize.Y,
+					}
+				end
+			end
+			t.note("rects", rects)
+			each(t, t.find(world, "Row"), ALL, "from Row")
+			for _, item in scene.inner do
+				each(t, t.find(world, item[1] :: string), ALL, `from {item[1]}`)
+			end
+			each(t, t.find(world, "Above"), { "DPadDown", "StickDown" }, "from Above")
+			each(t, t.find(world, "Below"), { "StickUp" }, "from Below")
+			each(t, t.find(world, "LeftOut"), { "DPadRight", "StickRight" }, "from LeftOut")
+			each(t, t.find(world, "RightOut"), { "DPadLeft", "StickLeft" }, "from RightOut")
+			GuiService.SelectedObject = nil
+		end)
+	end
+end
 
 return cases

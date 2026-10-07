@@ -49,8 +49,7 @@ At 1279 by 720, four themes and rapid Lantern Oolong to Amber Harvest transition
 keep mounted card rectangles steady. In the final pixel comparison, Mistral Mint
 and Copper Chai are identical at rest and with either top card hovered.
 
-The registration census retains all 3,765 IDs. The native full plan selects 150
-sources and 3,731 cases. The separate Toast source and existing release-only skip
+The native full plan selects 150 sources and 3,731 cases. The separate Toast source and existing release-only skip
 remain. Historical assertion parity and complete Studio/device coverage remain
 not established. See [verification scope](../docs/guide/18-verification-scope.md).
 
