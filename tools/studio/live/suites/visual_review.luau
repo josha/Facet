@@ -117,4 +117,43 @@ table.insert(cases, {
 	},
 })
 
+table.insert(cases, {
+	id = "radial-menu-board",
+	contracts = {},
+	setup = function(t: any)
+		local options = shared.FacetVisual or {}
+		local open: any
+		local stage = t.mount(function(UI: any, _Host: any, Compose: any)
+			open = Compose.cell(false)
+			local items = {}
+			for _, entry in
+				{
+					{ "N", "chevron.up" },
+					{ "E", "chevron.trailing" },
+					{ "S", "chevron.down" },
+					{ "W", "chevron.leading" },
+				}
+			do
+				table.insert(items, {
+					id = entry[1],
+					slot = entry[1],
+					label = options.label or entry[1],
+					icon = entry[2],
+					labelStyle = if options.iconOnly then "icon" else nil,
+					completion = "stay",
+				})
+			end
+			return UI.RadialMenu "Quick" { isPresented = open, items = items, preset = options.preset }
+		end, { size = sizeOf(), theme = themeOf(t), frames = 20 })
+		open:set(true)
+		t.settle(60)
+		return { stage = stage }
+	end,
+	steps = {
+		held = function(t: any, value: any)
+			t.check("the board is mounted", value.stage ~= nil)
+		end,
+	},
+})
+
 return cases

@@ -1057,6 +1057,10 @@ return function(
 										ZIndex = 105,
 									})
 									buttons[sector.key] = button
+									local floor = button:FindFirstChildWhichIsA("UISizeConstraint")
+									if floor then
+										floor:Destroy()
+									end
 									local glyph = button:FindFirstChild("LeadingIcon", true)
 									if glyph then
 										runtime.decorate(glyph, {

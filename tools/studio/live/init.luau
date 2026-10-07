@@ -541,6 +541,14 @@ end
 local GAMEPAD_SUITES: { [string]: boolean } =
 	{ focus_opened = true, focus_probe = true, focus_walk = true, gamepad_walk = true }
 
+local GAMEPAD_CASES: { [string]: boolean } = {
+	["needs_live_c/card-rail-distant-and-shelves"] = true,
+	["needs_live_c/gallery-previews-keep-page-and-pad-routes"] = true,
+	["needs_live_c/playlist-pad-reorder-and-tray-walk"] = true,
+	["needs_live_c/radial-retiring-branch-refuses-selection"] = true,
+	["ports_pickers/picker-menu-scroll-live"] = true,
+}
+
 local function inputCapability(): string
 	local input = game:GetService("UserInputService")
 	return if baselineDevice == "keep" and input.GamepadEnabled then "input-gamepad" else "input-pointer"
@@ -548,7 +556,13 @@ end
 
 local function inputRequirement(suite: string, case: { [string]: any }): string
 	local input = case.input
-		or (if GAMEPAD_SUITES[suite] or string.sub(case.id, 1, 4) == "pad-" then "gamepad" else "pointer")
+		or (
+			if GAMEPAD_SUITES[suite]
+					or GAMEPAD_CASES[`{suite}/{case.id}`]
+					or string.sub(case.id, 1, 4) == "pad-"
+				then "gamepad"
+				else "pointer"
+		)
 	return "input-" .. input
 end
 

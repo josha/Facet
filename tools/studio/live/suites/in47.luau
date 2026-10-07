@@ -1019,12 +1019,6 @@ add("pad-radial-held-stick-rests", { "apps2-183" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-local function union(a: any, b: any): any
-	local x, y = math.min(a.x, b.x), math.min(a.y, b.y)
-	local r, bottom = math.max(a.r, b.r), math.max(a.b, b.b)
-	return { x = x, y = y, r = r, b = bottom, w = r - x, h = bottom - y }
-end
-
 add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
 	for _, entry in t.themes do
 		for _, scale in { 1, 1.5 } do
@@ -1040,6 +1034,20 @@ add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
 					end
 					local icon = button:FindFirstChild("LeadingIcon", true)
 					local title = button:FindFirstChild("Title", true)
+					local b = t.rect(button)
+					local middle = Vector2.new(b.x + b.w / 2, b.y + b.h / 2)
+					t.inside(`{where} {id} button on its painted surface`, button, paint, 1)
+					if not iconOnly then
+						t.check(`{where} {id} shows its label and no icon`, not (icon and t.visible(icon)))
+						t.check(`{where} {id} has a label`, title ~= nil and title.ContentText ~= "")
+						if title then
+							local words = t.rect(title)
+							t.check(`{where} {id} label fits`, t.fits(title), { title.TextBounds, title.AbsoluteSize })
+							t.near(`{where} {id} label centred horizontally`, words.x + words.w / 2, middle.X, 1.5)
+							t.near(`{where} {id} label centred vertically`, words.y + words.h / 2, middle.Y, 1.5)
+						end
+						continue
+					end
 					t.check(
 						`{where} {id} has an image icon`,
 						icon ~= nil and icon:IsA("ImageLabel") and icon.Image ~= ""
@@ -1047,7 +1055,7 @@ add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
 					if not icon then
 						continue
 					end
-					local b, i = t.rect(button), t.rect(icon)
+					local i = t.rect(icon)
 					t.near(`{where} {id} icon is square`, i.w, i.h, 0.5)
 					local metric = icon:GetStyled("Size").X.Offset
 					t.near(`{where} {id} icon paints at the theme icon size`, i.w, metric * scale, 0.75)
@@ -1056,20 +1064,9 @@ add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
 						i.w >= 12 * scale - 0.5,
 						i.w
 					)
-					local content = if title and title.ContentText ~= "" then union(i, t.rect(title)) else i
-					t.near(`{where} {id} content centred horizontally`, content.x + content.w / 2, b.x + b.w / 2, 1.5)
-					t.near(`{where} {id} icon centred vertically`, i.y + i.h / 2, b.y + b.h / 2, 1.5)
+					t.near(`{where} {id} icon centred horizontally`, i.x + i.w / 2, middle.X, 1.5)
+					t.near(`{where} {id} icon centred vertically`, i.y + i.h / 2, middle.Y, 1.5)
 					t.inside(`{where} {id} icon inside its button`, icon, button, 0.5)
-					t.inside(`{where} {id} button on its painted surface`, button, paint, 1)
-					if title and title.ContentText ~= "" then
-						t.check(`{where} {id} label fits`, t.fits(title), { title.TextBounds, title.AbsoluteSize })
-						t.near(
-							`{where} {id} label centred vertically with the icon`,
-							title.AbsolutePosition.Y + title.AbsoluteSize.Y / 2,
-							i.y + i.h / 2,
-							1.5
-						)
-					end
 				end
 				t.cleanup()
 			end
@@ -1983,6 +1980,7 @@ add("pad-table-row-a-selects", { "inputs-05" }, function(t: any)
 			key = "id",
 			selection = selection,
 			selectionMode = "multiple" :: "multiple",
+			editing = true,
 			Size = UDim2.fromOffset(400, 240),
 			columns = { { id = "name", label = "Name" } },
 		}

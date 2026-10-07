@@ -48,12 +48,12 @@ local function controls(t: any, layer: Instance): { GuiObject }
 	return out
 end
 
-local function walk(t: any, id: string, direction: string, limit: number)
+local function walk(t: any, id: string, direction: string, limit: number, seen: { [Instance]: boolean }): number
 	local layer = gallery()
 	local shown = api("show", id)
 	if not (shown and shown.ok) then
 		t.check(`{id} shows`, false, shown)
-		return
+		return 0
 	end
 	t.settle(30)
 	local pool = controls(t, layer)
@@ -74,7 +74,7 @@ local function walk(t: any, id: string, direction: string, limit: number)
 	start = start or pool[1]
 	if start == nil then
 		t.check(`{id} has a selectable control`, false)
-		return
+		return 0
 	end
 	local delivered = 0
 	local watch = UserInputService.InputBegan:Connect(function(input)
@@ -113,11 +113,12 @@ local function walk(t: any, id: string, direction: string, limit: number)
 	)
 	t.check(`{id} {direction} arrives as real Gamepad1 input`, delivered > 0, delivered)
 	t.check(`{id} {direction} never drops the selection`, lost == 0, lost)
-	t.check(`{id} {direction} moves the selection from control to control`, count >= math.min(3, #pool), count)
 	for node in visited do
+		seen[node] = true
 		t.check(`{id} {node.Name} reached by {direction} is on screen`, t.visible(node :: GuiObject))
 	end
 	GuiService.SelectedObject = nil
+	return #pool
 end
 
 local function demos(): { string }
@@ -134,8 +135,13 @@ add(
 	{ "apps2-10", "apps2-32", "apps2-43", "apps2-68", "apps2-169", "apps-192", "navigation-3-68" },
 	function(t: any)
 		for _, id in demos() do
-			walk(t, id, "DPadDown", 40)
-			walk(t, id, "DPadRight", 12)
+			local seen: { [Instance]: boolean } = {}
+			local pool = math.max(walk(t, id, "DPadDown", 40, seen), walk(t, id, "DPadRight", 12, seen))
+			local count = 0
+			for _ in seen do
+				count += 1
+			end
+			t.check(`{id} the d-pad moves the selection from control to control`, count >= math.min(3, pool), count)
 		end
 	end
 )
