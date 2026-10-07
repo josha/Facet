@@ -1,4 +1,5 @@
 --!strict
+local feedbackPaint = require("./feedback_paint")
 local reducedMotion = require("./motion").reduced
 local arithmetic = require("./arithmetic")
 local fieldChrome = require("./field_chrome")
@@ -586,9 +587,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				end,
 			}
 			else nil
-		if pulse and not framed then
-			table.insert(nativeProps, pulse)
-		end
 
 		local mode = spec.clearButtonMode
 			or (if spec.clearButton or spec.presentation == "search" then "always" else "never")
@@ -774,9 +772,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			if spec.trailing then
 				slot("Trailing", 60, spec.trailing)
-			end
-			if pulse then
-				table.insert(parts, pulse)
 			end
 			local plate = ctx.row(parts, {
 				Name = "Input",
@@ -1113,6 +1108,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					return not enabled(use)
 				end,
 			})
+		end
+		if pulse then
+			local geometry = if framed then rootProps else nativeProps
+			feedbackPaint(ctx, root, pulse, { Size = geometry.Size, AutomaticSize = geometry.AutomaticSize })
 		end
 		return root
 	end

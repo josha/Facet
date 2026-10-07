@@ -1018,11 +1018,25 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		for key, value in ((properties or {}) :: unknown) :: { [unknown]: unknown } do
 			fields[key] = value
 		end
-		return ctx.styled(Host.TextLabel(native), "Text")
+		local label = ctx.styled(Host.TextLabel(native), "Text")
+		local styledFace, styledSize = ctx.observeStyled.FontFace(label), ctx.observeStyled.TextSize(label)
+		local previousFace: Font?, previousSize: number? = nil, nil
+		Compose.watch(function(use: ComposeTypes.Use)
+			local face, points = use(styledFace), use(styledSize)
+			if face ~= previousFace or points ~= previousSize then
+				previousFace, previousSize = face, points
+				local automatic = label.AutomaticSize
+				if automatic ~= Enum.AutomaticSize.None then
+					label.AutomaticSize = Enum.AutomaticSize.None
+					label.AutomaticSize = automatic
+				end
+			end
+		end)
+		return label
 	end
-	function ctx.layoutUnit(parent: GuiBase2d): ComposeTypes.Readable<number>
+	function ctx.layoutUnit(parent: GuiBase2d, name: string?): ComposeTypes.Readable<number>
 		local _, probe = runtime.mount(function()
-			return Host.Frame "LayoutUnit" { Size = types.UDim2.fromOffset(100, 1), Visible = false }
+			return Host.Frame(name or "LayoutUnit")({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
 		end, parent)
 		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
 		return Compose.formula(function(use: ComposeTypes.Use): number

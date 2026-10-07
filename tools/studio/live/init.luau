@@ -383,7 +383,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 	end
 	function t.gallery(options: { [string]: any }?): (any, any)
 		local config: { [string]: any } = options or {}
-		local context
+		local context: { [string]: any }
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 			local screen = (require :: any)(storage:WaitForChild("Gallery"):WaitForChild("screen"))
 			local folder = storage:FindFirstChild("FacetThemes")
@@ -420,14 +420,31 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				end,
 			}
 			screen.configure(context)
-			context.UI = UI
+			context.UI = Facet.controls(env.runtime, {
+				viewport = env.viewport,
+				theme = env.theme,
+				motionLevel = "none",
+				environment = context.environment,
+				overlayParent = context.overlayParent,
+			})
+			local sheet = Facet.themes.createStyleSheet(env.runtime, env.theme, {
+				theme = env.palette,
+				transition = false,
+				tenFoot = context.UI.environment().isTenFoot,
+			})
 			context.show = function(id: string): any
 				return screen.dispatch(context, "show", id)
 			end
 			context.dispatch = function(command: string, argument: any): any
 				return screen.dispatch(context, command, argument)
 			end
-			return screen.build(context)
+			return Host.Frame "Gallery" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				sheet,
+				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+				screen.build(context),
+			}
 		end, { size = config.size, theme = config.theme, frames = config.frames or 20 })
 		return stage, context
 	end

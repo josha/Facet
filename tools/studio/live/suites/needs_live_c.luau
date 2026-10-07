@@ -389,6 +389,7 @@ add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
 	do
 		local stage, context = t.gallery({ size = run.size, demo = "collections" })
 		context.viewingDistance:set(run.distance)
+		context.inputPreview:set(if run.name == "phone near" then "Touch" else "Gamepad")
 		t.settle(20)
 		for _, tab in { "grids", "cards" } do
 			local button = visibleNamed(t, stage, tab)
@@ -415,9 +416,14 @@ add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
 					end
 				end
 			end
-			results[run.name] = { perView = count, width = width }
-			t.note(`{run.name} cards per view and card width`, results[run.name])
 			local first = rail:FindFirstChild("Card_c1", true)
+			local title = first and first:FindFirstChild("Title", true)
+			results[run.name] = { perView = count, width = width, textSize = title and title.TextSize }
+			t.check(
+				`{run.name} the viewing distance reaches the controls`,
+				context.UI.environment().isTenFoot:peek() == (run.distance == "ten-foot")
+			)
+			t.note(`{run.name} cards per view and card width`, results[run.name])
 			if first then
 				GuiService.SelectedObject = first
 				t.settle(2)
@@ -438,10 +444,15 @@ add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
 	local phone, near, far = results["phone near"], results["desktop near"], results["desktop distant"]
 	if phone and near and far then
 		t.check("a phone shows one card per view", phone.perView == 1, phone)
-		t.check("the distant preview draws larger cards", far.width > near.width, { near = near, far = far })
+		t.check("the distant preview draws larger card text", far.textSize > near.textSize, { near = near, far = far })
 		t.check(
-			"the distant preview shows fewer cards per view",
-			far.perView < near.perView,
+			"the distant preview keeps whole cards at the same width",
+			far.width == near.width,
+			{ near = near, far = far }
+		)
+		t.check(
+			"the distant preview keeps the same whole-card count",
+			far.perView == near.perView,
 			{ near = near, far = far }
 		)
 	end
@@ -564,6 +575,15 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 	local moved = live.press({ "DPadDown", "DPadDown", "ButtonA" })
 	t.note("move and drop", moved)
 	t.check("DPadDown twice then ButtonA drops neon two rows lower", ids() == "drift,turbo,neon,pit,photo,apex", ids())
+	GuiService.SelectedObject = edit
+	t.settle(2)
+	t.note("leave edit", live.press({ "ButtonA" }))
+	t.settle(10)
+	t.check(
+		"Done returns the table to browse mode",
+		edit ~= nil and edit.ContentText == "Edit",
+		edit and edit.ContentText
+	)
 	GuiService.SelectedObject = nil
 	t.settle(6)
 	local first = built.baseRows:peek()[1].id

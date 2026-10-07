@@ -469,6 +469,13 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 		local box = t.clipped(panel) or t.rect(panel)
 		local at = Vector2.new(box.x + box.w / 2, box.y + math.min(box.h / 2, 40))
 		local list = hits(at)
+		local overlays = t.find(stage, "PreviewOverlays")
+		if overlays then
+			t.check(
+				label .. ": the overlay container has no paint or input",
+				overlays:IsA("Frame") and overlays.BackgroundTransparency == 1 and not overlays.Active
+			)
+		end
 		local names = {}
 		local panelAt, demoAt = nil, nil
 		for index, hit in list do
@@ -483,7 +490,13 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 			end
 		end
 		t.note(label, names)
-		local top: GuiObject? = list[1]
+		local top: GuiObject? = nil
+		for _, hit in list do
+			if hit ~= overlays then
+				top = hit
+				break
+			end
+		end
 		t.check(label, top ~= nil and (top == panel or top:IsDescendantOf(panel)), top and top:GetFullName())
 		t.check(
 			label .. ": the demo is beneath the panel",
@@ -864,6 +877,7 @@ local function radial(t: any, options: { [string]: any }?): { [string]: any }
 			isPresented = value.open,
 			items = items,
 			preset = config.preset,
+			anchor = config.anchor,
 		}
 	end, {
 		size = (config.size or Vector2.new(800, 600)) / (config.scale or 1),
@@ -1015,6 +1029,9 @@ add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
 				local where = `{entry.name} x{scale}{if iconOnly then " icon-only" else ""}`
 				local menu =
 					radial(t, { theme = entry.package, scale = if scale ~= 1 then scale else nil, iconOnly = iconOnly })
+				local expected = if entry.name == "glossy_mobile" then "list" else "radial"
+				local presentation = menu.panel and menu.panel:GetAttribute("Presentation")
+				t.check(`{where} uses the expected {expected} presentation`, presentation == expected, presentation)
 				for id, parts in menu.sectors do
 					local button, paint = parts.button, parts.paint
 					if not (button and paint) then
@@ -1025,6 +1042,30 @@ add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
 					local title = button:FindFirstChild("Title", true)
 					local b = t.rect(button)
 					local middle = Vector2.new(b.x + b.w / 2, b.y + b.h / 2)
+					if presentation == "list" then
+						t.inside(`{where} {id} row stays in the list`, button, menu.panel, 1)
+						t.check(`{where} {id} row has a usable height`, b.h >= 44 * scale - 0.5, b.h)
+						t.check(`{where} {id} list row keeps its label`, title ~= nil and title.ContentText == id)
+						if title then
+							t.check(
+								`{where} {id} list label fits`,
+								t.fits(title),
+								{ title.TextBounds, title.AbsoluteSize }
+							)
+							t.inside(`{where} {id} list label stays in its row`, title, button, 1)
+						end
+						t.check(
+							`{where} {id} list row has an image icon`,
+							icon ~= nil and icon:IsA("ImageLabel") and icon.Image ~= ""
+						)
+						if icon then
+							local i = t.rect(icon)
+							t.near(`{where} {id} list icon is square`, i.w, i.h, 0.5)
+							t.near(`{where} {id} list icon centred vertically`, i.y + i.h / 2, middle.Y, 1.5)
+							t.inside(`{where} {id} list icon stays in its row`, icon, button, 0.5)
+						end
+						continue
+					end
 					t.inside(`{where} {id} button on its painted surface`, button, paint, 1)
 					if not iconOnly then
 						t.check(`{where} {id} shows its label and no icon`, not (icon and t.visible(icon)))
@@ -1065,8 +1106,13 @@ end)
 
 add("pad-radial-selection-on-paint", { "apps2-198" }, function(t: any)
 	local io = device(t)
-	local menu = radial(t)
 	io.warm()
+	local menu = radial(t, { anchor = { x = 400, y = 300 } })
+	t.check(
+		"the centered menu uses its ring presentation",
+		menu.panel:GetAttribute("Presentation") == "radial",
+		menu.panel:GetAttribute("Presentation")
+	)
 	GuiService.SelectedObject = menu.sectors.N.button
 	t.settle(4)
 	local seen: { [string]: string } = {}

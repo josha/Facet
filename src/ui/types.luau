@@ -242,7 +242,7 @@ export type Context = {
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?) -> TextLabel,
 	row: ({ Child }, FrameNativeProps?) -> Frame,
-	layoutUnit: (GuiBase2d) -> ComposeTypes.Readable<number>,
+	layoutUnit: (GuiBase2d, string?) -> ComposeTypes.Readable<number>,
 	layoutSize: (GuiBase2d, ComposeTypes.Readable<number>?) -> ComposeTypes.Readable<Vector2>,
 	layoutBounds: (TextLabel | TextButton | TextBox, ComposeTypes.Readable<number>?) -> ComposeTypes.Readable<Vector2>,
 	column: ({ Child }, FrameNativeProps?) -> Frame,

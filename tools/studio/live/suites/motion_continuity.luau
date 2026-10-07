@@ -106,6 +106,15 @@ local function checkFrames(t: any, name: string, frames: { any })
 	t.check(name .. " text keeps final position while visible", shift <= 0.5, shift)
 	t.check(name .. " no temporary vertical scrollbar", not flash)
 	t.note(name .. " frames", #frames)
+	local samples = {}
+	for _, frame in frames do
+		local sample = { panel = frame.panel, shown = frame.shown, texts = {} }
+		for node, bounds in frame.texts do
+			sample.texts[node.Name] = bounds
+		end
+		table.insert(samples, sample)
+	end
+	t.note(name .. " frame samples", samples)
 	if largest > 1 then
 		t.note(name .. " bounds", boundsExample)
 	end

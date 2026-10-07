@@ -51,6 +51,29 @@ return function(
 	runtime.mountFragment(function()
 		return {
 			Compose.show(moving, function()
+				local suspended = {}
+				local _, holder = runtime.mount(function()
+					return Host.Folder "PresentationConstraints" {}
+				end, panel)
+				for _, child in panel:GetChildren() do
+					if child:IsA("UISizeConstraint") then
+						table.insert(suspended, child)
+						child.Parent = holder :: Instance
+					end
+				end
+				runtime.mount(function()
+					local function extent(use: ComposeTypes.Use): Vector2
+						return use(natural) * scale(use)
+					end
+					return Host.UISizeConstraint "PresentationBounds" { MinSize = extent, MaxSize = extent }
+				end, panel)
+				Compose.cleanup(function()
+					for _, child in suspended do
+						if child.Parent == holder then
+							child.Parent = panel
+						end
+					end
+				end)
 				local parent = panel:FindFirstChild("Fade") or panel
 				local children = parent:GetChildren()
 				local padding = panel:FindFirstChildWhichIsA("UIPadding")
@@ -61,18 +84,23 @@ return function(
 					end
 				end
 				local stop, made = runtime.mount(function()
+					local function contentSize(use: ComposeTypes.Use): Vector2
+						local size = use(natural)
+						local function inset(side: string, length: number): number
+							local value = sides[side]
+							return if value then value.Offset + value.Scale * length else 0
+						end
+						return V2.new(
+							math.max(0, size.X - inset("Left", size.X) - inset("Right", size.X)),
+							math.max(0, size.Y - inset("Top", size.Y) - inset("Bottom", size.Y))
+						)
+					end
 					return Host.Frame "PresentationContent" {
+						Host.UISizeConstraint { MinSize = contentSize, MaxSize = contentSize },
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
-							local size = use(natural)
-							local function inset(side: string, length: number): number
-								local value = sides[side]
-								return if value then value.Offset + value.Scale * length else 0
-							end
-							return D2.fromOffset(
-								math.max(0, size.X - inset("Left", size.X) - inset("Right", size.X)),
-								math.max(0, size.Y - inset("Top", size.Y) - inset("Bottom", size.Y))
-							)
+							local size = contentSize(use)
+							return D2.fromOffset(size.X, size.Y)
 						end,
 						AnchorPoint = origin,
 						Position = function(use: ComposeTypes.Use)

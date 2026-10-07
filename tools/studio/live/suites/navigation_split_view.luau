@@ -522,12 +522,16 @@ local cases: { any } = {
 	{
 		id = "files-theme-bounds",
 		contracts = {},
-		keepGallery = true,
 		run = function(t: any)
-			api("show", "files")
+			local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
+				local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
+					t.context(UI, Host, C, env)
+				)
+				built.model.linked:set(true)
+				return built.screen()
+			end, { size = Vector2.new(1340, 850), frames = 20 })
 			t.settle(20)
-			local layer = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
-			local root = t.find(layer, "Views")
+			local root = t.find(stage, "Views")
 			t.check("Files uses NavigationSplitView", root ~= nil and root:GetAttribute("FacetSplitCollapsed") ~= nil)
 			if not root then
 				return

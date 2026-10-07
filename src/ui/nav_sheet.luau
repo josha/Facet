@@ -10,6 +10,7 @@ local settle = require("./settle")
 local motion = require("./motion")
 local reducedMotion = motion.reduced
 local freeze = require("./freeze")
+local fontReadiness = require("./font_readiness")
 
 type Controls = {
 	Sheet: Types.Constructor<Nav.SheetSpec, Frame>,
@@ -994,7 +995,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return D2.fromOffset(use(panelWidth), standing(use))
 			end,
 			GroupTransparency = function(use: ComposeTypes.Use)
-				return if level(use) == "limited" then 1 - shown.opacity(use) else 0
+				return if not use(ready) then 1 elseif level(use) == "limited" then 1 - shown.opacity(use) else 0
 			end,
 		}
 		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
@@ -1069,31 +1070,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				return total
 			end
-			local fontsReady = Compose.cell(true)
-			local provider = ctx.config.services and ctx.config.services.ContentProvider
-			if provider and task then
-				fontsReady:set(false)
-				local owner = assert(Compose.currentOwner())
-				local thread = task.defer(function()
-					local texts: { Instance } = {}
-					for _, node in panel:GetDescendants() do
-						if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-							table.insert(texts, node)
-						end
-					end
-					pcall(function()
-						provider:PreloadAsync(texts)
-					end)
-					if not owner.isDisposed() then
-						fontsReady:set(true)
-					end
-				end)
-				Compose.cleanup(function()
-					if coroutine.status(thread) == "suspended" then
-						pcall(task.cancel, thread)
-					end
-				end)
-			end
+			local fontsReady = fontReadiness(ctx, { panel })
 			local started = Compose.cell(false)
 			local clock = runtime.tween(function(use: ComposeTypes.Use): number
 				return if use(started) then 1 else 0
@@ -1117,7 +1094,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						textExtent()
 					)
 					else nil
-				if finished or (fontsReady:peek() and signature ~= nil and signature == previous) then
+				if fontsReady() and (finished or (signature ~= nil and signature == previous)) then
 					ready:set(true)
 				end
 				previous = signature

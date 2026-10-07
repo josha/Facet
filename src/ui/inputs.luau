@@ -2,6 +2,7 @@
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion").reduced
 local decoration = require("./native_decoration")
+local feedbackPaint = require("./feedback_paint")
 local richText = require("./rich_text")
 local help = require("./help")
 local activation = require("./activation")
@@ -816,9 +817,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Host.UICorner({ CornerRadius = if dynamic(spec.corners) then cornerRadius else cornerRadius() })
 			)
 		end
-		if popTimeline then
-			table.insert(p, Host.UIScale "Pop" { Scale = popScale })
-		end
 		if spec.busy ~= nil then
 			table.insert(
 				p,
@@ -1607,6 +1605,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end, node)
 		end
 
+		if popTimeline then
+			feedbackPaint(
+				ctx,
+				node,
+				Host.UIScale "Pop" { Scale = popScale },
+				{ Size = p.Size, AutomaticSize = p.AutomaticSize }
+			)
+		end
 		return node
 	end)
 

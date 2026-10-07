@@ -1151,7 +1151,7 @@ return function(verifyHarness: Verify.Harness)
 				local E = world.engine.types.Enum
 				local node = find(world.node, "Pop")
 				local authored = find(world.node, "Authored")
-				local pop = node:FindFirstChildWhichIsA("UIScale")
+				local pop = node:FindFirstChildWhichIsA("UIScale", true)
 				local shadow = find(node, "ChromeShadow")
 				Verify.expect(shadow.ClassName):toBe("UIShadow")
 				Verify.expect(shadow.Enabled):toBe(true)

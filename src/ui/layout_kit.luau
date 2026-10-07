@@ -31,7 +31,8 @@ function layoutKit.of(ctx: Shared.Context): Kit
 end
 
 function layoutKit.attach(ctx: Shared.Context): Kit
-	local Host, read, types, config, Compose = ctx.Host, ctx.read, ctx.types, ctx.config, ctx.Compose
+	local Host, read, types, config, Compose, runtime =
+		ctx.Host, ctx.read, ctx.types, ctx.config, ctx.Compose, ctx.runtime
 	local themes = bindThemes(Compose)
 	local Enum = types.Enum
 	local kit = {} :: Kit
@@ -397,16 +398,25 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		local topbar, position, parent =
 			ctx.observe.TopbarInset(gui), ctx.observe.AbsolutePosition(frame), ctx.observe.Parent(frame)
-		Compose.watch(function(use: ComposeTypes.Use)
-			use(parent)
-			local band, top = use(topbar), use(position).Y
+		local function measure()
+			local band, top = gui.TopbarInset, frame.AbsolutePosition.Y
 			local ok, inset = pcall(gui.GetGuiInset, gui)
 			under:set(
 				if typeof(band) == "Rect" and frame:FindFirstAncestorWhichIsA("ScreenGui")
 					then math.max(0, band.Max.Y - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top)
 					else 0
 			)
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(parent)
+			use(topbar)
+			use(position)
+			measure()
 		end)
+		local frames = config.services and config.services.RunService
+		if frames then
+			runtime.connect(frames, "Heartbeat", measure)
+		end
 	end
 	ctx.layoutKit = kit
 	return kit

@@ -54,7 +54,7 @@ return function(verifyHarness: Verify.Harness)
 				local panel = w.find("Help")
 				panel.Visible = false
 				panel.AbsoluteSize = Vector2.new(120, 30)
-				w.advance(FRAME, 3)
+				w.advance(0.5, 30)
 				Verify.expect(fadeKit.of(panel)):toBe(1)
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
 				panel.Visible = true
@@ -265,6 +265,32 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 		end
+		verifyHarness:case("keeps fractional native content bounds during materialization", {
+			id = "native_motion_rest::present at rest: anchored popover::keeps fractional native content bounds during materialization",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Popover "Pop" {
+						isPresented = Compose.cell(true),
+						source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
+						content = function(): Instance
+							return Host.TextLabel "Body" { Text = "Details" }
+						end,
+					}
+				end)
+				w.find("Panel").AbsoluteSize = Vector2.new(200, 100.95)
+				w.find("Flow").AbsoluteSize = Vector2.new(184, 84.95)
+				w.advance(FRAME, 3)
+				local panelBounds = w.find("PresentationBounds")
+				Verify.expect(panelBounds.MinSize.Y / panelBounds.MinSize.X):toBeCloseTo(100.95 / 200, 1e-6)
+				Verify.expect(panelBounds.MaxSize):toBe(panelBounds.MinSize)
+				local content = w.find("PresentationContent")
+				local constraint = content:FindFirstChildWhichIsA("UISizeConstraint")
+				Verify.expect(constraint.MinSize):toBe(Vector2.new(184, 84.95))
+				Verify.expect(constraint.MaxSize):toBe(constraint.MinSize)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("placement reads the rested size while the panel scales in", {
 			id = "native_motion_rest::present at rest: anchored popover::placement reads the rested size while the panel scales in",
 			run = function()
@@ -291,6 +317,32 @@ return function(verifyHarness: Verify.Harness)
 				panel.AbsoluteSize = Vector2.new(200 * scale.Scale, 100 * scale.Scale)
 				Verify.expect(panel.Position.X.Offset):toBe(x)
 				Verify.expect(panel.Position.Y.Offset):toBe(y)
+				w.stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("present at rest: sheet", function()
+		verifyHarness:case("keeps preparation transparent before normal motion starts", {
+			id = "native_motion_rest::present at rest: sheet::keeps preparation transparent before normal motion starts",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						title = "Look summary",
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return Host.TextLabel { Text = "Appearance" }
+						end,
+					}
+				end)
+				local panel = w.find("SheetPanel")
+				Verify.expect(fadeKit.of(panel)):toBe(1)
+				w.size(panel, 400, 300)
+				w.advance(FRAME, 1)
+				Verify.expect(fadeKit.of(panel)):toBe(1)
+				w.advance(0.5, 30)
+				Verify.expect(fadeKit.of(panel)):toBe(0)
 				w.stop()
 			end,
 		})
@@ -449,6 +501,24 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(280 + 220 * shrink, 1)
 				Verify.expect(materialize.position(panel).Y.Offset):toBeCloseTo(96 + 200 * shrink, 2)
 				world.stop()
+			end,
+		})
+
+		verifyHarness:case("keeps the pinned point across fractional panel handoff", {
+			id = "native_motion_rest::present at rest: menu::keeps the pinned point across fractional panel handoff",
+			run = function()
+				for _, height in { 52.0000076, 52.0000153 } do
+					local world = menu({ edge = "top", align = "end", items = NESTED, presentation = "menu" })
+					world.find("Trigger").Activated:Fire()
+					local panel = world.find("MenuPanel", world.screen.Parent)
+					lay(world, panel, Vector2.new(220.00003, height))
+					for _ = 1, 24 do
+						world.engine.heartbeat:Fire(FRAME)
+						Verify.expect(panel.Position.X.Offset):toBe(500)
+						Verify.expect(panel.Position.Y.Offset):toBe(296)
+					end
+					world.stop()
+				end
 			end,
 		})
 

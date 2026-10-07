@@ -9,6 +9,7 @@ local placement = require("./overlay_placement")
 local parts = require("./overlay_parts")
 local motion = require("./motion")
 local rest = require("./rest")
+local fontReadiness = require("./font_readiness")
 local scrollLock = require("./scroll_lock")
 
 local HELP_DWELL = 0.45
@@ -241,7 +242,8 @@ return function(ctx: Types.Context): Nav.Surfaces
 		for index, node in nodes do
 			live[index] = ctx.observe.AbsoluteSize(node)
 		end
-		local rested = rest(ctx, function(): (string, boolean)
+		local fontsReady = fontReadiness(ctx, nodes)
+		local rested = rest(ctx, function(): (string, boolean, boolean?)
 			local parts: { string } = {}
 			local filled = false
 			for index, node in nodes do
@@ -252,7 +254,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				end
 				filled = filled or (value.X > 0 and value.Y > 0)
 			end
-			return table.concat(parts, ";"), filled and nodes[1].Visible
+			return table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady()
 		end, restart)
 		local held: { ComposeTypes.Readable<Vector2> } = {}
 		for index, size in live do
@@ -307,7 +309,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 					local distance = if rise then rise(use) else nil
 					return if distance
 						then D2.fromOffset(at.X, at.Y + distance * (1 - amount(use)))
-						else D2.fromOffset(at.X + origin.X, at.Y + origin.Y)
+						else D2.fromOffset(
+							math.round((at.X + origin.X) * 1e4) / 1e4,
+							math.round((at.Y + origin.Y) * 1e4) / 1e4
+						)
 				end,
 			})
 		else

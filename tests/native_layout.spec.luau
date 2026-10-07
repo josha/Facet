@@ -94,6 +94,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame {
 						UI.Text "Automatic" { text = "Ranger rifle" },
 						UI.Text "Fixed" { text = "Ranger rifle", AutomaticSize = Enum.AutomaticSize.None },
+						UI.Slider "Slider" { value = Compose.cell(0.5) },
 					}
 				end)
 				local automatic, fixed = root.Automatic, root.Fixed
@@ -109,6 +110,16 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(states):toHaveLength(2)
 				fixed.TextSize = 12
 				Verify.expect(fixed.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				local readout = root.Slider:FindFirstChild("Value", true)
+				local internal = {}
+				local internalConnection = readout:GetPropertyChangedSignal("AutomaticSize"):Connect(function()
+					table.insert(internal, readout.AutomaticSize)
+				end)
+				readout.TextSize = 12
+				Verify.expect(internal):toHaveLength(2)
+				Verify.expect(internal[1]):toBe(engine.types.Enum.AutomaticSize.None)
+				Verify.expect(internal[2]):toBe(engine.types.Enum.AutomaticSize.XY)
+				internalConnection:Disconnect()
 				connection:Disconnect()
 				stop()
 			end,
@@ -649,6 +660,43 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
 						runtime:dispose()
 					end
+				end,
+			})
+
+			verifyHarness:case("refreshes top-bar clearance when the native inset changes without a property event", {
+				id = "native_layout::Screen::refreshes top-bar clearance when the native inset changes without a property event",
+				run = function()
+					local engine: any = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local gui = engine.new("GuiService")
+					local T = engine.types
+					local inset = 30
+					gui.GetGuiInset = function()
+						return T.Vector2.new(0, inset), T.Vector2.zero
+					end
+					gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+					local UI = Facet.controls(
+						runtime,
+						{
+							types = T,
+							guiService = gui,
+							services = { GuiService = gui, RunService = { Heartbeat = engine.heartbeat } },
+						} :: any
+					)
+					local root: any
+					runtime.mount(function()
+						root = UI.Screen { UI.Text { text = "Clock" } }
+						return root
+					end, engine.new("ScreenGui"))
+					local padding = child(root, "UIPadding")
+					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 44))
+					inset = 58
+					engine.heartbeat:Fire(1 / 60)
+					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
+					inset = 30
+					engine.heartbeat:Fire(1 / 60)
+					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 44))
+					runtime:dispose()
 				end,
 			})
 
