@@ -8,6 +8,8 @@ local HttpService = game:GetService("HttpService")
 local Verify = (require :: any)(game.ReplicatedStorage:WaitForChild("FacetVerify"):WaitForChild("core"))
 
 return function(live: any, suite: string, options: { [string]: any }): any
+	local keyboardInput = UserInputService.KeyboardEnabled
+		and UserInputService.PreferredInput ~= Enum.PreferredInput.Gamepad
 	local function settle(frames: number?)
 		for _ = 1, frames or 8 do
 			RunService.RenderStepped:Wait()
@@ -96,7 +98,13 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	local function press(t: any, names: { string })
 		local result = HttpService:JSONDecode(live.press(names))
 		for _, name in names do
-			if string.sub(name, 1, 4) == "DPad" or string.sub(name, 1, 6) == "Button" then
+			if string.sub(name, 1, 5) == "Stick" then
+				local delivered = false
+				for _, entry in result.input do
+					delivered = delivered or string.find(entry, "Gamepad1:Thumbstick1:", 1, true) ~= nil
+				end
+				t.check("native gamepad stick input delivered " .. name, delivered, result.input)
+			elseif string.sub(name, 1, 4) == "DPad" or string.sub(name, 1, 6) == "Button" then
 				t.check(
 					"native gamepad input delivered " .. name,
 					table.find(result.input, "Gamepad1:" .. name) ~= nil,
@@ -229,7 +237,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("afterTap")
 	end
 	drivers["list-keyboard-and-dpad"] = function(t)
-		press(t, { "Down" })
+		press(t, { "DPadDown" })
 		live.step("afterDown")
 		press(t, { "DPadDown" })
 		live.step("afterDpad")
@@ -244,34 +252,47 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		press(t, { "DPadDown" })
 		live.step("afterDown")
 	end
-	drivers["power-off-traversal"] = function(t)
+	drivers["power-off-traversal"] = function(t, value)
 		press(t, { "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown" })
 		live.step("afterDpad")
+		if not keyboardInput then
+			t.note(
+				"unsupported keyboard phase",
+				"Controller Emulator consumes Tab; power-off-traversal-tab requires native keyboard input"
+			)
+			value.connection:Disconnect()
+			GuiService.SelectedObject = nil
+			return
+		end
 		press(t, { "Tab", "Tab", "Tab", "Tab", "Tab", "Tab" })
 		live.step("afterTab")
 	end
 	drivers["sheet-traps-and-orders-selection"] = function(t)
-		press(t, { "Down", "Down", "Down", "Down", "Down", "Down" })
+		t.note("up input", "StickUp delivers native Gamepad1 Thumbstick1; VirtualInput rejects the emulator DPadUp key")
+		press(t, { "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown" })
 		live.step("afterDown")
-		press(t, { "Left", "Right", "Up", "Down", "Left", "Right", "Up", "Down" })
+		press(t, { "DPadLeft", "DPadRight", "StickUp", "DPadDown", "DPadLeft", "DPadRight", "StickUp", "DPadDown" })
 		live.step("afterAll")
 		press(t, { "ButtonB" })
 		live.step("afterBack")
 	end
 	drivers["alert-selection-stays-inside"] = function(t)
-		press(t, { "Down", "Down", "Down", "Down" })
+		t.note("up input", "StickUp delivers native Gamepad1 Thumbstick1; VirtualInput rejects the emulator DPadUp key")
+		press(t, { "DPadDown", "DPadDown", "DPadDown", "DPadDown" })
 		live.step("afterDown")
-		press(t, { "Up", "Up", "Up", "Up" })
+		press(t, { "StickUp", "StickUp", "StickUp", "StickUp" })
 		live.step("afterUp")
 		press(t, { "ButtonA" })
 		live.step("afterActivate")
 	end
-	drivers["confirm-dialog-left-right"] = function(t)
-		press(t, { "Return" })
+	drivers["confirm-dialog-left-right"] = function(t, value)
+		GuiService.SelectedObject = assert(value.stage:FindFirstChild("Delete", true)) :: GuiObject
+		settle(2)
+		press(t, { "ButtonA" })
 		live.step("afterOpen")
-		press(t, { "Right" })
+		press(t, { "DPadRight" })
 		live.step("afterRight")
-		press(t, { "Left" })
+		press(t, { "DPadLeft" })
 		live.step("afterLeft")
 		press(t, { "ButtonB" })
 		live.step("afterBack")
@@ -286,6 +307,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		["confirm-dialog-left-right"] = true,
 	}
 	local capabilities = { "roblox-client", "input-pointer" }
+	if keyboardInput then
+		table.insert(capabilities, "input-keyboard")
+	end
 	if options.device == "keep" and UserInputService.GamepadEnabled then
 		table.insert(capabilities, "input-gamepad")
 	end
@@ -349,6 +373,15 @@ return function(live: any, suite: string, options: { [string]: any }): any
 				simulator:StopSimulationAsync()
 			end
 			settle(60)
+		end
+		if case.id == "power-off-traversal" and not table.find(capabilities, "input-keyboard") then
+			unavailable:case("power-off-traversal-tab", {
+				id = "power-off-traversal-tab",
+				requires = { "input-keyboard" },
+				run = function()
+					error("Controller Emulator consumes Tab; run the keyboard phase outside console emulation", 0)
+				end,
+			})
 		end
 		local began, problem = pcall(live.begin, suite, case.id)
 		if not began then

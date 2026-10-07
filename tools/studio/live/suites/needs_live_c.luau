@@ -417,11 +417,17 @@ add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
 				end
 			end
 			local first = rail:FindFirstChild("Card_c1", true)
-			local title = first and first:FindFirstChild("Title", true)
-			results[run.name] = { perView = count, width = width, textSize = title and title.TextSize }
+			local title = first and first:FindFirstChild("Name", true)
+			results[run.name] = {
+				perView = count,
+				width = width,
+				window = rail.AbsoluteWindowSize.X,
+				textSize = title and title:GetStyled("TextSize"),
+			}
+			t.check(`{run.name} the card name is measured`, title ~= nil and title:IsA("TextLabel"))
 			t.check(
 				`{run.name} the viewing distance reaches the controls`,
-				context.UI.environment().isTenFoot:peek() == (run.distance == "ten-foot")
+				context.environmentFacts.isTenFoot:peek() == (run.distance == "ten-foot")
 			)
 			t.note(`{run.name} cards per view and card width`, results[run.name])
 			if first then
@@ -444,17 +450,22 @@ add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
 	local phone, near, far = results["phone near"], results["desktop near"], results["desktop distant"]
 	if phone and near and far then
 		t.check("a phone shows one card per view", phone.perView == 1, phone)
-		t.check("the distant preview draws larger card text", far.textSize > near.textSize, { near = near, far = far })
 		t.check(
-			"the distant preview keeps whole cards at the same width",
-			far.width == near.width,
+			"the distant preview draws larger card text",
+			far.textSize ~= nil and near.textSize ~= nil and far.textSize > near.textSize,
 			{ near = near, far = far }
 		)
-		t.check(
-			"the distant preview keeps the same whole-card count",
-			far.perView == near.perView,
-			{ near = near, far = far }
-		)
+		for _, run in { near, far } do
+			local expectedCount = math.max(1, math.floor((run.window + 8) / 208))
+			t.check("the desktop shelf keeps the configured minimum card width", run.width >= 200, run)
+			t.check("the desktop shelf fits whole cards to its native window", run.perView == expectedCount, run)
+			t.near(
+				"whole card widths share the window with the configured gaps",
+				run.width,
+				math.floor((run.window - 8 * (expectedCount - 1)) / expectedCount),
+				1
+			)
+		end
 	end
 end)
 
@@ -524,21 +535,6 @@ end)
 
 add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 	local live = (require :: any)(assert(script.Parent).Parent)
-	local UserInputService = game:GetService("UserInputService")
-	local virtual = (UserInputService :: any):CreateVirtualInput()
-	local inset = GuiService:GetGuiInset()
-	local function drag(from: Vector2, to: Vector2)
-		virtual:SendMousePosition(from + inset)
-		t.settle(2)
-		virtual:SendMouseButton(from + inset, Enum.UserInputType.MouseButton1, true)
-		t.settle(2)
-		for index = 1, 12 do
-			virtual:SendMousePosition(from:Lerp(to, index / 12) + inset)
-			t.settle(1)
-		end
-		virtual:SendMouseButton(to + inset, Enum.UserInputType.MouseButton1, false)
-		t.settle(4)
-	end
 	local built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
@@ -593,17 +589,6 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 		t.check("the first row and its hit were found", false)
 		return
 	end
-	local at, size = hit.AbsolutePosition, hit.AbsoluteSize
-	local y = at.Y + size.Y / 2
-	drag(Vector2.new(at.X + size.X - 8, y), Vector2.new(at.X + size.X * 0.6, y))
-	t.settle(30)
-	local trailing = row:FindFirstChild("trailing", true)
-	local remove = trailing and trailing:FindFirstChild("remove", true)
-	t.check(
-		"a real mouse swipe opens the trailing tray",
-		remove ~= nil and t.visible(remove),
-		remove and remove.AbsoluteSize
-	)
 	local rating = built.ratingFor(first)
 	local before = rating:peek()
 	GuiService.SelectedObject = hit
@@ -621,10 +606,22 @@ add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
 	t.note("walk", walk)
 	t.note("rating before and after", { before, rating:peek() })
 	t.check("the pad walk pushes the rating to its maximum", rating:peek() == 5, rating:peek())
-	t.check(
-		"the pad walk continues past the rating into the tray's Remove",
-		GuiService.SelectedObject == remove,
-		selectedName()
+	GuiService.SelectedObject = hit
+	t.settle(2)
+	t.note("reveal actions", live.press({ "ButtonX" }))
+	t.settle(20)
+	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local panel = layer and visibleNamed(t, layer, "MenuPanel")
+	local remove = panel and panel:FindFirstChild("trailing:remove", true)
+	t.check("ButtonX opens the row actions menu with Remove", remove ~= nil and t.visible(remove))
+	t.note("walk actions", live.press({ "DPadDown" }))
+	t.check("DPadDown reaches Remove after Top", GuiService.SelectedObject == remove, selectedName())
+	t.note("remove", live.press({ "ButtonA" }))
+	t.settle(20)
+	t.check("ButtonA on Remove deletes the selected track", ids() == "turbo,neon,pit,photo,apex", ids())
+	t.note(
+		"input policy",
+		"Gamepad uses ButtonX and the actions menu; pointer swipe is disabled while Gamepad is preferred"
 	)
 	GuiService.SelectedObject = nil
 end)
