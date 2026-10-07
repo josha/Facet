@@ -134,6 +134,39 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native parity weak3 h1", function()
+		verifyHarness:case("resolves the Club check icon when a collapsible title changes", {
+			id = "native_parity_weak3_h1::native parity weak3 h1::resolves the Club check icon when a collapsible title changes",
+			run = function()
+				local club = Compose.cell(false)
+				local theme = Compose.cell(themes.neutralPackage())
+				local world = setup(function(UI: FacetControls)
+					return UI.CollapsibleView "Settings" {
+						label = "Race settings",
+						expanded = Compose.cell(false),
+						icon = Compose.formula(function(use: any): string
+							return if use(club) then "check" else "flag"
+						end),
+						content = function(): Instance
+							return UI.Toggle "Club" { value = club, label = "Club membership" }
+						end,
+					}
+				end, { theme = theme })
+				local trigger = find(world.root, "Settings")
+				Verify.expect(paintedIcon(trigger)):toBe(glyph("flag"))
+				trigger.Activated:Fire()
+				world.settle()
+				local toggle = find(world.root, "Club")
+				Verify.expect(toggle ~= nil):toBe(true)
+				toggle.Activated:Fire()
+				Verify.expect(paintedIcon(trigger)):toBe(glyph("checkmark"))
+				Verify.expect(find(world.root, "Settings")):toBe(trigger)
+				for _, name in { "glossy_mobile", "fantasy_parchment", "scifi_hud" } do
+					theme:set((require :: any)("../examples/themes/" .. name).build(themes))
+					Verify.expect(paintedIcon(trigger)):toBe(glyph("checkmark"))
+				end
+				world.stop()
+			end,
+		})
 		for _, style in { "radioGroup", "inline" } :: { "inline" | "radioGroup" } do
 			verifyHarness:case(`repaints a live {style} option icon in place and keeps the row and its focus`, {
 				id = "native_parity_weak3_h1::"

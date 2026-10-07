@@ -79,6 +79,81 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Tab traversal priority and the keyboard opt-in", function()
+		verifyHarness:case("only the runtime that owns selection handles a shared native Tab binding", {
+			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::only the runtime that owns selection handles a shared native Tab binding",
+			run = function()
+				local w = setup(function(UI: FacetControls)
+					return UI.Screen "First" {
+						UI.Button "OldA" { label = "Old A" } :: unknown,
+						UI.Button "OldB" { label = "Old B" },
+					}
+				end)
+				local first = w.find("FacetTraversal", w.parent)
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(w.engine)
+				local UI = Facet.controls(runtime, {
+					types = w.engine.types,
+					guiService = w.gui,
+					inputParent = w.parent,
+					services = { GuiService = w.gui, UserInputService = w.input },
+				})
+				local Host = runtime.constructors
+				local stop, screen: any = runtime.mount(function()
+					return Host.ScreenGui {
+						UI.Button "A" { label = "A" } :: unknown,
+						UI.Button "B" { label = "B" },
+						UI.Button "C" { label = "C" },
+					}
+				end, w.parent)
+				local contexts = {}
+				for _, node in w.parent:GetChildren() do
+					if node.Name == "FacetTraversal" then
+						table.insert(contexts, node)
+					end
+				end
+				Verify.expect(contexts):toHaveLength(2)
+				w.gui.SelectedObject = w.find("A", screen)
+				Verify.expect(first.Enabled):toBe(false)
+				for _, context in contexts do
+					if context.Enabled then
+						context.Traverse.Pressed:Fire()
+					end
+				end
+				Verify.expect(w.selected()):toBe("B")
+				w.gui.SelectedObject = w.find("OldA")
+				Verify.expect(first.Enabled):toBe(true)
+				for _, context in contexts do
+					if context.Enabled then
+						context.Traverse.Pressed:Fire()
+					end
+				end
+				Verify.expect(w.selected()):toBe("OldB")
+				stop()
+				runtime:dispose()
+				w.stop()
+			end,
+		})
+		verifyHarness:case("keeps native buttons inside an explicit responder in its Tab scope", {
+			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::keeps native buttons inside an explicit responder in its Tab scope",
+			run = function()
+				local w = setup(function(UI: FacetControls, Host: RobloxHost)
+					local panel = Host.Frame "NativeResponder" {
+						Host.TextButton "NativeA" { Text = "A", Selectable = true } :: unknown,
+						Host.TextButton "NativeB" { Text = "B", Selectable = true },
+					}
+					UI.responder(panel, { passive = false })
+					return Host.Frame {
+						panel :: unknown,
+						UI.Button "Outside" { label = "Outside" },
+					}
+				end)
+				w.gui.SelectedObject = w.find("NativeA")
+				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
+				w.tab()
+				Verify.expect(w.selected()):toBe("NativeB")
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("walks Tab by SelectionOrder tier, then document order within a tier", {
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::walks Tab by SelectionOrder tier, then document order within a tier",
 			run = function()

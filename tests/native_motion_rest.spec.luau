@@ -15,6 +15,29 @@ return function(verifyHarness: Verify.Harness)
 	local FRAME = 1 / 60
 
 	verifyHarness:suite("present at rest: help tooltip", function()
+		verifyHarness:case("waits for all help text layout positions before entrance", {
+			id = "native_motion_rest::present at rest: help tooltip::waits for all help text layout positions before entrance",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame {
+						UI.Button "Post" { label = "Post", help = { body = "Posts it", title = "Posting" } },
+					}
+				end)
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.gui.SelectedObject = w.find("Post")
+				w.advance(0.5, 10)
+				local panel, title = w.find("Help"), w.find("HelpTitle")
+				w.size(panel, 140, 60)
+				for step = 1, 5 do
+					w.at(title, 8, 6 + step)
+					w.advance(FRAME)
+					Verify.expect(fadeKit.of(panel)):toBe(1)
+				end
+				w.advance(FRAME, 4)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
+				w.stop()
+			end,
+		})
 		local function hovered(): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
@@ -43,6 +66,23 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				w.advance(FRAME)
 				Verify.expect(scale.Scale < 1):toBe(true)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("hidden tooltip bounds do not start its entrance", {
+			id = "native_motion_rest::present at rest: help tooltip::hidden tooltip bounds do not start its entrance",
+			run = function()
+				local w = hovered()
+				local panel = w.find("Help")
+				panel.Visible = false
+				panel.AbsoluteSize = Vector2.new(120, 30)
+				w.advance(0.5, 30)
+				Verify.expect(fadeKit.of(panel)):toBe(1)
+				Verify.expect(materialize.of(panel).Scale):toBe(1)
+				panel.Visible = true
+				w.advance(FRAME, 3)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				w.stop()
 			end,
 		})
@@ -83,8 +123,8 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				Verify.expect(scale.Scale < 1):toBe(true)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.X.Offset):toBe(122)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.Y.Offset):toBe(52)
+				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.X.Offset):toBe(121)
+				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.Y.Offset):toBe(51)
 				w.advance(1, 30)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
@@ -248,6 +288,32 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 		end
+		verifyHarness:case("keeps fractional native content bounds during materialization", {
+			id = "native_motion_rest::present at rest: anchored popover::keeps fractional native content bounds during materialization",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Popover "Pop" {
+						isPresented = Compose.cell(true),
+						source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
+						content = function(): Instance
+							return Host.TextLabel "Body" { Text = "Details" }
+						end,
+					}
+				end)
+				w.find("Panel").AbsoluteSize = Vector2.new(200, 100.95)
+				w.find("Flow").AbsoluteSize = Vector2.new(184, 84.95)
+				w.advance(FRAME, 3)
+				local panelBounds = w.find("PresentationBounds")
+				Verify.expect(panelBounds.MinSize.Y / panelBounds.MinSize.X):toBeCloseTo(100.95 / 200, 1e-6)
+				Verify.expect(panelBounds.MaxSize):toBe(panelBounds.MinSize)
+				local content = w.find("PresentationContent")
+				local constraint = content:FindFirstChildWhichIsA("UISizeConstraint")
+				Verify.expect(constraint.MinSize):toBe(Vector2.new(184, 84.95))
+				Verify.expect(constraint.MaxSize):toBe(constraint.MinSize)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("placement reads the rested size while the panel scales in", {
 			id = "native_motion_rest::present at rest: anchored popover::placement reads the rested size while the panel scales in",
 			run = function()
@@ -274,6 +340,127 @@ return function(verifyHarness: Verify.Harness)
 				panel.AbsoluteSize = Vector2.new(200 * scale.Scale, 100 * scale.Scale)
 				Verify.expect(panel.Position.X.Offset):toBe(x)
 				Verify.expect(panel.Position.Y.Offset):toBe(y)
+				w.stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("present at rest: sheet", function()
+		verifyHarness:case("uses layout units for an adapted Popover", {
+			id = "native_motion_rest::present at rest: sheet::uses layout units for an adapted Popover",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Popover {
+						isPresented = Compose.cell(true),
+						onPresentedChange = function() end,
+						source = { rect = { x = 20, y = 30, w = 100, h = 40 } },
+						content = function(): Instance
+							return Host.TextLabel { Text = "Driver details" }
+						end,
+					}
+				end, { motionLevel = "none" })
+				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.size(w.screen, 400 * 0.513, 800 * 0.513)
+				local modal = w.find("Modal")
+				Verify.expect(modal:GetAttribute("FacetRoute")):toBe("sheet")
+				w.size(modal, 400 * 0.513, 800 * 0.513)
+				for _, probe in w.findAll("LayoutUnit") do
+					w.size(probe, 100 * 0.513, 0.513)
+				end
+				w.advance(0.5, 30)
+				Verify.expect(w.find("SheetPanel").Size.X.Offset):toBe(400)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("uses the mounted viewport before the first layout pass", {
+			id = "native_motion_rest::present at rest: sheet::uses the mounted viewport before the first layout pass",
+			run = function()
+				local shown = Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = shown,
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return Host.Frame {}
+						end,
+					}
+				end)
+				shown:set(true)
+				local panel = w.find("SheetPanel")
+				Verify.expect(panel.Size.X.Offset):toBe(560)
+				Verify.expect(panel.Size.Y.Offset):toBe(300)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("converts a scaled viewport to layout units", {
+			id = "native_motion_rest::present at rest: sheet::converts a scaled viewport to layout units",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return Host.Frame {}
+						end,
+					}
+				end, { motionLevel = "none" })
+				w.size(w.find("Modal"), 600 * 0.513, 800 * 0.513)
+				for _, probe in w.findAll("LayoutUnit") do
+					w.size(probe, 100 * 0.513, 0.513)
+				end
+				w.advance(0.5, 30)
+				local panel = w.find("SheetPanel")
+				Verify.expect(panel.Size.X.Offset):toBe(560)
+				Verify.expect(panel.Size.Y.Offset):toBe(400)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("waits for child layout positions to hold before entrance", {
+			id = "native_motion_rest::present at rest: sheet::waits for child layout positions to hold before entrance",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return Host.Frame { Name = "LateLayout" }
+						end,
+					}
+				end)
+				local panel, content = w.find("SheetPanel"), w.find("LateLayout")
+				w.size(w.find("Modal"), 800, 600)
+				w.size(panel, 400, 300)
+				w.size(content, 200, 100)
+				for step = 1, 5 do
+					w.at(content, 16, 40 + step)
+					w.advance(FRAME)
+					Verify.expect(fadeKit.of(panel)):toBe(1)
+				end
+				w.advance(FRAME, 4)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("keeps preparation transparent before normal motion starts", {
+			id = "native_motion_rest::present at rest: sheet::keeps preparation transparent before normal motion starts",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						title = "Look summary",
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("medium"),
+						content = function(): Instance
+							return Host.TextLabel { Text = "Appearance" }
+						end,
+					}
+				end)
+				local panel = w.find("SheetPanel")
+				Verify.expect(fadeKit.of(panel)):toBe(1)
+				w.size(panel, 400, 300)
+				w.advance(FRAME, 1)
+				Verify.expect(fadeKit.of(panel)):toBe(1)
+				w.advance(0.5, 30)
+				Verify.expect(fadeKit.of(panel)):toBe(0)
 				w.stop()
 			end,
 		})
@@ -409,6 +596,22 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("present at rest: menu", function()
+		verifyHarness:case("keeps the panel slot fixed while its paint appears", {
+			id = "native_motion_rest::present at rest: menu::keeps the panel slot fixed while its paint appears",
+			run = function()
+				local world = menu({ items = NESTED, presentation = "menu" })
+				world.find("Trigger").Activated:Fire()
+				local panel = world.find("MenuPanel", world.screen.Parent)
+				lay(world, panel, Vector2.new(220, 200))
+				for _ = 1, 3 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				Verify.expect(panel.Size.X.Offset):toBe(220)
+				Verify.expect(panel.Size.Y.Offset):toBe(200)
+				Verify.expect(materialize.of(panel).Scale < 1):toBe(true)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("waits for rest at scale 1, then scales about the rested corner", {
 			id = "native_motion_rest::present at rest: menu::waits for rest at scale 1, then scales about the rested corner",
 			run = function()
@@ -435,6 +638,24 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps the pinned point across fractional panel handoff", {
+			id = "native_motion_rest::present at rest: menu::keeps the pinned point across fractional panel handoff",
+			run = function()
+				for _, height in { 52.0000076, 52.0000153 } do
+					local world = menu({ edge = "top", align = "end", items = NESTED, presentation = "menu" })
+					world.find("Trigger").Activated:Fire()
+					local panel = world.find("MenuPanel", world.screen.Parent)
+					lay(world, panel, Vector2.new(220.00003, height))
+					for _ = 1, 24 do
+						world.engine.heartbeat:Fire(FRAME)
+						Verify.expect(panel.Position.X.Offset):toBe(500)
+						Verify.expect(panel.Position.Y.Offset):toBe(296)
+					end
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("a submenu is measured at rest before its level animates", {
 			id = "native_motion_rest::present at rest: menu::a submenu is measured at rest before its level animates",
 			run = function()
@@ -455,10 +676,14 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(scale.Scale < 1):toBe(true)
-				Verify.expect(panel.Size.Y.Offset):toBeCloseTo(90 * scale.Scale, 1)
+				Verify.expect(panel.Size.Y.Offset):toBe(90)
+				Verify.expect(panel:FindFirstChild("PresentationPaint", true).Size.Y.Offset)
+					:toBeCloseTo(90 * scale.Scale, 1)
 				panel.AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
 				world.find("MenuRows", panel).AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
-				Verify.expect(panel.Size.Y.Offset):toBeCloseTo(90 * scale.Scale, 1)
+				Verify.expect(panel.Size.Y.Offset):toBe(90)
+				Verify.expect(panel:FindFirstChild("PresentationPaint", true).Size.Y.Offset)
+					:toBeCloseTo(90 * scale.Scale, 1)
 				world.stop()
 			end,
 		})

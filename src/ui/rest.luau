@@ -4,11 +4,22 @@ local Types = require("./types")
 
 return function(
 	ctx: Types.Context,
-	sample: () -> (string, boolean),
+	sample: () -> (string, boolean, boolean?),
 	restart: ((ComposeTypes.Use) -> string)?
 ): ComposeTypes.Readable<boolean>
 	local Compose = ctx.Compose
-	local frames = ctx.runtime.host.frames
+	local frames: { onFrame: ((number) -> ()) -> () -> () }? = ctx.runtime.host.frames
+	local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
+	if render then
+		frames = {
+			onFrame = function(callback: (number) -> ()): () -> ()
+				local connection = render:Connect(callback)
+				return function()
+					connection:Disconnect()
+				end
+			end,
+		}
+	end
 	local limit = ctx.metric("motion.restLimit")
 	local rested = Compose.cell(false)
 	local stop: (() -> ())? = nil
@@ -33,13 +44,13 @@ return function(
 			if stop ~= mine then
 				return
 			end
-			waited += delta
-			local now, filled = sample()
-			if (now == last and filled) or waited > limit then
+			local now, filled, allowed = sample()
+			waited = if allowed ~= false then waited + delta else 0
+			if allowed ~= false and ((filled and now == last) or waited > limit) then
 				halt()
 				rested:set(true)
 			end
-			last = now
+			last = if allowed ~= false then now else nil
 		end)
 		stop = mine
 	end

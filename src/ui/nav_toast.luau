@@ -736,9 +736,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if interactive then
 			trackReturn()
 		end
-		local root = Host.Frame(
+		local properties =
 			ctx.props(spec, KEYS, { Name = "Toast", BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) })
-		)
+		local visible = properties.Visible
+		properties.Visible = false
+		local root = Host.Frame(properties)
+		root:SetAttribute("FacetOverlayPlaceholder", true)
 		local record: Record = {
 			spec = spec,
 			state = Compose.cell("idle"),
@@ -790,7 +793,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end)
 		surfaces.attach(root, {
 			surfaces.overlay(root, function(use: ComposeTypes.Use): boolean
-				return use(record.state) == "shown"
+				return use(record.state) == "shown" and read(visible, use) ~= false
 			end, function(phase)
 				local stack = assert(record.stack)
 				return if interactive then actionRow(record, stack, phase) else passiveRow(record, stack, phase)

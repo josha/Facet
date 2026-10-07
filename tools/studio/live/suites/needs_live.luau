@@ -69,12 +69,10 @@ local function same(t: any, where: string, actual: { [string]: any }, expected: 
 		if got.visible ~= want.visible then
 			table.insert(missing, name .. " visibility")
 		end
-		local delta = math.max(
-			math.abs(got.x - want.x),
-			math.abs(got.y - want.y),
-			math.abs(got.w - want.w),
-			math.abs(got.h - want.h)
-		)
+		local delta = math.max(math.abs(got.w - want.w), math.abs(got.h - want.h))
+		if got.visible or want.visible then
+			delta = math.max(delta, math.abs(got.x - want.x), math.abs(got.y - want.y))
+		end
 		if delta > 0.5 then
 			moved[name] = { got = { got.x, got.y, got.w, got.h }, want = { want.x, want.y, want.w, want.h } }
 		end

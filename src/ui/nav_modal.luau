@@ -9,6 +9,7 @@ local placement = require("./overlay_placement")
 local parts = require("./overlay_parts")
 local motion = require("./motion")
 local rest = require("./rest")
+local fontReadiness = require("./font_readiness")
 local scrollLock = require("./scroll_lock")
 
 local HELP_DWELL = 0.45
@@ -241,18 +242,26 @@ return function(ctx: Types.Context): Nav.Surfaces
 		for index, node in nodes do
 			live[index] = ctx.observe.AbsoluteSize(node)
 		end
-		local rested = rest(ctx, function(): (string, boolean)
+		local fontsReady = fontReadiness(ctx, nodes)
+		local rested = rest(ctx, function(): (string, boolean, boolean?)
 			local parts: { string } = {}
 			local filled = false
-			for index, node in nodes do
-				local value = node.AbsoluteSize
-				parts[index] = `{value.X},{value.Y}`
-				if node:IsA("TextLabel") or node:IsA("TextButton") then
-					parts[index] ..= `:{node.TextBounds}`
-				end
-				filled = filled or (value.X > 0 and value.Y > 0)
+			local origin = nodes[1].AbsolutePosition
+			local descendants = nodes[1]:GetDescendants()
+			for _, node in nodes do
+				table.insert(descendants, node)
+				filled = filled or (node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0)
 			end
-			return table.concat(parts, ";"), filled
+			for _, node in descendants do
+				if node:IsA("GuiObject") then
+					local value = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
+					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+						value ..= `:{node.TextBounds}`
+					end
+					table.insert(parts, value)
+				end
+			end
+			return table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady()
 		end, restart)
 		local held: { ComposeTypes.Readable<Vector2> } = {}
 		for index, size in live do
@@ -307,7 +316,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 					local distance = if rise then rise(use) else nil
 					return if distance
 						then D2.fromOffset(at.X, at.Y + distance * (1 - amount(use)))
-						else D2.fromOffset(at.X + origin.X, at.Y + origin.Y)
+						else D2.fromOffset(
+							math.round((at.X + origin.X) * 1e4) / 1e4,
+							math.round((at.Y + origin.Y) * 1e4) / 1e4
+						)
 				end,
 			})
 		else
@@ -327,7 +339,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			local _, point = place(use)
 			local box = if settings.size then use(settings.size) else panel.AbsoluteSize
 			return V2.new(if box.X > 0 then point.X / box.X else 0.5, if box.Y > 0 then point.Y / box.Y else 0.5)
-		end)
+		end, panel:HasTag("facet-menu"))
 		return scale
 	end
 	local function attached(anchor: GuiObject): boolean
@@ -509,6 +521,46 @@ return function(ctx: Types.Context): Nav.Surfaces
 					},
 				})
 			end
+		end
+		if catcher and catcher:IsA("GuiObject") and gui then
+			local service: GuiService = gui
+			local band = ctx.observe.TopbarInset(service)
+			local parent = ctx.observe.Parent(root)
+			local unit = ctx.layoutUnit(root)
+			local expansion = Compose.cell({ near = V2.zero, far = V2.zero, scale = 1 })
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(band)
+				use(parent)
+				local scale = math.max(use(unit), 0.001)
+				local screen = root:FindFirstAncestorWhichIsA("ScreenGui")
+				local inset = screen ~= nil
+					and not screen.IgnoreGuiInset
+					and screen.ScreenInsets == E.ScreenInsets.CoreUISafeInsets
+				local near, far = V2.zero, V2.zero
+				if inset then
+					local ok, topLeft, bottomRight = pcall(service.GetGuiInset, service)
+					if ok and typeof(topLeft) == "Vector2" then
+						near = topLeft
+						far = if typeof(bottomRight) == "Vector2" then bottomRight else V2.zero
+					end
+				end
+				expansion:set({ near = near, far = far, scale = scale })
+			end)
+			runtime.decorate(catcher, {
+				Position = function(use: ComposeTypes.Use): UDim2
+					local value = use(expansion)
+					return D2.fromOffset(-value.near.X / value.scale, -value.near.Y / value.scale)
+				end,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local value = use(expansion)
+					return D2.new(
+						1,
+						(value.near.X + value.far.X) / value.scale,
+						1,
+						(value.near.Y + value.far.Y) / value.scale
+					)
+				end,
+			})
 		end
 		local released = false
 		local landed = false
@@ -714,7 +766,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local attached = false
 				while at do
 					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe.Visible(at))
+						if at ~= anchor or anchor:GetAttribute("FacetOverlayPlaceholder") ~= true then
+							table.insert(sources, ctx.observe.Visible(at))
+						end
 						table.insert(sources, ctx.observe.Interactable(at))
 					end
 					if at:IsA("LayerCollector") then

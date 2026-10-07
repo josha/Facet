@@ -26,7 +26,7 @@ type Case = {
 local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
+	table.insert(cases, { id = id, contracts = contracts, run = run, keepGallery = false })
 end
 
 local function interactive(
@@ -1306,8 +1306,23 @@ add("feedback-motion-is-paint-only", { "mech2-70" }, function(t)
 		return
 	end
 	local stopNeighbours = geometryWatch({ above, middle, lower })
-	local scale = pop:FindFirstChild("Pop")
+	local scale = pop:FindFirstChild("Pop", true)
 	local scales = {}
+	local samples = {}
+	local samplePhase = "pop"
+	local sampleWatch = game:GetService("RunService").PreRender:Connect(function()
+		local frame = { phase = samplePhase, nodes = {} }
+		for _, node in { above, pop, middle, field, lower } do
+			table.insert(frame.nodes, {
+				node.Name,
+				node.AbsolutePosition.X,
+				node.AbsolutePosition.Y,
+				node.AbsoluteSize.X,
+				node.AbsoluteSize.Y,
+			})
+		end
+		table.insert(samples, frame)
+	end)
 	local scaleWatch = game:GetService("RunService").RenderStepped:Connect(function()
 		if scale and scale.Scale ~= 1 then
 			table.insert(scales, scale.Scale)
@@ -1330,8 +1345,11 @@ add("feedback-motion-is-paint-only", { "mech2-70" }, function(t)
 	table.insert(shaking, field)
 	local stopShake = geometryWatch(shaking)
 	stopNeighbours = geometryWatch({ above, middle, lower })
+	samplePhase = "invalid"
 	value.invalid:set(true)
 	t.settle(40)
+	sampleWatch:Disconnect()
+	t.note("feedback frame samples", samples)
 	moved = stopShake()
 	t.note("shake geometry events", moved)
 	t.check("the invalid shake moves the field's paint", moved > 0, moved)

@@ -70,6 +70,32 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Facet Farm", function()
+		verifyHarness:case("reserves both view labels before toggling the hugging controls", {
+			id = "native_facet_farm::Facet Farm::reserves both view labels before toggling the hugging controls",
+			run = function()
+				local world = mount()
+				local button = world.find("View")
+				local reserve = button:FindFirstChild("WidthReserve")
+				Verify.expect(reserve ~= nil):toBe(true)
+				Verify.expect(reserve.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.XY)
+				local board, farm = reserve:FindFirstChild("BoardWidth"), reserve:FindFirstChild("FarmWidth")
+				Verify.expect(board.Text):toBe("2D board")
+				Verify.expect(farm.Text):toBe("3D farm")
+				for _, label in { board, farm } do
+					Verify.expect(label.TextTransparency):toBe(1)
+					Verify.expect(label.BackgroundTransparency):toBe(1)
+					Verify.expect(label:HasTag("facet-type-control")):toBe(true)
+				end
+				for _, caption in { "2D board", "3D farm", "2D board", "3D farm" } do
+					button.Activated:Fire()
+					Verify.expect(button.Text):toBe(caption)
+					Verify.expect(board.Parent):toBe(reserve)
+					Verify.expect(farm.Parent):toBe(reserve)
+				end
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("plows, plants, grows, harvests and levels up by the crop rules", {
 			id = "native_facet_farm::Facet Farm::plows, plants, grows, harvests and levels up by the crop rules",
 			run = function()

@@ -51,14 +51,15 @@ add("gallery-keyboard-reaches-demos", { "apps2-88", "navigation-3-28", "navigati
 	local value = {}
 	local stage, context = t.gallery({ size = Vector2.new(1280, 720), demo = "all-controls" })
 	value.stage, value.context = stage, context
+	context.dispatch("panel", "demos")
 	t.settle(20)
-	GuiService.SelectedObject = visibleNamed(t, stage, "all-controls")
-	t.check("the sidebar demo accepts selection", selectedName() == "all-controls", selectedName())
+	GuiService.SelectedObject = visibleNamed(t, stage, "Demo-all-controls")
+	t.check("the sidebar demo accepts selection", selectedName() == "Demo-all-controls", selectedName())
 	watch(value)
 	return value
 end, {
 	afterDownDown = function(t, value)
-		t.check("two arrow presses reach Motion and layout", selectedName() == "motion-layout", value.visited)
+		t.check("two arrow presses reach Motion and layout", selectedName() == "Demo-motion-layout", value.visited)
 	end,
 	afterReturn = function(t, value)
 		t.check(
@@ -66,7 +67,9 @@ end, {
 			value.context.selection:peek() == "motion-layout",
 			value.context.selection:peek()
 		)
-		GuiService.SelectedObject = visibleNamed(t, value.stage, "collections")
+		value.context.dispatch("panel", "demos")
+		t.settle(10)
+		GuiService.SelectedObject = visibleNamed(t, value.stage, "Demo-collections")
 	end,
 	afterReturnAgain = function(t, value)
 		t.check(

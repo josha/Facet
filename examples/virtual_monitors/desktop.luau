@@ -21,7 +21,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 		for _, name in screens.APPS do
 			table.insert(tabs, {
 				id = name,
-				label = if name == "Flap" then "Facet Flap" else name,
+				label = name,
 				icon = icons[name],
 				content = views[name],
 				badge = if name == "Chat"

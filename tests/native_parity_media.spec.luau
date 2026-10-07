@@ -1799,10 +1799,10 @@ return function(verifyHarness: Verify.Harness)
 							},
 						})
 					end)
-					Verify.expect((w.find("Plain"):FindFirstChild("Pop"))):toBeNil()
+					Verify.expect((w.find("Plain"):FindFirstChild("Pop", true))):toBeNil()
 					Verify.expect((w.find("Plain"):FindFirstChildWhichIsA("UIScale"))):toBeNil()
 					local held = w.find("Held")
-					local pop = held:FindFirstChild("Pop")
+					local pop = held:FindFirstChild("Pop", true)
 					Verify.expect(pop.ClassName):toBe("UIScale")
 					Verify.expect(pop.Scale):toBe(1)
 					press(w.engine, held)
@@ -1856,8 +1856,8 @@ return function(verifyHarness: Verify.Harness)
 						local before = dot.BackgroundTransparency
 						w.engine.heartbeat:Fire(0.1)
 						return {
-							pop = button:FindFirstChild("Pop").Scale,
-							pulse = field:FindFirstChild("ValidationPulse").Scale,
+							pop = button:FindFirstChild("Pop", true).Scale,
+							pulse = field:FindFirstChild("ValidationPulse", true).Scale,
 							dotBefore = before,
 							dotAfter = dot.BackgroundTransparency,
 							invalid = field:GetAttribute("invalid"),
@@ -1871,8 +1871,8 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(full.dotBefore > 0):toBe(true)
 					Verify.expect(full.dotAfter ~= full.dotBefore):toBe(true)
 					full.w.gui.ReducedMotionEnabled = true
-					Verify.expect(full.w.find("Pop"):FindFirstChild("Pop").Scale):toBe(1)
-					Verify.expect(full.w.find("Field"):FindFirstChild("ValidationPulse").Scale):toBe(1)
+					Verify.expect(full.w.find("Pop"):FindFirstChild("Pop", true).Scale):toBe(1)
+					Verify.expect(full.w.find("Field"):FindFirstChild("ValidationPulse", true).Scale):toBe(1)
 					Verify.expect(full.w.find("Busy"):FindFirstChild("Dot1", true).BackgroundTransparency):toBe(0)
 					full.w.stop()
 					local reduced = run(true)
@@ -1884,7 +1884,7 @@ return function(verifyHarness: Verify.Harness)
 					reduced.w.gui.ReducedMotionEnabled = false
 					reduced.w.find("Pop").Activated:Fire()
 					reduced.w.engine.heartbeat:Fire(0.1)
-					Verify.expect(reduced.w.find("Pop"):FindFirstChild("Pop").Scale):toBeGreaterThan(1)
+					Verify.expect(reduced.w.find("Pop"):FindFirstChild("Pop", true).Scale):toBeGreaterThan(1)
 					reduced.w.stop()
 				end,
 			})

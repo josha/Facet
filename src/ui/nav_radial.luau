@@ -875,6 +875,8 @@ return function(
 						end,
 						render = function(key: ComposeTypes.Readable<string>)
 							local current: ComposeTypes.Cell<Radial.Sector<V>?> = Compose.cell(nil :: Radial.Sector<V>?)
+							local fittedShape: ComposeTypes.Cell<Radial.SectorShape?> =
+								Compose.cell(nil :: Radial.SectorShape?)
 							local painted = Compose.cell(false)
 							local present = Compose.formula(function(use: ComposeTypes.Use): Radial.Sector<V>?
 								local entries = use(sectors)
@@ -1039,8 +1041,11 @@ return function(
 												local diameter = math.max(44, live.size)
 												return D2.fromOffset(diameter, diameter)
 											end
-											local bounds = geometry.labelBounds(live, 40)
-											return D2.fromOffset(bounds.w, bounds.h)
+											local bounds = geometry.labelBounds(use(fittedShape) or live, 40)
+											return D2.fromOffset(
+												if iconic(use, live) then bounds.h else bounds.w,
+												bounds.h
+											)
 										end,
 										TextWrapped = true,
 										enabled = function(use: ComposeTypes.Use)
@@ -1200,6 +1205,7 @@ return function(
 										if complete and not shaped:peek() then
 											shaped:set(true)
 										end
+										fittedShape:set(fitted)
 										local bounds = geometry.paint(
 											if branch and moving(use, live) then unfold(use, fitted) else fitted
 										)

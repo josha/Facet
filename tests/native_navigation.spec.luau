@@ -3354,6 +3354,8 @@ return function(verifyHarness: Verify.Harness)
 				end
 				modal.AbsolutePosition = V2.new(10, 10)
 				modal.AbsoluteSize = V2.new(800, 600)
+				Verify.expect(panel:HasTag("facet-pane")):toBe(true)
+				Verify.expect(panel:HasTag("facet-panel")):toBe(false)
 				local snapshot = find(panel, "SourceSnapshot")
 				Verify.expect(snapshot ~= nil):toBe(true)
 				Verify.expect(snapshot == source):toBe(false)

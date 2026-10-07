@@ -378,6 +378,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("reserves control skin insets when fitting numbered pages", {
+			id = "native_pagination::native Pagination::reserves control skin insets when fitting numbered pages",
+			run = function()
+				local package = require("../examples/themes/fantasy_ornate").build(Facet.themes)
+				local world = worlds.new(function(UI: FacetControls)
+					return UI.Pagination("P")((controlled(5, { pageCount = 200 })))
+				end, { theme = package })
+				local root = world.find("P")
+				world.bounds(root:FindFirstChild("DigitMeasure"), 80)
+				world.resize(root, 800, 60)
+				local carve = package.chrome.control.contentInsets
+				local padding = 2 * package.metrics.controlSizes.compact.paddingX
+				local page = world.find("Page-200")
+				local available = page:FindFirstChild("SlotLimit").MaxSize.X - padding - carve.left - carve.right
+				Verify.expect(available >= 24):toBe(true)
+				world.resize(root, 350, 60)
+				local reserved = 0
+				for _, item in mounted(root) do
+					reserved += item.Size.X.Offset
+				end
+				Verify.expect(reserved <= 350):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("gives every page and arrow a slot at the target floor and a compact plate centred in it", {
 			id = "native_pagination::native Pagination::gives every page and arrow a slot at the target floor and a compact plate centred in it",
 			run = function()

@@ -521,6 +521,21 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 								value = farm.music,
 							} :: unknown,
 							UI.Button "View" {
+								Host.Frame "WidthReserve" {
+									BackgroundTransparency = 1,
+									Size = D2.fromOffset(0, 0),
+									AutomaticSize = E.AutomaticSize.XY,
+									UI.Text "BoardWidth" {
+										text = "2D board",
+										textRole = "control" :: "control",
+										TextTransparency = 1,
+									},
+									UI.Text "FarmWidth" {
+										text = "3D farm",
+										textRole = "control" :: "control",
+										TextTransparency = 1,
+									},
+								},
 								label = function(use: Use)
 									return if use(farm.view) == "3d" then "2D board" else "3D farm"
 								end,

@@ -13,6 +13,7 @@ local only: string? = nil
 local tag = "launched"
 local deadline = 600
 local placeOnly = false
+local interactive = false
 local studio: string? = nil
 local device = "none"
 local sharedValues: { string } = {}
@@ -41,6 +42,8 @@ while index <= #process.args do
 		studio = process.args[index]
 	elseif argument == "--place" then
 		placeOnly = true
+	elseif argument == "--interactive" then
+		interactive = true
 	elseif argument == "--deadline" then
 		index += 1
 		deadline = assert(tonumber(process.args[index]), "--deadline needs seconds")
@@ -51,7 +54,7 @@ while index <= #process.args do
 end
 if #suites == 0 and not placeOnly then
 	print(
-		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--shared NAME=JSON]"
+		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--interactive] [--shared NAME=JSON]"
 	)
 	print("       lute run tools/lute/studio_live.luau --place")
 	process.exit(2)
@@ -110,6 +113,7 @@ if placeOnly then
 end
 
 local failed = false
+assert(not interactive or studio ~= nil, "--interactive requires --studio ID")
 for _, suite in suites do
 	local options =
 		`\{ runId = runId, progressToken = progressToken, device = {string.format("%q", device)}, only = {if only
@@ -120,7 +124,10 @@ for _, suite in suites do
 		"local storage = game:GetService('ReplicatedStorage')",
 		"local live = require(storage:WaitForChild('FacetLive'))",
 		"local channel = require(storage:WaitForChild('FacetVerify'):WaitForChild('roblox'):WaitForChild('report-channel'))",
-		`local report = live.report({string.format("%q", suite)}, {options})`,
+		if interactive
+			then `local drive = (function()\n{fs.readFileToString("tools/studio/live/interactive.luau")}\nend)()`
+			else "",
+		`local report = {if interactive then "drive(live, " else "live.report("}{string.format("%q", suite)}, {options})`,
 		"return game:GetService('HttpService'):JSONEncode(channel.envelope(runId, report))",
 	}, "\n")
 	local outcome = if studio

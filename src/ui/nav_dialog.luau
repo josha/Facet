@@ -178,8 +178,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, {
 			surfaces.overlay(root, condition, function(phase: Nav.PresencePhase?)
 				local layer = assert(surfaces.parent(root))
-				local extent = ctx.observe.AbsoluteSize(layer)
-				local keyboard = keyboardHeight(input)
+				local unit = ctx.layoutUnit(layer)
+				local extent = ctx.layoutSize(layer, unit)
+				local keyboardPixels = keyboardHeight(input)
+				local function keyboard(use: ComposeTypes.Use): number
+					return keyboardPixels(use) / use(unit)
+				end
 				local function margin(use: ComposeTypes.Use?): number
 					return ctx.metric("space.m", use)
 				end
@@ -287,13 +291,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					table.insert(regions, assert(group).frame)
 				end
 				local naturalSize: ComposeTypes.Readable<Vector2> = if bodyContent
-					then ctx.observe.AbsoluteSize(bodyContent)
+					then ctx.layoutSize(bodyContent, unit)
 					else Compose.cell(V2.zero)
 				local room = parts.room(ctx, regions, body, function(use: ComposeTypes.Use): number
 					return use(naturalSize).Y
 				end, function(use: ComposeTypes.Use)
 					return roomPx(use)
-				end, false)
+				end, false, unit)
 				if body and spec.contentSelectable ~= false then
 					local scroller = body
 					runtime.decorate(scroller, { Selectable = room.overflowing })
@@ -357,10 +361,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				materialize(ctx, panel, panelProps, function(use: ComposeTypes.Use)
 					local rest = ctx.metric("motion.materialize.modal", use)
 					return if use(settled) then rest + (1 - rest) * shown.travel(use) else 1
-				end)
+				end, nil, true)
 				local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
 				Compose.watch(function(use: ComposeTypes.Use)
-					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) else nil)
+					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) / use(unit) else nil)
 				end)
 				surfaces.skin(panel, "panel", {
 					title = spec.title,

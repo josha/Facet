@@ -1649,6 +1649,7 @@ return function(verifyHarness: Verify.Harness)
 						target
 					)
 					local first = find(root, "DiscoverContent")
+					Verify.expect(find(root, "Flap"):GetAttribute("FacetLabel")):toBe("Flap")
 					for _ = 1, 20 do
 						engine.heartbeat:Fire(1 / 60)
 					end

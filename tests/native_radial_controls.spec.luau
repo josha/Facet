@@ -93,6 +93,31 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 	verifyHarness:suite("native radial interaction policies", function()
+		verifyHarness:case("content fitting keeps the full button on its wedge", {
+			id = "native_radial_controls::native radial interaction policies::content fitting keeps the full button on its wedge",
+			run = function()
+				local world = setup({ distribution = "compass" :: "compass", items = compass(function() end) })
+				for _, id in { "N", "E", "S", "W" } do
+					local button = world.find(id)
+					local title = button:FindFirstChild("Title", true) or button
+					title.TextBounds = world.engine.types.Vector2.new(8, 16)
+				end
+				world.step(1)
+				for _, id in { "N", "E", "S", "W" } do
+					local button = world.find(id)
+					local paint = button.Parent:FindFirstChild("Paint")
+					local x = button.Position.X.Offset - button.Size.X.Offset / 2
+					local y = button.Position.Y.Offset - button.Size.Y.Offset / 2
+					Verify.expect(x >= paint.Position.X.Offset - 1):toBe(true)
+					Verify.expect(y >= paint.Position.Y.Offset - 1):toBe(true)
+					Verify.expect(x + button.Size.X.Offset <= paint.Position.X.Offset + paint.Size.X.Offset + 1)
+						:toBe(true)
+					Verify.expect(y + button.Size.Y.Offset <= paint.Position.Y.Offset + paint.Size.Y.Offset + 1)
+						:toBe(true)
+				end
+				world.stop()
+			end,
+		})
 		verifyHarness:case("keeps the ring's aim, commit and direction actions in one input context", {
 			id = "native_radial_controls::native radial interaction policies::keeps the ring's aim, commit and direction actions in one input context",
 			run = function()

@@ -141,17 +141,16 @@ end, {
 add("sidebar-dpad-to-collections", { "apps-193" }, function(t)
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
 	api:Invoke("show", "all-controls")
+	api:Invoke("panel", "demos")
 	t.settle(10)
 	local gui = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
-	local gallery = gui:FindFirstChild("Gallery")
-	local demos = gallery and gallery:FindFirstChild("Demos")
-	local tabs = demos and demos:FindFirstChild("Tabs")
-	local tab = (tabs and tabs:FindFirstChild("all-controls", true)) :: GuiObject?
+	local tabs = gui:FindFirstChild("DemoList", true)
+	local tab = (tabs and tabs:FindFirstChild("Demo-all-controls", true)) :: GuiObject?
 	t.check("all-controls tab found", tab ~= nil)
 	GuiService.SelectedObject = tab
 	t.settle(2)
-	t.check("all-controls tab selected", selectedName() == "all-controls", selectedName())
-	local peer = tabs and tabs:FindFirstChild("collections", true)
+	t.check("all-controls tab selected", selectedName() == "Demo-all-controls", selectedName())
+	local peer = tabs and tabs:FindFirstChild("Demo-collections", true)
 	local across = tab ~= nil
 		and peer ~= nil
 		and (peer :: GuiObject).AbsolutePosition.X > tab.AbsolutePosition.X + tab.AbsoluteSize.X / 2
@@ -159,13 +158,13 @@ add("sidebar-dpad-to-collections", { "apps-193" }, function(t)
 	return {}
 end, {
 	afterDown = function(t)
-		t.check("one DPadDown selects the collections tab", selectedName() == "collections", selectedName())
+		t.check("one DPadDown selects the collections tab", selectedName() == "Demo-collections", selectedName())
 		GuiService.SelectedObject = nil
 	end,
 	afterRight = function(t)
 		t.check(
 			"one DPadRight along the demo strip selects the collections tab",
-			selectedName() == "collections",
+			selectedName() == "Demo-collections",
 			selectedName()
 		)
 		GuiService.SelectedObject = nil
@@ -409,9 +408,15 @@ end, {
 			end
 		end
 		t.note("Down stops without scroll containers", stops)
+		local handle = value.panel and value.panel:FindFirstChild("DragHandle", true)
+		t.check("the drag handle is a passive frame", handle ~= nil and handle:IsA("Frame") and not handle.Selectable)
+		t.check(
+			"the default sheet has no close button",
+			value.panel ~= nil and value.panel:FindFirstChild("Close", true) == nil
+		)
 		t.check(
 			"Down walks the sheet controls in document order",
-			table.concat(stops, ",") == "DragHandle,Close,First,Second,Third",
+			table.concat(stops, ",") == "First,Second,Third",
 			value.visited
 		)
 		t.check("Down stops at Third", selectedName() == "Third", selectedName())

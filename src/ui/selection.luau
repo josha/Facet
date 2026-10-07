@@ -529,8 +529,17 @@ return function(ctx: Shared.Context): Selection
 				if not keyboardNavigation or use(keyboard) ~= true then
 					return false
 				end
-				if use(selectedObject) ~= nil then
-					return true
+				local current = use(selectedObject) :: Instance?
+				if current ~= nil then
+					if ownedByFacet(current) then
+						return true
+					end
+					for _, record in use(responders) do
+						if current == record.root or current:IsDescendantOf(record.root) then
+							return true
+						end
+					end
+					return false
 				end
 				local resting = false
 				for _, record in use(responders) do

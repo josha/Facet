@@ -522,10 +522,20 @@ local cases: { any } = {
 	{
 		id = "files-theme-bounds",
 		contracts = {},
-		keepGallery = true,
 		run = function(t: any)
-			local layer = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
-			local root = t.find(layer, "Views")
+			local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
+				local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
+					t.context(UI, Host, C, env)
+				)
+				built.model.linked:set(true)
+				return built.screen()
+			end, { size = Vector2.new(1340, 850), environment = { preferredInput = "Touch" }, frames = 20 })
+			t.settle(20)
+			local root = t.find(stage, "Views")
+			t.check("Files uses NavigationSplitView", root ~= nil and root:GetAttribute("FacetSplitCollapsed") ~= nil)
+			if not root then
+				return
+			end
 			local detail = root:FindFirstChild("Detail")
 			t.check("linked detail exists", detail ~= nil)
 			if not detail then
@@ -537,7 +547,7 @@ local cases: { any } = {
 				if button.Name ~= "CellActions" or not button:IsA("GuiObject") or not button.Visible then
 					continue
 				end
-				local details = button.Parent:FindFirstChild("Details", true)
+				local details = button.Parent:FindFirstChild("FileCell", true)
 				if details and details:IsA("GuiObject") and details.Visible then
 					checked += 1
 					t.check(

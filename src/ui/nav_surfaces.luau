@@ -754,7 +754,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if not fullScreen then
 					surfaces.centered(panel, spec.maxWidth or 440)
 				end
-				ctx.styled(panel, "panel")
+				ctx.styled(panel, if fullScreen then "pane" else "panel")
 				surfaces.skin(panel, "panel")
 				local settled = Compose.cell(false)
 				local shown = if spec.transition == nil

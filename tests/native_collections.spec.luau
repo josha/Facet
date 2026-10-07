@@ -1066,10 +1066,16 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_collections::Compose native collections::resolves a card rail to one card with a peek on compact touch and to whole cards elsewhere",
 				run = function()
-					local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+					local distance = Compose.cell("near")
+					local engine, runtime, UI, target, _, ctx = setup({
+						userInputService = {},
+						environment = { viewingDistance = distance },
+					})
 					local E, V2 = engine.types.Enum, engine.types.Vector2
 					assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.KeyboardAndMouse
+					local distant: any
 					local stop, node: any = runtime.mount(function()
+						distant = ctx.tenFoot()
 						return UI.VirtualList({
 							from = records(20),
 							key = key,
@@ -1083,6 +1089,11 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					node.AbsoluteWindowSize = V2.new(1000, 200)
 					Verify.expect(node:FindFirstChild("1", true).Size.X.Offset):toBe(244)
+					distance:set("ten-foot")
+					Verify.expect(distant()):toBe(true)
+					Verify.expect(node:FindFirstChild("1", true).Size.X.Offset):toBe(244)
+					Verify.expect(node:FindFirstChild("2", true).Position.X.Offset):toBe(252)
+					distance:set("near")
 					assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
 					node.AbsoluteWindowSize = V2.new(400, 200)
 					Verify.expect(node:FindFirstChild("1", true).Size.X.Offset):toBe(352)
@@ -2661,6 +2672,10 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((open:peek())):toBe("trailing")
 				open:set(nil)
 				Verify.expect((node:FindFirstChild("Delete"))):toBeNil()
+				editing:set(true)
+				Verify.expect(detector.Enabled):toBe(false)
+				editing:set(false)
+				Verify.expect(detector.Enabled):toBe(true)
 				editing:set(true)
 				Verify.expect(node:FindFirstChild("Delete") ~= nil):toBe(true)
 				gui.SelectedObject = node:FindFirstChild("Action", true)

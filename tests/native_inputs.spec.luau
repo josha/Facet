@@ -60,6 +60,33 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("keeps the checkbox image asset through activation and theme changes", {
+			id = "native_inputs::native input controls::keeps the checkbox image asset through activation and theme changes",
+			run = function()
+				local value = Compose.cell(false)
+				local theme = Compose.cell(Facet.themes.neutralPackage())
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Toggle { label = "Club", presentation = "checkbox" :: "checkbox", value = value }
+				end, function()
+					return { theme = theme }
+				end)
+				local mark = find(node, "Check")
+				Verify.expect(mark.Image):toBe(Facet.themes.resolveIcon(theme:peek(), "checkmark"))
+				node.Activated:Fire()
+				Verify.expect(value:peek()):toBe(true)
+				Verify.expect(mark.Visible):toBe(true)
+				for _, name in { "glossy_mobile", "fantasy_parchment", "scifi_hud" } do
+					theme:set(requireDynamic("../examples/themes/" .. name).build(Facet.themes))
+					Verify.expect(mark.Image):toBe(Facet.themes.resolveIcon(theme:peek(), "checkmark"))
+					Verify.expect(mark.Image ~= ""):toBe(true)
+					node.Activated:Fire()
+					node.Activated:Fire()
+					Verify.expect(mark.Visible):toBe(true)
+				end
+				stop()
+			end,
+		})
+
 		verifyHarness:case("keeps the control height under an authored full-width Button size", {
 			id = "native_inputs::native input controls::keeps the control height under an authored full-width Button size",
 			run = function()
@@ -705,7 +732,7 @@ return function(verifyHarness: Verify.Harness)
 					return { guiService = gui, services = { GuiService = gui } }
 				end)
 				local button, field = find(root, "Pop"), find(root, "Amount")
-				local scale = button:FindFirstChildWhichIsA("UIScale")
+				local scale = button:FindFirstChildWhichIsA("UIScale", true)
 				button.Activated:Fire()
 				engine.heartbeat:Fire(0.1)
 				Verify.expect(scale.Scale):toBe(1)
@@ -872,6 +899,38 @@ return function(verifyHarness: Verify.Harness)
 				node.Activated:Fire()
 				Verify.expect(actions):toBe(1)
 				stop()
+			end,
+		})
+
+		verifyHarness:case("keeps pop and rejection scales below stable layout slots", {
+			id = "native_inputs::native input controls::keeps pop and rejection scales below stable layout slots",
+			run = function()
+				local invalid = Compose.cell(false)
+				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					local Host = runtime.constructors
+					return Host.Frame {
+						UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+						UI.TextInput "Field" { value = Compose.cell("abc"), invalid = invalid },
+					}
+				end)
+				local button, field = find(node, "Pop"), find(node, "Field")
+				button.AbsoluteSize = engine.types.Vector2.new(80, 44)
+				field.AbsoluteSize = engine.types.Vector2.new(120, 44)
+				local beforeButton, beforeField = button.Size, field.Size
+				button.Activated:Fire()
+				invalid:set(true)
+				engine.heartbeat:Fire(0.08)
+				Verify.expect(button:FindFirstChildWhichIsA("UIScale")):toBe(nil)
+				Verify.expect(field:FindFirstChildWhichIsA("UIScale")):toBe(nil)
+				Verify.expect(find(button, "FeedbackPaint"):FindFirstChild("Pop").Scale > 1):toBe(true)
+				Verify.expect(find(field, "FeedbackPaint"):FindFirstChild("ValidationPulse").Scale < 1):toBe(true)
+				Verify.expect(button.Size):toBe(engine.types.UDim2.fromOffset(80, 44))
+				Verify.expect(field.Size):toBe(engine.types.UDim2.fromOffset(120, 44))
+				engine.heartbeat:Fire(1)
+				Verify.expect(button.Size):toBe(beforeButton)
+				Verify.expect(field.Size):toBe(beforeField)
+				stop()
+				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
 
