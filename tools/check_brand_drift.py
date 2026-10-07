@@ -153,6 +153,9 @@ VENDOR_ALLOWLIST = [
     ("tools/studio/capture_viewport.sh", re.compile(r"\bswift\b"),
      "the driver shell script invokes the host compiler by name",
      "when the capture helper stops needing a compiled host binary"),
+    ("tools/lute/focus_up.luau", re.compile(r"\bswift\b"),
+     "the key loop compiles the host key helper by its file name",
+     "when the capture helper stops needing a compiled host binary"),
     ("tools/studio/capture/", VENDOR,
      "the developer-only screen-capture helper is compiled by the host toolchain, which fixes "
      "its language and its file extension",

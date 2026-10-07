@@ -1,0 +1,10 @@
+[
+  { "id": "all-controls", "title": "All controls", "kind": "fixture", "module": "all_controls" },
+  { "id": "collections", "title": "Collections", "kind": "fixture", "module": "collections" },
+  { "id": "motion-layout", "title": "Motion and layout", "kind": "fixture", "module": "motion_layout" },
+  { "id": "radial-menu", "title": "Quick actions", "kind": "fixture", "module": "radial_menu" },
+  { "id": "ex03", "title": "Settings sync", "kind": "example", "module": "03_settings_sync" },
+  { "id": "ex05", "title": "Word game", "kind": "example", "module": "05_word_game" },
+  { "id": "ex06", "title": "Crossword", "kind": "example", "module": "06_tile_game" },
+  { "id": "ex07", "title": "Match 3", "kind": "example", "module": "07_match3" }
+]

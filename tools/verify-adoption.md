@@ -41,10 +41,12 @@ policy and small bindings.
   `tools/check_architecture.py` and `tools/check_coverage.py`, and the gate
   runs them as producers. `replacement-cases` checks that each mapped case is
   in the census that the `suite` producer must pass.
-- `tools/lune/bench.luau` keeps the comparison as a `judge`: the yardstick p95
-  mean, the 1.5 factor, the millisecond floor, the p50 scenes, the drift limit
-  and the heap checkpoints. The samples, the baseline and the thresholds are
-  unchanged.
+- `tools/lune/bench.luau` maps each row of `bench/baseline.json` to a Verify
+  `baseline`: the 1.5 factor as a tolerance, the yardstick p95 statistic, the
+  p50 metric for the scenes that use it and the 0.05 millisecond floor on p95.
+  Verify makes the comparison. The ratios are the same as the removed `judge`
+  gave. Facet keeps the drift limit, the heap checkpoints and the report
+  rows. The samples, the baseline and the thresholds are unchanged.
 - `tools/lune/perf.luau` and the `check_perf_*` and `check_live_evidence`
   validators are Facet workloads and recorded evidence policy.
 - `tools/lune/build.luau`, `release.luau` and `mkpair.luau` replace the shell
@@ -93,10 +95,6 @@ Historical assertion parity is not established. Read the
 [verification scope](../docs/guide/18-verification-scope.md). No example,
 benchmark workload, baseline or threshold changed.
 
-The benchmark comparison did not move. The stored-run comparison of Verify
-uses raw samples. The Facet comparison divides by the yardstick, and a move
-needs new baselines.
-
 The topbar change of `UI.Composition` has live evidence. The case
 `topbar-regions-side-by-side` of `mobile_regressions` fails without the change
 and passes with it in a Studio that Verify started.
@@ -110,38 +108,34 @@ host with no free swap. It also did not finish in 25 minutes on main before
 the cutover. The other release producers gave 74 passes and 4 timing
 deferrals.
 
-The live suites ran once in a Studio that Verify started. These results are
-not compared with the removed relay path, because no Studio ran that path on
-this commit. A failed case is a content check of the suite, not a harness
-fault.
+The live suites have failed cases that are older than the Verify migration.
+The Showcase changed to task demos before the migration started. The live
+suites did not change after that, and the committed results in
+`artifacts/studio-live` are older than the Showcase change. Those results
+show `classb_keyboard` 17 of 17, `classb_navigation` 12 of 12,
+`classb_examples` 10 of 10 and `gallery` 4 of 4. In a Studio that Verify
+started, the same suites give 15 of 17, 8 of 12, 8 of 10 and 2 of 4. No
+Studio ran the removed relay path on this commit, thus the two paths are not
+compared case by case.
 
-- All cases passed: `layout_geometry`, `primitives`, `table_resize`,
-  `classb_themes`, `paint_live`, `scroll_live`, `text_live`, `weak3_geometry`,
-  `haptics_setup`.
-- Some cases failed: `mobile_regressions` 7 of 8, `needs_live` 8 of 12,
-  `needs_live_b` 8 of 12, `needs_live_c` 5 of 13, `native_mechanisms` 4 of 6,
-  `motion_continuity` 7 of 10, `navigation_split_view` 9 of 10,
-  `classb_collections` 5 of 8, `classb_examples` 8 of 10, `classb_keyboard`
-  15 of 17, `classb_navigation` 8 of 12, `in24` 18 of 32, `ports_content` 12
-  of 15, `ports_foundation` 7 of 8, `ports_overlays` 11 of 15,
-  `ports_pickers` 13 of 23, `sweep_b` 2 of 7, `weak3_surfaces` 13 of 15,
-  `gallery` 0 of 4, `focus_probe` 0 of 19.
-- No result in 600 seconds: `classb_showcase`, `in47`, `live_bugs`.
-- The gamepad suites `focus_walk`, `focus_opened`, `gamepad_walk` and
-  `haptics_verify` need the Controller Emulator. A new Studio process does not
-  have it. They ran with `--studio ID` in a Studio with the emulator on, and
-  `PreferredInput` was `Gamepad`. `focus_walk` passed but recorded no stops,
-  and its atlases were not kept. `focus_opened` failed 15 of 15,
-  `gamepad_walk` 12 of 12 and `haptics_verify` 1 of 1. `gamepad_walk` and the
-  committed atlases name Showcase pages that the gallery does not have now.
-  These suites need new content. That is not a harness fault.
-- `native_mechanisms_input`, `needs_live_input` and `weak3_pointer` have only
-  interactive cases.
+The gamepad suites need the Controller Emulator. A new Studio process does
+not have it. They ran with `--studio ID` in a Studio with the emulator on:
+`focus_opened` 9 of 15, `gamepad_walk` 10 of 12, `haptics_setup` 1 of 1 and
+`focus_walk` 1 of 1. `haptics_verify` needs real input between the two
+haptics suites in one playtest. Run it by hand.
+
+The focus walk recorded atlases for the six Showcase pages, with the D-pad Up
+pass. The atlases of `hud` and `garage` agree with `UI.focusQuery` and are
+committed. The atlases of `arcade`, `sipworks`, `files` and `ex02` disagree
+with `UI.focusQuery` (1, 3, 6 and 37 problems). They are not committed, and
+the committed `ex02` atlas is the earlier one. The atlases of the pages that
+the Showcase does not have now are unchanged.
+
+`native_mechanisms_input`, `needs_live_input` and `weak3_pointer` have only
+interactive cases.
 
 A Studio that Verify started and an attached Studio write the progress file.
-The key loop for D-pad Up of the focus walk can read the `focus-upstream`
-step there. That loop was not run, because the focus walk records no stops
-now.
+`tools/lute/focus_up.luau` reads it and supplies D-pad Up for the focus walk.
 
 On a loaded host, the `table-mutation` scene is at the 1.5 factor on main and
 on this change.

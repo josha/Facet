@@ -119,7 +119,14 @@ The command saves each report as `artifacts/studio-live/<suite>-<tag>.json`.
 The default tag is `launched`. Use a tag that names the viewport and the text
 size, for example `portrait-largest`. The `--only` option selects cases by id.
 The command exits with 1 when a case does not pass or an attachment is
-refused.
+refused. It writes the step events of the run in
+`artifacts/studio-live/<suite>-<tag>.progress.jsonl`.
+
+The Showcase stays on the screen during each suite, but not during
+`layout_geometry`. The live place also has the fixture pages of
+`tools/studio/live/fixture_demos.json`, for example `all-controls`. The
+Showcase place does not have them. The gallery reads them from the
+`Facet_Demos` attribute of `Workspace`.
 
 Each case attaches its measurements as `notes.json`. The command writes the
 attachments of a case in `artifacts/studio-live/<suite>-<tag>/<case id>/`. A
@@ -220,12 +227,15 @@ atlas: each stop's rectangle, links, value-control axis, and the chain of
 SelectionGroups and ScrollingFrames around it. It then selects each stop and
 presses DPadDown, DPadLeft and DPadRight, and the stick in four directions,
 recording where the engine moved the selection and the scroll offsets at the
-moment of the press. Options go in `shared.FacetFocusWalk`:
+moment of the press. Options go in `shared.FacetFocusWalk`. Set them with
+`--shared 'FacetFocusWalk={"up":3}'`:
 
 - `only`: a substring of the page name;
 - `up`: seconds to wait for D-pad Up per stop. The wait is the Verify step
-  `focus-upstream`. A loop that posts key 1 with `pad_key` while that step is
-  in progress supplies the presses;
+  `focus-upstream`. Before the run, start
+  `lute run tools/lute/focus_up.luau PROGRESS_FILE STUDIO_PID`. It reads the
+  progress file of the run and posts D-pad Up to that Studio process while
+  the step is in progress. Make the file `PROGRESS_FILE.stop` to stop it;
 - `keys = true`: the arrow-key pass instead (Controller Emulator off), saved
   beside the atlas as `<page>--keys.json`;
 - `stick = false`: skip the stick pass;

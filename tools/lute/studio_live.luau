@@ -14,6 +14,7 @@ local tag = "launched"
 local deadline = 600
 local placeOnly = false
 local studio: string? = nil
+local sharedValues: { string } = {}
 local index = 2
 while index <= #process.args do
 	local argument = process.args[index]
@@ -23,6 +24,14 @@ while index <= #process.args do
 	elseif argument == "--tag" then
 		index += 1
 		tag = process.args[index]
+	elseif argument == "--shared" then
+		index += 1
+		local name, value = string.match(process.args[index], "^([%w_]+)=(.+)$")
+		assert(name and value, "--shared needs NAME=JSON")
+		table.insert(
+			sharedValues,
+			`shared[{string.format("%q", name)}] = game:GetService('HttpService'):JSONDecode({string.format("%q", value)})`
+		)
 	elseif argument == "--studio" then
 		index += 1
 		studio = process.args[index]
@@ -38,7 +47,7 @@ while index <= #process.args do
 end
 if #suites == 0 and not placeOnly then
 	print(
-		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID]"
+		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--shared NAME=JSON]"
 	)
 	print("       lute run tools/lute/studio_live.luau --place")
 	process.exit(2)
@@ -46,6 +55,7 @@ end
 
 local project = json.deserialize(fs.readFileToString("examples/gallery.project.json")) :: any
 project.name = "Facet-Live"
+project.tree.Workspace["$attributes"] = { Facet_Demos = fs.readFileToString("tools/studio/live/fixture_demos.json") }
 project.tree.ReplicatedStorage.FacetLive = { ["$path"] = "../tools/studio/live" }
 project.tree.ReplicatedStorage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 project.tree.ReplicatedStorage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
@@ -89,6 +99,7 @@ for _, suite in suites do
 	local options =
 		`\{ runId = runId, progressToken = progressToken, only = {if only then string.format("%q", only) else "nil"} }`
 	local code = table.concat({
+		table.concat(sharedValues, "\n"),
 		"local storage = game:GetService('ReplicatedStorage')",
 		"local live = require(storage:WaitForChild('FacetLive'))",
 		"local channel = require(storage:WaitForChild('FacetVerify'):WaitForChild('roblox'):WaitForChild('report-channel'))",

@@ -92,6 +92,17 @@ local function environment(): { [string]: any }
 	}
 end
 
+local function demos(screen: any): { any }
+	local list = screen.list()
+	local added = workspace:GetAttribute("Facet_Demos")
+	if type(added) == "string" then
+		for _, demo in HttpService:JSONDecode(added) do
+			table.insert(list, demo)
+		end
+	end
+	return list
+end
+
 local function newCase(Facet: any, themes: { any }, record: { [string]: any }, context: any?)
 	local t = {}
 	local cleanups: { () -> () } = {}
@@ -376,7 +387,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				types = env.types,
 				worldTarget = workspace,
 				selection = Compose.cell(config.demo or "all-controls"),
-				demos = screen.list(),
+				demos = demos(screen),
 				inputTarget = Players.LocalPlayer:WaitForChild("PlayerGui"),
 				guiService = GuiService,
 				runService = RunService,
@@ -504,6 +515,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 		end
 		table.clear(hidden)
 	end)
+	local keepGallery = if config.keepGallery ~= nil then config.keepGallery else suite ~= "layout_geometry"
 	local records = {}
 	local selected = {}
 	for _, case in live.cases(suite) do
@@ -522,7 +534,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 						gui:IsA("ScreenGui")
 						and string.sub(gui.Name, 1, 12) == "FacetGallery"
 						and gui.Enabled
-						and not config.keepGallery
+						and not keepGallery
 					then
 						gui.Enabled = false
 						table.insert(hidden, gui)

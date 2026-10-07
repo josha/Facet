@@ -35,6 +35,15 @@ local owner = Compose.createRootOwner(function()
 			{ id = booted.id, kind = booted.kind, module = booted.module, title = booted.title, blurb = nil }
 		)
 	end
+	local added = workspace:GetAttribute("Facet_Demos")
+	if type(added) == "string" then
+		for _, demo in game:GetService("HttpService"):JSONDecode(added) do
+			table.insert(
+				demos,
+				{ id = demo.id, kind = demo.kind, module = demo.module, title = demo.title, blurb = nil }
+			)
+		end
+	end
 	local selected = Compose.cell(initial)
 	local neutral = assert(Facet.themes.define(Facet.themes.neutralPackage()))
 	local theme = Compose.cell(neutral)
