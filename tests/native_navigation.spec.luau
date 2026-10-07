@@ -630,6 +630,39 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("gives each page dot a 44 px target around its 8 px dot", {
+			id = "native_navigation::native navigation controls::gives each page dot a 44 px target around its 8 px dot",
+			run = function()
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.PageView({
+						selection = Compose.cell("one"),
+						pages = {
+							{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+							{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+							{ id = "three", title = "Three", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
+						},
+					})
+				end)
+				local Enum = world.engine.types.Enum
+				local indicators = find(world.screen, "Indicators")
+				local targets = {}
+				for _, child in indicators:GetChildren() do
+					if child:HasTag("facet-page-indicator") then
+						local dot = child:FindFirstChild("Dot")
+						table.insert(
+							targets,
+							`{child.Name} {child.Size.X.Offset}x{child.Size.Y.Offset} {child.AutomaticSize == Enum.AutomaticSize.None} {dot.Size.X.Offset}x{dot.Size.Y.Offset}`
+						)
+					end
+				end
+				table.sort(targets)
+				Verify.expect((table.concat(targets, ", ")))
+					:toBe("one 44x44 true 8x8, three 44x44 true 8x8, two 44x44 true 8x8")
+				Verify.expect(indicators:FindFirstChildWhichIsA("UIListLayout").Padding.Offset):toBe(0)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("pages by direction from a control inside the showing page", {
 			id = "native_navigation::native navigation controls::pages by direction from a control inside the showing page",
 			run = function()

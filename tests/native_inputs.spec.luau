@@ -1220,6 +1220,59 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("an authored-width icon Button counts each icon and its gap in the minimum width", {
+			id = "native_inputs::native input controls::an authored-width icon Button counts each icon and its gap in the minimum width",
+			run = function()
+				for _, case: { themeName: string, themeModule: string | nil } in
+					{
+						{ themeName = "neutral", themeModule = nil },
+						{ themeName = "compact", themeModule = "compact_pointer" },
+						{ themeName = "pixel", themeModule = "pixel_quest" },
+					} :: { { themeName: string, themeModule: string | nil } }
+				do
+					local package = if case.themeModule
+						then requireDynamic("../examples/themes/" .. case.themeModule).build(Facet.themes)
+						else nil
+					local leading = Compose.cell("rbxassetid://1")
+					local node, stop = world(function(UI: FacetControls, host, runtime)
+						local size = host.types.UDim2.fromOffset(52, 44)
+						local none = host.types.Enum.AutomaticSize.None
+						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+							UI.Button "Lead" { icon = leading, label = "Go", Size = size, AutomaticSize = none } :: unknown,
+							UI.Button "Both" {
+								icon = "rbxassetid://1",
+								trailingIcon = "rbxassetid://1",
+								label = "Go",
+								Size = size,
+								AutomaticSize = none,
+							},
+							UI.Button "Plain" { label = "Go", Size = size },
+						})
+					end, function()
+						return { theme = package }
+					end)
+					local metrics = (package or Facet.themes.neutralPackage()).metrics
+					local rung = metrics.controlSizes.regular
+					local skin = package and package.chrome and package.chrome.control
+					local carve = if skin then skin.contentInsets or {} else {}
+					local label = 2 * rung.paddingX
+						+ (carve.left or 0)
+						+ (carve.right or 0)
+						+ metrics.typography.control.size
+					local function minimum(name: string): string
+						local limit = find(node, name):FindFirstChildWhichIsA("UISizeConstraint")
+						return `{case.themeName} {name} {limit.MinSize.X}`
+					end
+					Verify.expect(minimum("Plain")):toBe(`{case.themeName} Plain {label}`)
+					Verify.expect(minimum("Lead")):toBe(`{case.themeName} Lead {label + rung.iconSize + 8}`)
+					Verify.expect(minimum("Both")):toBe(`{case.themeName} Both {label + 2 * (rung.iconSize + 8)}`)
+					leading:set("")
+					Verify.expect(minimum("Lead")):toBe(`{case.themeName} Lead {label}`)
+					stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("clamps a fixed-size button's icon to its content box and never to zero", {
 			id = "native_inputs::native input controls::clamps a fixed-size button's icon to its content box and never to zero",
 			run = function()

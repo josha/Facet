@@ -1068,7 +1068,8 @@ row, subtitle or hint) keeps that width, and its label truncates at the end.
 This also applies to a reactive `Size` with `AutomaticSize = None` or `Y`.
 Its content stays inside the padding, and the label shrinks before the icon.
 An authored width never leaves less than one `control` em for the label inside
-the padding and the theme carve: the Button grows to that minimum.
+the padding and the theme carve: the Button grows to that minimum. The minimum
+also holds each icon and the gap after it.
 Without an authored width, it hugs its label.
 
 ### Toggle
@@ -3459,10 +3460,18 @@ only while editing; otherwise its editor cells accept edits at all times.
 
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
 `widths` is a map of column widths. A pointer drags a heading's divider to
-resize the column. With a keyboard or gamepad, focus the divider: Left and
-Right resize, Up and Down sort by the column, and Escape or B returns focus to
-the heading. Comma and Period resize the column whose heading or divider has
-focus. `selection` is a key-set map.
+resize the column. With a keyboard, focus the divider: Left and Right resize,
+Up and Down sort by the column, and Escape returns focus to the heading. Comma
+and Period resize the column whose heading or divider has focus.
+
+With a gamepad, the divider is not a selection stop. The D-pad and the left
+stick move from one heading to the next heading. While a heading is selected,
+L1 makes its column narrower and R1 makes its column wider. Each press changes
+the width by 8 pixels, and the width stays between the column's `minWidth` and
+`maxWidth`. A column with `resizable = false` has no divider and no resize
+action.
+
+`selection` is a key-set map.
 `selectionMode` is `single`, `multiple` or `none`. When you supply
 `onSortChange`, `onWidthsChange` or `onSelectionChange`, it is a controlled
 request. Otherwise the control updates the writable cells.

@@ -451,10 +451,85 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(grip.Size):toBe(D2.new(0, case[2], 1, 0))
 						Verify.expect(grip.AnchorPoint):toBe(V2.new(0.5, 0))
 						Verify.expect(grip.Position):toBe(D2.fromScale(1, 0))
-						Verify.expect(grip.Selectable):toBe(true)
+						Verify.expect(grip.Selectable):toBe(case[1] ~= E.PreferredInput.Gamepad)
 						Verify.expect(grip.ZIndex > sort.ZIndex):toBe(true)
 						Verify.expect((grip:GetAttribute("AccessibleLabel"))):toBe("Resize Name")
 					end
+					w.stop()
+				end,
+			}
+		)
+
+		verifyHarness:case(
+			"a gamepad moves from heading to heading and resizes the selected column with the shoulder buttons",
+			{
+				id = "native_parity_weaker_tables::native parity weaker tables::a gamepad moves from heading to heading and resizes the selected column with the shoulder buttons",
+				run = function()
+					local widths = Compose.cell({} :: { [string]: number })
+					local w = stage(function(UI: FacetControls)
+						return UI.Table({
+							from = records(2),
+							key = id,
+							widths = widths,
+							columns = {
+								{ id = "name", label = "Name", width = 100, minWidth = 92, maxWidth = 116 },
+								{ id = "artist", label = "Artist", width = 100 },
+								{ id = "laps", label = "Laps", width = 100, resizable = false },
+							} :: { FixtureCollectionTypes.TableColumn<any, any> },
+						})
+					end)
+					local E, V2 = w.engine.types.Enum, w.engine.types.Vector2
+					w.input.PreferredInput = E.PreferredInput.Gamepad
+					local header = w.node:FindFirstChild("Header")
+					local headings, grips = {}, {}
+					for index, column in { "name", "artist", "laps" } do
+						local cell = header:FindFirstChild(column)
+						local left = (index - 1) * 100
+						cell.AbsolutePosition, cell.AbsoluteSize = V2.new(left, 0), V2.new(100, 40)
+						local heading, grip = cell:FindFirstChild("Sort"), cell:FindFirstChild("Resize")
+						heading.AbsolutePosition, heading.AbsoluteSize = V2.new(left, 0), V2.new(100, 40)
+						if grip then
+							grip.AbsolutePosition, grip.AbsoluteSize = V2.new(left + 94, 0), V2.new(12, 40)
+						end
+						headings[column], grips[column] = heading, grip
+					end
+					Verify.expect(grips.laps):toBeNil()
+					Verify.expect(grips.name.Selectable):toBe(false)
+					Verify.expect(grips.artist.Selectable):toBe(false)
+					Verify.expect(w.UI.focusQuery(headings.name).Right.target):toBe(headings.artist)
+					Verify.expect(w.UI.focusQuery(headings.artist).Right.target):toBe(headings.laps)
+					Verify.expect(w.UI.focusQuery(headings.laps).Left.target):toBe(headings.artist)
+					Verify.expect(w.UI.focusQuery(headings.artist).Left.target):toBe(headings.name)
+
+					focus(w.gui, headings.name)
+					Verify.expect((key(w.screen, w.engine, "ButtonR1"))):toBe("WidenColumnKey")
+					Verify.expect(widths:peek().name):toBe(108)
+					Verify.expect((key(w.screen, w.engine, "ButtonR1"))):toBe("WidenColumnKey")
+					Verify.expect((key(w.screen, w.engine, "ButtonR1"))):toBe("WidenColumnKey")
+					Verify.expect(widths:peek().name):toBe(116)
+					Verify.expect((key(w.screen, w.engine, "ButtonL1"))):toBe("NarrowColumnKey")
+					Verify.expect(widths:peek().name):toBe(108)
+					for _ = 1, 3 do
+						Verify.expect((key(w.screen, w.engine, "ButtonL1"))):toBe("NarrowColumnKey")
+					end
+					Verify.expect(widths:peek().name):toBe(92)
+					Verify.expect(widths:peek().artist):toBeNil()
+					focus(w.gui, headings.artist)
+					Verify.expect((key(w.screen, w.engine, "ButtonR1"))):toBe("WidenColumnKey")
+					Verify.expect(widths:peek().artist):toBe(108)
+					Verify.expect(widths:peek().name):toBe(92)
+					focus(w.gui, headings.laps)
+					for _, code in { "ButtonL1", "ButtonR1" } do
+						local handled = key(w.screen, w.engine, code)
+						Verify.expect(handled ~= "WidenColumnKey" and handled ~= "NarrowColumnKey"):toBe(true)
+					end
+					Verify.expect(widths:peek().laps):toBeNil()
+					Verify.expect(widths:peek().artist):toBe(108)
+
+					w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+					Verify.expect(grips.name.Selectable):toBe(true)
+					Verify.expect(grips.artist.Selectable):toBe(true)
+					Verify.expect(w.UI.focusQuery(headings.name).Right.target):toBe(grips.name)
 					w.stop()
 				end,
 			}

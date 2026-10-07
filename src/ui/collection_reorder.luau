@@ -118,6 +118,7 @@ return function<V, K>(
 	local input = ctx.config.userInputService
 	local captured: InputObject?
 	local recycled = false
+	local selectedPickup = false
 	local lastTap: { key: K, position: Vector2, at: number }?
 	local pendingInput: InputObject?
 	local pickupPosition: Vector2?
@@ -139,6 +140,7 @@ return function<V, K>(
 		local move, selected = moving:peek(), gui and gui.SelectedObject
 		local restore = move ~= nil and move.keyboard and selected == keyboardTarget
 		captured = nil
+		selectedPickup = false
 		disarm()
 		if releaseScrollers then
 			releaseScrollers()
@@ -571,6 +573,10 @@ return function<V, K>(
 							armed = current ~= nil and current.keyboard
 							if not armed then
 								begin(key, position)
+								selectedPickup = moving:peek() ~= nil
+									and gui ~= nil
+									and handleNode ~= nil
+									and rawequal(gui.SelectedObject, handleNode)
 							end
 						end,
 						DragContinue = function(position)
@@ -805,7 +811,11 @@ return function<V, K>(
 				end
 				if captured == nil and moving:peek() then
 					commit()
-				elseif tapped and not row:IsA("GuiButton") and not activation.consumed(pendingInput) then
+				elseif tapped and row:IsA("GuiButton") and not activation.consumed(pendingInput) then
+					if activation.trigger(row, pendingInput, 0) then
+						activation.consume(pendingInput)
+					end
+				elseif tapped and not activation.consumed(pendingInput) then
 					local host = frame.Parent
 					local hit = if host then host:FindFirstChild("RowHit") else nil
 					if hit then
@@ -1389,7 +1399,7 @@ return function<V, K>(
 				end
 				if
 					captured
-					and (pluginGui ~= nil or recycled or captured.UserInputType == E.UserInputType.Touch)
+					and (pluginGui ~= nil or recycled or selectedPickup or captured.UserInputType == E.UserInputType.Touch)
 					and (
 						value == captured
 						or (

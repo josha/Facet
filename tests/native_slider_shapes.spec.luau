@@ -746,6 +746,41 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("the range fill starts and ends on whole pixels under the handle centres", {
+			id = "native_slider_shapes::native Slider knob travel::the range fill starts and ends on whole pixels under the handle centres",
+			run = function()
+				for _, axis in { "x", "y" } do
+					local w = world({
+						range = true,
+						axis = axis,
+						min = 1,
+						max = 20,
+						value = Compose.cell({ lower = 4, upper = 12 }),
+					})
+					local lower, upper, fill =
+						find(w.track, "HandleLower"), find(w.track, "HandleUpper"), find(w.track, "Fill")
+					local low, high, start, length
+					if axis == "y" then
+						low, high = lower.Position.Y, upper.Position.Y
+						start, length = fill.Position.Y, fill.Size.Y
+					else
+						low, high = lower.Position.X, upper.Position.X
+						start, length = fill.Position.X, fill.Size.X
+					end
+					for _, offset in { low.Offset, high.Offset, start.Offset, length.Offset } do
+						expect(offset):toBe(math.round(offset))
+					end
+					expect(math.abs(low.Offset)):toBe(8)
+					expect(math.abs(high.Offset)):toBe(2)
+					expect(start.Offset):toBe(low.Offset)
+					expect(start.Scale):toBeCloseTo(low.Scale, 1e-6)
+					expect(length.Scale):toBeCloseTo(math.abs(high.Scale - low.Scale), 1e-6)
+					expect(length.Offset):toBe(-math.abs(high.Offset - low.Offset))
+					w.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("a vertical and a rotated knob stop flush with the rail ends", {
 			id = "native_slider_shapes::native Slider knob travel::a vertical and a rotated knob stop flush with the rail ends",
 			run = function()

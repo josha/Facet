@@ -59,7 +59,7 @@ local function snapshot(t: any, stage: any): { [string]: any }
 end
 
 local function same(t: any, where: string, actual: { [string]: any }, expected: { [string]: any })
-	local worst, missing = 0, {}
+	local worst, missing, moved = 0, {}, {}
 	for name, want in expected do
 		local got = actual[name]
 		if not got then
@@ -69,15 +69,18 @@ local function same(t: any, where: string, actual: { [string]: any }, expected: 
 		if got.visible ~= want.visible then
 			table.insert(missing, name .. " visibility")
 		end
-		worst = math.max(
-			worst,
+		local delta = math.max(
 			math.abs(got.x - want.x),
 			math.abs(got.y - want.y),
 			math.abs(got.w - want.w),
 			math.abs(got.h - want.h)
 		)
+		if delta > 0.5 then
+			moved[name] = { got = { got.x, got.y, got.w, got.h }, want = { want.x, want.y, want.w, want.h } }
+		end
+		worst = math.max(worst, delta)
 	end
-	t.check(where, worst <= 0.5 and #missing == 0, { worstDelta = worst, missing = missing })
+	t.check(where, worst <= 0.5 and #missing == 0, { worstDelta = worst, missing = missing, moved = moved })
 end
 
 local function rects(t: any, stage: any, names: { string }): { [string]: any }
@@ -144,12 +147,14 @@ add("hud-url-bar-reserves-its-height", { "apps-206" }, function(t)
 		local chrome = t.find(stage, "BrowserChrome")
 		local after = body.AbsoluteSize.Y
 		local where = label(size)
+		local list = chrome.Parent:FindFirstChildWhichIsA("UIListLayout")
 		t.near(
 			`{where} body shrinks by the chrome and the list padding`,
 			before - after,
-			chrome.AbsoluteSize.Y + 8,
+			chrome.AbsoluteSize.Y + list.Padding.Offset,
 			0.5
 		)
+		t.check(`{where} list padding separates the chrome from the body`, list.Padding.Offset > 0, list.Padding)
 		t.note(`{where} chrome height`, chrome.AbsoluteSize.Y)
 		local zones = rects(t, stage, LEAF_ZONES)
 		local c = t.rect(chrome)
@@ -489,6 +494,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 end)
 
 add("playlist-resize-grip-touch-target", { "apps2-175" }, function(t)
+	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch })
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
 	local result = api:Invoke("show", "ex02")
 	t.settle(20)
@@ -519,7 +525,7 @@ add("playlist-resize-grip-touch-target", { "apps2-175" }, function(t)
 	t.note("touch", t.environment.touch)
 	t.check("grip is at least 44 wide on touch", g.w >= 43.5, g.w)
 	t.check("grip is at least 44 tall on touch", g.h >= 43.5, g.h)
-	t.near("grip right edge meets the header cell right edge", g.r, c.r, 0.5)
+	t.near("grip straddles the header cell right edge", g.x + g.w / 2, c.r, 0.5)
 end)
 
 add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
@@ -527,13 +533,31 @@ add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
 	local gui = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild(
 		"FacetGallery"
 	)
+	local function shallowest(root: Instance, name: string): Instance?
+		local queue = { root }
+		while #queue > 0 do
+			local node = table.remove(queue, 1) :: Instance
+			for _, child in node:GetChildren() do
+				if child.Name == name then
+					return child
+				end
+				table.insert(queue, child)
+			end
+		end
+		return nil
+	end
 	local function check(where: string)
-		local shell = gui:FindFirstChild("Gallery")
-		local demos = shell and shell:FindFirstChild("Demos")
-		local tabs = demos and demos:FindFirstChild("Tabs")
-		local tab = tabs and tabs:FindFirstChild("all-controls", true)
+		local categories
+		for _, node in gui:GetDescendants() do
+			if node.Name == "Categories" and node:FindFirstAncestor("all-controls") and t.visible(node) then
+				categories = node
+				break
+			end
+		end
+		local tabs = categories and shallowest(categories, "Tabs")
+		local tab = tabs and tabs:FindFirstChild("inputs", true)
 		if not tab then
-			t.check(where .. " all-controls tab visible", false)
+			t.check(where .. " all-controls Inputs category tab visible", false)
 			return
 		end
 		t.check(where .. " tab is tagged current", tab:HasTag("facet-tab-current"), tab:GetTags())

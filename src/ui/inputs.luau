@@ -429,6 +429,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end, node)
 	end
 	local icon = ctx.icon
+	local contentGap = 8
 
 	local buttonKeys = table.freeze({
 		"haptic",
@@ -686,6 +687,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
 							minimum = 0
 						end
+						local leadingGlyph, trailingGlyph = read(spec.icon, use), read(spec.trailingIcon, use)
+						local glyphs = (if leadingGlyph ~= nil and leadingGlyph ~= "" then 1 else 0)
+							+ (if trailingGlyph ~= nil and trailingGlyph ~= "" then 1 else 0)
+						local glyphSide = ctx.controlSize(
+							if spec.controlSize ~= nil then spec.controlSize else ctx.config.controlSize,
+							"iconSize",
+							use
+						)
 						return V2.new(
 							math.max(
 								minimum,
@@ -693,6 +702,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 									+ (carve.left or 0)
 									+ (carve.right or 0)
 									+ ctx.metric("typography.control.size", use)
+									+ glyphs * (glyphSide + contentGap)
 							),
 							minimum
 						)

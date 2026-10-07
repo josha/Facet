@@ -261,7 +261,17 @@ add("step-and-clear-targets", { "mech1-88" }, function(t)
 		for _, name in { "Decrease", "Increase", "Clear" } do
 			local node = visibleNamed(t, stage, name)
 			if node then
-				t.check(`{theme.name} {name} at least 44 px high`, node.AbsoluteSize.Y >= 43.5, node.AbsoluteSize)
+				local input = game:GetService("UserInputService")
+				if name == "Clear" and not (input.TouchEnabled or input.GamepadEnabled) then
+					t.near(
+						`{theme.name} Clear is 28 px high inside the text line for a pointer`,
+						node.AbsoluteSize.Y,
+						28,
+						0.5
+					)
+				else
+					t.check(`{theme.name} {name} at least 44 px high`, node.AbsoluteSize.Y >= 43.5, node.AbsoluteSize)
+				end
 			else
 				t.check(`{theme.name} {name} found`, false)
 			end
@@ -359,9 +369,10 @@ add("toast-wide-and-fit", { "apps2-247", "mech3-87" }, function(t)
 	t.settle(30)
 	local short = rows()[1]
 	local detail = short and t.find(short, "Detail")
+	local detailSize = detail and (detail :: any):GetStyled("TextSize")
 	t.check(
 		"fit toast widens before it wraps: its detail is one line",
-		detail ~= nil and detail.TextBounds.Y <= detail.TextSize * 1.5,
+		detail ~= nil and detail.TextBounds.Y <= detailSize * 1.5,
 		detail and detail.TextBounds
 	)
 	built.show("A very long sponsor message", string.rep("The crate holds tyres, fuel and a new livery. ", 4))
@@ -371,9 +382,9 @@ add("toast-wide-and-fit", { "apps2-247", "mech3-87" }, function(t)
 		table.insert(found, t.rect(node))
 	end
 	if #found >= 2 then
-		local s = t.rect(layer)
+		local s = t.rect(stage)
 		for index, r in found do
-			t.near(`fit toast {index} centred on the layer`, r.x + r.w / 2, s.x + s.w / 2, 1)
+			t.near(`fit toast {index} centred on the screen`, r.x + r.w / 2, s.x + s.w / 2, 1)
 			t.check(`fit toast {index} at most 560 wide`, r.w <= 560.5, r.w)
 		end
 		table.sort(found, function(a, b)
@@ -525,6 +536,7 @@ add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
 					label = "Box",
 					presentation = "checkbox" :: "checkbox",
 				},
+				UI.Toggle "Switch" { value = Compose.cell(true), label = "Switch" },
 				UI.Menu "Actions" {
 					label = "Actions",
 					isPresented = Compose.cell(true),
@@ -534,7 +546,8 @@ add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
 				},
 			}
 		end, { theme = entry.package, size = Vector2.new(400, 300), frames = 20 })
-		local indicator = t.find(stage, "Indicator")
+		local indicator = t.find(t.find(stage, "Box"), "Indicator")
+		local track = t.find(t.find(stage, "Switch"), "Indicator")
 		local found = rules(stage)
 		local base: StyleRule? = found[".facet-toggle-checkbox::UIStroke"]
 		local over: StyleRule? = found[".facet-toggle-checkbox.facet-skinned::UIStroke"]
@@ -561,11 +574,16 @@ add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
 				indicator:GetTags()
 			)
 			t.check(
-				entry.name .. " indicator is skinned only with art",
-				indicator:HasTag("facet-skinned") == entry.hidden,
+				entry.name .. " checkbox indicator never takes the switch track art",
+				not indicator:HasTag("facet-skinned") and indicator:FindFirstChild("SkinBoundary", true) == nil,
 				indicator:GetTags()
 			)
 		end
+		t.check(
+			entry.name .. " switch indicator is skinned only with art",
+			track ~= nil and track:HasTag("facet-skinned") == entry.hidden,
+			track and track:GetTags()
+		)
 		local panel
 		for _, node in stage:GetDescendants() do
 			if node:IsA("GuiObject") and node:HasTag("facet-menu") and t.visible(node) then

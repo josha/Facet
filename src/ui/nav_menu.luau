@@ -926,7 +926,11 @@ return function(
 			})
 		end
 		ctx.styled(panel, "menu")
-		surfaces.skin(panel)
+		surfaces.skin(panel, nil, {
+			reserve = function(): number
+				return 0
+			end,
+		})
 		local restKey = ""
 		local sizes, rested = surfaces.atRest(
 			if shown

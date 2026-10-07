@@ -199,8 +199,10 @@ add("mail-row-touch-pan", { "collections-101" }, function(t: any)
 	t.check("the pan marks no row read", read().m2 ~= true, read())
 	local tray = row:FindFirstChild("trailing") :: GuiObject?
 	t.check("the pan opens no tray", tray == nil or tray.AbsoluteSize.X < 1, tray and tray.AbsoluteSize)
+	t.stable(row, 12, 600)
 	body.CanvasPosition = Vector2.zero
-	t.settle(10)
+	t.stable(row, 12, 600)
+	t.near("the list rests at its start before the horizontal drag", body.CanvasPosition.Y, 0, 0.5)
 	local other = t.find(stage, "Row_m3")
 	local x, w = other.AbsolutePosition.X, other.AbsoluteSize.X
 	local y = centre(other).Y
@@ -222,6 +224,14 @@ add("mail-row-touch-pan", { "collections-101" }, function(t: any)
 	)
 	t.check("the closing touch tap does not mark m3 read", read().m3 ~= true, read())
 	local fourth = t.find(stage, "Row_m4")
+	local below = fourth.AbsolutePosition.Y
+		+ fourth.AbsoluteSize.Y
+		- (body.AbsolutePosition.Y + body.AbsoluteWindowSize.Y)
+	if below > 0 then
+		body.CanvasPosition = Vector2.new(0, body.CanvasPosition.Y + below)
+		t.stable(fourth, 12, 600)
+	end
+	t.inside("row m4 is whole inside the list window before the tap", fourth, body)
 	local spot = centre(fourth)
 	local top = ((game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui) :: any):GetGuiObjectsAtPosition(
 		spot.X,

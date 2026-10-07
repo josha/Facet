@@ -883,6 +883,41 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("wraps a header description inside the width the captions fill", {
+			id = "native_foundation_parity::native outline DisclosureGroup::wraps a header description inside the width the captions fill",
+			run = function()
+				local world = screen(nil, function(UI: FacetControls, Host: RobloxHost)
+					local function group(name: string, side: "leading" | "trailing")
+						return UI.DisclosureGroup(name)({
+							label = "Details",
+							description = "Configure the current race, the weather and the number of laps",
+							chevronPosition = side,
+							expanded = Compose.cell(false),
+							content = function(): Instance
+								return Host.TextLabel({ Text = "Body" })
+							end,
+						})
+					end
+					return Host.Frame({ group("Lead", "leading") :: unknown, group("Trail", "trailing") })
+				end)
+				local E = Enum
+				for _, name in { "Lead", "Trail" } do
+					local captions = world.find(name):FindFirstChild("Captions", true)
+					local flex = captions:FindFirstChildWhichIsA("UIFlexItem")
+					Verify.expect(flex ~= nil and flex.FlexMode == E.UIFlexMode.Fill):toBe(true)
+					Verify.expect(captions.AutomaticSize):toBe(E.AutomaticSize.Y)
+					local description = captions:FindFirstChild("Description")
+					Verify.expect(description.TextWrapped):toBe(true)
+					Verify.expect(description.AutomaticSize):toBe(E.AutomaticSize.Y)
+					Verify.expect(description.Size):toEqual(UDim2.new(1, 0, 0, 0))
+					Verify.expect(captions:FindFirstChild("Title").TextWrapped):toBe(false)
+				end
+				local trailing = world.find("Trail"):FindFirstChild("TrailingIcon", true)
+				Verify.expect(trailing ~= nil):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"keeps the gap above the body inside the clipped reveal, so a collapse ends without a step",
 			{

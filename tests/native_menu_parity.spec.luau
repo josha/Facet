@@ -555,6 +555,34 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a panel on a live theme without an art carve keeps its rows in its content box", {
+			id = "native_menu_parity::native menu parity with main::a panel on a live theme without an art carve keeps its rows in its content box",
+			run = function()
+				for _, presentation in { "menu", "sheet" } do
+					for _, count in { 1, 30 } do
+						local world = labelled(
+							{ items = items(count), presentation = presentation },
+							{ theme = Compose.cell(themes.neutralPackage()), motionLevel = "none" }
+						)
+						local panel = open(world)
+						lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
+						local rows = panel:FindFirstChild("MenuRows", true)
+						rows.AbsoluteSize = Vector2.new(220, count * 44 + 16)
+						local padding = panel:FindFirstChildWhichIsA("UIPadding")
+						local vertical = if padding then padding.PaddingTop.Offset + padding.PaddingBottom.Offset else 0
+						local horizontal = if padding
+							then padding.PaddingLeft.Offset + padding.PaddingRight.Offset
+							else 0
+						local want = math.min(count * 44 + 16, 600 - 24)
+						Verify.expect(`{presentation} {count} {panel.Size.Y.Offset - vertical}`)
+							:toBe(`{presentation} {count} {want}`)
+						Verify.expect(`{presentation} {count} {horizontal}`):toBe(`{presentation} {count} 0`)
+						world.stop()
+					end
+				end
+			end,
+		})
+
 		verifyHarness:case("a 300-row menu fades through a window-sized group, never one as tall as its rows", {
 			id = "native_menu_parity::native menu parity with main::a 300-row menu fades through a window-sized group, never one as tall as its rows",
 			run = function()

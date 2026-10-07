@@ -2151,6 +2151,18 @@
       "suite": "collection row destinations"
     },
     {
+      "id": "native_collections::native collection detector taps::continues a mouse drag from a selected Move handle with the captured pointer",
+      "name": "continues a mouse drag from a selected Move handle with the captured pointer",
+      "source": "native_collections",
+      "suite": "native collection detector taps"
+    },
+    {
+      "id": "native_collections::native collection detector taps::activates a Button row once on a detector tap and not after a drag",
+      "name": "activates a Button row once on a detector tap and not after a drag",
+      "source": "native_collections",
+      "suite": "native collection detector taps"
+    },
+    {
       "id": "native_color_picker::native ColorPicker colour values::parses #RGB, #RRGGBB and #RRGGBBAA (only with alpha) and formats engine bytes uppercase",
       "name": "parses #RGB, #RRGGBB and #RRGGBBAA (only with alpha) and formats engine bytes uppercase",
       "source": "native_color_picker",
@@ -6579,6 +6591,12 @@
       "suite": "native gallery foundation options"
     },
     {
+      "id": "native_foundation_parity::native outline DisclosureGroup::wraps a header description inside the width the captions fill",
+      "name": "wraps a header description inside the width the captions fill",
+      "source": "native_foundation_parity",
+      "suite": "native outline DisclosureGroup"
+    },
+    {
       "id": "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
       "name": "switches the entire gallery catalogue through one native root",
       "source": "native_gallery",
@@ -8571,6 +8589,12 @@
       "suite": "native input controls"
     },
     {
+      "id": "native_inputs::native input controls::an authored-width icon Button counts each icon and its gap in the minimum width",
+      "name": "an authored-width icon Button counts each icon and its gap in the minimum width",
+      "source": "native_inputs",
+      "suite": "native input controls"
+    },
+    {
       "id": "native_lab_audit_parity::native lab audit: menu submenu rows::a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none",
       "name": "a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none",
       "source": "native_lab_audit_parity",
@@ -9191,6 +9215,12 @@
     {
       "id": "native_menu_parity::native menu parity with main::slides sheet submenus forward on entry and backward on Back; reduced=true",
       "name": "slides sheet submenus forward on entry and backward on Back; reduced=true",
+      "source": "native_menu_parity",
+      "suite": "native menu parity with main"
+    },
+    {
+      "id": "native_menu_parity::native menu parity with main::a panel on a live theme without an art carve keeps its rows in its content box",
+      "name": "a panel on a live theme without an art carve keeps its rows in its content box",
       "source": "native_menu_parity",
       "suite": "native menu parity with main"
     },
@@ -9923,6 +9953,12 @@
     {
       "id": "native_navigation::native navigation controls::plays the press haptic for selection changes and decisive alert actions only",
       "name": "plays the press haptic for selection changes and decisive alert actions only",
+      "source": "native_navigation",
+      "suite": "native navigation controls"
+    },
+    {
+      "id": "native_navigation::native navigation controls::gives each page dot a 44 px target around its 8 px dot",
+      "name": "gives each page dot a 44 px target around its 8 px dot",
       "source": "native_navigation",
       "suite": "native navigation controls"
     },
@@ -17248,6 +17284,12 @@
       "suite": "native parity weaker tables"
     },
     {
+      "id": "native_parity_weaker_tables::native parity weaker tables::a gamepad moves from heading to heading and resizes the selected column with the shoulder buttons",
+      "name": "a gamepad moves from heading to heading and resizes the selected column with the shoulder buttons",
+      "source": "native_parity_weaker_tables",
+      "suite": "native parity weaker tables"
+    },
+    {
       "id": "native_parity_weaker_values::native parity weaker values::level picker read-only is not selectable and refuses pointer scrub and adjust input",
       "name": "level picker read-only is not selectable and refuses pointer scrub and adjust input",
       "source": "native_parity_weaker_values",
@@ -20978,6 +21020,12 @@
       "name": "building, driving and disposing a shaped slider leaves no connection behind",
       "source": "native_slider_shapes",
       "suite": "native Slider controlSize"
+    },
+    {
+      "id": "native_slider_shapes::native Slider knob travel::the range fill starts and ends on whole pixels under the handle centres",
+      "name": "the range fill starts and ends on whole pixels under the handle centres",
+      "source": "native_slider_shapes",
+      "suite": "native Slider knob travel"
     },
     {
       "id": "native_stage_presence::native Stage presence::reports live on screen, not live while its scroller moves, and live again once it rests",

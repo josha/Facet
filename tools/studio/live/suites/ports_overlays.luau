@@ -389,9 +389,12 @@ add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012
 		end
 	end
 	t.cleanup()
-	local short = device(t, { device = "xbox", width = 320, height = 220 })
+	local short = device(t, { device = "xbox", width = 320, height = 256 })
 	t.note("short viewport", short)
-	t.note("short window", "320x220 asked so the layer under the 87 px inset keeps a room taller than one 44 px action")
+	t.note(
+		"short window",
+		"320x256 asked so the layer under the top inset and four ten-foot 24 px margins keeps a room taller than one action"
+	)
 	t.check("the short window applied", short ~= nil and short.Y <= 260, short)
 	stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return longDialog(UI, Host, Compose)
@@ -432,6 +435,11 @@ add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012
 				end
 			end
 			t.note("short room window", room.AbsoluteWindowSize)
+			t.check(
+				"short: the room is taller than its last action",
+				last ~= nil and room.AbsoluteWindowSize.Y >= last.AbsoluteSize.Y,
+				last and { room.AbsoluteWindowSize.Y, last.AbsoluteSize.Y }
+			)
 			t.check(
 				"short: the last action is reachable at the end of the room",
 				last ~= nil and whole(t, last),
@@ -1404,6 +1412,13 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 		row = show("LongPlain")
 		if row then
 			local message = t.find(row, "Message")
+			local capNode = row:FindFirstChild("WidthCap")
+			local first = { row.AbsoluteSize, message and message.TextBounds, capNode and capNode.MaxSize.X }
+			t.settle(60)
+			t.note(where .. " long plain row at rest and 60 frames later", {
+				first,
+				{ row.AbsoluteSize, message and message.TextBounds, capNode and capNode.MaxSize.X },
+			})
 			t.check(
 				`{where} long plain copy wraps`,
 				message ~= nil and message.TextBounds.Y > styled(message, "TextSize") * 1.6,
@@ -1837,11 +1852,16 @@ add("sheet-hug-follows-live-copy", { "post-overlays-150" }, function(t)
 	t.settle(20)
 	t.stable(panel)
 	t.near("shorter copy shrinks it back", panel.AbsoluteSize.Y, short, 0.5)
+	copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
+	t.settle(20)
+	t.stable(panel)
+	local above = panel.AbsoluteSize.Y
+	t.check("the longer copy lifts the hug sheet off its minimum height", above > short + 10, { short, above })
 	themeCell:set(grown(t, themeCell:peek(), 14))
 	t.settle(20)
 	t.stable(panel)
-	t.check("larger text re-measures the hug sheet taller", panel.AbsoluteSize.Y > short + 1, {
-		short,
+	t.check("larger text re-measures the hug sheet taller", panel.AbsoluteSize.Y > above + 1, {
+		above,
 		panel.AbsoluteSize.Y,
 	})
 	fitsWhole("larger text")

@@ -5376,6 +5376,131 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
+
+		verifyHarness:case("activates a Button row once on a detector tap and not after a drag", {
+			id = "native_collections::native collection detector taps::activates a Button row once on a detector tap and not after a drag",
+			run = function()
+				for _, editing in { false, true } do
+					local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+					local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+					local activated, reorders = {}, 0
+					local stop, list: any = runtime.mount(function()
+						return UI.VirtualList {
+							from = records(4),
+							key = key,
+							itemSize = 20,
+							editing = editing,
+							reorderable = true,
+							onReorder = function()
+								reorders += 1
+							end,
+							render = function(current): GuiObject
+								return UI.Button "Action" {
+									label = "Row",
+									onActivate = function()
+										table.insert(activated, current:peek().id)
+									end,
+								}
+							end,
+						}
+					end, target)
+					list.AbsoluteWindowSize = V2.new(200, 100)
+					local input: any = assert(ctx.config.userInputService)
+					local row = list:FindFirstChild("2", true):FindFirstChild("Action", true)
+					local detector = row:FindFirstChild("FacetCollectionDrag")
+					Verify.expect(detector.Enabled):toBe(true)
+					local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(20, 30, 0) }
+					local function gesture(to: number?)
+						press.UserInputState = E.UserInputState.Begin
+						input.InputBegan:Fire(press)
+						detector.DragStart:Fire(V2.new(20, 30))
+						row.InputBegan:Fire(press)
+						if to then
+							detector.DragContinue:Fire(V2.new(20, to))
+						end
+						press.UserInputState = E.UserInputState.End
+						input.InputEnded:Fire(press)
+						detector.DragEnd:Fire()
+					end
+					gesture()
+					Verify.expect(activated):toEqual({ 2 })
+					Verify.expect(reorders):toBe(0)
+					gesture(75)
+					Verify.expect(activated):toEqual({ 2 })
+					Verify.expect(reorders):toBe(1)
+					gesture()
+					Verify.expect(activated):toEqual({ 2, 2 })
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+
+		verifyHarness:case("continues a mouse drag from a selected Move handle with the captured pointer", {
+			id = "native_collections::native collection detector taps::continues a mouse drag from a selected Move handle with the captured pointer",
+			run = function()
+				local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
+				local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+				local requests = {}
+				local stop, list: any = runtime.mount(function()
+					return UI.VirtualList {
+						from = records(5),
+						key = key,
+						itemSize = 20,
+						editing = true,
+						reorderable = true,
+						onReorder = function(keys: { number }, slot: number)
+							table.insert(requests, { keys = keys, slot = slot })
+						end,
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					}
+				end, target)
+				list.AbsoluteWindowSize = V2.new(200, 100)
+				local input: any = assert(ctx.config.userInputService)
+				local handle = list:FindFirstChild("2", true):FindFirstChild("Move", true)
+				local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
+				local reorderable = handle.Parent
+				local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(10, 30, 0) }
+				local function tap()
+					press.UserInputState = E.UserInputState.Begin
+					input.InputBegan:Fire(press)
+					detector.DragStart:Fire(V2.new(10, 30))
+					handle.InputBegan:Fire(press)
+					press.UserInputState = E.UserInputState.End
+					input.InputEnded:Fire(press)
+					detector.DragEnd:Fire()
+				end
+				tap()
+				Verify.expect((reorderable:GetAttribute("FacetDragging"))):toBe(true)
+				Verify.expect(gui.SelectedObject.Name):toBe("Drop")
+				tap()
+				Verify.expect((reorderable:GetAttribute("FacetDragging"))):toBe(false)
+				Verify.expect(gui.SelectedObject):toBe(handle)
+				Verify.expect(detector.Enabled):toBe(true)
+				Verify.expect(#requests):toBe(0)
+				press.UserInputState = E.UserInputState.Begin
+				input.InputBegan:Fire(press)
+				detector.DragStart:Fire(V2.new(10, 30))
+				handle.InputBegan:Fire(press)
+				input.InputChanged:Fire({
+					UserInputType = E.UserInputType.MouseMovement,
+					UserInputState = E.UserInputState.Change,
+					Position = V3.new(10, 75, 0),
+				})
+				Verify.expect((reorderable:GetAttribute("FacetDragging"))):toBe(true)
+				Verify.expect(list:FindFirstChild("DragImage", true) ~= nil):toBe(true)
+				press.UserInputState = E.UserInputState.End
+				input.InputEnded:Fire(press)
+				detector.DragEnd:Fire()
+				Verify.expect(requests):toEqual({ { keys = { 2 }, slot = 3 } })
+				Verify.expect((reorderable:GetAttribute("FacetDragging"))):toBe(false)
+				Verify.expect(gui.SelectedObject):toBe(handle)
+				stop()
+				runtime:dispose()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("independent cell editing", function()

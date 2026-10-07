@@ -291,21 +291,8 @@ end
 
 local function onPhone(run: (any) -> ()): (any) -> ()
 	return function(t: any)
-		local tenFoot = GuiService:IsTenFootInterface()
 		touch(t)
-		local ok, problem = xpcall(run, function(raised: any): any
-			return if type(raised) == "string" then debug.traceback(raised, 2) else raised
-		end, t)
-		t.cleanup()
-		if not tenFoot then
-			pcall(function()
-				(game:GetService("StudioDeviceSimulatorService") :: any):StopSimulationAsync()
-			end)
-			t.settle(30)
-		end
-		if not ok then
-			error(problem, 0)
-		end
+		run(t)
 	end
 end
 

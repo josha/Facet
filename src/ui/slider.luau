@@ -146,6 +146,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		return if travel > 0 then (point - side / 2) / travel else 0.5
 	end
+	local function inset(fraction: number, side: number): number
+		return math.round((0.5 - fraction) * side)
+	end
 	local function knob(
 		spec: Spec,
 		name: string,
@@ -183,7 +186,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = function(use: ComposeTypes.Use)
 				local f, side = fraction(use), use(extent)
-				return if vertical then D2.new(0.5, 0, 1 - f, (f - 0.5) * side) else D2.new(f, (0.5 - f) * side, 0.5, 0)
+				local shift = inset(f, side)
+				return if vertical then D2.new(0.5, 0, 1 - f, -shift) else D2.new(f, shift, 0.5, 0)
 			end,
 			Size = D2.fromOffset(size, size),
 			ZIndex = 3,
@@ -579,11 +583,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 						if isRange then
 							local current = pair(use)
 							low, high = fraction(current.lower), fraction(current.upper)
-							lowShift = (0.5 - low) * use(extentOf("lower"))
-							highShift = (0.5 - high) * use(extentOf("upper"))
+							lowShift = inset(low, use(extentOf("lower")))
+							highShift = inset(high, use(extentOf("upper")))
 						else
 							low, high, lowShift = 0, fraction(single(use)), 0
-							highShift = (0.5 - high) * use(extentOf("value"))
+							highShift = inset(high, use(extentOf("value")))
 						end
 						return if vertical
 							then D2.new(0, thin(use), high - low, highShift - lowShift)
@@ -591,7 +595,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					end,
 					Position = function(use: ComposeTypes.Use)
 						local low = if isRange then fraction(pair(use).lower) else 0
-						local shift = if isRange then (0.5 - low) * use(extentOf("lower")) else 0
+						local shift = if isRange then inset(low, use(extentOf("lower"))) else 0
 						return if vertical then D2.new(0.5, 0, 1 - low, -shift) else D2.new(low, shift, 0.5, 0)
 					end,
 					AnchorPoint = V2.new(if vertical then 0.5 else 0, if vertical then 1 else 0.5),

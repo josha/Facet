@@ -187,16 +187,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 	end
 	function t.visible(node: Instance): boolean
 		local current: Instance? = node
-		while current and current:IsA("GuiObject") do
-			if not current.Visible then
+		while current and not current:IsA("LayerCollector") do
+			if current:IsA("GuiObject") and not current.Visible then
 				return false
 			end
 			current = current.Parent
 		end
-		if current and current:IsA("LayerCollector") then
-			return current.Enabled
-		end
-		return current ~= nil
+		return current ~= nil and (current :: LayerCollector).Enabled
 	end
 	function t.mount(build: (any, any, any, any) -> any, options: { [string]: any }?): any
 		local config: { [string]: any } = options or {}
@@ -315,8 +312,8 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		local box = t.rect(node)
 		local x, y, r, b = box.x, box.y, box.r, box.b
 		local at = node.Parent
-		while at and at:IsA("GuiObject") do
-			if at.ClipsDescendants or at:IsA("ScrollingFrame") then
+		while at and not at:IsA("LayerCollector") do
+			if at:IsA("GuiObject") and (at.ClipsDescendants or at:IsA("ScrollingFrame")) then
 				local clip = t.rect(at)
 				x, y = math.max(x, clip.x), math.max(y, clip.y)
 				r, b = math.min(r, clip.r), math.min(b, clip.b)
@@ -352,6 +349,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 						(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
 						and node.ContentText ~= ""
 						and not node.TextScaled
+						and node:GetStyled("TextTransparency") < 1
 						and (node.TextBounds.X > node.AbsoluteSize.X + 0.5 or node.TextBounds.Y > node.AbsoluteSize.Y + 0.5 or (not node.TextFits and node:GetStyled(
 							"TextWrapped"
 						) == true))

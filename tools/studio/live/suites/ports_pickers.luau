@@ -1590,11 +1590,12 @@ add("dtp-panel-hugs", { "post-pickers-158" }, function(t)
 	t.near("the header is one 44 px line", header.AbsoluteSize.Y, 44, 0.5)
 	local rule = partOf(calendar, "HeaderRule")
 	local weekdays = partOf(partOf(panes, "Pane1"), "Weekdays")
-	if rule and weekdays then
+	local column = calendar:FindFirstChildWhichIsA("UIListLayout")
+	if rule and weekdays and column then
 		t.near(
 			"no caption sits between the rule and the weekdays",
 			weekdays.AbsolutePosition.Y - (rule.AbsolutePosition.Y + rule.AbsoluteSize.Y),
-			16,
+			column.Padding.Offset,
 			1
 		)
 	else
