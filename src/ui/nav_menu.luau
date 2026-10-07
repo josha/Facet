@@ -985,6 +985,7 @@ return function(
 					backgroundTransparency = function(use: ComposeTypes.Use): number
 						return if use(sheeted) then 0.5 else 1
 					end,
+					appearance = if shown then shown.opacity else nil,
 					onOutside = close,
 					exiting = if phase then phase.exiting else nil,
 					initialFocus = landing(current:peek()),

@@ -1496,6 +1496,28 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps the Discover grid mounted through genre changes", {
+			id = "native_virtual_monitors::native virtual monitors::keeps the Discover grid mounted through genre changes",
+			run = function()
+				withScreens(function(world)
+					local grid = find(world.Discover, "Games")
+					grid.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+					local retained = find(grid, "Game_1")
+					local artwork = find(retained, "Artwork")
+					for _, genre in { "Adventure", "all", "Racing", "all" } do
+						find(world.Discover, "Genre_" .. genre).Activated:Fire()
+						Verify.expect(find(world.Discover, "Games") == grid):toBe(true)
+						Verify.expect(grid.Parent ~= nil):toBe(true)
+						Verify.expect(grid.AbsoluteWindowSize):toBe(world.types.Vector2.new(390, 500))
+						if genre == "Adventure" then
+							Verify.expect(find(grid, "Game_1") == retained):toBe(true)
+							Verify.expect(find(retained, "Artwork") == artwork):toBe(true)
+						end
+					end
+				end)
+			end,
+		})
+
 		verifyHarness:case("starts filtered results at the top without retaining the previous collection anchor", {
 			id = "native_virtual_monitors::native virtual monitors::starts filtered results at the top without retaining the previous collection anchor",
 			run = function()
@@ -1506,8 +1528,8 @@ return function(verifyHarness: Verify.Harness)
 					world.model.query:set("Circuit")
 					local filtered = find(world.Discover, "Games")
 					filtered.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
-					Verify.expect(filtered == grid):toBe(false)
-					Verify.expect(grid.Parent):toBe(nil)
+					Verify.expect(filtered == grid):toBe(true)
+					Verify.expect(grid.Parent ~= nil):toBe(true)
 					Verify.expect(filtered.CanvasPosition.Y):toBe(0)
 					Verify.expect((world.model.discoveryScroll:peek())):toBe(0)
 				end)
