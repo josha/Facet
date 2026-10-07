@@ -297,7 +297,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					return use(naturalSize).Y
 				end, function(use: ComposeTypes.Use)
 					return roomPx(use)
-				end, false)
+				end, false, unit)
 				if body and spec.contentSelectable ~= false then
 					local scroller = body
 					runtime.decorate(scroller, { Selectable = room.overflowing })

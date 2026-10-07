@@ -79,6 +79,33 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Dialog: one Back press closes one modal", function()
+		verifyHarness:case("restores content after the fade shell ends before materialization", {
+			id = "native_dialog::native Dialog: one Back press closes one modal::restores content after the fade shell ends before materialization",
+			run = function()
+				local shown, log, change = caller()
+				local w = mount(standard(shown, log, change), { runService = true })
+				local panel, line = w.find("Panel"), w.find("Line")
+				w.size(panel, 560, 200)
+				w.advance(1, 60)
+				Verify.expect(line:IsDescendantOf(panel)):toBe(true)
+				Verify.expect(w.find("Line")):toBe(line)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("fully masks the native preparation frame", {
+			id = "native_dialog::native Dialog: one Back press closes one modal::fully masks the native preparation frame",
+			run = function()
+				local shown, log, change = caller()
+				local w = mount(standard(shown, log, change), { runService = true })
+				Verify.expect(w.find("Fade").GroupTransparency):toBe(1)
+				w.size(w.find("Panel"), 560, 200)
+				w.advance(1, 60)
+				Verify.expect(w.find("Line") ~= nil):toBe(true)
+				Verify.expect(w.find("Panel"):FindFirstChild("FadePaint").Transparency.Keypoints[1].Value):toBe(0)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps the panel slot fixed while its paint appears", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::keeps the panel slot fixed while its paint appears",
 			run = function()

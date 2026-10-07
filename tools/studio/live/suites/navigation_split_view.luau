@@ -529,7 +529,7 @@ local cases: { any } = {
 				)
 				built.model.linked:set(true)
 				return built.screen()
-			end, { size = Vector2.new(1340, 850), preferredInput = "Touch", frames = 20 })
+			end, { size = Vector2.new(1340, 850), environment = { preferredInput = "Touch" }, frames = 20 })
 			t.settle(20)
 			local root = t.find(stage, "Views")
 			t.check("Files uses NavigationSplitView", root ~= nil and root:GetAttribute("FacetSplitCollapsed") ~= nil)

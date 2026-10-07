@@ -340,14 +340,15 @@ function parts.room(
 	body: ScrollingFrame?,
 	natural: (ComposeTypes.Use) -> number,
 	maximum: (ComposeTypes.Use) -> number,
-	fill: boolean
+	fill: boolean,
+	unit: ComposeTypes.Readable<number>?
 ): Room
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
 	local gap = 8
 	local sizes: { ComposeTypes.Readable<Vector2> } = {}
 	for _, region in regions do
 		if region ~= body then
-			table.insert(sizes, ctx.observe.AbsoluteSize(region))
+			table.insert(sizes, ctx.layoutSize(region, unit))
 		end
 	end
 	local pinned = Compose.formula(function(use: ComposeTypes.Use): number

@@ -138,9 +138,19 @@ add("sheet-content-clears-theme-frame", {}, function(t: any)
 			t.settle(20)
 			local panel = t.find(stage.Parent, "SheetPanel")
 			local title = t.find(panel, "Title")
-			title.TextSize = 32
-			t.settle(12)
-			t.inside(theme.name .. placement .. " enlarged title", title, title.Parent)
+			if t.visible(title) then
+				title.TextSize = 32
+				t.settle(12)
+				t.inside(theme.name .. placement .. " enlarged title", title, title.Parent)
+			else
+				local caption = t.find(panel, "PlaqueCaption")
+				t.check(
+					theme.name .. placement .. " skin paints the title",
+					t.visible(caption) and caption.Text == title.Text
+				)
+				t.check(theme.name .. placement .. " skin title fits", t.fits(caption))
+				t.inside(theme.name .. placement .. " skin title stays on screen", caption, stage)
+			end
 			local carve = ((theme.package.chrome or {}).panel or {}).contentInsets or {}
 			for _, name in { "Header", "SheetContent", "Actions" } do
 				local node = t.find(panel, name)

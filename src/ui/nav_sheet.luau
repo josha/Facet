@@ -928,7 +928,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
 			return math.max(0, standing(use) - chrome(use))
-		end, true)
+		end, true, unit)
 		runtime.decorate(flex, {
 			FlexMode = function(use: ComposeTypes.Use)
 				return if use(room.tight) then E.UIFlexMode.None else E.UIFlexMode.Fill

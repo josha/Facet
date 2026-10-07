@@ -59,6 +59,26 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Sheet: placement, width, title and close", function()
+		verifyHarness:case("keeps pinned regions in layout units under an ancestor scale", {
+			id = "native_sheet_parts::native Sheet: placement, width, title and close::keeps pinned regions in layout units under an ancestor scale",
+			run = function()
+				local w = mount(
+					{ detents = { "hug", "large" }, actions = { { id = "Go", label = "Go", onActivate = noop } } },
+					{ detent = "hug", motionLevel = "none" }
+				)
+				w.size(w.find("Modal"), 400, 300)
+				for _, probe in w.findAll("LayoutUnit") do
+					w.size(probe, 50, 0.5)
+				end
+				w.size(w.find("Header"), 250, 22)
+				w.size(w.find("Actions"), 250, 22)
+				w.find("SheetFlow"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = Vector2.new(250, 142)
+				Verify.expect(w.find("SheetPanel").Size.Y.Offset):toBe(464)
+				Verify.expect(w.find("SheetContent").Size.Y.Offset):toBe(308)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("a function-bound title renders as its type promises", {
 			id = "native_sheet_parts::native Sheet: placement, width, title and close::a function-bound title renders as its type promises",
 			run = function()
@@ -608,6 +628,36 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect(previous):toBe(0)
 				w.stop()
+			end,
+		})
+
+		verifyHarness:case("preparation frame cost does not advance the entrance clock", {
+			id = "native_sheet_parts::native Sheet: parts::preparation frame cost does not advance the entrance clock",
+			run = function()
+				local function positions(preparationDelta: number): { number }
+					local w = mount(nil, { unsettled = true })
+					local panel, title = w.find("SheetPanel"), w.find("Title")
+					for width = 1, 2 do
+						title.TextBounds = Vector2.new(width * 75, 25)
+						w.advance(preparationDelta)
+						Verify.expect(panel.Position.Y.Offset):toBe(panel.Size.Y.Offset)
+					end
+					w.advance(1 / 60)
+					Verify.expect(panel.Position.Y.Offset):toBe(panel.Size.Y.Offset)
+					local result: { number } = {}
+					for _ = 1, 24 do
+						w.advance(1 / 60)
+						table.insert(result, panel.Position.Y.Offset)
+					end
+					Verify.expect(result[1] < panel.Size.Y.Offset):toBe(true)
+					Verify.expect(result[#result]):toBe(0)
+					w.stop()
+					return result
+				end
+				local cold, warm = positions(0.12), positions(1 / 60)
+				for index, position in cold do
+					Verify.expect(position):toBe(warm[index])
+				end
 			end,
 		})
 

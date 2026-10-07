@@ -167,7 +167,12 @@ return function(
 		local offered = Compose.cell(0)
 		local function slotWidth(page: number, use: ComposeTypes.Use?): number
 			local digit = readSource(digitBounds, use).X / 10
+			local package = read(ctx.config.theme, use)
+			local skin = package and package.chrome and package.chrome.control
+			local carve = if skin then skin.contentInsets else nil
 			local chrome = 2 * ctx.controlSize("compact", "paddingX", use)
+				+ (if carve then carve.left or 0 else 0)
+				+ (if carve then carve.right or 0 else 0)
 			return math.max(floor(use), math.ceil(digit * #tostring(page) + chrome))
 		end
 		local entries = Compose.formula(function(use: ComposeTypes.Use): { Entry }

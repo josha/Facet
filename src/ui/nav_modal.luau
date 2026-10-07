@@ -766,7 +766,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local attached = false
 				while at do
 					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe.Visible(at))
+						if at ~= anchor or anchor:GetAttribute("FacetOverlayPlaceholder") ~= true then
+							table.insert(sources, ctx.observe.Visible(at))
+						end
 						table.insert(sources, ctx.observe.Interactable(at))
 					end
 					if at:IsA("LayerCollector") then

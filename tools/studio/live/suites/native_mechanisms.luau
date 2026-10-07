@@ -108,6 +108,37 @@ local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: 
 		t.settle(30)
 		found = t.offenders(stage, stage)
 	end
+	if controls and #found.clipped > 0 then
+		for _, node in stage:GetDescendants() do
+			if not (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) then
+				continue
+			end
+			local suspected = false
+			for _, clip in found.clipped do
+				if node.Name == clip[1] and node.ContentText == clip[2] then
+					suspected = true
+					break
+				end
+			end
+			if suspected then
+				local positions: { [ScrollingFrame]: Vector2 } = {}
+				local parent = node.Parent
+				while parent do
+					if parent:IsA("ScrollingFrame") then
+						positions[parent] = parent.CanvasPosition
+					end
+					parent = parent.Parent
+				end
+				controls.scrollToVisible(node, nil, { animated = false })
+				t.settle(12)
+				for frame, position in positions do
+					frame.CanvasPosition = position
+				end
+				t.settle(2)
+			end
+		end
+		found = t.offenders(stage, stage)
+	end
 	local zero = {}
 	for _, node in stage:GetDescendants() do
 		if node:IsA("GuiButton") and t.visible(node) and node.Active and node.Selectable then

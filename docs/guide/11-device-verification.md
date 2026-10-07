@@ -146,32 +146,70 @@ case saves other JSON with `live.save(name, json, dir)`. The command writes
 an attachment with the directory `atlas` in `tests/fixtures/focus_atlas`. It
 writes an attachment with the directory `live` in `artifacts/studio-live`.
 
-The suites `needs_live_input` and `native_mechanisms_input` have interactive
-cases, and `native_mechanisms_input` covers engine mechanisms that have no
-headless oracle.
+The suites `needs_live_input`, `native_mechanisms_input` and `weak3_pointer`
+use interactive cases. Use the runner's native input mode with an attached
+Studio:
 
-A new Studio process has no Controller Emulator. Thus the gamepad suites
-(`focus_walk`, `focus_opened`, `gamepad_walk`, `haptics_verify`) need a Studio
-that you control:
+```sh
+lute run tools/lute/studio_live.luau native_mechanisms_input needs_live_input weak3_pointer --studio ID --device none --interactive --tag pointer
+```
 
-1. Run `lute run tools/lute/studio_live.luau --place`. Open
-   `build/Facet-Live.rbxlx` in Studio.
-2. Turn on the Controller Emulator.
-3. Get the id of that Studio from the `list_roblox_studios` tool of the Studio
-   Model Context Protocol (MCP) server.
-4. Run the command with `--studio ID`. Verify starts the playtest in that
-   Studio, runs the suite and stops the playtest. It does not close Studio.
+The mode calls `live.begin`, sends real native input, calls the case's named
+`live.step` functions, and saves the `live.finish` reports. Verify combines
+these reports. A missing input capability produces an unsupported result;
+it does not produce a setup-only pass. `--only TEXT` selects a case by id.
+The attached Studio must contain the current case modules. Building the
+runner's place file does not reload the attached place.
 
-An interactive case needs real input between its steps. Use a Studio that you
-control:
+Gamepad suites (`focus_walk`, `focus_opened`, `gamepad_walk`) and interactive
+gamepad cases need the Controller Emulator. Turn it on in the attached
+Studio, then use `--device keep`. This keeps the emulator enabled between
+cases. For example:
 
-1. Run `lute run tools/lute/studio_live.luau --place`. Open
-   `build/Facet-Live.rbxlx` in Studio and start the playtest.
-2. Run `require(game.ReplicatedStorage.FacetLive).begin(suite, id)` in the
-   Client data model.
-3. Send the input with the Studio input tools.
-4. Run `step(name)` for each step of the case.
-5. Run `finish()`. It returns the Verify report as JSON.
+```sh
+lute run tools/lute/studio_live.luau needs_live_input --studio ID --device keep --interactive --tag controller-sidebar --only sidebar-dpad-to-collections
+lute run tools/lute/studio_live.luau focus_walk focus_opened gamepad_walk --studio ID --device keep --tag controller
+```
+
+Run the same command for each controller case with its exact `--only` id and
+a separate tag: `list-keyboard-and-dpad`, `scroll-into-view-by-gamepad`,
+`sidebar-dpad-to-collections`, `power-off-traversal`,
+`sheet-traps-and-orders-selection`, `alert-selection-stays-inside`,
+`confirm-dialog-left-right`. Run the pointer and touch cases with
+`--device none` as shown above.
+
+The interactive driver requires real Gamepad1 events for the gamepad steps.
+Keyboard emulator mappings without Controller Emulator are not gamepad
+evidence. `tray-grows-with-text-size` needs a human change in Roblox Settings
+and is unsupported in the native input mode. To run it manually, keep one
+playtest running and execute these commands in Client:
+
+Run this Client command in Studio: `local live = require(game.ReplicatedStorage.FacetLive); live.begin("needs_live_input", "tray-grows-with-text-size")`.
+
+Change Preferred text size in Roblox Settings. Return to the case, then run:
+
+Run this Client command in the same playtest: `local live = require(game.ReplicatedStorage.FacetLive); print(live.step("afterChange")); print(live.finish())`.
+
+To run another case by hand, use `live.begin(suite, id)`, send real input,
+call `live.step(name)` for each required step, then save `live.finish()`.
+The suite source names the steps and their checks. Do not finish a case
+without its required input and steps.
+
+### Haptics requests in one playtest
+
+`haptics_verify` reads state held by `haptics_setup`. Separate runner calls
+start separate playtests and lose this state. Use the paired native input
+mode:
+
+```sh
+lute run tools/lute/studio_live.luau haptics_pair --studio ID --device none --interactive --tag haptics
+```
+
+The runner mounts the setup, uses real pointer input on Press, Release,
+Selection and Custom, then verifies the requests in the same playtest. The
+combined report keeps both suite sources. It proves requests only. A human
+must perform the same four interactions on a physical phone or controller
+and confirm the motor effects, including two pulses for Custom.
 
 ### Set the device and the text size
 
@@ -292,9 +330,10 @@ in the live artifacts.
   swipe with a real pointer or touch drag. The mouse moves of the input tools
   do not fire `InputChanged` while a button is held, so a `UIDragDetector`
   does not start.
-- The input tools and VirtualInput refuse Tab and Escape, because the core
-  interface owns them. The input tools also send `ButtonA` as keyboard input,
-  and engine activation does not use it. `live.press` sends a real `ButtonA`.
+- The input tools can refuse Tab and Escape because the core interface owns
+  them. `live.press` uses native VirtualInput for Tab in the interactive pass.
+  It maps `ButtonA` through the Controller Emulator. The report must contain
+  a real `Gamepad1:ButtonA` event before it counts as gamepad evidence.
 - While a `GuiButton` has the selection, the engine uses Return for the native
   activation of that button. No `InputAction` that binds Return fires, also
   with a modifier key.

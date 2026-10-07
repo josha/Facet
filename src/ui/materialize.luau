@@ -105,9 +105,10 @@ local function materialize(
 						ctx.config.guiService.SelectedObject = selected
 					end
 					Compose.cleanup(function()
+						local destination = boundary.Parent or panel
 						for _, child in children do
 							if child.Parent and child:IsDescendantOf(paint) then
-								child.Parent = parent
+								child.Parent = destination
 							end
 						end
 						if selected and selected.Parent and ctx.config.guiService then

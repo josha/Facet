@@ -905,7 +905,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						end,
 						AutomaticSize = automatic,
 						GroupTransparency = function(use: ComposeTypes.Use)
-							return if use(warming) then 0.99 else amount(use)
+							return transparency(use)
 						end,
 					}
 					local gui = config.guiService

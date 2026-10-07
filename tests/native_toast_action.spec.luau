@@ -90,6 +90,32 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Toast with an action: presentation", function()
+		verifyHarness:case("excludes its placeholder from layout and preserves caller and ancestor availability", {
+			id = "native_toast_action::native Toast with an action: presentation::excludes its placeholder from layout and preserves caller and ancestor availability",
+			run = function()
+				local c, visible = caller(), Compose.cell(true)
+				c.shown:set(true)
+				local w = mount({ { c = c, spec = { Visible = visible } } })
+				Verify.expect(w.find("S1").Visible):toBe(false)
+				Verify.expect(w.rows()):toBe(1)
+				visible:set(false)
+				Verify.expect(w.rows()):toBe(0)
+				visible:set(true)
+				Verify.expect(w.rows()):toBe(1)
+				w.find("Holder").Visible = false
+				Verify.expect(w.rows()):toBe(0)
+				w.find("Holder").Visible = true
+				Verify.expect(w.rows()):toBe(1)
+				w.find("S1").Interactable = false
+				Verify.expect(w.rows()):toBe(0)
+				w.find("S1").Interactable = true
+				Verify.expect(w.rows()):toBe(1)
+				w.gate:set(false)
+				Verify.expect(w.rows()):toBe(0)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("exit fading never adds an empty full-width sibling to the live row layout", {
 			id = "native_toast_action::native Toast with an action: presentation::exit fading never adds an empty full-width sibling to the live row layout",
 			run = function()
