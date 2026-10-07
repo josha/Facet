@@ -1024,11 +1024,26 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local frames = services.RunService
 		local pending: RBXScriptConnection? = nil
 		local alive = true
-		local function reflow()
+		local function reflow(metrics: boolean?)
 			local automatic = label.AutomaticSize
 			if automatic ~= Enum.AutomaticSize.None then
+				local face, points = label:GetStyled("FontFace") :: Font, label:GetStyled("TextSize") :: number
+				local resetFace, resetSize =
+					metrics == true and label.FontFace ~= face, metrics == true and label.TextSize ~= points
+				if resetFace then
+					label.FontFace = face
+				end
+				if resetSize then
+					label.TextSize = points
+				end
 				label.AutomaticSize = Enum.AutomaticSize.None
 				label.AutomaticSize = automatic
+				if resetFace then
+					label:ResetPropertyToDefault("FontFace")
+				end
+				if resetSize then
+					label:ResetPropertyToDefault("TextSize")
+				end
 			end
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -1037,14 +1052,22 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				local changed = previousFace ~= nil or previousSize ~= nil
 				previousFace, previousSize = face, points
 				reflow()
-				if changed and pending == nil and frames and label.AutomaticSize ~= Enum.AutomaticSize.None then
-					pending = frames.Heartbeat:Connect(function()
+				if
+					(changed or label.FontFace ~= face or label.TextSize ~= points)
+					and pending == nil
+					and frames
+					and label.AutomaticSize ~= Enum.AutomaticSize.None
+				then
+					local function nextFrame()
 						if pending then
 							pending:Disconnect()
 							pending = nil
 						end
-						reflow()
-					end)
+						reflow(true)
+					end
+					pending = if frames.PreRender
+						then frames.PreRender:Connect(nextFrame)
+						else frames.Heartbeat:Connect(nextFrame)
 				end
 			end
 		end)
