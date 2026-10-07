@@ -49,6 +49,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("the scrim covers asymmetric core UI insets and follows top bar changes", {
+			id = "native_modal_input::native modal: the scrim sinks input::the scrim covers asymmetric core UI insets and follows top bar changes",
+			run = function()
+				local open = Compose.cell(false)
+				local near, far
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, gui)
+					near, far = engine.types.Vector2.new(0, 87), engine.types.Vector2.new(0, 0)
+					gui.GetGuiInset = function()
+						return near, far
+					end
+					return Host.Frame({ dialog(UI, Host, "About", open) })
+				end)
+				w.screen.ScreenInsets = w.Enum.ScreenInsets.CoreUISafeInsets
+				w.screen.IgnoreGuiInset = false
+				open:set(true)
+				local scrim = w.find("DismissOutside")
+				Verify.expect(scrim.Position):toBe(w.engine.types.UDim2.fromOffset(0, -87))
+				Verify.expect(scrim.Size):toBe(w.engine.types.UDim2.new(1, 0, 1, 87))
+				near, far = w.Vector2.new(12, 60), w.Vector2.new(8, 20)
+				w.gui.TopbarInset = w.engine.types.Rect.new(0, 0, 100, 60)
+				Verify.expect(scrim.Position):toBe(w.engine.types.UDim2.fromOffset(-12, -60))
+				Verify.expect(scrim.Size):toBe(w.engine.types.UDim2.new(1, 20, 1, 80))
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("stacked modals hold every scroller outside the top one and restore each exact value", {
 			id = "native_modal_input::native modal: the scrim sinks input::stacked modals hold every scroller outside the top one and restore each exact value",
 			run = function()

@@ -439,93 +439,82 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 	local stage, context = t.gallery({ demo = "all-controls" })
 	t.settle(10)
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local settings = visibleNamed(t, gui, "Settings")
-	t.check("the Settings chrome button is visible", settings ~= nil)
+	local showcase = t.find(stage, "Showcase")
+	t.check("the Showcase chrome button is visible", showcase ~= nil and t.visible(showcase))
+	if not showcase then
+		return
+	end
+	io.click(centre(showcase))
+	t.settle(40)
+	local panel = t.find(stage, "ShowcasePanel")
+	t.check("a click opens the showcase panel", panel ~= nil and t.visible(panel))
+	if not panel then
+		return
+	end
+	local section = t.find(panel, "Section")
+	local settings = section and section:FindFirstChild("settings")
+	t.check("the panel has a Settings choice", settings ~= nil)
 	if not settings then
 		return
 	end
-	local button = if settings:IsA("GuiButton") then settings else settings:FindFirstChildWhichIsA("GuiButton", true)
-	io.click(centre(button))
+	io.click(centre(settings))
 	t.settle(40)
-	local function panel(): (any, any)
-		local modal = visibleNamed(t, gui, "Modal")
-		if not modal then
-			return nil, nil
-		end
-		local best: GuiObject?
-		for _, child in modal:GetChildren() do
-			if child:IsA("GuiObject") and child.Name ~= "DismissOutside" and t.visible(child) then
-				if
-					not best
-					or child.AbsoluteSize.X * child.AbsoluteSize.Y > best.AbsoluteSize.X * best.AbsoluteSize.Y
-				then
-					best = child
-				end
-			end
-		end
-		return modal, best
+	local function settingsShown(root: Instance): boolean
+		local content = t.find(root, "Settings")
+		return content ~= nil and t.visible(content) and t.find(content, "ResetAll") ~= nil
 	end
-	local modal, sheet = panel()
-	t.check("a click opens the settings sheet", modal ~= nil and sheet ~= nil)
-	if not (modal and sheet) then
-		return
-	end
-	local function title(root: Instance): boolean
-		for _, node in root:GetDescendants() do
-			if node:IsA("TextLabel") and node.ContentText == "Gallery settings" then
-				return true
-			end
-		end
-		return false
-	end
-	t.check("the sheet shows the Gallery settings title", title(sheet))
-	local function onTop(label: string, node: any)
-		local box = t.clipped(node) or t.rect(node)
+	t.check("the panel shows the gallery settings", settingsShown(panel))
+	local demo = t.find(stage, "Demos")
+	local function onTop(label: string)
+		local box = t.clipped(panel) or t.rect(panel)
 		local at = Vector2.new(box.x + box.w / 2, box.y + math.min(box.h / 2, 40))
 		local list = hits(at)
 		local names = {}
-		for index = 1, math.min(6, #list) do
-			names[index] = list[index]:GetFullName()
+		local panelAt, demoAt = nil, nil
+		for index, hit in list do
+			if index <= 6 then
+				names[index] = hit:GetFullName()
+			end
+			if not panelAt and (hit == panel or hit:IsDescendantOf(panel)) then
+				panelAt = index
+			end
+			if not demoAt and demo and (hit == demo or hit:IsDescendantOf(demo)) then
+				demoAt = index
+			end
 		end
 		t.note(label, names)
 		local top: GuiObject? = list[1]
-		t.check(label, top ~= nil and (top == node or top:IsDescendantOf(node)), top and top:GetFullName())
-		local stageAt, modalAt = nil, nil
-		for index, hit in list do
-			if not modalAt and hit:IsDescendantOf(modal) then
-				modalAt = index
-			end
-			if not stageAt and hit:IsDescendantOf(stage) then
-				stageAt = index
-			end
-		end
+		t.check(label, top ~= nil and (top == panel or top:IsDescendantOf(panel)), top and top:GetFullName())
 		t.check(
-			label .. ": the demo is beneath the sheet",
-			modalAt ~= nil and (stageAt == nil or modalAt < stageAt),
-			{ modalAt, stageAt }
+			label .. ": the demo is beneath the panel",
+			panelAt ~= nil and (demoAt == nil or panelAt < demoAt),
+			{ panelAt, demoAt }
 		)
 	end
-	onTop("the sheet is the topmost object when it opens", sheet)
+	onTop("the settings panel is topmost when it opens")
 	local shown = {}
 	for _ = 1, 6 do
 		table.insert(shown, context.dispatch("next", 1).current)
 		t.settle(30)
 	end
-	t.note("demos swapped under the sheet", shown)
+	t.note("demos swapped under the settings panel", shown)
 	t.check("six different demos were shown", #shown == 6 and shown[1] ~= shown[6], shown)
-	local modal2, sheet2 = panel()
-	t.check("the same sheet is still open after six demo swaps", modal2 == modal and sheet2 == sheet)
-	if sheet2 then
-		t.check("the sheet still shows its title", title(sheet2))
-		onTop("the sheet is still the topmost object over the new demo", sheet2)
+	local retained = t.find(stage, "ShowcasePanel")
+	t.check("the same settings panel stays open after six demo swaps", retained == panel and t.visible(panel))
+	if retained then
+		t.check("the panel still shows the gallery settings", settingsShown(retained))
+		onTop("the settings panel stays topmost over the new demo")
 		local count = 0
 		for _, node in gui:GetDescendants() do
-			if node.Name == "Modal" and node:IsA("GuiObject") and t.visible(node) then
+			if node.Name == "ShowcasePanel" and node:IsA("GuiObject") and t.visible(node) then
 				count += 1
 			end
 		end
-		t.check("there is exactly one open modal layer", count == 1, count)
+		t.check("there is exactly one open settings panel", count == 1, count)
 	end
+	io.click(centre(showcase))
+	t.settle(40)
+	t.check("Close dismisses the settings panel", t.find(stage, "ShowcasePanel") == nil)
 end)
 
 add("pad-confirm-dialog-to-cancel", { "apps2-45" }, function(t: any)

@@ -26,7 +26,7 @@ type Case = {
 local cases: { Case } = {}
 
 local function add(id: string, contracts: { string }, run: (any) -> ())
-	table.insert(cases, { id = id, contracts = contracts, run = run })
+	table.insert(cases, { id = id, contracts = contracts, run = run, keepGallery = false })
 end
 
 local function interactive(

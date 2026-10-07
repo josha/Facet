@@ -24,6 +24,36 @@ local function pointer(t: any): any
 	local virtual = (UserInputService :: any):CreateVirtualInput()
 	t.check("virtual input is available", virtual ~= nil)
 	local inset = GuiService:GetGuiInset()
+	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+		local shield = Instance.new("ScreenGui")
+		shield.DisplayOrder = 10000
+		shield.IgnoreGuiInset = true
+		local pad = Instance.new("TextButton")
+		pad.Size = UDim2.fromScale(1, 1)
+		pad.BackgroundTransparency = 1
+		pad.Text = ""
+		pad.Parent = shield
+		shield.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
+		t.settle(2)
+		local seen: Vector3? = nil
+		local watch = UserInputService.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch then
+				seen = input.Position
+			end
+		end)
+		local probe = workspace.CurrentCamera.ViewportSize / 2 + inset
+		virtual:SendMousePosition(probe)
+		virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, true)
+		t.settle(2)
+		virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, false)
+		t.settle(2)
+		watch:Disconnect()
+		shield:Destroy()
+		if seen then
+			inset = probe - Vector2.new(seen.X, seen.Y)
+		end
+		t.note("touch calibration inset", inset)
+	end
 	local mouse = {}
 	function mouse.move(at: Vector2)
 		virtual:SendMousePosition(at + inset)

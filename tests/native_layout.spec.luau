@@ -85,6 +85,35 @@ return function(verifyHarness: Verify.Harness)
 		return message ~= nil and string.find(message, fragment, 1, true) ~= nil
 	end
 
+	verifyHarness:suite("native text layout", function()
+		verifyHarness:case("reflows automatic text when font metrics change and preserves fixed text", {
+			id = "native_layout::native text layout::reflows automatic text when font metrics change and preserves fixed text",
+			run = function()
+				local Enum = require("@lune/roblox").Enum
+				local root, engine, stop = build(nil, function(UI, Host)
+					return Host.Frame {
+						UI.Text "Automatic" { text = "Ranger rifle" },
+						UI.Text "Fixed" { text = "Ranger rifle", AutomaticSize = Enum.AutomaticSize.None },
+					}
+				end)
+				local automatic, fixed = root.Automatic, root.Fixed
+				local states = {}
+				local connection = automatic:GetPropertyChangedSignal("AutomaticSize"):Connect(function()
+					table.insert(states, automatic.AutomaticSize)
+				end)
+				automatic.TextSize = 12
+				Verify.expect(states):toHaveLength(2)
+				Verify.expect(states[1]):toBe(engine.types.Enum.AutomaticSize.None)
+				Verify.expect(states[2]):toBe(engine.types.Enum.AutomaticSize.XY)
+				automatic.TextColor3 = engine.types.Color3.new(1, 0, 0)
+				Verify.expect(states):toHaveLength(2)
+				fixed.TextSize = 12
+				Verify.expect(fixed.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				connection:Disconnect()
+				stop()
+			end,
+		})
+	end)
 	verifyHarness:suite("native maximum layout width", function()
 		verifyHarness:case("caps every sized container with one reactive native constraint", {
 			id = "native_layout::native maximum layout width::caps every sized container with one reactive native constraint",

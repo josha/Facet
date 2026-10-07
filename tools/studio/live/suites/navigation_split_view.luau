@@ -524,8 +524,14 @@ local cases: { any } = {
 		contracts = {},
 		keepGallery = true,
 		run = function(t: any)
+			api("show", "files")
+			t.settle(20)
 			local layer = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
 			local root = t.find(layer, "Views")
+			t.check("Files uses NavigationSplitView", root ~= nil and root:GetAttribute("FacetSplitCollapsed") ~= nil)
+			if not root then
+				return
+			end
 			local detail = root:FindFirstChild("Detail")
 			t.check("linked detail exists", detail ~= nil)
 			if not detail then

@@ -252,7 +252,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				end
 				filled = filled or (value.X > 0 and value.Y > 0)
 			end
-			return table.concat(parts, ";"), filled
+			return table.concat(parts, ";"), filled and nodes[1].Visible
 		end, restart)
 		local held: { ComposeTypes.Readable<Vector2> } = {}
 		for index, size in live do
@@ -509,6 +509,46 @@ return function(ctx: Types.Context): Nav.Surfaces
 					},
 				})
 			end
+		end
+		if catcher and catcher:IsA("GuiObject") and gui then
+			local service: GuiService = gui
+			local band = ctx.observe.TopbarInset(service)
+			local parent = ctx.observe.Parent(root)
+			local unit = ctx.layoutUnit(root)
+			local expansion = Compose.cell({ near = V2.zero, far = V2.zero, scale = 1 })
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(band)
+				use(parent)
+				local scale = math.max(use(unit), 0.001)
+				local screen = root:FindFirstAncestorWhichIsA("ScreenGui")
+				local inset = screen ~= nil
+					and not screen.IgnoreGuiInset
+					and screen.ScreenInsets == E.ScreenInsets.CoreUISafeInsets
+				local near, far = V2.zero, V2.zero
+				if inset then
+					local ok, topLeft, bottomRight = pcall(service.GetGuiInset, service)
+					if ok and typeof(topLeft) == "Vector2" then
+						near = topLeft
+						far = if typeof(bottomRight) == "Vector2" then bottomRight else V2.zero
+					end
+				end
+				expansion:set({ near = near, far = far, scale = scale })
+			end)
+			runtime.decorate(catcher, {
+				Position = function(use: ComposeTypes.Use): UDim2
+					local value = use(expansion)
+					return D2.fromOffset(-value.near.X / value.scale, -value.near.Y / value.scale)
+				end,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local value = use(expansion)
+					return D2.new(
+						1,
+						(value.near.X + value.far.X) / value.scale,
+						1,
+						(value.near.Y + value.far.Y) / value.scale
+					)
+				end,
+			})
 		end
 		local released = false
 		local landed = false

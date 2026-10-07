@@ -325,6 +325,24 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		end
 		return { x = x, y = y, w = r - x, h = b - y, r = r, b = b }
 	end
+	local function textClipped(node: any): boolean
+		local bounds, size = node.TextBounds, node.AbsoluteSize
+		if bounds.X > size.X + 0.5 or bounds.Y > size.Y + 0.5 then
+			return true
+		end
+		if node.TextFits or node:GetStyled("TextWrapped") ~= true then
+			return false
+		end
+		local params = Instance.new("GetTextBoundsParams")
+		params.Text = node.Text
+		params.Font = node:GetStyled("FontFace")
+		params.Size = node:GetStyled("TextSize")
+		params.Width = size.X
+		params.RichText = node.RichText
+		local measured = game:GetService("TextService"):GetTextBoundsAsync(params)
+		params:Destroy()
+		return measured.X > size.X + 0.5 or measured.Y * node.LineHeight > size.Y + 0.5
+	end
 	function t.offenders(root: Instance, bounds: any, options: { [string]: any }?): { [string]: any }
 		local config: { [string]: any } = options or {}
 		local limit = if typeof(bounds) == "Instance" then t.rect(bounds) else bounds
@@ -350,9 +368,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 						and node.ContentText ~= ""
 						and not node.TextScaled
 						and node:GetStyled("TextTransparency") < 1
-						and (node.TextBounds.X > node.AbsoluteSize.X + 0.5 or node.TextBounds.Y > node.AbsoluteSize.Y + 0.5 or (not node.TextFits and node:GetStyled(
-							"TextWrapped"
-						) == true))
+						and textClipped(node)
 						and node:GetStyled("TextTruncate") == Enum.TextTruncate.None
 					then
 						table.insert(
@@ -598,12 +614,13 @@ function live.report(suite: string, options: { [string]: any }?): any
 			id = case.id,
 			requires = { "roblox-client", inputRequirement(suite, case) },
 			run = function(context: any)
+				local caseKeepGallery = if case.keepGallery == nil then keepGallery else case.keepGallery
 				for _, gui in playerGui:GetChildren() do
 					if
 						gui:IsA("ScreenGui")
 						and string.sub(gui.Name, 1, 12) == "FacetGallery"
 						and gui.Enabled
-						and not (if case.probe then false else keepGallery)
+						and not (if case.probe then false else caseKeepGallery)
 					then
 						gui.Enabled = false
 						table.insert(hidden, gui)

@@ -130,6 +130,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local sent: { { [string]: any } } = {}
 				local remote, console, heartbeat = nil, nil, nil
+				local service: any
 				local built, _, stop, ctx = mount(scenario, nil, function(context, engine)
 					remote = engine.new("RemoteEvent")
 					remote.FireServer = function(_, message)
@@ -147,7 +148,7 @@ return function(verifyHarness: Verify.Harness)
 					root.Name = "HumanoidRootPart"
 					root.Parent = character
 					context.player = { Character = character }
-					local service = engineLib.new()
+					service = engineLib.new()
 					heartbeat = service.heartbeat
 					context.runService = { Heartbeat = heartbeat }
 				end)
@@ -180,7 +181,7 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				Verify.expect(sent[#sent].kind):toBe("close")
 				Verify.expect((engineLib.connections(remote.OnClientEvent))):toBe(0)
-				Verify.expect((engineLib.connections(heartbeat))):toBe(0)
+				Verify.expect((engineLib.connections(service.heartbeat))):toBe(0)
 			end,
 		})
 		verifyHarness:case("converges full snapshots across skipped revisions without losing independent drafts", {

@@ -317,6 +317,19 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			})
 		end
 		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults)), roleSource)
+		local styledFace, styledSize = ctx.observeStyled.FontFace(label), ctx.observeStyled.TextSize(label)
+		local previousFace: Font?, previousSize: number? = nil, nil
+		Compose.watch(function(use: ComposeTypes.Use)
+			local face, points = use(styledFace), use(styledSize)
+			if face ~= previousFace or points ~= previousSize then
+				previousFace, previousSize = face, points
+				local automatic = label.AutomaticSize
+				if automatic ~= E.AutomaticSize.None then
+					label.AutomaticSize = E.AutomaticSize.None
+					label.AutomaticSize = automatic
+				end
+			end
+		end)
 		if lines then
 			local styledSize = ctx.observeStyled.TextSize(label)
 			local styledLine = ctx.observeStyled.LineHeight(label)

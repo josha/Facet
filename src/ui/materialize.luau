@@ -70,8 +70,8 @@ return function(
 								return if value then value.Offset + value.Scale * length else 0
 							end
 							return D2.fromOffset(
-								math.max(0, math.ceil(size.X - inset("Left", size.X) - inset("Right", size.X))),
-								math.max(0, math.ceil(size.Y - inset("Top", size.Y) - inset("Bottom", size.Y)))
+								math.max(0, size.X - inset("Left", size.X) - inset("Right", size.X)),
+								math.max(0, size.Y - inset("Top", size.Y) - inset("Bottom", size.Y))
 							)
 						end,
 						AnchorPoint = origin,

@@ -47,6 +47,23 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hidden tooltip bounds do not start its entrance", {
+			id = "native_motion_rest::present at rest: help tooltip::hidden tooltip bounds do not start its entrance",
+			run = function()
+				local w = hovered()
+				local panel = w.find("Help")
+				panel.Visible = false
+				panel.AbsoluteSize = Vector2.new(120, 30)
+				w.advance(FRAME, 3)
+				Verify.expect(fadeKit.of(panel)):toBe(1)
+				Verify.expect(materialize.of(panel).Scale):toBe(1)
+				panel.Visible = true
+				w.advance(FRAME, 3)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("a scaled AbsoluteSize during the entrance does not move the plate", {
 			id = "native_motion_rest::present at rest: help tooltip::a scaled AbsoluteSize during the entrance does not move the plate",
 			run = function()
@@ -83,8 +100,8 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				Verify.expect(scale.Scale < 1):toBe(true)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.X.Offset):toBe(122)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.Y.Offset):toBe(52)
+				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.X.Offset):toBe(121)
+				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.Y.Offset):toBe(51)
 				w.advance(1, 30)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
