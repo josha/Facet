@@ -83,7 +83,7 @@ add("list-keyboard-and-dpad", { "collections-262" }, function(t)
 	return value
 end, {
 	afterDown = function(t)
-		t.check("keyboard Down selects row 2", selectedName() == "Row2", selectedName())
+		t.check("the first Down selects row 2", selectedName() == "Row2", selectedName())
 	end,
 	afterDpad = function(t)
 		t.check("a second Down selects row 3", selectedName() == "Row3", selectedName())
@@ -92,7 +92,16 @@ end, {
 		local name = selectedName()
 		local row = tonumber(string.match(name, "%d+")) or 0
 		t.note("selected after moving past the band", name)
-		t.near("canvas shows the selected row at the band end", value.list.CanvasPosition.Y, row * 40 - 200, 1)
+		t.check("eight Down inputs reach row 9", row == 9, name)
+		local selected = GuiService.SelectedObject
+		local r = selected and t.rect(selected)
+		local top = value.list.AbsolutePosition.Y
+		local bottom = top + value.list.AbsoluteWindowSize.Y
+		t.check(
+			"the canvas moves to keep the selected row fully visible",
+			value.list.CanvasPosition.Y > 0 and r ~= nil and r.y >= top - 0.5 and r.b <= bottom + 0.5,
+			{ row = r, window = { top, bottom }, canvas = value.list.CanvasPosition }
+		)
 	end,
 })
 

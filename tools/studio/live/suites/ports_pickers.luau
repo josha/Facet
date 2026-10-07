@@ -2356,7 +2356,44 @@ add("picker-segmented-live", { "post-pickers-058" }, function(t)
 		end
 		local sizes = package.metrics and package.metrics.controlSizes
 		local compact = if sizes and sizes.compact and sizes.compact.height then sizes.compact.height else 36
-		t.near(`{themeName}: the compact strip is one compact control height tall`, strip.AbsoluteSize.Y, compact, 0.5)
+		local inset = list[1].AbsolutePosition.Y - strip.AbsolutePosition.Y
+		t.check(`{themeName}: the compact strip keeps its track inset`, inset >= 3 and inset <= 4, inset)
+		local captionHeight = 0
+		for _, segment in list do
+			captionHeight = math.max(captionHeight, math.ceil(segment.TextBounds.Y))
+			local label = partOf(segment, "Label") or segment
+			t.check(
+				`{themeName}: segment {segment.Name} caption fits`,
+				t.fits(label),
+				{ label.TextBounds, label.AbsoluteSize }
+			)
+			t.inside(`{themeName}: segment {segment.Name} stays inside the strip`, segment, strip, 0.5)
+			t.near(
+				`{themeName}: segment {segment.Name} has the top inset`,
+				segment.AbsolutePosition.Y - strip.AbsolutePosition.Y,
+				inset,
+				0.5
+			)
+			t.near(
+				`{themeName}: segment {segment.Name} has the bottom inset`,
+				strip.AbsolutePosition.Y + strip.AbsoluteSize.Y - segment.AbsolutePosition.Y - segment.AbsoluteSize.Y,
+				inset,
+				0.5
+			)
+		end
+		local recipe = package.chrome and package.chrome.control
+		local height = compact
+		if recipe and recipe.kind ~= "native" and recipe.kind ~= "none" then
+			local contentInsets = recipe.contentInsets or {}
+			local chromeHeight = math.max(0, contentInsets.top or 0) + math.max(0, contentInsets.bottom or 0)
+			height = math.max(height, captionHeight + chromeHeight + 2 * inset)
+		end
+		t.near(
+			`{themeName}: the compact strip matches its caption and chrome budget`,
+			strip.AbsoluteSize.Y,
+			height,
+			0.5
+		)
 		local corners = strip:FindFirstChild("Corners")
 		t.check(
 			`{themeName}: the strip has pill ends`,

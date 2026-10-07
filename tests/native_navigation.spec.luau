@@ -93,6 +93,49 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("prepares CollapsibleView chrome before content paints without travel", {
+			id = "native_navigation::native navigation controls::prepares CollapsibleView chrome before content paints without travel",
+			run = function()
+				for _, level in { "limited", "none" } do
+					local expanded = Compose.cell(false)
+					local world = setup(function(UI: FacetControls, _, engine)
+						return UI.CollapsibleView "Summary" {
+							expanded = expanded,
+							label = "Summary",
+							content = function(): Instance
+								return UI.Text "Copy" {
+									text = "The copy must keep its final content width.",
+									Size = engine.types.UDim2.new(1, 0, 0, 0),
+									AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+									TextWrapped = true,
+								}
+							end,
+						}
+					end, { motionLevel = level :: "limited" | "none" })
+					world.screen.AbsoluteSize = world.engine.types.Vector2.new(960, 720)
+					find(world.screen, "Summary").AbsoluteSize = world.engine.types.Vector2.new(240, 44)
+					expanded:set(true)
+					local panel, fade = find(world.screen, "Expanded"), find(world.screen, "ExpandedFade")
+					local content = find(panel, "ContentBox")
+					local V2 = world.engine.types.Vector2.new
+					panel.AbsoluteSize = V2(360, 200)
+					content.AbsoluteSize = V2(360, 200)
+					Verify.expect(fadeKit.of(panel)):toBe(1)
+					world.engine.heartbeat:Fire(1 / 60)
+					content.AbsoluteSize = V2(328, 168)
+					find(panel, "Copy").AbsoluteSize = V2(296, 48)
+					world.engine.heartbeat:Fire(1 / 60)
+					Verify.expect(fadeKit.of(panel)):toBe(1)
+					world.settle()
+					Verify.expect(fadeKit.of(panel)):toBe(0)
+					Verify.expect(fade.Size.X.Offset):toBe(328)
+					expanded:set(false)
+					world.settle()
+					Verify.expect(find(world.screen, "Expanded")):toBe(nil)
+					world.stop()
+				end
+			end,
+		})
 		verifyHarness:case("selects enabled picker values once and honors changing veto", {
 			id = "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
 			run = function()
@@ -1926,7 +1969,7 @@ return function(verifyHarness: Verify.Harness)
 					local V2 = world.engine.types.Vector2.new
 					local picker = find(world.screen, "Picker")
 					find(world.screen, "a").TextBounds = V2(56, 31)
-					Verify.expect(picker.Size.Y.Offset):toBe(44)
+					Verify.expect(picker.Size.Y.Offset):toBe(31 + 20 + 6)
 					find(world.screen, "a").TextBounds = V2(48, 16)
 					world.gui.PreferredTextSize = world.engine.types.Enum.PreferredTextSize.Largest
 					Verify.expect(picker.Size.Y.Offset):toBe(44)
@@ -1939,6 +1982,36 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+
+		verifyHarness:case("fits segmented glyphs inside compact chrome at the default text preference", {
+			id = "native_navigation::native navigation controls::fits segmented glyphs inside compact chrome at the default text preference",
+			run = function()
+				local themes = require("../src/ui/themes")(Compose)
+				local package = themes.neutralPackage()
+				package.metrics.controlSizes.compact.height = 22
+				package.chrome = { control = { kind = "fill", contentInsets = { top = 2, bottom = 2 } } }
+				local world = setup(function(UI: FacetControls)
+					return UI.Picker "Laps" {
+						style = "segmented" :: "segmented",
+						controlSize = "compact" :: "compact",
+						selected = Compose.cell("3"),
+						options = {
+							{ value = "3", label = "3" } :: Navigation.PickerOption<string>,
+							{ value = "10", label = "10" } :: Navigation.PickerOption<string>,
+						},
+					}
+				end, { theme = assert(themes.define(package)) })
+				local picker = find(world.screen, "Laps")
+				find(picker, "3").TextBounds = world.engine.types.Vector2.new(8, 13)
+				find(picker, "10").TextBounds = world.engine.types.Vector2.new(16, 13)
+				Verify.expect(picker.Size.Y.Offset):toBe(13 + 4 + 6)
+				find(picker, "10").TextBounds = world.engine.types.Vector2.new(16, 18)
+				Verify.expect(picker.Size.Y.Offset):toBe(18 + 4 + 6)
+				find(picker, "10").TextBounds = world.engine.types.Vector2.new(16, 13)
+				Verify.expect(picker.Size.Y.Offset):toBe(13 + 4 + 6)
+				world.stop()
+			end,
+		})
 
 		verifyHarness:case("keeps split primary activation separate from touch long-press alternatives", {
 			id = "native_navigation::native navigation controls::keeps split primary activation separate from touch long-press alternatives",

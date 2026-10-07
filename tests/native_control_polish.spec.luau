@@ -355,6 +355,12 @@ return function(verifyHarness: Verify.Harness)
 							expect(pill:GetProperties().CornerRadius.Offset):toBe(math.max(0, track - inset))
 							local height = ((package.metrics.controlSizes or {})[size] or neutralSizes[size]).height
 							local picker = find(w.screen, "P")
+							local recipe = package.chrome and package.chrome.control
+							if recipe and recipe.kind ~= "native" and recipe.kind ~= "none" then
+								local chrome = recipe.contentInsets or {}
+								local glyph = find(find(picker, "normal"), "Label").TextBounds.Y
+								height = math.max(height, glyph + (chrome.top or 0) + (chrome.bottom or 0) + 2 * inset)
+							end
 							expect(`{id} {size}: track {picker.Size.Y.Scale} {picker.Size.Y.Offset}`):toBe(
 								`{id} {size}: track 0 {height}`
 							)

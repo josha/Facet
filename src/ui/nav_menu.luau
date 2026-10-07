@@ -985,6 +985,7 @@ return function(
 					backgroundTransparency = function(use: ComposeTypes.Use): number
 						return if use(sheeted) then 0.5 else 1
 					end,
+					appearance = if shown then shown.opacity else nil,
 					onOutside = close,
 					exiting = if phase then phase.exiting else nil,
 					initialFocus = landing(current:peek()),
@@ -2749,12 +2750,6 @@ return function(
 		local currentOrder = Compose.cell(0)
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
-		local textService = surfaces.service("GuiService") :: GuiService?
-		local preferredText: ComposeTypes.Readable<unknown>? = if style == "segmented"
-				and textService
-				and textService.GetPropertyChangedSignal
-			then ctx.observe.PreferredTextSize(textService)
-			else nil
 		local function measureCaptions(): ()
 			local tallest = 0
 			for _, height in captionHeights do
@@ -2770,14 +2765,7 @@ return function(
 			local recipe = if package and package.chrome then package.chrome.control else nil
 			local inset = if recipe then recipe.contentInsets else nil
 			local caption = if use then use(tallestCaption) else tallestCaption:peek()
-			local preferred = if preferredText == nil
-				then nil
-				elseif use then use(preferredText)
-				else preferredText:peek()
-			local enlarged = preferred == E.PreferredTextSize.Large
-				or preferred == E.PreferredTextSize.Larger
-				or preferred == E.PreferredTextSize.Largest
-			if not enlarged or caption <= 0 or recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
+			if caption <= 0 or recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
 				return rung
 			end
 			local chrome = math.max(0, if inset then inset.top or 0 else 0)

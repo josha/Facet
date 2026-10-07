@@ -118,6 +118,63 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native menu parity with main", function()
+		verifyHarness:case("keeps the presentation mask on the moving paint plate", {
+			id = "native_menu_parity::native menu parity with main::keeps the presentation mask on the moving paint plate",
+			run = function()
+				local world = labelled({ items = items(3), presentation = "menu" }, {})
+				local panel = open(world)
+				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 140))
+				world.engine.heartbeat:Fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
+				local paint = panel:FindFirstChild("PresentationPaint", true)
+				Verify.expect(paint ~= nil):toBe(true)
+				local mask = paint:FindFirstChild("PresentationFade")
+				Verify.expect(mask ~= nil):toBe(true)
+				local rootMask = panel:FindFirstChild("PresentationFade")
+				Verify.expect(mask.Transparency):toBe(rootMask.Transparency)
+				for _ = 1, 4 do
+					world.engine.heartbeat:Fire(FRAME)
+					Verify.expect(mask.Transparency):toBe(rootMask.Transparency)
+				end
+				for _ = 1, 30 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBe(nil)
+				Verify.expect(rootMask.Parent):toBe(panel)
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("fades an authored sheet scrim with the menu entrance and departure", {
+			id = "native_menu_parity::native menu parity with main::fades an authored sheet scrim with the menu entrance and departure",
+			run = function()
+				local world = labelled({ items = items(3), presentation = "sheet" }, {})
+				for _ = 1, 2 do
+					local panel = open(world)
+					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 140))
+					local scrim = world.find("DismissOutside", world.screen.Parent)
+					local mask = panel:FindFirstChild("PresentationFade")
+					Verify.expect(scrim.BackgroundTransparency):toBe(1)
+					local faded = false
+					for _ = 1, 30 do
+						world.engine.heartbeat:Fire(FRAME)
+						local alpha = mask.Transparency.Keypoints[1].Value
+						Verify.expect(scrim.BackgroundTransparency):toBeCloseTo(0.5 + 0.5 * alpha, 5)
+						faded = faded or scrim.BackgroundTransparency > 0.5 and scrim.BackgroundTransparency < 1
+					end
+					Verify.expect(faded):toBe(true)
+					Verify.expect(scrim.BackgroundTransparency):toBe(0.5)
+					scrim.Activated:Fire()
+					world.engine.heartbeat:Fire(FRAME)
+					Verify.expect(scrim.BackgroundTransparency > 0.5):toBe(true)
+					for _ = 1, 30 do
+						world.engine.heartbeat:Fire(FRAME)
+					end
+				end
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps the pointer anchor through departure", {
 			id = "native_menu_parity::native menu parity with main::keeps the pointer anchor through departure",
 			run = function()
@@ -318,6 +375,13 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, { motionLevel = "none" })
 					world.find("Opener").Activated:Fire()
+					local panel = panelOf(world)
+					world.find("Opener").AbsolutePosition = Vector2.new(100, 100)
+					world.find("Opener").AbsoluteSize = Vector2.new(200, 40)
+					modalOf(world, panel).AbsoluteSize = Vector2.new(800, 600)
+					panel.AbsoluteSize = Vector2.new(220, 140)
+					world.engine.heartbeat:Fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
 					local catcher = world.find("DismissOutside")
 					Verify.expect(`{case[1]}: {catcher.BackgroundTransparency < 1}`):toBe(`{case[1]}: {case[2]}`)
 					world.stop()

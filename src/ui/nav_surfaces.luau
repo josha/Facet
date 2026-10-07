@@ -318,7 +318,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
-		local progress, closed, hidden = revealMotion(spec.expanded)
+		local prepared, entered = Compose.cell(false), Compose.cell(false)
+		Compose.watch(function(use: ComposeTypes.Use)
+			entered:set(use(spec.expanded) and use(prepared))
+		end)
+		local progress, closed, opacity = revealMotion(entered)
+		local function hidden(use: ComposeTypes.Use): number
+			return if use(prepared) then opacity(use) else 1
+		end
 		local function collapse()
 			spec.expanded:set(false)
 		end
@@ -340,6 +347,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local rootBox, rootAt = ctx.observe.AbsoluteSize(root), ctx.observe.AbsolutePosition(root)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.expanded, function(phase: Nav.PresencePhase?)
+				prepared:set(false)
+				Compose.cleanup(function()
+					prepared:set(false)
+				end)
 				local layer = assert(surfaces.parent(root))
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
 				local column = ctx.column({
@@ -372,7 +383,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end)
 				local function lerp(use: ComposeTypes.Use): Overlay.Rect
 					local goal, at, box, offset = use(target), use(rootAt), use(rootBox), use(origin)
-					local t = progress(use)
+					local t = if use(prepared) then progress(use) else 1
 					local x, y = at.X - offset.X, at.Y - offset.Y
 					return {
 						x = x + (goal.x - x) * t,
@@ -388,7 +399,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local goal, inset = use(target), use(chrome)
 						return D2.fromOffset(goal.w - inset.X, goal.h - inset.Y)
 					end,
-					GroupTransparency = hidden,
+					GroupTransparency = 0,
 					Host.ScrollingFrame "ExpandedScroll" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -404,7 +415,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					},
 				}
 				local plate = surfaces.skin(ctx.styled(
-					Host.Frame "Expanded" {
+					ctx.fade {
+						Name = "Expanded",
+						GroupTransparency = hidden,
 						Active = true,
 						BackgroundTransparency = 0,
 						ClipsDescendants = true,
@@ -427,7 +440,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					"panel"
 				))
 				ctx.styled(plate, "floating")
-				local content = assert(plate:FindFirstChild("ContentBox")) :: GuiObject
+				local content = assert(plate:FindFirstChild("ContentBox", true)) :: GuiObject
 				local plateBox, contentBox = ctx.observe.AbsoluteSize(plate), ctx.observe.AbsoluteSize(content)
 				Compose.watch(function(use: ComposeTypes.Use)
 					use(plateBox)
@@ -437,6 +450,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						chrome:set(outer - inner)
 					end
 				end)
+				surfaces.atRest(function()
+					return 0
+				end, prepared, { plate, fade, column, content })
 				local modal = surfaces.modal(
 					function()
 						return plate

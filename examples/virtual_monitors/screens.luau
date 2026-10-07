@@ -1132,26 +1132,22 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			Compose.show(function(use: Use)
 				return use(model.shelf) == "browse"
 			end, function()
-				return feedFrame(Compose.switch(function(use: Use)
-					return use(model.query) .. "\0" .. use(model.genre) .. "\0" .. use(model.sort)
-				end, {}, function()
-					return collection("VirtualGrid", {
-						Name = "Games",
-						from = model.visibleGames,
-						key = "id",
-						columns = function(use: Use)
-							return math.max(1, math.floor((use(dimensions).X + 16) / 280))
-						end,
-						itemSize = 250,
-						measure = true,
-						gap = 16,
-						overscan = 2,
-						render = gameCard,
-						Size = D2.fromScale(1, 1),
-						BackgroundTransparency = 1,
-						ScrollBarThickness = 5,
-					}, model.discoveryScroll)
-				end))
+				return feedFrame(collection("VirtualGrid", {
+					Name = "Games",
+					from = model.visibleGames,
+					key = "id",
+					columns = function(use: Use)
+						return math.max(1, math.floor((use(dimensions).X + 16) / 280))
+					end,
+					itemSize = 250,
+					measure = true,
+					gap = 16,
+					overscan = 2,
+					render = gameCard,
+					Size = D2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					ScrollBarThickness = 5,
+				}, model.discoveryScroll))
 			end),
 			Compose.show(function(use: Use)
 				return use(model.shelf) == "saved" and #use(model.savedGames) > 0

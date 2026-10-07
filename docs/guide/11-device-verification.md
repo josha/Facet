@@ -269,6 +269,34 @@ in `notes.pressedSelections`.
   open the Roblox menu or take the keyboard focus, and after that VirtualInput
   refuses every key until the playtest restarts.
 
+### Interactive gamepad phases
+
+Use `--interactive --device keep` in a Studio with Controller Emulator on.
+The driver sends DPadDown, DPadLeft, DPadRight, ButtonA and ButtonB through
+`live.press`. It records native Gamepad1 events. Sheet and Alert Up phases
+use StickUp and record Gamepad1 Thumbstick1 events. They do not prove DPadUp.
+Use the posted-key route above to check DPadUp separately.
+
+Xbox emulation disables keyboard input. The `power-off-traversal` gamepad
+phase checks DPadDown. Its Tab phase appears as unsupported under the
+`power-off-traversal-tab` id. Run the Tab phase in a mouse Studio with
+Controller Emulator off. In the client command environment, run:
+
+```lua
+local live = require(game.ReplicatedStorage.FacetLive)
+live.begin("needs_live_input", "power-off-traversal")
+live.press({ "Tab", "Tab", "Tab", "Tab", "Tab", "Tab" })
+live.step("afterTab")
+return live.finish()
+```
+
+Keep this keyboard report separate from the Gamepad1 report. The list driver
+uses DPadDown for both initial moves under Xbox emulation. To check the
+mixed keyboard and gamepad sequence, use a desktop device with both inputs
+available: send Down, call `live.step("afterDown")`, send DPadDown, call
+`live.step("afterDpad")`, send six more DPadDown inputs, then call
+`live.step("afterPast")` and `live.finish()`.
+
 ### Run the focus walk
 
 The `focus_walk` live suite opens every Showcase page (and every tab of a

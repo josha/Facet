@@ -464,6 +464,11 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 		return content ~= nil and t.visible(content) and t.find(content, "ResetAll") ~= nil
 	end
 	t.check("the panel shows the gallery settings", settingsShown(panel))
+	local surface = panel:FindFirstAncestor("Expanded")
+	t.check("the settings panel uses the collapsible surface", surface ~= nil)
+	if not surface then
+		return
+	end
 	local demo = t.find(stage, "Demos")
 	local function onTop(label: string)
 		local box = t.clipped(panel) or t.rect(panel)
@@ -482,7 +487,7 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 			if index <= 6 then
 				names[index] = hit:GetFullName()
 			end
-			if not panelAt and (hit == panel or hit:IsDescendantOf(panel)) then
+			if not panelAt and (hit == surface or hit:IsDescendantOf(surface)) then
 				panelAt = index
 			end
 			if not demoAt and demo and (hit == demo or hit:IsDescendantOf(demo)) then
@@ -497,7 +502,7 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 				break
 			end
 		end
-		t.check(label, top ~= nil and (top == panel or top:IsDescendantOf(panel)), top and top:GetFullName())
+		t.check(label, top ~= nil and (top == surface or top:IsDescendantOf(surface)), top and top:GetFullName())
 		t.check(
 			label .. ": the demo is beneath the panel",
 			panelAt ~= nil and (demoAt == nil or panelAt < demoAt),
@@ -525,7 +530,14 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 		end
 		t.check("there is exactly one open settings panel", count == 1, count)
 	end
-	io.click(centre(showcase))
+	local close = t.find(surface, "Close")
+	t.check("the settings surface has a Close control", close ~= nil)
+	if close then
+		context.UI.scrollToVisible(close, nil, { animated = false })
+		t.settle(20)
+		t.check("the Close control is visible in the scroll window", t.clipped(close) ~= nil)
+		io.click(centre(close))
+	end
 	t.settle(40)
 	t.check("Close dismisses the settings panel", t.find(stage, "ShowcasePanel") == nil)
 end)

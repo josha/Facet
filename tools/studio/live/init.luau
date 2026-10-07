@@ -427,10 +427,11 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				environment = context.environment,
 				overlayParent = context.overlayParent,
 			})
+			context.environmentFacts = context.UI.environment()
 			local sheet = Facet.themes.createStyleSheet(env.runtime, env.theme, {
 				theme = env.palette,
 				transition = false,
-				tenFoot = context.UI.environment().isTenFoot,
+				tenFoot = context.environmentFacts.isTenFoot,
 			})
 			context.show = function(id: string): any
 				return screen.dispatch(context, "show", id)

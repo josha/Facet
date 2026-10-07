@@ -63,6 +63,65 @@ return function(verifyHarness: Verify.Harness)
 		return w.find("ScrimFade").Transparency.Keypoints[1].Value
 	end
 
+	verifyHarness:suite("presentation motion: Calendar", function()
+		for _, level in { "normal", "limited", "none" } do
+			verifyHarness:case(`prepares calendar layout and masks panel and scrim together in {level} motion`, {
+				id = `native_presentation_motion::presentation motion: Calendar::prepares calendar layout and masks panel and scrim together in {level} motion`,
+				run = function()
+					local value = Compose.cell({ year = 2026, month = 10, day = 7, hour = 9, minute = 0 })
+					local w = overlay.new(function(UI, Host, engine, _, _)
+						return Host.Frame {
+							UI.DateTimePicker "Session" {
+								value = value,
+								onChange = function(nextValue)
+									value:set(nextValue)
+								end,
+								time = true,
+								clock = function()
+									return { year = 2026, month = 10, day = 7 }
+								end,
+							},
+						}
+					end, { motionLevel = level, size = Vector2.new(389, 762) })
+					w.input.PreferredInput = w.Enum.PreferredInput.Touch
+					w.find("Open").Activated:Fire()
+					local surface = w.find("CalendarSurface")
+					local function scrimOpacity(): number
+						return (1 - w.find("DismissOutside").BackgroundTransparency) / 0.5
+					end
+					Verify.expect(fadeKit.of(surface)):toBe(1)
+					Verify.expect(scrimOpacity()):toBe(0)
+					w.size(surface, 365, 0)
+					w.advance(FRAME)
+					Verify.expect(fadeKit.of(surface)):toBe(1)
+					w.size(surface, 365, 540)
+					w.size(w.find("Calendar"), 365, 540)
+					w.advance(FRAME)
+					Verify.expect(fadeKit.of(surface)):toBe(1)
+					w.advance(FRAME)
+					local last = fadeKit.of(surface)
+					local intermediate = last > 0 and last < 1
+					for _ = 1, 30 do
+						w.advance(FRAME)
+						local alpha = fadeKit.of(surface)
+						Verify.expect(alpha <= last):toBe(true)
+						Verify.expect(scrimOpacity()):toBeCloseTo(1 - alpha, 1e-6)
+						intermediate = intermediate or (alpha > 0 and alpha < 1)
+						last = alpha
+					end
+					Verify.expect(last):toBe(0)
+					Verify.expect(intermediate):toBe(level ~= "none")
+					Verify.expect(w.find("CalendarScroll").AutomaticCanvasSize):toBe(w.Enum.AutomaticSize.Y)
+					w.find("DismissOutside").Activated:Fire()
+					Verify.expect(w.find("Session"):GetAttribute("presented")):toBe(false)
+					w.advance(1, 60)
+					Verify.expect(w.find("CalendarSurface")):toBe(nil)
+					w.stop()
+				end,
+			})
+		end
+	end)
+
 	verifyHarness:suite("presentation motion: Dialog and CollapsibleView", function()
 		verifyHarness:case("a dialog scales from 0.94 and fades in with its scrim, frame by frame, in 0.2 seconds", {
 			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::a dialog scales from 0.94 and fades in with its scrim, frame by frame, in 0.2 seconds",
@@ -169,7 +228,11 @@ return function(verifyHarness: Verify.Harness)
 				package.metrics.motion.revealFadeShare = 1
 				local w, expanded = tipsWorld({ theme = package })
 				expanded:set(true)
-				local fade = w.find("ExpandedFade")
+				local fade = w.find("Expanded")
+				w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
+				fade.AbsoluteSize = w.Vector2.new(360, 200)
+				Verify.expect((fadeKit.of(fade))):toBe(1)
+				w.advance(FRAME * 2, 2)
 				w.advance(0.15, 9)
 				Verify.expect(fadeKit.of(fade) > 0):toBe(true)
 				w.advance(0.15, 9)
@@ -254,25 +317,29 @@ return function(verifyHarness: Verify.Harness)
 					expanded:set(true)
 					local plate, fade = w.find("Expanded"), w.find("ExpandedFade")
 					w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
+					plate.AbsoluteSize = w.Vector2.new(360, 200)
 					Verify.expect(plate.ClipsDescendants):toBe(true)
+					Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+					Verify.expect((fadeKit.of(plate))):toBe(1)
+					w.advance(FRAME * 2, 2)
 					Verify.expect(plate.Position):toBe(w.engine.types.UDim2.fromOffset(100, 100))
 					Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(120, 44))
 					Verify.expect(fade.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
-					Verify.expect((fadeKit.of(fade))):toBe(1)
+					Verify.expect((fadeKit.of(plate))):toBe(1)
 					w.advance(0.05, 3)
 					Verify.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360):toBe(true)
-					Verify.expect(fadeKit.of(fade) > 0 and fadeKit.of(fade) < 1):toBe(true)
+					Verify.expect(fadeKit.of(plate) > 0 and fadeKit.of(plate) < 1):toBe(true)
 					w.advance(0.1, 6)
-					Verify.expect((fadeKit.of(fade))):toBe(0)
+					Verify.expect((fadeKit.of(plate))):toBe(0)
 					Verify.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360):toBe(true)
 					w.advance(0.15, 9)
 					Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
 					expanded:set(false)
 					w.advance(0.05, 3)
-					Verify.expect(fadeKit.of(fade) > 0 and fadeKit.of(fade) < 1):toBe(true)
+					Verify.expect(fadeKit.of(plate) > 0 and fadeKit.of(plate) < 1):toBe(true)
 					w.advance(0.05, 3)
 					Verify.expect((plate:isDestroyed())):toBe(false)
-					Verify.expect((fadeKit.of(fade))):toBe(1)
+					Verify.expect((fadeKit.of(plate))):toBe(1)
 					Verify.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360):toBe(true)
 					w.advance(0.2, 12)
 					Verify.expect((plate:isDestroyed())):toBe(true)
@@ -287,7 +354,11 @@ return function(verifyHarness: Verify.Harness)
 				local w, expanded = tipsWorld({ motionLevel = "none" })
 				expanded:set(true)
 				local plate = w.find("Expanded")
-				Verify.expect((fadeKit.of(w.find("ExpandedFade")))):toBe(0)
+				w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
+				plate.AbsoluteSize = w.Vector2.new(360, 200)
+				Verify.expect((fadeKit.of(plate))):toBe(1)
+				w.advance(FRAME * 2, 2)
+				Verify.expect((fadeKit.of(plate))):toBe(0)
 				expanded:set(false)
 				Verify.expect((plate:isDestroyed())):toBe(true)
 				w.stop()

@@ -1024,11 +1024,49 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local frames = services.RunService
 		local pending: RBXScriptConnection? = nil
 		local alive = true
-		local function reflow()
+		local refreshing = false
+		local function reflow(metrics: boolean?)
 			local automatic = label.AutomaticSize
 			if automatic ~= Enum.AutomaticSize.None then
+				refreshing = true
+				local face, points = label:GetStyled("FontFace") :: Font, label:GetStyled("TextSize") :: number
+				local resetFace, resetSize =
+					metrics == true and label.FontFace ~= face, metrics == true and label.TextSize ~= points
+				if resetFace then
+					label.FontFace = face
+				end
+				if resetSize then
+					label.TextSize = points
+				end
 				label.AutomaticSize = Enum.AutomaticSize.None
 				label.AutomaticSize = automatic
+				if resetFace then
+					label:ResetPropertyToDefault("FontFace")
+				end
+				if resetSize then
+					label:ResetPropertyToDefault("TextSize")
+				end
+				refreshing = false
+			end
+		end
+		local function deferReflow()
+			if
+				pending == nil
+				and frames
+				and alive
+				and not refreshing
+				and label.AutomaticSize ~= Enum.AutomaticSize.None
+			then
+				local function nextFrame()
+					if pending then
+						pending:Disconnect()
+						pending = nil
+					end
+					reflow(true)
+				end
+				pending = if frames.PreRender
+					then frames.PreRender:Connect(nextFrame)
+					else frames.Heartbeat:Connect(nextFrame)
 			end
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -1037,15 +1075,19 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				local changed = previousFace ~= nil or previousSize ~= nil
 				previousFace, previousSize = face, points
 				reflow()
-				if changed and pending == nil and frames and label.AutomaticSize ~= Enum.AutomaticSize.None then
-					pending = frames.Heartbeat:Connect(function()
-						if pending then
-							pending:Disconnect()
-							pending = nil
-						end
-						reflow()
-					end)
+				if changed or label.FontFace ~= face or label.TextSize ~= points then
+					deferReflow()
 				end
+			end
+		end)
+		local size, bounds, automatic =
+			ctx.observe.AbsoluteSize(label), ctx.observe.TextBounds(label), ctx.observe.AutomaticSize(label)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local box, glyph, mode = use(size), use(bounds), use(automatic)
+			local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
+			local freeY = mode == Enum.AutomaticSize.XY
+			if box.X > 0 and box.Y > 0 and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y)) then
+				deferReflow()
 			end
 		end)
 		Compose.cleanup(function()

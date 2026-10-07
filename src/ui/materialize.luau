@@ -61,6 +61,17 @@ local function materialize(
 							return D2.fromScale(at.X, at.Y)
 						end,
 					}
+					local mask = panel:FindFirstChild("PresentationFade")
+					if mask and mask:IsA("UIGradient") then
+						local observeMask = (
+							ctx.observe :: unknown
+						) :: { Transparency: (Instance) -> ComposeTypes.Cell<NumberSequence> }
+						runtime.mount(function()
+							return Host.UIGradient "PresentationFade" {
+								Transparency = observeMask.Transparency(mask),
+							}
+						end, paint)
+					end
 					local corner = panel:FindFirstChildWhichIsA("UICorner")
 					if corner then
 						runtime.mount(function()
