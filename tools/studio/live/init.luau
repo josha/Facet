@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
+local VerifyRoblox = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("roblox"))
 
 local live = {}
 
@@ -89,6 +90,17 @@ local function environment(): { [string]: any }
 		version = version(),
 		stamp = workspace:GetAttribute("Facet_SourceStamp"),
 	}
+end
+
+local function demos(screen: any): { any }
+	local list = screen.list()
+	local added = workspace:GetAttribute("Facet_Demos")
+	if type(added) == "string" then
+		for _, demo in HttpService:JSONDecode(added) do
+			table.insert(list, demo)
+		end
+	end
+	return list
 end
 
 local function newCase(Facet: any, themes: { any }, record: { [string]: any }, context: any?)
@@ -375,7 +387,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				types = env.types,
 				worldTarget = workspace,
 				selection = Compose.cell(config.demo or "all-controls"),
-				demos = screen.list(),
+				demos = demos(screen),
 				inputTarget = Players.LocalPlayer:WaitForChild("PlayerGui"),
 				guiService = GuiService,
 				runService = RunService,
@@ -480,24 +492,30 @@ local function reportEnvironment(suite: string): { [string]: string }
 	return fields
 end
 
-local function encodeReceipt(report: any, records: { any }): string
-	Verify.decode(report)
-	return HttpService:JSONEncode({ report = report, cases = records })
+local ATTACHMENTS = { maxBytes = 4194304, maxCount = 512, maxTotalBytes = 33554432 }
+local active: any = nil
+
+local function attachNotes(context: any, record: { [string]: any })
+	if next(record.notes) ~= nil then
+		context:attach("notes.json", "application/json", HttpService:JSONEncode(record.notes))
+	end
 end
 
-function live.run(suite: string, options: { [string]: any }?): string
+function live.report(suite: string, options: { [string]: any }?): any
 	local config: { [string]: any } = options or {}
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local themes = themeModules(Facet)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local hidden: { ScreenGui } = {}
-	local harness = Verify.createHarness({ now = os.clock, source = suite, prefixIds = false })
+	local harness =
+		Verify.createHarness({ now = os.clock, source = suite, prefixIds = false, attachments = ATTACHMENTS })
 	harness:afterEach(function()
 		for _, gui in hidden do
 			gui.Enabled = true
 		end
 		table.clear(hidden)
 	end)
+	local keepGallery = if config.keepGallery ~= nil then config.keepGallery else suite ~= "layout_geometry"
 	local records = {}
 	local selected = {}
 	for _, case in live.cases(suite) do
@@ -516,7 +534,7 @@ function live.run(suite: string, options: { [string]: any }?): string
 						gui:IsA("ScreenGui")
 						and string.sub(gui.Name, 1, 12) == "FacetGallery"
 						and gui.Enabled
-						and not config.keepGallery
+						and not keepGallery
 					then
 						gui.Enabled = false
 						table.insert(hidden, gui)
@@ -526,12 +544,18 @@ function live.run(suite: string, options: { [string]: any }?): string
 					{ id = case.id, contracts = case.contracts or {}, checks = {}, notes = {} }
 				table.insert(records, record)
 				local t = newCase(Facet, themes, record, context)
+				active = context
 				context:defer(function()
+					active = nil
 					if not record.held then
 						t.cleanup()
 					end
 				end)
-				case.run(t)
+				local ran, problem = xpcall(case.run, debug.traceback, t)
+				attachNotes(context, record)
+				if not ran then
+					error(problem, 0)
+				end
 				context:expect(#record.checks):toBeGreaterThan(0)
 			end,
 		})
@@ -542,8 +566,13 @@ function live.run(suite: string, options: { [string]: any }?): string
 		environment = reportEnvironment(suite),
 		capabilities = { "roblox-client" },
 		selection = { ids = selected },
+		progress = if config.runId and config.progressToken
+			then VerifyRoblox.progressChannel.publisher(config.runId, config.progressToken, function(value)
+				return HttpService:JSONEncode(value)
+			end, print)
+			else nil,
 	})
-	return encodeReceipt(report, records)
+	return report
 end
 
 function live.begin(suite: string, id: string): string
@@ -603,7 +632,7 @@ function live.begin(suite: string, id: string): string
 		capabilities = { "roblox-client" },
 	})
 	assert(report.passed == 1, Verify.format(report))
-	return encodeReceipt(report, { record })
+	return Verify.format(report)
 end
 
 function live.step(name: string): string
@@ -622,15 +651,21 @@ function live.step(name: string): string
 	return table.concat(lines, "\n")
 end
 
-function live.finish(tag: string): string
+function live.finish(): string
 	local session = assert(shared.FacetLiveSession, "call live.begin first")
 	shared.FacetLiveSession = nil
 	local record = session.record
-	local harness = Verify.createHarness({ now = os.clock, source = session.suite, prefixIds = false })
+	local harness = Verify.createHarness({
+		now = os.clock,
+		source = session.suite,
+		prefixIds = false,
+		attachments = ATTACHMENTS,
+	})
 	harness:case(record.id, {
 		id = record.id,
 		run = function(context)
 			context:defer(live.release)
+			attachNotes(context, record)
 			context:expect(#record.checks):toBeGreaterThan(0)
 			for _, check in record.checks do
 				pcall(function()
@@ -646,9 +681,7 @@ function live.finish(tag: string): string
 		environment = reportEnvironment(session.suite),
 		capabilities = { "roblox-client" },
 	})
-	local json = encodeReceipt(report, { record })
-	live.save(`{session.suite}-{record.id}-{tag}`, json)
-	return live.summary(json)
+	return HttpService:JSONEncode(Verify.decode(report))
 end
 
 local PAD_KEYS: { [string]: Enum.KeyCode } = {
@@ -720,29 +753,39 @@ function live.release()
 end
 
 function live.save(name: string, json: string, dir: string?): number
-	local event = storage:WaitForChild("FacetLiveRelay", 10) :: RemoteEvent?
-	assert(event, "start the relay in the Server datamodel first")
-	for _, segment in Verify.segment(json, 30000) do
-		event:FireServer(name, segment, dir)
-	end
+	assert(active, "live.save needs a running case")
+	active:attach(`{dir or "live"}/{name}.json`, "application/json", json)
 	return #json
 end
 
-function live.record(tag: string, suites: { string }?): string
-	local lines = {}
-	local selectedSuites: { string } = suites
-		or { "layout_geometry", "gallery", "needs_live", "motion_continuity", "table_resize" }
-	for _, suite in selectedSuites do
-		local json = live.run(suite, { keepGallery = suite ~= "layout_geometry" })
-		live.save(`{suite}-{tag}`, json)
-		table.insert(lines, live.summary(json))
-	end
-	return table.concat(lines, "\n")
+function live.case(source: string, id: string, body: () -> ()): string
+	local harness =
+		Verify.createHarness({ now = os.clock, source = source, prefixIds = false, attachments = ATTACHMENTS })
+	harness:case(id, {
+		id = id,
+		run = function(context)
+			active = context
+			context:defer(function()
+				active = nil
+			end)
+			body()
+		end,
+	})
+	local report = harness:run({
+		executor = "roblox-studio",
+		environment = reportEnvironment(source),
+		capabilities = { "roblox-client" },
+	})
+	return HttpService:JSONEncode(Verify.decode(report))
 end
 
-function live.summary(json: string, limit: number?): string
-	local receipt = HttpService:JSONDecode(json)
-	return Verify.format(Verify.decode(receipt.report))
+function live.signal<T...>(name: string, body: () -> T...): T...
+	local context = assert(active, "live.signal needs a running case")
+	local results: any
+	context:step(name, function()
+		results = table.pack(body())
+	end)
+	return table.unpack(results, 1, results.n)
 end
 
 return live

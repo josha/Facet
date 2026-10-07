@@ -9,6 +9,7 @@ local ReflectionSnapshot = require "@self/reflection-snapshot"
 local Multiplayer = require "@self/multiplayer"
 local InputHost = require "@self/input-host"
 local PlayerHost = require "@self/player-host"
+local ProgressChannel = require "@self/progress-channel"
 local ReportChannel = require "@self/report-channel"
 local InstanceHost = require "@self/instance-host"
 
@@ -140,6 +141,7 @@ return {
 	multiplayer = Multiplayer,
 	inputHost = InputHost,
 	reportChannel = ReportChannel,
+	progressChannel = ProgressChannel,
 	playerHost = PlayerHost,
 	instanceHost = InstanceHost,
 	performance = Performance,

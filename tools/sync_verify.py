@@ -13,6 +13,8 @@ if __name__ == "__main__":
             "src/core",
             "src/roblox",
             "src/lune",
+            "src/lute",
+            "tools/studio-worker.luau",
             "src/gate",
             "src/evidence",
             "src/benchmark.luau",

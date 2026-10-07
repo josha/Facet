@@ -40,6 +40,8 @@ lute run tools/run.luau --entry examples/platform-entry.luau --case instance-sta
 The first two commands run the same assertions against simulated and native instances.
 [The entry](../examples/platform-entry.luau) chooses the host binding.
 It exports a function that receives `simulator`, `studio` or `player` and returns `{ cases, options, now }`.
+On Studio and Open Cloud runs the function also receives the run ID as a second argument. It is nil on the simulator and the Player.
+During a Studio run, `ReplicatedStorage` holds the attribute `VerifyRun` with the run ID. A multiplayer run sets it on the test server before the entry runs, so clients read it by replication. Prefer the second argument on the server.
 
 - `cases` holds `Core.NamedCase` values with explicit unique IDs.
 - `options` is `Core.RunOptions`.
@@ -64,6 +66,7 @@ Do not also set `options.selection`. Each case declares a finite timeout and the
 | `--framework directory` | Framework checkout. Inferred from the path of this command. |
 | `--root directory` | Additional mounted module directory. Repeat as needed. Verify follows literal imports automatically. |
 | `--place fixture.rbxlx` | Existing Studio fixture that contains the mounted entry. Without it, the command builds an isolated floor and spawn fixture. |
+| `--base-place place.rbxlx` | Merge the mounted modules and entry scripts into a copy of this XML place. Do not combine it with `--place`. |
 | `--context Server\|Client` | Studio execution side. Defaults to Server. |
 | `--players count` | Studio server with 1 to 8 clients. |
 | `--client file`, `--server file` | Portable bootstrap modules that return functions. Verify mounts and calls them automatically. |
@@ -93,6 +96,28 @@ Require each actor separately when a multiplayer claim needs both views.
 Missing required evidence adds a failed case to the same report.
 `Lute.evidence.write` and `Lute.evidence.finish` persist reports from custom hosts with the same rules.
 
+## Watch a run
+
+`Lute.platform.run` accepts `progressFile` and `onProgress` for the simulator and Studio hosts.
+The run appends one JSON line per step event to `progressFile`. If you give only `onProgress`, the file is `<output>/progress.jsonl`.
+An event is `{ runId, sequence, actor, caseId, step, phase, status? }`. `phase` is `started` or `finished`.
+`sequence` rises by one in each run. A step with no actor reports the actor `case`.
+A watchdog process reads the file. A `started` event with no `finished` event names the actor and step that is still running.
+A file with no new line for too long means a stalled run.
+A launched Studio run reads the console on every poll of the detached run. See [native Studio execution](execution.md#native-studio-execution).
+An attached Studio run reports progress the same way. Pass `progressFile` or `onProgress`. See [attached Studio](execution.md#attached-studio).
+A Studio run frames each event as hex text with a token, a length and a checksum, because the Studio console tool rewrites path-shaped text. The host counts frames that it rejects and adds the count to the limitations of the first case. It also writes `<progressFile>.diagnostics`.
+`onProgress` receives the same events in order after the run returns, because a worker process blocks the caller.
+A run with no listener and no file behaves as before. The report is the same, and progress never proves a pass.
+
+## Attachments
+
+A case can attach text with `context:attach(name, mediaType, text)`.
+`Lute.platform.run` writes each attachment to `<output>/attachments/<case id>/<name>` and replaces it in the report with an artifact entry that has `size` and `sha256`.
+Pass `attachmentSink` to store it elsewhere, and `attachments = { maxBytes?, maxCount?, maxTotalBytes? }` to change the limits.
+The simulator and the launched and attached Studio hosts support attachments. Player and Open Cloud runs fail the case `verify:attachments`.
+The [attachment example](../examples/attachments.luau) shows the result. See [inline attachments](api.md#inline-attachments).
+
 ## Gates and benchmarks
 
 ```sh
@@ -118,7 +143,7 @@ lute run tools/gate.luau [--native] [--only producer]... [--tier name]... [--cas
 | Goal | Command |
 | --- | --- |
 | Run the whole gate | `lute run tools/gate.luau` |
-| Run one spec file | `lute run tools/gate.luau --file tests/wait.spec.luau` |
+| Run one spec file | `lute run tools/gate.luau --file tests/wait.verify.luau` |
 | Run one case | `lute run tools/gate.luau --only specs --case "<case id>"` |
 | Run the cases whose name contains a text | `lute run tools/gate.luau --only specs --name "door"` |
 | Run one tier (`static` or `behavior`) | `lute run tools/gate.luau --tier behavior` |
@@ -267,6 +292,7 @@ The caller owns these decisions:
 - Which place is open.
 - Whether the entry is mounted in that place.
 
+A Studio run is detached and its report returns in segments. A long run or a large report does not reach a request limit of the Studio MCP server. Only `deadlineSeconds` bounds the run.
 Verify starts play, runs, captures if you ask and returns the Studio to its prior mode.
 Verify never closes the Studio. The command line does not attach.
 See [attached Studio](execution.md#attached-studio).
@@ -279,6 +305,14 @@ It resolves them as Luau does. An ordinary file `a/b.luau` resolves `./c` as `a/
 An `init.luau` stands for its directory. In `a/b/init.luau`, `./c` is `a/c`, `../c` is the sibling of `a` and `@self/c` is `a/b/c`.
 It does not compile arbitrary package systems and does not replace the place build of an application.
 Use `moduleExpression(path, rootName?)` to reference a mounted module.
+
+`basePlace` merges into an existing place instead of building a floor.
+`Lute.place.build({ output, basePlace, roots, modules?, clientSource?, serverSource?, rootName? })` copies the base file to `output`.
+It adds the module tree as `ReplicatedStorage.<rootName>`, `VerifyClient` in `StarterPlayerScripts` and `VerifyServer` in `ServerScriptService`.
+It adds a missing service and leaves every other instance of the base untouched. It never edits the base file.
+It fails when the base already holds an instance with the module root name or with a script name that it adds.
+It reads and writes XML only. A binary `.rbxl` base fails with a message. Save the base as `.rbxlx` first.
+The merge scans `Item` tags. It does not parse the other XML. `Lute.platform.run({ basePlace })` uses it and the option `place` keeps its meaning.
 
 For an existing place fixture, mount under `ReplicatedStorage.VerifyModules`.
 You can also use the lower-level [Studio host](execution.md#native-studio-execution) with your own bootstrap.

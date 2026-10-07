@@ -42,7 +42,7 @@ Fixture and cleanup failures stay visible independently.
 Artifact sinks return references. A reference is not proof of durability or authenticity.
 
 `src/core` exports the types `Host`, `BatchOutcome`, `ExecutionOptions`, `PlanPolicy` and `ExecutionReport`.
-[Behavioral tests](../tests/execution.spec.luau) exercise dropped, reordered, duplicate, forged and disagreeing deliveries with the injected fake host.
+[Behavioral tests](../tests/execution.verify.luau) exercise dropped, reordered, duplicate, forged and disagreeing deliveries with the injected fake host.
 
 ## Case lifecycle and waits
 
@@ -284,7 +284,38 @@ A returned report can contain failed cases.
 `codeForBatch(batch)` loads and registers the ordinary cases of that batch in the engine.
 The consumer owns its mounted test modules and operation bindings. No other case format exists.
 
+Every Studio run is detached.
+Verify wraps the code, starts it in the engine and returns at once.
+The engine keeps the result in memory and holds the encoded report there.
+Verify polls the engine until the code finishes or `deadlineSeconds` ends.
+No single request runs long, so the request time limit of the Studio MCP server never ends a run.
+Only `deadlineSeconds` bounds the run.
+
+The engine returns the encoded report in segments of at most 24000 bytes.
+Each segment carries its index, its count, its own digest, and the length and digest of the whole report.
+Verify fetches one segment for each call, rebuilds the report and checks each digest and the total length.
+A report of any size arrives, and a small report is one segment.
+A missing, repeated, mismatched or corrupted segment fails the run with a `transport:` detail that names the segment.
+No partial report is accepted.
+Every result that carries engine data from `execute_luau` takes this path, for launched and attached runs and for runs with `players`.
+
+The poll finds one of these states:
+
+| State | Result |
+| --- | --- |
+| Running | Verify waits and polls again. |
+| Done | Verify fetches the segments. |
+| Raised | The run faults with the engine error. |
+| Gone | The play session ended or Studio closed. The run faults with `session_lost`. |
+| No answer until `deadlineSeconds` | The run is `timed_out`. |
+
+Each poll also reads the Studio console for progress when the run has a `progressFile`. An attached run does the same. See [attached Studio](#attached-studio).
+The code must still be valid code for the engine, and it can yield.
+The engine keeps the result in the attributes of `ReplicatedStorage`, named `VerifyRun<digest>_*`.
+Verify clears them after a fetch.
+
 The default run limit is 90 seconds.
+A launched Studio run owns every Studio process that it starts. The worker records the Studio processes before the launch. On every exit it ends the multiplayer test with `StudioTestService:EndTest`, then sends TERM and then KILL to the Studio processes that appeared for this run: the launched Studio, its descendants, and the `-task StartServer` and `-rbxTransportToken` processes. It never signals a Studio that ran before. A process that survives both signals is listed as a limitation of the report.
 An external watchdog kills the owned worker process group, including Studio and the MCP process, on a timeout.
 Normal success and failure also terminate those owned processes.
 Case budgets stay cooperative inside the engine. The outer run limit holds even when engine code never yields.
@@ -304,6 +335,11 @@ A missing or unavailable engine fails the native command.
 The default portable gate does not run it and cannot establish native parity.
 Use the native gate when you change engine behavior or the launcher.
 
+Use `basePlace` to run in your own XML place. Verify copies it, mounts the modules and entry scripts, and leaves the rest untouched. See [mounting](running.md#mounting-and-custom-hosts).
+Studio runs report progress through the Studio console. The engine prints one framed `VERIFY_PROGRESS` line for each step event. The frame holds a path-free run token, the length and a checksum of the hex-encoded event, so a rewritten frame is rejected and counted.
+The worker reads the console through `get_console_output` while the run executes and appends each new event to `progressFile`. Only the simulator path was run without Studio.
+Progress is never evidence. See [watch a run](running.md#watch-a-run).
+
 Set `players = 1..8` to run a server with that many actual Studio clients through `StudioTestService:ExecuteMultiplayerTestAsync`.
 The code runs on the server and ends the test with its report.
 See the [multiplayer example](../examples/multiplayer.luau). The native gate runs it.
@@ -313,6 +349,9 @@ The last case keeps the image path and media type.
 This artifact shows the final state. It is not an earlier checkpoint and not a visual judgment.
 Verify does not substitute captures between actors silently.
 Multiplayer client capture callbacks need their own durable sink, because temporary `CaptureService` image references expire with the client.
+`finalCapture` does not exist for `players`. A final capture for each actor would need these parts:
+a client callback that saves the image bytes to a path that the host can read, one capture request for each client in the multiplayer session, and one `Artifact` for each actor in the report.
+The screen capture tool saves only the viewport of the active Studio window, so it cannot see the other clients.
 
 ## Attached Studio
 
@@ -331,13 +370,15 @@ It receives each request before any bytes leave: `{ tool, argumentsJson, fields,
 A refusal, a raise or a request that targets another Studio sends nothing.
 Verify defines no policy. The caller owns the grants, which place is open and whether the run can change it.
 
-A session offers these members:
+A session offers these members. `report` runs detached and fetches in segments. See [native Studio execution](#native-studio-execution).
+Each of its start, poll, fetch and clear requests passes through `authorize` as a separate `execute_luau` request.
 
 - `call(tool, argumentsJson)`.
 - `execute(datamodel, code)` for `Edit`, `Server` or `Client`.
 - `play(start)`.
 - `capture({ argumentsJson?, directory?, stem? })`.
-- `report(datamodel, code, runId)` for the ordinary run-bound report channel.
+- `console()` for one `get_console_output` read, a request that `authorize` sees.
+- `report(datamodel, code, runId, onPoll?)` for the ordinary run-bound report channel. `onPoll` runs on each poll.
 - `close()`.
 
 Each response has `ok`, `delivery`, `refused`, `expired`, `detail`, `result` and `text`.
@@ -382,6 +423,14 @@ Faults, timeouts and unacknowledged cleanup are never a pass.
 The open place must already contain what the code requires, such as the mounted entry.
 Verify builds, copies and installs nothing.
 Attached runs do not support `players`.
+
+An attached run accepts `progressFile`, and `onProgress` through `Lute.platform.run`. Verify then injects `local progressToken` into the engine code exactly as a launched run does.
+It reads the console during the detached run's poll loop and once more when the run ends, and appends each new event to `progressFile` in order.
+Rejected frames, foreign output and failed reads are counted in `<progressFile>.diagnostics` and added to the limitations of the first case, as for a launched run.
+A console read never fails the run. A run with no `progressFile` and no `onProgress` reads no console and injects no token.
+The console read is its own request kind. Every read is a `get_console_output` request (`Lute.studio.attach` exposes it as `session.console()`), and `authorize` receives it with `tool = "get_console_output"` and `fields = { studio_id }` before it is sent.
+Refuse it to forbid console reads. The run continues, and the refusal appears in the diagnostics as `console read refused`.
+A host other than the simulator or Studio refuses `progressFile`, as before.
 They share the Studio of the developer with no isolation, so the work can see and change the state of the open place.
 Use a launched run for isolation.
 
@@ -491,7 +540,7 @@ A valid report from an old server is not proof of the new build.
 `backend` can supply the typed `now`, `sleep` and `launch` implementation of another platform.
 Its session provides `read(remainingSeconds)`, `alive(remainingSeconds)` and `close()`.
 Respect deadlines and release partial acquisitions on failure.
-[Launcher tests](../tests/player-launcher.spec.luau) exercise this contract.
+[Launcher tests](../tests/player-launcher.lute.verify.luau) exercise this contract.
 
 Real published Player validation has exercised native character motion, generated fixture execution, selected cases, standard report collection and owned-process cleanup.
 It does not prove multiple authenticated Players or durable screenshots.

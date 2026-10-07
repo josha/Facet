@@ -2589,6 +2589,12 @@
       "suite": "Composition"
     },
     {
+      "id": "native_composition::Composition::lays topbar regions side by side in the strip and steps them down by their total width",
+      "name": "lays topbar regions side by side in the strip and steps them down by their total width",
+      "source": "native_composition",
+      "suite": "Composition"
+    },
+    {
       "id": "native_conformance::native constructor conformance::requires a conformance fixture for every public control with no stale fixtures",
       "name": "requires a conformance fixture for every public control with no stale fixtures",
       "source": "native_conformance",
@@ -6061,6 +6067,12 @@
       "name": "every stop is reachable, no move is a dead end, and the engine's move is the query's",
       "source": "native_focus_walk",
       "suite": "focus walk hud.json"
+    },
+    {
+      "id": "native_focus_walk::focus walk garage.json::every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "name": "every stop is reachable, no move is a dead end, and the engine's move is the query's",
+      "source": "native_focus_walk",
+      "suite": "focus walk garage.json"
     },
     {
       "id": "native_focus_walk::focus walk phone--all-controls_navigation_paging.json::every stop is reachable, no move is a dead end, and the engine's move is the query's",

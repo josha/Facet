@@ -64,8 +64,13 @@ return {
 				local form = forms[index]
 				local size = if form > 0 then region.sizes[form] else nil
 				if size and size.x > 0 and size.y > 0 then
-					zoneW[key] = math.max(zoneW[key] or 0, size.x)
-					zoneH[key] = (zoneH[key] or -gap) + gap + size.y
+					if key == 0 then
+						zoneW[key] = (zoneW[key] or -gap) + gap + size.x
+						zoneH[key] = math.max(zoneH[key] or 0, size.y)
+					else
+						zoneW[key] = math.max(zoneW[key] or 0, size.x)
+						zoneH[key] = (zoneH[key] or -gap) + gap + size.y
+					end
 				end
 			end
 			local failing: { [number]: boolean } = {}
@@ -86,7 +91,17 @@ return {
 				end
 			end
 			if strip then
-				check(0, strip.x, strip.y)
+				if (zoneW[0] or 0) > strip.x then
+					fail(0)
+				elseif (zoneH[0] or 0) > strip.y then
+					for _, index in members[0] or ({} :: { number }) do
+						local form = forms[index]
+						local size = if form > 0 then regions[index].sizes[form] else nil
+						if size and size.y > strip.y then
+							failing[index] = true
+						end
+					end
+				end
 			end
 			for column = 1, 3 do
 				local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3

@@ -343,9 +343,9 @@ function focus.opened(
 	end
 	local moves = focus.walk(root, walked, paths, keys.moves)
 	if keys.up then
-		live().save("focus-upstream", '"on"')
-		local up = focus.walkUp(root, walked, paths, keys.up)
-		live().save("focus-upstream", '"off"')
+		local up = live().signal("focus-upstream", function()
+			return focus.walkUp(root, walked, paths, keys.up)
+		end)
 		for path, target in up do
 			moves[path] = moves[path] or {}
 			moves[path].DPadUp = target

@@ -22,6 +22,14 @@ Use direct assertions for local functions and typed operations for host interact
 - A query must only read.
 - `context:await(actor, query, input, predicate, pollSeconds)` polls a query with the clock and sleep of the host, within the case deadline. It refuses actions.
 
+### Attachments
+
+A case can attach text that it produced in the engine with `context:attach(name, mediaType, text)`.
+The text travels with the report. The report transport is the same on each host, and Studio returns it in digest-checked segments.
+These hosts carry attachments: the simulator, Lute workers, Lune workers, launched Studio and attached Studio.
+Player and Open Cloud runs report each attachment as unsupported in the `verify:attachments` case. They do not drop it silently.
+See [inline attachments](api.md#inline-attachments) for names, limits and the host step.
+
 ### Binding a host
 
 A host binds through `harness:run({executor, capabilities, environment, bind, cancelled?})`.
@@ -46,6 +54,19 @@ The budget includes recovery operations after a failed or cancelled body.
 Timeout and cancellation keep their own report statuses.
 Checks are cooperative. A blocking call must enforce the deadline that it receives, or the outer worker must interrupt it.
 Cleanup runs even after a failure. Its failures stay visible independently.
+`context:perform(actor, operation, input, deadlineSeconds?)` and `context:await(actor, query, input, predicate, pollSeconds, deadlineSeconds?)` accept a per-call deadline.
+The deadline is positive, finite and bounded by the remaining case time. For `await`, it bounds the whole wait.
+The request that reaches the host carries that deadline. A host must stop at it.
+If the call fails at or after its deadline, the step is `timed_out` and its message names the actor and operation. The case then runs its cleanup.
+A call that fails before its deadline keeps its ordinary failure.
+
+### Progress
+
+`Core.runCases` accepts `progress = Core.progress.create(runId, emit)`. The harness emits `{ runId, sequence, actor, caseId, step, phase, status? }` when each step starts and finishes.
+`sequence` is monotonic in the run. A step with no actor reports the actor `case`. A failing listener does not change the run.
+`Core.progress.pending(events)` lists the started steps that have not finished.
+`Roblox.progressChannel` frames events on the output channel and collects them in order without repeats.
+A run with no progress behaves as before. Progress is not evidence and no report field depends on it.
 
 ### Observations
 
@@ -64,7 +85,7 @@ Both reports must pass.
 It does not certify native physics, replication timing, visual quality, sound or performance.
 Those claims need their own observations and assertions.
 
-Start with [typed local operations](../examples/experience.luau), the [shared instance case](../examples/instance-case.luau) and the [failure and cleanup tests](../tests/semantic-execution.spec.luau).
+Start with [typed local operations](../examples/experience.luau), the [shared instance case](../examples/instance-case.luau) and the [failure and cleanup tests](../tests/semantic-execution.verify.luau).
 
 ## Reusable instance adapter
 
@@ -152,7 +173,7 @@ It is unsupported on a host that only simulates.
 
 This tests authored message handling and isolation.
 It supplies no native replication, physics or rendering parity.
-See the [network tests](../tests/network.spec.luau).
+See the [network tests](../tests/network.verify.luau).
 
 ## Performance observations
 
@@ -175,7 +196,7 @@ Ratio limits also require the matching threshold.
 - Verify has no built-in budget and no built-in environment attribution.
 - Caller labels do not authenticate timing. A real frame-performance claim needs samples from the actual consumer surface.
 
-[Performance tests](../tests/performance.spec.luau) prove the calculations and refusals.
+[Performance tests](../tests/performance.verify.luau) prove the calculations and refusals.
 `context.measure(actor, name, input, limits)` records the evaluation in the case evidence and requires a passed result through the shared harness.
 
 `Roblox.performance.collect({ connect, environment, signal, maximumSamples })` bounds collection from an injected interval signal.
@@ -245,6 +266,8 @@ A spec supplies these fields:
 - `environment = { observed, accepted? }`.
 - `maxSpread`, `yardstick` and `baseline`, all optional.
   A `baseline` is a `value` or recorded `samples`. It can include the `yardstick` that was recorded with it, which normalizes the comparison across machines.
+  `yardstickStatistic` selects how the current yardstick is read: `median` (default) is the median of the readings before and after; `p95` is the mean of the p95 before and the p95 after. Record the baseline `yardstick` with the same statistic.
+  `floor = { limit, metric?, recorded? }` holds a result that is below the noise level. `regressed` is false when the observed value of the floor metric and the recorded baseline value are both at or below `limit`. `limit` is in the unit of the spec. `metric` defaults to the baseline metric. `recorded` is the baseline value of the floor metric. It is required when the floor metric differs from the baseline metric and the baseline holds no samples. The comparison reports `floored`.
 - `acceptedBaselines`.
 - `judge`: a callback over the raw samples, the series and the summary. It returns a refusal message.
 - `setup` and `teardown`: run once, untimed.

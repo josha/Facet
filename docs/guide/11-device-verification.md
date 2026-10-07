@@ -39,12 +39,12 @@ that is still outstanding.
 ## Live assertion harness
 
 `tools/studio/live` is a set of Luau modules. They run assertions against the
-real Roblox engine in a Studio playtest. The engine does the layout, the text
+real Roblox engine in a Studio playtest. Verify registers the cases, runs them
+and makes the report. The engine does the layout, the text
 measurement and the selection. The harness reads `AbsolutePosition`,
-`AbsoluteSize`, `TextBounds` and `GuiService.SelectedObject`, and it writes a
-JSON result.
+`AbsoluteSize`, `TextBounds` and `GuiService.SelectedObject`.
 
-The studio sync puts the modules in `ReplicatedStorage.FacetLive`. Each module
+The live place has the modules in `ReplicatedStorage.FacetLive`. Each module
 in `tools/studio/live/suites` is one suite. A suite returns a list of cases. A
 case has an `id`, the parity `contracts` that it proves and a `run(t)`
 function. An interactive case has `setup(t)` and named `steps` in place of
@@ -104,31 +104,62 @@ checks that the header band reaches the outer scrollbar edge.
 
 ### Run the suites
 
-1. In the worktree, run `lune run tools/lune/studio_sync.luau`. It serves the
-   sources and saves results on port 8642.
-2. Stop the playtest. In the Edit data model, run `tools/studio/inject.luau`.
-3. Start the playtest. In the Server data model, run
-   `require(game.ReplicatedStorage.FacetLive.relay).start("http://127.0.0.1:8642")`.
-4. In the Client data model, run
-   `require(game.ReplicatedStorage.FacetLive).record("<tag>")`.
+Run `lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME]
+[--deadline SECONDS]` in the worktree. The command does these steps for each
+suite:
 
-`record` runs `layout_geometry`, `gallery`, `needs_live` and
-`motion_continuity` and `table_resize`. It
-saves each result as `artifacts/studio-live/<suite>-<tag>.json` and returns a
-summary. Use a tag that names the viewport and the text size, for example
-`portrait-largest`. `run(suite, options)` runs one suite and returns the JSON.
-The `only` option selects cases by id. The other suites are `primitives`,
-`needs_live_b`, `needs_live_c` and `native_mechanisms`. The suites
-`needs_live_input` and `native_mechanisms_input` have interactive cases, and
-`native_mechanisms_input` covers engine mechanisms that have no headless
-oracle.
+1. It builds `build/Facet-Live.rbxlx` from the gallery, the live modules and
+   the vendored Verify source.
+2. Verify starts a new Studio process with a copy of that place and starts a
+   playtest. The command does not use a Studio that is open.
+3. The suite runs in the Client data model. Each check is one Verify step.
+4. Verify returns the report and stops that Studio process.
 
-An interactive case needs real input between its steps:
+The command saves each report as `artifacts/studio-live/<suite>-<tag>.json`.
+The default tag is `launched`. Use a tag that names the viewport and the text
+size, for example `portrait-largest`. The `--only` option selects cases by id.
+The command exits with 1 when a case does not pass or an attachment is
+refused. It writes the step events of the run in
+`artifacts/studio-live/<suite>-<tag>.progress.jsonl`.
 
-1. Run `begin(suite, id)` in the Client data model.
-2. Send the input with the Studio input tools.
-3. Run `step(name)` for each step of the case.
-4. Run `finish(tag)` to save the result.
+The Showcase stays on the screen during each suite, but not during
+`layout_geometry`. The live place also has the fixture pages of
+`tools/studio/live/fixture_demos.json`, for example `all-controls`. The
+Showcase place does not have them. The gallery reads them from the
+`Facet_Demos` attribute of `Workspace`.
+
+Each case attaches its measurements as `notes.json`. The command writes the
+attachments of a case in `artifacts/studio-live/<suite>-<tag>/<case id>/`. A
+case saves other JSON with `live.save(name, json, dir)`. The command writes
+an attachment with the directory `atlas` in `tests/fixtures/focus_atlas`. It
+writes an attachment with the directory `live` in `artifacts/studio-live`.
+
+The suites `needs_live_input` and `native_mechanisms_input` have interactive
+cases, and `native_mechanisms_input` covers engine mechanisms that have no
+headless oracle.
+
+A new Studio process has no Controller Emulator. Thus the gamepad suites
+(`focus_walk`, `focus_opened`, `gamepad_walk`, `haptics_verify`) need a Studio
+that you control:
+
+1. Run `lute run tools/lute/studio_live.luau --place`. Open
+   `build/Facet-Live.rbxlx` in Studio.
+2. Turn on the Controller Emulator.
+3. Get the id of that Studio from the `list_roblox_studios` tool of the Studio
+   Model Context Protocol (MCP) server.
+4. Run the command with `--studio ID`. Verify starts the playtest in that
+   Studio, runs the suite and stops the playtest. It does not close Studio.
+
+An interactive case needs real input between its steps. Use a Studio that you
+control:
+
+1. Run `lute run tools/lute/studio_live.luau --place`. Open
+   `build/Facet-Live.rbxlx` in Studio and start the playtest.
+2. Run `require(game.ReplicatedStorage.FacetLive).begin(suite, id)` in the
+   Client data model.
+3. Send the input with the Studio input tools.
+4. Run `step(name)` for each step of the case.
+5. Run `finish()`. It returns the Verify report as JSON.
 
 ### Set the device and the text size
 
@@ -196,19 +227,23 @@ atlas: each stop's rectangle, links, value-control axis, and the chain of
 SelectionGroups and ScrollingFrames around it. It then selects each stop and
 presses DPadDown, DPadLeft and DPadRight, and the stick in four directions,
 recording where the engine moved the selection and the scroll offsets at the
-moment of the press. Options go in `shared.FacetFocusWalk`:
+moment of the press. Options go in `shared.FacetFocusWalk`. Set them with
+`--shared 'FacetFocusWalk={"up":3}'`:
 
 - `only`: a substring of the page name;
-- `up`: seconds to wait for D-pad Up per stop. The suite writes
-  `focus-upstream` "on" to the live artifacts while it waits; a loop that posts
-  key 1 with `pad_key` while that file reads "on" supplies the presses;
+- `up`: seconds to wait for D-pad Up per stop. The wait is the Verify step
+  `focus-upstream`. Before the run, start
+  `lute run tools/lute/focus_up.luau PROGRESS_FILE STUDIO_PID`. It reads the
+  progress file of the run and posts D-pad Up to that Studio process while
+  the step is in progress. Make the file `PROGRESS_FILE.stop` to stop it;
 - `keys = true`: the arrow-key pass instead (Controller Emulator off), saved
   beside the atlas as `<page>--keys.json`;
 - `stick = false`: skip the stick pass;
 - `device`: a Showcase device preview (`tv`, `phone`); its atlases get the
   device name as a prefix.
 
-Atlases save to `tests/fixtures/focus_atlas`. The headless spec
+Each atlas is an attachment with the directory `atlas`, and the command
+writes it in `tests/fixtures/focus_atlas`. The headless spec
 `native_focus_walk` replays each atlas through `UI.focusQuery` with the recorded
 scroll offsets and fails on an unreachable stop, a dead end, or a D-pad or
 arrow move where the engine and the query disagree. A known engine difference
@@ -227,8 +262,8 @@ until the surface is gone. Each case checks that the selection entered, every
 item is reachable, no move lands on the page behind, the surface closed and
 the selection returned to the control that opened it. `shared.FacetFocusOpened
 = { keys = true }` runs the same cases with Return, Escape and the arrows
-(Controller Emulator off). Reports save as `focus-opened-<case>` in the live
-artifacts.
+(Controller Emulator off). Each report is an attachment with the name `focus-opened-<case>`
+in the live artifacts.
 
 ### Limits of the harness
 

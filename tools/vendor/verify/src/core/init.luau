@@ -6,6 +6,7 @@ local Performance = require "@self/performance"
 local Capability = require "@self/capability"
 local Execution = require "@self/execution"
 local HarnessModule = require "@self/harness"
+local Progress = require "@self/progress"
 local Manifest = require "@self/manifest"
 local Matchers = require "@self/matchers"
 local Media = require "@self/media"
@@ -15,6 +16,7 @@ local Shape = require "@self/shape"
 local ReportModel = require "@self/report"
 local SessionModule = require "@self/session"
 local Spy = require "@self/spy"
+local Attachment = require "@self/attachment"
 local Transport = require "@self/transport"
 local Types = require "@self/types"
 local Wait = require "@self/wait"
@@ -33,6 +35,7 @@ export type Status = Types.Status
 export type Failure = Types.Failure
 export type StepResult = Types.StepResult
 export type Artifact = Types.Artifact
+export type AttachmentLimits = Attachment.Limits
 export type Checkpoint = Types.Checkpoint
 export type Origin = Types.Origin
 export type CaseResult = Types.CaseResult
@@ -113,6 +116,8 @@ export type SessionOptions<S = { [string]: unknown }> = SessionModule.Options<S>
 export type SessionProvidedOptions<S> = SessionModule.ProvidedOptions<S>
 export type TransportRecord = Transport.Record
 export type Segment = Transport.Segment
+export type ProgressEvent = Progress.Event
+export type RunProgress = Progress.Progress
 
 export type ClassifyConsoleOptions = Console.ClassifyOptions
 
@@ -122,6 +127,7 @@ return {
 	DESELECTED_PREFIX = HarnessModule.DESELECTED_PREFIX,
 	runCase = HarnessModule.runCase,
 	runCases = HarnessModule.runCases,
+	progress = Progress,
 	performance = Performance,
 	SCHEMA_VERSION = ReportModel.SCHEMA_VERSION,
 	MANIFEST_SCHEMA_VERSION = Manifest.SCHEMA_VERSION,
@@ -162,6 +168,11 @@ return {
 	extract = Transport.extract,
 	reassemble = Transport.reassemble,
 	receipt = Transport.receipt,
+	attachmentDefaults = {
+		maxBytes = Attachment.DEFAULT_MAX_BYTES,
+		maxCount = Attachment.DEFAULT_MAX_COUNT,
+		maxTotalBytes = Attachment.DEFAULT_MAX_TOTAL_BYTES,
+	},
 	segment = Transport.segment,
 	reassembleSegments = Transport.reassembleSegments,
 

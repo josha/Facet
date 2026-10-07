@@ -153,6 +153,9 @@ VENDOR_ALLOWLIST = [
     ("tools/studio/capture_viewport.sh", re.compile(r"\bswift\b"),
      "the driver shell script invokes the host compiler by name",
      "when the capture helper stops needing a compiled host binary"),
+    ("tools/lute/focus_up.luau", re.compile(r"\bswift\b"),
+     "the key loop compiles the host key helper by its file name",
+     "when the capture helper stops needing a compiled host binary"),
     ("tools/studio/capture/", VENDOR,
      "the developer-only screen-capture helper is compiled by the host toolchain, which fixes "
      "its language and its file extension",
@@ -190,6 +193,9 @@ EXCLUDED_TREES = (
 RR_DOC_HISTORY = ("docs/missions/", "docs/playtests/", "docs/DECISIONS.md")
 
 ALLOWLIST = [
+    ("rokit.toml", re.compile(r"luau-lang/"),
+     "the Lute pin names its publisher; the name is not a Facet tag",
+     "when Facet no longer pins Lute"),
     ("tools/microprofiler_aggregate.py", re.compile(r"LuauUI/"),
      "the pre-rename scope prefix is data about stored captures, not a name this tool wears",
      "when no capture predating the rename is still cited as evidence"),

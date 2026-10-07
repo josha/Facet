@@ -65,19 +65,52 @@ if baseline ~= nil then
 	end
 end
 
-local function member(scenario: any): Benchmark.Spec
+local function baselineOf(row: any): Benchmark.Baseline?
+	if row == nil then
+		return nil
+	end
+	local floor = { limit = REGRESSION_FLOOR_MS, metric = "p95" :: "p95", recorded = row.p95_ms }
+	if not baselineHasNorm or row.p95_norm == nil then
+		return {
+			identity = "bench/baseline.json",
+			environment = "facet-lune",
+			unit = "milliseconds",
+			metric = "p95",
+			value = row.p95_ms,
+			tolerance = REGRESSION_FACTOR - 1,
+			floor = floor,
+		}
+	end
+	local gated = row.gateChannel == "p50_norm" and row.p50_norm ~= nil
+	return {
+		identity = "bench/baseline.json",
+		environment = "facet-lune",
+		unit = "milliseconds",
+		metric = if gated then "p50" else "p95",
+		value = if gated then row.p50_ms else row.p95_ms,
+		tolerance = REGRESSION_FACTOR - 1,
+		yardstick = if gated then row.p50_ms / row.p50_norm else row.p95_ms / row.p95_norm,
+		yardstickStatistic = "p95",
+		floor = floor,
+	}
+end
+
+type Member = { spec: Benchmark.Spec, scenario: any, heap: () -> (number, number) }
+
+local function member(scenario: any): Member
 	local sampleCount: number = scenario.samples or SAMPLES
 	local warmupCount: number = scenario.warmup or WARMUP
 	local every = math.max(1, sampleCount // 10)
 	local state: any = nil
 	local taken = 0
 	local heapFirst, heapLast, heapMin, heapMax = 0, 0, 0, 0
-	return {
+	local spec: Benchmark.Spec = {
 		name = scenario.name,
 		unit = "milliseconds",
 		warmup = warmupCount,
 		samples = sampleCount,
 		environment = { observed = "facet-lune" },
+		baseline = baselineOf(baselineRows[scenario.name]),
 		setup = function()
 			state = scenario.setup()
 		end,
@@ -103,50 +136,22 @@ local function member(scenario: any): Benchmark.Spec
 				scenario.teardown(state)
 			end
 		end,
-		judge = function(view: Benchmark.Judgment): string?
-			local yardstickP95 = (assert(view.yardstickBeforeSummary.p95) + assert(view.yardstickAfterSummary.p95)) / 2
-			local entry: any = {
-				name = scenario.name,
-				requirement = scenario.requirement,
-				samples = sampleCount,
-				warmup = warmupCount,
-				p50_ms = assert(view.summary.p50),
-				p95_ms = assert(view.summary.p95),
-				p99_ms = assert(view.summary.p99),
-				heapNetKb = heapLast - heapFirst,
-				heapSwingKb = heapMax - heapMin,
-				regression = false,
-			}
-			table.insert(results, entry)
-			if not (yardstickP95 > 0) then
-				return nil
-			end
-			entry.p95_norm = entry.p95_ms / yardstickP95
-			entry.p50_norm = entry.p50_ms / yardstickP95
-			local b = baselineRows[entry.name]
-			if b ~= nil then
-				local aboveFloor = entry.p95_ms > REGRESSION_FLOOR_MS or b.p95_ms > REGRESSION_FLOOR_MS
-				if baselineHasNorm and b.p95_norm ~= nil then
-					entry.baseline_p95_norm = b.p95_norm
-					if b.gateChannel == "p50_norm" and b.p50_norm ~= nil then
-						entry.gateChannel = "p50_norm"
-						entry.ratio = entry.p50_norm / b.p50_norm
-					else
-						entry.ratio = entry.p95_norm / b.p95_norm
-					end
-					entry.regression = entry.ratio > REGRESSION_FACTOR and aboveFloor
-				else
-					entry.regression = entry.p95_ms > b.p95_ms * REGRESSION_FACTOR and aboveFloor
-				end
-			end
-			return if entry.regression then "host timing comparison exceeded the baseline" else nil
+	}
+	return {
+		spec = spec,
+		scenario = scenario,
+		heap = function()
+			return heapLast - heapFirst, heapMax - heapMin
 		end,
 	}
 end
 
-local members = {}
+local members: { Member } = {}
+local specs: { Benchmark.Spec } = {}
 for _, scenario in subjects do
-	table.insert(members, member(scenario))
+	local entry = member(scenario)
+	table.insert(members, entry)
+	table.insert(specs, entry.spec)
 end
 local yardstickState = yardstickScenario.setup()
 for _ = 1, yardstickScenario.warmup or WARMUP do
@@ -154,7 +159,7 @@ for _ = 1, yardstickScenario.warmup or WARMUP do
 end
 local collected = Benchmark.collect({
 	name = "facet-bench",
-	benchmarks = members,
+	benchmarks = specs,
 	yardstick = {
 		run = function()
 			yardstickScenario.run(yardstickState)
@@ -198,13 +203,40 @@ if not (yardstickP95 > 0) then
 end
 local yardstickDriftPct = math.abs(yardAfter.p95_ms - yardBefore.p95_ms) / yardstickP95 * 100
 
-for _, result in collected.results do
+for index, result in collected.results do
 	if result.failure ~= nil then
 		print(`  {result.name}: ERROR {result.failure}`)
 		errored = true
-	elseif result.judgment ~= nil then
-		failed = true
+		continue
 	end
+	local scenario = members[index].scenario
+	local heapNet, heapSwing = members[index].heap()
+	local entry: any = {
+		name = scenario.name,
+		requirement = scenario.requirement,
+		samples = scenario.samples or SAMPLES,
+		warmup = scenario.warmup or WARMUP,
+		p50_ms = assert(result.summary.p50),
+		p95_ms = assert(result.summary.p95),
+		p99_ms = assert(result.summary.p99),
+		heapNetKb = heapNet,
+		heapSwingKb = heapSwing,
+		regression = false,
+	}
+	entry.p95_norm = entry.p95_ms / yardstickP95
+	entry.p50_norm = entry.p50_ms / yardstickP95
+	local comparison = result.comparison
+	local row = baselineRows[entry.name]
+	if comparison ~= nil and row ~= nil then
+		if comparison.normalized then
+			entry.baseline_p95_norm = row.p95_norm
+			entry.gateChannel = if comparison.metric == "p50" then "p50_norm" else nil
+			entry.ratio = comparison.observed / comparison.baseline
+		end
+		entry.regression = comparison.regressed
+	end
+	failed = failed or entry.regression
+	table.insert(results, entry)
 end
 for _, entry in results do
 	print(
