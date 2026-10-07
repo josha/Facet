@@ -1021,15 +1021,38 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local label = ctx.styled(Host.TextLabel(native), "Text")
 		local styledFace, styledSize = ctx.observeStyled.FontFace(label), ctx.observeStyled.TextSize(label)
 		local previousFace: Font?, previousSize: number? = nil, nil
+		local frames = services.RunService
+		local pending: RBXScriptConnection? = nil
+		local alive = true
+		local function reflow()
+			local automatic = label.AutomaticSize
+			if automatic ~= Enum.AutomaticSize.None then
+				label.AutomaticSize = Enum.AutomaticSize.None
+				label.AutomaticSize = automatic
+			end
+		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			local face, points = use(styledFace), use(styledSize)
-			if face ~= previousFace or points ~= previousSize then
+			if alive and (face ~= previousFace or points ~= previousSize) then
+				local changed = previousFace ~= nil or previousSize ~= nil
 				previousFace, previousSize = face, points
-				local automatic = label.AutomaticSize
-				if automatic ~= Enum.AutomaticSize.None then
-					label.AutomaticSize = Enum.AutomaticSize.None
-					label.AutomaticSize = automatic
+				reflow()
+				if changed and pending == nil and frames and label.AutomaticSize ~= Enum.AutomaticSize.None then
+					pending = frames.Heartbeat:Connect(function()
+						if pending then
+							pending:Disconnect()
+							pending = nil
+						end
+						reflow()
+					end)
 				end
+			end
+		end)
+		Compose.cleanup(function()
+			alive = false
+			if pending then
+				pending:Disconnect()
+				pending = nil
 			end
 		end)
 		return label

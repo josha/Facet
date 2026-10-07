@@ -30,11 +30,12 @@ return function(verifyHarness: Verify.Harness)
 	local function build(options: { [string]: any }?, body: (any, any) -> any): (any, any, () -> (), any)
 		local engine, runtime, UI = make(options)
 		local root: any
-		runtime.mount(function()
+		local unmount = runtime.mount(function()
 			root = body(UI, runtime.constructors)
 			return root
 		end, engine.new("ScreenGui"))
 		return root, engine, function()
+			unmount()
 			runtime:dispose()
 		end, runtime
 	end
@@ -90,13 +91,17 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_layout::native text layout::reflows automatic text when font metrics change and preserves fixed text",
 			run = function()
 				local Enum = require("@lune/roblox").Enum
-				local root, engine, stop = build(nil, function(UI, Host)
-					return Host.Frame {
-						UI.Text "Automatic" { text = "Ranger rifle" },
-						UI.Text "Fixed" { text = "Ranger rifle", AutomaticSize = Enum.AutomaticSize.None },
-						UI.Slider "Slider" { value = Compose.cell(0.5) },
-					}
-				end)
+				local frames = engineLib.new()
+				local root, engine, stop = build(
+					{ services = { RunService = { Heartbeat = frames.heartbeat } } },
+					function(UI, Host)
+						return Host.Frame {
+							UI.Text "Automatic" { text = "Ranger rifle" },
+							UI.Text "Fixed" { text = "Ranger rifle", AutomaticSize = Enum.AutomaticSize.None },
+							UI.Slider "Slider" { value = Compose.cell(0.5) },
+						}
+					end
+				)
 				local automatic, fixed = root.Automatic, root.Fixed
 				local states = {}
 				local connection = automatic:GetPropertyChangedSignal("AutomaticSize"):Connect(function()
@@ -119,6 +124,19 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(internal):toHaveLength(2)
 				Verify.expect(internal[1]):toBe(engine.types.Enum.AutomaticSize.None)
 				Verify.expect(internal[2]):toBe(engine.types.Enum.AutomaticSize.XY)
+				frames.heartbeat:Fire(1 / 60)
+				Verify.expect(states):toHaveLength(4)
+				Verify.expect(internal):toHaveLength(4)
+				Verify.expect(engineLib.connections(frames.heartbeat)):toBe(0)
+				frames.heartbeat:Fire(1 / 60)
+				Verify.expect(states):toHaveLength(4)
+				Verify.expect(internal):toHaveLength(4)
+				automatic.TextSize = 14
+				stop()
+				local released = #states
+				frames.heartbeat:Fire(1 / 60)
+				Verify.expect(states):toHaveLength(released)
+				Verify.expect(engineLib.connections(frames.heartbeat)):toBe(0)
 				internalConnection:Disconnect()
 				connection:Disconnect()
 				stop()

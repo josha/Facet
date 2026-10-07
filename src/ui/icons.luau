@@ -60,6 +60,11 @@ standard_icons.ART = table.freeze({
 		contentId = "rbxassetid://108245103349446",
 		tintRole = "content",
 	}),
+	["check"] = table.freeze({
+		assetName = "facet_icon_check",
+		contentId = "rbxassetid://108245103349446",
+		tintRole = "content",
+	}),
 
 	["facet:selection.radio.off"] = table.freeze({
 		assetName = "facet_icon_radio_off",

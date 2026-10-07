@@ -59,7 +59,7 @@ local function pointer(t: any): any
 		virtual:SendMousePosition(at + inset)
 		t.settle(1)
 	end
-	function mouse.drag(from: Vector2, to: Vector2, steps: number?)
+	function mouse.drag(from: Vector2, to: Vector2, steps: number?, releaseHold: number?)
 		local count = steps or 12
 		virtual:SendMousePosition(from + inset)
 		t.settle(2)
@@ -69,6 +69,9 @@ local function pointer(t: any): any
 			local at = from:Lerp(to, index / count)
 			virtual:SendMousePosition(at + inset)
 			t.settle(1)
+		end
+		if releaseHold then
+			t.settle(releaseHold)
 		end
 		virtual:SendMouseButton(to + inset, Enum.UserInputType.MouseButton1, false)
 		t.settle(4)
@@ -236,8 +239,9 @@ add("mail-row-touch-pan", { "collections-101" }, function(t: any)
 	local other = t.find(stage, "Row_m3")
 	local x, w = other.AbsolutePosition.X, other.AbsoluteSize.X
 	local y = centre(other).Y
-	mouse.drag(Vector2.new(x + w * 0.8, y), Vector2.new(x + w * 0.8 - 160, y))
+	mouse.drag(Vector2.new(x + w * 0.8, y), Vector2.new(x + w * 0.4, y), 16, 20)
 	t.settle(20)
+	t.check("the tray-opening drag retains row m3", t.find(stage, "Row_m3") == other)
 	local opened = other:FindFirstChild("trailing") :: GuiObject?
 	t.check(
 		"a horizontal touch drag opens the trailing tray",

@@ -41,9 +41,17 @@ local function box(Host: any, name: string, w: number, h: number, extra: { [stri
 	return Host.Frame(props)
 end
 
-local function mountModule(t: any, kind: string, name: string, size: Vector2, theme: any?): (any, any, string?)
+local function mountModule(
+	t: any,
+	kind: string,
+	name: string,
+	size: Vector2,
+	theme: any?
+): (any, any, string?, FacetControls?)
 	local built, problem
+	local controls: FacetControls?
 	local ok, stage = pcall(t.mount, function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		controls = UI
 		local context = t.context(UI, Host, Compose, env)
 		if context.reducedMotion == nil then
 			context.reducedMotion = Compose.cell(true)
@@ -60,7 +68,7 @@ local function mountModule(t: any, kind: string, name: string, size: Vector2, th
 		problem = tostring(stage)
 		return nil, nil, problem
 	end
-	return stage, built, nil
+	return stage, built, nil, controls
 end
 
 local FIT_SIZES = {
@@ -88,7 +96,7 @@ local OFF_SCREEN_BY_DESIGN = {
 
 local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: any, label: string)
 	local where = `{label} {kind}/{name} {size.X}x{size.Y}`
-	local stage, _, problem = mountModule(t, kind, name, size, theme)
+	local stage, _, problem, controls = mountModule(t, kind, name, size, theme)
 	t.check(where .. " mounts", stage ~= nil, problem and string.sub(problem, 1, 300))
 	if not stage then
 		t.cleanup()
@@ -104,7 +112,25 @@ local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: 
 	for _, node in stage:GetDescendants() do
 		if node:IsA("GuiButton") and t.visible(node) and node.Active and node.Selectable then
 			if node.AbsoluteSize.X < 1 or node.AbsoluteSize.Y < 1 then
-				table.insert(zero, node.Name)
+				local positions: { [ScrollingFrame]: Vector2 } = {}
+				local parent = node.Parent
+				while parent do
+					if parent:IsA("ScrollingFrame") then
+						positions[parent] = parent.CanvasPosition
+					end
+					parent = parent.Parent
+				end
+				if controls then
+					controls.scrollToVisible(node, nil, { animated = false })
+					t.settle(12)
+				end
+				if node.AbsoluteSize.X < 1 or node.AbsoluteSize.Y < 1 then
+					table.insert(zero, node:GetFullName())
+				end
+				for frame, position in positions do
+					frame.CanvasPosition = position
+				end
+				t.settle(2)
 			end
 		end
 	end

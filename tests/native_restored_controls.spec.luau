@@ -361,7 +361,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				Verify.expect((mentions(
 					refusal(function(UI: FacetControls)
-						return UI.Label({ title = "Saved", icon = "check" })
+						return UI.Label({ title = "Saved", icon = "unknown-semantic-icon" })
 					end),
 					"unknown icon"
 				))):toBe(true)

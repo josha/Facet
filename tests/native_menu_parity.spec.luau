@@ -118,6 +118,31 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native menu parity with main", function()
+		verifyHarness:case("keeps the pointer anchor through departure", {
+			id = "native_menu_parity::native menu parity with main::keeps the pointer anchor through departure",
+			run = function()
+				local shown = Compose.cell(false)
+				local world = labelled({ items = items(2), isPresented = shown, presentation = "menu" }, {})
+				local trigger = world.find("Trigger")
+				trigger.InputBegan:Fire({
+					UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+					Position = world.engine.types.Vector3.new(240, 180, 0),
+				})
+				local panel = panelOf(world)
+				lay(world, panel, Vector2.new(20, 30), Vector2.new(500, 40), Vector2.new(280, 100))
+				for _ = 1, 30 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				local x, y = panel.Position.X.Offset, panel.Position.Y.Offset
+				shown:set(false)
+				for _ = 1, 5 do
+					Verify.expect(panel.Position.X.Offset):toBe(x)
+					Verify.expect(panel.Position.Y.Offset):toBe(y)
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				world.stop()
+			end,
+		})
 		verifyHarness:case("anchors a secondary-click menu at the pointer and resets to the trigger on activation", {
 			id = "native_menu_parity::native menu parity with main::anchors a secondary-click menu at the pointer and resets to the trigger on activation",
 			run = function()

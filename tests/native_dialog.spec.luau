@@ -79,6 +79,36 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Dialog: one Back press closes one modal", function()
+		verifyHarness:case("keeps the panel slot fixed while its paint appears", {
+			id = "native_dialog::native Dialog: one Back press closes one modal::keeps the panel slot fixed while its paint appears",
+			run = function()
+				local shown, log, change = caller()
+				local w = mount(standard(shown, log, change))
+				local panel = w.find("Panel")
+				w.size(panel, 560, 200)
+				w.advance(1 / 60, 3)
+				Verify.expect(panel.Size.X.Offset):toBe(560)
+				Verify.expect(panel.Size.Y.Offset):toBe(200)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("converts viewport and held panel bounds to layout units", {
+			id = "native_dialog::native Dialog: one Back press closes one modal::converts viewport and held panel bounds to layout units",
+			run = function()
+				local shown, log, change = caller()
+				local w = mount(standard(shown, log, change))
+				w.size(w.screen, 400 * 0.513, 600 * 0.513)
+				local panel = w.find("Panel")
+				w.size(panel, 368 * 0.513, 200 * 0.513)
+				for _, probe in w.findAll("LayoutUnit") do
+					w.size(probe, 100 * 0.513, 0.513)
+				end
+				w.advance(0.5, 30)
+				Verify.expect(panel.Size.X.Offset):toBe(368)
+				Verify.expect(panel.Position.Y.Offset):toBe(0)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("the modal under a closing one ignores the Back press that closed it", {
 			id = "native_dialog::native Dialog: one Back press closes one modal::the modal under a closing one ignores the Back press that closed it",
 			run = function()

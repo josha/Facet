@@ -529,7 +529,7 @@ local cases: { any } = {
 				)
 				built.model.linked:set(true)
 				return built.screen()
-			end, { size = Vector2.new(1340, 850), frames = 20 })
+			end, { size = Vector2.new(1340, 850), preferredInput = "Touch", frames = 20 })
 			t.settle(20)
 			local root = t.find(stage, "Views")
 			t.check("Files uses NavigationSplitView", root ~= nil and root:GetAttribute("FacetSplitCollapsed") ~= nil)
@@ -547,7 +547,7 @@ local cases: { any } = {
 				if button.Name ~= "CellActions" or not button:IsA("GuiObject") or not button.Visible then
 					continue
 				end
-				local details = button.Parent:FindFirstChild("Details", true)
+				local details = button.Parent:FindFirstChild("FileCell", true)
 				if details and details:IsA("GuiObject") and details.Visible then
 					checked += 1
 					t.check(

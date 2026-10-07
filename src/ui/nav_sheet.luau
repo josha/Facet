@@ -172,7 +172,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		spec: Nav.SheetSpec,
 		prepared: Prepared,
 		request: Nav.SheetRequest?,
-		phase: Nav.PresencePhase?
+		phase: Nav.PresencePhase?,
+		anchor: GuiObject?
 	): Frame
 		local detents, byId = prepared.detents, prepared.byId
 		local declared = spec.placement or "automatic"
@@ -185,6 +186,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			else nil
 		local reduce = reducedMotion(ctx)
 		local level = motion.level(ctx)
+		local unit = Compose.cell(1)
 		local keyboard: (ComposeTypes.Use) -> number = function()
 			return 0
 		end
@@ -192,10 +194,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local visible = ctx.observe.OnScreenKeyboardVisible(input)
 			local size = ctx.observe.OnScreenKeyboardSize(input)
 			keyboard = function(use: ComposeTypes.Use): number
-				return if use(visible) == true then use(size).Y else 0
+				return if use(visible) == true then use(size).Y / use(unit) else 0
 			end
 		end
-		local extent = Compose.cell(V2.new(0, 720))
+		local layer = if anchor then surfaces.parent(anchor) else ctx.config.overlayParent
+		local initial = if layer and layer:IsA("GuiBase2d") then (layer :: GuiBase2d).AbsoluteSize else V2.zero
+		local extent = Compose.cell(if initial.Y > 0 then initial else V2.new(0, 720))
 		local pointer: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
@@ -917,7 +921,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local contentSize = ctx.observe.AbsoluteContentSize(bodyLayout)
 		local extra = if hero == nil or sticky then inset * 2 else 0
 		local function natural(use: ComposeTypes.Use): number
-			return use(contentSize).Y + extra
+			return use(contentSize).Y / use(unit) + extra
 		end
 		local chrome = function(use: ComposeTypes.Use): number
 			return pad("top", use) + pad("bottom", use)
@@ -1050,7 +1054,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return if rest > 0 then base * math.clamp(painted(use) / rest, 0, 1) else base
 			end,
 		})
-		local size = ctx.observe.AbsoluteSize(overlay)
+		local scale = ctx.layoutUnit(overlay)
+		Compose.watch(function(use: ComposeTypes.Use)
+			unit:set(use(scale))
+		end)
+		local size = ctx.layoutSize(overlay, unit)
 		local measured = Compose.cell(false)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local value = use(size)
@@ -1061,14 +1069,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end)
 		if frames and not ready:peek() then
 			local panelSize = ctx.observe.AbsoluteSize(panel)
-			local function textExtent(): number
-				local total = 0
+			local function contentGeometry(): string
+				local origin = panel.AbsolutePosition
+				local signature: { string } = {}
 				for _, node in panel:GetDescendants() do
-					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-						total += node.TextBounds.X + node.TextBounds.Y * 4096
+					if node:IsA("GuiObject") then
+						local entry = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
+						if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+							entry ..= `:{node.TextBounds}`
+						end
+						table.insert(signature, entry)
 					end
 				end
-				return total
+				return table.concat(signature, ";")
 			end
 			local fontsReady = fontReadiness(ctx, { panel })
 			local started = Compose.cell(false)
@@ -1085,13 +1098,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				local signature = if measured:peek()
 					then string.format(
-						"%d %d %d %d %d %d",
+						"%d %d %d %d %d %s",
 						extent:peek().X,
 						extent:peek().Y,
 						panelSize:peek().X,
 						contentSize:peek().Y,
 						room.pinned:peek(),
-						textExtent()
+						contentGeometry()
 					)
 					else nil
 				if fontsReady() and (finished or (signature ~= nil and signature == previous)) then
@@ -1115,7 +1128,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.isPresented, function(phase)
-				return modalFor(spec, prepared, nil, phase)
+				return modalFor(spec, prepared, nil, phase, root)
 			end, {
 				motion = ctx.motionTiming("sheet"),
 				failure = function(failure)
@@ -1132,6 +1145,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	end)
 
 	surfaces.sheetModal = function(spec: Nav.SheetSpec, request: Nav.SheetRequest, phase: Nav.PresencePhase?): Frame
-		return modalFor(spec, prepare(spec), request, phase)
+		return modalFor(spec, prepare(spec), request, phase, nil)
 	end
 end

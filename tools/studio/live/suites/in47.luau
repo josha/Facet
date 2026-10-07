@@ -1969,7 +1969,7 @@ local function sliderProbe(t: any): (any, any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value = Compose.cell(0)
 		return Host.Frame "Holder" {
-			Position = UDim2.fromOffset(40, 300),
+			Position = UDim2.new(0, 40, 0.5, -40),
 			Size = UDim2.fromOffset(300, 80),
 			BackgroundTransparency = 1,
 			UI.Slider "Vol" { value = value, min = 0, max = 100, Size = UDim2.fromOffset(300, 44) },
@@ -1984,6 +1984,7 @@ local function sliderDrag(t: any, io: any, stage: any, value: any, where: string
 	if not track then
 		return
 	end
+	t.inside(`{where}: the track is inside the test stage`, track, stage)
 	local r = t.rect(track)
 	local y = r.y + r.h / 2
 	io.drag(Vector2.new(r.x + 1, y), Vector2.new(r.x + r.w / 2, y), 16)

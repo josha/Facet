@@ -1754,7 +1754,14 @@ return function(
 		local motion = ctx.motionTiming("popover")
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Nav.PresencePhase?)
-				return menuPanel(spec, close, trigger, nil, phase, motion, pointer)
+				local contact = Compose.cell(pointer:peek())
+				Compose.watch(function(use: ComposeTypes.Use)
+					local point = use(pointer)
+					if point then
+						contact:set(point)
+					end
+				end)
+				return menuPanel(spec, close, trigger, nil, phase, motion, contact)
 			end, { motion = motion }),
 		})
 		return root

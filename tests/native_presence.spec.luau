@@ -326,7 +326,9 @@ return function(verifyHarness: Verify.Harness)
 							seen = true
 							if scale.Scale < 1 then
 								Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
-								Verify.expect(panel.Size.Y.Offset):toBeCloseTo(441 * scale.Scale, 1)
+								Verify.expect(panel.Size.Y.Offset):toBe(441)
+								Verify.expect(w.find("PresentationPaint").Size.Y.Offset)
+									:toBeCloseTo(441 * scale.Scale, 1)
 							end
 						end
 					end

@@ -246,13 +246,20 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local rested = rest(ctx, function(): (string, boolean, boolean?)
 			local parts: { string } = {}
 			local filled = false
-			for index, node in nodes do
-				local value = node.AbsoluteSize
-				parts[index] = `{value.X},{value.Y}`
-				if node:IsA("TextLabel") or node:IsA("TextButton") then
-					parts[index] ..= `:{node.TextBounds}`
+			local origin = nodes[1].AbsolutePosition
+			local descendants = nodes[1]:GetDescendants()
+			for _, node in nodes do
+				table.insert(descendants, node)
+				filled = filled or (node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0)
+			end
+			for _, node in descendants do
+				if node:IsA("GuiObject") then
+					local value = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
+					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+						value ..= `:{node.TextBounds}`
+					end
+					table.insert(parts, value)
 				end
-				filled = filled or (value.X > 0 and value.Y > 0)
 			end
 			return table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady()
 		end, restart)
@@ -332,7 +339,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			local _, point = place(use)
 			local box = if settings.size then use(settings.size) else panel.AbsoluteSize
 			return V2.new(if box.X > 0 then point.X / box.X else 0.5, if box.Y > 0 then point.Y / box.Y else 0.5)
-		end)
+		end, panel:HasTag("facet-menu"))
 		return scale
 	end
 	local function attached(anchor: GuiObject): boolean
