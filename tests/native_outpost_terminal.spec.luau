@@ -147,8 +147,7 @@ return function(verifyHarness: Verify.Harness)
 					root.Name = "HumanoidRootPart"
 					root.Parent = character
 					context.player = { Character = character }
-					local service = engineLib.new()
-					heartbeat = service.heartbeat
+					heartbeat = engine.heartbeat
 					context.runService = { Heartbeat = heartbeat }
 				end)
 				Verify.expect(sent[1].kind):toBe("open")

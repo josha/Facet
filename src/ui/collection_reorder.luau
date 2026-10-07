@@ -32,6 +32,7 @@ type Move<V, K> = {
 	rows: { V },
 	pointer: Vector2?,
 	keyboard: boolean,
+	tap: boolean,
 	navigationCross: number?,
 }
 return function<V, K>(
@@ -185,7 +186,7 @@ return function<V, K>(
 		end
 		return result
 	end)
-	local function begin(key: K, position: Vector2?, quiet: boolean?): ()
+	local function begin(key: K, position: Vector2?, quiet: boolean?, tap: boolean?): ()
 		lastTap = nil
 		if
 			not reorderable
@@ -226,6 +227,15 @@ return function<V, K>(
 			end
 		end
 		if #keys > 0 then
+			local options: any = if spec.drag
+				then spec.drag(items, keys)
+				else {
+					payload = { collection = collectionId, keys = keys, items = items },
+					operations = { "move" },
+				}
+			if tap and not options.armOnTap then
+				return
+			end
 			local live = pendingInput ~= nil
 				and pendingInput.UserInputState ~= E.UserInputState.End
 				and pendingInput.UserInputState ~= E.UserInputState.Cancel
@@ -245,13 +255,8 @@ return function<V, K>(
 				rows = rows,
 				pointer = position,
 				keyboard = position == nil,
+				tap = tap == true,
 			}
-			local options: any = if spec.drag
-				then spec.drag(items, keys)
-				else {
-					payload = { collection = collectionId, keys = keys, items = items },
-					operations = { "move" },
-				}
 			local valid, ended = options.valid, options.onEnd
 			options = table.clone(options)
 			options.mark = false
@@ -1456,7 +1461,12 @@ return function<V, K>(
 					and (
 						(captured and captured.UserInputType == E.UserInputType.Touch and use(touch) == false)
 						or (captured and captured.UserInputType == E.UserInputType.MouseButton1 and use(mouse) == false)
-						or (move.keyboard and use(keyboard) == false and use(gamepad) == false)
+						or (
+							move.keyboard
+							and use(keyboard) == false
+							and use(gamepad) == false
+							and (not move.tap or use(touch) == false)
+						)
 					)
 				then
 					cancel()
@@ -1751,18 +1761,13 @@ return function<V, K>(
 	end
 	return {
 		pickUp = function(key: K, input: InputObject?): boolean
-			if
-				not spec.drag
-				or input == nil
-				or input.UserInputType == E.UserInputType.MouseButton1
-				or input.UserInputType == E.UserInputType.Touch
-			then
+			if not spec.drag or input == nil or input.UserInputType == E.UserInputType.MouseButton1 then
 				return false
 			end
 			if moving:peek() == nil then
-				begin(key)
+				begin(key, nil, nil, input.UserInputType == E.UserInputType.Touch)
 			end
-			return true
+			return moving:peek() ~= nil
 		end,
 		wrap = wrap,
 		overlay = overlay,

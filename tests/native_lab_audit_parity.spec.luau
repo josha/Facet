@@ -57,6 +57,79 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
+	verifyHarness:suite("native lab audit: drag and drop", function()
+		verifyHarness:case("loads the canvas without mesh APIs and supports touch apply undo and reset", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::loads the canvas without mesh APIs and supports touch apply undo and reset",
+			run = function()
+				local engine: any = engineLib.new()
+				local runtime = Facet.Roblox.createRuntime(engine)
+				local Host = runtime.constructors
+				local world = engine.new("Folder")
+				local screen = engine.new("ScreenGui")
+				local input = engine.new("UserInputService")
+				input.TouchEnabled, input.KeyboardEnabled, input.GamepadEnabled = true, false, false
+				input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+				input.GetFocusedTextBox = function()
+					return nil
+				end
+				input.IsKeyDown = function()
+					return false
+				end
+				local UI = Facet.controls(
+					runtime,
+					{
+						types = engine.types,
+						inputParent = screen,
+						userInputService = input,
+						services = { UserInputService = input },
+						motionLevel = "none",
+					} :: any
+				)
+				local stop, node: any = runtime.mount(function()
+					return require("../examples/facet-lab/src/drag_drop_demo")({
+						UI = UI,
+						Host = Host,
+						Compose = Compose,
+						runtime = runtime,
+						types = engine.types,
+						worldTarget = world,
+					})
+				end, screen)
+				local grid = node:FindFirstChild("AppearanceAssets", true)
+				grid.AbsoluteWindowSize = engine.types.Vector2.new(480, 120)
+				local canvas = world:FindFirstChild("ImageCanvas", true)
+				Verify.expect(canvas:IsA("Part")):toBe(true)
+				Verify.expect(canvas:FindFirstChildWhichIsA("Decal") ~= nil):toBe(true)
+				local function apply(id)
+					local tap = {
+						UserInputType = engine.types.Enum.UserInputType.Touch,
+						UserInputState = engine.types.Enum.UserInputState.Begin,
+					}
+					node:FindFirstChild(id, true):FindFirstChild("RowHit", true).Activated:Fire(tap, 1)
+					local choice = node:FindFirstChild("ChooseCanvas", true)
+					Verify.expect(choice.Visible):toBe(true)
+					choice.InputBegan:Fire(tap)
+				end
+				apply("portrait")
+				for _, decal in canvas:GetChildren() do
+					if decal:IsA("Decal") then
+						Verify.expect(decal.Texture):toBe("rbxassetid://75342910516929")
+					end
+				end
+				node:FindFirstChild("UndoAppearance", true).Activated:Fire()
+				Verify.expect(canvas:FindFirstChildWhichIsA("Decal").Texture):toBe("")
+				engine.heartbeat:Fire(1)
+				apply("Red")
+				Verify.expect(canvas.Color):toBe(engine.types.Color3.fromRGB(245, 92, 97))
+				node:FindFirstChild("ResetAppearance", true).Activated:Fire()
+				Verify.expect(canvas.Color):toBe(engine.types.Color3.fromRGB(180, 180, 180))
+				stop()
+				Verify.expect(#world:GetChildren()):toBe(0)
+				runtime:dispose()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native lab audit: menu submenu rows", function()
 		verifyHarness:case("a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none", {
 			id = "native_lab_audit_parity::native lab audit: menu submenu rows::a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none",

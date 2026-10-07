@@ -118,6 +118,61 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native menu parity with main", function()
+		verifyHarness:case("keeps the secondary-click anchor through dismissal motion", {
+			id = "native_menu_parity::native menu parity with main::keeps the secondary-click anchor through dismissal motion",
+			run = function()
+				for _, route in { "action", "outside", "model", "disabled", "cancel" } do
+					local shown, enabled = Compose.cell(false), Compose.cell(true)
+					local ran: { string } = {}
+					local world = labelled({
+						items = items(2, ran),
+						isPresented = shown,
+						enabled = enabled,
+						presentation = "menu" :: "menu",
+					}, {})
+					world.find("Trigger").InputBegan:Fire({
+						UserInputType = world.engine.types.Enum.UserInputType.MouseButton2,
+						Position = world.engine.types.Vector3.new(240, 180, 0),
+					})
+					local panel = panelOf(world)
+					lay(world, panel, Vector2.new(20, 30), Vector2.new(500, 40), Vector2.new(280, 100))
+					for _ = 1, 30 do
+						world.engine.heartbeat:Fire(FRAME)
+					end
+					Verify.expect(materialize.position(panel)):toBe(UDim2.fromOffset(240, 180))
+					if route == "action" then
+						world.find("row1", panel).Activated:Fire()
+						Verify.expect(ran):toEqual({ "row1" })
+					elseif route == "outside" then
+						world.find("DismissOutside", world.screen.Parent).Activated:Fire()
+					elseif route == "model" then
+						shown:set(false)
+					elseif route == "disabled" then
+						enabled:set(false)
+					else
+						world.action("ModalBack").Pressed:Fire()
+					end
+					Verify.expect(shown:peek()):toBe(false)
+					Verify.expect(panel:isDestroyed()):toBe(false)
+					for _ = 1, 30 do
+						if not panel:isDestroyed() then
+							Verify.expect(materialize.position(panel)):toBe(UDim2.fromOffset(240, 180))
+						end
+						world.engine.heartbeat:Fire(FRAME)
+					end
+					Verify.expect(panel:isDestroyed()):toBe(true)
+					enabled:set(true)
+					panel = open(world)
+					lay(world, panel, Vector2.new(20, 30), Vector2.new(500, 40), Vector2.new(280, 100))
+					for _ = 1, 30 do
+						world.engine.heartbeat:Fire(FRAME)
+					end
+					Verify.expect(materialize.position(panel)):toBe(UDim2.fromOffset(20, 74))
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("anchors a secondary-click menu at the pointer and resets to the trigger on activation", {
 			id = "native_menu_parity::native menu parity with main::anchors a secondary-click menu at the pointer and resets to the trigger on activation",
 			run = function()
