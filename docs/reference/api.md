@@ -4439,7 +4439,7 @@ Keyboard and gamepad pickup also shows an inert carried-item preview. During a
 collection reorder it follows the insertion point, and the original cells stay
 empty until the move ends. Edit controls are excluded from the preview.
 Failed drops return the preview to
-the source with a theme-timed native tween. Accepted drops shrink the preview at the drop position. Both use native TweenService and skip animation under reduced motion.
+the source with theme-timed travel. Accepted drops shrink the preview at the drop position. Both use the shared Travel engine and skip animation under reduced motion.
 Only accepted destinations show the native drop highlight; source-only
 collections show no insertion marker.
 A shared status label shows Copy or Apply for an accepted target, the
@@ -4637,6 +4637,92 @@ local function CrateActions(crate, prompt, actions)
 end
 ```
 
+## Zoom and travel
+
+### ZoomView
+
+`UI.ZoomView(spec) -> ScrollingFrame` wraps one stable content tree. Required:
+`contentSize` (a Vector2 in layout pixels, or a readable) and `content()` (a
+factory that returns a GuiObject). The factory runs once. Native `Size` sets
+the viewport. The control uses one UIScale and native scrolling.
+
+- `zoom`: an optional writable number cell. Scale 1 is the authored size.
+  Without it, the view starts at fit. A zoom must be positive and finite.
+- `focus`: an optional content point, or a readable. A change centres that
+  point. Zoom keeps the current point fixed on screen until an edge stops it.
+- `minZoom`: a positive finite scale. Without it, the minimum is fit.
+  `maxZoom` is 4 by default. `minZoom` cannot exceed `maxZoom`.
+- `doubleTapZoom`: the closer scale for a double tap. The default is twice
+  fit, bounded by `maxZoom`. Double tap toggles fit and that scale around the
+  contact point.
+- `enabled`: a boolean or readable, default true.
+- `controls`: an optional `ZoomControls` table. The control sets `fit()` and
+  `zoomTo({ x, y, w, h })`. These calls return false while disabled or locked
+  by a child drag, except for one call inside its `onStart` capture scope.
+  The rectangle uses content pixels. The functions are
+  cleared when the owner ends.
+
+Pinch zooms around the contact centre. Wheel pans; Ctrl-wheel zooms around the
+pointer. Select the view itself for keyboard and gamepad input: Plus and Minus
+or the triggers zoom, WASD or the right stick pan, and Home or Y fits. The
+arrow keys and D-pad keep native selection. Child controls keep activation.
+A pending child drag or a captured child drag holds the camera. An external
+zoom write waits until release. One camera request from the captured child's
+`onStart` can finish its motion. Later requests and pan wait until release.
+Targets are hit-tested again after each camera write. Native scrolling clamps each edge and has no
+elastic overscroll. Fit centres margins on an axis smaller than the viewport.
+
+Zoom uses `motion.durations.zoom` and `motion.easing.zoom`. Reduced motion
+removes interpolation. Content instances stay mounted at every scale.
+Text stays in ordinary native Frames under UIScale. It is not captured in a
+CanvasGroup texture. Roblox draws text at its native scaled size.
+Fractional-scale text and phone frame timing need native verification.
+
+```luau
+local zoom = Compose.cell(0.5)
+local camera: Facet.ZoomControls = {}
+local function Board(): GuiObject
+    return Host.Frame { Size = UDim2.fromOffset(780, 780) }
+end
+UI.ZoomView {
+    contentSize = Vector2.new(780, 780),
+    zoom = zoom,
+    controls = camera,
+    content = Board,
+}
+```
+
+### Travel
+
+`UI.Travel(spec) -> Frame` uses one model: an item has a slot. When its
+`destination` changes, the same visual moves to that slot. `content()` returns
+the visual once. The return value is an empty ownership anchor.
+
+Travel measures the shared container, clipping and scale boundaries at the
+change. With a safe common container, it moves in place. The parent stays the
+same. A clip, scale or native layout boundary routes through the overlay,
+then lands in the new slot. The consumer sets no route flag. Keep slots mounted.
+Slots are borrowed. Compose owns the visual and the anchor.
+
+- `destination`: a GuiObject, readable or body. The first placement is immediate.
+- `content`: a factory that returns a GuiObject. It runs once. The visual is
+  the reusable carrier. There is no clone or new instance per move.
+- `path`: `straight` (default) or `arc`.
+- `motion`: `ease` (default) or `spring`. Timed motion uses
+  `motion.durations.travel` and `motion.easing.travel`. Spring motion uses
+  `motion.springs.travel`, with the same period and damping shape as navigation.
+  A spring interrupt keeps its position and velocity.
+- `transparency`: an optional number or readable for CanvasGroup content.
+  It uses `motion.durations.travelFade`. This supports retiring items.
+- `onLanded(destination)`: reports placement. It does not change game state.
+
+Arc height uses `motion.distances.travelArc`. Reduced motion places and fades
+at once. All active items use one shared Compose host-frame stepper. Keyed
+items retain their carriers across moves. The root's `FacetTravelMoving`
+attribute reports motion. Buttons, gamepad commands and drag callbacks all
+change the same destination model. Native bounds, selection, clipping and
+paint continuity still need live verification.
+
 ## Recipes
 
 `Facet.recipes.arithmetic.parse(text)` returns a finite number or `nil` for
@@ -4682,3 +4768,61 @@ The supported import boundary is the Facet root table and the Compose exports
 that you can reach from it. Control implementation modules are private. The
 vendored Compose tree is a generated, read-only snapshot. Make changes upstream
 and synchronize them through the repository tooling.
+
+### gestureArbiter
+
+`UI.gestureArbiter(surface) -> GestureBinding` shares the pointer decision with
+`UI.draggable`, collection drags and ScrollView. Call it inside a Compose owner.
+The binding stops its contacts when that owner ends. Control factories on the
+same UserInputService share one arbiter.
+
+- `begin(pointer, position, options)` captures `surface` and the screen point.
+  It returns false when another surface already owns that InputObject.
+- `options` contains `pickup` (`immediate` or `longPress`, absent for pan),
+  `axis` (`X`, `Y` or `XY`), `scroll` and `threshold` (default 6 screen pixels).
+- `move(pointer, position)` returns the final gesture after the threshold.
+  Immediate pickup wins on its axis. Across the axis, or before long press,
+  movement wins as `scroll` when `scroll` is true, otherwise `pan`.
+- `claim(pointer, kind)` accepts a native long-press `drag` only while pending.
+  It cannot change a final decision. Pan and scroll must pass through `move`.
+- `get(pointer)` returns `{ owner, origin, kind }` or nil. The copy cannot
+  change the arbiter. `kind` is `pending`, `drag`, `pan`, `scroll`, `press`,
+  `doubleTap` or `cancelled`.
+- `finish(pointer, cancelled?)` releases only this surface's contact. It returns
+  `press` for a pending contact, or `cancelled` when requested.
+
+A zoom surface must read the decision before starting pan or double-tap. Keep
+its camera fixed while a child source is pending or dragging. Drop targets are measured
+and hit-tested each frame and again at release through a moving camera. Use native
+activation click counts for double-tap. A moved or cancelled contact cannot
+supply a double-tap. The arbiter creates no input connection or Instance.
+
+### Container transfer travel
+
+`DraggableSpec.hitArea` is an optional GuiObject for bounded pickup. Its measured
+screen rectangle includes its leading edges and excludes its trailing edges.
+Use the cell's fixed hit node when tile paint grows on hover. The contact keeps
+one source through release, even when the pointer passes another tile.
+A captured draggable holds all scroll ancestors until the session ends.
+Set source `returnTravel = true` to keep its recess through a cancelled return.
+Return travel uses the shared Travel engine, `motion.durations.travel` and
+`motion.easing.travel`. Without this
+option, return feedback keeps its positional return and accepted shrink, driven by
+the shared Travel engine. The recess clears immediately without returnTravel.
+
+`DropTargetSpec.travel = true` moves the preview to the destination before
+calling `onDrop`. `landing(info)` can return `{ x, y, w, h }` in screen pixels
+for an insertion slot. Without it, a GUI target uses its own measured rectangle.
+Travel uses the shared Travel engine, `motion.durations.travel` and
+`motion.easing.travel`. Reduced motion
+commits immediately. The preview follows the pointer directly while captured;
+travel begins only after release. The source stays an empty slot during travel.
+The destination is revalidated at arrival. Cancellation or a removed destination
+prevents the drop handler. Existing targets without `travel` keep their immediate
+drop contract. A world target needs `landing` for screen travel.
+
+Use `contentOverflow = "clip"` for bounded collection cells. Existing collection
+`drop`, `rowDrop`, `onReorder` and insertion metadata support linked containers.
+The game updates both models together in `onDrop`. Return or A picks up and
+places, Tab or native directional selection chooses a destination, Y changes
+between collection insertion and destination navigation, and Escape or B cancels.

@@ -9,6 +9,8 @@ export type SourceSpec = Env.DraggableSpec & {
 }
 export type Proposal = Env.DropInfo & { invalid: string? }
 export type TargetOptions = {
+	travel: boolean?,
+	landing: ((Env.DropInfo) -> Env.ScrollRect)?,
 	label: Shared.ValueString?,
 	onDrop: ((unknown, Proposal) -> ())
 		| ((unknown, Proposal) -> boolean | "pending")
@@ -55,6 +57,8 @@ export type Session = {
 	stop: (() -> ())?,
 	stopPreview: (() -> ())?,
 	stopStatus: (() -> ())?,
+	stopTravel: (() -> ())?,
+	travelled: boolean?,
 }
 export type Service = {
 	state: Shared.Cell<Session?>,

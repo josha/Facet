@@ -33,5 +33,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/drag")(ctx, UI)
 	require("@self/scrolling")(ctx, UI)
 	require("@self/navigation_split_view")(ctx, UI, surfaces)
+	require("@self/zoom_view")(ctx, UI)
+	require("@self/travel")(ctx, UI, surfaces)
 	return freeze(UI)
 end

@@ -7,6 +7,13 @@
   },
   "units": [
     {
+      "id": "container_transfer",
+      "locator": "tests/container_transfer.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "facet_design_bindings",
       "locator": "tests/facet_design_bindings.spec.luau",
       "requires": [
@@ -23,6 +30,13 @@
     {
       "id": "facet_home",
       "locator": "tests/facet_home.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "gesture_arbitration",
+      "locator": "tests/gesture_arbitration.spec.luau",
       "requires": [
         "local-luau"
       ]
@@ -646,6 +660,20 @@
     {
       "id": "sheet_release",
       "locator": "tests/sheet_release.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "zoom_travel",
+      "locator": "tests/zoom_travel.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "travel_convergence",
+      "locator": "tests/travel_convergence.spec.luau",
       "requires": [
         "local-luau"
       ]

@@ -358,6 +358,9 @@ same row again to restore those commands before it visits them. For an
 adjustable control, it repeats input along the value axis until selection
 moves or the value stops changing. This records navigation past the first and
 last values. The atlas includes a trace of these presses and value changes.
+Scene fields `goneStopIndices` and `rectStopIndices` refer to the one-based
+indices in `stops`. `containerRects` uses container paths. These references
+keep large virtual collection recordings within the attachment limit.
 It also records the scene of the move: each stop that moved, went away or
 appeared after the atlas was made. A press can change the
 page, for example when Left on a column grip makes the column narrower. When
@@ -367,6 +370,10 @@ them with `--shared 'FacetFocusWalk={"up":3}'`:
 
 - `only`: a substring of the page name;
 - `pages`: a list of exact page names, for example `all-controls/actions/buttons`;
+- `resumePaths`: stop paths to record again in `shared.FacetFocusAtlas`. The
+  atlas must be from the same page and built controls. The walk retains its
+  other recorded moves. Use this to complete a recording without repeating
+  its whole virtual collection;
 - `up`: seconds to wait for D-pad Up per stop. The wait is the Verify step
   `focus-upstream`. Before the run, start
   `lute run tools/lute/focus_up.luau PROGRESS_FILE STUDIO_PID`. It reads the

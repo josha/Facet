@@ -695,6 +695,9 @@ return function(verifyHarness: Verify.Harness)
 					nativeDrag.finish(w.input, pointer(w, "MouseButton1", 120))
 					Verify.expect((table.concat(log, "; ")))
 						:toBe("enter sponsor; drop sponsor Open pointer; leave sponsor")
+					for _ = 1, 60 do
+						w.engine.heartbeat:Fire(1 / 120)
+					end
 					Verify.expect((screen:FindFirstChild("DragGhost"))):toBeNil()
 					Verify.expect((card:GetAttribute("FacetDragHeld"))):toBeNil()
 					table.clear(log)
@@ -727,6 +730,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(screen:FindFirstChild("DragGhost").Position.Y.Offset):toBe(120)
 				detector.DragEnd:Fire(V2.new(50, 120))
 				Verify.expect(table.concat(log, "; ")):toBe("enter sponsor; drop sponsor Open pointer; leave sponsor")
+				for _ = 1, 60 do
+					w.engine.heartbeat:Fire(1 / 120)
+				end
 				stop()
 				w.stop()
 			end,
@@ -1401,32 +1407,11 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("failed drop feedback", function()
 		verifyHarness:case(
-			"returns a rejected preview with a native tween, skips motion when reduced, and cleans up on unmount",
+			"returns a rejected preview through shared travel, skips motion when reduced, and cleans up on unmount",
 			{
-				id = "native_environment::failed drop feedback::returns a rejected preview with a native tween, skips motion when reduced, and cleans up on unmount",
+				id = "native_environment::failed drop feedback::returns a rejected preview through shared travel, skips motion when reduced, and cleans up on unmount",
 				run = function()
-					local created: { any } = {}
-					local tweens = {
-						Create = function(_, node, info, goal)
-							local playback = {
-								Completed = signal(),
-								node = node,
-								info = info,
-								goal = goal,
-								played = false,
-								cancelled = false,
-							}
-							function playback:Play()
-								self.played = true
-							end
-							function playback:Cancel()
-								self.cancelled = true
-							end
-							table.insert(created, playback)
-							return playback
-						end,
-					}
-					local w = world({ TweenService = tweens })
+					local w = world()
 					local screen = w.engine.new("ScreenGui")
 					local stop, source: any = w.runtime.mount(function()
 						local node = w.UI.Button { label = "Asset" }
@@ -1450,12 +1435,19 @@ return function(verifyHarness: Verify.Harness)
 						nativeDrag.finish(w.input, press)
 					end
 					fail()
-					Verify.expect(#created):toBe(1)
-					Verify.expect(created[1].played):toBe(true)
-					Verify.expect(created[1].goal.Position):toBe(Roblox.UDim2.fromOffset(28, 60))
-					Verify.expect(created[1].node.Parent):toBe(screen)
-					created[1].Completed:Fire()
-					Verify.expect((screen:FindFirstChild("DragGhost"))):toBe(nil)
+					local returningGhost = assert(screen:FindFirstChild("DragGhost")) :: GuiObject
+					local previous = returningGhost.Position
+					Verify.expect(returningGhost.Parent):toBe(screen)
+					for _ = 1, 60 do
+						w.engine.heartbeat:Fire(1 / 120)
+						if returningGhost.Parent then
+							Verify.expect(returningGhost.Position.X.Offset <= previous.X.Offset):toBe(true)
+							Verify.expect(returningGhost.Position.Y.Offset <= previous.Y.Offset):toBe(true)
+							previous = returningGhost.Position
+						end
+					end
+					Verify.expect(previous):toBe(Roblox.UDim2.fromOffset(28, 60))
+					Verify.expect(screen:FindFirstChild("DragGhost")):toBe(nil)
 					local dropped = 0
 					local stopTarget, destination: any = w.runtime.mount(function()
 						local node = w.runtime.constructors.Frame {}
@@ -1470,20 +1462,23 @@ return function(verifyHarness: Verify.Harness)
 					destination.AbsoluteSize = Roblox.Vector2.new(80, 80)
 					fail()
 					Verify.expect(dropped):toBe(1)
-					Verify.expect(created[2].node.ClassName):toBe("UIScale")
-					Verify.expect(created[2].goal.Scale):toBe(0)
-					Verify.expect(screen:FindFirstChild("DragGhost") ~= nil):toBe(true)
-					created[2].Completed:Fire()
-					Verify.expect((screen:FindFirstChild("DragGhost"))):toBe(nil)
+					local acceptedGhost = assert(screen:FindFirstChild("DragGhost")) :: GuiObject
+					local scale = assert(acceptedGhost:FindFirstChildWhichIsA("UIScale"))
+					local previousScale = scale.Scale
+					for _ = 1, 60 do
+						w.engine.heartbeat:Fire(1 / 120)
+						Verify.expect(scale.Scale <= previousScale and scale.Scale >= 0):toBe(true)
+						previousScale = scale.Scale
+					end
+					Verify.expect(scale.Scale):toBe(0)
+					Verify.expect(screen:FindFirstChild("DragGhost")):toBe(nil)
 					stopTarget()
 					w.gui.ReducedMotionEnabled = true
 					fail()
-					Verify.expect(#created):toBe(2)
 					Verify.expect((screen:FindFirstChild("DragGhost"))):toBe(nil)
 					w.gui.ReducedMotionEnabled = false
 					fail()
 					stop()
-					Verify.expect(created[3].cancelled):toBe(true)
 					Verify.expect((screen:FindFirstChild("DragGhost"))):toBe(nil)
 					w.stop()
 				end,

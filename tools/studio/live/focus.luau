@@ -104,6 +104,17 @@ function focus.rest(root: Instance)
 	end
 end
 
+local function scrollOffsets(root: Instance): { [string]: { number } }
+	local offsets = {}
+	for _, scroller in scrollers(root) do
+		local at = scroller.CanvasPosition
+		if at.X ~= 0 or at.Y ~= 0 then
+			offsets[pathOf(scroller, root)] = { at.X, at.Y }
+		end
+	end
+	return offsets
+end
+
 local function settle(root: Instance): { [string]: { number } }
 	local last = ""
 	local quiet = os.clock()
@@ -132,14 +143,7 @@ local function settle(root: Instance): { [string]: { number } }
 		if snapshot ~= last then
 			last, quiet = snapshot, os.clock()
 		elseif os.clock() - quiet >= 0.2 and os.clock() - started >= 0.3 then
-			local offsets = {}
-			for _, scroller in scrollers(root) do
-				local at = scroller.CanvasPosition
-				if at.X ~= 0 or at.Y ~= 0 then
-					offsets[pathOf(scroller, root)] = { at.X, at.Y }
-				end
-			end
-			return offsets
+			return scrollOffsets(root)
 		end
 	end
 	error("focus walk did not reach visual rest", 2)
@@ -157,7 +161,7 @@ function focus.atlas(
 	local view = (collector :: any).AbsoluteSize :: Vector2
 	local entries, containers = {}, {}
 	local containerNodes: { [string]: GuiObject } = {}
-	local chainOf: (Instance) -> { any }
+	local chainOf: (Instance) -> { string }
 	local function register(at: GuiObject): string
 		local path = pathOf(at, root)
 		if containers[path] == nil then
@@ -183,7 +187,7 @@ function focus.atlas(
 		end
 		return path
 	end
-	function chainOf(node: Instance): { any }
+	function chainOf(node: Instance): { string }
 		local chain = {}
 		local at: Instance? = node.Parent
 		while at and not at:IsA("LayerCollector") do
@@ -229,6 +233,16 @@ function focus.atlas(
 	}
 	builders[atlas] = { describe = describe, containers = containerNodes }
 	return atlas
+end
+
+function focus.adopt(root: Instance, atlas: { [string]: any })
+	local stops = focus.stops(root)
+	local fresh = focus.atlas(root, atlas.page, stops, focus.paths(root, stops))
+	for path, entry in atlas.containers do
+		fresh.containers[path] = entry
+	end
+	atlas.containers = fresh.containers
+	builders[atlas] = builders[fresh]
 end
 
 local function differs(node: GuiObject, rect: { number }, x: number, y: number): boolean
@@ -288,17 +302,17 @@ function focus.scene(atlas: any, byPath: { [string]: GuiObject }, view: { [strin
 	if builder == nil then
 		return nil
 	end
-	local rects, gone, added = {}, {}, {}
+	local rects, gone, added, containerRects = {}, {}, {}, {}
 	local known: { [string]: boolean } = {}
-	for _, entry in atlas.stops do
+	for index, entry in atlas.stops do
 		known[entry.path] = true
 		local node: GuiObject? = byPath[entry.path]
 		if node == nil then
-			table.insert(gone, entry.path)
+			table.insert(gone, index)
 		else
 			local x, y = rested(atlas, entry, view)
 			if differs(node, entry.rect, x, y) then
-				rects[entry.path] =
+				rects[tostring(index)] =
 					{ node.AbsolutePosition.X, node.AbsolutePosition.Y, node.AbsoluteSize.X, node.AbsoluteSize.Y }
 			end
 		end
@@ -316,17 +330,18 @@ function focus.scene(atlas: any, byPath: { [string]: GuiObject }, view: { [strin
 		if node and node.Parent ~= nil then
 			local x, y = rested(atlas, entry, view)
 			if differs(node, entry.rect, x, y) then
-				rects[path] =
+				containerRects[path] =
 					{ node.AbsolutePosition.X, node.AbsolutePosition.Y, node.AbsoluteSize.X, node.AbsoluteSize.Y }
 			end
 		end
 	end
-	if next(rects) == nil and #gone == 0 and #added == 0 then
+	if next(rects) == nil and next(containerRects) == nil and #gone == 0 and #added == 0 then
 		return nil
 	end
 	return {
-		rects = if next(rects) then rects else nil,
-		gone = if #gone > 0 then gone else nil,
+		rectStopIndices = if next(rects) then rects else nil,
+		goneStopIndices = if #gone > 0 then gone else nil,
+		containerRects = if next(containerRects) then containerRects else nil,
 		added = if #added > 0 then added else nil,
 	}
 end
@@ -345,17 +360,32 @@ function focus.walk(
 	paths: { [Instance]: string },
 	keys: { string },
 	atlas: any?,
-	restore: (() -> ())?
+	restore: (() -> ())?,
+	resumePaths: { string }?
 ): ({ [string]: { [string]: string? } }, { [string]: { [string]: any } }, {
 	[string]: { [string]: any },
 })
 	local moves, offsets = {}, {}
 	local scenes: { [string]: { [string]: any } } = {}
-	local queue = order(stops, paths)
+	local queue: { string } = if resumePaths then table.clone(resumePaths) else order(stops, paths)
 	local queued: { [string]: boolean } = {}
-	local reveals: { [string]: string } = {}
+	local reveals: { [string]: string? } = {}
+	local function owner(path: string): string?
+		local content = string.match(path, "^(.-/Items/[^/]+/Content)/Card/")
+		return if content then content .. "/RowHit" else nil
+	end
 	for _, path in queue do
 		queued[path] = true
+		reveals[path] = owner(path)
+	end
+	if atlas then
+		for _, entry in atlas.stops do
+			if not queued[entry.path] and resumePaths == nil then
+				table.insert(queue, entry.path)
+			end
+			queued[entry.path] = true
+			reveals[entry.path] = owner(entry.path)
+		end
 	end
 	local function discover(source: string?)
 		if atlas == nil then
@@ -374,7 +404,7 @@ function focus.walk(
 			queued[path] = true
 			table.insert(queue, path)
 			if source then
-				reveals[path] = source
+				reveals[path] = owner(path) or source
 			end
 			local builder = builders[atlas]
 			if builder then
@@ -393,8 +423,9 @@ function focus.walk(
 			return nil
 		end
 		local node: GuiObject? = current(root)[path]
-		if node == nil and reveals[path] then
-			select(reveals[path], depth + 1)
+		local reveal = reveals[path]
+		if node == nil and reveal then
+			select(reveal, depth + 1)
 			node = current(root)[path]
 		end
 		if node and pcall(function()
@@ -429,7 +460,7 @@ function focus.walk(
 			local boundary = node:HasTag("facet-adjustable")
 				and ((axis == "horizontal" and horizontal ~= nil) or (axis == "vertical" and vertical ~= nil))
 			for attempt = 1, if boundary then 128 else 1 do
-				view[key] = settle(root)
+				view[key] = scrollOffsets(root)
 				local before = current(root)
 				local value = node:GetAttribute("value")
 				local was = signature(before)

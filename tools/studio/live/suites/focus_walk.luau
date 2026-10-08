@@ -87,7 +87,11 @@ table.insert(cases, {
 			t.check(`{name} lint`, #lint == 0, lint)
 			local stops = focus.stops(layer)
 			local paths = focus.paths(layer, stops)
-			local atlas = focus.atlas(layer, name, stops, paths)
+			local atlas = if options.resumePaths then shared.FacetFocusAtlas else focus.atlas(layer, name, stops, paths)
+			if options.resumePaths then
+				assert(atlas and atlas.page == name, "focus walk resume atlas does not match the page")
+				focus.adopt(layer, atlas)
+			end
 			local file = prefix .. string.gsub(name, "[^%w%-]", "_")
 			local function merge(family: string, moves: any, offsets: any, scenes: any)
 				atlas.moves[family] = atlas.moves[family] or {}
@@ -100,10 +104,32 @@ table.insert(cases, {
 				end
 			end
 			if options.keys then
-				merge("keys", focus.walk(layer, stops, paths, { "Up", "Down", "Left", "Right" }, atlas, restore))
+				merge(
+					"keys",
+					focus.walk(
+						layer,
+						stops,
+						paths,
+						{ "Up", "Down", "Left", "Right" },
+						atlas,
+						restore,
+						options.resumePaths
+					)
+				)
 				file ..= "--keys"
 			else
-				merge("dpad", focus.walk(layer, stops, paths, { "DPadDown", "DPadLeft", "DPadRight" }, atlas, restore))
+				merge(
+					"dpad",
+					focus.walk(
+						layer,
+						stops,
+						paths,
+						{ "DPadDown", "DPadLeft", "DPadRight" },
+						atlas,
+						restore,
+						options.resumePaths
+					)
+				)
 				if options.stick ~= false then
 					merge(
 						"stick",
@@ -113,7 +139,8 @@ table.insert(cases, {
 							paths,
 							{ "StickUp", "StickDown", "StickLeft", "StickRight" },
 							atlas,
-							restore
+							restore,
+							options.resumePaths
 						)
 					)
 				end

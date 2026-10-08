@@ -5,6 +5,8 @@ local Drag = require("./drag_types")
 local Env = require("./environment_types")
 local activation = require("./activation")
 local motion = require("./motion")
+local travel = require("./drag_travel")
+local gestureOf = require("./gesture_service")
 local services = setmetatable({} :: { [Types.Context]: Drag.Service }, { __mode = "kv" })
 
 return function(ctx: Types.Context): Drag.Service
@@ -187,6 +189,18 @@ return function(ctx: Types.Context): Drag.Service
 			end
 		end
 	end
+	local function nativeScale(node: Instance?): number
+		local scaler = node and node:FindFirstChildWhichIsA("UIScale")
+		return if scaler and scaler.Scale > 0 then scaler.Scale else 1
+	end
+	local function effectiveScale(node: Instance?, stop: Instance?): number
+		local scale = 1
+		while node and node ~= stop do
+			scale *= nativeScale(node)
+			node = node.Parent
+		end
+		return scale
+	end
 	local function localPoint(ghost: GuiObject, position: Vector2): UDim2
 		local layer = ghost.Parent
 		local origin = if layer and layer:IsA("GuiBase2d") then layer.AbsolutePosition else V2.zero
@@ -199,6 +213,10 @@ return function(ctx: Types.Context): Drag.Service
 			end
 		end
 		return D2.fromOffset((position.X - origin.X) / scale, (position.Y - origin.Y) / scale)
+	end
+	local function localExtent(ghost: GuiObject, extent: Vector2): UDim2
+		local scale = nativeScale(ghost.Parent) * nativeScale(ghost)
+		return D2.fromOffset(extent.X / scale, extent.Y / scale)
 	end
 	local function raiseStatus(ghost: GuiObject)
 		local label = (current :: Drag.Session).status
@@ -310,7 +328,7 @@ return function(ctx: Types.Context): Drag.Service
 			end
 		end)
 	end
-	local function releaseGhost(session: Drag.Session, accepted: boolean?)
+	local function releaseFeedbackGhost(session: Drag.Session, accepted: boolean?)
 		local ghost = session.ghost
 		if not ghost then
 			return
@@ -321,12 +339,12 @@ return function(ctx: Types.Context): Drag.Service
 			end
 			ghost:Destroy()
 		end
-		local gui, tweens = ctx.config.guiService, ctx.config.services.TweenService
+		local gui = ctx.config.guiService
 		local reduced = motion.resolve(
 			ctx.read(ctx.config.motionLevel),
 			gui ~= nil and gui.ReducedMotionEnabled == true
 		) ~= "normal"
-		if reduced or not tweens or (not accepted and not available(session.source)) or not ghost.Parent then
+		if reduced or (not accepted and not available(session.source)) or not ghost.Parent then
 			destroy()
 			return
 		end
@@ -336,29 +354,21 @@ return function(ctx: Types.Context): Drag.Service
 		point = (point or session.origin)
 			- session.pickupSize / 2
 			+ ghost.AnchorPoint * (session.previewSize :: Vector2)
-		local animated: Instance = ghost
+		local from, goal = ghost.Position, localPoint(ghost, point)
+		local scale: UIScale?
 		local stopScale: (() -> ())?
-		local goal: { Position: UDim2?, Scale: number? } = { Position = localPoint(ghost, point) }
+		local originalScale = 1
 		if accepted then
-			local scale = ghost:FindFirstChildWhichIsA("UIScale")
-			if scale == nil then
+			scale = ghost:FindFirstChildWhichIsA("UIScale")
+			if not scale then
 				local stop, mounted = ctx.runtime.mount(function()
 					return ctx.Host.UIScale {}
 				end, ghost)
 				stopScale, scale = stop, mounted :: UIScale
 			end
-			animated, goal = assert(scale), { Scale = 0 }
+			originalScale = assert(scale).Scale
 		end
-		local playback = tweens:Create(
-			animated,
-			ctx.types.TweenInfo.new(
-				ctx.metric(if accepted then "motion.fast" else "motion.durations.glide"),
-				ctx.motionStyle("scroll"),
-				ctx.types.Enum.EasingDirection.Out
-			),
-			goal
-		)
-		local completed: RBXScriptConnection?
+		local stopMotion: (() -> ())?
 		local stopped = false
 		local function stop()
 			if stopped then
@@ -366,18 +376,99 @@ return function(ctx: Types.Context): Drag.Service
 			end
 			stopped = true
 			returning[session.source] = nil
-			if completed then
-				completed:Disconnect()
+			if stopMotion then
+				stopMotion()
 			end
-			playback:Cancel()
 			if stopScale then
 				stopScale()
 			end
 			destroy()
 		end
 		returning[session.source] = stop
-		completed = playback.Completed:Connect(stop)
-		playback:Play()
+		stopMotion = travel(ctx, assert(ghost.Parent), function(progress)
+			if scale then
+				scale.Scale = originalScale * (1 - progress)
+			else
+				ghost.Position = from:Lerp(goal, progress)
+			end
+		end, stop)
+	end
+	local function releaseGhost(session: Drag.Session, accepted: boolean?, complete: () -> ())
+		if not session.spec.returnTravel and not session.travelled then
+			complete()
+			releaseFeedbackGhost(session, accepted)
+			return
+		end
+		local ghost = session.ghost
+		if not ghost then
+			complete()
+			return
+		end
+		local function destroy()
+			if session.stopPreview then
+				session.stopPreview()
+			end
+			ghost:Destroy()
+			complete()
+		end
+		local gui = ctx.config.guiService
+		local reduced = motion.resolve(
+			ctx.read(ctx.config.motionLevel),
+			gui ~= nil and gui.ReducedMotionEnabled == true
+		) ~= "normal"
+		if
+			reduced
+			or (session.travelled and accepted)
+			or (not accepted and not available(session.source))
+			or not ghost.Parent
+		then
+			destroy()
+			return
+		end
+		local point = if session.spec.returnPosition
+			then session.spec.returnPosition()
+			else session.source.AbsolutePosition + session.source.AbsoluteSize / 2
+		point = (point or session.origin)
+			- session.pickupSize / 2
+			+ ghost.AnchorPoint * (session.previewSize :: Vector2)
+		local from, goal = ghost.Position, localPoint(ghost, point)
+		local scale: UIScale?
+		local stopScale: (() -> ())?
+		local originalScale = 1
+		if accepted then
+			scale = ghost:FindFirstChildWhichIsA("UIScale")
+			if not scale then
+				local stop, mounted = ctx.runtime.mount(function()
+					return ctx.Host.UIScale {}
+				end, ghost)
+				stopScale, scale = stop, mounted :: UIScale
+			end
+			originalScale = assert(scale).Scale
+		end
+		local stopMotion: (() -> ())?
+		local stopped = false
+		local function stop()
+			if stopped then
+				return
+			end
+			stopped = true
+			returning[session.source] = nil
+			if stopMotion then
+				stopMotion()
+			end
+			if stopScale then
+				stopScale()
+			end
+			destroy()
+		end
+		returning[session.source] = stop
+		stopMotion = travel(ctx, assert(ghost.Parent), function(progress)
+			if scale then
+				scale.Scale = originalScale * (1 - progress)
+			else
+				ghost.Position = from:Lerp(goal, progress)
+			end
+		end, stop)
 	end
 	function service.finish(accepted: boolean?, reason: string?)
 		local session = current
@@ -385,6 +476,10 @@ return function(ctx: Types.Context): Drag.Service
 			return
 		end
 		current = nil
+		if session.stopTravel then
+			session.stopTravel()
+			session.stopTravel = nil
+		end
 		state:set(nil)
 		if session.stop then
 			session.stop()
@@ -397,12 +492,25 @@ return function(ctx: Types.Context): Drag.Service
 		if session.stopStatus then
 			session.stopStatus()
 		end
-		releaseGhost(session, accepted)
+		local concluded = false
+		local function conclude()
+			if concluded then
+				return
+			end
+			concluded = true
+			session.source:RemoveTag("facet-drag-held")
+			session.source:SetAttribute("FacetDragHeld", nil)
+			if session.spec.onEnd then
+				session.spec.onEnd(accepted == true, reason)
+			end
+		end
+		if accepted or not session.spec.returnTravel then
+			conclude()
+		end
+		releaseGhost(session, accepted, conclude)
 		if session.highlight then
 			session.highlight:Destroy()
 		end
-		session.source:RemoveTag("facet-drag-held")
-		session.source:SetAttribute("FacetDragHeld", nil)
 		if session.press and accepted == true then
 			local stop: (() -> ())? = nil
 			stop = assert(ctx.runtime.host.frames).onFrame(function()
@@ -411,9 +519,6 @@ return function(ctx: Types.Context): Drag.Service
 					stop()
 				end
 			end)
-		end
-		if session.spec.onEnd then
-			session.spec.onEnd(accepted == true, reason)
 		end
 	end
 	function service.hover(target: Instance?, hit: RaycastResult?)
@@ -472,6 +577,9 @@ return function(ctx: Types.Context): Drag.Service
 		if not current or current.pending then
 			return false
 		end
+		if target == nil and current.mode == "pointer" and current.position then
+			service.hover(hitTest(current.position))
+		end
 		target = target or current.target
 		if not target or not targets[target] then
 			service.finish(false, "No destination")
@@ -486,6 +594,69 @@ return function(ctx: Types.Context): Drag.Service
 				spec.onReject(session.payload, reason)
 			end
 			return false
+		end
+		if spec.travel and not session.travelled and session.ghost then
+			local ghost = session.ghost
+			local gui = ctx.config.guiService
+			local reduced = motion.resolve(
+				ctx.read(ctx.config.motionLevel),
+				gui ~= nil and gui.ReducedMotionEnabled == true
+			) ~= "normal"
+			local rect = if spec.landing
+				then spec.landing(proposal)
+				elseif destination:IsA("GuiObject") then {
+					x = destination.AbsolutePosition.X,
+					y = destination.AbsolutePosition.Y,
+					w = destination.AbsoluteSize.X,
+					h = destination.AbsoluteSize.Y,
+				}
+				else nil
+			if rect and not reduced then
+				session.pending = true
+				session.pendingTarget = destination
+				destination:SetAttribute("FacetDropState", "pending")
+				state:set(table.clone(session))
+				local from = ghost.Position
+				local previewSize = session.previewSize or session.pickupSize
+				local goalExtent = V2.new(
+					rect.w * (if session.pickupSize.X > 0 then previewSize.X / session.pickupSize.X else 1),
+					rect.h * (if session.pickupSize.Y > 0 then previewSize.Y / session.pickupSize.Y else 1)
+				)
+				local goal = localPoint(ghost, V2.new(rect.x, rect.y) + ghost.AnchorPoint * goalExtent)
+				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
+				local capturedScale = nativeScale(ghost)
+				local goalScale = if destination:IsA("GuiObject")
+					then effectiveScale(destination, nil) / nativeScale(ghost.Parent)
+					elseif session.pickupSize.Y > 0 and rect.h > 0 then capturedScale * rect.h / session.pickupSize.Y
+					else capturedScale
+				if not scaler then
+					local stop, mounted = ctx.runtime.mount(function()
+						return ctx.Host.UIScale { Scale = capturedScale }
+					end, ghost)
+					scaler = mounted :: UIScale
+					local previous = session.stopPreview
+					session.stopPreview = function()
+						if previous then
+							previous()
+						end
+						stop()
+					end
+				end
+				local movingScale = assert(scaler)
+				session.stopTravel = travel(ctx, assert(ghost.Parent), function(progress)
+					movingScale.Scale = capturedScale + (goalScale - capturedScale) * progress
+					ghost.Position = from:Lerp(goal, progress)
+					ghost.Size = localExtent(ghost, previewSize:Lerp(goalExtent, progress))
+				end, function()
+					if current ~= session then
+						return
+					end
+					session.pending = false
+					session.travelled = true
+					service.commit(destination)
+				end)
+				return true
+			end
 		end
 		local completed = false
 		proposal.complete = function(ok: boolean, why: string?): boolean
@@ -532,7 +703,9 @@ return function(ctx: Types.Context): Drag.Service
 		preview: (GuiObject | false)?,
 		pickup: { position: Vector2, source: GuiObject }?
 	)
-		service.finish(false, "Replaced by another drag")
+		if current then
+			return
+		end
 		if returning[source] then
 			returning[source]()
 		end
@@ -549,7 +722,7 @@ return function(ctx: Types.Context): Drag.Service
 			if size.X > 0 then math.clamp(offset.X / size.X, 0, 1) else 0.5,
 			if size.Y > 0 then math.clamp(offset.Y / size.Y, 0, 1) else 0.5
 		)
-		current = {
+		local created: Drag.Session = {
 			pickupSize = size,
 			pickupAnchor = anchor,
 			position = if mode == "pointer" and pickup then pickup.position else nil,
@@ -562,9 +735,10 @@ return function(ctx: Types.Context): Drag.Service
 				then spec.returnPosition()
 				else source.AbsolutePosition + source.AbsoluteSize / 2,
 		}
+		current = created
 		local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
 		if layer then
-			local session = current :: Drag.Session
+			local session = created
 			session.stopStatus = ctx.runtime.mount(function()
 				session.effectiveInput = ctx.effectiveInput()
 				local label = ctx.styled(
@@ -622,19 +796,30 @@ return function(ctx: Types.Context): Drag.Service
 				ghost:SetAttribute("FacetDragHeld", nil)
 				ghost.Name, ghost.ZIndex, ghost.AnchorPoint = "DragGhost", 1000, anchor
 				ghost:SetAttribute("FacetDragFeedback", true)
-				ghost.Size = D2.fromOffset(source.AbsoluteSize.X, source.AbsoluteSize.Y)
 				ghost.Parent = layer
-				local active = current :: Drag.Session
+				local capturedScale = effectiveScale(preview or source, layer)
+				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
+				if scaler then
+					scaler.Scale = capturedScale
+				elseif capturedScale ~= 1 then
+					created.stopPreview = ctx.runtime.mount(function()
+						return ctx.Host.UIScale { Scale = capturedScale }
+					end, ghost)
+				end
+				ghost.Size = localExtent(ghost, source.AbsoluteSize)
+				local active = created
 				active.previewSize = source.AbsoluteSize
-				ghost.Position =
-					localPoint(ghost, (current :: Drag.Session).position or (current :: Drag.Session).origin)
+				ghost.Position = localPoint(ghost, (created).position or (created).origin)
 				active.ghost = ghost
 				raiseStatus(ghost)
 			end
 		end
-		state:set(table.clone(current :: Drag.Session))
-		if spec.onStart then
-			spec.onStart(payload, mode)
+		state:set(table.clone(created))
+		local onStart = spec.onStart
+		if onStart then
+			gestureOf(ctx).capture(source, function()
+				onStart(payload, mode)
+			end)
 		end
 		local session = current
 		if not session then
@@ -744,7 +929,7 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		current.previewSize = extent
 		current.armedPreview = if current.mode == "armed" then image else nil
-		ghost.Position = localPoint(ghost, (current :: Drag.Session).position or (current :: Drag.Session).origin)
+		ghost.Position = localPoint(ghost, current.position or current.origin)
 		current.ghost = ghost
 		raiseStatus(ghost)
 	end

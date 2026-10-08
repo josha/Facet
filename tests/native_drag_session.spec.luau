@@ -144,6 +144,10 @@ return function(verifyHarness: Verify.Harness)
 					w.engine.heartbeat:Fire(1 / 60)
 					Verify.expect(string.find(text.Text, "Enter: drop", 1, true) ~= nil):toBe(true)
 					w.session.finish(false)
+					Verify.expect(w.session.state:peek()):toBeNil()
+					for _ = 1, 60 do
+						w.engine.heartbeat:Fire(1 / 120)
+					end
 					Verify.expect((w.screen:FindFirstChild("DragGhost"))):toBeNil()
 					Verify.expect((w.source:GetAttribute("FacetDragHeld"))):toBeNil()
 					w.stop()

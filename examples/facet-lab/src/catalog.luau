@@ -4031,10 +4031,17 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			"armOnTap",
 			"touchPickup",
 			"touchDragAxis",
+			"hitArea",
+			"returnTravel",
 			"operations",
 			"valid",
 			"onStart",
 			"onEnd",
+		},
+		axes = {
+			{ key = "transferScale", values = { 1, 0.75, 1.25 } } :: Axis,
+			{ key = "rejectTransfer", values = { false, true } } :: Axis,
+			{ key = "transferScrolled", values = { false, true } } :: Axis,
 		},
 		states = {
 			{ name = "without status labels", props = { statusLabels = false } } :: State,
@@ -4044,29 +4051,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return { touchPickup = "longPress", touchDragAxis = "XY" }
 		end,
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
-			local card = UI.Button({ label = "Drag me" })
-			local slot = UI.Button({ label = "Drop here" })
-			UI.draggable(card, {
-				payload = "card",
-				armOnTap = true,
+			return require("./container_transfer_demo")(UI, c.Host, c.Compose, c.types, {
+				scale = p.transferScale,
+				reject = p.rejectTransfer,
+				scrolled = p.transferScrolled,
 				touchPickup = p.touchPickup,
 				touchDragAxis = p.touchDragAxis,
 				statusLabels = p.statusLabels,
-				enabled = true,
-				operations = { "copy" :: "copy" },
-				valid = function()
-					return card.Parent ~= nil
-				end,
-				onStart = c.log("onStart"),
-				onEnd = c.log("onEnd"),
 			})
-			UI.dropTarget(slot, {
-				operation = "copy",
-				onDrop = function(payload: any, info: any)
-					c.log("onDrop")(payload, info.mode)
-				end,
-			})
-			return UI.HStack({ gap = "l", card :: unknown, slot })
 		end,
 	},
 	dropTarget = {
@@ -4078,6 +4070,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		snippet = "UI.dropTarget(slot, { onDrop = place, accepts = legal })",
 		demonstrates = {
 			"onDrop",
+			"travel",
+			"landing",
 			"accepts",
 			"onReject",
 			"onEnter",
@@ -4097,6 +4091,15 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			local full = UI.Button({ label = "Full slot" })
 			UI.draggable(card, { payload = "card" })
 			UI.dropTarget(open, {
+				travel = true,
+				landing = function()
+					return {
+						x = open.AbsolutePosition.X,
+						y = open.AbsolutePosition.Y,
+						w = open.AbsoluteSize.X,
+						h = open.AbsoluteSize.Y,
+					}
+				end,
 				label = "Open slot",
 				focusTarget = open,
 				operation = "move",
@@ -5725,6 +5728,69 @@ do
 		props = { width = 480, maxWidth = 280, Size = NONE },
 	})
 end
+
+PAGE_DATA.gestureArbiter = {
+	host = "ScrollView",
+	family = "layout",
+	alias = "Shared gesture decision",
+	purpose = "Keep a child drag and a parent pan from using the same contact.",
+	alternatives = "ZoomView and draggable consult this policy directly.",
+	snippet = "local gesture = UI.gestureArbiter(surface)",
+	demonstrates = { "begin", "move", "claim", "get", "finish" },
+	make = function(UI: FacetControls, _: Properties, c: Context): Instance
+		local surface = require("./container_transfer_demo")(UI, c.Host, c.Compose, c.types, { scrolled = true })
+		UI.gestureArbiter(surface)
+		return surface
+	end,
+}
+
+PAGE_DATA.ZoomView = {
+	family = "layout",
+	purpose = "Inspect a large board and keep the pointed cell fixed while zooming.",
+	alternatives = "Use ScrollView for content that only scrolls.",
+	snippet = "UI.ZoomView { contentSize = Vector2.new(780, 780), zoom = zoom, content = Board }",
+	base = function()
+		return { maxZoom = 4, enabled = true }
+	end,
+	axes = { { key = "maxZoom", values = { 1, 2, 4 } } :: Axis, { key = "enabled", values = { true, false } } :: Axis },
+	states = {
+		{ name = "disabled", props = { enabled = false } } :: State,
+		{ name = "fit limit", props = { maxZoom = 1 } } :: State,
+	},
+	make = function(UI: FacetControls, p: Properties, c: Context): Instance
+		return require("./zoom_travel_demo").zoom(UI, c.Host, c.Compose, p.maxZoom or 4, p.enabled ~= false)
+	end,
+}
+
+PAGE_DATA.Travel = {
+	family = "layout",
+	purpose = "Move one tile between clipped rows and show its destination.",
+	alternatives = "Use Compose motion for properties inside one container.",
+	snippet = 'UI.Travel { destination = destination, path = "arc", content = Tile }',
+	base = function()
+		return { path = "arc", many = false }
+	end,
+	axes = {
+		{ key = "path", values = { "straight", "arc" } } :: Axis,
+		{ key = "many", values = { false, true } } :: Axis,
+	},
+	states = {
+		{ name = "many items, same container", props = { many = true } } :: State,
+		{ name = "straight", props = { path = "straight" } } :: State,
+		{ name = "arc", props = { path = "arc" } } :: State,
+	},
+	make = function(UI: FacetControls, p: Properties, c: Context): Instance
+		if p.many then
+			return require("./zoom_travel_demo").many(UI, c.Host, c.Compose)
+		end
+		return require("./zoom_travel_demo").travel(
+			UI,
+			c.Host,
+			c.Compose,
+			if p.path == "straight" then "straight" else "arc"
+		)
+	end,
+}
 
 local function kindOf(id: string, data: any, UI: any): string
 	if UI[id] ~= nil then

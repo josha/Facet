@@ -1,5 +1,6 @@
 --!strict
 local Types = require("./types")
+local gestureOf = require("./gesture_service")
 
 type Gesture = {
 	origin: ScrollingFrame,
@@ -94,6 +95,7 @@ return function(
 		return
 	end
 	local E = ctx.types.Enum
+	local arbiter = gestureOf(ctx)
 	local function begin(input: InputObject)
 		if input.UserInputType ~= E.UserInputType.Touch or not frame.ScrollingEnabled then
 			return
@@ -121,6 +123,10 @@ return function(
 				end
 				if input.UserInputState == E.UserInputState.Cancel then
 					finish(input)
+					return
+				end
+				local kind = arbiter.move(input, ctx.types.Vector2.new(input.Position.X, input.Position.Y))
+				if kind == "drag" or kind == "cancelled" then
 					return
 				end
 				local travel, delta = input.Position - gesture.start, gesture.previous - input.Position

@@ -48,6 +48,8 @@ game screens and Studio plugin interfaces.
 | Show a browsable item with a picture and actions | Card, in a VirtualGrid for many items. |
 | Add operations for one row | RowActions. |
 | Drag data between separate controls or targets | draggable and dropTarget; use collection reordering for row order. |
+| Inspect a large board at different scales | ZoomView. |
+| Moving items within or between containers | Travel. Set each item's destination slot. |
 
 ## Compose in the existing screen
 
@@ -217,3 +219,22 @@ motion.
 
 World-fixed and billboard surfaces also contain flat UI. Facet does not supply
 3D layout or ray, hand or gaze input.
+
+## Tiles between containers
+
+Use `UI.draggable` and `UI.dropTarget` for an item that moves between containers.
+Use VirtualList or VirtualGrid when the target must open an insertion slot and
+reflow its other items. Use `rowDrop` for a fixed board cell. Give each tile a
+bounded `hitArea`, and use `contentOverflow = "clip"` on its collection. Keep
+paint growth inside a separate visual node.
+
+Set target `travel = true` to carry the preview to the target before the model
+changes. Supply `landing(info)` for the measured insertion rectangle. Keep the
+source and target nodes mounted through travel. The game owns validation and
+updates the source and destination models together.
+
+Use `UI.gestureArbiter(surface)` when a pan or zoom surface shares contacts with
+draggable children. Read its decision before pan or double-tap. A pending child
+contact freezes the camera. A captured drag holds the scroll ancestors. Early
+movement before long press belongs to scrolling for the complete contact.
+Keep native selection and the pickup, place and cancel commands available.

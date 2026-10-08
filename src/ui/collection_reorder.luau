@@ -7,6 +7,7 @@ local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
+local gestureOf = require("./gesture_service")
 local sessionOf = require("./drag_session")
 local DragTypes = require("./drag_types")
 local Env = require("./environment_types")
@@ -64,6 +65,8 @@ return function<V, K>(
 	local SLOP = 10
 	local reorderable = spec.reorderable == true or spec.drag ~= nil
 	local drag = sessionOf(ctx)
+	local arbiter = gestureOf(ctx)
+	local gestureOwner: GuiObject? = nil
 	local collectionId = spec.collectionId or source
 	local rowNodes: { [K]: Frame } = {}
 	local stopLocal: () -> () = function() end
@@ -142,6 +145,10 @@ return function<V, K>(
 		touchKey, touchOrigin = nil, nil
 	end
 	local function clearMove()
+		if gestureOwner then
+			arbiter.cancelOwner(gestureOwner)
+			gestureOwner = nil
+		end
 		local move, selected = moving:peek(), gui and gui.SelectedObject
 		local restore = move ~= nil and move.keyboard and selected == keyboardTarget
 		captured = nil
@@ -192,6 +199,10 @@ return function<V, K>(
 	end)
 	local function begin(key: K, position: Vector2?, quiet: boolean?, tap: boolean?): ()
 		lastTap = nil
+		local session = drag.state:peek()
+		if session and session.source ~= bodyOf() then
+			return
+		end
 		if
 			not reorderable
 			or read(sort) ~= nil
@@ -199,6 +210,22 @@ return function<V, K>(
 			or (position ~= nil and captured ~= nil and moving:peek() ~= nil)
 		then
 			return
+		end
+		if position and pendingInput then
+			local node = rowNodes[key]
+			local decision = arbiter.get(pendingInput)
+			if decision and (decision.owner ~= node or (decision.kind ~= "pending" and decision.kind ~= "drag")) then
+				return
+			end
+			if node then
+				if not decision then
+					arbiter.begin(pendingInput, node, pickupPosition or position, { pickup = "immediate" })
+				end
+				if not arbiter.claim(pendingInput, node, "drag") then
+					return
+				end
+				gestureOwner = node
+			end
 		end
 		local rows, selected = read(source), read(selection)
 		for index, item in rows do
@@ -248,7 +275,7 @@ return function<V, K>(
 			captured = if position and live then pendingInput else nil
 			local row = rowNodes[key]
 			if captured and captured.UserInputType == E.UserInputType.Touch and row and not releaseScrollers then
-				releaseScrollers = scrollLock.holdOwnedAncestors(row)
+				releaseScrollers = scrollLock.holdAncestors(row)
 			end
 			recycled = false
 			activation.consume(captured)
@@ -631,7 +658,7 @@ return function<V, K>(
 								captured = value
 								activation.consume(value)
 								if value.UserInputType == E.UserInputType.Touch and not releaseScrollers then
-									releaseScrollers = scrollLock.holdOwnedAncestors(handle)
+									releaseScrollers = scrollLock.holdAncestors(handle)
 								end
 							end
 						end
@@ -790,7 +817,7 @@ return function<V, K>(
 				and (
 					grid
 					or math.abs(axis(position) - axis(rowOrigin))
-						> math.abs(crossAxis(position) - crossAxis(rowOrigin))
+						>= math.abs(crossAxis(position) - crossAxis(rowOrigin))
 				)
 			then
 				rowDragged = true
@@ -887,7 +914,7 @@ return function<V, K>(
 					and (
 						grid
 						or math.abs(axis(position) - axis(rowOrigin))
-							> math.abs(crossAxis(position) - crossAxis(rowOrigin))
+							>= math.abs(crossAxis(position) - crossAxis(rowOrigin))
 					)
 				then
 					begin(key, position)
@@ -934,6 +961,22 @@ return function<V, K>(
 		local at: Vector3? = value.Position
 		if not reorderable or at == nil or moving:peek() ~= nil then
 			return
+		end
+		local row = rowNodes[key]
+		if
+			row
+			and (value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch)
+		then
+			if
+				not arbiter.begin(value, row, V2.new(at.X, at.Y), {
+					pickup = if value.UserInputType == E.UserInputType.Touch then "longPress" else "immediate",
+					axis = if grid then "XY" elseif horizontal then "X" else "Y",
+					scroll = true,
+				})
+			then
+				return
+			end
+			gestureOwner = row
 		end
 		if value.UserInputType == E.UserInputType.MouseButton1 then
 			if pluginGui then
@@ -1406,9 +1449,13 @@ return function<V, K>(
 		if input then
 			ctx.runtime.connect(input, "InputBegan", activation.release)
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
+				if pendingInput and value.UserInputType == E.UserInputType.MouseMovement then
+					arbiter.move(pendingInput, V2.new(value.Position.X, value.Position.Y))
+				end
 				if touchOrigin and value == pendingInput then
 					local position = V2.new(value.Position.X, value.Position.Y)
-					if (position - touchOrigin).Magnitude > SLOP then
+					local kind = arbiter.move(value, position)
+					if kind == "scroll" or kind == "pan" or (position - touchOrigin).Magnitude > SLOP then
 						disarm()
 					end
 					return
@@ -1458,6 +1505,9 @@ return function<V, K>(
 				end
 			end)
 			ctx.runtime.connect(input, "InputEnded", function(value: InputObject)
+				if gestureOwner then
+					arbiter.finish(value, gestureOwner, value.UserInputState == E.UserInputState.Cancel)
+				end
 				if value.UserInputType == E.UserInputType.MouseButton1 then
 					pressed, pressOrigin = nil, nil
 				end

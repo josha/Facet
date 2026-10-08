@@ -540,6 +540,13 @@ function example.build(ctx: any)
 	local pendingSig = Compose.cell({} :: { [string]: string })
 	local rackSig = Compose.cell({} :: { [number]: string })
 	local originSig = Compose.cell({} :: { [string]: number })
+	type MovingTile = { id: number, letter: string, slot: number?, cell: string? }
+	local movingTiles = Compose.cell({} :: { MovingTile })
+	local nextTileId = 0
+	local function newMovingTile(letter: string, slot: number): MovingTile
+		nextTileId += 1
+		return { id = nextTileId, letter = letter, slot = slot }
+	end
 	local selectedSig: OptionalNumberCell = Compose.cell(nil :: number?)
 	local scoreSig = Compose.cell(0)
 	local turnSig = Compose.cell(1)
@@ -564,7 +571,12 @@ function example.build(ctx: any)
 		for i = 1, RACK_SIZE do
 			rack[i] = dealt.rack[i]
 		end
+		local visuals: { MovingTile } = {}
+		for slot, letter in rack do
+			table.insert(visuals, newMovingTile(letter, slot))
+		end
 		ctx.runtime:batch(function()
+			movingTiles:set(visuals)
 			seedSig:set(nextSeed)
 			boardSig:set({})
 			pendingSig:set({})
@@ -698,6 +710,29 @@ function example.build(ctx: any)
 			phase = "lost" :: "lost"
 		end
 		ctx.runtime:batch(function()
+			local visuals = table.clone(movingTiles:peek())
+			local occupied: { [number]: boolean } = {}
+			for index, tile in visuals do
+				if tile.slot then
+					local placed: string? = nil
+					for key, slot in originSig:peek() do
+						if slot == tile.slot then
+							placed = key
+						end
+					end
+					if placed then
+						visuals[index] = { id = tile.id, letter = tile.letter, cell = placed }
+					else
+						occupied[tile.slot] = true
+					end
+				end
+			end
+			for slot, letter in rack do
+				if not occupied[slot] then
+					table.insert(visuals, newMovingTile(letter, slot))
+				end
+			end
+			movingTiles:set(visuals)
 			boardSig:set(nextBoard)
 			pendingSig:set({})
 			originSig:set({})
@@ -766,6 +801,8 @@ function example.build(ctx: any)
 		local function narrow()
 			return Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) })
 		end
+		local boardSlots: { [string]: GuiObject } = {}
+		local rackSlots: { [number]: GuiObject } = {}
 		local cells: { any } = { columns = SIZE, gap = "xs", aspectRatio = 1, narrow() }
 		for r = 1, SIZE do
 			for c = 1, SIZE do
@@ -798,53 +835,57 @@ function example.build(ctx: any)
 				end)
 				table.insert(
 					cells,
-					UI.ZStack(`cell{r}_{c}`)({
-						width = 44,
-						height = 44,
-						UI.Text "mark" { text = mark, textRole = "caption" :: "caption" } :: unknown,
-						UI.Button "tap" {
-							Size = UDim2.fromScale(1, 1),
-							label = function(use: Use)
-								return use(label) .. use(mark)
-							end,
-							name = function(use: Use)
-								local letter = use(label)
-								local base = if letter ~= ""
-									then `Row {r}, column {c}, {letter}`
-									else `Row {r}, column {c}`
-								local current = use(state)
-								return if current == "pending"
-									then base .. ", not submitted"
-									elseif current == "centre" then base .. ", start square"
-									else base
-							end,
-							BackgroundColor3 = function(use: Use)
-								local cellTint = use(tint)
-								return paletteColor(use, "surface"):Lerp(
-									paletteColor(use, cellTint.role),
-									cellTint.blend
-								)
-							end,
-							TextColor3 = function(use: Use)
-								return paletteColor(use, "contentStrong")
-							end,
-							TextSize = 16,
-							onActivate = function()
-								activateCell(rr, cc)
-							end,
-							Host.UIStroke "Outline" {
-								ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-								Color = function(use: Use)
+					(function()
+						local node = UI.ZStack(`cell{r}_{c}`)({
+							width = 44,
+							height = 44,
+							UI.Text "mark" { text = mark, textRole = "caption" :: "caption" } :: unknown,
+							UI.Button "tap" {
+								Size = UDim2.fromScale(1, 1),
+								label = function(use: Use)
+									return use(mark)
+								end,
+								name = function(use: Use)
+									local letter = use(label)
+									local base = if letter ~= ""
+										then `Row {r}, column {c}, {letter}`
+										else `Row {r}, column {c}`
+									local current = use(state)
+									return if current == "pending"
+										then base .. ", not submitted"
+										elseif current == "centre" then base .. ", start square"
+										else base
+								end,
+								BackgroundColor3 = function(use: Use)
+									local cellTint = use(tint)
+									return paletteColor(use, "surface"):Lerp(
+										paletteColor(use, cellTint.role),
+										cellTint.blend
+									)
+								end,
+								TextColor3 = function(use: Use)
 									return paletteColor(use, "contentStrong")
 								end,
-								Thickness = 2,
-								Enabled = function(use: Use)
-									return use(surface) == CELL_SURFACE.pending
+								TextSize = 16,
+								onActivate = function()
+									activateCell(rr, cc)
 								end,
-							} :: unknown,
-							Host.UIPadding {},
-						},
-					})
+								Host.UIStroke "Outline" {
+									ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+									Color = function(use: Use)
+										return paletteColor(use, "contentStrong")
+									end,
+									Thickness = 2,
+									Enabled = function(use: Use)
+										return use(surface) == CELL_SURFACE.pending
+									end,
+								} :: unknown,
+								Host.UIPadding {},
+							},
+						})
+						boardSlots[key] = node
+						return node
+					end)()
 				)
 			end
 		end
@@ -866,8 +907,12 @@ function example.build(ctx: any)
 			table.insert(
 				rackTiles,
 				UI.Button("rt" .. i)({
+					ref = function(node: TextButton)
+						rackSlots[slot] = node
+					end,
 					AutomaticSize = Enum.AutomaticSize.None,
-					label = label,
+					label = "·",
+					name = label,
 					enabled = enabled,
 					selected = isSelected,
 					TextSize = 16,
@@ -894,6 +939,39 @@ function example.build(ctx: any)
 				UI.Grid "board"(cells),
 				UI.Text "RackLabel" { text = "Your rack", TextWrapped = true },
 				UI.Grid "rack"(rackTiles),
+				Compose.OrderedCollection {
+					from = movingTiles,
+					key = function(tile: MovingTile)
+						return tile.id
+					end,
+					render = function(item: Readable<MovingTile>)
+						return UI.Travel {
+							destination = function(use: Use): GuiObject
+								local tile = use(item)
+								if tile.cell then
+									return assert(boardSlots[tile.cell])
+								end
+								for key, slot in use(originSig) do
+									if slot == tile.slot then
+										return assert(boardSlots[key])
+									end
+								end
+								return assert(rackSlots[tile.slot :: number])
+							end,
+							content = function(): GuiObject
+								return UI.Text {
+									Name = `movingTile{item:peek().id}`,
+									text = item:peek().letter,
+									TextXAlignment = Enum.TextXAlignment.Center,
+									TextYAlignment = Enum.TextYAlignment.Center,
+									BackgroundTransparency = 1,
+									TextSize = 16,
+									Size = UDim2.fromScale(1, 1),
+								}
+							end,
+						}
+					end,
+				},
 				UI.HStack "Actions" {
 					gap = "s",
 					width = "fill" :: "fill",

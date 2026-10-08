@@ -1,5 +1,6 @@
 --!strict
 local Shared = require("./types")
+local ZoomTravel = require("./zoom_travel_types")
 local Inputs = require("./input_types")
 local Navigation = require("./navigation_types")
 local Collections = require("./collection_types")
@@ -14,6 +15,8 @@ local Env = require("./environment_types")
 local NavigationSplitView = require("./navigation_split_view")
 
 export type Controls = {
+	ZoomView: typeof(((nil :: unknown) :: ZoomTravel.Controls).ZoomView),
+	Travel: typeof(((nil :: unknown) :: ZoomTravel.Controls).Travel),
 	NavigationSplitView: typeof(((nil :: unknown) :: NavigationSplitView.Controls).NavigationSplitView),
 	Screen: typeof(((nil :: unknown) :: Layout.LayoutControls).Screen),
 	VStack: typeof(((nil :: unknown) :: Layout.LayoutControls).VStack),
@@ -88,6 +91,7 @@ export type Controls = {
 	responder: typeof(((nil :: unknown) :: Env.EnvironmentControls).responder),
 	adjustable: typeof(((nil :: unknown) :: Inputs.InputControls).adjustable),
 	feedback: typeof(((nil :: unknown) :: Inputs.InputControls).feedback),
+	gestureArbiter: typeof(((nil :: unknown) :: Env.EnvironmentControls).gestureArbiter),
 	draggable: typeof(((nil :: unknown) :: Env.EnvironmentControls).draggable),
 	dropTarget: typeof(((nil :: unknown) :: Env.EnvironmentControls).dropTarget),
 	worldAnchor: typeof(((nil :: unknown) :: Env.EnvironmentControls).worldAnchor),

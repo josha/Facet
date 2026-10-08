@@ -202,12 +202,14 @@ controls(runtime).Text : function
 controls(runtime).TextInput : function
 controls(runtime).Toast : function
 controls(runtime).Toggle : function
+controls(runtime).Travel : function
 controls(runtime).VStack : function
 controls(runtime).ViewThatFits : function
 controls(runtime).VirtualGrid : function
 controls(runtime).VirtualList : function
 controls(runtime).Vote : function
 controls(runtime).ZStack : function
+controls(runtime).ZoomView : function
 controls(runtime).adjustable : function
 controls(runtime).badged : function
 controls(runtime).draggable : function
@@ -217,6 +219,7 @@ controls(runtime).feedback : function
 controls(runtime).fill : function
 controls(runtime).focusRing : function
 controls(runtime).focusSection : function
+controls(runtime).gestureArbiter : function
 controls(runtime).responder : function
 controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function
@@ -271,6 +274,10 @@ type Environment
 type ErrorBoundaryProps
 type Extent
 type Facet
+type GestureBinding
+type GestureDecision
+type GestureKind
+type GestureOptions
 type GridProps
 type HapticKind
 type HierarchyOptions
@@ -343,6 +350,7 @@ type ThemePackage
 type ToastOptions
 type ToastSpec
 type ToggleProps
+type TravelProps
 type Use
 type ViewThatFitsProps
 type VoteSpec
@@ -350,3 +358,6 @@ type WorldAnchor
 type WorldAnchorOptions
 type ZStackProps
 type Zone
+type ZoomControls
+type ZoomRect
+type ZoomViewProps

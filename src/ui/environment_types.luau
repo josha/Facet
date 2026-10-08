@@ -1,6 +1,7 @@
 --!strict
 local Types = require("./types")
 local Adaptive = require("./adaptive")
+local Gesture = require("./gesture_arbitration")
 
 export type SizeClass = Adaptive.SizeClass
 export type HeightClass = Adaptive.HeightClass
@@ -85,12 +86,16 @@ export type DraggableSpec = {
 	touchPickup: ("longPress" | "immediate")?,
 	touchDragAxis: ("X" | "Y" | "XY")?,
 	statusLabels: boolean?,
+	hitArea: GuiObject?,
+	returnTravel: boolean?,
 	operations: { DropOperation }?,
 	valid: (() -> boolean)?,
 	onStart: ((payload: unknown, mode: "pointer" | "armed") -> ())?,
 	onEnd: ((accepted: boolean, reason: string?) -> ())?,
 }
 export type DropTargetSpec = {
+	travel: boolean?,
+	landing: ((info: DropInfo) -> ScrollRect)?,
 	label: Types.ValueString?,
 	onDrop: ((payload: unknown, info: DropInfo) -> ()) | ((payload: unknown, info: DropInfo) -> boolean | "pending"),
 	operation: Types.Value<DropOperation>?,
@@ -116,6 +121,7 @@ export type EnvironmentControls = {
 	focusRing: (playerGui: PlayerGui) -> Frame,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
+	gestureArbiter: (surface: GuiObject) -> Gesture.Binding,
 	draggable: (source: GuiObject, spec: DraggableSpec) -> (),
 	dropTarget: (target: DropDestination, spec: DropTargetSpec) -> (),
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,

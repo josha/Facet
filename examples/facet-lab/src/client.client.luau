@@ -240,6 +240,8 @@ local handlers: { [string]: (string?) -> string } = {
 		local job = sweepJob
 		task.spawn(function()
 			local ok, result = pcall(lab_sweep.run, lab, playerGui, ids, {
+				runtime = runtime,
+				inputPriority = Facet.inputPriority.aboveFacet,
 				progress = function(row, complete)
 					job.current = row.id
 					if complete then
