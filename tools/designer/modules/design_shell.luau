@@ -9,6 +9,7 @@ type Use = <T>(Readable<T>) -> T
 local widgets = require("./widgets")
 local gallery = require("./gallery")
 local layerOutline = require("./layer_outline")
+local editorOverlay = require("./editor_overlay")
 
 local shell = {}
 
@@ -676,6 +677,13 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			row.AutomaticSize = Enum.AutomaticSize.X
 			row.Size = UDim2.fromOffset(0, 44)
 		end
+		local galleryPanel = gallery.build(Facet, runtime, kit, model, actions, options)
+		local overlays = editorOverlay.bind(Facet, runtime, kit.UI, Host, parent, {
+			menu = menu,
+			data = dataPanel,
+			transfer = transferPanel,
+			gallery = galleryPanel,
+		}, model, options)
 		return Host.Frame "FacetDesign" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Color3.fromRGB(233, 237, 245),
@@ -690,20 +698,11 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 			canvas,
 			inspector,
 			codePanel,
-			Host.Frame "ModalScrim" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Color3.fromRGB(24, 34, 54),
-				BackgroundTransparency = 0.65,
-				BorderSizePixel = 0,
-				Active = true,
-				ZIndex = 3900,
-				Visible = function(use: Use)
-					return use(model).menuTitle ~= "" or use(model).dataTitle ~= "" or use(model).transferTitle ~= ""
-				end,
-			},
+			overlays.scrim :: unknown,
+			overlays.focus :: unknown,
 			menu,
 			dataPanel,
-			gallery.build(Facet, runtime, kit, model, actions, options),
+			galleryPanel,
 			transferPanel,
 			Host.Frame "StatusBar" {
 				Position = UDim2.new(0, 0, 1, -32),

@@ -1029,6 +1029,39 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:suite("ScrollView", function()
+			verifyHarness:case(
+				"restores an initial offset after native canvas bounds arrive without overriding input",
+				{
+					id = "native_layout::ScrollView::restores an initial offset after native canvas bounds arrive without overriding input",
+					run = function()
+						local frame, engine, stop = build(nil, function(UI)
+							return UI.ScrollView({
+								CanvasPosition = require("@lune/roblox").Vector2.new(130, 0),
+								axis = "x",
+							})
+						end)
+						local V2 = engine.types.Vector2
+						frame.CanvasPosition = V2.zero
+						frame.AbsoluteWindowSize = V2.new(365, 220)
+						Verify.expect(frame.CanvasPosition):toBe(V2.zero)
+						frame.AbsoluteCanvasSize = V2.new(624, 220)
+						Verify.expect(frame.CanvasPosition):toBe(V2.new(130, 0))
+						frame.CanvasPosition = V2.new(20, 0)
+						frame.AbsoluteCanvasSize = V2.new(800, 220)
+						Verify.expect(frame.CanvasPosition):toBe(V2.new(20, 0))
+						stop()
+						frame, engine, stop = build(nil, function(UI)
+							return UI.ScrollView({ CanvasPosition = V2.new(130, 0), axis = "x" })
+						end)
+						frame.CanvasPosition = V2.zero
+						frame.InputBegan:Fire({ UserInputType = engine.types.Enum.UserInputType.Touch })
+						frame.AbsoluteWindowSize = V2.new(365, 220)
+						frame.AbsoluteCanvasSize = V2.new(624, 220)
+						Verify.expect(frame.CanvasPosition):toBe(V2.zero)
+						stop()
+					end,
+				}
+			)
 			verifyHarness:case("sizes vertical content to the scroll window with a list layout and automatic canvas", {
 				id = "native_layout::ScrollView::sizes vertical content to the scroll window with a list layout and automatic canvas",
 				run = function()

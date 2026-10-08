@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
-import fnmatch, os, subprocess, sys, pathlib
+import fnmatch, os, subprocess, sys, pathlib, tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LIST = ROOT / "tools" / "public_allowlist.txt"
@@ -36,9 +36,13 @@ def strays(paths: list[str], allows: list[str], denies: list[str]) -> list[str]:
     return out
 
 
+def working_paths(paths: list[str], root: pathlib.Path) -> list[str]:
+    return [path for path in paths if os.path.lexists(root / path)]
+
+
 def tracked() -> list[str]:
     res = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, check=True, capture_output=True)
-    return [p for p in res.stdout.decode("utf-8").split("\0") if p]
+    return working_paths([p for p in res.stdout.decode("utf-8").split("\0") if p], ROOT)
 
 
 def selftest() -> int:
@@ -52,6 +56,13 @@ def selftest() -> int:
     broad, _ = load("docs/\nartifacts/\n")
     private = ["docs/plans/goal.md", "docs/superpowers/specs/x.md", "artifacts/distribution-readiness/owner.md"]
     ok = ok and strays(private + ["docs/guide/a.md"], broad, []) == private
+    with tempfile.TemporaryDirectory(prefix="facet-public-allowlist-") as directory:
+        root = pathlib.Path(directory)
+        (root / "docs/plans").mkdir(parents=True)
+        (root / "docs/plans/present.md").write_text("private")
+        (root / "docs/plans/dangling.md").symlink_to(root / "missing.md")
+        candidates = ["docs/plans/deleted.md", "docs/plans/present.md", "docs/plans/dangling.md"]
+        ok = ok and strays(working_paths(candidates, root), broad, []) == candidates[1:]
     print("check_public_allowlist selftest:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 

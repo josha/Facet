@@ -1,5 +1,6 @@
 --!strict
 local layoutKit = require("./layout_kit")
+local dragPointer = require("./drag_pointer")
 local reducedMotion = require("./motion").reduced
 local decoration = require("./native_decoration")
 local feedbackPaint = require("./feedback_paint")
@@ -2245,12 +2246,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local dragging: boolean?
 		local snapshot: number?
 		local suppressActivation: boolean?
+		local dragOrigin: Vector2?
+		local moved = false
+		local target: number?
 		local function valueAt(position: Vector2 | Vector3): number
-			local width = root.AbsoluteSize.X
+			local width = markContent.AbsoluteSize.X
+			local origin = markContent.AbsolutePosition.X
+			if width <= 0 then
+				width, origin = root.AbsoluteSize.X, root.AbsolutePosition.X
+			end
 			if width <= 0 then
 				return read(spec.value)
 			end
-			return math.clamp(math.floor((position.X - root.AbsolutePosition.X) / width * count) + 1, 1, count)
+			return math.clamp(math.floor((position.X - origin) / width * count) + 1, 1, count)
 		end
 		local function cancel()
 			if dragging then
@@ -2295,18 +2303,27 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					DragStart = function(position)
 						if interactive() then
 							dragging, snapshot = true, read(spec.value)
-							apply(valueAt(position))
+							dragOrigin = dragPointer(ctx, position)
+							moved = false
+							target = valueAt(assert(dragOrigin))
+							apply(assert(target))
 						end
 					end,
 					DragContinue = function(position)
 						if dragging then
-							apply(valueAt(position))
+							local point = dragPointer(ctx, position)
+							moved = moved or point ~= dragOrigin
+							target = valueAt(point)
+							apply(assert(target))
 						end
 					end,
 					DragEnd = function()
 						if dragging then
 							dragging = false
 							suppressActivation = true
+							if not moved and target == snapshot and minimum == 0 then
+								apply(0)
+							end
 						end
 					end,
 				},

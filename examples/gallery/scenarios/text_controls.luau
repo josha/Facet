@@ -1,6 +1,7 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
@@ -92,15 +93,12 @@ return {
 			})
 		end
 		local function body()
-			return Host.Frame "Body" {
+			local props: StackProps = {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				gap = 16,
+
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -219,7 +217,7 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						})
 					end,
-				}),
+				}) :: any,
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -342,6 +340,7 @@ return {
 					ref = keep("Briefing"),
 				},
 			}
+			return UI.VStack "Body"(props)
 		end
 		return {
 			screen = function()

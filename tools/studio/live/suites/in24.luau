@@ -2108,4 +2108,187 @@ add("multiline-grows-with-hard-breaks", { "inputs-122" }, function(t)
 	field:ReleaseFocus()
 end)
 
+local function touchDragFixture(t: any, pickup: string?, axis: string?): any
+	local value: any = { starts = 0, taps = 0, touches = 0, contact = nil }
+	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		Compose.cleanup(function()
+			for _, name in { "began", "changed", "frames" } do
+				if value[name] then
+					value[name]:Disconnect()
+				end
+			end
+		end)
+		value.scroll = Host.ScrollingFrame "TouchDragScroll" {
+			Size = UDim2.fromOffset(340, 360),
+			Position = UDim2.fromOffset(12, 60),
+			CanvasSize = if axis == "Y" then UDim2.fromOffset(1000, 360) else UDim2.fromOffset(340, 1000),
+			ScrollingDirection = if axis == "Y" then Enum.ScrollingDirection.X else Enum.ScrollingDirection.Y,
+			BackgroundTransparency = 1,
+		}
+		value.source = UI.Button "TouchDragSource" {
+			label = "Pick up",
+			Size = UDim2.fromOffset(220, 90),
+			Position = UDim2.fromOffset(40, 100),
+			onActivate = function()
+				value.taps += 1
+			end,
+		}
+		value.source.Parent = value.scroll
+		UI.draggable(value.source, {
+			payload = "touch-live",
+			touchPickup = pickup :: any,
+			touchDragAxis = axis :: any,
+			statusLabels = false,
+			onStart = function()
+				value.starts += 1
+			end,
+		})
+		return value.scroll
+	end, { size = Vector2.new(390, 700), frames = 20 })
+	local function contact(input: InputObject)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			value.touches += 1
+			value.contact = Vector2.new(input.Position.X, input.Position.Y)
+		end
+	end
+	value.began = UserInputService.InputBegan:Connect(contact)
+	value.changed = UserInputService.InputChanged:Connect(contact)
+	value.io = device(t)
+	value.touches, value.contact = 0, nil
+	for _, name in { "down", "move", "up" } do
+		local send = value.io[name]
+		value.io[name] = function(at: Vector2)
+			send(at)
+			t.settle(if name == "up" then 4 else 2)
+		end
+	end
+	value.at = value.source.AbsolutePosition + value.source.AbsoluteSize * Vector2.new(0.1, 0.75)
+	return value
+end
+
+local function touchDragFinish(t: any, value: any)
+	value.began:Disconnect()
+	value.changed:Disconnect()
+	t.note("touch drag input", {
+		touchEvents = value.touches,
+		preferredInput = tostring(UserInputService.PreferredInput),
+		touchEnabled = UserInputService.TouchEnabled,
+		starts = value.starts,
+		activations = value.taps,
+		canvasPosition = value.scroll.CanvasPosition,
+	})
+	t.check("the engine delivered Touch input", value.touches > 0, value.touches)
+	t.check("release removes the drag preview", t.find(value.stage.Parent, "DragGhost") == nil)
+	t.check("release restores native scrolling", value.scroll.ScrollingEnabled)
+end
+
+add(
+	"draggable-immediate-touch-contact",
+	{},
+	onPhone(function(t)
+		local value = touchDragFixture(t, "immediate", "XY")
+		value.io.down(value.at)
+		local contact = assert(value.contact)
+		value.io.move(value.at + Vector2.new(5, 0))
+		t.near("the engine received five pixels of travel", (value.contact - contact).Magnitude, 5, 0.01)
+		t.check("five pixels does not pick up", value.starts == 0, value.starts)
+		value.io.move(value.at + Vector2.new(6, 0))
+		t.near("the engine received six pixels of travel", (value.contact - contact).Magnitude, 6, 0.01)
+		t.check("six pixels picks up once", value.starts == 1, value.starts)
+		t.check("pickup disables the enclosing scroller", not value.scroll.ScrollingEnabled)
+		local samples, missing, worst = 0, 0, 0
+		local function sample()
+			local ghost = t.find(value.stage.Parent, "DragGhost")
+			if ghost and t.visible(ghost) and value.contact then
+				local point = ghost.AbsolutePosition + ghost.AbsoluteSize * ghost.AnchorPoint
+				worst = math.max(worst, (point - value.contact).Magnitude)
+				samples += 1
+			else
+				missing += 1
+			end
+		end
+		sample()
+		value.frames = game:GetService("RunService").RenderStepped:Connect(sample)
+		for index = 1, 18 do
+			value.io.move(value.at + Vector2.new(6 + index * 3, index * 2))
+		end
+		value.frames:Disconnect()
+		t.note("preview contact", { samples = samples, missing = missing, worst = worst })
+		t.check("every sampled frame has a visible preview", missing == 0, missing)
+		t.check("the preview was sampled through the drag", samples >= 18, samples)
+		t.check("every preview frame keeps the contact under the finger", worst <= 1, worst)
+		value.io.up(value.at + Vector2.new(60, 36))
+		t.check("a drag does not activate its source", value.taps == 0, value.taps)
+		touchDragFinish(t, value)
+	end)
+)
+
+add(
+	"draggable-immediate-short-touch-is-tap",
+	{},
+	onPhone(function(t)
+		local value = touchDragFixture(t, "immediate", "XY")
+		value.io.down(value.at)
+		value.io.move(value.at + Vector2.new(3, 0))
+		value.io.up(value.at + Vector2.new(3, 0))
+		t.settle(4)
+		t.check("short travel never starts a pickup", value.starts == 0, value.starts)
+		t.check("short travel activates exactly once", value.taps == 1, value.taps)
+		touchDragFinish(t, value)
+	end)
+)
+
+for _, axis in { "X", "Y" } do
+	add(
+		"draggable-immediate-cross-axis-" .. axis,
+		{},
+		onPhone(function(t)
+			local value = touchDragFixture(t, "immediate", axis)
+			local delta = if axis == "X" then Vector2.new(0, -80) else Vector2.new(-80, 0)
+			value.io.down(value.at)
+			for index = 1, 12 do
+				value.io.move(value.at + delta * (index / 12))
+			end
+			t.check("cross-axis travel does not pick up", value.starts == 0, value.starts)
+			t.check(
+				"cross-axis travel remains native scrolling",
+				value.scroll.CanvasPosition.Magnitude > 10,
+				value.scroll.CanvasPosition
+			)
+			local turn = if axis == "X" then Vector2.new(40, 0) else Vector2.new(0, 40)
+			value.io.move(value.at + delta + turn)
+			t.check("the gesture cannot become a drag after choosing scrolling", value.starts == 0, value.starts)
+			value.io.up(value.at + delta + turn)
+			touchDragFinish(t, value)
+		end)
+	)
+end
+
+add(
+	"draggable-default-touch-long-press",
+	{},
+	onPhone(function(t)
+		local value = touchDragFixture(t, nil, nil)
+		value.io.drag(value.at, value.at - Vector2.new(0, 60), 10)
+		t.check("default early travel does not pick up", value.starts == 0, value.starts)
+		t.check("default early travel scrolls", value.scroll.CanvasPosition.Y > 10, value.scroll.CanvasPosition)
+		value.scroll.CanvasPosition = Vector2.zero
+		t.settle(10)
+		value.at = value.source.AbsolutePosition + value.source.AbsoluteSize * Vector2.new(0.1, 0.75)
+		value.io.down(value.at)
+		t.settle(2)
+		t.check("default does not pick up on touch down", value.starts == 0, value.starts)
+		for _ = 1, 120 do
+			if value.starts > 0 then
+				break
+			end
+			t.settle(1)
+		end
+		t.check("native long press picks up exactly once", value.starts == 1, value.starts)
+		t.check("native long press locks scrolling", not value.scroll.ScrollingEnabled)
+		value.io.up(value.at)
+		touchDragFinish(t, value)
+	end)
+)
+
 return cases

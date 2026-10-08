@@ -1847,8 +1847,6 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						}
 						ctx.styled(scroll, "panel")
 						ctx.styled(scroll, "floating")
-						ctx.styled(surface, "panel")
-						ctx.styled(surface, "floating")
 						surfaces.skin(scroll)
 						return surface
 					end, function()

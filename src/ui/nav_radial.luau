@@ -1047,7 +1047,7 @@ return function(
 												bounds.h
 											)
 										end,
-										TextWrapped = true,
+										TextWrapped = false,
 										enabled = function(use: ComposeTypes.Use)
 											return read(currentSector(use).item.enabled, use) ~= false
 										end,
@@ -1061,6 +1061,7 @@ return function(
 										end,
 										ZIndex = 105,
 									})
+									button:AddTag("facet-radial-label")
 									buttons[sector.key] = button
 									local floor = button:FindFirstChildWhichIsA("UISizeConstraint")
 									if floor then

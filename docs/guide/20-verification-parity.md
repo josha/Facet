@@ -277,7 +277,7 @@ At the producer recheck, `lune run tools/lune/verify full --explain` selected 71
 producers: 61 passed, 9 reported `FAIL_ENVIRONMENT` and 1 failed. The failure
 is `coverage`, because `tools/lune/parity_blockers.json` lists three pending
 live risks. The `FAIL_ENVIRONMENT` results are the five Studio evidence modes,
-the missing cited artifacts of `live-evidence`, and the host timing results of
+a retired observation validator, and the host timing results of
 `perf`, `bench` and the `perf-gate` evidence mode. The host ran several Roblox
 Studio sessions during the run, so its timings are not reference timings.
 
@@ -331,23 +331,23 @@ Studio sessions during the run, so its timings are not reference timings.
 | `suite` | `suite` | fast, full, release | Runs 33+1 native specs (674 cases) instead of 496 specs (10,848 cases). See the contract table. |
 | `package-selftest` | `package-selftest` | full, release |  |
 
-### Replaced producers
+### Replaced producers and retired observation checks
 
 | Main producer | Candidate producer | Tier | Note |
 |---|---|---|---|
 | `check_boundary` | `architecture` | fast, full, release | Private-require scan for examples and bench only; tests may require src/ui directly. |
 | `check_comment_codes` | `comments` | fast, full, release | Zero-comment policy replaces comment codes. |
 | `check_comment_codes-selftest` | `comments-selftest` | fast, full, release |  |
-| `check_device_captures` | `live-evidence` | full, release | check_live_evidence.py validates each record in tools/lune/parity_blockers.json: required fields, cited cases, commits and evidence class. |
-| `check_device_sweep-selftest` | `live-evidence-selftest` | full, release | live-evidence-selftest plants malformed records and requires each rule to fail. |
+| `check_device_captures` | retired | none | Owner decision: remove validation of hand-written observations. Verify live cases produce reports. |
+| `check_device_sweep-selftest` | retired | none | Owner decision: remove validation of hand-written observations. Verify live cases produce reports. |
 | `check_docs_cli` | `call-shape-drift` | full, release | native_documentation spec plus call-shape-drift, which checks every lua and luau snippet in docs against the native API. |
-| `check_eq6_evidence` | `live-evidence` | full, release | See check_device_captures. |
+| `check_eq6_evidence` | retired | none | Owner decision: remove validation of hand-written observations. Verify live cases produce reports. |
 | `check_manifest_integrity` | `replacement-cases` | fast, full, release | The gate manifest is deleted. replacement-cases reads each cited case verdict from the structured suite result, not from a grep. |
-| `check_matrix_rows` | `live-evidence` | full, release | See check_device_captures. |
+| `check_matrix_rows` | retired | none | Owner decision: remove validation of hand-written observations. Verify live cases produce reports. |
 | `check_registration_cli` | `suite` | fast, full, release |  |
-| `check_row_actions_matrix` | `live-evidence` | full, release | See check_device_captures. |
-| `check_traversal_evidence` | `live-evidence` | full, release | See check_device_captures. |
-| `check_xp_matrix` | `live-evidence` | full, release | See check_device_captures. |
+| `check_row_actions_matrix` | retired | none | Owner decision: remove validation of hand-written observations. Verify live cases produce reports. |
+| `check_traversal_evidence` | retired | none | Owner decision: remove validation of hand-written observations. Verify live cases produce reports. |
+| `check_xp_matrix` | retired | none | Owner decision: remove validation of hand-written observations. Verify live cases produce reports. |
 | `corpus_cli` | `suite` | fast, full, release | native_a11y_l10n_corpus spec in the suite: accessible names of controls and gallery demos, and a localization string corpus. |
 | `verify-selftest` | `verification-selftest` | fast, full, release |  |
 

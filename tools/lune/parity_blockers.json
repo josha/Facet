@@ -50,7 +50,7 @@
       "id": "G05",
       "sourceReference": "`scenarios/demo_tabs.luau:24`",
       "remaining": [],
-      "requiredEvidence": "A→B→A must report A and its current model without remounting A.",
+      "requiredEvidence": "A\u2192B\u2192A must report A and its current model without remounting A.",
       "cases": [
         "native_gallery_shell::native gallery shell parity::reports the selected retained leaf and propagates ancestor page visibility"
       ],
@@ -89,7 +89,7 @@
     },
     {
       "id": "G09",
-      "sourceReference": "`table_virtualized` → `collection_demo`",
+      "sourceReference": "`table_virtualized` \u2192 `collection_demo`",
       "remaining": [],
       "requiredEvidence": "Open Large table and attempt each named main task. Preserve native table virtualization and selection; replace the removed imperative facade with current control/model APIs.",
       "cases": [
@@ -120,7 +120,7 @@
     },
     {
       "id": "G12",
-      "sourceReference": "`with_animation`, `time_curves` → `motion_demo`",
+      "sourceReference": "`with_animation`, `time_curves` \u2192 `motion_demo`",
       "remaining": [],
       "requiredEvidence": "Keep Compose motion ownership; restore each page's distinct tasks. Test intermediate motion, synchronized completion, reversal, state identity and reduced-motion/informational distinction.",
       "cases": [
@@ -189,7 +189,11 @@
       "cases": [
         "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup"
       ],
-      "resolution": "Tab chrome now has explicit native ZIndex 2 above page content; fixed-height tab buttons only auto-size horizontally. Fresh native HD720 run e9b715 passed 12 pointer selections across three collections/all-controls remounts. Neutral and fantasy_ornate screenshots show the strip; native pointer selection switches the actual page. At 0fdeab repeated at 150% viewing-distance scale. See artifacts/compose-simplification/gap-closure-live.json."
+      "resolution": "Native tab chrome uses ZIndex 2 and horizontal automatic sizing. Live case needs_live/gallery-current-tab-fill-at-first-frame checks the initial tab fill; needs_live_c/nested-tabs-fit-a-short-screen checks nested tab bounds. These checks do not reconstruct the historical screenshot comparison.",
+      "liveEvidence": [
+        "needs_live/gallery-current-tab-fill-at-first-frame",
+        "needs_live_c/nested-tabs-fit-a-short-screen"
+      ]
     },
     {
       "id": "G19",
@@ -211,15 +215,9 @@
         "native_selection_parity::native selection parity with the main focus graph::passes through a scroll container with no controls to the next control in the direction of travel",
         "native_selection_parity::native selection parity with the main focus graph::never stops on a scroll container and forwards to its nearest child"
       ],
-      "resolution": "Selection rules restored natively in src/ui/selection.luau, ctx.action capture and the collection key survivor. Live routes for both sides, the divergence table and the probes are in artifacts/gamepad/gamepad-parity-live.json. Studio VirtualInput cannot send DPadUp or Tab: the routes use the left stick for Up on both sides, and the Tab check fires the Facet Traverse input action.",
+      "resolution": "The listed native_selection_parity cases cover entry, traversal, survivor and value-adjustment policy. Live case native_mechanisms_input/tab-key-traversal checks real Tab input. No live evidence remains for the paired main-versus-candidate route on every gallery and Virtual Monitors screen.",
       "liveEvidence": [
-        {
-          "artifact": "artifacts/gamepad/gamepad-parity-live.json",
-          "stamp": "1348a39f",
-          "observed": "PR alert and menu routes match main step for step after the fixes; the first D-pad press selects a control; HUD zones, tab strips and Avatar settings no longer trap; Slider D-pad adjust 40 to 45 to 50 to 45; removing Sfx selects Haptics and removing row r2 selects r3.",
-          "date": "2026-09-24",
-          "host": "Roblox Studio playtest, Xbox One emulated device 1920x1080, Controller Emulator"
-        }
+        "native_mechanisms_input/tab-key-traversal"
       ]
     }
   ],
@@ -241,7 +239,7 @@
       }
     },
     {
-      "risk": "Retained A→B→A transient/haptic/motion visibility and lifetime",
+      "risk": "Retained A\u2192B\u2192A transient/haptic/motion visibility and lifetime",
       "evidence": {
         "date": "2026-09-23",
         "host": "Roblox Studio playtest, HD 720 (1280x720), studio sync stamps ba79a813, 55cb7f23, 789ba133",
@@ -307,22 +305,6 @@
       }
     },
     {
-      "risk": "Gamepad and Tab navigation parity with the main focus graph on every gallery and Virtual Monitors screen",
-      "evidence": {
-        "date": "2026-09-24",
-        "host": "Roblox Studio playtest, Xbox One emulated device 1920x1080, Controller Emulator (keyboard keys 2, 3, 4, 9, 0, 8, R, O, Q; stick W for Up)",
-        "steps": "Injected main bc9a56a6 and the PR into one Studio place, ran the same key routes on the ten gallery demos, the alert, sheet and menu scenarios and the Virtual Monitors Discover, Avatar and Chat screens, and logged the selection after every press.",
-        "before": "Unfixed PR: no selection on the first D-pad press, stops on scroll containers, alert message and HUD zone traps, dead D-pad slider adjust and submenu entry, TabView handoff error, Avatar settings Up trap, no Tab.",
-        "after": "Fixed PR: routes in artifacts/gamepad/gamepad-parity-live.json match main's focus rules; remaining differences are content or layout differences listed in its divergences table.",
-        "headless": [
-          "native_selection_parity::native selection parity with the main focus graph::enters the screen at its first control on the first D-pad press and never moves a live selection",
-          "native_selection_parity::native selection parity with the main focus graph::walks Tab forward and Shift+Tab back in layout order and wraps at both ends",
-          "native_selection_parity::native selection parity with the main focus graph::falls to the nearest surviving neighbour when the selected control is removed",
-          "native_selection_parity::native selection parity with the main focus graph::adjusts a selected slider with the D-pad while the other axis still navigates"
-        ]
-      }
-    },
-    {
       "risk": "Haptic motor output on a physical phone for Button, selection and custom pulses",
       "evidence": {
         "date": "2026-09-24",
@@ -341,6 +323,11 @@
       "risk": "Haptic motor output on a physical gamepad for Button, selection and custom pulses",
       "owner": "The Roblox engine HapticEffect and PressHapticEffect drive the motor; Facet only issues the request.",
       "evidence": "The request is proven headless by native_inputs::native input controls::plays the application press haptic only for controls that change a state or a value, and motor output on a physical phone is recorded in resolvedLiveRisks."
+    },
+    {
+      "risk": "Gamepad and Tab navigation parity with the main focus graph on every gallery and Virtual Monitors screen",
+      "owner": "Live engine input routing needs a separate paired main-versus-candidate run.",
+      "evidence": "Gamepad and Tab navigation parity with the main focus graph on every gallery and Virtual Monitors screen has no live evidence for the full paired route; headless selection policy and narrower Verify live cases remain separate."
     }
   ]
 }

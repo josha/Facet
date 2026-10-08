@@ -131,6 +131,9 @@
         "model": {
           "$path": "model.luau"
         },
+        "dock": {
+          "$path": "dock.luau"
+        },
         "world": {
           "$path": "world.luau"
         },

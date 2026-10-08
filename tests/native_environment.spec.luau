@@ -891,6 +891,86 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("draggable and dropTarget", function()
+		verifyHarness:case("uses the same touch coordinates at long press and movement", {
+			id = "native_environment::draggable and dropTarget::uses the same touch coordinates at long press and movement",
+			run = function()
+				local w = world()
+				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				local screen, card = w.engine.new("ScreenGui"), w.engine.new("TextButton")
+				local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
+				card.Parent = screen
+				card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 64), V2.new(56, 64)
+				local stop = owned(w.runtime, function()
+					w.UI.draggable(card, { payload = 1 })
+				end)
+				local touch = {
+					UserInputType = w.Enum.UserInputType.Touch,
+					UserInputState = w.Enum.UserInputState.Begin,
+					Position = V3.new(10, 80, 0),
+				}
+				nativeDrag.press(card, touch)
+				card.TouchLongPress:Fire({ V2.new(10, 138) }, w.Enum.UserInputState.Begin)
+				local ghost = screen:FindFirstChild("DragGhost")
+				Verify.expect(ghost.Position.Y.Offset):toBe(80)
+				touch.Position = V3.new(11, 81, 0)
+				nativeDrag.move(w.input, touch)
+				Verify.expect(ghost.Position.Y.Offset):toBe(81)
+				stop()
+				w.stop()
+			end,
+		})
+		verifyHarness:case("starts immediate touch pickup after travel and preserves scrolling on the other axis", {
+			id = "native_environment::draggable and dropTarget::starts immediate touch pickup after travel and preserves scrolling on the other axis",
+			run = function()
+				for _, scrolling in { false, true } do
+					local w = world()
+					w.input.PreferredInput = w.Enum.PreferredInput.Touch
+					local screen, scroll, card =
+						w.engine.new("ScreenGui"), w.engine.new("ScrollingFrame"), w.engine.new("TextButton")
+					local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
+					scroll.Parent, card.Parent = screen, scroll
+					scroll.ScrollingEnabled = true
+					card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 64), V2.new(56, 64)
+					local stop = owned(w.runtime, function()
+						w.UI.draggable(
+							card,
+							{ payload = 1, touchPickup = "immediate", touchDragAxis = "X", armOnTap = true }
+						)
+					end)
+					local touch = {
+						UserInputType = w.Enum.UserInputType.Touch,
+						UserInputState = w.Enum.UserInputState.Begin,
+						Position = V3.new(10, 80, 0),
+					}
+					nativeDrag.press(card, touch)
+					Verify.expect(screen:FindFirstChild("DragGhost")):toBeNil()
+					touch.Position = V3.new(12, 81, 0)
+					nativeDrag.move(w.input, touch)
+					Verify.expect(screen:FindFirstChild("DragGhost")):toBeNil()
+					touch.Position = if scrolling then V3.new(12, 90, 0) else V3.new(20, 81, 0)
+					nativeDrag.move(w.input, touch)
+					local ghost = screen:FindFirstChild("DragGhost")
+					if scrolling then
+						Verify.expect(ghost):toBeNil()
+						Verify.expect(scroll.ScrollingEnabled):toBe(true)
+						touch.Position = V3.new(30, 91, 0)
+						nativeDrag.move(w.input, touch)
+						Verify.expect(screen:FindFirstChild("DragGhost")):toBeNil()
+					else
+						Verify.expect(ghost ~= nil):toBe(true)
+						Verify.expect(ghost.Position):toBe(w.engine.types.UDim2.fromOffset(20, 81))
+						Verify.expect(ghost.AnchorPoint.Y):toBe(0.25)
+						Verify.expect(scroll.ScrollingEnabled):toBe(false)
+					end
+					touch.UserInputState = w.Enum.UserInputState.End
+					nativeDrag.finish(w.input, touch)
+					Verify.expect(scroll.ScrollingEnabled):toBe(true)
+					Verify.expect(card:GetAttribute("FacetDragHeld")):toBeNil()
+					stop()
+					w.stop()
+				end
+			end,
+		})
 		local function stage()
 			local w = world()
 			local screen = w.engine.new("ScreenGui")
@@ -981,6 +1061,30 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+		verifyHarness:case("preserves detector GUI coordinates with a top bar before selecting a nested target", {
+			id = "native_environment::draggable and dropTarget::preserves detector GUI coordinates with a top bar before selecting a nested target",
+			run = function()
+				local w, screen, card, open, _, log, stop = stage()
+				local V2 = w.engine.types.Vector2
+				w.gui.GetGuiInset = function()
+					return V2.new(0, 58), V2.zero
+				end
+				local outer, inner = w.engine.new("ScrollingFrame"), w.engine.new("ScrollingFrame")
+				outer.Parent, inner.Parent, open.Parent = screen, outer, inner
+				for _, node in { outer, inner } do
+					node.AbsolutePosition, node.AbsoluteWindowSize = V2.zero, V2.new(300, 300)
+				end
+				local detector = card:FindFirstChild("FacetDragDetector")
+				detector.DragStart:Fire(V2.new(50, 20))
+				card.InputBegan:Fire(pointer(w, "MouseButton1", 20))
+				detector.DragContinue:Fire(V2.new(50, 120))
+				Verify.expect(screen:FindFirstChild("DragGhost").Position.Y.Offset):toBe(120)
+				detector.DragEnd:Fire(V2.new(50, 120))
+				Verify.expect(table.concat(log, "; ")):toBe("enter sponsor; drop sponsor Open pointer; leave sponsor")
+				stop()
+				w.stop()
+			end,
+		})
 
 		verifyHarness:case("keeps the original mouse and touch pickup point as the preview moves", {
 			id = "native_environment::draggable and dropTarget::keeps the original mouse and touch pickup point as the preview moves",
@@ -1380,6 +1484,25 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(template.Position):toBe(w.engine.types.UDim2.fromOffset(-7, -7))
 				stop()
 				Verify.expect(w ~= nil):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("paints focus glow below the selected control instead of over its glyphs", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::paints focus glow below the selected control instead of over its glyphs",
+			run = function()
+				local glowing = define({ kind = "glow" :: "glow", blurRadius = { offset = 26 }, transparency = 0.25 })
+				local w, template, stop = ring(glowing, { preferredInput = "Gamepad" })
+				local target = w.engine.new("TextButton")
+				target.Parent = w.engine.new("ScreenGui")
+				w.gui.SelectedObject = target
+				Verify.expect(template:FindFirstChild("Glow").Enabled):toBe(false)
+				local shadow = target:FindFirstChild("FacetFocusGlow")
+				Verify.expect(shadow ~= nil):toBe(true)
+				Verify.expect(shadow.Enabled):toBe(true)
+				Verify.expect(shadow.ZIndex < 0):toBe(true)
+				w.gui.SelectedObject = nil
+				Verify.expect(target:FindFirstChild("FacetFocusGlow")):toBeNil()
+				stop()
 			end,
 		})
 

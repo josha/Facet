@@ -83,7 +83,7 @@
         "native_perf::native benchmark workload contract::measures a dense HUD activation through its committed native text"
       ],
       "manualEvidence": [
-        "Live Studio source 5f1b48c3cf54727f59445e752d441dfdb2dfe3b1dc5b7a943a402dcebf032a2b: faithful dense workload reviewed at desktop 1279x720 and phone 401x777 with restored Medium text preference. Every row retains AsyncImage40, two labels, Ready Toggle44, percentage Rate Stepper and Open. Desktop rows retain 56px minima plus 4px gap; phone rows measure 379x152 with all child geometry within row bounds. Native Step, visible-row Open with matching complete KitJessup/Cobalt detail, Close, Run and Stop work. Toolbar wraps three phone rows. Largest toolbar evidence is from an earlier source; this does not claim Largest text proof for the restored dense rows. Exact observations are recorded in artifacts/compose-simplification/live-comparison.json; development simulator evidence, not a physical-device claim."
+        "No live evidence for the former source-specific dense lab layout and input review at 1279x720 and 401x777: row child bounds, native Step/Open/Close/Run/Stop, matching full detail, three-row phone toolbar and Largest toolbar. Existing headless cases and tool-produced performance captures remain."
       ]
     },
     "perf_principles": {

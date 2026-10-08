@@ -78,6 +78,65 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native gallery workflows", function()
+		verifyHarness:case("keeps restored search results between Search and the next field", {
+			id = "native_gallery_workflows::native gallery workflows::keeps restored search results between Search and the next field",
+			run = function()
+				local built, node, stop = mount("text_controls")
+				local search = find(node, "Search")
+				local body = find(node, "Body")
+				local function result()
+					for _, child in body:GetChildren() do
+						if child:IsA("TextLabel") and child.Text == "Coastal circuit" then
+							return child
+						end
+					end
+					return nil
+				end
+				Verify.expect(result().LayoutOrder > search.LayoutOrder):toBe(true)
+				local field = search:FindFirstChildWhichIsA("TextBox", true)
+				field:CaptureFocus()
+				field.Text = "no matching record"
+				field:ReleaseFocus()
+				find(search, "Clear").Activated:Fire()
+				local restored = result()
+				Verify.expect(restored ~= nil):toBe(true)
+				Verify.expect(restored.LayoutOrder > search.LayoutOrder):toBe(true)
+				Verify.expect(restored.LayoutOrder < find(node, "Laps").LayoutOrder):toBe(true)
+				stop()
+			end,
+		})
+		verifyHarness:case("allocates a natural rail slot", {
+			id = "native_gallery_workflows::native gallery workflows::allocates a natural rail slot",
+			run = function()
+				local _, node, stop, ctx, engine = mount("adaptive_controls")
+				local row = find(node, "NavRailRow")
+				Verify.expect(row:FindFirstChildWhichIsA("UIListLayout").FillDirection)
+					:toBe(ctx.types.Enum.FillDirection.Horizontal)
+				Verify.expect(find(node, "NavRail").Size.X.Offset):toBe(0)
+				Verify.expect(find(node, "NavReadout"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+					:toBe(ctx.types.Enum.UIFlexMode.Fill)
+				stop()
+			end,
+		})
+		verifyHarness:case("bounds fixed Lab previews to their room", {
+			id = "native_gallery_workflows::native gallery workflows::bounds fixed Lab previews to their room",
+			run = function()
+				local ctx, engine = nativeContext(nil)
+				local available = Compose.cell(365)
+				local factory = require("../examples/facet-lab/src/variant_cell")
+				local root
+				local close = ctx.runtime.mount(function()
+					root = factory(ctx.UI, { width = 460, height = 200 }, available)
+					return root
+				end, engine.new("ScreenGui"))
+				local bounds = assert(root:FindFirstChildWhichIsA("UISizeConstraint"))
+				Verify.expect(bounds.MaxSize.X):toBe(365)
+				available:set(300)
+				Verify.expect(bounds.MaxSize.X):toBe(300)
+				close()
+				ctx.runtime:dispose()
+			end,
+		})
 		verifyHarness:case("fits every word keyboard key and crossword rack slot in a narrow row", {
 			id = "native_gallery_workflows::native gallery workflows::fits every word keyboard key and crossword rack slot in a narrow row",
 			run = function()

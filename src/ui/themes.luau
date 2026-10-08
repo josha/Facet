@@ -236,6 +236,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			image = { defaultSize = 48 },
 			alert = { maxWidth = 560 },
 			popup = { panelWidth = 360 },
+			typography = { preferredSizeStep = 2 },
 			dialog = { wideWidth = 800 },
 			snackbar = { maxWidth = 480 },
 			radial = { narrow = 48, regular = 64, wide = 88 },
@@ -683,7 +684,7 @@ end
 
 function themes.resolveIcon(package: ThemeTypes.IconRegistry, name: string, state: ThemeTypes.SkinState?): string?
 	local assets: { [string]: ThemeTypes.Asset } = package.assets or {}
-	local entry: unknown = (package.icons or {})[name] or icons.ART[name]
+	local entry: unknown = (package.icons or {})[name] or icons.BUILTIN[name] or icons.ART[name]
 	local regular = string.match(name, "^(.+)%.fill$")
 	if entry == nil and regular then
 		return themes.resolveIcon(package, regular, state)
@@ -930,6 +931,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
+
 	for _, pair in
 		{ { "tablehead", "tableHeader" }, { "tablerow", "tableRow" }, { "tablerow-alternate", "tableRowAlternate" } }
 	do
@@ -1256,6 +1258,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
 		})
 	end
+	rule(".facet-button.facet-radial-label::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	rule(".facet-grabber", { BackgroundColor3 = c("contentSecondary"), BackgroundTransparency = 0.5 })
 	rule(".facet-menu-item", { BackgroundTransparency = 1 })
 	rule(".facet-menu-item:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
@@ -1764,6 +1772,42 @@ local function createStyleSheet(
 		end
 		return false
 	end
+	local preferredTextSize = ((runtime :: unknown) :: { [string]: unknown }).FacetTextPreference
+	local nativeTextSize: Engine.Value<unknown>? = nil
+	if preferredTextSize ~= nil then
+		local globals = getfenv(0)
+		local gui = globals.game and globals.game:GetService("GuiService")
+		if gui then
+			local source = Compose.cell(gui.PreferredTextSize)
+			nativeTextSize = source
+			local connection = gui:GetPropertyChangedSignal("PreferredTextSize"):Connect(function()
+				source:set(gui.PreferredTextSize)
+			end)
+			Compose.cleanup(function()
+				connection:Disconnect()
+			end)
+		end
+	end
+	local function textRank(value: unknown): number
+		local name = if typeof(value) == "EnumItem" then (value :: EnumItem).Name else value
+		return ({ Medium = 0, Large = 1, Larger = 2, Largest = 3 } :: { [unknown]: number })[name] or 0
+	end
+	local textRules: { [NativeRule]: { offset: number, rule: NativeRule } } = setmetatable({}, { __mode = "k" }) :: any
+	local function withTextSize(definition: NativeRule, offset: number): NativeRule
+		local size = definition.properties.TextSize
+		if offset == 0 or type(size) ~= "number" then
+			return definition
+		end
+		local cached = textRules[definition]
+		if cached and cached.offset == offset then
+			return cached.rule
+		end
+		local rule = table.clone(definition)
+		rule.properties = table.clone(definition.properties)
+		rule.properties.TextSize = math.max(1, size + offset)
+		textRules[definition] = { offset = offset, rule = rule }
+		return rule
+	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then
 		local globals = getfenv(0)
@@ -2089,11 +2133,16 @@ local function createStyleSheet(
 			sheet:SetAttribute(token, timing)
 		end
 		local preference = preferenceFor(use)
+		local typography = package.metrics.controls.typography or neutral.metrics.controls.typography
+		local textChoice = read(preferredTextSize :: any, use)
+		local textOffset = if textChoice ~= nil
+			then (textRank(textChoice) - textRank(read(nativeTextSize, use))) * typography.preferredSizeStep
+			else 0
 		local previousIds = ids:peek()
 		local structureChanged = #previousIds ~= #current
 		table.clear(definitions)
 		for index, compiledDefinition in current do
-			local definition = withPreference(compiledDefinition, preference)
+			local definition = withPreference(withTextSize(compiledDefinition, textOffset), preference)
 			definitions[definition.id] = definition
 			if previousIds[index] ~= definition.id then
 				structureChanged = true

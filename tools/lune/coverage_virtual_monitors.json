@@ -152,8 +152,7 @@
       },
       "behaviors": [
         "Actual showcase screens are mounted with the native engine boundary and driven through native events. NVM-1 proves repeated spatial waking and blocked sleeping content; NVM-2/3 responsive controls and live modal/settings state; NVM-4 async image cancellation, shimmer and deterministic chart; NVM-5 native drag-save and contextual similar actions; NVM-6 adaptive radial; NVM-7 scene failure containment; NVM-8 conversation menus and destructive touch actions; NVM-9 paging, native filtering, reorder and notes; NVM-10 tail-follow and reader retention; NVM-11 presentation remount scroll; NVM-12 selection trap/restore; NVM-13 interrupted tab animation and owner release.",
-        "Native modal source geometry transition and nested callout eligibility are also tested in native_navigation; native collection directional focus and selection are covered in native_collections. Product state is shared directly through Compose cells.",
-        "Live closure evidence is recorded in artifacts/compose-simplification/gap-closure-live.json: native emulated touch scrolling, held save and abandonment, spatial hit routing and repeated wake/overview, compact suggestions, largest-text phone/desktop layouts, short Chat, and native keyboard/gamepad activation and modal dismissal. Studio emulation is not a physical-device certification or exhaustive pixel comparison."
+        "Native modal source geometry transition and nested callout eligibility are also tested in native_navigation; native collection directional focus and selection are covered in native_collections. Product state is shared directly through Compose cells."
       ],
       "remaining": [],
       "liveRequirements": [
@@ -175,12 +174,8 @@
         "Theme typography/hero and TV default-to-Screen comparison"
       ],
       "resolution": "All eight source-proven regression groups are restored with exact native_virtual_monitors cases and Rojo build evidence; subsequent whole-card, Path2D and touch-hold regressions are also exercised. The suite currently has 27 cases. Remaining live integration checks are separate and unresolved.",
-      "liveEvidence": [
-        {
-          "artifact": "artifacts/compose-simplification/live-comparison.json",
-          "stamp": "0debf5",
-          "observed": "Stationary native pointer opens Afterlight; Done reverses108samples from1279to301width with source, parent and scroll retained. Native8-step drag saves1without openingdetail. Native Circuit suggestionid2opensCircuit and closespopup. Medium restored."
-        }
+      "manualEvidence": [
+        "No live evidence for held SaveDrag versus touch scrolling, stationary card opening and reverse expansion, Circuit suggestions, spatial hit routing and repeated waking, Largest text layouts, short Chat, or the complete Virtual Monitors keyboard/gamepad route. The existing headless cases do not prove native geometry or input routing."
       ]
     },
     "virtual_monitors_focus": {

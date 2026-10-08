@@ -609,7 +609,7 @@
     "review_cards: ledger calls it an obsolete scanner, but the card-shelf task is covered by native_gallery_collections racing shelves (G11)",
     "adaptive_presentation: the ledger says 'Image Button behavior is separately covered by native_inputs', but native_inputs has only the vertical-layout card case. The main focus lift/hover/handler-census behavior is deleted, not covered, and the caption checks lost the theme/viewport sweep.",
     "adaptive_presentation: the ledger claims 'retained page owners survive' placement changes, but no cited case counts page builds or checks Tabs/page identity across sidebar<->topBar<->bottomBar. The Gamepad->topBar rule that replaces ten-foot is untested.",
-    "adaptive_presentation: the cited cases 'keeps split primary activation…' and 'adapts automatic pickers…' are not TabView/adaptive-presentation contracts of this spec.",
+    "adaptive_presentation: the cited cases 'keeps split primary activation\u2026' and 'adapts automatic pickers\u2026' are not TabView/adaptive-presentation contracts of this spec.",
     "alert: the ledger claims validation-free coverage is complete ('remaining: []'), but unknown-key refusal, duplicate action ids, two cancel roles, the default OK action, transition key validation, the no-scroll-when-room case and the measured label-width stacking rung have no candidate test.",
     "anchored_surface: the ledger says Callout/Menu cover anchored placement, but Callout align leading/trailing, the automatic below->above flip and tail=false are untested. The cited menu cases do not assert placement.",
     "callout: the ledger lists 'eligibility' as covered, but sessions/afterSessions and a callout built with seen=true or featureUsed=true are never exercised. onRetire/closed-spec refusals and the dispose-frees-queue-slot rule are untested. The main 'use tips sparingly' doc warning was dropped without a note.",
@@ -699,10 +699,8 @@
     "mainFullTier": 130,
     "byStatus": {
       "equivalent": 52,
-      "replaced": 16,
-      "retired": 62,
-      "replaced-weaker": 0,
-      "evidence-pending": 0
+      "replaced": 9,
+      "retired": 69
     },
     "producerRecheckCommit": "84a1dd9e",
     "statusMeaning": {
@@ -913,26 +911,20 @@
       {
         "mainProducer": "check_device_captures",
         "environment": "device",
-        "status": "replaced",
-        "candidate": "live-evidence",
-        "note": "check_live_evidence.py validates each record in tools/lune/parity_blockers.json: required fields, cited cases, commits and evidence class.",
-        "tiers": [
-          "full",
-          "release"
-        ],
-        "outcome": "live-evidence FAIL_ENVIRONMENT"
+        "status": "retired",
+        "candidate": null,
+        "note": "Owner decision: remove validation of hand-written observations. Executable live cases produce Verify reports. This removed producer supplies no evidence.",
+        "tiers": [],
+        "outcome": "retired"
       },
       {
         "mainProducer": "check_device_sweep-selftest",
         "environment": "device",
-        "status": "replaced",
-        "candidate": "live-evidence-selftest",
-        "note": "live-evidence-selftest plants malformed records and requires each rule to fail.",
-        "tiers": [
-          "full",
-          "release"
-        ],
-        "outcome": "live-evidence-selftest PASS"
+        "status": "retired",
+        "candidate": null,
+        "note": "Owner decision: remove validation of hand-written observations. Executable live cases produce Verify reports. This removed producer supplies no evidence.",
+        "tiers": [],
+        "outcome": "retired"
       },
       {
         "mainProducer": "check_doc_style",
@@ -980,14 +972,11 @@
       {
         "mainProducer": "check_eq6_evidence",
         "environment": "studio",
-        "status": "replaced",
-        "candidate": "live-evidence",
-        "note": "See check_device_captures.",
-        "tiers": [
-          "full",
-          "release"
-        ],
-        "outcome": "live-evidence FAIL_ENVIRONMENT"
+        "status": "retired",
+        "candidate": null,
+        "note": "Owner decision: remove validation of hand-written observations. Executable live cases produce Verify reports. This removed producer supplies no evidence.",
+        "tiers": [],
+        "outcome": "retired"
       },
       {
         "mainProducer": "check_example_drift_cli",
@@ -1098,14 +1087,11 @@
       {
         "mainProducer": "check_matrix_rows",
         "environment": "studio",
-        "status": "replaced",
-        "candidate": "live-evidence",
-        "note": "See check_device_captures.",
-        "tiers": [
-          "full",
-          "release"
-        ],
-        "outcome": "live-evidence FAIL_ENVIRONMENT"
+        "status": "retired",
+        "candidate": null,
+        "note": "Owner decision: remove validation of hand-written observations. Executable live cases produce Verify reports. This removed producer supplies no evidence.",
+        "tiers": [],
+        "outcome": "retired"
       },
       {
         "mainProducer": "check_no_fusion",
@@ -1401,14 +1387,11 @@
       {
         "mainProducer": "check_row_actions_matrix",
         "environment": "device",
-        "status": "replaced",
-        "candidate": "live-evidence",
-        "note": "See check_device_captures.",
-        "tiers": [
-          "full",
-          "release"
-        ],
-        "outcome": "live-evidence FAIL_ENVIRONMENT"
+        "status": "retired",
+        "candidate": null,
+        "note": "Owner decision: remove validation of hand-written observations. Executable live cases produce Verify reports. This removed producer supplies no evidence.",
+        "tiers": [],
+        "outcome": "retired"
       },
       {
         "mainProducer": "check_sf_rows-artifacts-sponsor-framework-gaps-rows-sf-a1-b7f5d0",
@@ -1703,14 +1686,11 @@
       {
         "mainProducer": "check_traversal_evidence",
         "environment": "studio",
-        "status": "replaced",
-        "candidate": "live-evidence",
-        "note": "See check_device_captures.",
-        "tiers": [
-          "full",
-          "release"
-        ],
-        "outcome": "live-evidence FAIL_ENVIRONMENT"
+        "status": "retired",
+        "candidate": null,
+        "note": "Owner decision: remove validation of hand-written observations. Executable live cases produce Verify reports. This removed producer supplies no evidence.",
+        "tiers": [],
+        "outcome": "retired"
       },
       {
         "mainProducer": "check_types",
@@ -1788,14 +1768,11 @@
       {
         "mainProducer": "check_xp_matrix",
         "environment": "device",
-        "status": "replaced",
-        "candidate": "live-evidence",
-        "note": "See check_device_captures.",
-        "tiers": [
-          "full",
-          "release"
-        ],
-        "outcome": "live-evidence FAIL_ENVIRONMENT"
+        "status": "retired",
+        "candidate": null,
+        "note": "Owner decision: remove validation of hand-written observations. Executable live cases produce Verify reports. This removed producer supplies no evidence.",
+        "tiers": [],
+        "outcome": "retired"
       },
       {
         "mainProducer": "corpus_cli",
@@ -2274,11 +2251,11 @@
       "mainCases": 44,
       "class": "a",
       "candidateCases": [
-        "native_games::examples/06 crossword — the rules are pure::the bag is the 98-tile familiar multiset, with no blanks",
-        "native_games::examples/06 crossword — axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
-        "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::6 — a crossing word is unknown, and the sentence names it AND its direction",
-        "native_games::examples/06 crossword — commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING — every tile stays where the player put it",
-        "native_games::examples/06 crossword — determinism::a fixed script on a fixed seed lands on the same board, score and dump",
+        "native_games::examples/06 crossword \u2014 the rules are pure::the bag is the 98-tile familiar multiset, with no blanks",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::6 \u2014 a crossing word is unknown, and the sentence names it AND its direction",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING \u2014 every tile stays where the player put it",
+        "native_games::examples/06 crossword \u2014 determinism::a fixed script on a fixed seed lands on the same board, score and dump",
         "(44 identically named cases in native_games)",
         "native_gallery::native gallery::places and undoes a crossword rack tile without losing the rack",
         "native_parity_weaker_gallery::native parity weaker gallery::apps2-17 crossword play then dispose returns instances, connections and reactive roots to baseline"
@@ -2333,7 +2310,7 @@
       "gap": {
         "description": "The enabled formula exists but no candidate test places a tile and checks the spent slot is non-interactable.",
         "headlessTestable": true,
-        "proposedTest": "Mount 06_tile_game; activate rt1 then cell4_4/tap; expect(find(node,'rt1').Interactable).toBe(false) and its Text to be '·'; undo and expect Interactable true."
+        "proposedTest": "Mount 06_tile_game; activate rt1 then cell4_4/tap; expect(find(node,'rt1').Interactable).toBe(false) and its Text to be '\u00b7'; undo and expect Interactable true."
       },
       "closedBy": "native_parity_apps::Gallery examples::disables a spent rack slot instead of leaving a live blank button"
     },
@@ -2347,10 +2324,10 @@
       "mainCases": 22,
       "class": "a",
       "candidateCases": [
-        "native_games::examples/05 word game — the pure scoring rules::scores a plain guess with no repeated letters",
-        "native_games::examples/05 word game — validation and the two generated sets::refuses a six-letter non-word",
-        "native_games::examples/05 word game — the key ladder is monotonic::never downgrades on later, weaker evidence",
-        "native_games::examples/05 word game — the deterministic seed::the same seed always yields the same word",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::scores a plain guess with no repeated letters",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::refuses a six-letter non-word",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::never downgrades on later, weaker evidence",
+        "native_games::examples/05 word game \u2014 the deterministic seed::the same seed always yields the same word",
         "(all 22 identically named cases in native_games)"
       ]
     },
@@ -2364,11 +2341,11 @@
       "mainCases": 19,
       "class": "a",
       "candidateCases": [
-        "native_games::examples/05 word game — the state machine::starts on a visible seven-by-six board with a caret in the first cell",
-        "native_games::examples/05 word game — the state machine::wins when the solution is submitted, and opens the results card",
-        "native_games::examples/05 word game — the state machine::loses after SEVEN accepted wrong guesses and reveals the word",
-        "native_games::examples/05 word game — the state machine::input is dead after the game ends, except restart",
-        "native_games::examples/05 word game — the state machine::every tile paints a REAL tint — the plate is never invisible",
+        "native_games::examples/05 word game \u2014 the state machine::starts on a visible seven-by-six board with a caret in the first cell",
+        "native_games::examples/05 word game \u2014 the state machine::wins when the solution is submitted, and opens the results card",
+        "native_games::examples/05 word game \u2014 the state machine::loses after SEVEN accepted wrong guesses and reveals the word",
+        "native_games::examples/05 word game \u2014 the state machine::input is dead after the game ends, except restart",
+        "native_games::examples/05 word game \u2014 the state machine::every tile paints a REAL tint \u2014 the plate is never invisible",
         "(19 identically named state-machine cases in native_games)",
         "native_gallery::native gallery::types, submits and restarts the retained word game through native input"
       ]
@@ -2383,7 +2360,7 @@
       "mainCases": 1,
       "class": "a",
       "candidateCases": [
-        "native_games::examples/05 word game — the state machine::tears down to a registry baseline after dispose",
+        "native_games::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose",
         "native_parity_strength_lifetime::lifetime parity strength::returns every game to its instance connection and owner baseline after play"
       ]
     },
@@ -2455,7 +2432,7 @@
       "mainCases": 1,
       "class": "b",
       "nativeMechanism": "Engine text measurement and GuiService.PreferredTextSize scaling on UI.Label",
-      "nativeEvidence": "None for the board. artifacts/compose-simplification/gap-closure-live.json mainLargest/largestText screenshots cover Virtual Monitors only.",
+      "nativeEvidence": "Live case coverage: classb_examples/word-board-holds-glyphs-at-every-text-size. The report states its actual scope.",
       "liveEvidence": {
         "host": "Roblox Studio playtest, 1519x754 viewport, Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
         "artifacts": [
@@ -2498,7 +2475,7 @@
       "gap": {
         "description": "Control-level TextInput commit/validation is tested in native_inputs, but no test drives the tutorial: typing updates Preview without Result, Enter/FocusLost commits Result, a letter is rejected.",
         "headlessTestable": true,
-        "proposedTest": "mountExample('01_temperature_converter'); editor=find TextBox; CaptureFocus; Text='212': expect Preview text contains '100' and Result 'Result: —'; FocusLost.fire(true): expect Result 'Result: 100 °C'; Text='21a': expect Text reverted and Preview unchanged; FocusLost(false) commits; Clear resets all three; assert no Stepper/Convert button exists."
+        "proposedTest": "mountExample('01_temperature_converter'); editor=find TextBox; CaptureFocus; Text='212': expect Preview text contains '100' and Result 'Result: \u2014'; FocusLost.fire(true): expect Result 'Result: 100 \u00b0C'; Text='21a': expect Text reverted and Preview unchanged; FocusLost(false) commits; Clear resets all three; assert no Stepper/Convert button exists."
       },
       "closedBy": "native_parity_apps::Gallery examples::converts only numeric Fahrenheit, previews live and commits on Enter or focus loss"
     },
@@ -2551,7 +2528,7 @@
     {
       "id": "apps2-32",
       "group": "focus-selection",
-      "title": "Playlist gamepad/keyboard routes: activate filter field, selection follows focus, d-pad past rating into tray, Left selects edit ⊖",
+      "title": "Playlist gamepad/keyboard routes: activate filter field, selection follows focus, d-pad past rating into tray, Left selects edit \u2296",
       "mainSpecs": [
         "examples_gallery"
       ],
@@ -2583,7 +2560,7 @@
         ],
         "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
       },
-      "weaker": "Every visible control in every demo is reachable by real Gamepad1 D-pad and stick input (gamepad_walk/reach-*). Main also asserted the exact order of each route and behaviour this walk does not drive: Playlist gamepad/keyboard routes: activate filter field, selection follows focus, d-pad past rating into tray, Left selects edit ⊖."
+      "weaker": "Every visible control in every demo is reachable by real Gamepad1 D-pad and stick input (gamepad_walk/reach-*). Main also asserted the exact order of each route and behaviour this walk does not drive: Playlist gamepad/keyboard routes: activate filter field, selection follows focus, d-pad past rating into tray, Left selects edit \u2296."
     },
     {
       "id": "apps2-33",
@@ -2669,14 +2646,14 @@
       "gap": {
         "description": "The Table has no double-click distinction: collection_table.luau:465 calls selectRow and onActivate on every activation, so a single click both selects and plays, contradicting the example's hint. Nothing tests activa...",
         "headlessTestable": true,
-        "proposedTest": "Mount the playlist; fire one RowHit.Activated with a MouseButton1 input: expect selection set and nowPlaying nil; fire two within the double-click window: expect NowPlaying text 'Now playing — <track>'; built.restore(): expect 'Nothing playing'."
+        "proposedTest": "Mount the playlist; fire one RowHit.Activated with a MouseButton1 input: expect selection set and nowPlaying nil; fire two within the double-click window: expect NowPlaying text 'Now playing \u2014 <track>'; built.restore(): expect 'Nothing playing'."
       },
       "closedBy": "native_parity_apps::Playlist example::plays on a double click Return or touch tap while a single or slow click only selects"
     },
     {
       "id": "apps2-38",
       "group": "row-actions",
-      "title": "Edit mode on touch/phone: Edit toggle, ≡ gutter handle reorder, ⊖ removes, additive multi-select",
+      "title": "Edit mode on touch/phone: Edit toggle, \u2261 gutter handle reorder, \u2296 removes, additive multi-select",
       "mainSpecs": [
         "examples_gallery"
       ],
@@ -3237,8 +3214,8 @@
         "native_gallery::native gallery::types, submits and restarts the retained word game through native input",
         "native_gallery::native gallery::places and undoes a crossword rack tile without losing the rack",
         "native_gallery_workflows::native gallery workflows::fits every word keyboard key and crossword rack slot in a narrow row",
-        "native_games::examples/05 word game — the state machine::wins when the solution is submitted, and opens the results card",
-        "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too",
+        "native_games::examples/05 word game \u2014 the state machine::wins when the solution is submitted, and opens the results card",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too",
         "native_parity_weaker_gallery::native parity weaker gallery::apps2-66 word game types, deletes and wins through pointer and touch key activations",
         "native_parity_weaker_gallery::native parity weaker gallery::apps2-66 crossword selects then places, undoes and explains an empty submit through touch",
         "native_parity_weaker_gallery::native parity weaker gallery::apps2-66 match-3 touch taps on two adjacent tiles land on the same board as the swap API"
@@ -3254,8 +3231,8 @@
       "mainCases": 3,
       "class": "a",
       "candidateCases": [
-        "native_games::examples/05 word game — the state machine::tears down to a registry baseline after dispose",
-        "native_games::examples/06 crossword — robustness::tears down to a registry baseline after dispose",
+        "native_games::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose",
+        "native_games::examples/06 crossword \u2014 robustness::tears down to a registry baseline after dispose",
         "native_games::examples/07 native Match3 parity::keeps tile identity while a valid swap travels between endpoints",
         "native_parity_strength_lifetime::lifetime parity strength::returns every game to its instance connection and owner baseline after play",
         "native_parity_strength_lifetime::lifetime parity strength::resets the match-three machine mid-cascade without a retiring tile or frame hook"
@@ -3271,7 +3248,7 @@
       "mainCases": 5,
       "class": "b",
       "nativeMechanism": "GuiService.SelectedObject engine directional selection and GuiButton.Activated on Return/ButtonA",
-      "nativeEvidence": "none for these examples (native selection geometry is not simulated by the fake engine; no live entry in parity_blockers.json or gap-closure-live.json for games)",
+      "nativeEvidence": "Live case coverage: sweep_b/demo-sweep-desktop, sweep_b/demo-sweep-phone, gamepad_walk/gallery-dpad-walk, gamepad_walk/reach-all-controls, gamepad_walk/reach-collections, gamepad_walk/reach-motion-layout, gamepad_walk/reach-hud, gamepad_walk/reach-radial-menu, gamepad_walk/reach-ex02, gamepad_walk/reach-ex03, gamepad_walk/reach-ex05, gamepad_walk/reach-ex06, gamepad_walk/reach-ex07. The report states its actual scope.",
       "liveEvidence": {
         "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
@@ -3704,7 +3681,7 @@
       "mainCases": 2,
       "class": "b",
       "nativeMechanism": "UI.Sheet presentation layer and native ZIndex",
-      "nativeEvidence": "parity_blockers.json G18 resolution: 'Tab chrome now has explicit native ZIndex 2 above page content' with gap-closure-live.json G18; not specific to the Settings sheet.",
+      "nativeEvidence": "Live case coverage: in47/settings-sheet-stays-over-demo. The report states its actual scope.",
       "liveEvidence": {
         "host": "Roblox Studio playtest, source stamps 4d4882ca-3502073 (keyboard, touch and gamepad passes) and f38943a2-3473544 (the device-switch sessions); desktop 1519x754 and the Xbox One emulator 1919x1080 (gui inset 87) with KeyboardAndMouse, the iPhone 14 emulator in portrait with Touch, and Studio's Controller Emulator (Virtual Controller) for real Gamepad1 input; Medium text; input sent with UserInputService:CreateVirtualInput()",
         "artifacts": [
@@ -4728,11 +4705,11 @@
       "mainCases": 6,
       "class": "a",
       "candidateCases": [
-        "native_perf_runner::perf runner — record schema (§14.3)::produces a schema-complete record for a tiny scene",
-        "native_perf_runner::perf runner — budget enforcement (§16.1)::flags an over-budget reference-device scene",
-        "native_perf_runner::perf runner — budget enforcement (§16.1)::passes an in-budget scene (and ignores non-reference devices)",
-        "native_perf_runner::perf runner — shape determinism (§15.2)::records the same field set and phase set across two runs",
-        "native_perf_runner::perf runner — shape determinism (§15.2)::run() covers the full scene×profile matrix with a stable key set",
+        "native_perf_runner::perf runner \u2014 record schema (\u00a714.3)::produces a schema-complete record for a tiny scene",
+        "native_perf_runner::perf runner \u2014 budget enforcement (\u00a716.1)::flags an over-budget reference-device scene",
+        "native_perf_runner::perf runner \u2014 budget enforcement (\u00a716.1)::passes an in-budget scene (and ignores non-reference devices)",
+        "native_perf_runner::perf runner \u2014 shape determinism (\u00a715.2)::records the same field set and phase set across two runs",
+        "native_perf_runner::perf runner \u2014 shape determinism (\u00a715.2)::run() covers the full scene\u00d7profile matrix with a stable key set",
         "native_perf_runner::perf runner settle boundary::settles after each warmup and sample before the next event",
         "native_parity_strength_textperf::performance lab evidence::the perf runner counts live native connections for an engine scene"
       ],
@@ -5315,7 +5292,7 @@
       "gap": {
         "description": "radial_geometry only checks corner arc angles; no mounted test places a corner preset in a short viewport and checks button bounds, >=44 size, non-overlap, or activation.",
         "headlessTestable": true,
-        "proposedTest": "For each corner preset and Modal.AbsoluteSize 469x209 and 800x650, appearance=\"buttons\", 3 items: expect Presentation==\"radial\"; for each item button expect Size.X.Offset>=44 and Position±Size/2 within Modal.AbsoluteSize, no pair overlapping; Activated on first fires onSelect once."
+        "proposedTest": "For each corner preset and Modal.AbsoluteSize 469x209 and 800x650, appearance=\"buttons\", 3 items: expect Presentation==\"radial\"; for each item button expect Size.X.Offset>=44 and Position\u00b1Size/2 within Modal.AbsoluteSize, no pair overlapping; Activated on first fires onSelect once."
       },
       "closedBy": "native_parity_apps::RadialMenu::keeps corner rings of round buttons inside short and tall surfaces"
     },
@@ -6562,18 +6539,7 @@
       "mainCases": 1,
       "class": "b",
       "nativeMechanism": "GuiService.SelectedObject directional navigation over native tab buttons",
-      "nativeEvidence": "artifacts/compose-simplification/gap-closure-live.json nativeGamepad: 'Avatar to Chat directional tab selection', 'DPadDown from tabs into message collection' (Studio virtual controller). No headless test; the coach m...",
-      "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
-        "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
-        ],
-        "cases": [
-          "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
-        ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
+      "nativeEvidence": "No live evidence for this exact claim.",
       "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
     },
     {
@@ -6662,18 +6628,7 @@
       "mainCases": 4,
       "class": "b",
       "nativeMechanism": "GuiService.SelectedObject engine directional selection with SelectionGroup/SelectionBehavior and UIPageLayout paging",
-      "nativeEvidence": "Headless: NVM-2 asserts settings SelectionGroup=true and SelectionBehavior*=Stop. Live: artifacts/compose-simplification/gap-closure-live.json nativeGamepad (DPad tab/collection traversal, Return activates tab). No ev...",
-      "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
-        "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
-        ],
-        "cases": [
-          "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
-        ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
+      "nativeEvidence": "No live evidence for this exact claim.",
       "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
     },
     {
@@ -6701,18 +6656,7 @@
       "mainCases": 4,
       "class": "b",
       "nativeMechanism": "Native gamepad selection (GuiService.SelectedObject, SelectionGroup) and GuiButton.Activated on ButtonA",
-      "nativeEvidence": "Headless: NVM-2 SelectionGroup/SelectionBehavior Stop; NVM-Avatar drives stepper/slider via native FacetIncrease/FacetDecrease actions with SelectedObject set. Live: artifacts/compose-simplification/gap-closure-live.j...",
-      "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
-        "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
-        ],
-        "cases": [
-          "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
-        ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
+      "nativeEvidence": "No live evidence for the exact Virtual Monitors gamepad route. Headless NVM-2 and NVM-Avatar cover selection traps and control actions; they do not prove directional geometry.",
       "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
     },
     {
@@ -6739,7 +6683,7 @@
       "mainCases": 1,
       "class": "b",
       "nativeMechanism": "Native selection over Selectable GuiObjects; layout via UIListLayout/AutomaticSize",
-      "nativeEvidence": "artifacts/compose-simplification/gap-closure-live.json spatialTouch/phoneTouch and mainLargest (iPhone17Pro portrait Avatar/Chat inline screenshots). No headless assertion.",
+      "nativeEvidence": "Live case coverage: classb_showcase/vm-phone-avatar-and-assistant. The report states its actual scope.",
       "liveEvidence": {
         "host": "Roblox Studio playtest, 1519x754 viewport, Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
         "artifacts": [
@@ -6788,18 +6732,7 @@
       "mainCases": 3,
       "class": "b",
       "nativeMechanism": "Engine GuiService selection over the live Instance tree (no post-present focus graph build); UIGridLayout geometry for 2D navigation",
-      "nativeEvidence": "None specific; ledger retiredAssertions notes live gamepad routing remains an engine integration check. artifacts/compose-simplification/gap-closure-live.json nativeGamepad covers DPadDown from tabs into a collection ...",
-      "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
-        "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
-        ],
-        "cases": [
-          "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
-        ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
+      "nativeEvidence": "No live evidence for this exact claim.",
       "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
     },
     {
@@ -6812,7 +6745,7 @@
       "mainCases": 3,
       "class": "b",
       "nativeMechanism": "Native AutomaticSize.Y detail column inside the AlertModal panel/ScrollingFrame",
-      "nativeEvidence": "None headless (fake engine does no layout). Ledger liveRequirements lists 'detail scroll clipping' as root-owned Studio screenshots still required; artifacts/compose-simplification/gap-closure-live.json mainLargest in...",
+      "nativeEvidence": "Live case coverage: classb_showcase/vm-detail-information-scrolls. The report states its actual scope.",
       "liveEvidence": {
         "host": "Roblox Studio playtest, 1519x754 viewport, Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
         "artifacts": [
@@ -6973,7 +6906,7 @@
     {
       "id": "apps-07",
       "group": "reference-apps",
-      "title": "Provision purchase command phases (pending 'Confirming…', confirm counts up, scripted declined, price string from service)",
+      "title": "Provision purchase command phases (pending 'Confirming\u2026', confirm counts up, scripted declined, price string from service)",
       "mainSpecs": [
         "reference/glade_spec"
       ],
@@ -6987,7 +6920,7 @@
       "gap": {
         "description": "commerce.buyPack pending/confirmed/declined phases and satchel increment are never exercised by a candidate case.",
         "headlessTestable": true,
-        "proposedTest": "world(glade); steps.buy(packId); assert commerce.status(packId)=='pending' and Buy button label 'Confirming…' and disabled; advance(COMMAND_SECONDS) -> 'confirmed', satchelOf(nectar) += quantity; second buy -> 'rejected' with reason 'declined'; Buy label equals commerce.priceOf(packId)."
+        "proposedTest": "world(glade); steps.buy(packId); assert commerce.status(packId)=='pending' and Buy button label 'Confirming\u2026' and disabled; advance(COMMAND_SECONDS) -> 'confirmed', satchelOf(nectar) += quantity; second buy -> 'rejected' with reason 'declined'; Buy label equals commerce.priceOf(packId)."
       },
       "closedBy": "native_parity_apps::Glade::runs a provision purchase through pending, confirmed and the scripted decline on its Buy button"
     },
@@ -7155,7 +7088,7 @@
       ],
       "apiPromise": "docs/guide/04-tutorial-examples.md 'Reference applications' section: 'care for a glade ... watch the supply'",
       "gap": {
-        "description": "Overview keyed list, 'Dew x · Nectar y' text and case-insensitive search formula are untested (the 'nothing matches' message was deleted).",
+        "description": "Overview keyed list, 'Dew x \u00b7 Nectar y' text and case-insensitive search formula are untested (the 'nothing matches' message was deleted).",
         "headlessTestable": true,
         "proposedTest": "world(glade); assert Glades column children order == seed.GLADES ids; states text shows full/low/empty seeds; model search 'MOSS' -> only mossholm entry remains; 'zzz' -> zero entries."
       },
@@ -7603,7 +7536,7 @@
       ],
       "mainCases": 1,
       "class": "c",
-      "removal": "CAND BrewDetail shows ' · N s'; M:SS formatter view deleted."
+      "removal": "CAND BrewDetail shows ' \u00b7 N s'; M:SS formatter view deleted."
     },
     {
       "id": "apps-46",
@@ -8154,7 +8087,7 @@
       ],
       "mainCases": 2,
       "class": "c",
-      "removal": "Rewards view deleted; CAND caption is a fixed English 'N stamps · ...'."
+      "removal": "Rewards view deleted; CAND caption is a fixed English 'N stamps \u00b7 ...'."
     },
     {
       "id": "apps-81",
@@ -9208,7 +9141,7 @@
         "native_selection_parity::native selection parity with the main focus graph::moves a removed collection row's selection to the following key, then the preceding one",
         "native_selection_parity::native selection parity with the main focus graph::takes the selection back from an engine fallback when the selected row's key is removed"
       ],
-      "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json"
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "apps-148",
@@ -9403,7 +9336,12 @@
         "native_selection_parity::native selection parity with the main focus graph::skips hidden, disabled and removed controls and rereads the order on the next press",
         "native_selection_parity::native selection parity with the main focus graph::traps Tab inside a modal and restores the launching control when it closes"
       ],
-      "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json",
+      "liveEvidence": {
+        "cases": [
+          "native_mechanisms_input/tab-key-traversal"
+        ],
+        "observed": "The interactive case checks one real forward Tab move from A to B. Headless candidateCases cover reverse traversal, wrap, skip and modal policy; this live case does not prove those wider claims."
+      },
       "restoredBy": "parity/gamepad",
       "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: Studio VirtualInput cannot send Tab, so the live check fires the Facet Traverse input action; Shift+Tab is headless only. Group-crossing rules follow the modal or screen scope, not main navigation groups."
     },
@@ -9422,7 +9360,7 @@
         "native_selection_parity::native selection parity with the main focus graph::enters at the first eligible control and inside an open modal",
         "native_selection_parity::native selection parity with the main focus graph::enters the screen at its first control on the first D-pad press and never moves a live selection"
       ],
-      "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json"
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "apps-160",
@@ -9864,7 +9802,7 @@
         "native_selection_parity::native selection parity with the main focus graph::moves a removed collection row's selection to the following key, then the preceding one",
         "native_selection_parity::native selection parity with the main focus graph::takes the selection back from an engine fallback when the selected row's key is removed"
       ],
-      "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json"
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "apps-186",
@@ -15185,9 +15123,9 @@
         "native_selection_parity::native selection parity with the main focus graph::moves a removed collection row's selection to the following key, then the preceding one",
         "native_selection_parity::native selection parity with the main focus graph::takes the selection back from an engine fallback when the selected row's key is removed"
       ],
-      "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json",
       "restoredBy": "parity/gamepad",
-      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The nearest-survivor rule is restored for keyed rows. The focusPolicy field and its index policy stay removed; the owner decision (2 in docs/guide/21-retirements.md) restores the survivor rule and does not decide the field."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The nearest-survivor rule is restored for keyed rows. The focusPolicy field and its index policy stay removed; the owner decision (2 in docs/guide/21-retirements.md) restores the survivor rule and does not decide the field.",
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "collections-261",
@@ -15903,8 +15841,8 @@
         "native_selection_parity::native selection parity with the main focus graph::moves a removed collection row's selection to the following key, then the preceding one",
         "native_selection_parity::native selection parity with the main focus graph::takes the selection back from an engine fallback when the selected row's key is removed"
       ],
-      "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json",
-      "restoredBy": "parity/gamepad"
+      "restoredBy": "parity/gamepad",
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "inputs-01",
@@ -18385,7 +18323,7 @@
       "gap": {
         "description": "No test reads Rating glyph text.",
         "headlessTestable": true,
-        "proposedTest": "v=Compose.cell(2); world(UI.Rating{value=v}); expect Level2.Text '★' and Level3.Text '☆'; v:set(4) -> Level3 '★' same instance."
+        "proposedTest": "v=Compose.cell(2); world(UI.Rating{value=v}); expect Level2.Text '\u2605' and Level3.Text '\u2606'; v:set(4) -> Level3 '\u2605' same instance."
       },
       "closedBy": "native_parity_controls::native parity controls::publishes level values inside the declared run and paints glyphs in place"
     },
@@ -25024,7 +24962,7 @@
       ],
       "mainCases": 1,
       "class": "c",
-      "removal": "env viewingDistance and alert.resolveStacked(…, 'ten-foot', …) are deleted. The CAND stacked rule is #actions>2, offer<480 or measured label width (nav_surfaces.luau). No ten-foot promise in api.md."
+      "removal": "env viewingDistance and alert.resolveStacked(\u2026, 'ten-foot', \u2026) are deleted. The CAND stacked rule is #actions>2, offer<480 or measured label width (nav_surfaces.luau). No ten-foot promise in api.md."
     },
     {
       "id": "navigation-1-16",
@@ -25039,7 +24977,7 @@
       "candidateCases": [
         "native_parity_navigation::native parity navigation::lays out alert actions in a row with the cancel action first and stacks them for long labels"
       ],
-      "apiPromise": "nav_surfaces.luau binds FillDirection/Size/LayoutOrder to the 'stacked' formula, so actions persist. api.md Alert: 'The control owns the initial selection…'.",
+      "apiPromise": "nav_surfaces.luau binds FillDirection/Size/LayoutOrder to the 'stacked' formula, so actions persist. api.md Alert: 'The control owns the initial selection\u2026'.",
       "gap": {
         "description": "No test changes the AlertModal size while the alert is open and asserts the same action instances and selection survive the row<->stack flip.",
         "headlessTestable": true,
@@ -25818,7 +25756,7 @@
         "native_parity_navigation::native parity navigation::keeps device names out of the control sources",
         "native_parity_weaker_pointer::adaptive environment strength::keeps device names and platform branches out of the framework and example sources"
       ],
-      "apiPromise": "AGENTS.md §6 forbids branching on a device name; CAND nav_surfaces.luau Callout.",
+      "apiPromise": "AGENTS.md \u00a76 forbids branching on a device name; CAND nav_surfaces.luau Callout.",
       "gap": {
         "description": "No candidate test scans src/ui for platform names.",
         "headlessTestable": true,
@@ -25874,7 +25812,7 @@
       "candidateCases": [
         "native_parity_navigation::native parity navigation::keeps the callout scenario reset chip on screen at the 44 pixel floor and resets the session"
       ],
-      "apiPromise": "examples/gallery/scenarios/callout.luau pick('Reset', …) chip.",
+      "apiPromise": "examples/gallery/scenarios/callout.luau pick('Reset', \u2026) chip.",
       "gap": {
         "description": "Not asserted by candidate.",
         "headlessTestable": true,
@@ -26730,23 +26668,14 @@
       ],
       "mainCases": 6,
       "class": "a",
-      "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest of the Facet Showcase built from parity/menu, own place file, virtual mouse input",
-        "artifacts": [
-          "artifacts/captures/menu/menu-live.json"
-        ],
-        "cases": [
-          "menu-live/one-card"
-        ],
-        "observed": "The anchored panel is one card with a radius 12 corner, a hairline stroke, flat rows and hairlines between adjacent rows; checked and selected rows fill with accent under a white label."
-      },
       "previousClass": "b",
       "candidateCases": [
         "native_menu_parity::native menu parity with main::draws the anchored panel as one card with one hairline between each pair of rows",
         "native_menu_parity::native menu parity with main::keeps the sheet rows spaced and unruled, since the card is a presentation branch",
         "native_menu_parity::native menu parity with main::paints a selected row with the accent under an onAccent label at 4.5:1 or better"
       ],
-      "restoredBy": "parity/menu"
+      "restoredBy": "parity/menu",
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "navigation-2-49",
@@ -26766,16 +26695,7 @@
         "native_menu_parity::native menu parity with main::slides sheet submenus forward on entry and backward on Back; reduced=true"
       ],
       "restoredBy": "parity/menu",
-      "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest of the Facet Showcase built from parity/menu, own place file, virtual mouse input",
-        "artifacts": [
-          "artifacts/captures/menu/menu-live.json"
-        ],
-        "cases": [
-          "menu-live/materialize-and-dismiss"
-        ],
-        "observed": "Each level scales 0.96 to 1 with a fade from the corner where it hangs and dips out faster; sheet rows slide +32 to 0 on entry and -32 to 0 on Back; reduced motion removes both."
-      }
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "navigation-2-50",
@@ -31682,16 +31602,7 @@
         "native_menu_parity::native menu parity with main::refuses label and trigger together"
       ],
       "restoredBy": "parity/menu",
-      "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest of the Facet Showcase built from parity/menu, own place file, virtual mouse input",
-        "artifacts": [
-          "artifacts/captures/menu/menu-live.json"
-        ],
-        "cases": [
-          "menu-live/trigger-and-callbacks"
-        ],
-        "observed": "A right-click and a left-click on an authored Button trigger open the menu, and the menu returns that Button."
-      }
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "paint-62",
@@ -32744,7 +32655,7 @@
       ],
       "mainCases": 1,
       "class": "c",
-      "removal": "guide 10: 'A valid recipe with unavailable art still fails visually' — no fallback promised."
+      "removal": "guide 10: 'A valid recipe with unavailable art still fails visually' \u2014 no fallback promised."
     },
     {
       "id": "paint-134",
@@ -33048,7 +32959,7 @@
       ],
       "mainCases": 3,
       "class": "c",
-      "removal": "Runtime refusal retired; media_types TextRole is a typed singleton union checked by tools/check_types.py. (Runtime accepts 'bolder' – see gap above.)"
+      "removal": "Runtime refusal retired; media_types TextRole is a typed singleton union checked by tools/check_types.py. (Runtime accepts 'bolder' \u2013 see gap above.)"
     },
     {
       "id": "paint-152",
@@ -35979,7 +35890,7 @@
       ],
       "apiPromise": "src/ui/icons.luau ART declares increment and decrement. Shipped pixel_quest and fantasy_ornate declare icons.increment and icons.decrement art. Guide 09: 'Supply real image or vector image assets. Do not use arbitrary...",
       "gap": {
-        "description": "CAND Stepper (inputs.luau:1473/1487) renders TextButtons with '−' (U+2212) and '+'. A probe confirmed 'Decrease −' and 'Increase +' with no ImageLabel. The package increment and decrement art is dead. The stepperPlate...",
+        "description": "CAND Stepper (inputs.luau:1473/1487) renders TextButtons with '\u2212' (U+2212) and '+'. A probe confirmed 'Decrease \u2212' and 'Increase +' with no ImageLabel. The package increment and decrement art is dead. The stepperPlate...",
         "headlessTestable": true,
         "proposedTest": "Mount UI.Stepper under pixel_quest. Expect the Increase and Decrease buttons to each contain an ImageLabel whose Image is resolveIcon(pkg,'increment') or resolveIcon(pkg,'decrement'), and the button Text to be empty or hidden. Under neutral, expect the ART increment and decrement ids."
       },
@@ -35994,7 +35905,7 @@
       ],
       "mainCases": 2,
       "class": "c",
-      "removal": "The glyph floor (iconGlyph, ICON_FALLBACK_GLYPHS) is removed. Note: CAND controls again render non-ASCII text (Stepper '−', Rating '★☆', table sort '↓↑')."
+      "removal": "The glyph floor (iconGlyph, ICON_FALLBACK_GLYPHS) is removed. Note: CAND controls again render non-ASCII text (Stepper '\u2212', Rating '\u2605\u2606', table sort '\u2193\u2191')."
     },
     {
       "id": "themes-P2-56",
@@ -43697,16 +43608,7 @@
         "native_fields::native field chrome::the label fits its text and adds no focus stop"
       ],
       "family": "pickers",
-      "liveEvidence": {
-        "host": "Roblox Studio desktop playtest; Neutral and fantasy_ornate themes",
-        "artifacts": [
-          "artifacts/field-label-layout/live-evidence.json"
-        ],
-        "cases": [
-          "fields-label-layout"
-        ],
-        "observed": "The label fits its text and stays above the input. A pointer click on the label focuses the editor. A 180 px field with 28 px wrapped label text grows to fit the text. The Neutral input stays 44 px tall."
-      }
+      "nativeEvidence": "No live evidence for this exact claim. Headless policy coverage is in candidateCases; it does not prove native geometry or input routing."
     },
     {
       "id": "post-pickers-005",

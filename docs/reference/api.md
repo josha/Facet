@@ -262,7 +262,11 @@ document their own write-then-notify behavior below.
   its name), `touchEnabled`, `mouseEnabled`, `gamepadEnabled` and
   `keyboardEnabled` replace the `UserInputService` facts that every control
   reads. `preferredTextSize` and `displaySize` (a `PreferredTextSize` or a
-  `DisplaySize`, or its name) replace the `GuiService` facts. `viewportSize`
+  `DisplaySize`, or its name) replace the `GuiService` facts. A `preferredTextSize` preview also
+  changes the native typography rules from `createStyleSheet` on the same
+  runtime. Create the controls before the StyleSheet. Each step uses the theme
+  metric `controls.typography.preferredSizeStep` (2 pixels by default). A
+  readable that returns `nil` follows the engine. `viewportSize`
   replaces the camera viewport of `UI.environment()` without a source. Use it
   for a preview in a catalog or a gallery. The engine input still arrives:
   a mouse click still works in a touch preview. `viewingDistance`
@@ -677,6 +681,11 @@ when the touch ends. A disabled scroll ancestor blocks the handoff. Mouse wheel
 scrolling uses the native engine behavior.
 Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
+
+An authored initial `CanvasPosition` is retried when native canvas and window
+bounds arrive. This also applies to virtual collections. After the engine
+accepts the requested offset, later layout changes do not restore it. Touch,
+mouse press or mouse wheel input cancels a pending initial request.
 
 ### scrollTo and scrollToVisible
 
@@ -1780,6 +1789,9 @@ holds the keys, named `Keys`, and the `Label`.
 Menu takes an `items` array or readable. It also takes an optional `label` or
 `trigger`, `icon`, writable `isPresented`, `enabled`, `onOpen` and `onClose`.
 
+Command menus show a Close icon command on every input. `closeButton = false`
+hides it. Value pickers keep their selection commands and do not add this row.
+
 Items have a stable `id` and a `label`. They have optional `icon`, `enabled`,
 `hidden`, `children` and `onSelect`. Checked and selected items bind their
 writable state. Native input actions supply opening and Back behavior. Nested
@@ -2069,6 +2081,12 @@ the width, and its words shrink from the `control` type size toward the
 `caption` size to fit that share before the engine truncates them. The control
 measures the words at the control size. A number or a readable number sets a
 fixed size.
+
+`labelPlacement = "belowIcon"` puts the label below the icon in a bottom bar.
+The bar reserves the icon, one text line, the theme gap and vertical padding.
+Tabs keep equal targets and the badge stays at the icon's corner. The default,
+`"besideIcon"`, keeps the horizontal presentation. A sidebar or top bar keeps
+its horizontal presentation. Use `belowIcon` for phone destination tabs.
 
 `controlSize` (`xsmall`, `compact`, `regular` or `large`, or a readable) is the
 size step of the tabs. Each tab is `controlSizes.<step>.height` high and has the
@@ -2529,9 +2547,9 @@ Layout options:
 - `scrollPolicy`: `always` (the default) keeps the body scrolling at every
   height. `atLargestDetent` stops the body scroll below the tallest detent.
 - `closeButton`: absent, `true`, `false`, or a string or readable label.
-  Absent shows no close button while the grabber shows, because the grabber
-  closes and resizes the sheet. With `dragIndicator = "hidden"`, absent shows
-  an icon-only close button in the trailing corner of the header. Its
+  Absent shows an icon-only Close button in the trailing corner of the
+  header when interactive dismissal is enabled. This also applies when a
+  grabber is visible. Its
   accessible name is `Close`, and its target is 44 pixels. `true` always shows
   that icon button. A label shows a text button with that label. `false` shows
   none; Back, Escape and the backdrop still close the sheet.
@@ -2740,6 +2758,10 @@ scrolling column named `Room`. The panel is a Frame. It scales from
 0.94 and fades in with its scrim. See [Motion](#motion).
 
 ### Popover
+
+Dismissible modal Popovers show a Close icon on every input. `closeButton = false`
+hides it. Nonmodal panels and `cancelPolicy = "none"` do not add Close.
+The compact Sheet follows the same explicit `closeButton` choice.
 
 `UI.Popover` returns its `trigger`, or an empty Frame for a `source` popover.
 
@@ -3073,6 +3095,7 @@ render owner.
 | `direction` | `vertical`; `horizontal` changes the scrolling axis. |
 | `itemSize` | `40`, the estimated main-axis extent. On a horizontal list, `"cards"` sizes the cards from the space the rail gets. A compact touch rail (under 600 px) shows one card with a peek of the next and snaps to cards. Wider rails show as many whole cards of at least 200 px as fit. `cards = { perView?, minWidth?, peek? }` overrides the count, the floor or the peek. `cards` is refused without `"cards"`. |
 | `gap`, `crossGap` | `0`; the cross gap defaults to the gap. A VirtualGrid keeps half of each gap (rounded up) at its outer edges, as a `UIPadding` on its `Items` frame and in its canvas extent. Thus content that paints past its cell, such as a lifted Card, is not cut by the scroll clip. |
+| `contentOverflow` | `visible` by default. `clip` uses the native cell content clip to keep oversized paint and pointer targets inside their cell. |
 | `columns` | The grid column count, default `1`; can be reactive. |
 | `minColumnWidth` | VirtualGrid only: a positive minimum tile width. Computes columns from the available cross-axis space and gaps. Do not combine it with `columns`. |
 | `rowActions` | The same action factory and permission rules as Table. |
@@ -3083,6 +3106,11 @@ render owner.
 | `status` | An optional writable Compose collection status cell. A cell that holds `nil` is filled with the empty status record. |
 | `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`. |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |
+
+For a bounded tile, set `contentOverflow = "clip"`. Give rendered content
+`Size = UDim2.fromScale(1, 1)` and `AutomaticSize = Enum.AutomaticSize.None`.
+A larger child keeps its authored size but native clipping limits its paint
+and pointer area. Use the default `visible` for lifted Card art.
 
 The returned root is a ScrollingFrame. Compose `OrderedCollection` owns
 indexing, window selection, anchor preservation and placement. The control
@@ -3738,6 +3766,12 @@ attribute, which follows a bound title.
 - `iconPosition` is `leading` (the default) or `trailing`.
 - `text` and `label` cause an error. Use `UI.Text` for plain text.
 
+The semantic names `speaker`, `volume` and `mute` resolve to bundled Roblox
+speaker placeholders when the theme supplies no art. They need no uploaded
+asset. Give a sound Button an accessible `name`, such as `Mute sound` or
+`Unmute sound`. A theme can replace these placeholders through its `icons` map.
+The native mute placeholder has a red cross.
+
 ### Image
 
 `UI.Image(spec) -> ImageLabel` shows an image. `image` is an asset string and
@@ -4316,6 +4350,16 @@ UI.dropTarget(slot, {
 - `enabled`: a boolean or a readable. While false the source cannot be picked
   up, and it stays selectable and activatable.
 - `armOnTap`: a touch tap picks the source up (above). Default `false`.
+- `touchPickup`: `"longPress"` (default) leaves early finger movement to the
+  scroller. `"immediate"` picks the source up when the finger moves 6 pixels
+  after touch-down. A shorter movement remains a tap. The preview keeps the
+  original contact point under the finger.
+- `touchDragAxis`: `"XY"` (default), `"X"`, or `"Y"`. With immediate pickup,
+  the first movement of 6 pixels chooses the gesture. Movement mainly along
+  the selected axis starts a drag and stops the enclosing ScrollingFrame until
+  release. Movement mainly across that axis stays with the scroller for the
+  whole gesture. Use `"X"` for tiles inside a vertical scrolling list, or
+  `"Y"` inside a horizontal scrolling list.
 - `statusLabels`: show operation, rejection and pending text. Default `true`.
   Set `false` to hide these labels. Armed input instructions remain visible.
   Collection sources set this in the spec returned by `drag(items, keys)`.
@@ -4467,7 +4511,7 @@ environment keeps the last real size.
 | `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` adds it to its padding. |
 | `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
-| `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |
+| `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the player setting. A preview adjusts the native typography rules with the theme's `controls.typography.preferredSizeStep`. |
 | `motionLevel` | The stronger of the factory `motionLevel` option and the device level (`"limited"` when `GuiService.ReducedMotionEnabled` is true, otherwise `"normal"`). |
 | `reducedMotion` | `true` when `motionLevel` is not `"normal"`. |
 

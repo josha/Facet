@@ -5,6 +5,7 @@ local Engine = require("./engine_types")
 local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
 local scrollLock = require("./scroll_lock")
+local initialScroll = require("./scroll_initial")
 export type LayoutControls = Layout.LayoutControls
 
 return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.LayoutControls
@@ -274,6 +275,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			properties
 		)
 		scrollLock.own(frame, ctx)
+		initialScroll(ctx, frame, spec.CanvasPosition)
 		if axis ~= "x" and #filling > 0 then
 			local window = ctx.layoutSize(frame)
 			local top, bottom = Compose.cell(0), Compose.cell(0)

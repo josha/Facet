@@ -480,8 +480,8 @@ return function(verifyHarness: Verify.Harness)
 				w.open()
 				local panel = w.panel()
 				local surface = must(w.screen, "CalendarSurface")
-				expect((surface:HasTag("facet-panel"))):toBe(true)
-				expect((surface:HasTag("facet-floating"))):toBe(true)
+				expect((must(surface, "CalendarScroll"):HasTag("facet-panel"))):toBe(true)
+				expect((must(surface, "CalendarScroll"):HasTag("facet-floating"))):toBe(true)
 				panel.AbsoluteSize = w.V2.new(340, 380)
 				expect(surface.Size):toBe(w.engine.types.UDim2.fromOffset(7 * 44 + 32, 380))
 				surface.AbsoluteSize = w.V2.new(340, 380)
@@ -1287,6 +1287,32 @@ return function(verifyHarness: Verify.Harness)
 					expect(cell.NextSelectionDown):toBe(must(must(w.picker(id), "Hour"), "Field"))
 					expect(w.cellAt(last - 7, 1, id).NextSelectionDown):toBeNil()
 				end
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("calendar preparation keeps the phone content and footer rectangle", {
+			id = "native_date_time_picker::DateTimePicker: layout, routes and refusals::calendar preparation keeps the phone content and footer rectangle",
+			run = function()
+				local cell, _, change = caller(D(2026, 9, 16))
+				local w = mount({ value = cell, onChange = change, draft = true }, {
+					input = "touch",
+					viewport = { w = 390, h = 844 },
+				})
+				must(w.picker(), "Show").Activated:Fire()
+				local surface = must(w.screen, "CalendarSurface")
+				local scroll = must(surface, "CalendarScroll")
+				local panel = w.panel()
+				panel.AbsoluteSize = w.V2.new(366, 600)
+				expect(surface.Size):toBe(w.engine.types.UDim2.new(1, -24, 0, 600))
+				expect(surface:HasTag("facet-panel")):toBe(false)
+				expect(surface:FindFirstChildWhichIsA("UIPadding")):toBe(nil)
+				expect(scroll:HasTag("facet-panel")):toBe(true)
+				expect(scroll.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
+				expect(panel.Size.X.Scale):toBe(1)
+				expect(panel.Size.X.Offset):toBe(0)
+				expect(must(panel, "Actions").Size.X.Scale):toBe(1)
+				expect(must(panel, "Apply").Size.Y.Offset):toBe(44)
 				w.stop()
 			end,
 		})

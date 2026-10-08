@@ -14,6 +14,7 @@ local catalog = require("./catalog")
 local NONE = catalog.NONE
 local collectionEditing = require(script.Parent.collection_editing)
 local dragDropDemo = require(script.Parent.drag_drop_demo)
+local variantCell = require(script.Parent.variant_cell)
 
 local SIZE_KEYS = { controlSize = true, starSize = true, segmentSize = true }
 
@@ -303,6 +304,7 @@ function browser.mount(opts: MountOpts): any
 
 	local function cells(page: any, id: string, title: string?, entries: { any }): any
 		local data, c = page.data, contextFor(pageState(page), false)
+		local available = Compose.cell(0)
 		local row: { any } = { Name = "Cells", width = "fill" :: "fill", wrap = true, gap = "m" }
 		for i, entry in entries do
 			local states = if entry.state then { entry.state } else {}
@@ -313,14 +315,14 @@ function browser.mount(opts: MountOpts): any
 			local height = if entry.state and entry.state.cellHeight then entry.state.cellHeight else data.cellHeight
 			table.insert(
 				row,
-				UI.VStack({
+				variantCell(UI, {
 					Name = `C{i}`,
 					gap = "xs",
 					width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
 					height = height or "hug",
 					UI.Text({ Name = "Label", text = entry.label, textRole = "caption" :: "caption" }) :: unknown,
 					render(page, c, overrides, `{id}C{i}`, height ~= nil),
-				})
+				}, available)
 			)
 		end
 		if #row == 0 then
@@ -330,7 +332,12 @@ function browser.mount(opts: MountOpts): any
 		if title then
 			table.insert(children, wrapped({ Name = "Title", text = title, textRole = "body" :: "body" }))
 		end
-		table.insert(children, UI.HStack(row))
+		local stack = UI.HStack(row)
+		local room = UI.environment(stack)
+		Compose.watch(function(use: Use)
+			available:set(use(room.viewportSize).width)
+		end)
+		table.insert(children, stack)
 		return UI.VStack(children)
 	end
 

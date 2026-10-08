@@ -726,7 +726,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local function activate()
 				close("close")
 			end
-			if explicit == false or (explicit == nil and indicator ~= "hidden") then
+			if explicit == false then
 				return nil
 			end
 			if explicit ~= nil and explicit ~= true then
@@ -739,6 +739,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return UI.Button "Close" {
 				name = "Close",
+				Visible = if explicit == nil then canDismiss else true,
 				icon = "close",
 				appearance = if overHero then "inverse" else nil,
 				LayoutOrder = 2,

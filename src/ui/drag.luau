@@ -3,6 +3,7 @@ local Shared = require("./types")
 local Env = require("./environment_types")
 local activation = require("./activation")
 local sessionOf = require("./drag_session")
+local pointerOf = require("./drag_pointer")
 
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose, Host, E = ctx.Compose, ctx.Host, ctx.types.Enum
@@ -24,10 +25,22 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	UI.draggable = function(source: GuiObject, spec: Env.DraggableSpec)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.draggable must run inside a component or Compose owner")
 		assert(spec.payload ~= nil, "Facet UI.draggable needs a payload")
+		assert(
+			spec.touchPickup == nil or spec.touchPickup == "longPress" or spec.touchPickup == "immediate",
+			"Facet UI.draggable touchPickup must be longPress or immediate"
+		)
+		assert(
+			spec.touchDragAxis == nil
+				or spec.touchDragAxis == "X"
+				or spec.touchDragAxis == "Y"
+				or spec.touchDragAxis == "XY",
+			"Facet UI.draggable touchDragAxis must be X, Y or XY"
+		)
 		service.own(source)
 		local pressed: InputObject? = nil
 		local origin: Vector2? = nil
 		local active, dragged = false, false
+		local scrolling = false
 		local locked: ScrollingFrame? = nil
 		local function held(): boolean
 			local current = service.state:peek()
@@ -65,6 +78,18 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			active = held()
 			dragged = true
 		end
+		local function lock()
+			local scroller = source:FindFirstAncestorWhichIsA("ScrollingFrame")
+			if scroller and scroller.ScrollingEnabled then
+				locked = scroller
+				scroller.ScrollingEnabled = false
+			end
+		end
+		local function contact(position: Vector2): Vector2
+			return if pressed and pressed.UserInputType == E.UserInputType.Touch
+				then ctx.types.Vector2.new(pressed.Position.X, pressed.Position.Y)
+				else position
+		end
 		local detector = Host.UIDragDetector({
 			Name = "FacetDragDetector",
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
@@ -73,11 +98,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				return enabled(use) and ctx.effectiveInput()(use) ~= "Touch"
 			end,
 			DragStart = function(position)
-				origin = position
+				origin = pointerOf(ctx, position)
 			end,
 			DragContinue = function(position)
+				position = pointerOf(ctx, position)
 				if not active and origin and (position - origin).Magnitude >= 6 and enabled(nil) then
-					if pressed == nil or pressed.UserInputType ~= E.UserInputType.Touch then
+					local touch = pressed ~= nil and pressed.UserInputType == E.UserInputType.Touch
+
+					if not touch then
 						begin("pointer")
 					end
 				end
@@ -86,6 +114,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 			end,
 			DragEnd = function(position)
+				position = pointerOf(ctx, position)
 				origin = nil
 				if active then
 					service.update(position)
@@ -97,28 +126,42 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		ctx.runtime.connect(source, "InputBegan", function(value: InputObject)
 			if value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch then
 				activation.release(value)
-				pressed, dragged = value, false
+				pressed, dragged, scrolling = value, false, false
 				origin = ctx.types.Vector2.new(value.Position.X, value.Position.Y)
 			end
 		end)
 		ctx.runtime.connect(source, "TouchLongPress", function(positions: { Vector2 }, phase: Enum.UserInputState)
-			if phase ~= E.UserInputState.Begin or not enabled(nil) or active then
+			if phase ~= E.UserInputState.Begin or not enabled(nil) or active or spec.touchPickup == "immediate" then
 				return
 			end
-			local scroller = source:FindFirstAncestorWhichIsA("ScrollingFrame")
-			if scroller and scroller.ScrollingEnabled then
-				locked = scroller
-				scroller.ScrollingEnabled = false
-			end
+			lock()
 			begin("pointer")
 			if positions[1] then
-				service.update(positions[1])
+				service.update(contact(pointerOf(ctx, positions[1])))
 			end
 		end)
 		if input then
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
-				if active and value == pressed and value.UserInputType == E.UserInputType.Touch then
-					service.update(ctx.types.Vector2.new(value.Position.X, value.Position.Y))
+				if value ~= pressed or value.UserInputType ~= E.UserInputType.Touch then
+					return
+				end
+				local position = ctx.types.Vector2.new(value.Position.X, value.Position.Y)
+				if not active and spec.touchPickup == "immediate" and not scrolling and origin and enabled(nil) then
+					local delta = position - origin
+					if delta.Magnitude >= 6 then
+						if
+							(spec.touchDragAxis == "X" and math.abs(delta.Y) > math.abs(delta.X))
+							or (spec.touchDragAxis == "Y" and math.abs(delta.X) > math.abs(delta.Y))
+						then
+							scrolling = true
+						else
+							lock()
+							begin("pointer")
+						end
+					end
+				end
+				if active then
+					service.update(position)
 				end
 			end)
 			ctx.runtime.connect(input, "InputEnded", function(value: InputObject)
@@ -133,6 +176,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					and spec.armOnTap
 					and value.UserInputType == E.UserInputType.Touch
 					and not dragged
+					and not scrolling
 					and not active
 					and service.state:peek() == nil
 				then

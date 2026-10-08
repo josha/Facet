@@ -8,6 +8,7 @@ local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 local sessionOf = require("./drag_session")
+local pointerOf = require("./drag_pointer")
 local reducedMotion = require("./motion").reduced
 export type Editor<V, K> = {
 	wrap: (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame,
@@ -572,6 +573,7 @@ return function<V, K>(
 							return movable(use(current)) and read(sort, use) == nil and not held
 						end,
 						DragStart = function(position)
+							position = pointerOf(ctx, position)
 							local current = moving:peek()
 							origin, travel = position, 0
 							pickupPosition = position
@@ -585,6 +587,7 @@ return function<V, K>(
 							end
 						end,
 						DragContinue = function(position)
+							position = pointerOf(ctx, position)
 							if origin then
 								travel = math.max(travel, (position - origin).Magnitude)
 							end
@@ -763,7 +766,10 @@ return function<V, K>(
 			if state ~= E.UserInputState.Begin or touchKey ~= key or moving:peek() ~= nil then
 				return
 			end
-			local position = positions[1] or touchOrigin
+			local position = if pendingInput
+				then V2.new(pendingInput.Position.X, pendingInput.Position.Y)
+				elseif positions[1] then pointerOf(ctx, positions[1])
+				else touchOrigin
 			disarm()
 			if position then
 				begin(key, position)
@@ -796,13 +802,16 @@ return function<V, K>(
 					)
 			end,
 			DragStart = function(position)
+				position = pointerOf(ctx, position)
 				rowOrigin, rowDragged = position, false
 				pickupPosition = position
 			end,
-			DragContinue = continueRowDrag,
+			DragContinue = function(position)
+				continueRowDrag(pointerOf(ctx, position))
+			end,
 			DragEnd = function(position: Vector2?)
 				if position and rowOrigin and not rowDragged then
-					continueRowDrag(position)
+					continueRowDrag(pointerOf(ctx, position))
 				end
 				local tapped = rowOrigin ~= nil
 					and not rowDragged
@@ -843,7 +852,7 @@ return function<V, K>(
 								end
 							end
 						end
-						activation.trigger(target, pendingInput, if double then 1 else 0)
+						activation.trigger(target, pendingInput, if double then 2 else 1)
 						activation.consume(pendingInput)
 					end
 				end

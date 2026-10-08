@@ -237,6 +237,7 @@ return function(
 		"backLabel",
 		"onOpen",
 		"onClose",
+		"closeButton",
 		"enabled",
 		"isPresented",
 		"edge",
@@ -427,7 +428,8 @@ return function(
 		nonmodal: boolean?,
 		phase: Nav.PresencePhase?,
 		motion: Nav.MotionTiming?,
-		pointer: ComposeTypes.Readable<Vector2?>?
+		pointer: ComposeTypes.Readable<Vector2?>?,
+		closeCommand: boolean?
 	): Frame
 		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
 		local timing: Nav.MotionTiming = motion or { enter = popoverTiming.enter, exit = popoverTiming.exit }
@@ -850,6 +852,18 @@ return function(
 				end,
 			}) :: Types.Child,
 		}
+		if closeCommand then
+			surfaces.attach(rows, {
+				UI.Button "CloseCommand" {
+					name = "Close",
+					icon = "close",
+					LayoutOrder = 2147483647,
+					Size = D2.new(1, 0, 0, 44),
+					AutomaticSize = E.AutomaticSize.None,
+					onActivate = close,
+				},
+			})
+		end
 		local room = Compose.cell(0)
 		local function panelWidth(use: ComposeTypes.Use): number
 			local widest = 0
@@ -1509,6 +1523,10 @@ return function(
 	end
 
 	local function buildMenu<V>(spec: Nav.MenuSpec<V>, wrap: boolean): GuiObject
+		assert(
+			spec.closeButton == nil or type(spec.closeButton) == "boolean",
+			"Facet UI.Menu: closeButton must be a boolean"
+		)
 		assert(spec.items ~= nil, "Menu requires items")
 		menuItems(read(spec.items))
 		assert(
@@ -1761,7 +1779,7 @@ return function(
 						presentedPointer:set(use(pointer))
 					end
 				end)
-				return menuPanel(spec, close, trigger, nil, phase, motion, presentedPointer)
+				return menuPanel(spec, close, trigger, nil, phase, motion, presentedPointer, spec.closeButton ~= false)
 			end, { motion = motion }),
 		})
 		return root

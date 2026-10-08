@@ -45,6 +45,10 @@ return function(
 	})
 	local scale = (observeGeometry(Compose, runtime, boundary, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
 	local size = (observeGeometry(Compose, runtime, target, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local at = (observeGeometry(Compose, runtime, target, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local boundaryAt = (
+		observeGeometry(Compose, runtime, boundary, "AbsolutePosition") :: unknown
+	) :: ComposeTypes.Cell<Vector2>
 	local insets = Compose.cell({} :: Insets)
 	local connections: { RBXScriptConnection }, paddingConnections: { RBXScriptConnection } = {}, {}
 	local function disconnectPadding()
@@ -93,6 +97,8 @@ return function(
 			return { x = 0, y = 0, width = 0, height = 0 }
 		end
 		local pixels = types.Vector2.new(rendered.X / factor.X, rendered.Y / factor.Y)
+		local distance = use(at) - use(boundaryAt)
+		local offset = types.Vector2.new(distance.X / factor.X, distance.Y / factor.Y)
 		local function inset(side: string, length: number): number
 			local value = padding[side]
 			return if value then value.Scale * length + value.Offset else 0
@@ -101,12 +107,12 @@ return function(
 		local right, bottom = inset("Right", pixels.X), inset("Bottom", pixels.Y)
 		return if settings.inset
 			then {
-				x = 1,
-				y = 1,
+				x = offset.X + pixels.X - right,
+				y = offset.Y + pixels.Y - bottom,
 				width = math.max(0, pixels.X - left - right),
 				height = math.max(0, pixels.Y - top - bottom),
 			}
-			else { x = right + 1, y = bottom + 1, width = pixels.X, height = pixels.Y }
+			else { x = offset.X + pixels.X, y = offset.Y + pixels.Y, width = pixels.X, height = pixels.Y }
 	end)
 	if target:IsA("ScrollingFrame") then
 		local frame = target :: ScrollingFrame

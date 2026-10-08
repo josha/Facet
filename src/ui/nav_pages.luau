@@ -158,6 +158,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local fit = spec.textSize == nil or spec.textSize == "fit"
 		assert(
+			spec.labelPlacement == nil or table.find({ "besideIcon", "belowIcon" }, read(spec.labelPlacement)),
+			"Invalid TabView.labelPlacement"
+		)
+		assert(
 			spec.style == nil or table.find({ "automatic", "sidebarAdaptable", "collapsible" }, spec.style),
 			"Invalid TabView.style"
 		)
@@ -201,6 +205,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"indicator",
 			"iconOnly",
 			"textSize",
+			"labelPlacement",
 			"enabled",
 			"onChange",
 			"controlSize",
@@ -402,6 +407,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local wordWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local barExtent: ComposeTypes.Cell<Vector2> = Compose.cell(V2.zero)
+		local function stacked(use: ComposeTypes.Use?): boolean
+			local choice = read(spec.labelPlacement, use)
+			return not read(spec.iconOnly, use)
+				and string.find(read(placement, use), "bottom") ~= nil
+				and choice == "belowIcon"
+		end
 		local crowded = Compose.formula(function(use: ComposeTypes.Use): boolean
 			if not fit or string.find(use(placement), "bottom") == nil then
 				return false
@@ -420,11 +431,31 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return false
 		end)
+		local function labelLine(use: ComposeTypes.Use?): number
+			local authored = if fit then nil else read(spec.textSize, use)
+			local size = if type(authored) == "number" then authored else ctx.metric("typography.control.size", use)
+			return math.ceil(size * ctx.metric("typography.control.lineHeight", use))
+		end
 		local function band(use: ComposeTypes.Use?): number
-			return ctx.metric("targetSizes.minimum", use)
+			local minimum = ctx.metric("targetSizes.minimum", use)
+			return if stacked(use)
+				then math.max(
+					minimum,
+					ctx.controlSize(spec.controlSize, "iconSize", use)
+						+ labelLine(use)
+						+ ctx.metric("space.xs", use)
+						+ math.max(
+							0,
+							ctx.controlSize(spec.controlSize, "height", use)
+								- ctx.controlSize(spec.controlSize, "iconSize", use)
+						)
+				)
+				else minimum
 		end
 		local function tabHeight(use: ComposeTypes.Use?): number
-			return if spec.controlSize == nil then band(use) else ctx.controlSize(spec.controlSize, "height", use)
+			return if spec.controlSize == nil or stacked(use)
+				then band(use)
+				else ctx.controlSize(spec.controlSize, "height", use)
 		end
 		local INSET = segmentMetrics.inset
 		local function segmentedTop(use: ComposeTypes.Use): boolean
@@ -565,7 +596,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Size = function(use: ComposeTypes.Use)
 							local place = use(placement)
 							local height = tabHeight(use)
-							if fit and string.find(place, "bottom") ~= nil and not use(crowded) then
+							if string.find(place, "bottom") ~= nil and (stacked(use) or (fit and not use(crowded))) then
 								return D2.new(1 / math.max(1, #use(visibleTabs)), -4, 0, height)
 							end
 							return if place == "sidebar" then D2.new(1, 0, 0, height) else D2.fromOffset(0, height)
@@ -573,7 +604,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						AutomaticSize = function(use: ComposeTypes.Use)
 							local place = use(placement)
 							return if place == "sidebar"
-									or (fit and string.find(place, "bottom") ~= nil and not use(crowded))
+									or (
+										string.find(place, "bottom") ~= nil
+										and (stacked(use) or (fit and not use(crowded)))
+									)
 								then E.AutomaticSize.None
 								else E.AutomaticSize.X
 						end,
@@ -671,6 +705,29 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						button:SetAttribute("FacetTextFit", true)
 					end
 					local glyph = button:FindFirstChild("LeadingIcon", true)
+					local rowContent = button:FindFirstChild("Content")
+					local flow = rowContent and rowContent:FindFirstChildWhichIsA("UIListLayout")
+					local title = rowContent and rowContent:FindFirstChild("Title") :: TextLabel?
+					if glyph and flow and title then
+						local restGap = flow.Padding
+						runtime.decorate(flow, {
+							FillDirection = function(use)
+								return if stacked(use) then E.FillDirection.Vertical else E.FillDirection.Horizontal
+							end,
+							Padding = function(use)
+								return if stacked(use) then D.new(0, ctx.metric("space.xs", use)) else restGap
+							end,
+						})
+						runtime.decorate(title, {
+							Size = function(use)
+								return if stacked(use) then D2.new(1, 0, 0, labelLine(use)) else D2.fromOffset(0, 0)
+							end,
+							AutomaticSize = function(use)
+								return if stacked(use) then E.AutomaticSize.None else E.AutomaticSize.XY
+							end,
+							TextXAlignment = E.TextXAlignment.Center,
+						})
+					end
 					local function badgeOf(use: ComposeTypes.Use): string?
 						local badge = read(use(current).badge, use)
 						return if badge == nil or badge == "" then nil else tostring(badge)
@@ -737,6 +794,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							local gap = flow.Padding.Offset
 							runtime.decorate(flow, {
 								Padding = function(use: ComposeTypes.Use): UDim
+									if stacked(use) then
+										return D.new(0, ctx.metric("space.xs", use))
+									end
 									local width = use(sealSize).X
 									if width <= 0 or read(spec.iconOnly, use) then
 										return D.new(0, gap)

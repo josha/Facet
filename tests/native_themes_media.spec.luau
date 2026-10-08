@@ -2,6 +2,27 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
+	verifyHarness:suite("sound icon catalog", function()
+		verifyHarness:case("provides bundled sound placeholders and preserves theme overrides", {
+			id = "native_themes_media::sound icon catalog::provides bundled sound placeholders and preserves theme overrides",
+			run = function()
+				local icons = require("../src/ui/icons")
+				local themes = require("../src").themes
+				for _, name in { "speaker", "volume", "mute" } do
+					local entry = assert(icons.resolve(name))
+					Verify.expect(
+						string.find(entry.contentId, "rbxasset://textures/ui/VoiceChat/SpeakerLight/", 1, true) == 1
+					)
+						:toBe(true)
+					Verify.expect(themes.resolveIcon({}, name)):toBe(entry.contentId)
+				end
+				local ThemeTypes = require("../src/ui/theme_types")
+				local catalog: { [string]: ThemeTypes.IconEntry } = { mute = "rbxassetid://123" }
+				local override: ThemeTypes.IconRegistry = { icons = catalog }
+				Verify.expect(themes.resolveIcon(override, "mute")):toBe("rbxassetid://123")
+			end,
+		})
+	end)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 	type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
 
@@ -44,6 +65,77 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("reserves the full radial target for its native single line label", {
+			id = "native_themes_media::native themes and media::reserves the full radial target for its native single line label",
+			run = function()
+				local engine, runtime = setup()
+				local stop, sheet: any = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
+				end, engine.new("Folder"))
+				for _, side in { "Left", "Right", "Top", "Bottom" } do
+					Verify.expect(style(sheet, ".facet-button.facet-radial-label::UIPadding")["Padding" .. side].Offset)
+						:toBe(0)
+				end
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("pins artwork and captions to the observed automatic layout origin", {
+			id = "native_themes_media::native themes and media::pins artwork and captions to the observed automatic layout origin",
+			run = function()
+				local engine, runtime = setup()
+				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local decoration = require("../src/ui/native_decoration")
+				local stop, target: any = runtime.mount(function()
+					return Host.TextButton({
+						AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+						Host.UIPadding({
+							PaddingLeft = engine.types.UDim.new(0, 28),
+							PaddingRight = engine.types.UDim.new(0, 28),
+						}),
+					})
+				end, engine.new("Folder"))
+				local boundary: GuiObject?
+				runtime.mount(function()
+					boundary = decoration(Compose, runtime, engine.types, target, Host.Frame({ Name = "Skin" }))
+					return boundary
+				end, target)
+				assert(boundary)
+				target.AbsolutePosition = engine.types.Vector2.new(1744, 104)
+				target.AbsoluteSize = engine.types.Vector2.new(65, 38)
+				boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
+				boundary.AbsolutePosition = engine.types.Vector2.new(1809, 131)
+				local bounds: any = boundary:FindFirstChild("SkinBounds")
+				bounds.AbsoluteSize = engine.types.Vector2.new(65, 38)
+				local origin = boundary.AbsolutePosition
+					+ engine.types.Vector2.new(bounds.Position.X.Offset, bounds.Position.Y.Offset)
+					- bounds.AbsoluteSize
+				Verify.expect(origin):toBe(target.AbsolutePosition)
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("applies a live text preference to every typography role", {
+			id = "native_themes_media::native themes and media::applies a live text preference to every typography role",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local preference = Compose.cell("Medium")
+				context(Compose, runtime, { types = engine.types, environment = { preferredTextSize = preference } })
+				local stop, sheet: any = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
+				end, engine.new("Folder"))
+				local base = style(sheet, ".facet-text").TextSize
+				preference:set("Largest")
+				Verify.expect(style(sheet, ".facet-text").TextSize):toBe(base + 6)
+				Verify.expect(style(sheet, ".facet-type-control").TextSize)
+					:toBe(themes.neutralPackage().metrics.typography.control.size + 6)
+				preference:set("Medium")
+				Verify.expect(style(sheet, ".facet-text").TextSize):toBe(base)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("keeps native theme rules reactive without writing instance paint", {
 			id = "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint",
 			run = function()
@@ -2064,6 +2156,7 @@ return function(verifyHarness: Verify.Harness)
 				boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
 				host:FindFirstChildWhichIsA("UIPadding").PaddingRight = engine.types.UDim.new(0, 24)
 				host:FindFirstChildWhichIsA("UIPadding").PaddingBottom = engine.types.UDim.new(0, 24)
+				boundary.AbsolutePosition = engine.types.Vector2.new(175, 75)
 				local bounds: any = boundary:FindFirstChild("SkinBounds")
 				Verify.expect(`{bounds.Position.X.Offset} {bounds.Position.Y.Offset}`):toBe("25 25")
 				stop()

@@ -93,6 +93,157 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("stacks destination labels below icons in an equal phone bar", {
+			id = "native_navigation::native navigation controls::stacks destination labels below icons in an equal phone bar",
+			run = function()
+				local choice = Compose.cell("belowIcon" :: "belowIcon" | "besideIcon")
+				local selection = Compose.cell("games")
+				local textSize = Compose.cell(32)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local function page(): Instance
+						return Host.Frame({})
+					end
+					local tabs: { Navigation.Tab } = {
+						{ id = "games", label = "Games", icon = "view.list", badge = 3, content = page },
+						{ id = "profile", label = "Profile", icon = "person", content = page },
+						{ id = "settings", label = "Settings", icon = "settings", content = page },
+					}
+					local props: Navigation.TabViewSpec = {
+						selection = selection,
+						labelPlacement = choice,
+						textSize = textSize,
+						placement = "bottomBar" :: "bottomBar",
+						tabs = tabs,
+					}
+					return UI.TabView(props)
+				end)
+				local bar = find(world.screen, "Tabs")
+				bar.AbsoluteSize = world.engine.types.Vector2.new(389, 80)
+				for _, id in { "games", "profile", "settings" } do
+					local button = bar:FindFirstChild(id)
+					Verify.expect(button.Size.X.Scale):toBe(world.engine.types.UDim.new(1 / 3, 0).Scale)
+					Verify.expect(find(button, "Title").Size.Y.Offset >= 32):toBe(true)
+					Verify.expect(button.Size.Y.Offset >= 72):toBe(true)
+					Verify.expect(find(button, "Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+						:toBe(world.engine.types.Enum.FillDirection.Vertical)
+					Verify.expect(find(button, "Title").Size.X.Scale):toBe(1)
+				end
+				textSize:set(16)
+				Verify.expect(find(bar:FindFirstChild("games"), "Title").Size.Y.Offset >= 16):toBe(true)
+				Verify.expect(bar:FindFirstChild("games").Size.Y.Offset < 72):toBe(true)
+				bar:FindFirstChild("profile").Activated:Fire()
+				Verify.expect(selection:peek()):toBe("profile")
+				choice:set("besideIcon")
+				Verify.expect(
+					find(bar:FindFirstChild("games"), "Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection
+				)
+					:toBe(world.engine.types.Enum.FillDirection.Horizontal)
+				world.stop()
+			end,
+		})
+		verifyHarness:case("keeps five lower phone commands and Close inside the safe modal room", {
+			id = "native_navigation::native navigation controls::keeps five lower phone commands and Close inside the safe modal room",
+			run = function()
+				local opened = Compose.cell(true)
+				local world = setup(function(UI: FacetControls)
+					local items = {}
+					for _, id in { "swap", "pass", "zoom", "help", "resign" } do
+						table.insert(items, { id = id, label = id, onSelect = function() end })
+					end
+					return UI.Menu({ isPresented = opened, items = items })
+				end)
+				world.screen.AbsoluteSize = world.engine.types.Vector2.new(389, 704)
+				world.input.TouchEnabled = true
+				world.input.MouseEnabled = false
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				local panel = find(world.screen, "MenuPanel")
+				panel.Parent.AbsoluteSize = world.engine.types.Vector2.new(389, 704)
+				find(panel, "MenuRows").AbsoluteSize = world.engine.types.Vector2.new(349, 320)
+				panel.AbsoluteSize = world.engine.types.Vector2.new(365, panel.Size.Y.Offset)
+				Verify.expect(panel.Size.Y.Offset):toBeLessThanOrEqual(704 - 24)
+				Verify.expect(panel.Size.X.Scale):toBe(1)
+				Verify.expect(find(panel, "CloseCommand") ~= nil):toBe(true)
+				find(panel, "resign").Activated:Fire()
+				Verify.expect(opened:peek()):toBe(false)
+				world.stop()
+			end,
+		})
+		verifyHarness:case("gives command menus and resizing sheets an explicit Close by default", {
+			id = "native_navigation::native navigation controls::gives command menus and resizing sheets an explicit Close by default",
+			run = function()
+				local opened = Compose.cell(true)
+				local world = setup(function(UI: FacetControls)
+					return UI.Menu({
+						isPresented = opened,
+						items = { { id = "action", label = "Action", onSelect = function() end } },
+					})
+				end)
+				local command = find(world.screen, "CloseCommand")
+				Verify.expect(command.Text):toBe("")
+				Verify.expect(command:GetAttribute("label")):toBe("Close")
+				command.Activated:Fire()
+				Verify.expect(opened:peek()):toBe(false)
+				world.stop()
+				opened:set(true)
+				world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet({
+						isPresented = opened,
+						detent = Compose.cell("medium" :: Navigation.SheetDetent),
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					})
+				end)
+				find(world.screen, "Close").Activated:Fire()
+				Verify.expect(opened:peek()):toBe(false)
+				world.stop()
+			end,
+		})
+		verifyHarness:case("accepts a fresh route object after departure and during reversal", {
+			id = "native_navigation::native navigation controls::accepts a fresh route object after departure and during reversal",
+			run = function()
+				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<number> })
+				local world = setup(function(UI)
+					return UI.NavigationStack {
+						path = path,
+						root = {
+							content = function()
+								return UI.Button { label = "Root" }
+							end,
+						} :: NavigationFixtures.NavigationDestination<number>,
+						destinations = {
+							match = {
+								content = function()
+									return UI.Button "Counter" { label = "Counter" }
+								end,
+							} :: NavigationFixtures.NavigationDestination<number>,
+						},
+					}
+				end)
+				for _, completed in { true, false } do
+					path:set({ { id = "match", value = 1 } })
+					world.settle()
+					path:set({})
+					if completed then
+						world.settle()
+					else
+						world.engine.heartbeat:Fire(1 / 60)
+					end
+					path:set({ { id = "match", value = 1 } })
+					world.settle()
+					local panels = 0
+					for _, node in world.screen:GetDescendants() do
+						if node.Name == "match" then
+							panels += 1
+							Verify.expect(node.Interactable):toBe(true)
+							Verify.expect(node.Visible):toBe(true)
+						end
+					end
+					Verify.expect(panels):toBe(1)
+				end
+				world.stop()
+			end,
+		})
 		verifyHarness:case("prepares CollapsibleView chrome before content paints without travel", {
 			id = "native_navigation::native navigation controls::prepares CollapsibleView chrome before content paints without travel",
 			run = function()

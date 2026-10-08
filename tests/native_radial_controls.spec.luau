@@ -92,6 +92,29 @@ return function(verifyHarness: Verify.Harness)
 			Position = world.engine.types.Vector3.new(x, y, 0),
 		}
 	end
+	verifyHarness:suite("radial label fit", function()
+		verifyHarness:case("keeps short names on one line inside round item targets", {
+			id = "native_radial_controls::radial label fit::keeps short names on one line inside round item targets",
+			run = function()
+				local spec: Radial.RadialMenuSpec<any> = {
+					appearance = "buttons" :: Radial.Appearance,
+					items = {
+						{ id = "sage", label = "Sage", onSelect = function() end } :: Radial.RadialItem<any>,
+						{ id = "clay", label = "Clay", onSelect = function() end } :: Radial.RadialItem<any>,
+					},
+				}
+				local w = setup(spec)
+				for _, name in { "sage", "clay" } do
+					local button = w.find(name)
+					Verify.expect(button.TextWrapped):toBe(false)
+					Verify.expect(button.TextScaled):toBe(false)
+					Verify.expect(button:HasTag("facet-radial-label")):toBe(true)
+				end
+				w.stop()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native radial interaction policies", function()
 		verifyHarness:case("content fitting keeps the full button on its wedge", {
 			id = "native_radial_controls::native radial interaction policies::content fitting keeps the full button on its wedge",
