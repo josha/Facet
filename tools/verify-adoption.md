@@ -48,8 +48,8 @@ policy and small bindings.
   Verify makes the comparison. The ratios are the same as the removed `judge`
   gave. Facet keeps the drift limit, the heap checkpoints and the report
   rows. The samples, the baseline and the thresholds are unchanged.
-- `tools/lune/perf.luau` and the `check_perf_*` and `check_live_evidence`
-  validators are Facet workloads and recorded evidence policy.
+- `tools/lune/perf.luau` and the `check_perf_*` validators are Facet
+  workloads and recorded evidence policy.
 - `tools/lune/build.luau`, `release.luau` and `mkpair.luau` replace the shell
   scripts. `tools/studio/capture_viewport.sh` stays, because it drives the
   screen capture of the host.
@@ -87,8 +87,7 @@ receipt, and the same faults for a producer report. It covers a deadline that
 stops the descendants of a worker and of a producer, a blocked dependent, each
 exit class, the reference host and each verdict.
 `tools/tests/test_project_checks.py` covers the architecture and coverage
-policy. `tools/check_live_evidence.py --selftest` covers incorrect host and
-device claims in the recorded evidence.
+policy. Live assertions use Verify reports from `tools/studio/live`.
 
 ## Limits
 

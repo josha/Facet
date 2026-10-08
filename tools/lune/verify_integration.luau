@@ -392,7 +392,7 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 18, full = 59, release = 2 })
+		context:expect(tiers):toEqual({ fast = 18, full = 57, release = 2 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
 		local plan = serde.decode("json", fs.readFile("tests/plan.json"))
@@ -406,7 +406,7 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(seen["suite"].isolate):toBe(true)
 		context:expect(seen["suite"].sourceDeadlineSeconds):toBe(600)
 		local deferrals = assert(assert(definition.policy).deferrals)
-		context:expect(deferrals["live-evidence"] ~= nil):toBe(true)
+		context:expect(deferrals["perf-place"] ~= nil):toBe(true)
 		context:expect(deferrals["bench"] ~= nil):toBe(true)
 		context:expect(assert(assert(gate.draft(true).policy).deferrals)["bench"]):toBeNil()
 		context:expect(deferrals["suite"]):toBeNil()

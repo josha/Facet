@@ -33,8 +33,6 @@
     {"id": "call-shape-drift-selftest", "tier": "full", "run": "python3 tools/check_call_shape_drift.py --selftest", "replaces": ["check_call_shape_drift-selftest"]},
     {"id": "theme-drift", "tier": "full", "run": "python3 tools/check_theme_drift.py", "replaces": ["check_theme_drift_cli"]},
     {"id": "theme-drift-selftest", "tier": "full", "run": "python3 tools/check_theme_drift.py --selftest"},
-    {"id": "live-evidence", "tier": "full", "environment": "studio", "run": "python3 tools/check_live_evidence.py", "replaces": ["check_device_captures", "check_eq6_evidence", "check_matrix_rows", "check_row_actions_matrix", "check_traversal_evidence", "check_xp_matrix"]},
-    {"id": "live-evidence-selftest", "tier": "full", "run": "python3 tools/check_live_evidence.py --selftest", "replaces": ["check_device_sweep-selftest"]},
     {"id": "source-size", "tier": "full", "run": "python3 tools/check_source_size.py", "replaces": ["check_source_size"]},
     {"id": "types", "tier": "full", "run": "python3 tools/check_types.py", "replaces": ["check_types"]},
     {"id": "types-selftest", "tier": "full", "run": "python3 tools/check_types.py --selftest", "replaces": ["check_types-selftest"]},

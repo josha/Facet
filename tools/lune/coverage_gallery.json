@@ -104,7 +104,7 @@
         "example_word_game::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose": "native_games::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose"
       },
       "manualEvidence": [
-        "Live Studio phone Largest at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8: all 28 keyboard keys have TextFits true and stay inside the keyboard across Neutral, fantasy_parchment, pixel_quest and classic_desktop. Read-only CUA screenshots reviewed by root; no screenshot file or physical-device claim. Details in artifacts/compose-simplification/live-comparison.json."
+        "No live evidence for the former Largest text comparison of all 28 keyboard keys across Neutral, fantasy_parchment, pixel_quest and classic_desktop. Existing headless cases remain."
       ]
     },
     "example_tile_game": {
@@ -214,7 +214,7 @@
         "example_tile_game::examples/06 crossword \u2014 robustness::tears down to a registry baseline after dispose": "native_games::examples/06 crossword \u2014 robustness::tears down to a registry baseline after dispose"
       },
       "manualEvidence": [
-        "Live Studio phone Largest at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8: neutral and parchment screenshots confirm seven rack letters and Submit/Undo/StartOver visible and reachable through native CanvasPosition scrolling. Development simulator evidence only; details in artifacts/compose-simplification/live-comparison.json."
+        "No live evidence for the former Largest text comparison of seven rack letters and Submit, Undo and StartOver reached by native scrolling. Existing headless cases remain."
       ]
     },
     "consumer_standalone": {
@@ -902,7 +902,7 @@
         "recipes_common::public composition recipes::keeps only the activated accordion body open and focus on its header": "native_gallery_workflows::native gallery workflows::opens one recipe accordion body at a time and restores its header focus"
       },
       "manualEvidence": [
-        "Live Studio phone Largest at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8: neutral actions stack and wrap their complete long labels; parchment has three 337x44 buttons with TextFits true inside the available width. Shared art follows native UIScale 1.25, permits text growth and shrink, and all temporary edits and text preference were restored. Details in artifacts/compose-simplification/live-comparison.json."
+        "No live evidence for the former Largest text screenshots of complete long action labels in Neutral and parchment. Existing headless cases remain."
       ]
     },
     "nested_compositing_scenario": {
@@ -1023,7 +1023,7 @@
         "Adapter arrangement reports and Facet preferredTextOffset matrix": "Custom text geometry and environment offsets have been removed in favor of native properties and engine text preferences."
       },
       "manualEvidence": [
-        "Live Studio phone Largest: native Path2D progress track and quarter accent arc render with centered unclipped 25% plus visible animated arc/spinner at source 35a16ed7e68ece1b49697a3757ad294780036e66201c2889cd7d7010c6329931. Word/Crossword readouts and actions remain reachable at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8. Development simulator evidence only; artifacts/compose-simplification/live-comparison.json records the observations and restored Medium preference."
+        "No live evidence for the former Largest text screenshots of the Path2D quarter arc, centered 25% readout, animated arc and spinner, and reachable Word/Crossword actions. Existing headless cases remain."
       ]
     }
   }

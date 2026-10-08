@@ -36,42 +36,6 @@ architecture.
 The [verification scope](18-verification-scope.md) lists the live evidence
 that is still outstanding.
 
-## Studio results on 7 October 2026
-
-The mouse place was built from the working tree after `468bef2c`. All 30
-pointer suites and the interactive suites ran in the attached Studio.
-The live ledger `artifacts/compose-simplification/gap-closure-live.json`
-(archived privately) records each suite under `pointerReview468bef2c`.
-Reports use the tags `helperg-m7-target` and `helperg-m7-repeat` in
-`artifacts/studio-live`.
-
-| Pass | Passed | Failed | Unsupported |
-| --- | ---: | ---: | ---: |
-| 30 pointer suites | 301 | 2 | 19 |
-| Three interactive input suites | 15 | 0 | 8 |
-| Haptics setup and verification in one playtest | 2 | 0 | 0 |
-
-The Hue text fit case passes all 3276 checks. The segmented picker case
-passes all 52 checks. Both also pass in their whole suites.
-
-Two calendar cases still fail: `ports_pickers/dtp-phone-fit` and
-`weak3_surfaces/dtp-draft-footer-rects`. The new fade wrapper and its scroll
-view both have the panel layout role. This adds padding at two levels.
-Apply shows only 12 of its 44 px height on the phone. The wide footer extends
-16 px past the calendar on both axes. Removing the wrapper's panel role
-temporarily makes both cases pass. This is diagnostic evidence, not a fixed
-build. The calendar entrance owner must fix the wrapper and repeat both
-whole suites on a rebuilt place.
-
-The phone case now scrolls the native `CalendarScroll`. `CalendarSurface`
-is the fade Frame. The corrected case retains its target size, visibility
-and containment checks. This case change also needs a rebuilt run.
-
-The earlier `pad6` gamepad pass had zero failed cases on its earlier build.
-It is not a new gamepad pass for `468bef2c`. The mouse pass does not verify
-physical device behavior, haptic motor output or the human native Settings
-text size action. Keep these evidence limits when you repeat the pass.
-
 ## Live assertion harness
 
 `tools/studio/live` is a set of Luau modules. They run assertions against the

@@ -7,6 +7,5 @@
   "controlledStatus": "PASS",
   "controlledRecords": 135,
   "microStatus": "PASS",
-  "comparison": "final-performance.json",
-  "live": "gap-closure-live.json"
+  "comparison": "final-performance.json"
 }
