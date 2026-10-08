@@ -1067,5 +1067,14 @@
     "interaction_tokens": "Deleted shared gesture-classifier/token/velocity facade. Native engine owns gesture transport; the few retained control-specific thresholds and velocity decisions are private policies exercised by native collections tests.",
     "platform_env_binding": "Deleted synthetic environment binding, raw-input primacy overrides, camera/inset coherence belt and platform probe subscriptions. Consumers bind native services and properties directly through Compose.",
     "tap_arm_seam": "All assertions inspect deleted renderer tap-arm dependency records, echo timestamps, metadata dispatch and private armed-session storage. Native controls do not retain that renderer seam."
-  }
+  },
+  "liveEvidence": [
+    {
+      "artifact": "artifacts/compose-simplification/gap-closure-live.json",
+      "stamp": "468bef2c",
+      "date": "2026-10-07",
+      "host": "Roblox Studio mouse playtest; Studio device simulation and native VirtualInput for touch cases",
+      "observed": "Working-tree mouse build after 468bef2c: 30 pointer suites returned 301 passed, 2 failed and 19 unsupported. The ledger records each suite, each unsupported case and the interactive results. It also records the rebuilt Hue fit and segmented caption/chrome checks. Earlier pad6 gamepad evidence and physical-device limits remain separate."
+    }
+  ]
 }

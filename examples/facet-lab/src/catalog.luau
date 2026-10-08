@@ -4013,10 +4013,23 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "Makes any node a drag source: pointer travel, the touch long press, or A / Return on a selected source.",
 		alternatives = "Table and list reorder for rows.",
 		snippet = 'UI.draggable(card, { payload = "card" })',
-		demonstrates = { "payload", "enabled", "armOnTap", "operations", "valid", "onStart", "onEnd" },
-		states = { { name = "without status labels", props = { statusLabels = false } } :: State },
+		demonstrates = {
+			"payload",
+			"enabled",
+			"armOnTap",
+			"touchPickup",
+			"touchDragAxis",
+			"operations",
+			"valid",
+			"onStart",
+			"onEnd",
+		},
+		states = {
+			{ name = "without status labels", props = { statusLabels = false } } :: State,
+			{ name = "horizontal touch pickup", props = { touchPickup = "immediate", touchDragAxis = "X" } } :: State,
+		},
 		base = function()
-			return {}
+			return { touchPickup = "longPress", touchDragAxis = "XY" }
 		end,
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local card = UI.Button({ label = "Drag me" })
@@ -4024,6 +4037,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			UI.draggable(card, {
 				payload = "card",
 				armOnTap = true,
+				touchPickup = p.touchPickup,
+				touchDragAxis = p.touchDragAxis,
 				statusLabels = p.statusLabels,
 				enabled = true,
 				operations = { "copy" :: "copy" },
