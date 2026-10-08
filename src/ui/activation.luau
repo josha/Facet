@@ -1,16 +1,27 @@
 --!strict
+local Types = require("./types")
+local InputTypes = require("./input_types")
 local activation = {}
 
-local editors = setmetatable({} :: { [Instance]: any }, { __mode = "k" })
+export type EditAction = {
+	id: string?,
+	label: Types.ValueString,
+	icon: Types.ValueString?,
+	role: InputTypes.ButtonRole?,
+	enabled: (Types.Use?) -> boolean,
+	onActivate: () -> (),
+}
 
-function activation.provideEdit(node: Instance, action: any): () -> ()
+local editors = setmetatable({} :: { [Instance]: EditAction }, { __mode = "k" })
+
+function activation.provideEdit(node: Instance, action: EditAction): () -> ()
 	editors[node] = action
 	return function()
 		editors[node] = nil
 	end
 end
 
-function activation.edits(root: Instance): { any }
+function activation.edits(root: Instance): { EditAction }
 	local result = {}
 	if editors[root] then
 		table.insert(result, editors[root])

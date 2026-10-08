@@ -4,7 +4,8 @@ local adaptive = require("./adaptive")
 
 local UNSCALED =
 	{ "TextSize$", "Lines$", "Count$", "Duration$", "Seconds$", "Ratio$", "Fraction$", "Scale$", "Opacity$", "Weight$" }
-local LENGTHS = { "space", "strokes", "targetSizes", "iconSizes" }
+local LENGTHS: { "space" | "strokes" | "targetSizes" | "iconSizes" } =
+	{ "space", "strokes", "targetSizes", "iconSizes" }
 
 local scaledFrom = setmetatable({} :: { [ThemeTypes.ThemePackage]: ThemeTypes.ThemePackage }, { __mode = "k" })
 local cache = setmetatable({} :: { [ThemeTypes.ThemePackage]: ThemeTypes.ThemePackage }, { __mode = "k" })
@@ -48,14 +49,14 @@ local function tenFoot(
 ): ThemeTypes.ThemePackage
 	local factor = adaptive.TEN_FOOT_SCALE
 	local metrics = package.metrics
-	local scaled = (table.clone(metrics) :: unknown) :: { [string]: unknown }
+	local scaled = table.clone(metrics)
 	for _, group in LENGTHS do
-		scaled[group] = scaleTable((metrics :: any)[group], factor)
+		scaled[group] = scaleTable(metrics[group], factor)
 	end
 	scaled.radii = scaleTable(metrics.radii, factor, true)
 	local sizes: { [string]: ThemeTypes.ControlSize } = {}
 	for step, entry in metrics.controlSizes do
-		sizes[step] = (scaleTable(entry :: any, factor, true) :: unknown) :: ThemeTypes.ControlSize
+		sizes[step] = (scaleTable(entry :: { [string]: number }, factor, true) :: unknown) :: ThemeTypes.ControlSize
 	end
 	scaled.controlSizes = sizes
 	local controls: { [string]: { [string]: number } } = {}
@@ -81,7 +82,7 @@ local function tenFoot(
 	end
 	scaled.typography = typography
 	local result = table.clone(package)
-	result.metrics = (scaled :: unknown) :: ThemeTypes.Metrics
+	result.metrics = scaled
 	return if sealed then deepFreeze(result) else result
 end
 

@@ -1355,7 +1355,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local expanded = spec.sidebarExpanded
 			if expanded ~= nil then
 				assert(
-					type(expanded) == "table" and (expanded :: any).set ~= nil,
+					type(expanded) == "table" and expanded.set ~= nil,
 					"Facet UI.TabView: sidebarExpanded must be a writable Compose cell"
 				)
 				ctx.action(root, "SidebarCollapse", { "ButtonB" }, function(use: ComposeTypes.Use)

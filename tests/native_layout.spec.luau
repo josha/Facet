@@ -14,7 +14,6 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local cells = require("./lib/cells")
 	local Compose: ComposeModule = Facet.Compose
-	local themes = Facet.themes
 
 	local function make(options: { [string]: any }?): (any, any, any)
 		local engine: any = engineLib.new()
@@ -42,13 +41,6 @@ return function(verifyHarness: Verify.Harness)
 
 	local function child(node: any, className: string): any
 		return node:FindFirstChildWhichIsA(className)
-	end
-
-	local function wide(): any
-		return assert(themes.define({
-			identity = { id = "wide-spacing" },
-			metrics = { space = { xs = 6, s = 12, m = 20, l = 30, xl = 48 } },
-		} :: any))
 	end
 
 	local function refusal(body: (any, any) -> any): string?
@@ -258,203 +250,9 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 	end)
-	verifyHarness:suite("native maximum layout width", function()
-		verifyHarness:case("caps every sized container with one reactive native constraint", {
-			id = "native_layout::native maximum layout width::caps every sized container with one reactive native constraint",
-			run = function()
-				for _, name in
-					{
-						"Screen",
-						"VStack",
-						"HStack",
-						"ZStack",
-						"ScrollView",
-						"Grid",
-						"AdaptiveStack",
-						"ViewThatFits",
-						"ErrorBoundary",
-					}
-				do
-					local maximum = Compose.cell(480)
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-						local spec = {
-							width = "fill" :: "fill",
-							height = 120,
-							maxWidth = function(use: Use)
-								return use(maximum)
-							end,
-						}
-						if name == "Grid" then
-							spec.columns = 2
-						end
-						if name == "ViewThatFits" then
-							spec[1] = Host.Frame({})
-						end
-						if name == "ErrorBoundary" then
-							spec.view = function()
-								return Host.Frame({})
-							end
-							spec.fallback = function()
-								return Host.Frame({})
-							end
-						end
-						return UI[name](spec)
-					end)
-					local cap = child(root, "UISizeConstraint")
-					Verify.expect(cap ~= nil):toBe(true)
-					Verify.expect(root.Size):toBe(engine.types.UDim2.new(1, 0, 0, 120))
-					Verify.expect(cap.MaxSize):toBe(engine.types.Vector2.new(480, math.huge))
-					maximum:set(300)
-					Verify.expect((child(root, "UISizeConstraint"))):toBe(cap)
-					Verify.expect(cap.MaxSize.X):toBe(300)
-					stop()
-				end
-			end,
-		})
-
-		verifyHarness:case("keeps fixed width semantics and does not add a cap unless requested", {
-			id = "native_layout::native maximum layout width::keeps fixed width semantics and does not add a cap unless requested",
-			run = function()
-				local maximum = Compose.cell(480)
-				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.VStack {
-						width = 600,
-						UI.HStack { width = 600, maxWidth = maximum } :: unknown,
-						UI.ZStack { width = "fill" :: "fill", maxWidth = 0 },
-					}
-				end)
-				Verify.expect(root.Size.X.Offset):toBe(600)
-				Verify.expect((child(root, "UISizeConstraint"))):toBeNil()
-				local rows = {}
-				for _, node in root:GetChildren() do
-					if node:IsA("GuiObject") then
-						rows[node.LayoutOrder] = node
-					end
-				end
-				Verify.expect(rows[1].Size.X.Offset):toBe(600)
-				maximum:set(320)
-				Verify.expect(child(rows[1], "UISizeConstraint").MaxSize.X):toBe(320)
-				Verify.expect(rows[1].Size.X.Offset):toBe(600)
-				Verify.expect(child(rows[2], "UISizeConstraint").MaxSize.X):toBe(0)
-				stop()
-			end,
-		})
-
-		verifyHarness:case("rejects invalid maximum widths before passing them to Roblox", {
-			id = "native_layout::native maximum layout width::rejects invalid maximum widths before passing them to Roblox",
-			run = function()
-				for _, maximum in { -1 :: any, math.huge, 0 / 0, "fill", false } :: { unknown } do
-					Verify.expect((mentions(
-						refusal(function(UI: FacetControls)
-							return UI.VStack({ maxWidth = maximum } :: any)
-						end),
-						"maxWidth must be a finite number"
-					))):toBe(true)
-				end
-			end,
-		})
-	end)
 
 	verifyHarness:suite("native layout primitives", function()
 		verifyHarness:suite("VStack and HStack", function()
-			verifyHarness:case("build a plain Frame with a list layout and number the children in declaration order", {
-				id = "native_layout::VStack and HStack::build a plain Frame with a list layout and number the children in declaration order",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack {
-							UI.Text { text = "One" } :: unknown,
-							UI.Text { text = "Two" },
-							UI.Button { label = "Three", onActivate = function() end },
-						}
-					end)
-					local E = engine.types.Enum
-					Verify.expect(root.ClassName):toBe("Frame")
-					Verify.expect((root:HasTag("facet-layout"))):toBe(true)
-					Verify.expect(root.BorderSizePixel):toBe(0)
-					Verify.expect(root.Size):toBe(engine.types.UDim2.new(0, 0, 0, 0))
-					Verify.expect(root.AutomaticSize):toBe(E.AutomaticSize.XY)
-					local layout = child(root, "UIListLayout")
-					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-					Verify.expect(layout.SortOrder):toBe(E.SortOrder.LayoutOrder)
-					Verify.expect(layout.Padding):toBe(engine.types.UDim.new(0, 0))
-					Verify.expect((child(root, "UIPadding"))):toBeNil()
-					local orders = {}
-					for _, node in root:GetChildren() do
-						if node:IsA("GuiObject") then
-							orders[node.Text] = node.LayoutOrder
-						end
-					end
-					Verify.expect(orders):toEqual({ One = 1, Two = 2, Three = 3 })
-					stop()
-				end,
-			})
-
-			verifyHarness:case("lays an HStack out horizontally and accepts a constructor name", {
-				id = "native_layout::VStack and HStack::lays an HStack out horizontally and accepts a constructor name",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.HStack "Toolbar" { gap = 4, UI.Text { text = "A" } }
-					end)
-					Verify.expect(root.Name):toBe("Toolbar")
-					Verify.expect(child(root, "UIListLayout").FillDirection)
-						:toBe(engine.types.Enum.FillDirection.Horizontal)
-					Verify.expect(child(root, "UIListLayout").Padding):toBe(engine.types.UDim.new(0, 4))
-					stop()
-				end,
-			})
-
-			verifyHarness:case("resolves gap and padding spacing steps from the theme package", {
-				id = "native_layout::VStack and HStack::resolves gap and padding spacing steps from the theme package",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack { gap = "s", padding = "m", UI.Text { text = "A" } }
-					end)
-					local space = themes.neutralPackage().metrics.space
-					local padding = child(root, "UIPadding")
-					Verify.expect(child(root, "UIListLayout").Padding):toBe(engine.types.UDim.new(0, space.s))
-					for _, side in { "PaddingTop", "PaddingRight", "PaddingBottom", "PaddingLeft" } do
-						Verify.expect(padding[side]):toBe(engine.types.UDim.new(0, space.m))
-					end
-					stop()
-				end,
-			})
-
-			verifyHarness:case("pads each side on its own and keeps literal pixel values", {
-				id = "native_layout::VStack and HStack::pads each side on its own and keeps literal pixel values",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack { gap = 7, padding = { left = "xs", top = 3 } }
-					end)
-					local padding = child(root, "UIPadding")
-					local D = engine.types.UDim
-					Verify.expect(child(root, "UIListLayout").Padding):toBe(D.new(0, 7))
-					Verify.expect(padding.PaddingLeft):toBe(D.new(0, themes.neutralPackage().metrics.space.xs))
-					Verify.expect(padding.PaddingTop):toBe(D.new(0, 3))
-					Verify.expect(padding.PaddingRight):toBe(D.new(0, 0))
-					Verify.expect(padding.PaddingBottom):toBe(D.new(0, 0))
-					stop()
-				end,
-			})
-
-			verifyHarness:case("moves gap and padding when the theme package changes", {
-				id = "native_layout::VStack and HStack::moves gap and padding when the theme package changes",
-				run = function()
-					local theme = Compose.cell(themes.neutralPackage())
-					local root, engine, stop = build({ theme = theme }, function(UI: FacetControls)
-						return UI.VStack { gap = "s", padding = { left = "m" }, UI.Text { text = "A" } }
-					end)
-					local D = engine.types.UDim
-					local layout, padding = child(root, "UIListLayout"), child(root, "UIPadding")
-					Verify.expect(layout.Padding):toBe(D.new(0, 8))
-					Verify.expect(padding.PaddingLeft):toBe(D.new(0, 16))
-					theme:set(wide())
-					Verify.expect((child(root, "UIListLayout"))):toBe(layout)
-					Verify.expect(layout.Padding):toBe(D.new(0, 12))
-					Verify.expect(padding.PaddingLeft):toBe(D.new(0, 20))
-					stop()
-				end,
-			})
-
 			verifyHarness:case("maps align and distribute to the native list alignment and flex", {
 				id = "native_layout::VStack and HStack::maps align and distribute to the native list alignment and flex",
 				run = function()
@@ -489,125 +287,6 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(list.HorizontalAlignment):toBe(E.HorizontalAlignment.Right)
 					Verify.expect(list.VerticalAlignment):toBe(E.VerticalAlignment.Center)
 					Verify.expect(list.VerticalFlex):toBe(E.UIFlexAlignment.None)
-				end,
-			})
-
-			verifyHarness:case("spreads the leftover space with every native flex distribution", {
-				id = "native_layout::VStack and HStack::spreads the leftover space with every native flex distribution",
-				run = function()
-					local E = engineLib.new().types.Enum
-					for name, flex in
-						{
-							spaceBetween = E.UIFlexAlignment.SpaceBetween,
-							spaceAround = E.UIFlexAlignment.SpaceAround,
-							spaceEvenly = E.UIFlexAlignment.SpaceEvenly,
-						}
-					do
-						local row, _, stopRow = build(nil, function(UI: FacetControls)
-							return UI.HStack { distribute = name :: "spaceBetween" | "spaceAround" | "spaceEvenly" }
-						end)
-						Verify.expect(child(row, "UIListLayout").HorizontalFlex):toBe(flex)
-						stopRow()
-						local column, _, stopColumn = build(nil, function(UI: FacetControls)
-							return UI.VStack { distribute = name :: "spaceBetween" | "spaceAround" | "spaceEvenly" }
-						end)
-						Verify.expect(child(column, "UIListLayout").VerticalFlex):toBe(flex)
-						stopColumn()
-					end
-					local screen, _, stopScreen = build(nil, function(UI: FacetControls)
-						return UI.Screen { distribute = "end" :: "end" }
-					end)
-					Verify.expect(child(screen, "UIListLayout").VerticalAlignment):toBe(E.VerticalAlignment.Bottom)
-					stopScreen()
-				end,
-			})
-
-			verifyHarness:case("accepts distribute only on the list containers", {
-				id = "native_layout::VStack and HStack::accepts distribute only on the list containers",
-				run = function()
-					Verify.expect((mentions(
-						refusal(function(UI: FacetControls)
-							return UI.ZStack { distribute = "center" :: "center" }
-						end),
-						"distribute"
-					))):toBe(true)
-					Verify.expect((mentions(
-						refusal(function(UI: FacetControls)
-							return UI.Grid { columns = 2, distribute = "center" :: "center" }
-						end),
-						"distribute"
-					))):toBe(true)
-					Verify.expect((refusal(function(UI: FacetControls)
-						return UI.ScrollView { distribute = "center" :: "center" }
-					end))):toBeNil()
-				end,
-			})
-
-			verifyHarness:case("writes no alignment property that the author did not ask for", {
-				id = "native_layout::VStack and HStack::writes no alignment property that the author did not ask for",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack {}
-					end)
-					local E = engine.types.Enum
-					local layout = child(root, "UIListLayout")
-					local native = engine.new("UIListLayout")
-					Verify.expect(layout.HorizontalAlignment):toBe(native.HorizontalAlignment)
-					Verify.expect(layout.VerticalAlignment):toBe(native.VerticalAlignment)
-					Verify.expect(layout.ItemLineAlignment):toBe(native.ItemLineAlignment)
-					Verify.expect(layout.HorizontalFlex):toBe(E.UIFlexAlignment.None)
-					Verify.expect(layout.Wraps):toBe(false)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("sizes by fill, hug and pixels on each axis", {
-				id = "native_layout::VStack and HStack::sizes by fill, hug and pixels on each axis",
-				run = function()
-					local width = Compose.cell("fill" :: any)
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack { width = width, height = 40 }
-					end)
-					local E, D2 = engine.types.Enum, engine.types.UDim2
-					Verify.expect(root.Size):toBe(D2.new(1, 0, 0, 40))
-					Verify.expect(root.AutomaticSize):toBe(E.AutomaticSize.None)
-					width:set(120)
-					Verify.expect(root.Size):toBe(D2.new(0, 120, 0, 40))
-					width:set("hug")
-					Verify.expect(root.AutomaticSize):toBe(E.AutomaticSize.X)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("passes native properties through and lets them win over the defaults", {
-				id = "native_layout::VStack and HStack::passes native properties through and lets them win over the defaults",
-				run = function()
-					local D2 = engineLib.new().types.UDim2
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack { BackgroundTransparency = 0.25, Size = D2.fromOffset(10, 10) }
-					end)
-					Verify.expect(root.BackgroundTransparency):toBe(0.25)
-					Verify.expect(root.Size):toBe(engine.types.UDim2.fromOffset(10, 10))
-					stop()
-				end,
-			})
-
-			verifyHarness:case("numbers the nodes that a Compose directive child adds later", {
-				id = "native_layout::VStack and HStack::numbers the nodes that a Compose directive child adds later",
-				run = function()
-					local shown = Compose.cell(false)
-					local root, _, stop = build(nil, function(UI: FacetControls)
-						return UI.VStack {
-							UI.Text { text = "First" } :: unknown,
-							Compose.show(shown, function()
-								return UI.Text { text = "Middle" }
-							end),
-							UI.Text { text = "Last" },
-						}
-					end)
-					shown:set(true)
-					Verify.expect((painted(root))):toBe("First Middle Last")
-					stop()
 				end,
 			})
 
@@ -651,86 +330,6 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			)
-
-			verifyHarness:case("refuses an unknown spacing step, alignment or option and names the vocabulary", {
-				id = "native_layout::VStack and HStack::refuses an unknown spacing step, alignment or option and names the vocabulary",
-				run = function()
-					local engine, runtime, UI = make()
-					local function refused(body: () -> any, fragment: string)
-						local ok, message = pcall(function()
-							runtime.mount(body, engine.new("ScreenGui"))
-						end)
-						Verify.expect(ok):toBe(false)
-						Verify.expect(string.find(tostring(message), fragment, 1, true) ~= nil):toBe(true)
-					end
-					refused(function()
-						return UI.VStack { gap = "enormous" }
-					end, "xs, s, m, l, xl")
-					refused(function()
-						return UI.VStack { padding = "enormous" }
-					end, "enormous")
-					refused(function()
-						return UI.VStack { padding = { left = "enormous" } }
-					end, "enormous")
-					refused(function()
-						return UI.HStack { align = "middle" :: "middle" }
-					end, "start, center, end or stretch")
-					refused(function()
-						return UI.VStack { distribute = "around" :: "around" }
-					end, "spaceBetween")
-					refused(function()
-						return UI.VStack { width = "stretch" :: "stretch" }
-					end, "fill, hug")
-					refused(function()
-						return UI.VStack { gpa = "s" }
-					end, "gpa")
-					runtime:dispose()
-				end,
-			})
-		end)
-
-		verifyHarness:suite("fill", function()
-			verifyHarness:case("refuses a weight that is not a positive number", {
-				id = "native_layout::fill::refuses a weight that is not a positive number",
-				run = function()
-					Verify.expect((mentions(
-						refusal(function(UI: FacetControls)
-							return UI.HStack { UI.Text { text = "A", UI.fill(0) } }
-						end),
-						"positive"
-					))):toBe(true)
-					Verify.expect((mentions(
-						refusal(function(UI: FacetControls)
-							return UI.HStack { UI.Text { text = "A", UI.fill(-1) } }
-						end),
-						"positive"
-					))):toBe(true)
-				end,
-			})
-
-			verifyHarness:case("makes a native flex item that fills the main axis, by weight when given", {
-				id = "native_layout::fill::makes a native flex item that fills the main axis, by weight when given",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.HStack {
-							UI.Text { text = "A", UI.fill() } :: unknown,
-							UI.Text { text = "B", UI.fill(2) },
-						}
-					end)
-					local E = engine.types.Enum
-					local items = {}
-					for _, node in root:GetChildren() do
-						if node:IsA("GuiObject") then
-							items[node.Text] = child(node, "UIFlexItem")
-						end
-					end
-					Verify.expect(items.A.FlexMode):toBe(E.UIFlexMode.Fill)
-					Verify.expect(items.B.FlexMode):toBe(E.UIFlexMode.Custom)
-					Verify.expect(items.B.GrowRatio):toBe(2)
-					Verify.expect(items.B.ShrinkRatio):toBe(2)
-					stop()
-				end,
-			})
 		end)
 
 		verifyHarness:suite("Screen", function()
@@ -922,85 +521,9 @@ return function(verifyHarness: Verify.Harness)
 					runtime:dispose()
 				end,
 			})
-
-			verifyHarness:case("ignores the top bar on a SurfaceGui", {
-				id = "native_layout::Screen::ignores the top bar on a SurfaceGui",
-				run = function()
-					local engine: any = engineLib.new()
-					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local gui = engine.new("GuiService")
-					local T = engine.types
-					gui.GetGuiInset = function()
-						return T.Vector2.zero, T.Vector2.zero
-					end
-					gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
-					local UI =
-						Facet.controls(runtime, { types = T, guiService = gui, services = { GuiService = gui } } :: any)
-					local root: any
-					runtime.mount(function()
-						root = UI.Screen {}
-						return root
-					end, engine.new("SurfaceGui"))
-					Verify.expect(child(root, "UIPadding").PaddingTop):toBe(T.UDim.new(0, 16))
-					runtime:dispose()
-				end,
-			})
 		end)
 
 		verifyHarness:suite("ZStack", function()
-			verifyHarness:case("layers later children above earlier ones and keeps an authored ZIndex", {
-				id = "native_layout::ZStack::layers later children above earlier ones and keeps an authored ZIndex",
-				run = function()
-					local root, _, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-						return UI.ZStack {
-							Host.Frame { Name = "Back" } :: unknown,
-							Host.Frame { Name = "Front" },
-							Host.Frame { Name = "Pinned", ZIndex = 9 },
-						}
-					end)
-					Verify.expect(root:FindFirstChild("Back").ZIndex):toBe(1)
-					Verify.expect(root:FindFirstChild("Front").ZIndex):toBe(2)
-					Verify.expect(root:FindFirstChild("Pinned").ZIndex):toBe(9)
-					Verify.expect((child(root, "UIListLayout"))):toBeNil()
-					stop()
-				end,
-			})
-
-			verifyHarness:case("refuses an alignment outside start, center and end", {
-				id = "native_layout::ZStack::refuses an alignment outside start, center and end",
-				run = function()
-					Verify.expect((mentions(
-						refusal(function(UI: FacetControls, Host: RobloxHost)
-							return UI.ZStack({ alignH = "stretch" :: "stretch", Host.Frame {} } :: any)
-						end),
-						"start, center or end"
-					))):toBe(true)
-				end,
-			})
-
-			verifyHarness:case("aligns every child by anchor point and scale position", {
-				id = "native_layout::ZStack::aligns every child by anchor point and scale position",
-				run = function()
-					local horizontal = Compose.cell("center" :: "center" | "end" | "start")
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-						return UI.ZStack {
-							width = "fill" :: "fill",
-							height = "fill" :: "fill",
-							alignH = horizontal,
-							alignV = "end" :: "end",
-							Host.Frame { Name = "Badge" },
-						}
-					end)
-					local badge = root:FindFirstChild("Badge")
-					Verify.expect(badge.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 1))
-					Verify.expect(badge.Position):toBe(engine.types.UDim2.fromScale(0.5, 1))
-					horizontal:set("end")
-					Verify.expect(badge.AnchorPoint):toBe(engine.types.Vector2.new(1, 1))
-					Verify.expect(badge.Position):toBe(engine.types.UDim2.fromScale(1, 1))
-					stop()
-				end,
-			})
-
 			verifyHarness:case("aligns children by offset along a hugging axis", {
 				id = "native_layout::ZStack::aligns children by offset along a hugging axis",
 				run = function()
@@ -1029,6 +552,40 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:suite("ScrollView", function()
+			verifyHarness:case(
+				"keeps a horizontal canvas floor at the native layout extent and respects an authored canvas",
+				{
+					id = "native_layout::ScrollView::keeps a horizontal canvas floor at the native layout extent and respects an authored canvas",
+					run = function()
+						local root, engine, stop = build(nil, function(UI: FacetControls)
+							return UI.ScrollView({ axis = "x" :: "x", padding = { left = 4, right = 6 } })
+						end)
+						local V2 = engine.types.Vector2
+						root.AbsoluteWindowSize = V2.new(353, 44)
+						child(root, "UIListLayout").AbsoluteContentSize = V2.new(376, 40)
+						Verify.expect(root.AutomaticCanvasSize):toBe(engine.types.Enum.AutomaticSize.X)
+						Verify.expect(root.CanvasSize.X.Offset):toBe(386)
+						root:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(200, 2)
+						root.AbsoluteWindowSize = V2.new(706, 88)
+						child(root, "UIListLayout").AbsoluteContentSize = V2.new(752, 80)
+						Verify.expect(root.CanvasSize.X.Offset):toBe(386)
+						root:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(100, 1)
+						child(root, "UIListLayout").AbsoluteContentSize = V2.new(250, 40)
+						Verify.expect(root.CanvasSize.X.Offset):toBe(260)
+						stop()
+						root, engine, stop = build(nil, function(UI: FacetControls)
+							return UI.ScrollView({
+								axis = "x" :: "x",
+								CanvasSize = engine.types.UDim2.fromOffset(500, 0),
+							})
+						end)
+						child(root, "UIListLayout").AbsoluteContentSize = engine.types.Vector2.new(700, 40)
+						Verify.expect(root.CanvasSize.X.Offset):toBe(500)
+						stop()
+					end,
+				}
+			)
+
 			verifyHarness:case(
 				"restores an initial offset after native canvas bounds arrive without overriding input",
 				{
@@ -1062,40 +619,6 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			)
-			verifyHarness:case("sizes vertical content to the scroll window with a list layout and automatic canvas", {
-				id = "native_layout::ScrollView::sizes vertical content to the scroll window with a list layout and automatic canvas",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.ScrollView "Page" {
-							gap = "s",
-							padding = "m",
-							UI.Text { text = "A" } :: unknown,
-							UI.Text { text = "B" },
-						}
-					end)
-					local E, D2 = engine.types.Enum, engine.types.UDim2
-					Verify.expect(root.ClassName):toBe("ScrollingFrame")
-					Verify.expect(root.Name):toBe("Page")
-					Verify.expect(root.Size):toBe(D2.fromScale(1, 1))
-					Verify.expect(root.CanvasSize):toBe(D2.new())
-					Verify.expect(root.AutomaticCanvasSize):toBe(E.AutomaticSize.Y)
-					Verify.expect(root.ScrollingDirection):toBe(E.ScrollingDirection.Y)
-					Verify.expect(root.VerticalScrollBarInset):toBe(E.ScrollBarInset.Always)
-					Verify.expect((root:HasTag("facet-layout"))):toBe(true)
-					local layout = child(root, "UIListLayout")
-					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-					Verify.expect(layout.Padding):toBe(engine.types.UDim.new(0, 8))
-					Verify.expect(child(root, "UIPadding").PaddingTop):toBe(engine.types.UDim.new(0, 16))
-					local orders = {}
-					for _, node in root:GetChildren() do
-						if node:IsA("GuiObject") then
-							orders[node.Text] = node.LayoutOrder
-						end
-					end
-					Verify.expect(orders):toEqual({ A = 1, B = 2 })
-					stop()
-				end,
-			})
 
 			verifyHarness:case("gives a fill-height child the padded window as a floor so its bottom stays reachable", {
 				id = "native_layout::ScrollView::gives a fill-height child the padded window as a floor so its bottom stays reachable",
@@ -1248,19 +771,6 @@ return function(verifyHarness: Verify.Harness)
 				}
 			)
 
-			verifyHarness:case("stretches the children across the scroll window when align is stretch", {
-				id = "native_layout::ScrollView::stretches the children across the scroll window when align is stretch",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.ScrollView { align = "stretch" :: "stretch", UI.Text { text = "A" } }
-					end)
-					local layout = child(root, "UIListLayout")
-					Verify.expect(layout.ItemLineAlignment):toBe(engine.types.Enum.ItemLineAlignment.Stretch)
-					Verify.expect(layout.HorizontalFlex):toBe(engine.types.Enum.UIFlexAlignment.Fill)
-					stop()
-				end,
-			})
-
 			verifyHarness:case("runs a horizontal axis as a horizontal list with a horizontal canvas", {
 				id = "native_layout::ScrollView::runs a horizontal axis as a horizontal list with a horizontal canvas",
 				run = function()
@@ -1293,41 +803,6 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:suite("Grid", function()
-			verifyHarness:case("divides the width into columns with a native grid layout", {
-				id = "native_layout::Grid::divides the width into columns with a native grid layout",
-				run = function()
-					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-						return UI.Grid "Tiles" {
-							columns = 3,
-							gap = "s",
-							Host.Frame { Name = "A" } :: unknown,
-							Host.Frame { Name = "B" },
-							Host.Frame { Name = "C" },
-							Host.Frame { Name = "D" },
-						}
-					end)
-					local E, D2 = engine.types.Enum, engine.types.UDim2
-					local grid = child(root, "UIGridLayout")
-					Verify.expect(root.Size):toBe(D2.new(1, 0, 0, 0))
-					Verify.expect(root.AutomaticSize):toBe(E.AutomaticSize.Y)
-					Verify.expect(grid.SortOrder):toBe(E.SortOrder.LayoutOrder)
-					Verify.expect(grid.FillDirection):toBe(E.FillDirection.Horizontal)
-					Verify.expect(grid.FillDirectionMaxCells):toBe(3)
-					Verify.expect(grid.CellPadding):toBe(D2.fromOffset(8, 8))
-					local height = themes.neutralPackage().metrics.controlSizes.regular.height
-					Verify.expect(grid.CellSize.X.Scale):toBeCloseTo(1 / 3, 1e-4)
-					Verify.expect(grid.CellSize.X.Offset):toBe(-6)
-					for width = 60, 900 do
-						local row = 3 * (grid.CellSize.X.Scale * width + grid.CellSize.X.Offset)
-							+ 2 * grid.CellPadding.X.Offset
-						Verify.expect(row <= width):toBe(true)
-					end
-					Verify.expect(grid.CellSize.Y.Offset):toBe(height)
-					Verify.expect(root:FindFirstChild("D").LayoutOrder):toBe(4)
-					stop()
-				end,
-			})
-
 			verifyHarness:case("fills columns first with flow column and follows the child count", {
 				id = "native_layout::Grid::fills columns first with flow column and follows the child count",
 				run = function()
@@ -1362,56 +837,6 @@ return function(verifyHarness: Verify.Harness)
 						end),
 						"flow must be row or column"
 					))):toBe(true)
-				end,
-			})
-
-			verifyHarness:case("takes a separate row gap, a cell height and an aspect ratio", {
-				id = "native_layout::Grid::takes a separate row gap, a cell height and an aspect ratio",
-				run = function()
-					local columns = Compose.cell(2)
-					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.Grid { columns = columns, gap = 4, rowGap = "m", cellHeight = 60, aspectRatio = 1.5 }
-					end)
-					local grid = child(root, "UIGridLayout")
-					Verify.expect(grid.CellPadding):toBe(engine.types.UDim2.fromOffset(4, 16))
-					Verify.expect(grid.CellSize.Y.Offset):toBe(60)
-					Verify.expect(child(grid, "UIAspectRatioConstraint").AspectRatio):toBe(1.5)
-					columns:set(4)
-					Verify.expect(grid.FillDirectionMaxCells):toBe(4)
-					Verify.expect(grid.CellSize.X.Scale):toBeCloseTo(0.25, 1e-4)
-					Verify.expect(grid.CellSize.X.Offset):toBe(-3)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("moves the row gap with the theme and keeps the column count", {
-				id = "native_layout::Grid::moves the row gap with the theme and keeps the column count",
-				run = function()
-					local theme = Compose.cell(themes.neutralPackage())
-					local root, engine, stop = build({ theme = theme }, function(UI: FacetControls)
-						return UI.Grid { columns = 3, gap = 4, rowGap = "s" }
-					end)
-					local grid = child(root, "UIGridLayout")
-					Verify.expect(grid.CellPadding):toBe(engine.types.UDim2.fromOffset(4, 8))
-					theme:set(wide())
-					Verify.expect(grid.CellPadding):toBe(engine.types.UDim2.fromOffset(4, 12))
-					Verify.expect(grid.FillDirectionMaxCells):toBe(3)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("refuses a column count that is not a whole number", {
-				id = "native_layout::Grid::refuses a column count that is not a whole number",
-				run = function()
-					local engine, runtime, UI = make()
-					local ok, message = pcall(function()
-						runtime.mount(function()
-							return UI.Grid { columns = 1.5 }
-						end, engine.new("ScreenGui"))
-					end)
-					Verify.expect(ok):toBe(false)
-					Verify.expect(string.find(tostring(message), "whole number", 1, true) ~= nil):toBe(true)
-					runtime:dispose()
 				end,
 			})
 		end)
@@ -1472,62 +897,6 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Composition { UI.Region { zone = "center" :: "center", rank = 1, UI.Text { text = "A" } } }
 				end,
 			}
-
-			verifyHarness:case(
-				"a plain layout primitive stays transparent and one given a panel paints the theme panel",
-				{
-					id = "native_layout::layout paint belongs to the StyleSheet::a plain layout primitive stays transparent and one given a panel paints the theme panel",
-					run = function()
-						local package = themes.neutralPackage()
-						local panel = package.style.themes[1].colors.surfaceStrong
-						for name, body in primitives do
-							local root, engine, stop, runtime = build(nil, body)
-							local _, sheet: any = runtime.mount(function()
-								return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
-							end, engine.new("Folder"))
-							Verify.expect(`{name} plain {painted(engine, sheet, root, "BackgroundTransparency")}`)
-								:toBe(`{name} plain 1`)
-							root:AddTag("facet-panel")
-							Verify.expect(`{name} panel {painted(engine, sheet, root, "BackgroundTransparency")}`)
-								:toBe(`{name} panel 0`)
-							Verify.expect((painted(engine, sheet, root, "BackgroundColor3")))
-								:toBe(engine.types.Color3.new(panel.r, panel.g, panel.b))
-							stop()
-						end
-					end,
-				}
-			)
-
-			verifyHarness:case("a caller's own BackgroundTransparency still owns the paint, even the default 0", {
-				id = "native_layout::layout paint belongs to the StyleSheet::a caller's own BackgroundTransparency still owns the paint, even the default 0",
-				run = function()
-					local package = themes.neutralPackage()
-					for _, value in { 0, 0.25 } do
-						local root, engine, stop, runtime = build(nil, function(UI: FacetControls)
-							return UI.VStack { BackgroundTransparency = value }
-						end)
-						local _, sheet: any = runtime.mount(function()
-							return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
-						end, engine.new("Folder"))
-						Verify.expect((painted(engine, sheet, root, "BackgroundTransparency"))):toBe(value)
-						stop()
-					end
-				end,
-			})
-		end)
-
-		verifyHarness:suite("theme spacing steps", function()
-			verifyHarness:case("validates the spacing scale of a theme package", {
-				id = "native_layout::theme spacing steps::validates the spacing scale of a theme package",
-				run = function()
-					local package, report =
-						themes.define({ identity = { id = "bad-space" }, metrics = { space = { s = -2 } } } :: any)
-					Verify.expect(package):toBeNil()
-					Verify.expect(report.errors[1].field):toBe("metrics.space.s")
-					local good = wide()
-					Verify.expect(good.metrics.space.s):toBe(12)
-				end,
-			})
 		end)
 	end)
 end

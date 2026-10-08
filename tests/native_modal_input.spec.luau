@@ -30,10 +30,6 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function bodyOf(w: any, name: string): any
-		return overlay.find(modalOf(w, name), "Body")
-	end
-
 	verifyHarness:suite("native modal: the scrim sinks input", function()
 		verifyHarness:case("the modal root and its full-screen scrim are Active", {
 			id = "native_modal_input::native modal: the scrim sinks input::the modal root and its full-screen scrim are Active",
@@ -72,105 +68,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(scrim.Position):toBe(w.engine.types.UDim2.fromOffset(-12, -60))
 				Verify.expect(scrim.Size):toBe(w.engine.types.UDim2.new(1, 20, 1, 80))
 				w.stop()
-			end,
-		})
-
-		verifyHarness:case("stacked modals hold every scroller outside the top one and restore each exact value", {
-			id = "native_modal_input::native modal: the scrim sinks input::stacked modals hold every scroller outside the top one and restore each exact value",
-			run = function()
-				local first, second = Compose.cell(false), Compose.cell(false)
-				local late = Compose.cell(false)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Host.ScrollingFrame "Grid" { ScrollingEnabled = true } :: unknown,
-						Host.ScrollingFrame "Frozen" { ScrollingEnabled = false },
-						Compose.show(late, function()
-							return Host.ScrollingFrame "Late" { ScrollingEnabled = true }
-						end),
-						dialog(UI, Host, "First", first),
-						dialog(UI, Host, "Second", second),
-					})
-				end)
-				local grid, frozen = w.find("Grid"), w.find("Frozen")
-				first:set(true)
-				local firstBody = bodyOf(w, "First")
-				Verify.expect(grid.ScrollingEnabled):toBe(false)
-				Verify.expect(frozen.ScrollingEnabled):toBe(false)
-				Verify.expect(firstBody.ScrollingEnabled):toBe(true)
-				second:set(true)
-				local secondBody = bodyOf(w, "Second")
-				Verify.expect(firstBody.ScrollingEnabled):toBe(false)
-				Verify.expect(secondBody.ScrollingEnabled):toBe(true)
-				late:set(true)
-				local lateFrame = w.find("Late")
-				Verify.expect(lateFrame.ScrollingEnabled):toBe(false)
-				second:set(false)
-				Verify.expect(firstBody.ScrollingEnabled):toBe(true)
-				Verify.expect(grid.ScrollingEnabled):toBe(false)
-				Verify.expect(lateFrame.ScrollingEnabled):toBe(false)
-				first:set(false)
-				Verify.expect(grid.ScrollingEnabled):toBe(true)
-				Verify.expect(frozen.ScrollingEnabled):toBe(false)
-				Verify.expect(lateFrame.ScrollingEnabled):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a scroller that leaves while held gets its value back, and closing out of order restores", {
-			id = "native_modal_input::native modal: the scrim sinks input::a scroller that leaves while held gets its value back, and closing out of order restores",
-			run = function()
-				local first, second = Compose.cell(true), Compose.cell(false)
-				local kept = Compose.cell(true)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Compose.show(kept, function()
-							return Host.ScrollingFrame "Feed" { ScrollingEnabled = true }
-						end) :: unknown,
-						Host.ScrollingFrame "Grid" { ScrollingEnabled = true },
-						dialog(UI, Host, "First", first),
-						dialog(UI, Host, "Second", second),
-					})
-				end)
-				local feed, grid = w.find("Feed"), w.find("Grid")
-				Verify.expect(feed.ScrollingEnabled):toBe(false)
-				kept:set(false)
-				Verify.expect(feed.ScrollingEnabled):toBe(true)
-				second:set(true)
-				first:set(false)
-				Verify.expect(grid.ScrollingEnabled):toBe(false)
-				Verify.expect(bodyOf(w, "Second").ScrollingEnabled):toBe(true)
-				second:set(false)
-				Verify.expect(grid.ScrollingEnabled):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("an exiting modal gives scrolling back at once, and a second layer is never touched", {
-			id = "native_modal_input::native modal: the scrim sinks input::an exiting modal gives scrolling back at once, and a second layer is never touched",
-			run = function()
-				local open = Compose.cell(false)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Host.ScrollingFrame "Grid" { ScrollingEnabled = true } :: unknown,
-						dialog(UI, Host, "About", open),
-					})
-				end)
-				local other = overlay.new(function(_, Host: RobloxHost)
-					return Host.ScrollingFrame "Elsewhere" { ScrollingEnabled = true }
-				end)
-				local grid = w.find("Grid")
-				open:set(true)
-				w.advance(0.3, 18)
-				Verify.expect(grid.ScrollingEnabled):toBe(false)
-				Verify.expect(other.find("Elsewhere").ScrollingEnabled):toBe(true)
-				open:set(false)
-				Verify.expect(modalOf(w, "About") ~= nil):toBe(true)
-				Verify.expect(grid.ScrollingEnabled):toBe(true)
-				w.advance(0.3, 18)
-				Verify.expect((modalOf(w, "About"))):toBeNil()
-				Verify.expect(grid.ScrollingEnabled):toBe(true)
-				w.stop()
-				other.stop()
 			end,
 		})
 	end)

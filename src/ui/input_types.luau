@@ -126,7 +126,7 @@ export type TextInputPresentation =
 export type TextInputImplementationProps = Shared.TextBoxProps & TextInputOptions & NumberOptions & {
 	value: TextValue,
 	onChange: ((string) -> ())?,
-	onCommit: ((any, CommitReason) -> ())?,
+	onCommit: (((string, TextCommitReason) -> ()) | ((number, CommitReason) -> ()))?,
 	presentation: ("plain" | "search" | "number")?,
 	numericValue: ComposeTypes.Cell<number>?,
 }
@@ -167,7 +167,7 @@ export type SliderKnob = {
 	enabled: ComposeTypes.Readable<boolean>,
 }
 export type SliderOptions = {
-	onCommit: ((any, SliderChange?) -> ())?,
+	onCommit: (((number, SliderChange?) -> ()) | ((SliderRange, SliderChange) -> ()))?,
 	tapToPosition: boolean?,
 	thumbImage: TextValue?,
 	trackImage: TextValue?,
@@ -186,7 +186,7 @@ export type SliderImplementationProps = Shared.FrameProps & ValueOptions & Slide
 	enabled: Shared.ValueBoolean?,
 	label: Shared.ValueString?,
 	value: Shared.ValueNumber | RangeValue,
-	onChange: ((any, SliderChange?) -> ())?,
+	onChange: (((number, SliderChange?) -> ()) | ((SliderRange, SliderChange) -> ()))?,
 }
 export type RangeValue = Value<SliderRange>
 export type SliderBinding =
@@ -276,6 +276,7 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & {
 }
 export type ShortcutHintProps = ShortcutHintImplementationProps & ShortcutHintSource
 export type HapticKind = Shared.HapticKind
+export type AdjustmentState = { value: Shared.ValueNumber, onChange: ((number) -> ())? } | AdjustableOptions
 export type AdjustableOptions = {
 	enabled: Shared.ValueBoolean?,
 	disabled: Shared.ValueBoolean?,

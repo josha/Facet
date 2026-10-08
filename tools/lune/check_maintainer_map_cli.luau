@@ -130,7 +130,7 @@ if mode == "selftest" then
 	)
 	run(
 		"a spec named under an area it does not cover",
-		replaceOnce(original, "`tests/radial_geometry.spec.luau`", "`tests/example_word_data.spec.luau`"),
+		replaceOnce(original, "`tests/radial_geometry.spec.luau`", "`tests/native_perf_runner.spec.luau`"),
 		"requires no module of that area"
 	)
 	run(

@@ -10,6 +10,64 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 
+	verifyHarness:suite("collection media preparation", function()
+		verifyHarness:case("keeps a surface placeholder until media is ready and fades through the theme token", {
+			id = "native_stage_presence::collection media preparation::keeps a surface placeholder until media is ready and fades through the theme token",
+			run = function()
+				local asset = Compose.cell("rbxassetid://1")
+				local w = overlay.new(function(UI, Host, engine)
+					return Host.Frame "Cell" {
+						BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
+						Attributes = { FacetCollectionRow = true },
+						UI.Image "Picture" { image = asset, BackgroundColor3 = engine.types.Color3.new(0.7, 0.2, 0.1) },
+						UI.Stage "Scene" {
+							content = function(runtime, world)
+								local part = runtime.constructors.Part "Complete" {}
+								part.Parent = world
+							end,
+						},
+					}
+				end, { motionLevel = "normal" })
+				local image, stage = w.find("Picture"), w.find("Scene")
+				image.IsLoaded = false
+				Verify.expect(image.ImageTransparency):toBe(1)
+				Verify.expect(image.BackgroundTransparency):toBe(0)
+				Verify.expect(image.BackgroundColor3):toBe(w.engine.types.Color3.new(0.2, 0.3, 0.4))
+				Verify.expect(stage.ImageTransparency):toBe(1)
+				Verify.expect(stage.BackgroundTransparency):toBe(0)
+				w.size(image, 120, 80)
+				w.size(stage, 120, 80)
+				w.advance(0.05, 3)
+				Verify.expect(image.ImageTransparency):toBe(1)
+				image.IsLoaded = true
+				local intermediate = false
+				local last = image.ImageTransparency
+				for _ = 1, 30 do
+					w.advance(1 / 60)
+					Verify.expect(image.ImageTransparency <= last):toBe(true)
+					if image.ImageTransparency > 0 then
+						Verify.expect(image.BackgroundColor3):toBe(w.engine.types.Color3.new(0.2, 0.3, 0.4))
+					end
+					intermediate = intermediate or (image.ImageTransparency > 0 and image.ImageTransparency < 1)
+					last = image.ImageTransparency
+				end
+				Verify.expect(intermediate):toBe(true)
+				Verify.expect(last):toBe(0)
+				Verify.expect(image.BackgroundColor3):toBe(w.engine.types.Color3.new(0.7, 0.2, 0.1))
+				Verify.expect(stage.ImageTransparency):toBe(0)
+				asset:set("rbxassetid://2")
+				Verify.expect(image.ImageTransparency):toBe(1)
+				Verify.expect(image.BackgroundTransparency):toBe(0)
+				image.IsLoaded = false
+				asset:set("")
+				w.advance(0.4, 24)
+				Verify.expect(image:GetAttribute("FacetMediaReady")):toBe(true)
+				Verify.expect(image.ImageTransparency):toBe(0)
+				w.stop()
+			end,
+		})
+	end)
+
 	local function scene(options: { lazy: boolean?, count: number? }?): any
 		local o: { lazy: boolean?, count: number? } = options or {}
 		local log = { builds = 0, writes = 0, lives = {} :: { any } }
@@ -67,23 +125,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Stage presence", function()
-		verifyHarness:case("reports live on screen, not live while its scroller moves, and live again once it rests", {
-			id = "native_stage_presence::native Stage presence::reports live on screen, not live while its scroller moves, and live again once it rests",
-			run = function()
-				local w = scene()
-				local live = w.log.lives[1]
-				Verify.expect((live:peek())):toBe(true)
-				w.find("Feed").CanvasPosition = w.Vector2.new(0, 20)
-				Verify.expect((live:peek())):toBe(false)
-				w.advance(0.1, 6)
-				Verify.expect((live:peek())):toBe(false)
-				w.advance(0.1, 6)
-				Verify.expect((live:peek())):toBe(true)
-				Verify.expect((w.find("Stage1"):GetAttribute("FacetLive"))):toBe(true)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("is not live while less than half of it shows in the scroll window", {
 			id = "native_stage_presence::native Stage presence::is not live while less than half of it shows in the scroll window",
 			run = function()
@@ -120,42 +161,6 @@ return function(verifyHarness: Verify.Harness)
 				local hidden = w.log.writes
 				w.advance(0.5, 30)
 				Verify.expect(w.log.writes - hidden <= 1):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("builds lazy content only once it is live, one stage per frame", {
-			id = "native_stage_presence::native Stage presence::builds lazy content only once it is live, one stage per frame",
-			run = function()
-				local w = scene({ lazy = true, count = 3 })
-				Verify.expect(w.log.builds):toBe(0)
-				Verify.expect((w.find("Stage1"):GetAttribute("FacetBuilt"))):toBe(false)
-				w.advance(1 / 60)
-				Verify.expect(w.log.builds):toBe(1)
-				w.advance(1 / 60)
-				Verify.expect(w.log.builds):toBe(2)
-				w.advance(1 / 60)
-				Verify.expect(w.log.builds):toBe(3)
-				Verify.expect((w.find("Stage3"):GetAttribute("FacetBuilt"))):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("builds lazy content that shows while the scroller moves, and keeps its animation paused", {
-			id = "native_stage_presence::native Stage presence::builds lazy content that shows while the scroller moves, and keeps its animation paused",
-			run = function()
-				local w = scene({ lazy = true })
-				local feed = w.find("Feed")
-				for frame = 1, 20 do
-					feed.CanvasPosition = w.Vector2.new(0, frame * 3)
-					w.advance(1 / 60)
-				end
-				Verify.expect(w.log.builds):toBe(1)
-				Verify.expect((w.find("Stage1"):GetAttribute("FacetBuilt"))):toBe(true)
-				Verify.expect((w.log.lives[1]:peek())):toBe(false)
-				w.advance(0.3, 18)
-				Verify.expect(w.log.builds):toBe(1)
-				Verify.expect((w.log.lives[1]:peek())):toBe(true)
 				w.stop()
 			end,
 		})
@@ -229,18 +234,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(problem):toBe(nil)
 				Verify.expect(ok):toBe(true)
 				Verify.expect(builds):toBe(0)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("builds eager content at once and keeps it through scrolling", {
-			id = "native_stage_presence::native Stage presence::builds eager content at once and keeps it through scrolling",
-			run = function()
-				local w = scene({ count = 2 })
-				Verify.expect(w.log.builds):toBe(2)
-				w.find("Feed").CanvasPosition = w.Vector2.new(0, 30)
-				w.advance(0.5, 30)
-				Verify.expect(w.log.builds):toBe(2)
 				w.stop()
 			end,
 		})

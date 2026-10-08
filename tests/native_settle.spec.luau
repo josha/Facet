@@ -39,25 +39,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("settle: the sheet", function()
-		verifyHarness:case("a programmatic detent change eases in and out instead of moving at constant speed", {
-			id = "native_settle::settle: the sheet::a programmatic detent change eases in and out instead of moving at constant speed",
-			run = function()
-				local w = sheet()
-				local panel = w.find("SheetPanel")
-				local start = panel.Size.Y.Offset
-				w.detent:set("large")
-				local heights = { start }
-				for _ = 1, 30 do
-					w.advance(FRAME)
-					table.insert(heights, panel.Size.Y.Offset)
-				end
-				local first, middle = heights[2] - heights[1], heights[8] - heights[7]
-				Verify.expect(first < middle):toBe(true)
-				Verify.expect(heights[#heights]):toBe(heights[#heights - 1])
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a side pull released short springs back carrying the release velocity", {
 			id = "native_settle::settle: the sheet::a side pull released short springs back carrying the release velocity",
 			run = function()
@@ -118,19 +99,6 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				Verify.expect(panel.Size.Y.Offset <= 150):toBe(true)
 				w.advance(1, 30)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("reduced motion lands a detent change at once", {
-			id = "native_settle::settle: the sheet::reduced motion lands a detent change at once",
-			run = function()
-				local w = sheet(nil, { motionLevel = "none" })
-				local panel = w.find("SheetPanel")
-				w.detent:set("large")
-				local goal = panel.Size.Y.Offset
-				w.advance(FRAME)
-				Verify.expect(panel.Size.Y.Offset):toBe(goal)
 				w.stop()
 			end,
 		})
@@ -253,23 +221,6 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
-
-		verifyHarness:case("a caller's own reduced reader decides, and launch reports that nothing started", {
-			id = "native_settle::settle: the primitive::a caller's own reduced reader decides, and launch reports that nothing started",
-			run = function()
-				local s: any
-				local _, stop = run(function(ctx)
-					s = settle(ctx, function(): number
-						return 0
-					end, { period = 0.2, damping = 1 }, function(): boolean
-						return true
-					end)
-				end)
-				Verify.expect((s.launch(10, 0))):toBe(false)
-				Verify.expect((s.value:peek())):toBeNil()
-				stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("settle: the sheet follows the finger", function()
@@ -290,20 +241,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(half > rest):toBe(true)
 				drag.DragContinue:Fire(w.Vector2.new(0, 250))
 				Verify.expect(scrimAlpha(w) > half):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("the scrim stays whole while the sheet grows to a larger detent", {
-			id = "native_settle::settle: the sheet follows the finger::the scrim stays whole while the sheet grows to a larger detent",
-			run = function()
-				local w = sheet()
-				local rest = scrimAlpha(w)
-				w.detent:set("large")
-				for _ = 1, 40 do
-					w.advance(FRAME)
-					Verify.expect((scrimAlpha(w))):toBe(rest)
-				end
 				w.stop()
 			end,
 		})

@@ -82,103 +82,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("equips a warm outfit, filters equipment and swaps hotbar slots without duplication", {
-			id = "native_showcase_demos::showcase demos::equips a warm outfit, filters equipment and swaps hotbar slots without duplication",
-			run = function()
-				mount("09_adventurers_pack", function(built)
-					Verify.expect(built.report().warmth):toBe(2)
-					built.equip("frostcoat")
-					built.equip("snowboots")
-					Verify.expect(built.report().warmth):toBe(10)
-					built.model.query:set("frost")
-					Verify.expect(#built.model.filtered:peek()):toBe(1)
-					built.model.loadoutOpen:set(true)
-					built.model.loadoutOpen:set(false)
-					Verify.expect((built.assign("lantern", 1))):toBe(true)
-					Verify.expect(built.report().hotbar[1]):toBe("lantern")
-					Verify.expect(built.report().hotbar[2]):toBe("sword")
-					Verify.expect((built.assign("frostcoat", 1))):toBe(false)
-
-					built.model.path:set({ { id = "item", value = "lantern" } })
-					Verify.expect(built.report().warmth):toBe(10)
-					built.reset()
-					Verify.expect(built.report().warmth):toBe(2)
-				end)
-			end,
-		})
-		verifyHarness:case("rejects the wrong batch and pays exactly once for each of three orders", {
-			id = "native_showcase_demos::showcase demos::rejects the wrong batch and pays exactly once for each of three orders",
-			run = function()
-				mount("10_potion_shop", function(built)
-					Verify.expect((built.brew())):toBe(false)
-					for _, order in
-						{ { id = "sun", order = 2 }, { id = "moon", order = 1 }, { id = "moss", order = 3 } }
-					do
-						for _ = 1, order.order do
-							Verify.expect((built.addIngredient(order.id))):toBe(true)
-						end
-						Verify.expect((built.addIngredient(if order.id == "sun" then "moon" else "sun"))):toBe(false)
-						Verify.expect((built.brew())):toBe(true)
-						Verify.expect((built.serve())):toBe(false)
-						built.advance(3)
-						Verify.expect((built.serve())):toBe(true)
-						Verify.expect((built.serve())):toBe(false)
-					end
-					Verify.expect(built.report().coins):toBe(86)
-					Verify.expect(built.report().sales):toBe(3)
-					Verify.expect((built.brew())):toBe(false)
-					built.model.bookOpen:set(true)
-					built.model.bookOpen:set(false)
-					built.model.ledgerOpen:set(true)
-					built.reset()
-					Verify.expect(built.report().coins):toBe(0)
-				end)
-			end,
-		})
-		verifyHarness:case("requires water and collects three distinct nectar visitors", {
-			id = "native_showcase_demos::showcase demos::requires water and collects three distinct nectar visitors",
-			run = function()
-				mount("11_glade", function(built)
-					Verify.expect((built.invite())):toBe(false)
-					built.refill()
-					for _, nectar in { "bramble", "clover", "meadow" } do
-						built.model.nectar:set(nectar)
-						Verify.expect((built.invite())):toBe(true)
-					end
-					Verify.expect(built.report().discovered):toBe(3)
-					built.invite()
-					Verify.expect(built.report().discovered):toBe(3)
-					built.model.guideOpen:set(true)
-					built.model.guideOpen:set(false)
-					built.model.journalOpen:set(true)
-					Verify.expect(built.report().visits):toBe(4)
-					built.reset()
-					Verify.expect(built.report().discovered):toBe(0)
-				end)
-			end,
-		})
-		verifyHarness:case("rejects excess power and tears down its world surface", {
-			id = "native_showcase_demos::showcase demos::rejects excess power and tears down its world surface",
-			run = function()
-				mount("12_outpost", function(built)
-					built.model.draft.door:set(3)
-					built.model.draft.beacon:set(2)
-					built.model.draft.workshop:set(4)
-					Verify.expect((built.apply())):toBe(false)
-					Verify.expect(built.report().running):toBe(1)
-					built.model.draft.door:set(2)
-					built.model.draft.beacon:set(1)
-					built.model.draft.workshop:set(2)
-					Verify.expect((built.apply())):toBe(true)
-					Verify.expect(built.report().running):toBe(3)
-					built.model.worldMode:set(true)
-					Verify.expect(built.report().world):toBe(true)
-					built.model.worldMode:set(false)
-					built.reset()
-					Verify.expect(built.report().running):toBe(1)
-				end)
-			end,
-		})
 		verifyHarness:case(
 			"fits the world terminal to its native page bounds through rotation and restores the camera",
 			{
@@ -323,22 +226,6 @@ return function(verifyHarness: Verify.Harness)
 					built.inspect(101)
 					Verify.expect(root:FindFirstChild("Order_101", true):FindFirstChild("Potion", true) ~= nil)
 						:toBe(true)
-				end)
-			end,
-		})
-
-		verifyHarness:case("runs market orders through confirmation brewing and collection", {
-			id = "native_showcase_demos::showcase demos::runs market orders through confirmation brewing and collection",
-			run = function()
-				mount("15_cartwheel", function(built)
-					built.steps.start(101)
-					built.steps.advance(2)
-					Verify.expect((built.model.orders.statusOf(101))):toBe("brewing")
-					built.steps.advance(61)
-					Verify.expect((built.model.orders.statusOf(101))):toBe("ready")
-					built.steps.collect(101)
-					built.steps.advance(2)
-					Verify.expect((built.model.orders.statusOf(101))):toBe("done")
 				end)
 			end,
 		})

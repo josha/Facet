@@ -949,11 +949,7 @@ interactive(
 			selectedName()
 		)
 		t.check("the vote starts at none", built.report().vote == "none", built.report().vote)
-		t.note("gamepad", "D-pad Right moves the same native selection as the Right arrow key")
-		t.note(
-			"not checked",
-			"ButtonA: the input tools send it as a keyboard key; Return runs the same native activation of the selected side"
-		)
+		t.note("input", "The interactive runner checks real Gamepad1 delivery for DPadRight and ButtonA")
 		return value
 	end,
 	{

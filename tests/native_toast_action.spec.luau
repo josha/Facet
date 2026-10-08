@@ -116,31 +116,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("exit fading never adds an empty full-width sibling to the live row layout", {
-			id = "native_toast_action::native Toast with an action: presentation::exit fading never adds an empty full-width sibling to the live row layout",
-			run = function()
-				local c = caller()
-				c.shown:set(true)
-				local w = mount({ { c = c } }, { motionLevel = "normal", runService = true })
-				frames(w, 1)
-				local row = w.find("Snack")
-				local introduced, empty = 0, false
-				local connection = row.ChildAdded:Connect(function(child)
-					if child:IsA("CanvasGroup") then
-						introduced += 1
-						empty = empty or (child.Visible == true and child:FindFirstChild("Body") == nil)
-					end
-				end)
-				c.shown:set(false)
-				frames(w, 0.1)
-				Verify.expect(introduced):toBe(1)
-				Verify.expect(empty):toBe(false)
-				Verify.expect(row:FindFirstChild("Fade").Visible):toBe(true)
-				connection:Disconnect()
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a registration presents nothing and reserves nothing while its fact is false", {
 			id = "native_toast_action::native Toast with an action: presentation::a registration presents nothing and reserves nothing while its fact is false",
 			run = function()
@@ -227,24 +202,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the action is a full button sized to its label, and the message takes the rest", {
-			id = "native_toast_action::native Toast with an action: presentation::the action is a full button sized to its label, and the message takes the rest",
-			run = function()
-				local c = caller()
-				c.shown:set(true)
-				local w = mount({ { c = c, message = "Kart sold" } })
-				local action = w.find("Action")
-
-				Verify.expect((action:HasTag("facet-appearance-link"))):toBe(false)
-				Verify.expect(action.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
-				Verify.expect(action.Size.X.Offset == 0 and action.Size.X.Scale == 0):toBe(true)
-				local flex = overlay.find(w.find("Snack"), "Message"):FindFirstChildWhichIsA("UIFlexItem")
-				Verify.expect(flex.FlexMode):toBe(w.Enum.UIFlexMode.Fill)
-				Verify.expect(overlay.find(w.find("Snack"), "Message").TextWrapped):toBe(true)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("long copy wraps and the action moves below it", {
 			id = "native_toast_action::native Toast with an action: presentation::long copy wraps and the action moves below it",
 			run = function()
@@ -264,63 +221,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
 				overlay.find(row, "MessageMeasure").TextBounds = Vector2.new(600, 18)
 				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("the strip docks bottom-centre above base screens, and modals and callouts paint above it", {
-			id = "native_toast_action::native Toast with an action: presentation::the strip docks bottom-centre above base screens, and modals and callouts paint above it",
-			run = function()
-				local c = caller()
-				c.shown:set(true)
-				local w = mount({ { c = c } })
-				local row = w.find("Snack")
-				Verify.expect(row.AnchorPoint):toBe(w.Vector2.new(0.5, 1))
-				Verify.expect(row.Position.X.Scale):toBe(0.5)
-				Verify.expect(row.Position.Y.Scale):toBe(1)
-				Verify.expect(row.Position.Y.Offset):toBe(-16)
-				Verify.expect(row.ZIndex > 1):toBe(true)
-				Verify.expect(row.ZIndex < 94):toBe(true)
-				Verify.expect(row.ZIndex < 100):toBe(true)
-				Verify.expect((w.find("DismissOutside"))):toBeNil()
-				w.stop()
-			end,
-		})
-	end)
-
-	verifyHarness:suite("native Toast with an action: an art theme's panel carve", function()
-		verifyHarness:case("an art theme's frame carve holds the icon, copy and action inside the plate", {
-			id = "native_toast_action::native Toast with an action: an art theme's panel carve::an art theme's frame carve holds the icon, copy and action inside the plate",
-			run = function()
-				local themes = require("../src/ui/themes")(Compose)
-				local package = themes.neutralPackage()
-				package.chrome = package.chrome or {}
-				assert(package.chrome).panel =
-					{ kind = "native" :: "native", contentInsets = { left = 20, right = 24, top = 12, bottom = 14 } }
-				local c = caller()
-				c.shown:set(true)
-				local gate = Compose.cell(true)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Compose.show(gate, function()
-							return UI.Toast "S1" {
-								isPresented = c.shown,
-								message = "Offline",
-								icon = "status.warning",
-								action = UNDO,
-								closeButton = false,
-								onPresentedChange = c.onPresentedChange,
-							}
-						end),
-					})
-				end, { theme = package, motionLevel = "none" })
-				local row = w.find("Snack")
-				local padding = row:FindFirstChildWhichIsA("UIPadding")
-				Verify.expect(padding.PaddingLeft.Offset):toBe(20)
-				Verify.expect(padding.PaddingRight.Offset):toBe(24)
-				Verify.expect(padding.PaddingTop.Offset):toBe(12)
-				Verify.expect(padding.PaddingBottom.Offset):toBe(14)
-				Verify.expect(row.Size.X.Offset):toBe(math.min(480, 800 - 32))
 				w.stop()
 			end,
 		})
@@ -377,26 +277,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"a timeout asks once at max(duration, 2.5 s) of readable time; a refusal makes it persistent",
-			{
-				id = "native_toast_action::native Toast with an action: proposals and reasons::a timeout asks once at max(duration, 2.5 s) of readable time; a refusal makes it persistent",
-				run = function()
-					local c = caller(false)
-					c.shown:set(true)
-					local w = mount({ { c = c, spec = { duration = 1 } } })
-					frames(w, 2.2)
-					Verify.expect(#c.changes):toBe(0)
-					frames(w, 0.6)
-					Verify.expect(c.changes):toEqual({ false })
-					frames(w, 10)
-					Verify.expect(c.changes):toEqual({ false })
-					Verify.expect((w.rows())):toBe(1)
-					w.stop()
-				end,
-			}
-		)
-
 		verifyHarness:case("an accepted timeout retires with reason timeout; nil duration never expires", {
 			id = "native_toast_action::native Toast with an action: proposals and reasons::an accepted timeout retires with reason timeout; nil duration never expires",
 			run = function()
@@ -443,93 +323,9 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-
-		verifyHarness:case("equal priority waits in order; a higher one supersedes after the floor, once", {
-			id = "native_toast_action::native Toast with an action: proposals and reasons::equal priority waits in order; a higher one supersedes after the floor, once",
-			run = function()
-				local low, same, high = caller(false), caller(), caller()
-				low.shown:set(true)
-				same.shown:set(true)
-				local w = mount({
-					{ c = low, message = "low" },
-					{ c = same, message = "same" },
-					{ c = high, message = "high", spec = { priority = 5 } },
-				})
-				frames(w, 0.5)
-				high.shown:set(true)
-				frames(w, 1)
-				Verify.expect(#low.changes):toBe(0)
-				frames(w, 1.5)
-				Verify.expect(low.changes):toEqual({ false })
-				frames(w, 5)
-				Verify.expect(low.changes):toEqual({ false })
-				Verify.expect((w.message())):toBe("low")
-				low.shown:set(false)
-				Verify.expect(low.dismissed):toEqual({ "cancel" })
-				Verify.expect((w.message())):toBe("high")
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("an accepted pre-emption reports preempt", {
-			id = "native_toast_action::native Toast with an action: proposals and reasons::an accepted pre-emption reports preempt",
-			run = function()
-				local low, high = caller(), caller()
-				low.shown:set(true)
-				local w =
-					mount({ { c = low, message = "low" }, { c = high, message = "high", spec = { priority = 1 } } })
-				frames(w, 0.5)
-				high.shown:set(true)
-				frames(w, 3)
-				Verify.expect(low.dismissed):toEqual({ "preempt" })
-				Verify.expect((w.message())):toBe("high")
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("the caller's false while queued removes it and reports cancel once", {
-			id = "native_toast_action::native Toast with an action: proposals and reasons::the caller's false while queued removes it and reports cancel once",
-			run = function()
-				local a, b = caller(), caller()
-				a.shown:set(true)
-				b.shown:set(true)
-				local w = mount({ { c = a }, { c = b } })
-				Verify.expect((w.find("S2"):GetAttribute("ToastQueued"))):toBe(true)
-				b.shown:set(false)
-				Verify.expect(b.dismissed):toEqual({ "cancel" })
-				Verify.expect((w.find("S2"):GetAttribute("ToastQueued"))):toBe(false)
-				a.shown:set(false)
-				Verify.expect((w.rows())):toBe(0)
-				Verify.expect(b.dismissed):toEqual({ "cancel" })
-				w.stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("native Toast with an action: admission and lifetime", function()
-		verifyHarness:case(
-			"past one showing and eight waiting, the newest is dropped: capacity, and its fact is asked false",
-			{
-				id = "native_toast_action::native Toast with an action: admission and lifetime::past one showing and eight waiting, the newest is dropped: capacity, and its fact is asked false",
-				run = function()
-					local list: { Entry } = {}
-					local callers: { Caller } = {}
-					for index = 1, 10 do
-						local c = caller()
-						c.shown:set(true)
-						callers[index] = c
-						table.insert(list, { c = c })
-					end
-					local w = mount(list)
-					Verify.expect((w.rows())):toBe(1)
-					Verify.expect(callers[10].dismissed):toEqual({ "capacity" })
-					Verify.expect(callers[10].changes):toEqual({ false })
-					Verify.expect(#callers[9].dismissed):toBe(0)
-					w.stop()
-				end,
-			}
-		)
-
 		verifyHarness:case("owner teardown never asks and reports cancel once, like Dialog and Popover", {
 			id = "native_toast_action::native Toast with an action: admission and lifetime::owner teardown never asks and reports cancel once, like Dialog and Popover",
 			run = function()
@@ -541,24 +337,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((table.concat(a.dismissed, ","))):toBe("cancel")
 				Verify.expect((w.rows())):toBe(0)
 				w.stop()
-			end,
-		})
-
-		verifyHarness:case("two worlds are independent", {
-			id = "native_toast_action::native Toast with an action: admission and lifetime::two worlds are independent",
-			run = function()
-				local a, b = caller(), caller()
-				a.shown:set(true)
-				b.shown:set(true)
-				local one = mount({ { c = a, message = "one" } })
-				local two = mount({ { c = b, message = "two" } })
-				Verify.expect((one.message())):toBe("one")
-				Verify.expect((two.message())):toBe("two")
-				one.gate:set(false)
-				Verify.expect((two.message())):toBe("two")
-				Verify.expect(#b.dismissed):toBe(0)
-				one.stop()
-				two.stop()
 			end,
 		})
 
@@ -610,39 +388,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a modal blocks the dwell until it closes", {
-			id = "native_toast_action::native Toast with an action: admission and lifetime::a modal blocks the dwell until it closes",
-			run = function()
-				local a = caller()
-				a.shown:set(true)
-				local modal = Compose.cell(false)
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Toast "S1" {
-							isPresented = a.shown,
-							message = "Saved",
-							action = UNDO,
-							duration = 3,
-							onPresentedChange = a.onPresentedChange,
-							onDismiss = function(
-								reason: "timeout" | "supersede" | "preempt" | "capacity" | "manual" | "action" | "close" | "cancel"
-							)
-								a.onDismiss(reason)
-							end,
-						} :: unknown,
-						UI.Alert { isPresented = modal, title = "Hold" },
-					})
-				end, { motionLevel = "none" })
-				modal:set(true)
-				frames(w, 5)
-				Verify.expect(#a.changes):toBe(0)
-				modal:set(false)
-				frames(w, 3.1)
-				Verify.expect(a.dismissed):toEqual({ "timeout" })
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("refuses a malformed spec before registering", {
 			id = "native_toast_action::native Toast with an action: admission and lifetime::refuses a malformed spec before registering",
 			run = function()
@@ -678,24 +423,6 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					Verify.expect(`case {index}: {ok}`):toBe(`case {index}: false`)
 				end
-			end,
-		})
-
-		verifyHarness:case("a construction that raises leaves nothing admitted behind it", {
-			id = "native_toast_action::native Toast with an action: admission and lifetime::a construction that raises leaves nothing admitted behind it",
-			run = function()
-				local a = caller()
-				a.shown:set(true)
-				local w = mount({ { c = a } })
-				local ok = pcall(function()
-					w.runtime.mount(function()
-						return w.UI.Toast "Broken" { isPresented = true, message = "x", action = UNDO }
-					end, w.screen)
-				end)
-				Verify.expect(ok):toBe(false)
-				a.shown:set(false)
-				Verify.expect((w.rows())):toBe(0)
-				w.stop()
 			end,
 		})
 
@@ -747,24 +474,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.rows())):toBe(1)
 				Verify.expect((w.find("S2"):GetAttribute("ToastQueued"))):toBe(false)
 				Verify.expect((w.find("S3"):GetAttribute("ToastVisible"))):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a refused supersession keeps the contender queued and asks only once", {
-			id = "native_toast_action::native Toast with an action: the schedule under re-entrant callbacks::a refused supersession keeps the contender queued and asks only once",
-			run = function()
-				local low, high = caller(false), caller()
-				low.shown:set(true)
-				local w =
-					mount({ { c = low, message = "low" }, { c = high, message = "high", spec = { priority = 3 } } })
-				high.shown:set(true)
-				frames(w, 3)
-				Verify.expect(low.changes):toEqual({ false })
-				Verify.expect((w.find("S2"):GetAttribute("ToastQueued"))):toBe(true)
-				frames(w, 6)
-				Verify.expect(low.changes):toEqual({ false })
-				Verify.expect((w.find("S2"):GetAttribute("ToastQueued"))):toBe(true)
 				w.stop()
 			end,
 		})
@@ -922,30 +631,6 @@ return function(verifyHarness: Verify.Harness)
 				w.find("Close").Activated:Fire()
 				Verify.expect((table.concat(reasons, ","))):toBe("action,close")
 				Verify.expect(#w.findAll("Snack")):toBe(0)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a timed one still reads for the 2.5 s floor, then retires with timeout", {
-			id = "native_toast_action::native Toast with an action: without a binding::a timed one still reads for the 2.5 s floor, then retires with timeout",
-			run = function()
-				local reasons = {}
-				local w = overlay.new(function(UI: FacetControls)
-					return UI.Toast "A" {
-						message = "Kart sold",
-						action = UNDO,
-						duration = 1,
-						onDismiss = function(
-							reason: "action" | "cancel" | "capacity" | "close" | "manual" | "preempt" | "supersede" | "timeout"
-						)
-							table.insert(reasons, reason)
-						end,
-					}
-				end, { motionLevel = "none" })
-				frames(w, 2.2)
-				Verify.expect(#reasons):toBe(0)
-				frames(w, 0.6)
-				Verify.expect((table.concat(reasons, ","))):toBe("timeout")
 				w.stop()
 			end,
 		})

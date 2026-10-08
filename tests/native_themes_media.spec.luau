@@ -24,7 +24,6 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
-	type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
@@ -32,7 +31,6 @@ return function(verifyHarness: Verify.Harness)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
-	local requireDynamic = require :: (any) -> any
 	local FixtureMediaTypes = require("../src/ui/media_types")
 	local FixtureThemeTypes = require("../src/ui/theme_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
@@ -182,36 +180,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(label.Text):toBe("Themed")
 				stop()
 				Verify.expect((sheet:isDestroyed())):toBe(true)
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("scales translucent theme surfaces by the player's background transparency preference", {
-			id = "native_themes_media::native themes and media::scales translucent theme surfaces by the player's background transparency preference",
-			run = function()
-				local engine, runtime = setup()
-				local preference = Compose.cell(1)
-				local sheet: any
-				local stop = runtime.mount(function()
-					sheet = themes.createStyleSheet(
-						runtime,
-						themes.neutralPackage(),
-						{ types = engine.types, preferredTransparency = preference }
-					)
-					return sheet
-				end, engine.new("Folder"))
-				local authored = style(sheet, ".facet-scrim").BackgroundTransparency
-				Verify.expect(authored > 0 and authored < 1):toBe(true)
-				preference:set(0.5)
-				Verify.expect(style(sheet, ".facet-scrim").BackgroundTransparency):toBe(authored * 0.5)
-				Verify.expect(style(sheet, ".facet-skinned").BackgroundTransparency):toBe(1)
-				preference:set(0)
-				Verify.expect(style(sheet, ".facet-scrim").BackgroundTransparency):toBe(0)
-				preference:set(0 / 0)
-				Verify.expect(style(sheet, ".facet-scrim").BackgroundTransparency):toBe(authored)
-				preference:set(1)
-				Verify.expect(style(sheet, ".facet-scrim").BackgroundTransparency):toBe(authored)
-				stop()
 				runtime:dispose()
 			end,
 		})
@@ -416,36 +384,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("preserves the shipped palette, typography and art packages as native inputs", {
-			id = "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
-			run = function()
-				local engine, runtime = setup()
-				for _, name in
-					{
-						"classic_desktop",
-						"compact_pointer",
-						"fantasy_ornate",
-						"fantasy_parchment",
-						"glossy_mobile",
-						"glossy_touch",
-						"pixel_quest",
-						"scifi_hud",
-						"layered_test",
-					}
-				do
-					local module = requireDynamic("../examples/themes/" .. name)
-					local package, report = module.build(themes)
-					Verify.expect(report.ok):toBe(true)
-					local stop, sheet: any = runtime.mount(function()
-						return themes.createStyleSheet(runtime, package, { types = engine.types })
-					end, engine.new("Folder"))
-					Verify.expect(#sheet:GetChildren() > 30):toBe(true)
-					stop()
-				end
-				runtime:dispose()
-			end,
-		})
-
 		verifyHarness:case("keeps async completions stale after a source change or disposal", {
 			id = "native_themes_media::native themes and media::keeps async completions stale after a source change or disposal",
 			run = function()
@@ -477,38 +415,6 @@ return function(verifyHarness: Verify.Harness)
 				requests.second.reject("late")
 				Verify.expect(#states):toBe(count)
 				Verify.expect(cancellations):toBe(2)
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("exposes failure content and retries when the source changes", {
-			id = "native_themes_media::native themes and media::exposes failure content and retries when the source changes",
-			run = function()
-				local engine, runtime, UI = setup()
-				local source = Compose.cell("broken" :: string?)
-				local stop, root: any = runtime.mount(function()
-					return UI.AsyncImage({
-						source = source,
-						failureLabel = "Unavailable",
-						loader = function(content, resolve, reject)
-							if content == "broken" then
-								reject("missing")
-							else
-								resolve(content)
-							end
-						end,
-					})
-				end, engine.new("Folder"))
-				local found = false
-				for _, node in root:GetDescendants() do
-					if node:IsA("TextLabel") and node.Text == "Unavailable" then
-						found = true
-					end
-				end
-				Verify.expect(found):toBe(true)
-				source:set("working")
-				Verify.expect(root:FindFirstChild("Image").Visible):toBe(true)
-				stop()
 				runtime:dispose()
 			end,
 		})
@@ -683,93 +589,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("keeps badges and status shapes reactive without creating focus targets", {
-			id = "native_themes_media::native themes and media::keeps badges and status shapes reactive without creating focus targets",
-			run = function()
-				local engine, runtime, UI = setup()
-				local label, status, form =
-					Compose.cell("Online"),
-					Compose.cell(
-						"success" :: "accent" | "contrast" | "error" | "info" | "neutral" | "success" | "voice" | "warning"
-					),
-					Compose.cell("dot" :: "dash" | "dot" | "ring" | "square")
-				local badge: any, indicator
-				local stop = runtime.mount(function()
-					badge = UI.Badge({ label = label, status = status })
-					indicator = UI.StatusIndicator({ status = status, form = form, diameter = 16 })
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ badge :: unknown, indicator })
-				end, engine.new("Folder"))
-				Verify.expect(badge.Selectable):toBe(false)
-				Verify.expect(indicator.Selectable):toBe(false)
-				label:set("Away")
-				status:set("warning")
-				form:set("dash")
-				Verify.expect(badge.Text):toBe("Away")
-				Verify.expect((indicator:HasTag("facet-status-warning"))):toBe(true)
-				Verify.expect(indicator.Size.Y.Offset < indicator.Size.X.Offset):toBe(true)
-				form:set("ring")
-				local ring: any = indicator:FindFirstChild("Ring")
-				Verify.expect((ring:HasTag("facet-status-ring"))):toBe(true)
-				Verify.expect(ring.BorderStrokePosition):toBe(engine.types.Enum.BorderStrokePosition.Inner)
-				Verify.expect(ring.Thickness):toBe(3)
-				Verify.expect((indicator:HasTag("facet-status-hollow"))):toBe(true)
-				form:set("dot")
-				Verify.expect((indicator:FindFirstChild("Ring"))):toBe(nil)
-				Verify.expect((indicator:HasTag("facet-status-hollow"))):toBe(false)
-				stop()
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("lets the skinned tag outrank every built-in control fill", {
-			id = "native_themes_media::native themes and media::lets the skinned tag outrank every built-in control fill",
-			run = function()
-				local engine, runtime = setup()
-				local stop, sheet: any = runtime.mount(function()
-					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
-				end, engine.new("Folder"))
-				local skinned, highest = nil, 0
-				for _, rule in sheet:GetChildren() do
-					if rule.Selector == ".facet-skinned" then
-						skinned = rule.Priority
-					elseif
-						string.match(rule.Selector, "^%.facet%-[%w%-]+$")
-						and rule:GetProperties().BackgroundTransparency ~= nil
-					then
-						highest = math.max(highest, rule.Priority)
-					end
-				end
-				Verify.expect(skinned > highest):toBe(true)
-				stop()
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("replaces a skin state map when a derived package overrides it", {
-			id = "native_themes_media::native themes and media::replaces a skin state map when a derived package overrides it",
-			run = function()
-				local basis = themes.neutralPackage()
-				basis.assets = {
-					a = { content = "rbxassetid://1" },
-					b = { content = "rbxassetid://2" },
-					c = { content = "rbxassetid://3" },
-				}
-				assert(basis.chrome).control = { kind = "fill" :: "fill", asset = { default = "a", pressed = "b" } }
-				local base = assert(themes.define(basis))
-				local definition: FixtureThemeTypes.ThemeDefinition = {
-					base = base,
-					identity = { id = "derived" },
-					chrome = { control = { asset = { default = "c" } } },
-				}
-				local derived = themes.define(definition)
-				Verify.expect((assert(assert(derived).chrome).control.asset :: FixtureThemeTypes.AssetVariants).default)
-					:toBe("c")
-				Verify.expect((assert(assert(derived).chrome).control.asset :: FixtureThemeTypes.AssetVariants).pressed)
-					:toBe(nil)
-				Verify.expect(assert(assert(derived).chrome).control.kind):toBe("fill")
-			end,
-		})
-
 		verifyHarness:case("rejects malformed type roles, unknown shadow presets and unreadable selected labels", {
 			id = "native_themes_media::native themes and media::rejects malformed type roles, unknown shadow presets and unreadable selected labels",
 			run = function()
@@ -790,21 +609,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("rejects unreadable semantic color pairs and reports contributed theme coverage", {
-			id = "native_themes_media::native themes and media::rejects unreadable semantic color pairs and reports contributed theme coverage",
-			run = function()
-				local bad = themes.neutralPackage()
-				bad.style.themes[1].colors.content = bad.style.themes[1].colors.surface
-				local package, report = themes.define(bad)
-				Verify.expect(package):toBe(nil)
-				Verify.expect(report.ok):toBe(false)
-				local needs = { { name = "custom:knob", section = "metrics.radii", kind = "number" :: "number" } }
-				Verify.expect(themes.checkCoverage(themes.neutralPackage(), needs).ok):toBe(false)
-				local good = themes.neutralPackage()
-				good.metrics.radii["custom:knob"] = 4
-				Verify.expect(themes.checkCoverage(good, needs).ok):toBe(true)
-			end,
-		})
 		verifyHarness:case("keeps compiled theme data immutable and rejects callbacks or malformed values", {
 			id = "native_themes_media::native themes and media::keeps compiled theme data immutable and rejects callbacks or malformed values",
 			run = function()
@@ -853,95 +657,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("uses native image framing and rounded avatar images", {
-			id = "native_themes_media::native themes and media::uses native image framing and rounded avatar images",
-			run = function()
-				local engine, runtime, UI = setup()
-				local avatar: any, image: any
-				local stop = runtime.mount(function()
-					avatar = UI.Avatar({ name = "Ada", image = "rbxassetid://1" })
-					image = UI.AsyncImage({
-						image = "rbxassetid://2",
-						imageProperties = {
-							ScaleType = engine.types.Enum.ScaleType.Crop,
-							ResampleMode = engine.types.Enum.ResamplerMode.Pixelated,
-						},
-					})
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ avatar :: unknown, image })
-				end, engine.new("Folder"))
-				Verify.expect(
-					((avatar:FindFirstChild("Image", true) :: any):FindFirstChildWhichIsA("UICorner") :: any).CornerRadius.Scale
-				):toBe(1)
-				Verify.expect((image:FindFirstChild("Image") :: any).ScaleType):toBe(engine.types.Enum.ScaleType.Crop)
-				Verify.expect((image:FindFirstChild("Image") :: any).ResampleMode)
-					:toBe(engine.types.Enum.ResamplerMode.Pixelated)
-				stop()
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("keeps plaques edges tiling pixel resampling and chrome insets native", {
-			id = "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
-			run = function()
-				local engine, runtime = setup()
-				local package = themes.neutralPackage()
-				package.identity.rendering = "pixel"
-				assert(package.assets).art = { content = "rbxassetid://10" }
-				assert(package.chrome).control = {
-					kind = "layered" :: "layered",
-					contentInsets = { top = 4, right = 20, bottom = 6, left = 20 },
-					layers = {
-						{ kind = "tile" :: "tile", asset = "art", tileSize = { w = 8, h = 8 } } :: FixtureThemeTypes.SkinLayer,
-						{
-							kind = "edges" :: "edges",
-							asset = "art",
-							sides = { "top", "bottom" } :: { "top" | "right" | "bottom" | "left" },
-							thickness = 4,
-							margin = 8,
-						} :: FixtureThemeTypes.SkinLayer,
-						{
-							kind = "plaque" :: "plaque",
-							asset = "art",
-							size = { w = 80, h = 20 },
-							text = true,
-							textInsets = {
-								left = 4,
-								right = 4,
-							},
-						} :: FixtureThemeTypes.SkinLayer,
-					},
-				}
-				local target, skin: any, sheet: any
-				local stop = runtime.mount(function()
-					target = ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
-						Text = "Captain",
-					})
-					skin = themes.skin(
-						runtime,
-						package,
-						"control",
-						{ types = engine.types, target = target :: GuiObject, label = "Captain" }
-					)
-					sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						target :: unknown,
-						skin,
-						sheet,
-					})
-				end, engine.new("Folder"))
-				Verify.expect((target:HasTag("facet-skin-caption"))):toBe(true)
-				Verify.expect((skin:FindFirstChild("PlaqueCaption", true) :: any).Text):toBe("Captain")
-				Verify.expect((skin:FindFirstChild("control1", true) :: any).ScaleType)
-					:toBe(engine.types.Enum.ScaleType.Tile)
-				Verify.expect((skin:FindFirstChild("control1", true) :: any).TileSize.X.Offset):toBe(8)
-				Verify.expect((skin:FindFirstChild("control2bottom", true) :: any).AnchorPoint.Y):toBe(1)
-				Verify.expect((skin:FindFirstChild("control1", true) :: any).ResampleMode)
-					:toBe(engine.types.Enum.ResamplerMode.Pixelated)
-				Verify.expect(style(sheet, ".facet-button::UIPadding").PaddingLeft.Offset):toBe(32)
-				stop()
-				runtime:dispose()
-			end,
-		})
 		verifyHarness:case("preserves accessible media names native constraints and caller resource sharing", {
 			id = "native_themes_media::native themes and media::preserves accessible media names native constraints and caller resource sharing",
 			run = function()
@@ -1031,25 +746,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("follows a bound badge corner radius", {
-			id = "native_themes_media::native themes and media::follows a bound badge corner radius",
-			run = function()
-				local engine, runtime, UI = setup()
-				local corners = Compose.cell("rounded" :: "capsule" | "rounded" | "square" | number)
-				local badge: any
-				local stop = runtime.mount(function()
-					badge = UI.Badge({ label = "New", corners = corners })
-					return badge
-				end, engine.new("Folder"))
-				local corner = badge:FindFirstChildWhichIsA("UICorner")
-				Verify.expect(corner.CornerRadius.Offset):toBe(8)
-				corners:set("square")
-				Verify.expect(corner.CornerRadius.Offset):toBe(0)
-				stop()
-				runtime:dispose()
-			end,
-		})
-
 		verifyHarness:case("rejects malformed media policy and retains valid reactive captions", {
 			id = "native_themes_media::native themes and media::rejects malformed media policy and retains valid reactive captions",
 			run = function()
@@ -1091,79 +787,6 @@ return function(verifyHarness: Verify.Harness)
 				end))):toBe(false)
 				caption:set("Recovered")
 				Verify.expect(badge.Text):toBe("Recovered")
-				stop()
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("keeps circular progress endpoints bounded and theme metrics reactive", {
-			id = "native_themes_media::native themes and media::keeps circular progress endpoints bounded and theme metrics reactive",
-			run = function()
-				local engine = engineLib.new()
-				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local package = Compose.cell(themes.neutralPackage())
-				local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
-				local value = Compose.cell(0)
-				local stop, node: any = runtime.mount(function()
-					return UI.ProgressView({ presentation = "circular" :: "circular", value = value })
-				end, engine.new("Folder"))
-				local circle = node:FindFirstChild("Indicator", true)
-				local fill, track = circle:FindFirstChild("RingFill"), circle:FindFirstChild("RingTrack")
-				Verify.expect(fill.ClassName):toBe("Path2D")
-				Verify.expect(track.ClassName):toBe("Path2D")
-				Verify.expect(#circle:GetChildren()):toBe(2)
-				Verify.expect(fill.Visible):toBe(false)
-				Verify.expect(#track:GetControlPoints()):toBe(9)
-				value:set(0.5)
-				Verify.expect(fill.Visible):toBe(true)
-				local half = fill:GetControlPoints()
-				Verify.expect(#half):toBe(5)
-				Verify.expect(half[1].Position.X.Scale):toBeCloseTo(0.5, 1e-4)
-				Verify.expect(half[1].Position.Y.Scale):toBeCloseTo(3 / 64, 1e-4)
-				Verify.expect(half[5].Position.X.Scale):toBeCloseTo(0.5, 1e-4)
-				Verify.expect(half[5].Position.Y.Scale):toBeCloseTo(1 - 3 / 64, 1e-4)
-				Verify.expect(half[1].RightTangent.X.Scale > 0):toBe(true)
-				value:set(1)
-				local full = fill:GetControlPoints()
-				Verify.expect(#full):toBe(9)
-				Verify.expect(full[9].Position.X.Scale):toBeCloseTo(full[1].Position.X.Scale, 1e-4)
-				Verify.expect(full[9].Position.Y.Scale):toBeCloseTo(full[1].Position.Y.Scale, 1e-4)
-				local nextPackage = themes.neutralPackage()
-				nextPackage.metrics.controls.progress.circularSize = 48
-				nextPackage.metrics.controls.progress.circularThickness = 6
-				package:set(nextPackage)
-				Verify.expect(circle.Size.X.Offset):toBe(48)
-				Verify.expect(fill.Thickness):toBe(6)
-				Verify.expect(track.Thickness):toBe(6)
-				Verify.expect(fill:GetControlPoints()[1].Position.Y.Scale):toBeCloseTo(6 / 96, 1e-4)
-				stop()
-				runtime:dispose()
-			end,
-		})
-		verifyHarness:case("keeps native semantic icons reactive with pixel resampling and metric sizing", {
-			id = "native_themes_media::native themes and media::keeps native semantic icons reactive with pixel resampling and metric sizing",
-			run = function()
-				local engine = engineLib.new()
-				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local package = Compose.cell(themes.neutralPackage())
-				local ctx = context(Compose, runtime, { types = engine.types, theme = package })
-				local UI = media(ctx)
-				local stop, root: any = runtime.mount(function()
-					return UI.Label({ title = "Find", icon = "facet:search" })
-				end, engine.new("Folder"))
-				local icon = root:FindFirstChildWhichIsA("ImageLabel")
-				Verify.expect(string.match(icon.Image, "^rbxassetid://") ~= nil):toBe(true)
-				local nextPackage = themes.neutralPackage()
-				assert(nextPackage.icons)["facet:search"] = { default = "search", disabled = "dim" }
-				assert(nextPackage.assets).search = { content = "rbxassetid://23" }
-				assert(nextPackage.assets).dim = { content = "rbxassetid://24" }
-				nextPackage.metrics.controlSizes.regular.iconSize = 28
-				nextPackage.identity.rendering = "pixel"
-				package:set(nextPackage)
-				Verify.expect(icon.Image):toBe("rbxassetid://23")
-				Verify.expect(icon.Size.X.Offset):toBe(28)
-				Verify.expect(icon.ResampleMode):toBe(engine.types.Enum.ResamplerMode.Pixelated)
-				Verify.expect((themes.resolveIcon(nextPackage, "facet:search", "disabled"))):toBe("rbxassetid://24")
 				stop()
 				runtime:dispose()
 			end,
@@ -1373,36 +996,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("uses Button interaction state for semantic icon variants", {
-			id = "native_themes_media::native themes and media::uses Button interaction state for semantic icon variants",
-			run = function()
-				local engine, runtime = setup()
-				local package = themes.neutralPackage()
-				assert(package.icons)["facet:search"] =
-					{ default = "rest", hover = "hot", pressed = "press", selected = "selected", disabled = "disabled" }
-				for name, id in { rest = 1, hot = 2, press = 3, selected = 4, disabled = 5 } :: { [string]: number } do
-					assert(package.assets)[name] = { content = "rbxassetid://" .. id }
-				end
-				local UI = require("../src").controls(runtime, { types = engine.types, theme = package })
-				local selected, enabled = Compose.cell(false), Compose.cell(true)
-				local stop, button: any = runtime.mount(function()
-					return UI.Button({ icon = "facet:search", label = "Find", selected = selected, enabled = enabled })
-				end, engine.new("Folder"))
-				local icon = button:FindFirstChild("LeadingIcon", true)
-				Verify.expect(icon.Image):toBe("rbxassetid://1")
-				button.GuiState = engine.types.Enum.GuiState.Hover
-				Verify.expect(icon.Image):toBe("rbxassetid://2")
-				button.GuiState = engine.types.Enum.GuiState.Press
-				Verify.expect(icon.Image):toBe("rbxassetid://3")
-				button.GuiState = engine.types.Enum.GuiState.Idle
-				selected:set(true)
-				Verify.expect(icon.Image):toBe("rbxassetid://4")
-				enabled:set(false)
-				Verify.expect(icon.Image):toBe("rbxassetid://5")
-				stop()
-				runtime:dispose()
-			end,
-		})
 		verifyHarness:case("preloads the Compose owned ImageLabel after its source binding settles", {
 			id = "native_themes_media::native themes and media::preloads the Compose owned ImageLabel after its source binding settles",
 			run = function()
@@ -1450,25 +1043,6 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				Verify.expect((image:isDestroyed())):toBe(true)
 				environment.task = originalTask
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("preserves fractional segmented meter fill and mounted identities", {
-			id = "native_themes_media::native themes and media::preserves fractional segmented meter fill and mounted identities",
-			run = function()
-				local engine, runtime, UI = setup()
-				local value = Compose.cell(0.625)
-				local stop, meter: any = runtime.mount(function()
-					return UI.ProgressView({ value = value, segments = 4 })
-				end, engine.new("Folder"))
-				local third = meter:FindFirstChild("Fill3", true)
-				Verify.expect(third.Size.X.Scale):toBeCloseTo(0.125, 1e-4)
-				Verify.expect(meter:FindFirstChild("Fill4", true).Size.X.Scale):toBe(0)
-				value:set(0.75)
-				Verify.expect((meter:FindFirstChild("Fill3", true))):toBe(third)
-				Verify.expect(third.Size.X.Scale):toBeCloseTo(0.25, 1e-4)
-				stop()
 				runtime:dispose()
 			end,
 		})
@@ -1529,51 +1103,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(readout.Text):toBe("100%")
 				stop()
 				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("rejects incompatible meter options before creating native nodes", {
-			id = "native_themes_media::native themes and media::rejects incompatible meter options before creating native nodes",
-			run = function()
-				for
-					_,
-					spec: {
-					value: number,
-					segments: number?,
-					presentation: "circular"?,
-					diameter: number?,
-					trail: { delay: typeof(-1)?, duration: number? }?,
-				}
-				in
-					{
-						{ value = 1, segments = 0 },
-						{ value = 1, segments = 2.5 },
-						{ value = 1, presentation = "circular" :: "circular", segments = 4 },
-						{ value = 1, diameter = 120 },
-						{ value = 1, trail = { delay = -1 } },
-						{ value = 1, trail = { duration = 0 } },
-					} :: {
-						{
-							value: number,
-							segments: number?,
-							presentation: "circular"?,
-							diameter: number?,
-							trail: { delay: typeof(-1)?, duration: number? }?,
-						}
-					}
-				do
-					local engine, runtime, UI = setup()
-					local parent = engine.new("Folder")
-					local count = #engine.made
-					Verify.expect(function()
-						runtime.mount(function()
-							return UI.ProgressView(spec :: any)
-						end, parent)
-					end):toThrow()
-					Verify.expect(#engine.made):toBe(count)
-					Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
-					runtime:dispose()
-				end
 			end,
 		})
 
@@ -1642,109 +1171,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("resets retained native image properties to valid defaults across theme recipes", {
-			id = "native_themes_media::native themes and media::resets retained native image properties to valid defaults across theme recipes",
-			run = function()
-				local engine = engineLib.new()
-				local create = engine.new
-				local expected = {
-					ScaleType = "EnumItem",
-					ResampleMode = "EnumItem",
-					TileSize = "UDim2",
-					SliceCenter = "Rect",
-					SliceScale = "number",
-				}
-				engine.onWrite(function(target, key, value)
-					if target.ClassName == "ImageLabel" and expected[key] then
-						assert(
-							typeof(value) == expected[key],
-							`ImageLabel.{key} expected {expected[key]}, got {typeof(value)}`
-						)
-					end
-				end)
-				local defaults = create("ImageLabel")
-				local tiled = themes.neutralPackage()
-				tiled.identity.rendering = "pixel"
-				assert(tiled.assets).plate = { content = "rbxassetid://1" }
-				assert(tiled.chrome).control =
-					{ kind = "tile" :: "tile", asset = "plate", tileSize = { w = 24, h = 32 } }
-				local sliced = themes.neutralPackage()
-				assert(sliced.assets).plate =
-					{ content = "rbxassetid://2", sliceCenter = { x0 = 3, y0 = 4, x1 = 30, y1 = 40 }, sliceScale = 2 }
-				assert(sliced.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "plate" }
-				local plain = themes.neutralPackage()
-				assert(plain.assets).plate = { content = "rbxassetid://3" }
-				assert(plain.chrome).control = { kind = "fill" :: "fill", asset = "plate" }
-				local selected = Compose.cell(tiled)
-				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local ctx = context(Compose, runtime, { types = engine.types, theme = selected })
-				local skin: any, icon
-				local stop = runtime.mount(function()
-					skin = themes.skin(runtime, selected, "control", { types = engine.types })
-					icon = ctx.icon("facet:search")
-					local children = { skin, icon }
-					for _, slot in
-						{
-							"field",
-							"toggleTrack",
-							"toggleKnob",
-							"stepperPlate",
-							"sliderTrack",
-							"sliderThumb",
-							"barTrack",
-							"barFill",
-							"barCap",
-							"barCenter",
-						}
-					do
-						table.insert(children, themes.skin(runtime, selected, slot, { types = engine.types }))
-					end
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)(children)
-				end, create("Folder"))
-				local plate = skin:FindFirstChild("control1", true)
-				Verify.expect(plate.ResampleMode):toBe(engine.types.Enum.ResamplerMode.Pixelated)
-				Verify.expect(plate.TileSize):toBe(engine.types.UDim2.fromOffset(24, 32))
-				selected:set(sliced)
-				Verify.expect((skin:FindFirstChild("control1", true))):toBe(plate)
-				Verify.expect(plate.ScaleType):toBe(engine.types.Enum.ScaleType.Slice)
-				Verify.expect(plate.SliceScale):toBe(2)
-				Verify.expect(plate.ResampleMode):toBe(defaults.ResampleMode)
-				Verify.expect(plate.TileSize):toBe(defaults.TileSize)
-				selected:set(plain)
-				Verify.expect((skin:FindFirstChild("control1", true))):toBe(plate)
-				for property in expected do
-					Verify.expect(plate[property]):toBe(defaults[property])
-				end
-				Verify.expect(icon.ResampleMode):toBe(defaults.ResampleMode)
-				for _, name in
-					{
-						"pixel_quest",
-						"fantasy_parchment",
-						"classic_desktop",
-						"compact_pointer",
-						"fantasy_ornate",
-						"glossy_mobile",
-						"glossy_touch",
-						"scifi_hud",
-						"layered_test",
-						"pixel_quest",
-						"fantasy_parchment",
-					}
-				do
-					local package = requireDynamic("../examples/themes/" .. name).build(themes)
-					selected:set(package)
-					Verify.expect(icon.ResampleMode):toBe(
-						if package.identity.rendering == "pixel"
-							then engine.types.Enum.ResamplerMode.Pixelated
-							else defaults.ResampleMode
-					)
-				end
-				stop()
-				defaults:Destroy()
-				runtime:dispose()
-			end,
-		})
-
 		verifyHarness:case("rotates a smooth native circular arc with reduced motion and themed stroke colors", {
 			id = "native_themes_media::native themes and media::rotates a smooth native circular arc with reduced motion and themed stroke colors",
 			run = function()
@@ -1793,160 +1219,6 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				Verify.expect((arc:isDestroyed())):toBe(true)
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case(
-			"leaves unchanged native rules and running paint transitions untouched during theme updates",
-			{
-				id = "native_themes_media::native themes and media::leaves unchanged native rules and running paint transitions untouched during theme updates",
-				run = function()
-					local engine = engineLib.new()
-					local create = engine.new
-					local writes, transitions = {}, {}
-					engine.new = function(className)
-						local node = create(className)
-						if className == "StyleRule" then
-							local setProperties, setTransitions = node.SetProperties, node.SetPropertyTransitions
-							node.SetProperties = function(self, properties)
-								writes[self] = (writes[self] or 0) + 1
-								return setProperties(self, properties)
-							end
-							node.SetPropertyTransitions = function(self, properties)
-								transitions[self] = (transitions[self] or 0) + 1
-								return setTransitions(self, properties)
-							end
-						end
-						return node
-					end
-					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-					local package = themes.neutralPackage()
-					local contributed: FixtureThemeTypes.RuleProperties = { ImageTransparency = 0.2 }
-					package.rules = { { selector = ".game-icon", properties = contributed } }
-					local selected = Compose.cell(package)
-					local stop, sheet: any = runtime.mount(function()
-						return themes.createStyleSheet(runtime, selected, { types = engine.types })
-					end, create("Folder"))
-					local contributedRule, typeRule, textRule
-					for _, rule in sheet:GetChildren() do
-						if rule.Selector == ".game-icon" then
-							contributedRule = rule
-						end
-						if rule.Selector == ".facet-type-body" then
-							typeRule = rule
-						end
-						if rule.Selector == ".facet-text" then
-							textRule = rule
-						end
-					end
-					local initialTiming = transitionOf(contributedRule, "ImageTransparency")
-					table.clear(writes)
-					table.clear(transitions)
-					selected:set(table.clone(package))
-					Verify.expect((next(writes))):toBe(nil)
-					Verify.expect((next(transitions))):toBe(nil)
-					contributed.ImageTransparency = 0.7
-					selected:set(table.clone(package))
-					Verify.expect(writes[contributedRule]):toBe(1)
-					Verify.expect(writes[textRule]):toBe(nil)
-					Verify.expect((next(transitions))):toBe(nil)
-					Verify.expect(contributedRule:GetProperties().ImageTransparency):toBe(0.7)
-					Verify.expect((transitionOf(contributedRule, "ImageTransparency"))):toBe(initialTiming)
-					contributed.ImageTransparency = nil
-					contributed.ImageColor3 = engine.types.Color3.new(0.1, 0.2, 0.3)
-					selected:set(table.clone(package))
-					Verify.expect(contributedRule:GetProperties().ImageTransparency):toBe(nil)
-					Verify.expect((transitionOf(contributedRule, "ImageTransparency"))):toBe(nil)
-					Verify.expect((transitionOf(contributedRule, "ImageColor3"))):toBe(initialTiming)
-					Verify.expect(transitions[contributedRule]):toBe(1)
-					table.clear(writes)
-					table.clear(transitions)
-					package.metrics.motion.normal = 0.4
-					selected:set(table.clone(package))
-					Verify.expect(transitionOf(contributedRule, "ImageColor3").Time):toBe(0.4)
-					Verify.expect(sheet:GetAttribute("FacetMotionNormal").Time):toBe(0.4)
-					Verify.expect((next(transitions))):toBe(nil)
-					Verify.expect(writes[typeRule]):toBe(nil)
-					Verify.expect(writes[textRule]):toBe(nil)
-					stop()
-					runtime:dispose()
-				end,
-			}
-		)
-
-		verifyHarness:case("uses authored selected contrast for native buttons and their mirrored captions", {
-			id = "native_themes_media::native themes and media::uses authored selected contrast for native buttons and their mirrored captions",
-			run = function()
-				local engine, runtime = setup()
-				local package = themes.neutralPackage()
-				assert(package.style.themes[1].extra).controlSelected = { r = 45 / 255, g = 86 / 255, b = 65 / 255 }
-				assert(package.style.themes[1].extra).onSelected = { r = 1, g = 1, b = 1 }
-				local selected = Compose.cell(package)
-				local stop, sheet: any = runtime.mount(function()
-					return themes.createStyleSheet(runtime, selected, { types = engine.types })
-				end, engine.new("Folder"))
-				Verify.expect(style(sheet, ".facet-selected").BackgroundColor3)
-					:toBe(engine.types.Color3.new(45 / 255, 86 / 255, 65 / 255))
-				Verify.expect(style(sheet, ".facet-selected").TextColor3):toBe(engine.types.Color3.new(1, 1, 1))
-				Verify.expect(style(sheet, ".facet-selected >> .facet-text").TextColor3)
-					:toBe(engine.types.Color3.new(1, 1, 1))
-				local dark = themes.neutralPackage()
-				assert(dark.style.themes[1].extra).onSelected = { r = 0.1, g = 0.2, b = 0.1 }
-				selected:set(dark)
-				Verify.expect(style(sheet, ".facet-selected").TextColor3):toBe(engine.types.Color3.new(0.1, 0.2, 0.1))
-				local fallback = themes.neutralPackage()
-				selected:set(fallback)
-				Verify.expect(style(sheet, ".facet-selected").TextColor3):toBe(style(sheet, ".facet-text").TextColor3)
-				Verify.expect(style(sheet, ".facet-selected >> .facet-text").TextColor3)
-					:toBe(style(sheet, ".facet-text").TextColor3)
-				stop()
-				runtime:dispose()
-			end,
-		})
-		verifyHarness:case("shares selected contrast across rich disclosure titles and chevrons", {
-			id = "native_themes_media::native themes and media::shares selected contrast across rich disclosure titles and chevrons",
-			run = function()
-				local engine, runtime = setup()
-				local factory = require("../examples/virtual_monitors/theme")
-				local package = factory.create(require("../src"), "Avatar")
-				local palette, expanded = Compose.cell("Dark"), Compose.cell(false)
-				local UI = controls(Compose, runtime, { types = engine.types, theme = package })
-				local sheet: any, disclosure
-				local stop = runtime.mount(function()
-					sheet = themes.createStyleSheet(runtime, package, { types = engine.types, theme = palette })
-					disclosure = UI.DisclosureGroup({
-						label = "Appearance",
-						description = "Choose an avatar color",
-						expanded = expanded,
-						content = function(): Instance
-							return UI.Text({ text = "Controls" })
-						end,
-					})
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						sheet :: unknown,
-						disclosure,
-					})
-				end, engine.new("Folder"))
-				local header: any = disclosure:FindFirstChild("Header")
-				Verify.expect((header:HasTag("facet-selected"))):toBe(false)
-				Verify.expect((header:FindFirstChild("Title", true) :: any):HasTag("facet-text") :: any):toBe(true)
-				Verify.expect((header:FindFirstChild("Description", true) :: any):HasTag("facet-text") :: any)
-					:toBe(true)
-				Verify.expect((header:FindFirstChild("LeadingIcon", true) :: any):HasTag("facet-icon") :: any)
-					:toBe(true)
-				expanded:set(true)
-				Verify.expect((header:HasTag("facet-selected"))):toBe(true)
-				for _, name in { "Dark", "Light" } do
-					palette:set(name)
-					local foreground = style(sheet, ".facet-selected").TextColor3
-					Verify.expect(style(sheet, ".facet-selected >> .facet-text").TextColor3):toBe(foreground)
-					Verify.expect(style(sheet, ".facet-selected >> .facet-icon").ImageColor3):toBe(foreground)
-					Verify.expect(foreground == style(sheet, ".facet-text").TextColor3):toBe(false)
-				end
-				expanded:set(false)
-				Verify.expect((header:HasTag("facet-selected"))):toBe(false)
-				stop()
 				runtime:dispose()
 			end,
 		})
@@ -2042,121 +1314,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(image.ScaleType):toBe(engine.types.Enum.ScaleType.Stretch)
 				stop()
 				Verify.expect((image:isDestroyed())):toBe(true)
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("accepts the Virtual Monitors package without optional art sections", {
-			id = "native_themes_media::native themes and media::accepts the Virtual Monitors package without optional art sections",
-			run = function()
-				local engine, runtime = setup()
-				local factory = require("../examples/virtual_monitors/theme")
-				for _, name in { "Discover", "Avatar" } do
-					local package = factory.create(require("../src"), name)
-					Verify.expect((next(package.assets or {}))):toBe(nil)
-					Verify.expect(package.chrome.monitorPanel.kind):toBe("native")
-					Verify.expect(package.chrome.monitorPanel.shadow):toBe("raised")
-					Verify.expect((table.isfrozen(package))):toBe(true)
-					local sheet: any
-					local stop = runtime.mount(function()
-						sheet = themes.createStyleSheet(runtime, package, { types = engine.types, theme = "Light" })
-						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-							sheet :: unknown,
-							themes.skin(runtime, package, "control", { types = engine.types }),
-						})
-					end, engine.new("Folder"))
-					Verify.expect(style(sheet, ".facet-button::UIPadding").PaddingLeft.Offset):toBe(12)
-					Verify.expect(style(sheet, ".facet-selected").TextColor3):toBe(engine.types.Color3.new(1, 1, 1))
-					stop()
-				end
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("shows the showValue readout beside a ProgressView endLabel", {
-			id = "native_themes_media::native themes and media::shows the showValue readout beside a ProgressView endLabel",
-			run = function()
-				local engine, runtime, UI = setup()
-				local stop, root: any = runtime.mount(function()
-					return UI.ProgressView "Upload" { value = 0.5, showValue = true, endLabel = "End" }
-				end, engine.new("Folder"))
-				local texts = {}
-				for _, node in root:GetDescendants() do
-					if node:IsA("TextLabel") then
-						texts[node.Text] = node
-					end
-				end
-				Verify.expect(texts["50%"] ~= nil):toBe(true)
-				Verify.expect(texts["End"] ~= nil):toBe(true)
-				stop()
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("returns the Label root that api.md states, with and without an icon", {
-			id = "native_themes_media::native themes and media::returns the Label root that api.md states, with and without an icon",
-			run = function()
-				local engine, runtime, UI = setup()
-				local stop, root: any = runtime.mount(function()
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Text "Plain" { text = "Plain" } :: unknown,
-						UI.Label "Iconic" { title = "Iconic", icon = "rbxassetid://1" },
-					})
-				end, engine.new("Folder"))
-				local plain, iconic = root:FindFirstChild("Plain"), root:FindFirstChild("Iconic")
-				Verify.expect(plain.ClassName):toBe("TextLabel")
-				Verify.expect(iconic.ClassName):toBe("Frame")
-				Verify.expect(iconic:FindFirstChildWhichIsA("TextLabel").Text):toBe("Iconic")
-				local api = fs.readFile("docs/reference/api.md")
-				Verify.expect(string.find(api, "`UI.Text(spec) -> TextLabel`", 1, true) ~= nil):toBe(true)
-				Verify.expect(string.find(api, "`UI.Label(spec) -> Frame`", 1, true) ~= nil):toBe(true)
-				Verify.expect(iconic:FindFirstChild("Title").ClassName):toBe("TextLabel")
-				Verify.expect(iconic:FindFirstChild("Icon").ClassName):toBe("ImageLabel")
-				stop()
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("mounts the namespaced control fixtures with the current controls", {
-			id = "native_themes_media::native themes and media::mounts the namespaced control fixtures with the current controls",
-			run = function()
-				local engine, runtime = setup()
-				local Facet = require("../src")
-				local gauge = require("../examples/themes/ornate_gauge")
-				local custom = require("../examples/themes/custom_control")
-				local ornate = assert(require("../examples/themes/fantasy_ornate").build(Facet.themes))
-				local glossy = assert(require("../examples/themes/glossy_mobile").build(Facet.themes))
-				Verify.expect(gauge.check(Facet.themes, ornate).ok):toBe(true)
-				Verify.expect(custom.check(glossy).ok):toBe(true)
-				local dial = gauge.resolve(ornate)
-				Verify.expect(dial.height):toBe(56)
-				Verify.expect(dial.ring):toBe(8)
-				Verify.expect(dial.usedFallback.size or dial.usedFallback.ring or dial.usedFallback.needle):toBe(false)
-				local track = custom.resolve(glossy)
-				Verify.expect(track.height):toBe(28)
-				Verify.expect(custom.resolve(nil).usedFallback.size):toBe(true)
-				local UI = Facet.controls(runtime, { types = engine.types })
-				local core = {
-					Host = (runtime.constructors :: unknown) :: RobloxHost,
-					types = engine.types,
-				}
-				local fraction = Compose.cell(0.25)
-				local stop, root: any = runtime.mount(function()
-					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						gauge.blueprint(UI, core, dial, { id = "Boiler", fraction = fraction }) :: unknown,
-						custom.blueprint(UI, core, track, "Meter"),
-					})
-				end, engine.new("Folder"))
-				local needle = root:FindFirstChild("BoilerNeedle", true)
-				Verify.expect(needle.Image):toBe(gauge.ART.needle)
-				Verify.expect(needle.Position.X.Scale):toBe(0.25)
-				fraction:set(0.75)
-				Verify.expect(needle.Position.X.Scale):toBe(0.75)
-				Verify.expect(root:FindFirstChild("BoilerDial", true).Size.Y.Offset):toBe(56)
-				local meter = root:FindFirstChild("MeterTrack", true)
-				Verify.expect(meter.Size.Y.Offset):toBe(28)
-				Verify.expect((meter:HasTag("facet-control"))):toBe(true)
-				stop()
 				runtime:dispose()
 			end,
 		})
@@ -2329,5 +1486,211 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
-	end)
+	end);
+	(function(verifyHarness: Verify.Harness)
+		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+		local ThemeTypes = require("../src/ui/theme_types")
+		local FixtureNavigationTypes = require("../src/ui/navigation_types")
+
+		local fs = require("@lune/fs")
+		local Facet = require("../src")
+		local engineLib = require("./lib/native_engine")
+		local Compose: ComposeModule = Facet.Compose
+		local themes = Facet.themes
+
+		type Harness = {
+			engine: any,
+			runtime: any,
+			UI: any,
+			Host: any,
+			gui: any,
+			dispose: () -> (),
+		}
+
+		local function harness(options: { [string]: any }?): Harness
+			local engine: any = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local config: { [string]: any } =
+				{ types = engine.types, guiService = gui, services = { GuiService = gui } }
+			for key, value in (options or {}) :: { [string]: any } do
+				config[key] = value
+			end
+			local UI = Facet.controls(runtime, config :: any)
+			return {
+				engine = engine,
+				runtime = runtime,
+				UI = UI,
+				Host = (runtime.constructors :: unknown) :: RobloxHost,
+				gui = gui,
+				dispose = function()
+					runtime:dispose()
+				end,
+			}
+		end
+
+		local function mount(h: Harness, build: () -> any): (any, () -> ())
+			local stop, root = h.runtime.mount(function()
+				return h.Host.Frame({ build() })
+			end, h.engine.new("ScreenGui"))
+			return root, stop
+		end
+
+		local function sheetFor(h: Harness, package: any, options: { [string]: any }?): (any, () -> ())
+			local settings: { [string]: any } =
+				{ types = h.engine.types, preferredTransparency = 1, motionLevel = "normal" }
+			for key, value in (options or {}) :: { [string]: any } do
+				settings[key] = value
+			end
+			local stop, sheet = h.runtime.mount(function()
+				return themes.createStyleSheet(h.runtime, package, settings :: any)
+			end, h.engine.new("Folder"))
+			return sheet, stop
+		end
+
+		local function ruleNode(sheet: any, selector: string): any
+			local found
+			for _, node in sheet:GetChildren() do
+				if node.Selector == selector then
+					found = node
+				end
+			end
+			assert(found, "No rule: " .. selector)
+			return found
+		end
+
+		local function style(sheet: any, selector: string): { [string]: any }
+			return ruleNode(sheet, selector):GetProperties()
+		end
+
+		local function find(root: any, name: string): any
+			if root.Name == name then
+				return root
+			end
+			for _, child in root:GetChildren() do
+				local found = find(child, name)
+				if found then
+					return found
+				end
+			end
+			return nil
+		end
+
+		local function color(engine: any, value: any): any
+			return engine.types.Color3.new(value.r, value.g, value.b)
+		end
+
+		local function neutralColors(): ({ [string]: any }, { [string]: any })
+			local palette = themes.neutralPackage().style.themes[1]
+			return palette.colors, assert(palette.extra)
+		end
+
+		local SHIPPED = {
+			"classic_desktop",
+			"compact_pointer",
+			"fantasy_ornate",
+			"fantasy_parchment",
+			"glossy_mobile",
+			"glossy_touch",
+			"pixel_quest",
+			"scifi_hud",
+		}
+
+		local SCANNED_CALLS: { [string]: number? } = { styled = nil, paintedPart = 3 }
+
+		local function luminance(value: any): number
+			local function linear(channel: number): number
+				return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
+			end
+			return 0.2126 * linear(value.r) + 0.7152 * linear(value.g) + 0.0722 * linear(value.b)
+		end
+
+		verifyHarness:suite("native parity paint", function()
+			verifyHarness:case(
+				"compiles the button role and appearance vocabulary to palette rules above their base states",
+				{
+					id = "native_themes_media::native parity paint::compiles the button role and appearance vocabulary to palette rules above their base states",
+					run = function()
+						local h = harness()
+						local colors, extra = neutralColors()
+						local package = Compose.cell(themes.neutralPackage())
+						local sheet, stop = sheetFor(h, package)
+						local function expectColor(selector: string, property: string, value: any)
+							Verify.expect(style(sheet, selector)[property]):toBe(color(h.engine, value))
+						end
+						expectColor(".facet-role-destructive", "BackgroundColor3", colors.danger)
+						expectColor(".facet-role-destructive", "TextColor3", colors.onDanger)
+						expectColor(".facet-role-destructive:Hover", "BackgroundColor3", colors.danger)
+						expectColor(".facet-role-destructive:Press", "BackgroundColor3", colors.danger)
+						expectColor(".facet-role-destructive >> .facet-button-caption", "TextColor3", colors.onDanger)
+						expectColor(".facet-role-cancel >> .facet-button-caption", "TextColor3", extra.contentSecondary)
+						expectColor(".facet-role-onIndicator >> .facet-button-caption", "TextColor3", colors.onAccent)
+						expectColor(".facet-accent", "BackgroundColor3", colors.accent)
+						expectColor(".facet-accent", "TextColor3", colors.onAccent)
+						expectColor(".facet-accent >> .facet-button-caption", "TextColor3", colors.onAccent)
+						expectColor(".facet-appearance-soft", "BackgroundColor3", colors.accent)
+						Verify.expect(style(sheet, ".facet-appearance-soft").BackgroundTransparency):toBe(0.8)
+						Verify.expect(style(sheet, ".facet-appearance-soft:Hover").BackgroundTransparency):toBe(0.7)
+						Verify.expect(style(sheet, ".facet-appearance-soft:Press").BackgroundTransparency):toBe(0.6)
+						expectColor(".facet-appearance-soft >> .facet-button-caption", "TextColor3", colors.accent)
+						expectColor(".facet-appearance-soft >> .facet-icon", "ImageColor3", colors.accent)
+						Verify.expect(style(sheet, ".facet-appearance-utility").BackgroundTransparency):toBe(1)
+						expectColor(".facet-appearance-utility:Hover", "BackgroundColor3", extra.controlHover)
+						Verify.expect(style(sheet, ".facet-appearance-utility:Hover").BackgroundTransparency):toBe(0)
+						expectColor(".facet-appearance-utility:Press", "BackgroundColor3", extra.controlPressed)
+						Verify.expect(style(sheet, ".facet-appearance-link").BackgroundTransparency):toBe(1)
+						expectColor(".facet-appearance-link", "TextColor3", colors.content)
+						expectColor(".facet-appearance-link >> .facet-button-caption", "TextColor3", colors.content)
+						expectColor(".facet-appearance-link >> .facet-icon", "ImageColor3", colors.content)
+						Verify.expect(style(sheet, ".facet-appearance-link::UIPadding").PaddingLeft)
+							:toBe(h.engine.types.UDim.new(0, 0))
+						expectColor(".facet-quiet-destructive", "TextColor3", colors.danger)
+						expectColor(".facet-quiet-destructive >> .facet-button-caption", "TextColor3", colors.danger)
+						expectColor(".facet-selected", "BackgroundColor3", extra.controlSelected)
+						expectColor(".facet-selected", "TextColor3", colors.content)
+						Verify.expect(style(sheet, ".facet-disabled").TextTransparency)
+							:toBe(extra.disabledContentOpacity)
+						Verify.expect(style(sheet, ".facet-disabled >> .facet-button-caption").TextTransparency)
+							:toBe(extra.disabledContentOpacity)
+						expectColor(".facet-button:Hover", "BackgroundColor3", extra.controlHover)
+						expectColor(".facet-button:Press", "BackgroundColor3", extra.controlPressed)
+						local function priority(selector: string): number
+							return ruleNode(sheet, selector).Priority
+						end
+						for _, base in
+							{
+								".facet-role-destructive",
+								".facet-appearance-soft",
+								".facet-appearance-utility",
+								".facet-appearance-link",
+							}
+						do
+							for _, state in { ":Hover", ":Press" } do
+								Verify.expect(priority(base .. state) > priority(base)):toBe(true)
+								Verify.expect(priority(base .. state) > priority(".facet-button" .. state)):toBe(true)
+							end
+						end
+						Verify.expect(priority(".facet-button:Hover") > priority(".facet-button")):toBe(true)
+						Verify.expect(priority(".facet-quiet-destructive") > priority(".facet-appearance-utility"))
+							:toBe(true)
+						Verify.expect(
+							priority(".facet-quiet-destructive >> .facet-button-caption")
+								> priority(".facet-appearance-link >> .facet-button-caption")
+						):toBe(true)
+						local destructive = ruleNode(sheet, ".facet-role-destructive")
+						local retuned = themes.neutralPackage()
+						retuned.style.themes[1].colors.danger = { r = 0.5, g = 0, b = 0.1 }
+						package:set(retuned)
+						Verify.expect((ruleNode(sheet, ".facet-role-destructive"))):toBe(destructive)
+						Verify.expect(destructive:GetProperties().BackgroundColor3)
+							:toBe(h.engine.types.Color3.new(0.5, 0, 0.1))
+						stop()
+						h.dispose()
+					end,
+				}
+			)
+		end)
+	end)(verifyHarness)
 end

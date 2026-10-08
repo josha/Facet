@@ -8,6 +8,8 @@ local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 local sessionOf = require("./drag_session")
+local DragTypes = require("./drag_types")
+local Env = require("./environment_types")
 local pointerOf = require("./drag_pointer")
 local reducedMotion = require("./motion").reduced
 export type Editor<V, K> = {
@@ -48,7 +50,8 @@ return function<V, K>(
 	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
 	editing: Types.ValueBoolean?,
 	grid: boolean?,
-	location: (({ K }, number) -> (boolean, number, K?))?
+	location: (({ K }, number) -> (boolean, number, K?))?,
+	instantLayout: boolean?
 ): Editor<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
@@ -127,7 +130,7 @@ return function<V, K>(
 	local origin: Vector2? = nil
 	local travel = 0
 	local keyboardTarget: TextButton?
-	local rowKeys: { [Instance]: K } = setmetatable({}, { __mode = "k" }) :: any
+	local rowKeys = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: K }
 	local gui = ctx.config.guiService
 	local focus: ComposeTypes.Readable<GuiObject?> = if gui and gui.GetPropertyChangedSignal
 		then ctx.observe.SelectedObject(gui)
@@ -228,12 +231,14 @@ return function<V, K>(
 			end
 		end
 		if #keys > 0 then
-			local options: any = if spec.drag
-				then spec.drag(items, keys)
-				else {
-					payload = { collection = collectionId, keys = keys, items = items },
-					operations = { "move" },
-				}
+			local options = (
+				if spec.drag
+					then spec.drag(items, keys)
+					else {
+						payload = { collection = collectionId, keys = keys, items = items },
+						operations = { "move" :: "move" },
+					}
+			) :: DragTypes.SourceSpec
 			if tap and not options.armOnTap then
 				return
 			end
@@ -269,7 +274,7 @@ return function<V, K>(
 			local origin = if original then original.AbsolutePosition + original.AbsoluteSize / 2 else position
 			options.returnPosition = function()
 				local row = rowNodes[key]
-				return if row and row.Parent then row.AbsolutePosition + row.AbsoluteSize / 2 else origin
+				return if row and row.Parent then row.AbsolutePosition + row.AbsoluteSize / 2 else origin :: Vector2
 			end
 			options.valid = function()
 				if valid and not valid() then
@@ -301,7 +306,7 @@ return function<V, K>(
 						position = if position
 							then pickupPosition or position
 							else original.AbsolutePosition + original.AbsoluteSize / 2,
-						source = original,
+						source = original :: GuiObject,
 					}
 					else nil
 			)
@@ -720,7 +725,7 @@ return function<V, K>(
 		end, { period = edgeSpring.period, damping = edgeSpring.damping })
 		local right = ctx.runtime.spring(rightOf, { period = edgeSpring.period, damping = edgeSpring.damping })
 		local function edges(use: ComposeTypes.Use): Vector2
-			if motionReduced(use) then
+			if instantLayout or motionReduced(use) then
 				return V2.new(use(leading), rightOf(use))
 			end
 			return V2.new(use(left), use(right))
@@ -1052,8 +1057,8 @@ return function<V, K>(
 	end
 	local function overlay(insideBody: boolean?): Frame
 		local body = bodyOf()
-		local incoming = Compose.cell(nil :: any)
-		local destination: any = if spec.drop then table.clone(spec.drop) else {}
+		local incoming: ComposeTypes.Cell<Env.DropInsertion?> = Compose.cell(nil :: Env.DropInsertion?)
+		local destination = (if spec.drop then table.clone(spec.drop) else {}) :: DragTypes.TargetSpec
 		local accept, drop, update = destination.accepts, destination.onDrop, destination.onUpdate
 		local noCarried: { K } = {}
 		local cachedRows: { V }? = nil
@@ -1061,15 +1066,16 @@ return function<V, K>(
 		local remaining: { K } = {}
 		local rowIndices: { number } = {}
 		local remainingIndex: { [K]: number } = {}
-		local function insertion(payload: any, info: any)
+		local function insertion(payload: unknown, info: DragTypes.Proposal)
 			local rows: { V } = read(source)
-			local same = type(payload) == "table" and payload.collection == collectionId and info.operation == "move"
-			local carried = if same then payload.keys or noCarried else noCarried
+			local data = payload :: { collection: unknown, keys: { K }? }
+			local same = type(payload) == "table" and data.collection == collectionId and info.operation == "move"
+			local carried = if same then data.keys or noCarried else noCarried
 			if rows ~= cachedRows or carried ~= cachedCarried then
 				cachedRows, cachedCarried = rows, carried
 				remaining, rowIndices, remainingIndex = {}, {}, {}
 				local included: { [K]: boolean } = {}
-				for _, key in carried do
+				for _, key in carried :: { K } do
 					included[key] = true
 				end
 				for index, item in rows do
@@ -1112,8 +1118,8 @@ return function<V, K>(
 			end
 			if info.insertion then
 				local before, after = info.insertion.beforeKey, info.insertion.afterKey
-				local beforeIndex = if before ~= nil then remainingIndex[before] else nil
-				local afterIndex = if after ~= nil then remainingIndex[after] else nil
+				local beforeIndex = if before ~= nil then remainingIndex[before :: K] else nil
+				local afterIndex = if after ~= nil then remainingIndex[after :: K] else nil
 				if (before ~= nil or after ~= nil) and beforeIndex == nil and afterIndex == nil then
 					info.invalid = "The insertion neighbors were removed"
 					return
@@ -1123,20 +1129,21 @@ return function<V, K>(
 			info.insertion =
 				{ collection = collectionId, beforeKey = remaining[slot + 1], afterKey = remaining[slot], slot = slot }
 		end
-		local function localMove(payload: any, info: any): boolean
+		local function localMove(payload: unknown, info: DragTypes.Proposal): boolean
+			local data = payload :: { collection: unknown, keys: { K }? }
 			if
 				type(payload) ~= "table"
-				or payload.collection ~= collectionId
+				or data.collection ~= collectionId
 				or not spec.onReorder
 				or info.operation ~= "move"
 			then
 				return false
 			end
-			if type(payload.keys) ~= "table" or #payload.keys == 0 then
+			if type(data.keys) ~= "table" or #(data.keys :: { K }) == 0 then
 				return false
 			end
 			local live = sourceIndex:peek()
-			for _, key in payload.keys do
+			for _, key in data.keys :: { K } do
 				if live[key] == nil then
 					return false
 				end
@@ -1153,7 +1160,8 @@ return function<V, K>(
 			end
 			if localMove(payload, info) then
 				if location then
-					local accepted = location(payload.keys, info.insertion.slot)
+					local accepted =
+						location((payload :: { keys: { K } }).keys, (info.insertion :: Env.DropInsertion).slot)
 					return accepted, if accepted then nil else "Move items within the same folder"
 				end
 				return true, nil
@@ -1163,12 +1171,14 @@ return function<V, K>(
 			end
 			return drop ~= nil, "This collection does not accept these items"
 		end
-		destination.onDrop = function(payload, info)
+		destination.onDrop = function(payload: unknown, info: DragTypes.Proposal): (boolean | "pending")?
 			if localMove(payload, info) then
-				commitLocal(payload.keys, info.insertion.slot)
+				commitLocal((payload :: { keys: { K } }).keys, (info.insertion :: Env.DropInsertion).slot)
 				return true
 			end
-			return if drop then drop(payload, info) else false
+			return if drop
+				then ((drop :: unknown) :: (unknown, Env.DropInfo) -> (boolean | "pending")?)(payload, info)
+				else false
 		end
 		local leave = destination.onLeave
 		destination.onLeave = function(payload)
@@ -1181,9 +1191,9 @@ return function<V, K>(
 			local session = drag.state:peek()
 			incoming:set(if accepted and session and session.source ~= body then info.insertion else nil)
 			local move = moving:peek()
-			if move and not move.keyboard and accepted and move.slot ~= info.insertion.slot then
+			if move and not move.keyboard and accepted and move.slot ~= (info.insertion :: Env.DropInsertion).slot then
 				local next = table.clone(move)
-				next.slot = info.insertion.slot
+				next.slot = (info.insertion :: Env.DropInsertion).slot
 				moving:set(next)
 			end
 			if update then
@@ -1370,7 +1380,7 @@ return function<V, K>(
 							node.ZIndex += base
 							top = math.max(top, node.ZIndex)
 						elseif node:IsA("UIDragDetector") or node:IsA("InputContext") then
-							(node :: any).Enabled = false
+							((node :: unknown) :: { Enabled: boolean }).Enabled = false
 						end
 					end
 					copy.Name = "Reorderable"
@@ -1516,7 +1526,7 @@ return function<V, K>(
 						return { offset = 0, size = 44, crossOffset = 0, crossSize = 44 }, true
 					end
 					local key = proposal and proposal.beforeKey
-					local index = if key ~= nil then assert(controls.indexOfKey)(key) else #rows
+					local index = if key ~= nil then assert(controls.indexOfKey)(key :: K) else #rows
 					return assert(controls.placementOf)(index or #rows), key ~= nil
 				end
 				return ctx.styled(

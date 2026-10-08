@@ -21,7 +21,7 @@ export type Helpers = {
 	writable: (unknown) -> boolean,
 	attributes: (Instance, Shared.Attributes) -> Instance,
 	valueAttributes: (GuiObject, NumberSpec, valueModel.Model) -> (),
-	adjustment: (GuiObject, NumberSpec, (number) -> (), (() -> ())?, number, number, Adjust?) -> (),
+	adjustment: (GuiObject, InputTypes.AdjustmentState, (number) -> (), (() -> ())?, number?, number?, Adjust?) -> (),
 	paintedPart: (Shared.FrameProps, Shared.Value<string>?, string, string) -> Frame,
 }
 
@@ -390,7 +390,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				return false
 			end
 			if spec.onChange then
-				spec.onChange(nextValue)
+				(spec.onChange :: (number) -> ())(nextValue)
 			else
 				(spec.value :: ComposeTypes.Cell<number>):set(nextValue)
 			end
@@ -409,7 +409,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				return false
 			end
 			if spec.onChange then
-				spec.onChange({ lower = nextPair.lower, upper = nextPair.upper }, { thumb = thumb })
+				(spec.onChange :: (Range, InputTypes.SliderChange) -> ())(
+					{ lower = nextPair.lower, upper = nextPair.upper },
+					{ thumb = thumb }
+				)
 			else
 				(spec.value :: ComposeTypes.Cell<Range>):set({ lower = nextPair.lower, upper = nextPair.upper })
 			end
@@ -434,10 +437,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			local onCommit = spec.onCommit
 			if onCommit then
 				if isRange then
+					local callback = onCommit :: (Range, InputTypes.SliderChange) -> ()
 					local current = pair()
-					onCommit({ lower = current.lower, upper = current.upper }, { thumb = thumb })
+					callback({ lower = current.lower, upper = current.upper }, { thumb = thumb })
 				else
-					onCommit(single())
+					(onCommit :: (number) -> ())(single())
 				end
 			end
 		end
@@ -457,7 +461,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				local snapshot = active.snapshot :: number
 				if single() ~= snapshot then
 					if spec.onChange then
-						spec.onChange(snapshot)
+						(spec.onChange :: (number) -> ())(snapshot)
 					else
 						(spec.value :: ComposeTypes.Cell<number>):set(snapshot)
 					end
@@ -540,7 +544,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local contained = spec.contained == true
 		local thin = function(use: ComposeTypes.Use?): number
 			local knob: number = if contained
-				then read(extentOf(if isRange then "lower" else "value") :: any, use) :: number
+				then ctx.readSource(extentOf(if isRange then "lower" else "value"), use)
 				else 0
 			if knob > 0 then
 				return knob
@@ -811,7 +815,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		else
 			node = ctx.styled(
 				if spec.row
-					then ctx.column(captions :: { any }, native)
+					then ctx.column(captions, native)
 					elseif vertical then ctx.column(parts, native)
 					else ctx.row(parts, native),
 				"slider"

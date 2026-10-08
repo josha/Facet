@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Layout = require("./layout_types")
+local Overlay = require("./overlay_types")
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion").reduced
 local resolver = require("./composition_resolve")
@@ -16,9 +17,12 @@ type Declared = {
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
 
-local EXPAND_EDGE = { "trailing", "bottom", "leading" }
+local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 
-return function(ctx: Types.Context, UI: Layout.LayoutControls)
+return function(
+	ctx: Types.Context,
+	UI: Layout.LayoutControls & { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
+)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
@@ -36,7 +40,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		)
 		assert(spec.mayDrop == nil or type(spec.mayDrop) == "boolean", "Facet Region mayDrop must be a boolean")
 		assert(
-			spec.form == nil or (Compose.isReadable(spec.form) and type((spec.form :: any).set) == "function"),
+			spec.form == nil or (Compose.isReadable(spec.form) and type(spec.form.set) == "function"),
 			"Facet Region form must be a writable cell"
 		)
 		assert(
@@ -64,7 +68,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 					return use(form) > 0
 				end,
 			}) :: unknown
-		) :: { [unknown]: unknown }
+		) :: Types.FrameNativeProps
 		local open, hosted = Compose.cell(false), Compose.cell(false)
 		local richest = properties[1] :: GuiObject?
 		if spec.mayDrop == true and spec.reveal ~= false then
@@ -83,7 +87,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		local sizes: { ComposeTypes.Cell<Vector2> } = {}
 		for index = 1, #properties do
-			local child = properties[index] :: any
+			local child = properties[index] :: GuiObject
 			assert(
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
@@ -143,18 +147,18 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end
 			local floor = ctx.hitFloor()
 			local cell = resolver.CELLS[zone]
-			local edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
+			local edge: Overlay.Edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(form) <= 1 and open:peek() then
 					open:set(false)
 				end
 			end)
-			properties[#properties + 1] = (UI :: any).Popover "Expand" {
+			properties[#properties + 1] = UI.Popover "Expand" {
 				isPresented = open,
 				onPresentedChange = function(value: boolean)
 					open:set(value and form:peek() > 1)
 				end,
-				compact = "popover",
+				compact = "popover" :: "popover",
 				edge = edge,
 				content = content,
 				trigger = Host.TextButton "Expand" {
@@ -174,7 +178,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				},
 			}
 		end
-		local node = kit.plain(Host.Frame(properties :: any), spec)
+		local node = kit.plain(Host.Frame(properties), spec)
 		local shown: number? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local current = use(form)
@@ -205,7 +209,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		gap: Types.Value<Types.Space>,
 		children: { Frame }
 	): Frame
-		local fields: { [unknown]: unknown } = {
+		local fields: Types.FrameNativeProps = {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			AnchorPoint = V2.new((column - 1) / 2, (row - 1) / 2),
@@ -226,19 +230,17 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		for _, child in children do
 			fields[#fields + 1] = child
 		end
-		return Host.Frame(name)(fields :: any)
+		return Host.Frame(name)(fields)
 	end
 
 	UI.Composition = ctx.construct("Composition", function(spec: Layout.CompositionProps): Frame
-		local properties = (ctx.props(spec, { "gap", "padding", "topbar" }) :: unknown) :: {
-			[unknown]: unknown,
-		}
+		local properties = (ctx.props(spec, { "gap", "padding", "topbar" }) :: unknown) :: Types.FrameNativeProps
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}
 		for index = 1, #properties do
-			local child = properties[index] :: any
+			local child = properties[index] :: GuiObject
 			if declared[child] then
-				table.insert(regions, child)
+				table.insert(regions, child :: Frame)
 			else
 				assert(
 					type(child) == "table" or typeof(child) == "Instance",
@@ -301,7 +303,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			table.unpack(placed),
 		}
 		properties[#properties + 1] = safe
-		local root = kit.plain(Host.Frame(properties :: any), spec)
+		local root = kit.plain(Host.Frame(properties), spec)
 		kit.underTopbar(root, under)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
@@ -374,7 +376,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 					return if host then host.DisplayOrder else 0
 				end,
 				Enabled = enabled,
-				(Host :: any).StyleLink({
+				Host.StyleLink({
 					StyleSheet = function(use: ComposeTypes.Use): StyleSheet?
 						local host = use(screen)
 						local link = host and host:FindFirstChildWhichIsA("StyleLink")
@@ -455,16 +457,16 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
 			end
 			runtime.mount(function()
-				return (UI :: any).Popover("Hidden" .. frame.Name) {
+				return UI.Popover("Hidden" .. frame.Name) {
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
 						open:set(value and #dropped:peek() > 0)
 					end,
-					compact = "popover",
-					edge = if column == 2 and row == 3 then "top" else EXPAND_EDGE[column],
+					compact = "popover" :: "popover",
+					edge = (if column == 2 and row == 3 then "top" else EXPAND_EDGE[column]) :: Overlay.Edge,
 					content = function(): Instance
 						release()
-						local slots: { [unknown]: unknown } = {
+						local slots: Types.FrameNativeProps = {
 							Name = "ZoneHidden",
 							BackgroundTransparency = 1,
 							Size = D2.new(),
@@ -487,7 +489,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 							slots[#slots + 1] = slot
 							slotFrames[region] = slot
 						end
-						local holder = Host.Frame(slots :: any)
+						local holder = Host.Frame(slots)
 						for region, slot in slotFrames do
 							assert(declared[region].reveal).host(slot)
 							table.insert(hosting, region)

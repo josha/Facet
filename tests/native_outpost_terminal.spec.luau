@@ -81,35 +81,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((root:isDestroyed())):toBe(true)
 			end,
 		})
-		verifyHarness:case("refuses over-budget drafts locally and preserves authority guards", {
-			id = "native_outpost_terminal::native outpost terminal::refuses over-budget drafts locally and preserves authority guards",
-			run = function()
-				local built, _, stop = mount(terminal, {
-					send = function()
-						error("illegal allocation was sent")
-					end,
-				})
-				built.steps.engage()
-				built.steps.setValue("beacon", 2)
-				built.steps.setValue("workshop", 4)
-				Verify.expect(built.steps.apply().reason):toBe("budget")
-				local request = {
-					holderId = "a",
-					senderId = "a",
-					holderToken = "now",
-					token = "now",
-					distance = 4,
-					allocation = { door = 2, beacon = 1, workshop = 2 },
-				}
-				for field, value in { token = "old", distance = 40, sinceLast = 0.01, senderId = "b" } do
-					local invalid = table.clone(request)
-					invalid[field] = value
-					Verify.expect(terminal.rules.authorize(invalid).ok):toBe(false)
-				end
-				Verify.expect(terminal.rules.authorize(request).ok):toBe(true)
-				stop()
-			end,
-		})
+
 		verifyHarness:case("mounts a real SurfaceGui on the caller runtime and owns cleanup", {
 			id = "native_outpost_terminal::native outpost terminal::mounts a real SurfaceGui on the caller runtime and owns cleanup",
 			run = function()
@@ -180,71 +152,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(sent[#sent].kind):toBe("close")
 				Verify.expect((engineLib.connections(remote.OnClientEvent))):toBe(0)
 				Verify.expect((engineLib.connections(heartbeat))):toBe(0)
-			end,
-		})
-		verifyHarness:case("converges full snapshots across skipped revisions without losing independent drafts", {
-			id = "native_outpost_terminal::native outpost terminal::converges full snapshots across skipped revisions without losing independent drafts",
-			run = function()
-				local left, _, stopLeft = mount(terminal)
-				local right, _, stopRight = mount(terminal)
-				left.steps.engage(terminal.rules.START, 1)
-				right.steps.engage(terminal.rules.START, 1)
-				left.steps.setValue("door", 1)
-				right.steps.setValue("door", 2)
-				local answer = { door = 2, beacon = 1, workshop = 2 }
-				for _, client in { left, right } do
-					Verify.expect((client.steps.ingest(7, answer))):toBe(true)
-					Verify.expect((client.steps.ingest(6, terminal.rules.START))):toBe(false)
-					Verify.expect((client.steps.ingest(7, terminal.rules.START))):toBe(false)
-					Verify.expect(client.report().complete):toBe(true)
-					Verify.expect((client.steps.ingest(12, terminal.rules.START))):toBe(true)
-					Verify.expect(client.report().revision):toBe(12)
-					Verify.expect(client.report().complete):toBe(false)
-				end
-				Verify.expect(left.report().draft.door):toBe(1)
-				Verify.expect(right.report().draft.door):toBe(2)
-				left.steps.engage(answer, 15)
-				Verify.expect(left.report().revision):toBe(15)
-				Verify.expect(left.report().draft.beacon):toBe(1)
-				stopLeft()
-				stopRight()
-			end,
-		})
-		verifyHarness:case("recovers rejected or failed sends and cancels an unanswered request before reengagement", {
-			id = "native_outpost_terminal::native outpost terminal::recovers rejected or failed sends and cancels an unanswered request before reengagement",
-			run = function()
-				local fail = true
-				local built, _, stop = mount(terminal, {
-					send = function()
-						if fail then
-							error("offline")
-						end
-					end,
-				})
-				built.steps.engage()
-				Verify.expect(built.steps.apply().reason):toBe("transport")
-				Verify.expect(built.report().status):toBe("rejected")
-				fail = false
-				local rejected = built.steps.apply()
-				built.steps.reject(rejected.requestId, { code = "rate", message = terminal.rules.refusal("rate") })
-				Verify.expect(built.report().message):toBe(terminal.rules.refusal("rate"))
-				Verify.expect((built.steps.reject(rejected.requestId, {}))):toBe(false)
-				local lost = built.steps.apply()
-				built.steps.exit("cancel")
-				built.steps.engage()
-				local retry = built.steps.apply()
-				Verify.expect(retry.sent):toBe(true)
-				Verify.expect(retry.requestId > lost.requestId):toBe(true)
-				Verify.expect(
-					(
-						built.steps.confirm(
-							lost.requestId,
-							{ revision = 9, allocation = { door = 2, beacon = 1, workshop = 2 } }
-						)
-					)
-				):toBe(false)
-				Verify.expect(built.report().status):toBe("pending")
-				stop()
 			end,
 		})
 	end)

@@ -19,22 +19,13 @@ return function(ctx: ExampleContext)
 	function view.column(name: string, children: { any }, spacing: number?): Frame
 		local props: { [any]: any } = {
 			Name = name,
-			BackgroundTransparency = 1,
-			Size = D2.new(1, 0, 0, 0),
-			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIListLayout({
-				FillDirection = E.FillDirection.Vertical,
-				SortOrder = E.SortOrder.LayoutOrder,
-				Padding = D.new(0, spacing or 12),
-			}),
+			width = "fill",
+			gap = spacing or 12,
 		}
-		for i, child in children do
-			if typeof(child) == "Instance" or type(child) == "table" and child.ClassName then
-				(child :: any).LayoutOrder = i
-			end
+		for _, child in children do
 			table.insert(props, child)
 		end
-		return Host.Frame(props)
+		return UI.VStack(props)
 	end
 	function view.page(name: string, children: { any }): ScrollingFrame
 		return Host.ScrollingFrame({

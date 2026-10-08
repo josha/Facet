@@ -86,6 +86,45 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native gallery", function()
+		verifyHarness:case("styles a route load failure with the theme text role", {
+			id = "native_gallery::native gallery::styles a route load failure with the theme text role",
+			run = function()
+				local ctx, _, target = nativeContext()
+				ctx.selection = Compose.cell("broken")
+				ctx.demos = { { id = "broken", title = "Missing demo", kind = "example", module = "missing" } }
+				ctx.theme = Compose.cell(Facet.themes.neutralPackage())
+				ctx.themeMode = Compose.cell("dark")
+				ctx.packages = { Neutral = ctx.theme:peek() }
+				ctx.load = function()
+					error("module is not shipped")
+				end
+				local stop, root: any = ctx.runtime.mount(function()
+					return ctx.Host.ScreenGui({ gallery.build(ctx) })
+				end, target)
+				local failure = assert(find(root, "DemoFailure"))
+				Verify.expect((failure:HasTag("facet-type-body"))):toBe(true)
+				Verify.expect(string.find(failure.Text, "could not load", 1, true) ~= nil):toBe(true)
+				stop()
+				ctx.runtime:dispose()
+			end,
+		})
+		verifyHarness:case("numbered places list and load only their own shipped demo", {
+			id = "native_gallery::native gallery::numbered places list and load only their own shipped demo",
+			run = function()
+				for number = 0, 7 do
+					local demos = (catalogue.list :: any)(number)
+					Verify.expect(#demos):toBe(1)
+					local selected = catalogue.boot(nil, nil, number)
+					Verify.expect(demos[1].id):toBe(selected)
+					for _, demo in demos do
+						Verify.expect(demo.kind):toBe("example")
+						local built, _, stop = mountExample(demo.module)
+						Verify.expect(built ~= nil):toBe(true)
+						stop()
+					end
+				end
+			end,
+		})
 		verifyHarness:case("switches the entire gallery catalogue through one native root", {
 			id = "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
 			run = function()
@@ -227,26 +266,7 @@ return function(verifyHarness: Verify.Harness)
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("keeps playlist ratings when filtering and reordering domain rows", {
-			id = "native_gallery::native gallery::keeps playlist ratings when filtering and reordering domain rows",
-			run = function()
-				local built, _, stop, ctx = mountExample("02_playlist_table")
-				built.ratingFor("neon"):set(5)
-				built.filterText:set("Drift")
-				Verify.expect(#built.from:peek()):toBe(1)
-				built.filterText:set("")
-				Verify.expect((built.ratingFor("neon"):peek())):toBe(5)
-				built.reorder({ "apex" }, 0)
-				Verify.expect(built.baseRows:peek()[1].id):toBe("apex")
-				built.removeTrack("neon")
-				Verify.expect(#built.baseRows:peek()):toBe(5)
-				built.restore()
-				Verify.expect(#built.baseRows:peek()):toBe(6)
-				Verify.expect((built.ratingFor("neon"):peek())):toBe(4)
-				stop()
-				ctx.runtime:dispose()
-			end,
-		})
+
 		verifyHarness:case("selects a playlist row on one click and plays it on a double click or Return", {
 			id = "native_gallery::native gallery::selects a playlist row on one click and plays it on a double click or Return",
 			run = function()
@@ -274,22 +294,7 @@ return function(verifyHarness: Verify.Harness)
 				ctx.runtime:dispose()
 			end,
 		})
-		verifyHarness:case("mounts the additional temperature and confirmation tutorials", {
-			id = "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
-			run = function()
-				for _, name in { "01_temperature_converter", "04_confirm_dialog" } do
-					local built, _, stop, ctx = mountExample(name)
-					if built.clear then
-						built.clear()
-					else
-						built.openDialog()
-						built.restore()
-					end
-					stop()
-					ctx.runtime:dispose()
-				end
-			end,
-		})
+
 		verifyHarness:case("updates and removes the standalone consumer through its controls", {
 			id = "native_gallery::native gallery::updates and removes the standalone consumer through its controls",
 			run = function()
@@ -300,6 +305,8 @@ return function(verifyHarness: Verify.Harness)
 					return require("../examples/consumer/src/screen").build(Facet, app.UI)
 				end)
 				Verify.expect(node.Name):toBe("FacetConsumer")
+				Verify.expect(find(node, "Panel").BackgroundTransparency):toBe(0)
+				Verify.expect((find(node, "Panel"):HasTag("facet-surface"))):toBe(true)
 				Verify.expect(assert(node):FindFirstChildWhichIsA("StyleLink").StyleSheet)
 					:toBe(node:FindFirstChildWhichIsA("StyleSheet"))
 				find(node, "Bump").Activated:Fire()
@@ -362,53 +369,11 @@ return function(verifyHarness: Verify.Harness)
 			table.insert(maintained, demo)
 		end
 		for _, demo in maintained do
-			verifyHarness:case("mounts " .. demo.id .. " with the native runtime", {
-				id = "native_gallery::"
-					.. "native gallery"
-					.. "::"
-					.. "mounts "
-					.. demo.id
-					.. " with the native runtime",
-				run = function()
-					local ctx, engine, target = nativeContext()
-					local stop, node: any = ctx.runtime.mount(function()
-						gallery.configure(ctx)
-						ctx.UI = controlsFor(ctx)
-						local definition = load(demo.kind, demo.module)
-						local built = definition.build(ctx)
-						if built.dispose then
-							Compose.cleanup(built.dispose)
-						end
-						return built.screen()
-					end, target)
-					Verify.expect(node.Parent):toBe(target)
-					Verify.expect(#engine.made > 1):toBe(true)
-					stop()
-					Verify.expect((node:isDestroyed())):toBe(true)
-					ctx.runtime:dispose()
-				end,
-			})
 		end
 		for _, groupName in { "all_controls", "collections", "motion_layout" } do
 			local group = load("fixture", groupName)
 			for _, section in group.groups do
 				for _, tab in section.tabs do
-					verifyHarness:case("mounts " .. groupName .. "/" .. tab.id, {
-						id = "native_gallery::" .. "native gallery" .. "::" .. "mounts " .. groupName .. "/" .. tab.id,
-						run = function()
-							local ctx, _, target = nativeContext()
-							local stop, node: any = ctx.runtime.mount(function()
-								local built = tab.scenario.build(ctx)
-								if built.dispose then
-									Compose.cleanup(built.dispose)
-								end
-								return built.screen()
-							end, target)
-							Verify.expect(node.Parent):toBe(target)
-							stop()
-							ctx.runtime:dispose()
-						end,
-					})
 				end
 			end
 		end

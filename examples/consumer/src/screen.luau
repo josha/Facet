@@ -12,6 +12,11 @@ function screen.build(Facet: any, UI: any)
 	return UI.Screen "Consumer" {
 		Compose.show(visible, function()
 			return UI.VStack "Panel" {
+				BackgroundTransparency = 0,
+				padding = "m",
+				ref = function(node: Frame)
+					node:AddTag("facet-surface")
+				end,
 				gap = "s",
 				width = "fill" :: "fill",
 				align = "stretch" :: "stretch",

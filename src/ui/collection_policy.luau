@@ -3,6 +3,7 @@ local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 local ComposeTypes = require("../vendor/compose/core")
 local sessionOf = require("./drag_session")
+local DragTypes = require("./drag_types")
 local activation = require("./activation")
 local policy = {}
 function policy.allows<V>(predicate: ((V) -> boolean)?, item: V): boolean
@@ -65,7 +66,7 @@ function policy.actions<V, K>(
 			for index, edit in edits do
 				local action = table.clone(edit)
 				action.id = "edit:" .. index
-				table.insert(result, action)
+				table.insert(result, (action :: unknown) :: CollectionTypes.RowAction)
 			end
 			return result
 		end
@@ -112,7 +113,7 @@ function policy.drop<V, K>(
 	if authored == nil then
 		return
 	end
-	local destination: any = table.clone(authored)
+	local destination: DragTypes.TargetSpec = (table.clone(authored) :: unknown) :: DragTypes.TargetSpec
 	local service = sessionOf(ctx)
 	destination.collectionAxis = if horizontal then "X" else "Y"
 	destination.accepts = function(payload, info): (boolean, string?)

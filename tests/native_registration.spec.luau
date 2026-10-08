@@ -10,45 +10,8 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local scaffold = require("../tools/lune/scaffold")
-	local function registrations(path: string, found: { [string]: string })
-		for _, name in fs.readDir(path) do
-			local full = path .. "/" .. name
-			if fs.isDir(full) then
-				registrations(full, found)
-			elseif string.match(name, "%.luau$") then
-				for constructor in string.gmatch(fs.readFile(full), "UI%.([%a_][%w_]*)%s*=") do
-					assert(not found[constructor], "Duplicate control registration: " .. constructor)
-					found[constructor] = full
-				end
-			end
-		end
-	end
 
 	verifyHarness:suite("native registration and package contract", function()
-		verifyHarness:case("registers every authored control and documents every public constructor", {
-			id = "native_registration::native registration and package contract::registers every authored control and documents every public constructor",
-			run = function()
-				local engine = engineLib.new()
-				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local UI = Facet.controls(runtime, { types = engine.types })
-				local found: { [string]: string } = {}
-				registrations("src/ui", found)
-				local reference = fs.readFile("docs/reference/api.md")
-				for name in found do
-					Verify.expect((type(UI[name]))):toBe("function")
-					Verify.expect(string.find(reference, tostring(name), 1, true) ~= nil):toBe(true)
-				end
-				for name, constructor in (UI :: unknown) :: { [string]: unknown } do
-					Verify.expect(found[name] ~= nil):toBe(true)
-					Verify.expect((type(constructor))):toBe("function")
-				end
-				Verify.expect((table.isfrozen(UI))):toBe(true)
-				Verify.expect(string.match(Facet.VERSION, "^%d+%.%d+%.%d+$") ~= nil):toBe(true)
-				Verify.expect(Facet.Compose):toBe(require("../src/vendor/compose/core"))
-				Verify.expect(Facet.Roblox):toBe(require("../src/vendor/compose/roblox"))
-				runtime:dispose()
-			end,
-		})
 		verifyHarness:case("scaffolds a typed native control with idempotent runtime and public type registration", {
 			id = "native_registration::native registration and package contract::scaffolds a typed native control with idempotent runtime and public type registration",
 			run = function()

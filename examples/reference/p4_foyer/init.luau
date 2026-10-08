@@ -95,9 +95,8 @@ function Foyer.build(ctx: ExampleContext)
 				return item.id
 			end,
 			itemSize = 258,
-			columns = function(use: Use)
-				return math.max(1, math.floor((use(ctx.viewport).width - 32) / 232))
-			end,
+			minColumnWidth = 232,
+			measure = true,
 			gap = 12,
 			Size = D2.fromScale(1, 1),
 			render = function(current): GuiObject

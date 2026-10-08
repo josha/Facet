@@ -2,7 +2,99 @@
 
 local Audit = require("./lab_audit")
 local Visible = require("./audit_visible")
+type ReservedKeys = typeof(require("@repo/src/ui/reserved_keys"))
 local Sweep = {}
+
+function Sweep.failure(node: Instance): string?
+	local failure = node:GetAttribute("FacetError")
+	if type(failure) == "string" and failure ~= "" then
+		return failure
+	end
+	if node:IsA("TextLabel") then
+		local text = (node :: TextLabel).Text
+		if node.Name == "DestinationError" or string.find(text, "Page failed:", 1, true) then
+			return text
+		end
+	end
+	return nil
+end
+
+function Sweep.dismissCommand(node: Instance): boolean
+	return node:IsA("GuiButton")
+		and (
+			node.Name == "Close"
+			or node.Name == "CloseCommand"
+			or node.Name == "Cancel"
+			or node.Name == "Done"
+			or node.Name == "Collapse"
+			or node:GetAttribute("AccessibleLabel") == "Close"
+			or node:HasTag("facet-role-cancel")
+		)
+end
+
+function Sweep.dismissalResult(delivered: boolean, closed: boolean): string?
+	return if closed then nil elseif delivered then "faults" else "unsupported"
+end
+
+function Sweep.escapeInput(
+	input: UserInputService,
+	gui: GuiService,
+	keys: { [string]: Enum.KeyCode },
+	reservedKeys: ReservedKeys,
+	send: () -> ()
+): boolean
+	local delivered = false
+	local release = reservedKeys.add(input, keys, {
+		keys = { Escape = true },
+		priority = math.huge,
+		sink = false,
+		gui = gui,
+		enabled = function()
+			return true
+		end,
+		press = function()
+			delivered = true
+		end,
+		release = function() end,
+	})
+	local ok, err = pcall(function(): boolean
+		send()
+		return true
+	end)
+	release()
+	if not ok then
+		error(err)
+	end
+	return delivered
+end
+
+function Sweep.controlInput(
+	command: string,
+	locate: (string) -> GuiButton?,
+	press: (GuiButton) -> boolean,
+	config: () -> { [string]: string | boolean }
+): string
+	local sign, flag = string.match(command, "^([%+%-])(.+)$")
+	local key, value = string.match(command, "^([^=]+)=(.*)$")
+	local name = if sign then `State_{flag}` else `Axis_{key}`
+	local node = locate(name)
+	if not node or not press(node) then
+		return "unsupported"
+	end
+	if key then
+		local optionId = string.gsub(assert(value), "[^%w_%-]", "_")
+		local option = locate(optionId)
+		if not option then
+			return "faults"
+		end
+		if not press(option) then
+			return "unsupported"
+		end
+	end
+	local actual = config()
+	local matches = if sign then (actual[`+{flag}`] == true) == (sign == "+") else actual[assert(key)] == value
+	return if matches then "passed" else "faults"
+end
 
 function Sweep.engineFault(message: string, kind: string): boolean
 	return kind == "MessageError" or string.find(message, "unexpectedly tried to set the parent", 1, true) ~= nil
@@ -11,7 +103,12 @@ end
 function Sweep.sections(page: Instance): { string }
 	local sections = {}
 	for _, child in page:GetChildren() do
-		if child:IsA("GuiObject") and child.Name ~= "Header" and child.Name ~= "Controls" then
+		if
+			child:IsA("GuiObject")
+			and child.Name ~= "Header"
+			and child.Name ~= "Controls"
+			and child.Name ~= "Content"
+		then
 			table.insert(sections, child.Name)
 		end
 	end
@@ -40,11 +137,45 @@ function Sweep.identity(node: Instance, root: Instance): string
 	return table.concat(parts, ".")
 end
 
-function Sweep.inventory(group: Instance, page: Instance): { [string]: boolean }
+function Sweep.scrollStops(scroll: ScrollingFrame): { { x: number, y: number } }
+	local x = math.max(0, scroll.AbsoluteCanvasSize.X - scroll.AbsoluteWindowSize.X)
+	local y = math.max(0, scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteWindowSize.Y)
+	local positions = { { x = 0, y = 0 } }
+	if x > 0 or y > 0 then
+		table.insert(positions, { x = x / 2, y = y / 2 })
+		table.insert(positions, { x = x, y = y })
+	end
+	return positions
+end
+
+function Sweep.targetVisible(node: Instance, includeOutsideWindow: boolean?): boolean
+	local painted = if node:IsA("UIDragDetector") then node.Parent else node
+	return painted ~= nil and painted:IsA("GuiObject") and Visible(painted :: GuiObject, includeOutsideWindow)
+end
+
+function Sweep.inventory(
+	group: Instance,
+	page: Instance,
+	visibleOnly: boolean?,
+	outsideCollections: boolean?
+): { [string]: boolean }
 	local inventory = {}
 	for _, node in group:GetDescendants() do
 		if node:IsA("GuiButton") or node:IsA("TextBox") or node:IsA("UIDragDetector") then
-			inventory[Sweep.identity(node, page)] = true
+			local inside = false
+			if outsideCollections then
+				local parent = node.Parent
+				while parent and parent ~= group do
+					if parent:IsA("ScrollingFrame") and parent:HasTag("facet-collection") then
+						inside = true
+						break
+					end
+					parent = parent.Parent
+				end
+			end
+			if not inside and (not visibleOnly or Sweep.targetVisible(node)) then
+				inventory[Sweep.identity(node, page)] = true
+			end
 		end
 	end
 	return inventory
@@ -94,6 +225,27 @@ end
 
 function Sweep.same(a: { string }, b: { string }): boolean
 	return #a == #b and table.concat(a, "\n") == table.concat(b, "\n")
+end
+
+function Sweep.difference(a: { string }, b: { string }): { string }
+	local old, new, changed = {}, {}, {}
+	for _, row in a do
+		old[row] = true
+	end
+	for _, row in b do
+		new[row] = true
+	end
+	for _, row in a do
+		if not new[row] and #changed < 10 then
+			table.insert(changed, `before: {string.sub(row, 1, 500)}`)
+		end
+	end
+	for _, row in b do
+		if not old[row] and #changed < 10 then
+			table.insert(changed, `after: {string.sub(row, 1, 500)}`)
+		end
+	end
+	return changed
 end
 
 function Sweep.detached(selected: Instance?, root: Instance): boolean
@@ -163,10 +315,31 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 	local function pointer(point: any, down: boolean)
 		input.pointer({ x = point.x, y = point.y, button = "left", down = down })
 	end
-	local function key(code: string)
-		input.key({ code = code, down = true })
-		wait(0.02)
-		input.key({ code = code, down = false })
+	local function key(code: string): boolean
+		local function send()
+			input.key({ code = code, down = true })
+			wait(0.02)
+			input.key({ code = code, down = false })
+			wait(0.02)
+		end
+		if code == "Escape" then
+			local module = game:GetService("ReplicatedStorage")
+				:WaitForChild("Facet")
+				:WaitForChild("ui")
+				:WaitForChild("reserved_keys")
+			assert(module:IsA("ModuleScript"))
+			local loadModule = (require :: unknown) :: (ModuleScript) -> ReservedKeys
+			local reservedKeys: ReservedKeys = deps.reservedKeys or loadModule(module)
+			return Sweep.escapeInput(
+				inputService,
+				gui,
+				(Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode },
+				reservedKeys,
+				send
+			)
+		end
+		send()
+		return false
 	end
 	local function press(node: GuiObject): boolean
 		reveal(node)
@@ -217,6 +390,34 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 		end
 		return if node:IsA("GuiButton") then hits > 0 else inputService:GetFocusedTextBox() == node
 	end
+	local function outsidePress(point: { x: number, y: number }): boolean
+		local delivered = false
+		local connections: { RBXScriptConnection } = {}
+		for _, node in playerGui:GetDescendants() do
+			if node.Name == "DismissOutside" and node:IsA("GuiButton") and shown(node) then
+				table.insert(
+					connections,
+					node.Activated:Connect(function()
+						delivered = true
+					end)
+				)
+			end
+		end
+		local ok, err = pcall(function()
+			pointer(point, true)
+			wait(0.03)
+			pointer(point, false)
+			wait(0.08)
+		end)
+		for _, connection in connections do
+			connection:Disconnect()
+		end
+		if not ok then
+			error(err)
+		end
+		return delivered
+	end
+
 	local function surfaces(): { any }
 		local root = playerGui:FindFirstChild("Facet_Lab")
 		local overlays = root and root:FindFirstChild("PreviewOverlays", true)
@@ -286,10 +487,11 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 						note("faults", `refused {where}: {message}`)
 					end
 					local root = playerGui:FindFirstChild("Facet_Lab")
-					if root and not pageFor(id) then
+					if root then
 						for _, n in root:GetDescendants() do
-							if n:IsA("TextLabel") and string.find(n.Text, "Page failed:", 1, true) then
-								note("faults", n.Text)
+							local failure = Sweep.failure(n)
+							if failure and present(n) then
+								note("faults", `destination error: {failure}`)
 							end
 						end
 					end
@@ -328,18 +530,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 						local acted = false
 						if mode == "close" then
 							for _, n in panel:GetDescendants() do
-								if
-									n:IsA("GuiButton")
-									and present(n)
-									and (
-										n.Name == "Close"
-										or n.Name == "CloseCommand"
-										or n.Name == "Cancel"
-										or n.Name == "Done"
-										or n.Name == "Collapse"
-										or n:GetAttribute("AccessibleLabel") == "Close"
-									)
-								then
+								if n:IsA("GuiButton") and present(n) and Sweep.dismissCommand(n) then
 									acted = attempt(before, function()
 										return press(n)
 									end) == true
@@ -355,17 +546,13 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 								local a, b = panel.AbsolutePosition + inset, panel.AbsoluteSize
 								if p.X < a.X or p.X > a.X + b.X or p.Y < a.Y or p.Y > a.Y + b.Y then
 									acted = attempt(before, function()
-										pointer({ x = p.X, y = p.Y }, true)
-										wait(0.03)
-										pointer({ x = p.X, y = p.Y }, false)
-										return true
+										return outsidePress({ x = p.X, y = p.Y })
 									end) == true
 								end
 							end
 						else
 							acted = attempt("Escape", function()
-								key("Escape")
-								return true
+								return key("Escape")
 							end) == true
 						end
 						wait(0.3)
@@ -373,6 +560,10 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 							row.dismissals,
 							{ path = before, mode = mode, sent = acted, closed = not shown(panel) }
 						)
+						local outcome = Sweep.dismissalResult(acted, not shown(panel))
+						if outcome then
+							note(outcome, `surface remained open after {mode}: {before}`)
+						end
 						if shown(panel) then
 							if not acted then
 								note("unsupported", `{mode}: no available dismissal for {before}`)
@@ -381,7 +572,6 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 								tidy("close", nil)
 							end
 							if shown(panel) then
-								note("unsupported", `surface remained open after {mode}: {before}`)
 								local other = if id == "Button" then "Text" else "Button"
 								lab.open(other)
 								wait(0.02)
@@ -434,11 +624,40 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 				end
 				local data = lab.pages[id].data
 				for _, command in Sweep.options(data) do
-					local answer = lab.configure(command)
-					if answer.ok then
+					local outcome = attempt(command, function()
+						return Sweep.controlInput(command, function(name: string): GuiButton?
+							local page = pageFor(id)
+							local controls = page and page:FindFirstChild("Controls")
+							local node = controls and controls:FindFirstChild(name, true)
+							if node then
+								if node:IsA("GuiButton") then
+									return node
+								end
+								for _, child in node:GetDescendants() do
+									if child:IsA("GuiButton") and child:HasTag("facet-disclosure") then
+										return child
+									end
+								end
+							end
+							for _, panel in surfaces() do
+								local item = panel:FindFirstChild(name, true)
+								if item and item:IsA("GuiButton") and present(item) then
+									return item
+								end
+							end
+							return nil
+						end, function(node: GuiButton): boolean
+							local delivered = press(node)
+							wait(0.3)
+							return delivered
+						end, function()
+							return lab.report().config
+						end)
+					end)
+					if outcome == "passed" then
 						row.options += 1
-					else
-						note("unsupported", `configuration refused: {command}`)
+					elseif outcome then
+						note(outcome, `Controls input did not apply: {command}`)
 					end
 					wait(0.05)
 					local page = pageFor(id)
@@ -449,14 +668,22 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 				end
 				attempt("Controls Reset", reset)
 				wait(0.1)
-				for _, section in Sweep.sections(assert(pageFor(id))) do
+				local virtualCollection = id == "VirtualGrid" or id == "VirtualList"
+				local function visit(
+					section: string,
+					visibleOnly: boolean,
+					region: Instance?,
+					outsideCollections: boolean?
+				)
 					local completed = {}
 					local start = assert(pageFor(id))
-					local group = start:FindFirstChild(section)
-					local inventory = if group then Sweep.inventory(group, start) else {}
+					local group = region or start:FindFirstChild(section)
+					local inventory = if group
+						then Sweep.inventory(group, start, visibleOnly, outsideCollections)
+						else {}
 					while true do
 						local page = pageFor(id)
-						local group = page and page:FindFirstChild(section)
+						local group = if region and region.Parent then region else page and page:FindFirstChild(section)
 						if not group then
 							break
 						end
@@ -465,7 +692,11 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 						for _, node in group:GetDescendants() do
 							if node:IsA("GuiButton") or node:IsA("TextBox") or node:IsA("UIDragDetector") then
 								local path = Sweep.identity(node, page)
-								if inventory[path] and not completed[path] and shown(node) then
+								if
+									inventory[path]
+									and not completed[path]
+									and Sweep.targetVisible(node, not visibleOnly)
+								then
 									target, identity = node, path
 									break
 								end
@@ -567,13 +798,58 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 						inspect(identity, target)
 					end
 				end
+				for _, section in Sweep.sections(assert(pageFor(id))) do
+					if not virtualCollection then
+						visit(section, false, nil)
+					else
+						visit(section, false, nil, true)
+						local page = pageFor(id)
+						local group = page and page:FindFirstChild(section)
+						local collections = {}
+						for _, node in if group then group:GetDescendants() else {} do
+							if node:IsA("ScrollingFrame") and node:HasTag("facet-collection") then
+								table.insert(collections, node :: ScrollingFrame)
+							end
+						end
+						if #collections == 0 then
+							visit(section, false, nil)
+						end
+						for _, scroll in collections do
+							if not scroll.Parent then
+								continue
+							end
+							reveal(scroll)
+							local original = scroll.CanvasPosition
+							for index = 1, 3 do
+								local position = Sweep.scrollStops(scroll)[index]
+								if not position then
+									break
+								end
+								if not scroll.Parent then
+									break
+								end
+								scroll.CanvasPosition = Vector2.new(position.x, position.y)
+								wait(0.1)
+								visit(section, true, scroll)
+								inspect(`{section} window {index}`, scroll)
+							end
+							if scroll.Parent then
+								scroll.CanvasPosition = original
+							end
+						end
+					end
+				end
 				attempt("final Reset", reset)
 				wait(0.35)
 				local final = pageFor(id)
+				local restored = if final and final:FindFirstChild("Playground")
+					then Sweep.snapshot(final.Playground.Live)
+					else {}
 				row.reset = final ~= nil
 					and final:FindFirstChild("Playground") ~= nil
-					and Sweep.same(baseline, Sweep.snapshot(final.Playground.Live))
+					and Sweep.same(baseline, restored)
 				if not row.reset then
+					row.resetDifferences = Sweep.difference(baseline, restored)
 					note("faults", "Reset structural snapshot differs")
 				end
 				inspect("Reset")

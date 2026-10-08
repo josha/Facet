@@ -318,10 +318,11 @@ function screen.build(ctx: any)
 			ctx.currentSelect = nil
 			errorMessage:set(tostring(result))
 			warn("[Facet Gallery] " .. demo.id .. ": " .. tostring(result))
-			return Host.TextLabel "DemoFailure" {
+			return UI.Text "DemoFailure" {
 				Size = UDim2.fromScale(1, 1),
+				AutomaticSize = Enum.AutomaticSize.None,
 				BackgroundTransparency = 1,
-				Text = demo.title .. " could not load\n" .. tostring(result),
+				text = demo.title .. " could not load\n" .. tostring(result),
 				TextWrapped = true,
 			}
 		end

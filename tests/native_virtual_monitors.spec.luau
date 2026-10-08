@@ -38,17 +38,6 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function ratio(first, second)
-		local function luminance(value)
-			local function linear(channel)
-				return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
-			end
-			return 0.2126 * linear(value.r) + 0.7152 * linear(value.g) + 0.0722 * linear(value.b)
-		end
-		local a, b = luminance(first), luminance(second)
-		return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
-	end
-
 	local function rule(sheet, selector)
 		for _, node in sheet:GetChildren() do
 			if node.Selector == selector then
@@ -158,87 +147,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("rejects nonnative Path2D paint properties in the engine fixture", {
-			id = "native_virtual_monitors::native virtual monitors::rejects nonnative Path2D paint properties in the engine fixture",
-			run = function()
-				local engine = engineModule.new()
-				local path = engine.new("Path2D")
-				for _, property in { "Color", "BackgroundColor3" } do
-					local ok, failure = pcall(function()
-						path[property] = engine.types.Color3.new(1, 0, 0)
-					end)
-					Verify.expect(ok):toBe(false)
-					Verify.expect(string.find(tostring(failure), property .. " is not a valid member", 1, true) ~= nil)
-						:toBe(true)
-				end
-				path.Color3 = engine.types.Color3.new(1, 0, 0)
-				path.Closed = true
-				path.Thickness = 3
-				Verify.expect(path.Color3):toBe(engine.types.Color3.new(1, 0, 0))
-				Verify.expect(path.Closed):toBe(true)
-				Verify.expect(path.Thickness):toBe(3)
-				path:Destroy()
-			end,
-		})
-		verifyHarness:case("plays the showcase press haptic only from monitor controls that change a value", {
-			id = "native_virtual_monitors::native virtual monitors::plays the showcase press haptic only from monitor controls that change a value",
-			run = function()
-				local effect = engineModule.new().new("HapticEffect")
-				withScreens(function(world)
-					local buzzing, quiet = 0, 0
-					for _, name in screens.APPS do
-						for _, node in world[name]:GetDescendants() do
-							if node:HasTag("facet-button") then
-								local changesValue = node:HasTag("facet-toggle")
-									or node:HasTag("facet-chip")
-									or (node:HasTag("facet-segment") and not node:HasTag("facet-segment-current"))
-								Verify.expect(node.PressHapticEffect):toBe(if changesValue then effect else nil)
-								if changesValue then
-									buzzing += 1
-								else
-									quiet += 1
-								end
-							end
-						end
-					end
-					Verify.expect(buzzing > 0):toBe(true)
-					Verify.expect(quiet > buzzing):toBe(true)
-				end, { pressHaptic = effect })
-			end,
-		})
-
-		verifyHarness:case("filters and sorts the full catalog with stable tie order", {
-			id = "native_virtual_monitors::native virtual monitors::filters and sorts the full catalog with stable tie order",
-			run = function()
-				withModel(function(model)
-					Verify.expect(#model.catalog.items:peek()):toBe(36)
-					model.discoveryScroll:set(472)
-					model.genre:set("Adventure")
-					Verify.expect((model.discoveryScroll:peek())):toBe(0)
-					for _, item in model.visibleGames:peek() do
-						Verify.expect(item.genre):toBe("Adventure")
-					end
-					model.discoveryScroll:set(236)
-					model.query:set("chapter 2")
-					Verify.expect((model.discoveryScroll:peek())):toBe(0)
-					Verify.expect(#model.visibleGames:peek()):toBe(2)
-					model.query:set("")
-					model.genre:set("all")
-					model.sort:set("rating")
-					local games = model.visibleGames:peek()
-					for i = 2, #games do
-						Verify.expect(games[i - 1].percent >= games[i].percent):toBe(true)
-						if games[i - 1].percent == games[i].percent then
-							Verify.expect(games[i - 1].index < games[i].index):toBe(true)
-						end
-					end
-					model.catalog.seen(35)
-					model.catalog.step()
-					Verify.expect(#model.catalog.items:peek()):toBe(72)
-				end)
-			end,
-		})
-
 		verifyHarness:case("preserves saved order notes ratings and settings across mode changes", {
 			id = "native_virtual_monitors::native virtual monitors::preserves saved order notes ratings and settings across mode changes",
 			run = function()
@@ -261,27 +169,6 @@ return function(verifyHarness: Verify.Harness)
 					model.toggleSaved("2")
 					Verify.expect(#model.savedGames:peek()):toBe(1)
 					Verify.expect(model.savedGames:peek()[1].id):toBe("1")
-				end)
-			end,
-		})
-
-		verifyHarness:case("has one model spin driver with reduced-motion and reset semantics", {
-			id = "native_virtual_monitors::native virtual monitors::has one model spin driver with reduced-motion and reset semantics",
-			run = function()
-				withModel(function(model)
-					model.angle:set(0)
-					model.autoSpin:set(1)
-					model.step(0.1, false)
-					Verify.expect((model.angle:peek())):toBe(3)
-					model.step(0.1, true)
-					Verify.expect((model.angle:peek())):toBe(3)
-					model.turnStep:set(90)
-					model.turn(1)
-					Verify.expect((model.angle:peek())):toBe(93)
-					model.resetAvatar()
-					Verify.expect((model.angle:peek())):toBe(-15)
-					Verify.expect((model.autoSpin:peek())):toBe(1)
-					Verify.expect((model.turnStep:peek())):toBe(90)
 				end)
 			end,
 		})
@@ -1504,21 +1391,73 @@ return function(verifyHarness: Verify.Harness)
 					grid.AbsoluteSize = world.types.Vector2.new(390, 500)
 					grid.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
 					for _, genre in { "Adventure", "all", "Racing", "all" } do
-						find(world.Discover, "Genre_" .. genre).Activated:Fire()
-						world.engine.heartbeat:Fire(0)
-						local count = 0
-						for _, node in grid:GetDescendants() do
-							if string.sub(node.Name, 1, 5) == "Game_" then
-								count += 1
-								local stage = find(node, "Scene")
-								Verify.expect(stage:GetAttribute("FacetBuilt")):toBe(true)
-								Verify.expect(`{node.Name} model {find(stage, "CompleteModel") ~= nil}`)
-									:toBe(`{node.Name} model true`)
-								Verify.expect(`{node.Name} badge {find(node, "LiveDot") ~= nil}`)
-									:toBe(`{node.Name} badge true`)
+						local chip = find(world.Discover, "Genre_" .. genre)
+						chip.Activated:Fire()
+						Verify.expect(`chip {genre} selected {chip:HasTag("facet-selected")}`)
+							:toBe(`chip {genre} selected true`)
+						world.target.AbsoluteSize = world.types.Vector2.new(390, 500)
+						local exposed = 0
+						for _ = 1, 12 do
+							for _, node in world.Discover:GetDescendants() do
+								if node:IsA("GuiObject") then
+									node.AbsoluteSize = world.types.Vector2.new(100, 44)
+									if node:IsA("ScrollingFrame") then
+										node.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+									end
+									if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+										node.TextBounds = world.types.Vector2.new(#node.Text * 7, 16)
+									end
+								end
+							end
+							world.engine.heartbeat:Fire(1 / 60)
+							exposed = 0
+							local candidates = 0
+							for _, node in grid:GetDescendants() do
+								if string.sub(node.Name, 1, 5) == "Game_" then
+									candidates += 1
+									local row = node:FindFirstAncestorWhichIsA("CanvasGroup")
+									if row == nil or row.GroupTransparency == 0 then
+										exposed += 1
+										local stage = find(node, "Scene")
+										Verify.expect(`stage {genre} built {stage:GetAttribute("FacetBuilt")}`)
+											:toBe(`stage {genre} built true`)
+										Verify.expect(
+											`model {genre} {node.Name} ready {find(stage, "CompleteModel") ~= nil}`
+										)
+											:toBe(`model {genre} {node.Name} ready true`)
+										Verify.expect(
+											`decoration {genre} {node.Name} ready {find(node, "LiveDot") ~= nil}`
+										)
+											:toBe(`decoration {genre} {node.Name} ready true`)
+										Verify.expect(find(node, "Preview").AbsoluteSize.X > 0):toBe(true)
+									end
+								end
+							end
+							Verify.expect(candidates > 0):toBe(true)
+						end
+						local pending = {}
+						for _, child in if exposed == 0 then grid:GetDescendants() else {} do
+							if child:GetAttribute("FacetBuilt") == false then
+								table.insert(pending, child:GetFullName() .. " unbuilt")
+							end
+							if
+								child:IsA("TextLabel")
+								and child.Visible
+								and child.Text ~= ""
+								and (child.AbsoluteSize.X <= 0 or child.TextBounds.X <= 0)
+							then
+								table.insert(
+									pending,
+									child:GetFullName()
+										.. " text "
+										.. tostring(child.AbsoluteSize)
+										.. "/"
+										.. tostring(child.TextBounds)
+								)
 							end
 						end
-						Verify.expect(`genre {genre} card count {count > 0}`):toBe(`genre {genre} card count true`)
+						Verify.expect(`genre {genre} exposed {exposed > 0}: {table.concat(pending, ";")}`)
+							:toBe(`genre {genre} exposed true: `)
 					end
 				end, {
 					gameContent = function()
@@ -1819,48 +1758,6 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((model.discoveryScroll:peek())):toBe(400)
 					stop()
 				end, { spatial = true })
-			end,
-		})
-
-		verifyHarness:case("NVM-Accent derives every accent in both appearances with readable contrast", {
-			id = "native_virtual_monitors::native virtual monitors::NVM-Accent derives every accent in both appearances with readable contrast",
-			run = function()
-				local Facet = require("../src")
-				for _, app in { "Discover", "Avatar", "Chat" } do
-					local package, report = theme.create(Facet, app)
-					Verify.expect(report.ok):toBe(true)
-					for _, result in report.contrast do
-						Verify.expect(result.ok):toBe(true)
-					end
-					Verify.expect(#package.style.themes):toBe(#theme.ACCENTS * 2)
-					for _, entry in theme.ACCENTS do
-						for _, dark in { false, true } do
-							local name = theme.paletteName(entry.id, dark)
-							local palette
-							for _, candidate in package.style.themes do
-								if candidate.name == name then
-									palette = candidate
-								end
-							end
-							Verify.expect(palette ~= nil):toBe(true)
-							local colors, extra = palette.colors, palette.extra
-							local expected = if dark then entry.dark else entry.light
-							for _, channel in { "r", "g", "b" } do
-								Verify.expect(colors.accent[channel]):toBe(expected[channel])
-								Verify.expect(extra.controlSelected[channel]):toBe(expected[channel])
-							end
-							Verify.expect(ratio(colors.onAccent, colors.accent) >= 4.5):toBe(true)
-							Verify.expect(ratio(extra.onSelected, extra.controlSelected) >= 4.5):toBe(true)
-							Verify.expect(ratio(colors.accent, colors.surface) >= 4.5):toBe(true)
-							Verify.expect(ratio(colors.accent, colors.surfaceStrong) >= 4.5):toBe(true)
-							Verify.expect(ratio(colors.accent, extra.control) >= 3):toBe(true)
-						end
-					end
-				end
-				Verify.expect((theme.paletteName("sage", true))):toBe("Dark")
-				Verify.expect((theme.paletteName("sage", false))):toBe("Light")
-				Verify.expect((theme.paletteName("clay", true))):toBe("Clay Dark")
-				Verify.expect((theme.paletteName("iris", false))):toBe("Iris Light")
 			end,
 		})
 

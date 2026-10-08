@@ -11,6 +11,7 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local FixtureCollectionTypes = require("../src/ui/collection_types")
 	local FixtureEnvironmentTypes = require("../src/ui/environment_types")
+	local FixtureEngineTypes = require("../src/ui/engine_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
 	local SharedTypes = require("../src/ui/control_types")
@@ -80,7 +81,477 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return values
 	end
+	verifyHarness:suite("collection geometry publication", function()
+		verifyHarness:case("publishes the complete native geometry snapshot before paint", {
+			id = "native_collections::collection geometry publication::publishes the complete native geometry snapshot before paint",
+			run = function()
+				local engine, runtime, _, target = setup()
+				local node = engine.new("Frame")
+				local V2 = engine.types.Vector2
+				node.AbsoluteSize = V2.new(390, 200)
+				node.Parent = target
+				local observe = require("../src/ui/geometry_observation")
+				local beforePaint = engine.heartbeat
+				local size: FixtureComposeTypes.Cell<unknown>? = nil
+				local stop = runtime.mount(function()
+					size = observe(Compose, runtime, node, "AbsoluteSize", (beforePaint :: unknown) :: RBXScriptSignal)
+					return nil
+				end, target)
+				local observed = assert(size)
+				Verify.expect(observed:peek()):toBe(V2.new(390, 200))
+				node.AbsoluteSize = V2.new(320, 160)
+				Verify.expect(observed:peek()):toBe(V2.new(390, 200))
+				beforePaint:Fire(0)
+				Verify.expect(observed:peek()):toBe(V2.new(320, 160))
+				stop()
+			end,
+		})
+	end)
+	verifyHarness:suite("collection prepared paint", function()
+		verifyHarness:case("paints an already measured cell without waiting for another render callback", {
+			id = "native_collections::collection prepared paint::paints an already measured cell without waiting for another render callback",
+			run = function()
+				local engine, runtime, _, target, _, ctx = setup()
+				local node = engine.new("Frame")
+				local text = engine.new("TextLabel")
+				text.Text = "Measured caption"
+				text.AbsoluteSize = engine.types.Vector2.new(200, 24)
+				text.TextBounds = engine.types.Vector2.new(180, 20)
+				text.Parent = node
+				node.AbsoluteSize = engine.types.Vector2.new(240, 44)
+				node.Parent = target
+				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local stop = runtime.mount(function()
+					ready = require("../src/ui/collection_paint")(ctx, node)
+					return nil
+				end, target)
+				Verify.expect(assert(ready):peek()):toBe(true)
+				stop()
+			end,
+		})
+	end)
+	verifyHarness:suite("collection first layout", function()
+		verifyHarness:case("paints complete rows on the first layout of an ordinary grid list table branch", {
+			id = "native_collections::collection first layout::paints complete rows on the first layout of an ordinary grid list table branch",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local V2 = engine.types.Vector2
+				local container = engine.new("Frame")
+				container.AbsoluteSize = V2.new(390, 200)
+				container.Parent = target
+				local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
+				local mode = Compose.cell("grid")
+				local rows = { { id = "one", label = "One" }, { id = "two", label = "Two" } }
+				local function text(current: FixtureComposeTypes.Readable<{ id: string, label: string }>): GuiObject
+					return Host.TextLabel "Name" { Text = current:peek().label } :: GuiObject
+				end
+				local stop, mountedRoot = runtime.mount(function()
+					local contents: FixtureEngineTypes.FrameNativeProps = {
+						UI.Picker "Selector" {
+							selected = mode,
+							style = "segmented" :: "segmented",
+							options = {
+								{ value = "grid", label = "Grid" },
+								{ value = "list", label = "List" },
+								{ value = "table", label = "Table" },
+							},
+						},
+						Compose.keyed {
+							from = function(use)
+								return { use(mode) }
+							end,
+							render = function(current)
+								if current:peek() == "table" then
+									return UI.Table "Data"(
+										{
+											from = rows,
+											key = "id",
+											itemSize = 44,
+											columns = {
+												{ id = "name", label = "Name", width = 180, render = text },
+												{
+													id = "kind",
+													label = "Kind",
+													width = 100,
+													render = function(
+														_current: FixtureComposeTypes.Readable<{ id: string, label: string }>
+													): GuiObject
+														return Host.TextLabel "Kind" { Text = "Material" }
+													end,
+												},
+											},
+										} :: FixtureCollectionTypes.KeyedTableSpec<{ id: string, label: string }, string>
+									)
+								end
+								local props = {
+									Name = "Data",
+									from = rows,
+									key = "id",
+									itemSize = 44,
+									columns = 2,
+									render = text,
+								}
+								return if current:peek() == "grid" then UI.VirtualGrid(props) else UI.VirtualList(props)
+							end,
+						},
+					}
+					return Host.Frame(contents)
+				end, container)
+				local root = (mountedRoot :: unknown) :: Frame
+				local function layout()
+					local data = assert(root:FindFirstChild("Data", true))
+					for _ = 1, 2 do
+						local nodes = data:GetDescendants()
+						table.insert(nodes, data)
+						for _, node in nodes do
+							if node:IsA("GuiObject") then
+								node.AbsoluteSize = engine.types.Vector2.new(390, 200)
+								if node:IsA("ScrollingFrame") then
+									node.AbsoluteWindowSize = engine.types.Vector2.new(390, 200)
+								end
+								if node:IsA("TextLabel") or node:IsA("TextButton") then
+									((node :: unknown) :: { TextBounds: Vector2 }).TextBounds =
+										engine.types.Vector2.new(60, 20)
+								end
+							end
+						end
+					end
+				end
+				for _, value in
+					{ "grid", "list", "table", "grid", "table", "list", "grid", "list", "table", "list", "grid" }
+				do
+					local selector = (
+						assert(assert(root:FindFirstChild("Selector", true)):FindFirstChild(value, true)) :: unknown
+					) :: TextButton
+					local activationSignal = (selector.Activated :: unknown) :: { Fire: (unknown) -> () }
+					activationSignal:Fire()
+					Verify.expect(mode:peek()):toBe(value)
+					Verify.expect(selector:HasTag("facet-selected")):toBe(true)
+					local mounted = assert(root:FindFirstChild("Data", true)):FindFirstChild("Items", true)
+					Verify.expect(`{value} Items mounted {mounted ~= nil}`):toBe(`{value} Items mounted true`)
+					Verify.expect(#assert(mounted):GetChildren() >= 2):toBe(true)
+					layout()
+					for _ = 1, 4 do
+						engine.heartbeat:Fire(1 / 60)
+						local painted = 0
+						local data = assert(root:FindFirstChild("Data", true))
+						for _, node in data:GetDescendants() do
+							if
+								node:IsA("CanvasGroup")
+								and node:GetAttribute("FacetCollectionRow")
+								and node.GroupTransparency == 0
+							then
+								local name = (assert(node:FindFirstChild("Name", true)) :: unknown) :: TextLabel
+								Verify.expect(name.AbsoluteSize.X > 0 and name.TextBounds.X > 0):toBe(true)
+								if value == "table" then
+									local kind = (assert(node:FindFirstChild("Kind", true)) :: unknown) :: TextLabel
+									Verify.expect(kind.AbsoluteSize.X > 0 and kind.TextBounds.X > 0):toBe(true)
+									Verify.expect(data:FindFirstChild("Header", true) ~= nil):toBe(true)
+								end
+								painted += 1
+							end
+						end
+						Verify.expect(`{value} painted rows {painted}`):toBe(`{value} painted rows 2`)
+					end
+				end
+				stop()
+				runtime:dispose()
+			end,
+		})
+	end)
+	verifyHarness:suite("collection data presentation", function()
+		verifyHarness:case("paints filtered roots at full extent without an expansion entrance", {
+			id = "native_collections::collection data presentation::paints filtered roots at full extent without an expansion entrance",
+			run = function()
+				type Row = { id: string, label: string }
+				for _, kind in { "Outline", "Table" } do
+					local engine, runtime, UI, target = setup({ motionLevel = "normal" })
+					local Host = runtime.constructors
+					local children: { Row } = { { id = "two", label = "Two" }, { id = "three", label = "Three" } }
+					local rows = Compose.cell({ { id = "folder", label = "Folder" } } :: { Row })
+					local status = Compose.cell({} :: FixtureComposeTypes.OrderedCollectionStatus)
+					local controls: FixtureComposeTypes.OrderedCollectionControls<string> = {}
+					local stop = runtime.mount(function(): GuiObject
+						local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> & { children: FixtureCollectionTypes.Children<Row> } =
+							{
+								from = rows,
+								key = function(item: Row): string
+									return item.id
+								end,
+								mode = "all" :: "all",
+								itemSize = 44,
+								status = status,
+								controls = controls,
+								children = function(item: Row): { Row }?
+									return if item.id == "folder" then children else nil
+								end,
+								render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+									return (Host.TextLabel { Text = current:peek().label } :: unknown) :: TextLabel
+								end,
+							}
+						if kind == "Outline" then
+							return UI.Outline(spec)
+						end
+						local tableSpec: FixtureCollectionTypes.KeyedTableSpec<Row, string> = {
+							from = rows,
+							key = function(item: Row): string
+								return item.id
+							end,
+							mode = "all" :: "all",
+							itemSize = 44,
+							status = status,
+							controls = controls,
+							children = spec.children,
+							columns = {
+								{
+									id = "label",
+									label = "Name",
+									value = function(item: Row): string
+										return item.label
+									end,
+								},
+							},
+						}
+						return UI.Table(tableSpec)
+					end, target)
+					Verify.expect(status:peek().retained):toBe(1)
+					for _, nextRows in { children, { children[2], children[1] }, { { id = "new", label = "New" } } } do
+						rows:set(nextRows)
+						Verify.expect(status:peek().retained):toBe(#nextRows)
+						for index = 1, #nextRows do
+							Verify.expect(assert(controls.placementOf)(index).size):toBe(44)
+						end
+						engine.heartbeat:Fire(1 / 60)
+						Verify.expect(status:peek().retained):toBe(#nextRows)
+					end
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+	end)
+	verifyHarness:suite("collection retirement", function()
+		verifyHarness:case("removes a painted deleted row when surviving rows need no replacement paint", {
+			id = "native_collections::collection retirement::removes a painted deleted row when surviving rows need no replacement paint",
+			run = function()
+				type Row = { id: string, title: string }
+				for _, kind in { "list", "grid", "table" } do
+					local engine, runtime, UI, target = setup()
+					local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
+					local first: Row = { id = "A", title = "Alpha" }
+					local second: Row = { id = "B", title = "Beta" }
+					local rows = Compose.cell({ first, second })
+					local stop, mountedRoot = runtime.mount(function(): GuiObject
+						local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+							from = rows,
+							key = "id",
+							mode = "all" :: "all",
+							itemSize = 44,
+							render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+								return Host.TextLabel "Caption" { Text = current:peek().title }
+							end,
+						}
+						if kind == "table" then
+							return UI.Table({
+								from = rows,
+								key = "id",
+								mode = "all" :: "all",
+								columns = { { id = "name", label = "Name", render = spec.render } },
+							} :: FixtureCollectionTypes.KeyedTableSpec<Row, string>)
+						end
+						return if kind == "grid" then UI.VirtualGrid(spec) else UI.VirtualList(spec)
+					end, target)
+					local root = (mountedRoot :: unknown) :: GuiObject
+					local V2 = engine.types.Vector2
+					for _, node in root:GetDescendants() do
+						if node:IsA("GuiObject") then
+							local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
+							geometry.AbsoluteSize = V2.new(100, 44)
+							if node:IsA("TextLabel") then
+								geometry.TextBounds = V2.new(60, 20)
+							end
+						end
+					end
+					for _ = 1, 4 do
+						engine.heartbeat:Fire(1 / 60)
+					end
+					local items = assert(root:FindFirstChild("Items", true))
+					local kept = assert(items:FindFirstChild("B"))
+					Verify.expect(items:FindFirstChild("A") ~= nil):toBe(true)
+					Verify.expect((assert(kept:FindFirstChild("Content")) :: CanvasGroup).GroupTransparency):toBe(0)
+					rows:set({ second })
+					for frame = 0, 12 do
+						Verify.expect(`{kind} frame {frame} deleted A {items:FindFirstChild("A") ~= nil}`)
+							:toBe(`{kind} frame {frame} deleted A false`)
+						Verify.expect(items:FindFirstChild("B")):toBe(kept)
+						Verify.expect((assert(kept:FindFirstChild("Content")) :: CanvasGroup).GroupTransparency):toBe(0)
+						engine.heartbeat:Fire(1 / 60)
+					end
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+	end)
+	verifyHarness:suite("collection cell paint readiness", function()
+		for _, kind in { "list", "grid", "table" } do
+			verifyHarness:case(`keeps painted {kind} rows through filter Clear and late text`, {
+				id = `native_collections::collection cell paint readiness::keeps painted {kind} rows through filter Clear and late text`,
+				run = function()
+					local engine, runtime, UI, target = setup()
+					local Host = runtime.constructors
+					type Row = { id: string, title: string }
+					local rows = Compose.cell({ { id = "old", title = "Old" } } :: { Row })
+					local stop, root: any = runtime.mount(function()
+						local props: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+							from = rows,
+							key = "id",
+							mode = "all" :: "all",
+							render = function(current: FixtureComposeTypes.Readable<Row>)
+								return Host.TextLabel "Caption" {
+									Text = function(use)
+										return use(current).title
+									end,
+								} :: GuiObject
+							end,
+						}
+						if kind == "table" then
+							return UI.Table({
+								from = rows,
+								key = "id",
+								mode = "all" :: "all",
+								columns = { { id = "file", label = "File", render = props.render } },
+							} :: FixtureCollectionTypes.KeyedTableSpec<Row, string>)
+						end
+						return if kind == "grid" then UI.VirtualGrid(props) else UI.VirtualList(props)
+					end, target)
+					local V2 = engine.types.Vector2
+					local function layout(late: boolean)
+						root.AbsoluteSize, root.AbsoluteWindowSize = V2.new(390, 500), V2.new(390, 500)
+						for _, node in root:GetDescendants() do
+							if node:IsA("GuiObject") then
+								local row = node.Parent
+								while row and not row:GetAttribute("FacetCollectionRow") do
+									row = row.Parent
+								end
+								node.AbsoluteSize = if late
+										and node.Name == "Caption"
+										and row ~= nil
+										and row.Parent.Name == rows:peek()[1].id
+									then V2.new(0, 44)
+									else V2.new(100, 44)
+								if node:IsA("TextLabel") then
+									node.TextBounds = V2.new(60, 20)
+								end
+							end
+						end
+					end
+					local function painted(): number
+						local count = 0
+						for _, node in root:GetDescendants() do
+							if node:GetAttribute("FacetCollectionRow") then
+								if not node:IsA("CanvasGroup") or node.GroupTransparency == 0 then
+									local label = node:FindFirstChild("Caption", true)
+									Verify.expect(
+										`{label.Text} width {label.AbsoluteSize.X} bounds {label.TextBounds.X}`
+									)
+										:toBe(`{label.Text} width 100 bounds 60`)
+									count += 1
+								end
+							end
+						end
+						return count
+					end
+					layout(false)
+					for _ = 1, 4 do
+						engine.heartbeat:Fire(1 / 60)
+					end
+					Verify.expect(`painted {rows:peek()[1].id}: {painted()}`):toBe(`painted {rows:peek()[1].id}: 1`)
+					for _, data in { { { id = "new", title = "New" } }, { { id = "old", title = "Old" } } } do
+						rows:set(data)
+						layout(true)
+						for _ = 1, 4 do
+							engine.heartbeat:Fire(1 / 60)
+							Verify.expect(`painted {rows:peek()[1].id}: {painted()}`)
+								:toBe(`painted {rows:peek()[1].id}: 1`)
+						end
+						layout(false)
+						for _ = 1, 4 do
+							engine.heartbeat:Fire(1 / 60)
+							Verify.expect(`painted {rows:peek()[1].id}: {painted()}`)
+								:toBe(`painted {rows:peek()[1].id}: 1`)
+						end
+					end
+					rows:set({})
+					engine.heartbeat:Fire(1 / 60)
+					Verify.expect(painted()):toBe(0)
+					stop()
+					Verify.expect(#target:GetChildren()):toBe(0)
+					runtime:dispose()
+				end,
+			})
+		end
+	end)
+
 	verifyHarness:suite("collection content boundary", function()
+		verifyHarness:case("keeps a visible Close command in a desktop row menu without changing row data", {
+			id = "native_collections::collection content boundary::keeps a visible Close command in a desktop row menu without changing row data",
+			run = function()
+				local engine, runtime, UI, target = setup({ motionLevel = "none" })
+				local Host = runtime.constructors
+				local actions = 0
+				local stop, node: any = runtime.mount(function()
+					local spec: FixtureCollectionTypes.RowActionsSpec = {
+						content = Host.Frame {} :: GuiObject,
+						trailing = {
+							{
+								id = "Delete",
+								label = "Delete",
+								onActivate = function()
+									actions += 1
+								end,
+							},
+						},
+					}
+					return UI.RowActions(spec)
+				end, target)
+				node:FindFirstChild("SwipeGrip", true).TouchLongPress:Fire({}, engine.types.Enum.UserInputState.Begin)
+				local command = target:FindFirstChild("CloseCommand", true)
+				Verify.expect(command ~= nil and command.Visible):toBe(true)
+				Verify.expect(command:GetAttribute("label")):toBe("Close")
+				command.Activated:Fire()
+				Verify.expect(actions):toBe(0)
+				Verify.expect(target:FindFirstChild("MenuPanel", true)):toBeNil()
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("does not open a row context menu from a touch hold behind a modal", {
+			id = "native_collections::collection content boundary::does not open a row context menu from a touch hold behind a modal",
+			run = function()
+				local engine, runtime, UI, target, _, ctx = setup()
+				local Host = runtime.constructors
+				local stop, node: any = runtime.mount(function()
+					local spec: FixtureCollectionTypes.RowActionsSpec = {
+						content = Host.Frame {} :: GuiObject,
+						trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
+					}
+					return UI.RowActions(spec)
+				end, target)
+				local modal = engine.new("Frame")
+				modal.Parent = target
+				ctx.modalScopes:set({ modal })
+				node:FindFirstChild("SwipeGrip", true).TouchLongPress:Fire({}, engine.types.Enum.UserInputState.Begin)
+				Verify.expect(target:FindFirstChild("MenuPanel", true)):toBeNil()
+				ctx.modalScopes:set({})
+				node:FindFirstChild("SwipeGrip", true).TouchLongPress:Fire({}, engine.types.Enum.UserInputState.Begin)
+				Verify.expect(target:FindFirstChild("MenuPanel", true) ~= nil):toBe(true)
+				stop()
+				modal:Destroy()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("keeps nested row controls above the swipe grip and accepts its touch context gesture", {
 			id = "native_collections::collection content boundary::keeps nested row controls above the swipe grip and accepts its touch context gesture",
 			run = function()
@@ -273,8 +744,9 @@ return function(verifyHarness: Verify.Harness)
 					local state = session.state:peek()
 					Verify.expect(state ~= nil):toBe(enabled)
 					if enabled then
+						assert(state)
 						Verify.expect(state.mode):toBe("armed")
-						Verify.expect(state.payload.id):toBe(1)
+						Verify.expect((state.payload :: { id: number }).id):toBe(1)
 						assert(ctx.config.userInputService).TouchEnabled = false
 						Verify.expect(session.state:peek()):toBe(nil)
 					end
@@ -1338,44 +1810,6 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((first:FindFirstChild("trailing", true):FindFirstChild("delete"))):toBeNil()
 					Verify.expect(first:FindFirstChild("trailing", true):FindFirstChild("flag") ~= nil):toBe(true)
 					Verify.expect(second:FindFirstChild("trailing", true):FindFirstChild("delete") ~= nil):toBe(true)
-					stop()
-					runtime:dispose()
-				end,
-			}
-		)
-
-		verifyHarness:case(
-			"offers a table's own Edit toolbar on touch, gamepad and a mouseless keyboard, never with a mouse",
-			{
-				id = "native_collections::Compose native collections::offers a table's own Edit toolbar on touch, gamepad and a mouseless keyboard, never with a mouse",
-				run = function()
-					local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
-					local E = engine.types.Enum
-					local input: any = assert(ctx.config.userInputService)
-					input.PreferredInput, input.MouseEnabled, input.KeyboardEnabled =
-						E.PreferredInput.KeyboardAndMouse, true, true
-					local stop, node: any = runtime.mount(function()
-						return UI.Table({
-							from = records(3),
-							key = key,
-							reorderable = true,
-							onReorder = function() end,
-							columns = {
-								{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
-							},
-						})
-					end, target)
-					local function shown()
-						return node:FindFirstChild("Toolbar") ~= nil
-					end
-					Verify.expect((shown())):toBe(false)
-					input.MouseEnabled = false
-					Verify.expect((shown())):toBe(true)
-					input.MouseEnabled = true
-					input.PreferredInput = E.PreferredInput.Gamepad
-					Verify.expect((shown())):toBe(true)
-					input.PreferredInput = E.PreferredInput.Touch
-					Verify.expect((shown())):toBe(true)
 					stop()
 					runtime:dispose()
 				end,
@@ -4705,27 +5139,6 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
-
-		verifyHarness:case("selectionMode takes none, single or multiple and refuses anything else", {
-			id = "native_collections::editable collections: reorderable and deletable on every input::selectionMode takes none, single or multiple and refuses anything else",
-			run = function()
-				local engine, runtime, UI, target = setup()
-				Verify.expect(function()
-					runtime.mount(function()
-						return UI.VirtualList({
-							from = records(2),
-							key = key,
-							selectionMode = "multi",
-							render = function(current): GuiObject
-								return button(UI, current)
-							end,
-						} :: any)
-					end, target)
-				end):toThrow()
-				runtime:dispose()
-				local _ = engine
-			end,
-		})
 	end)
 
 	verifyHarness:suite("shared container editing", function()
@@ -4742,7 +5155,7 @@ return function(verifyHarness: Verify.Harness)
 							selection = selection,
 							selectionMode = "multiple",
 							editing = editing,
-							mode = "all",
+							mode = "all" :: "all",
 							render = function(): GuiObject
 								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 							end,
@@ -4787,50 +5200,6 @@ return function(verifyHarness: Verify.Harness)
 					end
 					stop()
 					runtime:dispose()
-				end
-			end,
-		})
-
-		verifyHarness:case("preserves hidden selection across views and prunes only deleted records", {
-			id = "native_collections::shared container editing::preserves hidden selection across views and prunes only deleted records",
-			run = function()
-				local engine, runtime, UI, target = setup()
-				local all, visible, selection =
-					Compose.cell(records(3)), Compose.cell(records(3)), Compose.cell({ [2] = true })
-				local stops = {}
-				for _, kind in { "VirtualList", "VirtualGrid", "Table" } do
-					local stop = runtime.mount(function()
-						local spec: any = {
-							from = visible,
-							selectionFrom = all,
-							key = key,
-							selection = selection,
-							selectionMode = "multiple" :: "multiple",
-							mode = "all" :: "all",
-							render = function(): GuiObject
-								return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
-							end,
-						}
-						if kind == "Table" then
-							local column = {
-								id = "label",
-								value = function(item)
-									return item.label
-								end,
-							}
-							spec.columns = { column }
-							spec.mode, spec.render = nil, nil
-						end
-						return UI[kind](spec)
-					end, target)
-					table.insert(stops, stop)
-				end
-				visible:set({ all:peek()[1] })
-				Verify.expect(selection:peek()[2]):toBe(true)
-				all:set({ all:peek()[1], all:peek()[3] })
-				Verify.expect(selection:peek()[2]):toBe(nil)
-				for _, stop in stops do
-					stop()
 				end
 			end,
 		})
@@ -4925,47 +5294,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("reserves the same inline field box before, during and after editing", {
-			id = "native_collections::shared container editing::reserves the same inline field box before, during and after editing",
-			run = function()
-				local engine, runtime, UI, target, _, ctx = setup({ userInputService = { MouseEnabled = true } })
-				local editing = Compose.cell(false)
-				local stop, node: any = runtime.mount(function()
-					return UI.CellEditor {
-						editor = "text" :: "text",
-						label = "Name",
-						value = "Alpha",
-						editing = editing,
-						onChange = function() end,
-					}
-				end, target)
-				Verify.expect((node:FindFirstChildWhichIsA("TextBox", true))):toBe(nil)
-				local display = node:FindFirstChild("Value")
-				local floor = node:FindFirstChild("FieldSize")
-				Verify.expect((node:FindFirstChild("Label", true))):toBe(nil)
-				Verify.expect(floor ~= nil):toBe(true)
-				for _, input in
-					{
-						engine.types.Enum.PreferredInput.KeyboardAndMouse,
-						engine.types.Enum.PreferredInput.Touch,
-						engine.types.Enum.PreferredInput.Gamepad,
-					}
-				do
-					assert(ctx.config.userInputService).PreferredInput = input
-					local height = floor.MinSize.Y
-					for _, active in { false, true, false } do
-						editing:set(active)
-						Verify.expect(floor.MinSize.Y):toBe(height)
-						Verify.expect(display.Size.Y.Offset):toBe(height)
-						if active then
-							Verify.expect(node:FindFirstChild("Input+target", true).Size.Y.Offset):toBe(height)
-						end
-					end
-				end
-				stop()
-			end,
-		})
-
 		verifyHarness:case("does not save an unfinished draft when its cell is removed", {
 			id = "native_collections::shared container editing::does not save an unfinished draft when its cell is removed",
 			run = function()
@@ -5023,38 +5351,6 @@ return function(verifyHarness: Verify.Harness)
 				value:set(10)
 				busy:set(false)
 				Verify.expect((draft:peek())):toBe(nil)
-				stop()
-			end,
-		})
-
-		verifyHarness:case("keeps swipe overlays off independently editable embedded controls", {
-			id = "native_collections::shared container editing::keeps swipe overlays off independently editable embedded controls",
-			run = function()
-				local _, runtime, UI, target = setup()
-				local editing = Compose.cell(false)
-				local stop, list: any = runtime.mount(function()
-					local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
-						from = records(1),
-						key = key,
-						mode = "all" :: "all",
-						editing = editing,
-						render = function(): GuiObject
-							return UI.CellEditor { editor = "text" :: "text", value = "Name", onChange = function() end }
-						end,
-						rowActions = function(): FixtureCollectionTypes.RowActionsOptions
-							return {
-								trailing = {
-									{ id = "delete", label = "Delete", role = "destructive" :: "destructive" },
-								},
-							}
-						end,
-					}
-					return UI.VirtualList(props)
-				end, target)
-				local grip = list:FindFirstChild("SwipeGrip", true)
-				Verify.expect(grip.Visible):toBe(false)
-				editing:set(true)
-				Verify.expect(grip.Visible):toBe(false)
 				stop()
 			end,
 		})
@@ -5270,37 +5566,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("shows edit checkmarks for touch and gamepad but uses highlights on desktop", {
-			id = "native_collections::input-aware collection commands::shows edit checkmarks for touch and gamepad but uses highlights on desktop",
-			run = function()
-				local engine = engineLib.new()
-				local input = engine.new("UserInputService")
-				input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
-				local _, runtime, UI, target = setup({ userInputService = input })
-				local stop, node: any = runtime.mount(function()
-					local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
-						from = records(2),
-						key = key,
-						mode = "all" :: "all",
-						selectionMode = "multiple" :: "multiple",
-						editing = true,
-						render = function(): GuiObject
-							return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
-						end,
-					}
-					return UI.VirtualList(props)
-				end, target)
-				local mark = node:FindFirstChild("SelectMark", true)
-				Verify.expect(mark.Visible):toBe(false)
-				input.PreferredInput = engine.types.Enum.PreferredInput.Touch
-				Verify.expect(mark.Visible):toBe(true)
-				Verify.expect(mark:FindFirstChild("Check") ~= nil):toBe(true)
-				input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
-				Verify.expect(mark.Visible):toBe(true)
-				stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("spatial grid reordering", function()
@@ -5351,7 +5616,7 @@ return function(verifyHarness: Verify.Harness)
 					local handle = node:FindFirstChild("1", true):FindFirstChild("Move", true)
 					handle.Parent.AbsoluteSize = engine.types.Vector2.new(100, 40)
 					handle.Activated:Fire()
-					Verify.expect(require("../src/ui/drag_session")(ctx).state:peek().pickupSize)
+					Verify.expect(assert(require("../src/ui/drag_session")(ctx).state:peek()).pickupSize)
 						:toBe(handle.Parent.AbsoluteSize)
 					press("ChooseDropDestination")
 					Verify.expect(target:FindFirstChild("Drop", true).Visible):toBe(false)
@@ -5527,7 +5792,7 @@ return function(verifyHarness: Verify.Harness)
 				local session = require("../src/ui/drag_session")(ctx)
 				local source = engine.new("TextButton")
 				source.Parent = target
-				session.begin(source, { payload = "new", operations = { "copy" } }, "pointer", nil, false)
+				session.begin(source, { payload = "new", operations = { "copy" :: "copy" } }, "pointer", nil, false)
 				for _, y in { 45, 85, 125 } do
 					queries = 0
 					session.update(engine.types.Vector2.new(100, y))
@@ -5575,7 +5840,7 @@ return function(verifyHarness: Verify.Harness)
 				local source = engine.new("TextButton")
 				source.Parent = target
 				local function drop()
-					session.begin(source, { payload = "new", operations = { "copy" } }, "pointer", nil, false)
+					session.begin(source, { payload = "new", operations = { "copy" :: "copy" } }, "pointer", nil, false)
 					session.update(engine.types.Vector2.new(100, 45))
 					session.commit(node)
 				end
@@ -5902,7 +6167,7 @@ return function(verifyHarness: Verify.Harness)
 							selection = selected,
 							selectionMode = "multiple",
 							render = render,
-							mode = "all",
+							mode = "all" :: "all",
 						}
 						if kind == "Outline" then
 							spec.from = { { id = "parent", children = { { id = "child" } } } }
@@ -6170,35 +6435,6 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("outline movement boundaries", function()
-		verifyHarness:case("reports sibling insertion slots and prevents implicit reparenting", {
-			id = "native_collections::outline movement boundaries::reports sibling insertion slots and prevents implicit reparenting",
-			run = function()
-				local _, runtime, UI, target, _, ctx = setup()
-				local tree: any
-				local stop = runtime.mount(function()
-					tree = require("../src/ui/collection_tree")(ctx, UI, {
-						from = { { id = "folder", children = { { id = "a" }, { id = "b" } } }, { id = "next" } } :: { OutlineRecord },
-						children = "children",
-						expanded = Compose.cell({ folder = true } :: { [string]: boolean }),
-					}, function(item: OutlineRecord)
-						return item.id
-					end)
-					return runtime.constructors.Frame {}
-				end, target)
-				local accepted, slot, parent = tree.location({ "a" }, 2)
-				Verify.expect(accepted):toBe(true)
-				Verify.expect(slot):toBe(1)
-				Verify.expect(parent):toBe("folder")
-				Verify.expect((tree.location({ "a" }, 0))):toBe(false)
-				Verify.expect((tree.location({ "a", "next" }, 0))):toBe(false)
-				Verify.expect((tree.location({ "next" }, 1))):toBe(false)
-				stop()
-				runtime:dispose()
-			end,
-		})
-	end)
-
 	verifyHarness:suite("collection row destinations", function()
 		verifyHarness:case(
 			"routes row centers to item drops, edges to insertion, and armed focus to collapsed folders",
@@ -6239,7 +6475,8 @@ return function(verifyHarness: Verify.Harness)
 									end
 									return {
 										accepts = function(payload)
-											return payload.kind ~= "blocked", "Cannot put this in a folder"
+											return (payload :: { kind: string? }).kind ~= "blocked",
+												"Cannot put this in a folder"
 										end,
 										onDrop = function(payload)
 											table.insert(drops, { key, payload })
@@ -6283,10 +6520,10 @@ return function(verifyHarness: Verify.Harness)
 							false
 						)
 						session.update(V2.new(150, 90))
-						Verify.expect(session.state:peek().target):toBe(row)
+						Verify.expect(assert(session.state:peek()).target):toBe(row)
 						Verify.expect((row:GetAttribute("FacetDropState"))):toBe("accepted")
 						session.update(if kind == "VirtualGrid" then V2.new(5, 90) else V2.new(150, 61))
-						Verify.expect(session.state:peek().target):toBe(body)
+						Verify.expect(assert(session.state:peek()).target):toBe(body)
 						Verify.expect((row:GetAttribute("FacetDropState"))):toBeNil()
 						session.update(V2.new(150, 90))
 						session.commit(nil)
@@ -6310,5 +6547,547 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-	end)
+	end);
+	(function(verifyHarness: Verify.Harness)
+		local nativeDrag = require("./lib/native_drag")
+
+		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+		type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+		type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+		type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+		local FixtureComposeTypes = require("../src/vendor/compose/core")
+		local FixtureCollectionTypes = require("../src/ui/collection_types")
+		type Readable<T> = { peek: (Readable<T>) -> T }
+		type Use = <T>(Readable<T>) -> T
+
+		local Facet = require("../src")
+		local engineLib = require("./lib/native_engine")
+		local playlistExample = require("../examples/gallery/examples/02_playlist_table")
+		local themePackages = require("../tools/lune/theme_packages")
+		local Compose: ComposeModule = Facet.Compose
+
+		type Stage = {
+			engine: any,
+			runtime: any,
+			UI: any,
+			Host: any,
+			gui: any,
+			input: any,
+			screen: any,
+			node: any,
+			stop: () -> (),
+		}
+
+		local function services(engine: any): (any, any)
+			local gui = engine.new("GuiService")
+			local input = engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			input.IsKeyDown = function()
+				return false
+			end
+			return gui, input
+		end
+
+		local function stage(build: (any, any) -> any, config: { [string]: any }?, clock: (() -> number)?): Stage
+			local engine: any = engineLib.new()
+			if clock then
+				engine.clock = clock
+			end
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui, input = services(engine)
+			local options: { [string]: any } = {
+				types = engine.types,
+				guiService = gui,
+				userInputService = input,
+				services = { GuiService = gui, UserInputService = input },
+				motionLevel = "none",
+			}
+			for key, value in (config or {} :: { [string]: any }) do
+				options[key] = value
+			end
+			local UI = Facet.controls(runtime, options :: any)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local stop, screen: any = runtime.mount(function()
+				return Host.ScreenGui({ build(UI, Host) })
+			end, engine.new("Folder"))
+			return {
+				engine = engine,
+				runtime = runtime,
+				UI = UI,
+				Host = Host,
+				gui = gui,
+				input = input,
+				screen = screen,
+				node = screen:FindFirstChildWhichIsA("Frame"),
+				stop = function()
+					stop()
+					runtime:dispose()
+				end,
+			}
+		end
+
+		local function records(count: number): { any }
+			local values = {}
+			for index = 1, count do
+				values[index] = { id = index, label = tostring(index) }
+			end
+			return values
+		end
+
+		local function id(item: any): any
+			return item.id
+		end
+
+		local function find(root: any, name: string): any
+			if root.Name == name then
+				return root
+			end
+			for _, child in root:GetChildren() do
+				local found = find(child, name)
+				if found then
+					return found
+				end
+			end
+			return nil
+		end
+
+		local function key(root: any, engine: any, code: string): string?
+			local wanted = engine.types.Enum.KeyCode[code]
+			local best, bestPriority = nil, -math.huge
+			for _, context in root:GetDescendants() do
+				if context.ClassName == "InputContext" and context.Enabled == true then
+					for _, action in context:GetChildren() do
+						if action.ClassName == "InputAction" then
+							for _, binding in action:GetChildren() do
+								if
+									binding.ClassName == "InputBinding"
+									and binding.KeyCode == wanted
+									and context.Priority > bestPriority
+								then
+									best, bestPriority = action, context.Priority
+								end
+							end
+						end
+					end
+				end
+			end
+			if best == nil then
+				return nil
+			end
+			best.Pressed:Fire()
+			return best.Name
+		end
+
+		local function focus(gui: any, node: any)
+			local previous = gui.SelectedObject
+			gui.SelectedObject = node
+			if previous and previous ~= node then
+				previous.SelectionLost:Fire()
+			end
+			if node and previous ~= node then
+				node.SelectionGained:Fire()
+			end
+		end
+
+		local function span(rowNode: any, target: any, canvasX: number): (number, number)
+			local path = {}
+			local cursor = target
+			while cursor and cursor ~= rowNode do
+				table.insert(path, 1, cursor)
+				cursor = cursor.Parent
+			end
+			assert(cursor == rowNode, "target is not inside the row")
+			local x, width = rowNode.Position.X.Offset - canvasX, rowNode.Size.X.Offset
+			for _, node in path do
+				local nextWidth = node.Size.X.Scale * width + node.Size.X.Offset
+				x += node.Position.X.Scale * width + node.Position.X.Offset - node.AnchorPoint.X * nextWidth
+				width = nextWidth
+			end
+			return x, width
+		end
+
+		local function cellRow(rowNode: any): any
+			return assert(rowNode:FindFirstChild("DisclosingRow", true)):FindFirstChild("Row")
+		end
+
+		local function expectSameColumns(header: any, row: any, columns: { string })
+			for _, column in columns do
+				local top, cell = header:FindFirstChild(column), row:FindFirstChild(column)
+				Verify.expect(top.Size):toBe(cell.Size)
+				Verify.expect(top.LayoutOrder):toBe(cell.LayoutOrder)
+				Verify.expect(top.Visible):toBe(cell.Visible)
+				Verify.expect(top:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+					:toBe(cell:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+				local topLimit, cellLimit =
+					top:FindFirstChildWhichIsA("UISizeConstraint"), cell:FindFirstChildWhichIsA("UISizeConstraint")
+				Verify.expect(topLimit.MinSize):toBe(cellLimit.MinSize)
+				Verify.expect(topLimit.MaxSize):toBe(cellLimit.MaxSize)
+			end
+		end
+
+		local function expectAligned(table_: any, key_: string, columns: { string })
+			local header, body = table_:FindFirstChild("Header"), table_:FindFirstChild("Body")
+			local rowNode = body:FindFirstChild("Items"):FindFirstChild(key_)
+			local row = cellRow(rowNode)
+			local x, width = span(rowNode, row, body.CanvasPosition.X)
+			Verify.expect(x):toBe(header.Position.X.Offset)
+			Verify.expect(width):toBe(header.Size.X.Offset)
+			expectSameColumns(header, row, columns)
+		end
+
+		type Playlist = {
+			built: any,
+			node: any,
+			engine: any,
+			gui: any,
+			input: any,
+			target: any,
+			tracks: any,
+			stop: () -> (),
+		}
+
+		verifyHarness:suite("native parity weaker tables", function() end)
+		verifyHarness:suite("Table edit layout frames", function()
+			for _, width in { 390, 320 } do
+				verifyHarness:case(`keeps header and body cell rectangles together through Edit and Done at {width}`, {
+					id = `native_collections::Table edit layout frames::keeps header and body cell rectangles together through Edit and Done at {width}`,
+					run = function()
+						local editing = Compose.cell(false)
+						local now = 0
+						local w = stage(function(UI, Host)
+							return UI.Table {
+								from = { { id = "neon", name = "Neon Straightaway", artist = "Chrome Coyote" } },
+								key = "id",
+								editing = editing,
+								selectionMode = "multiple",
+								reorderable = true,
+								deletable = true,
+								onReorder = function() end,
+								onDelete = function() end,
+								columns = {
+									{ id = "name", minWidth = 90, wrap = false },
+									{ id = "artist", minWidth = 72, priority = 1, wrap = false },
+									{ id = "rating", width = 144, priority = 2 },
+								} :: { any },
+							}
+						end, { motionLevel = "normal" }, function()
+							return now
+						end)
+						w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+						local body = w.node:FindFirstChild("Body")
+						body.AbsoluteWindowSize = w.engine.types.Vector2.new(width, 240)
+						local row = body:FindFirstChild("Items"):FindFirstChild("neon")
+						row.Size = w.engine.types.UDim2.fromOffset(width, 44)
+						local function sample()
+							expectAligned(w.node, "neon", { "name", "artist", "rating" })
+							local header, cells = w.node:FindFirstChild("Header"), cellRow(row)
+							local left, lane = span(row, cells, 0)
+							local offset = 0
+							for _, column in { "name", "artist", "rating" } do
+								local top, value = header:FindFirstChild(column), cells:FindFirstChild(column)
+								if top.Visible then
+									local topWidth = top.Size.X.Scale * header.Size.X.Offset + top.Size.X.Offset
+									local cellWidth = value.Size.X.Scale * lane + value.Size.X.Offset
+									Verify.expect(left + offset):toBe(header.Position.X.Offset + offset)
+									Verify.expect(cellWidth):toBe(topWidth)
+									offset += topWidth
+								end
+							end
+							Verify.expect(offset <= lane):toBe(true)
+							Verify.expect(left + lane <= width):toBe(true)
+							local mark = row:FindFirstChild("SelectMark", true)
+							if mark and mark.Visible then
+								Verify.expect(left >= 44):toBe(true)
+							end
+						end
+						for _, mode in { false, true, false } do
+							editing:set(mode)
+							sample()
+							for _ = 1, 30 do
+								now += 1 / 30
+								w.engine.heartbeat:Fire(1 / 30)
+								sample()
+							end
+						end
+						w.stop()
+					end,
+				})
+			end
+		end)
+		verifyHarness:suite("Table narrow column policy", function()
+			verifyHarness:case("keeps fitting secondary columns beside bounded primary text", {
+				id = "native_collections::Table narrow column policy::keeps fitting secondary columns beside bounded primary text",
+				run = function()
+					for _, mode in { "fixed", "resized", "flexible" } do
+						local widths = Compose.cell(if mode == "resized" then { name = 120 } else {})
+						local w = stage(function(UI)
+							return UI.Table {
+								from = {
+									{
+										id = "row",
+										name = string.rep("Long name ", 200),
+										artist = "Artist",
+										rating = "Five",
+									},
+								},
+								key = "id",
+								widths = widths,
+								columns = {
+									{
+										id = "name",
+										width = if mode == "fixed" then 100 else nil,
+										minWidth = 48,
+										maxWidth = 160,
+									},
+									{ id = "artist", width = 100, priority = 1 },
+									{ id = "rating", width = 100, priority = 1 },
+								} :: {
+									FixtureCollectionTypes.TableColumn<
+										{ id: string, name: string, artist: string, rating: string },
+										string
+									>
+								},
+							}
+						end)
+						local body = w.node:FindFirstChild("Body")
+						body.AbsoluteWindowSize = w.engine.types.Vector2.new(1000, 240)
+						local cells = cellRow(body:FindFirstChild("Items"):FindFirstChild("row"))
+						cells:FindFirstChild("name"):FindFirstChild("Undisclosed", true).TextBounds =
+							w.engine.types.Vector2.new(2000, 16)
+						local header = w.node:FindFirstChild("Header")
+						for _, id_ in { "name", "artist", "rating" } do
+							Verify.expect(header:FindFirstChild(id_).Visible):toBe(true)
+							Verify.expect(cells:FindFirstChild(id_).Visible):toBe(true)
+						end
+						Verify.expect(cells:FindFirstChild("name").Size.X.Offset)
+							:toBe(if mode == "fixed" then 100 elseif mode == "resized" then 120 else 160)
+						expectSameColumns(header, cells, { "name", "artist", "rating" })
+						w.stop()
+					end
+				end,
+			})
+
+			verifyHarness:case("bounds fixed and controlled widths through reactive column limits", {
+				id = "native_collections::Table narrow column policy::bounds fixed and controlled widths through reactive column limits",
+				run = function()
+					local widths = Compose.cell({})
+					local columns = Compose.cell({ { id = "name", width = 300, minWidth = 48, maxWidth = 160 } })
+					local w = stage(function(UI)
+						return UI.Table {
+							from = { { id = "row", name = "Name" } },
+							key = "id",
+							widths = widths,
+							columns = columns,
+						}
+					end)
+					local body = w.node:FindFirstChild("Body")
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(1000, 240)
+					local cells = cellRow(body:FindFirstChild("Items"):FindFirstChild("row"))
+					local header = w.node:FindFirstChild("Header")
+					local function sample(expected: number)
+						for _, row_ in { header, cells } do
+							local cell = row_:FindFirstChild("name")
+							local constraint = cell:FindFirstChildWhichIsA("UISizeConstraint")
+							Verify.expect(cell.Size.X.Offset):toBe(expected)
+							Verify.expect(constraint.MaxSize.X <= columns:peek()[1].maxWidth):toBe(true)
+							Verify.expect(constraint.MinSize.X):toBe(columns:peek()[1].minWidth)
+						end
+						expectSameColumns(header, cells, { "name" })
+					end
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(1000, 240)
+					sample(160)
+					widths:set({ name = 600 })
+					sample(160)
+					columns:set({ { id = "name", width = 300, minWidth = 48, maxWidth = 96 } })
+					sample(96)
+					widths:set({ name = 20 })
+					sample(48)
+					columns:set({ { id = "name", width = 300, minWidth = 80, maxWidth = 96 } })
+					sample(80)
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(0, 240)
+					sample(80)
+					w.stop()
+				end,
+			})
+
+			verifyHarness:case("protects primary text and retains a collapsed rendered cell while Details opens", {
+				id = "native_collections::Table narrow column policy::protects primary text and retains a collapsed rendered cell while Details opens",
+				run = function()
+					local editing, builds, detailChanges = Compose.cell(true), 0, 0
+					local w = stage(function(UI, Host)
+						return UI.Table {
+							from = { { id = "neon", name = "Neon Straightaway", artist = "Chrome Coyote" } },
+							key = "id",
+							editing = editing,
+							selectionMode = "multiple",
+							reorderable = true,
+							onReorder = function() end,
+							columns = {
+								{ id = "name", minWidth = 90, wrap = false },
+								{ id = "artist", minWidth = 72, priority = 1, wrap = false },
+								{
+									id = "rating",
+									width = 144,
+									priority = 2,
+									detailRender = function()
+										return UI.Button "DetailRating" {
+											onActivate = function()
+												detailChanges += 1
+											end,
+										}
+									end,
+									render = function()
+										builds += 1
+										return Host.TextBox { Name = "LocalRating", Text = "Local edit" }
+									end,
+								},
+							} :: { any },
+						}
+					end)
+					w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+					local body = w.node:FindFirstChild("Body")
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(390, 240)
+					local row = body:FindFirstChild("Items"):FindFirstChild("neon")
+					local cells, header = cellRow(row), w.node:FindFirstChild("Header")
+					local primary = cells:FindFirstChild("name")
+					primary:FindFirstChild("Undisclosed", true).TextBounds = w.engine.types.Vector2.new(172, 16)
+					Verify.expect(header:FindFirstChild("name").Visible):toBe(true)
+					Verify.expect(header:FindFirstChild("rating").Visible):toBe(false)
+					Verify.expect(primary.Size.X.Offset >= 188):toBe(true)
+					Verify.expect(primary:FindFirstChild("Value", true).TextWrapped):toBe(false)
+					Verify.expect(cells:FindFirstChild("artist"):FindFirstChild("Value", true).TextWrapped):toBe(false)
+					local rating = cells:FindFirstChild("rating"):FindFirstChild("LocalRating", true)
+					rating.AbsoluteSize = w.engine.types.Vector2.new(144, 100)
+					Verify.expect(row.Size.Y.Offset):toBe(44)
+					row:FindFirstChild("Details", true).Activated:Fire()
+					Verify.expect(cells:FindFirstChild("rating"):FindFirstChild("LocalRating", true)):toBe(rating)
+					Verify.expect(w.screen:FindFirstChild("Popup", true):FindFirstChild("rating", true) ~= nil)
+						:toBe(true)
+					find(w.screen, "DetailRating").Activated:Fire()
+					Verify.expect(detailChanges):toBe(1)
+					Verify.expect(builds):toBe(1)
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(800, 240)
+					Verify.expect(cells:FindFirstChild("rating"):FindFirstChild("LocalRating", true)):toBe(rating)
+					Verify.expect(rating.Text):toBe("Local edit")
+					Verify.expect(builds):toBe(1)
+					w.stop()
+				end,
+			})
+
+			verifyHarness:case("includes native pseudo padding in primary text space", {
+				id = "native_collections::Table narrow column policy::includes native pseudo padding in primary text space",
+				run = function()
+					local w = stage(function(UI)
+						return UI.Table {
+							from = { { id = "neon", name = "Neon Straightaway", artist = "Chrome Coyote" } },
+							key = "id",
+							editing = true,
+							selectionMode = "multiple",
+							reorderable = true,
+							onReorder = function() end,
+							columns = {
+								{ id = "name", minWidth = 90, wrap = false },
+								{ id = "artist", minWidth = 72, priority = 1, wrap = false },
+								{ id = "rating", width = 144, priority = 2 },
+							} :: { FixtureCollectionTypes.TableColumn<any, string> },
+						}
+					end)
+					w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+					local body = w.node:FindFirstChild("Body")
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(353, 240)
+					local cells = cellRow(body:FindFirstChild("Items"):FindFirstChild("neon"))
+					local primary = cells:FindFirstChild("name")
+					primary:FindFirstChild("Undisclosed", true).TextBounds = w.engine.types.Vector2.new(116, 16)
+					local inset = assert(w.node:FindFirstChild("CellTextInsets"))
+					inset.AbsoluteSize = w.engine.types.Vector2.new(24, 16)
+					Verify.expect(primary.Size.X.Offset >= 140):toBe(true)
+					inset.AbsoluteSize = w.engine.types.Vector2.new(40, 16)
+					Verify.expect(primary.Size.X.Offset >= 156):toBe(true)
+					Verify.expect(w.node:FindFirstChild("Header"):FindFirstChild("artist").Visible):toBe(false)
+					w.stop()
+				end,
+			})
+
+			verifyHarness:case("releases removed text measurements and keeps the remaining widest row", {
+				id = "native_collections::Table narrow column policy::releases removed text measurements and keeps the remaining widest row",
+				run = function()
+					local wide = { id = "wide", name = "A long name" }
+					local twin = { id = "twin", name = "Another long name" }
+					local short = { id = "short", name = "Short" }
+					local rows = Compose.cell({ wide, twin, short })
+					local w = stage(function(UI)
+						return UI.Table {
+							from = rows,
+							key = "id",
+							columns = {
+								{ id = "name", minWidth = 90 },
+								{ id = "artist", minWidth = 72, priority = "always" },
+							},
+						}
+					end)
+					local body = w.node:FindFirstChild("Body")
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(400, 240)
+					for _, key in { "wide", "twin", "short" } do
+						local row = body:FindFirstChild("Items"):FindFirstChild(key)
+						cellRow(row):FindFirstChild("name"):FindFirstChild("Undisclosed", true).TextBounds =
+							w.engine.types.Vector2.new(if key == "short" then 100 else 200, 16)
+					end
+					local header = w.node:FindFirstChild("Header"):FindFirstChild("name")
+					local widest = header.Size.X.Offset
+					rows:set({ twin, short })
+					Verify.expect(header.Size.X.Offset):toBe(widest)
+					rows:set({ short })
+					Verify.expect(header.Size.X.Offset < widest):toBe(true)
+					w.stop()
+				end,
+			})
+			verifyHarness:case("crossfades Edit Done and Delete with theme timing while layout changes together", {
+				id = "native_collections::Table narrow column policy::crossfades Edit Done and Delete with theme timing while layout changes together",
+				run = function()
+					local now = 0
+					local theme = Compose.cell(nil :: any)
+					local w = stage(function(UI)
+						return UI.Table {
+							from = { { id = "1", name = "One" } },
+							key = "id",
+
+							deletable = true,
+							onDelete = function() end,
+							columns = { { id = "name" } },
+						}
+					end, { motionLevel = "normal", theme = theme }, function()
+						return now
+					end)
+					w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+					local edit, done, fade =
+						find(w.node, "EditCaption"), find(w.node, "DoneCaption"), find(w.node, "DeleteFade")
+					Verify.expect(edit.TextTransparency):toBe(0)
+					Verify.expect(done.TextTransparency):toBe(1)
+					for _, mode in { true, false } do
+						find(w.node, "Edit").Activated:Fire()
+						now += 1 / 30
+						w.engine.heartbeat:Fire(1 / 30)
+						Verify.expect(edit.TextTransparency > 0 and edit.TextTransparency < 1):toBe(true)
+						Verify.expect(edit.TextTransparency + done.TextTransparency):toBe(1)
+						Verify.expect(fade:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value)
+							:toBeCloseTo(done.TextTransparency, 5)
+						for _ = 1, 30 do
+							now += 1 / 30
+							w.engine.heartbeat:Fire(1 / 30)
+						end
+						Verify.expect(done.TextTransparency):toBe(if mode then 0 else 1)
+					end
+					local package = require("../examples/themes/glossy_touch").build(Facet.themes)
+					theme:set(package)
+					local label = find(w.node, "Edit"):FindFirstChild("Label", true)
+					Verify.expect(label.TextTransparency):toBe(1)
+					w.stop()
+				end,
+			})
+		end)
+	end)(verifyHarness)
 end

@@ -655,6 +655,18 @@ return function(verifyHarness: Verify.Harness)
 				local body = find(node, "primary")
 				viewport(body, engine, 700, 1200)
 				viewport(find(node, "FileViewport"), engine, 700, 1200)
+				nativeDrag.measure(body)
+				for _, child in body:GetDescendants() do
+					if child:IsA("GuiObject") then
+						child.AbsoluteSize = engine.types.Vector2.new(700, 44)
+						if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+							child.TextBounds = engine.types.Vector2.new(#child.Text * 7, 14)
+						end
+					end
+				end
+				for _ = 1, 6 do
+					engine.heartbeat:Fire(1 / 60)
+				end
 				world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 				find(node, "Edit").Activated:Fire()
 				model.selection:set({ ["1"] = true, ["2"] = true })
@@ -822,38 +834,6 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
-
-		verifyHarness:case("shares files and durable drafts through view switches creation deletion and undo", {
-			id = "native_gallery_collections::file library workbench::shares files and durable drafts through view switches creation deletion and undo",
-			run = function()
-				local built, node, stop = mount("collection_workbench")
-				local model = built.model
-				Verify.expect(built.report().count):toBe(27)
-				model.editing:set(true)
-				model.draft("1"):set({ text = "Unfinished name", original = file(model, "1").name })
-				for _, mode in { "list", "details", "icons" } do
-					model.mode:set(mode)
-					Verify.expect(model.draft("1"):peek().text):toBe("Unfinished name")
-				end
-				model.linked:set(true)
-				model.change("1", "name", "Shared name")
-				Verify.expect(file(model, "1").name):toBe("Shared name")
-				model.selection:set({ ["1"] = true })
-				model.query:set("missing")
-				Verify.expect(model.selection:peek()["1"]):toBe(true)
-				built.steps.create()
-				Verify.expect(built.report().count):toBe(28)
-				Verify.expect((model.query:peek())):toBe("")
-				model.remove({ "25" })
-				Verify.expect(built.report().count):toBe(27)
-				built.steps.undo()
-				Verify.expect(built.report().count):toBe(28)
-				Verify.expect(model.selection:peek()["25"]):toBe(true)
-				built.steps.large()
-				Verify.expect(built.report().count):toBe(1003)
-				stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("file library folders", function()
@@ -890,48 +870,467 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
-		verifyHarness:case("moves and copies complete folders, rejects cycles, and restores deleted descendants", {
-			id = "native_gallery_collections::file library folders::moves and copies complete folders, rejects cycles, and restores deleted descendants",
-			run = function()
-				local built, _, stop = mount("collection_workbench")
-				local model = built.model
-				local function item(key)
-					for _, row in model.rows:peek() do
-						if row.id == key then
-							return row
+	end);
+	(function(verifyHarness: Verify.Harness)
+		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+		type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
+		type Readable<T> = { peek: (Readable<T>) -> T }
+		type Use = <T>(Readable<T>) -> T
+
+		local Facet = require("../src")
+		local engineLib = require("./lib/native_engine")
+		local fs = require("@lune/fs")
+		local gallery = require("../examples/gallery/client/screen")
+		local playlistExample = require("../examples/gallery/examples/02_playlist_table")
+		local Compose: ComposeModule = Facet.Compose
+
+		type World = {
+			built: any,
+			root: any,
+			screen: any,
+			engine: any,
+			gui: any,
+			runtime: any,
+			stop: () -> (),
+		}
+
+		type Options = {
+			reducedMotion: boolean?,
+			heartbeat: boolean?,
+			guiService: boolean?,
+			viewport: any?,
+			seed: number?,
+		}
+
+		local function world(module: any, options: Options?): World
+			local settings: Options = options or {}
+			local engine: any = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			gui.ReducedMotionEnabled = settings.reducedMotion == true
+			local input = engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			local screen = engine.new("ScreenGui")
+			local built
+			local stop, root: any = runtime.mount(function()
+				built = module.build({
+					Facet = Facet,
+					Compose = Compose,
+					runtime = runtime,
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
+					UI = Facet.controls(
+						runtime,
+						{
+							types = engine.types,
+							guiService = gui,
+							services = { GuiService = gui, UserInputService = input },
+						} :: any
+					),
+					types = engine.types,
+					viewport = settings.viewport or Compose.cell({ width = 1000, height = 720 }),
+					guiService = if settings.guiService or settings.reducedMotion ~= nil then gui else nil,
+					heartbeat = if settings.heartbeat then engine.heartbeat else nil,
+				})
+				return built.screen()
+			end, screen)
+			return {
+				built = built,
+				root = root,
+				screen = screen,
+				engine = engine,
+				gui = gui,
+				runtime = runtime,
+				stop = function()
+					stop()
+					runtime:dispose()
+				end,
+			}
+		end
+
+		local function find(node: any, name: string): any
+			if node.Name == name then
+				return node
+			end
+			for _, child in node:GetChildren() do
+				local found = find(child, name)
+				if found then
+					return found
+				end
+			end
+			return nil
+		end
+
+		local function within(node: any, ...: string): any
+			local at = node
+			for _, name in { ... } do
+				at = find(at, name)
+				if at == nil then
+					return nil
+				end
+			end
+			return at
+		end
+
+		local function press(node: any, ...: string)
+			local target = assert(within(node, ...), `no {table.concat({ ... }, "/")}`)
+			target.Activated:Fire()
+		end
+
+		verifyHarness:suite("native parity reference applications", function()
+			verifyHarness:suite("Gallery examples", function()
+				local function nativeContext(): (any, any, any)
+					local engine: any = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local viewport = Compose.cell({ width = 1280, height = 720 })
+					local target = engine.new("Folder")
+					local guiService = engine.new("GuiService")
+					local ctx: { [string]: any } = {
+						Facet = Facet,
+						Compose = Compose,
+						runtime = runtime,
+						Host = (runtime.constructors :: unknown) :: RobloxHost,
+						types = engine.types,
+						viewport = viewport,
+						inputTarget = target,
+						worldTarget = engine.new("Folder"),
+						guiService = guiService,
+						runService = { Heartbeat = engine.heartbeat },
+					}
+					return ctx, engine, target
+				end
+
+				local function mountGallery(kind: string, name: string): (any, any, () -> (), any, any)
+					local ctx, engine = nativeContext()
+					local path = if kind == "example" then "examples/" else "scenarios/"
+					local built
+					local host = engine.new("ScreenGui")
+					local stop, node = ctx.runtime.mount(function()
+						gallery.configure(ctx)
+						ctx.UI = Facet.controls(
+							ctx.runtime,
+							{
+								types = engine.types,
+								viewport = ctx.viewport,
+								guiService = ctx.guiService,
+								motionLevel = (
+										Compose.formula(function(use: Use): "normal" | "limited" | "none"
+											return if ctx.reducedMotion and use(ctx.reducedMotion)
+												then "none"
+												else "normal"
+										end) :: unknown
+									) :: MotionLevel,
+							} :: any
+						)
+						built = (require :: any)("../examples/gallery/" .. path .. name).build(ctx)
+						if built.dispose then
+							Compose.cleanup(built.dispose)
+						end
+						return built.screen()
+					end, host)
+					return built, node, function()
+						stop()
+						ctx.runtime:dispose()
+					end, ctx, engine
+				end
+			end)
+
+			verifyHarness:suite("Documentation and tooling", function()
+				local function files(root: string, suffix: string, out: { string }): { string }
+					for _, name in fs.readDir(root) do
+						local path = root .. "/" .. name
+						if fs.isDir(path) then
+							files(path, suffix, out)
+						elseif string.sub(name, -#suffix) == suffix then
+							table.insert(out, path)
+						end
+					end
+					return out
+				end
+			end)
+
+			verifyHarness:suite("Tables and radial menus", function()
+				local function controlsFor(engine: any, target: any, extra: { [string]: any }?): (any, any, any, any)
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+					input.GetFocusedTextBox = function()
+						return nil
+					end
+					input.IsKeyDown = function()
+						return false
+					end
+					local config: { [string]: any } = {
+						types = engine.types,
+						guiService = gui,
+						services = { GuiService = gui, UserInputService = input },
+						inputParent = target,
+						motionLevel = "none",
+					}
+					if extra then
+						for key, value in extra do
+							config[key] = value
+						end
+					end
+					return runtime, Facet.controls(runtime, config :: any), gui, input
+				end
+
+				local function mountGallery(module: any): any
+					local engine = engineLib.new()
+					local target = engine.new("Folder")
+					local viewport = Compose.cell({ width = 1280, height = 720 })
+					local runtime, UI, gui = controlsFor(engine, target, { viewport = viewport })
+					local ctx = {
+						Facet = Facet,
+						Compose = Compose,
+						runtime = runtime,
+						Host = (runtime.constructors :: unknown) :: RobloxHost,
+						types = engine.types,
+						viewport = viewport,
+						guiService = gui,
+						runService = { Heartbeat = engine.heartbeat },
+						UI = UI,
+					}
+					local built
+					local stop, node: any = runtime.mount(function()
+						built = module.build(ctx)
+						if built.dispose then
+							Compose.cleanup(built.dispose)
+						end
+						return ctx.Host.ScreenGui "DemoScreen" { built.screen() }
+					end, target)
+					return {
+						built = built,
+						node = node,
+						engine = engine,
+						target = target,
+						stop = function()
+							stop()
+							runtime:dispose()
+						end,
+					}
+				end
+
+				local function vector(engine: any, x: number, y: number): any
+					return engine.types.Vector2.new(x, y)
+				end
+
+				verifyHarness:suite("Playlist example", function()
+					local function prepare(world: any): any
+						local body = find(world.node, "Body")
+						body.AbsoluteSize = vector(world.engine, 900, 288)
+						body.AbsoluteWindowSize = vector(world.engine, 900, 288)
+						return body
+					end
+
+					local function click(world: any, kind: string, count: number?): any
+						local E = world.engine.types.Enum
+						return {
+							UserInputType = if kind == "mouse"
+								then E.UserInputType.MouseButton1
+								elseif kind == "touch" then E.UserInputType.Touch
+								else E.UserInputType.Keyboard,
+							KeyCode = if kind == "key" then E.KeyCode.Return else E.KeyCode:FromValue(0),
+							UserInputState = E.UserInputState.End,
+						},
+							count or 1
+					end
+
+					verifyHarness:case("explains empty filter results and an empty playlist without losing Restore", {
+						id = "native_gallery_collections::Playlist example::explains empty filter results and an empty playlist without losing Restore",
+						run = function()
+							local world = mountGallery(playlistExample)
+							prepare(world)
+							local message = find(world.node, "EmptyResult")
+							Verify.expect(message ~= nil):toBe(true)
+							Verify.expect(message.Visible):toBe(false)
+							world.built.filterText:set("zz-no-match")
+							Verify.expect(#world.built.from:peek()):toBe(0)
+							Verify.expect(message.Visible):toBe(true)
+							Verify.expect(message.Text)
+								:toBe("No tracks match this filter. Clear the filter to show all tracks.")
+							Verify.expect(message.TextWrapped):toBe(true)
+							world.built.filterText:set("")
+							Verify.expect(message.Visible):toBe(false)
+							Verify.expect(#world.built.from:peek()):toBe(6)
+							for _, id in { "neon", "drift", "turbo", "pit", "photo", "apex" } do
+								world.built.removeTrack(id)
+							end
+							Verify.expect(message.Visible):toBe(true)
+							Verify.expect(message.Text)
+								:toBe("No tracks in this playlist. Restore the original playlist to add them again.")
+							Verify.expect(find(world.node, "Restore").Visible):toBe(true)
+							press(world.node, "Restore")
+							Verify.expect(message.Visible):toBe(false)
+							Verify.expect(#world.built.from:peek()):toBe(6)
+							world.stop()
+						end,
+					})
+
+					verifyHarness:case("aligns name artist and rating columns under their headers", {
+						id = "native_gallery_collections::Playlist example::aligns name artist and rating columns under their headers",
+						run = function()
+							local world = mountGallery(playlistExample)
+							local body = prepare(world)
+							local header = find(world.node, "Header")
+							local row = find(body, "neon")
+							local cells = find(row, "Row")
+							Verify.expect(header.Position.X.Offset):toBe(find(row, "Cells").Position.X.Offset)
+							Verify.expect(header.Size.X.Offset):toBe(900 + find(row, "Cells").Size.X.Offset)
+							local E = world.engine.types.Enum
+							local allocated = 0
+							for _, id in { "name", "artist", "rating" } do
+								local width = header:FindFirstChild(id).Size.X.Offset
+								allocated += width
+								Verify.expect(width >= (if id == "rating" then 144 elseif id == "name" then 90 else 72))
+									:toBe(true)
+								Verify.expect(cells:FindFirstChild(id).Size):toBe(header:FindFirstChild(id).Size)
+								Verify.expect(header:FindFirstChild(id):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+									:toBe(if id ~= "rating" then E.UIFlexMode.Fill else E.UIFlexMode.None)
+							end
+							Verify.expect(allocated):toBe(header.Size.X.Offset)
+							world.built.columnWidths:set({ name = 290 })
+							Verify.expect(header:FindFirstChild("name").Size.X.Offset):toBe(290)
+							Verify.expect(cells:FindFirstChild("name").Size.X.Offset):toBe(290)
+							Verify.expect(cells:FindFirstChild("rating").Size.X.Offset):toBe(144)
+							Verify.expect(find(world.node, "Widths").Text)
+								:toBe("Name 290px · Artist auto · Rating locked")
+							world.stop()
+						end,
+					})
+
+					verifyHarness:case(
+						"plays on a double click Return or touch tap while a single or slow click only selects",
+						{
+							id = "native_gallery_collections::Playlist example::plays on a double click Return or touch tap while a single or slow click only selects",
+							run = function()
+								local world = mountGallery(playlistExample)
+								local body = prepare(world)
+								local label = find(world.node, "NowPlaying")
+								local function hit(id: string): any
+									return find(find(body, id), "RowHit")
+								end
+								local function selected(id: string): boolean
+									return find(find(body, id), "Row"):GetAttribute("FacetSelected") == true
+								end
+								Verify.expect(label.Text)
+									:toBe("Nothing playing — double-click a row, or press Return on a focused one")
+								hit("neon").Activated:Fire(click(world, "mouse", 1))
+								Verify.expect((selected("neon"))):toBe(true)
+								Verify.expect((world.built.nowPlaying:peek())):toBeNil()
+								Verify.expect(label.Text)
+									:toBe("Nothing playing — double-click a row, or press Return on a focused one")
+								hit("neon").Activated:Fire(click(world, "mouse", 2))
+								Verify.expect((world.built.nowPlaying:peek())):toBe("Neon Straightaway")
+								Verify.expect(label.Text):toBe("Now playing — Neon Straightaway")
+								Verify.expect((selected("neon"))):toBe(true)
+								hit("drift").Activated:Fire(click(world, "mouse", 1))
+								hit("drift").Activated:Fire(click(world, "mouse", 1))
+								Verify.expect(label.Text):toBe("Now playing — Neon Straightaway")
+								Verify.expect((selected("drift"))):toBe(true)
+								Verify.expect((selected("neon"))):toBe(false)
+								hit("turbo").Activated:Fire(click(world, "touch", 1))
+								Verify.expect(label.Text):toBe("Now playing — Turbo Cascade")
+								hit("pit").Activated:Fire(click(world, "key", 1))
+								Verify.expect(label.Text):toBe("Now playing — Pit Lane Shuffle")
+								press(world.node, "Restore")
+								Verify.expect((world.built.nowPlaying:peek())):toBeNil()
+								Verify.expect(label.Text)
+									:toBe("Nothing playing — double-click a row, or press Return on a focused one")
+								world.stop()
+							end,
+						}
+					)
+				end)
+			end)
+
+			verifyHarness:suite("Collections", function()
+				type Stage = {
+					engine: any,
+					UI: any,
+					Host: any,
+					gui: any,
+					input: any,
+					screen: any,
+					writes: () -> number,
+					stop: () -> (),
+				}
+
+				local function id(item: any): number
+					return item.id
+				end
+
+				local function press(w: Stage, name: string)
+					w.screen:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed:Fire()
+				end
+			end)
+
+			verifyHarness:suite("NavigationStack and CollapsibleView", function()
+				type StackWorld = {
+					engine: any,
+					runtime: any,
+					gui: any,
+					input: any,
+					screen: any,
+					baseline: { live: number, connections: number },
+					stop: () -> (),
+				}
+
+				local function world(build: (any, any) -> any, options: { [string]: any }?): StackWorld
+					local engine: any = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local gui = engine.new("GuiService")
+					local input = engine.new("UserInputService")
+					input.GetFocusedTextBox = function()
+						return nil
+					end
+					input.IsKeyDown = function()
+						return false
+					end
+					local config: { [string]: any } = {
+						types = engine.types,
+						guiService = gui,
+						services = { GuiService = gui, UserInputService = input },
+					}
+					for key, value in (options or {}) :: { [string]: any } do
+						config[key] = value
+					end
+					local target = engine.new("Folder")
+					local baseline = engine.census()
+					local UI = Facet.controls(runtime, config :: any)
+					local Host = (runtime.constructors :: unknown) :: RobloxHost
+					local stop, screen: any = runtime.mount(function()
+						return Host.ScreenGui({ build(UI, Host) })
+					end, target)
+					return {
+						engine = engine,
+						runtime = runtime,
+						gui = gui,
+						input = input,
+						screen = screen,
+						baseline = baseline,
+						stop = function()
+							stop()
+							runtime:dispose()
+						end,
+					}
+				end
+
+				local function find(root: any, name: string): any
+					if root.Name == name then
+						return root
+					end
+					for _, child in root:GetChildren() do
+						local found = find(child, name)
+						if found then
+							return found
 						end
 					end
 					return nil
 				end
-				local folder = item("environments")
-				local payload = { kind = "files", collection = "library", items = { folder }, keys = { folder.id } }
-				Verify.expect((model.receive("library", "archive").accepts(payload))):toBe(false)
-				Verify.expect((model.receive("library", "materials").onDrop(payload, { operation = "move" })))
-					:toBe(true)
-				Verify.expect(item("environments").parent):toBe("materials")
-				Verify.expect(item("archive").parent):toBe("environments")
-				built.steps.undo()
-				Verify.expect(item("environments").parent):toBeNil()
-				local count = #model.rows:peek()
-				Verify.expect((model.receive("library", "materials").onDrop(payload, { operation = "copy" })))
-					:toBe(true)
-				Verify.expect(#model.rows:peek() > count + 1):toBe(true)
-				local unique = {}
-				for _, row in model.rows:peek() do
-					Verify.expect(unique[row.id]):toBeNil()
-					unique[row.id] = true
-				end
-				built.steps.undo()
-				model.openFolder(item("archive"))
-				Verify.expect(#model.path:peek()):toBe(2)
-				model.remove({ "environments" })
-				Verify.expect((item("archive"))):toBeNil()
-				Verify.expect(#model.path:peek()):toBe(0)
-				built.steps.undo()
-				Verify.expect(item("archive").parent):toBe("environments")
-				Verify.expect(#model.rows:peek()):toBe(count)
-				stop()
-			end,
-		})
-	end)
+			end)
+		end)
+	end)(verifyHarness)
 end

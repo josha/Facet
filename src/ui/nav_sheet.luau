@@ -616,6 +616,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return true
 		end)
 		local grabber = Host.TextButton "Grabber" {
+			SelectionOrder = -2,
 			Attributes = { FacetFocusPart = "Pill" } :: Types.Attributes,
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
@@ -721,6 +722,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local hero = spec.hero
 		local sticky = hero ~= nil and hero.sticky == true
 		local overHero = spec.header == false and hero ~= nil
+		local closeCommand: TextButton? = nil
+		local function linkClose(button: TextButton): TextButton
+			closeCommand = button
+			button.SelectionOrder = -1
+			grabber.NextSelectionDown = button
+			grabber.NextSelectionRight = button
+			button.NextSelectionUp = grabber
+			button.NextSelectionLeft = grabber
+			return button
+		end
 		local function closeControl(): TextButton?
 			local explicit = spec.closeButton
 			local function activate()
@@ -730,14 +741,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return nil
 			end
 			if explicit ~= nil and explicit ~= true then
-				return UI.Button "Close" {
+				return linkClose(UI.Button "Close" {
 					label = explicit :: Types.Value<string>,
 					appearance = if overHero then "inverse" else "link",
 					LayoutOrder = 2,
 					onActivate = activate,
-				}
+				})
 			end
-			return UI.Button "Close" {
+			return linkClose(UI.Button "Close" {
 				name = "Close",
 				Visible = if explicit == nil then canDismiss else true,
 				icon = "close",
@@ -746,7 +757,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Size = D2.fromOffset(44, 44),
 				AutomaticSize = E.AutomaticSize.None,
 				onActivate = activate,
-			}
+			})
 		end
 		local function heroFrame(): Frame
 			local current = assert(hero)
@@ -870,6 +881,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local content: Instance = if type(spec.content) == "function"
 			then (spec.content :: () -> Instance)()
 			else spec.content :: Instance
+		local scrollViewport: Frame? = nil
+		local bodyContent = content
+		if content:IsA("ScrollingFrame") and content.Size.Y.Scale > 0 then
+			scrollViewport = Host.Frame "SheetScrollViewport" {
+				BackgroundTransparency = 1,
+				Size = D2.new(1, 0, 0, 0),
+				content,
+			}
+			bodyContent = assert(scrollViewport)
+		end
 		if hero and not sticky then
 			table.insert(bodyChildren, heroFrame())
 			local inner: Types.FrameNativeProps = {
@@ -881,11 +902,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			}
 			inner[#inner + 1] = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
 			inner[#inner + 1] = ctx.padding(inset, inset)
-			inner[#inner + 1] = content
+			inner[#inner + 1] = bodyContent
 			table.insert(bodyChildren, Host.Frame(inner))
 		else
 			table.insert(bodyChildren, bodyPadding)
-			table.insert(bodyChildren, content)
+			table.insert(bodyChildren, bodyContent)
 		end
 		local flex = Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
 		local bodyProps: Types.ScrollingFrameNativeProps = {
@@ -898,6 +919,44 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			flex :: Instance,
 		}
 		local body = parts.scroller(ctx, bodyProps, bodyChildren, { name = "SheetFlow" })
+		if scrollViewport then
+			local window = ctx.observe.AbsoluteWindowSize(body)
+			runtime.decorate(scrollViewport, {
+				Size = function(use: ComposeTypes.Use): UDim2
+					return D2.new(1, 0, 0, math.max(0, use(window).Y / use(unit) - inset * 2))
+				end,
+			})
+		end
+		if closeCommand then
+			local command = closeCommand
+			local entry: GuiObject? = nil
+			local previousUp: GuiObject? = nil
+			local function linkContent()
+				local nextEntry = surfaces.firstSelectable(body)
+				if nextEntry == entry then
+					return
+				end
+				if entry and entry.NextSelectionUp == command then
+					local links = (entry :: unknown) :: { NextSelectionUp: GuiObject? }
+					links.NextSelectionUp = previousUp
+				end
+				entry = nextEntry
+				local outgoing = (command :: unknown) :: { NextSelectionDown: GuiObject? }
+				outgoing.NextSelectionDown = nextEntry
+				if nextEntry then
+					previousUp = nextEntry.NextSelectionUp
+					nextEntry.NextSelectionUp = command
+				end
+			end
+			linkContent()
+			runtime.connect(body, "DescendantAdded", linkContent)
+			Compose.cleanup(function()
+				if entry and entry.NextSelectionUp == command then
+					local links = (entry :: unknown) :: { NextSelectionUp: GuiObject? }
+					links.NextSelectionUp = previousUp
+				end
+			end)
+		end
 		table.insert(regions, body)
 		local function usable(action: Overlay.Action?): boolean
 			return parts.usable(ctx, action)
@@ -1006,7 +1065,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
 			panelProps[#panelProps + 1] = child
 		end
-		local panel = ctx.fade(panelProps)
+		local panel = ctx.fade(panelProps, true)
 		ctx.styled(panel, "sheet")
 		runtime.decorate(panel, {
 			Attributes = {

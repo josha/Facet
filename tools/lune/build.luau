@@ -151,7 +151,7 @@ function commands.places()
 	local stamp = "content " .. contentHash({ "src", "examples/gallery", "examples/reference", "examples/themes" }, 12)
 	local bootstrapped = {}
 	for index, example in EXAMPLES do
-		local attributes = if index > 1 then { Facet_Example = index - 1 } else nil
+		local attributes = { Facet_Example = index - 1 }
 		local output = `examples/places/{example[2]}.rbxl`
 		rojo(world(example[1], attributes, GALLERY), output, PLACE_PROJECT)
 		table.insert(bootstrapped, output)

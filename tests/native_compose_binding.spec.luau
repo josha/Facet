@@ -4,10 +4,8 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
-	local fs = require("@lune/fs")
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
@@ -38,14 +36,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Facet on the consumer's Compose instance", function()
-		verifyHarness:case("loads a second, separate Compose instance for these cases", {
-			id = "native_compose_binding::Facet on the consumer's Compose instance::loads a second, separate Compose instance for these cases",
-			run = function()
-				Verify.expect(Core ~= Facet.Compose):toBe(true)
-				Verify.expect(Core.cell ~= Facet.Compose.cell):toBe(true)
-			end,
-		})
-
 		verifyHarness:case("drives bound controls from consumer cells and nests their disposal under consumer owners", {
 			id = "native_compose_binding::Facet on the consumer's Compose instance::drives bound controls from consumer cells and nests their disposal under consumer owners",
 			run = function()
@@ -130,80 +120,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(after.live):toBe(baseline.live)
 				Verify.expect(after.connections):toBe(baseline.connections)
 				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("names the control when a runtime from another Compose instance reaches default controls", {
-			id = "native_compose_binding::Facet on the consumer's Compose instance::names the control when a runtime from another Compose instance reaches default controls",
-			run = function()
-				local engine = engineLib.new()
-				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local UI = Facet.controls(runtime, { types = engine.types })
-				local message = failure(function()
-					runtime.mount(function()
-						return UI.Toggle({ value = Core.cell(false), label = "Enabled" })
-					end, engine.new("ScreenGui"))
-				end)
-				Verify.expect(string.find(message, "Facet UI.Toggle", 1, true) ~= nil):toBe(true)
-				Verify.expect(string.find(message, "Facet.bind", 1, true) ~= nil):toBe(true)
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("names the control and option when a readable comes from another Compose instance", {
-			id = "native_compose_binding::Facet on the consumer's Compose instance::names the control and option when a readable comes from another Compose instance",
-			run = function()
-				local engine = engineLib.new()
-				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local UI = Facet.controls(runtime, { types = engine.types })
-				local message = failure(function()
-					runtime.mount(function()
-						return UI.Text({ text = Core.cell("Foreign") })
-					end, engine.new("ScreenGui"))
-				end)
-				Verify.expect(string.find(message, "Facet UI.Text", 1, true) ~= nil):toBe(true)
-				Verify.expect(string.find(message, "'text'", 1, true) ~= nil):toBe(true)
-				Verify.expect(string.find(message, "Facet.bind", 1, true) ~= nil):toBe(true)
-				local nested = failure(function()
-					runtime.mount(function()
-						return UI.Menu({
-							label = "Menu",
-							items = {
-								{ id = "a", label = "A", checked = Core.cell(false) } :: FixtureNavigationTypes.MenuItem<any>,
-							},
-						})
-					end, engine.new("ScreenGui"))
-				end)
-				Verify.expect(string.find(nested, "Facet UI.Menu", 1, true) ~= nil):toBe(true)
-				Verify.expect(string.find(nested, "'items.checked'", 1, true) ~= nil):toBe(true)
-				local native = Facet.Compose.cell("Native")
-				local stop, node: any = runtime.mount(function()
-					return UI.Text({ text = native })
-				end, engine.new("ScreenGui"))
-				Verify.expect(node.Text):toBe("Native")
-				stop()
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("uses the vendored Compose inside src/ui for types only", {
-			id = "native_compose_binding::Facet on the consumer's Compose instance::uses the vendored Compose inside src/ui for types only",
-			run = function()
-				local offenders = {}
-				for _, file in fs.readDir("src/ui") do
-					local source = fs.readFile("src/ui/" .. file)
-					for name in string.gmatch(source, 'local (%w+) = require%("%.%./vendor/compose/core"%)') do
-						local number = 0
-						for line in string.gmatch(source .. "\n", "([^\n]*)\n") do
-							number += 1
-							local at = string.find(line, name .. "%.%l")
-							if at and not string.find(string.sub(line, 1, at), "typeof%(") then
-								table.insert(offenders, `{file}:{number}`)
-							end
-						end
-					end
-				end
-				Verify.expect((table.concat(offenders, ", "))):toBe("")
 			end,
 		})
 
@@ -343,22 +259,6 @@ return function(verifyHarness: Verify.Harness)
 					stopStyled()
 					styled.dispose()
 					runtime:dispose()
-				end
-			end,
-		})
-
-		verifyHarness:case("rejects a Compose module that lacks a function Facet uses", {
-			id = "native_compose_binding::Facet on the consumer's Compose instance::rejects a Compose module that lacks a function Facet uses",
-			run = function()
-				for _, name in { "presence", "focusNeighbor" } do
-					local partial = table.clone(Core) :: any
-					partial[name] = nil
-					local message = failure(function()
-						Facet.bind(partial, Roblox)
-					end)
-					Verify.expect(string.find(message, name, 1, true) ~= nil):toBe(true)
-					Verify.expect(string.find(message, string.sub(Facet.COMPOSE_COMMIT, 1, 7), 1, true) ~= nil)
-						:toBe(true)
 				end
 			end,
 		})

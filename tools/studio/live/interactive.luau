@@ -297,7 +297,41 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		press(t, { "ButtonB" })
 		live.step("afterBack")
 	end
+	drivers["vote-pad-reaches-and-proposes"] = function(t)
+		press(t, { "DPadRight" })
+		live.step("afterRight")
+		press(t, { "ButtonA" })
+		live.step("afterReturn")
+	end
+	drivers["radial-list-scrolls-selection-into-view"] = function(t)
+		for _ = 1, 12 do
+			press(t, { "DPadDown" })
+		end
+		live.step("afterDown")
+	end
+	drivers["category-strip-dpad-keeps-page"] = function(t)
+		press(t, { "DPadRight" })
+		live.step("afterBasicsRight")
+		press(t, { "DPadRight" })
+		live.step("afterInputsRight")
+	end
+	drivers["grabber-activation-cycles-detents"] = function(t)
+		press(t, { "ButtonA" })
+		live.step("afterFirst")
+		press(t, { "DPadLeft" })
+		live.step("afterLower")
+		press(t, { "DPadLeft" })
+		live.step("afterShortest")
+		for _, step in { "afterGrow", "afterLargest", "afterClose" } do
+			press(t, { "ButtonA" })
+			live.step(step)
+		end
+	end
 	local gamepad = {
+		["vote-pad-reaches-and-proposes"] = true,
+		["radial-list-scrolls-selection-into-view"] = true,
+		["category-strip-dpad-keeps-page"] = true,
+		["grabber-activation-cycles-detents"] = true,
 		["list-keyboard-and-dpad"] = true,
 		["scroll-into-view-by-gamepad"] = true,
 		["sidebar-dpad-to-collections"] = true,

@@ -26,6 +26,22 @@ For the virtual monitors, also exercise:
 - Avatar scene controls,
 - streaming Chat while you scroll.
 
+## Run a corrected live case
+
+An attached Studio keeps the Facet and example modules from its open place.
+A change to those modules needs a rebuilt place. To check a corrected case
+against that same built control, add `--cases-from-tree` to the live runner:
+
+```sh
+lute run tools/lute/studio_live.luau classb_collections --studio STUDIO_ID --device none --tag review --cases-from-tree --only fill-column-floors-and-hit-order
+```
+
+This option loads the suite cases from the working tree into the existing
+live Verify harness. It does not replace Facet or example modules. The report
+sets `environment.caseSource` to `working-tree`. Without this option, the
+runner uses the cases in the place and records `place`. The option requires
+an attached Studio. For a gamepad Studio, use `--device keep`.
+
 ## What to record
 
 Record the build revision, the scenario, the observed interactions and the
@@ -311,6 +327,22 @@ available: send Down, call `live.step("afterDown")`, send DPadDown, call
 `live.step("afterDpad")`, send six more DPadDown inputs, then call
 `live.step("afterPast")` and `live.finish()`.
 
+### Check collection controls with gamepad input
+
+The `gamepad_walk` suite includes these control cases:
+
+- `pad-table-edit-checkbox-reorder-done`: enter Edit, select and clear a row,
+  move to its reorder handle, reorder the row, then press Done.
+- `pad-radial-complete-labels-at-each-level`: check each root and child label,
+  then activate a child action.
+- `pad-rating-bounded-marks-and-all-values`: keep ten marks inside the control
+  and reach each value from zero through ten.
+- `pad-row-actions-menu-open-close-and-command`: open with ButtonX, close with
+  ButtonB, then activate a command with ButtonA.
+
+Each case requires real Gamepad1 delivery. The Table checkbox uses the row's
+selection target. Its decorative mark is not a separate selection stop.
+
 ### Run the focus walk
 
 The `focus_walk` live suite opens every Showcase page (and every tab of a
@@ -340,12 +372,14 @@ them with `--shared 'FacetFocusWalk={"up":3}'`:
 
 Each atlas is an attachment with the directory `atlas`, and the command
 writes it in `tests/fixtures/focus_atlas`. The headless spec
-`native_focus_walk` reads the moves that the engine made in each atlas. It
+`native_focus_walk` is in the Verify plan. It reads the recorded moves in each atlas. It
 fails when a stop cannot be reached from the first stop, when a move lands on
 a control that the atlas does not know, or when a move did not settle. It
 does the reach check only for an atlas that has the scene of each move.
 `FACET_FOCUS_ATLAS` points the spec at another atlas directory, and
 `FACET_FOCUS_WALK_REPORT` names a directory for a JSON report per failing page.
+This checks the saved recording. It does not drive input on the current build.
+Record a new atlas in Studio to check a changed control.
 
 ### Walk opened controls
 

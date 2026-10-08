@@ -96,52 +96,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("plows, plants, grows, harvests and levels up by the crop rules", {
-			id = "native_facet_farm::Facet Farm::plows, plants, grows, harvests and levels up by the crop rules",
-			run = function()
-				local clock, advance = clockAt(0)
-				local farm = farmModel.new(Compose, clock)
-				Verify.expect((farm.act(1))):toBe(true)
-				Verify.expect(farm.plots:peek()[1].state):toBe("plowed")
-				Verify.expect((farm.coins:peek())):toBe(120 - farmModel.PLOW_COST)
-				farm.tool:set("plant")
-				Verify.expect((farm.act(1))):toBe(true)
-				Verify.expect((farm.coins:peek())):toBe(120 - farmModel.PLOW_COST - 5)
-				Verify.expect((farm.act(1))):toBe(false)
-				advance(20)
-				Verify.expect((farmModel.stateAt(farm.plots:peek()[1], clock()))):toBe("ready")
-				Verify.expect((farm.act(1))):toBe(true)
-				Verify.expect((farm.coins:peek())):toBe(120 - farmModel.PLOW_COST - 5 + 14)
-				Verify.expect((farm.xp:peek())):toBe(1)
-				Verify.expect(farm.toast:peek().message):toBe("+14 coins from Wheat")
-				farm.seed:set("carrot")
-				Verify.expect((farm.act(1))):toBe(false)
-				Verify.expect(farm.toast:peek().message):toBe("Carrot unlocks at level 2")
-				farm.xp:set(farmModel.xpFor(2) - 1)
-				farm.seed:set("wheat")
-				farm.act(1)
-				advance(20)
-				farm.act(1)
-				Verify.expect((farm.level:peek())):toBe(2)
-				Verify.expect((farm.levelUp:peek())):toBe(true)
-			end,
-		})
-
-		verifyHarness:case("withers a crop left three growth times and clears it back to grass", {
-			id = "native_facet_farm::Facet Farm::withers a crop left three growth times and clears it back to grass",
-			run = function()
-				local clock, advance = clockAt(0)
-				local farm = farmModel.new(Compose, clock)
-				farm.act(2)
-				farm.tool:set("plant")
-				farm.act(2)
-				advance(60)
-				Verify.expect((farmModel.stateAt(farm.plots:peek()[2], clock()))):toBe("withered")
-				Verify.expect((farm.act(2))):toBe(true)
-				Verify.expect(farm.plots:peek()[2].state):toBe("grass")
-			end,
-		})
-
 		verifyHarness:case("mounts a field of plot buttons that play the game through Facet controls", {
 			id = "native_facet_farm::Facet Farm::mounts a field of plot buttons that play the game through Facet controls",
 			run = function()

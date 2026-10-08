@@ -195,12 +195,15 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	function ctx.motionEase(role: string, use: ComposeTypes.Use?): (number) -> number
 		local name = motionName(`motion.easing.{role}`, use)
-		local ease = assert((Compose.easing :: any)[name], `Facet motion easing {name} is not a Compose easing`)
+		local ease = assert(Compose.easing[name], `Facet motion easing {name} is not a Compose easing`)
 		return ease
 	end
 	function ctx.motionStyle(role: string, use: ComposeTypes.Use?): Enum.EasingStyle
 		local name = motionName(`motion.styles.{role}`, use)
-		local style = assert((types.Enum.EasingStyle :: any)[name], `Facet motion style {name} is not an EasingStyle`)
+		local style = assert(
+			((types.Enum.EasingStyle :: unknown) :: { [string]: Enum.EasingStyle })[name],
+			`Facet motion style {name} is not an EasingStyle`
+		)
 		return style
 	end
 	function ctx.controlSize(
@@ -367,7 +370,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return (previewed(property, held.cell) :: unknown) :: ComposeTypes.Cell<unknown>
 		end
 		if geometryProperties[property] then
-			return observeGeometry(Compose, runtime, node, property)
+			return observeGeometry(
+				Compose,
+				runtime,
+				node,
+				property,
+				if services.RunService then services.RunService.PreRender else nil
+			)
 		end
 		local value = Compose.cell(observation.readProperty(node, property))
 		Compose.cleanup(observation.observeProperty(node, property, function()
@@ -427,7 +436,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end
 			effect:SetWaveformKeys(keys)
 		else
-			effect.Type = (Enum.HapticEffectType :: any)[hapticPresets[kind]]
+			effect.Type = ((Enum.HapticEffectType :: unknown) :: { [string]: Enum.HapticEffectType })[hapticPresets[kind]]
 		end
 		effect.Parent = services.Workspace
 		hapticPool[kind] = effect
@@ -506,7 +515,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			interface = ok and answer == true
 		end
 		local watchable = function(service: Instance?): boolean
-			return service ~= nil and (service :: any).GetPropertyChangedSignal ~= nil
+			return service ~= nil and service.GetPropertyChangedSignal ~= nil
 		end
 		local display = if watchable(gui) then ctx.observe.ViewportDisplaySize(gui :: GuiService) else nil
 		local mouse = if watchable(input) then ctx.observe.MouseEnabled(input :: UserInputService) else nil
@@ -533,7 +542,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local function fact(key: string, service: Instance?, property: string): unknown
 			local value = ctx.read(preview[key], use)
 			if value == nil and service ~= nil then
-				value = (service :: any)[property]
+				value = (
+					(
+						service :: unknown
+					) :: { ViewportDisplaySize: Enum.DisplaySize?, MouseEnabled: boolean?, TouchEnabled: boolean? }
+				)[property]
 			end
 			return value
 		end
@@ -587,7 +600,15 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			if input == nil then
 				return nil
 			end
-			local ok, value = pcall((ctx.observe :: any)[property], input)
+			local ok, value = pcall(
+				({
+					PreferredInput = ctx.observe.PreferredInput,
+					MouseEnabled = ctx.observe.MouseEnabled,
+					TouchEnabled = ctx.observe.TouchEnabled,
+					GamepadEnabled = ctx.observe.GamepadEnabled,
+				} :: { [string]: (UserInputService) -> ComposeTypes.Readable<unknown> })[property],
+				input
+			)
 			return if ok then value else nil
 		end
 		local preferred, mouse, touch, gamepad =
@@ -857,14 +878,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
 		return assert(layout.insets(sides))
 	end
-	local fades: { [Instance]: { source: ComposeTypes.Cell<{ Shared.Value<number> }>, transparency: (ComposeTypes.Use) -> number } } = setmetatable(
-		{},
-		{ __mode = "k" }
-	) :: any
+	local fades = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
+		[Instance]: { source: ComposeTypes.Cell<{ Shared.Value<number> }>, transparency: (ComposeTypes.Use) -> number },
+	}
 	function ctx.fadeTo(node: Instance, value: Shared.Value<number>): ()
 		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade").source:set({ value })
 	end
-	function ctx.fade(properties: Shared.CanvasGroupNativeProps): Frame
+	function ctx.fade(properties: Shared.CanvasGroupNativeProps, persistent: boolean?): Frame
 		local fields = (properties :: unknown) :: { [unknown]: unknown }
 		local source = Compose.cell({ (fields.GroupTransparency or 0) :: Shared.Value<number> })
 		fields.GroupTransparency = nil
@@ -897,7 +917,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					"fade-stroke"
 				),
 				Compose.show(function(use: ComposeTypes.Use)
-					return use(shown) and amount(use) > 0
+					return use(shown) and (persistent == true or amount(use) > 0)
 				end, function()
 					local automatic = ctx.observe.AutomaticSize(node)
 					local leaving = frames ~= nil and (read(source:peek()[1] :: Shared.Value<number>) or 0) < 0.5
@@ -1349,25 +1369,24 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	function ctx.navigationGamepads(): { Enum.UserInputType }
 		local service = config.userInputService
 		local probe = (service :: unknown) :: {
-			GetNavigationGamepads: ((any) -> { Enum.UserInputType })?,
-			GetLastInputType: ((any) -> Enum.UserInputType)?,
+			GetNavigationGamepads: ((UserInputService) -> { Enum.UserInputType })?,
+			GetLastInputType: ((UserInputService) -> Enum.UserInputType)?,
 		}
 		if service and probe.GetNavigationGamepads then
-			local pads = (service :: any):GetNavigationGamepads()
+			local pads = service:GetNavigationGamepads()
 			if #pads > 0 then
 				return pads
 			end
 		end
-		local last = if service and probe.GetLastInputType then (service :: any):GetLastInputType() else nil
+		local last = if service and probe.GetLastInputType then service:GetLastInputType() else nil
 		if last and string.find(last.Name, "^Gamepad") then
 			return { last }
 		end
 		return { Enum.UserInputType.Gamepad1 }
 	end
-	local actionGroups: { [ComposeTypes.Owner]: { [Instance]: { [string]: ActionGroup } } } = setmetatable(
-		{},
-		{ __mode = "k" }
-	) :: any
+	local actionGroups = (
+		setmetatable({}, { __mode = "k" }) :: unknown
+	) :: { [ComposeTypes.Owner]: { [Instance]: { [string]: ActionGroup } } }
 	function ctx.action(
 		node: Instance,
 		name: string,
@@ -1382,13 +1401,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if settings.group then
 			local byNode = actionGroups[owner]
 			if byNode == nil then
-				byNode = setmetatable({}, { __mode = "k" }) :: any
+				byNode = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: ActionGroup } }
 				actionGroups[owner] = byNode
 			end
-			local named = (byNode :: any)[node]
+			local named = byNode[node]
 			if named == nil then
 				named = {}
-				(byNode :: any)[node] = named
+				byNode[node] = named
 			end
 			group = named[settings.group]
 		end
@@ -1601,7 +1620,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end,
 				action,
 			})
-			local byNode = (actionGroups[owner] :: any)[node]
+			local byNode = actionGroups[owner][node]
 			byNode[settings.group] = { context = context, parent = parent, available = available }
 		else
 			context = Host.InputContext("Facet" .. name)({

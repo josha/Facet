@@ -157,11 +157,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	end
 	local function adjustment(
 		node: GuiObject,
-		spec: { value: Shared.Value<number>, onChange: ((number) -> ())? },
+		spec: InputTypes.AdjustmentState,
 		apply: (number) -> (),
 		cancel: (() -> ())?,
-		minimum: number,
-		maximum: number,
+		minimum: number?,
+		maximum: number?,
 		options: Adjust?
 	): ()
 		local adjust: Adjust = options or {}
@@ -169,7 +169,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		runtime.connect(node, "SelectionGained", function() end)
 		attributes(node, {
 			disabled = function(use: ComposeTypes.Use): boolean
-				return not stopEnabled(spec, use)
+				return not stopEnabled((spec :: unknown) :: InputTypes.EnabledOptions, use)
 			end,
 		})
 		if minimum ~= nil and maximum ~= nil then
@@ -203,12 +203,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		local function stickHeld(): boolean
 			local service = ctx.config.services.UserInputService
-			local probe = (service :: unknown) :: { GetGamepadState: ((any, Enum.UserInputType) -> { InputObject })? }
+			local probe = (
+				service :: unknown
+			) :: { GetGamepadState: ((UserInputService, Enum.UserInputType) -> { InputObject })? }
 			if service == nil or probe.GetGamepadState == nil then
 				return false
 			end
 			for _, pad in ctx.navigationGamepads() do
-				for _, state in (service :: any):GetGamepadState(pad) do
+				for _, state in service:GetGamepadState(pad) do
 					if state.KeyCode == E.KeyCode.Thumbstick1 and state.Position.Magnitude >= STICK_PRESS then
 						return true
 					end
@@ -264,21 +266,21 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							stopRepeat()
 						end
 					end)
-					local function peekUse(source: any): any
+					local function peekUse<T>(source: ComposeTypes.Readable<T>): T
 						return read(source)
 					end
 					local function movable(direction: number): () -> boolean
 						return function(): boolean
-							if not active(peekUse :: any) then
+							if not active(peekUse) then
 								return false
 							end
 							if adjust.arrows then
-								return adjust.arrows(peekUse :: any, direction)
+								return adjust.arrows(peekUse, direction)
 							end
 							if minimum == nil or maximum == nil then
 								return true
 							end
-							local value = read(spec.value)
+							local value = read(((spec :: unknown) :: { value: Shared.ValueNumber }).value)
 							return if direction < 0 then value > minimum else value < maximum
 						end
 					end
@@ -320,7 +322,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							if minimum == nil or maximum == nil then
 								return true
 							end
-							local value = read(spec.value, use)
+							local value = read(((spec :: unknown) :: { value: Shared.ValueNumber }).value, use)
 							return if direction < 0 then value > minimum else value < maximum
 						end
 					end
@@ -2093,7 +2095,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				return stopEnabled(options, use)
 			end,
 		})
-		adjustment(node, options :: any, options.onAdjust, nil, if bound then -bound else nil :: any, bound :: any, {
+		adjustment(node, options, options.onAdjust, nil, if bound then -bound else nil, bound, {
 			vertical = axis == "vertical",
 			once = options.repeats ~= true,
 			arrows = function(use: ComposeTypes.Use, direction: number): boolean
@@ -2137,12 +2139,20 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				changed(spec, math.clamp(value, minimum, count))
 			end
 		end
+		local room, drawn = Compose.cell(math.huge), Compose.cell(math.huge)
+		local markExtent = Compose.formula(function(use: ComposeTypes.Use): number
+			local width = math.min(use(room), use(drawn))
+			return math.min(markSize, math.max(1, math.floor((width - math.max(0, count - 1) * 2) / count)))
+		end)
 		local marks: { ComposeTypes.Child } = {}
 		for index = 1, count do
 			local filled = function(use: ComposeTypes.Use)
 				return read(spec.value, use) >= index
 			end
-			local name, size = `Level{index}`, D2.fromOffset(markSize, markSize)
+			local name = `Level{index}`
+			local size = function(use: ComposeTypes.Use): UDim2
+				return D2.fromOffset(use(markExtent), use(markExtent))
+			end
 			local mark: GuiObject
 			local paint: "TextColor3" | "ImageColor3" | "BackgroundColor3"
 			if segment == "glyph" then
@@ -2152,7 +2162,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						Size = size,
 						BackgroundTransparency = 1,
 						Selectable = false,
-						TextSize = markSize,
+						TextSize = markExtent,
 						TextXAlignment = E.TextXAlignment.Center,
 						Text = function(use: ComposeTypes.Use)
 							return if filled(use) then glyphs.filled else glyphs.empty
@@ -2178,7 +2188,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				mark, paint =
 					ctx.styled(
 						Host.Frame(name)({
-							Size = D2.fromOffset(markSize, math.round(markSize * (0.3 + 0.7 * index / count))),
+							Size = function(use: ComposeTypes.Use): UDim2
+								return D2.fromOffset(use(markExtent), math.round(use(markExtent) * (0.3 + 0.7 * index / count)))
+							end,
 							Selectable = false,
 							ctx.corner(2),
 						}),
@@ -2227,11 +2239,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local markContent = Host.Frame(contentProps)
 
 		local effectiveInput = ctx.effectiveInput()
-		local room, drawn = Compose.cell(math.huge), Compose.cell(math.huge)
 		local function spacing(use: ComposeTypes.Use, width: number): number
 			local reach = if effectiveInput(use) == "Touch" then ctx.metric("targetSizes.minimum", use) else 0
-			local fits = if count > 1 then math.floor((width - count * markSize) / (count - 1)) else math.huge
-			return math.max(2, math.min(reach - markSize, fits))
+			local extent = use(markExtent)
+			if extent < markSize then
+				return 2
+			end
+			local fits = if count > 1 then math.floor((width - count * extent) / (count - 1)) else math.huge
+			return math.max(2, math.min(reach - extent, fits))
 		end
 		local function gap(use: ComposeTypes.Use): number
 			return spacing(use, use(room))
@@ -2346,7 +2361,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		root = ctx.styled(Host.TextButton(p), if rating then "rating" else "level-picker")
 		local parent = ctx.observe.Parent(root)
-		local unit = ctx.observe.AbsoluteSize((marks[1] :: unknown) :: GuiObject)
+		local unit = ctx.layoutUnit(root)
 		local holderSize = Compose.cell(0)
 		local observation = runtime.host.observation
 		local stopHolder: (() -> ())? = nil
@@ -2378,7 +2393,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end)
 		local own = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local width, scale = use(holderSize), (use(unit) :: Vector2).X / markSize
+			local width, scale = use(holderSize), use(unit)
 			room:set(if width > 0 and scale > 0 then width / scale else math.huge)
 			local box = use(own).X
 			drawn:set(if box > 0 and scale > 0 then box / scale else math.huge)

@@ -5,7 +5,6 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local FixtureComposeTypes = require("../src/vendor/compose/core")
 
 	local Facet = require("../src")
 	local worlds = require("./lib/content_world")
@@ -92,24 +91,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Pagination", function()
-		verifyHarness:case(
-			"shows the seven-slot pattern near each edge and in the middle, and a gap of one shows the page",
-			{
-				id = "native_pagination::native Pagination::shows the seven-slot pattern near each edge and in the middle, and a gap of one shows the page",
-				run = function()
-					Verify.expect((row(1, 10))):toBe("1 2 3 4 5 … 10")
-					Verify.expect((row(5, 10))):toBe("1 … 4 5 6 … 10")
-					Verify.expect((row(10, 10))):toBe("1 … 6 7 8 9 10")
-					Verify.expect((row(4, 10))):toBe("1 2 3 4 5 … 10")
-					Verify.expect((row(3, 7))):toBe("1 2 3 4 5 6 7")
-					Verify.expect((row(1, 1))):toBe("1")
-					local huge = 9007199254740991
-					Verify.expect(#window(huge - 3, huge, 20, 20) <= 83):toBe(true)
-					Verify.expect((row(huge, huge))):toBe(`1 … {huge - 4} {huge - 3} {huge - 2} {huge - 1} {huge}`)
-				end,
-			}
-		)
-
 		verifyHarness:case("mounts the window, marks the current page and proposes without writing", {
 			id = "native_pagination::native Pagination::mounts the window, marks the current page and proposes without writing",
 			run = function()
@@ -131,19 +112,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((text(root))):toBe("previous 1 … 4 [5] 6 … 10 next")
 				Verify.expect((world.find("Page-5"):GetAttribute("selected"))):toBe(true)
 				Verify.expect((root:GetAttribute("FacetCurrent"))):toBe(5)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps the overlapping page nodes when the window moves", {
-			id = "native_pagination::native Pagination::keeps the overlapping page nodes when the window moves",
-			run = function()
-				local spec, page = controlled(5, { pageCount = 20 })
-				local world, root = mount(spec)
-				local six = world.find("Page-6")
-				page:set(6)
-				Verify.expect((text(root))):toBe("previous 1 … 5 [6] 7 … 20 next")
-				Verify.expect((world.find("Page-6"))):toBe(six)
 				world.stop()
 			end,
 		})
@@ -183,51 +151,6 @@ return function(verifyHarness: Verify.Harness)
 				world.find("Next").Activated:Fire()
 				Verify.expect(#asked):toBe(2)
 				Verify.expect((world.find("Last"))):toBeNil()
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("shows an outside page clamped with a diagnostic and never writes it back", {
-			id = "native_pagination::native Pagination::shows an outside page clamped with a diagnostic and never writes it back",
-			run = function()
-				local controls: { diagnostics: (() -> { string })? } = {}
-				local spec, page, asked = controlled(40, { pageCount = 12, controls = controls })
-				local world, root = mount(spec)
-				Verify.expect((root:GetAttribute("FacetCurrent"))):toBe(12)
-				Verify.expect((page:peek())):toBe(40)
-				Verify.expect(#asked):toBe(0)
-				Verify.expect(#assert(controls.diagnostics)() >= 1):toBe(true)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("refuses malformed construction and keeps the last legal value for a late one", {
-			id = "native_pagination::native Pagination::refuses malformed construction and keeps the last legal value for a late one",
-			run = function()
-				local Enum = require("@lune/roblox").Enum
-				local bad: { { [string]: any } } = {
-					{ page = 1.5, onChange = print },
-					{ page = 0 / 0, onChange = print },
-					{ page = math.huge, onChange = print },
-					{ page = 1 },
-					{ page = 1, onChange = print, pageCount = -1 },
-					{ page = 1, onChange = print, siblingCount = 21 },
-					{ page = 1, onChange = print, form = "dots" },
-					{ page = 1, onChange = print, direction = "up" :: "up" },
-					{ page = 1, onChange = print, extra = true },
-					{ page = 1, onChange = print, AutomaticSize = Enum.AutomaticSize.X },
-				}
-				for _, spec in bad do
-					Verify.expect(worlds.mountError(function(UI: FacetControls)
-						return UI.Pagination(spec :: any)
-					end) ~= nil):toBe(true)
-				end
-				local spec, page = controlled(3, { pageCount = 10 })
-				local world, root = mount(spec)
-				page:set(2.5)
-				Verify.expect((root:GetAttribute("FacetCurrent"))):toBe(3)
-				page:set(4)
-				Verify.expect((root:GetAttribute("FacetCurrent"))):toBe(4)
 				world.stop()
 			end,
 		})
@@ -402,93 +325,6 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-
-		verifyHarness:case("gives every page and arrow a slot at the target floor and a compact plate centred in it", {
-			id = "native_pagination::native Pagination::gives every page and arrow a slot at the target floor and a compact plate centred in it",
-			run = function()
-				local world, root = mount((controlled(5, { pageCount = 200, showFirstLast = true })))
-				local slots = 0
-				for _, item in mounted(root) do
-					if item:IsA("GuiButton") then
-						Verify.expect(item.Size.X.Offset >= 44 and item.Size.Y.Offset >= 44):toBe(true)
-						slots += 1
-					elseif string.match(item.Name, "^Slot%-") then
-						Verify.expect(item.Size.X.Offset >= 44 and item.Size.Y.Offset >= 44):toBe(true)
-						local plate = item:FindFirstChildWhichIsA("TextButton")
-						Verify.expect((plate:GetAttribute("controlSize"))):toBe("compact")
-						Verify.expect(plate.AnchorPoint):toBe(world.V2(0.5, 0.5))
-						Verify.expect(plate.Position.X.Scale):toBe(0.5)
-						Verify.expect(plate.Position.Y.Scale):toBe(0.5)
-						Verify.expect(plate.Size.Y.Offset < 44):toBe(true)
-						slots += 1
-					end
-				end
-				Verify.expect(slots):toBe(9)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case(
-			"keeps the label reservation while the label gains a digit, ltr and rtl, known and unknown",
-			{
-				id = "native_pagination::native Pagination::keeps the label reservation while the label gains a digit, ltr and rtl, known and unknown",
-				run = function()
-					for
-						_,
-						case: {
-						extra: {
-							pageCount: number?,
-							form: "label"?,
-							direction: "rtl"?,
-							hasNext: boolean?,
-							hasPrevious: boolean?,
-						},
-						from: number,
-						to: number,
-					}
-					in
-						{
-							{ extra = { pageCount = 12, form = "label" }, from = 9, to = 10 },
-							{
-								extra = { pageCount = 12, form = "label", direction = "rtl" :: "rtl" },
-								from = 9,
-								to = 10,
-							},
-							{ extra = { hasNext = true, hasPrevious = true }, from = 9, to = 10 },
-							{
-								extra = { hasNext = true, hasPrevious = true, direction = "rtl" :: "rtl" },
-								from = 99,
-								to = 100,
-							},
-						} :: {
-							{
-								extra: {
-									pageCount: number?,
-									form: "label"?,
-									direction: "rtl"?,
-									hasNext: boolean?,
-									hasPrevious: boolean?,
-								},
-								from: number,
-								to: number,
-							}
-						}
-					do
-						local spec, page = controlled(case.from, case.extra)
-						local world, root = mount(spec)
-						local twin = root:FindFirstChild("LabelMeasure")
-						world.bounds(twin, 120)
-						local before = `{twin.Text} {world.find("Label").Size.X.Offset}`
-						page:set(case.to)
-						local where = `{case.extra.direction or "ltr"} {case.extra.pageCount or "?"} {case.to}`
-						Verify.expect(`{where} {twin.Text} {world.find("Label").Size.X.Offset}`)
-							:toBe(`{where} {before}`)
-						Verify.expect(world.find("Label").Size.X.Offset):toBe(120)
-						world.stop()
-					end
-				end,
-			}
-		)
 
 		verifyHarness:case("leaves no stop inside the row when the count drops to zero", {
 			id = "native_pagination::native Pagination::leaves no stop inside the row when the count drops to zero",

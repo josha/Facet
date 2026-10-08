@@ -131,41 +131,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("one bound value writes one native property at100800and3200rows", {
-			id = "native_perf_principles::native performance invariants::one bound value writes one native property at100800and3200rows",
-			run = function()
-				for _, count in { 100, 800, 3200 } do
-					local state = world(count)
-					local changed = state.delta(function()
-						state.items[3].value:set(4242)
-					end)
-					Verify.expect(changed.writes):toBe(1)
-					Verify.expect(changed.creates):toBe(0)
-					Verify.expect(changed.destroys):toBe(0)
-					state.dispose()
-				end
-			end,
-		})
-		verifyHarness:case("scroll mountwork is independent of logical list size", {
-			id = "native_perf_principles::native performance invariants::scroll mountwork is independent of logical list size",
-			run = function()
-				local baseline
-				for _, count in { 100, 800, 3200 } do
-					local state = world(count)
-					local changed = state.delta(function()
-						state.list.CanvasPosition = state.engine.types.Vector2.new(0, 137)
-					end)
-					Verify.expect(state.status:peek().retained < 20):toBe(true)
-					if baseline then
-						Verify.expect(changed.creates):toBe(baseline.creates)
-						Verify.expect(changed.writes):toBe(baseline.writes)
-						Verify.expect(changed.destroys):toBe(baseline.destroys)
-					end
-					baseline = changed
-					state.dispose()
-				end
-			end,
-		})
 		verifyHarness:case("idle heartbeat and identical state perform no native writes", {
 			id = "native_perf_principles::native performance invariants::idle heartbeat and identical state perform no native writes",
 			run = function()

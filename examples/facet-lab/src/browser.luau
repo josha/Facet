@@ -327,13 +327,15 @@ function browser.mount(opts: MountOpts): any
 			if not isValid(page, entry.axis or {}, states, entry.context) then
 				continue
 			end
+			local width = (entry.state and entry.state.cellWidth) or data.cellWidth
 			local overrides = matrixWidth(
 				Compose,
 				configure(page, c, entry.axis or {}, states, entry.context),
 				available,
 				page.kind == "control",
 				ctx.types,
-				entry.state ~= nil and entry.state.name == "long text"
+				entry.state ~= nil and entry.state.name == "long text",
+				if type(width) == "number" then width else nil
 			)
 			local height = if entry.state and entry.state.cellHeight then entry.state.cellHeight else data.cellHeight
 			table.insert(

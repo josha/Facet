@@ -465,15 +465,22 @@ return function(
 				levelClock:restart()
 			end
 		end)
+		local presentedLevel = 1
 		local function level(use: ComposeTypes.Use?): number
+			if phase and read(phase.exiting, use) then
+				return presentedLevel
+			end
 			local direction: number = if use then use(levelDirection) else levelDirection:peek()
 			if direction == 0 or reduce(use) then
+				presentedLevel = 1
 				return 1
 			end
 			if not read(levelReady, use) then
+				presentedLevel = 0
 				return 0
 			end
-			return present(readSource(levelClock.progress, use))
+			presentedLevel = present(readSource(levelClock.progress, use))
+			return presentedLevel
 		end
 		local shown: Nav.Presence? = if appearance
 			then {
@@ -920,7 +927,7 @@ return function(
 			BorderSizePixel = 0,
 			if shown
 				then ctx.styled(
-					ctx.fade {
+					ctx.fade({
 						Name = "MenuGroup",
 						BackgroundTransparency = 1,
 						Size = D2.fromScale(1, 1),
@@ -928,7 +935,7 @@ return function(
 							return 1 - shown.opacity(use)
 						end,
 						levelFade,
-					},
+					}, true),
 					"menu-group"
 				)
 				else levelFade,
@@ -967,6 +974,20 @@ return function(
 			end
 		)
 		local measured, rowSize = sizes[1], sizes[2]
+		local rowExtent = Compose.cell(rowSize:peek())
+		local rowRest = rest(ctx, function(): (string, boolean, boolean?)
+			local size = rowSize:peek()
+			local filled = size.X > 0 and size.Y > 0
+			return tostring(size), filled, filled
+		end, function(use: ComposeTypes.Use): string
+			return tostring(use(rowSize))
+		end, true)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local size = use(rowSize)
+			if not use(rested) or use(rowRest) then
+				rowExtent:set(size)
+			end
+		end)
 		enter = function(id: string, node: GuiObject?, prefix: { string }?)
 			local nextPath = table.clone(prefix or path:peek())
 			table.insert(nextPath, id)
@@ -1065,15 +1086,21 @@ return function(
 			local left, _, right = insets(use)
 			room:set(math.max(0, use(extent).X - left - right - 16))
 		end)
+		local presentedPlace: Vector2? = nil
+		local presentedPivot = V2.zero
 		local function place(use: ComposeTypes.Use): (Vector2, Vector2)
+			if phase and use(phase.exiting) and presentedPlace then
+				return presentedPlace, presentedPivot
+			end
 			local at, bounds = anchorBounds(use)
 			local offer, panelSize, offset = use(extent), use(measured), originOf(use)
 			local insetLeft, insetTop, insetRight, insetBottom = insets(use)
 			local low, high =
 				V2.new(insetLeft + 8, insetTop + 8), V2.new(offer.X - insetRight - 8, offer.Y - insetBottom - 8)
 			if use(asSheet) then
-				return V2.new(12 + insetLeft, math.max(12 + insetTop, offer.Y - insetBottom - panelSize.Y - 12)),
-					V2.zero
+				local at = V2.new(12 + insetLeft, math.max(12 + insetTop, offer.Y - insetBottom - panelSize.Y - 12))
+				presentedPlace, presentedPivot = at, V2.zero
+				return at, V2.zero
 			end
 			local x, y = at.X - offset.X, at.Y - offset.Y
 			local depth = #use(path)
@@ -1139,7 +1166,9 @@ return function(
 				local reach = if align == "start" then y elseif align == "end" then y + bounds.Y else y + bounds.Y / 2
 				pivot = V2.new(if after then 0 else panelSize.X, math.clamp(reach - top, 0, panelSize.Y))
 			end
-			return V2.new(left, top), pivot
+			local at = V2.new(left, top)
+			presentedPlace, presentedPivot = at, pivot
+			return at, pivot
 		end
 		local panelGeometry: Types.FrameNativeProps = {
 			Size = function(use: ComposeTypes.Use)
@@ -1148,7 +1177,7 @@ return function(
 				end
 				local _, insetTop, _, insetBottom = insets(use)
 				local height = math.min(
-					use(rowSize).Y + carve("top") + carve("bottom"),
+					use(rowExtent).Y + carve("top") + carve("bottom"),
 					math.max(44, use(extent).Y - 24 - insetTop - insetBottom),
 					if spec.maxHeight then math.max(60, spec.maxHeight) else math.huge
 				)
@@ -2809,8 +2838,12 @@ return function(
 				tallestCaption:set(tallest)
 			end
 		end
+		local segmentInput = ctx.effectiveInput()
 		local function stripHeight(use: ComposeTypes.Use?): number
 			local rung = ctx.controlSize(spec.controlSize, "height", use)
+			if spec.controlSize == nil or segmentInput(use) == "Touch" then
+				rung = math.max(rung, 44 + 2 * segmentMetrics.inset)
+			end
 			local package = read(ctx.config.theme, use)
 			local recipe = if package and package.chrome then package.chrome.control else nil
 			local inset = if recipe then recipe.contentInsets else nil
@@ -2899,7 +2932,10 @@ return function(
 									and automatic ~= E.AutomaticSize.Y
 									and automatic ~= E.AutomaticSize.XY
 								then
-									height = authored.Y.Offset
+									height = math.max(
+										authored.Y.Offset,
+										if segmentInput(use) == "Touch" then 44 + 2 * segmentMetrics.inset else 0
+									)
 								end
 								return D2.fromOffset(0, math.max(0, height - 2 * segmentMetrics.inset))
 							end
@@ -3080,6 +3116,16 @@ return function(
 							end),
 						})
 					end
+					local function segmentPadding(use: ComposeTypes.Use): number
+						local padding = button:FindFirstChildWhichIsA("UIPadding")
+						if padding then
+							local left = padding:GetStyled("PaddingLeft") :: UDim
+							local right = padding:GetStyled("PaddingRight") :: UDim
+							return left.Offset + right.Offset
+						end
+						return sideChrome(spec.controlSize, use, read(spec.iconOnly, use) == true)
+					end
+
 					local underlined = Compose.isReadable(spec.indicator)
 						or type(spec.indicator) == "function"
 						or spec.indicator == "underline"
@@ -3105,13 +3151,7 @@ return function(
 											width,
 											math.min(
 												math.max(44, use(room) - 2 * segmentMetrics.inset),
-												math.ceil(caption)
-													+ sideChrome(
-														spec.controlSize,
-														use,
-														read(spec.iconOnly, use) == true
-													)
-													+ glyph
+												math.ceil(caption) + segmentPadding(use) + glyph
 											)
 										)
 									end
@@ -3157,7 +3197,8 @@ return function(
 					if style == "segmented" then
 						local measure = ctx.text {
 							Name = "CaptionMeasure",
-							Visible = false,
+							TextTransparency = 1,
+							Interactable = false,
 							TextWrapped = false,
 							Text = function(use: ComposeTypes.Use)
 								return labelOf(use)
@@ -3166,9 +3207,10 @@ return function(
 							FontFace = ctx.observeStyled.FontFace(button),
 						}
 						surfaces.attach(button, { measure :: Types.Child })
-						local naturalWidth = ctx.layoutBounds(measure)
+						local naturalWidth = ctx.observe.TextBounds(measure)
+						local measureUnit = ctx.layoutUnit(measure)
 						Compose.watch(function(use: ComposeTypes.Use)
-							captionNatural:set(use(naturalWidth).X)
+							captionNatural:set(use(naturalWidth).X / use(measureUnit))
 						end)
 						local function peers(use: ComposeTypes.Use): number
 							return #use(options)
@@ -3179,12 +3221,14 @@ return function(
 						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
-						local bounds = ctx.observe.TextBounds(button)
+						local caption = button:FindFirstChild("Title", true)
+						local bounds = if caption and caption:IsA("TextLabel")
+							then ctx.observe.TextBounds(caption)
+							else ctx.observe.TextBounds(button)
+						local captionUnit = ctx.layoutUnit(button)
 						local extent = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
-							use(bounds)
-							use(extent)
-							captionHeights[button] = button.TextBounds.Y
+							captionHeights[button] = use(bounds).Y / use(captionUnit)
 							measureCaptions()
 						end)
 						segmentBoxes[button] =
@@ -3291,8 +3335,8 @@ return function(
 				elseif style == "segmented" then derive(function(use: ComposeTypes.Use?)
 					return if not across(use)
 						then E.AutomaticSize.Y
-						elseif labelled then E.AutomaticSize.XY
-						else E.AutomaticSize.Y
+						elseif labelled then E.AutomaticSize.X
+						else E.AutomaticSize.None
 				end, spec.axis)
 				else E.AutomaticSize.Y,
 		}
@@ -3339,7 +3383,7 @@ return function(
 			end
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {
-					MinSize = derive(function(use: ComposeTypes.Use?)
+					MinSize = function(use: ComposeTypes.Use)
 						local rung = if spec.controlSize ~= nil
 							then ctx.controlSize(spec.controlSize, "height", use)
 							else 44
@@ -3347,10 +3391,14 @@ return function(
 							0,
 							if read(spec.axis, use) == "y"
 								then 0
+								elseif segmentInput(use) == "Touch" then math.max(
+									rung,
+									44 + 2 * segmentMetrics.inset
+								)
 								elseif spec.controlSize ~= nil then rung
 								else rung + 2 * segmentMetrics.inset
 						)
-					end, spec.axis, spec.controlSize, if spec.controlSize ~= nil then ctx.config.theme else nil),
+					end,
 				},
 			})
 			if spec.corners then

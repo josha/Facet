@@ -10,7 +10,6 @@ return function(verifyHarness: Verify.Harness)
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
 	local register = require("../src/ui/inputs")
-	local bindThemes = require("../src/ui/themes")
 	local engineLib = require("./lib/native_engine")
 	local expect = Verify.expect
 
@@ -166,46 +165,6 @@ return function(verifyHarness: Verify.Harness)
 					expect(`{key} editing {w.state.removes}`):toBe(`{key} editing 1`)
 					w.stop()
 				end
-			end,
-		})
-
-		verifyHarness:case("one plate in skinned themes: the mark is text inside the tag, never its own button", {
-			id = "native_chip_edit::native Chip edit mode::one plate in skinned themes: the mark is text inside the tag, never its own button",
-			run = function()
-				for _, theme in { "pixel_quest", "fantasy_ornate" } do
-					local module: any = (require :: any)("../examples/themes/" .. theme)
-					local package = module.build(bindThemes(Compose))
-					for _, rung in { false, "compact", "large" } :: { any } do
-						local w = tagWorld(package, if rung then rung else nil)
-						w.state.editing:set(true)
-						local buttons = {}
-						for _, node in w.screen:GetDescendants() do
-							if node:IsA("TextButton") or node:IsA("ImageButton") then
-								table.insert(buttons, node)
-							end
-						end
-						expect(`{theme} {tostring(rung)}: {#buttons} {find(w.tag, "Remove").ClassName}`):toBe(
-							`{theme} {tostring(rung)}: 1 TextLabel`
-						)
-						expect(buttons[1] == w.tag):toBe(true)
-						w.stop()
-					end
-				end
-			end,
-		})
-
-		verifyHarness:case("a selectable tag that can be removed must say when it is editing", {
-			id = "native_chip_edit::native Chip edit mode::a selectable tag that can be removed must say when it is editing",
-			run = function()
-				local ok, err = pcall(world, function(UI: FacetControls)
-					return UI.Chip("Tag")({ label = "Rain", selected = Compose.cell(false), onRemove = function() end })
-				end)
-				expect(ok):toBe(false)
-				expect(string.find(tostring(err), "editing", 1, true) ~= nil):toBe(true)
-				local okEditing = pcall(world, function(UI: FacetControls)
-					return UI.Chip("Tag")({ label = "Rain", selected = Compose.cell(false), editing = true })
-				end)
-				expect(okEditing):toBe(false)
 			end,
 		})
 

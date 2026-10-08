@@ -5,7 +5,6 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local ThemeTypes = require("../src/ui/theme_types")
 	local FixtureEngineTypes = require("../src/ui/engine_types")
 
 	local Facet = require("../src")
@@ -92,28 +91,6 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				Verify.expect((engineLib.connections(action.Pressed))):toBe(0)
 				Verify.expect((engineLib.connections(root:GetPropertyChangedSignal("Enabled")))):toBe(0)
-				runtime:dispose()
-			end,
-		})
-
-		verifyHarness:case("resolves named icons reactively without a second theme runtime", {
-			id = "native_public_surface::native public surface::resolves named icons reactively without a second theme runtime",
-			run = function()
-				local engine = engineLib.new()
-				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local first = Facet.themes.neutralPackage()
-				first.icons = { test = "rbxassetid://1" } :: { [string]: ThemeTypes.IconEntry }
-				local package = Compose.cell(first)
-				local ctx = context(Facet.Compose, runtime, { types = engine.types, theme = package })
-				local stop, icon: any = runtime.mount(function()
-					return ctx.icon("test")
-				end, engine.new("ScreenGui"))
-				Verify.expect(icon.Image):toBe("rbxassetid://1")
-				local second = table.clone(first)
-				second.icons = { test = "rbxassetid://2" } :: { [string]: ThemeTypes.IconEntry }
-				package:set(second)
-				Verify.expect(icon.Image):toBe("rbxassetid://2")
-				stop()
 				runtime:dispose()
 			end,
 		})

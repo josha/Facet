@@ -1,21 +1,23 @@
 --!strict
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
+local Drag = require("./drag_types")
+local Env = require("./environment_types")
 local activation = require("./activation")
 local motion = require("./motion")
-local services = setmetatable({}, { __mode = "kv" }) :: any
+local services = setmetatable({} :: { [Types.Context]: Drag.Service }, { __mode = "kv" })
 
-return function(ctx: Types.Context): any
+return function(ctx: Types.Context): Drag.Service
 	if services[ctx] then
 		return services[ctx]
 	end
 	local Compose, V2, D2 = ctx.Compose, ctx.types.Vector2, ctx.types.UDim2
-	local targets: { [Instance]: any } = {}
+	local targets: { [Instance]: Drag.RegisteredTarget } = {}
 	local proxies: { [Instance]: Instance } = {}
-	local current: any = nil
+	local current: Drag.Session? = nil
 	local returning: { [Instance]: () -> () } = {}
-	local state = Compose.cell(nil :: any)
-	local service: any = { state = state }
+	local state = Compose.cell(nil :: Drag.Session?)
+	local service = { state = state } :: Drag.Service
 	services[ctx] = service
 
 	local function ancestor(node: Instance?): Instance?
@@ -64,7 +66,7 @@ return function(ctx: Types.Context): any
 		return at.X >= origin.X and at.Y >= origin.Y and at.X <= origin.X + size.X and at.Y <= origin.Y + size.Y
 	end
 	local function hitTest(at: Vector2): (Instance?, RaycastResult?)
-		local source = current.source :: GuiObject
+		local source = (current :: Drag.Session).source
 		local playerGui = source:FindFirstAncestorWhichIsA("BasePlayerGui")
 		local players = ctx.config.services.Players
 		if playerGui == nil and players and players.LocalPlayer then
@@ -135,46 +137,50 @@ return function(ctx: Types.Context): any
 		end
 		return nil, nil
 	end
-	local function info(target: Instance): any
+	local function info(target: Instance): Drag.Proposal
+		local session = current :: Drag.Session
 		return {
-			source = current.source,
-			target = target,
-			mode = current.mode,
-			operation = ctx.read(targets[target].operation or "move"),
-			position = current.position,
-			hit = current.hit,
+			source = session.source,
+			target = target :: Env.DropDestination,
+			mode = session.mode,
+			operation = ctx.read(targets[target].operation or "move") :: Env.DropOperation,
+			position = session.position,
+			hit = session.hit,
 			complete = function()
 				return false
 			end,
 		}
 	end
-	local function validate(target: Instance, proposal: any): (boolean, string?)
+	local function validate(target: Instance, proposal: Drag.Proposal): (boolean, string?)
+		local session = current :: Drag.Session
+		local valid = session.spec.valid
+		local operations = session.spec.operations
 		local spec = targets[target]
 		if not spec or not available(target) then
 			return false, "The destination is no longer available"
 		end
-		if current.spec.valid and not current.spec.valid() then
+		if valid and not valid() then
 			return false, "The source changed"
 		end
-		if current.spec.operations and not table.find(current.spec.operations, proposal.operation) then
+		if operations and not table.find(operations, proposal.operation) then
 			return false, "This operation is not supported"
 		end
 		if spec.propose then
-			spec.propose(current.payload, proposal)
+			spec.propose(session.payload, proposal)
 		end
 		if spec.accepts then
-			return spec.accepts(current.payload, proposal)
+			return spec.accepts(session.payload, proposal)
 		end
 		return true, nil
 	end
-	local function leave(session: any)
+	local function leave(session: Drag.Session)
 		local target = session.target
 		if target then
 			target:SetAttribute("FacetDropState", nil)
 			target:SetAttribute("FacetDropReason", nil)
 			local spec = targets[target]
 			if spec and spec.feedback then
-				spec.feedback.Enabled = false
+				((spec.feedback :: unknown) :: { Enabled: boolean }).Enabled = false
 			end
 			if spec and spec.onLeave then
 				spec.onLeave(session.payload)
@@ -195,7 +201,7 @@ return function(ctx: Types.Context): any
 		return D2.fromOffset((position.X - origin.X) / scale, (position.Y - origin.Y) / scale)
 	end
 	local function raiseStatus(ghost: GuiObject)
-		local label = current.status
+		local label = (current :: Drag.Session).status
 		if not label then
 			return
 		end
@@ -205,11 +211,11 @@ return function(ctx: Types.Context): any
 				top = math.max(top, node.ZIndex)
 			end
 		end
-		label.Parent.ZIndex = top + 1
+		(label.Parent :: GuiObject).ZIndex = top + 1
 		label.ZIndex = top + 2
 	end
 
-	local function updateStatus(session: any)
+	local function updateStatus(session: Drag.Session)
 		local label = session.status
 		if not label then
 			return
@@ -231,7 +237,7 @@ return function(ctx: Types.Context): any
 			label.Text ..= " to " .. ctx.read(targets[session.target].label)
 		end
 		if session.mode == "armed" and not session.pending then
-			local input = session.effectiveInput(nil)
+			local input = (session.effectiveInput :: (Types.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse")(nil)
 			if label.Text ~= "" then
 				label.Text ..= " · "
 			end
@@ -243,10 +249,10 @@ return function(ctx: Types.Context): any
 				label.Text ..= " · " .. session.spec.navigationHint
 			end
 		end
-		local panel = label.Parent
+		local panel = label.Parent :: GuiObject
 		panel.Visible = label.Text ~= ""
 			and (session.pending or session.mode == "armed" or not session.accepted or session.operation ~= "move")
-		local layer = panel.Parent
+		local layer = panel.Parent :: GuiBase2d
 		local destination = session.target and targets[session.target]
 		local anchor = destination and (destination.focusTarget or session.target)
 		local point = session.position
@@ -267,12 +273,13 @@ return function(ctx: Types.Context): any
 				then preview.AbsolutePosition
 				else point
 			local pickup = localPoint(ghost, origin)
-			local extent = session.previewSize
+			local extent = session.previewSize :: Vector2
 			local beside = anchor and anchor:IsA("GuiObject") and session.target ~= session.source
 			local x = pickup.X.Offset + gap
 			local y = pickup.Y.Offset + gap
 			if beside then
-				local edge = localPoint(ghost, anchor.AbsolutePosition + anchor.AbsoluteSize)
+				local guiAnchor = anchor :: GuiObject
+				local edge = localPoint(ghost, guiAnchor.AbsolutePosition + guiAnchor.AbsoluteSize)
 				x = edge.X.Offset + gap
 				y = pickup.Y.Offset - extent.Y - size.Y - gap * 3
 				if y < gap and edge.Y.Offset + extent.Y + size.Y + gap * 3 <= bounds.Y then
@@ -289,7 +296,7 @@ return function(ctx: Types.Context): any
 				ghost.Position.Y.Offset + extent.Y + gap - ctx.metric("targetSizes.minimum")
 			)
 		end
-		label:FindFirstChildWhichIsA("UISizeConstraint").MaxSize =
+		(label:FindFirstChildWhichIsA("UISizeConstraint") :: UISizeConstraint).MaxSize =
 			V2.new(math.max(1, math.min(280, bounds.X - gap * 4)), math.huge)
 		panel.Position = D2.fromOffset(
 			math.clamp(at.X.Offset + gap, gap, math.max(gap, bounds.X - size.X - gap)),
@@ -303,7 +310,7 @@ return function(ctx: Types.Context): any
 			end
 		end)
 	end
-	local function releaseGhost(session: any, accepted: boolean?)
+	local function releaseGhost(session: Drag.Session, accepted: boolean?)
 		local ghost = session.ghost
 		if not ghost then
 			return
@@ -326,16 +333,19 @@ return function(ctx: Types.Context): any
 		local point = if session.spec.returnPosition
 			then session.spec.returnPosition()
 			else session.source.AbsolutePosition + session.source.AbsoluteSize / 2
-		point = (point or session.origin) - session.pickupSize / 2 + ghost.AnchorPoint * session.previewSize
+		point = (point or session.origin)
+			- session.pickupSize / 2
+			+ ghost.AnchorPoint * (session.previewSize :: Vector2)
 		local animated: Instance = ghost
 		local stopScale: (() -> ())?
-		local goal: any = { Position = localPoint(ghost, point) }
+		local goal: { Position: UDim2?, Scale: number? } = { Position = localPoint(ghost, point) }
 		if accepted then
 			local scale = ghost:FindFirstChildWhichIsA("UIScale")
 			if scale == nil then
-				stopScale, scale = ctx.runtime.mount(function()
+				local stop, mounted = ctx.runtime.mount(function()
 					return ctx.Host.UIScale {}
 				end, ghost)
+				stopScale, scale = stop, mounted :: UIScale
 			end
 			animated, goal = assert(scale), { Scale = 0 }
 		end
@@ -417,8 +427,9 @@ return function(ctx: Types.Context): any
 				current.highlight:Destroy()
 				current.highlight = nil
 			end
-			if target and targets[target].onEnter then
-				targets[target].onEnter(current.payload)
+			local onEnter = target and targets[target].onEnter
+			if onEnter then
+				onEnter(current.payload)
 			end
 		end
 		current.hit = hit
@@ -431,15 +442,16 @@ return function(ctx: Types.Context): any
 			target:SetAttribute("FacetDropReason", reason)
 			local feedback = targets[target].feedback
 			if feedback then
-				feedback.Enabled = accepted
+				((feedback :: unknown) :: { Enabled: boolean }).Enabled = accepted
 				if feedback:IsA("UIStroke") then
 					feedback:RemoveTag("facet-drop-accepted")
 					feedback:RemoveTag("facet-drop-rejected")
 					feedback:AddTag(if accepted then "facet-drop-accepted" else "facet-drop-rejected")
 				end
 			end
-			if targets[target].onUpdate then
-				targets[target].onUpdate(current.payload, proposal, accepted, reason)
+			local onUpdate = targets[target].onUpdate
+			if onUpdate then
+				onUpdate(current.payload, proposal, accepted, reason)
 			end
 		end
 		updateStatus(current)
@@ -496,7 +508,8 @@ return function(ctx: Types.Context): any
 		state:set(table.clone(session))
 		destination:SetAttribute("FacetDropState", "pending")
 		session.executing = true
-		local ok, result = pcall(spec.onDrop, session.payload, proposal)
+		local ok, result =
+			pcall(spec.onDrop :: (unknown, Env.DropInfo) -> (boolean | "pending")?, session.payload, proposal)
 		session.executing = false
 		if not ok then
 			proposal.complete(false, tostring(result))
@@ -513,17 +526,19 @@ return function(ctx: Types.Context): any
 	end
 	function service.begin(
 		source: GuiObject,
-		spec: any,
-		mode: string,
+		spec: Drag.SourceSpec,
+		mode: "pointer" | "armed",
 		press: InputObject?,
-		preview: any,
+		preview: (GuiObject | false)?,
 		pickup: { position: Vector2, source: GuiObject }?
 	)
 		service.finish(false, "Replaced by another drag")
 		if returning[source] then
 			returning[source]()
 		end
-		local payload = if type(spec.payload) == "function" then spec.payload(source) else spec.payload
+		local payload = if type(spec.payload) == "function"
+			then (spec.payload :: (GuiObject) -> unknown)(source)
+			else spec.payload
 		if payload == nil then
 			return
 		end
@@ -549,7 +564,7 @@ return function(ctx: Types.Context): any
 		}
 		local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
 		if layer then
-			local session = current
+			local session = current :: Drag.Session
 			session.stopStatus = ctx.runtime.mount(function()
 				session.effectiveInput = ctx.effectiveInput()
 				local label = ctx.styled(
@@ -600,7 +615,7 @@ return function(ctx: Types.Context): any
 					if node:IsA("GuiObject") then
 						node.Interactable, node.Active, node.Selectable = false, false, false
 					elseif node:IsA("UIDragDetector") or node:IsA("InputContext") then
-						(node :: any).Enabled = false
+						((node :: unknown) :: { Enabled: boolean }).Enabled = false
 					end
 				end
 				ghost:RemoveTag("facet-drag-held")
@@ -609,13 +624,15 @@ return function(ctx: Types.Context): any
 				ghost:SetAttribute("FacetDragFeedback", true)
 				ghost.Size = D2.fromOffset(source.AbsoluteSize.X, source.AbsoluteSize.Y)
 				ghost.Parent = layer
-				current.previewSize = source.AbsoluteSize
-				ghost.Position = localPoint(ghost, current.position or current.origin)
-				current.ghost = ghost
+				local active = current :: Drag.Session
+				active.previewSize = source.AbsoluteSize
+				ghost.Position =
+					localPoint(ghost, (current :: Drag.Session).position or (current :: Drag.Session).origin)
+				active.ghost = ghost
 				raiseStatus(ghost)
 			end
 		end
-		state:set(table.clone(current))
+		state:set(table.clone(current :: Drag.Session))
 		if spec.onStart then
 			spec.onStart(payload, mode)
 		end
@@ -651,7 +668,7 @@ return function(ctx: Types.Context): any
 					if destination.scroll(session.position, delta) then
 						return
 					end
-					node = node.Parent
+					node = (node :: Instance).Parent
 				end
 				while node do
 					if node:IsA("ScrollingFrame") and node.ScrollingEnabled then
@@ -727,14 +744,14 @@ return function(ctx: Types.Context): any
 		end
 		current.previewSize = extent
 		current.armedPreview = if current.mode == "armed" then image else nil
-		ghost.Position = localPoint(ghost, current.position or current.origin)
+		ghost.Position = localPoint(ghost, (current :: Drag.Session).position or (current :: Drag.Session).origin)
 		current.ghost = ghost
 		raiseStatus(ghost)
 	end
 
-	function service.register(target: Instance, spec: any)
-		local owned = table.clone(spec)
-		local feedback: Instance?
+	function service.register(target: Instance, spec: Drag.TargetSpec)
+		local owned = (table.clone(spec) :: unknown) :: Drag.RegisteredTarget
+		local feedback: (UIStroke | Highlight)?
 		if spec.feedback == false then
 			feedback = nil
 		elseif target:IsA("GuiObject") then
@@ -748,7 +765,7 @@ return function(ctx: Types.Context): any
 				BorderStrokePosition = ctx.types.Enum.BorderStrokePosition.Inner,
 			})
 		else
-			feedback = (ctx.Host :: any).Highlight({
+			feedback = ctx.Host.Highlight({
 				Name = "FacetDropHighlight",
 				FillTransparency = 1,
 				Enabled = false,
@@ -757,7 +774,7 @@ return function(ctx: Types.Context): any
 			})
 		end
 		if feedback then
-			feedback.Parent = target
+			((feedback :: unknown) :: { Parent: Instance? }).Parent = target
 		end
 		owned.feedback = feedback
 		targets[target] = owned

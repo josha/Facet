@@ -1246,20 +1246,78 @@ return function(verifyHarness: Verify.Harness)
 			return handle, w.find("Pill"), w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")
 		end
 
-		verifyHarness:case("the grip is a direct child of a panel that neither lays out nor pads it", {
-			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::the grip is a direct child of a panel that neither lays out nor pads it",
+		verifyHarness:case("links the native grabber to the Header Close selection stop", {
+			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::links the native grabber to the Header Close selection stop",
+			run = function()
+				local w = mount(nil, WIDE)
+				local grabber, close = w.find("Grabber"), w.find("Close")
+				Verify.expect(grabber.NextSelectionDown):toBe(close)
+				Verify.expect(grabber.NextSelectionRight):toBe(close)
+				Verify.expect(close.NextSelectionUp):toBe(grabber)
+				Verify.expect(close.NextSelectionLeft):toBe(grabber)
+				close.Activated:Fire()
+				Verify.expect(w.shown:peek()):toBe(false)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("keeps Close between the grabber and content in every native Sheet selection route", {
+			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::keeps Close between the grabber and content in every native Sheet selection route",
+			run = function()
+				for _, extra in
+					{
+						{},
+						{ placement = "side", edge = "left" },
+						{ placement = "side", edge = "right" },
+						{ placement = "center" },
+						{ dragIndicator = "hidden" },
+						{ header = false, hero = { image = "rbxassetid://1", height = 100, sticky = true } },
+					} :: { any }
+				do
+					extra.content = built(function(UI: FacetControls)
+						return UI.VStack {
+							UI.Button "First" { label = "First" },
+							UI.Button "Second" { label = "Second" },
+						}
+					end)
+					local w = mount(extra, WIDE)
+					local grabber, close, first = w.find("Grabber"), w.find("Close"), w.find("First")
+					local panel = w.find("SheetPanel")
+					Verify.expect(close.Visible and close.Selectable):toBe(true)
+					Verify.expect(grabber.NextSelectionDown):toBe(close)
+					Verify.expect(close.NextSelectionDown):toBe(first)
+					Verify.expect(first.NextSelectionUp):toBe(close)
+					Verify.expect(close.SelectionOrder < first.SelectionOrder):toBe(true)
+					Verify.expect(close:IsDescendantOf(panel)):toBe(true)
+					Verify.expect(panel.SelectionGroup):toBe(true)
+					for _, direction in { "Up", "Down", "Left", "Right" } do
+						Verify.expect(panel["SelectionBehavior" .. direction]):toBe(w.Enum.SelectionBehavior.Stop)
+					end
+					close.Activated:Fire()
+					Verify.expect(w.shown:peek()):toBe(false)
+					w.stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("the grip and column share an unpadded presentation group", {
+			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::the grip and column share an unpadded presentation group",
 			run = function()
 				local bindThemes = require("../src/ui/themes")
 				local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
 				for _, extra in { {}, { placement = "side" :: "side" } } :: { any } do
 					local w = mount(extra, { room = WIDE.room, motionLevel = "none", theme = fantasy })
 					local panel = w.find("SheetPanel")
-					Verify.expect(w.find("DragHandle").Parent):toBe(panel)
+					local group = panel:FindFirstChild("Fade")
+					Verify.expect(group.ClassName):toBe("CanvasGroup")
+					Verify.expect(w.find("DragHandle").Parent):toBe(group)
+					Verify.expect(group:FindFirstChildWhichIsA("UIListLayout")):toBeNil()
+					Verify.expect(group:FindFirstChildWhichIsA("UIPadding")):toBeNil()
 					Verify.expect((panel:FindFirstChildWhichIsA("UIListLayout"))):toBeNil()
 					local inset = panel:FindFirstChildWhichIsA("UIPadding")
 					Verify.expect(inset == nil or (inset.PaddingLeft.Offset == 0 and inset.PaddingTop.Offset == 0))
 						:toBe(true)
-					Verify.expect(w.find("SheetColumn").Parent):toBe(panel)
+					Verify.expect(w.find("SheetColumn").Parent):toBe(group)
 					w.stop()
 				end
 			end,

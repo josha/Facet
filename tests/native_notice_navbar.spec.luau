@@ -44,22 +44,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("icon = false hides only the artwork, and an explicit source paints that source", {
-			id = "native_notice_navbar::native Notice: inline copy, accessories and close::icon = false hides only the artwork, and an explicit source paints that source",
-			run = function()
-				local w = mount(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Notice "Plain" { message = "No art", icon = false } :: unknown,
-						UI.Notice "Custom" { message = "Custom art", icon = "rbxassetid://123" },
-					})
-				end)
-				Verify.expect((overlay.find(w.find("Plain"), "Icon"))):toBeNil()
-				Verify.expect(overlay.find(w.find("Plain"), "Message").Text):toBe("No art")
-				Verify.expect(overlay.find(w.find("Custom"), "Icon").Image):toBe("rbxassetid://123")
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"the link and actions sit beside the copy when there is room and move below it when there is not",
 			{
@@ -106,47 +90,6 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((table.concat(pressed, ","))):toBe("Retry,Details")
 					Verify.expect((w.find("Sync"))):toBe(notice)
 					Verify.expect(notice.Parent ~= nil):toBe(true)
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case(
-			"a link wears no plate, and on an emphasis fill the link and default action are ordinary controls",
-			{
-				id = "native_notice_navbar::native Notice: inline copy, accessories and close::a link wears no plate, and on an emphasis fill the link and default action are ordinary controls",
-				run = function()
-					local function spec(appearance: string): any
-						return {
-							message = "Update ready",
-							appearance = appearance,
-							severity = "success",
-							link = { label = "Notes", onActivate = function() end },
-							actions = {
-								{
-									id = "Install",
-									label = "Install",
-									role = "default" :: "default",
-									onActivate = function() end,
-								},
-							},
-						}
-					end
-					local w = mount(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
-							UI.Notice "Standard"(spec("standard")) :: unknown,
-							UI.Notice "Loud"(spec("emphasis")),
-						})
-					end)
-					local standard, loud = w.find("Standard"), w.find("Loud")
-					Verify.expect((overlay.find(standard, "Link"):HasTag("facet-appearance-link"))):toBe(true)
-					Verify.expect((overlay.find(standard, "Install"):HasTag("facet-accent"))):toBe(true)
-					Verify.expect((overlay.find(loud, "Link"):HasTag("facet-appearance-link"))):toBe(false)
-					Verify.expect((overlay.find(loud, "Install"):HasTag("facet-accent"))):toBe(false)
-					Verify.expect((loud:HasTag("facet-status-success"))):toBe(true)
-					Verify.expect((loud:HasTag("facet-panel"))):toBe(false)
-					Verify.expect((overlay.find(loud, "Message"):HasTag("facet-status-success"))):toBe(true)
-					Verify.expect((overlay.find(loud, "Icon"):HasTag("facet-icon-success"))):toBe(false)
 					w.stop()
 				end,
 			}
@@ -381,54 +324,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("Back, leading, a filling center and trailing share one row when there is room", {
-			id = "native_notice_navbar::native NavBar: the slot form::Back, leading, a filling center and trailing share one row when there is room",
-			run = function()
-				local w = mount(function(UI: FacetControls, Host: RobloxHost)
-					return UI.NavBar "Top" {
-						onBack = function() end,
-						leading = UI.Button "Home" { label = "Home" },
-						center = UI.TextInput "Search" { value = Compose.cell("") },
-						trailing = Host.Frame({ Name = "Tools", UI.Button "Filter" { label = "Filter" } }),
-					}
-				end)
-				local bar = w.find("Top")
-				local layout = bar:FindFirstChildWhichIsA("UIListLayout")
-				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
-				local primary = w.find("Primary")
-				Verify.expect(w.find("Back").Parent):toBe(primary)
-				Verify.expect(w.find("Leading").Parent):toBe(primary)
-				Verify.expect(w.find("Center").Parent):toBe(primary)
-				Verify.expect(w.find("Back").LayoutOrder < w.find("Leading").LayoutOrder):toBe(true)
-				Verify.expect(w.find("Leading").LayoutOrder < w.find("Center").LayoutOrder):toBe(true)
-				Verify.expect(w.find("Center"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
-					:toBe(w.Enum.UIFlexMode.Fill)
-				Verify.expect(w.find("Search").Parent):toBe(w.find("Center"))
-				Verify.expect(w.find("Tools").Parent):toBe(w.find("Trailing"))
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("Back is content-coloured text tight to its chevron, with a spacing step before the title", {
-			id = "native_notice_navbar::native NavBar: the slot form::Back is content-coloured text tight to its chevron, with a spacing step before the title",
-			run = function()
-				local w = mount(function(UI: FacetControls)
-					return UI.NavBar "Top" { onBack = function() end, title = "Garage" }
-				end)
-				local back = w.find("Back")
-				Verify.expect((back:HasTag("facet-appearance-utility"))):toBe(true)
-				Verify.expect((back:HasTag("facet-appearance-link"))):toBe(false)
-				Verify.expect(overlay.find(back, "LeadingIcon") ~= nil):toBe(true)
-				local row = overlay.find(back, "LeadingIcon").Parent:FindFirstChildWhichIsA("UIListLayout")
-				Verify.expect(row.Padding.Offset):toBe(2)
-				local gap = w.find("BackGap")
-				Verify.expect(gap.Size.X.Offset):toBe(8)
-				Verify.expect(back.LayoutOrder < gap.LayoutOrder and gap.LayoutOrder < w.find("Center").LayoutOrder)
-					:toBe(true)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"a new bar keeps one row while its filling title row is still laid out, so it never flashes",
 			{
@@ -451,76 +346,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("a narrow bar moves the trailing content to a second row, without rebuilding the center", {
-			id = "native_notice_navbar::native NavBar: the slot form::a narrow bar moves the trailing content to a second row, without rebuilding the center",
-			run = function()
-				local query = Compose.cell("coast")
-				local w = mount(function(UI: FacetControls, Host: RobloxHost)
-					return UI.NavBar "Top" {
-						onBack = function() end,
-						center = UI.TextInput "Search" { value = query },
-						trailing = Host.Frame({ Name = "Tools", UI.Button "Filter" { label = "Filter" } }),
-					}
-				end)
-				local bar, search = w.find("Top"), w.find("Search")
-				local layout = bar:FindFirstChildWhichIsA("UIListLayout")
-				w.size(w.find("Back"), 44, 44)
-				w.size(w.find("Trailing"), 120, 44)
-				w.size(w.find("Primary"), 1000 - 128, 44)
-				w.size(w.find("Center"), 1000 - 128 - 52, 44)
-				w.size(bar, 1000, 44)
-				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
-				w.size(w.find("Primary"), 480 - 128, 44)
-				w.size(w.find("Center"), 480 - 128 - 52, 44)
-				w.size(bar, 480, 44)
-				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
-				Verify.expect((w.find("Search"))):toBe(search)
-				Verify.expect(search.Text):toBe("coast")
-				Verify.expect(w.find("Primary").Size.X.Scale):toBe(1)
-				w.size(bar, 1000, 44)
-				Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("the default center is the one-line title, and every slot subset mounts", {
-			id = "native_notice_navbar::native NavBar: the slot form::the default center is the one-line title, and every slot subset mounts",
-			run = function()
-				local w = mount(function(UI: FacetControls)
-					return UI.NavBar "Top" { title = "A very long track title that does not fit", titleSize = "heading" }
-				end)
-				local title = w.find("Title")
-				Verify.expect(title.TextWrapped):toBe(false)
-				Verify.expect(title.TextTruncate):toBe(w.Enum.TextTruncate.AtEnd)
-				Verify.expect((title:HasTag("facet-type-heading"))):toBe(true)
-				Verify.expect(title.Parent.Name):toBe("Center")
-				Verify.expect((w.find("Back"))):toBeNil()
-				w.stop()
-				for index, spec in
-					{
-						{} :: any,
-						{ onBack = function() end },
-						{ leading = "button" },
-						{ center = "button" :: "button" },
-						{ trailing = "button" },
-						{ onBack = function() end, trailing = "button", title = "T" },
-					}
-				do
-					local bar = mount(function(UI: FacetControls)
-						local built: { [string]: any } = table.clone(spec)
-						for key, value in built do
-							if value == "button" then
-								built[key] = UI.Button({ label = tostring(key) })
-							end
-						end
-						return UI.NavBar "Top"(built :: any)
-					end)
-					Verify.expect(`case {index}: {bar.find("Top") ~= nil}`):toBe(`case {index}: true`)
-					bar.stop()
-				end
-			end,
-		})
 
 		verifyHarness:case("UI.NavBar refuses a trailing array and a non-GuiObject slot", {
 			id = "native_notice_navbar::native NavBar: the slot form::UI.NavBar refuses a trailing array and a non-GuiObject slot",

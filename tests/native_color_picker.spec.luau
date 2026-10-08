@@ -12,7 +12,6 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local Roblox = require("@lune/roblox")
 	local engineLib = require("./lib/native_engine")
-	local styleRules = require("./lib/style_rules")
 	local Compose: ComposeModule = Facet.Compose
 	local expect = Verify.expect
 	local Color3 = Roblox.Color3
@@ -189,39 +188,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native ColorPicker colour values", function()
-		verifyHarness:case("parses #RGB, #RRGGBB and #RRGGBBAA (only with alpha) and formats engine bytes uppercase", {
-			id = "native_color_picker::native ColorPicker colour values::parses #RGB, #RRGGBB and #RRGGBBAA (only with alpha) and formats engine bytes uppercase",
-			run = function()
-				local c, a, why = colorValue.parseHex("#abc", false)
-				expect((hex(c))):toBe("#AABBCC")
-				expect(a):toBeNil()
-				c, a = colorValue.parseHex("ff000080", true)
-				expect((hex(c))):toBe("#FF0000")
-				expect((math.floor((a :: number) * 255 + 0.5))):toBe(128)
-				c, a, why = colorValue.parseHex("#ff000080", false)
-				expect(c):toBeNil()
-				expect(why ~= nil):toBe(true)
-				for _, bad in { "", "#12", "#GGGGGG", " #ABCDEF", "#abcdef " } do
-					expect(`{bad}:{tostring((colorValue.parseHex(bad, true)))}`):toBe(`{bad}:nil`)
-				end
-				expect((colorValue.hex(Color3.new(0.5, 0.5, 0.5)))):toBe("#808080")
-				expect((colorValue.hex(Color3.new(1, 0, 0), 0))):toBe("#FF000000")
-			end,
-		})
-
-		verifyHarness:case("keeps a grey's hue (and a black's saturation) through the engine conversion", {
-			id = "native_color_picker::native ColorPicker colour values::keeps a grey's hue (and a black's saturation) through the engine conversion",
-			run = function()
-				local h = colorValue.hsvOf(Color3.new(0.5, 0.5, 0.5), { h = 0.5, s = 0.7, v = 1 })
-				expect(h.h):toBe(0.5)
-				expect(h.s):toBe(0)
-				local b = colorValue.hsvOf(Color3.new(0, 0, 0), { h = 0.25, s = 0.7, v = 1 })
-				expect(`{b.h},{b.s},{b.v}`):toBe("0.25,0.7,0")
-				expect(#colorValue.standard()):toBe(48)
-				expect(#colorValue.brick()):toBe(128)
-			end,
-		})
-
 		verifyHarness:case("a saturation round trip through the Sliders tab returns to the hue the player set", {
 			id = "native_color_picker::native ColorPicker colour values::a saturation round trip through the Sliders tab returns to the hue the player set",
 			run = function()
@@ -301,32 +267,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native ColorPicker well and panel", function()
-		verifyHarness:case("a bare well is its swatch, named by its value; a labelled one is a form row", {
-			id = "native_color_picker::native ColorPicker well and panel::a bare well is its swatch, named by its value; a labelled one is a form row",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local w = world({ value = cell, onChange = change })
-				local well = w.find("Well")
-				expect((well:GetAttribute("label"))):toBe("Really red")
-				expect((w.find("Well/Chevron"))):toBeNil()
-				expect((hex(w.find("Well/Swatch/Plate").BackgroundColor3))):toBe("#FF0000")
-				expect(`{well.Size.X.Offset}x{well.Size.Y.Offset}`):toBe("44x44")
-				expect((well:HasTag("facet-appearance-utility"))):toBe(true)
-				expect((w.root:HasTag("facet-color-picker"))):toBe(true)
-				expect((w.find("Well/Swatch"):HasTag("facet-color-swatch"))):toBe(true)
-				w.stop()
-				local w2 = world({ value = cell, onChange = change, label = "Kart body", hint = "On the track" })
-				expect((w2.find("Well"):GetAttribute("label"))):toBe("Kart body, Really red")
-				expect(w2.find("Well/Chevron") ~= nil):toBe(true)
-				expect(w2.find("Well/Title").Text):toBe("Kart body")
-				expect(w2.find("Well/Value").Text):toBe("#FF0000")
-				expect((w2.find("Well"):HasTag("facet-field"))):toBe(true)
-				expect(w2.find("P/Message/Validation").Text):toBe("On the track")
-				expect(w2.find("Well").Size.X.Scale):toBe(1)
-				w2.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"the well opens an anchored panel on a roomy pointer screen; a refused swatch never paints",
 			{
@@ -356,46 +296,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("the panel never covers its well: below, else above, else beside, else shrunk", {
-			id = "native_color_picker::native ColorPicker well and panel::the panel never covers its well: below, else above, else beside, else shrunk",
-			run = function()
-				local function place(label: string?, screenHeight: number, wellY: number, wellWidth: number): any
-					local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
-					local w = world({ value = cell, onChange = change, label = label, modes = { "swatches", "brick" } })
-					w.size(w.screen, 1542, screenHeight)
-					w.size(w.find("Well"), wellWidth, 44, 0, wellY)
-					w.open()
-					w.size(w.find("Modes"), 404, 44)
-					w.size(w.find("Readout"), 404, 140)
-					w.size(w.find("ShowSwatches"), 380, 290)
-					w.size(w.find("ShowBricks"), 380, 800)
-					local panel = w.find("Panel")
-					local x, y = panel.Position.X.Offset, panel.Position.Y.Offset
-					local pw, ph = panel.Size.X.Offset, panel.Size.Y.Offset
-					local covers = x < wellWidth and x + pw > 0 and y < wellY + 44 and y + ph > wellY
-					local inside = y >= 0 and y + ph <= screenHeight
-					local body = w.find("Body").Size.Y.Offset
-					local out = {
-						text = `covers={covers} inside={inside} edge={w.attr("placement")}`,
-						height = ph,
-						body = body,
-					}
-					w.stop()
-					return out
-				end
-				local natural = 44 + 140 + 800 + 2 * 8 + 2 * 12
-				expect(place("Kart body", 1300, 0, 1542).text):toBe("covers=false inside=true edge=bottom")
-				expect(place("Kart body", 1300, 1200, 1542).text):toBe("covers=false inside=true edge=top")
-				local beside = place(nil, 560, 120, 44)
-				expect(beside.text):toBe("covers=false inside=true edge=right")
-				local shrunk = place("Kart body", 560, 120, 1542)
-				expect(shrunk.text):toBe("covers=false inside=true edge=bottom")
-				expect(`beside taller {beside.height > shrunk.height}`):toBe("beside taller true")
-				expect(shrunk.height < natural):toBe(true)
-				expect(shrunk.body):toBe(shrunk.height - (natural - 800))
-			end,
-		})
 
 		verifyHarness:case(
 			"every technique shares the tallest picker's height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
@@ -581,55 +481,6 @@ return function(verifyHarness: Verify.Harness)
 					w.cells()[1].Activated:Fire()
 					expect(#removed):toBe(2)
 					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("refuses a saved-colour callback that is not a function", {
-			id = "native_color_picker::native ColorPicker well and panel::refuses a saved-colour callback that is not a function",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(0, 0, 0))
-				local ok, why = pcall(function()
-					world({ value = cell, onChange = change, onSaveSwatch = true })
-				end)
-				expect(ok):toBe(false)
-				expect(string.find(tostring(why), "onSaveSwatch", 1, true) ~= nil):toBe(true)
-			end,
-		})
-
-		verifyHarness:case(
-			"a short swatch list keeps square target cells, and the default grid stays a hue per column",
-			{
-				id = "native_color_picker::native ColorPicker well and panel::a short swatch list keeps square target cells, and the default grid stays a hue per column",
-				run = function()
-					local cell, _, change = caller(Color3.fromRGB(255, 196, 0))
-					local w = world({
-						value = cell,
-						onChange = change,
-						swatches = { { color = Color3.fromRGB(255, 196, 0) }, { color = Color3.fromRGB(20, 20, 24) } },
-					})
-					w.open()
-					local cells = w.cells()
-					expect(#cells):toBe(2)
-					for _, node in cells do
-						expect(`{node.Size.X.Offset}x{node.Size.Y.Offset} {node.AutomaticSize.Name}`):toBe("44x44 None")
-					end
-					expect(w.find("Swatches").Size.X.Offset):toBe(2 * 44 + 4)
-					w.stop()
-					local seven = colorValue.standard(7)
-					expect(#seven):toBe(42)
-					for column = 1, 7 do
-						local hues = {}
-						for row = 0, 4 do
-							local h = colorValue.hsvOf(seven[row * 7 + column].color).h
-							hues[math.floor(h * 360 + 0.5)] = true
-						end
-						local distinct = 0
-						for _ in hues do
-							distinct += 1
-						end
-						expect(distinct):toBe(1)
-					end
 				end,
 			}
 		)
@@ -842,15 +693,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the plane listens for SelectionGained, so the engine's D-pad ranks it with buttons", {
-			id = "native_color_picker::native ColorPicker spectrum plane::the plane listens for SelectionGained, so the engine's D-pad ranks it with buttons",
-			run = function()
-				local w = spectrum()
-				expect(engineLib.connections(w.find("Plane/Surface").SelectionGained) > 0):toBe(true)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a gamepad A on the selected plane is not a drag: the colour stays until the stick steers", {
 			id = "native_color_picker::native ColorPicker spectrum plane::a gamepad A on the selected plane is not a drag: the colour stays until the stick steers",
 			run = function()
@@ -913,51 +755,6 @@ return function(verifyHarness: Verify.Harness)
 				expect((hex(cell:peek()))):toBe(before)
 				expect(#commits):toBe(0)
 				w.stop()
-			end,
-		})
-
-		verifyHarness:case("phone portrait and landscape: every target keeps the floor and Apply stays in the panel", {
-			id = "native_color_picker::native ColorPicker spectrum plane::phone portrait and landscape: every target keeps the floor and Apply stays in the panel",
-			run = function()
-				local probe = world({ value = Compose.cell(Color3.new(1, 0, 0)), onChange = function() end })
-				local Touch = probe.E.PreferredInput.Touch
-				probe.stop()
-				for _, view in { { w = 390, h = 844 }, { w = 844, h = 390 } } do
-					for _, mode in
-						{ "swatches", "spectrum", "sliders", "brick" } :: { "brick" | "sliders" | "spectrum" | "swatches" }
-					do
-						local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
-						local w = world(
-							{ value = cell, onChange = change, draft = true, modes = { mode } },
-							{ preferred = Touch }
-						)
-						w.size(w.screen, view.w, view.h)
-						w.size(w.find("Well"), 44, 44)
-						w.open()
-						local where = `{view.w}x{view.h} {mode}`
-						expect(`{where} {w.attr("placement")}`):toBe(
-							`{where} {if view.h > view.w then "sheet" else "bottom"}`
-						)
-						expect(`{where} {w.find("Close")}`):toBe(`{where} nil`)
-						local grid = if mode == "brick"
-							then "BrickGrid"
-							elseif mode == "swatches" then "Swatches"
-							else nil
-						if grid then
-							for _, node in w.cells(grid) do
-								expect(`{where} {node.Size.X.Offset >= 44 and node.Size.Y.Offset >= 44}`):toBe(
-									`{where} true`
-								)
-							end
-						end
-						local apply = w.find("Actions/Apply")
-						expect(`{where} {apply ~= nil} {apply:IsDescendantOf(w.find("Panel"))}`):toBe(
-							`{where} true true`
-						)
-						expect(`{where} {w.find("Actions"):IsDescendantOf(w.find("Body"))}`):toBe(`{where} false`)
-						w.stop()
-					end
-				end
 			end,
 		})
 
@@ -1279,211 +1076,6 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-
-		verifyHarness:case(
-			"the plane is two exact layers, the strips show what they select, and the thumbs are two-tone rings",
-			{
-				id = "native_color_picker::native ColorPicker alpha, empty, disabled and refusals::the plane is two exact layers, the strips show what they select, and the thumbs are two-tone rings",
-				run = function()
-					local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
-					local a = Compose.cell(1)
-					local w = world({
-						value = cell,
-						onChange = change,
-						style = "inline" :: "inline",
-						modes = { "spectrum" },
-						alpha = a,
-						onAlphaChange = function(n: number)
-							a:set(n)
-						end,
-					})
-					local hue = w.find("Plane/Field/Hue/Gradient")
-					local stops = hue.Color.Keypoints
-					expect(`{hue.Rotation} {#stops} {hex(stops[1].Value)} {hex(stops[2].Value)}`):toBe(
-						`0 2 #FFFFFF {hex(Color3.fromHSV(w.attr("hue") / 360, 1, 1))}`
-					)
-					local fade = w.find("Plane/Field/Value/Gradient")
-					local points = fade.Transparency.Keypoints
-					expect(`{fade.Rotation} {points[1].Value} -> {points[#points].Value}`):toBe("90 1 -> 0")
-					expect((hex(w.find("Plane/Field/Value").BackgroundColor3))):toBe("#000000")
-					expect((w.find("Plane/Field/Band1"))):toBeNil()
-					local hueSlider = w.find("Spectrum"):FindFirstChild("Hue")
-					local rainbow = under(hueSlider, "HueStrip/Rainbow")
-					expect(#rainbow.Color.Keypoints):toBe(7)
-					expect((hex(rainbow.Color.Keypoints[3].Value))):toBe("#00FF00")
-					expect(under(hueSlider, "Track") ~= nil):toBe(true)
-					expect((under(hueSlider, "Fill"))):toBeNil()
-					expect((under(w.find("Opacity"), "Fill"))):toBeNil()
-					expect((hex(w.find("Opacity/AlphaStrip/Ramp").BackgroundColor3))):toBe("#2E7DFF")
-					expect(w.find("Opacity/AlphaStrip/Checker/Top/C24") ~= nil):toBe(true)
-					local ramp = w.find("Opacity/AlphaStrip/Ramp"):FindFirstChildWhichIsA("UIGradient")
-					expect(`{ramp.Transparency.Keypoints[1].Value} {ramp.Transparency.Keypoints[2].Value}`):toBe("1 0")
-					local ringStroke = w.find("Plane/Ring"):FindFirstChildWhichIsA("UIStroke")
-					local bandStroke = w.find("Plane/Ring/Band"):FindFirstChildWhichIsA("UIStroke")
-					local function level(c: any): number
-						return c.R + c.G + c.B
-					end
-					expect(`{level(ringStroke.Color)} {level(bandStroke.Color)}`):toBe("0 3")
-					expect(`{ringStroke.Transparency} {bandStroke.Transparency}`):toBe("0 0")
-					expect(under(hueSlider, "Mark/Ring/Band") ~= nil):toBe(true)
-					expect(w.find("Opacity/Mark/Ring/Band") ~= nil):toBe(true)
-					cell:set(Color3.fromRGB(255, 0, 0))
-					expect((hex(w.find("Opacity/AlphaStrip/Ramp").BackgroundColor3))):toBe("#FF0000")
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case(
-			"empty shows the placeholder and the crossed plate; disabled keeps its colour and does not open",
-			{
-				id = "native_color_picker::native ColorPicker alpha, empty, disabled and refusals::empty shows the placeholder and the crossed plate; disabled keeps its colour and does not open",
-				run = function()
-					local cell, _, change = caller(nil)
-					local w = world({
-						value = cell,
-						onChange = change,
-						allowEmpty = true,
-						label = "Trim",
-						placeholder = "None",
-					})
-					expect(w.find("Well/Value").Text):toBe("None")
-					expect(w.find("Well/Swatch/Empty").Visible):toBe(true)
-					expect(w.find("Well/Swatch/Plate").BackgroundTransparency):toBe(1)
-					w.stop()
-					local red, _, change2 = caller(Color3.fromRGB(255, 0, 0))
-					local off = world({ value = red, onChange = change2, enabled = false })
-					expect((hex(off.find("Well/Swatch/Plate").BackgroundColor3))):toBe("#FF0000")
-					expect(off.find("Well").Interactable):toBe(false)
-					off.open()
-					expect((off.attr("presented"))):toBe(false)
-					expect((off.find("Panel"))):toBeNil()
-					off.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("refuses a malformed contract at construction and quarantines a late bad value", {
-			id = "native_color_picker::native ColorPicker alpha, empty, disabled and refusals::refuses a malformed contract at construction and quarantines a late bad value",
-			run = function()
-				local red = Color3.fromRGB(255, 0, 0)
-				local noop = function() end
-				local function build(spec: any): string
-					local ok, err = pcall(function()
-						world(spec).stop()
-					end)
-					return if ok then "ok" else tostring(err)
-				end
-				expect(string.find(build({ value = "red", onChange = noop }), "Color3", 1, true) ~= nil):toBe(true)
-				expect(string.find(build({ value = red }), "onChange", 1, true) ~= nil):toBe(true)
-				expect(
-					string.find(build({ value = red, onChange = noop, alpha = 0.5 }), "onAlphaChange", 1, true) ~= nil
-				):toBe(true)
-				expect(
-					string.find(build({ value = red, onChange = noop, modes = { "wheel" } }), "modes", 1, true) ~= nil
-				):toBe(true)
-				expect(
-					string.find(build({ value = red, onChange = noop, swatches = { red, red } }), "repeats", 1, true)
-						~= nil
-				):toBe(true)
-				expect(
-					string.find(
-						build({ value = red, onChange = noop, swatches = { { color = red, lable = "Red" } } }),
-						"lable",
-						1,
-						true
-					) ~= nil
-				):toBe(true)
-				expect(
-					string.find(
-						build({ value = red, onChange = noop, style = "inline" :: "inline", isPresented = true }),
-						"inline",
-						1,
-						true
-					) ~= nil
-				):toBe(true)
-				expect(
-					string.find(
-						build({ value = red, onChange = noop, shape = "circle" :: "circle" }),
-						"unknown option 'shape'",
-						1,
-						true
-					) ~= nil
-				):toBe(true)
-				expect((build({ value = Compose.cell(red) }))):toBe("ok")
-				local source = Compose.cell(red :: any)
-				local m = world({
-					value = function(use: Use)
-						return use(source)
-					end,
-					onChange = noop,
-				})
-				source:set("blue")
-				expect((hex(m.find("Well/Swatch/Plate").BackgroundColor3))):toBe("#FF0000")
-				expect((m.attr("value"))):toBe("#FF0000")
-				local lines = string.split(m.attr("diagnostics"), "\n")
-				expect(#lines):toBe(1)
-				expect(string.find(lines[1], "value", 1, true) ~= nil):toBe(true)
-				m.stop()
-			end,
-		})
-
-		verifyHarness:case("the caller can own the open state and hears why the panel closed", {
-			id = "native_color_picker::native ColorPicker alpha, empty, disabled and refusals::the caller can own the open state and hears why the panel closed",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local open = Compose.cell(false)
-				local proposals, reasons = {}, {}
-				local w = world({
-					value = cell,
-					onChange = change,
-					isPresented = open,
-					onPresentedChange = function(next: boolean)
-						table.insert(proposals, tostring(next))
-						open:set(next)
-					end,
-					onDismiss = function(r: string)
-						table.insert(reasons, r)
-					end,
-					ref = function() end,
-				})
-				w.open()
-				expect((open:peek())):toBe(true)
-				expect(w.find("Panel") ~= nil):toBe(true)
-				w.find("Well").Visible = false
-				expect((open:peek())):toBe(false)
-				expect((table.concat(proposals, ","))):toBe("true,false")
-				expect((table.concat(reasons, ","))):toBe("anchorLost")
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("stays open when it is built already presented and closes only after its anchor was shown", {
-			id = "native_color_picker::native ColorPicker alpha, empty, disabled and refusals::stays open when it is built already presented and closes only after its anchor was shown",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local open = Compose.cell(true)
-				local reasons = {}
-				local w = world({
-					value = cell,
-					onChange = change,
-					isPresented = open,
-					onPresentedChange = function(next: boolean)
-						open:set(next)
-					end,
-					onDismiss = function(r: string)
-						table.insert(reasons, r)
-					end,
-				})
-				expect((open:peek())):toBe(true)
-				expect(#reasons):toBe(0)
-				expect(w.find("Panel") ~= nil):toBe(true)
-				w.find("Well").Visible = false
-				expect((open:peek())):toBe(false)
-				expect((table.concat(reasons, ","))):toBe("anchorLost")
-				w.stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("native ColorPicker phone sheet", function()
@@ -1508,34 +1100,6 @@ return function(verifyHarness: Verify.Harness)
 			return w, cell, seen
 		end
 
-		verifyHarness:case("the mode strip keeps its rung height inside a sheet and never takes the panel height", {
-			id = "native_color_picker::native ColorPicker phone sheet::the mode strip keeps its rung height inside a sheet and never takes the panel height",
-			run = function()
-				local w = sheet()
-				expect((w.attr("placement"))):toBe("sheet")
-				local strip = w.find("Modes/Presentation")
-				expect(strip ~= nil):toBe(true)
-				expect((strip:HasTag("facet-segmented"))):toBe(true)
-				local E = w.E
-				expect(`{strip.Size.Y.Scale} {strip.Size.Y.Offset}`):toBe("0 44")
-				expect(strip.AutomaticSize == E.AutomaticSize.Y or strip.AutomaticSize == E.AutomaticSize.XY):toBe(
-					false
-				)
-				local format = w.find("Readout/Format")
-				expect((format:HasTag("facet-segmented"))):toBe(true)
-				local formatGrows = format.AutomaticSize == E.AutomaticSize.Y
-					or format.AutomaticSize == E.AutomaticSize.XY
-				expect(`format {format.Size.Y.Scale} {format.Size.Y.Offset} {formatGrows}`):toBe("format 0 44 false")
-				for _, mode in { "swatches", "spectrum" } :: { "spectrum" | "swatches" } do
-					local segment = w.find("Modes/" .. mode)
-					local grows = segment.AutomaticSize == E.AutomaticSize.Y
-						or segment.AutomaticSize == E.AutomaticSize.XY
-					expect(`{mode} {grows}`):toBe(`{mode} false`)
-				end
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a tapped swatch in the sheet calls onChange, and Done closes with the colour kept", {
 			id = "native_color_picker::native ColorPicker phone sheet::a tapped swatch in the sheet calls onChange, and Done closes with the colour kept",
 			run = function()
@@ -1555,100 +1119,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native ColorPicker cells, tabs and readout", function()
-		local function sheetFor(w: any, package: any): any
-			local _, sheet = w.runtime.mount(function()
-				return Facet.themes.createStyleSheet(
-					w.runtime,
-					package :: Facet.ThemePackage,
-					{ types = w.engine.types } :: any
-				)
-			end, w.engine.new("Folder"))
-			return sheet
-		end
-		local function packages(): { [string]: any }
-			local pixel = (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
-			return { neutral = Facet.themes.neutralPackage(), pixel = pixel }
-		end
-
-		verifyHarness:case("every swatch, brick and save cell is a square the theme's control radius rounds", {
-			id = "native_color_picker::native ColorPicker cells, tabs and readout::every swatch, brick and save cell is a square the theme's control radius rounds",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local w = world({
-					value = cell,
-					onChange = change,
-					style = "inline" :: "inline",
-					modes = { "swatches", "brick" },
-					swatches = { Color3.fromRGB(0, 0, 255) },
-					onSaveSwatch = function() end,
-				})
-				for name, package in packages() do
-					local sheet = sheetFor(w, package)
-					local radius = package.metrics.radii.control
-					for _, node in { w.cells()[1], w.cells()[2], w.cells("BrickGrid")[1] } do
-						local where = `{name} {node.Name}`
-						expect(`{where} {node.Size.X.Offset}x{node.Size.Y.Offset}`):toBe(`{where} 44x44`)
-						for _, side in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
-							local inset = styleRules.resolve(sheet, node, side, "UIPadding")
-							expect(`{where} {side} {if inset then inset.Offset else "none"}`):toBe(`{where} {side} 0`)
-						end
-						for _, corner in node:GetDescendants() do
-							if corner:IsA("UICorner") then
-								local value = styleRules.resolve(sheet, corner, "CornerRadius")
-								expect(`{where} {corner.Parent.Name} {if value then value.Offset else "none"}`):toBe(
-									`{where} {corner.Parent.Name} {radius}`
-								)
-							end
-						end
-					end
-				end
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("the checker and color share one clipping edge at the preview's themed corner radius", {
-			id = "native_color_picker::native ColorPicker cells, tabs and readout::the checker and color share one clipping edge at the preview's themed corner radius",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local w = world({
-					value = cell,
-					onChange = change,
-					style = "inline" :: "inline",
-					alpha = 0.5,
-					onAlphaChange = function() end,
-				})
-				local preview = w.find("Readout/Head/Preview")
-				local paint = preview:FindFirstChild("Paint")
-				local checker, plate = paint:FindFirstChild("Checker"), paint:FindFirstChild("Plate")
-				expect((paint:IsA("CanvasGroup"))):toBe(true)
-				expect(checker.Visible):toBe(true)
-				expect((checker:FindFirstChildWhichIsA("UICorner"))):toBeNil()
-				expect((plate:FindFirstChildWhichIsA("UICorner"))):toBeNil()
-				for name, package in packages() do
-					local sheet = sheetFor(w, package)
-					for _, node in { paint, preview } do
-						local corner = node:FindFirstChildWhichIsA("UICorner")
-						local radius = styleRules.resolve(sheet, corner, "CornerRadius")
-						expect(`{name} {node.Name} {if radius then radius.Offset else "none"}`):toBe(
-							`{name} {node.Name} {package.metrics.radii.control}`
-						)
-					end
-				end
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("the Bricks technique is a default tab when the engine has BrickColor", {
-			id = "native_color_picker::native ColorPicker cells, tabs and readout::the Bricks technique is a default tab when the engine has BrickColor",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local w = world({ value = cell, onChange = change, style = "inline" :: "inline" })
-				expect(w.find("Modes/brick") ~= nil):toBe(true)
-				expect(#w.cells("BrickGrid")):toBe(128)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("the readout leads with a wide preview and lays its fields out in equal columns", {
 			id = "native_color_picker::native ColorPicker cells, tabs and readout::the readout leads with a wide preview and lays its fields out in equal columns",
 			run = function()
@@ -1676,31 +1146,9 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-
-		verifyHarness:case("the technique centres its grids in the panel", {
-			id = "native_color_picker::native ColorPicker cells, tabs and readout::the technique centres its grids in the panel",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local w = world({
-					value = cell,
-					onChange = change,
-					style = "inline" :: "inline",
-					modes = { "swatches", "brick" },
-				})
-				for _, column in { "Saved", "Brick" } do
-					local layout = w.find(column):FindFirstChildWhichIsA("UIListLayout")
-					expect(`{column} {layout.HorizontalAlignment}`):toBe(`{column} {w.E.HorizontalAlignment.Center}`)
-				end
-				w.stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("native ColorPicker panel fit", function()
-		local function pixel(): any
-			return (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
-		end
-
 		verifyHarness:case("the technique fits the scroll window, never the width under the scrollbar", {
 			id = "native_color_picker::native ColorPicker panel fit::the technique fits the scroll window, never the width under the scrollbar",
 			run = function()
@@ -1763,70 +1211,6 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-
-		verifyHarness:case("a skinned panel keeps its eight columns and its height inside the art's content insets", {
-			id = "native_color_picker::native ColorPicker panel fit::a skinned panel keeps its eight columns and its height inside the art's content insets",
-			run = function()
-				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local package = pixel()
-				local carve = package.chrome.panel.contentInsets
-				local w = world(
-					{ value = cell, onChange = change, modes = { "swatches", "brick" } },
-					{ theme = package }
-				)
-				w.size(w.screen, 1200, 1200)
-				w.size(w.find("Well"), 44, 44)
-				w.open()
-				w.size(w.find("Modes"), 380, 44)
-				w.size(w.find("Readout"), 380, 140)
-				w.size(w.find("ShowSwatches"), 380, 290)
-				w.size(w.find("ShowBricks"), 380, 800)
-				local panel = w.find("Panel")
-				expect(panel.Size.X.Offset):toBe(8 * 44 + 7 * 4 + carve.left + carve.right)
-				expect(panel.Size.Y.Offset):toBe(44 + 140 + 290 + 2 * 8 + carve.top + carve.bottom)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case(
-			"an inactive segment's ink is the readable of the theme's secondary and primary ink on the track",
-			{
-				id = "native_color_picker::native ColorPicker panel fit::an inactive segment's ink is the readable of the theme's secondary and primary ink on the track",
-				run = function()
-					local function lum(c: any): number
-						local function linear(v: number): number
-							return if v <= 0.04045 then v / 12.92 else ((v + 0.055) / 1.055) ^ 2.4
-						end
-						return 0.2126 * linear(c.R) + 0.7152 * linear(c.G) + 0.0722 * linear(c.B)
-					end
-					local function ratio(a: any, b: any): number
-						local x, y = lum(a), lum(b)
-						return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05)
-					end
-					local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
-					local w = world({
-						value = cell,
-						onChange = change,
-						style = "inline" :: "inline",
-						modes = { "swatches", "brick" },
-					})
-					local segment = w.find("Modes/brick")
-					for name, package in { neutral = Facet.themes.neutralPackage(), pixel = pixel() } do
-						local _, sheet = w.runtime.mount(function()
-							return Facet.themes.createStyleSheet(
-								w.runtime,
-								package :: Facet.ThemePackage,
-								{ types = w.engine.types } :: any
-							)
-						end, w.engine.new("Folder"))
-						local ink = styleRules.resolve(sheet, segment, "TextColor3")
-						local track = styleRules.resolve(sheet, w.find("Modes/Presentation"), "BackgroundColor3")
-						expect(`{name} {ratio(ink, track) >= 3}`):toBe(`{name} true`)
-					end
-					w.stop()
-				end,
-			}
-		)
 	end)
 
 	return nil

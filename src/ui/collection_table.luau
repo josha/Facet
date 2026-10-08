@@ -14,6 +14,7 @@ local InputTypes = require("./input_types")
 local NavigationTypes = require("./navigation_types")
 local OverlayTypes = require("./overlay_types")
 local tableEditors = require("./collection_table_editors")
+local motion = require("./motion")
 
 local CELL_PADDING = 16
 
@@ -157,7 +158,13 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				return read(spec.itemSize, use)
 			end
 			if touchRows(use) then
-				return math.max(ctx.metric("targetSizes.minimum", use), 2 * lineBox(use) + CELL_PADDING)
+				local lines = 1
+				for _, column in read(spec.columns, use) do
+					if column.render == nil and column.wrap ~= false then
+						lines = 2
+					end
+				end
+				return math.max(ctx.metric("targetSizes.minimum", use), lines * lineBox(use) + CELL_PADDING)
 			end
 			if tenFoot(use) then
 				return math.max(ctx.controlSize("large", "height", use), lineBox(use) + CELL_PADDING)
@@ -219,7 +226,48 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				end
 			end)
 		end
+		local textInsets = ctx.styled(
+			ctx.text({
+				Name = "CellTextInsets",
+				Text = "",
+				TextTransparency = 1,
+				Interactable = false,
+				TextWrapped = false,
+				TextTruncate = E.TextTruncate.None,
+				Size = D2.fromOffset(0, 0),
+				AutomaticSize = E.AutomaticSize.XY,
+			}),
+			"TableValue"
+		)
+		local textInsetSize = ctx.observe.AbsoluteSize(textInsets)
 		local viewportWidth = Compose.cell(0)
+		local primaryNatural = Compose.cell(0)
+		local primaryMeasures: { [K]: number? } = {}
+		local primaryCounts: { [number]: number? } = {}
+		local function setPrimaryMeasure(key: K, width: number?)
+			local before = primaryMeasures[key]
+			if before == width then
+				return
+			end
+			if before then
+				local count = (primaryCounts[before] or 0) - 1
+				primaryCounts[before] = if count > 0 then count else nil
+			end
+			primaryMeasures[key] = width
+			if width then
+				primaryCounts[width] = (primaryCounts[width] or 0) + 1
+			end
+			local largest = primaryNatural:peek()
+			if width and width > largest then
+				primaryNatural:set(width)
+			elseif before == largest and primaryCounts[largest] == nil then
+				largest = 0
+				for measured in primaryCounts do
+					largest = math.max(largest, measured)
+				end
+				primaryNatural:set(largest)
+			end
+		end
 		local function setWidths(value: { [string]: number }): ()
 			if spec.onWidthsChange then
 				spec.onWidthsChange(value)
@@ -306,14 +354,23 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				rowMeasures:set(sizes)
 			end
 		end)
+		local function minimumOf(column: CollectionTypes.TableColumn<V, K>): number
+			return column.minWidth or 48
+		end
+		local function boundedWidth(column: CollectionTypes.TableColumn<V, K>, width: number): number
+			return math.clamp(width, minimumOf(column), column.maxWidth or 1000000)
+		end
 		local collapsed = Compose.formula(function(use: ComposeTypes.Use)
 			local columns, offer, resized = read(spec.columns, use), use(viewportWidth), readSource(widths, use)
 			local hidden: { [string]: boolean } = {}
 			local candidates: { { id: string, width: number, priority: number } } = {}
 			local needed = 0
 			for index, column in columns do
-				local width = resized[column.id] or column.width or column.minWidth or 48
-				needed += width
+				local fixed = resized[column.id] or column.width
+				local width = boundedWidth(column, fixed or minimumOf(column))
+				needed += if index == 1 and fixed == nil
+					then boundedWidth(column, math.max(width, use(primaryNatural)))
+					else width
 				if index > 1 and type(column.priority) == "number" then
 					table.insert(candidates, { id = column.id, width = width, priority = column.priority })
 				end
@@ -358,14 +415,11 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 			end
 			return if flexible > 0 then use(disclosureWidth) / flexible else 0
 		end)
-		local function minimumOf(column: CollectionTypes.TableColumn<V, K>): number
-			return column.minWidth or 48
-		end
 		local narrowest = Compose.formula(function(use: ComposeTypes.Use): number
 			local hidden, resized, total = use(collapsed), readSource(widths, use), 0
 			for _, column in read(spec.columns, use) do
 				if not hidden[column.id] then
-					total += resized[column.id] or column.width or minimumOf(column)
+					total += boundedWidth(column, resized[column.id] or column.width or minimumOf(column))
 				end
 			end
 			return total
@@ -375,8 +429,81 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 			use: ComposeTypes.Use
 		): number?
 			local column = use(current)
-			return readSource(widths, use)[column.id] or column.width
+			local fixed = readSource(widths, use)[column.id] or column.width
+			return if fixed ~= nil then boundedWidth(column, fixed) else nil
 		end
+		local allocatedWidths = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
+			local offer = use(viewportWidth)
+			if offer <= 0 then
+				return {}
+			end
+			local result: { [string]: number } = {}
+			local flexible: { CollectionTypes.TableColumn<V, K> } = {}
+			local lower, columns, hidden, resized = 0, read(spec.columns, use), use(collapsed), readSource(widths, use)
+			for _, column in columns do
+				if not hidden[column.id] then
+					local fixed = resized[column.id] or column.width
+					local width = boundedWidth(column, fixed or minimumOf(column))
+					result[column.id] = width
+					lower += width
+					if fixed == nil then
+						table.insert(flexible, column)
+					end
+				end
+			end
+			local remaining = math.floor(math.max(0, offer - use(disclosureWidth) - lower))
+			local primary = columns[1]
+			if primary and result[primary.id] and resized[primary.id] == nil and primary.width == nil then
+				local extra = math.floor(
+					math.min(
+						remaining,
+						math.max(0, math.min(primary.maxWidth or math.huge, use(primaryNatural)) - result[primary.id])
+					)
+				)
+				result[primary.id] += extra
+				remaining -= extra
+			end
+			while remaining > 0 and #flexible > 0 do
+				local weight = 0
+				for _, column in flexible do
+					weight += 1 / (1 + math.max(0, if type(column.priority) == "number" then column.priority else 0))
+				end
+				local spent, nextFlexible = 0, {}
+				for _, column in flexible do
+					local share = remaining
+						/ weight
+						/ (1 + math.max(0, if type(column.priority) == "number" then column.priority else 0))
+					local extra =
+						math.floor(math.min(share, math.max(0, (column.maxWidth or math.huge) - result[column.id])))
+					result[column.id] += extra
+					spent += extra
+					if result[column.id] < (column.maxWidth or math.huge) then
+						table.insert(nextFlexible, column)
+					end
+				end
+				if spent <= 0 then
+					for _, column in nextFlexible do
+						if result[column.id] + 1 <= (column.maxWidth or math.huge) then
+							result[column.id] += 1
+							spent = 1
+							break
+						end
+					end
+					if spent <= 0 then
+						break
+					end
+				end
+				remaining -= spent
+				flexible = nextFlexible
+			end
+			return result
+		end)
+		local function textWrap(column: CollectionTypes.TableColumn<V, K>, use: ComposeTypes.Use): boolean
+			local value = column.wrap
+			assert(value == nil or type(value) == "boolean", "Facet.Table column.wrap must be a boolean")
+			return if value == nil then touchRows(use) else value
+		end
+
 		local function columnFrame(
 			current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
 			index: ComposeTypes.Readable<number>,
@@ -392,14 +519,17 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				LayoutOrder = index,
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(0, columnWidth(current, use) or 0, 1, 0)
+					return D2.new(0, use(allocatedWidths)[use(current).id] or columnWidth(current, use) or 0, 1, 0)
 				end,
 				Host.UISizeConstraint({
 					MinSize = function(use: ComposeTypes.Use)
 						return V2.new(minimumOf(use(current)), 0)
 					end,
 					MaxSize = function(use: ComposeTypes.Use)
-						return V2.new(use(current).maxWidth or 1000000, 1000000)
+						return V2.new(
+							math.min(use(allocatedWidths)[use(current).id] or 1000000, use(current).maxWidth or 1000000),
+							1000000
+						)
 					end,
 				}) :: ComposeTypes.Child,
 				Host.UIFlexItem({
@@ -658,7 +788,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 		if spec.drag or spec.drop or manageable or (spec.editing ~= nil and selectable) then
 			editor = reorder(ctx, UI, spec, ordered, keyOf, queries, function()
 				return body
-			end, selection, sort, editing, false, if tree then tree.location else nil)
+			end, selection, sort, editing, false, if tree then tree.location else nil, true)
 		end
 		local bodySpec: CollectionTypes.KeyedCollectionSpec<V, K> = {
 			Name = "Body",
@@ -750,9 +880,11 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				end)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local height = use(minimumRow)
-					local sizes = use(cellHeights)
+					local sizes, hidden = use(cellHeights), use(collapsed)
 					for _, column in read(spec.columns, use) do
-						height = math.max(height, sizes[column.id] or 0)
+						if not hidden[column.id] then
+							height = math.max(height, sizes[column.id] or 0)
+						end
 					end
 					if
 						(height > use(minimumRow) or rowMeasures:peek()[key] ~= nil)
@@ -845,7 +977,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 							local undisclosed = if render
 								then nil
 								else probe("Undisclosed", function(use: ComposeTypes.Use): string
-									return if touchRows(use) then words(use) else valueText(use)
+									return valueText(use)
 								end, true, touchRows)
 							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
 							local custom = render
@@ -875,7 +1007,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 										end,
 										TextTruncate = E.TextTruncate.AtEnd,
 										TextWrapped = function(use: ComposeTypes.Use): boolean
-											return touchRows(use) and use(assert(wordFits)) ~= false
+											return textWrap(use(column), use) and use(assert(wordFits)) ~= false
 										end,
 										Size = D2.fromScale(1, 1),
 										AutomaticSize = E.AutomaticSize.None,
@@ -902,6 +1034,21 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 											cellHeights:set(nextHeights)
 										end
 									end
+								end)
+							end
+							if not render and index:peek() == 1 then
+								local natural = ctx.observe.TextBounds(assert(undisclosed))
+								Compose.watch(function(use: ComposeTypes.Use)
+									local padding = content:FindFirstChildWhichIsA("UIPadding")
+									local inset = if padding
+										then (padding:GetStyled("PaddingLeft") :: UDim).Offset + (padding:GetStyled(
+											"PaddingRight"
+										) :: UDim).Offset
+										else math.max(CELL_PADDING, use(textInsetSize).X / use(unitScale))
+									setPrimaryMeasure(key, math.ceil(use(natural).X / use(unitScale)) + inset)
+								end)
+								Compose.cleanup(function()
+									setPrimaryMeasure(key, nil)
 								end)
 							end
 							if not render then
@@ -1002,19 +1149,21 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 														return tostring(use(column).label or use(column).id)
 													end,
 												}),
-												ctx.text({
-													Name = "FullValue",
-													TextWrapped = true,
-													Size = D2.new(1, 0, 0, 0),
-													AutomaticSize = E.AutomaticSize.Y,
-													Text = function(use: ComposeTypes.Use)
-														local value, item = use(column), use(current)
-														local result = if value.value
-															then value.value(item)
-															else field(item, value)
-														return if result == nil then "" else tostring(result)
-													end,
-												}),
+												if column:peek().detailRender
+													then (assert(column:peek().detailRender))(current, placement, key)
+													else ctx.text({
+														Name = "FullValue",
+														TextWrapped = true,
+														Size = D2.new(1, 0, 0, 0),
+														AutomaticSize = E.AutomaticSize.Y,
+														Text = function(use: ComposeTypes.Use)
+															local value, item = use(column), use(current)
+															local result = if value.value
+																then value.value(item)
+																else field(item, value)
+															return if result == nil then "" else tostring(result)
+														end,
+													}),
 											}, {
 												Name = column:peek().id,
 												LayoutOrder = index,
@@ -1136,6 +1285,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				BackgroundTransparency = 1,
 				ClipsDescendants = spec.scrolls ~= false,
 				unit :: ComposeTypes.Child,
+				textInsets :: ComposeTypes.Child,
 				ctx.styled(
 					Host.Frame({
 						Name = "HeaderBand",
@@ -1151,6 +1301,19 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				) :: ComposeTypes.Child,
 				header,
 				Compose.show(toolbarShown, function()
+					local progress = runtime.tween(function(use: ComposeTypes.Use): number
+						return if read(editing, use) then 1 else 0
+					end, {
+						seconds = function(use: ComposeTypes.Use): number
+							local timing = ctx.motionTiming("reveal", use)
+							return if read(editing, use) then timing.enter else timing.exit
+						end,
+						ease = ctx.motionEase("fade"),
+						reducedMotion = motion.reduced(ctx),
+					})
+					local function fraction(use: ComposeTypes.Use): number
+						return math.clamp(use(progress), 0, 1)
+					end
 					local button = UI.Button("Edit")({
 						label = function(use: ComposeTypes.Use): string
 							return if read(editing, use) then "Done" else "Edit"
@@ -1165,6 +1328,39 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 						end,
 					})
 					local font, size = ctx.observeStyled.FontFace(button), ctx.observeStyled.TextSize(button)
+
+					runtime.decorate(button, { TextTransparency = 1 })
+					local function hideLabel(node: Instance)
+						if node:IsA("TextLabel") and (node.Name == "Label" or node.Name == "Title") then
+							node.TextTransparency = 1
+						end
+					end
+					for _, node in button:GetDescendants() do
+						hideLabel(node)
+					end
+					runtime.connect(button, "DescendantAdded", hideLabel)
+					local function caption(word: string): TextLabel
+						return ctx.styled(
+							ctx.text({
+								Name = word .. "Caption",
+								Text = word,
+								FontFace = font,
+								TextSize = size,
+								TextColor3 = ctx.observeStyled.TextColor3(button),
+								TextXAlignment = E.TextXAlignment.Center,
+								TextTransparency = function(use: ComposeTypes.Use)
+									return if word == "Edit" then fraction(use) else 1 - fraction(use)
+								end,
+								Size = D2.fromScale(1, 1),
+								AutomaticSize = E.AutomaticSize.None,
+								Interactable = false,
+							}),
+							"button-caption"
+						)
+					end
+					runtime.mountFragment(function()
+						return { caption("Edit"), caption("Done") }
+					end, button)
 					local function reserve(word: string): TextLabel
 						return ctx.text({
 							Name = word,
@@ -1200,9 +1396,11 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 							Size = D2.new(0, 0, 1, 0),
 							AutomaticSize = E.AutomaticSize.X,
 							Visible = function(use: ComposeTypes.Use)
-								return read(editing, use) == true and not pad(use)
+								return (read(editing, use) == true or fraction(use) > 0) and not pad(use)
 							end,
-							enabled = editor.canDeleteSelected,
+							enabled = function(use: ComposeTypes.Use)
+								return read(editing, use) == true and editor.canDeleteSelected(use)
+							end,
 							onActivate = editor.deleteSelected,
 						}
 						else nil
@@ -1226,7 +1424,18 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 							}),
 							"secondary"
 						),
-						remove,
+						if remove
+							then ctx.fade {
+								Name = "DeleteFade",
+								BackgroundTransparency = 1,
+								Size = D2.new(0, 0, 1, 0),
+								AutomaticSize = E.AutomaticSize.X,
+								GroupTransparency = function(use: ComposeTypes.Use)
+									return 1 - fraction(use)
+								end,
+								remove,
+							}
+							else nil,
 					})
 				end),
 				body,

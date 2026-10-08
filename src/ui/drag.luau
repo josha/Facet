@@ -2,6 +2,7 @@
 local Shared = require("./types")
 local Env = require("./environment_types")
 local activation = require("./activation")
+local DragTypes = require("./drag_types")
 local sessionOf = require("./drag_session")
 local pointerOf = require("./drag_pointer")
 
@@ -13,8 +14,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		if not activation.marked(node) then
 			return false
 		end
-		Compose.cleanup(activation.intercept(node, function(value: any): boolean
-			local kind = if value then value.UserInputType else nil
+		Compose.cleanup(activation.intercept(node, function(value: unknown): boolean
+			local kind = if value then (value :: InputObject).UserInputType else nil
 			if kind == E.UserInputType.MouseButton1 or kind == E.UserInputType.Touch then
 				return false
 			end
@@ -46,7 +47,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			local current = service.state:peek()
 			return current ~= nil and current.source == source
 		end
-		local function enabled(use: any): boolean
+		local function enabled(use: Shared.Use?): boolean
 			return spec.enabled == nil or ctx.read(spec.enabled, use) == true
 		end
 		local function unlock()
@@ -55,7 +56,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				locked = nil
 			end
 		end
-		local ownedSpec: any = table.clone(spec)
+		local ownedSpec = table.clone(spec) :: DragTypes.SourceSpec
 		ownedSpec.valid = function()
 			return enabled(nil) and (spec.valid == nil or spec.valid())
 		end
@@ -66,7 +67,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				spec.onEnd(accepted, reason)
 			end
 		end
-		local function begin(mode: string)
+		local function begin(mode: "pointer" | "armed")
 			service.begin(
 				source,
 				ownedSpec,
@@ -231,7 +232,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	UI.dropTarget = function(target: Env.DropDestination, spec: Env.DropTargetSpec)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.dropTarget must run inside a component or Compose owner")
 		assert(type(spec.onDrop) == "function", "Facet UI.dropTarget needs onDrop")
-		service.register(target, spec)
+		service.register(target, (spec :: unknown) :: DragTypes.TargetSpec)
 		local focusTarget = spec.focusTarget or (if target:IsA("GuiObject") then target else nil)
 		if not focusTarget then
 			return

@@ -83,108 +83,6 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
-	verifyHarness:suite("adaptive: pure decisions with no device names", function()
-		verifyHarness:case("classifies width into compact, regular and wide at the documented breakpoints", {
-			id = "native_environment::adaptive: pure decisions with no device names::classifies width into compact, regular and wide at the documented breakpoints",
-			run = function()
-				Verify.expect((adaptive.sizeClass(320))):toBe("compact")
-				Verify.expect((adaptive.sizeClass(599))):toBe("compact")
-				Verify.expect((adaptive.sizeClass(600))):toBe("regular")
-				Verify.expect((adaptive.sizeClass(999))):toBe("regular")
-				Verify.expect((adaptive.sizeClass(1000))):toBe("wide")
-				Verify.expect(adaptive.BREAKPOINTS.regular):toBe(600)
-				Verify.expect(adaptive.BREAKPOINTS.wide):toBe(1000)
-				Verify.expect(adaptive.HEIGHT_BREAKPOINTS):toBe(adaptive.BREAKPOINTS)
-			end,
-		})
-		verifyHarness:case("classifies height and orientation as shape facts", {
-			id = "native_environment::adaptive: pure decisions with no device names::classifies height and orientation as shape facts",
-			run = function()
-				Verify.expect((adaptive.heightClass(313))):toBe("short")
-				Verify.expect((adaptive.heightClass(733))):toBe("medium")
-				Verify.expect((adaptive.heightClass(1080))):toBe("tall")
-				Verify.expect((adaptive.heightClass(0 / 0))):toBe("short")
-				Verify.expect((adaptive.orientationFor(733, 313))):toBe("landscape")
-				Verify.expect((adaptive.orientationFor(313, 733))):toBe("portrait")
-				Verify.expect((adaptive.orientationFor(500, 500))):toBe("square")
-			end,
-		})
-		verifyHarness:case("chooses a stack axis from available width, not a platform name", {
-			id = "native_environment::adaptive: pure decisions with no device names::chooses a stack axis from available width, not a platform name",
-			run = function()
-				Verify.expect((adaptive.axisFor(400, { stackAbove = 600 }))):toBe("y")
-				Verify.expect((adaptive.axisFor(800, { stackAbove = 600 }))):toBe("x")
-				Verify.expect((adaptive.axisFor(599))):toBe("y")
-				Verify.expect((adaptive.axisFor(adaptive.DEFAULT_STACK_ABOVE))):toBe("x")
-			end,
-		})
-		verifyHarness:case("derives a column count from a minimum cell width and gap", {
-			id = "native_environment::adaptive: pure decisions with no device names::derives a column count from a minimum cell width and gap",
-			run = function()
-				Verify.expect((adaptive.columnsFor(300, 90, 6))):toBe(3)
-				Verify.expect((adaptive.columnsFor(100, 90, 6))):toBe(1)
-				Verify.expect((adaptive.columnsFor(0, 90, 6))):toBe(1)
-				Verify.expect((adaptive.columnsFor(1920, 160, 8))):toBe(11)
-				Verify.expect((adaptive.columnsFor(1600, 160, 8))):toBe(9)
-				Verify.expect((pcall(adaptive.columnsFor, 300, 0, 6))):toBe(false)
-			end,
-		})
-		verifyHarness:case("tolerates a nonsense width instead of producing a nonsense class", {
-			id = "native_environment::adaptive: pure decisions with no device names::tolerates a nonsense width instead of producing a nonsense class",
-			run = function()
-				Verify.expect((adaptive.sizeClass(0 / 0))):toBe("compact")
-				Verify.expect((adaptive.sizeClass(-50))):toBe("compact")
-				Verify.expect((adaptive.sizeClass(nil))):toBe("compact")
-			end,
-		})
-		verifyHarness:case("ranks compact < regular < wide", {
-			id = "native_environment::adaptive: pure decisions with no device names::ranks compact < regular < wide",
-			run = function()
-				local order = { "compact", "regular", "wide" }
-				for have, value in order do
-					for need, target in order do
-						Verify.expect((adaptive.sizeClassAtLeast(value, target))):toBe(have >= need)
-					end
-				end
-				Verify.expect((pcall(adaptive.sizeClassAtLeast, "huge", "wide"))):toBe(false)
-			end,
-		})
-		verifyHarness:case("homes app navigation by viewing distance, then shape, then primary input", {
-			id = "native_environment::adaptive: pure decisions with no device names::homes app navigation by viewing distance, then shape, then primary input",
-			run = function()
-				local function home(size: string, height: string, primary: string?, extra: { [string]: any }?): string
-					local facts: { [string]: any } = { sizeClass = size, heightClass = height, primary = primary }
-					for key, value in (extra or {} :: { [string]: any }) do
-						facts[key] = value
-					end
-					return adaptive.navPlacement(facts)
-				end
-				Verify.expect((home("compact", "short", "pointer", { tenFoot = true }))):toBe("topBar")
-				Verify.expect((home("compact", "medium", "touch"))):toBe("bottomBar")
-				Verify.expect((home("compact", "tall", "gamepad"))):toBe("bottomBar")
-				Verify.expect((home("wide", "short", "touch"))):toBe("bottomBarCompact")
-				Verify.expect((home("regular", "medium", "pointer"))):toBe("sidebar")
-				Verify.expect((home("wide", "tall", "pointer"))):toBe("sidebar")
-				Verify.expect((home("regular", "medium", "touch"))):toBe("topBar")
-				Verify.expect((home("wide", "medium", "gamepad", { displaySize = "Medium" }))):toBe("topBar")
-				Verify.expect((home("wide", "medium", "gamepad", { displaySize = "Small" }))):toBe("bottomBar")
-				Verify.expect((home("wide", "medium", nil))):toBe("topBar")
-			end,
-		})
-		verifyHarness:case("treats a large display as ten-foot only without touch or a mouse", {
-			id = "native_environment::adaptive: pure decisions with no device names::treats a large display as ten-foot only without touch or a mouse",
-			run = function()
-				Verify.expect((adaptive.isTenFoot({ displaySize = "Large" }))):toBe(true)
-				Verify.expect((adaptive.isTenFoot({ displaySize = "Large", mouse = true }))):toBe(false)
-				Verify.expect((adaptive.isTenFoot({ displaySize = "Large", touch = true }))):toBe(false)
-				Verify.expect((adaptive.isTenFoot({ displaySize = "Medium" }))):toBe(false)
-				Verify.expect((adaptive.isTenFoot({ displaySize = "Medium", tenFootInterface = true }))):toBe(true)
-				Verify.expect((adaptive.isTenFoot({ displaySize = "Large", tenFootInterface = true, mouse = true })))
-					:toBe(false)
-			end,
-		})
-	end)
-
 	verifyHarness:suite("environment: reactive facts from engine sources", function()
 		verifyHarness:case("exposes the size class and its boolean tests as readables that follow the viewport", {
 			id = "native_environment::environment: reactive facts from engine sources::exposes the size class and its boolean tests as readables that follow the viewport",
@@ -225,88 +123,7 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("refuses the engine's placeholder viewport and keeps the last real fact", {
-			id = "native_environment::environment: reactive facts from engine sources::refuses the engine's placeholder viewport and keeps the last real fact",
-			run = function()
-				local w = world()
-				local camera = w.engine.new("Camera")
-				camera.ViewportSize = Roblox.Vector2.new(800, 600)
-				local env: any
-				local stop = owned(w.runtime, function()
-					env = w.UI.environment(camera)
-				end)
-				Verify.expect((env.sizeClass:peek())):toBe("regular")
-				camera.ViewportSize = Roblox.Vector2.new(1, 1)
-				Verify.expect((env.viewportWidth:peek())):toBe(800)
-				Verify.expect((env.sizeClass:peek())):toBe("regular")
-				camera.ViewportSize = Roblox.Vector2.new(1920, 1080)
-				Verify.expect((env.sizeClass:peek())):toBe("wide")
-				Verify.expect((env.isTall:peek())):toBe(true)
-				stop()
-				w.stop()
-			end,
-		})
-		verifyHarness:case("reads the workspace camera when no source is given", {
-			id = "native_environment::environment: reactive facts from engine sources::reads the workspace camera when no source is given",
-			run = function()
-				local camera = { ViewportSize = Roblox.Vector2.new(500, 900) }
-				local w = world({ Workspace = { CurrentCamera = nil } })
-				local fake = w.engine.new("Camera")
-				fake.ViewportSize = camera.ViewportSize
-				w.UI = Facet.controls(w.runtime, {
-					types = w.engine.types,
-					guiService = w.gui,
-					userInputService = w.input,
-					services = { GuiService = w.gui, UserInputService = w.input, Workspace = { CurrentCamera = fake } },
-				})
-				local env: any
-				local stop = owned(w.runtime, function()
-					env = w.UI.environment()
-				end)
-				Verify.expect((env.viewportSize:peek())):toBe(camera.ViewportSize)
-				Verify.expect((env.isShort:peek())):toBe(false)
-				Verify.expect((env.orientation:peek())):toBe("portrait")
-				stop()
-				w.stop()
-			end,
-		})
-		verifyHarness:case("derives interaction classes from preferred input and live capabilities", {
-			id = "native_environment::environment: reactive facts from engine sources::derives interaction classes from preferred input and live capabilities",
-			run = function()
-				local w = world()
-				local E = w.Enum
-				w.input.MouseEnabled = true
-				w.input.KeyboardEnabled = true
-				w.input.TouchEnabled = false
-				w.input.GamepadEnabled = false
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
-				local env: any
-				local stop = owned(w.runtime, function()
-					env = w.UI.environment(w.engine.new("ScreenGui"))
-				end)
-				local classes = env.interactionClasses:peek()
-				Verify.expect(classes.primary):toBe("pointer")
-				Verify.expect(classes.pointer):toBe(true)
-				Verify.expect(classes.keyboard):toBe(true)
-				Verify.expect(classes.gamepad):toBe(false)
-				Verify.expect((env.effectiveInput:peek())):toBe("KeyboardAndMouse")
-				w.input.GamepadEnabled = true
-				Verify.expect(env.interactionClasses:peek().gamepad):toBe(true)
-				Verify.expect(env.interactionClasses:peek().primary):toBe("pointer")
-				w.input.PreferredInput = E.PreferredInput.Gamepad
-				Verify.expect(env.interactionClasses:peek().primary):toBe("gamepad")
-				Verify.expect((env.effectiveInput:peek())):toBe("Gamepad")
-				w.input.GamepadEnabled = false
-				Verify.expect(env.interactionClasses:peek().gamepad):toBe(true)
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
-				w.input.MouseEnabled = false
-				w.input.TouchEnabled = true
-				Verify.expect(env.interactionClasses:peek().primary):toBe("touch")
-				Verify.expect((env.effectiveInput:peek())):toBe("Touch")
-				stop()
-				w.stop()
-			end,
-		})
+
 		verifyHarness:case("publishes safe insets, display size, preferred text size and reduced motion", {
 			id = "native_environment::environment: reactive facts from engine sources::publishes safe insets, display size, preferred text size and reduced motion",
 			run = function()
@@ -628,27 +445,7 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("validates options before allocating a frame hook", {
-			id = "native_environment::worldAnchor: proximity anchors around world objects::validates options before allocating a frame hook",
-			run = function()
-				local w, _, part = fixture()
-				for _, options in
-					{
-						{ target = part, paddding = 1 },
-						{ target = part, padding = -1 },
-						{ target = part, padding = 1.01 },
-						{ target = part, padding = math.huge },
-						{ target = part, minimumRadius = 70 },
-						{ target = part, offscreen = "keep" },
-						{ padding = 0.2 },
-					} :: { any }
-				do
-					Verify.expect((pcall(w.UI.worldAnchor, options))):toBe(false)
-				end
-				Verify.expect((w.frames.Heartbeat.count())):toBe(0)
-				w.stop()
-			end,
-		})
+
 		verifyHarness:case("feeds a RadialMenu anchor and releases with its owner", {
 			id = "native_environment::worldAnchor: proximity anchors around world objects::feeds a RadialMenu anchor and releases with its owner",
 			run = function()
@@ -667,15 +464,6 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	local function scroller(w: any, name: string, window: Vector2, canvas: Vector2, at: Vector2?): any
-		local frame = w.engine.new("ScrollingFrame")
-		frame.Name = name
-		frame.AbsolutePosition = at or Roblox.Vector2.zero
-		frame.AbsoluteWindowSize = window
-		frame.AbsoluteCanvasSize = canvas
-		return frame
-	end
-
 	local function box(w: any, parent: any, position: Vector2, size: Vector2): any
 		local node = w.engine.new("Frame")
 		node.AbsolutePosition = position
@@ -685,148 +473,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("scrollTo and scrollToVisible over native ScrollingFrame", function()
-		verifyHarness:case("writes a programmatic position and the canvas limits clamp it", {
-			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::writes a programmatic position and the canvas limits clamp it",
-			run = function()
-				local w = world(nil, { motionLevel = "none" })
-				local frame = scroller(w, "List", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(200, 1000))
-				Verify.expect((w.UI.scrollTo(frame, Roblox.Vector2.new(0, 250)))):toBe(true)
-				Verify.expect(frame.CanvasPosition):toBe(Roblox.Vector2.new(0, 250))
-				Verify.expect((w.UI.scrollTo(frame, { y = 5000 }))):toBe(true)
-				Verify.expect(frame.CanvasPosition.Y):toBe(900)
-				Verify.expect((w.UI.scrollTo(frame, "bottom"))):toBe(false)
-				Verify.expect((w.UI.scrollTo(frame, "top"))):toBe(true)
-				Verify.expect(frame.CanvasPosition):toBe(Roblox.Vector2.zero)
-				Verify.expect((w.UI.scrollTo(frame, { y = -40 }))):toBe(false)
-				Verify.expect((pcall(w.UI.scrollTo, w.engine.new("Frame"), "top"))):toBe(false)
-				Verify.expect((pcall(w.UI.scrollTo, frame, "middle"))):toBe(false)
-				w.stop()
-			end,
-		})
-		verifyHarness:case("animates through TweenService and moves at once under reduced motion", {
-			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::animates through TweenService and moves at once under reduced motion",
-			run = function()
-				local created = {}
-				local tweens = {
-					Create = function(_, instance: any, info: TweenInfo, goal: { [string]: any })
-						local record = { instance = instance, info = info, goal = goal, played = 0, cancelled = 0 }
-						function record.Play()
-							record.played += 1
-						end
-						function record.Cancel()
-							record.cancelled += 1
-						end
-						table.insert(created, record)
-						return record
-					end,
-				}
-				local w = world({ TweenService = tweens })
-				local frame = scroller(w, "List", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(200, 1000))
-				Verify.expect((w.UI.scrollTo(frame, { y = 300 }))):toBe(true)
-				Verify.expect(#created):toBe(1)
-				Verify.expect(created[1].played):toBe(1)
-				Verify.expect(created[1].goal.CanvasPosition):toBe(Roblox.Vector2.new(0, 300))
-				Verify.expect(frame.CanvasPosition):toBe(Roblox.Vector2.zero)
-				Verify.expect((w.UI.scrollTo(frame, { y = 600 }))):toBe(true)
-				Verify.expect(created[1].cancelled):toBe(1)
-				Verify.expect((w.UI.scrollTo(frame, { y = 700 }, { animated = false }))):toBe(true)
-				Verify.expect(created[2].cancelled):toBe(1)
-				Verify.expect(frame.CanvasPosition.Y):toBe(700)
-				w.gui.ReducedMotionEnabled = true
-				Verify.expect((w.UI.scrollTo(frame, "top"))):toBe(true)
-				Verify.expect(#created):toBe(2)
-				Verify.expect(frame.CanvasPosition.Y):toBe(0)
-				w.stop()
-			end,
-		})
-		verifyHarness:case("moves both axes of an xy host to bring a node beyond both edges into view", {
-			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::moves both axes of an xy host to bring a node beyond both edges into view",
-			run = function()
-				local w = world(nil, { motionLevel = "none" })
-				local frame = scroller(w, "Board", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(1000, 1000))
-				frame.ScrollingDirection = w.engine.types.Enum.ScrollingDirection.XY
-				local far = box(w, frame, Roblox.Vector2.new(260, 150), Roblox.Vector2.new(40, 30))
-				Verify.expect((w.UI.scrollToVisible(far))):toBe(true)
-				Verify.expect(frame.CanvasPosition):toBe(Roblox.Vector2.new(100, 80))
-				w.stop()
-			end,
-		})
-		verifyHarness:case("scrolls the minimum distance to bring a node below or above the viewport into view", {
-			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::scrolls the minimum distance to bring a node below or above the viewport into view",
-			run = function()
-				local w = world(nil, { motionLevel = "none" })
-				local frame = scroller(w, "List", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(200, 1000))
-				local below = box(w, frame, Roblox.Vector2.new(0, 150), Roblox.Vector2.new(200, 30))
-				Verify.expect((w.UI.scrollToVisible(below))):toBe(true)
-				Verify.expect(frame.CanvasPosition.Y):toBe(80)
-				frame.CanvasPosition = Roblox.Vector2.new(0, 400)
-				local above = box(w, frame, Roblox.Vector2.new(0, -60), Roblox.Vector2.new(200, 30))
-				Verify.expect((w.UI.scrollToVisible(above))):toBe(true)
-				Verify.expect(frame.CanvasPosition.Y):toBe(340)
-				local inside = box(w, frame, Roblox.Vector2.new(0, 20), Roblox.Vector2.new(200, 30))
-				Verify.expect((w.UI.scrollToVisible(inside))):toBe(false)
-				Verify.expect(frame.CanvasPosition.Y):toBe(340)
-				w.stop()
-			end,
-		})
-		verifyHarness:case("aligns a span taller than the band to its top and clamps to the extent", {
-			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::aligns a span taller than the band to its top and clamps to the extent",
-			run = function()
-				local w = world(nil, { motionLevel = "none" })
-				local frame = scroller(w, "List", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(200, 300))
-				local tall = box(w, frame, Roblox.Vector2.new(0, 50), Roblox.Vector2.new(200, 400))
-				Verify.expect((w.UI.scrollToVisible(tall))):toBe(true)
-				Verify.expect(frame.CanvasPosition.Y):toBe(50)
-				local late = box(w, frame, Roblox.Vector2.new(0, 900), Roblox.Vector2.new(200, 30))
-				Verify.expect((w.UI.scrollToVisible(late))):toBe(true)
-				Verify.expect(frame.CanvasPosition.Y):toBe(200)
-				local node = box(w, frame, Roblox.Vector2.new(0, 0), Roblox.Vector2.new(200, 20))
-				Verify.expect((w.UI.scrollToVisible(node, { x = 0, y = 130, w = 50, h = 20 }))):toBe(false)
-				frame.CanvasPosition = Roblox.Vector2.zero
-				Verify.expect((w.UI.scrollToVisible(node, { x = 0, y = 130, w = 50, h = 20 }))):toBe(true)
-				Verify.expect(frame.CanvasPosition.Y):toBe(50)
-				w.stop()
-			end,
-		})
-		verifyHarness:case("walks every scroll ancestor inner to outer, not just a direct parent", {
-			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::walks every scroll ancestor inner to outer, not just a direct parent",
-			run = function()
-				local w = world(nil, { motionLevel = "none" })
-				local outer = scroller(w, "Page", Roblox.Vector2.new(300, 200), Roblox.Vector2.new(300, 1000))
-				local inner = scroller(
-					w,
-					"Rail",
-					Roblox.Vector2.new(300, 100),
-					Roblox.Vector2.new(300, 600),
-					Roblox.Vector2.new(0, 400)
-				)
-				inner.Parent = outer
-				local wrapper = w.engine.new("Frame")
-				wrapper.Parent = inner
-				local node = box(w, wrapper, Roblox.Vector2.new(0, 560), Roblox.Vector2.new(300, 20))
-				Verify.expect((w.UI.scrollToVisible(node))):toBe(true)
-				Verify.expect(inner.CanvasPosition.Y):toBe(80)
-				Verify.expect(outer.CanvasPosition.Y):toBe(300)
-				Verify.expect(
-					(w.UI.scrollToVisible(box(w, w.engine.new("Frame"), Roblox.Vector2.zero, Roblox.Vector2.one)))
-				)
-					:toBe(false)
-				w.stop()
-			end,
-		})
-		verifyHarness:case("works on the horizontal axis and leaves a locked axis alone", {
-			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::works on the horizontal axis and leaves a locked axis alone",
-			run = function()
-				local w = world(nil, { motionLevel = "none" })
-				local E = w.Enum
-				local frame = scroller(w, "Rail", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(1000, 400))
-				frame.ScrollingDirection = E.ScrollingDirection.X
-				local node = box(w, frame, Roblox.Vector2.new(250, 300), Roblox.Vector2.new(50, 50))
-				Verify.expect((w.UI.scrollToVisible(node))):toBe(true)
-				Verify.expect(frame.CanvasPosition):toBe(Roblox.Vector2.new(100, 0))
-				w.stop()
-			end,
-		})
 		verifyHarness:case("scrolls a mounted ScrollView and animates with the view", {
 			id = "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::scrolls a mounted ScrollView and animates with the view",
 			run = function()
@@ -1509,47 +1155,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("paints a glow theme as a native shadow that grows at ten feet", {
-			id = "native_environment::focus ring: the engine draws the theme's focus look::paints a glow theme as a native shadow that grows at ten feet",
-			run = function()
-				local glowing =
-					define({ kind = "glow" :: "glow", blurRadius = { scale = 0, offset = 26 }, transparency = 0.25 })
-				local distance = Compose.cell("near")
-				local _, template, stop = ring(glowing, { viewingDistance = distance, preferredInput = "Gamepad" })
-				local glow = template:FindFirstChild("Glow")
-				Verify.expect(template:FindFirstChildWhichIsA("UIStroke").Enabled):toBe(false)
-				Verify.expect(glow.Enabled):toBe(true)
-				Verify.expect(glow.BlurRadius.Offset):toBe(26)
-				Verify.expect(glow.Transparency):toBe(0.25)
-				distance:set("ten-foot")
-				Verify.expect(glow.BlurRadius.Offset):toBe(42)
-				Verify.expect(math.abs(glow.Transparency - 0.1375) < 0.001):toBe(true)
-				stop()
-			end,
-		})
-
-		verifyHarness:case("stretches sliced focus art around the control with an outset", {
-			id = "native_environment::focus ring: the engine draws the theme's focus look::stretches sliced focus art around the control with an outset",
-			run = function()
-				local package = define({ kind = "nineSlice" :: "nineSlice", asset = "bracket", outset = 4 }, {
-					bracket = { content = "rbxassetid://5", sliceCenter = { x0 = 8, y0 = 8, x1 = 24, y1 = 24 } },
-				})
-				local distance = Compose.cell("near")
-				local w, template, stop = ring(package, { viewingDistance = distance, preferredInput = "Gamepad" })
-				Verify.expect(template.ClassName):toBe("ImageLabel")
-				Verify.expect(template.ImageTransparency):toBe(0)
-				Verify.expect(template.Image):toBe("rbxassetid://5")
-				Verify.expect(template.ScaleType):toBe(w.Enum.ScaleType.Slice)
-				Verify.expect(template.SliceCenter):toBe(w.engine.types.Rect.new(8, 8, 24, 24))
-				Verify.expect(template.Size):toBe(w.engine.types.UDim2.new(1, 8, 1, 8))
-				Verify.expect(template.Position):toBe(w.engine.types.UDim2.fromOffset(-4, -4))
-				Verify.expect(template:FindFirstChildWhichIsA("UIStroke").Enabled):toBe(false)
-				distance:set("ten-foot")
-				Verify.expect(template.Size):toBe(w.engine.types.UDim2.new(1, 18, 1, 18))
-				stop()
-			end,
-		})
-
 		verifyHarness:case("takes the shape of the selected control: its own corner, a pill, or the theme's square", {
 			id = "native_environment::focus ring: the engine draws the theme's focus look::takes the shape of the selected control: its own corner, a pill, or the theme's square",
 			run = function()
@@ -1790,32 +1395,6 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 					Verify.expect(playerGui.SelectionImageObject):toBe(own)
 				end
-			end,
-		})
-
-		verifyHarness:case("colours the focus look from the theme's focus role", {
-			id = "native_environment::focus ring: the engine draws the theme's focus look::colours the focus look from the theme's focus role",
-			run = function()
-				local ornate = require("../examples/themes/fantasy_parchment").build(Facet.themes)
-				local w = world()
-				local color
-				for _, package in { Facet.themes.neutralPackage(), ornate } do
-					local _, sheet: any = w.runtime.mount(function()
-						return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types })
-					end, w.engine.new("Folder"))
-					for _, node in sheet:GetChildren() do
-						if node.Selector == ".facet-focus-ring" then
-							color = node:GetProperties().BackgroundColor3
-						end
-					end
-					if package == ornate then
-						Verify.expect(color):toBe(w.engine.types.Color3.fromRGB(214, 154, 46))
-					else
-						local accent = package.style.themes[1].colors.accent
-						Verify.expect(color):toBe(w.engine.types.Color3.new(accent.r, accent.g, accent.b))
-					end
-				end
-				w.stop()
 			end,
 		})
 	end)

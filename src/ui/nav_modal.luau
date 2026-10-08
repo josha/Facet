@@ -29,13 +29,23 @@ return function(ctx: Types.Context): Nav.Surfaces
 
 	local function selecting(): (ComposeTypes.Use) -> boolean
 		local active = gui ~= nil and gui.SelectedObject ~= nil
-		if active and input and input.GetLastInputType then
-			local last = input:GetLastInputType()
-			active = last == E.UserInputType.Keyboard or string.find(last.Name, "^Gamepad") ~= nil
+		local last: ComposeTypes.Cell<Enum.UserInputType>? = nil
+		if input and input.GetLastInputType then
+			local source = Compose.cell(input:GetLastInputType())
+			last = source
+			runtime.connect(input, "LastInputTypeChanged", function(value: Enum.UserInputType)
+				source:set(value)
+			end)
 		end
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		return function(use: ComposeTypes.Use): boolean
-			return active or (preferred ~= nil and use(preferred) == E.PreferredInput.Gamepad)
+			local preference = if preferred then use(preferred) else nil
+			if preference == E.PreferredInput.Gamepad then
+				return true
+			end
+			local value = if last then use(last) else nil
+			return active
+				and (value == nil or value == E.UserInputType.Keyboard or string.find(value.Name, "^Gamepad") ~= nil)
 		end
 	end
 
@@ -291,6 +301,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local rested = settings.rested
 		local rise = settings.rise
 		local function scale(use: ComposeTypes.Use): number
+			if panel:HasTag("facet-menu") or panel:HasTag("facet-popover") then
+				return 1
+			end
 			if (rested and not use(rested)) or (rise and rise(use) ~= nil) then
 				return 1
 			end
@@ -709,8 +722,6 @@ return function(ctx: Types.Context): Nav.Surfaces
 					and use(mounted)
 					and use(rootVisible)
 					and not (exiting and use(exiting))
-					and use(rootInteractive)
-					and use(panelInteractive)
 					and not focusIn(use)
 				then
 					guiService.SelectedObject = nil
@@ -1170,7 +1181,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					hint:AddTag("facet-secondary")
 					panelProps[#panelProps + 1] = hint
 				end
-				local panel = ctx.fade(panelProps)
+				local panel = ctx.fade(panelProps, true)
 				local sizes, rested = atRest(presence.travel, settled, { panel, label })
 				local measured = sizes[1]
 				Compose.watch(function(use: ComposeTypes.Use)

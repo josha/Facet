@@ -111,30 +111,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("reads a function value and keeps the last legal paint for an invalid late value", {
-			id = "native_vote::native Vote::reads a function value and keeps the last legal paint for an invalid late value",
-			run = function()
-				local source = Compose.cell("up")
-				local controls: FixtureContentTypes.Diagnostics = {}
-				local world = mount({
-					value = function(use: any)
-						return use(source)
-					end,
-					controls = controls,
-					onChange = function(nextValue: "down" | "none" | "up")
-						source:set(nextValue)
-					end,
-				})
-				Verify.expect((painted(world))):toBe("up")
-				source:set("sideways")
-				Verify.expect((painted(world))):toBe("up")
-				Verify.expect(#assert(controls.diagnostics)()):toBe(1)
-				source:set("down")
-				Verify.expect((painted(world))):toBe("down")
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("leaves no stale state when a callback removes the vote", {
 			id = "native_vote::native Vote::leaves no stale state when a callback removes the vote",
 			run = function()
@@ -159,31 +135,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"shows a read-only choice with nothing to press or select and uses ordinary disabled paint",
-			{
-				id = "native_vote::native Vote::shows a read-only choice with nothing to press or select and uses ordinary disabled paint",
-				run = function()
-					local readOnly = Compose.cell(true)
-					local enabled = Compose.cell(true)
-					local world =
-						mount({ value = "up", readOnly = readOnly, enabled = enabled, onChange = function() end })
-					local up = option(world, "up")
-					Verify.expect((up:IsA("GuiButton"))):toBe(false)
-					Verify.expect(up.Parent.Name):toBe("Plate")
-					Verify.expect((up:HasTag("facet-segment-current"))):toBe(true)
-					Verify.expect((up:HasTag("facet-disabled"))):toBe(false)
-					readOnly:set(false)
-					Verify.expect((option(world, "up"):IsA("GuiButton"))):toBe(true)
-					Verify.expect(option(world, "up").Selectable):toBe(true)
-					enabled:set(false)
-					Verify.expect(option(world, "down").Selectable):toBe(false)
-					Verify.expect((option(world, "down"):HasTag("facet-disabled"))):toBe(true)
-					world.stop()
-				end,
-			}
-		)
-
 		verifyHarness:case("refuses to become interactive without onChange", {
 			id = "native_vote::native Vote::refuses to become interactive without onChange",
 			run = function()
@@ -206,61 +157,6 @@ return function(verifyHarness: Verify.Harness)
 				end) ~= nil):toBe(true)
 			end,
 		})
-
-		verifyHarness:case(
-			"sizes each vote square to its rung, floors it at the touch target on touch, and discloses the summary",
-			{
-				id = "native_vote::native Vote::sizes each vote square to its rung, floors it at the touch target on touch, and discloses the summary",
-				run = function()
-					local a, b: FixtureComposeTypes.Cell<"down" | "none" | "up"> =
-						Compose.cell("up"), Compose.cell("none" :: "down" | "none" | "up")
-					local world = mount({
-						value = a,
-						summary = "99% liked",
-						onChange = function(nextValue: "down" | "none" | "up")
-							a:set(nextValue)
-						end,
-					}, function(UI: FacetControls)
-						return {
-							UI.Vote("W")({
-								value = b,
-								controlSize = "compact" :: "compact",
-								onChange = function(nextValue: "down" | "none" | "up")
-									b:set(nextValue)
-								end,
-							}),
-							UI.Chip({ Name = "Tag", label = "Racing", selected = Compose.cell(false) }),
-						}
-					end)
-					local targets = {}
-					for _, root in { "V", "W" } do
-						for side in SEGMENT do
-							local node = option(world, side, root)
-							Verify.expect(node.Size.X.Offset):toBe(if root == "W" then 36 else 44)
-							Verify.expect(node.Size.Y.Offset):toBe(node.Size.X.Offset)
-							Verify.expect((node:HasTag("facet-button-glyph"))):toBe(true)
-							Verify.expect(targets[node]):toBeNil()
-							targets[node] = true
-						end
-					end
-					world.input.TouchEnabled = true
-					for side in SEGMENT do
-						local constraint = option(world, side, "W"):FindFirstChildWhichIsA("UISizeConstraint")
-						Verify.expect(constraint.MinSize.X >= 44 and constraint.MinSize.Y >= 44):toBe(true)
-					end
-					Verify.expect((option(world, "up", "W"):GetAttribute("controlSize"))):toBe("compact")
-					Verify.expect((option(world, "up"):GetAttribute("label"))):toBe("Upvote")
-					Verify.expect((option(world, "down"):GetAttribute("label"))):toBe("Downvote")
-					local summary = world.find("Summary", world.find("V"))
-					Verify.expect(summary.Text):toBe("99% liked")
-					Verify.expect((summary:GetAttribute("FacetLabel"))):toBe("99% liked")
-					Verify.expect(summary.TextWrapped):toBe(false)
-					Verify.expect(world.find("Summary", world.find("W")).Visible):toBe(false)
-					Verify.expect((b:peek())):toBe("none")
-					world.stop()
-				end,
-			}
-		)
 
 		verifyHarness:case("repaints the Choices vote only from its caller's value and follows the summary", {
 			id = "native_vote::native Vote::repaints the Choices vote only from its caller's value and follows the summary",

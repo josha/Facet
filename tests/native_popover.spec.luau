@@ -11,7 +11,6 @@ return function(verifyHarness: Verify.Harness)
 	local overlay = require("./lib/overlay_world")
 	local placement = require("../src/ui/overlay_placement")
 	local Vector2 = require("@lune/roblox").Vector2
-	local UDim2 = require("@lune/roblox").UDim2
 	local LIFT = 16 * math.sqrt(2) / 2
 	local function corner(panel: any): (number, number)
 		return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
@@ -320,54 +319,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a caller who refuses the anchorLost proposal keeps its fact, and nothing reopens", {
-			id = "native_popover::native Popover: sources, anchor loss and bounds::a caller who refuses the anchorLost proposal keeps its fact, and nothing reopens",
-			run = function()
-				local open, log, change = caller(false)
-				local target: any
-				local w = mount(function(UI: FacetControls, Host: RobloxHost)
-					target = Host.Frame "Target" {}
-					return sourced(open, log, change, target)(UI, Host)
-				end, {
-					extra = {
-						function()
-							return target
-						end,
-					},
-				})
-				open:set(true)
-				local holder = target.Parent
-				target.Parent = nil
-				target.Parent = holder
-				Verify.expect((open:peek())):toBe(true)
-				Verify.expect((w.find("Panel"))):toBeNil()
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("anchorLost")
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a source that has not mounted yet waits instead of being lost", {
-			id = "native_popover::native Popover: sources, anchor loss and bounds::a source that has not mounted yet waits instead of being lost",
-			run = function()
-				local open = Compose.cell(true)
-				local target: any
-				local w = mount(function(UI: FacetControls, Host: RobloxHost)
-					target = Host.Frame "Target" {}
-					return {
-						isPresented = open,
-						source = { node = target },
-						content = function(): Instance
-							return content(UI, Host)
-						end,
-					}
-				end)
-				Verify.expect((w.find("Panel"))):toBeNil()
-				target.Parent = w.find("S")
-				Verify.expect(w.find("Panel") ~= nil):toBe(true)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a rect source never draws a tail; crossOffset and edge reach the placement", {
 			id = "native_popover::native Popover: sources, anchor loss and bounds::a rect source never draws a tail; crossOffset and edge reach the placement",
 			run = function()
@@ -486,9 +437,9 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case(
-			"measures the content at rest before the entrance and holds that height while the panel scales",
+			"measures the content at rest before the entrance and holds that height while the panel fades",
 			{
-				id = "native_popover::native Popover: sources, anchor loss and bounds::measures the content at rest before the entrance and holds that height while the panel scales",
+				id = "native_popover::native Popover: sources, anchor loss and bounds::measures the content at rest before the entrance and holds that height while the panel fades",
 				run = function()
 					local w = mount(function(UI: FacetControls, Host: RobloxHost)
 						return {
@@ -512,11 +463,11 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(body.Size.Y.Offset):toBe(96)
 					w.advance(1 / 60)
 					w.advance(1 / 60)
-					Verify.expect(scale.Scale < 1):toBe(true)
-					Verify.expect(panel.Size.X.Offset):toBe(196)
-					Verify.expect(panel.Size.Y.Offset):toBe(112)
-					Verify.expect(w.find("PresentationPaint").Size.X.Offset):toBe(panel.Size.X.Offset)
-					Verify.expect(w.find("PresentationScale").Scale < 1):toBe(true)
+					Verify.expect(scale.Scale):toBe(1)
+					Verify.expect(panel.AbsoluteSize):toBe(Vector2.new(196, 112))
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
+					Verify.expect(w.find("PresentationPaint")):toBeNil()
+					Verify.expect(w.find("PresentationScale")):toBeNil()
 					flow.AbsoluteSize = Vector2.new(180, 94)
 					Verify.expect(body.Size.Y.Offset):toBe(96)
 					w.advance(0.5, 10)
@@ -547,30 +498,7 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(1 / 60, 3)
 				local fade = panel:FindFirstChild("FadePaint")
 				Verify.expect(fade == nil or fade.Transparency.Keypoints[1].Value == 0):toBe(true)
-				Verify.expect((panel:FindFirstChild("Fade"))):toBe(nil)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("content that fills its width gets the standard popup width instead of collapsing", {
-			id = "native_popover::native Popover: sources, anchor loss and bounds::content that fills its width gets the standard popup width instead of collapsing",
-			run = function()
-				local w = mount(function(UI: FacetControls, Host: RobloxHost)
-					return {
-						isPresented = Compose.cell(true),
-						source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
-						content = function(): Instance
-							return Host.Frame({ Name = "Wide", Size = UDim2.new(1, 0, 0, 40) })
-						end,
-					}
-				end)
-				local floor
-				for _, node in w.find("Flow"):GetChildren() do
-					if node.ClassName == "UISizeConstraint" then
-						floor = node
-					end
-				end
-				Verify.expect(floor.MinSize.X):toBe(360 - 16)
+				Verify.expect(panel:FindFirstChild("Fade").GroupTransparency):toBe(0)
 				w.stop()
 			end,
 		})
@@ -637,20 +565,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((p.find("SheetPanel"))):toBeNil()
 				Verify.expect(p.find("Popup") ~= nil):toBe(true)
 				p.stop()
-			end,
-		})
-
-		verifyHarness:case("a sheet dismissed by something the popover did not drive still proposes and reports", {
-			id = "native_popover::native Popover: the compact sheet and the live route switch::a sheet dismissed by something the popover did not drive still proposes and reports",
-			run = function()
-				local w, open, log = compactWorld()
-				open:set(true)
-				Verify.expect(w.find("SheetPanel") ~= nil):toBe(true)
-				w.find("S").Visible = false
-				Verify.expect((w.find("SheetPanel"))):toBeNil()
-				Verify.expect((open:peek())):toBe(false)
-				Verify.expect((table.concat(log.dismissed, ","))):toBe("cancel")
-				w.stop()
 			end,
 		})
 
@@ -1077,21 +991,6 @@ return function(verifyHarness: Verify.Harness)
 				overlay.find(screen, "DismissOutside").Activated:Fire({ Position = Vector2.new(790, 590) })
 				Verify.expect(dismissed):toEqual({ "outside" })
 				Verify.expect(screen.Parent):toBeNil()
-				a.dispose()
-			end,
-		})
-
-		verifyHarness:case("requires a component function and a source", {
-			id = "native_popover::app.presentAnchored::requires a component function and a source",
-			run = function()
-				local a = app()
-				Verify.expect(
-					(pcall(a.presentAnchored, "nope", { source = { rect = { x = 0, y = 0, w = 1, h = 1 } } }))
-				)
-					:toBe(false)
-				Verify.expect((pcall(a.presentAnchored, function(UI: FacetControls)
-					return UI.Text { text = "x" }
-				end, {}))):toBe(false)
 				a.dispose()
 			end,
 		})

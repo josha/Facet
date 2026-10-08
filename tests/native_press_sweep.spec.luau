@@ -5,7 +5,6 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local FixtureComposeTypes = require("../src/vendor/compose/core")
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")

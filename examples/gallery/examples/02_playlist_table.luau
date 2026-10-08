@@ -11,10 +11,12 @@ type Column = {
 	width: number?,
 	minWidth: number?,
 	priority: number?,
+	wrap: boolean?,
 	resizable: boolean,
 	sortable: boolean,
 	value: (any) -> any,
 	render: ((any) -> any)?,
+	detailRender: ((any) -> any)?,
 }
 
 local example = {}
@@ -178,6 +180,7 @@ function example.build(ctx: any)
 				{
 					id = "name",
 					label = "Name",
+					wrap = false,
 					minWidth = 90,
 					resizable = true,
 					sortable = true,
@@ -188,6 +191,7 @@ function example.build(ctx: any)
 				{
 					id = "artist",
 					label = "Artist",
+					wrap = false,
 					minWidth = 72,
 					priority = 1,
 					resizable = true,
@@ -199,6 +203,7 @@ function example.build(ctx: any)
 				{
 					id = "rating",
 					label = "Rating",
+					priority = 2,
 					width = 144,
 					resizable = false,
 					sortable = true,
@@ -206,6 +211,7 @@ function example.build(ctx: any)
 						return ratings[plain(item).id]:peek()
 					end,
 					render = starCell,
+					detailRender = starCell,
 				},
 			} :: { Column },
 
@@ -304,6 +310,17 @@ function example.build(ctx: any)
 					value = filterText,
 					presentation = "search" :: "search",
 					placeholder = "Filter tracks",
+				},
+				UI.Text "EmptyResult" {
+					Visible = function(use: Use)
+						return #use(filteredRows) == 0
+					end,
+					text = function(use: Use)
+						return if #use(baseRows) == 0
+							then "No tracks in this playlist. Restore the original playlist to add them again."
+							else "No tracks match this filter. Clear the filter to show all tracks."
+					end,
+					TextWrapped = true,
 				},
 				UI.Text "Hint" { text = hintText, textRole = "caption" :: "caption", TextWrapped = true },
 				UI.Text "NowPlaying" { text = nowPlayingText, textRole = "caption" :: "caption", TextWrapped = true },

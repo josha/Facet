@@ -4,7 +4,8 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-return {
+type Case = { id: string, contracts: { string }, keepGallery: boolean?, run: (any) -> () }
+local cases: { Case } = {
 	{
 		id = "table-scrollbar-and-large-heading-resize",
 		contracts = {},
@@ -145,4 +146,126 @@ return {
 			end
 		end,
 	},
+	{
+		id = "playlist-edit-done-frame-rects-390",
+		contracts = {},
+		keepGallery = false,
+		run = function(t: any)
+			t.device({ device = "iphone_14", orientation = "Portrait", frames = 30 })
+			local input = game:GetService("UserInputService")
+			local virtual = input:CreateVirtualInput()
+			if virtual == nil then
+				t.check("native virtual pointer input is available", false)
+				return
+			end
+			local stage = t.mount(function(UI: FacetControls, Host, Compose: ComposeModule, env)
+				local example = require(game.ReplicatedStorage.FacetExamples["02_playlist_table"])
+				return example.build(t.context(UI, Host, Compose, env)).screen()
+			end, { size = Vector2.new(390, 844), motionLevel = "normal", environment = { preferredInput = "Touch" } })
+			local inset = game:GetService("GuiService"):GetGuiInset()
+			local shield = Instance.new("TextButton")
+			shield.Size = UDim2.fromScale(1, 1)
+			shield.BackgroundTransparency, shield.TextTransparency, shield.ZIndex = 1, 1, 10000
+			shield.Parent = stage
+			local seen: Vector3?
+			local delivered: Enum.UserInputType?
+			local observer = input.InputBegan:Connect(function(event)
+				if
+					event.UserInputType == Enum.UserInputType.Touch
+					or event.UserInputType == Enum.UserInputType.MouseButton1
+				then
+					seen = event.Position
+					delivered = event.UserInputType
+				end
+			end)
+			local probe = (stage :: Frame).AbsolutePosition + Vector2.new(100, 100) + inset
+			virtual:SendMousePosition(probe)
+			virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, true)
+			t.settle(2)
+			virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, false)
+			t.settle(2)
+			observer:Disconnect()
+			shield:Destroy()
+			if seen == nil then
+				t.check("calibration delivers real pointer input", false)
+				return
+			end
+			t.check("phone calibration delivers real touch", delivered == Enum.UserInputType.Touch)
+			t.note("delivered input", tostring(delivered))
+			inset = probe - Vector2.new(seen.X, seen.Y)
+			local tableNode = t.find(stage, "Tracks")
+			local edit: any = tableNode:FindFirstChild("Edit", true)
+			local samples: { any }, faults: { any } = {}, {}
+			local mode, revision = "Done", 0
+			local function sample()
+				local header, body = tableNode.Header, tableNode.Body
+				local row = body:FindFirstChild("neon", true)
+				local entry: { [string]: any } =
+					{ frame = #samples + 1, mode = mode, revision = revision, columns = {} }
+				local function fault(message)
+					if #faults < 20 then
+						table.insert(faults, { frame = entry.frame, mode = mode, message = message })
+					end
+				end
+				if row == nil then
+					fault("the first row is absent")
+				else
+					local bodyRect: any = t.rect(body)
+					local lastRight = bodyRect.x
+					for _, id in { "name", "artist", "rating" } do
+						local heading, cell = header:FindFirstChild(id), row:FindFirstChild(id, true)
+						if heading == nil or cell == nil then
+							fault(id .. " is absent")
+						elseif heading.Visible ~= cell.Visible then
+							fault(id .. " header and cell visibility differ")
+						elseif heading.Visible then
+							local top: any, value: any = t.rect(heading), t.rect(cell)
+							entry.columns[id] = { header = top, cell = value }
+							if math.abs(top.x - value.x) > 1 or math.abs(top.w - value.w) > 1 then
+								fault(id .. " header and cell rectangles differ")
+							end
+							if value.x < lastRight - 1 or value.r > bodyRect.r + 1 or value.w <= 0 then
+								fault(id .. " overlaps or is clipped")
+							end
+							lastRight = value.r
+						end
+					end
+					local name = row:FindFirstChild("name", true)
+					local mark = row:FindFirstChild("SelectMark", true)
+					if name and mark and mark.Visible and t.rect(mark).r > t.rect(name).x + 1 then
+						fault("the selection mark overlaps Name")
+					end
+					if mode == "Edit" and name then
+						local text = name:FindFirstChild("Value", true)
+						if text and text:IsA("TextLabel") and not text.TextFits then
+							fault("Neon Straightaway is truncated in Edit")
+						end
+					end
+				end
+				table.insert(samples, entry)
+			end
+			local watch = game:GetService("RunService").PreRender:Connect(sample)
+			for _ = 1, 3 do
+				for _, nextMode in { "Edit", "Done" } do
+					revision += 1
+					local point = edit.AbsolutePosition + edit.AbsoluteSize / 2 + inset
+					virtual:SendMousePosition(point)
+					virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+					t.settle(2)
+					virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+					mode = nextMode
+					t.settle(30)
+					t.check(
+						nextMode .. " changes the toolbar command",
+						edit:GetAttribute("label") == (if nextMode == "Edit" then "Done" else "Edit")
+					)
+				end
+			end
+			watch:Disconnect()
+			t.note("every rendered frame", samples)
+			t.check("all six transitions were sampled on every rendered frame", #samples >= 180, #samples)
+			t.check("header and first row stay aligned without overlap or clipped columns", #faults == 0, faults)
+		end,
+	},
 }
+return cases

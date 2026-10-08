@@ -11,6 +11,7 @@ local pathShapes = require("./nav_path_shapes")
 local decoration = require("./native_decoration")
 local help = require("./help")
 local textReveal = require("./text_reveal")
+local prepareMedia = require("./media_readiness")
 export type MediaControls = Media.MediaControls
 
 local SETTLE_SECONDS = 0.15
@@ -600,7 +601,9 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			defaults[#defaults + 1] = Host.UICorner({ CornerRadius = ctx.round })
 			defaults[#defaults + 1] = Host.UIAspectRatioConstraint({ AspectRatio = 1 })
 		end
-		return Host.ImageLabel(ctx.props(spec, keys, defaults))
+		local image = Host.ImageLabel(ctx.props(spec, keys, defaults))
+		prepareMedia(ctx, image, spec.ImageTransparency)
+		return image
 	end)
 
 	UI.Badge = ctx.construct("Badge", function(spec: Media.BadgeProps): GuiObject
@@ -2290,6 +2293,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				end)
 			end
 		end
+		prepareMedia(ctx, stage, spec.ImageTransparency)
 		return stage
 	end)
 	return UI

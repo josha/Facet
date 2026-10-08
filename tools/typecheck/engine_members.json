@@ -767,5 +767,17 @@
   "WorldRoot": {
     "sha256": "30236c8a8187fe27b5c0d21f20abdba055f95c2f2220522e93ed11a8abb248c6",
     "writable": []
+  },
+  "Highlight": {
+    "sha256": "f97a847a1b1b7fd00eb04efe486dd4a44b2649ab512862fa98f186c29a63461c",
+    "writable": [
+      "Adornee",
+      "DepthMode",
+      "Enabled",
+      "FillColor",
+      "FillTransparency",
+      "OutlineColor",
+      "OutlineTransparency"
+    ]
   }
 }

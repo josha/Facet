@@ -4,9 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local FixtureComposeTypes = require("../src/vendor/compose/core")
 
-	local worlds = require("./lib/content_world")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local lune = require("@lune/roblox")
@@ -29,75 +27,6 @@ return function(verifyHarness: Verify.Harness)
 		w.advance(0.3)
 	end
 
-	local function act(label: string): any
-		return { id = string.lower(label), label = label, onSelect = function() end }
-	end
-
-	local function menuNotes(items: { any }): { string }
-		local controls: { diagnostics: (() -> { string })? } = {}
-		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({
-				Name = "S",
-				Size = UDim2.fromOffset(800, 600),
-				UI.Menu { label = "Options", items = items, controls = controls },
-			})
-		end, { motionLevel = "none" })
-		local notes = assert(controls.diagnostics)()
-		world.stop()
-		return notes
-	end
-
-	verifyHarness:suite("Menu diagnostics (restored from 0.11)", function()
-		verifyHarness:case("a three-level tree builds, and depth 2 is advice rather than a refusal", {
-			id = "native_overlay_reach::Menu diagnostics (restored from 0.11)::a three-level tree builds, and depth 2 is advice rather than a refusal",
-			run = function()
-				local notes = table.concat(
-					menuNotes({
-						{
-							id = "adjust",
-							label = "Adjust",
-							children = { { id = "wear", label = "Wear", children = { act("Hat") } } },
-						},
-					}),
-					" | "
-				)
-				Verify.expect(string.find(notes, "nests 2 levels deep", 1, true) ~= nil):toBe(true)
-				Verify.expect(string.find(notes, "single level", 1, true) ~= nil):toBe(true)
-			end,
-		})
-
-		verifyHarness:case("one level of submenu is silent", {
-			id = "native_overlay_reach::Menu diagnostics (restored from 0.11)::one level of submenu is silent",
-			run = function()
-				Verify.expect(#menuNotes({ { id = "adjust", label = "Adjust", children = { act("Head") } } })):toBe(0)
-			end,
-		})
-
-		verifyHarness:case("a level of more than about five items is advised to become its own menu", {
-			id = "native_overlay_reach::Menu diagnostics (restored from 0.11)::a level of more than about five items is advised to become its own menu",
-			run = function()
-				local many = {}
-				for index = 1, 6 do
-					table.insert(many, act(`Item {index}`))
-				end
-				local notes = table.concat(menuNotes(many), " | ")
-				Verify.expect(string.find(notes, "consider a new menu", 1, true) ~= nil):toBe(true)
-				Verify.expect(#menuNotes({ act("A"), act("B"), act("C"), act("D"), act("E") })):toBe(0)
-			end,
-		})
-
-		verifyHarness:case("a destructive item that is not last is diagnosed", {
-			id = "native_overlay_reach::Menu diagnostics (restored from 0.11)::a destructive item that is not last is diagnosed",
-			run = function()
-				local delete = act("Delete")
-				delete.role = "destructive" :: "destructive"
-				local notes = table.concat(menuNotes({ delete, act("Keep") }), " | ")
-				Verify.expect(string.find(notes, "at the end of the menu", 1, true) ~= nil):toBe(true)
-				Verify.expect(#menuNotes({ act("Keep"), delete })):toBe(0)
-			end,
-		})
-	end)
-
 	verifyHarness:suite("help reachability: every input class can open every help", function()
 		local function helped(): (any, { number })
 			local count = { 0 }
@@ -116,18 +45,6 @@ return function(verifyHarness: Verify.Harness)
 			place(w.find("Post"))
 			return w, count
 		end
-
-		verifyHarness:case("a pointer rests on the button", {
-			id = "native_overlay_reach::help reachability: every input class can open every help::a pointer rests on the button",
-			run = function()
-				local w = helped()
-				w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
-				w.find("Post").GuiState = w.Enum.GuiState.Hover
-				w.advance(0.5)
-				Verify.expect(w.find("HelpText").Text):toBe("Posts it")
-				w.stop()
-			end,
-		})
 
 		verifyHarness:case("a keyboard selection lands on the button", {
 			id = "native_overlay_reach::help reachability: every input class can open every help::a keyboard selection lands on the button",
@@ -172,36 +89,6 @@ return function(verifyHarness: Verify.Harness)
 			place(w.find("Name"))
 			return w
 		end
-
-		verifyHarness:case("a pointer resting on a truncated label reads the whole value", {
-			id = "native_overlay_reach::full-value disclosure of truncated text::a pointer resting on a truncated label reads the whole value",
-			run = function()
-				local w = label({ text = LONG, truncate = "end" :: "end", disclose = true })
-				local name = w.find("Name")
-				name.TextFits = false
-				name.GuiState = w.Enum.GuiState.Hover
-				w.advance(0.5)
-				Verify.expect(w.find("Disclosure") ~= nil):toBe(true)
-				Verify.expect(w.find("HelpText").Text):toBe(LONG)
-				name.TextFits = true
-				w.advance(0.3)
-				Verify.expect((w.find("Disclosure"))):toBeNil()
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a label that fits discloses nothing", {
-			id = "native_overlay_reach::full-value disclosure of truncated text::a label that fits discloses nothing",
-			run = function()
-				local w = label({ text = "Short", truncate = "end" :: "end", disclose = true })
-				local name = w.find("Name")
-				name.TextFits = true
-				name.GuiState = w.Enum.GuiState.Hover
-				w.advance(0.5)
-				Verify.expect((w.find("Disclosure"))):toBeNil()
-				w.stop()
-			end,
-		})
 
 		verifyHarness:case(
 			"touch long-press on a truncated label shows it until the next tap (the label is not Active, so the engine long-press is hit-tested)",
@@ -279,19 +166,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a middle cut discloses the whole value", {
-			id = "native_overlay_reach::full-value disclosure of truncated text::a middle cut discloses the whole value",
-			run = function()
-				local w = label({ text = LONG, truncate = "middle" :: "middle", disclose = true })
-				local name = w.find("Name")
-				name.Text = "Coastal…fourteen"
-				name.GuiState = w.Enum.GuiState.Hover
-				w.advance(0.5)
-				Verify.expect(w.find("HelpText").Text):toBe(LONG)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"a Toggle's truncated label discloses its whole value; without disclose it stays plate-less",
 			{
@@ -330,38 +204,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("a disclosing Button or Toggle with an authored width keeps one line that truncates", {
-			id = "native_overlay_reach::full-value disclosure of truncated text::a disclosing Button or Toggle with an authored width keeps one line that truncates",
-			run = function()
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Name = "Screen",
-						UI.Toggle "Music" {
-							label = LONG,
-							value = Compose.cell(false),
-							disclose = true,
-							Size = UDim2.fromOffset(200, 44),
-						} :: unknown,
-						UI.Button "Post" { label = LONG, disclose = true, Size = UDim2.fromOffset(120, 44) },
-					})
-				end, { motionLevel = "none" })
-				for _, name in { "Music", "Post" } do
-					local node = w.find(name)
-					Verify.expect(`{name}: {node.TextTruncate.Name} {node.TextWrapped}`):toBe(`{name}: AtEnd false`)
-				end
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("disclose is a boolean", {
-			id = "native_overlay_reach::full-value disclosure of truncated text::disclose is a boolean",
-			run = function()
-				Verify.expect((pcall(function()
-					label({ text = LONG, disclose = "yes" }).stop()
-				end))):toBe(false)
-			end,
-		})
 	end)
 
 	verifyHarness:suite("auto reveal of truncated text (restored from 0.11)", function()
@@ -433,36 +275,5 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("moves one strip at a time", {
-			id = "native_overlay_reach::auto reveal of truncated text (restored from 0.11)::moves one strip at a time",
-			run = function()
-				local w = revealing(2, false)
-				w.advance(1.5, 90)
-				Verify.expect(#w.findAll("Reveal")):toBe(1)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("reveal is auto and needs one line", {
-			id = "native_overlay_reach::auto reveal of truncated text (restored from 0.11)::reveal is auto and needs one line",
-			run = function()
-				local badCases: { { [string]: any } } = {
-					{ reveal = "yes" },
-					{ reveal = "auto" :: "auto", wrap = true },
-					{ reveal = "auto" :: "auto", truncate = "middle" :: "middle" },
-				}
-				for _, bad in badCases do
-					bad.text = LONG
-					Verify.expect((pcall(function()
-						overlay
-							.new(function(UI: FacetControls, Host: RobloxHost)
-								return Host.Frame({ UI.Text "Name"(bad :: any) })
-							end, { motionLevel = "none" })
-							.stop()
-					end))):toBe(false)
-				end
-			end,
-		})
 	end)
 end

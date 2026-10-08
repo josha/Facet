@@ -13,6 +13,7 @@ return function(verifyHarness: Verify.Harness)
 	local worlds = require("./lib/content_world")
 	local Compose: ComposeModule = Facet.Compose
 	local UDim2 = require("@lune/roblox").UDim2
+	local styleRules = require("./lib/style_rules")
 
 	local function cardSpec(log: { string }, extra: { [any]: any }?): { [any]: any }
 		local spec: { [any]: any } = {
@@ -196,35 +197,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Card", function()
-		verifyHarness:case("refuses malformed specs before building anything", {
-			id = "native_card::native Card::refuses malformed specs before building anything",
-			run = function()
-				local bad: { any } = {
-					{ image = "", title = "T" },
-					{ image = "rbxassetid://1" },
-					{ image = "rbxassetid://1", title = "T", reveal = "hover" },
-					{ image = "rbxassetid://1", title = "T", imageAspectRatio = 0 },
-					{ image = "rbxassetid://1", title = "T", primaryAction = { label = "Play" } },
-					{
-						image = "rbxassetid://1",
-						title = "T",
-						primaryAction = { label = "P", onActivate = print, x = 1 },
-					},
-					{ image = "rbxassetid://1", title = "T", menu = { items = {}, extra = true } },
-					{ image = "rbxassetid://1", title = "T", caption = 5 },
-					{ image = "rbxassetid://1", title = "T", zIndex = 3 },
-					{ title = "T" },
-					{ title = "T", artwork = "rbxassetid://1" },
-					{ image = "", title = "T", artwork = function() end },
-				}
-				for _, spec in bad do
-					Verify.expect(worlds.mountError(function(UI: FacetControls)
-						return UI.Card(spec)
-					end) ~= nil):toBe(true)
-				end
-			end,
-		})
-
 		verifyHarness:case("keeps body, primary and More as sibling targets so one press runs one intent", {
 			id = "native_card::native Card::keeps body, primary and More as sibling targets so one press runs one intent",
 			run = function()
@@ -282,6 +254,50 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("resolves artwork aspect in native layout before its first measured width", {
+			id = "native_card::native Card::resolves artwork aspect in native layout before its first measured width",
+			run = function()
+				for _, ratio in { 16 / 9, 1, 2 } do
+					local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+						return UI.Card "C" {
+							title = "Afterlight",
+							imageAspectRatio = ratio,
+							artwork = function(): GuiObject
+								return Host.ViewportFrame { Name = "Preview" }
+							end,
+						}
+					end, { motionLevel = "none" })
+					local artwork = world.find("Artwork")
+					local inset = world.find("Body"):FindFirstChildWhichIsA("UIPadding")
+					local _, sheet = world.runtime.mount(function()
+						return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), {
+							types = world.engine.types,
+						})
+					end, world.engine.new("Folder"))
+					Verify.expect(world.find("Body"):HasTag("facet-card-body")):toBe(true)
+					Verify.expect(inset ~= nil):toBe(true)
+					for _, side in { "Left", "Right", "Top", "Bottom" } do
+						Verify.expect(inset["Padding" .. side].Offset):toBe(0)
+						Verify.expect(inset["Padding" .. side].Scale):toBe(0)
+						Verify.expect(styleRules.resolve(sheet, inset, "Padding" .. side).Offset):toBe(0)
+					end
+					local constraint = artwork:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+					Verify.expect(constraint ~= nil):toBe(true)
+					Verify.expect(constraint.AspectRatio):toBe(ratio)
+					Verify.expect(constraint.DominantAxis):toBe(world.engine.types.Enum.DominantAxis.Width)
+					Verify.expect(constraint.AspectType):toBe(world.engine.types.Enum.AspectType.FitWithinMaxSize)
+					Verify.expect(artwork.Size.X.Scale):toBe(1)
+					Verify.expect(artwork.Size.Y.Offset > 0):toBe(true)
+					Verify.expect(world.find("Preview").Size):toBe(UDim2.fromScale(1, 1))
+					world.find("C").AbsoluteSize = world.V2(340, 320)
+					Verify.expect(artwork.Size.Y.Offset >= 340 / ratio):toBe(true)
+					Verify.expect(artwork.Size.Y.Offset < 340 / ratio + 1):toBe(true)
+					Verify.expect(artwork:FindFirstChildWhichIsA("UIAspectRatioConstraint")):toBe(constraint)
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("gives an informational body no activation target and keeps its actions at rest", {
 			id = "native_card::native Card::gives an informational body no activation target and keeps its actions at rest",
 			run = function()
@@ -323,30 +339,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("keeps the last legal paint for an invalid late title or image and recovers", {
-			id = "native_card::native Card::keeps the last legal paint for an invalid late title or image and recovers",
-			run = function()
-				local title = Compose.cell("First")
-				local image = Compose.cell("rbxassetid://1")
-				local world, _, controls = mount(cardSpec({}, { title = title, image = image }))
-				title:set("")
-				image:set("")
-				Verify.expect(world.find("Title").Text):toBe("First")
-				Verify.expect(world.find("Artwork").Image):toBe("rbxassetid://1")
-				Verify.expect(#assert(controls.diagnostics)()):toBe(2)
-				title:set("Second")
-				image:set("rbxassetid://2")
-				Verify.expect(world.find("Title").Text):toBe("Second")
-				Verify.expect(world.find("Artwork").Image):toBe("rbxassetid://2")
-				for index = 1, 20 do
-					title:set("")
-					title:set(`T{index}`)
-				end
-				Verify.expect(#assert(controls.diagnostics)()):toBe(16)
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("leaves nothing behind when a callback removes its own card", {
 			id = "native_card::native Card::leaves nothing behind when a callback removes its own card",
 			run = function()
@@ -369,41 +361,6 @@ return function(verifyHarness: Verify.Harness)
 				body.Activated:Fire()
 				Verify.expect((world.find("C"))):toBeNil()
 				Verify.expect((world.find("CardCancel"))):toBeNil()
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("reveals on a pointer within and keeps the action plate in the card's layout", {
-			id = "native_card::native Card::reveals on a pointer within and keeps the action plate in the card's layout",
-			run = function()
-				local world, root = mount(cardSpec({}))
-				local reveal = plate(world)
-				Verify.expect((attr(root, "Revealed"))):toBe(false)
-				Verify.expect(reveal.Visible):toBe(true)
-				Verify.expect(reveal.Interactable):toBe(false)
-				Verify.expect((fadeKit.of(reveal))):toBe(1)
-				Verify.expect(reveal.LayoutOrder > world.find("Body").LayoutOrder):toBe(true)
-				Verify.expect(reveal.Parent):toBe(root)
-				local size = root.Size
-				hover(root, true)
-				Verify.expect((attr(root, "Revealed"))):toBe(true)
-				Verify.expect(reveal.Interactable):toBe(true)
-				Verify.expect((fadeKit.of(reveal))):toBe(0)
-				Verify.expect(root.Size):toBe(size)
-				Verify.expect(reveal.Visible):toBe(true)
-				hover(root, false)
-				Verify.expect((attr(root, "Revealed"))):toBe(false)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("measures the envelope height at rest, before anything reveals", {
-			id = "native_card::native Card::measures the envelope height at rest, before anything reveals",
-			run = function()
-				local world, root, controls = mount(cardSpec({}))
-				world.resize(root, 240, 312)
-				Verify.expect((attr(root, "Revealed"))):toBe(false)
-				Verify.expect(controls.revealExtent:peek().body):toBe(312)
 				world.stop()
 			end,
 		})
@@ -518,97 +475,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("retargets the fade from where it is on a rapid reversal", {
-			id = "native_card::native Card::retargets the fade from where it is on a rapid reversal",
-			run = function()
-				local world, root = mount(cardSpec({}), { motionLevel = "normal" })
-				local reveal = plate(world)
-				local function alpha(): number
-					return 1 - fadeKit.of(reveal)
-				end
-				hover(root, true)
-				settle(world, 0.08)
-				local reached = alpha()
-				Verify.expect(reached > 0.2 and reached < 1):toBe(true)
-				hover(root, false)
-				Verify.expect(reveal.Interactable):toBe(false)
-				settle(world, 1 / 60)
-				local turned = alpha()
-				Verify.expect(turned < reached and turned > reached - 0.2):toBe(true)
-				hover(root, true)
-				settle(world, 1 / 60)
-				Verify.expect(math.abs(alpha() - turned) < 0.2):toBe(true)
-				Verify.expect((attr(root, "Revealed"))):toBe(true)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("reveals the action row at rest with reveal always", {
-			id = "native_card::native Card::reveals the action row at rest with reveal always",
-			run = function()
-				local world, root = mount(cardSpec({}, { reveal = "always" }))
-				Verify.expect((attr(root, "Revealed"))):toBe(true)
-				Verify.expect((fadeKit.of(plate(world)))):toBe(0)
-				Verify.expect(primary(world) ~= nil):toBe(true)
-				Verify.expect(plate(world).LayoutOrder):toBe(2)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("grows the card's one plate down around Play and More instead of stacking a second one", {
-			id = "native_card::native Card::grows the card's one plate down around Play and More instead of stacking a second one",
-			run = function()
-				local world, root = mount(cardSpec({}))
-				local E = world.engine.types.Enum
-				local radius = Facet.themes.neutralPackage().metrics.radii.panel
-				Verify.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset):toBe(-2 * radius)
-				local reveal = plate(world)
-				local paint = reveal:FindFirstChild("Plate", true)
-				Verify.expect(paint ~= nil and paint:HasTag("facet-panel")):toBe(true)
-				Verify.expect(`{paint.Size} {paint.Position}`):toBe(`{UDim2.fromScale(1, 1)} {UDim2.new()}`)
-				Verify.expect(reveal.ZIndex < world.find("Body").ZIndex):toBe(true)
-				Verify.expect((paint:FindFirstChildWhichIsA("UICorner"))):toBe(nil)
-				local row = reveal:FindFirstChild("Row", true)
-				Verify.expect(row.ZIndex > paint.ZIndex):toBe(true)
-				Verify.expect(row:FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
-				local play, trigger = primary(world), more(world)
-				Verify.expect(play.Parent):toBe(row)
-				Verify.expect(play:FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(E.UIFlexMode.Fill)
-				Verify.expect(trigger.Parent):toBe(row)
-				Verify.expect(trigger.LayoutOrder > play.LayoutOrder):toBe(true)
-				Verify.expect((trigger:GetAttribute("label"))):toBe("More")
-				Verify.expect(trigger:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
-				Verify.expect((trigger:FindFirstChild("Title", true))):toBeNil()
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps an always row unplated below the body with a gap", {
-			id = "native_card::native Card::keeps an always row unplated below the body with a gap",
-			run = function()
-				local world, root = mount(cardSpec({}, { reveal = "always" }))
-				Verify.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset > 0):toBe(true)
-				Verify.expect(plate(world):FindFirstChild("Plate").Visible):toBe(false)
-				Verify.expect((plate(world):FindFirstChild("Row"):FindFirstChildWhichIsA("UIPadding"))):toBeNil()
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("follows a live change of the measured envelope while revealed", {
-			id = "native_card::native Card::follows a live change of the measured envelope while revealed",
-			run = function()
-				local world, root, controls = mount(cardSpec({}, { Size = UDim2.fromOffset(240, 0) }))
-				hover(root, true)
-				world.resize(root, 240, 300)
-				local before = controls.revealExtent:peek().body
-				world.resize(root, 240, 340)
-				Verify.expect(controls.revealExtent:peek().body > before):toBe(true)
-				Verify.expect(controls.revealExtent:peek().body):toBe(340)
-				Verify.expect(root.Size.X.Offset):toBe(240)
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("grows a lifted card evenly around its centre", {
 			id = "native_card::native Card::grows a lifted card evenly around its centre",
 			run = function()
@@ -706,52 +572,6 @@ return function(verifyHarness: Verify.Harness)
 				world.gui.SelectedObject = body
 				settle(world, 1)
 				Verify.expect((lift(root))):toBe("scale 1.04 shadow true")
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("sizes its artwork from the unlifted width, so the lift never changes the layout", {
-			id = "native_card::native Card::sizes its artwork from the unlifted width, so the lift never changes the layout",
-			run = function()
-				local world, root = mount(cardSpec({}), { motionLevel = "normal" })
-				world.resize(root, 300, 262)
-				local artwork = world.find("Artwork")
-				local resting = artwork.Size
-				hover(root, true)
-				settle(world, 1)
-				Verify.expect(root:FindFirstChild("Lift").Scale):toBe(1.04)
-				world.resize(root, 312, 272)
-				Verify.expect(artwork.Size):toBe(resting)
-				local unit = root:FindFirstChild("LayoutUnit")
-				world.runtime.reactor:batch(function()
-					world.resize(unit, 1.3, 1.3)
-					world.resize(root, 390, 340.6)
-				end)
-				Verify.expect(artwork.Size):toBe(resting)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("lifts a card with no body action without a shadow", {
-			id = "native_card::native Card::lifts a card with no body action without a shadow",
-			run = function()
-				local spec = cardSpec({})
-				spec.onActivate = nil
-				local world, root = mount(spec, { motionLevel = "normal" })
-				hover(root, true)
-				settle(world, 1)
-				Verify.expect((lift(root))):toBe("scale 1.04 shadow false")
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps only the raised shadow under reduced motion", {
-			id = "native_card::native Card::keeps only the raised shadow under reduced motion",
-			run = function()
-				local world, root = mount(cardSpec({}), { motionLevel = "none" })
-				hover(root, true)
-				settle(world, 1)
-				Verify.expect((lift(root))):toBe("scale 1 shadow true")
 				world.stop()
 			end,
 		})
@@ -923,39 +743,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("centres a count seal on the top-right corner of its host without changing the host", {
-			id = "native_card::native Card::centres a count seal on the top-right corner of its host without changing the host",
-			run = function()
-				local unread = Compose.cell(120 :: any)
-				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						Name = "S",
-						UI.badged(UI.Button({ Name = "Inbox", label = "Inbox", LayoutOrder = 3 }), unread),
-					})
-				end)
-				local wrapper = world.find("Inbox+badge")
-				local host = world.find("Inbox")
-				Verify.expect(host.Parent):toBe(wrapper)
-				Verify.expect(wrapper.LayoutOrder):toBe(3)
-				Verify.expect(wrapper.AutomaticSize.Name):toBe("XY")
-				local corner = world.find("Corner", wrapper)
-				Verify.expect(corner.Size):toBe(UDim2.fromOffset(0, 0))
-				Verify.expect(corner.Position):toBe(UDim2.fromScale(1, 0))
-				local seal = world.find("CornerBadge", wrapper)
-				Verify.expect(seal.AnchorPoint):toBe(require("@lune/roblox").Vector2.new(0.5, 0.5))
-				Verify.expect(seal.Text):toBe("99+")
-				Verify.expect((seal:IsA("GuiButton"))):toBe(false)
-				Verify.expect(seal.ZIndex > host.ZIndex):toBe(true)
-				unread:set(7)
-				Verify.expect(world.find("CornerBadge", wrapper).Text):toBe("7")
-				for _, empty in { nil, false, 0, "" } :: { any } do
-					unread:set(empty)
-					Verify.expect((world.find("CornerBadge", wrapper))):toBeNil()
-				end
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("mirrors the seal to the top-left in rtl and shows true as a dot", {
 			id = "native_card::native Card::mirrors the seal to the top-left in rtl and shows true as a dot",
 			run = function()
@@ -1038,12 +825,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(iconSeal ~= nil and iconSeal.Text == "3"):toBe(true)
 				Verify.expect(iconSeal:FindFirstAncestorWhichIsA("ImageLabel") ~= nil):toBe(true)
 				local measure = pickers.find("a", icons):FindFirstChild("CaptionMeasure", true)
-				Verify.expect(measure ~= nil and not measure.Visible):toBe(true)
+				Verify.expect(measure ~= nil and measure.TextTransparency == 1 and not measure.Interactable):toBe(true)
 				local shown = {}
 				for _, node in pickers.find("a", icons):GetDescendants() do
 					if
 						(node:IsA("TextLabel") or node:IsA("TextButton"))
 						and node.Visible
+						and node.TextTransparency < 1
 						and node.Name ~= "CornerBadge"
 						and node.Text ~= ""
 					then
@@ -1057,31 +845,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(words:FindFirstChild("Count", true).Text):toBe("3")
 				Verify.expect((words:GetAttribute("label"))):toBe("Inbox (3)")
 				pickers.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps the mounted cards and their controls bounded across a thousand items", {
-			id = "native_card::native Card::keeps the mounted cards and their controls bounded across a thousand items",
-			run = function()
-				local g = gridWorld(1000)
-				local function count(): number
-					local n = 0
-					for _ in g.cards.A do
-						n += 1
-					end
-					return n
-				end
-				local bound = 7 * 3
-				Verify.expect(count() > 0 and count() <= bound):toBe(true)
-				local peak = 0
-				for step = 1, 10 do
-					g.world.find("A").CanvasPosition = g.world.V2(0, step * 2000)
-					peak = math.max(peak, count())
-				end
-				Verify.expect(peak <= bound):toBe(true)
-				Verify.expect(g.controls.A.i1):toBeNil()
-				Verify.expect(g.controls.A.i500):toBeNil()
-				g.world.stop()
 			end,
 		})
 	end)

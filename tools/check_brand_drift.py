@@ -134,12 +134,6 @@ def reachable_documents():
 
 
 VENDOR_ALLOWLIST = [
-    ("tests/native_parity_navigation.spec.luau", re.compile(r'"iphone", "ipad"'),
-     "a negative test lists device names to prove no control branches on one",
-     "when the device-name guard moves to a shared helper"),
-    ("tests/native_parity_weaker_pointer.spec.luau", re.compile(r'^\s*"(?:iphone|ipad|macos|ios|tvos)"[,]?\s*$|"iphone", "ipad"'),
-     "a negative test lists device names to prove no control branches on one",
-     "when the device-name guard moves to a shared helper"),
     ("tools/check_brand_drift.py", VENDOR,
      "the guard's own match data and its planted selftest words",
      "never"),

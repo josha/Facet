@@ -7,6 +7,7 @@ type Queue = {
 	pending: { [Update]: boolean },
 	thread: thread?,
 	users: number,
+	frame: RBXScriptConnection?,
 }
 local queues: { [ComposeTypes.Runtime]: Queue } = {}
 
@@ -14,14 +15,11 @@ return function(
 	Compose: typeof(ComposeTypes),
 	runtime: ComposeTypes.Runtime,
 	node: Instance,
-	property: string
+	property: string,
+	beforePaint: RBXScriptSignal?
 ): ComposeTypes.Cell<unknown>
 	local observation = assert(runtime.host.observation)
-	local initial: unknown = if task
-			and task.delay
-			and property ~= "CanvasPosition"
-		then (if property == "TextFits" then false else Vector2.zero)
-		else observation.readProperty(node, property)
+	local initial: unknown = observation.readProperty(node, property)
 	local value = Compose.cell(initial)
 	local queue = queues[runtime]
 	if queue == nil then
@@ -45,7 +43,10 @@ return function(
 		end,
 	}
 	local function flush()
-		held.thread = nil
+		if held.thread then
+			task.cancel(held.thread)
+			held.thread = nil
+		end
 		local pending = held.pending
 		held.pending = {}
 		for entry in pending do
@@ -57,14 +58,20 @@ return function(
 			end
 		end)
 	end
+	if beforePaint and held.frame == nil then
+		held.frame = beforePaint:Connect(flush)
+	end
 	local function refresh()
 		if not alive then
 			return
 		end
-		if task and task.delay then
+		if held.frame or (task and task.defer) then
 			held.pending[update] = true
-			if held.thread == nil then
-				held.thread = task.delay(0, flush)
+			if held.frame == nil and held.thread == nil then
+				held.thread = task.defer(function()
+					held.thread = nil
+					flush()
+				end)
 			end
 		else
 			update.read()
@@ -72,7 +79,7 @@ return function(
 		end
 	end
 	local stop = observation.observeProperty(node, property, refresh)
-	if task and task.delay then
+	if held.frame or (task and task.defer) then
 		refresh()
 	end
 	Compose.cleanup(function()
@@ -85,6 +92,9 @@ return function(
 			held.thread = nil
 		end
 		if held.users == 0 then
+			if held.frame then
+				held.frame:Disconnect()
+			end
 			queues[runtime] = nil
 		end
 	end)

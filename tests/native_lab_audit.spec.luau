@@ -59,7 +59,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("native lab audit: drag and drop", function()
 		verifyHarness:case("matrix bounds intrinsic buttons without changing pure helper arguments", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::matrix bounds intrinsic buttons without changing pure helper arguments",
+			id = "native_lab_audit::native lab audit: drag and drop::matrix bounds intrinsic buttons without changing pure helper arguments",
 			run = function()
 				local available = Compose.cell(353)
 				local w = worlds.new(function(UI, Host, engine)
@@ -86,7 +86,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("Lab successful render clears only its prior refusal", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab successful render clears only its prior refusal",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab successful render clears only its prior refusal",
 			run = function()
 				local render = require("../examples/facet-lab/src/render_result")
 				local errors = { Picker = { playground = "old refusal", S1 = "other refusal" } }
@@ -98,7 +98,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 		verifyHarness:case("Lab Reset remounts control local state", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab Reset remounts control local state",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab Reset remounts control local state",
 			run = function()
 				local items = Compose.cell({ { id = "Rating", revision = 0 } })
 				local w = worlds.new(function(UI)
@@ -122,7 +122,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("LevelPicker disables custom glyph state for bar segments", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::LevelPicker disables custom glyph state for bar segments",
+			id = "native_lab_audit::native lab audit: drag and drop::LevelPicker disables custom glyph state for bar segments",
 			run = function()
 				local data = require("@lune/luau").load(
 					require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
@@ -134,7 +134,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("Lab long label preview gives text a bounded native width", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab long label preview gives text a bounded native width",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab long label preview gives text a bounded native width",
 			run = function()
 				local available = Compose.cell(353)
 				local w = worlds.new(function(UI, Host, engine)
@@ -156,8 +156,131 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("Lab long label bounds use the cell width within a larger viewport", {
+			id = "native_lab_audit::native lab audit: drag and drop::Lab long label bounds use the cell width within a larger viewport",
+			run = function()
+				local available = Compose.cell(353)
+				local w = worlds.new(function(UI, Host, engine)
+					local props = require("../examples/facet-lab/src/matrix_width")(
+						Compose,
+						{ Name = "CellLabel", label = string.rep("Long label ", 12), value = Compose.cell("Value") },
+						available,
+						true,
+						engine.types,
+						true,
+						200
+					)
+					return UI.TextInput(props)
+				end)
+				Verify.expect(w.find("CellLabel").Size.X.Offset):toBe(200)
+				available:set(160)
+				Verify.expect(w.find("CellLabel").Size.X.Offset):toBe(160)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("sweep fails a delivered Close that leaves its surface open", {
+			id = "native_lab_audit::native lab audit: drag and drop::sweep fails a delivered Close that leaves its surface open",
+			run = function()
+				local sweep = require("../examples/facet-lab/src/lab_sweep")
+				Verify.expect(sweep.dismissalResult(true, false)):toBe("faults")
+				Verify.expect(sweep.dismissalResult(false, false)):toBe("unsupported")
+				Verify.expect(sweep.dismissalResult(true, true)):toBe(nil)
+				local reservedKeys = require("../src/ui/reserved_keys")
+				local w = worlds.new(function(UI: FacetControls)
+					return UI.Label { title = "Escape receiver" }
+				end)
+				local calls = 0
+				local keys = (w.engine.types.Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }
+				local release = reservedKeys.add(w.input, keys, {
+					keys = { Escape = true },
+					priority = 2000,
+					sink = true,
+					gui = w.gui,
+					enabled = function()
+						return true
+					end,
+					press = function()
+						calls += 1
+					end,
+					release = function() end,
+				})
+				local delivered = sweep.escapeInput(w.input, w.gui, keys, reservedKeys, function()
+					w.input.InputBegan:Fire({ KeyCode = w.engine.types.Enum.KeyCode.Escape })
+					w.input.InputEnded:Fire({ KeyCode = w.engine.types.Enum.KeyCode.Escape })
+				end)
+				Verify.expect(delivered):toBe(true)
+				Verify.expect(calls):toBe(1)
+				Verify.expect(sweep.dismissalResult(delivered, false)):toBe("faults")
+				Verify.expect(sweep.escapeInput(w.input, w.gui, keys, reservedKeys, function() end)):toBe(false)
+				release()
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("sweep drives Controls picker and checkbox input and verifies configuration", {
+			id = "native_lab_audit::native lab audit: drag and drop::sweep drives Controls picker and checkbox input and verifies configuration",
+			run = function()
+				local sweep = require("../examples/facet-lab/src/lab_sweep")
+				local selected, disabled = Compose.cell("first"), Compose.cell(false)
+				local w = require("./lib/overlay_world").new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame {
+						UI.Picker {
+							Name = "Axis_style",
+							label = "style",
+							style = "menu" :: "menu",
+							selected = selected,
+							options = {
+								{ id = "first", value = "first", label = "First" } :: FixtureNavigationTypes.PickerOption<string>,
+								{ id = "second", value = "second", label = "Second" } :: FixtureNavigationTypes.PickerOption<string>,
+							},
+						},
+						UI.Toggle {
+							Name = "State_disabled",
+							label = "disabled",
+							presentation = "checkbox" :: "checkbox",
+							value = disabled,
+						},
+					}
+				end)
+				local calls = 0
+				local function locate(name: string): GuiButton?
+					local node = w.find(name)
+					if not node then
+						return nil
+					end
+					return if node:IsA("GuiButton") then node else node:FindFirstChildWhichIsA("GuiButton", true)
+				end
+				local function press(node: GuiButton): boolean
+					calls += 1
+					w.find(node.Name).Activated:Fire()
+					w.advance(1, 60)
+					return true
+				end
+				local function report(): { [string]: string | boolean }
+					return { style = selected:peek(), ["+disabled"] = disabled:peek() }
+				end
+				Verify.expect(sweep.controlInput("style=second", locate, press, report)):toBe("passed")
+				Verify.expect(calls):toBe(2)
+				Verify.expect(sweep.controlInput("+disabled", locate, press, report)):toBe("passed")
+				Verify.expect(sweep.controlInput("-disabled", locate, press, report)):toBe("passed")
+				Verify.expect(calls):toBe(4)
+				press(assert(locate("Axis_style")))
+				Verify.expect(locate("second") ~= nil):toBe(true)
+				Verify.expect(sweep.controlInput("style=second", locate, function()
+					return true
+				end, function()
+					return { style = "first" }
+				end)):toBe("faults")
+				Verify.expect(sweep.controlInput("style=second", locate, function()
+					return false
+				end, report)):toBe("unsupported")
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("Lab sweep restores options and detects reset and stale focus faults", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep restores options and detects reset and stale focus faults",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep restores options and detects reset and stale focus faults",
 			run = function()
 				local sweep = require("../examples/facet-lab/src/lab_sweep")
 				Verify.expect(sweep.options({
@@ -184,7 +307,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("Lab sweep records engine parent conflicts without treating every warning as a fault", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep records engine parent conflicts without treating every warning as a fault",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep records engine parent conflicts without treating every warning as a fault",
 			run = function()
 				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
 				Verify.expect(
@@ -198,13 +321,27 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("Lab sweep finds a dialog cancel command by role instead of its translated label", {
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep finds a dialog cancel command by role instead of its translated label",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				local w = worlds.new(function(UI)
+					return UI.Button({ Name = "KeepLobby", label = "Stay", role = "cancel" :: "cancel" })
+				end)
+				Verify.expect(sweep.dismissCommand(w.find("KeepLobby"))):toBe(true)
+				w.find("KeepLobby"):RemoveTag("facet-role-cancel")
+				Verify.expect(sweep.dismissCommand(w.find("KeepLobby"))):toBe(false)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("Lab sweep includes editing and helper sections outside the standard matrix", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep includes editing and helper sections outside the standard matrix",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep includes editing and helper sections outside the standard matrix",
 			run = function()
 				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
 				local engine: any = engineLib.new()
 				local page = engine.new("ScrollingFrame")
-				for _, name in { "Header", "Controls", "Playground", "Editing", "Helper_Label", "States" } do
+				for _, name in { "Header", "Controls", "Content", "Playground", "Editing", "Helper_Label", "States" } do
 					local child = engine.new("Frame")
 					child.Name = name
 					child.Parent = page
@@ -214,7 +351,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("Lab sweep keeps a finite inventory when an interaction adds a new row", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep keeps a finite inventory when an interaction adds a new row",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep keeps a finite inventory when an interaction adds a new row",
 			run = function()
 				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
 				local engine: any = engineLib.new()
@@ -235,8 +372,30 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("Lab sweep keeps commands outside a virtual collection in the section pass", {
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep keeps commands outside a virtual collection in the section pass",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local page = engine.new("Frame")
+				local group = engine.new("Frame")
+				group.Name, group.Parent = "Playground", page
+				local add = engine.new("TextButton")
+				add.Name, add.Parent = "Add", group
+				local collection = engine.new("ScrollingFrame")
+				collection.Name, collection.Parent = "Rows", group
+				collection:AddTag("facet-collection")
+				local row = engine.new("TextButton")
+				row.Name, row.Parent = "Row", collection
+				local inventory = sweep.inventory(group, page, false, true)
+				Verify.expect(inventory["Playground[1].Add[1]"]):toBe(true)
+				Verify.expect(inventory["Playground[1].Rows[1].Row[1]"]):toBe(nil)
+				Verify.expect(sweep.inventory(collection, page)["Playground[1].Rows[1].Row[1]"]):toBe(true)
+			end,
+		})
+
 		verifyHarness:case("Lab sweep distinguishes controls with the same native name", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep distinguishes controls with the same native name",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep distinguishes controls with the same native name",
 			run = function()
 				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
 				local engine: any = engineLib.new()
@@ -256,8 +415,129 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("Lab sweep bounds virtual targets to three native scroll windows", {
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep bounds virtual targets to three native scroll windows",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local scroll = engine.new("ScrollingFrame")
+				scroll.AbsoluteCanvasSize = engine.types.Vector2.new(900, 1200)
+				scroll.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+				local positions = sweep.scrollStops(scroll)
+				Verify.expect(#positions):toBe(3)
+				Verify.expect(positions[1]):toEqual({ x = 0, y = 0 })
+				Verify.expect(positions[2]):toEqual({ x = 300, y = 500 })
+				Verify.expect(positions[3]):toEqual({ x = 600, y = 1000 })
+				scroll.AbsoluteCanvasSize = engine.types.Vector2.new(20, 40)
+				Verify.expect(#sweep.scrollStops(scroll)):toBe(1)
+			end,
+		})
+
+		verifyHarness:case("Lab sweep does not activate a preparing presentation or its drag detector", {
+			id = "native_lab_audit::native lab audit: drag and drop::Lab sweep does not activate a preparing presentation or its drag detector",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local page = engine.new("Frame")
+				local group = engine.new("CanvasGroup")
+				page.AbsoluteSize = engine.types.Vector2.new(100, 100)
+				group.AbsoluteSize = engine.types.Vector2.new(100, 100)
+				group.Parent = page
+				local button = engine.new("TextButton")
+				button.AbsoluteSize = engine.types.Vector2.new(20, 20)
+				button.Parent = group
+				local detector = engine.new("UIDragDetector")
+				detector.Parent = button
+				group.GroupTransparency = 1
+				Verify.expect(sweep.targetVisible(button)):toBe(false)
+				Verify.expect(sweep.targetVisible(detector)):toBe(false)
+				group.GroupTransparency = 0
+				Verify.expect(sweep.targetVisible(button)):toBe(true)
+				Verify.expect(sweep.targetVisible(detector)):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("sweep reveals offscreen ordinary cells but bounds virtual window visits", {
+			id = "native_lab_audit::native lab audit: drag and drop::sweep reveals offscreen ordinary cells but bounds virtual window visits",
+			run = function()
+				local sweep = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local clip = engine.new("ScrollingFrame")
+				clip.ClipsDescendants = true
+				clip.AbsolutePosition = engine.types.Vector2.zero
+				clip.AbsoluteSize = engine.types.Vector2.new(300, 200)
+				local button = engine.new("TextButton")
+				button.Parent = clip
+				button.AbsolutePosition = engine.types.Vector2.new(20, 300)
+				button.AbsoluteSize = engine.types.Vector2.new(80, 40)
+				Verify.expect(sweep.targetVisible(button)):toBe(false)
+				Verify.expect((sweep.targetVisible :: any)(button, true)):toBe(true)
+				local preparing = engine.new("CanvasGroup")
+				preparing.Parent = clip
+				preparing.GroupTransparency = 1
+				button.Parent = preparing
+				Verify.expect((sweep.targetVisible :: any)(button, true)):toBe(false)
+			end,
+		})
+
+		verifyHarness:case("sweep Reset differences identify changed structural rows", {
+			id = "native_lab_audit::native lab audit: drag and drop::sweep Reset differences identify changed structural rows",
+			run = function()
+				local sweep = require("../examples/facet-lab/src/lab_sweep")
+				Verify.expect(sweep.difference({ "A|old", "B|same" }, { "A|new", "B|same" })):toEqual({
+					"before: A|old",
+					"after: A|new",
+				})
+				Verify.expect(sweep.difference({ "B|same" }, { "B|same" })):toEqual({})
+			end,
+		})
+
+		verifyHarness:case("sweep reads native destination failures even when the Lab error map is empty", {
+			id = "native_lab_audit::native lab audit: drag and drop::sweep reads native destination failures even when the Lab error map is empty",
+			run = function()
+				local sweep = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local root = engine.new("Frame")
+				root:SetAttribute("FacetError", "destination mount failed")
+				Verify.expect(sweep.failure(root)):toBe("destination mount failed")
+				root:SetAttribute("FacetError", nil)
+				Verify.expect(sweep.failure(root)):toBe(nil)
+				local label = engine.new("TextLabel")
+				label.Name = "DestinationError"
+				label.Text = "This page could not be displayed."
+				Verify.expect(sweep.failure(label)):toBe(label.Text)
+				label.Name = "OrdinaryLabel"
+				label.Text = "Track loaded"
+				Verify.expect(sweep.failure(label)):toBe(nil)
+			end,
+		})
+
+		verifyHarness:case("Lab Screen body rows wrap inside the scroll window", {
+			id = "native_lab_audit::native lab audit: drag and drop::Lab Screen body rows wrap inside the scroll window",
+			run = function()
+				local w = worlds.new(function(UI, Host, engine)
+					local data = require("@lune/luau").load(
+						require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
+						{ environment = engine.types }
+					)().PAGE_DATA.Screen
+					return data.make(UI, {}, { Compose = Compose })
+				end)
+				local rows = 0
+				for _, node in w.screen:GetDescendants() do
+					if node:IsA("TextLabel") and string.find(node.Text, "Body row", 1, true) then
+						rows += 1
+						Verify.expect(node.TextWrapped):toBe(true)
+						Verify.expect(node.Size.X.Scale):toBe(1)
+						Verify.expect(node.AutomaticSize):toBe(w.engine.types.Enum.AutomaticSize.Y)
+					end
+				end
+				Verify.expect(rows):toBe(8)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("Lab pinned AdaptiveStack keeps all four commands in a native scroll window", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab pinned AdaptiveStack keeps all four commands in a native scroll window",
+			id = "native_lab_audit::native lab audit: drag and drop::Lab pinned AdaptiveStack keeps all four commands in a native scroll window",
 			run = function()
 				local w = worlds.new(function(UI, Host, engine)
 					local data = require("@lune/luau").load(
@@ -284,8 +564,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("pure helper output fills its declared cell without changing decision arguments", {
+			id = "native_lab_audit::native lab audit: drag and drop::pure helper output fills its declared cell without changing decision arguments",
+			run = function()
+				local w = worlds.new(function(UI, Host, engine)
+					local data = require("@lune/luau").load(
+						require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
+						{ environment = engine.types }
+					)().PAGE_DATA
+					local nodes = {}
+					for _, id in { "adaptive", "civilDate" } do
+						Verify.expect(data[id].cellWidth):toBe(360)
+						local node = data[id].make(UI, { width = 700 }, { Facet = Facet })
+						Verify.expect(node.Size.X.Scale):toBe(1)
+						Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+						table.insert(nodes, node)
+					end
+					Verify.expect(nodes[1].Text):toContain("sizeClass(700) = regular")
+					return UI.VStack({ width = 360, table.unpack(nodes) })
+				end)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("pure adaptive matrix decisions keep numeric arguments", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::pure adaptive matrix decisions keep numeric arguments",
+			id = "native_lab_audit::native lab audit: drag and drop::pure adaptive matrix decisions keep numeric arguments",
 			run = function()
 				local bounded = (require("../examples/facet-lab/src/matrix_width") :: any)(
 					Compose,
@@ -299,7 +602,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("fixed width matrix controls use the offered phone width", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::fixed width matrix controls use the offered phone width",
+			id = "native_lab_audit::native lab audit: drag and drop::fixed width matrix controls use the offered phone width",
 			run = function()
 				local available = Compose.cell(353)
 				local w = worlds.new(function(UI)
@@ -320,7 +623,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("audit checks text only inside its visible clipping window", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::audit checks text only inside its visible clipping window",
+			id = "native_lab_audit::native lab audit: drag and drop::audit checks text only inside its visible clipping window",
 			run = function()
 				local visible = require("../examples/facet-lab/src/audit_visible")
 				local engine: any = engineLib.new()
@@ -345,7 +648,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("AdaptiveStack matrix cells contain the fixed width variants", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::AdaptiveStack matrix cells contain the fixed width variants",
+			id = "native_lab_audit::native lab audit: drag and drop::AdaptiveStack matrix cells contain the fixed width variants",
 			run = function()
 				local engine: any = engineLib.new()
 				local fs = require("@lune/fs")
@@ -367,7 +670,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("matrix pages display with native Vector2 viewport facts", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::matrix pages display with native Vector2 viewport facts",
+			id = "native_lab_audit::native lab audit: drag and drop::matrix pages display with native Vector2 viewport facts",
 			run = function()
 				local available = Compose.cell(0)
 				local w = worlds.new(function(UI, Host, engine)
@@ -388,7 +691,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("Sheet lab keeps a Close command when interactive dismissal is disabled", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::Sheet lab keeps a Close command when interactive dismissal is disabled",
+			id = "native_lab_audit::native lab audit: drag and drop::Sheet lab keeps a Close command when interactive dismissal is disabled",
 			run = function()
 				local engine: any = engineLib.new()
 				local fs = require("@lune/fs")
@@ -415,7 +718,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("loads the canvas without mesh APIs and supports touch apply undo and reset", {
-			id = "native_lab_audit_parity::native lab audit: drag and drop::loads the canvas without mesh APIs and supports touch apply undo and reset",
+			id = "native_lab_audit::native lab audit: drag and drop::loads the canvas without mesh APIs and supports touch apply undo and reset",
 			run = function()
 				local engine: any = engineLib.new()
 				local runtime = Facet.Roblox.createRuntime(engine)
@@ -488,7 +791,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("native lab audit: menu submenu rows", function()
 		verifyHarness:case("a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none", {
-			id = "native_lab_audit_parity::native lab audit: menu submenu rows::a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none",
+			id = "native_lab_audit::native lab audit: menu submenu rows::a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none",
 			run = function()
 				local opened = Compose.cell(false)
 				local w = worlds.new(function(UI: FacetControls)
@@ -538,7 +841,7 @@ return function(verifyHarness: Verify.Harness)
 		end
 		for _, axis in { "x", "y" } do
 			verifyHarness:case(`axis {axis}: the track keeps one target of travel in a hugging cell`, {
-				id = "native_lab_audit_parity::"
+				id = "native_lab_audit::"
 					.. "native lab audit: Slider rung thumb and track floor"
 					.. "::"
 					.. `axis {axis}: the track keeps one target of travel in a hugging cell`,
@@ -552,7 +855,7 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end
 		verifyHarness:case("compact and large thumbs differ, and regular is the theme's thumb", {
-			id = "native_lab_audit_parity::native lab audit: Slider rung thumb and track floor::compact and large thumbs differ, and regular is the theme's thumb",
+			id = "native_lab_audit::native lab audit: Slider rung thumb and track floor::compact and large thumbs differ, and regular is the theme's thumb",
 			run = function()
 				local sizes: { [string]: number } = {}
 				for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
@@ -571,7 +874,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case(
 			"a bar spends its rung on track thickness: small rungs thin, regular and large the theme track",
 			{
-				id = "native_lab_audit_parity::native lab audit: ProgressView rungs::a bar spends its rung on track thickness: small rungs thin, regular and large the theme track",
+				id = "native_lab_audit::native lab audit: ProgressView rungs::a bar spends its rung on track thickness: small rungs thin, regular and large the theme track",
 				run = function()
 					for rung, px in
 						{ xsmall = 4, compact = 4, regular = 6, large = 6, none = 6 } :: { [string]: number }
@@ -591,7 +894,7 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 		verifyHarness:case("a large ring shows its value in the gauge", {
-			id = "native_lab_audit_parity::native lab audit: ProgressView rungs::a large ring shows its value in the gauge",
+			id = "native_lab_audit::native lab audit: ProgressView rungs::a large ring shows its value in the gauge",
 			run = function()
 				local w = worlds.new(function(UI: FacetControls)
 					return UI.ProgressView("P")({
@@ -611,7 +914,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 		verifyHarness:case("refuses a bar rung with a thickness", {
-			id = "native_lab_audit_parity::native lab audit: ProgressView rungs::refuses a bar rung with a thickness",
+			id = "native_lab_audit::native lab audit: ProgressView rungs::refuses a bar rung with a thickness",
 			run = function()
 				local ok, err = pcall(function()
 					worlds.new(function(UI: FacetControls)
@@ -646,7 +949,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("native lab audit: Vote and one rung plate height", function()
 		verifyHarness:case("a readOnly vote keeps the interactive strip's rung height", {
-			id = "native_lab_audit_parity::native lab audit: Vote and one rung plate height::a readOnly vote keeps the interactive strip's rung height",
+			id = "native_lab_audit::native lab audit: Vote and one rung plate height::a readOnly vote keeps the interactive strip's rung height",
 			run = function()
 				local heights: { [string]: number } = {}
 				for _, readOnly in { false, true } do
@@ -682,7 +985,7 @@ return function(verifyHarness: Verify.Harness)
 			}
 		do
 			verifyHarness:case(`{name}: a Button, the segmented track and a checkbox land on one rung height`, {
-				id = "native_lab_audit_parity::"
+				id = "native_lab_audit::"
 					.. "native lab audit: Vote and one rung plate height"
 					.. "::"
 					.. `{name}: a Button, the segmented track and a checkbox land on one rung height`,
@@ -767,7 +1070,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("native lab audit: Badge status mark", function()
 		verifyHarness:case("the status mark has no page-colour ring and reads against the badge plate", {
-			id = "native_lab_audit_parity::native lab audit: Badge status mark::the status mark has no page-colour ring and reads against the badge plate",
+			id = "native_lab_audit::native lab audit: Badge status mark::the status mark has no page-colour ring and reads against the badge plate",
 			run = function()
 				for _, name in { "neutral", "pixel_quest", "fantasy_ornate" } do
 					for _, status in
@@ -798,7 +1101,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 		verifyHarness:case("an unplated utility badge draws no status mark", {
-			id = "native_lab_audit_parity::native lab audit: Badge status mark::an unplated utility badge draws no status mark",
+			id = "native_lab_audit::native lab audit: Badge status mark::an unplated utility badge draws no status mark",
 			run = function()
 				local w = worlds.new(function(UI: FacetControls)
 					return UI.Badge("B")({
@@ -815,7 +1118,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("native lab audit: ShortcutHint keycap outline", function()
 		verifyHarness:case("the keycap stroke is a theme metric: Neutral the hairline, 0 draws none", {
-			id = "native_lab_audit_parity::native lab audit: ShortcutHint keycap outline::the keycap stroke is a theme metric: Neutral the hairline, 0 draws none",
+			id = "native_lab_audit::native lab audit: ShortcutHint keycap outline::the keycap stroke is a theme metric: Neutral the hairline, 0 draws none",
 			run = function()
 				local neutral = themes.neutralPackage()
 				local sheet, stop = sheetFor(neutral)
@@ -848,7 +1151,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("native lab audit: StepIndicator rung marker", function()
 		verifyHarness:case("the rung sizes the step marker, and regular is the theme's medium icon", {
-			id = "native_lab_audit_parity::native lab audit: StepIndicator rung marker::the rung sizes the step marker, and regular is the theme's medium icon",
+			id = "native_lab_audit::native lab audit: StepIndicator rung marker::the rung sizes the step marker, and regular is the theme's medium icon",
 			run = function()
 				local sizes: { [string]: number } = {}
 				for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
@@ -876,7 +1179,7 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("native lab audit: Notice plate carve", function()
 		verifyHarness:case("an art theme's panel carve pads the standard plate; emphasis keeps the plain inset", {
-			id = "native_lab_audit_parity::native lab audit: Notice plate carve::an art theme's panel carve pads the standard plate; emphasis keeps the plain inset",
+			id = "native_lab_audit::native lab audit: Notice plate carve::an art theme's panel carve pads the standard plate; emphasis keeps the plain inset",
 			run = function()
 				for _, name in { "neutral", "pixel_quest", "fantasy_ornate", "glossy_mobile" } do
 					local theme = package(name)

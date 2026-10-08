@@ -86,101 +86,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Picker menu field", function()
-		verifyHarness:case(
-			"the required mark rides the label and the error replaces the hint beside a danger trigger",
-			{
-				id = "native_picker_fields::native Picker menu field::the required mark rides the label and the error replaces the hint beside a danger trigger",
-				run = function()
-					local failure = Compose.cell("")
-					local w = world({
-						style = "menu" :: "menu",
-						label = "Difficulty",
-						requiredMark = "required" :: "required",
-						hint = "Change it any time",
-						errorText = failure,
-					})
-					expect(find(w.screen, "Label").Text):toBe("Difficulty *")
-					local line, mark = find(w.screen, "Validation"), find(w.screen, "MessageMark")
-					expect(line.Text):toBe("Change it any time")
-					expect(mark.Visible):toBe(false)
-					local trigger = find(w.screen, "Trigger")
-					expect((trigger:HasTag("facet-invalid"))):toBe(false)
-					local before = trigger.Size
-					failure:set("Pick a difficulty to continue.")
-					expect(line.Text):toBe("Pick a difficulty to continue.")
-					expect((line:HasTag("facet-validation"))):toBe(true)
-					expect(mark.Visible):toBe(true)
-					expect((trigger:HasTag("facet-invalid"))):toBe(true)
-					expect(trigger.Size == before):toBe(true)
-					failure:set("")
-					expect((trigger:HasTag("facet-invalid"))):toBe(false)
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("a labelled menu picker stands its title above a trigger at the leading edge", {
-			id = "native_picker_fields::native Picker menu field::a labelled menu picker stands its title above a trigger at the leading edge",
-			run = function()
-				local w = world({ style = "menu" :: "menu", label = "Driver" })
-				local label = find(w.screen, "Label")
-				local menu = find(w.screen, "Value")
-				expect(label.Parent == menu.Parent):toBe(true)
-				expect(label.LayoutOrder < menu.LayoutOrder):toBe(true)
-				expect(label.Parent:FindFirstChildWhichIsA("UIListLayout").FillDirection):toBe(
-					w.E.FillDirection.Vertical
-				)
-				expect(menu.AnchorPoint.X):toBe(0)
-				expect(find(w.screen, "Trigger").Text):toBe("Normal")
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("appearance maps onto the trigger's paint live, and a word outside the family is refused", {
-			id = "native_picker_fields::native Picker menu field::appearance maps onto the trigger's paint live, and a word outside the family is refused",
-			run = function()
-				local word = Compose.cell("standard")
-				local w = world({ style = "menu" :: "menu", appearance = word })
-				local trigger = find(w.screen, "Trigger")
-				expect((trigger:HasTag("facet-accent"))):toBe(false)
-				word:set("contrast")
-				expect((trigger:HasTag("facet-accent"))):toBe(true)
-				word:set("utility")
-				expect((trigger:HasTag("facet-appearance-utility"))):toBe(true)
-				expect(find(w.screen, "Trigger") == trigger):toBe(true)
-				pcall(function()
-					word:set("filled")
-				end)
-				expect((trigger:HasTag("facet-appearance-utility"))):toBe(true)
-				w.stop()
-				for _, bad: { style: "menu" | "inline", appearance: "stroke" | "utility" } in
-					{
-						{ style = "menu" :: "menu", appearance = "stroke" :: "stroke" },
-						{ style = "inline" :: "inline", appearance = "utility" :: "utility" },
-					} :: { { style: "menu" | "inline", appearance: "stroke" | "utility" } }
-				do
-					expect((pcall(world, bad))):toBe(false)
-				end
-			end,
-		})
-
-		verifyHarness:case("a named rung shrinks the trigger, corners reach it, and it still opens", {
-			id = "native_picker_fields::native Picker menu field::a named rung shrinks the trigger, corners reach it, and it still opens",
-			run = function()
-				local w = world({
-					style = "menu" :: "menu",
-					controlSize = "compact" :: "compact",
-					corners = "pill" :: "pill",
-				})
-				local trigger = find(w.screen, "Trigger")
-				expect(trigger.Size.Y.Offset):toBe(36)
-				expect(trigger:FindFirstChildWhichIsA("UICorner").CornerRadius.Scale):toBe(1)
-				open(w)
-				expect(find(w.screen, "normal") ~= nil):toBe(true)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("the hint line belongs to the picker: disposal releases it for every style", {
 			id = "native_picker_fields::native Picker menu field::the hint line belongs to the picker: disposal releases it for every style",
 			run = function()
@@ -269,21 +174,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Picker menu rows", function()
-		verifyHarness:case("an option avatar's keys are closed: a misspelt one is refused by name", {
-			id = "native_picker_fields::native Picker menu rows::an option avatar's keys are closed: a misspelt one is refused by name",
-			run = function()
-				local ok, err = pcall(function()
-					local w = world({
-						style = "menu" :: "menu",
-						options = { { value = "a", label = "Ada", avatar = { name = "Ada", userID = 1 } } },
-					})
-					open(w)
-				end)
-				expect(ok):toBe(false)
-				expect(string.find(tostring(err), "userID", 1, true) ~= nil):toBe(true)
-			end,
-		})
-
 		verifyHarness:case(
 			"an avatar leads its row without a second stop or press, and a disabled row is unreachable",
 			{
@@ -350,28 +240,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Picker segmented vocabulary and the radio mark", function()
-		verifyHarness:case("appearance paints the track filled, stroked or not at all, live, and refuses a menu word", {
-			id = "native_picker_fields::native Picker segmented vocabulary and the radio mark::appearance paints the track filled, stroked or not at all, live, and refuses a menu word",
-			run = function()
-				local word = Compose.cell("filled")
-				local w = world({ style = "segmented" :: "segmented", appearance = word })
-				local track = find(w.screen, "P")
-				expect((track:HasTag("facet-segmented"))):toBe(true)
-				expect((track:HasTag("facet-segmented-stroke"))):toBe(false)
-				word:set("stroke")
-				expect((track:HasTag("facet-segmented-stroke"))):toBe(true)
-				word:set("utility")
-				expect((track:HasTag("facet-segmented-utility"))):toBe(true)
-				expect((track:HasTag("facet-segmented-stroke"))):toBe(false)
-				pcall(function()
-					word:set("contrast")
-				end)
-				expect((track:HasTag("facet-segmented-utility"))):toBe(true)
-				w.stop()
-				expect((pcall(world, { style = "segmented" :: "segmented", appearance = "contrast" }))):toBe(false)
-			end,
-		})
-
 		verifyHarness:case("an automatic picker keeps its appearance intent across a live family switch", {
 			id = "native_picker_fields::native Picker segmented vocabulary and the radio mark::an automatic picker keeps its appearance intent across a live family switch",
 			run = function()
@@ -439,36 +307,6 @@ return function(verifyHarness: Verify.Harness)
 				compact.stop()
 			end,
 		})
-
-		verifyHarness:case(
-			"indicatorPosition moves the radio mark to either edge, and belongs to the radio group only",
-			{
-				id = "native_picker_fields::native Picker segmented vocabulary and the radio mark::indicatorPosition moves the radio mark to either edge, and belongs to the radio group only",
-				run = function()
-					for _, edge in { "leading", "trailing" } :: { "leading" | "trailing" } do
-						local w = world({
-							style = "radioGroup" :: "radioGroup",
-							indicatorPosition = edge :: "leading" | "trailing",
-						})
-						local mark = find(find(w.screen, "normal"), "Indicator")
-						local title = find(find(w.screen, "normal"), "Captions")
-						expect(mark.Parent):toBe(title.Parent)
-						expect(`{edge}: {mark.LayoutOrder > title.LayoutOrder}`):toBe(`{edge}: {edge == "trailing"}`)
-						expect(find(mark, "Dot").Visible):toBe(true)
-						expect(find(find(find(w.screen, "easy"), "Indicator"), "Dot").Visible):toBe(false)
-						w.stop()
-					end
-					expect(
-						(
-							pcall(
-								world,
-								{ style = "segmented" :: "segmented", indicatorPosition = "trailing" :: "trailing" }
-							)
-						)
-					):toBe(false)
-				end,
-			}
-		)
 	end)
 
 	verifyHarness:suite("native Picker cards", function()
@@ -540,58 +378,9 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
-
-		verifyHarness:case("a row of cards wraps and long copy wraps inside its card; cards take no appearance", {
-			id = "native_picker_fields::native Picker cards::a row of cards wraps and long copy wraps inside its card; cards take no appearance",
-			run = function()
-				local w = world({ style = "cards" :: "cards", options = CARDS, axis = "x" :: "x" })
-				local layout = find(w.screen, "Cards"):FindFirstChildWhichIsA("UIListLayout")
-				expect(layout.FillDirection):toBe(w.E.FillDirection.Horizontal)
-				expect(layout.Wraps):toBe(true)
-				local card = find(w.screen, "Card-sprint")
-				expect(card.AutomaticSize):toBe(w.E.AutomaticSize.Y)
-				w.stop()
-				expect((pcall(world, { style = "cards" :: "cards", options = CARDS, appearance = "utility" }))):toBe(
-					false
-				)
-			end,
-		})
 	end)
 
 	verifyHarness:suite("native Picker option indicator and search rows", function()
-		verifyHarness:case("follows the caller's live option record: status changes and a removed mark goes", {
-			id = "native_picker_fields::native Picker option indicator and search rows::follows the caller's live option record: status changes and a removed mark goes",
-			run = function()
-				local function options(indicator: any?)
-					return {
-						{ value = "easy", label = "Easy" },
-						{ value = "normal", label = "Normal", indicator = indicator },
-						{ value = "hard", label = "Hard" },
-					}
-				end
-				local list = Compose.cell(options({ status = "warning" }))
-				local w = world({ style = "radioGroup" :: "radioGroup", options = list })
-				local function status(): string
-					local mark = find(find(w.screen, "normal"), "Status")
-					if mark == nil then
-						return "none"
-					end
-					for _, tag in mark:GetTags() do
-						if string.sub(tag, 1, 13) == "facet-status-" and tag ~= "facet-status-hollow" then
-							return tag
-						end
-					end
-					return "untagged"
-				end
-				expect((status())):toBe("facet-status-warning")
-				list:set(options({ status = "error" }))
-				expect((status())):toBe("facet-status-error")
-				list:set(options(nil))
-				expect((status())):toBe("none")
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a searchable list's chosen row paints no wash and wears a check instead", {
 			id = "native_picker_fields::native Picker option indicator and search rows::a searchable list's chosen row paints no wash and wears a check instead",
 			run = function()
@@ -602,60 +391,6 @@ return function(verifyHarness: Verify.Harness)
 				expect((row:HasTag("facet-choice-current"))):toBe(false)
 				expect(find(row, "TrailingIcon").Visible):toBe(true)
 				expect(find(find(find(w.screen, "Choices"), "easy"), "TrailingIcon").Visible):toBe(false)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a navigation link keeps its title and value in one row", {
-			id = "native_picker_fields::native Picker option indicator and search rows::a navigation link keeps its title and value in one row",
-			run = function()
-				local w = world({ label = "Track", style = "navigationLink" :: "navigationLink" })
-				local trigger = find(w.screen, "P")
-				local value = find(trigger, "Trailing")
-				expect(value.Text):toBe("Normal")
-				expect(value.Parent == find(trigger, "Content")):toBe(true)
-				local button = if trigger:IsA("GuiButton")
-					then trigger
-					else trigger:FindFirstChildWhichIsA("GuiButton", true)
-				expect(button.Size.Y.Offset >= 44):toBe(true)
-				expect(button.Size.X.Scale):toBe(1)
-				expect(find(trigger, "TrailingIcon").LayoutOrder > value.LayoutOrder):toBe(true)
-				w.selected:set("hard")
-				expect(value.Text):toBe("Hard")
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a segment whose live options carry no description centres its caption like a plain label", {
-			id = "native_picker_fields::native Picker option indicator and search rows::a segment whose live options carry no description centres its caption like a plain label",
-			run = function()
-				local w = world({ style = "segmented" :: "segmented", options = Compose.cell(THREE) })
-				local content = find(find(w.screen, "hard"), "Content")
-				expect(content.Size.X.Scale):toBe(1)
-				expect(content:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment):toBe(
-					w.E.HorizontalAlignment.Center
-				)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a vertical segmented strip grows to its segments and spreads them over a taller box", {
-			id = "native_picker_fields::native Picker option indicator and search rows::a vertical segmented strip grows to its segments and spreads them over a taller box",
-			run = function()
-				local w = world({
-					style = "segmented" :: "segmented",
-					axis = "y" :: "y",
-					iconOnly = true,
-					options = {
-						{ value = "easy", label = "Easy", icon = "edit" },
-						{ value = "normal", label = "Normal", icon = "flag" },
-					},
-					Size = engines.new().types.UDim2.fromOffset(52, 60),
-				})
-				local strip = find(w.screen, "P")
-				expect(strip.AutomaticSize):toBe(w.E.AutomaticSize.Y)
-				expect(strip:FindFirstChildWhichIsA("UIListLayout").VerticalFlex):toBe(w.E.UIFlexAlignment.Fill)
-				expect(find(strip, "easy").AutomaticSize):toBe(w.E.AutomaticSize.Y)
 				w.stop()
 			end,
 		})

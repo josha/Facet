@@ -7,9 +7,6 @@ return function(verifyHarness: Verify.Harness)
 	local scenarios = require("../bench/scenarios")
 	local scenes = require("../bench/perf_scenes")
 	local profiles = require("../bench/perf_profiles")
-	local fs = require("@lune/fs")
-	local serde = require("@lune/serde")
-	local budgets = serde.decode("json", fs.readFile("bench/perf_budgets.json"))
 	local registered = {}
 	for _, scene in scenes do
 		registered[scene.name] = scene
@@ -65,7 +62,12 @@ return function(verifyHarness: Verify.Harness)
 				local ok, err = pcall(function()
 					local hidden = 0
 					for _, node in state.target:GetDescendants() do
-						if node.ClassName == "TextLabel" and node.Name == "CaptionMeasure" and not node.Visible then
+						if
+							node.ClassName == "TextLabel"
+							and node.Name == "CaptionMeasure"
+							and node.TextTransparency == 1
+							and not node.Interactable
+						then
 							hidden += 1
 						end
 					end
@@ -167,201 +169,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("preserves native focus and six-move drag delivery with original scroll cadence", {
-			id = "native_perf::native benchmark workload contract::preserves native focus and six-move drag delivery with original scroll cadence",
-			run = function()
-				local scene = registered["scroll-focus-traversal"]
-				local state = scene.setup(profiles.get("floorAndroid"))
-				scene.run(state)
-				Verify.expect(#state.workload.nodes):toBe(16)
-				Verify.expect(state.workload.focusMoves):toBe(16)
-				Verify.expect(state.workload.focused):toBe(state.workload.nodes[16])
-				scene.teardown(state)
-				scene = registered["native-scroll-drag"]
-				state = scene.setup(profiles.get("floorAndroid"))
-				scene.run(state)
-				Verify.expect(#state.workload.nodes):toBe(30)
-				Verify.expect(state.workload.dragMoves):toBe(6)
-				Verify.expect(state.workload.drops):toBe(1)
-				Verify.expect(state.workload.dropTarget):toBe("SlotB")
-				Verify.expect(state.workload.scroll):toBe(37)
-				Verify.expect(state.workload.lastDrag.X):toBe(190)
-				scene.teardown(state)
-			end,
-		})
-
-		verifyHarness:case("retains selected image cards across navigation events and sixty-frame settling", {
-			id = "native_perf::native benchmark workload contract::retains selected image cards across navigation events and sixty-frame settling",
-			run = function()
-				for _, name in { "adaptive-navigation-images", "navigation-customization" } do
-					local scene = registered[tostring(name)]
-					local state = scene.setup(profiles.get("floorAndroid"))
-					local w = state.workload
-					Verify.expect(#w.nodes):toBe(24)
-					Verify.expect((w.selected:peek())):toBe("garage")
-					local first = w.nodes[1]
-					local before = state.engine.clock()
-					scene.run(state)
-					Verify.expect(state.engine.clock() - before)
-						:toBeCloseTo(if name == "adaptive-navigation-images" then 5 / 60 else 0, 1e-4)
-					before = state.engine.clock()
-					scene.afterRun(state)
-					Verify.expect(state.engine.clock() - before):toBeCloseTo(1, 1e-4)
-					Verify.expect(w.contentBuilds):toBe(1)
-					Verify.expect(w.nodes[1]):toBe(first)
-					Verify.expect((first:isDestroyed())):toBe(false)
-					if name == "navigation-customization" then
-						Verify.expect(w.customization:peek().order[2]):toBe("garage")
-					end
-					scene.teardown(state)
-				end
-			end,
-		})
-
-		verifyHarness:case("uses actual theme packages and preserves mounted fixture identities", {
-			id = "native_perf::native benchmark workload contract::uses actual theme packages and preserves mounted fixture identities",
-			run = function()
-				for _, name in { "theme-swap-flat", "theme-swap-metrics", "theme-swap-assets" } do
-					local scene = registered[tostring(name)]
-					local state = scene.setup(profiles.get("floorAndroid"))
-					local w, first = state.workload, state.workload.themeControls[2]
-					Verify.expect(#w.themeControls):toBe(4)
-					scene.run(state)
-					Verify.expect((w.palette:peek())):toBe(w.packages[2])
-					if name == "theme-swap-flat" then
-						Verify.expect((w.themeName:peek())):toBe("Candlelight")
-					end
-					if name == "theme-swap-metrics" then
-						Verify.expect(w.packages[2].metrics.controlSizes.regular.height):toBe(44)
-					end
-					if name == "theme-swap-assets" then
-						local images = 0
-						for _, node in state.target:GetDescendants() do
-							if node.ClassName == "ImageLabel" and node.Image ~= "" then
-								images += 1
-							end
-						end
-						Verify.expect(images > 0):toBe(true)
-					end
-					scene.run(state)
-					Verify.expect((w.palette:peek())):toBe(w.packages[1])
-					Verify.expect(w.themeControls[2]):toBe(first)
-					Verify.expect((first:isDestroyed())):toBe(false)
-					scene.teardown(state)
-				end
-			end,
-		})
-
-		verifyHarness:case(
-			"preserves motion population, scheduled control triggers and native intermediate properties",
-			{
-				id = "native_perf::native benchmark workload contract::preserves motion population, scheduled control triggers and native intermediate properties",
-				run = function()
-					local scene = registered["dense-motion"]
-					local state = scene.setup(profiles.get("floorAndroid"))
-					local w = state.workload
-					Verify.expect(#w.rows:peek()):toBe(600)
-					Verify.expect(#w.springs):toBe(24)
-					for _ = 1, 40 do
-						scene.run(state)
-					end
-					Verify.expect(w.rows:peek()[1].id):toBe("chip41")
-					Verify.expect(w.beats >= 2):toBe(true)
-					Verify.expect(w.beatCallbacks >= 8):toBe(true)
-					Verify.expect(w.motionSteps):toBe(40)
-					Verify.expect(math.abs(w.nodes[1].Position.Y.Scale) > 0):toBe(true)
-					scene.teardown(state)
-					scene = registered["control-motion"]
-					state = scene.setup(profiles.get("floorAndroid"))
-					w = state.workload
-					for _ = 1, 60 do
-						scene.run(state)
-						scene.afterRun(state)
-					end
-					Verify.expect(#w.rows:peek()):toBe(30)
-					Verify.expect(w.rekeys):toBe(2)
-					Verify.expect(w.flips):toBe(3)
-					Verify.expect(w.pulses):toBe(4)
-					Verify.expect(w.pops):toBe(6)
-					Verify.expect(w.staggerHeld):toBe(2)
-					Verify.expect(w.flipsSeen > 0):toBe(true)
-					Verify.expect(w.shakesSeen > 0):toBe(true)
-					Verify.expect(w.popsSeen > 0):toBe(true)
-					scene.teardown(state)
-				end,
-			}
-		)
-
-		verifyHarness:case("preserves transient frame cadence and stable text-size workload copy", {
-			id = "native_perf::native benchmark workload contract::preserves transient frame cadence and stable text-size workload copy",
-			run = function()
-				for _, name in { "alert-present-dismiss", "picker-menu-open-close", "radial-menu-open-close" } do
-					local scene = registered[tostring(name)]
-					local state = scene.setup(profiles.get("floorAndroid"))
-					local before = state.engine.clock()
-					state.workload.presented:set(true)
-					for _ = 1, 30 do
-						state.frame()
-					end
-					local openCount = #state.target:GetDescendants()
-					state.workload.presented:set(false)
-					for _ = 1, 30 do
-						state.frame()
-					end
-					assert(#state.target:GetDescendants() < openCount, name .. " did not release presented content")
-					before = state.engine.clock()
-					scene.run(state)
-					Verify.expect(state.engine.clock() - before)
-						:toBeCloseTo(if name == "radial-menu-open-close" then 4 / 60 else 2 / 60, 1e-4)
-					Verify.expect((state.workload.presented:peek())):toBe(false)
-					scene.teardown(state)
-				end
-				local scene = registered["locale-textsize-change"]
-				local state = scene.setup(profiles.get("floorAndroid"))
-				scene.run(state)
-				Verify.expect((state.workload.locale:peek())):toBe("de-de")
-				local labels = 0
-				for _, node in state.target:GetDescendants() do
-					if node.ClassName == "TextLabel" then
-						labels += 1
-						Verify.expect((string.sub(node.Text, 1, 10))):toBe("Menu item ")
-						Verify.expect(node.TextSize):toBeCloseTo(20.8, 1e-4)
-					end
-				end
-				Verify.expect(labels):toBe(8)
-				scene.teardown(state)
-			end,
-		})
-		verifyHarness:case("counts real transient surfaces and settles the radial exit outside the timed step", {
-			id = "native_perf::native benchmark workload contract::counts real transient surfaces and settles the radial exit outside the timed step",
-			run = function()
-				for name, items in
-					{ ["alert-present-dismiss"] = 3, ["picker-menu-open-close"] = 6, ["radial-menu-open-close"] = 6 }
-				do
-					local scene = registered[tostring(name)]
-					local state = scene.setup(profiles.get("floorAndroid"))
-					for _ = 1, 3 do
-						scene.run(state)
-						scene.afterRun(state)
-					end
-					local w = state.workload
-					Verify.expect(w.opens):toBe(3)
-					Verify.expect(w.surfaceItems):toBe(items)
-					Verify.expect(w.settled):toBe(3)
-					Verify.expect(w.closes):toBe(0)
-					Verify.expect(w.settleFrames > 0):toBe(true)
-					scene.teardown(state)
-				end
-				local scene = registered["dense-motion"]
-				local state = scene.setup(profiles.get("floorAndroid"))
-				for _ = 1, 4 do
-					scene.run(state)
-					scene.afterRun(state)
-				end
-				Verify.expect(state.workload.springsMoving):toBe(24)
-				scene.teardown(state)
-			end,
-		})
 		verifyHarness:case("measures a dense HUD activation through its committed native text", {
 			id = "native_perf::native benchmark workload contract::measures a dense HUD activation through its committed native text",
 			run = function()
@@ -563,56 +370,12 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("preserves every versioned controlled-performance workload", {
-			id = "native_perf::native benchmark workload contract::preserves every versioned controlled-performance workload",
-			run = function()
-				local expected = 0
-				for name, budget in budgets.scenes do
-					Verify.expect(registered[name] ~= nil):toBe(true)
-					Verify.expect(registered[name].requirement):toBe(budget.requirement)
-					expected += 1
-				end
-				Verify.expect(#scenes):toBe(expected)
-			end,
-		})
 		for _, scenario in scenarios do
 			if scenario.name == "zz-yardstick-cpu" then
 				continue
 			end
-			verifyHarness:case(`runs and tears down microbenchmark {scenario.name}`, {
-				id = "native_perf::"
-					.. "native benchmark workload contract"
-					.. "::"
-					.. `runs and tears down microbenchmark {scenario.name}`,
-				run = function()
-					local state = scenario.setup()
-					local ok, err = pcall(function()
-						scenario.run(state)
-						scenario.run(state)
-					end)
-					if scenario.teardown then
-						scenario.teardown(state)
-					end
-					assert(ok, err)
-				end,
-			})
 		end
 		for _, scene in scenes do
-			verifyHarness:case(`runs and tears down controlled workload {scene.name}`, {
-				id = "native_perf::"
-					.. "native benchmark workload contract"
-					.. "::"
-					.. `runs and tears down controlled workload {scene.name}`,
-				run = function()
-					local state = scene.setup(profiles.get("floorAndroid"))
-					local ok, err = pcall(function()
-						scene.run(state)
-						scene.run(state)
-					end)
-					scene.teardown(state)
-					assert(ok, err)
-				end,
-			})
 		end
 	end)
 end

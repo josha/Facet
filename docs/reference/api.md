@@ -59,6 +59,22 @@ Literal options can need singleton annotations, such as
 `presentation = "number" :: "number"`. These annotations keep the contract
 without `any`.
 
+Drag callbacks receive an `unknown` payload. This includes
+`DraggableSpec.onStart` and the payload argument of every `DropTargetSpec`
+callback. Check the payload type before you read its fields. A game must check
+its own payload schema and server rules.
+
+`SliderOptions.onCommit` accepts a number callback or a `SliderRange` callback.
+The range callback also receives `SliderChange`. `SliderImplementationProps`
+uses the same two value types for `onChange`. `TextInputImplementationProps`
+uses a string callback with `TextCommitReason`, or a number callback with
+`CommitReason`. The public `TextInputProps` and `SliderProps` retain their
+presentation and range bindings.
+
+The native `Host` type includes `Highlight`. Its props use the pinned Roblox
+property types, including `Adornee`, `Enabled`, `DepthMode`, fill and outline
+colors, and transparency. This adds a type for the existing native constructor.
+
 Native Instance properties accept reactive `nil` values to clear the property.
 They also accept `Compose.static(instance)`. The pinned
 Compose release types the payload of this marker as `unknown`. Thus Luau cannot
@@ -300,11 +316,11 @@ easing, spring, scale and distance below is a token in the theme package's
 | NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent (`distances.parallax`) to the leading edge and dims by 0.1 (`distances.dim`). Critically damped spring with a 0.3 second period (`springs.move`), visually complete in approximately 0.35 seconds. | Pop is the reverse. |
 | TabView page change | Crossfade, 0.2 seconds (`durations.tabFade`), Quad Out (`easing.fade`). | The same. |
 | Sheet | Slides up from the bottom, 0.3 seconds (`sheet.enter`), Cubic Out (`easing.present`). A side sheet slides in from its edge. The scrim fades in. A detent change, a released drag and a side sheet's released pull settle on one critically damped spring (`springs.sheet`, a 0.4 second period, visually complete in about 0.45 seconds) that starts from the finger's release velocity; a detent change retargeted mid-flight keeps its velocity. A release faster than 800 pixels per second (`fling.bounceSpeed`) settles on `springs.flick` (0.3 second period, damping 0.8), so it passes its detent by under 2 percent once and comes back. While you drag or pull a sheet that can be dismissed, the scrim lightens in proportion to how far the sheet has moved toward dismissal. | Slides down, or toward its edge, 0.2 seconds (`sheet.exit`). |
-| Alert, Dialog | The panel grows from 0.94 (`materialize.modal`) to 1 and fades in, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
-| Popover | The panel grows from 0.9 (`materialize.anchored`) to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
+| Alert, Dialog | The complete panel fades in without a scale change, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
+| Popover | The complete panel fades in at its final position and size, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
 | Callout | The panel grows from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
 | Button `help` | The panel grows from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
-| Menu, Picker menu | The panel scales from 0.96 (`materialize.menu`) to 1 from the corner where it hangs; a pointer submenu grows from the chosen row (about that row's top edge, on the side facing the parent), and Back grows the parent from the side that faced the child; and fades in, 0.15 seconds (`popover.enter`), Cubic Out. As a sheet (touch, gamepad, narrow window), the panel slides up from the bottom edge and fades in with the Sheet timing (`sheet.enter` 0.3 seconds, `sheet.exit` 0.2 seconds) and never scales. A sheet level change slides the rows 32 pixels (`distances.menuSlide`) in from the trailing side (Back: from the leading side) and cross-fades them over `popover.enter`. | The reverse, 0.1 seconds (`popover.exit`); a sheet slides back down over `sheet.exit`. |
+| Menu, Picker menu | The complete panel fades in at its final position and size, 0.15 seconds (`popover.enter`), Cubic Out. As a sheet (touch, gamepad, narrow window), the panel slides up from the bottom edge and fades in with the Sheet timing (`sheet.enter` 0.3 seconds, `sheet.exit` 0.2 seconds) and never scales. A sheet level change slides the rows 32 pixels (`distances.menuSlide`) in from the trailing side (Back: from the leading side) and cross-fades them over `popover.enter`. | The reverse, 0.1 seconds (`popover.exit`); a sheet slides back down over `sheet.exit`. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Toast | Slides in from its edge, 0.2 seconds (`toast.enter`), Cubic Out, and fades in over the same time on the linear `easing.trail`, so the fade is still running once the row is in view. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds (`toast.exit`), the fade on `easing.trail`. |
 | Toast with an action | Slides up from below the layer, 0.2 seconds (`toast.enter`), Cubic Out, and fades in over the same time on `easing.trail`. | Slides down and fades out, 0.2 seconds (`toast.exit`), the fade on `easing.trail`. |
@@ -315,7 +331,11 @@ easing, spring, scale and distance below is a token in the theme package's
 | RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds (`radial.slot`). A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent (`materialize.branch`) of the distance toward the center to their positions. Back folds the level into its item and re-opens the parent around it: each parent slot starts at that item's angle and band and sweeps to its place. A ring that opens again starts from the centre. Reduced motion places the slot at once. | The slot fades out, 0.12 seconds (`radial.exit`). A submenu slot left by Back folds along the ring into the item it came from as it fades. |
 | NavBar | No motion. | No motion. |
 
-- A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
+- A modal panel keeps its CanvasGroup named `Fade` for its complete lifetime.
+  Its children do not change parent at the end of an entrance. Alert, Dialog,
+  Popover and floating Menu use a cross-fade at their final size. This avoids
+  live text measurement changes from UIScale. Sheet keeps its travel.
+- Other fades use a CanvasGroup named `Fade` only while they run. The group holds
   the faded node's children. When the fade ends, the children move back and
   the group is removed, so settled text and art are never rasterised. A
   `UIGradient` named `FadePaint` fades the node's own paint. A new group
@@ -1707,7 +1727,10 @@ Both take a numeric `value`, a positive integer `count` (default `5`),
 `value` and `semanticValue` attributes stay in the range from the minimum to
 `count`, also when the model holds a value outside it.
 
-- Rating supports `glyphs = { filled, empty }` and `starSize`.
+- Rating supports `glyphs = { filled, empty }` and `starSize`. The mark size
+  is the preferred size. In a bounded slot, the control first reduces spacing.
+  If the marks still do not fit, it reduces their size together. Pointer input
+  follows the displayed marks. Selection input can reach every value.
 - LevelPicker supports `segment` (`bar`, `glyph` or `image`), `segmentSize`,
   `glyphs`, `images` and `tint` filled and empty Color3 pairs. A bar segment has
   the `facet-level-segment` tag, and a filled bar also has `facet-level-on`.
@@ -1840,11 +1863,10 @@ menus keep the control-specific navigation of the menu.
   enabled item. If an enabled selected item holds the value of its group, the
   menu selects that item instead. Back and Left close one level and return the selection to the
   item that opened it.
-- Each level of a floating menu scales from 0.96 to 1 and fades in. It grows
-  from the corner where it hangs on its trigger or on its parent row. On
-  dismiss it scales and fades out, faster than it came in. In a sheet, a
+- Each level of a floating menu fades in at its final position and size. On
+  dismiss it fades out, faster than it came in. In a sheet, a
   submenu slides in from the trailing side, and Back slides the parent level in
-  from the leading side. Reduced motion removes the scale and the slide. See
+  from the leading side. Reduced motion removes the slide. See
   [Motion](#motion).
 - `edge` (`top`, `bottom`, `leading` or `trailing`) and `align` (`start`,
   `center` or `end`) place the root panel against its trigger. The default is
@@ -1939,7 +1961,9 @@ measured width and the native PreferredInput:
 A `label` shows on the leading edge of a horizontal segmented row, with the
 control at its natural width on the trailing edge. With `sizing = "fill"` (the
 default) each segment starts at its label's width, at least a 44 pixel target,
-and the segments share the space that is left. A strip that does not fit in the
+and the segments share the space that is left. With touch input, each horizontal
+segment is at least 44 pixels high. The strip includes its top and bottom
+padding outside that target, also when you supply a strip height. A strip that does not fit in the
 width of the row stays one line: its segments shrink in proportion, a label
 wraps between words, and a word that cannot fit its line ends in "…". With
 `hug` the segments keep their natural widths. A segment is never wider than the
@@ -2367,8 +2391,11 @@ and clipped to it.
 
 An item on the ring shows its icon or its label, never both. It shows the
 icon when its `labelStyle` is `icon`, its `compactLabel.prefer` is set, or it
-is a `buttons` item with an `icon`. Otherwise it shows the label. The list
-fallback shows both.
+is a `buttons` item with an `icon`. It also uses an available icon when the
+complete label and its padding do not fit the content box after `contentFit`.
+Otherwise it shows the label. Hold a touch on an icon, or point at it with
+the mouse, to show the complete label. The list fallback shows both. A ring also uses the list form when it cannot
+fit the complete caption of an action that has no icon.
 
 `contentFit` defaults to `"radial"`. It fits the ring thickness to the content
 and keeps the full angular span of each sector. Use `"both"` to fit both the
@@ -2496,7 +2523,7 @@ Motion options:
   it still exists. Compose owns the snapshot and the departing presentation.
   The source stays mounted.
 - Native reduced motion makes the handoff immediate.
-- Without `transition`, the alert scales from 0.94 to 1 and fades in. See
+- Without `transition`, the complete alert fades in at its final size. See
   [Motion](#motion).
 - `transition = false` makes the presentation immediate.
 
@@ -2756,8 +2783,8 @@ Other options:
 A dialog needs a title, content, a hero, an action label or actions. The
 height is the layer height less the keyboard height and the margins. When the
 pinned regions and a short body do not fit, every region moves into one
-scrolling column named `Room`. The panel is a Frame. It scales from
-0.94 and fades in with its scrim. See [Motion](#motion).
+scrolling column named `Room`. The panel is a Frame. The complete panel
+fades in at its final size with its scrim. See [Motion](#motion).
 
 ### Popover
 
@@ -3112,6 +3139,19 @@ render owner.
 | `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`. |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |
 
+Rows prepare inside a native CanvasGroup. A new row stays transparent until
+its visible text has positive native bounds and its layout is stable. A filter
+or data replacement keeps removed painted rows until the replacement rows
+in the viewport are ready. Equal keys retain their native instances. An empty
+result removes the old rows. Offscreen overscan does not delay visible rows.
+Use `ZIndexBehavior = Enum.ZIndexBehavior.Sibling` on the ScreenGui or SurfaceGui.
+
+An Image waits for native `IsLoaded`. A Stage waits for its scene to be built
+and for its media rectangle to be stable. Media fades in over a placeholder
+of the surface colour with `reveal.enter` and `easing.fade`. Keep a fixed
+media size or use UIAspectRatioConstraint to reserve its slot. Scene creation
+does not report when the GPU has completed its first ViewportFrame render.
+
 For a bounded tile, set `contentOverflow = "clip"`. Give rendered content
 `Size = UDim2.fromScale(1, 1)` and `AutomaticSize = Enum.AutomaticSize.None`.
 A larger child keeps its authored size but native clipping limits its paint
@@ -3294,16 +3334,24 @@ VirtualList. A column has:
 - `align = "start"`, `"center"` or `"end"` for the heading and value text,
 - `minWidth` (48) and `maxWidth` (1e6),
 - `resizable` and `sortable` (both true),
-- `value(item)` or `render(current, placement, key)`.
+- `value(item)` or `render(current, placement, key)`,
+- `wrap = false` to truncate, or `wrap = true` to allow wrapping. Without
+  `wrap`, the input policy selects wrapping,
+- `detailRender(current, placement, key)` for an interactive value in Details.
 
 A column collapses only when it has a numeric `priority`. Larger values
-collapse first. The first column always stays visible. The other columns
-keep their `minWidth` and truncate their text, so a narrow table scrolls
-sideways and never loses a column. This minimum also applies under touch and
+collapse first. The first column always stays visible. A flexible first
+column gets space for its full text before other flexible columns get extra
+space. Selection, reorder and row action columns keep their fixed widths.
+The other columns keep their `minWidth`. Columns without a numeric priority stay visible; a narrow table
+can scroll sideways. This minimum also applies under touch and
 gamepad input. A Popover shows collapsed and natively truncated values through
 the row's icon-only `status.info` button, named "Show details". Row commands
 keep their separate `more` (…) button. The cell
-state stays retained. The header band spans the whole row, edit controls
+state stays retained. `detailRender` receives the same item, placement and key
+as `render`. Keep durable value state in the model and share it between the
+cell and Details. Without `detailRender`, Details shows the full text value.
+The header band spans the whole row, edit controls
 included, and shows a hairline divider between headings; the headings sit over
 their columns. With a persistent vertical scrollbar, the header background
 continues over the scrollbar gutter to align the outside edges. Resize
@@ -4140,6 +4188,10 @@ a doctor check or when an input looks dead.
 | `freedJumpAction(before, after)` | The pure verdict of an unbind: `jumpAction` was bound before and is gone after. |
 | `describeContention()` | The whole explanation as one string, for a log line. |
 
+`cameraKeysContended` and `freedJumpAction` accept a map from action names to
+records. Each record has an optional `inputTypes: { EnumItem }` field. Use the
+records returned by `ContextActionService:GetAllBoundActionInfo()`.
+
 The fix for a game with an avatar is `Workspace.PlayerScriptsUseInputActionSystem`.
 No script can read or set it, but a Rojo project file can declare it. No
 `InputContext` priority outranks a sinking ContextActionService binding.
@@ -4336,8 +4388,12 @@ stays as the empty slot until the drop lands or the source goes back.
 ```lua
 UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })
 UI.dropTarget(slot, {
-	accepts = function(payload)
-		if payload.kind ~= "sponsor" then
+	accepts = function(payload: unknown)
+		if type(payload) ~= "table" then
+			return false, "WRONG_KIND"
+		end
+		local data = payload :: { kind: unknown, id: unknown }
+		if data.kind ~= "sponsor" or type(data.id) ~= "number" then
 			return false, "WRONG_KIND"
 		end
 		return true

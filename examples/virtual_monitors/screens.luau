@@ -502,7 +502,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				return game.rating .. "  ·  " .. game.players
 			end,
 			artwork = function()
-				local decorated = Compose.cell(true)
+				local decorated = runtime.timeline({ duration = (1 + item.index % 3) / 60 }).completed
 				preview = UI.ZStack "Preview" {
 					width = "fill" :: "fill",
 					height = "fill" :: "fill",
@@ -510,7 +510,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					rounded() :: unknown,
 					stage("Scene", if actions.gameContent then actions.gameContent(current) else nil, {
 						Active = false,
-						lazy = false,
+						lazy = true,
 					}),
 					Compose.show(decorated, function()
 						return UI.StatusIndicator "LiveDot" {

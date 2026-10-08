@@ -245,9 +245,15 @@ return function(
 			BackgroundTransparency = 1,
 			Image = image,
 			Size = function(use: ComposeTypes.Use): UDim2
-				return D2.new(1, 0, 0, math.round(use(cardWidth) / ratio))
+				local width = use(cardWidth)
+				return D2.new(1, 0, 0, if width > 0 then math.ceil(width / ratio) else 100000)
 			end,
 			ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
+			Host.UIAspectRatioConstraint {
+				AspectRatio = ratio,
+				AspectType = E.AspectType.FitWithinMaxSize,
+				DominantAxis = E.DominantAxis.Width,
+			},
 		})
 		if spec.artwork then
 			local build = spec.artwork
@@ -297,6 +303,12 @@ return function(
 			return inset(true)
 		end, captionLabel)
 		local bodyChildren: { Types.Child } = {
+			Host.UIPadding {
+				PaddingLeft = D.new(0, 0),
+				PaddingRight = D.new(0, 0),
+				PaddingTop = D.new(0, 0),
+				PaddingBottom = D.new(0, 0),
+			} :: Types.Child,
 			Host.UIListLayout({
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
@@ -361,6 +373,7 @@ return function(
 			end
 			body = ctx.styled(Host.Frame(props), "panel")
 		end
+		ctx.styled(body, "card-body")
 		local actionEnabled = function(use: ComposeTypes.Use?): boolean
 			return enabled(use) and read(revealed, use)
 		end

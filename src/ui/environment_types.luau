@@ -87,20 +87,20 @@ export type DraggableSpec = {
 	statusLabels: boolean?,
 	operations: { DropOperation }?,
 	valid: (() -> boolean)?,
-	onStart: ((payload: any, mode: "pointer" | "armed") -> ())?,
+	onStart: ((payload: unknown, mode: "pointer" | "armed") -> ())?,
 	onEnd: ((accepted: boolean, reason: string?) -> ())?,
 }
 export type DropTargetSpec = {
 	label: Types.ValueString?,
-	onDrop: ((payload: any, info: DropInfo) -> ()) | ((payload: any, info: DropInfo) -> boolean | "pending"),
+	onDrop: ((payload: unknown, info: DropInfo) -> ()) | ((payload: unknown, info: DropInfo) -> boolean | "pending"),
 	operation: Types.Value<DropOperation>?,
-	passThrough: ((payload: any) -> boolean)?,
+	passThrough: ((payload: unknown) -> boolean)?,
 	focusTarget: GuiObject?,
-	accepts: ((payload: any, info: DropInfo) -> (boolean, string?))?,
-	onReject: ((payload: any, reason: string?) -> ())?,
-	onEnter: ((payload: any) -> ())?,
-	onLeave: ((payload: any) -> ())?,
-	onUpdate: ((payload: any, info: DropInfo, accepted: boolean, reason: string?) -> ())?,
+	accepts: ((payload: unknown, info: DropInfo) -> (boolean, string?))?,
+	onReject: ((payload: unknown, reason: string?) -> ())?,
+	onEnter: ((payload: unknown) -> ())?,
+	onLeave: ((payload: unknown) -> ())?,
+	onUpdate: ((payload: unknown, info: DropInfo, accepted: boolean, reason: string?) -> ())?,
 }
 export type FocusSectionOptions = {
 	entry: ("restore" | "first" | "nearest")?,

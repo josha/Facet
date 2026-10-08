@@ -238,7 +238,7 @@ export type Context = {
 	padding: (number, number) -> UIPadding,
 	round: (ComposeTypes.Use?, UDim?) -> UDim,
 	corner: (number?) -> UICorner,
-	fade: (CanvasGroupNativeProps) -> Frame,
+	fade: (CanvasGroupNativeProps, boolean?) -> Frame,
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?) -> TextLabel,
 	row: ({ Child }, FrameNativeProps?) -> Frame,

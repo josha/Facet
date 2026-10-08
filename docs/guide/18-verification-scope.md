@@ -7,6 +7,12 @@ performance improvement from a shorter verification time.
 
 ## Headless evidence
 
+The test cleanup keeps recent regression cases in the control specs.
+Historical mirror specs, repeated mount checks and usage inventories are
+removed. Input, layout and resource cleanup cases remain. Test counts do
+not measure coverage. Read the assertions and the result for the selected
+build.
+
 `tests/plan.json` lists the executable spec sources. The Verify gate runs the
 cases that these sources register. Reports record each case result and the
 selected tier. A native engine double checks control policy, state and resource

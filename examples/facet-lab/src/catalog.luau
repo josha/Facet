@@ -4586,11 +4586,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					env.effectiveInput
 				)}; ` .. `safe insets top {inset.top} (the top bar) — the ScreenGui keeps the root below it`
 			end)
+			local plain = { wrap = true, Size = UDim2.fromScale(1, 0), AutomaticSize = Enum.AutomaticSize.Y }
 			local rows: Properties = { width = "fill" :: "fill", gap = "xs", UI.fill() }
 			for i = 1, 8 do
-				table.insert(rows, UI.Text({ text = `Body row {i} — scrolls inside the remaining height` }))
+				table.insert(
+					rows,
+					UI.Text(merged(plain, { text = `Body row {i} — scrolls inside the remaining height` }))
+				)
 			end
-			local plain = { wrap = true, Size = UDim2.fromScale(1, 0), AutomaticSize = Enum.AutomaticSize.Y }
 			table.insert(
 				p,
 				UI.Text(merged(plain, { text = "Screen title (first child)", textRole = "heading" :: "heading" }))
@@ -5209,6 +5212,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	adaptive = {
 		facet = true,
 		family = "facet",
+		cellWidth = 360,
 		alias = "Facet.adaptive (pure decisions)",
 		purpose = "Size class, height class, orientation, axis and column decisions from numbers, never a device name.",
 		alternatives = "UI.environment for the live facts these decide from.",
@@ -5230,7 +5234,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					a.sizeClassAtLeast(a.sizeClass(w), "regular")
 				)} · breakpoints {a.BREAKPOINTS.regular}/{a.BREAKPOINTS.wide}`,
 				wrap = true,
-				Size = UDim2.fromOffset(360, 0),
+				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 			})
 		end,
@@ -5238,6 +5242,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	civilDate = {
 		facet = true,
 		family = "facet",
+		cellWidth = 360,
 		alias = "Facet.civilDate (calendar arithmetic)",
 		purpose = "Civil dates with no time zone: arithmetic, words (format/parse in a locale) and fixed-offset instants.",
 		alternatives = "DateTimePicker for the player's choice.",
@@ -5271,7 +5276,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					)}`,
 				}, "\n"),
 				wrap = true,
-				Size = UDim2.fromOffset(360, 0),
+				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 			})
 		end,

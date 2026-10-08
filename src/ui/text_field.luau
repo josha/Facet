@@ -371,7 +371,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			setText(formatted)
 			markInvalid(false)
 			if report and spec.onCommit then
-				spec.onCommit(number, reason)
+				(spec.onCommit :: (number, InputTypes.CommitReason) -> ())(number, reason)
 			end
 			return true
 		end
@@ -407,7 +407,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			settleNumber(number, if clamped then "clamped" else reason, true)
 		end
-		local function commit(reason: InputTypes.CommitReason): ()
+		local function commit(reason: InputTypes.TextCommitReason): ()
 			if disposed or not editing:peek() then
 				return
 			end
@@ -438,7 +438,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			setText(value)
 			if spec.onCommit then
-				spec.onCommit(value, reason)
+				(spec.onCommit :: (string, InputTypes.TextCommitReason) -> ())(value, reason)
 			end
 		end
 		local function stepped(base: number, count: number): number
@@ -1051,7 +1051,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					end
 					scrubbing = nil
 					if spec.onCommit then
-						spec.onCommit(numericValue:peek(), "submit")
+						(spec.onCommit :: (number, InputTypes.CommitReason) -> ())(numericValue:peek(), "submit")
 					end
 					return true
 				end

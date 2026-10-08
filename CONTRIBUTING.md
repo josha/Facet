@@ -19,6 +19,15 @@ documentation and verification aligned. In source, use `Host` for the native
 constructors. Source contains no explanatory comments. Keep the required
 directives and notices.
 
+Facet source must not use the `any` type outside `src/vendor`. Use a concrete
+type or check an `unknown` value before you use it.
+`python3 tools/check_type_policy.py` checks this rule. The tracked limits in
+`tools/typecheck/any_budget.json` cover non-vendored examples, tools, tests and
+bench. Counts must not exceed these limits. Limits can only decrease. Run
+`python3 tools/check_type_policy.py --counts` to print the current counts. Run
+`python3 tools/check_type_policy.py --lower-budgets` to lower the limits after
+you remove uses. This command refuses to raise a limit.
+
 ## Verification
 
 1. While you edit, run the targeted behavioral specs.

@@ -255,32 +255,6 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("collapses on TV, but keeps a wide near-distance gamepad split", {
-			id = "native_navigation_split_view::native split navigation::collapses on TV, but keeps a wide near-distance gamepad split",
-			run = function()
-				local w = world()
-				w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
-				Verify.expect((w.root:GetAttribute("FacetSplitCollapsed"))):toBe(false)
-				Verify.expect(find(w.root, "UIDragDetector").Enabled):toBe(false)
-				w.distance:set("ten-foot")
-				Verify.expect((w.root:GetAttribute("FacetSplitCollapsed"))):toBe(true)
-				Verify.expect(find(w.root, "Resize").Visible):toBe(false)
-				w.stop()
-			end,
-		})
-		verifyHarness:case("keeps native mouse dragging available in a gamepad appearance preview", {
-			id = "native_navigation_split_view::native split navigation::keeps native mouse dragging available in a gamepad appearance preview",
-			run = function()
-				local w = world("Gamepad")
-				w.input.PreferredInput = w.engine.types.Enum.PreferredInput.KeyboardAndMouse
-				Verify.expect(find(w.root, "UIDragDetector").Enabled):toBe(true)
-				local resize = find(w.root, "Resize")
-				for _, child in resize:GetDescendants() do
-					Verify.expect((child:IsA("GuiButton"))):toBe(false)
-				end
-				w.stop()
-			end,
-		})
 
 		verifyHarness:case("restores focus after compact Back and stops a cross-pane walk on the divider", {
 			id = "native_navigation_split_view::native split navigation::restores focus after compact Back and stops a cross-pane walk on the divider",

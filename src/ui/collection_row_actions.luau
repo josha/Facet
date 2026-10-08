@@ -707,6 +707,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		}))
 		local menuSpec: NavigationTypes.MenuSpec<string> = {
 			trigger = root,
+			closeButton = true,
 			items = menuItems,
 			isPresented = menuOpen,
 			triggers = { "secondary" :: "secondary" },
@@ -775,7 +776,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 			dimensions:set(use(measured))
 		end)
 		function reveal()
-			if read(spec.enabled) ~= false and committing:peek() == nil and #menuItems:peek() > 0 then
+			if
+				read(spec.enabled) ~= false
+				and committing:peek() == nil
+				and ctx.available(root)
+				and #menuItems:peek() > 0
+			then
 				setOpen(nil)
 				if spec.coordinator then
 					spec.coordinator:set(rowToken)

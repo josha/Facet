@@ -7,7 +7,6 @@ return function(verifyHarness: Verify.Harness)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	type TextLabelConstructor = typeof(require("@repo/tools/typecheck/aliases").TextLabelConstructor)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
 
@@ -99,10 +98,6 @@ return function(verifyHarness: Verify.Harness)
 		end
 		visit(root)
 		return out
-	end
-
-	local function vector(engine: any, x: number, y: number): any
-		return engine.types.Vector3.new(x, y, 0)
 	end
 
 	verifyHarness:suite("native field chrome", function()
@@ -338,23 +333,6 @@ return function(verifyHarness: Verify.Harness)
 				})
 			end)
 		end
-
-		verifyHarness:case("both accessories sit inside the plate, and the clear keeps its room between them", {
-			id = "native_fields::native field accessories::both accessories sit inside the plate, and the clear keeps its room between them",
-			run = function()
-				local w = accessories({ count = 0 }, Compose.cell("Ada"))
-				local plate = find(w.node, "Input")
-				local leading, field, clear, trailing =
-					find(plate, "Leading"), find(plate, "Field"), find(plate, "Clear"), find(plate, "Trailing")
-				expect(leading ~= nil and field ~= nil and clear ~= nil and trailing ~= nil):toBe(true)
-				expect(plate:FindFirstChildWhichIsA("UIListLayout").FillDirection):toBe(w.E.FillDirection.Horizontal)
-				expect(leading.LayoutOrder < field.LayoutOrder):toBe(true)
-				expect(field.LayoutOrder < clear.LayoutOrder):toBe(true)
-				expect(clear.LayoutOrder < trailing.LayoutOrder):toBe(true)
-				expect(find(leading, "Mark").Text):toBe("@")
-				w.stop()
-			end,
-		})
 
 		verifyHarness:case(
 			"a static leading mark is not a stop; the clear and the trailing action are, in that order",

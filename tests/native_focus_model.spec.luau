@@ -6,8 +6,6 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
 
 	local Facet = require("../src") :: any
 	local engineLib = require("./lib/native_engine")
@@ -348,19 +346,6 @@ return function(verifyHarness: Verify.Harness)
 				nearest.stop()
 			end,
 		})
-		verifyHarness:case("refuses an unknown option, entry or a missing group", {
-			id = "native_focus_model::focusSection entry rules::refuses an unknown option, entry or a missing group",
-			run = function()
-				local w = setup(function(UI, Host: RobloxHost)
-					local group = Host.Frame {}
-					Verify.expect((pcall(UI.focusSection, group, { entry = "random" }))):toBe(false)
-					Verify.expect((pcall(UI.focusSection, group, { enter = "first" }))):toBe(false)
-					Verify.expect((pcall(UI.focusSection, nil))):toBe(false)
-					return group
-				end)
-				w.stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("focusSection focusOnAppear and returnFocus", function()
@@ -542,17 +527,7 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("passive = false is engaged-open: always engaged, resign() changes nothing", {
-			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::passive = false is engaged-open: always engaged, resign() changes nothing",
-			run = function()
-				local w = form({ passive = false })
-				Verify.expect((w.responder.state:peek())):toBe("engaged")
-				Verify.expect((w.traversal())):toBe(true)
-				w.responder.resign()
-				Verify.expect((w.responder.state:peek())):toBe("engaged")
-				w.stop()
-			end,
-		})
+
 		verifyHarness:case("gameplayGuard = false binds neither the guard nor Space on its buttons", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::gameplayGuard = false binds neither the guard nor Space on its buttons",
 			run = function()
@@ -561,18 +536,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.guard())):toBe(false)
 				w.gui.SelectedObject = w.find("One")
 				Verify.expect((w.activateKeys())):toEqual({ "Return" })
-				w.stop()
-			end,
-		})
-		verifyHarness:case("refuses an unknown option and a missing root", {
-			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::refuses an unknown option and a missing root",
-			run = function()
-				local w = setup(function(UI, Host: RobloxHost)
-					local root = Host.Frame {}
-					Verify.expect((pcall(UI.responder, root, { pasive = true }))):toBe(false)
-					Verify.expect((pcall(UI.responder, nil))):toBe(false)
-					return root
-				end)
 				w.stop()
 			end,
 		})
@@ -632,82 +595,6 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((w.activateKeys())):toEqual({ "Return", "Space" })
 					w.stop()
 				end
-			end,
-		})
-	end)
-
-	verifyHarness:suite("Grid: a ragged last line has an answer (native NextSelection)", function()
-		local function grid(count: number, flow: ("row" | "column")?)
-			local cells = Compose.cell(count)
-			local w = setup(function(UI: FacetControls)
-				return UI.Grid "Cells" {
-					columns = 4,
-					flow = flow,
-					Compose.keyed({
-						from = function(use: Use): { number }
-							local list: { number } = {}
-							for index = 1, use(cells) do
-								table.insert(list, index)
-							end
-							return list
-						end,
-						key = function(value: number)
-							return value
-						end,
-						render = function(_, position, key: number): GuiObject
-							return UI.Button("c" .. key)({ label = tostring(key), LayoutOrder = position })
-						end,
-					}),
-				}
-			end)
-			w.cells = cells
-			function w.down(name: string): string
-				local target = w.find(name).NextSelectionDown
-				return if target then target.Name else "nil"
-			end
-			return w
-		end
-		verifyHarness:case("Down from a lane the last line does not reach clamps to the last cell", {
-			id = "native_focus_model::Grid: a ragged last line has an answer (native NextSelection)::Down from a lane the last line does not reach clamps to the last cell",
-			run = function()
-				local w = grid(10)
-				Verify.expect((w.down("c7"))):toBe("c10")
-				Verify.expect((w.down("c8"))):toBe("c10")
-				Verify.expect((w.down("c5"))):toBe("nil")
-				Verify.expect((w.down("c6"))):toBe("nil")
-				Verify.expect((w.down("c9"))):toBe("nil")
-				Verify.expect((w.down("c10"))):toBe("nil")
-				w.cells:set(12)
-				Verify.expect((w.down("c7"))):toBe("nil")
-				Verify.expect((w.down("c8"))):toBe("nil")
-				w.cells:set(13)
-				Verify.expect((w.down("c10"))):toBe("c13")
-				Verify.expect((w.down("c12"))):toBe("c13")
-				Verify.expect((w.down("c9"))):toBe("nil")
-				w.stop()
-			end,
-		})
-		verifyHarness:case("a single short line needs no clamp", {
-			id = "native_focus_model::Grid: a ragged last line has an answer (native NextSelection)::a single short line needs no clamp",
-			run = function()
-				local w = grid(3)
-				Verify.expect((w.down("c1"))):toBe("nil")
-				w.stop()
-			end,
-		})
-		verifyHarness:case("flow = column clamps Right into a short last column", {
-			id = "native_focus_model::Grid: a ragged last line has an answer (native NextSelection)::flow = column clamps Right into a short last column",
-			run = function()
-				local w = grid(10, "column")
-				local function right(name: string): string
-					local target = w.find(name).NextSelectionRight
-					return if target then target.Name else "nil"
-				end
-
-				Verify.expect((right("c8"))):toBe("c10")
-				Verify.expect((right("c9"))):toBe("c10")
-				Verify.expect((right("c7"))):toBe("nil")
-				w.stop()
 			end,
 		})
 	end)

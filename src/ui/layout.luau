@@ -240,7 +240,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local scaled = false
 		local filling: { GuiObject } = {}
 		for _, child in children do
-			local node = child :: any
+			local node = child :: GuiObject
 			local gui = (typeof(node) == "Instance" or type(node) == "table")
 				and type(node.IsA) == "function"
 				and node:IsA("GuiObject")
@@ -270,12 +270,36 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end
 		local flow: Types.Flow = { gap = spec.gap, align = spec.align, distribute = spec.distribute }
 		local insets = kit.insets(spec.padding)
-		local frame = kit.plain(
-			Host.ScrollingFrame(kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), insets }, children)),
-			properties
-		)
+		local layout = kit.list(flow, axis ~= "x")
+		local frame =
+			kit.plain(Host.ScrollingFrame(kit.assemble(native, properties, { layout, insets }, children)), properties)
 		scrollLock.own(frame, ctx)
 		initialScroll(ctx, frame, spec.CanvasPosition)
+		if axis == "x" and properties.CanvasSize == nil and properties.AutomaticCanvasSize == nil then
+			local content = ctx.observe.AbsoluteContentSize(layout)
+			local unit = ctx.layoutUnit(frame)
+			local window = ctx.observe.AbsoluteWindowSize(frame)
+			local observe = (ctx.observe :: unknown) :: {
+				PaddingLeft: (UIPadding) -> ComposeTypes.Cell<UDim>,
+				PaddingRight: (UIPadding) -> ComposeTypes.Cell<UDim>,
+			}
+			local left = if insets then observe.PaddingLeft(insets) else nil
+			local right = if insets then observe.PaddingRight(insets) else nil
+			runtime.decorate(frame, {
+				CanvasSize = function(use: ComposeTypes.Use): UDim2
+					local scale = use(unit)
+					local extent = use(content).X / scale
+					local width = use(window).X / scale
+					for _, side in { left, right } do
+						if side then
+							local padding: UDim = use(side)
+							extent += padding.Offset + padding.Scale * width
+						end
+					end
+					return D2.fromOffset(math.ceil(extent), 0)
+				end,
+			})
+		end
 		if axis ~= "x" and #filling > 0 then
 			local window = ctx.layoutSize(frame)
 			local top, bottom = Compose.cell(0), Compose.cell(0)
@@ -502,7 +526,9 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				local target = selectable(cell)
 				if target then
 					local line, lane = (position - 1) // lanes + 1, (position - 1) % lanes + 1
-					local fields = target :: any
+					local fields = (
+						target :: unknown
+					) :: { NextSelectionDown: GuiObject?, NextSelectionRight: GuiObject? }
 					if last and line == lines - 1 and lane > short then
 						if fields[forward] == nil or clamped[target] then
 							fields[forward] = last

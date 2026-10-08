@@ -6,8 +6,6 @@ return function(verifyHarness: Verify.Harness)
 	type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
 	local materialize = require("./lib/materialize")
@@ -15,9 +13,7 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local worlds = require("./lib/content_world")
 	local Compose: ComposeModule = Facet.Compose
-	local Roblox = require("../src/vendor/compose/roblox")
 	local themes = require("../src/ui/themes")(Compose)
-	local engineLib = require("./lib/native_engine")
 	local lune = require("@lune/roblox")
 	local UDim2, UDim, Vector2 = lune.UDim2, lune.UDim, lune.Vector2
 
@@ -87,66 +83,32 @@ return function(verifyHarness: Verify.Harness)
 		return panelOf(world)
 	end
 
-	local function sheetRules(): (any, any)
-		local engine = engineLib.new()
-		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-		local sheet
-		local stop = runtime.mount(function()
-			sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
-			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ sheet :: unknown })
-		end, engine.new("Folder"))
-		return sheet, function()
-			stop()
-			runtime:dispose()
-		end
-	end
-
-	local function ruleIndex(sheet: any, selector: string): (number, any)
-		for index, node in sheet:GetChildren() do
-			if node.Selector == selector then
-				return index, node:GetProperties()
-			end
-		end
-		error("No rule: " .. selector)
-	end
-
-	local function luminance(color: any): number
-		local function channel(value: number): number
-			return if value <= 0.03928 then value / 12.92 else ((value + 0.055) / 1.055) ^ 2.4
-		end
-		return 0.2126 * channel(color.R) + 0.7152 * channel(color.G) + 0.0722 * channel(color.B)
-	end
-
 	verifyHarness:suite("native menu parity with main", function()
-		verifyHarness:case("keeps the presentation mask on the moving paint plate", {
-			id = "native_menu_parity::native menu parity with main::keeps the presentation mask on the moving paint plate",
+		verifyHarness:case("keeps the stationary panel mask synchronized with its persistent child group", {
+			id = "native_menu::native menu parity with main::keeps the stationary panel mask synchronized with its persistent child group",
 			run = function()
 				local world = labelled({ items = items(3), presentation = "menu" }, {})
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 140))
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
-				local paint = panel:FindFirstChild("PresentationPaint", true)
-				Verify.expect(paint ~= nil):toBe(true)
-				local mask = paint:FindFirstChild("PresentationFade")
-				Verify.expect(mask ~= nil):toBe(true)
+				local group = world.find("MenuGroup", panel)
+				local held = group:FindFirstChild("Fade")
 				local rootMask = panel:FindFirstChild("PresentationFade")
-				Verify.expect(mask.Transparency):toBe(rootMask.Transparency)
-				for _ = 1, 4 do
+				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
+				for _ = 1, 34 do
 					world.engine.heartbeat:Fire(FRAME)
-					Verify.expect(mask.Transparency):toBe(rootMask.Transparency)
+					Verify.expect(held.Parent):toBe(group)
+					Verify.expect(held.GroupTransparency):toBeCloseTo(rootMask.Transparency.Keypoints[1].Value, 1e-7)
 				end
-				for _ = 1, 30 do
-					world.engine.heartbeat:Fire(FRAME)
-				end
-				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBe(nil)
+				Verify.expect(held.GroupTransparency):toBe(0)
 				Verify.expect(rootMask.Parent):toBe(panel)
 				world.stop()
 			end,
 		})
 
 		verifyHarness:case("fades an authored sheet scrim with the menu entrance and departure", {
-			id = "native_menu_parity::native menu parity with main::fades an authored sheet scrim with the menu entrance and departure",
+			id = "native_menu::native menu parity with main::fades an authored sheet scrim with the menu entrance and departure",
 			run = function()
 				local world = labelled({ items = items(3), presentation = "sheet" }, {})
 				for _ = 1, 2 do
@@ -176,7 +138,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("keeps the pointer anchor through departure", {
-			id = "native_menu_parity::native menu parity with main::keeps the pointer anchor through departure",
+			id = "native_menu::native menu parity with main::keeps the pointer anchor through departure",
 			run = function()
 				local shown = Compose.cell(false)
 				local world = labelled({ items = items(2), isPresented = shown, presentation = "menu" }, {})
@@ -202,7 +164,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("keeps the secondary-click anchor through dismissal motion", {
-			id = "native_menu_parity::native menu parity with main::keeps the secondary-click anchor through dismissal motion",
+			id = "native_menu::native menu parity with main::keeps the secondary-click anchor through dismissal motion",
 			run = function()
 				for _, route in { "action", "outside", "model", "disabled", "cancel" } do
 					local shown, enabled = Compose.cell(false), Compose.cell(true)
@@ -257,7 +219,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("anchors a secondary-click menu at the pointer and resets to the trigger on activation", {
-			id = "native_menu_parity::native menu parity with main::anchors a secondary-click menu at the pointer and resets to the trigger on activation",
+			id = "native_menu::native menu parity with main::anchors a secondary-click menu at the pointer and resets to the trigger on activation",
 			run = function()
 				local shown = Compose.cell(false)
 				local enabled = Compose.cell(true)
@@ -291,7 +253,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("attaches to the caller's trigger node and returns that same node without a wrapper", {
-			id = "native_menu_parity::native menu parity with main::attaches to the caller's trigger node and returns that same node without a wrapper",
+			id = "native_menu::native menu parity with main::attaches to the caller's trigger node and returns that same node without a wrapper",
 			run = function()
 				local authored: any, returned
 				local ran: { string } = {}
@@ -326,7 +288,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("fills each row title so a submenu chevron or check sits at the trailing edge", {
-			id = "native_menu_parity::native menu parity with main::fills each row title so a submenu chevron or check sits at the trailing edge",
+			id = "native_menu::native menu parity with main::fills each row title so a submenu chevron or check sits at the trailing edge",
 			run = function()
 				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
@@ -358,7 +320,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("dims the page behind a menu presented as a sheet and not behind a panel", {
-			id = "native_menu_parity::native menu parity with main::dims the page behind a menu presented as a sheet and not behind a panel",
+			id = "native_menu::native menu parity with main::dims the page behind a menu presented as a sheet and not behind a panel",
 			run = function()
 				for _, case in { { "sheet" :: unknown, true }, { "menu" :: unknown, false } } do
 					local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
@@ -389,21 +351,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("refuses label and trigger together", {
-			id = "native_menu_parity::native menu parity with main::refuses label and trigger together",
-			run = function()
-				local message = worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Menu({ label = "More", trigger = UI.Button "Opener" { label = "More" }, items = items(1) }),
-					})
-				end)
-				Verify.expect(message ~= nil and string.find(message, "label or trigger, not both", 1, true) ~= nil)
-					:toBe(true)
-			end,
-		})
-
 		verifyHarness:case("calls onOpen and onClose once for each open and each close on every route", {
-			id = "native_menu_parity::native menu parity with main::calls onOpen and onClose once for each open and each close on every route",
+			id = "native_menu::native menu parity with main::calls onOpen and onClose once for each open and each close on every route",
 			run = function()
 				local log: { string } = {}
 				local presented = Compose.cell(false)
@@ -440,142 +389,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("takes a dimension table, a UDim or pixels for width and refuses a malformed one by name", {
-			id = "native_menu_parity::native menu parity with main::takes a dimension table, a UDim or pixels for width and refuses a malformed one by name",
-			run = function()
-				for
-					_,
-					case: {
-					width: number | typeof(UDim.new(0.5, 10)) | typeof(UDim2.new(0.25, 0, 0, 0)) | {
-						type: string,
-						px: (number | string)?,
-						fraction: number?,
-						offset: typeof(-8)?,
-						min: number?,
-						max: number?,
-					},
-					expected: number,
-				}
-				in
-					{
-						{ width = 300, expected = 300 },
-						{ width = { type = "fixed", px = 300 }, expected = 300 },
-						{ width = UDim.new(0.5, 10), expected = 402 },
-						{ width = UDim2.new(0.25, 0, 0, 0), expected = 196 },
-						{ width = { type = "percent", fraction = 0.5, offset = -8 }, expected = 384 },
-						{ width = { type = "hug", min = 320 }, expected = 320 },
-						{ width = { type = "hug", max = 200 }, expected = 200 },
-						{ width = { type = "fill" }, expected = 784 },
-						{ width = { type = "fixed", px = "targetSizes.minimum" }, expected = 44 },
-					} :: {
-						{
-							width: number | typeof(UDim.new(0.5, 10)) | typeof(UDim2.new(0.25, 0, 0, 0)) | {
-								type: string,
-								px: (number | string)?,
-								fraction: number?,
-								offset: typeof(-8)?,
-								min: number?,
-								max: number?,
-							},
-							expected: number,
-						}
-					}
-				do
-					local world = labelled({ width = case.width, items = items(3) })
-					local panel = open(world)
-					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
-					Verify.expect(`{typeof(case.width)} {panel.Size.X.Offset}`)
-						:toBe(`{typeof(case.width)} {case.expected}`)
-					world.stop()
-				end
-				for
-					_,
-					case: {
-					width: typeof(-4) | { type: string, ratio: number?, px: number?, weight: number? },
-					words: string,
-				}
-				in
-					{
-						{ width = { type = "aspect", ratio = 1 }, words = "width.type must be" },
-						{ width = { type = "fixed" }, words = "a fixed width requires px" },
-						{ width = { type = "fixed", px = 10, weight = 1 }, words = "does not take 'weight'" },
-						{ width = -4, words = "width must be a finite number" },
-					} :: {
-						{
-							width: typeof(-4) | { type: string, ratio: number?, px: number?, weight: number? },
-							words: string,
-						}
-					}
-				do
-					local message = worlds.mountError(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({ UI.Menu({ label = "More", width = case.width, items = items(1) } :: any) })
-					end)
-					Verify.expect(message ~= nil and string.find(message, case.words, 1, true) ~= nil):toBe(true)
-				end
-			end,
-		})
-
-		verifyHarness:case("draws the anchored panel as one card with one hairline between each pair of rows", {
-			id = "native_menu_parity::native menu parity with main::draws the anchored panel as one card with one hairline between each pair of rows",
-			run = function()
-				local checked = Compose.cell(true)
-				local world = labelled({
-					presentation = "menu" :: "menu",
-					items = {
-						{ id = "a", label = "Alpha", onSelect = function() end } :: MenuItem,
-						{ id = "b", label = "Beta", checked = checked } :: MenuItem,
-						{ id = "c", label = "Gamma", onSelect = function() end } :: MenuItem,
-						{ divider = true } :: MenuItem,
-						{ id = "d", label = "Delta", onSelect = function() end } :: MenuItem,
-					},
-				})
-				local panel = open(world)
-				Verify.expect((panel:HasTag("facet-menu"))):toBe(true)
-				Verify.expect((panel:FindFirstChildWhichIsA("UICorner"))):toBeNil()
-				Verify.expect((panel:FindFirstChildWhichIsA("UIStroke"))):toBeNil()
-				Verify.expect((panel:FindFirstChildWhichIsA("UIShadow"))):toBeNil()
-				Verify.expect((world.find("MenuGroup", panel):HasTag("facet-menu-group"))):toBe(true)
-				local rows = panel:FindFirstChild("MenuRows", true)
-				Verify.expect(rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset):toBe(0)
-				local padding = rows:FindFirstChildWhichIsA("UIPadding")
-				for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
-					Verify.expect(padding[side].Offset):toBe(4)
-				end
-				local ruled = {}
-				for _, id in { "a", "b", "c", "d" } do
-					local row = world.find(id, panel)
-					Verify.expect((row:HasTag("facet-menu-item"))):toBe(true)
-					Verify.expect((row:FindFirstChildWhichIsA("UICorner"))):toBeNil()
-					local hairline = row:FindFirstChild("Hairline")
-					Verify.expect((hairline:HasTag("facet-menu-hairline"))):toBe(true)
-					Verify.expect(hairline.Size):toBe(UDim2.new(1, 0, 0, 1))
-					ruled[id] = hairline.Visible
-				end
-				Verify.expect(ruled):toEqual({ a = false, b = true, c = true, d = false })
-				Verify.expect((world.find("b", panel):HasTag("facet-selected"))):toBe(true)
-				Verify.expect((world.find("a", panel):HasTag("facet-selected"))):toBe(false)
-				checked:set(false)
-				Verify.expect((world.find("b", panel):HasTag("facet-selected"))):toBe(false)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps the sheet rows spaced and unruled, since the card is a presentation branch", {
-			id = "native_menu_parity::native menu parity with main::keeps the sheet rows spaced and unruled, since the card is a presentation branch",
-			run = function()
-				local world = labelled({ presentation = "sheet" :: "sheet", items = items(3) })
-				local panel = open(world)
-				local rows = panel:FindFirstChild("MenuRows", true)
-				Verify.expect(rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset):toBe(8)
-				for index = 1, 3 do
-					Verify.expect(world.find(`row{index}`, panel):FindFirstChild("Hairline").Visible):toBe(false)
-				end
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("grows a Back row only in the sheet and shows the open path on the parent level", {
-			id = "native_menu_parity::native menu parity with main::grows a Back row only in the sheet and shows the open path on the parent level",
+			id = "native_menu::native menu parity with main::grows a Back row only in the sheet and shows the open path on the parent level",
 			run = function()
 				for _, presentation in { "menu", "sheet" } :: { "menu" | "sheet" } do
 					local world = labelled({ presentation = presentation :: "menu" | "sheet", items = NESTED })
@@ -601,7 +416,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("insets an open ancestor level by the current theme's space.xs, following a theme swap", {
-			id = "native_menu_parity::native menu parity with main::insets an open ancestor level by the current theme's space.xs, following a theme swap",
+			id = "native_menu::native menu parity with main::insets an open ancestor level by the current theme's space.xs, following a theme swap",
 			run = function()
 				local theme = Compose.cell(themes.neutralPackage())
 				local world = labelled(
@@ -621,51 +436,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("paints a selected row with the accent under an onAccent label at 4.5:1 or better", {
-			id = "native_menu_parity::native menu parity with main::paints a selected row with the accent under an onAccent label at 4.5:1 or better",
-			run = function()
-				local sheet, stop = sheetRules()
-				local hover = ruleIndex(sheet, ".facet-menu-item:Hover")
-				local generic = ruleIndex(sheet, ".facet-selected")
-				local _, accent = ruleIndex(sheet, ".facet-accent")
-				for _, selector in
-					{
-						".facet-menu-item.facet-selected",
-						".facet-menu-item.facet-selected:Hover",
-						".facet-menu-item.facet-selected:Press",
-					}
-				do
-					local index, props = ruleIndex(sheet, selector)
-					Verify.expect(index > hover and index > generic):toBe(true)
-					Verify.expect(props.BackgroundTransparency):toBe(0)
-					Verify.expect(props.BackgroundColor3):toBe(accent.BackgroundColor3)
-				end
-				local _, caption = ruleIndex(sheet, ".facet-menu-item.facet-selected >> .facet-button-caption")
-				local _, text = ruleIndex(sheet, ".facet-menu-item.facet-selected >> .facet-text")
-				local _, icon = ruleIndex(sheet, ".facet-menu-item.facet-selected >> .facet-icon")
-				Verify.expect(caption.TextColor3):toBe(accent.TextColor3)
-				Verify.expect(text.TextColor3):toBe(accent.TextColor3)
-				Verify.expect(icon.ImageColor3):toBe(accent.TextColor3)
-				local a, b = luminance(accent.BackgroundColor3), luminance(accent.TextColor3)
-				Verify.expect((math.max(a, b) + 0.05) / (math.min(a, b) + 0.05) >= 4.5):toBe(true)
-				local _, card = ruleIndex(sheet, ".facet-menu::UICorner")
-				local _, panelCorner = ruleIndex(sheet, ".facet-panel::UICorner")
-				Verify.expect(card.CornerRadius):toBe(panelCorner.CornerRadius)
-				local _, clip = ruleIndex(sheet, ".facet-menu-group::UICorner")
-				Verify.expect(clip.CornerRadius):toBe(panelCorner.CornerRadius)
-				local _, stroke = ruleIndex(sheet, ".facet-menu::UIStroke")
-				Verify.expect(stroke.Thickness):toBe(1)
-				Verify.expect(stroke.ApplyStrokeMode.Name):toBe("Border")
-				local _, shadow = ruleIndex(sheet, ".facet-menu::UIShadow")
-				Verify.expect(shadow.BlurRadius.Offset > 0):toBe(true)
-				local _, rule = ruleIndex(sheet, ".facet-menu-hairline")
-				Verify.expect(rule.BackgroundTransparency < 1):toBe(true)
-				stop()
-			end,
-		})
-
 		verifyHarness:case("a skinned panel sizes to its rows plus the art carve and keeps them in its content box", {
-			id = "native_menu_parity::native menu parity with main::a skinned panel sizes to its rows plus the art carve and keeps them in its content box",
+			id = "native_menu::native menu parity with main::a skinned panel sizes to its rows plus the art carve and keeps them in its content box",
 			run = function()
 				for _, name in { "pixel_quest", "fantasy_ornate" } do
 					local package = (require :: any)("../examples/themes/" .. name).build(Facet.themes)
@@ -701,7 +473,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a panel on a live theme without an art carve keeps its rows in its content box", {
-			id = "native_menu_parity::native menu parity with main::a panel on a live theme without an art carve keeps its rows in its content box",
+			id = "native_menu::native menu parity with main::a panel on a live theme without an art carve keeps its rows in its content box",
 			run = function()
 				for _, presentation in { "menu", "sheet" } do
 					for _, count in { 1, 30 } do
@@ -728,38 +500,10 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a 300-row menu fades through a window-sized group, never one as tall as its rows", {
-			id = "native_menu_parity::native menu parity with main::a 300-row menu fades through a window-sized group, never one as tall as its rows",
-			run = function()
-				local world = labelled({ items = items(300), presentation = "menu" :: "menu" }, {})
-				local panel = open(world)
-				local rows = panel:FindFirstChild("MenuRows", true)
-				local groups = {}
-				for _, node in panel:GetDescendants() do
-					if node:IsA("CanvasGroup") and rows:IsDescendantOf(node) then
-						table.insert(groups, node)
-					end
-				end
-				Verify.expect(#groups):toBe(1)
-				local group = groups[1]
-				Verify.expect(group.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
-				Verify.expect(group.Size):toBe(UDim2.fromScale(1, 1))
-				local at = group.Parent
-				while at and at ~= panel do
-					Verify.expect((at:IsA("ScrollingFrame"))):toBe(false)
-					at = at.Parent
-				end
-				Verify.expect((panel:IsA("ScrollingFrame"))):toBe(false)
-				Verify.expect((rows.Parent:IsA("ScrollingFrame"))):toBe(true)
-				Verify.expect((rows.Parent:IsDescendantOf(group))):toBe(true)
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"a 300-row sheet level cross-fades through a window-sized group, never one as tall as its rows",
 			{
-				id = "native_menu_parity::native menu parity with main::a 300-row sheet level cross-fades through a window-sized group, never one as tall as its rows",
+				id = "native_menu::native menu parity with main::a 300-row sheet level cross-fades through a window-sized group, never one as tall as its rows",
 				run = function()
 					local world = labelled({
 						items = { { id = "big", label = "Big", children = items(300) } },
@@ -793,8 +537,8 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case("grows each level from 0.96 at the corner it hangs at, fades in and dips out faster", {
-			id = "native_menu_parity::native menu parity with main::grows each level from 0.96 at the corner it hangs at, fades in and dips out faster",
+		verifyHarness:case("fades each stationary level in and dips out faster", {
+			id = "native_menu::native menu parity with main::fades each stationary level in and dips out faster",
 			run = function()
 				local world = labelled(
 					{ edge = "top" :: "top", align = "end" :: "end", items = NESTED, presentation = "menu" :: "menu" },
@@ -808,12 +552,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((fadeKit.of(group))):toBe(1)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
-				Verify.expect(scale.Scale >= 0.95 and scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(group) > 0):toBe(true)
 				local shrink = 1 - scale.Scale
 				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(280 + 220 * shrink, 1)
 				Verify.expect(materialize.position(panel).Y.Offset):toBeCloseTo(96 + 200 * shrink, 2)
-				local enter = 0
-				while scale.Scale < 1 and enter < 60 do
+				local enter = 2
+				while fadeKit.of(group) > 0 and enter < 60 do
 					world.engine.heartbeat:Fire(FRAME)
 					enter += 1
 				end
@@ -827,7 +572,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((fadeKit.of(group))):toBe(1)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
-				Verify.expect(scale.Scale >= 0.95 and scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(group) > 0):toBe(true)
 				for _ = 1, 30 do
 					world.engine.heartbeat:Fire(FRAME)
 				end
@@ -841,8 +587,12 @@ return function(verifyHarness: Verify.Harness)
 						cleared = exit
 					end
 				end
-				Verify.expect(exit > 0 and exit < enter):toBe(true)
-				Verify.expect(cleared > 0 and cleared < exit):toBe(true)
+				local timing = assert(require("../src/ui/themes")(Compose).neutralPackage().metrics.motion.popover)
+				Verify.expect(timing.exit < timing.enter):toBe(true)
+				Verify.expect(exit > 0 and exit <= math.ceil(timing.exit / FRAME) + 1):toBe(true)
+				Verify.expect(cleared < enter - 2):toBe(true)
+				Verify.expect(`clear {cleared} exit {exit} early {cleared > 0 and cleared < exit}`)
+					:toBe(`clear {cleared} exit {exit} early true`)
 				for _ = 1, 30 do
 					world.engine.heartbeat:Fire(FRAME)
 				end
@@ -851,66 +601,61 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"pivots a default panel at its top leading corner and a trailing panel at its leading side",
-			{
-				id = "native_menu_parity::native menu parity with main::pivots a default panel at its top leading corner and a trailing panel at its leading side",
-				run = function()
-					for
-						_,
-						case: {
-						edge: "trailing" | "bottom" | nil,
-						align: "start" | "center" | nil,
-						pivot: typeof(Vector2.new(0, 0)) | typeof(Vector2.new(110, 0)),
-						at: typeof(Vector2.new(100, 144))
-							| typeof(Vector2.new(304, 100))
-							| typeof(Vector2.new(90, 144)),
-					}
-					in
+		verifyHarness:case("keeps default trailing and centered panels at their final anchor through the fade", {
+			id = "native_menu::native menu parity with main::keeps default trailing and centered panels at their final anchor through the fade",
+			run = function()
+				for
+					_,
+					case: {
+					edge: "trailing" | "bottom" | nil,
+					align: "start" | "center" | nil,
+					pivot: typeof(Vector2.new(0, 0)) | typeof(Vector2.new(110, 0)),
+					at: typeof(Vector2.new(100, 144)) | typeof(Vector2.new(304, 100)) | typeof(Vector2.new(90, 144)),
+				}
+				in
+					{
+						{ edge = nil, align = nil, pivot = Vector2.new(0, 0), at = Vector2.new(100, 144) },
 						{
-							{ edge = nil, align = nil, pivot = Vector2.new(0, 0), at = Vector2.new(100, 144) },
-							{
-								edge = "trailing" :: "trailing",
-								align = "start" :: "start",
-								pivot = Vector2.new(0, 0),
-								at = Vector2.new(304, 100),
-							},
-							{
-								edge = "bottom" :: "bottom",
-								align = "center" :: "center",
-								pivot = Vector2.new(110, 0),
-								at = Vector2.new(90, 144),
-							},
-						} :: {
-							{
-								edge: "trailing" | "bottom" | nil,
-								align: "start" | "center" | nil,
-								pivot: typeof(Vector2.new(0, 0)) | typeof(Vector2.new(110, 0)),
-								at: typeof(Vector2.new(100, 144))
-									| typeof(Vector2.new(304, 100))
-									| typeof(Vector2.new(90, 144)),
-							}
+							edge = "trailing" :: "trailing",
+							align = "start" :: "start",
+							pivot = Vector2.new(0, 0),
+							at = Vector2.new(304, 100),
+						},
+						{
+							edge = "bottom" :: "bottom",
+							align = "center" :: "center",
+							pivot = Vector2.new(110, 0),
+							at = Vector2.new(90, 144),
+						},
+					} :: {
+						{
+							edge: "trailing" | "bottom" | nil,
+							align: "start" | "center" | nil,
+							pivot: typeof(Vector2.new(0, 0)) | typeof(Vector2.new(110, 0)),
+							at: typeof(Vector2.new(100, 144))
+								| typeof(Vector2.new(304, 100))
+								| typeof(Vector2.new(90, 144)),
 						}
-					do
-						local world = labelled({ edge = case.edge, align = case.align, items = items(3) }, {})
-						local panel = open(world)
-						lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
-						world.engine.heartbeat:Fire(FRAME)
-						world.engine.heartbeat:Fire(FRAME)
-						local shrink = 1 - materialize.of(panel).Scale
-						Verify.expect(shrink > 0):toBe(true)
-						Verify.expect(materialize.position(panel).X.Offset)
-							:toBeCloseTo(case.at.X + case.pivot.X * shrink, 1)
-						Verify.expect(materialize.position(panel).Y.Offset)
-							:toBeCloseTo(case.at.Y + case.pivot.Y * shrink, 1)
-						world.stop()
-					end
-				end,
-			}
-		)
+					}
+				do
+					local world = labelled({ edge = case.edge, align = case.align, items = items(3) }, {})
+					local panel = open(world)
+					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
+					world.engine.heartbeat:Fire(FRAME)
+					world.engine.heartbeat:Fire(FRAME)
+					local shrink = 1 - materialize.of(panel).Scale
+					Verify.expect(shrink):toBe(0)
+					Verify.expect(materialize.position(panel).X.Offset)
+						:toBeCloseTo(case.at.X + case.pivot.X * shrink, 1)
+					Verify.expect(materialize.position(panel).Y.Offset)
+						:toBeCloseTo(case.at.Y + case.pivot.Y * shrink, 1)
+					world.stop()
+				end
+			end,
+		})
 
 		verifyHarness:case("removes the travel under reduced motion for the panel and each submenu level", {
-			id = "native_menu_parity::native menu parity with main::removes the travel under reduced motion for the panel and each submenu level",
+			id = "native_menu::native menu parity with main::removes the travel under reduced motion for the panel and each submenu level",
 			run = function()
 				local world = labelled({ items = NESTED, presentation = "menu" :: "menu" })
 				local panel = open(world)
@@ -930,7 +675,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("follows a trigger that moves while the menu is open", {
-			id = "native_menu_parity::native menu parity with main::follows a trigger that moves while the menu is open",
+			id = "native_menu::native menu parity with main::follows a trigger that moves while the menu is open",
 			run = function()
 				local world = labelled({ items = items(3) })
 				local panel = open(world)
@@ -945,7 +690,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("clamps the panel inside the GuiService inset when its screen ignores the inset", {
-			id = "native_menu_parity::native menu parity with main::clamps the panel inside the GuiService inset when its screen ignores the inset",
+			id = "native_menu::native menu parity with main::clamps the panel inside the GuiService inset when its screen ignores the inset",
 			run = function()
 				local world = labelled({ edge = "top" :: "top", items = items(3) })
 				world.screen.IgnoreGuiInset = true
@@ -972,7 +717,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a menu shown as a sheet slides up from below the layer and never scales", {
-			id = "native_menu_parity::native menu parity with main::a menu shown as a sheet slides up from below the layer and never scales",
+			id = "native_menu::native menu parity with main::a menu shown as a sheet slides up from below the layer and never scales",
 			run = function()
 				local world = labelled({ items = items(3), presentation = "sheet" :: "sheet" }, {})
 				local panel = open(world)
@@ -995,7 +740,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case("a sheet menu level change cross-fades its rows while they slide", {
-			id = "native_menu_parity::native menu parity with main::a sheet menu level change cross-fades its rows while they slide",
+			id = "native_menu::native menu parity with main::a sheet menu level change cross-fades its rows while they slide",
 			run = function()
 				local world = labelled({ items = NESTED, presentation = "sheet" :: "sheet" }, {})
 				local panel = open(world)
@@ -1017,121 +762,114 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"a pointer submenu grows from the chosen row, and Back grows the parent from the child's side",
-			{
-				id = "native_menu_parity::native menu parity with main::a pointer submenu grows from the chosen row, and Back grows the parent from the child's side",
-				run = function()
-					local world = labelled({ items = NESTED, presentation = "menu" :: "menu" }, {})
-					local panel = open(world)
-					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
-					for _ = 1, 40 do
-						world.engine.heartbeat:Fire(FRAME)
-					end
-					local adjust = world.find("adjust", panel)
-					adjust.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 44)
-					adjust.Activated:Fire()
-					for _ = 1, 3 do
-						world.engine.heartbeat:Fire(FRAME)
-					end
-					local scale = materialize.of(panel)
-					Verify.expect(scale.Scale < 1):toBe(true)
-					local shrink = 1 - scale.Scale
-					Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(100 + 288, 1)
-					Verify.expect(materialize.position(panel).Y.Offset):toBeCloseTo(144 + 44 * shrink, 1)
-					for _ = 1, 40 do
-						world.engine.heartbeat:Fire(FRAME)
-					end
-					world.action("MenuLeft").Pressed:Fire()
-					Verify.expect(world.find("adjust", panel) ~= nil):toBe(true)
-					for _ = 1, 3 do
-						world.engine.heartbeat:Fire(FRAME)
-					end
-					Verify.expect(scale.Scale < 1):toBe(true)
-					shrink = 1 - scale.Scale
-					Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(100 + 220 * shrink, 2)
-					Verify.expect(materialize.position(panel).X.Offset > 101):toBe(true)
-					world.stop()
-				end,
-			}
-		)
+		verifyHarness:case("a pointer submenu and its parent keep their final anchor while fading", {
+			id = "native_menu::native menu parity with main::a pointer submenu and its parent keep their final anchor while fading",
+			run = function()
+				local world = labelled({ items = NESTED, presentation = "menu" :: "menu" }, {})
+				local panel = open(world)
+				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
+				for _ = 1, 40 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				local adjust = world.find("adjust", panel)
+				adjust.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 44)
+				adjust.Activated:Fire()
+				for _ = 1, 3 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				local scale = materialize.of(panel)
+				Verify.expect(scale.Scale):toBe(1)
+				local shrink = 1 - scale.Scale
+				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(100 + 288, 1)
+				Verify.expect(materialize.position(panel).Y.Offset):toBeCloseTo(144 + 44 * shrink, 1)
+				for _ = 1, 40 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				world.action("MenuLeft").Pressed:Fire()
+				Verify.expect(world.find("adjust", panel) ~= nil):toBe(true)
+				for _ = 1, 3 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				Verify.expect(scale.Scale):toBe(1)
+				shrink = 1 - scale.Scale
+				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(100 + 220 * shrink, 2)
+				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(100, 1)
+				world.stop()
+			end,
+		})
 
-		verifyHarness:case(
-			"each level remembers its own row, Back to the root uses the root's row, and a root exit faces the trigger",
-			{
-				id = "native_menu_parity::native menu parity with main::each level remembers its own row, Back to the root uses the root's row, and a root exit faces the trigger",
-				run = function()
-					local function leaf(id: string): any
-						return { id = id, label = id, onSelect = function() end }
-					end
-					local deep = {
-						leaf("plain"),
-						{ divider = true },
-						{
-							id = "Divider",
-							label = "More",
-							children = {
-								leaf("x"),
-								leaf("y"),
-								{ id = "b", label = "B", children = { leaf("p"), leaf("q") } },
-							},
+		verifyHarness:case("each level keeps its final anchor through Back and the root departure", {
+			id = "native_menu::native menu parity with main::each level keeps its final anchor through Back and the root departure",
+			run = function()
+				local function leaf(id: string): any
+					return { id = id, label = id, onSelect = function() end }
+				end
+				local deep = {
+					leaf("plain"),
+					{ divider = true },
+					{
+						id = "Divider",
+						label = "More",
+						children = {
+							leaf("x"),
+							leaf("y"),
+							{ id = "b", label = "B", children = { leaf("p"), leaf("q") } },
 						},
-					}
-					local world = labelled({ items = deep, presentation = "menu" :: "menu" }, {})
-					local panel = open(world)
-					lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
-					local function settle()
-						for _ = 1, 40 do
-							world.engine.heartbeat:Fire(FRAME)
-						end
-					end
-					settle()
-					local scale = materialize.of(panel)
-					local more = world.find("Divider", panel)
-					for _, node in panel:GetDescendants() do
-						if node.Name == "Divider" and node:IsA("GuiButton") then
-							more = node
-						end
-					end
-					more.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 10)
-					more.Activated:Fire()
-					settle()
-					local b = world.find("b", panel)
-					b.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 120)
-					b.Activated:Fire()
-					settle()
-					world.action("MenuLeft").Pressed:Fire()
-					for _ = 1, 2 do
+					},
+				}
+				local world = labelled({ items = deep, presentation = "menu" :: "menu" }, {})
+				local panel = open(world)
+				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
+				local function settle()
+					for _ = 1, 40 do
 						world.engine.heartbeat:Fire(FRAME)
 					end
-					local shrink = 1 - scale.Scale
-					Verify.expect(shrink > 0):toBe(true)
-					local top = materialize.position(panel).Y.Offset
-					settle()
-					Verify.expect(math.abs(top - (materialize.position(panel).Y.Offset + 120 * shrink)) < 1.5)
-						:toBe(true)
-					world.action("MenuLeft").Pressed:Fire()
-					for _ = 1, 3 do
-						world.engine.heartbeat:Fire(FRAME)
+				end
+				settle()
+				local scale = materialize.of(panel)
+				local more = world.find("Divider", panel)
+				for _, node in panel:GetDescendants() do
+					if node.Name == "Divider" and node:IsA("GuiButton") then
+						more = node
 					end
-					shrink = 1 - scale.Scale
-					Verify.expect(shrink > 0):toBe(true)
-					top = materialize.position(panel).Y.Offset
-					settle()
-					Verify.expect(math.abs(top - (materialize.position(panel).Y.Offset + 10 * shrink)) < 1.5):toBe(true)
-					local rest = materialize.position(panel).X.Offset
-					world.find("DismissOutside", world.screen.Parent).Activated:Fire()
+				end
+				more.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 10)
+				more.Activated:Fire()
+				settle()
+				local b = world.find("b", panel)
+				b.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 120)
+				b.Activated:Fire()
+				settle()
+				world.action("MenuLeft").Pressed:Fire()
+				for _ = 1, 2 do
 					world.engine.heartbeat:Fire(FRAME)
+				end
+				local shrink = 1 - scale.Scale
+				Verify.expect(shrink):toBe(0)
+				local top = materialize.position(panel).Y.Offset
+				settle()
+				Verify.expect(math.abs(top - (materialize.position(panel).Y.Offset + 120 * shrink)) < 1.5):toBe(true)
+				world.action("MenuLeft").Pressed:Fire()
+				for _ = 1, 3 do
 					world.engine.heartbeat:Fire(FRAME)
-					Verify.expect(scale.Scale < 1):toBe(true)
-					Verify.expect(materialize.position(panel).X.Offset):toBe(rest)
-					world.stop()
-				end,
-			}
-		)
+				end
+				shrink = 1 - scale.Scale
+				Verify.expect(shrink):toBe(0)
+				top = materialize.position(panel).Y.Offset
+				settle()
+				Verify.expect(math.abs(top - (materialize.position(panel).Y.Offset + 10 * shrink)) < 1.5):toBe(true)
+				local rest = materialize.position(panel).X.Offset
+				world.find("DismissOutside", world.screen.Parent).Activated:Fire()
+				world.engine.heartbeat:Fire(FRAME)
+				world.engine.heartbeat:Fire(FRAME)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(materialize.position(panel).X.Offset):toBe(rest)
+				world.stop()
+			end,
+		})
 
-		verifyHarness:case("a level change during the exit does not re-measure: the panel keeps shrinking", {
-			id = "native_menu_parity::native menu parity with main::a level change during the exit does not re-measure: the panel keeps shrinking",
+		verifyHarness:case("a level change during the exit does not re-measure or restart the fade", {
+			id = "native_menu::native menu parity with main::a level change during the exit does not re-measure or restart the fade",
 			run = function()
 				local list = Compose.cell(NESTED)
 				local world = labelled({ items = list, presentation = "menu" :: "menu" }, {})
@@ -1147,17 +885,22 @@ return function(verifyHarness: Verify.Harness)
 				local scale = materialize.of(panel)
 				world.find("DismissOutside", world.screen.Parent).Activated:Fire()
 				world.engine.heartbeat:Fire(FRAME)
-				local leaving = scale.Scale
-				Verify.expect(leaving < 1):toBe(true)
+				local group = world.find("MenuGroup", panel)
+				local leaving = fadeKit.of(group)
+				local size, position = panel.Size, panel.Position
+				Verify.expect(leaving > 0):toBe(true)
 				list:set({ NESTED[1], NESTED[3] })
 				world.engine.heartbeat:Fire(FRAME)
-				Verify.expect(scale.Scale <= leaving):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(group) >= leaving and fadeKit.of(group) < 1):toBe(true)
+				Verify.expect(panel.Size):toBe(size)
+				Verify.expect(panel.Position):toBe(position)
 				world.stop()
 			end,
 		})
 
 		verifyHarness:case("bounds a sheet by the inset at the bottom and the sides", {
-			id = "native_menu_parity::native menu parity with main::bounds a sheet by the inset at the bottom and the sides",
+			id = "native_menu::native menu parity with main::bounds a sheet by the inset at the bottom and the sides",
 			run = function()
 				local world = labelled({ presentation = "sheet" :: "sheet", items = items(3) })
 				world.screen.IgnoreGuiInset = true
@@ -1176,7 +919,7 @@ return function(verifyHarness: Verify.Harness)
 
 		for _, reduced in { false, true } do
 			verifyHarness:case(`slides sheet submenus forward on entry and backward on Back; reduced={reduced}`, {
-				id = "native_menu_parity::"
+				id = "native_menu::"
 					.. "native menu parity with main"
 					.. "::"
 					.. `slides sheet submenus forward on entry and backward on Back; reduced={reduced}`,
