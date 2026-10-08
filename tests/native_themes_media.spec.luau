@@ -65,6 +65,30 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("keeps field ink separate from row selection and uses readable link ink", {
+			id = "native_themes_media::native themes and media::keeps field ink separate from row selection and uses readable link ink",
+			run = function()
+				local engine, runtime = setup()
+				local stop, sheet: any = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
+				end, engine.new("Folder"))
+				local content = style(sheet, ".facet-text").TextColor3
+				Verify.expect(style(sheet, ".facet-selected >> .facet-text.facet-field").TextColor3):toBe(content)
+				local link = style(sheet, ".facet-appearance-link >> .facet-button-caption").TextColor3
+				local function luminance(color)
+					local function linear(value)
+						return if value <= 0.04045 then value / 12.92 else ((value + 0.055) / 1.055) ^ 2.4
+					end
+					return linear(color.R) * 0.2126 + linear(color.G) * 0.7152 + linear(color.B) * 0.0722
+				end
+				local surface = style(sheet, ".facet-panel").BackgroundColor3
+				local a, b = luminance(link), luminance(surface)
+				Verify.expect((math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)):toBeGreaterThanOrEqual(4.5)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("reserves the full radial target for its native single line label", {
 			id = "native_themes_media::native themes and media::reserves the full radial target for its native single line label",
 			run = function()

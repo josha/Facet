@@ -174,7 +174,7 @@ local function pitch(t: any, where: string, panel: any, ids: { string }, want: n
 	t.check(`{where}: neighbouring rows do not overlap`, not collide, rects)
 end
 
-add("dialog-actions-stack-and-row", { "post-overlays-015" }, function(t)
+add("dialog-actions-stack-and-row", {}, function(t)
 	local noop = function() end
 	local long = string.rep("Withdraw from the championship ", 3)
 	local forms = {
@@ -279,7 +279,7 @@ add("dialog-actions-stack-and-row", { "post-overlays-015" }, function(t)
 	end
 end)
 
-add("picker-panel-widest-row", { "post-pickers-054" }, function(t)
+add("picker-panel-widest-row", {}, function(t)
 	t.note("host", host(t))
 	local open
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -340,7 +340,7 @@ add("picker-panel-widest-row", { "post-pickers-054" }, function(t)
 	open:set(false)
 end)
 
-add("navigation-link-one-line", { "post-pickers-083" }, function(t)
+add("navigation-link-one-line", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Picker "P" {
@@ -385,7 +385,7 @@ add("navigation-link-one-line", { "post-pickers-083" }, function(t)
 	end
 end)
 
-add("slider-custom-knob-footprint", { "post-pickers-118" }, function(t)
+add("slider-custom-knob-footprint", {}, function(t)
 	t.note("host", host(t))
 	local builds, value = 0, nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -438,7 +438,7 @@ add("slider-custom-knob-footprint", { "post-pickers-118" }, function(t)
 	end
 end)
 
-add("slider-rung-thin-rail-whole-target", { "post-pickers-120" }, function(t)
+add("slider-rung-thin-rail-whole-target", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Column" {
@@ -478,7 +478,7 @@ add("slider-rung-thin-rail-whole-target", { "post-pickers-120" }, function(t)
 	end
 end)
 
-add("dtp-draft-footer-rects", { "post-pickers-150" }, function(t)
+add("dtp-draft-footer-rects", {}, function(t)
 	t.note("host", host(t))
 	local civil = t.Facet.civilDate
 	local open
@@ -580,7 +580,7 @@ add("dtp-draft-footer-rects", { "post-pickers-150" }, function(t)
 	open:set(false)
 end)
 
-add("color-swatch-square-cells", { "post-pickers-174" }, function(t)
+add("color-swatch-square-cells", {}, function(t)
 	t.note("host", host(t))
 	local open
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -624,7 +624,7 @@ add("color-swatch-square-cells", { "post-pickers-174" }, function(t)
 	open:set(false)
 end)
 
-add("color-brick-field-above-grid", { "post-pickers-187" }, function(t)
+add("color-brick-field-above-grid", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		local value = Compose.cell(Color3.fromRGB(255, 0, 0))
@@ -680,12 +680,7 @@ local function denseMenu(t: any, theme: any): (any, any)
 	return stage, visibleNamed(t, stage, "MenuPanel")
 end
 
-add("menu-dense-pointer-rows-live", {
-	"post-port26-009",
-	"post-port26-010",
-	"post-port26-011",
-	"post-port26-017",
-}, function(t)
+add("menu-dense-pointer-rows-live", {}, function(t)
 	unemulated(t)
 	local pointer = host(t)
 	t.note("pointer host", pointer)
@@ -722,7 +717,7 @@ add("menu-dense-pointer-rows-live", {
 	end
 end)
 
-add("picker-dense-pointer-rows-live", { "post-port26-020" }, function(t)
+add("picker-dense-pointer-rows-live", {}, function(t)
 	unemulated(t)
 	t.note("pointer host", host(t))
 	local open
@@ -761,7 +756,7 @@ add("picker-dense-pointer-rows-live", { "post-port26-020" }, function(t)
 	open:set(false)
 end)
 
-add("outline-disclosure-indent", { "post-port26-014" }, function(t)
+add("outline-disclosure-indent", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Tree" {
@@ -807,7 +802,7 @@ add("outline-disclosure-indent", { "post-port26-014" }, function(t)
 	end
 end)
 
-add("picker-start-inline-hug", { "post-port26-018" }, function(t)
+add("picker-start-inline-hug", {}, function(t)
 	t.note("host", host(t))
 	local function build(theme: any): any
 		return t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -858,7 +853,7 @@ add("picker-start-inline-hug", { "post-port26-018" }, function(t)
 	end
 end)
 
-add("picker-touch-inline-hug", { "post-port26-019" }, function(t)
+add("picker-touch-inline-hug", {}, function(t)
 	local phone = emulate(t, "iphone_14", Enum.PreferredInput.Touch, Enum.ScreenOrientation.LandscapeRight)
 	t.note("host", phone)
 	t.check("the preferred input is touch", phone.preferred == tostring(Enum.PreferredInput.Touch), phone.preferred)
@@ -920,7 +915,7 @@ add("picker-touch-inline-hug", { "post-port26-019" }, function(t)
 	end
 end)
 
-add("sheet-adaptive-side-edge", { "post-port26-024" }, function(t)
+add("sheet-adaptive-side-edge", {}, function(t)
 	unemulated(t)
 	t.note("pointer host", host(t))
 	local function sheet(size: Vector2, reduced: boolean): (any, any)
@@ -997,7 +992,7 @@ add("sheet-adaptive-side-edge", { "post-port26-024" }, function(t)
 	end
 end)
 
-add("tabview-rung-centred", { "post-port26-025" }, function(t)
+add("tabview-rung-centred", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return UI.TabView "Pages" {
@@ -1042,7 +1037,7 @@ end)
 
 interactive(
 	"plain-checkbox-row-tap",
-	{ "post-port26-037" },
+	{},
 	"click: left-click at the point noted as click (the middle of the Box row)",
 	function(t)
 		unemulated(t)

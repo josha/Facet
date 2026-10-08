@@ -22,7 +22,7 @@ to select a control. Then read the exact contract of that control in the
 | Domain authority and requests | [Client and server](06-client-server.md) |
 | Input, focus and cancellation | [Input](07-input.md) |
 | Installation without a source sync | [Without Rojo](08-without-rojo.md) |
-| What has been exercised, and what has not | [Device verification](11-device-verification.md), [Performance lab](12-performance-lab.md), [Paired performance](19-paired-performance.md), [Verification scope](18-verification-scope.md), [Verification parity](20-verification-parity.md) |
+| What has been exercised, and what has not | [Device verification](11-device-verification.md), [Performance lab](12-performance-lab.md), [Paired performance](19-paired-performance.md), [Verification scope](18-verification-scope.md) |
 | Layout and control decisions | [Choosing controls](14-choosing-controls.md), [Adaptive recipes](15-adaptive-recipes.md), [Control families](16-controls.md), [Recipes](17-recipes.md) |
 | Contribution boundaries | [Maintainers](../MAINTAINERS.md), [Constitution](../reference/constitution.md) |
 | Extension playbooks | [Adding a control](../extending/new-control.md), [Adding artwork to a control](../extending/skinned-control.md), [Native primitives](../extending/new-primitive.md), [Adding a theme package](../extending/new-theme.md), [Mounting into native targets](../extending/new-render-target.md), [Adapting to another platform context](../extending/new-platform-mode.md), [Adopting an engine feature](../extending/new-engine-feature.md) |

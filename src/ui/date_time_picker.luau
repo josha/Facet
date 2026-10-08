@@ -1800,16 +1800,14 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local position = ctx.observe.AbsolutePosition(plate)
 					local bounds = ctx.observe.AbsoluteSize(plate)
 					local tenFoot = ctx.tenFoot()
+					local atTenFoot = Compose.formula(tenFoot):peek()
+					local atTouch = (preferred :: Readable<unknown>):peek() == E.PreferredInput.Touch
 					local route = Compose.formula(function(use: Use): string
-						if tenFoot(use) then
+						if atTenFoot then
 							return "sheet"
 						end
 						local offer = use(extent) :: Vector2
-						return if prefers(E.PreferredInput.Touch, use)
-								and offer.X > 0
-								and offer.X < 600
-							then "sheet"
-							else "popover"
+						return if atTouch and offer.X > 0 and offer.X < 600 then "sheet" else "popover"
 					end)
 					Compose.watch(function(use: Use)
 						local offer = use(extent) :: Vector2
@@ -1866,7 +1864,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local content = ctx.observe.AbsoluteSize(panel)
 					local measured = ctx.observe.AbsoluteSize(surface)
 					local function sheet(use: Use): boolean
-						return use(route) == "sheet" and not tenFoot(use)
+						return use(route) == "sheet" and not atTenFoot
 					end
 					runtime.decorate(panel, {
 						Size = function(use: Use)
@@ -1901,7 +1899,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 								use(measured) :: Vector2,
 								use(origin) :: Vector2
 							if use(route) == "sheet" then
-								if tenFoot(use) then
+								if atTenFoot then
 									return D2.fromOffset(
 										math.max(8, (offer.X - box.X) / 2),
 										math.max(8, (offer.Y - box.Y) / 2)

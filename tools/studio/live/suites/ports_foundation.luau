@@ -215,13 +215,7 @@ end
 
 interactive(
 	"dense-menu-and-picker-rows",
-	{
-		"post-port26-009",
-		"post-port26-010",
-		"post-port26-011",
-		"post-port26-017",
-		"post-port26-020",
-	},
+	{},
 	"setup opens the Menu under mouse-only input; step pointer; click the middle of row b; step clicked; step touch; step gamepad; step desktop; click the Picker trigger; step picker; step pickertouch",
 	function(t: any)
 		desktop(t)
@@ -353,7 +347,7 @@ local function startPicker(t: any, size: Vector2): any
 	end, { size = size, frames = 20 })
 end
 
-add("picker-start-inline", { "post-port26-018" }, function(t: any)
+add("picker-start-inline", {}, function(t: any)
 	desktop(t)
 	local stage = startPicker(t, Vector2.new(1280, 700))
 	local picker = t.find(stage, "Motion")
@@ -374,7 +368,7 @@ add("picker-start-inline", { "post-port26-018" }, function(t: any)
 	t.note("preferred text size", tostring(GuiService.PreferredTextSize))
 end)
 
-add("picker-touch-row", { "post-port26-019" }, function(t: any)
+add("picker-touch-row", {}, function(t: any)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 	local stage = startPicker(t, Vector2.new(390, 400))
 	local picker = t.find(stage, "Motion")
@@ -419,7 +413,7 @@ add("picker-touch-row", { "post-port26-019" }, function(t: any)
 	t.check("the value text is drawn", shown > 0)
 end)
 
-add("tab-rung", { "post-port26-025" }, function(t: any)
+add("tab-rung", {}, function(t: any)
 	desktop(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return UI.TabView "Pages" {
@@ -475,7 +469,7 @@ end)
 
 interactive(
 	"sheet-adaptive",
-	{ "post-port26-024" },
+	{},
 	"setup presents the adaptive Sheet at 1200x800 with the mouse and samples the slide; step phone; step narrow",
 	function(t: any)
 		desktop(t)
@@ -581,7 +575,7 @@ interactive(
 	}
 )
 
-add("outline-indent", { "post-port26-014" }, function(t: any)
+add("outline-indent", {}, function(t: any)
 	desktop(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Board" {
@@ -630,7 +624,7 @@ add("outline-indent", { "post-port26-014" }, function(t: any)
 	end
 end)
 
-add("selection-marks", { "post-port26-026", "post-port26-027", "post-port26-028", "post-port26-030" }, function(t: any)
+add("selection-marks", {}, function(t: any)
 	desktop(t)
 	local package = authored(t, "Ink", { selection = rgb(INK), onSelection = rgb(ON_INK) })
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -701,7 +695,7 @@ end)
 
 interactive(
 	"selection-mark-hover",
-	{ "post-port26-029", "post-port26-030" },
+	{},
 	"setup mounts a chosen Chip under an authored selection; move the mouse over the chip; step hovered",
 	function(t: any)
 		desktop(t)
@@ -739,7 +733,7 @@ interactive(
 
 interactive(
 	"underline-live",
-	{ "post-port26-008" },
+	{},
 	"setup mounts hover and always link Buttons; step rest; move the mouse over More; step hovered; move the mouse to 20,500; step left; step selected",
 	function(t: any)
 		desktop(t)
@@ -803,7 +797,7 @@ interactive(
 
 interactive(
 	"inverse-paint",
-	{ "post-port26-036" },
+	{},
 	"setup mounts the inverse Button in Neutral Dark and Light; move the mouse over Dark; step darkhover; mouse down; step darkpress; mouse up and move over Light; step lighthover",
 	function(t: any)
 		desktop(t)
@@ -867,7 +861,7 @@ interactive(
 	end)()
 )
 
-add("strong-divider-and-pane", { "post-port26-021", "post-port26-033", "post-port26-035" }, function(t: any)
+add("strong-divider-and-pane", {}, function(t: any)
 	desktop(t)
 	local stage = t.mount(function(_, Host: RobloxHost)
 		local hairline = Host.Frame "Hairline" { Size = UDim2.fromOffset(400, 1), Position = UDim2.fromOffset(20, 40) }
@@ -913,7 +907,7 @@ add("strong-divider-and-pane", { "post-port26-021", "post-port26-033", "post-por
 	)
 end)
 
-add("dim-disabled-plates", { "post-port26-032" }, function(t: any)
+add("dim-disabled-plates", {}, function(t: any)
 	desktop(t)
 	local package = authored(t, "Dim", { dimDisabledPlates = true })
 	local colors = package.style.themes[1].colors
@@ -987,7 +981,7 @@ end)
 
 interactive(
 	"xsmall-rung",
-	{ "post-port26-004", "post-port26-005", "post-port26-006" },
+	{},
 	"setup mounts an xsmall Button with an icon and an xsmall Chip; click the button; step button; click the chip; step chip",
 	function(t: any)
 		desktop(t)
@@ -1054,7 +1048,7 @@ interactive(
 	}
 )
 
-add("utility-stroke", { "post-port26-034" }, function(t: any)
+add("utility-stroke", {}, function(t: any)
 	desktop(t)
 	local package = define(t, "Utility", { metrics = { strokes = { hairline = 1, utility = 2 } } })
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)

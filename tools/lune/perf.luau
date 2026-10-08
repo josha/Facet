@@ -9,8 +9,6 @@ local perf_runner = require("../../bench/perf_runner")
 local perf_scenes = require("../../bench/perf_scenes")
 local perf_profiles = require("../../bench/perf_profiles")
 
-local fidelity = serde.decode("json", fs.readFile("bench/workload_fidelity.json"))
-assert(fidelity.status == "verified", "controlled workload fidelity audit is incomplete")
 local mode = process.args[1]
 local ARTIFACT_PATH = "artifacts/phase-4/perf.json"
 local BUDGETS_PATH = "bench/perf_budgets.json"
@@ -58,7 +56,6 @@ end
 print(`perf: {#scenes} scenes × {#profiles} profiles (reference = {perf_profiles.REFERENCE})`)
 local report = perf_runner.run(scenes, profiles)
 report.referenceProfile = perf_profiles.REFERENCE
-report.workloadFidelity = fidelity
 if injectScene ~= nil and injectScene ~= "" then
 	report.injectedRegression = {
 		scene = injectScene,

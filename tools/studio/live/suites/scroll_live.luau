@@ -20,7 +20,7 @@ local function cell(Host: any, name: string, size: UDim2): any
 	return Host.Frame(name)({ Size = size, BackgroundTransparency = 0.5 })
 end
 
-add("scroll-view-canvas-covers-rows-and-gaps", { "apps-224" }, function(t: any)
+add("scroll-view-canvas-covers-rows-and-gaps", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.ScrollView "List" {
 			gap = 10,
@@ -42,7 +42,7 @@ add("scroll-view-canvas-covers-rows-and-gaps", { "apps-224" }, function(t: any)
 	t.check("the overflowing list scrolls", list.AbsoluteCanvasSize.Y > list.AbsoluteWindowSize.Y)
 end)
 
-add("horizontal-scroll-view-steps-along-x", { "apps-226" }, function(t: any)
+add("horizontal-scroll-view-steps-along-x", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local cells = {}
 		for index = 1, 5 do

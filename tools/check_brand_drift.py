@@ -166,21 +166,11 @@ VENDOR_ALLOWLIST = [
     ("docs/guide/12-performance-lab.md", re.compile(r"`macos-\d+`\s+ARM runner"),
      "names the hosted CI runner image the timing gate runs on",
      "when the timing gate moves to another runner"),
-    ("docs/guide/18-verification-scope.md", re.compile(r"CI lane moved to macOS ARM"),
-     "records which hosted CI runner the verification lane runs on",
-     "when the lane moves to another runner"),
     ("docs/guide/19-paired-performance.md",
      re.compile(r"CPU: `Apple M\d[\w ]*`|OS: macOS \d|Apple-silicon Mac\b|same Mac\b"),
      "describes the benchmark host a recorded measurement ran on; the hardware and OS are "
      "part of the measurement",
      "when the paired run is re-recorded on another host"),
-    ("docs/guide/20-verification-parity.md", re.compile(r"`macos-\d+`"),
-     "records the CI runner move as a verification-scope fact",
-     "when the parity record is archived"),
-    ("tools/lune/verification_parity.json", VENDOR,
-     "the audit record of main's baseline quotes main's spec titles and gap text verbatim, "
-     "including device-name prohibition checks; it is frozen evidence of that baseline",
-     "when the parity audit is archived"),
 ]
 
 EXCLUDED_TREES = (
@@ -199,16 +189,6 @@ ALLOWLIST = [
     ("tools/microprofiler_aggregate.py", re.compile(r"LuauUI/"),
      "the pre-rename scope prefix is data about stored captures, not a name this tool wears",
      "when no capture predating the rename is still cited as evidence"),
-    ("tools/check_perf_gate_evidence.py", BRAND,
-     "reads frozen capture artifacts whose schema strings predate the rename",
-     "when those capture schemas are re-recorded under Facet"),
-    ("tools/check_perf_captures.py", BRAND,
-     "same frozen-capture schema rule",
-     "same"),
-    ("tools/lune/verification_parity.json", BRAND,
-     "the audit record of main's baseline quotes main's spec names, titles and gap text verbatim; "
-     "it is frozen evidence of that baseline, and rewriting it would falsify the comparison",
-     "when the parity audit is archived"),
     ("tools/check_brand_drift.py", BRAND,
      "the guard's own match data", "never"),
     ("tools/check_brand_drift.py", TAG,

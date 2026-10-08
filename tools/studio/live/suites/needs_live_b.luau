@@ -93,7 +93,7 @@ local function alertCase(t: any, where: string, size: Vector2, message: string, 
 	return panel
 end
 
-add("alert-actions-inside-card", { "navigation-1-18" }, function(t)
+add("alert-actions-inside-card", {}, function(t)
 	local long = string.rep("Your changes to this slot are not saved yet. ", 40)
 	local panel = alertCase(t, "640x320 long", Vector2.new(640, 320), long, {
 		{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" },
@@ -120,7 +120,7 @@ add("alert-actions-inside-card", { "navigation-1-18" }, function(t)
 	end
 end)
 
-add("alert-themes-and-viewports", { "navigation-1-17" }, function(t)
+add("alert-themes-and-viewports", {}, function(t)
 	for _, theme in t.themes do
 		for _, size in { Vector2.new(375, 667), Vector2.new(667, 375), Vector2.new(1280, 720) } do
 			alertCase(t, `{theme.name} {size.X}x{size.Y}`, size, string.rep("Leave the match now? ", 6), {
@@ -134,7 +134,7 @@ add("alert-themes-and-viewports", { "navigation-1-17" }, function(t)
 	t.note("preferred text size", t.environment.preferredTextSize)
 end)
 
-add("disclosure-description-header", { "navigation-2-17" }, function(t)
+add("disclosure-description-header", {}, function(t)
 	local description
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		description = Compose.cell("Configure the current race")
@@ -188,7 +188,7 @@ add("disclosure-description-header", { "navigation-2-17" }, function(t)
 	inside("long")
 end)
 
-add("toggle-sizes-around-label", { "mech3-14" }, function(t)
+add("toggle-sizes-around-label", {}, function(t)
 	for _, theme in t.themes do
 		for _, presentation in { "switch", "checkbox" } :: { "checkbox" | "switch" } do
 			for _, position in { "leading", "trailing" } :: { "leading" | "trailing" } do
@@ -242,7 +242,7 @@ add("toggle-sizes-around-label", { "mech3-14" }, function(t)
 	end
 end)
 
-add("step-and-clear-targets", { "mech1-88" }, function(t)
+add("step-and-clear-targets", {}, function(t)
 	for _, theme in t.themes do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return Host.Frame "Column" {
@@ -280,7 +280,7 @@ add("step-and-clear-targets", { "mech1-88" }, function(t)
 	end
 end)
 
-add("picker-long-labels", { "apps-237" }, function(t)
+add("picker-long-labels", {}, function(t)
 	local sets: { [string]: { StringPickerOption } } = {
 		long = {
 			{ value = "a", label = "Automatic transmission mode" },
@@ -335,7 +335,7 @@ add("picker-long-labels", { "apps-237" }, function(t)
 	end
 end)
 
-add("toast-wide-and-fit", { "apps2-247", "mech3-87" }, function(t)
+add("toast-wide-and-fit", {}, function(t)
 	local stage, built = scenario(t, "sponsor_toast", Vector2.new(390, 700))
 	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector") or stage
 	local function rows()
@@ -400,7 +400,7 @@ add("toast-wide-and-fit", { "apps2-247", "mech3-87" }, function(t)
 	end
 end)
 
-add("text-degrade-sort-label", { "apps2-63" }, function(t)
+add("text-degrade-sort-label", {}, function(t)
 	local stage, built = scenario(t, "text_degrade", Vector2.new(600, 700))
 	for _, stop in { "roomy", "snug", "tight", "impossible" } do
 		built.steps.setStop(built, stop)
@@ -426,7 +426,7 @@ add("text-degrade-sort-label", { "apps2-63" }, function(t)
 	end
 end)
 
-add("compact-label-single-line", { "inputs-63" }, function(t)
+add("compact-label-single-line", {}, function(t)
 	local width
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(300)
@@ -462,7 +462,7 @@ add("compact-label-single-line", { "inputs-63" }, function(t)
 	t.check("the compact label appears", labels["Continue"] == true, labels)
 end)
 
-add("progress-skin-under-scale", { "themes-P5-38" }, function(t)
+add("progress-skin-under-scale", {}, function(t)
 	local packages = {}
 	for _, theme in t.themes do
 		local chrome = theme.package.chrome
@@ -500,7 +500,7 @@ add("progress-skin-under-scale", { "themes-P5-38" }, function(t)
 	t.check("at least one package has barFill art", #packages > 0, #packages)
 end)
 
-add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
+add("skinned-checkbox-stroke", {}, function(t)
 	local neutral = t.Facet.themes.neutralPackage()
 	neutral.assets = neutral.assets or {}
 	neutral.assets.boxArt = { content = "rbxasset://textures/ui/GuiImagePlaceholder.png" }
@@ -599,7 +599,7 @@ add("skinned-checkbox-stroke", { "themes-P2-22" }, function(t)
 	end
 end)
 
-add("playlist-and-grid-panes", { "apps2-231", "apps2-57" }, function(t)
+add("playlist-and-grid-panes", {}, function(t)
 	local stage, built = scenario(t, "virtual_grid", Vector2.new(1000, 700))
 	local collection = t.find(stage, "Collection")
 	if collection then

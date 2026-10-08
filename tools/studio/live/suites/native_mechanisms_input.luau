@@ -47,7 +47,7 @@ local function visibleNamed(t: any, root: Instance, name: string): any
 	return nil
 end
 
-add("gallery-keyboard-reaches-demos", { "apps2-88", "navigation-3-28", "navigation-3-60" }, function(t)
+add("gallery-keyboard-reaches-demos", {}, function(t)
 	local value = {}
 	local stage, context = t.gallery({ size = Vector2.new(1280, 720), demo = "all-controls" })
 	value.stage, value.context = stage, context
@@ -82,7 +82,7 @@ end, {
 	end,
 })
 
-add("held-arrow-repeats-and-stops", { "inputs-79", "apps-144" }, function(t)
+add("held-arrow-repeats-and-stops", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local children: { unknown } =
@@ -113,7 +113,7 @@ end, {
 	end,
 })
 
-add("form-controls-traverse-in-document-order", { "apps-175", "apps-192", "navigation-4-30" }, function(t)
+add("form-controls-traverse-in-document-order", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Form" {
@@ -169,52 +169,47 @@ end, {
 	end,
 })
 
-add(
-	"return-activates-the-selected-row",
-	{ "collections-179", "collections-237", "collections-265", "collections-247" },
-	function(t)
-		local value = { activated = {} }
-		local stage = t.mount(function(UI: FacetControls)
-			local rows = {}
-			for index = 1, 30 do
-				rows[index] = { id = tostring(index) }
-			end
-			return UI.VirtualList "List" {
-				from = rows,
-				key = function(item)
-					return item.id
-				end,
-				itemSize = 44,
-				Size = UDim2.fromOffset(320, 300),
-				render = function(current): GuiObject
-					return UI.Button({
-						Name = "Row" .. current:peek().id,
-						label = "Row " .. current:peek().id,
-						Size = UDim2.fromScale(1, 1),
-						onActivate = function()
-							table.insert(value.activated, current:peek().id)
-						end,
-					})
-				end,
-			}
-		end, { frames = 12 })
-		GuiService.SelectedObject = t.find(stage, "Row3")
-		t.check("row 3 is selected", selectedName() == "Row3", selectedName())
-		return value
+add("return-activates-the-selected-row", {}, function(t)
+	local value = { activated = {} }
+	local stage = t.mount(function(UI: FacetControls)
+		local rows = {}
+		for index = 1, 30 do
+			rows[index] = { id = tostring(index) }
+		end
+		return UI.VirtualList "List" {
+			from = rows,
+			key = function(item)
+				return item.id
+			end,
+			itemSize = 44,
+			Size = UDim2.fromOffset(320, 300),
+			render = function(current): GuiObject
+				return UI.Button({
+					Name = "Row" .. current:peek().id,
+					label = "Row " .. current:peek().id,
+					Size = UDim2.fromScale(1, 1),
+					onActivate = function()
+						table.insert(value.activated, current:peek().id)
+					end,
+				})
+			end,
+		}
+	end, { frames = 12 })
+	GuiService.SelectedObject = t.find(stage, "Row3")
+	t.check("row 3 is selected", selectedName() == "Row3", selectedName())
+	return value
+end, {
+	afterReturn = function(t, value)
+		t.check(
+			"Return activates the selected row once",
+			#value.activated == 1 and value.activated[1] == "3",
+			value.activated
+		)
+		GuiService.SelectedObject = nil
 	end,
-	{
-		afterReturn = function(t, value)
-			t.check(
-				"Return activates the selected row once",
-				#value.activated == 1 and value.activated[1] == "3",
-				value.activated
-			)
-			GuiService.SelectedObject = nil
-		end,
-	}
-)
+})
 
-add("open-tray-steps-sideways", { "collections-288", "apps2-48", "apps-188" }, function(t)
+add("open-tray-steps-sideways", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RowActions "Row" {
@@ -263,7 +258,7 @@ end, {
 	end,
 })
 
-add("tab-key-traversal", { "apps-158", "apps2-169", "apps2-222", "apps-151" }, function(t)
+add("tab-key-traversal", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Row" {

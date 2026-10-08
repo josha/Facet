@@ -429,7 +429,7 @@ return function(
 		phase: Nav.PresencePhase?,
 		motion: Nav.MotionTiming?,
 		pointer: ComposeTypes.Readable<Vector2?>?,
-		closeCommand: boolean?
+		closeCommand: (boolean | "automatic")?
 	): Frame
 		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
 		local timing: Nav.MotionTiming = motion or { enter = popoverTiming.enter, exit = popoverTiming.exit }
@@ -852,9 +852,12 @@ return function(
 				end,
 			}) :: Types.Child,
 		}
-		if closeCommand then
+		if closeCommand ~= nil and closeCommand ~= false then
 			surfaces.attach(rows, {
 				UI.Button "CloseCommand" {
+					Visible = function(use: ComposeTypes.Use)
+						return closeCommand == true or use(sheeted)
+					end,
 					name = "Close",
 					icon = "close",
 					LayoutOrder = 2147483647,
@@ -1020,7 +1023,7 @@ return function(
 			if presentation and presentation ~= "automatic" then
 				return presentation == "sheet"
 			end
-			return (use(extent).X > 0 and use(extent).X < math.max(600, (#use(path) + 1) * 288 + 16))
+			return (use(extent).X > 0 and use(extent).X < math.max(600, #use(path) * 288 + panelWidth(use) + 16))
 				or use(preferred) == E.PreferredInput.Touch
 				or use(preferred) == E.PreferredInput.Gamepad
 		end)
@@ -1115,7 +1118,9 @@ return function(
 				end
 			end
 			if offer.X > 0 then
-				left = math.clamp(left, low.X, math.max(low.X, high.X - panelSize.X))
+				left = if depth > 0
+					then math.clamp(x, low.X, math.max(low.X, high.X - panelSize.X - depth * 288)) + depth * 288
+					else math.clamp(left, low.X, math.max(low.X, high.X - panelSize.X))
 			end
 			top = math.max(low.Y, top)
 			local pivot: Vector2
@@ -1369,24 +1374,37 @@ return function(
 				render = function(
 					source: ComposeTypes.Readable<{ id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number }>
 				)
-					return ctx.styled(
-						Host.Frame "AncestorMenu" {
+					local ancestorHeight = Compose.cell(0)
+					local ancestor = ctx.styled(
+						Host.ScrollingFrame "AncestorMenu" {
 							ZIndex = 103,
+							CanvasSize = D2.fromOffset(0, 0),
+							AutomaticCanvasSize = E.AutomaticSize.Y,
+							ScrollingDirection = E.ScrollingDirection.Y,
+							ScrollBarThickness = 4,
+							Selectable = false,
 							BorderSizePixel = 0,
 							Size = D2.fromOffset(280, 0),
 							AutomaticSize = E.AutomaticSize.Y,
 							Position = function(use: ComposeTypes.Use)
-								local at, bounds = anchorBounds(use)
-								local offset = originOf(use)
-								local insetLeft, insetTop = insets(use)
+								local at = place(use)
+								local _, insetTop, _, insetBottom = insets(use)
+								local height = use(ancestorHeight)
 								return D2.fromOffset(
-									math.max(insetLeft + 8, at.X - offset.X + (use(source).depth - 1) * 288),
-									math.max(
+									at.X - (#use(path) - use(source).depth + 1) * 288,
+									math.clamp(
+										at.Y,
 										insetTop + 8,
-										at.Y - offset.Y + bounds.Y + (if pointer and use(pointer) then 0 else 4)
+										math.max(insetTop + 8, use(extent).Y - insetBottom - 8 - height)
 									)
 								)
 							end,
+							Host.UISizeConstraint {
+								MaxSize = function(use: ComposeTypes.Use)
+									local _, top, _, bottom = insets(use)
+									return V2.new(280, math.max(44, use(extent).Y - top - bottom - 16))
+								end,
+							} :: Types.Child,
 							Host.UIListLayout({
 								FillDirection = E.FillDirection.Vertical,
 								SortOrder = E.SortOrder.LayoutOrder,
@@ -1516,6 +1534,11 @@ return function(
 						},
 						"menu"
 					)
+					local ancestorSize = ctx.observe.AbsoluteSize(ancestor)
+					Compose.watch(function(use: ComposeTypes.Use)
+						ancestorHeight:set(use(ancestorSize).Y)
+					end)
+					return ancestor
 				end,
 			}),
 		})
@@ -1779,7 +1802,16 @@ return function(
 						presentedPointer:set(use(pointer))
 					end
 				end)
-				return menuPanel(spec, close, trigger, nil, phase, motion, presentedPointer, spec.closeButton ~= false)
+				return menuPanel(
+					spec,
+					close,
+					trigger,
+					nil,
+					phase,
+					motion,
+					presentedPointer,
+					if spec.closeButton == nil then "automatic" else spec.closeButton
+				)
 			end, { motion = motion }),
 		})
 		return root
@@ -2799,6 +2831,7 @@ return function(
 						else E.FillDirection.Horizontal
 				end, spec.axis),
 				SortOrder = E.SortOrder.LayoutOrder,
+				Wraps = style == "segmented" and not vertical,
 				Padding = D.new(0, 4),
 				HorizontalFlex = derive(function(use: ComposeTypes.Use?)
 					return if style == "segmented"
@@ -2835,6 +2868,7 @@ return function(
 					end
 					local current = source:peek()
 					local fixed = fixedOptions and spec.query == nil
+					local captionNatural = Compose.cell(0)
 					local sealed = style == "segmented" and current.icon ~= nil
 					local function labelOf(use: ComposeTypes.Use?): string
 						if read(spec.iconOnly, use) then
@@ -2850,22 +2884,44 @@ return function(
 					local button = UI.Button({
 						Name = tostring(current.id or current.value),
 						LayoutOrder = if fixed then index:peek() else index,
-						Size = derive(function(use: ComposeTypes.Use?)
+						Size = function(use: ComposeTypes.Use)
 							if across(use) then
-								return D2.fromScale(0, 1)
+								local height = stripHeight(use)
+								if spec.controlSize == nil then
+									height = math.max(height, 44 + 2 * segmentMetrics.inset)
+								end
+								local authored = read(spec.Size, use)
+								local automatic = read(spec.AutomaticSize, use)
+								if
+									authored
+									and authored.Y.Scale == 0
+									and authored.Y.Offset > 0
+									and automatic ~= E.AutomaticSize.Y
+									and automatic ~= E.AutomaticSize.XY
+								then
+									height = authored.Y.Offset
+								end
+								return D2.fromOffset(0, math.max(0, height - 2 * segmentMetrics.inset))
 							end
 							local height = if spec.controlSize ~= nil
 								then ctx.controlSize(spec.controlSize, "height", use)
 								else 44
-							return D2.new(1, 0, 0, height)
-						end, spec.axis, spec.controlSize, if spec.controlSize ~= nil
-							then ctx.config.theme
-							else nil),
+							local automatic = read(spec.AutomaticSize, use)
+							local hug = style == "segmented"
+								and (automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY)
+							return D2.new(if hug then 0 else 1, 0, 0, height)
+						end,
 						AutomaticSize = if style ~= "segmented"
 							then E.AutomaticSize.Y
 							else derive(function(use: ComposeTypes.Use?)
-								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.Y
-							end, spec.axis),
+								local automatic = read(spec.AutomaticSize, use)
+								return if across(use)
+									then E.AutomaticSize.X
+									elseif
+										automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY
+									then E.AutomaticSize.XY
+									else E.AutomaticSize.Y
+							end, spec.axis, spec.AutomaticSize),
 						label = derive(labelOf, if fixed then nil else source, spec.iconOnly, current.label),
 						name = function(use: ComposeTypes.Use): string
 							local option = use(source)
@@ -3029,25 +3085,39 @@ return function(
 						or spec.indicator == "underline"
 					surfaces.attach(button, {
 						Host.UISizeConstraint({
-							MinSize = derive(
-								function(use: ComposeTypes.Use?)
-									local strip = across(use)
-									return V2.new(
-										if strip
-											then math.max(
-												0,
-												44 - sideChrome(spec.controlSize, use, sealed and labelOf(use) == "")
-											)
-											else 44,
-										if spec.controlSize ~= nil or strip then 0 else 44
+							MinSize = function(use: ComposeTypes.Use)
+								local strip = across(use)
+								local width = if strip
+									then math.max(
+										0,
+										44 - sideChrome(spec.controlSize, use, sealed and labelOf(use) == "")
 									)
-								end,
-								spec.axis,
-								spec.controlSize,
-								ctx.config.theme,
-								spec.iconOnly,
-								if fixed then nil else source
-							),
+									else 44
+								if style == "segmented" then
+									local caption = use(captionNatural)
+									local glyph = if read(use(source).icon, use)
+										then ctx.controlSize(spec.controlSize, "iconSize", use) + (if caption > 0
+											then 8
+											else 0)
+										else 0
+									if caption > 0 or glyph > 0 then
+										width = math.max(
+											width,
+											math.min(
+												math.max(44, use(room) - 2 * segmentMetrics.inset),
+												math.ceil(caption)
+													+ sideChrome(
+														spec.controlSize,
+														use,
+														read(spec.iconOnly, use) == true
+													)
+													+ glyph
+											)
+										)
+									end
+								end
+								return V2.new(width, if spec.controlSize ~= nil or strip then 0 else 44)
+							end,
 							MaxSize = if style == "segmented"
 								then function(use: ComposeTypes.Use): Vector2
 									return V2.new(math.max(44, use(room) - 2 * segmentMetrics.inset), math.huge)
@@ -3085,6 +3155,21 @@ return function(
 						end)
 					end
 					if style == "segmented" then
+						local measure = ctx.text {
+							Name = "CaptionMeasure",
+							Visible = false,
+							TextWrapped = false,
+							Text = function(use: ComposeTypes.Use)
+								return labelOf(use)
+							end,
+							TextSize = ctx.observeStyled.TextSize(button),
+							FontFace = ctx.observeStyled.FontFace(button),
+						}
+						surfaces.attach(button, { measure :: Types.Child })
+						local naturalWidth = ctx.layoutBounds(measure)
+						Compose.watch(function(use: ComposeTypes.Use)
+							captionNatural:set(use(naturalWidth).X)
+						end)
 						local function peers(use: ComposeTypes.Use): number
 							return #use(options)
 						end
@@ -3206,8 +3291,8 @@ return function(
 				elseif style == "segmented" then derive(function(use: ComposeTypes.Use?)
 					return if not across(use)
 						then E.AutomaticSize.Y
-						elseif labelled then E.AutomaticSize.X
-						else E.AutomaticSize.None
+						elseif labelled then E.AutomaticSize.XY
+						else E.AutomaticSize.Y
 				end, spec.axis)
 				else E.AutomaticSize.Y,
 		}
@@ -3625,7 +3710,9 @@ return function(
 			return result
 		end
 		surfaces.attach(root, {
-			surfaces.overlay(row, opened, function()
+			surfaces.overlay(row, function(use: ComposeTypes.Use)
+				return use(opened) and #choices(use) > 0
+			end, function()
 				local panel = menuPanel({ items = choices, presentation = "menu" :: "menu" }, close, row, true)
 				popup = panel
 				Compose.cleanup(function()

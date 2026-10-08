@@ -79,7 +79,7 @@ local function pseudo(text: string): string
 	return "[" .. text .. pad .. "]"
 end
 
-add("consumer-blurb-grows-with-text-size", { "apps2-05" }, function(t)
+add("consumer-blurb-grows-with-text-size", {}, function(t)
 	local module = storage:WaitForChild("FacetConsumerScreen")
 	local screen = (require :: any)(module)
 	local stage = t.mount(function(UI: FacetControls)
@@ -119,7 +119,7 @@ local function overlap(a: any, b: any): boolean
 	return w > 0.5 and h > 0.5
 end
 
-add("word-board-holds-glyphs-at-every-text-size", { "apps2-27" }, function(t)
+add("word-board-holds-glyphs-at-every-text-size", {}, function(t)
 	local phone = Vector2.new(390, 844)
 	for _, theme in t.themes do
 		local stage, built = example(t, "05_word_game", phone, nil, theme.package)
@@ -184,7 +184,7 @@ add("word-board-holds-glyphs-at-every-text-size", { "apps2-27" }, function(t)
 	end
 end)
 
-add("settings-sync-compact-phone-every-text-size", { "apps2-43" }, function(t)
+add("settings-sync-compact-phone-every-text-size", {}, function(t)
 	for _, size in { Vector2.new(360, 633), Vector2.new(667, 317) } do
 		local stage = example(t, "03_settings_sync", size)
 		local base = {}
@@ -230,7 +230,7 @@ add("settings-sync-compact-phone-every-text-size", { "apps2-43" }, function(t)
 	end
 end)
 
-add("confirm-dialog-card-centred", { "apps2-45" }, function(t)
+add("confirm-dialog-card-centred", {}, function(t)
 	for _, size in { Vector2.new(390, 844), Vector2.new(1280, 720), Vector2.new(1920, 1080) } do
 		local where = `{size.X}x{size.Y}`
 		local stage, built = example(t, "04_confirm_dialog", size)
@@ -260,7 +260,7 @@ add("confirm-dialog-card-centred", { "apps2-45" }, function(t)
 	end
 end)
 
-add("card-rail-height-includes-scrollbar-band", { "apps2-48" }, function(t)
+add("card-rail-height-includes-scrollbar-band", {}, function(t)
 	for _, size in { Vector2.new(320, 640), Vector2.new(1232, 1067) } do
 		local where = `{size.X}x{size.Y}`
 		local stage = scenario(t, "card_rail", size)
@@ -318,7 +318,7 @@ add("card-rail-height-includes-scrollbar-band", { "apps2-48" }, function(t)
 	end
 end)
 
-add("card-rail-pseudo-localized-chrome", { "apps2-48" }, function(t)
+add("card-rail-pseudo-localized-chrome", {}, function(t)
 	local copy = {}
 	for key, value in t.scenario("card_rail").copy do
 		copy[key] = pseudo(value)
@@ -357,7 +357,7 @@ add("card-rail-pseudo-localized-chrome", { "apps2-48" }, function(t)
 	end
 end)
 
-add("with-animation-pseudo-localized", { "apps2-52" }, function(t)
+add("with-animation-pseudo-localized", {}, function(t)
 	for _, size in { Vector2.new(320, 640), Vector2.new(640, 320) } do
 		local where = `{size.X}x{size.Y}`
 		local stage, built = scenario(t, "with_animation", size)
@@ -385,7 +385,7 @@ add("with-animation-pseudo-localized", { "apps2-52" }, function(t)
 	end
 end)
 
-add("outpost-terminal-holds-canvas-every-text-size", { "apps2-131" }, function(t)
+add("outpost-terminal-holds-canvas-every-text-size", {}, function(t)
 	for _, offset in OFFSETS do
 		local built
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
@@ -439,7 +439,7 @@ local function tableHead(t: any, stage: any): any
 	return tracks and t.find(tracks, "Header")
 end
 
-add("playlist-header-titles-and-pinned-column", { "apps2-166" }, function(t)
+add("playlist-header-titles-and-pinned-column", {}, function(t)
 	local stage, built = example(t, "02_playlist_table", Vector2.new(900, 640))
 	t.settle(10)
 	local header = tableHead(t, stage)
@@ -505,7 +505,7 @@ add("playlist-header-titles-and-pinned-column", { "apps2-166" }, function(t)
 	)
 end)
 
-add("playlist-320x640-edit-mode-cells", { "apps2-180" }, function(t)
+add("playlist-320x640-edit-mode-cells", {}, function(t)
 	local stage = example(t, "02_playlist_table", Vector2.new(320, 640), function(ctx)
 		local base = ctx.UI
 		ctx.UI = setmetatable({
@@ -587,7 +587,7 @@ add("playlist-320x640-edit-mode-cells", { "apps2-180" }, function(t)
 	t.check("nothing crosses a lateral edge", #found.lateral == 0, found.lateral)
 end)
 
-add("word-keyboard-large-text-fits", { "apps2-24" }, function(t)
+add("word-keyboard-large-text-fits", {}, function(t)
 	for _, theme in t.themes do
 		local stage = example(t, "05_word_game", Vector2.new(390, 844), nil, theme.package)
 		grow(stage, 14, {})

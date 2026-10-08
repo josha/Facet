@@ -79,7 +79,7 @@ local SWEEP = {
 	Vector2.new(1920, 1080),
 }
 
-add("callout-page-lateral-sweep", { "navigation-1-69" }, function(t)
+add("callout-page-lateral-sweep", {}, function(t)
 	for _, size in SWEEP do
 		local where = `{size.X}x{size.Y}`
 		local stage, built = scenario(t, "callout", size)
@@ -102,7 +102,7 @@ add("callout-page-lateral-sweep", { "navigation-1-69" }, function(t)
 	end
 end)
 
-add("consumer-parts-have-rects", { "apps2-01" }, function(t)
+add("consumer-parts-have-rects", {}, function(t)
 	local module = storage:FindFirstChild("FacetConsumerScreen")
 	t.check("the consumer screen module is present", module ~= nil)
 	if not module then
@@ -137,7 +137,7 @@ local function radialItems(count: number, long: boolean): { any }
 	return list
 end
 
-add("radial-list-fallback-fits", { "apps2-191" }, function(t)
+add("radial-list-fallback-fits", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RadialMenu "Quick" {
 			isPresented = Compose.cell(true),
@@ -168,7 +168,7 @@ add("radial-list-fallback-fits", { "apps2-191" }, function(t)
 	t.inside("the list inside the screen", panel, stage, 1)
 end)
 
-interactive("radial-list-scrolls-selection-into-view", { "apps2-191" }, function(t)
+interactive("radial-list-scrolls-selection-into-view", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RadialMenu "Quick" {
@@ -220,7 +220,7 @@ local QUICK = {
 	Vector2.new(600, 320),
 }
 
-add("quick-actions-ring-fits-phones", { "apps2-194" }, function(t)
+add("quick-actions-ring-fits-phones", {}, function(t)
 	for _, size in QUICK do
 		local where = `{size.X}x{size.Y}`
 		local stage, built = scenario(t, "radial_menu", size)
@@ -262,7 +262,7 @@ add("quick-actions-ring-fits-phones", { "apps2-194" }, function(t)
 	end
 end)
 
-add("character-commands-ring-or-list", { "apps2-224" }, function(t)
+add("character-commands-ring-or-list", {}, function(t)
 	for
 		_,
 		entry: {
@@ -311,7 +311,7 @@ add("character-commands-ring-or-list", { "apps2-224" }, function(t)
 	end
 end)
 
-interactive("category-strip-dpad-keeps-page", { "apps2-225" }, function(t)
+interactive("category-strip-dpad-keeps-page", {}, function(t)
 	local value = {}
 	local stage, context = t.gallery({ size = Vector2.new(1280, 800), demo = "all-controls" })
 	value.stage, value.context = stage, context
@@ -336,7 +336,7 @@ end, {
 	end,
 })
 
-add("gallery-previews-keep-page-and-pad-routes", { "apps2-225" }, function(t)
+add("gallery-previews-keep-page-and-pad-routes", {}, function(t)
 	local live = (require :: any)(assert(script.Parent).Parent)
 	local Compose: ComposeModule = t.Facet.Compose
 	local size = Compose.cell(Vector2.new(1280, 800))
@@ -376,7 +376,7 @@ add("gallery-previews-keep-page-and-pad-routes", { "apps2-225" }, function(t)
 	context.viewingDistance:set("automatic")
 end)
 
-add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
+add("card-rail-distant-and-shelves", {}, function(t)
 	local live = (require :: any)(assert(script.Parent).Parent)
 	local http = game:GetService("HttpService")
 	local results = {}
@@ -478,7 +478,7 @@ local PICKER_SIZES = {
 	Vector2.new(1920, 1080),
 }
 
-add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
+add("radial-retiring-branch-refuses-selection", {}, function(t)
 	local live = (require :: any)(assert(script.Parent).Parent)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RadialMenu({
@@ -533,7 +533,7 @@ add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
+add("playlist-pad-reorder-and-tray-walk", {}, function(t)
 	local live = (require :: any)(assert(script.Parent).Parent)
 	local built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
@@ -631,7 +631,7 @@ local SHORT_OPTIONS: { StringPickerOption } = {
 	{ value = "b", label = "Club" },
 }
 
-add("picker-style-sweep", { "navigation-3-85" }, function(t)
+add("picker-style-sweep", {}, function(t)
 	local options = {
 		{ value = "a", label = "Arcade handling" },
 		{ value = "b", label = "Simulation handling" },
@@ -704,7 +704,7 @@ add("picker-style-sweep", { "navigation-3-85" }, function(t)
 	end
 end)
 
-interactive("grabber-activation-cycles-detents", { "navigation-4-38" }, function(t)
+interactive("grabber-activation-cycles-detents", {}, function(t)
 	local value = { detents = {} }
 	t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.detent = Compose.cell("medium")
@@ -737,7 +737,7 @@ end, {
 	end,
 })
 
-add("nested-tabs-fit-a-short-screen", { "navigation-4-60" }, function(t)
+add("nested-tabs-fit-a-short-screen", {}, function(t)
 	local stage, context = t.gallery({ size = Vector2.new(640, 320), demo = "all-controls" })
 	t.settle(10)
 	local navigation = visibleNamed(t, stage, "navigation")
@@ -755,7 +755,7 @@ add("nested-tabs-fit-a-short-screen", { "navigation-4-60" }, function(t)
 	t.note("preferred text size", t.environment.preferredTextSize)
 end)
 
-add("virtual-list-clamps-across-tabs", { "navigation-4-68" }, function(t)
+add("virtual-list-clamps-across-tabs", {}, function(t)
 	local rows, selection
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		rows = Compose.cell((function()
@@ -828,7 +828,7 @@ add("virtual-list-clamps-across-tabs", { "navigation-4-68" }, function(t)
 	t.near("empty data returns to the top", list and list.CanvasPosition.Y or -1, 0, 0.5)
 end)
 
-add("type-roles-compile-to-native-fonts", { "paint-148" }, function(t)
+add("type-roles-compile-to-native-fonts", {}, function(t)
 	local roles = t.Facet.themes.TYPE_ROLES
 	for _, theme in t.themes do
 		local labels = {}

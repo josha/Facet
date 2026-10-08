@@ -142,6 +142,18 @@ return function(verifyHarness: Verify.Harness)
 				for _ = 1, 11 do
 					w.advance(FRAME)
 					Verify.expect(scale.Scale >= lastScale):toBe(true)
+					local paint = panel:FindFirstChild("PresentationPaint", true)
+					if paint then
+						local content = paint:FindFirstChild("PresentationContent")
+						Verify.expect(paint.AnchorPoint):toBe(Vector2.new(0.5, 0.5))
+						Verify.expect(paint.Position):toBe(w.engine.types.UDim2.fromScale(0.5, 0.5))
+						Verify.expect(paint.ClipsDescendants):toBe(false)
+						Verify.expect(content.Size):toBe(w.engine.types.UDim2.fromOffset(528, 268))
+						Verify.expect(content.Size.X.Offset + 32):toBe(paint.Size.X.Offset)
+						Verify.expect(content.Size.Y.Offset + 32):toBe(paint.Size.Y.Offset)
+						Verify.expect(paint:FindFirstChild("PresentationScale").Scale):toBe(scale.Scale)
+						Verify.expect(w.find("Line"):IsDescendantOf(content)):toBe(true)
+					end
 					Verify.expect(fadeKit.of(panel) <= lastFade):toBe(true)
 					Verify.expect((fadeOf(w))):toBeCloseTo(fadeKit.of(panel), 1e-6)
 					clearedEarly = clearedEarly or (fadeKit.of(panel) == 0 and scale.Scale < 1)
@@ -306,47 +318,44 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"the plate grows out of the trigger's rectangle; the content fades over the first half of it",
-			{
-				id = "native_presentation_motion::CollapsibleView in place::the plate grows out of the trigger's rectangle; the content fades over the first half of it",
-				run = function()
-					local w, expanded = tipsWorld()
-					local trigger = w.find("Tips")
-					trigger.AbsolutePosition, trigger.AbsoluteSize = w.Vector2.new(100, 100), w.Vector2.new(120, 44)
-					expanded:set(true)
-					local plate, fade = w.find("Expanded"), w.find("ExpandedFade")
-					w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
-					plate.AbsoluteSize = w.Vector2.new(360, 200)
-					Verify.expect(plate.ClipsDescendants):toBe(true)
-					Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
-					Verify.expect((fadeKit.of(plate))):toBe(1)
-					w.advance(FRAME * 2, 2)
-					Verify.expect(plate.Position):toBe(w.engine.types.UDim2.fromOffset(100, 100))
-					Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(120, 44))
-					Verify.expect(fade.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
-					Verify.expect((fadeKit.of(plate))):toBe(1)
-					w.advance(0.05, 3)
-					Verify.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360):toBe(true)
-					Verify.expect(fadeKit.of(plate) > 0 and fadeKit.of(plate) < 1):toBe(true)
-					w.advance(0.1, 6)
-					Verify.expect((fadeKit.of(plate))):toBe(0)
-					Verify.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360):toBe(true)
-					w.advance(0.15, 9)
-					Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
-					expanded:set(false)
-					w.advance(0.05, 3)
-					Verify.expect(fadeKit.of(plate) > 0 and fadeKit.of(plate) < 1):toBe(true)
-					w.advance(0.05, 3)
-					Verify.expect((plate:isDestroyed())):toBe(false)
-					Verify.expect((fadeKit.of(plate))):toBe(1)
-					Verify.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360):toBe(true)
-					w.advance(0.2, 12)
-					Verify.expect((plate:isDestroyed())):toBe(true)
-					w.stop()
-				end,
-			}
-		)
+		verifyHarness:case("the plate travels at its rest size; the content fades over the first half of it", {
+			id = "native_presentation_motion::CollapsibleView in place::the plate travels at its rest size; the content fades over the first half of it",
+			run = function()
+				local w, expanded = tipsWorld()
+				local trigger = w.find("Tips")
+				trigger.AbsolutePosition, trigger.AbsoluteSize = w.Vector2.new(100, 100), w.Vector2.new(120, 44)
+				expanded:set(true)
+				local plate, fade = w.find("Expanded"), w.find("ExpandedFade")
+				w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
+				plate.AbsoluteSize = w.Vector2.new(360, 200)
+				Verify.expect(plate.ClipsDescendants):toBe(true)
+				Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+				Verify.expect((fadeKit.of(plate))):toBe(1)
+				w.advance(FRAME * 2, 2)
+				Verify.expect(plate.Position):toBe(w.engine.types.UDim2.fromOffset(100, 100))
+				Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+				Verify.expect(fade.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+				Verify.expect((fadeKit.of(plate))):toBe(1)
+				w.advance(0.05, 3)
+				Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+				Verify.expect(fadeKit.of(plate) > 0 and fadeKit.of(plate) < 1):toBe(true)
+				w.advance(0.1, 6)
+				Verify.expect((fadeKit.of(plate))):toBe(0)
+				Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+				w.advance(0.15, 9)
+				Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+				expanded:set(false)
+				w.advance(0.05, 3)
+				Verify.expect(fadeKit.of(plate) > 0 and fadeKit.of(plate) < 1):toBe(true)
+				w.advance(0.05, 3)
+				Verify.expect((plate:isDestroyed())):toBe(false)
+				Verify.expect((fadeKit.of(plate))):toBe(1)
+				Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
+				w.advance(0.2, 12)
+				Verify.expect((plate:isDestroyed())):toBe(true)
+				w.stop()
+			end,
+		})
 
 		verifyHarness:case("reduced motion expands and collapses at once", {
 			id = "native_presentation_motion::CollapsibleView in place::reduced motion expands and collapses at once",
@@ -763,15 +772,19 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a fade out keeps its content drawn while the new group warms, then fades it in the group", {
-			id = "native_presentation_motion::ctx.fade group warm-up::a fade out keeps its content drawn while the new group warms, then fades it in the group",
+		verifyHarness:case("a fade out puts all content on the plate schedule at once", {
+			id = "native_presentation_motion::ctx.fade group warm-up::a fade out puts all content on the plate schedule at once",
 			run = function()
 				local engine, runtime, amount, stop, node = world()
 				amount:set(0.1)
 				local group = node:FindFirstChild("Fade")
 				Verify.expect(group ~= nil):toBe(true)
-				Verify.expect(node:FindFirstChild("Child").Parent):toBe(node)
+				Verify.expect(group:FindFirstChild("Child").Parent):toBe(group)
 				Verify.expect(group.GroupTransparency):toBe(0.1)
+				local late = engine.new("TextLabel")
+				late.Parent = node
+				Verify.expect(late.Parent):toBe(group)
+				Verify.expect(fadeKit.of(node)):toBeCloseTo(group.GroupTransparency, 1e-6)
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(group:FindFirstChild("Child") ~= nil):toBe(true)
 				stop()
@@ -790,6 +803,41 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(group.GroupTransparency):toBe(0.9)
 				stop()
 				runtime:dispose()
+			end,
+		})
+	end)
+	verifyHarness:suite("presentation motion: disabled modal opener", function()
+		verifyHarness:case("keeps a SurfaceGui menu and scrim until its sheet departure completes", {
+			id = "native_presentation_motion::presentation motion: disabled modal opener::keeps a SurfaceGui menu and scrim until its sheet departure completes",
+			run = function()
+				local w = overlay.new(function(UI, Host)
+					return Host.SurfaceGui "WorldUI" {
+						UI.Menu "Commands" {
+							label = "Actions",
+							presentation = "sheet",
+							items = { { id = "save", label = "Save", onSelect = function() end } },
+						},
+					}
+				end)
+				local layer = w.find("WorldUI")
+				w.size(layer, 390, 844)
+				w.find("Trigger").Activated:Fire()
+				local panel, modal = w.find("MenuPanel"), w.find("Modal")
+				w.size(modal, 390, 844)
+				w.size(panel, 366, 140)
+				w.size(w.find("MenuRows"), 350, 124)
+				w.advance(1, 60)
+				w.find("Commands").Interactable = false
+				w.find("DismissOutside").Activated:Fire()
+				Verify.expect(panel:isDestroyed()):toBe(false)
+				local previous = panel.Position.Y.Offset
+				w.advance(0.05, 3)
+				Verify.expect(panel:isDestroyed()):toBe(false)
+				Verify.expect(panel.Position.Y.Offset > previous):toBe(true)
+				Verify.expect(w.find("DismissOutside").BackgroundTransparency > 0.5):toBe(true)
+				w.advance(0.3, 18)
+				Verify.expect(panel:isDestroyed()):toBe(true)
+				w.stop()
 			end,
 		})
 	end)

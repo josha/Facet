@@ -316,6 +316,8 @@ return {
 								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
 								UI.Picker "NavRail" {
+									Size = UDim2.fromOffset(0, 0),
+									AutomaticSize = Enum.AutomaticSize.XY,
 									selected = section,
 									options = navOptions,
 									style = "segmented" :: "segmented",

@@ -40,7 +40,7 @@ local function box(Host: any, name: string, w: number, h: number, extra: { [any]
 	return Host.Frame(props)
 end
 
-add("screen-padding-and-gap", { "themes-P3-24", "mech2-36" }, function(t)
+add("screen-padding-and-gap", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.Screen "Screen" {
 			padding = "m",
@@ -65,7 +65,7 @@ add("screen-padding-and-gap", { "themes-P3-24", "mech2-36" }, function(t)
 	t.near("stack height is children plus gap plus padding", t.find(stage, "Stack").AbsoluteSize.Y, 80, 0.5)
 end)
 
-add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
+add("grid-cells-and-gaps", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.Grid "Grid" {
 			columns = 2,
@@ -126,7 +126,7 @@ add("grid-cells-and-gaps", { "mech2-41", "mech2-40", "mech2-42" }, function(t)
 	t.near("aspect ratio 1.5 cell", c1.AbsoluteSize.X / math.max(1, c1.AbsoluteSize.Y), 1.5, 0.05)
 end)
 
-add("zstack-alignment", { "mech2-40" }, function(t)
+add("zstack-alignment", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Pair" {
 			Size = UDim2.fromOffset(200, 100),
@@ -154,7 +154,7 @@ add("zstack-alignment", { "mech2-40" }, function(t)
 	t.near("centre child at y 35", m.AbsolutePosition.Y - z.AbsolutePosition.Y, 35, 0.5)
 end)
 
-add("stack-distribution", { "mech3-47" }, function(t)
+add("stack-distribution", {}, function(t)
 	local expected: { [string]: { number } } = { spaceBetween = { 0, 250, 500 }, spaceEvenly = { 75, 250, 425 } }
 	for mode, xs in expected do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
@@ -189,7 +189,7 @@ add("stack-distribution", { "mech3-47" }, function(t)
 	)
 end)
 
-add("fill-and-extents", { "mech2-36", "mech1-100" }, function(t)
+add("fill-and-extents", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.HStack "Row" {
 			width = 600,
@@ -223,7 +223,7 @@ add("fill-and-extents", { "mech2-36", "mech1-100" }, function(t)
 	t.near("width hug", t.find(stage, "Stack").AbsoluteSize.X, 50, 0.5)
 end)
 
-add("scroll-view-canvas-and-stretch", { "mech2-36" }, function(t)
+add("scroll-view-canvas-and-stretch", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local children = {}
 		for index = 1, 12 do

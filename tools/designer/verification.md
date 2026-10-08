@@ -15,8 +15,7 @@ Latest-main PR verification base: `c55ee609`.
 - The plugin model and companion place build with Rojo.
 - Native Studio geometry matches between the direct design and compiled exported
   component for all 63 constructors. This includes presented Alert, Sheet,
-  Dialog, Popover, Callout, and Toast contents. See
-  [native-coverage.json](native-coverage.json).
+  Dialog, Popover, Callout, and Toast contents.
 - Native pointer input selected a layer, opened the compact Inspector, selected
   canvas controls, and switched compact panes. TextBox editing changed the
   exported source. Undo restored the previous design.
@@ -40,7 +39,7 @@ Latest-main PR verification base: `c55ee609`.
 The expanded inspector has 1,000 field definitions across 63 constructors. Native
 Studio checks mounted 1,015 choice and boolean presets, 117 structured and color
 values, and 96 edited template/profile/palette/text-size combinations without
-errors. See [native-gap-review.json](native-gap-review.json). These checks prove
+errors. These checks prove
 constructor acceptance, not every property interaction.
 
 The desktop review used 1280×800, 1440×900, and 1920×1080 simulator viewports.
@@ -93,8 +92,7 @@ A failed structured edit keeps the data editor open.
 
 All 329 choice and boolean presets pass native Studio mounting checks. The
 recipes handle form-dependent properties for Skeleton, LevelPicker,
-DateTimePicker, and Toast. Conditional fields match the selected form. See
-[native-presets.json](native-presets.json).
+DateTimePicker, and Toast. Conditional fields match the selected form.
 
 The implementation uses TextBox editing, ScrollingFrame, UIListLayout.SortOrder,
 AutomaticSize, UIScale, and UIStroke. Compose cells, formulas, keyed children,
@@ -113,7 +111,7 @@ The companion was published on 2026-10-01 as a new private experience named
 Facet Design. All five Studio platform options were selected: Computer, Phone,
 Tablet, Console, and VR. Team Create and Data Sharing were off at creation.
 Reopened settings confirmed Team Create off. The publish completion dialog
-showed Successfully published and Private. See [publish-receipt.json](publish-receipt.json).
+showed Successfully published and Private.
 
 Cliclick reached the correct window through desktop window selection. The earlier
 native UI binding issue no longer blocks publication through this workflow.

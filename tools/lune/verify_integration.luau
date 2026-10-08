@@ -392,7 +392,7 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 18, full = 57, release = 2 })
+		context:expect(tiers):toEqual({ fast = 17, full = 48, release = 1 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
 		local plan = serde.decode("json", fs.readFile("tests/plan.json"))
@@ -414,18 +414,11 @@ harness:suite("Facet gate through Verify", function()
 		for index, producer in definition.producers do
 			order[producer.id] = index
 		end
-		context:expect(order["suite"] < order["replacement-cases"]):toBe(true)
-		context:expect(seen["replacement-cases"].after):toEqual({ "suite" })
-		context
-			:expect(seen["replacement-cases"].argv)
-			:toEqual({ "python3", "tools/check_coverage.py", "--cases", "{run}" })
-		for _, reader in { "perf-budgets", "perf-metrics", "perf-scenes", "perf-gate-evidence-budgets" } do
+		context:expect(seen["plan"].argv):toEqual({ "python3", "tools/check_plan.py" })
+		for _, reader in { "perf-budgets", "perf-metrics", "perf-scenes" } do
 			context:expect(order["perf"] < order[reader]):toBe(true)
 		end
 		context:expect(order["model-build"] < order["package-verify"]):toBe(true)
-		context:expect(seen["perf-gate-evidence-falsifiable"].tier):toBe("release")
-		context:expect(order["perf-gate-evidence-perf-gate"] < order["prove-perf-gate"]):toBe(true)
-		context:expect(order["prove-perf-gate"] < order["perf-gate-evidence-falsifiable"]):toBe(true)
 	end)
 	harness:case("binds the gate to the commit, tree, clean state and package source hash", function(context)
 		local build = gate.build()

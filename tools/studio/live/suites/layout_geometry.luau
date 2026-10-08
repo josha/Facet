@@ -63,7 +63,7 @@ local SPOTS: {
 		{ name = "bottom-right", at = UDim2.new(1, -8, 1, -8), edge = nil, pivot = Vector2.one },
 	}
 
-add("callout-edge-gap-shift-clamp", { "navigation-1-39", "navigation-1-67" }, function(t)
+add("callout-edge-gap-shift-clamp", {}, function(t)
 	for _, spot in SPOTS do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
@@ -105,7 +105,7 @@ add("callout-edge-gap-shift-clamp", { "navigation-1-39", "navigation-1-67" }, fu
 	end
 end)
 
-add("callout-tail-centre-border-corners", { "navigation-1-42" }, function(t)
+add("callout-tail-centre-border-corners", {}, function(t)
 	for _, spot in SPOTS do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return anchored(UI, Host, Compose, spot.at, spot.edge, spot.pivot)
@@ -139,7 +139,7 @@ add("callout-tail-centre-border-corners", { "navigation-1-42" }, function(t)
 	end
 end)
 
-add("navigation-stack-root-box-and-back-chrome", { "navigation-3-27" }, function(t)
+add("navigation-stack-root-box-and-back-chrome", {}, function(t)
 	local path
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		path = Compose.cell({})
@@ -181,7 +181,7 @@ add("navigation-stack-root-box-and-back-chrome", { "navigation-3-27" }, function
 	t.check("title fits its bar", title.TextFits, { bounds = title.TextBounds, size = title.AbsoluteSize })
 end)
 
-add("vertical-segments-stack-share-width-floor", { "navigation-3-59" }, function(t)
+add("vertical-segments-stack-share-width-floor", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Picker "Rail" {
 			style = "segmented" :: "segmented",
@@ -216,7 +216,7 @@ add("vertical-segments-stack-share-width-floor", { "navigation-3-59" }, function
 	end
 end)
 
-add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
+add("tab-head-accessory-above-rail", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return UI.TabView({
 			selection = Compose.cell("one"),
@@ -271,7 +271,7 @@ add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
 	t.check("rail inside the TabView width", s.r <= root.r + 0.5, { strip = s.r, root = root.r })
 end)
 
-add("circle-button-authored-axes", { "paint-14" }, function(t)
+add("circle-button-authored-axes", {}, function(t)
 	for _, rung in { "compact", "regular", "large" } :: { "compact" | "large" | "regular" } do
 		local stage = t.mount(function(UI: FacetControls)
 			return UI.Button "Circle" {
@@ -307,7 +307,7 @@ add("circle-button-authored-axes", { "paint-14" }, function(t)
 	end
 end)
 
-add("circular-progress-stroke-inside-box", { "themes-P1-71" }, function(t)
+add("circular-progress-stroke-inside-box", {}, function(t)
 	for _, theme in t.themes do
 		local stage = t.mount(function(UI: FacetControls)
 			return UI.ProgressView "Ring" { presentation = "circular" :: "circular", value = 1 }
@@ -350,7 +350,7 @@ local function paddingOf(node: Instance): (number, number, number, number)
 	return px("PaddingLeft", size.X), px("PaddingRight", size.X), px("PaddingTop", size.Y), px("PaddingBottom", size.Y)
 end
 
-add("chrome-insets-reserve-native-padding", { "themes-P2-20", "themes-P2-26" }, function(t)
+add("chrome-insets-reserve-native-padding", {}, function(t)
 	for _, theme in t.themes do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return Host.Frame "Column" {
@@ -400,7 +400,7 @@ add("chrome-insets-reserve-native-padding", { "themes-P2-20", "themes-P2-26" }, 
 	end
 end)
 
-add("panel-insets-reserve-native-padding", { "themes-P2-20" }, function(t)
+add("panel-insets-reserve-native-padding", {}, function(t)
 	for _, theme in t.themes do
 		local recipe = theme.package.chrome and theme.package.chrome.panel
 		local inset = if recipe then recipe.contentInsets or {} else {}
@@ -455,7 +455,7 @@ add("panel-insets-reserve-native-padding", { "themes-P2-20" }, function(t)
 	end
 end)
 
-add("chrome-zero-inset-full-bleed", { "themes-P2-26" }, function(t)
+add("chrome-zero-inset-full-bleed", {}, function(t)
 	local tested = 0
 	for _, theme in t.themes do
 		local chrome = theme.package.chrome
@@ -493,7 +493,7 @@ add("chrome-zero-inset-full-bleed", { "themes-P2-26" }, function(t)
 	t.check("at least one skinned control package was tested", tested > 0, tested)
 end)
 
-add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
+add("layers-hang-outside-layout", {}, function(t)
 	for _, theme in t.themes do
 		t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return UI.Sheet({
@@ -549,7 +549,7 @@ add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 	end
 end)
 
-add("grid-cell-width-arithmetic", { "collections-226" }, function(t)
+add("grid-cell-width-arithmetic", {}, function(t)
 	for _, columns in { 2, 3, 4 } do
 		local rows = {}
 		for index = 1, 12 do
@@ -598,7 +598,7 @@ add("grid-cell-width-arithmetic", { "collections-226" }, function(t)
 	end
 end)
 
-add("image-button-caption-clear-of-artwork", { "navigation-1-06" }, function(t)
+add("image-button-caption-clear-of-artwork", {}, function(t)
 	for _, theme in t.themes do
 		for _, width in { 180, 240, 320 } do
 			local stage = t.mount(function(UI: FacetControls)

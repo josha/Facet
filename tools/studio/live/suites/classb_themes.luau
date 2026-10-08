@@ -47,7 +47,7 @@ local function paletteOf(package: any, name: string): any
 	error("missing palette " .. name)
 end
 
-add("skeleton-circle-round-sweep", { "themes-P1-87" }, function(t)
+add("skeleton-circle-round-sweep", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Holder" {
 			Size = UDim2.fromOffset(300, 300),
@@ -70,7 +70,7 @@ add("skeleton-circle-round-sweep", { "themes-P1-87" }, function(t)
 	t.note("circle", { size = size })
 end)
 
-add("skeleton-band-contained", { "themes-P1-88" }, function(t)
+add("skeleton-band-contained", {}, function(t)
 	local width
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		width = Compose.cell(0.5)
@@ -113,7 +113,7 @@ add("skeleton-band-contained", { "themes-P1-88" }, function(t)
 	end
 end)
 
-add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
+add("skeleton-parent-alignment", {}, function(t)
 	for _, align in { "center", "end", "start" } do
 		local stage = t.mount(function(UI: FacetControls)
 			return UI.VStack "Col" {
@@ -143,7 +143,7 @@ add("skeleton-parent-alignment", { "themes-P1-90" }, function(t)
 	end
 end)
 
-add("stage-not-selectable", { "themes-P1-105" }, function(t)
+add("stage-not-selectable", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Form" {
 			Size = UDim2.fromScale(1, 1),
@@ -181,7 +181,7 @@ add("stage-not-selectable", { "themes-P1-105" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("stage-panel-paint", { "themes-P1-107" }, function(t)
+add("stage-panel-paint", {}, function(t)
 	local env
 	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
@@ -203,7 +203,7 @@ add("stage-panel-paint", { "themes-P1-107" }, function(t)
 	t.check("two palettes paint two stage colors", #seen >= 2 and not sameColor(seen[1], seen[2]))
 end)
 
-add("explicit-gradient-wins-across-swap", { "themes-P3-11" }, function(t)
+add("explicit-gradient-wins-across-swap", {}, function(t)
 	local glossy, scifi = themeNamed(t, "glossy_mobile"), themeNamed(t, "scifi_hud")
 	local env
 	local viewColor = ColorSequence.new(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255))
@@ -261,7 +261,7 @@ add("explicit-gradient-wins-across-swap", { "themes-P3-11" }, function(t)
 	verify("after swap back to glossy")
 end)
 
-add("skinned-selection-hugs-art", { "themes-P4-15" }, function(t)
+add("skinned-selection-hugs-art", {}, function(t)
 	local ornate = themeNamed(t, "fantasy_ornate")
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.VStack "Col" {
@@ -325,7 +325,7 @@ add("skinned-selection-hugs-art", { "themes-P4-15" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("selection-corners-follow-control", { "themes-P5-43" }, function(t)
+add("selection-corners-follow-control", {}, function(t)
 	local env
 	local neutral = t.themes[1].package
 	local ornate = themeNamed(t, "fantasy_ornate")
@@ -348,7 +348,7 @@ add("selection-corners-follow-control", { "themes-P5-43" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("status-count-authored-height", { "themes-P1-117" }, function(t)
+add("status-count-authored-height", {}, function(t)
 	for _, cutout in { false, true } do
 		for _, height in { UDim.new(0.5, 0), UDim.new(0, 20), UDim.new(0, 30) } do
 			local label = `{if cutout then "cutout" else "plain"} {height.Scale}+{height.Offset}`
@@ -406,7 +406,7 @@ local OFFERS = {
 	{ 0.99, 0.49 },
 }
 
-add("status-round-containment", { "themes-P1-120" }, function(t)
+add("status-round-containment", {}, function(t)
 	for _, cutout in { false, true } do
 		for _, offer in OFFERS do
 			local label = `{if cutout then "cutout" else "plain"} {offer[1]}x{offer[2]}`
@@ -469,7 +469,7 @@ add("status-round-containment", { "themes-P1-120" }, function(t)
 	end
 end)
 
-add("status-cutout-hairline", { "themes-P1-121" }, function(t)
+add("status-cutout-hairline", {}, function(t)
 	local pixel = themeNamed(t, "pixel_quest")
 	local env
 	for _, size in { 8, 10, 11, 13, 16, 40 } do

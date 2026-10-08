@@ -81,7 +81,7 @@ local function themed(t: any, name: string): any
 	return nil
 end
 
-add("billboard-nameplate", { "mech3-08" }, function(t)
+add("billboard-nameplate", {}, function(t)
 	local Facet = t.Facet
 	local Compose: ComposeModule = Facet.Compose
 	local camera = workspace.CurrentCamera
@@ -189,7 +189,7 @@ local function strip(t: any, control: number, corners: ("pill" | "square")?): (a
 	return stage, tagged(stage, "facet-segmented")[1]
 end
 
-interactive("segment-fill-follows-track", { "mech3-35" }, function(t)
+interactive("segment-fill-follows-track", {}, function(t)
 	local value = {}
 	local stage, track = strip(t, 8, "pill")
 	value.stage, value.track = stage, track
@@ -228,7 +228,7 @@ end, {
 	end,
 })
 
-add("segment-corner-concentric", { "mech3-35" }, function(t)
+add("segment-corner-concentric", {}, function(t)
 	for _, control in { 0, 8, 999 } do
 		local stage, track = strip(t, control, nil)
 		local current = track and tagged(track, "facet-segment-current")[1]
@@ -270,7 +270,7 @@ add("segment-corner-concentric", { "mech3-35" }, function(t)
 	)
 end)
 
-add("collapsible-safe-edges", { "navigation-2-06" }, function(t)
+add("collapsible-safe-edges", {}, function(t)
 	for _, size in { Vector2.new(320, 300), Vector2.new(390, 844), Vector2.new(1280, 720) } do
 		local where = `{size.X}x{size.Y}`
 		local expanded
@@ -319,7 +319,7 @@ add("collapsible-safe-edges", { "navigation-2-06" }, function(t)
 	end
 end)
 
-interactive("navigation-back-pointer", { "navigation-3-19" }, function(t)
+interactive("navigation-back-pointer", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.path = Compose.cell({ { id = "step", value = 1 } } :: { NavigationEntry })
@@ -390,7 +390,7 @@ local function pager(t: any, size: any, reduced: boolean): (any, any)
 	return stage, value
 end
 
-add("pageview-resize-during-travel", { "navigation-3-44" }, function(t)
+add("pageview-resize-during-travel", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(600, 400))
 	local stage, value = pager(t, size, false)
 	local pages = t.find(stage, "Pages")
@@ -425,7 +425,7 @@ add("pageview-resize-during-travel", { "navigation-3-44" }, function(t)
 	t.near("the second page fills the portrait width", two.AbsoluteSize.X, 500, 0.5)
 end)
 
-add("pageview-fixed-in-scroller", { "navigation-3-48" }, function(t)
+add("pageview-fixed-in-scroller", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.ScrollView "Outer" {
 			width = "fill" :: "fill",
@@ -477,7 +477,7 @@ local function selectedArt(package: any): boolean
 	return false
 end
 
-add("segment-accent-plate-image-themes", { "navigation-3-51" }, function(t)
+add("segment-accent-plate-image-themes", {}, function(t)
 	for _, entry in t.themes do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Picker "Motion" {
@@ -588,7 +588,7 @@ add("segment-accent-plate-image-themes", { "navigation-3-51" }, function(t)
 	end
 end)
 
-add("underline-follows-rehomed-strip", { "navigation-4-26" }, function(t)
+add("underline-follows-rehomed-strip", {}, function(t)
 	local atTop, selected
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		atTop = Compose.cell(true)
@@ -654,7 +654,7 @@ add("underline-follows-rehomed-strip", { "navigation-4-26" }, function(t)
 	check("bottom home after a new selection", "b")
 end)
 
-add("tab-reorder-keeps-page-geometry", { "navigation-4-58" }, function(t)
+add("tab-reorder-keeps-page-geometry", {}, function(t)
 	local order, builds = nil, 0
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		order = Compose.cell({ "home", "feed", "me" })
@@ -746,7 +746,7 @@ add("tab-reorder-keeps-page-geometry", { "navigation-4-58" }, function(t)
 	t.inside("the strip stays inside the TabView", strip, t.find(stage, "Tabs"), 0.5)
 end)
 
-add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
+add("tab-content-stretches-page", {}, function(t)
 	for _, size in { Vector2.new(390, 844), Vector2.new(1280, 720) } do
 		local where = `{size.X}x{size.Y}`
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -808,7 +808,7 @@ add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
 	end
 end)
 
-add("progress-track-centring", { "paint-35" }, function(t)
+add("progress-track-centring", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.VStack "Column" {
 			width = "fill" :: "fill",
@@ -846,7 +846,7 @@ add("progress-track-centring", { "paint-35" }, function(t)
 	t.near("the title's glyphs are centred in its own box", lead, (box.w - bounds.X) / 2, 0.5)
 end)
 
-add("progress-track-beside-trailing-copy", { "paint-43" }, function(t)
+add("progress-track-beside-trailing-copy", {}, function(t)
 	local package = themed(t, "fantasy_ornate") or t.themes[1].package
 	for _, width in { 280, 200 } do
 		for
@@ -943,7 +943,7 @@ add("progress-track-beside-trailing-copy", { "paint-43" }, function(t)
 	end
 end)
 
-add("icon-inside-content-box", { "paint-51" }, function(t)
+add("icon-inside-content-box", {}, function(t)
 	for _, entry in t.themes do
 		for
 			_,
@@ -1017,7 +1017,7 @@ add("icon-inside-content-box", { "paint-51" }, function(t)
 	end
 end)
 
-interactive("path-clipped-in-scroll", { "paint-86" }, function(t)
+interactive("path-clipped-in-scroll", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		local rows = {}

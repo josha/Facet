@@ -58,9 +58,7 @@ property.
      Thus the second commit is more than 5% slower, in the same direction, in
      each round.
 
-The two commits use the same scene names. `bench/workload_fidelity.json` on the
-candidate records how each native workload keeps the population, the trigger and
-the cadence of the original scene. The headless candidate numbers do not include
+The two commits use the same scene names. The headless candidate numbers do not include
 native engine layout, text measurement, selection routing, StyleSheet
 resolution, asset loading or paint. The baseline numbers include the Facet solver
 and renderer that the candidate removed. Thus a ratio compares the Luau work of
@@ -292,29 +290,10 @@ comparison needs the performance lab place in Studio.
 
 ### The performance lab in Roblox Studio
 
-- `cand`: the lab place ran `dense-scroll` with 2,000 rows at 388x824 and the
-  Largest preferred text size, with the overlay hidden. 975 steps: p50
-  2.94 ms, p95 8.45 ms. The capture row is
-  `artifacts/performance-stress-places/studio/perf-dense-scroll-facet-neutral-clean-1.json`.
-- `main`: the lab place does not start at `a8c88956`. Its overlay registers a
-  cleanup outside a Compose owner (`Compose[owner/no-active-owner]` from
-  `render/compose_controls` through `overlay.luau`). This is the same error
-  that stops three `main` scenes in the headless runs. Thus a Studio A/B of the
-  lab against `main` needs a change to `main`.
-- Earlier `dense-scroll-native` captures in Studio measured the wrong screen.
-  The cause: the `clean` and `theme` commands remounted the workload. The
-  native list fills over frames and takes about 80 s in Studio with more than
-  100,000 instances, so a capture after `clean` saw a list that was not full.
-  Now `clean` and `theme` keep the mounted workload, and
-  `native_perf_lab` tests it. The later workloads mount correctly after the
-  native list.
-- The branch records these Studio captures at 1280x720 and the Medium text
-  size: three `dense-scroll-native` and three `dense-scroll` repeats, one
-  `dense-scroll` capture with `fantasy_ornate`, and five emulator captures
-  (a phone emulator in portrait and landscape, a 720p handheld, a console and a 768x1024
-  handheld). The rows are in `artifacts/performance-stress-places/studio`.
-
-No check shows a regression in the three flagged scenes.
+Run the performance lab for fresh engine measurements. Record the build,
+workload, population, viewport, text size and device with each report.
+Headless timing does not measure engine layout or paint. A Studio emulator
+measurement does not prove physical device performance.
 
 ## StyleSheet token prototype
 

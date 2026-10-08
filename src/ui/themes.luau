@@ -1218,11 +1218,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-soft:Press", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0.6 })
 	rule(".facet-appearance-soft >> .facet-button-caption", { TextColor3 = c("accent") })
 	rule(".facet-appearance-soft >> .facet-icon", { ImageColor3 = c("accent") })
-	rule(".facet-appearance-link", { BackgroundTransparency = 1, TextColor3 = c("accent") })
-	rule(".facet-appearance-link:Hover", { BackgroundTransparency = 1, TextColor3 = c("accent") })
+	local linkInk = if contrast(assert(c("accent")), assert(c("surface"))) >= 4.5 then c("accent") else c("content")
+	rule(".facet-appearance-link", { BackgroundTransparency = 1, TextColor3 = linkInk })
+	rule(".facet-appearance-link:Hover", { BackgroundTransparency = 1, TextColor3 = linkInk })
 	rule(".facet-appearance-link:Press", { BackgroundTransparency = 1, TextTransparency = 0.3 })
-	rule(".facet-appearance-link >> .facet-button-caption", { TextColor3 = c("accent") })
-	rule(".facet-appearance-link >> .facet-icon", { ImageColor3 = c("accent") })
+	rule(".facet-appearance-link >> .facet-button-caption", { TextColor3 = linkInk })
+	rule(".facet-appearance-link >> .facet-icon", { ImageColor3 = linkInk })
 	rule(".facet-appearance-link:Press >> .facet-button-caption", { TextTransparency = 0.3 })
 	rule(".facet-appearance-link:Press >> .facet-text", { TextTransparency = 0.3 })
 	rule(".facet-appearance-link:Press >> .facet-icon", { ImageTransparency = 0.3 })
@@ -1475,7 +1476,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment-current >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("danger") })
 	rule(".facet-appearance-soft >> .facet-text", { TextColor3 = c("accent") })
-	rule(".facet-appearance-link >> .facet-text", { TextColor3 = c("accent") })
+	rule(".facet-appearance-link >> .facet-text", { TextColor3 = linkInk })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
 	rule(".facet-menu-item::UICorner", {
 		CornerRadius = types.UDim.new(
@@ -1663,6 +1664,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-skinned.facet-selected >> .facet-text", if on then { TextColor3 = onSelected } else {})
 		rule(".facet-skinned.facet-selected >> .facet-icon", if on then { ImageColor3 = onSelected } else {})
 	end
+	rule(".facet-selected >> .facet-text.facet-field", { TextColor3 = c("content") })
+	rule(".facet-selected >> .facet-text-input >> .facet-text", { TextColor3 = c("content") })
 	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
 	add(".facet-fading::UIStroke", {

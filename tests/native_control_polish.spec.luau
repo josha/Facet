@@ -364,11 +364,11 @@ return function(verifyHarness: Verify.Harness)
 							expect(`{id} {size}: track {picker.Size.Y.Scale} {picker.Size.Y.Offset}`):toBe(
 								`{id} {size}: track 0 {height}`
 							)
-							expect(picker.AutomaticSize.Name == "Y" or picker.AutomaticSize.Name == "XY"):toBe(false)
+							expect(picker.AutomaticSize.Name):toBe("Y")
 							local segment = find(picker, "normal")
 							expect((segment:HasTag("facet-segment-current"))):toBe(true)
 							expect(`{id} {size}: segment {segment.Size.Y.Scale} {segment.Size.Y.Offset}`):toBe(
-								`{id} {size}: segment 1 0`
+								`{id} {size}: segment 0 {height - 2 * inset}`
 							)
 							expect(segment.AutomaticSize.Name == "Y" or segment.AutomaticSize.Name == "XY"):toBe(false)
 							local limit = segment:FindFirstChildWhichIsA("UISizeConstraint")
@@ -445,8 +445,8 @@ return function(verifyHarness: Verify.Harness)
 				expect(picker.Size.Y.Offset):toBe(44)
 				for _, key in { "easy", "normal", "hard" } do
 					local segment = find(picker, key)
-					expect(segment.Size.Y.Scale):toBe(1)
-					expect(segment.Size.Y.Offset):toBe(0)
+					expect(segment.Size.Y.Scale):toBe(0)
+					expect(segment.Size.Y.Offset):toBe(38)
 				end
 				w.stop()
 			end,

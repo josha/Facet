@@ -242,7 +242,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Name = "Copy",
 			Size = D2.new(1, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: Instance,
+			Host.UIFlexItem({
+				FlexMode = function(use: ComposeTypes.Use)
+					return if use(beside) then E.UIFlexMode.Fill else E.UIFlexMode.None
+				end,
+			}) :: Instance,
 		})
 		local bodyChildren: { Types.Child } = { copyFrame }
 		if link ~= nil or #actions > 0 then

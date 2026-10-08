@@ -58,8 +58,9 @@ contract.
 - Declare each producer in `tools/lune/producers.json`. The Verify gate in
   `tools/lune/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
 - Keep `tests/plan.json` aligned with the spec files. The plan lists the spec
-  sources. There is no committed case list. The full gate uses the committed
-  plan. A focused run is not full evidence.
+  sources. Each spec file on disk must appear exactly once. The `plan` producer
+  checks this rule. There is no committed case list. The full gate uses the
+  committed plan. A focused run is not full evidence.
 - `tools/vendor/verify` is a generated, read-only test dependency. Change shared
   testing mechanisms upstream in `voidmeld/verify`, then re-pin with
   `tools/sync_verify.py`. Keep Verify out of the consumer model.
@@ -70,8 +71,9 @@ contract.
   `lune run tools/lune/bench`, `python3 tools/package.py build` and `python3 tools/package.py status`.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
-- A passing native `full` run is not equivalent to the historical coverage on
-  main. Read the [verification scope](docs/guide/18-verification-scope.md).
+- The current suite is the evidence. It does not claim to equal the tests that
+  existed before the native cutover. Read the
+  [verification scope](docs/guide/18-verification-scope.md).
 
 ## Internal showcase review
 

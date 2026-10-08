@@ -117,10 +117,13 @@ stylesheet rules.
 Control policy tests use a native engine double. Geometry, hit testing,
 Input Method Editor (IME) text, scrolling and input eligibility need live
 Studio evidence. The live runner uses Verify to produce case reports.
-Hand-written observations do not replace those reports. When you retire tests
-of removed mechanisms, keep the behavior coverage of each control family. The verification report must identify each
-remaining coverage gap. The [verification scope](guide/18-verification-scope.md)
-records the known gaps.
+Hand-written observations do not replace those reports. The `plan` producer
+checks that `tests/plan.json` lists each spec file on disk exactly once. When
+you retire tests of removed mechanisms, keep the behavior coverage of each control family.
+The current suite is the evidence. It does not claim to equal the tests that
+existed before the native cutover. The
+[verification scope](guide/18-verification-scope.md) describes the checks and
+their limits.
 
 Read the [contributor workflow](../CONTRIBUTING.md), the
 [API reference](reference/api.md) and the

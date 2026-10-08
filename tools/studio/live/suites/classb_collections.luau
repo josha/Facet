@@ -85,7 +85,7 @@ local function theme(t: any, pattern: string): any
 	return nil
 end
 
-add("cross-axis-fills-the-window", { "collections-29" }, function(t)
+add("cross-axis-fills-the-window", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Panes" {
 			Size = UDim2.fromScale(1, 1),
@@ -142,7 +142,7 @@ add("cross-axis-fills-the-window", { "collections-29" }, function(t)
 	t.check("the content fills the item cross axis", label ~= nil and label.Parent ~= nil)
 end)
 
-add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
+add("fill-column-floors-and-hit-order", {}, function(t)
 	local function mount(width: number, columns: { any }, widths: any?): any
 		t.cleanup()
 		return t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -234,7 +234,7 @@ add("fill-column-floors-and-hit-order", { "collections-140" }, function(t)
 	end
 end)
 
-add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
+add("cell-insets-and-header-contrast", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Racers" {
 			from = rows(4),
@@ -324,7 +324,7 @@ add("cell-insets-and-header-contrast", { "collections-153" }, function(t)
 	)
 end)
 
-add("page-scroll-moves-the-table-body", { "collections-182" }, function(t)
+add("page-scroll-moves-the-table-body", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.ScrollingFrame "Page" {
 			Size = UDim2.fromScale(1, 1),
@@ -447,7 +447,7 @@ local function clampCase(t: any, direction: "horizontal" | "vertical", kind: str
 	t.check(where .. " the last item is mounted at the end", rowOf(root, "r200") ~= nil)
 end
 
-add("partial-lines-crop-and-offsets-clamp", { "collections-233", "collections-243", "collections-264" }, function(t)
+add("partial-lines-crop-and-offsets-clamp", {}, function(t)
 	clampCase(t, "vertical", "list")
 	t.cleanup()
 	clampCase(t, "vertical", "grid")
@@ -457,7 +457,7 @@ add("partial-lines-crop-and-offsets-clamp", { "collections-233", "collections-24
 	clampCase(t, "horizontal", "list")
 end)
 
-add("tray-actions-meet-the-touch-floor", { "collections-60" }, function(t)
+add("tray-actions-meet-the-touch-floor", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RowActions "Row" {
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
@@ -613,7 +613,7 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	t.check(where .. " the action ran exactly once", fired == 1, fired)
 end
 
-add("departure-clears-before-reflow", { "collections-98" }, function(t)
+add("departure-clears-before-reflow", {}, function(t)
 	local list = { t.themes[1] }
 	local ornate = theme(t, "ornate") or theme(t, "fantasy")
 	if ornate then
@@ -640,7 +640,7 @@ add("departure-clears-before-reflow", { "collections-98" }, function(t)
 	end
 end)
 
-add("plate-decoration-stays-inside-the-band", { "collections-98" }, function(t)
+add("plate-decoration-stays-inside-the-band", {}, function(t)
 	local list = { t.themes[1] }
 	local ornate = theme(t, "ornate") or theme(t, "fantasy")
 	if ornate then
@@ -726,7 +726,7 @@ local function screenCenter(node: any): { number }
 	return { math.floor(center.X + 0.5), math.floor(center.Y + inset.Y + 0.5) }
 end
 
-interactive("tray-keys-and-hover", { "collections-60" }, function(t)
+interactive("tray-keys-and-hover", {}, function(t)
 	local value = { fired = {} }
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.open = (function(value: ("leading" | "trailing")?): SideCell
@@ -793,7 +793,7 @@ end, {
 	end,
 })
 
-interactive("header-sort-keys", { "collections-174" }, function(t)
+interactive("header-sort-keys", {}, function(t)
 	local value = {}
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.sort = (function(value: { column: string, direction: "ascending" | "descending" }?): SortCell
@@ -860,7 +860,7 @@ end, {
 	end,
 })
 
-interactive("left-reaches-this-rows-minus", { "collections-189" }, function(t)
+interactive("left-reaches-this-rows-minus", {}, function(t)
 	local value = { fired = {} }
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Table "Racers" {
@@ -902,7 +902,7 @@ end, {
 	end,
 })
 
-interactive("collapsed-column-leaves-the-ring", { "collections-192" }, function(t)
+interactive("collapsed-column-leaves-the-ring", {}, function(t)
 	local value = {}
 	value.stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Racers" {
@@ -956,7 +956,7 @@ end, {
 	end,
 })
 
-interactive("return-toggles-multi-selection", { "collections-197" }, function(t)
+interactive("return-toggles-multi-selection", {}, function(t)
 	local value = {}
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.selection = Compose.cell({})
@@ -995,7 +995,7 @@ end, {
 	end,
 })
 
-interactive("horizontal-list-keys", { "collections-254" }, function(t)
+interactive("horizontal-list-keys", {}, function(t)
 	local value = { activations = {} }
 	value.stage = t.mount(function(UI: FacetControls)
 		return UI.VirtualList "Strip" {
@@ -1034,7 +1034,7 @@ end, {
 	end,
 })
 
-interactive("drag-across-rows-after-page-scroll", { "collections-154", "collections-182" }, function(t)
+interactive("drag-across-rows-after-page-scroll", {}, function(t)
 	local value = { reorders = {} }
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.ScrollingFrame "Page" {

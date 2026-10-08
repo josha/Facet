@@ -141,7 +141,7 @@ end
 
 local ARROWS = { First = true, Previous = true, Next = true, Last = true }
 
-add("pagination-fit-narrows-in-order", { "post-pagination-08" }, function(t)
+add("pagination-fit-narrows-in-order", {}, function(t)
 	local width: any
 	local stage = t.mount(function(UI: any, Host: any, Compose: any)
 		width = Compose.cell(800)
@@ -254,7 +254,7 @@ local function sectionPaginations(stage: any): (any, { [string]: any })
 	return section, found
 end
 
-add("pagination-hug-matches-fill", { "post-pagination-09" }, function(t)
+add("pagination-hug-matches-fill", {}, function(t)
 	local stage = scenario(t, "paging", { size = Vector2.new(1280, 720) })
 	local section, found = sectionPaginations(stage)
 	t.check("the Paging section and its four paginations mount", section ~= nil and found.Rtl ~= nil)
@@ -347,7 +347,7 @@ end)
 
 interactive(
 	"pagination-neighbours-arrive-and-land",
-	{ "post-pagination-11", "post-pagination-16" },
+	{},
 	"afterDown: with the Refuse toggle selected, press Down once",
 	function(t)
 		local value = {}
@@ -463,7 +463,7 @@ local function targetsOf(t: any, root: any, where: string, named: { any })
 	end
 end
 
-add("pagination-targets-separate-and-centred", { "post-pagination-13", "post-pagination-14" }, function(t)
+add("pagination-targets-separate-and-centred", {}, function(t)
 	for _, size in { Vector2.new(1280, 720), Vector2.new(390, 844) } do
 		local where = `{size.X}x{size.Y}`
 		local stage = scenario(t, "paging", { size = size })
@@ -484,7 +484,7 @@ add("pagination-targets-separate-and-centred", { "post-pagination-13", "post-pag
 	end
 end)
 
-add("pagination-arrows-hold-still", { "post-pagination-15" }, function(t)
+add("pagination-arrows-hold-still", {}, function(t)
 	local specs: { any } = {
 		{ name = "KnownLtr", extra = { pageCount = 12, form = "label" }, from = 9, to = 10 },
 		{
@@ -599,7 +599,7 @@ local function underlineCheck(t: any, where: string, indicator: any, id: string)
 	)
 end
 
-add("steps-underline-follows-and-springs", { "post-step-02", "post-step-03", "post-step-07" }, function(t)
+add("steps-underline-follows-and-springs", {}, function(t)
 	local stage, built = scenario(t, "steps", { size = Vector2.new(1280, 720), motionLevel = "normal" })
 	local indicator = t.find(stage, "Checkout")
 	t.check("the Checkout indicator mounts", indicator ~= nil)
@@ -679,7 +679,7 @@ add("steps-underline-follows-and-springs", { "post-step-02", "post-step-03", "po
 	end
 end)
 
-add("steps-number-marker-is-a-circle", { "post-step-05" }, function(t)
+add("steps-number-marker-is-a-circle", {}, function(t)
 	local stage = scenario(t, "steps", { size = Vector2.new(1280, 720) })
 	local indicator = t.find(stage, "Checkout")
 	t.check("the Checkout indicator mounts", indicator ~= nil)
@@ -735,7 +735,7 @@ local function checkoutSteps(): { any }
 	}
 end
 
-add("steps-form-fits-the-offer", { "post-step-10", "post-step-11" }, function(t)
+add("steps-form-fits-the-offer", {}, function(t)
 	for _, entry in
 		{ { size = Vector2.new(1280, 720), form = "row" }, { size = Vector2.new(390, 844), form = "summary" } }
 	do
@@ -931,7 +931,7 @@ end
 
 interactive(
 	"vote-pad-reaches-and-proposes",
-	{ "post-vote-03" },
+	{},
 	"afterRight: with the TrackVote Upvote side selected, press Right once; afterReturn: press Return once",
 	function(t)
 		local value = {}
@@ -975,7 +975,7 @@ interactive(
 	}
 )
 
-add("vote-targets-separate", { "post-vote-08" }, function(t)
+add("vote-targets-separate", {}, function(t)
 	for _, size in { Vector2.new(1280, 720), Vector2.new(390, 844) } do
 		local where = `{size.X}x{size.Y}`
 		local stage = scenario(t, "selection_controls", { size = size })
@@ -1058,7 +1058,7 @@ end
 
 interactive(
 	"card-hover-reveals-inside-the-envelope",
-	{ "post-card-07", "post-card-08", "post-card-17" },
+	{},
 	"afterHover: move the mouse without clicking to the point noted as 'hover point'",
 	function(t)
 		local value = {}
@@ -1142,7 +1142,7 @@ interactive(
 
 interactive(
 	"card-keys-enter-and-stay-inside",
-	{ "post-card-11", "post-card-23" },
+	{},
 	"afterReturn: with the g1 cell selected, press Return or ButtonA once; afterRight: press Right once; afterRightAgain: press Right once; afterDown: press Down once; afterBack: press ButtonB; then press ButtonA and Right to reach More; afterMenuY: press ButtonY; afterMenuBack: press ButtonB",
 	function(t)
 		local value = {}
@@ -1207,7 +1207,7 @@ interactive(
 	}
 )
 
-add("card-grid-lines-and-corners", { "post-card-27", "post-card-28" }, function(t)
+add("card-grid-lines-and-corners", {}, function(t)
 	local _, _, games = cardsMount(t, false)
 	t.check("the Games grid mounts", games ~= nil)
 	if not games then
@@ -1297,7 +1297,7 @@ local PLACEMENTS: { { name: string, edge: "trailing" | "top", x: number, y: numb
 	{ name = "TopFlip", edge = "top" :: "top", x = 600, y = 12, expect = "bottom" },
 }
 
-add("menu-edge-and-align-place-the-panel", { "post-menu-02" }, function(t)
+add("menu-edge-and-align-place-the-panel", {}, function(t)
 	local cells = {}
 	local stage = t.mount(function(UI: any, Host: any, Compose: any)
 		local props: { [any]: any } = { Name = "Board", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }
@@ -1355,7 +1355,7 @@ add("menu-edge-and-align-place-the-panel", { "post-menu-02" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("menu-rows-floor-and-lead", { "post-menu-05" }, function(t)
+add("menu-rows-floor-and-lead", {}, function(t)
 	local open: any
 	local stage = t.mount(function(UI: any, Host: any, Compose: any)
 		open = Compose.cell(false)
@@ -1416,7 +1416,7 @@ end)
 
 interactive(
 	"menu-lands-on-selected-and-walks-bounded",
-	{ "post-menu-07", "post-menu-08" },
+	{},
 	"afterDown: with the first row of the bounded menu selected, press Down 11 times",
 	function(t)
 		local value = {}
@@ -1517,7 +1517,7 @@ local CATEGORIES: { [string]: string } =
 	{ inputs = "Inputs", actions = "Actions", indicators = "Status", navigation = "Menus" :: "Menus" }
 local INNER = { "basics", "writing", "leaves", "choices", "pickers" }
 
-add("category-bar-fits-phone-words", { "post-showcase-01", "post-showcase-04" }, function(t)
+add("category-bar-fits-phone-words", {}, function(t)
 	local caption = t.themes[1].package.metrics.typography.caption.size
 	t.note("caption size", caption)
 	local viewport = t.device({
@@ -1609,7 +1609,7 @@ end)
 
 interactive(
 	"choices-vote-row-inside-the-page",
-	{ "post-showcase-03" },
+	{},
 	"afterReturn: with the Choices tab selected, press Return once",
 	function(t)
 		local value = {}
@@ -1651,7 +1651,7 @@ interactive(
 	}
 )
 
-add("outline-section-closes-up", { "post-lab-06" }, function(t)
+add("outline-section-closes-up", {}, function(t)
 	local open: any
 	local stage = t.mount(function(UI: any, Host: any, Compose: any)
 		open = Compose.cell(true)
@@ -1717,17 +1717,7 @@ end)
 
 local ALIGN_OFFSET = { start = 0, center = 16, ["end"] = 32 }
 
-add("containers-recipes-draw-as-described", {
-	"post-recipes-01",
-	"post-recipes-02",
-	"post-recipes-03",
-	"post-recipes-04",
-	"post-recipes-05",
-	"post-recipes-06",
-	"post-recipes-07",
-	"post-recipes-08",
-	"post-recipes-09",
-}, function(t)
+add("containers-recipes-draw-as-described", {}, function(t)
 	local stage, built = scenario(t, "containers", { size = Vector2.new(1280, 720) })
 	local function node(name: string, root: any?): any
 		local found = t.find(root or stage, name)
@@ -1967,7 +1957,7 @@ end)
 
 interactive(
 	"badge-seal-sits-on-the-corner",
-	{ "post-badge-01" },
+	{},
 	"afterInbox: click the point noted as 'Inbox seal point'; afterAlerts: click the point noted as 'Alerts seal point'",
 	function(t)
 		local value = { presses = { Inbox = 0, Alerts = 0 }, connections = {} }
@@ -2051,7 +2041,7 @@ interactive(
 	}
 )
 
-add("recipe-dividers-start-at-the-text", { "post-recipes-10" }, function(t)
+add("recipe-dividers-start-at-the-text", {}, function(t)
 	local stage = scenario(t, "recipes_common", { size = Vector2.new(390, 844), frames = 30 })
 	local card = t.find(stage, "Dividers")
 	t.check("the divider card mounts", card ~= nil)

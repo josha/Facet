@@ -1496,6 +1496,43 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("builds genre card media and decorations before the first painted frame", {
+			id = "native_virtual_monitors::native virtual monitors::builds genre card media and decorations before the first painted frame",
+			run = function()
+				withScreens(function(world)
+					local grid = find(world.Discover, "Games")
+					grid.AbsoluteSize = world.types.Vector2.new(390, 500)
+					grid.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+					for _, genre in { "Adventure", "all", "Racing", "all" } do
+						find(world.Discover, "Genre_" .. genre).Activated:Fire()
+						world.engine.heartbeat:Fire(0)
+						local count = 0
+						for _, node in grid:GetDescendants() do
+							if string.sub(node.Name, 1, 5) == "Game_" then
+								count += 1
+								local stage = find(node, "Scene")
+								Verify.expect(stage:GetAttribute("FacetBuilt")):toBe(true)
+								Verify.expect(`{node.Name} model {find(stage, "CompleteModel") ~= nil}`)
+									:toBe(`{node.Name} model true`)
+								Verify.expect(`{node.Name} badge {find(node, "LiveDot") ~= nil}`)
+									:toBe(`{node.Name} badge true`)
+							end
+						end
+						Verify.expect(`genre {genre} card count {count > 0}`):toBe(`genre {genre} card count true`)
+					end
+				end, {
+					gameContent = function()
+						return function(runtime, world)
+							local Host = runtime.constructors
+							return runtime.mount(function()
+								return Host.Model "CompleteModel" { Host.Part "Island" {} }
+							end, world)
+						end
+					end,
+				})
+			end,
+		})
+
 		verifyHarness:case("keeps the Discover grid mounted through genre changes", {
 			id = "native_virtual_monitors::native virtual monitors::keeps the Discover grid mounted through genre changes",
 			run = function()

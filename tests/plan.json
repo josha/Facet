@@ -973,13 +973,6 @@
       ]
     },
     {
-      "id": "native_toast_schedule",
-      "locator": "tests/native_toast_schedule.spec.luau",
-      "requires": [
-        "local-luau"
-      ]
-    },
-    {
       "id": "native_themed_edges",
       "locator": "tests/native_themed_edges.spec.luau",
       "requires": [
@@ -996,6 +989,13 @@
     {
       "id": "native_toast_action",
       "locator": "tests/native_toast_action.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "native_toast_schedule",
+      "locator": "tests/native_toast_schedule.spec.luau",
       "requires": [
         "local-luau"
       ]

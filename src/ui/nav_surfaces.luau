@@ -382,14 +382,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					}
 				end)
 				local function lerp(use: ComposeTypes.Use): Overlay.Rect
-					local goal, at, box, offset = use(target), use(rootAt), use(rootBox), use(origin)
+					local goal, at, offset = use(target), use(rootAt), use(origin)
 					local t = if use(prepared) then progress(use) else 1
 					local x, y = at.X - offset.X, at.Y - offset.Y
 					return {
 						x = x + (goal.x - x) * t,
 						y = y + (goal.y - y) * t,
-						w = box.X + (goal.w - box.X) * t,
-						h = box.Y + (goal.h - box.Y) * t,
+						w = goal.w,
+						h = goal.h,
 					}
 				end
 				local fade = ctx.fade {
@@ -794,7 +794,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					}, function(use: ComposeTypes.Use)
 						local rest = ctx.metric("motion.materialize.modal", use)
 						return if use(settled) then rest + (1 - rest) * presence.travel(use) else 1
-					end)
+					end, nil, true)
 				end
 				local modal = surfaces.modal(function()
 					return panel

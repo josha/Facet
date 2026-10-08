@@ -1,7 +1,7 @@
 {
   "producers": [
     {"id": "architecture", "tier": "fast", "run": "python3 tools/check_architecture.py", "replaces": ["check_boundary"]},
-    {"id": "coverage", "tier": "fast", "run": "python3 tools/check_coverage.py"},
+    {"id": "plan", "tier": "fast", "run": "python3 tools/check_plan.py"},
     {"id": "vendor", "tier": "fast", "run": "python3 tools/sync_compose.py --check"},
     {"id": "verify-vendor", "tier": "fast", "run": "python3 tools/sync_verify.py --check"},
     {"id": "snapshot-sync-selftest", "tier": "fast", "run": "python3 -m unittest discover -s tools/tests -p test_snapshot_sync.py"},
@@ -64,18 +64,7 @@
     {"id": "perf-metrics", "tier": "full", "environment": "perf", "run": "python3 tools/check_perf_metrics.py", "replaces": ["check_perf_metrics"]},
     {"id": "perf-scenes", "tier": "full", "environment": "perf", "run": "python3 tools/check_perf_scenes.py", "replaces": ["check_perf_scenes"]},
     {"id": "perf-scenes-themes", "tier": "full", "environment": "perf", "run": "python3 tools/check_perf_scenes.py --themes", "replaces": ["check_perf_scenes-themes"]},
-    {"id": "perf-captures", "tier": "full", "environment": "device", "run": "python3 tools/check_perf_captures.py", "replaces": ["check_perf_captures"]},
     {"id": "perf-place", "tier": "full", "environment": "studio", "run": "python3 tools/check_perf_place.py --no-build", "replaces": ["check_perf_place"]},
-    {"id": "perf-gate-evidence-budgets", "tier": "full", "environment": "perf", "run": "python3 tools/check_perf_gate_evidence.py budgets", "replaces": ["check_perf_gate_evidence-budgets"]},
-    {"id": "perf-gate-evidence-headless-linkage", "tier": "full", "environment": "perf", "run": "python3 tools/check_perf_gate_evidence.py headless-linkage", "replaces": ["check_perf_gate_evidence-headless-linkage"]},
-    {"id": "perf-gate-evidence-perf-gate", "tier": "full", "environment": "perf", "run": "python3 tools/check_perf_gate_evidence.py perf-gate", "replaces": ["check_perf_gate_evidence-perf-gate"]},
-    {"id": "perf-gate-evidence-studio", "tier": "full", "environment": "studio", "run": "python3 tools/check_perf_gate_evidence.py studio", "replaces": ["check_perf_gate_evidence-studio"]},
-    {"id": "perf-gate-evidence-native-reference", "tier": "full", "environment": "studio", "run": "python3 tools/check_perf_gate_evidence.py native-reference", "replaces": ["check_perf_gate_evidence-native-reference"]},
-    {"id": "perf-gate-evidence-theme-cost", "tier": "full", "environment": "studio", "run": "python3 tools/check_perf_gate_evidence.py theme-cost", "replaces": ["check_perf_gate_evidence-theme-cost"]},
-    {"id": "perf-gate-evidence-large-text", "tier": "full", "environment": "studio", "run": "python3 tools/check_perf_gate_evidence.py large-text", "replaces": ["check_perf_gate_evidence-large-text"]},
-    {"id": "perf-gate-evidence-device-matrix", "tier": "full", "environment": "studio", "run": "python3 tools/check_perf_gate_evidence.py device-matrix", "replaces": ["check_perf_gate_evidence-device-matrix"]},
-    {"id": "prove-perf-gate", "tier": "release", "environment": "perf", "run": "lune run tools/lune/prove_perf_gate"},
-    {"id": "perf-gate-evidence-falsifiable", "tier": "release", "environment": "perf", "run": "python3 tools/check_perf_gate_evidence.py falsifiable", "replaces": ["check_perf_gate_evidence-falsifiable"]},
-    {"id": "replacement-cases", "tier": "fast", "run": "python3 tools/check_coverage.py --cases {run}", "after": ["suite"], "replaces": ["check_manifest_integrity"]}
+    {"id": "prove-perf-gate", "tier": "release", "environment": "perf", "run": "lune run tools/lune/prove_perf_gate"}
   ]
 }

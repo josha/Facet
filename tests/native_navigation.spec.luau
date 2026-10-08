@@ -168,8 +168,8 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		verifyHarness:case("gives command menus and resizing sheets an explicit Close by default", {
-			id = "native_navigation::native navigation controls::gives command menus and resizing sheets an explicit Close by default",
+		verifyHarness:case("limits the default menu Close to sheets and retains explicit overrides", {
+			id = "native_navigation::native navigation controls::limits the default menu Close to sheets and retains explicit overrides",
 			run = function()
 				local opened = Compose.cell(true)
 				local world = setup(function(UI: FacetControls)
@@ -179,11 +179,30 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local command = find(world.screen, "CloseCommand")
+				Verify.expect(command.Visible):toBe(false)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				Verify.expect(command.Visible):toBe(true)
 				Verify.expect(command.Text):toBe("")
 				Verify.expect(command:GetAttribute("label")):toBe("Close")
 				command.Activated:Fire()
 				Verify.expect(opened:peek()):toBe(false)
 				world.stop()
+				for _, override in { true, false } do
+					opened:set(true)
+					local explicit = setup(function(UI: FacetControls)
+						return UI.Menu({
+							isPresented = opened,
+							closeButton = override,
+							items = { { id = "action", label = "Action", onSelect = function() end } },
+						})
+					end)
+					local close = find(explicit.screen, "CloseCommand")
+					Verify.expect(close ~= nil and close.Visible):toBe(override)
+					explicit.input.PreferredInput = explicit.engine.types.Enum.PreferredInput.Touch
+					close = find(explicit.screen, "CloseCommand")
+					Verify.expect(close ~= nil and close.Visible):toBe(override)
+					explicit.stop()
+				end
 				opened:set(true)
 				world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return UI.Sheet({
@@ -247,7 +266,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("prepares CollapsibleView chrome before content paints without travel", {
 			id = "native_navigation::native navigation controls::prepares CollapsibleView chrome before content paints without travel",
 			run = function()
-				for _, level in { "limited", "none" } do
+				for _, level in { "normal", "limited", "none" } do
 					local expanded = Compose.cell(false)
 					local world = setup(function(UI: FacetControls, _, engine)
 						return UI.CollapsibleView "Summary" {
@@ -262,7 +281,7 @@ return function(verifyHarness: Verify.Harness)
 								}
 							end,
 						}
-					end, { motionLevel = level :: "limited" | "none" })
+					end, { motionLevel = level :: "normal" | "limited" | "none" })
 					world.screen.AbsoluteSize = world.engine.types.Vector2.new(960, 720)
 					find(world.screen, "Summary").AbsoluteSize = world.engine.types.Vector2.new(240, 44)
 					expanded:set(true)
@@ -277,6 +296,11 @@ return function(verifyHarness: Verify.Harness)
 					find(panel, "Copy").AbsoluteSize = V2(296, 48)
 					world.engine.heartbeat:Fire(1 / 60)
 					Verify.expect(fadeKit.of(panel)):toBe(1)
+					for _ = 1, 6 do
+						world.engine.heartbeat:Fire(1 / 60)
+						Verify.expect(panel.Size.X.Offset):toBe(360)
+						Verify.expect(panel.Size.Y.Offset):toBe(44)
+					end
 					world.settle()
 					Verify.expect(fadeKit.of(panel)):toBe(0)
 					Verify.expect(fade.Size.X.Offset):toBe(328)
@@ -354,7 +378,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(segments:FindFirstChild("Label"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
 					:toBe(world.engine.types.Enum.UIFlexMode.Grow)
 				Verify.expect(segments:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
-				Verify.expect(options.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.X)
+				Verify.expect(options.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.XY)
 				Verify.expect(options.Size.Y.Offset):toBe(44)
 				Verify.expect(segments:FindFirstChildWhichIsA("UIListLayout").FillDirection)
 					:toBe(world.engine.types.Enum.FillDirection.Horizontal)
@@ -935,6 +959,30 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hides an empty ComboBox popup and restores it when matches return", {
+			id = "native_navigation::native navigation controls::hides an empty ComboBox popup and restores it when matches return",
+			run = function()
+				local text = Compose.cell("zzq")
+				local world = setup(function(UI: FacetControls)
+					return UI.ComboBox {
+						value = Compose.cell("a"),
+						text = text,
+						options = { { value = "a", label = "Alpha" } },
+						acceptCustom = function()
+							return false
+						end,
+					}
+				end)
+				find(find(world.screen, "Suggestions"), "Trigger").Activated:Fire()
+				Verify.expect(find(world.screen, "MenuPanel")):toBe(nil)
+				text:set("Al")
+				Verify.expect(find(world.screen, "MenuPanel") ~= nil):toBe(true)
+				text:set("zzq")
+				Verify.expect(find(world.screen, "MenuPanel")):toBe(nil)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps combo suggestions beside a single line and preserves native typing until Down", {
 			id = "native_navigation::native navigation controls::keeps combo suggestions beside a single line and preserves native typing until Down",
 			run = function()
@@ -1041,6 +1089,9 @@ return function(verifyHarness: Verify.Harness)
 					Position = world.engine.types.Vector3.new(1000, 1000, 0),
 				})
 				Verify.expect((find(world.screen, "SuggestionsOverlay"))):toBe(nil)
+				find(find(world.screen, "Suggestions"), "Trigger").Activated:Fire()
+				Verify.expect(find(world.screen, "SuggestionsOverlay")):toBe(nil)
+				text:set("Al")
 				find(find(world.screen, "Suggestions"), "Trigger").Activated:Fire()
 				Verify.expect(find(world.screen, "SuggestionsOverlay") ~= nil):toBe(true)
 				enabled:set(false)
@@ -1447,6 +1498,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps a right-edge cascade inside the room with disjoint ancestor and child columns", {
+			id = "native_navigation::native navigation controls::keeps a right-edge cascade inside the room with disjoint ancestor and child columns",
+			run = function()
+				local world = setup(function(UI: FacetControls)
+					return UI.Menu "Cascade" {
+						isPresented = Compose.cell(true),
+						trigger = UI.Button "Anchor" { label = "Anchor" },
+						items = {
+							{
+								id = "Parent",
+								label = "Parent",
+								children = { { id = "Leaf", label = "Leaf", onSelect = function() end } },
+							},
+						},
+					}
+				end)
+				local V2 = world.engine.types.Vector2
+				find(world.screen, "Modal").AbsoluteSize = V2.new(920, 640)
+				find(world.screen, "Cascade").AbsolutePosition = V2.new(760, 100)
+				find(world.screen, "Cascade").AbsoluteSize = V2.new(0, 40)
+				find(world.screen, "Parent").Activated:Fire()
+				local panel, ancestor = find(world.screen, "MenuPanel"), find(world.screen, "AncestorMenu")
+				panel.AbsoluteSize = V2.new(220, 96)
+				ancestor.AbsoluteSize = V2.new(280, 141)
+				world.settle()
+				local x = corner(panel)
+				Verify.expect(ancestor.Position.X.Offset):toBeGreaterThanOrEqual(8)
+				Verify.expect(ancestor.Position.X.Offset + 280):toBeLessThanOrEqual(x - 8)
+				Verify.expect(x + 220):toBeLessThanOrEqual(912)
+				Verify.expect(ancestor.Position.Y.Offset + 141):toBeLessThanOrEqual(632)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("adapts an open menu to a compact sheet without losing its branch", {
 			id = "native_navigation::native navigation controls::adapts an open menu to a compact sheet without losing its branch",
 			run = function()
@@ -1686,6 +1771,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("clears background selection when a modal opens after pointer input", {
+			id = "native_navigation::native navigation controls::clears background selection when a modal opens after pointer input",
+			run = function()
+				local presented = Compose.cell(false)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame {
+						UI.Button "Opener" { label = "Open" } :: unknown,
+						UI.Alert {
+							isPresented = presented,
+							title = "Confirm",
+							actions = { { id = "stay", label = "Stay", role = "cancel" :: "cancel" } },
+						},
+					}
+				end)
+				world.gui.SelectedObject = find(world.screen, "Opener")
+				world.input.GetLastInputType = function()
+					return world.engine.types.Enum.UserInputType.MouseMovement
+				end
+				presented:set(true)
+				Verify.expect(world.gui.SelectedObject):toBeNil()
+				world.settle()
+				world.gui.SelectedObject = find(world.screen, "Opener")
+				Verify.expect(world.gui.SelectedObject):toBeNil()
+				world.stop()
+			end,
+		})
 		verifyHarness:case("darkens modal scrims as the player lowers background transparency", {
 			id = "native_navigation::native navigation controls::darkens modal scrims as the player lowers background transparency",
 			run = function()
@@ -2133,6 +2244,27 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+
+		verifyHarness:case("reserves segmented caption width and wraps rows instead of clipping whole words", {
+			id = "native_navigation::native navigation controls::reserves segmented caption width and wraps rows instead of clipping whole words",
+			run = function()
+				local world = setup(function(UI: FacetControls)
+					return UI.Picker "Motion" {
+						style = "segmented" :: "segmented",
+						selected = Compose.cell("normal"),
+						options = {
+							{ value = "normal", label = "Normal" },
+							{ value = "limited", label = "Limited" },
+						},
+					}
+				end)
+				local picker, button = find(world.screen, "Motion"), find(world.screen, "normal")
+				find(button, "CaptionMeasure").TextBounds = world.engine.types.Vector2.new(54, 16)
+				Verify.expect(button:FindFirstChildWhichIsA("UISizeConstraint").MinSize.X):toBeGreaterThanOrEqual(78)
+				Verify.expect(picker:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
+				world.stop()
+			end,
+		})
 
 		verifyHarness:case("fits segmented glyphs inside compact chrome at the default text preference", {
 			id = "native_navigation::native navigation controls::fits segmented glyphs inside compact chrome at the default text preference",
@@ -4129,8 +4261,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("grows the alert panel around final-size content and dismisses it faster than it entered", {
-			id = "native_navigation::native navigation controls::grows the alert panel around final-size content and dismisses it faster than it entered",
+		verifyHarness:case("keeps alert layout fixed while its paint grows and dismisses faster than it entered", {
+			id = "native_navigation::native navigation controls::keeps alert layout fixed while its paint grows and dismisses faster than it entered",
 			run = function()
 				local shown = Compose.cell(false)
 				local world = setup(function(UI: FacetControls)
@@ -4150,13 +4282,21 @@ return function(verifyHarness: Verify.Harness)
 				find(panel, "AlertContent").Parent.AbsoluteSize = V.new(300, 60)
 				world.engine.heartbeat:Fire(0)
 				world.engine.heartbeat:Fire(0)
-				Verify.expect(panel.Size.X.Offset):toBeCloseTo(440 * 0.94, 1)
-				Verify.expect((find(panel, "PresentationScale"))):toBeNil()
+				Verify.expect(panel.Size.X.Offset):toBe(440)
+				Verify.expect(find(panel, "PresentationPaint").Size.X.Offset):toBe(440)
+				Verify.expect(find(panel, "PresentationScale").Scale):toBeCloseTo(0.94, 0.01)
+				Verify.expect(find(panel, "PresentationScale").Parent):toBe(find(panel, "PresentationPaint"))
 				Verify.expect(layout.Parent.Name):toBe("PresentationContent")
 				Verify.expect(layout.Parent.Size.X.Offset):toBe(440)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
 				world.engine.heartbeat:Fire(0.1)
-				Verify.expect(panel.Size.X.Offset > 440 * 0.94 and panel.Size.X.Offset < 440):toBe(true)
+				Verify.expect(panel.Size.X.Offset):toBe(440)
+				local paint = find(panel, "PresentationPaint")
+				Verify.expect(paint.Size.X.Offset):toBe(440)
+				Verify.expect(
+					find(paint, "PresentationScale").Scale > 0.94 and find(paint, "PresentationScale").Scale < 1
+				)
+					:toBe(true)
 				Verify.expect(layout.Parent.Size.X.Offset):toBe(440)
 				Verify.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1):toBe(true)
 				world.engine.heartbeat:Fire(0.1)

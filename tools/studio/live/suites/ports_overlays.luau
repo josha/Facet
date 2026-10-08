@@ -215,7 +215,7 @@ local function longDialog(UI: any, Host: any, Compose: any, opened: any?): any
 	}
 end
 
-add("callout-tour-rich-parts", { "post-overlays-104" }, function(t)
+add("callout-tour-rich-parts", {}, function(t)
 	local stage, built = scenario(t, "overlays", Vector2.new(1280, 720))
 	built.steps.tour()
 	t.settle(30)
@@ -267,7 +267,7 @@ end)
 
 interactive(
 	"dialog-body-pad-scrolls-then-moves",
-	{ "post-overlays-018" },
+	{},
 	"afterDown: press Down once (arrow keys drive the same native selection as the D-pad); afterDownMany: press Down 15 more times",
 	function(t)
 		local value = { visits = {} }
@@ -337,7 +337,7 @@ interactive(
 	}
 )
 
-add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012", "post-overlays-013" }, function(t)
+add("dialog-room-desktop-short-phone", {}, function(t)
 	local viewport = device(t, { device = "xbox", width = 1280, height = 720 })
 	t.note("desktop viewport", viewport)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -487,7 +487,7 @@ add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012
 	end
 end)
 
-add("help-plate-edges-and-shrinking-window", { "post-overlays-113", "post-overlays-119" }, function(t)
+add("help-plate-edges-and-shrinking-window", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
 	local buttons = {}
 	local function spot(UI: any, Host: any, name: string, position: UDim2, anchor: Vector2, help: any): any
@@ -597,7 +597,7 @@ add("help-plate-edges-and-shrinking-window", { "post-overlays-113", "post-overla
 	GuiService.SelectedObject = nil
 end)
 
-add("navbar-search-wraps-filter", { "post-overlays-093" }, function(t)
+add("navbar-search-wraps-filter", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
 	local stage = scenario(t, "overlays", size)
 	local header = visibleNamed(t, stage, "Header")
@@ -641,7 +641,7 @@ add("navbar-search-wraps-filter", { "post-overlays-093" }, function(t)
 	input:ReleaseFocus()
 end)
 
-add("notice-affixed-banner-moves-content", { "post-overlays-090" }, function(t)
+add("notice-affixed-banner-moves-content", {}, function(t)
 	local stage, built = scenario(t, "status_family", Vector2.new(1280, 720))
 	local family = t.find(stage, "StatusFamily")
 	local content = family and family:FindFirstChild("Content")
@@ -683,7 +683,7 @@ add("notice-affixed-banner-moves-content", { "post-overlays-090" }, function(t)
 	t.near("the content moves back when the banner closes", content.AbsolutePosition.Y, before, 1)
 end)
 
-add("notice-layout-and-emphasis-paint", { "post-overlays-082", "post-overlays-083" }, function(t)
+add("notice-layout-and-emphasis-paint", {}, function(t)
 	local colors = {}
 	for _, entry in
 		{
@@ -771,7 +771,7 @@ add("notice-layout-and-emphasis-paint", { "post-overlays-082", "post-overlays-08
 	)
 end)
 
-add("popover-caps-and-side-hang", { "post-overlays-033", "post-overlays-166" }, function(t)
+add("popover-caps-and-side-hang", {}, function(t)
 	local viewport = device(t, { device = "xbox", width = 1280, height = 720 })
 	t.note("viewport", viewport)
 	local cells, triggers = {}, {}
@@ -901,217 +901,198 @@ add("popover-caps-and-side-hang", { "post-overlays-033", "post-overlays-166" }, 
 	end
 end)
 
-add(
-	"popover-compact-sheet-then-anchored",
-	{ "post-overlays-035", "post-overlays-038", "post-overlays-039" },
-	function(t)
-		t.note(
-			"not checked",
-			"the refused drag on the compact sheet (no drag input); the input switch is driven by moving from a touch phone to a desktop gamepad device, which changes the layer width as well as the input class"
-		)
-		local phone = device(t, { device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
-		t.note("phone viewport", phone)
-		t.note("phone preferred input", tostring(UserInputService.PreferredInput))
-		local stage, built = scenario(t, "overlays", nil)
-		local gui = layerOf(stage)
-		built.steps.openAbout()
-		t.settle(30)
-		local function route(): (string?, any)
-			for _, node in gui:GetDescendants() do
-				local value = node:GetAttribute("FacetRoute")
-				if value then
-					return value, node
-				end
+add("popover-compact-sheet-then-anchored", {}, function(t)
+	t.note(
+		"not checked",
+		"the refused drag on the compact sheet (no drag input); the input switch is driven by moving from a touch phone to a desktop gamepad device, which changes the layer width as well as the input class"
+	)
+	local phone = device(t, { device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
+	t.note("phone viewport", phone)
+	t.note("phone preferred input", tostring(UserInputService.PreferredInput))
+	local stage, built = scenario(t, "overlays", nil)
+	local gui = layerOf(stage)
+	built.steps.openAbout()
+	t.settle(30)
+	local function route(): (string?, any)
+		for _, node in gui:GetDescendants() do
+			local value = node:GetAttribute("FacetRoute")
+			if value then
+				return value, node
 			end
-			return nil, nil
 		end
-		local kind = route()
-		t.check("a touch phone presents the popover as a sheet", kind == "sheet", kind)
-		local status = built.report().status
-		local desk = device(t, { device = "xbox", width = 1280, height = 720 })
-		t.note("desktop viewport", desk)
-		t.note("desktop preferred input", tostring(UserInputService.PreferredInput))
-		t.settle(20)
-		local now, modal = route()
-		t.check("the desktop switches it to the anchored panel", now == "popover", now)
-		t.check("the popover stays presented across the switch", built.report().about == true, built.report())
-		t.check("the switch is silent", built.report().status == status, built.report().status)
-		if modal then
-			local panel = modal:FindFirstChild("Panel", true)
-			t.check("the anchored panel shows", panel ~= nil and t.visible(panel))
-			t.check("the anchored panel has no close", visibleNamed(t, modal, "Close") == nil)
-			local words = visibleNamed(t, modal, "Body")
-			t.check("the content moved to the anchored panel", words ~= nil)
+		return nil, nil
+	end
+	local kind = route()
+	t.check("a touch phone presents the popover as a sheet", kind == "sheet", kind)
+	local status = built.report().status
+	local desk = device(t, { device = "xbox", width = 1280, height = 720 })
+	t.note("desktop viewport", desk)
+	t.note("desktop preferred input", tostring(UserInputService.PreferredInput))
+	t.settle(20)
+	local now, modal = route()
+	t.check("the desktop switches it to the anchored panel", now == "popover", now)
+	t.check("the popover stays presented across the switch", built.report().about == true, built.report())
+	t.check("the switch is silent", built.report().status == status, built.report().status)
+	if modal then
+		local panel = modal:FindFirstChild("Panel", true)
+		t.check("the anchored panel shows", panel ~= nil and t.visible(panel))
+		t.check("the anchored panel has no close", visibleNamed(t, modal, "Close") == nil)
+		local words = visibleNamed(t, modal, "Body")
+		t.check("the content moved to the anchored panel", words ~= nil)
+	end
+end)
+
+add("sheet-scroll-policy-and-detectors", {}, function(t)
+	t.note(
+		"not checked",
+		"flick projection, settle speed, drag slop, input-class cancel and the downward pull at the tallest detent all need a drag or touch, which the runner cannot send"
+	)
+	local detent
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		detent = Compose.cell("medium")
+		return Host.Frame "Board" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.Sheet "Rules" {
+				title = "Race rules",
+				isPresented = Compose.cell(true),
+				detent = detent,
+				detents = { "medium", "large" } :: { SheetDetent },
+				scrollPolicy = "atLargestDetent" :: "atLargestDetent",
+				content = function()
+					return longContent(UI, Host)
+				end,
+			},
+		}
+	end, { size = Vector2.new(1280, 720), frames = 30 })
+	local panel = visibleNamed(t, stage, "SheetPanel")
+	t.check("the sheet shows", panel ~= nil)
+	if not panel then
+		return
+	end
+	t.stable(panel)
+	local detectors = {}
+	for _, node in panel:GetDescendants() do
+		if node:IsA("UIDragDetector") then
+			table.insert(detectors, node.Name)
 		end
 	end
-)
+	t.note("drag detectors", detectors)
+	t.check("the panel carries native drag detectors", #detectors >= 1, detectors)
+	local body = t.find(panel, "SheetContent")
+	t.check(
+		"below the tallest detent the body does not scroll",
+		body and body.ScrollingEnabled == false,
+		body and body.ScrollingEnabled
+	)
+	detent:set("large")
+	t.settle(20)
+	t.stable(panel)
+	t.check(
+		"at the tallest detent the body scrolls",
+		body and body.ScrollingEnabled == true,
+		body and body.ScrollingEnabled
+	)
+	t.check(
+		"the body overflows at the tallest detent",
+		body and body.AbsoluteCanvasSize.Y > body.AbsoluteWindowSize.Y + 1,
+		body and { body.AbsoluteCanvasSize, body.AbsoluteWindowSize }
+	)
+	copyFits(t, "at the tallest detent", body)
+end)
 
-add(
-	"sheet-scroll-policy-and-detectors",
-	{ "post-overlays-128", "post-overlays-129", "post-overlays-131", "post-overlays-134", "post-overlays-137" },
-	function(t)
-		t.note(
-			"not checked",
-			"flick projection, settle speed, drag slop, input-class cancel and the downward pull at the tallest detent all need a drag or touch, which the runner cannot send"
-		)
-		local detent
-		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			detent = Compose.cell("medium")
-			return Host.Frame "Board" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				UI.Sheet "Rules" {
-					title = "Race rules",
-					isPresented = Compose.cell(true),
-					detent = detent,
-					detents = { "medium", "large" } :: { SheetDetent },
-					scrollPolicy = "atLargestDetent" :: "atLargestDetent",
-					content = function()
-						return longContent(UI, Host)
-					end,
-				},
-			}
-		end, { size = Vector2.new(1280, 720), frames = 30 })
-		local panel = visibleNamed(t, stage, "SheetPanel")
-		t.check("the sheet shows", panel ~= nil)
-		if not panel then
-			return
-		end
-		t.stable(panel)
-		local detectors = {}
-		for _, node in panel:GetDescendants() do
-			if node:IsA("UIDragDetector") then
-				table.insert(detectors, node.Name)
-			end
-		end
-		t.note("drag detectors", detectors)
-		t.check("the panel carries native drag detectors", #detectors >= 1, detectors)
-		local body = t.find(panel, "SheetContent")
-		t.check(
-			"below the tallest detent the body does not scroll",
-			body and body.ScrollingEnabled == false,
-			body and body.ScrollingEnabled
-		)
-		detent:set("large")
-		t.settle(20)
-		t.stable(panel)
-		t.check(
-			"at the tallest detent the body scrolls",
-			body and body.ScrollingEnabled == true,
-			body and body.ScrollingEnabled
-		)
-		t.check(
-			"the body overflows at the tallest detent",
-			body and body.AbsoluteCanvasSize.Y > body.AbsoluteWindowSize.Y + 1,
-			body and { body.AbsoluteCanvasSize, body.AbsoluteWindowSize }
-		)
-		copyFits(t, "at the tallest detent", body)
-	end
-)
-
-add(
-	"sheet-room-hug-hero-short",
-	{ "post-overlays-144", "post-overlays-146", "post-overlays-148", "post-overlays-150" },
-	function(t)
-		t.note("not checked", "the on-screen keyboard lift (the runner has no on-screen keyboard)")
-		for _, entry in
-			{ { "desktop" :: unknown, Vector2.new(1280, 720) }, { "phone" :: unknown, Vector2.new(390, 844) } }
-		do
-			local where, size = entry[1] :: any, entry[2] :: any
-			local stage, built = scenario(t, "sheet", size)
-			built.steps.lobby()
-			t.settle(30)
-			local panel = visibleNamed(t, stage, "SheetPanel")
-			t.check(where .. " the lobby sheet shows", panel ~= nil)
-			if panel then
-				t.stable(panel)
-				t.inside(where .. " the sheet inside the screen", panel, stage, 1)
-				local room, body = t.find(panel, "Room"), t.find(panel, "SheetContent")
-				t.check(
-					where .. " the hug sheet keeps its regions pinned",
-					room and room.ScrollingEnabled == false,
-					room and room.ScrollingEnabled
-				)
-				t.check(
-					where .. " the hug sheet fits its whole body",
-					body and body.AbsoluteCanvasSize.Y <= body.AbsoluteWindowSize.Y + 1,
-					body and { body.AbsoluteCanvasSize, body.AbsoluteWindowSize }
-				)
-				local text = t.find(panel, "LobbyBody")
-				t.check(
-					where .. " the lobby text shows in full",
-					text ~= nil and whole(t, text) and t.fits(text),
-					text and { t.rect(text), text.TextBounds }
-				)
-				t.check(
-					where .. " the hug sheet is shorter than the large detent",
-					panel.AbsoluteSize.Y < size.Y * 0.95 - 1,
-					panel.AbsoluteSize
-				)
-				local strip, banner, utilities =
-					t.find(panel, "Strip"), t.find(panel, "Banner"), t.find(panel, "Utilities")
-				t.check(
-					where .. " the content hero has its close strip",
-					strip ~= nil and strip.AbsoluteSize.Y >= 43.5,
-					strip and strip.AbsoluteSize
-				)
-				if strip and banner then
-					t.check(
-						where .. " the hero content starts below the strip",
-						banner.AbsolutePosition.Y >= t.rect(strip).b - 0.5,
-						{ t.rect(strip), t.rect(banner) }
-					)
-				end
-				if utilities and banner then
-					t.check(
-						where .. " the close does not cover the hero content",
-						not overlap(t.rect(utilities), t.rect(banner)),
-						{ t.rect(utilities), t.rect(banner) }
-					)
-				end
-				for _, name in { "NotNow", "Join" } do
-					local action = t.find(panel, name)
-					t.check(
-						`{where} {name} shows in full`,
-						action ~= nil and whole(t, action),
-						action and t.rect(action)
-					)
-				end
-			end
-			t.cleanup()
-		end
-		local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
+add("sheet-room-hug-hero-short", {}, function(t)
+	t.note("not checked", "the on-screen keyboard lift (the runner has no on-screen keyboard)")
+	for _, entry in { { "desktop" :: unknown, Vector2.new(1280, 720) }, { "phone" :: unknown, Vector2.new(390, 844) } } do
+		local where, size = entry[1] :: any, entry[2] :: any
+		local stage, built = scenario(t, "sheet", size)
 		built.steps.lobby()
 		t.settle(30)
 		local panel = visibleNamed(t, stage, "SheetPanel")
-		t.check("short: the lobby sheet shows", panel ~= nil)
+		t.check(where .. " the lobby sheet shows", panel ~= nil)
 		if panel then
 			t.stable(panel)
+			t.inside(where .. " the sheet inside the screen", panel, stage, 1)
 			local room, body = t.find(panel, "Room"), t.find(panel, "SheetContent")
 			t.check(
-				"short: the regions unpin into one scroller",
-				room and room.ScrollingEnabled == true,
+				where .. " the hug sheet keeps its regions pinned",
+				room and room.ScrollingEnabled == false,
 				room and room.ScrollingEnabled
 			)
 			t.check(
-				"short: the body no longer scrolls on its own",
-				body and body.ScrollingEnabled == false,
-				body and body.ScrollingEnabled
+				where .. " the hug sheet fits its whole body",
+				body and body.AbsoluteCanvasSize.Y <= body.AbsoluteWindowSize.Y + 1,
+				body and { body.AbsoluteCanvasSize, body.AbsoluteWindowSize }
 			)
-			t.inside("short: the sheet inside the screen", panel, stage, 1)
-			if room then
-				room.CanvasPosition = Vector2.new(0, math.max(0, room.AbsoluteCanvasSize.Y - room.AbsoluteWindowSize.Y))
-				t.settle(6)
-				local join = t.find(room, "Join")
+			local text = t.find(panel, "LobbyBody")
+			t.check(
+				where .. " the lobby text shows in full",
+				text ~= nil and whole(t, text) and t.fits(text),
+				text and { t.rect(text), text.TextBounds }
+			)
+			t.check(
+				where .. " the hug sheet is shorter than the large detent",
+				panel.AbsoluteSize.Y < size.Y * 0.95 - 1,
+				panel.AbsoluteSize
+			)
+			local strip, banner, utilities = t.find(panel, "Strip"), t.find(panel, "Banner"), t.find(panel, "Utilities")
+			t.check(
+				where .. " the content hero has its close strip",
+				strip ~= nil and strip.AbsoluteSize.Y >= 43.5,
+				strip and strip.AbsoluteSize
+			)
+			if strip and banner then
 				t.check(
-					"short: the last action is reachable at the end of the room",
-					join ~= nil and whole(t, join),
-					join and { t.rect(join), t.clipped(join) }
+					where .. " the hero content starts below the strip",
+					banner.AbsolutePosition.Y >= t.rect(strip).b - 0.5,
+					{ t.rect(strip), t.rect(banner) }
 				)
 			end
+			if utilities and banner then
+				t.check(
+					where .. " the close does not cover the hero content",
+					not overlap(t.rect(utilities), t.rect(banner)),
+					{ t.rect(utilities), t.rect(banner) }
+				)
+			end
+			for _, name in { "NotNow", "Join" } do
+				local action = t.find(panel, name)
+				t.check(`{where} {name} shows in full`, action ~= nil and whole(t, action), action and t.rect(action))
+			end
+		end
+		t.cleanup()
+	end
+	local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
+	built.steps.lobby()
+	t.settle(30)
+	local panel = visibleNamed(t, stage, "SheetPanel")
+	t.check("short: the lobby sheet shows", panel ~= nil)
+	if panel then
+		t.stable(panel)
+		local room, body = t.find(panel, "Room"), t.find(panel, "SheetContent")
+		t.check(
+			"short: the regions unpin into one scroller",
+			room and room.ScrollingEnabled == true,
+			room and room.ScrollingEnabled
+		)
+		t.check(
+			"short: the body no longer scrolls on its own",
+			body and body.ScrollingEnabled == false,
+			body and body.ScrollingEnabled
+		)
+		t.inside("short: the sheet inside the screen", panel, stage, 1)
+		if room then
+			room.CanvasPosition = Vector2.new(0, math.max(0, room.AbsoluteCanvasSize.Y - room.AbsoluteWindowSize.Y))
+			t.settle(6)
+			local join = t.find(room, "Join")
+			t.check(
+				"short: the last action is reachable at the end of the room",
+				join ~= nil and whole(t, join),
+				join and { t.rect(join), t.clipped(join) }
+			)
 		end
 	end
-)
+end)
 
 local function themeNamed(t: any, key: string): any
 	for _, entry in t.themes do
@@ -1123,7 +1104,7 @@ local function themeNamed(t: any, key: string): any
 	return nil
 end
 
-add("snackbar-art-carve", { "post-overlays-070" }, function(t)
+add("snackbar-art-carve", {}, function(t)
 	for _, key in { "pixelquest", "fantasyornate" } do
 		local theme = themeNamed(t, key)
 		if not theme then
@@ -1188,7 +1169,7 @@ add("snackbar-art-carve", { "post-overlays-070" }, function(t)
 	end
 end)
 
-add("snackbar-paint-order", { "post-overlays-071" }, function(t)
+add("snackbar-paint-order", {}, function(t)
 	local calloutOn, dialogOn
 	local trigger
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -1291,7 +1272,7 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "post-overlays-050" }, function(t)
+add("snackbar-composition-widths", {}, function(t)
 	local long =
 		"Offline: your lap times will upload when you reconnect to the race servers. Keep driving; nothing is lost."
 	for _, entry in
@@ -1491,7 +1472,7 @@ end
 
 interactive(
 	"menu-real-pad-opens-and-closes",
-	{ "post-menu-01" },
+	{},
 	"with the Options trigger selected: ButtonA, step opened; ButtonB, step closed; ButtonA, step opened; ButtonB, step closed",
 	function(t)
 		local value: { [string]: any } = {}
@@ -1544,7 +1525,7 @@ interactive(
 
 interactive(
 	"popover-real-pad-and-trigger-click",
-	{ "post-overlays-024", "post-overlays-028" },
+	{},
 	"with Open selected: ButtonA, step opened; ButtonB, step cancelled; step reopen; click the trigger path it notes with the mouse; step clicked",
 	function(t)
 		local value: { [string]: any } = { dismissed = {}, changes = {} }
@@ -1637,7 +1618,7 @@ interactive(
 
 interactive(
 	"dialog-short-room-pad-walk",
-	{ "post-overlays-012" },
+	{},
 	"press DPadDown until the last action is selected, then step walked",
 	function(t)
 		local value: { [string]: any } = {}
@@ -1669,38 +1650,32 @@ interactive(
 	}
 )
 
-interactive(
-	"sheet-short-room-pad-walk",
-	{ "post-overlays-144" },
-	"press DPadDown until Join is selected, then step walked",
-	function(t)
-		local value: { [string]: any } = {}
-		local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
-		built.steps.lobby()
-		t.settle(30)
-		value.panel = visibleNamed(t, stage, "SheetPanel")
-		value.room = value.panel and t.find(value.panel, "Room")
-		t.check("the short sheet shows with a scrolling room", value.room ~= nil and value.room.ScrollingEnabled)
-		t.check("the room is never a selection stop", value.room ~= nil and value.room.Selectable == false)
-		t.note("first selection", selectedName())
-		return value
+interactive("sheet-short-room-pad-walk", {}, "press DPadDown until Join is selected, then step walked", function(t)
+	local value: { [string]: any } = {}
+	local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
+	built.steps.lobby()
+	t.settle(30)
+	value.panel = visibleNamed(t, stage, "SheetPanel")
+	value.room = value.panel and t.find(value.panel, "Room")
+	t.check("the short sheet shows with a scrolling room", value.room ~= nil and value.room.ScrollingEnabled)
+	t.check("the room is never a selection stop", value.room ~= nil and value.room.Selectable == false)
+	t.note("first selection", selectedName())
+	return value
+end, {
+	walked = function(t, value)
+		t.settle(10)
+		local last = lowestAction(value.panel, { "NotNow", "Join" })
+		t.check("the pad reached the last action", GuiService.SelectedObject == last, selectedName())
+		t.check("the room scrolled", value.room.CanvasPosition.Y > 0, value.room.CanvasPosition)
+		t.check(
+			"the last action is in view inside the room",
+			last ~= nil and whole(t, last),
+			last and { t.rect(last), t.clipped(last), t.rect(value.room) }
+		)
 	end,
-	{
-		walked = function(t, value)
-			t.settle(10)
-			local last = lowestAction(value.panel, { "NotNow", "Join" })
-			t.check("the pad reached the last action", GuiService.SelectedObject == last, selectedName())
-			t.check("the room scrolled", value.room.CanvasPosition.Y > 0, value.room.CanvasPosition)
-			t.check(
-				"the last action is in view inside the room",
-				last ~= nil and whole(t, last),
-				last and { t.rect(last), t.clipped(last), t.rect(value.room) }
-			)
-		end,
-	}
-)
+})
 
-add("popover-capped-follows-a-shrinking-window", { "post-overlays-033" }, function(t)
+add("popover-capped-follows-a-shrinking-window", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
 	local opened
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -1788,7 +1763,7 @@ local function grown(t: any, base: any, offset: number): any
 	return package
 end
 
-add("sheet-hug-follows-live-copy", { "post-overlays-150" }, function(t)
+add("sheet-hug-follows-live-copy", {}, function(t)
 	local copy, builds, themeCell = nil, 0, nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		themeCell = env.theme

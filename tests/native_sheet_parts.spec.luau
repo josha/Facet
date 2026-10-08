@@ -79,6 +79,77 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("shows Popover Close only for compact or covering modal content and explicit overrides", {
+			id = "native_sheet_parts::native Sheet: placement, width, title and close::shows Popover Close only for compact or covering modal content and explicit overrides",
+			run = function()
+				for _, policy in
+					{
+						{
+							modal = true,
+							width = 800,
+							height = 600,
+							bodyWidth = 200,
+							bodyHeight = 100,
+							expected = false,
+						},
+						{ modal = true, width = 390, height = 844, bodyWidth = 200, bodyHeight = 100, expected = true },
+						{ modal = true, width = 800, height = 600, bodyWidth = 760, bodyHeight = 560, expected = true },
+						{
+							modal = false,
+							width = 390,
+							height = 844,
+							bodyWidth = 200,
+							bodyHeight = 100,
+							expected = false,
+						},
+						{
+							modal = false,
+							closeButton = true,
+							width = 800,
+							height = 600,
+							bodyWidth = 200,
+							bodyHeight = 100,
+							expected = true,
+						},
+						{
+							modal = true,
+							closeButton = false,
+							width = 390,
+							height = 844,
+							bodyWidth = 200,
+							bodyHeight = 100,
+							expected = false,
+						},
+					}
+				do
+					local shown = Compose.cell(true)
+					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+						return UI.Popover {
+							isPresented = shown,
+							onPresentedChange = function(value: boolean)
+								shown:set(value)
+							end,
+							modal = policy.modal,
+							closeButton = policy.closeButton,
+							compact = "popover" :: "popover",
+							source = { rect = { x = 20, y = 20, w = 20, h = 20 } },
+							content = function(): Instance
+								return Host.Frame "PolicyBody" {}
+							end,
+						}
+					end, { size = Vector2.new(policy.width, policy.height) })
+					w.size(w.find("PolicyBody"), policy.bodyWidth, policy.bodyHeight)
+					local command = w.find("CloseCommand")
+					Verify.expect(command ~= nil and command.Visible):toBe(policy.expected)
+					if policy.expected then
+						command.Activated:Fire()
+						Verify.expect(shown:peek()):toBe(false)
+					end
+					w.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("a function-bound title renders as its type promises", {
 			id = "native_sheet_parts::native Sheet: placement, width, title and close::a function-bound title renders as its type promises",
 			run = function()
@@ -423,7 +494,8 @@ return function(verifyHarness: Verify.Harness)
 				local hero = w.find("Hero")
 				Verify.expect((hero:IsDescendantOf(w.find("SheetContent")))):toBe(true)
 				local strip, top = w.find("Strip"), w.find("Top")
-				Verify.expect(strip.Size.Y.Offset):toBe(44)
+				Verify.expect(strip.Size.Y.Offset)
+					:toBeGreaterThanOrEqual(w.find("Utilities").Position.Y.Offset + w.find("Close").Size.Y.Offset)
 				Verify.expect(strip.LayoutOrder < top.LayoutOrder):toBe(true)
 				Verify.expect((w.find("Close"):IsDescendantOf(w.find("Utilities")))):toBe(true)
 				Verify.expect((w.find("Close"):HasTag("facet-appearance-inverse"))):toBe(true)

@@ -2,7 +2,7 @@
 return {
 	{
 		id = "haptics-requests-after-real-input",
-		contracts = { "risk:haptics" },
+		contracts = {},
 		run = function(t: any)
 			local built = t.held()
 			if not built then

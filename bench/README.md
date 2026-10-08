@@ -18,6 +18,10 @@ The original shadow storm refreshed and linted 100 unchanged shadows; it did not
 
 The microbenchmarks retain 100 unbatched HUD writes, 200 sparse chains, 50 keyed mutation entries, 50 mounted text writes, the 3,281 authored-view ramp (with additional native layout Instances), the eight-row/two-column Table, eight resize moves, the 24-character typing buffer, and 100 animated rows. Inherited mount state now uses the engine CanvasGroup. Both animation subjects retain one shared source and 100 bound animated rows. Explicit animation writes the shared height target; declarative animation derives height from a shared boolean. The removed Facet parent-animation APIs have no direct timing equivalent. The CPU yardstick and sample counts remain unchanged.
 
-`workload_fidelity.json` records the original content, mutations, cadence, population, warmup and sampling for all 27 controlled subjects, plus all 13 microbenchmarks and the CPU yardstick. Both timing commands require its verified status and embed the receipt in their artifacts. Deterministic workload tests check sampling, one-hot state changes, image ownership and accounting, retained navigation pages and 60-frame settling, actual theme art, and native intermediate motion. Earlier native timing runs made before this audit are invalid for parity comparison.
+Deterministic workload tests check sampling, state changes, image ownership
+and accounting, retained navigation pages, settling, theme art and native motion.
+The sampling case in `tests/native_perf.spec.luau` checks the sample count and
+warmup of each controlled scene. The timing commands execute the current scenes
+and compare their results with the unchanged budgets.
 
 A trend-budget pass is not performance parity. Compare raw timings with their historical observed values as well as normalized microbenchmark ratios. Identify increases above 10% separately from the unchanged regression thresholds, and state whether the original and candidate were measured in the same window.

@@ -137,7 +137,11 @@ return function(verifyHarness: Verify.Harness)
 							Verify.expect(w.find("Readout").LayoutOrder):toBe(2)
 						end
 						w.settings.set("input", "pointer")
-						Verify.expect(root:GetAttribute(key) ~= "sheet"):toBe(true)
+						if kind == "date" then
+							Verify.expect(root:GetAttribute(key)):toBe("sheet")
+						else
+							Verify.expect(root:GetAttribute(key) ~= "sheet"):toBe(true)
+						end
 						if kind == "color" then
 							Verify.expect(w.find("Readout").LayoutOrder):toBe(5)
 						end

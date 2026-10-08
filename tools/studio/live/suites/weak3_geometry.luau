@@ -86,7 +86,7 @@ local function labelHolder(t: any, text: any, width: any, extra: { [string]: any
 	end, options or { size = Vector2.new(800, 400) })
 end
 
-add("label-middle-truncation-real-bounds", { "mech2-46" }, function(t)
+add("label-middle-truncation-real-bounds", {}, function(t)
 	local Compose: ComposeModule = t.Facet.Compose
 	local width = Compose.cell(60)
 	local stage = labelHolder(t, COASTAL, width)
@@ -159,7 +159,7 @@ add("label-middle-truncation-real-bounds", { "mech2-46" }, function(t)
 	t.check("the accented cut fits 90 px", cut ~= nil and cut.TextBounds.X <= 90.5, cut and cut.TextBounds)
 end)
 
-add("label-middle-truncation-follows-a-theme-text-change", { "mech2-46" }, function(t)
+add("label-middle-truncation-follows-a-theme-text-change", {}, function(t)
 	local Compose: ComposeModule = t.Facet.Compose
 	local base = t.themes[1].package
 	local themeCell: any
@@ -238,7 +238,7 @@ local function fitBox(t: any, text: string, w: number, h: number, textSize: any,
 	return t.find(stage, "Cta")
 end
 
-add("label-text-size-fit-real-engine", { "mech3-83" }, function(t)
+add("label-text-size-fit-real-engine", {}, function(t)
 	local base = t.themes[1].package
 	local body = base.metrics.typography.body.size
 	local caption = base.metrics.typography.caption.size
@@ -330,7 +330,7 @@ add("label-text-size-fit-real-engine", { "mech3-83" }, function(t)
 	end
 end)
 
-add("uicorner-per-corner-probe", { "post-recipes-09" }, function(t)
+add("uicorner-per-corner-probe", {}, function(t)
 	local corner = Instance.new("UICorner")
 	local found = {}
 	for _, name in

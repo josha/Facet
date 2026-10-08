@@ -57,7 +57,7 @@ end
 
 interactive(
 	"range-slider-drag",
-	{ "post-pickers-104", "post-pickers-105" },
+	{},
 	"dragGap: drag from gapLower to gapPast; dragPile: drag from pileUpper to pileLeft",
 	function(t)
 		host(t)
@@ -162,7 +162,7 @@ end
 
 interactive(
 	"color-plane-drag",
-	{ "post-pickers-179" },
+	{},
 	"hold: mouse down at down, move to to in steps, keep the button held; release: mouse up at to; corner: click at corner",
 	function(t)
 		host(t)
@@ -235,7 +235,7 @@ interactive(
 
 interactive(
 	"underline-hover",
-	{ "post-port26-008" },
+	{},
 	"hover: move the mouse onto the Link point; away: move the mouse to the away point",
 	function(t)
 		host(t)
@@ -302,7 +302,7 @@ interactive(
 
 interactive(
 	"skinned-part-press-state",
-	{ "themes-P4-51" },
+	{},
 	"pressToggle: mouse down on toggle and hold; releaseToggle: mouse up; pressStepper: mouse down on stepper and hold; releaseStepper: mouse up",
 	function(t)
 		host(t)

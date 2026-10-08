@@ -130,23 +130,19 @@ local function demos(): { string }
 	return out
 end
 
-add(
-	"gallery-dpad-walk",
-	{ "apps2-10", "apps2-32", "apps2-43", "apps2-68", "apps2-169", "apps-192", "navigation-3-68" },
-	function(t: any)
-		for _, id in demos() do
-			local seen: { [Instance]: boolean } = {}
-			local pool = math.max(walk(t, id, "DPadDown", 40, seen), walk(t, id, "DPadRight", 12, seen))
-			local count = 0
-			for _ in seen do
-				count += 1
-			end
-			t.check(`{id} the d-pad moves the selection from control to control`, count >= math.min(3, pool), count)
+add("gallery-dpad-walk", {}, function(t: any)
+	for _, id in demos() do
+		local seen: { [Instance]: boolean } = {}
+		local pool = math.max(walk(t, id, "DPadDown", 40, seen), walk(t, id, "DPadRight", 12, seen))
+		local count = 0
+		for _ in seen do
+			count += 1
 		end
+		t.check(`{id} the d-pad moves the selection from control to control`, count >= math.min(3, pool), count)
 	end
-)
+end)
 
-add("picker-activates-by-pad", { "paint-27" }, function(t: any)
+add("picker-activates-by-pad", {}, function(t: any)
 	local layer = gallery()
 	api("show", "all-controls")
 	t.settle(30)
@@ -256,13 +252,9 @@ end
 for _, id in
 	{ "all-controls", "collections", "motion-layout", "hud", "radial-menu", "ex02", "ex03", "ex05", "ex06", "ex07" }
 do
-	add(
-		"reach-" .. id,
-		{ "apps2-10", "apps2-32", "apps2-43", "apps2-68", "apps2-169", "apps-192", "navigation-3-68" },
-		function(t: any)
-			reach(t, id)
-		end
-	)
+	add("reach-" .. id, {}, function(t: any)
+		reach(t, id)
+	end)
 end
 
 add("value-control-limit-hands-the-move-to-the-engine", { "input-engine-handoff" }, function(t: any)

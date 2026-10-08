@@ -374,10 +374,16 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						return if target and layer(use).kind == "glow" then { partOf(target) or target } else {}
 					end,
 					render = function(item: ComposeTypes.Readable<GuiObject>): Folder
-						local properties = table.clone(glowProperties)
-						properties.Name = "FacetFocusGlow"
 						runtime.mount(function()
-							return Host.UIShadow(properties)
+							return Host.UIStroke {
+								Name = "FacetFocusGlow",
+								ApplyStrokeMode = E.ApplyStrokeMode.Border,
+								BorderStrokePosition = E.BorderStrokePosition.Outer,
+								Color = color,
+								Enabled = glowProperties.Enabled,
+								Transparency = glowProperties.Transparency,
+								Thickness = thickness,
+							}
 						end, item:peek())
 						return Host.Folder({ Name = "FocusGlowOwner" })
 					end,

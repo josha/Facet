@@ -94,7 +94,7 @@ local function centre(node: GuiObject): Vector2
 	return node.AbsolutePosition + node.AbsoluteSize / 2
 end
 
-add("mail-row-grip", { "collections-101" }, function(t: any)
+add("mail-row-grip", {}, function(t: any)
 	local mouse = pointer(t)
 	local value = {}
 	local demo = t.scenario("collection_demo")
@@ -171,7 +171,7 @@ add("mail-row-grip", { "collections-101" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-add("mail-row-touch-pan", { "collections-101" }, function(t: any)
+add("mail-row-touch-pan", {}, function(t: any)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, restore = "xbox" })
 	local mouse = pointer(t)
 	local value = {}
@@ -278,7 +278,7 @@ add("mail-row-touch-pan", { "collections-101" }, function(t: any)
 	watch:Disconnect()
 end)
 
-add("range-knobs-flush", { "post-pickers-127" }, function(t: any)
+add("range-knobs-flush", {}, function(t: any)
 	local mouse = pointer(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)

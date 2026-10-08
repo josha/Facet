@@ -137,30 +137,29 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case(
-			"an alert is whole once it has rested under none and grows without scaling text under normal",
-			{
-				id = "native_motion_level::motion levels::an alert is whole once it has rested under none and grows without scaling text under normal",
-				run = function()
-					local w, shown = alertWorld({ motionLevel = "none" })
-					shown:set(true)
-					local panel = w.find("AlertPanel")
-					w.find("AlertContent").Parent.AbsoluteSize = w.Vector2.new(300, 60)
-					w.advance(1 / 60, 2)
-					Verify.expect((panel:FindFirstChild("PresentationContent", true))):toBeNil()
-					Verify.expect((fadeKit.of(panel))):toBe(0)
-					w.stop()
-					local w2, shown2 = alertWorld({ motionLevel = "normal" })
-					shown2:set(true)
-					local panel2 = w2.find("AlertPanel")
-					panel2.AbsoluteSize = w2.Vector2.new(440, 176)
-					w2.find("AlertContent").Parent.AbsoluteSize = w2.Vector2.new(300, 60)
-					w2.advance(1 / 60, 3)
-					Verify.expect(panel2.Size.X.Offset < 440):toBe(true)
-					Verify.expect(panel2:FindFirstChild("PresentationContent", true) ~= nil):toBe(true)
-					w2.stop()
-				end,
-			}
-		)
+		verifyHarness:case("an alert is whole once it has rested under none and scales the whole panel under normal", {
+			id = "native_motion_level::motion levels::an alert is whole once it has rested under none and scales the whole panel under normal",
+			run = function()
+				local w, shown = alertWorld({ motionLevel = "none" })
+				shown:set(true)
+				local panel = w.find("AlertPanel")
+				w.find("AlertContent").Parent.AbsoluteSize = w.Vector2.new(300, 60)
+				w.advance(1 / 60, 2)
+				Verify.expect((panel:FindFirstChild("PresentationContent", true))):toBeNil()
+				Verify.expect((fadeKit.of(panel))):toBe(0)
+				w.stop()
+				local w2, shown2 = alertWorld({ motionLevel = "normal" })
+				shown2:set(true)
+				local panel2 = w2.find("AlertPanel")
+				panel2.AbsoluteSize = w2.Vector2.new(440, 176)
+				w2.find("AlertContent").Parent.AbsoluteSize = w2.Vector2.new(300, 60)
+				w2.advance(1 / 60, 3)
+				Verify.expect(panel2.Size.X.Offset):toBe(440)
+				Verify.expect(w2.find("PresentationPaint").Size.X.Offset):toBe(440)
+				Verify.expect(w2.find("PresentationScale").Scale < 1):toBe(true)
+				Verify.expect(panel2:FindFirstChild("PresentationContent", true) ~= nil):toBe(true)
+				w2.stop()
+			end,
+		})
 	end)
 end

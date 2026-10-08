@@ -106,7 +106,7 @@ end
 
 local LEAF_ZONES = { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon" }
 
-add("hud-viewport-round-trip", { "apps-206", "apps-218", "apps-234" }, function(t)
+add("hud-viewport-round-trip", {}, function(t)
 	for _, a in SIZES do
 		local fresh = select(1, hud(t, a))
 		local expected = snapshot(t, fresh)
@@ -135,7 +135,7 @@ add("hud-viewport-round-trip", { "apps-206", "apps-218", "apps-234" }, function(
 	end
 end)
 
-add("hud-url-bar-reserves-its-height", { "apps-206" }, function(t)
+add("hud-url-bar-reserves-its-height", {}, function(t)
 	for _, size in { Vector2.new(1079, 809), Vector2.new(691, 360) } do
 		local stage, built = hud(t, size)
 		local body = t.find(stage, "HudBody")
@@ -170,7 +170,7 @@ add("hud-url-bar-reserves-its-height", { "apps-206" }, function(t)
 	end
 end)
 
-add("hud-orientation-cycles", { "apps-210" }, function(t)
+add("hud-orientation-cycles", {}, function(t)
 	local landscape, portrait = Vector2.new(691, 360), Vector2.new(360, 691)
 	local fresh = hud(t, landscape)
 	local expected = snapshot(t, fresh)
@@ -195,7 +195,7 @@ add("hud-orientation-cycles", { "apps-210" }, function(t)
 	end
 end)
 
-add("hud-heights-keep-zones-apart", { "apps-214" }, function(t)
+add("hud-heights-keep-zones-apart", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1079, 809))
 	local stage = hud(t, size)
 	local lanes: { [string]: { string } } = {
@@ -233,7 +233,7 @@ add("hud-heights-keep-zones-apart", { "apps-214" }, function(t)
 	end
 end)
 
-add("hud-notice-clear-of-zones", { "apps-221" }, function(t)
+add("hud-notice-clear-of-zones", {}, function(t)
 	for _, size in { Vector2.new(1280, 800), Vector2.new(390, 844) } do
 		local stage, built = hud(t, size)
 		built.steps.notify()
@@ -252,7 +252,7 @@ add("hud-notice-clear-of-zones", { "apps-221" }, function(t)
 	end
 end)
 
-add("circular-value-inside-gauge", { "themes-P1-11" }, function(t)
+add("circular-value-inside-gauge", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.ProgressView "Ring" {
 			value = 0.75,
@@ -277,7 +277,7 @@ add("circular-value-inside-gauge", { "themes-P1-11" }, function(t)
 	)
 end)
 
-add("large-text-gauge-value-below-ring", { "themes-P1-14" }, function(t)
+add("large-text-gauge-value-below-ring", {}, function(t)
 	t.note("preferred text size", t.environment.preferredTextSize)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.ProgressView "Ring" {
@@ -349,7 +349,7 @@ local LAPS = {
 	{ id = "3", name = "Rally", laps = 4 },
 }
 
-add("table-columns-follow-the-header", { "collections-133", "collections-134", "collections-207" }, function(t)
+add("table-columns-follow-the-header", {}, function(t)
 	local shapes = {
 		{ name = "viewport", options = {} },
 		{ name = "content", options = { scrolls = false } },
@@ -441,7 +441,7 @@ add("table-columns-follow-the-header", { "collections-133", "collections-134", "
 	end
 end)
 
-add("collapsed-column-details-target", { "collections-203" }, function(t)
+add("collapsed-column-details-target", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.Table "Grid" {
 			from = LAPS,
@@ -491,7 +491,7 @@ add("collapsed-column-details-target", { "collections-203" }, function(t)
 	t.check("a collapsed column shows Details", found > 0, found)
 end)
 
-add("playlist-resize-grip-touch-target", { "apps2-175" }, function(t)
+add("playlist-resize-grip-touch-target", {}, function(t)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch })
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
 	local result = api:Invoke("show", "ex02")
@@ -526,7 +526,7 @@ add("playlist-resize-grip-touch-target", { "apps2-175" }, function(t)
 	t.near("grip straddles the header cell right edge", g.x + g.w / 2, c.r, 0.5)
 end)
 
-add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
+add("gallery-current-tab-fill-at-first-frame", {}, function(t)
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
 	local gui = (game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild(
 		"FacetGallery"
@@ -579,7 +579,7 @@ add("gallery-current-tab-fill-at-first-frame", { "apps2-86" }, function(t)
 	check("after a round trip")
 end)
 
-add("coach-mark-clear-of-share-and-reset-floor", { "navigation-1-65" }, function(t)
+add("coach-mark-clear-of-share-and-reset-floor", {}, function(t)
 	local built
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		built = t.scenario("callout").build(t.context(UI, Host, Compose, env))
