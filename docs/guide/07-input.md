@@ -32,8 +32,7 @@ See [Selection](../reference/api.md#selection) for the full rules.
 Measured live in Studio with the Controller Emulator (studio-emulated, not a
 physical pad), with the `focus_probe` live suite and the Showcase.
 The emulator's stick is digital: every push is full deflection. Evidence:
-`artifacts/studio-live/focus-probe-t2.json` and the focus atlases in
-`tests/fixtures/focus_atlas`.
+the focus atlases in `tests/fixtures/focus_atlas`.
 
 | Id | Question | Measured (D-pad / stick / arrows) | Facet relies on the engine, or custom code |
 |---|---|---|---|

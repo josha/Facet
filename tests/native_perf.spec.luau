@@ -19,13 +19,64 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps every controlled sampling cadence fixed to the historical inventory", {
 			id = "native_perf::native benchmark workload contract::keeps every controlled sampling cadence fixed to the historical inventory",
 			run = function()
-				local audit = serde.decode("json", fs.readFile("bench/workload_fidelity.json"))
-				Verify.expect(#audit.scenes):toBe(#scenes)
-				for _, record in audit.scenes do
+				local sampling = {
+					{ name = "hud-binding-storm", samples = 240, warmup = 60 },
+					{ name = "settings-churn", samples = 240, warmup = 60 },
+					{ name = "scroll-focus-traversal", samples = 240, warmup = 60 },
+					{ name = "collection-mutation", samples = 240, warmup = 60 },
+					{ name = "animation-interruption", samples = 240, warmup = 60 },
+					{ name = "locale-textsize-change", samples = 240, warmup = 60 },
+					{ name = "async-image-burst", samples = 240, warmup = 60 },
+					{ name = "shadow-storm", samples = 240, warmup = 60 },
+					{ name = "virtual-list-scroll", samples = 160, warmup = 40 },
+					{ name = "native-scroll-drag", samples = 160, warmup = 40 },
+					{ name = "dense-hud", samples = 160, warmup = 40 },
+					{ name = "stylesheet-state-churn", samples = 160, warmup = 40 },
+					{ name = "async-image-grid", samples = 120, warmup = 30 },
+					{ name = "screen-lifecycle-churn", samples = 120, warmup = 30 },
+					{ name = "theme-swap-flat", samples = 160, warmup = 40 },
+					{ name = "theme-swap-metrics", samples = 160, warmup = 40 },
+					{ name = "dense-motion", samples = 160, warmup = 40 },
+					{ name = "control-motion", samples = 160, warmup = 40 },
+					{ name = "theme-swap-assets", samples = 160, warmup = 40 },
+					{ name = "lab-dense-scroll", samples = 120, warmup = 30 },
+					{ name = "lab-collection-churn", samples = 100, warmup = 25 },
+					{ name = "adaptive-navigation-images", samples = 120, warmup = 20 },
+					{ name = "navigation-customization", samples = 120, warmup = 20 },
+					{ name = "alert-present-dismiss", samples = 120, warmup = 30 },
+					{ name = "picker-menu-open-close", samples = 120, warmup = 30 },
+					{ name = "picker-segmented-textsize", samples = 120, warmup = 30 },
+					{ name = "radial-menu-open-close", samples = 120, warmup = 30 },
+				}
+				Verify.expect(#sampling):toBe(#scenes)
+				for _, record in sampling do
 					local scene = assert(registered[record.name])
 					Verify.expect(scene.samples):toBe(record.samples)
 					Verify.expect(scene.warmup):toBe(record.warmup)
 				end
+			end,
+		})
+
+		verifyHarness:case("counts segment controls instead of hidden caption measurements", {
+			id = "native_perf::native benchmark workload contract::counts segment controls instead of hidden caption measurements",
+			run = function()
+				local scene = registered["picker-segmented-textsize"]
+				local state = scene.setup(profiles.get("floorAndroid"))
+				local ok, err = pcall(function()
+					local hidden = 0
+					for _, node in state.target:GetDescendants() do
+						if node.ClassName == "TextLabel" and node.Name == "CaptionMeasure" and not node.Visible then
+							hidden += 1
+						end
+					end
+					Verify.expect(hidden):toBe(3)
+					local measurement = assert(scene.extras(state).segmented)
+					Verify.expect(measurement.segments):toBe(3)
+					Verify.expect(measurement.textSizeBefore ~= nil):toBe(true)
+					Verify.expect(measurement.textSizeAfter ~= measurement.textSizeBefore):toBe(true)
+				end)
+				scene.teardown(state)
+				assert(ok, err)
 			end,
 		})
 

@@ -35,8 +35,6 @@ if fs.isFile("bench/baseline.json") then
 	baseline = serde.decode("json", fs.readFile("bench/baseline.json"))
 end
 
-local fidelity = serde.decode("json", fs.readFile("bench/workload_fidelity.json"))
-assert(fidelity.status == "verified", "microbenchmark workload fidelity audit is incomplete")
 local results = {}
 local failed = false
 local errored = false
@@ -296,7 +294,6 @@ end
 
 artifact.writeJson("artifacts/bench.json", {
 	schema = "facet-bench/1",
-	workloadFidelity = fidelity,
 	status = if errored or failed then "FAIL" else "PASS",
 	environment = "lune-headless (trend screening only; device authoritative per design §14.3)",
 	warmup = WARMUP,

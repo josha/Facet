@@ -81,6 +81,37 @@ return function(verifyHarness: Verify.Harness)
 		return values
 	end
 	verifyHarness:suite("collection content boundary", function()
+		verifyHarness:case("keeps nested row controls above the swipe grip and accepts its touch context gesture", {
+			id = "native_collections::collection content boundary::keeps nested row controls above the swipe grip and accepts its touch context gesture",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local activated = 0
+				local Host = runtime.constructors
+				local stop, node: any = runtime.mount(function()
+					local spec: FixtureCollectionTypes.RowActionsSpec = {
+						content = Host.Frame {
+							UI.Button "Details" {
+								label = "Details",
+								onActivate = function()
+									activated += 1
+								end,
+							},
+						} :: GuiObject,
+						trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
+					}
+					return UI.RowActions(spec)
+				end, target)
+				local grip, button = node:FindFirstChild("SwipeGrip", true), node:FindFirstChild("Details", true)
+				Verify.expect(grip.ZIndex):toBeLessThan(button.ZIndex)
+				button.Activated:Fire()
+				Verify.expect(activated):toBe(1)
+				grip.TouchLongPress:Fire({}, engine.types.Enum.UserInputState.Begin)
+				Verify.expect(target:FindFirstChild("MenuPanel", true) ~= nil):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("clips oversized rendered content only when the cell policy requests it", {
 			id = "native_collections::collection content boundary::clips oversized rendered content only when the cell policy requests it",
 			run = function()
@@ -3838,6 +3869,53 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("Row actions under a reorder drag", function()
+		verifyHarness:case("keeps horizontal swipes separate from reorder and disables the grip with owned Edit", {
+			id = "native_collections::Row actions under a reorder drag::keeps horizontal swipes separate from reorder and disables the grip with owned Edit",
+			run = function()
+				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+				local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+				local stop, node: any = runtime.mount(function()
+					return UI.Table({
+						from = { { id = 1, name = "Neon" }, { id = 2, name = "Drift" } },
+						key = key,
+						itemSize = 40,
+						reorderable = true,
+						onReorder = function() end,
+						columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
+						rowActions = function(): FixtureCollectionTypes.RowActionsOptions
+							return { trailing = { { id = "remove", label = "Remove" } } }
+						end,
+					})
+				end, target)
+				local body = node:FindFirstChild("Body")
+				body.AbsoluteWindowSize = V2.new(400, 200)
+				body.Parent.AbsoluteSize = body.AbsoluteWindowSize
+				local row = body:FindFirstChild("Items"):FindFirstChild("1")
+				local grip = row:FindFirstChild("SwipeGrip", true)
+				grip.Parent.Parent.AbsoluteSize = V2.new(400, 40)
+				engine.heartbeat:Fire(1)
+				local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(100, 20, 0) }
+				nativeDrag.press(grip, press)
+				local activation = require("../src/ui/activation")
+				activation.drag(grip, "start", V2.new(100, 20))
+				Verify.expect(activation.drag(grip, "move", V2.new(50, 22))):toBe(false)
+				Verify.expect(node:FindFirstChild("DragImage", true)):toBeNil()
+				nativeDrag.move(
+					assert(ctx.config.userInputService),
+					{ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(50, 22, 0) }
+				)
+				Verify.expect(node:FindFirstChild("DragImage", true)):toBeNil()
+				nativeDrag.finish(assert(ctx.config.userInputService), press)
+				ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+				local edit = node:FindFirstChild("Edit", true)
+				edit.Activated:Fire()
+				Verify.expect(grip.Visible):toBe(false)
+				edit.Activated:Fire()
+				Verify.expect(grip.Visible):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("the drag image carries the row content without its open action tray", {
 			id = "native_collections::Row actions under a reorder drag::the drag image carries the row content without its open action tray",
 			run = function()

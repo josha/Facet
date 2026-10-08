@@ -328,13 +328,32 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			}
 			bodyProps[#bodyProps + 1] = limit
 			local children: { Types.Child } = { list, proposed, content }
-			if not chrome and spec.cancelPolicy ~= "none" and spec.closeButton ~= false then
+			local closeUnit = ctx.layoutUnit(layer)
+			local closeContentSize = if content:IsA("GuiObject")
+				then ctx.observe.AbsoluteSize(content :: GuiObject)
+				else Compose.cell(V2.zero)
+			if
+				spec.cancelPolicy ~= "none"
+				and spec.closeButton ~= false
+				and (not chrome or spec.closeButton == true)
+			then
 				if content:IsA("GuiObject") then
 					runtime.decorate(content, { LayoutOrder = 1 })
 				end
 				table.insert(
 					children,
 					UI.Button "CloseCommand" {
+						Visible = function(use: ComposeTypes.Use)
+							if spec.closeButton ~= nil then
+								return spec.closeButton
+							end
+							local box = safe(use)
+							local size = use(closeContentSize) :: Vector2
+							local unit = use(closeUnit)
+							return box.w / unit < 600
+								or box.w * box.h > 0
+									and (size.X + 2 * PADDING * unit) * (size.Y + 2 * PADDING * unit) >= box.w * box.h * 0.75
+						end,
 						name = "Close",
 						icon = "close",
 						LayoutOrder = 0,

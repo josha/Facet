@@ -21,17 +21,12 @@ directives and notices.
 
 ## Verification
 
-1. Use a checkout with Git history. Clone without `--depth`, or run
-   `git fetch --unshallow` in a shallow clone. The coverage audit reads the
-   pinned pre-cutover commit to account for removed and replaced specs. CI also
-   fetches this history.
-2. While you edit, run the targeted behavioral specs.
-3. Run `lune run tools/lune/verify full` for a completed change. Read its report,
-   including the unmapped legacy behavioral coverage. A passing subset from a
-   new runner is not full parity.
+1. While you edit, run the targeted behavioral specs.
+2. Run `lune run tools/lune/verify full` for a completed change. Read its report,
+   including failures and deferrals. A focused run is not full evidence.
 
 `tools/lune/gate.luau` declares every producer as one Verify gate. Verify runs
-the producers, bounds each process, keeps the logs and writes the outcome. A
+the producers, bounds each process, keeps the logs and writes the outcome.
 Each run writes its outcome to `artifacts/verify/native/gate/latest.json`. Use
 `--list` to see each producer, its tier and the main producer it replaces. Use
 `--only <producer>` for a focused run, `--rerun` to repeat what the last run
@@ -42,8 +37,6 @@ reports the deferral and continues. The `release` tier is the complete gate and
 is not releasable with a deferral. `python3 tools/package.py publish` accepts only a
 releasable `artifacts/verify/native/gate/latest.json` whose build binding matches
 the clean source.
-The [producer comparison](docs/guide/20-verification-parity.md#producers) lists
-each main producer and its native status.
 
 Specs return a registration function. The worker supplies a Verify harness. Use `harness:suite`, `harness:case`, and
 `Verify.expect(value):toBe(expected)`. Give each case an explicit, stable `id`.
@@ -51,10 +44,9 @@ Verify owns assertions, case cleanup, and reports. The consumer gate owns
 coverage and release acceptance.
 
 `tests/plan.json` declares the complete executable corpus. It lists the spec
-sources. Add a new source to that plan. There is no committed case list. The
-gate runs each case that a planned source registers. The replacement mapping
-of the retained `native_toast` source excludes it from the full plan. You can
-still run it with the single-source command.
+sources. Add a new source to that plan. The `plan` producer checks that each
+spec file on disk appears exactly once. There is no committed case list.
+The gate runs each case that a planned source registers.
 
 A slow case can require the `full` or `release` tier. Give the case the tag
 `tier:full` or `tier:release`.
@@ -73,10 +65,9 @@ dependency and is not part of the Facet model. Run
 mechanisms in `voidmeld/verify`, then update the pin. The consumer guide is
 [Verify's skill](tools/vendor/verify/.agents/skills/verify/SKILL.md).
 
-The [verification scope audit](docs/guide/18-verification-scope.md) records the
-substantial reduction from main and the unresolved coverage work. At this time,
-a native `full` run is a complete run of the candidate's checks. It is not
-equivalent to the historical coverage.
+The [verification scope](docs/guide/18-verification-scope.md) describes the
+current evidence. The current suite does not claim to equal the tests that
+existed before the native cutover.
 
 The `types` producer runs `python3 tools/check_types.py` with the old Luau type
 solver at the default analyzer limits. It must report no owned diagnostics and

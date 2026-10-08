@@ -433,7 +433,8 @@ return function(verifyHarness: Verify.Harness)
 				local compact = world({ style = "segmented" :: "segmented", controlSize = "compact" :: "compact" })
 				expect(find(compact.screen, "P").Size.Y.Offset):toBe(36)
 				for _, key in { "easy", "normal", "hard" } do
-					expect(find(compact.screen, key).Size.Y.Scale):toBe(1)
+					expect(find(compact.screen, key).Size.Y.Scale):toBe(0)
+					expect(find(compact.screen, key).Size.Y.Offset):toBe(30)
 				end
 				compact.stop()
 			end,

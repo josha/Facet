@@ -15,6 +15,11 @@ local function materialize(
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	if paintOnly then
+		if panel:HasTag("facet-panel") and panel:FindFirstChildWhichIsA("UIPadding") == nil then
+			runtime.mount(function()
+				return Host.UIPadding {}
+			end, panel)
+		end
 		local measured = supplied or ctx.layoutSize(panel)
 		local natural = Compose.cell(V2.zero)
 		local background = panel.BackgroundTransparency
@@ -53,8 +58,11 @@ local function materialize(
 						BackgroundColor3 = ctx.observeStyled.BackgroundColor3(panel),
 						BackgroundTransparency = background,
 						BorderSizePixel = panel.BorderSizePixel,
-						ClipsDescendants = true,
-						Size = D2.fromScale(1, 1),
+						ClipsDescendants = false,
+						Size = function(use: ComposeTypes.Use): UDim2
+							local size = use(natural)
+							return D2.fromOffset(size.X, size.Y)
+						end,
 						AnchorPoint = origin,
 						Position = function(use: ComposeTypes.Use): UDim2
 							local at = origin(use)
@@ -92,6 +100,54 @@ local function materialize(
 							}
 						end, paint)
 					end
+					local function contentSize(use: ComposeTypes.Use): Vector2
+						local size = use(natural)
+						local function inset(side: string, length: number): number
+							local value = if padding then padding:GetStyled("Padding" .. side) :: UDim else nil
+							return if value then value.Offset + value.Scale * length else 0
+						end
+						return V2.new(
+							math.max(0, size.X - inset("Left", size.X) - inset("Right", size.X)),
+							math.max(0, size.Y - inset("Top", size.Y) - inset("Bottom", size.Y))
+						)
+					end
+					local _, content = runtime.mount(function()
+						return Host.Frame "PresentationContent" {
+							BackgroundTransparency = 1,
+							Size = function(use: ComposeTypes.Use): UDim2
+								local size = contentSize(use)
+								return D2.fromOffset(size.X, size.Y)
+							end,
+							Host.UISizeConstraint { MinSize = contentSize, MaxSize = contentSize },
+						}
+					end, paint)
+					local function fitGroup(group: Instance)
+						if not group:IsA("CanvasGroup") then
+							return
+						end
+						runtime.decorate(group, {
+							AutomaticSize = E.AutomaticSize.None,
+							Size = function(use: ComposeTypes.Use): UDim2
+								local size = use(natural)
+								return D2.fromOffset(size.X, size.Y)
+							end,
+							Position = function(use: ComposeTypes.Use): UDim2
+								local size = use(natural)
+								local left = if padding then use(observePadding.PaddingLeft(padding)) else D2.new().X
+								local top = if padding then use(observePadding.PaddingTop(padding)) else D2.new().Y
+								return D2.fromOffset(
+									-left.Offset - left.Scale * size.X,
+									-top.Offset - top.Scale * size.Y
+								)
+							end,
+						})
+					end
+					fitGroup(parent)
+					runtime.connect(panel, "ChildAdded", function(child: Instance)
+						if child.Name == "Fade" then
+							fitGroup(child)
+						end
+					end)
 					local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
 					for _, child in children do
 						if
@@ -101,7 +157,7 @@ local function materialize(
 								and child.Name ~= "ChromeShadow"
 							) or child:IsA("UIGridStyleLayout")
 						then
-							(child :: Instance).Parent = paint
+							(child :: Instance).Parent = content :: Instance
 						end
 					end
 					local boundary = decoration(Compose, runtime, ctx.types, panel, paint)
@@ -111,7 +167,9 @@ local function materialize(
 					runtime.mount(function()
 						return Host.UISizeConstraint "PresentationSlotBounds" { MinSize = natural, MaxSize = natural }
 					end, panel)
-					materialize(ctx, paint, { Size = D2.fromScale(1, 1) }, scale, pivot, false, natural)
+					runtime.mount(function()
+						return Host.UIScale "PresentationScale" { Scale = scale }
+					end, paint)
 					if selected and ctx.config.guiService then
 						ctx.config.guiService.SelectedObject = selected
 					end

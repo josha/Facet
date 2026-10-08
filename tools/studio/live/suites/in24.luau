@@ -387,7 +387,7 @@ local function backButton(t: any, gui: Instance): any
 	return back
 end
 
-add("stack-keyboard-activate-and-back", { "navigation-3-20" }, function(t)
+add("stack-keyboard-activate-and-back", {}, function(t)
 	local io = device(t)
 	local value = stackProbe(t)
 	local nextButton = visibleNamed(t, value.gui, "Next")
@@ -421,7 +421,7 @@ add("stack-keyboard-activate-and-back", { "navigation-3-20" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("pad-stack-activate-and-back", { "navigation-3-20" }, function(t)
+add("pad-stack-activate-and-back", {}, function(t)
 	local io = device(t)
 	local value = stackProbe(t)
 	local nextButton = visibleNamed(t, value.gui, "Next")
@@ -492,7 +492,7 @@ local function playOf(value: any, id: string): any
 	return page and page:FindFirstChild("Play", true)
 end
 
-add("page-view-keyboard-pages-and-activates", { "navigation-3-41" }, function(t)
+add("page-view-keyboard-pages-and-activates", {}, function(t)
 	local io = device(t)
 	local value = pagesProbe(t)
 	local one = playOf(value, "one")
@@ -525,7 +525,7 @@ add("page-view-keyboard-pages-and-activates", { "navigation-3-41" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("pad-page-view-pages-and-activates", { "navigation-3-41" }, function(t)
+add("pad-page-view-pages-and-activates", {}, function(t)
 	local io = device(t)
 	local value = pagesProbe(t)
 	io.warm()
@@ -554,7 +554,7 @@ end)
 
 add(
 	"touch-page-view-swipes-one-page",
-	{ "navigation-3-38" },
+	{},
 	onPhone(function(t)
 		local io = device(t)
 		local value = pagesProbe(t)
@@ -602,7 +602,7 @@ add(
 	end)
 )
 
-add("page-view-affordances", { "navigation-3-43" }, function(t)
+add("page-view-affordances", {}, function(t)
 	local io = device(t)
 	local value = pagesProbe(t)
 	local indicators = t.find(value.stage, "Indicators")
@@ -662,7 +662,7 @@ end)
 
 add(
 	"touch-page-view-dots",
-	{ "navigation-3-43" },
+	{},
 	onPhone(function(t)
 		local io = device(t)
 		local value = pagesProbe(t)
@@ -696,7 +696,7 @@ add(
 	end)
 )
 
-add("component-setup-error-and-throwing-cleanup", { "apps-123" }, function(t)
+add("component-setup-error-and-throwing-cleanup", {}, function(t)
 	local Facet = t.Facet
 	local Compose: ComposeModule = Facet.Compose
 	local target = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
@@ -761,7 +761,7 @@ add("component-setup-error-and-throwing-cleanup", { "apps-123" }, function(t)
 	t.note("PlayerGui descendants before and after", { baseline, descendantCount() })
 end)
 
-add("compose-delivery-order", { "mech1-65" }, function(t)
+add("compose-delivery-order", {}, function(t)
 	local Compose: ComposeModule = t.Facet.Compose
 	local owner = Compose.createOwner()
 	local source = Compose.cell(0)
@@ -804,7 +804,7 @@ end)
 
 local IMAGE = "rbxassetid://92798715826227"
 
-add("image-tile-slice-resample", { "mech2-47", "paint-78" }, function(t)
+add("image-tile-slice-resample", {}, function(t)
 	local modes: ImageModeCell
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		modes = (function(value: "fill" | "fit" | "stretch" | "slice" | "tile" | "crop"): ImageModeCell
@@ -912,7 +912,7 @@ add("image-tile-slice-resample", { "mech2-47", "paint-78" }, function(t)
 	end
 end)
 
-add("image-scale-mode-renders", { "paint-78" }, function(t)
+add("image-scale-mode-renders", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.HStack "Row" {
 			UI.Image "Fit" { image = IMAGE, scaleMode = "fit" :: "fit", Size = UDim2.fromOffset(120, 40) } :: unknown,
@@ -932,7 +932,7 @@ add("image-scale-mode-renders", { "paint-78" }, function(t)
 		end
 	end
 end)
-add("icon-clamped-to-content-box", { "paint-51" }, function(t)
+add("icon-clamped-to-content-box", {}, function(t)
 	for _, entry in t.themes do
 		for _, case in
 			{
@@ -1051,7 +1051,7 @@ local function dragging(value: any): number
 	return count
 end
 
-add("reorder-mouse-thresholds", { "inputs-83", "mech2-106" }, function(t)
+add("reorder-mouse-thresholds", {}, function(t)
 	local io = device(t)
 	local value = sortable(t, 12, true)
 	local handle, row = handleOf(value, "2")
@@ -1090,7 +1090,7 @@ end)
 
 add(
 	"touch-reorder-arms-and-pans",
-	{ "inputs-83", "inputs-209" },
+	{},
 	onPhone(function(t)
 		local io = device(t)
 		local value = sortable(t, 30, true)
@@ -1134,7 +1134,7 @@ add(
 	end)
 )
 
-add("wheel-scrolls-through-drag-zones", { "mech2-97" }, function(t)
+add("wheel-scrolls-through-drag-zones", {}, function(t)
 	local io = device(t)
 	local value = sortable(t, 30, true)
 	local handle = handleOf(value, "2")
@@ -1158,7 +1158,7 @@ add("wheel-scrolls-through-drag-zones", { "mech2-97" }, function(t)
 	t.check("neither starts a reorder", #value.reorders == 0 and dragging(value) == 0, value.reorders)
 end)
 
-add("reorder-capture-released-on-teardown", { "inputs-144" }, function(t)
+add("reorder-capture-released-on-teardown", {}, function(t)
 	local io = device(t)
 	local LogService = game:GetService("LogService")
 	local errors = {}
@@ -1196,7 +1196,7 @@ add("reorder-capture-released-on-teardown", { "inputs-144" }, function(t)
 	t.check("still no error", #errors == 0, errors)
 end)
 
-add("match3-detector-tap-selects-once", { "mech2-106" }, function(t)
+add("match3-detector-tap-selects-once", {}, function(t)
 	local io = device(t)
 	local stage, built = example(t, "07_match3", function(ctx)
 		ctx.reducedMotion = ctx.Compose.cell(true)
@@ -1224,7 +1224,7 @@ end)
 
 add(
 	"touch-match3-detector-tap-selects-once",
-	{ "mech2-106" },
+	{},
 	onPhone(function(t)
 		local io = device(t)
 		local stage, built = example(t, "07_match3", function(ctx)
@@ -1272,7 +1272,7 @@ local function geometryWatch(nodes: { Instance }): () -> number
 	end
 end
 
-add("feedback-motion-is-paint-only", { "mech2-70" }, function(t)
+add("feedback-motion-is-paint-only", {}, function(t)
 	local io = device(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -1397,7 +1397,7 @@ add("feedback-motion-is-paint-only", { "mech2-70" }, function(t)
 	t.check("a settled surface writes nothing across 60 idle frames", total(idle) == 0, idle)
 end)
 
-add("radial-lift-is-paint-only", { "mech2-70" }, function(t)
+add("radial-lift-is-paint-only", {}, function(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.open = Compose.cell(true)
@@ -1448,7 +1448,7 @@ add("radial-lift-is-paint-only", { "mech2-70" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("fade-group-uses-group-transparency", { "mech2-101" }, function(t)
+add("fade-group-uses-group-transparency", {}, function(t)
 	local io = device(t)
 	local stage, built = scenario(t, "with_animation")
 	t.settle(10)
@@ -1503,7 +1503,7 @@ add("fade-group-uses-group-transparency", { "mech2-101" }, function(t)
 	t.note("runs", built.report().runs)
 end)
 
-add("ring-geometry-only-on-real-change", { "paint-88" }, function(t)
+add("ring-geometry-only-on-real-change", {}, function(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.progress = Compose.cell(0.25)
@@ -1545,7 +1545,7 @@ add("ring-geometry-only-on-real-change", { "paint-88" }, function(t)
 	t.check("the ring keeps its diameter", ring and ring.AbsoluteSize.X > 0, ring and ring.AbsoluteSize)
 end)
 
-add("press-feedback-reaches-the-device", { "paint-57" }, function(t)
+add("press-feedback-reaches-the-device", {}, function(t)
 	local io = device(t)
 	local effect
 	local built
@@ -1600,7 +1600,7 @@ add("press-feedback-reaches-the-device", { "paint-57" }, function(t)
 	})
 end)
 
-add("presence-retires-until-exit", { "apps-260" }, function(t)
+add("presence-retires-until-exit", {}, function(t)
 	local io = device(t)
 	local Compose: ComposeModule = t.Facet.Compose
 	local value: any = { built = 0, cleaned = 0 }
@@ -1691,7 +1691,7 @@ add("presence-retires-until-exit", { "apps-260" }, function(t)
 	)
 end)
 
-add("stack-pop-retires-until-motion-ends", { "apps-260" }, function(t)
+add("stack-pop-retires-until-motion-ends", {}, function(t)
 	local io = device(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -1812,7 +1812,7 @@ local function readHints(t: any, value: any, where: string, key: string)
 	)
 end
 
-add("hint-follows-keyboard", { "inputs-98", "inputs-165" }, function(t)
+add("hint-follows-keyboard", {}, function(t)
 	local io = device(t)
 	local value = hintProbe(t)
 	io.key(Enum.KeyCode.LeftShift)
@@ -1837,7 +1837,7 @@ add("hint-follows-keyboard", { "inputs-98", "inputs-165" }, function(t)
 	)
 end)
 
-add("pad-hint-follows-gamepad", { "inputs-98", "inputs-165" }, function(t)
+add("pad-hint-follows-gamepad", {}, function(t)
 	local io = device(t)
 	local value = hintProbe(t)
 	io.warm()
@@ -1846,7 +1846,7 @@ end)
 
 add(
 	"touch-hint-with-no-touch-binding",
-	{ "inputs-98" },
+	{},
 	onPhone(function(t)
 		local value = hintProbe(t)
 		t.settle(10)
@@ -1860,7 +1860,7 @@ add(
 
 add(
 	"split-long-press-vs-tap",
-	{ "inputs-211" },
+	{},
 	onPhone(function(t)
 		local io = device(t)
 		local value: any = { primary = 0, alternative = 0 }
@@ -1919,7 +1919,7 @@ add(
 	end)
 )
 
-add("pinch-is-not-a-pan", { "inputs-211" }, function(t)
+add("pinch-is-not-a-pan", {}, function(t)
 	local io = device(t)
 	local value = sortable(t, 30)
 	if not value.body then
@@ -1980,7 +1980,7 @@ local function multiline(t: any, touchDevice: boolean?): any
 	return value
 end
 
-add("multiline-editing-scroll-and-reveal", { "inputs-122", "inputs-124" }, function(t)
+add("multiline-editing-scroll-and-reveal", {}, function(t)
 	local value = multiline(t)
 	local field, io = value.field, value.io
 	t.check("the multiline TextBox mounts", field ~= nil and field.MultiLine)
@@ -2053,7 +2053,7 @@ add("multiline-editing-scroll-and-reveal", { "inputs-122", "inputs-124" }, funct
 	t.check("the newlines are kept", select(2, string.gsub(value.text:peek(), "\n", "")) >= 13, value.text:peek())
 end)
 
-add("multiline-grows-with-hard-breaks", { "inputs-122" }, function(t)
+add("multiline-grows-with-hard-breaks", {}, function(t)
 	local io = device(t)
 	local value: any = { commits = 0 }
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)

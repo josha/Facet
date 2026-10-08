@@ -190,7 +190,7 @@ local function selectableIn(node: Instance): any
 	return nil
 end
 
-interactive("recipe-rail-tab-scrolls-tail", { "apps2-222" }, function(t)
+interactive("recipe-rail-tab-scrolls-tail", {}, function(t)
 	local value = {}
 	local stage, built = scenario(t, "recipes_common", Vector2.new(320, 700))
 	value.stage, value.built = stage, built
@@ -266,7 +266,7 @@ end, {
 	end,
 })
 
-add("vm-phone-avatar-and-assistant", { "apps2-279" }, function(t)
+add("vm-phone-avatar-and-assistant", {}, function(t)
 	for app, names in
 		{ Avatar = { "Palette", "Hat", "MotionRow", "Reset" }, Chat = { "Draft", "Send" } } :: { [string]: { string } }
 	do
@@ -294,7 +294,7 @@ add("vm-phone-avatar-and-assistant", { "apps2-279" }, function(t)
 	end
 end)
 
-add("vm-saved-shelf-takes-the-column", { "apps2-283" }, function(t)
+add("vm-saved-shelf-takes-the-column", {}, function(t)
 	for _, size in { Vector2.new(1920, 1080), Vector2.new(1280, 720), Vector2.new(920, 640) } do
 		local where = `{size.X}x{size.Y}`
 		local value = monitors(t, size, "Discover")
@@ -334,7 +334,7 @@ add("vm-saved-shelf-takes-the-column", { "apps2-283" }, function(t)
 	end
 end)
 
-add("vm-detail-information-scrolls", { "apps2-282" }, function(t)
+add("vm-detail-information-scrolls", {}, function(t)
 	for _, size in { Vector2.new(920, 640), Vector2.new(393, 852), Vector2.new(1920, 1080) } do
 		local where = `{size.X}x{size.Y}`
 		local viewport = if size.X == 1920
@@ -413,7 +413,7 @@ local function clipCheck(t: any, name: string, node: any, stage: any): number
 	return hosts
 end
 
-interactive("showcase-rail-tail-inside-clips", { "apps2-228" }, function(t)
+interactive("showcase-rail-tail-inside-clips", {}, function(t)
 	local value = {}
 	local stage, built = scenario(t, "all_controls", Vector2.new(390, 700), 30)
 	value.stage, value.built = stage, built
@@ -466,7 +466,7 @@ end, {
 	end,
 })
 
-interactive("inner-tabs-widen-to-engine-words", { "post-showcase-04" }, function(t)
+interactive("inner-tabs-widen-to-engine-words", {}, function(t)
 	local value = {}
 	local stage, built = scenario(t, "all_controls", Vector2.new(1500, 740), 30)
 	value.stage, value.built = stage, built

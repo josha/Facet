@@ -163,12 +163,9 @@ local function main()
 		environment = {
 			tier = tier,
 			referenceHost = tostring(referenceHost),
-			historicalParity = "not-established",
 		},
 	}
-	print(
-		`Facet verification gate: {tier}. Historical parity: NOT ESTABLISHED; see docs/guide/20-verification-parity.md.`
-	)
+	print(`Facet verification gate: {tier}.`)
 	local code = Lune.gate.cli(gate, flags, {
 		options = options,
 		usage = "usage: lune run tools/lune/verify [affected|fast|full|release] [--reference-host] [--only PRODUCER]... [--case ID]... [--name TEXT] [--rerun] [--explain ID] [--list]\n       lune run tools/lune/verify spec SPEC... [--tier release]",

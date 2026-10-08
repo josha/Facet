@@ -222,7 +222,7 @@ local function button(UI: any, name: string, label: string?): any
 	return UI.Button(name)({ label = label or name })
 end
 
-interactive("chrome-strips-dpad", { "apps-151" }, function(t)
+interactive("chrome-strips-dpad", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.Screen "Page" {
@@ -267,7 +267,7 @@ end, {
 	end,
 })
 
-add("tab-scrolls-host-to-selection", { "apps-161" }, function(t)
+add("tab-scrolls-host-to-selection", {}, function(t)
 	local before = traversals()
 	local stage = t.mount(function(UI: FacetControls)
 		local rows = {}
@@ -312,7 +312,7 @@ add("tab-scrolls-host-to-selection", { "apps-161" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-add("slider-selection-ring-on-track", { "apps-166" }, function(t)
+add("slider-selection-ring-on-track", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Screen "S" {
 			UI.Button "Before" { label = "Before" } :: unknown,
@@ -372,7 +372,7 @@ add("slider-selection-ring-on-track", { "apps-166" }, function(t)
 	GuiService.SelectedObject = nil
 end)
 
-interactive("form-controls-reach-by-arrows", { "apps-192" }, function(t)
+interactive("form-controls-reach-by-arrows", {}, function(t)
 	local value = {}
 	local stage = scenario(t, "selection_controls", Vector2.new(900, 700))
 	value.stage = stage
@@ -398,7 +398,7 @@ end, {
 	end,
 })
 
-interactive("slider-between-controls-by-arrows", { "apps-192" }, function(t)
+interactive("slider-between-controls-by-arrows", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.Screen "S" {
@@ -441,7 +441,7 @@ end, {
 
 local LANDSCAPE, PORTRAIT = Vector2.new(844, 390), Vector2.new(390, 844)
 
-add("hud-sequence-equals-fresh-mount", { "apps-211" }, function(t)
+add("hud-sequence-equals-fresh-mount", {}, function(t)
 	local function census(stage: any, action: any): (string, string, string)
 		local rects = {}
 		stops(stage, rects, true)
@@ -551,8 +551,8 @@ local hudSteps = {
 	end,
 }
 
-interactive("hud-dpad-reaches-actions-390", { "apps-222" }, hudDpad(Vector2.new(390, 844)), hudSteps)
-interactive("hud-dpad-reaches-actions-1920", { "apps-222" }, hudDpad(Vector2.new(1920, 1080)), hudSteps)
+interactive("hud-dpad-reaches-actions-390", {}, hudDpad(Vector2.new(390, 844)), hudSteps)
+interactive("hud-dpad-reaches-actions-1920", {}, hudDpad(Vector2.new(1920, 1080)), hudSteps)
 
 local VIEWPORTS = { Vector2.new(390, 844), Vector2.new(667, 375) }
 
@@ -592,7 +592,7 @@ local function formScreen(UI: any, Compose: any): any
 	}
 end
 
-add("form-reflows-then-scrolls", { "apps-249" }, function(t)
+add("form-reflows-then-scrolls", {}, function(t)
 	local scrolled = false
 	for _, viewport in VIEWPORTS do
 		for _, themeName in { "Neutral", "fantasy_parchment" } do
@@ -652,7 +652,7 @@ add("form-reflows-then-scrolls", { "apps-249" }, function(t)
 	t.check("at least one row needs to scroll, so the scroll rung is reached", scrolled)
 end)
 
-add("form-geometry-identical-under-reduced-motion", { "apps-249" }, function(t)
+add("form-geometry-identical-under-reduced-motion", {}, function(t)
 	for _, viewport in VIEWPORTS do
 		for _, offset in { 0, 14 } do
 			local package = grown(t, themeNamed(t, "Neutral"), offset)
@@ -696,7 +696,7 @@ add("form-geometry-identical-under-reduced-motion", { "apps-249" }, function(t)
 	end
 end)
 
-add("action-label-wraps-before-truncating", { "apps-255" }, function(t)
+add("action-label-wraps-before-truncating", {}, function(t)
 	local sawWrap = false
 	for _, themeName in { "Neutral", "fantasy_parchment" } do
 		local base = themeNamed(t, themeName)
@@ -736,7 +736,7 @@ add("action-label-wraps-before-truncating", { "apps-255" }, function(t)
 	t.check("the sweep reaches a wrapped action", sawWrap)
 end)
 
-add("fixed-px-action-draws-compact-form", { "apps-255" }, function(t)
+add("fixed-px-action-draws-compact-form", {}, function(t)
 	local base = themeNamed(t, "fantasy_parchment")
 	local clipped = {}
 	local once = false
@@ -768,7 +768,7 @@ add("fixed-px-action-draws-compact-form", { "apps-255" }, function(t)
 	t.note("offsets where the fixed 88 px width clips the compact form", clipped)
 end)
 
-add("mixed-script-lines-grow-monotonically", { "apps-255" }, function(t)
+add("mixed-script-lines-grow-monotonically", {}, function(t)
 	for _, themeName in { "Neutral", "fantasy_parchment" } do
 		local base = themeNamed(t, themeName)
 		local previous = {}
@@ -847,7 +847,7 @@ local function same(a: Color3?, b: Color3?): boolean
 		and math.abs(a.B - b.B) < 0.002
 end
 
-add("role-fills-win-at-rest", { "inputs-31" }, function(t)
+add("role-fills-win-at-rest", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls)
 			return UI.Screen "S" {
@@ -895,7 +895,7 @@ add("role-fills-win-at-rest", { "inputs-31" }, function(t)
 	end
 end)
 
-add("circle-corner-wins-in-every-package", { "inputs-46" }, function(t)
+add("circle-corner-wins-in-every-package", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Screen "S" {
@@ -940,7 +940,7 @@ add("circle-corner-wins-in-every-package", { "inputs-46" }, function(t)
 	end
 end)
 
-add("compact-label-ladder-every-package", { "inputs-69" }, function(t)
+add("compact-label-ladder-every-package", {}, function(t)
 	for _, entry in shipped(t) do
 		local heights = {}
 		for _, width in { 400, 44 } do
@@ -973,7 +973,7 @@ add("compact-label-ladder-every-package", { "inputs-69" }, function(t)
 	end
 end)
 
-add("level-picker-strip-target", { "inputs-116" }, function(t)
+add("level-picker-strip-target", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			return UI.Screen "S" {
@@ -1011,7 +1011,7 @@ local SHOWCASE = {
 	Vector2.new(1920, 1080),
 }
 
-add("level-picker-showcase-marks-have-area", { "inputs-121" }, function(t)
+add("level-picker-showcase-marks-have-area", {}, function(t)
 	for _, size in SHOWCASE do
 		local where = `{size.X}x{size.Y}`
 		local stage = scenario(t, "level_picker", size)
@@ -1052,7 +1052,7 @@ add("level-picker-showcase-marks-have-area", { "inputs-121" }, function(t)
 	end
 end)
 
-add("rating-fits-a-table-cell", { "inputs-159" }, function(t)
+add("rating-fits-a-table-cell", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			return UI.Screen "S" {
@@ -1103,7 +1103,7 @@ local function contrast(a: Color3, b: Color3): number
 	return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05)
 end
 
-add("shortcut-hint-key-cap-anatomy", { "inputs-175" }, function(t)
+add("shortcut-hint-key-cap-anatomy", {}, function(t)
 	local neutral = {}
 	for _, entry in shipped(t) do
 		for _, offset in { 0, 14 } do
@@ -1141,7 +1141,7 @@ add("shortcut-hint-key-cap-anatomy", { "inputs-175" }, function(t)
 	end
 end)
 
-add("clear-button-trailing-and-centred", { "inputs-187" }, function(t)
+add("clear-button-trailing-and-centred", {}, function(t)
 	for _, framed in { false, true } do
 		local where = if framed then "field chrome" else "bare field"
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -1176,7 +1176,7 @@ add("clear-button-trailing-and-centred", { "inputs-187" }, function(t)
 	end
 end)
 
-add("slider-rest-idle-resize-clearance", { "inputs-220" }, function(t)
+add("slider-rest-idle-resize-clearance", {}, function(t)
 	local width = t.Facet.Compose.cell(Vector2.new(360, 200))
 	local value = t.Facet.Compose.cell(50)
 	local stage = t.mount(function(UI: FacetControls)

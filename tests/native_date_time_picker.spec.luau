@@ -1202,6 +1202,29 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("DateTimePicker: layout, routes and refusals", function()
+		verifyHarness:case("holds the calendar presentation while keyboard entry changes preferred input", {
+			id = "native_date_time_picker::DateTimePicker: layout, routes and refusals::holds the calendar presentation while keyboard entry changes preferred input",
+			run = function()
+				local initial = D(2026, 9, 16)
+				initial.hour, initial.minute = 10, 30
+				local cell, _, change = caller(initial)
+				local w = mount(
+					{ value = cell, onChange = change, draft = true, time = true },
+					{ input = "touch", viewport = { w = 390, h = 844 } }
+				)
+				w.open()
+				local panel = w.panel()
+				expect(w.attr("route")):toBe("sheet")
+				w.input.PreferredInput = w.E.PreferredInput.KeyboardAndMouse
+				expect(w.attr("route")):toBe("sheet")
+				expect(w.panel()):toBe(panel)
+				must(panel, "Cancel").Activated:Fire()
+				w.open()
+				expect(w.attr("route")):toBe("popover")
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"a wide screen shows two consecutive months, and they stay consecutive through paging and bounds",
 			{

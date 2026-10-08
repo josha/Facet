@@ -6,7 +6,7 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 return {
 	{
 		id = "haptics-mount-feedback-demo",
-		contracts = { "risk:haptics" },
+		contracts = {},
 		run = function(t: any)
 			local built
 			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)

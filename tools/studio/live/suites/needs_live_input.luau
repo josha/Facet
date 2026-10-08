@@ -58,7 +58,7 @@ local function rows(count: number): { any }
 	return list
 end
 
-add("list-keyboard-and-dpad", { "collections-262" }, function(t)
+add("list-keyboard-and-dpad", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.VirtualList "List" {
@@ -105,7 +105,7 @@ end, {
 	end,
 })
 
-add("scroll-into-view-by-gamepad", { "mech3-31" }, function(t)
+add("scroll-into-view-by-gamepad", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local children: { unknown } = {
@@ -147,7 +147,7 @@ end, {
 	end,
 })
 
-add("sidebar-dpad-to-collections", { "apps-193" }, function(t)
+add("sidebar-dpad-to-collections", {}, function(t)
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
 	api:Invoke("show", "all-controls")
 	api:Invoke("panel", "demos")
@@ -180,7 +180,7 @@ end, {
 	end,
 }, true)
 
-add("power-off-traversal", { "mech2-25" }, function(t)
+add("power-off-traversal", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		value.built = t.scenario("inherited_subtree").build(t.context(UI, Host, Compose, env))
@@ -222,7 +222,7 @@ end, {
 	end,
 })
 
-add("touch-drag-scrolls-reorderable-list", { "collections-11" }, function(t)
+add("touch-drag-scrolls-reorderable-list", {}, function(t)
 	local value = { reorders = 0 }
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.VirtualList "Sortable" {
@@ -257,7 +257,7 @@ end, {
 	end,
 })
 
-add("mail-swipe-and-tap", { "collections-101" }, function(t)
+add("mail-swipe-and-tap", {}, function(t)
 	local value = {}
 	local demo = t.scenario("collection_demo")
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
@@ -297,7 +297,7 @@ end, {
 	end,
 })
 
-add("tray-grows-with-text-size", { "collections-53" }, function(t)
+add("tray-grows-with-text-size", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		return UI.RowActions "Row" {
@@ -389,7 +389,7 @@ local function panelOf(value: any): GuiObject?
 	return nil
 end
 
-add("sheet-traps-and-orders-selection", { "apps-160", "apps-181" }, function(t)
+add("sheet-traps-and-orders-selection", {}, function(t)
 	local value = modalFixture(t, false, { { id = "ok", label = "OK" } })
 	value.alert:set(false)
 	t.settle(6)
@@ -457,7 +457,7 @@ end, {
 	end,
 })
 
-add("alert-selection-stays-inside", { "mech2-104", "navigation-1-14", "mech1-120" }, function(t)
+add("alert-selection-stays-inside", {}, function(t)
 	local value = modalFixture(t, true, {
 		{ id = "stay", label = "Stay", role = "cancel" :: "cancel" },
 		{ id = "save", label = "Save and leave" },
@@ -509,7 +509,7 @@ end, {
 	end,
 })
 
-add("confirm-dialog-left-right", { "apps2-44" }, function(t)
+add("confirm-dialog-left-right", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		local ctx = t.context(UI, Host, Compose, env)
@@ -556,7 +556,7 @@ end, {
 	end,
 })
 
-add("return-and-space-activate-once", { "apps-162", "apps-163" }, function(t)
+add("return-and-space-activate-once", {}, function(t)
 	local value = { count = 0 }
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.enabled = Compose.cell(true)
@@ -588,7 +588,7 @@ end, {
 	end,
 })
 
-add("shift-return-opens-row-menu", { "collections-84" }, function(t)
+add("shift-return-opens-row-menu", {}, function(t)
 	local value = { count = 0 }
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.RowActions "Row" {
@@ -636,7 +636,7 @@ end, {
 	end,
 })
 
-add("skinned-part-hover-state", { "themes-P4-51" }, function(t)
+add("skinned-part-hover-state", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Column" {

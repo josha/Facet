@@ -122,7 +122,7 @@ local function segmentedFlip(state)
 	local function probe()
 		local size, segments = nil, 0
 		for _, node in state.target:GetDescendants() do
-			local textual = node.ClassName == "TextLabel" or node.ClassName == "TextButton"
+			local textual = node.ClassName == "TextButton" and node:HasTag("facet-segment")
 			if textual and (node.Text == "Easy" or node.Text == "Normal" or node.Text == "Hard") then
 				segments += 1
 				if node.Text == "Normal" then

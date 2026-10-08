@@ -339,13 +339,13 @@ return function(ctx: Types.Context): Nav.Surfaces
 			local _, point = place(use)
 			local box = if settings.size then use(settings.size) else panel.AbsoluteSize
 			return V2.new(if box.X > 0 then point.X / box.X else 0.5, if box.Y > 0 then point.Y / box.Y else 0.5)
-		end, panel:HasTag("facet-menu"))
+		end, panel:HasTag("facet-menu") or panel:HasTag("facet-popover"))
 		return scale
 	end
 	local function attached(anchor: GuiObject): boolean
 		local at: Instance? = anchor
 		while at do
-			if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
+			if at:IsA("GuiObject") and not at.Visible then
 				return false
 			end
 			if at:IsA("LayerCollector") then
@@ -701,6 +701,19 @@ return function(ctx: Types.Context): Nav.Surfaces
 				if within(selected, root) then
 					landed = true
 					owned = true
+					return
+				end
+				if
+					selected ~= nil
+					and scopes[#scopes] == root
+					and use(mounted)
+					and use(rootVisible)
+					and not (exiting and use(exiting))
+					and use(rootInteractive)
+					and use(panelInteractive)
+					and not focusIn(use)
+				then
+					guiService.SelectedObject = nil
 					return
 				end
 				if not released and not (exiting and exiting:peek()) and root.Interactable and panel.Interactable then

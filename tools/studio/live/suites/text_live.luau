@@ -49,7 +49,7 @@ local function glyphCentre(label: any): number
 	return top + inner / 2
 end
 
-add("button-labels-centred-in-every-package", { "inputs-50" }, function(t: any)
+add("button-labels-centred-in-every-package", {}, function(t: any)
 	for _, theme in t.themes do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Row" {
@@ -75,7 +75,7 @@ add("button-labels-centred-in-every-package", { "inputs-50" }, function(t: any)
 	end
 end)
 
-add("described-toggle-fits-a-narrow-row", { "apps-130" }, function(t: any)
+add("described-toggle-fits-a-narrow-row", {}, function(t: any)
 	local chosen = t.themes[1]
 	for _, theme in t.themes do
 		if theme.name == "classic_desktop" then
@@ -117,7 +117,7 @@ add("described-toggle-fits-a-narrow-row", { "apps-130" }, function(t: any)
 	t.check("the label column is more than twice the switch", words.w > mark.w * 2, { words.w, mark.w })
 end)
 
-add("padded-text-draws-inside-its-inset", { "mech3-76" }, function(t: any)
+add("padded-text-draws-inside-its-inset", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.Text "Padded" {
 			text = "A padded paragraph that wraps across several lines inside its box",

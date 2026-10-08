@@ -175,27 +175,7 @@ local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: 
 	t.cleanup()
 end
 
-add("every-scenario-and-example-fits", {
-	"mech2-89",
-	"apps-251",
-	"apps2-16",
-	"apps2-123",
-	"apps-248",
-	"themes-P5-39",
-	"navigation-2-56",
-	"navigation-3-30",
-	"apps2-60",
-	"apps2-64",
-	"apps2-70",
-	"apps2-58",
-	"apps2-54",
-	"navigation-3-57",
-	"themes-P1-73",
-	"apps2-98",
-	"apps-63",
-	"apps-88",
-	"apps-30",
-}, function(t)
+add("every-scenario-and-example-fits", {}, function(t)
 	local registry = (require :: any)(storage:WaitForChild("FacetScenarios"))
 	local neutral = t.themes[1]
 	for _, size in FIT_SIZES do
@@ -218,7 +198,7 @@ add("every-scenario-and-example-fits", {
 	t.note("preferred text size", t.environment.preferredTextSize)
 end)
 
-add("scroll-gutter-and-window", { "mech3-29", "mech3-32", "apps2-109", "apps-230", "mech3-21" }, function(t)
+add("scroll-gutter-and-window", {}, function(t)
 	local count
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		count = Compose.cell(20)
@@ -299,7 +279,7 @@ add("scroll-gutter-and-window", { "mech3-29", "mech3-32", "apps2-109", "apps-230
 	t.check("the scroll window clips partial rows", outside == 0, outside)
 end)
 
-add("grid-hugs-its-lines", { "mech2-03" }, function(t)
+add("grid-hugs-its-lines", {}, function(t)
 	for _, count in { 1, 3, 4, 7, 9 } do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			local cells = {}
@@ -325,256 +305,240 @@ add("grid-hugs-its-lines", { "mech2-03" }, function(t)
 	end
 end)
 
-add(
-	"text-degrade-cascade",
-	{ "mech3-66", "inputs-64", "inputs-208", "paint-149", "themes-P5-06", "mech2-45", "paint-134" },
-	function(t)
-		local width
-		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			width = Compose.cell(360)
-			return Host.Frame "Column" {
-				Size = function(use: Use)
-					return UDim2.fromOffset(use(width), 400)
-				end,
-				BackgroundTransparency = 1,
-				Host.UIListLayout({
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					HorizontalFlex = Enum.UIFlexAlignment.Fill,
-				}) :: unknown,
-				UI.Text({
-					Name = "Wrap",
-					text = string.rep("Wrap this sentence. ", 6),
-					TextWrapped = true,
-					LayoutOrder = 1,
-				}),
-				UI.Text({
-					Name = "Cut",
-					text = string.rep("Truncate this sentence. ", 6),
-					TextWrapped = false,
-					TextTruncate = Enum.TextTruncate.AtEnd,
-					AutomaticSize = Enum.AutomaticSize.Y,
-					Size = UDim2.new(1, 0, 0, 0),
-					LayoutOrder = 2,
-				}),
-				UI.Text({
-					Name = "Unknown",
-					text = "Unknown family text",
-					FontFace = Font.new("rbxasset://fonts/families/DoesNotExist.json"),
-					LayoutOrder = 3,
-				}),
-				UI.Text({
-					Name = "Rtl",
-					text = "مرحبا بالعالم",
-					TextDirection = Enum.TextDirection.RightToLeft,
-					LayoutOrder = 4,
-				}),
-			}
-		end, { size = Vector2.new(600, 500), frames = 16 })
-		local wrap, cut, unknown, rtl =
-			t.find(stage, "Wrap"), t.find(stage, "Cut"), t.find(stage, "Unknown"), t.find(stage, "Rtl")
-		t.stable(wrap)
-		local lineHeight = wrap:GetStyled("TextSize")
-		local tall = wrap.AbsoluteSize.Y
-		t.check(
-			"a wrapping label wraps before it clips",
-			wrap.TextFits and tall > lineHeight * 1.5,
-			{ size = wrap.AbsoluteSize, bounds = wrap.TextBounds }
-		)
-		t.inside("the wrapped label stays inside its column", wrap, t.find(stage, "Column"), 0.5)
-		t.check(
-			"a truncating label discloses the cut",
-			cut:GetStyled("TextTruncate") == Enum.TextTruncate.AtEnd,
-			cut:GetStyled("TextTruncate")
-		)
-		t.check("a truncating label stays one line", cut.AbsoluteSize.Y < lineHeight * 2, cut.AbsoluteSize)
-		t.check(
-			"an unknown font family still fits",
-			unknown.TextFits and unknown.AbsoluteSize.X > 0,
-			unknown.TextBounds
-		)
-		t.check(
-			"right-to-left text keeps its direction",
-			rtl.TextDirection == Enum.TextDirection.RightToLeft and rtl.TextFits,
-			rtl.TextBounds
-		)
-		t.near("measured bounds match the painted size", wrap.TextBounds.Y, wrap.AbsoluteSize.Y, 1)
-		width:set(200)
-		t.stable(wrap)
-		t.check(
-			"the wrapped label follows a narrower width",
-			wrap.AbsoluteSize.Y > tall and wrap.AbsoluteSize.X <= 200.5,
-			wrap.AbsoluteSize
-		)
-		t.check("the wrapped label still fits", wrap.TextFits, wrap.TextBounds)
-	end
-)
+add("text-degrade-cascade", {}, function(t)
+	local width
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		width = Compose.cell(360)
+		return Host.Frame "Column" {
+			Size = function(use: Use)
+				return UDim2.fromOffset(use(width), 400)
+			end,
+			BackgroundTransparency = 1,
+			Host.UIListLayout({
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				HorizontalFlex = Enum.UIFlexAlignment.Fill,
+			}) :: unknown,
+			UI.Text({
+				Name = "Wrap",
+				text = string.rep("Wrap this sentence. ", 6),
+				TextWrapped = true,
+				LayoutOrder = 1,
+			}),
+			UI.Text({
+				Name = "Cut",
+				text = string.rep("Truncate this sentence. ", 6),
+				TextWrapped = false,
+				TextTruncate = Enum.TextTruncate.AtEnd,
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Size = UDim2.new(1, 0, 0, 0),
+				LayoutOrder = 2,
+			}),
+			UI.Text({
+				Name = "Unknown",
+				text = "Unknown family text",
+				FontFace = Font.new("rbxasset://fonts/families/DoesNotExist.json"),
+				LayoutOrder = 3,
+			}),
+			UI.Text({
+				Name = "Rtl",
+				text = "مرحبا بالعالم",
+				TextDirection = Enum.TextDirection.RightToLeft,
+				LayoutOrder = 4,
+			}),
+		}
+	end, { size = Vector2.new(600, 500), frames = 16 })
+	local wrap, cut, unknown, rtl =
+		t.find(stage, "Wrap"), t.find(stage, "Cut"), t.find(stage, "Unknown"), t.find(stage, "Rtl")
+	t.stable(wrap)
+	local lineHeight = wrap:GetStyled("TextSize")
+	local tall = wrap.AbsoluteSize.Y
+	t.check(
+		"a wrapping label wraps before it clips",
+		wrap.TextFits and tall > lineHeight * 1.5,
+		{ size = wrap.AbsoluteSize, bounds = wrap.TextBounds }
+	)
+	t.inside("the wrapped label stays inside its column", wrap, t.find(stage, "Column"), 0.5)
+	t.check(
+		"a truncating label discloses the cut",
+		cut:GetStyled("TextTruncate") == Enum.TextTruncate.AtEnd,
+		cut:GetStyled("TextTruncate")
+	)
+	t.check("a truncating label stays one line", cut.AbsoluteSize.Y < lineHeight * 2, cut.AbsoluteSize)
+	t.check("an unknown font family still fits", unknown.TextFits and unknown.AbsoluteSize.X > 0, unknown.TextBounds)
+	t.check(
+		"right-to-left text keeps its direction",
+		rtl.TextDirection == Enum.TextDirection.RightToLeft and rtl.TextFits,
+		rtl.TextBounds
+	)
+	t.near("measured bounds match the painted size", wrap.TextBounds.Y, wrap.AbsoluteSize.Y, 1)
+	width:set(200)
+	t.stable(wrap)
+	t.check(
+		"the wrapped label follows a narrower width",
+		wrap.AbsoluteSize.Y > tall and wrap.AbsoluteSize.X <= 200.5,
+		wrap.AbsoluteSize
+	)
+	t.check("the wrapped label still fits", wrap.TextFits, wrap.TextBounds)
+end)
 
-add(
-	"safe-area-and-topbar",
-	{ "mech1-09", "inputs-142", "mech3-16", "apps2-96", "apps-216", "apps-207", "navigation-1-68" },
-	function(t)
-		local gui = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):FindFirstChild(
-				"FacetGallery"
-			) :: ScreenGui?
-		t.check("the gallery ScreenGui is live", gui ~= nil)
-		if not gui then
-			return
-		end
-		local api = workspace:FindFirstChild("FacetShowcaseAPI") :: any
-		local inset = GuiService:GetGuiInset()
-		local topbar = GuiService.TopbarInset
-		t.note("gui inset", inset)
-		t.note("topbar inset", { topbar.Min, topbar.Max })
-		t.note("screen insets", tostring(gui.ScreenInsets))
-		t.check(
-			"the gallery keeps the core safe insets",
-			gui.ScreenInsets == Enum.ScreenInsets.CoreUISafeInsets,
-			tostring(gui.ScreenInsets)
-		)
-		for _, demo in { "all-controls", "hud", "radial-menu" } do
-			if api then
-				api:Invoke("show", demo)
-			end
-			t.settle(30)
-			local layer = t.rect(gui)
-			t.check(
-				`{demo} layer starts below the topbar band`,
-				layer.y >= topbar.Max.Y - 0.5 or inset.Y > 0,
-				{ layer = layer.y, topbar = topbar.Max.Y }
-			)
-			local found = t.offenders(gui, layer)
-			t.check(`{demo} nothing leaves the safe layer sideways`, #found.lateral == 0, found.lateral)
-			t.check(`{demo} nothing leaves the safe layer vertically`, #found.vertical == 0, found.vertical)
-		end
+add("safe-area-and-topbar", {}, function(t)
+	local gui = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):FindFirstChild(
+			"FacetGallery"
+		) :: ScreenGui?
+	t.check("the gallery ScreenGui is live", gui ~= nil)
+	if not gui then
+		return
+	end
+	local api = workspace:FindFirstChild("FacetShowcaseAPI") :: any
+	local inset = GuiService:GetGuiInset()
+	local topbar = GuiService.TopbarInset
+	t.note("gui inset", inset)
+	t.note("topbar inset", { topbar.Min, topbar.Max })
+	t.note("screen insets", tostring(gui.ScreenInsets))
+	t.check(
+		"the gallery keeps the core safe insets",
+		gui.ScreenInsets == Enum.ScreenInsets.CoreUISafeInsets,
+		tostring(gui.ScreenInsets)
+	)
+	for _, demo in { "all-controls", "hud", "radial-menu" } do
 		if api then
-			api:Invoke("show", "all-controls")
+			api:Invoke("show", demo)
 		end
-	end
-)
-
-add(
-	"sibling-order-and-hit-testing",
-	{ "paint-81", "mech2-83", "navigation-2-64", "themes-P4-04", "themes-P4-17", "paint-124" },
-	function(t)
-		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
-		local inset = GuiService:GetGuiInset()
-		local function top(at: Vector2): { string }
-			local names = {}
-			for _, node in playerGui:GetGuiObjectsAtPosition(at.X, at.Y) do
-				table.insert(names, node.Name)
-			end
-			return names
-		end
-		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame "Pair" {
-				Size = UDim2.fromOffset(400, 300),
-				BackgroundTransparency = 1,
-				UI.Button "Low" {
-					label = "Low",
-					Position = UDim2.fromOffset(20, 20),
-					Size = UDim2.fromOffset(160, 60),
-					ZIndex = 1,
-				} :: unknown,
-				UI.Button "High" {
-					label = "High",
-					Position = UDim2.fromOffset(80, 40),
-					Size = UDim2.fromOffset(160, 60),
-					ZIndex = 2,
-				},
-			}
-		end, { size = Vector2.new(800, 600), frames = 12 })
-		local high = t.find(stage, "High")
-		local hits = top(Vector2.new(high.AbsolutePosition.X + 20, high.AbsolutePosition.Y + 10))
-		local highAt, lowAt = table.find(hits, "High"), table.find(hits, "Low")
+		t.settle(30)
+		local layer = t.rect(gui)
 		t.check(
-			"the higher ZIndex sibling is hit first where siblings overlap",
-			highAt ~= nil and (lowAt == nil or highAt < lowAt),
+			`{demo} layer starts below the topbar band`,
+			layer.y >= topbar.Max.Y - 0.5 or inset.Y > 0,
+			{ layer = layer.y, topbar = topbar.Max.Y }
+		)
+		local found = t.offenders(gui, layer)
+		t.check(`{demo} nothing leaves the safe layer sideways`, #found.lateral == 0, found.lateral)
+		t.check(`{demo} nothing leaves the safe layer vertically`, #found.vertical == 0, found.vertical)
+	end
+	if api then
+		api:Invoke("show", "all-controls")
+	end
+end)
+
+add("sibling-order-and-hit-testing", {}, function(t)
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
+	local inset = GuiService:GetGuiInset()
+	local function top(at: Vector2): { string }
+		local names = {}
+		for _, node in playerGui:GetGuiObjectsAtPosition(at.X, at.Y) do
+			table.insert(names, node.Name)
+		end
+		return names
+	end
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "Pair" {
+			Size = UDim2.fromOffset(400, 300),
+			BackgroundTransparency = 1,
+			UI.Button "Low" {
+				label = "Low",
+				Position = UDim2.fromOffset(20, 20),
+				Size = UDim2.fromOffset(160, 60),
+				ZIndex = 1,
+			} :: unknown,
+			UI.Button "High" {
+				label = "High",
+				Position = UDim2.fromOffset(80, 40),
+				Size = UDim2.fromOffset(160, 60),
+				ZIndex = 2,
+			},
+		}
+	end, { size = Vector2.new(800, 600), frames = 12 })
+	local high = t.find(stage, "High")
+	local hits = top(Vector2.new(high.AbsolutePosition.X + 20, high.AbsolutePosition.Y + 10))
+	local highAt, lowAt = table.find(hits, "High"), table.find(hits, "Low")
+	t.check(
+		"the higher ZIndex sibling is hit first where siblings overlap",
+		highAt ~= nil and (lowAt == nil or highAt < lowAt),
+		hits
+	)
+	t.cleanup()
+	stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame "Base" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
+			UI.Alert({
+				isPresented = Compose.cell(true),
+				title = "On top",
+				actions = {
+					{ id = "ok", label = "OK" } :: AlertAction,
+				},
+			}),
+		}
+	end, { size = Vector2.new(800, 600), frames = 20 })
+	local panel = visibleNamed(t, stage, "AlertPanel")
+	if panel then
+		t.stable(panel)
+		local behind = t.find(stage, "Behind")
+		local b = t.rect(behind)
+		hits = top(Vector2.new(b.x + b.w / 2, b.y + b.h / 2))
+		local scrimAt, behindAt = table.find(hits, "DismissOutside"), table.find(hits, "Behind")
+		t.check(
+			"the scrim is hit before the covered background",
+			scrimAt ~= nil and (behindAt == nil or scrimAt < behindAt),
 			hits
 		)
-		t.cleanup()
-		stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			return Host.Frame "Base" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
-				UI.Alert({
-					isPresented = Compose.cell(true),
-					title = "On top",
-					actions = {
-						{ id = "ok", label = "OK" } :: AlertAction,
-					},
-				}),
-			}
-		end, { size = Vector2.new(800, 600), frames = 20 })
-		local panel = visibleNamed(t, stage, "AlertPanel")
-		if panel then
-			t.stable(panel)
-			local behind = t.find(stage, "Behind")
-			local b = t.rect(behind)
-			hits = top(Vector2.new(b.x + b.w / 2, b.y + b.h / 2))
-			local scrimAt, behindAt = table.find(hits, "DismissOutside"), table.find(hits, "Behind")
-			t.check(
-				"the scrim is hit before the covered background",
-				scrimAt ~= nil and (behindAt == nil or scrimAt < behindAt),
-				hits
-			)
-			local scrim = visibleNamed(t, stage, "DismissOutside")
-			t.check(
-				"the panel paints above its scrim",
-				scrim ~= nil and panel.ZIndex > scrim.ZIndex,
-				{ panel = panel.ZIndex, scrim = scrim and scrim.ZIndex }
-			)
-		else
-			t.check("the alert shows", false)
-		end
-		t.cleanup()
-		local skinned
-		for _, theme in t.themes do
-			if theme.name == "fantasy_ornate" then
-				skinned = theme
-			end
-		end
-		if skinned then
-			stage = t.mount(function(UI: FacetControls)
-				return UI.Button "Art" { label = "Art", Size = UDim2.fromOffset(200, 60) }
-			end, { size = Vector2.new(800, 600), theme = skinned.package, frames = 12 })
-			local art = t.find(stage, "Art")
-			local r = t.rect(art)
-			hits = top(Vector2.new(r.x + r.w / 2, r.y + r.h / 2))
-			local artAt = table.find(hits, "Art")
-			t.note("hits over a skinned button", hits)
-			local stealing = {}
-			for _, node in playerGui:GetGuiObjectsAtPosition(r.x + r.w / 2, r.y + r.h / 2) do
-				if node == art then
-					break
-				end
-				if node:IsA("GuiButton") or node.Active or node.Selectable then
-					table.insert(stealing, node.Name)
-				end
-			end
-			t.check("the skinned control is under the point", artAt ~= nil, hits)
-			t.check("no art layer above the control takes input", #stealing == 0, stealing)
-			t.cleanup()
-		end
-		local sizes = {}
-		for _, shadow in { false, true } do
-			stage = t.mount(function(_, Host: RobloxHost)
-				return Host.Frame "Row" {
-					Size = UDim2.fromOffset(400, 100),
-					BackgroundTransparency = 1,
-					Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
-					Host.Frame "Plate" {
-						Size = UDim2.fromOffset(120, 60),
-						table.unpack((if shadow then { Host.UIShadow({}) } else {} :: unknown) :: { unknown }),
-					},
-					box(Host, "Next", 40, 40),
-				}
-			end, { size = Vector2.new(500, 200), frames = 8 })
-			sizes[shadow] = t.find(stage, "Next").AbsolutePosition.X
-			t.cleanup()
-		end
-		t.near("a shadow does not enter layout", sizes[true], sizes[false], 0.01)
+		local scrim = visibleNamed(t, stage, "DismissOutside")
+		t.check(
+			"the panel paints above its scrim",
+			scrim ~= nil and panel.ZIndex > scrim.ZIndex,
+			{ panel = panel.ZIndex, scrim = scrim and scrim.ZIndex }
+		)
+	else
+		t.check("the alert shows", false)
 	end
-)
+	t.cleanup()
+	local skinned
+	for _, theme in t.themes do
+		if theme.name == "fantasy_ornate" then
+			skinned = theme
+		end
+	end
+	if skinned then
+		stage = t.mount(function(UI: FacetControls)
+			return UI.Button "Art" { label = "Art", Size = UDim2.fromOffset(200, 60) }
+		end, { size = Vector2.new(800, 600), theme = skinned.package, frames = 12 })
+		local art = t.find(stage, "Art")
+		local r = t.rect(art)
+		hits = top(Vector2.new(r.x + r.w / 2, r.y + r.h / 2))
+		local artAt = table.find(hits, "Art")
+		t.note("hits over a skinned button", hits)
+		local stealing = {}
+		for _, node in playerGui:GetGuiObjectsAtPosition(r.x + r.w / 2, r.y + r.h / 2) do
+			if node == art then
+				break
+			end
+			if node:IsA("GuiButton") or node.Active or node.Selectable then
+				table.insert(stealing, node.Name)
+			end
+		end
+		t.check("the skinned control is under the point", artAt ~= nil, hits)
+		t.check("no art layer above the control takes input", #stealing == 0, stealing)
+		t.cleanup()
+	end
+	local sizes = {}
+	for _, shadow in { false, true } do
+		stage = t.mount(function(_, Host: RobloxHost)
+			return Host.Frame "Row" {
+				Size = UDim2.fromOffset(400, 100),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
+				Host.Frame "Plate" {
+					Size = UDim2.fromOffset(120, 60),
+					table.unpack((if shadow then { Host.UIShadow({}) } else {} :: unknown) :: { unknown }),
+				},
+				box(Host, "Next", 40, 40),
+			}
+		end, { size = Vector2.new(500, 200), frames = 8 })
+		sizes[shadow] = t.find(stage, "Next").AbsolutePosition.X
+		t.cleanup()
+	end
+	t.near("a shadow does not enter layout", sizes[true], sizes[false], 0.01)
+end)
 
 return cases

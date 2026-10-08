@@ -823,6 +823,29 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("subtracts the leading glyph and gap from a bottom tab caption budget", {
+			id = "native_content_navigation::native content navigation deltas::subtracts the leading glyph and gap from a bottom tab caption budget",
+			run = function()
+				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					local tabs = tabList(Host)
+					for _, tab in tabs do
+						tab.icon = "settings"
+					end
+					return UI.TabView {
+						selection = Compose.cell("home"),
+						placement = "bottomBar" :: "bottomBar",
+						tabs = tabs,
+					}
+				end, { motionLevel = "none" })
+				local feed = world.find("feed", world.find("Tabs"))
+				world.bounds(feed:FindFirstChild("LabelMeasure"), 100)
+				world.resize(feed, 124, 44)
+				Verify.expect(feed.TextSize):toBeLessThan(18)
+				Verify.expect(feed.TextSize):toBeGreaterThanOrEqual(12)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("sizes a sidebar rail to its widest tab by default, as before 0.12", {
 			id = "native_content_navigation::native content navigation deltas::sizes a sidebar rail to its widest tab by default, as before 0.12",
 			run = function()

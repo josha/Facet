@@ -258,7 +258,8 @@ return function(verifyHarness: Verify.Harness)
 					expect(format.Size.Y.Scale):toBe(0)
 					expect(format.Size.Y.Offset >= 44):toBe(true)
 					local segment = w.find("Format/hex")
-					expect(segment.Size.Y.Scale):toBe(1)
+					expect(segment.Size.Y.Scale):toBe(0)
+					expect(segment.Size.Y.Offset):toBe(format.Size.Y.Offset - 6)
 					w.stop()
 				end,
 			}
@@ -1713,7 +1714,8 @@ return function(verifyHarness: Verify.Harness)
 				body.AbsoluteWindowSize = V2(376, 300)
 				local size = w.find("Technique").Size
 				expect(`{size.X.Scale} {size.X.Offset}`):toBe("0 376")
-				w.find("LayoutUnit").AbsoluteSize = V2(50, 0.5)
+				local probe = assert(w.find("Technique"):FindFirstChild("LayoutUnit"))
+				probe.AbsoluteSize = V2(50, 0.5)
 				size = w.find("Technique").Size
 				expect(`under a 0.5 UIScale {size.X.Offset}`):toBe("under a 0.5 UIScale 752")
 				w.stop()

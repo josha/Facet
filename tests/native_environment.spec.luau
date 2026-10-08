@@ -1487,8 +1487,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("paints focus glow below the selected control instead of over its glyphs", {
-			id = "native_environment::focus ring: the engine draws the theme's focus look::paints focus glow below the selected control instead of over its glyphs",
+		verifyHarness:case("paints focus glow outside the selected control instead of over its glyphs", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::paints focus glow outside the selected control instead of over its glyphs",
 			run = function()
 				local glowing = define({ kind = "glow" :: "glow", blurRadius = { offset = 26 }, transparency = 0.25 })
 				local w, template, stop = ring(glowing, { preferredInput = "Gamepad" })
@@ -1499,7 +1499,10 @@ return function(verifyHarness: Verify.Harness)
 				local shadow = target:FindFirstChild("FacetFocusGlow")
 				Verify.expect(shadow ~= nil):toBe(true)
 				Verify.expect(shadow.Enabled):toBe(true)
-				Verify.expect(shadow.ZIndex < 0):toBe(true)
+				Verify.expect(shadow:IsA("UIStroke")):toBe(true)
+				Verify.expect(shadow.ApplyStrokeMode):toBe(w.engine.types.Enum.ApplyStrokeMode.Border)
+				Verify.expect(shadow.BorderStrokePosition):toBe(w.engine.types.Enum.BorderStrokePosition.Outer)
+				Verify.expect(shadow.Thickness):toBe(2)
 				w.gui.SelectedObject = nil
 				Verify.expect(target:FindFirstChild("FacetFocusGlow")):toBeNil()
 				stop()

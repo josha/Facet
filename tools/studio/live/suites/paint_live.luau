@@ -21,7 +21,7 @@ local function first(root: Instance, name: string): any
 	return root:FindFirstChild(name, true)
 end
 
-add("explicit-paint-beats-the-sheet", { "paint-72" }, function(t: any)
+add("explicit-paint-beats-the-sheet", {}, function(t: any)
 	local red = Color3.fromRGB(200, 0, 0)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Row" {
@@ -47,7 +47,7 @@ add("explicit-paint-beats-the-sheet", { "paint-72" }, function(t: any)
 	)
 end)
 
-add("toggle-follows-a-live-palette", { "paint-76" }, function(t: any)
+add("toggle-follows-a-live-palette", {}, function(t: any)
 	local value = t.Facet.Compose.cell(true)
 	local context
 	local stage = t.mount(function(UI: FacetControls, _, _, ctx)
@@ -76,7 +76,7 @@ add("toggle-follows-a-live-palette", { "paint-76" }, function(t: any)
 	t.check("the node is the same instance", first(stage, "Sound") == node)
 end)
 
-add("alert-title-is-centred", { "navigation-1-37" }, function(t: any)
+add("alert-title-is-centred", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Host" {
 			Size = UDim2.fromScale(1, 1),
@@ -116,7 +116,7 @@ add("alert-title-is-centred", { "navigation-1-37" }, function(t: any)
 	t.near("the title's glyphs are centred in the panel", left + glyphs / 2, box.x + box.w / 2, 1.5)
 end)
 
-add("path-strokes-in-theme-roles", { "mech1-38", "themes-P3-18" }, function(t: any)
+add("path-strokes-in-theme-roles", {}, function(t: any)
 	for _, theme in t.themes do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Row" {

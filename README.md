@@ -78,10 +78,9 @@ controls create Instances only when a client mounts them.
   Instances, engine layout, selection and input on the host that ran them. They
   cannot see a low-end processor, memory pressure, thermals or battery.
 
-[Verification parity](docs/guide/20-verification-parity.md) maps every test case
-of the previous architecture to its replacement, and
-[the verification scope](docs/guide/18-verification-scope.md) says what a run
-does not cover.
+[The verification scope](docs/guide/18-verification-scope.md) states what a run
+covers. The current suite is the evidence. It does not claim to equal the tests
+that existed before the native cutover.
 
 ## Installing
 

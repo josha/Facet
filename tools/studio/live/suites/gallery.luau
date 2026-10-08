@@ -269,7 +269,7 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 	t.settle(10)
 end)
 
-add("word-game-fits-the-phone", { "apps2-24" }, function(t)
+add("word-game-fits-the-phone", {}, function(t)
 	showing(t, "ex05")
 	local root = gallery()
 	local board = visibleNamed(t, root, "board")

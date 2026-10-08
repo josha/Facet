@@ -58,6 +58,27 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native lab audit: drag and drop", function()
+		verifyHarness:case("matrix pages display with native Vector2 viewport facts", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::matrix pages display with native Vector2 viewport facts",
+			run = function()
+				local available = Compose.cell(0)
+				local w = worlds.new(function(UI, Host, engine)
+					return require("../examples/facet-lab/src/matrix_row")(UI, Compose, {
+						Name = "Cells",
+						width = "fill",
+						wrap = true,
+						Host.TextLabel({ Text = "DefaultButton", Size = engine.types.UDim2.fromOffset(200, 44) }),
+					}, available)
+				end)
+				local row = w.find("Cells")
+				w.resize(row, 560, 200)
+				Verify.expect(available:peek()):toBe(560)
+				w.resize(row, 340, 400)
+				Verify.expect(available:peek()):toBe(340)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("loads the canvas without mesh APIs and supports touch apply undo and reset", {
 			id = "native_lab_audit_parity::native lab audit: drag and drop::loads the canvas without mesh APIs and supports touch apply undo and reset",
 			run = function()

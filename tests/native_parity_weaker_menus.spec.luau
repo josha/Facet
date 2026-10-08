@@ -232,7 +232,7 @@ return function(verifyHarness: Verify.Harness)
 			return badge.Text
 		end
 		for _, node in badge:GetDescendants() do
-			if node:IsA("TextLabel") and node.Text ~= "" then
+			if node:IsA("TextLabel") and node.Text ~= "" and node.Name ~= "CaptionMeasure" then
 				return node.Text
 			end
 		end
@@ -872,7 +872,7 @@ return function(verifyHarness: Verify.Harness)
 				return segment.TextWrapped and string.find(tostring(segment.TextTruncate), "None", 1, true) ~= nil
 			end
 			for _, node in segment:GetDescendants() do
-				if node:IsA("TextLabel") and node.Text ~= "" then
+				if node:IsA("TextLabel") and node.Text ~= "" and node.Visible then
 					local limit = node:FindFirstChildWhichIsA("UISizeConstraint")
 					if not node.TextWrapped or limit == nil or limit.MaxSize.X > bound then
 						return false
@@ -1340,7 +1340,7 @@ return function(verifyHarness: Verify.Harness)
 					local row = find(world.root, "Handling")
 					local options = find(row, "Options")
 
-					Verify.expect(options:FindFirstChildWhichIsA("UIListLayout", true).Wraps):toBe(false)
+					Verify.expect(options:FindFirstChildWhichIsA("UIListLayout", true).Wraps):toBe(true)
 					local floor = options:FindFirstChild("TargetFloor")
 					Verify.expect(floor.MinSize.Y):toBe(50)
 					local constraints = 0

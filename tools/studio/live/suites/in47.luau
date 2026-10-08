@@ -272,7 +272,7 @@ local function temperatureField(t: any): (any, any, TextBox?)
 	return stage, built, field
 end
 
-add("temperature-pointer-enters-edit", { "apps2-30" }, function(t: any)
+add("temperature-pointer-enters-edit", {}, function(t: any)
 	local io = device(t)
 	local _, built, field = temperatureField(t)
 	if not field then
@@ -291,7 +291,7 @@ add("temperature-pointer-enters-edit", { "apps2-30" }, function(t: any)
 	t.check("Return ends the edit", not field:IsFocused())
 end)
 
-add("temperature-touch-enters-edit", { "apps2-30" }, function(t: any)
+add("temperature-touch-enters-edit", {}, function(t: any)
 	touch(t)
 	t.check("the emulator reports touch", UserInputService.PreferredInput == Enum.PreferredInput.Touch)
 	local io = device(t)
@@ -316,7 +316,7 @@ add("temperature-touch-enters-edit", { "apps2-30" }, function(t: any)
 	t.check("focus loss commits", built.celsius() == 0, built.celsius())
 end)
 
-add("temperature-return-enters-edit", { "apps2-30" }, function(t: any)
+add("temperature-return-enters-edit", {}, function(t: any)
 	local io = device(t)
 	for _, key in { Enum.KeyCode.Return } do
 		local _, built, field = temperatureField(t)
@@ -338,7 +338,7 @@ add("temperature-return-enters-edit", { "apps2-30" }, function(t: any)
 	end
 end)
 
-add("confirm-dialog-keyboard-to-cancel", { "apps2-45" }, function(t: any)
+add("confirm-dialog-keyboard-to-cancel", {}, function(t: any)
 	local io = device(t)
 	local stage, built = example(t, "04_confirm_dialog")
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
@@ -377,7 +377,7 @@ add("confirm-dialog-keyboard-to-cancel", { "apps2-45" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-add("pad-with-animation-a", { "apps2-52" }, function(t: any)
+add("pad-with-animation-a", {}, function(t: any)
 	local io = device(t)
 	local stage, built = scenario(t, "with_animation")
 	local animate = t.find(stage, "Animate")
@@ -397,7 +397,7 @@ add("pad-with-animation-a", { "apps2-52" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-add("with-animation-four-inputs", { "apps2-52" }, function(t: any)
+add("with-animation-four-inputs", {}, function(t: any)
 	local io = device(t)
 	local function world(): (any, any, any)
 		local stage, built = scenario(t, "with_animation")
@@ -434,7 +434,7 @@ add("with-animation-four-inputs", { "apps2-52" }, function(t: any)
 	t.check("a touch tap animates once", touched.report().runs == 1, touched.report())
 end)
 
-add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
+add("settings-sheet-stays-over-demo", {}, function(t: any)
 	local io = device(t)
 	local stage, context = t.gallery({ demo = "all-controls" })
 	t.settle(10)
@@ -542,7 +542,7 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t: any)
 	t.check("Close dismisses the settings panel", t.find(stage, "ShowcasePanel") == nil)
 end)
 
-add("pad-confirm-dialog-to-cancel", { "apps2-45" }, function(t: any)
+add("pad-confirm-dialog-to-cancel", {}, function(t: any)
 	local io = device(t)
 	local stage, built = example(t, "04_confirm_dialog")
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
@@ -643,7 +643,7 @@ local function chromeBar(t: any): (any, any, any)
 	return pressed, leftButton, aButton
 end
 
-add("chrome-press-activates-once", { "apps-152" }, function(t: any)
+add("chrome-press-activates-once", {}, function(t: any)
 	local io = device(t)
 	local pressed, leftButton, aButton = chromeBar(t)
 	if not (leftButton and aButton) then
@@ -665,7 +665,7 @@ add("chrome-press-activates-once", { "apps-152" }, function(t: any)
 	t.check("a click on the chrome button runs its handler once", #pressed == 1 and pressed[1] == "Left", pressed)
 end)
 
-add("pad-chrome-press-activates-once", { "apps-152" }, function(t: any)
+add("pad-chrome-press-activates-once", {}, function(t: any)
 	local io = device(t)
 	local pressed, leftButton, aButton = chromeBar(t)
 	if not (leftButton and aButton) then
@@ -715,7 +715,7 @@ local function fieldForm(t: any): (any, any)
 	return stage, value
 end
 
-add("text-input-return-enters-once", { "inputs-181" }, function(t: any)
+add("text-input-return-enters-once", {}, function(t: any)
 	local io = device(t)
 	local _, value = fieldForm(t)
 	local field = value.field
@@ -740,7 +740,7 @@ add("text-input-return-enters-once", { "inputs-181" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-add("text-input-owns-arrows", { "apps-169" }, function(t: any)
+add("text-input-owns-arrows", {}, function(t: any)
 	local io = device(t)
 	local _, value = fieldForm(t)
 	local field = value.field
@@ -775,7 +775,7 @@ add("text-input-owns-arrows", { "apps-169" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-interactive("text-edit-carries-gamepad-connect", { "inputs-137" }, function(t: any)
+interactive("text-edit-carries-gamepad-connect", {}, function(t: any)
 	touch(t)
 	local io = device(t)
 	local _, value = fieldForm(t)
@@ -819,7 +819,7 @@ end, {
 	end,
 })
 
-add("pad-text-edit-commits-on-dock", { "inputs-137" }, function(t: any)
+add("pad-text-edit-commits-on-dock", {}, function(t: any)
 	touch(t)
 	local io = device(t)
 	local _, value = fieldForm(t)
@@ -950,7 +950,7 @@ local function layoutWatch(root: Instance): () -> number
 	end
 end
 
-add("pad-radial-held-dpad-steps-once", { "apps2-183" }, function(t: any)
+add("pad-radial-held-dpad-steps-once", {}, function(t: any)
 	local io = device(t)
 	local menu = radial(t)
 	local north, east = menu.sectors.N.button, menu.sectors.E.button
@@ -992,7 +992,7 @@ add("pad-radial-held-dpad-steps-once", { "apps2-183" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-add("pad-radial-held-stick-rests", { "apps2-183" }, function(t: any)
+add("pad-radial-held-stick-rests", {}, function(t: any)
 	local io = device(t)
 	local menu = radial(t)
 	local south = menu.sectors.S.button
@@ -1034,7 +1034,7 @@ add("pad-radial-held-stick-rests", { "apps2-183" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
+add("radial-icons-centred-on-paint", {}, function(t: any)
 	for _, entry in t.themes do
 		for _, scale in { 1, 1.5 } do
 			for _, iconOnly in { false, true } do
@@ -1116,7 +1116,7 @@ add("radial-icons-centred-on-paint", { "apps2-198" }, function(t: any)
 	end
 end)
 
-add("pad-radial-selection-on-paint", { "apps2-198" }, function(t: any)
+add("pad-radial-selection-on-paint", {}, function(t: any)
 	local io = device(t)
 	io.warm()
 	local menu = radial(t, { anchor = { x = 400, y = 300 } })
@@ -1159,7 +1159,7 @@ add("pad-radial-selection-on-paint", { "apps2-198" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-interactive("radial-hot-switch-keeps-open", { "apps2-211" }, function(t: any)
+interactive("radial-hot-switch-keeps-open", {}, function(t: any)
 	pcall(function()
 		(game:GetService("StudioDeviceSimulatorService") :: any):StopSimulationAsync()
 	end)
@@ -1270,7 +1270,7 @@ local function readTable(t: any, where: string, header: any, handle: any, height
 	end
 end
 
-add("touch-vm-tap-leaves-no-ring", { "apps2-280" }, function(t: any)
+add("touch-vm-tap-leaves-no-ring", {}, function(t: any)
 	touch(t)
 	local io = device(t)
 	local value = monitors(t, nil, "Discover")
@@ -1308,7 +1308,7 @@ add("touch-vm-tap-leaves-no-ring", { "apps2-280" }, function(t: any)
 	)
 end)
 
-interactive("input-fact-follows-device", { "apps2-280", "inputs-141" }, function(t: any)
+interactive("input-fact-follows-device", {}, function(t: any)
 	local simulator = game:GetService("StudioDeviceSimulatorService") :: any
 	pcall(function()
 		simulator:StopSimulationAsync()
@@ -1388,7 +1388,7 @@ end, {
 	end,
 })
 
-add("pad-vm-navigation-selects", { "apps2-280" }, function(t: any)
+add("pad-vm-navigation-selects", {}, function(t: any)
 	local io = device(t)
 	local value = monitors(t, Vector2.new(1280, 720), "Discover")
 	io.warm()
@@ -1412,7 +1412,7 @@ add("pad-vm-navigation-selects", { "apps2-280" }, function(t: any)
 	GuiService.SelectedObject = nil
 end)
 
-add("pad-temperature-a-enters-edit", { "apps2-30" }, function(t: any)
+add("pad-temperature-a-enters-edit", {}, function(t: any)
 	local io = device(t)
 	local _, built, field = temperatureField(t)
 	if not field then
@@ -1446,7 +1446,7 @@ local function contexts(): { InputContext }
 	return out
 end
 
-add("native-context-arbitration", { "inputs-97" }, function(t: any)
+add("native-context-arbitration", {}, function(t: any)
 	local io = device(t)
 	local value: any = { high = 0, low = 0, highReleased = 0 }
 	local stage = t.mount(function(_, Host: RobloxHost, Compose: ComposeModule)
@@ -1564,7 +1564,7 @@ local function shortcutPair(t: any): any
 	return value
 end
 
-add("modifier-shortcuts-and-key-up", { "inputs-100" }, function(t: any)
+add("modifier-shortcuts-and-key-up", {}, function(t: any)
 	local io = device(t)
 	local value = shortcutPair(t)
 	GuiService.SelectedObject = nil
@@ -1635,7 +1635,7 @@ add("modifier-shortcuts-and-key-up", { "inputs-100" }, function(t: any)
 	)
 end)
 
-add("editing-sinks-lower-navigation", { "inputs-145" }, function(t: any)
+add("editing-sinks-lower-navigation", {}, function(t: any)
 	local io = device(t)
 	local moved = 0
 	local _, value = fieldForm(t)
@@ -1677,7 +1677,7 @@ add("editing-sinks-lower-navigation", { "inputs-145" }, function(t: any)
 	t.check("after the edit, Down reaches the lower context again", moved == 2, moved)
 end)
 
-add("actions-released-with-their-owner", { "mech3-36" }, function(t: any)
+add("actions-released-with-their-owner", {}, function(t: any)
 	local io = device(t)
 	local baseline = #contexts()
 	local fired = 0
@@ -1713,7 +1713,7 @@ add("actions-released-with-their-owner", { "mech3-36" }, function(t: any)
 	t.check("a disposed control delivers nothing", fired == 1, fired)
 end)
 
-add("one-action-many-devices", { "mech3-40" }, function(t: any)
+add("one-action-many-devices", {}, function(t: any)
 	local io = device(t)
 	local fired = 0
 	local stage = t.mount(function(UI: FacetControls)
@@ -1758,7 +1758,7 @@ add("one-action-many-devices", { "mech3-40" }, function(t: any)
 	t.check("a pointer press on the same control fires it", fired == 2, fired)
 end)
 
-add("pad-one-action-many-devices", { "mech3-40" }, function(t: any)
+add("pad-one-action-many-devices", {}, function(t: any)
 	local io = device(t)
 	local fired = 0
 	t.mount(function(UI: FacetControls)
@@ -1780,7 +1780,7 @@ add("pad-one-action-many-devices", { "mech3-40" }, function(t: any)
 	t.check("Gamepad1 ButtonB fires the same action", fired == 1, fired)
 end)
 
-add("touch-one-action-many-devices", { "mech3-40" }, function(t: any)
+add("touch-one-action-many-devices", {}, function(t: any)
 	touch(t)
 	local io = device(t)
 	local fired = 0
@@ -1841,7 +1841,7 @@ local function paint(node: any): string
 	)}|{node:GetStyled("TextTransparency")}`
 end
 
-add("hover-follows-the-pointer", { "inputs-133", "paint-102" }, function(t: any)
+add("hover-follows-the-pointer", {}, function(t: any)
 	local io = device(t)
 	local value = { activated = 0 }
 	local stage = hoverProbe(t, value)
@@ -1887,7 +1887,7 @@ add("hover-follows-the-pointer", { "inputs-133", "paint-102" }, function(t: any)
 	t.check("a click activates the button once", value.activated == 1, value.activated)
 end)
 
-add("touch-never-hovers", { "inputs-133", "paint-102" }, function(t: any)
+add("touch-never-hovers", {}, function(t: any)
 	touch(t)
 	local io = device(t)
 	local value = { activated = 0 }
@@ -1914,7 +1914,7 @@ add("touch-never-hovers", { "inputs-133", "paint-102" }, function(t: any)
 	t.check("no help panel shows on touch", visibleNamed(t, gui, "HelpText") == nil)
 end)
 
-interactive("hover-arrives-with-a-mouse", { "inputs-133" }, function(t: any)
+interactive("hover-arrives-with-a-mouse", {}, function(t: any)
 	touch(t)
 	local value: any = { activated = 0 }
 	value.stage = hoverProbe(t, value)
@@ -1941,7 +1941,7 @@ end, {
 	end,
 })
 
-add("help-leaves-with-its-surface", { "inputs-94" }, function(t: any)
+add("help-leaves-with-its-surface", {}, function(t: any)
 	local io = device(t)
 	local open
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -2005,20 +2005,20 @@ local function sliderDrag(t: any, io: any, stage: any, value: any, where: string
 	t.near(`{where}: a drag to the middle of the track sets the middle value`, value:peek(), 50, 3)
 end
 
-add("slider-mouse-drag", { "inputs-223" }, function(t: any)
+add("slider-mouse-drag", {}, function(t: any)
 	local io = device(t)
 	local stage, value = sliderProbe(t)
 	sliderDrag(t, io, stage, value, "mouse")
 end)
 
-add("touch-slider-drag", { "inputs-223" }, function(t: any)
+add("touch-slider-drag", {}, function(t: any)
 	touch(t)
 	local io = device(t)
 	local stage, value = sliderProbe(t)
 	sliderDrag(t, io, stage, value, "touch")
 end)
 
-add("pad-table-row-a-selects", { "inputs-05" }, function(t: any)
+add("pad-table-row-a-selects", {}, function(t: any)
 	local io = device(t)
 	local selection
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)

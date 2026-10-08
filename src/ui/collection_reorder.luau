@@ -778,7 +778,16 @@ return function<V, K>(
 		local rowOrigin: Vector2? = nil
 		local rowDragged = false
 		local function continueRowDrag(position: Vector2)
-			if rowOrigin and not moving:peek() and (position - rowOrigin).Magnitude >= 6 then
+			if
+				rowOrigin
+				and not moving:peek()
+				and (position - rowOrigin).Magnitude >= 6
+				and (
+					grid
+					or math.abs(axis(position) - axis(rowOrigin))
+						> math.abs(crossAxis(position) - crossAxis(rowOrigin))
+				)
+			then
 				rowDragged = true
 				if pendingInput == nil or pendingInput.UserInputType ~= E.UserInputType.Touch then
 					begin(key, position)
@@ -870,6 +879,11 @@ return function<V, K>(
 					and (position - rowOrigin).Magnitude >= 6
 					and pendingInput
 					and pendingInput.UserInputType == E.UserInputType.MouseButton1
+					and (
+						grid
+						or math.abs(axis(position) - axis(rowOrigin))
+							> math.abs(crossAxis(position) - crossAxis(rowOrigin))
+					)
 				then
 					begin(key, position)
 				end

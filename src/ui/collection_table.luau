@@ -100,6 +100,8 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 		local manageable = spec.reorderable == true or spec.deletable == true
 		local ownsToggle = manageable and spec.editing == nil and spec.header ~= false
 		local editing: Types.ValueBoolean? = if ownsToggle then Compose.cell(false) else spec.editing
+		local rowPolicySpec = table.clone(spec)
+		rowPolicySpec.editing = editing
 		Compose.watch(function(use: ComposeTypes.Use)
 			editors.check(read(spec.columns, use), spec.onCellChange)
 		end)
@@ -1031,7 +1033,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				end
 				row = Host.Frame(rowProps)
 				local disclosing = row
-				row = policy.actions(ctx, spec, current, key, row, UI.RowActions, coordinator) :: Frame
+				row = policy.actions(ctx, rowPolicySpec, current, key, row, UI.RowActions, coordinator) :: Frame
 				local actionButton = row:FindFirstChild("CellActions")
 				if actionButton and actionButton:IsA("GuiObject") then
 					local visible = ctx.observe.Visible(actionButton)

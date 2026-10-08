@@ -4,6 +4,10 @@ function materialize.of(panel: any): any
 	return setmetatable({}, {
 		__index = function(_, key)
 			assert(key == "Scale")
+			local uniform = panel:FindFirstChild("PresentationScale", true)
+			if uniform then
+				return uniform.Scale
+			end
 			local content = panel:FindFirstChild("PresentationContent", true)
 			if content == nil then
 				return 1
@@ -28,11 +32,13 @@ function materialize.position(panel: any): any
 		local position, anchor = panel.Position, panel.AnchorPoint
 		local rest = panel.Size
 		local pivot = paint.AnchorPoint
+		local uniform = paint:FindFirstChild("PresentationScale")
+		local factor = if uniform then uniform.Scale else 1
 		return require("@lune/roblox").UDim2.new(
 			position.X.Scale,
-			position.X.Offset - anchor.X * rest.X.Offset + pivot.X * (rest.X.Offset - paint.Size.X.Offset),
+			position.X.Offset - anchor.X * rest.X.Offset + pivot.X * (rest.X.Offset - paint.Size.X.Offset * factor),
 			position.Y.Scale,
-			position.Y.Offset - anchor.Y * rest.Y.Offset + pivot.Y * (rest.Y.Offset - paint.Size.Y.Offset)
+			position.Y.Offset - anchor.Y * rest.Y.Offset + pivot.Y * (rest.Y.Offset - paint.Size.Y.Offset * factor)
 		)
 	end
 	local position, anchor = panel.Position, panel.AnchorPoint

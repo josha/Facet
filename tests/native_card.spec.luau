@@ -1037,10 +1037,13 @@ return function(verifyHarness: Verify.Harness)
 				local iconSeal = pickers.find("a", icons):FindFirstChild("CornerBadge", true)
 				Verify.expect(iconSeal ~= nil and iconSeal.Text == "3"):toBe(true)
 				Verify.expect(iconSeal:FindFirstAncestorWhichIsA("ImageLabel") ~= nil):toBe(true)
+				local measure = pickers.find("a", icons):FindFirstChild("CaptionMeasure", true)
+				Verify.expect(measure ~= nil and not measure.Visible):toBe(true)
 				local shown = {}
 				for _, node in pickers.find("a", icons):GetDescendants() do
 					if
 						(node:IsA("TextLabel") or node:IsA("TextButton"))
+						and node.Visible
 						and node.Name ~= "CornerBadge"
 						and node.Text ~= ""
 					then

@@ -627,7 +627,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Text = "",
 					AutoButtonColor = false,
 					Selectable = false,
-					ZIndex = 4,
+					ZIndex = if content:IsA("GuiButton") then 4 else 0,
 					Visible = swipeable,
 					InputBegan = function(input: InputObject)
 						began(input)
@@ -837,11 +837,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end)
 			Compose.cleanup(release)
 		end
-		runtime.connect(root, "TouchLongPress", function(_: { Vector2 }, state: Enum.UserInputState)
+		local function longPress(_: { Vector2 }, state: Enum.UserInputState)
 			if state == E.UserInputState.Begin and #cellEdits == 0 then
 				reveal()
 			end
-		end)
+		end
+		runtime.connect(root, "TouchLongPress", longPress)
+		runtime.connect(grip, "TouchLongPress", longPress)
 		local gui = ctx.config.guiService
 		local selected: ComposeTypes.Cell<GuiObject?> = if gui
 			then ctx.observe.SelectedObject(gui)

@@ -1789,8 +1789,10 @@ holds the keys, named `Keys`, and the `Label`.
 Menu takes an `items` array or readable. It also takes an optional `label` or
 `trigger`, `icon`, writable `isPresented`, `enabled`, `onOpen` and `onClose`.
 
-Command menus show a Close icon command on every input. `closeButton = false`
-hides it. Value pickers keep their selection commands and do not add this row.
+Command menus show a Close icon command in their Sheet presentation. Floating
+menus use outside input, Escape, or gamepad B to close. `closeButton = true`
+adds the command in either presentation; `false` hides it. Value pickers do not
+add this row.
 
 Items have a stable `id` and a `label`. They have optional `icon`, `enabled`,
 `hidden`, `children` and `onSelect`. Checked and selected items bind their
@@ -2759,9 +2761,12 @@ scrolling column named `Room`. The panel is a Frame. It scales from
 
 ### Popover
 
-Dismissible modal Popovers show a Close icon on every input. `closeButton = false`
-hides it. Nonmodal panels and `cancelPolicy = "none"` do not add Close.
-The compact Sheet follows the same explicit `closeButton` choice.
+Dismissible modal Popovers show Close in a compact room (less than 600 layout
+units wide), or when the content covers at least 75 percent of the safe room.
+Small floating Popovers use outside input, Escape, or gamepad B to close.
+Nonmodal panels do not show Close by default. `closeButton = true` or `false`
+decides either way. `cancelPolicy = "none"` hides Close. The compact Sheet
+shows Close by default and follows the same explicit choice.
 
 `UI.Popover` returns its `trigger`, or an empty Frame for a `source` popover.
 

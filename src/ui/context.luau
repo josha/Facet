@@ -965,41 +965,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 							group.Visible = true
 						end)
 					end
-					if not leaving then
-						assert(gather)()
-					end
-					local late: { Instance } = {}
-					local stopLate: (() -> ())? = nil
+					assert(gather)()
+					local collecting = true
 					runtime.connect(node, "ChildAdded", function(child: Instance)
-						if not carried(child) or runtime.host.frames == nil then
-							return
-						end
-						table.insert(late, child)
-						if stopLate == nil then
-							stopLate = runtime.host.frames.onFrame(function()
-								if stopLate then
-									stopLate()
-									stopLate = nil
-								end
-								local arrived = late
-								late = {}
-								keepSelection(function()
-									for _, each in arrived do
-										if each.Parent == node and group.Parent == node then
-											each.Parent = group
-										end
-									end
-								end)
+						if collecting and carried(child) then
+							keepSelection(function()
+								child.Parent = group
 							end)
 						end
 					end)
 					Compose.cleanup(function()
-						if stopLate then
-							stopLate()
-							stopLate = nil
-						end
-					end)
-					Compose.cleanup(function()
+						collecting = false
 						keepSelection(function()
 							for _, child in group:GetChildren() do
 								child.Parent = node

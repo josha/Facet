@@ -768,7 +768,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							BackgroundTransparency = 1,
 							LayoutOrder = 0,
 							Size = function(use: ComposeTypes.Use)
-								return D2.new(1, 0, 0, ctx.metric("targetSizes.minimum", use))
+								return D2.new(1, 0, 0, math.max(44, ctx.metric("targetSizes.minimum", use)) + 8)
 							end,
 						})
 					)

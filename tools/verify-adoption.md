@@ -38,10 +38,10 @@ policy and small bindings.
 
 ## What Facet keeps and why
 
-- Architecture and historical coverage checks are project policy. They are
-  `tools/check_architecture.py` and `tools/check_coverage.py`, and the gate
-  runs them as producers. `replacement-cases` runs after `suite`. It checks that each
-  mapped case is in the suite result of the same gate run.
+- Architecture and source plan checks are project policy. They are
+  `tools/check_architecture.py` and `tools/check_plan.py`. The gate runs them
+  as producers. The plan check compares the declared sources with the spec
+  files on disk.
 - `tools/lune/bench.luau` maps each row of `bench/baseline.json` to a Verify
   `baseline`: the 1.5 factor as a tolerance, the yardstick p95 statistic, the
   p50 metric for the scenes that use it and the 0.05 millisecond floor on p95.
@@ -49,7 +49,7 @@ policy and small bindings.
   gave. Facet keeps the drift limit, the heap checkpoints and the report
   rows. The samples, the baseline and the thresholds are unchanged.
 - `tools/lune/perf.luau` and the `check_perf_*` validators are Facet
-  workloads and recorded evidence policy.
+  workloads and checks of the current run.
 - `tools/lune/build.luau`, `release.luau` and `mkpair.luau` replace the shell
   scripts. `tools/studio/capture_viewport.sh` stays, because it drives the
   screen capture of the host.
@@ -86,14 +86,14 @@ missing, empty, malformed, foreign, stale, invalid and contradictory worker
 receipt, and the same faults for a producer report. It covers a deadline that
 stops the descendants of a worker and of a producer, a blocked dependent, each
 exit class, the reference host and each verdict.
-`tools/tests/test_project_checks.py` covers the architecture and coverage
+`tools/tests/test_project_checks.py` covers the architecture and source plan
 policy. Live assertions use Verify reports from `tools/studio/live`.
 
 ## Limits
 
-Historical assertion parity is not established. Read the
-[verification scope](../docs/guide/18-verification-scope.md). No example,
-benchmark workload, baseline or threshold changed.
+The current suite is the evidence. It does not claim to equal the tests that
+existed before the native cutover. Read the
+[verification scope](../docs/guide/18-verification-scope.md).
 
 The topbar change of `UI.Composition` has live evidence. The case
 `topbar-regions-side-by-side` of `mobile_regressions` fails without the change
@@ -108,21 +108,10 @@ host with no free swap. It also did not finish in 25 minutes on main before
 the cutover. The other release producers gave 74 passes and 4 timing
 deferrals.
 
-The live suites have failed cases that are older than the Verify migration.
-The Showcase changed to task demos before the migration started. The live
-suites did not change after that, and the committed results in
-`artifacts/studio-live` are older than the Showcase change. Those results
-show `classb_keyboard` 17 of 17, `classb_navigation` 12 of 12,
-`classb_examples` 10 of 10 and `gallery` 4 of 4. In a Studio that Verify
-started, the same suites give 15 of 17, 8 of 12, 8 of 10 and 2 of 4. No
-Studio ran the removed relay path on this commit, thus the two paths are not
-compared case by case.
-
-The gamepad suites need the Controller Emulator. A new Studio process does
-not have it. They ran with `--studio ID` in a Studio with the emulator on:
-`focus_opened` 9 of 15, `gamepad_walk` 10 of 12, `haptics_setup` 1 of 1 and
-`focus_walk` 1 of 1. `haptics_verify` needs real input between the two
-haptics suites in one playtest. Run it by hand.
+Live results come from Verify reports for the build and device that ran.
+The gamepad suites need the Controller Emulator. Use `--studio ID` to attach
+to a Studio with the emulator on. See
+[device verification](../docs/guide/11-device-verification.md) for the commands.
 
 The focus walk recorded atlases for the six Showcase pages, with the D-pad Up
 pass. `UI.focusQuery` and the list of engine differences are removed. The

@@ -667,7 +667,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local room = ctx.observe.AbsoluteSize(button)
 						local target = Compose.formula(function(use: ComposeTypes.Use): number?
 							local width = use(natural).X
-							local available = use(room).X - 2 * ctx.controlSize(nil, "paddingX", use)
+							local unit = use(layoutUnit)
+							local glyphWidth = if not stacked(use) and use(current).icon
+								then (ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use))
+									* unit
+								else 0
+							local available = use(room).X
+								- 2 * ctx.controlSize(spec.controlSize, "paddingX", use) * unit
+								- glyphWidth
 							if
 								string.find(use(placement), "bottom") == nil
 								or use(crowded)

@@ -192,7 +192,7 @@ end
 
 local LABELLED = { "Handle", "JoinCode", "Briefing", "Fee", "Speed" }
 
-add("fields-label-above", { "post-pickers-002", "post-pickers-005" }, function(t)
+add("fields-label-above", {}, function(t)
 	for _, size in { Vector2.new(1280, 720), Vector2.new(320, 800) } do
 		local where = `{size.X}x{size.Y}`
 		local stage = scenario(t, "text_controls", size)
@@ -260,7 +260,7 @@ add("fields-label-above", { "post-pickers-002", "post-pickers-005" }, function(t
 	t.note("not checked", "a tap on the label putting the caret in the field is not driven here")
 end)
 
-add("fields-error-still", { "post-pickers-007" }, function(t)
+add("fields-error-still", {}, function(t)
 	local stage, built = scenario(t, "text_controls", Vector2.new(1280, 720))
 	local field = t.find(stage, "Handle")
 	local input = partOf(field, "Input")
@@ -315,7 +315,7 @@ add("fields-error-still", { "post-pickers-007" }, function(t)
 	end
 end)
 
-add("fields-accessories", { "post-pickers-009", "post-pickers-013" }, function(t)
+add("fields-accessories", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		return Host.Frame "Column" {
 			Size = UDim2.fromScale(1, 1),
@@ -402,7 +402,7 @@ end)
 
 interactive(
 	"fields-control-size",
-	{ "post-pickers-016" },
+	{},
 	"afterClick: left-click once at the screen point noted as click (the middle of the compact Input plate)",
 	function(t)
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
@@ -453,7 +453,7 @@ interactive(
 
 interactive(
 	"fields-visible-lines",
-	{ "post-pickers-092" },
+	{},
 	"afterType: type the letter x once on the keyboard (the Crew briefing field already has keyboard focus with the caret at the end)",
 	function(t)
 		local lines = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -553,7 +553,7 @@ interactive(
 
 interactive(
 	"fields-select-on-focus",
-	{ "post-pickers-064", "post-pickers-066" },
+	{},
 	"afterAll: left-click once at the screen point noted as clickAll; afterEnd: left-click once at the screen point noted as clickEnd; afterNone: left-click once at the screen point noted as clickNone",
 	function(t)
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -659,7 +659,7 @@ interactive(
 
 interactive(
 	"number-step-buttons",
-	{ "post-pickers-031", "post-pickers-032" },
+	{},
 	"afterRight: press the Right arrow key once; afterRightAgain: press the Right arrow key once more",
 	function(t)
 		local stage, built = scenario(t, "text_controls", Vector2.new(1280, 720))
@@ -719,7 +719,7 @@ interactive(
 	}
 )
 
-add("number-units", { "post-pickers-027" }, function(t)
+add("number-units", {}, function(t)
 	for _, size in { Vector2.new(1280, 720), Vector2.new(320, 640) } do
 		local where = `{size.X}x{size.Y}`
 		local stage = scenario(t, "text_controls", size)
@@ -752,7 +752,7 @@ add("number-units", { "post-pickers-027" }, function(t)
 	)
 end)
 
-add("slider-axis-live", { "post-pickers-098" }, function(t)
+add("slider-axis-live", {}, function(t)
 	local stage, built = scenario(t, "adaptive_controls", Vector2.new(1280, 720))
 	local track = partOf(t.find(stage, "Balance"), "Track")
 	local fill = partOf(track, "Fill")
@@ -791,7 +791,7 @@ end)
 
 interactive(
 	"slider-landing-live",
-	{ "post-pickers-100" },
+	{},
 	"afterUp: press the Up arrow key once; afterSecondUp: press the Up arrow key once more",
 	function(t)
 		local stage, built = scenario(t, "adaptive_controls", Vector2.new(1280, 720))
@@ -853,7 +853,7 @@ end
 
 interactive(
 	"slider-rotation-live",
-	{ "post-pickers-102" },
+	{},
 	"afterTurn0: left-click once at the screen point noted as click0; afterTurn135: left-click once at the screen point given in the detail of the afterTurn0 check 'the next click point click135'; afterTurn270Scrolled: left-click once at the screen point given in the detail of the afterTurn135 check 'the next click point click270'",
 	function(t)
 		local value: any = {}
@@ -929,7 +929,7 @@ interactive(
 	}
 )
 
-add("slider-range-live", { "post-pickers-104", "post-pickers-105", "post-pickers-127" }, function(t)
+add("slider-range-live", {}, function(t)
 	local stage = scenario(t, "adaptive_controls", Vector2.new(1280, 720))
 	local track = partOf(t.find(stage, "LapWindow"), "Track")
 	local lower = partOf(track, "HandleLower")
@@ -1014,7 +1014,7 @@ end)
 
 interactive(
 	"slider-thumb-auto-live",
-	{ "post-pickers-116", "post-pickers-117", "post-pickers-121" },
+	{},
 	"afterHover: move the mouse (no button) to the screen point noted as hover; afterLeave: move the mouse (no button) to the screen point noted as away",
 	function(t)
 		local stage = scenario(t, "adaptive_controls", Vector2.new(1280, 720))
@@ -1162,7 +1162,7 @@ local function surfaceOf(t: any, layer: any): any
 	return surface
 end
 
-add("dtp-anchor-below", { "post-pickers-141" }, function(t)
+add("dtp-anchor-below", {}, function(t)
 	for _, place in
 		{
 			{ name = "top", position = UDim2.fromOffset(40, 40), anchor = Vector2.zero },
@@ -1207,7 +1207,7 @@ end)
 
 interactive(
 	"dtp-icon-toggle",
-	{ "post-pickers-141" },
+	{},
 	"afterOpen: left-click once at the screen point noted as icon; afterClose: left-click once more at the same point noted as icon; afterReopen: left-click once more at the same point noted as icon",
 	function(t)
 		local value: any = { reasons = {} }
@@ -1258,7 +1258,7 @@ interactive(
 	}
 )
 
-add("dtp-grid-layout", { "post-pickers-155" }, function(t)
+add("dtp-grid-layout", {}, function(t)
 	local _, root = datePicker(t, function(Compose: ComposeModule)
 		return rangeSpec(Compose, {
 			style = "inline" :: "inline",
@@ -1331,7 +1331,7 @@ end)
 
 interactive(
 	"dtp-native-navigation",
-	{ "post-pickers-144", "post-pickers-145" },
+	{},
 	"afterUpWalk: press the Up arrow key 3 times; afterDownWalk: press the Down arrow key 3 times; afterDraftDown: press the Down arrow key 3 times; afterInlineDown: press the Down arrow key 3 times",
 	function(t)
 		local value: any = {}
@@ -1539,7 +1539,7 @@ local function phoneChecks(t: any, where: string, root: any, layer: any, portrai
 	end
 end
 
-add("dtp-phone-fit", { "post-pickers-157" }, function(t)
+add("dtp-phone-fit", {}, function(t)
 	local preset = {
 		{
 			id = "week",
@@ -1573,7 +1573,7 @@ add("dtp-phone-fit", { "post-pickers-157" }, function(t)
 	t.note("opened by", "isPresented = true rather than a tap on the Show button")
 end)
 
-add("dtp-panel-hugs", { "post-pickers-158" }, function(t)
+add("dtp-panel-hugs", {}, function(t)
 	pointerScreen(t, 1280, 720)
 	local _, root, layer = datePicker(t, function(Compose: ComposeModule)
 		return singleSpec(Compose, { isPresented = openLater(Compose) })
@@ -1629,7 +1629,7 @@ add("dtp-panel-hugs", { "post-pickers-158" }, function(t)
 	)
 end)
 
-add("dtp-paint", { "post-pickers-148" }, function(t)
+add("dtp-paint", {}, function(t)
 	local package = t.themes[1].package
 	for _, name in { "Dark", "Light" } do
 		local palette
@@ -1833,7 +1833,7 @@ end)
 
 interactive(
 	"dtp-menu-centred",
-	{ "post-pickers-139" },
+	{},
 	"afterReturn: press Return once (the Year menu button holds the selection)",
 	function(t)
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
@@ -1921,7 +1921,7 @@ local function labelX(row: any, words: string): number?
 	return nil
 end
 
-add("toggle-row-align", { "post-pickers-097", "post-pickers-133" }, function(t)
+add("toggle-row-align", {}, function(t)
 	for _, themeName in { "Neutral", "PixelQuest", "FantasyOrnate" } do
 		local package = themeNamed(t, themeName)
 		if not package then
@@ -1988,7 +1988,7 @@ end)
 
 interactive(
 	"chip-edit-live",
-	{ "post-pickers-075", "post-pickers-079" },
+	{},
 	"afterDelete: press Delete or ButtonX once (the Friends chip holds the selection)",
 	function(t)
 		local value: any = {}
@@ -2092,7 +2092,7 @@ interactive(
 	}
 )
 
-add("picker-field-live", { "post-pickers-045", "post-pickers-082" }, function(t)
+add("picker-field-live", {}, function(t)
 	local stage, built = scenario(t, "selection_controls", Vector2.new(1280, 720))
 	local driver = t.find(stage, "Driver")
 	local control = partOf(driver, "Control")
@@ -2175,7 +2175,7 @@ local function driverPicker(t: any, first: string, value: any): any
 	end, { size = Vector2.new(1280, 720), frames = 20 })
 end
 
-add("picker-menu-scroll-live", { "post-pickers-049", "post-pickers-051", "post-pickers-085" }, function(t)
+add("picker-menu-scroll-live", {}, function(t)
 	local value: any = {}
 	local stage = driverPicker(t, "d10", value)
 	local trigger = t.find(stage, "Trigger")
@@ -2231,7 +2231,7 @@ end)
 
 interactive(
 	"pickers-avatar-row-press",
-	{ "post-pickers-053" },
+	{},
 	"afterClick: left-click once at the screen point noted as avatar (the avatar circle of the second row, Bo)",
 	function(t)
 		local value: any = {}
@@ -2277,7 +2277,7 @@ interactive(
 	}
 )
 
-add("picker-cards-live", { "post-pickers-062" }, function(t)
+add("picker-cards-live", {}, function(t)
 	local stage = scenario(t, "selection_controls", Vector2.new(390, 844))
 	local mode = t.find(stage, "Mode")
 	local cards: { [string]: any } = {}
@@ -2312,7 +2312,7 @@ add("picker-cards-live", { "post-pickers-062" }, function(t)
 	t.check("the cards wrap onto more than one line", count > 1, count)
 end)
 
-add("picker-segmented-live", { "post-pickers-058" }, function(t)
+add("picker-segmented-live", {}, function(t)
 	for _, themeName in { "Neutral", "PixelQuest" } do
 		local package = themeNamed(t, themeName)
 		if not package then
@@ -2475,7 +2475,7 @@ local function openPanel(t: any, layer: any): any
 	return panel
 end
 
-add("color-hidden-technique-size", { "post-pickers-169" }, function(t)
+add("color-hidden-technique-size", {}, function(t)
 	for
 		_,
 		screen: {
@@ -2610,7 +2610,7 @@ add("color-hidden-technique-size", { "post-pickers-169" }, function(t)
 	t.note("tab switch", "each tab is shown by opening a well whose first mode is that tab; the mode set is the same")
 end)
 
-add("color-placement-real-layout", { "post-pickers-165", "post-pickers-167", "post-pickers-168" }, function(t)
+add("color-placement-real-layout", {}, function(t)
 	for _, screen in { Vector2.new(1542, 1044), Vector2.new(1542, 560) } do
 		local where = `{screen.X}x{screen.Y}`
 		pointerScreen(t, screen.X, screen.Y)
@@ -2711,7 +2711,7 @@ end)
 
 interactive(
 	"color-grid-wraps-two-dimensions",
-	{ "post-pickers-171" },
+	{},
 	"afterDown: press the Down arrow key once; afterRight: press the Right arrow key once",
 	function(t)
 		t.device({ device = "xbox", width = 900, height = 900 })
@@ -2791,7 +2791,7 @@ local function strokeOf(node: any): any
 	return nil
 end
 
-add("color-plane-layers-and-ring", { "post-pickers-188", "post-pickers-179" }, function(t)
+add("color-plane-layers-and-ring", {}, function(t)
 	local value
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		local spec
@@ -2924,7 +2924,7 @@ add("color-plane-layers-and-ring", { "post-pickers-188", "post-pickers-179" }, f
 	)
 end)
 
-add("color-touch-bubble-room", { "post-pickers-183" }, function(t)
+add("color-touch-bubble-room", {}, function(t)
 	t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch, orientation = Enum.ScreenOrientation.Portrait })
 	t.note("preferred input", tostring(game:GetService("UserInputService").PreferredInput))
 	local inlineValue, sheetValue
@@ -3002,7 +3002,7 @@ add("color-touch-bubble-room", { "post-pickers-183" }, function(t)
 	)
 end)
 
-add("color-phone-sheet-apply-on-screen", { "post-pickers-182" }, function(t)
+add("color-phone-sheet-apply-on-screen", {}, function(t)
 	for _, turn in
 		{
 			{ name = "portrait", orientation = Enum.ScreenOrientation.Portrait },
@@ -3158,7 +3158,7 @@ local function scrimOf(t: any, name: string, modal: any, layer: any)
 	t.inside(`{name} scrim covers the screen`, layer, catcher, 1)
 end
 
-add("dtp-ten-foot", { "post-pickers-159" }, function(t)
+add("dtp-ten-foot", {}, function(t)
 	if not tenFootCheck(t) then
 		return
 	end
@@ -3196,7 +3196,7 @@ end)
 
 interactive(
 	"dtp-ten-foot-pad-open-and-back",
-	{ "post-pickers-159", "post-pickers-144", "post-pickers-145" },
+	{},
 	"afterOpen: press ButtonA once (the calendar icon holds the selection); afterBack: press ButtonB once",
 	function(t)
 		local value: any = {}
@@ -3248,7 +3248,7 @@ interactive(
 
 interactive(
 	"color-ten-foot-pad-open-and-back",
-	{ "post-pickers-178" },
+	{},
 	"afterOpen: press ButtonA once (the well holds the selection); afterBack: press ButtonB once",
 	function(t)
 		local value: any = {}
@@ -3306,7 +3306,7 @@ interactive(
 
 interactive(
 	"color-ten-foot-center",
-	{ "post-pickers-178" },
+	{},
 	"afterDown: press the Down arrow key 8 times; afterUp: press the Up arrow key 8 times",
 	function(t)
 		local value: any = {}
