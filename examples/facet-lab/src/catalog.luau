@@ -4672,6 +4672,21 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				c.UI.Button({ label = "Settings" }),
 			}
 		end,
+		make = function(UI: FacetControls, p: Properties): Instance
+			if p.axis ~= "x" then
+				return UI.AdaptiveStack(p)
+			end
+			local row = table.clone(p)
+			row.width = "hug"
+			row.height = "hug"
+			local window: Properties = {
+				axis = "x",
+				width = p.width or "fill",
+				height = p.height or "hug",
+				UI.AdaptiveStack(row),
+			}
+			return UI.ScrollView(window)
+		end,
 		axes = {
 			{ key = "width", values = { "fill", 460, 240 } } :: Axis,
 			{ key = "axis", values = { DEFAULT, "x", "y" } } :: Axis,

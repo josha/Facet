@@ -4,6 +4,52 @@ local Audit = require("./lab_audit")
 local Visible = require("./audit_visible")
 local Sweep = {}
 
+function Sweep.engineFault(message: string, kind: string): boolean
+	return kind == "MessageError" or string.find(message, "unexpectedly tried to set the parent", 1, true) ~= nil
+end
+
+function Sweep.sections(page: Instance): { string }
+	local sections = {}
+	for _, child in page:GetChildren() do
+		if child:IsA("GuiObject") and child.Name ~= "Header" and child.Name ~= "Controls" then
+			table.insert(sections, child.Name)
+		end
+	end
+	return sections
+end
+
+function Sweep.identity(node: Instance, root: Instance): string
+	local parts = {}
+	local at: Instance? = node
+	while at and at ~= root do
+		local parent = at.Parent
+		local index = 0
+		if parent then
+			for _, sibling in parent:GetChildren() do
+				if sibling.Name == at.Name then
+					index += 1
+				end
+				if sibling == at then
+					break
+				end
+			end
+		end
+		table.insert(parts, 1, `{at.Name}[{index}]`)
+		at = parent
+	end
+	return table.concat(parts, ".")
+end
+
+function Sweep.inventory(group: Instance, page: Instance): { [string]: boolean }
+	local inventory = {}
+	for _, node in group:GetDescendants() do
+		if node:IsA("GuiButton") or node:IsA("TextBox") or node:IsA("UIDragDetector") then
+			inventory[Sweep.identity(node, page)] = true
+		end
+	end
+	return inventory
+end
+
 function Sweep.options(data: any): { string }
 	local commands = {}
 	for _, axis in data.axes or {} do
@@ -69,8 +115,11 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 	local observations = {}
 	local currentRow: any = nil
 	local logged = game:GetService("LogService").MessageOut:Connect(function(message, kind)
-		if currentRow and kind == Enum.MessageType.MessageError then
-			table.insert(currentRow.faults, `engine error: {string.sub(message, 1, 300)}`)
+		if currentRow and Sweep.engineFault(message, kind.Name) then
+			local issue = `engine error: {string.sub(message, 1, 300)}`
+			if not table.find(currentRow.faults, issue) then
+				table.insert(currentRow.faults, issue)
+			end
 		end
 	end)
 	local harness = Verify.createHarness({ now = os.clock, source = "FacetLab/sweep" })
@@ -400,8 +449,11 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 				end
 				attempt("Controls Reset", reset)
 				wait(0.1)
-				for _, section in { "Playground", "Variants", "States", "Sizing" } do
+				for _, section in Sweep.sections(assert(pageFor(id))) do
 					local completed = {}
+					local start = assert(pageFor(id))
+					local group = start:FindFirstChild(section)
+					local inventory = if group then Sweep.inventory(group, start) else {}
 					while true do
 						local page = pageFor(id)
 						local group = page and page:FindFirstChild(section)
@@ -412,8 +464,8 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 						local identity = ""
 						for _, node in group:GetDescendants() do
 							if node:IsA("GuiButton") or node:IsA("TextBox") or node:IsA("UIDragDetector") then
-								local path = string.sub(node:GetFullName(), #page:GetFullName() + 2)
-								if not completed[path] and shown(node) then
+								local path = Sweep.identity(node, page)
+								if inventory[path] and not completed[path] and shown(node) then
 									target, identity = node, path
 									break
 								end

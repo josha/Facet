@@ -183,6 +183,107 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("Lab sweep records engine parent conflicts without treating every warning as a fault", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep records engine parent conflicts without treating every warning as a fault",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				Verify.expect(
+					sweep.engineFault(
+						"Something unexpectedly tried to set the parent of Slide to Fade while trying to set the parent of Slide. Current parent is Picker.",
+						"MessageWarning"
+					)
+				):toBe(true)
+				Verify.expect(sweep.engineFault("Asset request was retried", "MessageWarning")):toBe(false)
+				Verify.expect(sweep.engineFault("An input callback failed", "MessageError")):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("Lab sweep includes editing and helper sections outside the standard matrix", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep includes editing and helper sections outside the standard matrix",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local page = engine.new("ScrollingFrame")
+				for _, name in { "Header", "Controls", "Playground", "Editing", "Helper_Label", "States" } do
+					local child = engine.new("Frame")
+					child.Name = name
+					child.Parent = page
+				end
+				Verify.expect(sweep.sections(page)):toEqual({ "Playground", "Editing", "Helper_Label", "States" })
+			end,
+		})
+
+		verifyHarness:case("Lab sweep keeps a finite inventory when an interaction adds a new row", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep keeps a finite inventory when an interaction adds a new row",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local page = engine.new("ScrollingFrame")
+				local group = engine.new("Frame")
+				group.Name = "States"
+				group.Parent = page
+				local button = engine.new("TextButton")
+				button.Name = "Copy"
+				button.Parent = group
+				local inventory = sweep.inventory(group, page)
+				local copy = engine.new("TextButton")
+				copy.Name = "NewCopy"
+				copy.Parent = group
+				Verify.expect(inventory["States[1].Copy[1]"]):toBe(true)
+				Verify.expect(inventory["States[1].NewCopy[1]"]):toBe(nil)
+				Verify.expect(sweep.inventory(group, page)["States[1].NewCopy[1]"]):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("Lab sweep distinguishes controls with the same native name", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep distinguishes controls with the same native name",
+			run = function()
+				local sweep: any = require("../examples/facet-lab/src/lab_sweep")
+				local engine: any = engineLib.new()
+				local page = engine.new("ScrollingFrame")
+				local group = engine.new("Frame")
+				group.Parent = page
+				for _ = 1, 2 do
+					local button = engine.new("TextButton")
+					button.Name = "Action"
+					button.Parent = group
+				end
+				local count = 0
+				for _ in sweep.inventory(group, page) do
+					count += 1
+				end
+				Verify.expect(count):toBe(2)
+			end,
+		})
+
+		verifyHarness:case("Lab pinned AdaptiveStack keeps all four commands in a native scroll window", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab pinned AdaptiveStack keeps all four commands in a native scroll window",
+			run = function()
+				local w = worlds.new(function(UI, Host, engine)
+					local data = require("@lune/luau").load(
+						require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
+						{ environment = engine.types }
+					)().PAGE_DATA.AdaptiveStack
+					local props = data.base({ UI = UI })
+					props.axis = "x"
+					props.width = 240
+					return data.make(UI, props)
+				end)
+				local root = w.screen:FindFirstChildWhichIsA("ScrollingFrame", true)
+				Verify.expect(root:IsA("ScrollingFrame")):toBe(true)
+				Verify.expect(root.ScrollingDirection):toBe(w.engine.types.Enum.ScrollingDirection.X)
+				Verify.expect(root.ClipsDescendants):toBe(true)
+				local labels = {}
+				for _, node in root:GetDescendants() do
+					if node:IsA("TextButton") then
+						table.insert(labels, node.Text)
+					end
+				end
+				Verify.expect(labels):toEqual({ "Start race", "Garage", "Leaderboard", "Settings" })
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("pure adaptive matrix decisions keep numeric arguments", {
 			id = "native_lab_audit_parity::native lab audit: drag and drop::pure adaptive matrix decisions keep numeric arguments",
 			run = function()
