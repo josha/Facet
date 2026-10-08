@@ -15,6 +15,7 @@ local NONE = catalog.NONE
 local collectionEditing = require(script.Parent.collection_editing)
 local dragDropDemo = require(script.Parent.drag_drop_demo)
 local variantCell = require(script.Parent.variant_cell)
+local matrixRow = require(script.Parent.matrix_row)
 
 local SIZE_KEYS = { controlSize = true, starSize = true, segmentSize = true }
 
@@ -332,11 +333,7 @@ function browser.mount(opts: MountOpts): any
 		if title then
 			table.insert(children, wrapped({ Name = "Title", text = title, textRole = "body" :: "body" }))
 		end
-		local stack = UI.HStack(row)
-		local room = UI.environment(stack)
-		Compose.watch(function(use: Use)
-			available:set(use(room.viewportSize).width)
-		end)
+		local stack = matrixRow(UI, Compose, row, available)
 		table.insert(children, stack)
 		return UI.VStack(children)
 	end
