@@ -85,6 +85,10 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			virtual:SendKey(false, key, false)
 			settle(12)
 		end
+		function io.text(value: string)
+			virtual:SendTextInput(value)
+			settle(12)
+		end
 		function io.doubleClick(at: Vector2)
 			io.move(at)
 			for count = 0, 1 do
@@ -395,13 +399,61 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("afterChildDrag")
 		io.up(contact + Vector2.new(20, 20))
 	end
-	local travelDrivers = require(script.Parent.zoom_travel_drivers)(live.step, press, settle, function(node)
-		GuiService.SelectedObject = node
-	end)
-	for id, driver in travelDrivers do
-		drivers[id] = driver
+	if options.device == "keep" and UserInputService.GamepadEnabled then
+		local travelDrivers = require(game.ReplicatedStorage.FacetLive.zoom_travel_drivers)(
+			live.step,
+			press,
+			settle,
+			function(node)
+				GuiService.SelectedObject = node
+			end
+		)
+		for id, driver in travelDrivers do
+			drivers[id] = driver
+		end
+	end
+	drivers["board-typing-pointer-and-text-entry"] = function(t, value, io)
+		local received: { string } = {}
+		local connection = UserInputService.InputBegan:Connect(function(event)
+			table.insert(received, event.KeyCode.Name)
+		end)
+		t.note(
+			"initial command state",
+			{ key = value.scope.current:peek(), enabled = value.scope.actions.Letter.Enabled }
+		)
+		io.hold(Enum.KeyCode.A, 3)
+		t.note("placement counts", { value.counts() })
+		live.step("afterPlace")
+		io.click(centre(value.chat))
+		io.hold(Enum.KeyCode.A, 3)
+		io.text("A")
+		t.note(
+			"text entry state",
+			{ focused = UserInputService:GetFocusedTextBox() == value.chat, text = value.chat.Text }
+		)
+		live.step("afterChat")
+		io.hold(Enum.KeyCode.Backspace, 3)
+		t.note("recall counts", { value.counts() })
+		t.note("native keys received", received)
+		connection:Disconnect()
+		live.step("afterRecall")
+	end
+	drivers["reward-pointer"] = function(_, value, io)
+		local root = assert(value.target.Parent)
+		local play = assert(root:FindFirstChild("Play", true)) :: GuiObject
+		local finish = assert(root:FindFirstChild("Finish", true)) :: GuiObject
+		io.click(centre(play))
+		settle(180)
+		live.step("afterReward")
+		io.click(centre(play))
+		io.click(centre(finish))
+		settle(60)
+		live.step("afterFinish")
 	end
 	local gamepad = {
+		["shuffle-gamepad"] = true,
+		["board-command-gamepad"] = true,
+		["reward-gamepad"] = true,
 		["zoom-gamepad"] = true,
 		["travel-gamepad"] = true,
 		["vote-pad-reaches-and-proposes"] = true,

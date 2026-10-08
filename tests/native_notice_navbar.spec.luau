@@ -16,6 +16,34 @@ return function(verifyHarness: Verify.Harness)
 		end, options)
 	end
 
+	verifyHarness:suite("native NavBar overflow", function()
+		verifyHarness:case("keeps the leading action inside a bounded scrolling row at phone widths", {
+			id = "native_notice_navbar::native NavBar overflow::keeps the leading action inside a bounded scrolling row at phone widths",
+			run = function()
+				for _, width in { 320, 360, 375, 389, 430 } do
+					local w = mount(function(UI: FacetControls)
+						return UI.NavBar "Header" {
+							title = "Discover",
+							trailing = UI.HStack {
+								UI.Button { label = "Spatial mode" },
+								UI.Button { label = "Light mode" },
+								UI.Button { label = "About" },
+							},
+						}
+					end)
+					local header, trailing = w.find("Header"), w.find("Trailing")
+					header.AbsoluteSize = Vector2.new(width - 32, 80)
+					Verify.expect(trailing:IsA("ScrollingFrame")):toBe(true)
+					Verify.expect(trailing:FindFirstChild("ViewportBounds").MaxSize.X):toBe(width - 32)
+					Verify.expect(trailing.CanvasPosition.X):toBe(0)
+					Verify.expect(trailing:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+						:toBe(w.engine.types.Enum.HorizontalAlignment.Left)
+					w.stop()
+				end
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native Notice: inline copy, accessories and close", function()
 		verifyHarness:case("paints the severity icon, title and message, and the close reports the press only", {
 			id = "native_notice_navbar::native Notice: inline copy, accessories and close::paints the severity icon, title and message, and the close reports the press only",

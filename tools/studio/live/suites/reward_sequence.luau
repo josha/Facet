@@ -3,7 +3,7 @@ type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Live = {
-	mount: ((Controls, Host, Compose) -> Instance, { frames: number }?) -> GuiObject,
+	mount: ((Controls, Host, Compose) -> Instance, { frames: number, motionLevel: "normal"? }?) -> GuiObject,
 	check: (string, boolean, unknown?) -> (),
 	note: (string, unknown) -> (),
 }
@@ -89,7 +89,7 @@ local function setup(t: Live): State
 				end,
 			} :: unknown,
 		}
-	end, { frames = 12 })
+	end, { frames = 12, motionLevel = "normal" })
 	return state
 end
 local function afterReward(t: Live, state: State)

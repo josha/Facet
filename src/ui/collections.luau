@@ -335,10 +335,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			if edge > 0 then
 				local current, box = status:peek(), viewport:peek()
 				local last = if current and current.extent then current.extent - box.size else math.huge
-				offset = if requested <= 0
-					then 0
-					elseif requested >= last then math.max(0, last + 2 * edge)
-					else requested + edge
+				offset = if requested <= 0 then 0 elseif requested >= last then math.max(0, last) else requested + edge
 			end
 			local position = root.CanvasPosition
 			local nextPosition = if horizontal then V2.new(offset, position.Y) else V2.new(position.X, offset)
@@ -1212,7 +1209,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				dimensions /= scale
 			end
 			local offset = math.max(0, (if horizontal then at.X else at.Y) - mainEdge(use))
-			local extent = if horizontal then dimensions.X else dimensions.Y
+			local extent = math.max(0, (if horizontal then dimensions.X else dimensions.Y) - 2 * mainEdge(use))
 			cross:set(if horizontal then dimensions.Y else dimensions.X)
 			local previous = viewport:peek()
 			if previous.offset ~= offset or previous.size ~= extent then

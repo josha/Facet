@@ -634,9 +634,25 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		})
 		local stacked = Compose.cell(false)
 		local rootChildren: { Types.Child } = { primaryFrame }
-		local trailingFrame: Frame? = nil
+		local trailingFrame: GuiObject? = nil
 		if spec.trailing then
-			local trailing = ctx.row({ spec.trailing }, { Name = "Trailing" })
+			local trailing = Host.ScrollingFrame "Trailing" {
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Size = D2.fromOffset(0, 0),
+				AutomaticSize = E.AutomaticSize.XY,
+				AutomaticCanvasSize = E.AutomaticSize.X,
+				CanvasSize = D2.fromOffset(0, 0),
+				CanvasPosition = ctx.types.Vector2.zero,
+				ScrollingDirection = E.ScrollingDirection.X,
+				ClipsDescendants = true,
+				Host.UIListLayout {
+					FillDirection = E.FillDirection.Horizontal,
+					HorizontalAlignment = E.HorizontalAlignment.Left,
+					SortOrder = E.SortOrder.LayoutOrder,
+				},
+				spec.trailing,
+			}
 			trailingFrame = trailing
 			table.insert(rootChildren, trailing)
 		end
@@ -664,7 +680,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 			})
 		end
-		local rows: { Frame } = { primaryFrame }
+		local rows: { GuiObject } = { primaryFrame }
 		if trailingFrame then
 			table.insert(rows, trailingFrame)
 		end
@@ -694,6 +710,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			surfaces.attach(root, { ctx.padding(space(spec.padding, "s"), space(spec.padding, "s")) })
 		end
 		if trailingFrame then
+			local available = ctx.layoutSize(root)
+			runtime.mount(function()
+				return Host.UISizeConstraint "ViewportBounds" {
+					MaxSize = function(use: ComposeTypes.Use): Vector2
+						local width = use(available).X
+						return ctx.types.Vector2.new(
+							if width > 0
+								then math.max(
+									0,
+									width - (if spec.padding ~= nil then 2 * space(spec.padding, "s", use) else 0)
+								)
+								else math.huge,
+							math.huge
+						)
+					end,
+				}
+			end, trailingFrame)
 			local box = ctx.observe.AbsoluteSize(root)
 			local sides = ctx.observe.AbsoluteSize(trailingFrame)
 			local before: { ComposeTypes.Readable<Vector2> } = {}

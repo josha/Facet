@@ -82,6 +82,81 @@ return function(verifyHarness: Verify.Harness)
 		return values
 	end
 	verifyHarness:suite("collection geometry publication", function()
+		verifyHarness:case("does not correct a native end scroll into the reserved Card lift gutter", {
+			id = "native_collections::collection geometry publication::does not correct a native end scroll into the reserved Card lift gutter",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+				local status = Compose.cell(nil :: FixtureComposeTypes.OrderedCollectionStatus?)
+				local corrections = 0
+				local checking = false
+				local stop, mounted = runtime.mount(function()
+					Compose.watch(function(use)
+						local current = use(status)
+						if checking and current and current.desiredOffset ~= nil then
+							corrections += 1
+						end
+					end)
+					return UI.VirtualGrid({
+						from = records(60),
+						key = "id",
+						columns = 4,
+						itemSize = 268,
+						gap = 16,
+						status = status,
+						render = function(): GuiObject
+							return Host.Frame({
+								Name = "Card",
+								Size = engine.types.UDim2.fromScale(1, 1),
+								Attributes = { FacetBody = "button" },
+							})
+						end,
+					})
+				end, target)
+				local grid = (mounted :: unknown) :: ScrollingFrame
+				local geometry = (grid :: unknown) :: { AbsoluteWindowSize: Vector2 }
+				geometry.AbsoluteWindowSize = engine.types.Vector2.new(1242, 648)
+				checking = true
+				grid.CanvasPosition = engine.types.Vector2.new(0, grid.CanvasSize.Y.Offset - 648)
+				Verify.expect(corrections):toBe(0)
+				stop()
+			end,
+		})
+		verifyHarness:case("reads derived glyph and form geometry even when native styling emits no property signal", {
+			id = "native_collections::collection geometry publication::reads derived glyph and form geometry even when native styling emits no property signal",
+			run = function()
+				local engine, runtime, _, target = setup()
+				local node = engine.new("TextLabel")
+				local V2 = engine.types.Vector2
+				local derived = { TextBounds = V2.new(97, 12), AbsoluteSize = V2.new(43, 20) }
+				local observation = assert(runtime.host.observation)
+				local readProperty = observation.readProperty
+				observation.readProperty = function(instance, property)
+					if instance == node and derived[property] then
+						return derived[property]
+					end
+					return readProperty(instance, property)
+				end
+				local observe = require("../src/ui/geometry_observation")
+				local glyphs: FixtureComposeTypes.Cell<unknown>? = nil
+				local box: FixtureComposeTypes.Cell<unknown>? = nil
+				local stop = runtime.mount(function()
+					local frame = (engine.heartbeat :: unknown) :: RBXScriptSignal
+					glyphs = observe(Compose, runtime, node, "TextBounds", frame)
+					box = observe(Compose, runtime, node, "AbsoluteSize", frame)
+					return nil
+				end, target)
+				engine.heartbeat:Fire(0)
+				derived.TextBounds = V2.new(87, 12)
+				derived.AbsoluteSize = V2.new(40, 20)
+				engine.heartbeat:Fire(0)
+				Verify.expect(assert(glyphs):peek()):toBe(V2.new(87, 12))
+				Verify.expect(assert(box):peek()):toBe(V2.new(40, 20))
+				stop()
+			end,
+		})
 		verifyHarness:case("publishes the complete native geometry snapshot before paint", {
 			id = "native_collections::collection geometry publication::publishes the complete native geometry snapshot before paint",
 			run = function()
@@ -1565,6 +1640,9 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end
 				Verify.expect(grid.CanvasSize.Y.Offset):toBe(4412 - 16 + 2 * padding.PaddingTop.Offset)
+				local endOffset = grid.CanvasSize.Y.Offset - 648
+				grid.CanvasPosition = engine.types.Vector2.new(0, endOffset)
+				Verify.expect(grid.CanvasPosition.Y):toBe(endOffset)
 				for _, index in { 1, 4, 57, 60 } do
 					local slot = assert(items:FindFirstChild(tostring(index))) :: Frame
 					local scroll = if index > 4 then grid.CanvasSize.Y.Offset - 648 else 0

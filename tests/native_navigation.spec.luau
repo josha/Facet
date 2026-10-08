@@ -374,6 +374,42 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("bounds bottom tab captions and ellipsizes them inside every phone slot", {
+			id = "native_navigation::native navigation controls::bounds bottom tab captions and ellipsizes them inside every phone slot",
+			run = function()
+				for _, width in { 320, 360, 375, 389, 430 } do
+					local world = setup(function(UI: FacetControls, Host: RobloxHost)
+						local tabs: { Navigation.Tab } = {}
+						for _, label in { "Discover", "Avatar", "Chat", "Flap" } do
+							table.insert(tabs, {
+								id = label,
+								label = label,
+								icon = "person",
+								content = function()
+									return Host.Frame {}
+								end,
+							})
+						end
+						return UI.TabView {
+							selection = Compose.cell("Discover"),
+							placement = "bottomBar" :: "bottomBar",
+							tabs = tabs,
+						}
+					end)
+					local bar = find(world.screen, "Tabs")
+					bar.AbsoluteSize = world.engine.types.Vector2.new(width, 70)
+					local button = bar:FindFirstChild("Discover")
+					button.AbsoluteSize = world.engine.types.Vector2.new(width / 4 - 4, 44)
+					local title = find(button, "Title")
+					Verify.expect(title.Size.X.Scale):toBe(1)
+					Verify.expect(title.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
+					Verify.expect(title.TextTruncate):toBe(world.engine.types.Enum.TextTruncate.AtEnd)
+					Verify.expect(width / 4 - 4 + title.Size.X.Offset > 0):toBe(true)
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("stacks destination labels below icons in an equal phone bar", {
 			id = "native_navigation::native navigation controls::stacks destination labels below icons in an equal phone bar",
 			run = function()

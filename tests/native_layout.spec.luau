@@ -79,6 +79,37 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native composition rest measurements", function()
+		verifyHarness:case("sizes a simplified Region without an automatic parent and hit target feedback loop", {
+			id = "native_layout::native composition rest measurements::sizes a simplified Region without an automatic parent and hit target feedback loop",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					return UI.Composition {
+						UI.Region "Health" {
+							zone = "bottomLeft" :: "bottomLeft",
+							rank = 1,
+							Host.Frame "Full" {} :: unknown,
+							Host.Frame "Compact" {},
+						},
+					}
+				end)
+				local region = root:FindFirstChild("Health", true)
+				local full, compact = region:FindFirstChild("Full", true), region:FindFirstChild("Compact", true)
+				local V2 = engine.types.Vector2
+				full.AbsoluteSize = V2.new(147, 26)
+				compact.AbsoluteSize = V2.new(32, 20)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
+				compact.AbsoluteSize = V2.new(39, 26)
+				Verify.expect(region.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
+				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
+				Verify.expect(trigger.Size):toBe(engine.types.UDim2.fromScale(1, 1))
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(1079, 745)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
+				stop()
+			end,
+		})
 		verifyHarness:case("keeps a simplified Region rectangle after a scaled viewport round trip", {
 			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
 			run = function()
@@ -115,6 +146,58 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(trigger.Size):toBe(initial)
 				end
 				stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("phone layout policy", function()
+		verifyHarness:case("reserves a visible horizontal scroll hint below overflowing genre chips", {
+			id = "native_layout::phone layout policy::reserves a visible horizontal scroll hint below overflowing genre chips",
+			run = function()
+				for _, width in { 320, 360, 375, 389, 430 } do
+					local root, engine, stop = build(nil, function(UI: FacetControls)
+						return UI.ScrollView {
+							axis = "x" :: "x",
+							ScrollBarThickness = 2,
+							UI.Chip { label = "Adventure", selected = Compose.cell(false) },
+						}
+					end)
+					root.AbsoluteWindowSize = engine.types.Vector2.new(width, 36)
+					root:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = engine.types.Vector2.new(750, 36)
+					local hint = root:FindFirstChild("ScrollBarRoom")
+					Verify.expect(hint ~= nil):toBe(true)
+					Verify.expect(hint.MinSize.Y):toBe(38)
+					Verify.expect(root.HorizontalScrollBarInset):toBe(engine.types.Enum.ScrollBarInset.ScrollBar)
+					Verify.expect(root.CanvasSize.X.Offset):toBe(750)
+					Verify.expect(root.ScrollBarThickness):toBe(2)
+					stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("a single fitting candidate keeps its authored visibility on phone widths", {
+			id = "native_layout::phone layout policy::a single fitting candidate keeps its authored visibility on phone widths",
+			run = function()
+				local outcomes: { string } = {}
+				for _, width in { 320, 360, 375, 389, 430 } do
+					local visible = Compose.cell(false)
+					local root, engine, stop = build(nil, function(UI: FacetControls)
+						return UI.ViewThatFits {
+							width = "hug" :: "hug",
+							UI.HStack { Visible = visible, UI.Button { label = "Spatial mode" } },
+						}
+					end)
+					root.AbsoluteSize = engine.types.Vector2.new(width, 44)
+					local candidate = root:FindFirstChildWhichIsA("Frame")
+					local initiallyHidden = candidate.Visible == false
+					visible:set(true)
+					Verify.expect(candidate.Visible):toBe(true)
+					visible:set(false)
+					root.AbsoluteSize = engine.types.Vector2.new(width - 1, 44)
+					table.insert(outcomes, `{width}:{initiallyHidden and candidate.Visible == false}`)
+					stop()
+				end
+				Verify.expect(table.concat(outcomes, ",")):toBe("320:true,360:true,375:true,389:true,430:true")
 			end,
 		})
 	end)

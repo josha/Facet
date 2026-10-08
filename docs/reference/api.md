@@ -686,6 +686,9 @@ and `ScrollingDirection` for its axis. Thus the content fits the scroll window
 beside the scroll bar. `axis` is `"y"` (the default), `"x"` or `"xy"`. The
 `"x"` axis stacks the children horizontally and, unless you give a `height`,
 hugs their height, so a row of chips never clips when they grow at ten feet.
+When the row overflows, its automatic height also reserves space for the
+native horizontal scroll bar. The scroll bar shows that more choices are
+available. An authored size constraint keeps its authority.
 When a child passed in the props has a Scale height (`height = "fill"`), the
 ScrollView fills its parent's height instead, as before, because a hugging
 frame would give that child no height.
@@ -782,6 +785,8 @@ others. Each child is a candidate, in order of preference. The last candidate
 shows when none fits. It needs at least one candidate. Options: `width` and
 `height`. The props type is `ViewThatFitsProps`.
 
+- With one candidate, its authored `Visible` state stays in control. There is
+  no choice to make, so the container does not change that state.
 - A candidate fits when its `AbsoluteSize` is not larger than the size of the
   container. Roblox measures every candidate, also a hidden one. Facet only
   sets `Visible`.
@@ -2106,7 +2111,8 @@ badge never covers the label.
 the width, and its words shrink from the `control` type size toward the
 `caption` size to fit that share before the engine truncates them. The control
 measures the words at the control size. A number or a readable number sets a
-fixed size.
+fixed size. Bottom tab captions stay inside their allocated space beside
+or below the icon. A label that cannot fit uses the native end ellipsis.
 
 `labelPlacement = "belowIcon"` puts the label below the icon in a bottom bar.
 The bar reserves the icon, one text line, the theme gap and vertical padding.
@@ -3095,7 +3101,9 @@ The first row holds Back, `leading` and a `center` that fills the remaining
 width. Without `center`, the title shows on one line and truncates. `trailing`
 is one GuiObject. Put a cluster in a Frame. The title and the trailing node
 stay on one row when the full title fits beside the trailing node. When the
-full title does not fit, the trailing node moves to a second row. Without a
+full title does not fit, the trailing node moves to a second row. If the
+trailing cluster is wider than the bar, it scrolls horizontally. Its first
+action stays inside the bar, and later actions are available by scrolling. Without a
 title, the bar uses `controls.popup.panelWidth` as the minimum center width. The
 center is not rebuilt, so a search field keeps its text. Back shows the
 `chevron.leading` icon beside its word, half a `space.xs` apart, in the

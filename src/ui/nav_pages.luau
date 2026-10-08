@@ -805,13 +805,29 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							end,
 						})
 						runtime.decorate(title, {
-							Size = function(use)
-								return if stacked(use) then D2.new(1, 0, 0, labelLine(use)) else D2.fromOffset(0, 0)
+							Size = function(use: ComposeTypes.Use)
+								if stacked(use) then
+									return D2.new(1, 0, 0, labelLine(use))
+								end
+								if string.find(use(placement), "bottom") then
+									return D2.new(
+										1,
+										-ctx.controlSize(spec.controlSize, "iconSize", use)
+											- (flow:GetStyled("Padding") :: UDim).Offset,
+										0,
+										labelLine(use)
+									)
+								end
+								return D2.fromOffset(0, 0)
 							end,
-							AutomaticSize = function(use)
-								return if stacked(use) then E.AutomaticSize.None else E.AutomaticSize.XY
+							AutomaticSize = function(use: ComposeTypes.Use)
+								return if string.find(use(placement), "bottom")
+									then E.AutomaticSize.None
+									else E.AutomaticSize.XY
 							end,
 							TextXAlignment = E.TextXAlignment.Center,
+							TextWrapped = false,
+							TextTruncate = E.TextTruncate.AtEnd,
 						})
 					end
 					local function badgeOf(use: ComposeTypes.Use): string?

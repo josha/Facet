@@ -5,6 +5,7 @@ type Update = { read: () -> (), publish: () -> () }
 
 type Queue = {
 	pending: { [Update]: boolean },
+	derived: { [Update]: boolean },
 	thread: thread?,
 	users: number,
 	frame: RBXScriptConnection?,
@@ -23,7 +24,7 @@ return function(
 	local value = Compose.cell(initial)
 	local queue = queues[runtime]
 	if queue == nil then
-		queue = { pending = {}, users = 0 }
+		queue = { pending = {}, derived = {}, users = 0 }
 		queues[runtime] = queue
 	end
 	local held = queue :: Queue
@@ -49,6 +50,9 @@ return function(
 		end
 		local pending = held.pending
 		held.pending = {}
+		for entry in held.derived do
+			pending[entry] = true
+		end
 		for entry in pending do
 			entry.read()
 		end
@@ -60,6 +64,9 @@ return function(
 	end
 	if beforePaint and held.frame == nil then
 		held.frame = beforePaint:Connect(flush)
+	end
+	if beforePaint and (property == "TextBounds" or property == "AbsoluteSize" or property == "AbsoluteWindowSize") then
+		held.derived[update] = true
 	end
 	local function refresh()
 		if not alive then
@@ -86,6 +93,7 @@ return function(
 		alive = false
 		stop()
 		held.pending[update] = nil
+		held.derived[update] = nil
 		held.users -= 1
 		if next(held.pending) == nil and held.thread then
 			task.cancel(held.thread)
