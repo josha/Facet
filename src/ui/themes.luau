@@ -242,6 +242,11 @@ local neutral: ThemeTypes.ThemePackage = {
 		},
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
+			navigationBack = { swipeEdge = 24 },
+			tabBottomTrack = { height = 64, sideInset = 16, bottomInset = 12, radius = 20, contentGap = 8 },
+			tabRailTrack = { sideInset = 8, topInset = 8, bottomInset = 8, radius = 16 },
+			tabMark = { width = 20, height = 4, gap = 4, radius = 2 },
+			tabRailSelection = { insetX = 8, insetY = 4, radius = 8 },
 			zoom = { stepRatio = 1.25, panSpeed = 480, panStep = 48, doubleTapSeconds = 0.35, doubleTapDistance = 12 },
 			progress = { trackHeight = 6, circularSize = 32, circularThickness = 3, spinnerDotSize = 4 },
 			image = { defaultSize = 48 },

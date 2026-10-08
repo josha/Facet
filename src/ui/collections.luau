@@ -205,6 +205,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			or (if spec.selection or spec.onSelectionChange then "single" else "none")
 		local selectRow, extendSelection = createSelection(ctx, spec, source, keyOf, controls, selection, selectionMode)
 		local measured: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
+		local containsCards = Compose.cell(false)
 		local horizontal = spec.direction == "horizontal"
 		local cardsMode = spec.itemSize == "cards"
 		assert(not cardsMode or horizontal, 'Facet collection: itemSize = "cards" needs a horizontal list')
@@ -294,10 +295,36 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			return if kind == "grid" then math.ceil(math.max(0, read(gutter or 0, use)) / 2) else 0
 		end
 		local function mainEdge(use: ComposeTypes.Use?): number
-			return edgeOf(spec.gap, use)
+			local edge = edgeOf(spec.gap, use)
+			if kind ~= "grid" or not readSource(containsCards, use) then
+				return edge
+			end
+			local extent = read(spec.itemSize or 40, use) :: number
+			for _, size in readSource(measured, use) do
+				extent = math.max(extent, size)
+			end
+			for _, size in read(spec.measured or {}, use) do
+				extent = math.max(extent, size)
+			end
+			return math.max(edge, math.ceil(extent * math.max(0, ctx.metric("motion.materialize.lift", use) - 1)))
 		end
 		local function crossEdge(use: ComposeTypes.Use?): number
-			return edgeOf(spec.crossGap or spec.gap, use)
+			local edge = edgeOf(spec.crossGap or spec.gap, use)
+			if kind ~= "grid" or not readSource(containsCards, use) then
+				return edge
+			end
+			local available = readSource(cross, use)
+			local columns = if spec.minColumnWidth ~= nil
+				then adaptive.columnsFor(
+					available,
+					read(spec.minColumnWidth, use),
+					read(spec.crossGap or spec.gap or 0, use)
+				)
+				else math.max(1, math.floor(read(spec.columns or 1, use)))
+			return math.max(
+				edge,
+				math.ceil(available / columns * math.max(0, ctx.metric("motion.materialize.lift", use) - 1))
+			)
 		end
 		local function setOffset(requested: number): ()
 			local edge = mainEdge()
@@ -530,6 +557,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 								rendered = tree.wrap(rendered, current, key)
 							end
 							measuredNode = rendered
+							if kind == "grid" and rendered:GetAttribute("FacetBody") ~= nil then
+								containsCards:set(true)
+							end
 							cellEdits[key] = {}
 							for _, edit in activation.edits(rendered) do
 								local gated = table.clone(edit)

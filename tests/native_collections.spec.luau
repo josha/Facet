@@ -1513,6 +1513,77 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("reserves the themed Card lift envelope at every grid corner and the canvas end", {
+			id = "native_collections::Compose native collections::reserves the themed Card lift envelope at every grid corner and the canvas end",
+			run = function()
+				local engine, runtime, UI, target = setup({
+					motionLevel = "normal",
+					theme = { metrics = { motion = { materialize = { lift = 1.06 } } } },
+				})
+				local Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+				local stop, mounted = runtime.mount(function()
+					return UI.VirtualGrid({
+						from = records(60),
+						key = "id",
+						columns = 4,
+						itemSize = 320,
+						mode = "all" :: "all",
+						measure = true,
+						gap = 16,
+						crossGap = 16,
+						onActivate = function() end,
+						render = function(): GuiObject
+							return Host.Frame {
+								Name = "Card",
+								Size = engine.types.UDim2.fromScale(1, 0),
+								Attributes = { FacetBody = "button" },
+								Host.UIScale { Name = "Lift", Scale = 1.06 },
+								Host.Frame { Name = "LayoutUnit", Size = engine.types.UDim2.fromOffset(1, 1) },
+							}
+						end,
+					})
+				end, target)
+				local grid = (mounted :: unknown) :: ScrollingFrame
+				local geometry = (grid :: unknown) :: { AbsoluteWindowSize: Vector2 }
+				geometry.AbsoluteWindowSize = engine.types.Vector2.new(1242, 648)
+				local items = assert(grid:FindFirstChild("Items"))
+				local padding = assert(items:FindFirstChildWhichIsA("UIPadding")) :: UIPadding
+				for _, slot in items:GetChildren() do
+					local card = slot:FindFirstChild("Card", true)
+					if card then
+						local unit = (card:FindFirstChild("LayoutUnit") :: unknown) :: { AbsoluteSize: Vector2 }
+						unit.AbsoluteSize = engine.types.Vector2.new(1.06, 1.06)
+						local bounds = (card :: unknown) :: { AbsoluteSize: Vector2 }
+						local index = assert(tonumber(slot.Name))
+						local height = if index <= 4 or index >= 57
+							then 280.47
+							elseif index <= 8 then 282 * 1.06
+							else 280 * 1.06
+						bounds.AbsoluteSize = engine.types.Vector2.new(311.88, height)
+					end
+				end
+				Verify.expect(grid.CanvasSize.Y.Offset):toBe(4412 - 16 + 2 * padding.PaddingTop.Offset)
+				for _, index in { 1, 4, 57, 60 } do
+					local slot = assert(items:FindFirstChild(tostring(index))) :: Frame
+					local scroll = if index > 4 then grid.CanvasSize.Y.Offset - 648 else 0
+					local x = 16 + padding.PaddingLeft.Offset + slot.Position.X.Offset
+					local y = 40 + padding.PaddingTop.Offset + slot.Position.Y.Offset - scroll
+					local width, height = slot.Size.X.Offset, slot.Size.Y.Offset
+					for _, restHeight in { height, height + (282.57 - 280.47) / 1.06 } do
+						local left, top = x - width * 0.06 / 2, y - restHeight * 0.06 / 2
+						Verify.expect(left >= 16):toBe(true)
+						Verify.expect(top >= 40):toBe(true)
+						Verify.expect(left + width * 1.06 <= 1258):toBe(true)
+						Verify.expect(top + restHeight * 1.06 <= 688):toBe(true)
+					end
+				end
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("measures a slot-filling row in layout units under a scaled ancestor", {
 			id = "native_collections::Compose native collections::measures a slot-filling row in layout units under a scaled ancestor",
 			run = function()

@@ -853,7 +853,7 @@ add("popover-caps-and-side-hang", {}, function(t)
 		t.check(name .. " popover shows", panel ~= nil)
 		if panel then
 			t.stable(panel)
-			local body = panel:FindFirstChild("Body")
+			local body = panel:FindFirstChild("Body", true)
 			local p = t.rect(panel)
 			t.inside(name .. " panel inside the safe box", p, safe, 1)
 			if name == "Plain" then
@@ -1725,7 +1725,7 @@ add("popover-capped-follows-a-shrinking-window", {}, function(t)
 	local p = t.rect(panel)
 	t.check("the whole panel is at most 220 wide", p.w <= 220.5, p.w)
 	t.check("the whole panel is at most 180 tall", p.h <= 180.5, p.h)
-	local body = panel:FindFirstChild("Body")
+	local body = panel:FindFirstChild("Body", true)
 	t.check(
 		"the capped body scrolls",
 		body ~= nil and body.ScrollingEnabled and body.AbsoluteCanvasSize.Y > body.AbsoluteWindowSize.Y + 1,

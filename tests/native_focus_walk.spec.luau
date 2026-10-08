@@ -146,6 +146,16 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("focus recording scenes", function()
+		verifyHarness:case("records past the boundary of a 360-step slider", {
+			id = "native_focus_walk::focus recording scenes::records past the boundary of a 360-step slider",
+			run = function()
+				local budget = require("../tools/studio/live/focus_boundary")
+				Verify.expect(budget(-180, 180, 0, -1)):toEqual(362)
+				Verify.expect(budget(0, 1, 0.5, 0.51)):toEqual(128)
+				Verify.expect(budget(nil, nil, 0, 1)):toEqual(128)
+				Verify.expect(budget(-180, 180, 0, 0)):toEqual(128)
+			end,
+		})
 		verifyHarness:case("rejects an unknown compact scene stop", {
 			id = "native_focus_walk::focus recording scenes::rejects an unknown compact scene stop",
 			run = function()

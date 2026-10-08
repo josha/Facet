@@ -2114,6 +2114,55 @@ Tabs keep equal targets and the badge stays at the icon's corner. The default,
 `"besideIcon"`, keeps the horizontal presentation. A sidebar or top bar keeps
 its horizontal presentation. Use `belowIcon` for phone destination tabs.
 
+`track = "floating"` gives a bottom bar side and bottom margins, an opaque
+track and its own corner radius. In a sidebar it gives the rail side, top and
+bottom margins. The tabs use the track's rectangle. Page content and bottom
+Toast reservations include the bottom margin. `track = "automatic"` or an
+absent option keeps the existing layout. The floating track height is a minimum:
+larger text can increase it so the icon and label fit.
+
+`indicator = "mark"` removes the selected button fill. In a bottom bar it
+shows a small mark above the icon. `indicatorPlacement = "belowIcon"` moves
+it below the icon; `"aboveIcon"` is the default. `"inset"` puts the selection
+inside the tab target. A sidebar always uses an inset selection. A tab without
+an icon also uses the inset selection. Top bars keep their underline.
+`indicator = "none"` still hides the selection paint.
+
+The following numeric theme metrics are in `metrics.controls`. Lengths are
+layout units. A radius of zero gives square corners.
+
+| Group | Fields and neutral values |
+| --- | --- |
+| `tabBottomTrack` | `height = 64`, `sideInset = 16`, `bottomInset = 12`, `radius = 20`, `contentGap = 8` |
+| `tabRailTrack` | `sideInset = 8`, `topInset = 8`, `bottomInset = 8`, `radius = 16` |
+| `tabMark` | `width = 20`, `height = 4`, `gap = 4`, `radius = 2` |
+| `tabRailSelection` | `insetX = 8`, `insetY = 4`, `radius = 8` |
+
+These metrics only change the floating track or mark options. The existing
+track and selection defaults keep their geometry. Colours use the existing
+`facet-tab-plate` and `facet-selection-indicator` StyleSheet roles.
+
+A tab's `badgeAnchor` can be `"topLeading"`, `"topTrailing"`,
+`"bottomLeading"` or `"bottomTrailing"`. It positions the badge on the icon.
+The default is `"topTrailing"`. Without an icon the count stays beside the
+label. The anchor can be a readable.
+
+```lua
+UI.TabView {
+    selection = selected,
+    placement = "bottomBar",
+    track = "floating",
+    indicator = "mark",
+    labelPlacement = "belowIcon",
+    controlSize = "compact",
+    tabs = {
+        { id = "games", label = "Games", icon = "view.grid", badge = 1,
+          badgeAnchor = "topLeading", content = gamesPage },
+        { id = "profile", label = "Profile", icon = "person", content = profilePage },
+    },
+}
+```
+
 `controlSize` (`xsmall`, `compact`, `regular` or `large`, or a readable) is the
 size step of the tabs. Each tab is `controlSizes.<step>.height` high and has the
 `controlSize` attribute. The strip stays `targetSizes.minimum` high (44
@@ -2213,6 +2262,29 @@ is an array of `{ id, value }` entries. `root` and each `destinations[id]` are
 
 `backLabel` sets the text of the native Back chrome. Compose `LayerStack` owns
 the retained pages and their disposal.
+
+Set `chrome = "hidden"` on a destination when that page owns its header.
+The page uses the full stack rectangle, with no stack title or Back bar.
+Set it on the stack to use this default for all pages, including the root.
+A destination's `chrome = "automatic"` overrides the stack default.
+Both settings can be readables. An absent option keeps the current behaviour,
+including the Back bar above an untitled child page. The root never has a
+stack Back command.
+
+Hidden chrome keeps route history, page motion, Escape, gamepad B and selection
+restoration. On touch, a one-finger right swipe from the left edge goes
+Back. The edge is `metrics.controls.navigationBack.swipeEdge` (24 layout units
+in the neutral theme). A captured drag does not trigger this Back gesture.
+Give the page a visible Back button that removes the last entry from `path`,
+so mouse and touch players also have a clear command. Do not replace the stack
+with a separate route or transition owner.
+
+```lua
+destinations.match = {
+    chrome = "hidden",
+    content = matchPage,
+}
+```
 
 The navigation bar title is inset on both sides by the control's horizontal
 padding (`controlSizes.regular.paddingX`), so a root page's leading title

@@ -2686,6 +2686,67 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "placement", values = { "automatic", "topBar", "bottomBar", "bottomBarCompact", "sidebar" } } :: Axis,
 		},
 		states = {
+			{
+				name = "floating phone track and icon mark",
+				props = {
+					track = "floating",
+					indicator = "mark",
+					placement = "bottomBar",
+					labelPlacement = "belowIcon",
+					controlSize = "compact",
+				},
+				across = false,
+			} :: State,
+			{
+				name = "floating rail and inset selection",
+				props = { track = "floating", indicator = "mark", placement = "sidebar", railWidth = 120 },
+				across = false,
+			} :: State,
+			{
+				name = "floating mark and bottom badge anchor",
+				props = function(c: Context)
+					return {
+						selection = c.cell("tab", "one"),
+						track = "floating",
+						indicator = "mark",
+						indicatorPlacement = "belowIcon",
+						placement = "bottomBar",
+						labelPlacement = "belowIcon",
+						tabs = {
+							{
+								id = "one",
+								label = "Games",
+								icon = "view.grid",
+								badge = 3,
+								badgeAnchor = "bottomTrailing",
+								content = function()
+									return c.UI.Text {
+										text = "The badge is below the icon. The mark has its own label gap.",
+									}
+								end,
+							},
+							{
+								id = "two",
+								label = "Profile",
+								icon = "person",
+								content = function()
+									return c.UI.Text { text = "Profile page" }
+								end,
+							},
+						} :: {
+							{
+								id: string,
+								label: string,
+								icon: string,
+								badge: number?,
+								badgeAnchor: string?,
+								content: () -> Instance,
+							}
+						},
+					}
+				end,
+				across = false,
+			} :: State,
 			{ name = "labels below icons", props = { labelPlacement = "belowIcon" } } :: State,
 			{ name = "labels beside icons", props = { labelPlacement = "besideIcon" } } :: State,
 			{
@@ -2814,7 +2875,41 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = {
 			{ key = "transition", values = { DEFAULT, false }, matrix = false } :: Axis,
 		},
-		states = { { name = "crossfade 0.3 s", props = { transition = { seconds = 0.3 } } } :: State },
+		states = {
+			{ name = "crossfade 0.3 s", props = { transition = { seconds = 0.3 } } } :: State,
+			{
+				name = "page owns its header",
+				across = false,
+				props = function(c: Context)
+					local path = c.cell("path", {})
+					return {
+						chrome = "hidden",
+						destinations = {
+							car = {
+								chrome = "hidden",
+								content = function(): Instance
+									return c.UI.VStack {
+										width = "fill" :: "fill",
+										height = "fill" :: "fill",
+										c.UI.Text { text = "My page header", textRole = "heading" :: "heading" } :: unknown,
+										c.UI.Button {
+											label = "Back",
+											onActivate = function()
+												path:set({})
+											end,
+										},
+										c.UI.Text {
+											text = "This page uses the whole stack rectangle. Back also uses Escape, B or a right swipe from the left edge.",
+											TextWrapped = true,
+										},
+									}
+								end,
+							},
+						},
+					}
+				end,
+			} :: State,
+		},
 	},
 	NavBar = {
 		family = "navigation",

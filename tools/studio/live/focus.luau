@@ -2,6 +2,11 @@
 local GuiService = game:GetService("GuiService")
 local storage = game:GetService("ReplicatedStorage")
 
+type BoundaryBudget = (unknown, unknown, unknown, unknown) -> number
+local boundaryBudget = (require :: (ModuleScript) -> BoundaryBudget)(
+	assert(script.Parent):WaitForChild("focus_boundary") :: ModuleScript
+)
+
 local focus = {}
 
 type Builder = {
@@ -459,7 +464,10 @@ function focus.walk(
 			local axis = node:GetAttribute("axis")
 			local boundary = node:HasTag("facet-adjustable")
 				and ((axis == "horizontal" and horizontal ~= nil) or (axis == "vertical" and vertical ~= nil))
-			for attempt = 1, if boundary then 128 else 1 do
+			local limit = if boundary then 128 else 1
+			local attempt = 0
+			while attempt < limit do
+				attempt += 1
 				view[key] = scrollOffsets(root)
 				local before = current(root)
 				local value = node:GetAttribute("value")
@@ -487,7 +495,16 @@ function focus.walk(
 					break
 				end
 				if boundary and value ~= node:GetAttribute("value") then
-					assert(attempt < 128, `focus walk did not reach the value boundary: {path} {key}`)
+					limit = math.max(
+						limit,
+						boundaryBudget(
+							node:GetAttribute("minimum"),
+							node:GetAttribute("maximum"),
+							value,
+							node:GetAttribute("value")
+						)
+					)
+					assert(attempt < limit, `focus walk did not reach the value boundary: {path} {key}`)
 				elseif restore and not same(was, signature(after)) then
 					restore()
 					settle(root)

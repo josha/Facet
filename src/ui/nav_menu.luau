@@ -3221,7 +3221,7 @@ return function(
 						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
-						local caption = button:FindFirstChild("Title", true)
+						local caption = button:FindFirstChild("Title", true) or button:FindFirstChild("Label", true)
 						local bounds = if caption and caption:IsA("TextLabel")
 							then ctx.observe.TextBounds(caption)
 							else ctx.observe.TextBounds(button)

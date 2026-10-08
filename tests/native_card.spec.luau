@@ -695,8 +695,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("keeps a half gutter at the outer edges of a grid so a lifted corner card is not clipped", {
-			id = "native_card::native Card::keeps a half gutter at the outer edges of a grid so a lifted corner card is not clipped",
+		verifyHarness:case("reserves authored gutters and the themed lift at the outer edges of a Card grid", {
+			id = "native_card::native Card::reserves authored gutters and the themed lift at the outer edges of a Card grid",
 			run = function()
 				local scenario = require("../examples/gallery/scenarios/cards") :: any
 				local built: any
@@ -715,12 +715,14 @@ return function(verifyHarness: Verify.Harness)
 				local columns, crossGap, gap =
 					4, math.max(16, math.ceil(312 * 1.04) - 312), math.max(16, math.ceil(320 * 1.04) - 320)
 				local padding = grid:FindFirstChild("Items"):FindFirstChildWhichIsA("UIPadding")
-				Verify.expect(padding.PaddingLeft.Offset):toBe(math.ceil(crossGap / 2))
-				Verify.expect(padding.PaddingRight.Offset):toBe(math.ceil(crossGap / 2))
-				Verify.expect(padding.PaddingTop.Offset):toBe(math.ceil(gap / 2))
+				local crossEdge = math.max(math.ceil(crossGap / 2), math.ceil(1248 / columns * (1.04 - 1)))
+				local mainEdge = math.max(math.ceil(gap / 2), math.ceil(320 * (1.04 - 1)))
+				Verify.expect(padding.PaddingLeft.Offset):toBe(crossEdge)
+				Verify.expect(padding.PaddingRight.Offset):toBe(crossEdge)
+				Verify.expect(padding.PaddingTop.Offset):toBe(mainEdge)
 				local first = grid:FindFirstChild("Items"):FindFirstChild("g1")
 				local width = first.Size.X.Offset
-				Verify.expect(width):toBe((1248 - 2 * math.ceil(crossGap / 2) - crossGap * (columns - 1)) / columns)
+				Verify.expect(width):toBe(math.floor((1248 - 2 * crossEdge - crossGap * (columns - 1)) / columns))
 				local grown = width * 1.04 - width
 				Verify.expect(padding.PaddingLeft.Offset >= grown / 2):toBe(true)
 				Verify.expect(crossGap >= grown):toBe(true)
@@ -734,7 +736,7 @@ return function(verifyHarness: Verify.Harness)
 				world.action("Activate").Pressed:Fire()
 				Verify.expect(built.report().last):toBe("Last action: play g1")
 				local extent = grid.CanvasSize.Y.Offset
-				Verify.expect(extent):toBe(15 * 320 + 14 * gap + 2 * math.ceil(gap / 2))
+				Verify.expect(extent):toBe(15 * 320 + 14 * gap + 2 * mainEdge)
 				grid.CanvasPosition = world.V2(0, 100000)
 				Verify.expect(grid.CanvasPosition.Y):toBe(extent - 640)
 				grid.CanvasPosition = world.V2(0, 0)

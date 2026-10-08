@@ -85,6 +85,19 @@ Let NavigationStack control the page history, motion, and Back command.
 Do not replace it with keyed content and a separate Back button.
 Do not show a disabled Back command on the root page.
 
+When a child page owns its header, set its NavigationStack destination to
+`chrome = "hidden"`. The page uses the full rectangle. Keep its visible Back
+command connected to the same `path`. The stack still owns history, motion,
+selection restoration, Escape and gamepad B. A touch player can also swipe
+right from the leading edge. The root has no Back command.
+
+For a floating phone tab track, use TabView with `track = "floating"`,
+`indicator = "mark"` and `labelPlacement = "belowIcon"`. Set the geometry in
+the theme's `controls.tabBottomTrack` and `controls.tabMark` metrics. A sidebar
+uses `controls.tabRailTrack` and an inset `controls.tabRailSelection`. Keep the
+native TabView for selection, focus and page motion; do not build another tab
+bar only to get these shapes.
+
 ## Small tasks and secondary content
 
 Keep related information near its control.

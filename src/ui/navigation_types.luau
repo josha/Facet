@@ -8,6 +8,7 @@ local Overlay = require("./overlay_types")
 export type Value<T> = Types.Value<T>
 export type Content = Instance | (() -> Instance)
 export type Indicator = "automatic" | "pill" | "underline" | "none"
+export type TabSelectionIndicator = Indicator | "mark"
 export type Placement = "automatic" | "topBar" | "sidebar" | "bottomBar" | "bottomBarCompact" | "none"
 export type Transition = ComposeTypes.TweenOptions
 export type SourceTransition = { seconds: Types.ValueNumber?, ease: ComposeTypes.Easing?, source: Value<GuiObject?>? }
@@ -264,6 +265,7 @@ export type CalloutSpec = Types.FrameProps & {
 export type Tab = {
 	id: string,
 	badge: Value<(string | number)?>?,
+	badgeAnchor: Value<"topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing">?,
 	label: Types.ValueString?,
 	icon: Types.ValueString?,
 	content: Content,
@@ -299,7 +301,9 @@ export type TabViewSpec = Types.FrameProps & {
 	restoreScroll: boolean?,
 	restoreFocus: boolean?,
 	shoulderNavigation: "strip" | "content"?,
-	indicator: Value<Indicator?>?,
+	indicator: Value<TabSelectionIndicator?>?,
+	track: Value<"automatic" | "floating">?,
+	indicatorPlacement: Value<"aboveIcon" | "belowIcon" | "inset">?,
 	iconOnly: Types.ValueBoolean?,
 	labelPlacement: Value<"besideIcon" | "belowIcon">?,
 	textSize: Value<number | "fit">?,
@@ -310,6 +314,7 @@ export type TabViewSpec = Types.FrameProps & {
 export type NavigationEntry<P = unknown> = { id: string, value: P? }
 export type NavigationDestination<P = unknown> = {
 	title: Types.ValueString?,
+	chrome: Value<"automatic" | "hidden">?,
 	content: Instance | ((NavigationEntry<P>?) -> Instance),
 }
 export type NavigationStackSpec<P = unknown> = Types.FrameProps & {
@@ -317,6 +322,7 @@ export type NavigationStackSpec<P = unknown> = Types.FrameProps & {
 	root: NavigationDestination<P>,
 	destinations: { [string]: NavigationDestination<P> },
 	backLabel: Types.ValueString?,
+	chrome: Value<"automatic" | "hidden">?,
 	transition: Transition | false?,
 }
 export type PageViewSpec = Types.FrameProps & {

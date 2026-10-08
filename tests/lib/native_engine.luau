@@ -33,6 +33,7 @@ local eventNames = {
 	"StateChanged",
 	"TouchLongPress",
 	"TouchPan",
+	"TouchSwipe",
 	"FocusLost",
 	"InputBegan",
 	"InputChanged",
