@@ -52,6 +52,77 @@ return function(verifyHarness: Verify.Harness)
 		return session.mount(Facet, parent, { name = "Populated", render = render }, options), engine, parent
 	end
 
+	verifyHarness:suite("Facet Design editor overlays", function()
+		verifyHarness:case("covers native insets and moves selection into the active custom panel", {
+			id = "facet_designer::Facet Design editor overlays::covers native insets and moves selection into the active custom panel",
+			run = function()
+				local overlay = require("../tools/designer/modules/editor_overlay")
+				local engine: any = engines.new()
+				local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+				local E, V2, D2 = engine.types.Enum, engine.types.Vector2, engine.types.UDim2
+				local near, far = V2.new(0, 58), V2.new(0, 0)
+				gui.GetGuiInset = function()
+					return near, far
+				end
+				input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+				local runtime = Facet.Roblox.createRuntime(engine)
+				local Host: any = runtime.constructors
+				local parent = engine.new("ScreenGui")
+				parent.ScreenInsets = E.ScreenInsets.CoreUISafeInsets
+				local model =
+					Facet.Compose.cell({ menuTitle = "", dataTitle = "", transferTitle = "", galleryTitle = "" })
+				local trigger, menu, transferPanel, scrim
+				local stop = runtime.mount(function()
+					local UI = Facet.controls(
+						runtime,
+						{ types = engine.types, services = { GuiService = gui, UserInputService = input } }
+					)
+					trigger = Host.TextButton "Trigger" { Selectable = true }
+					menu = Host.Frame "Menu" {
+						Visible = function(use: Use)
+							return use(model).menuTitle ~= ""
+						end,
+						Host.TextButton "CloseMenu" { Selectable = true },
+					}
+					transferPanel = Host.Frame "Transfer" {
+						Visible = function(use: Use)
+							return use(model).transferTitle ~= ""
+						end,
+						Host.TextButton "CloseTransfer" { Selectable = true },
+					}
+					local bound = overlay.bind(
+						Facet,
+						runtime,
+						UI,
+						Host,
+						parent,
+						{ menu = menu, transfer = transferPanel },
+						model,
+						{ types = engine.types, guiService = gui }
+					)
+					scrim = bound.scrim
+					return Host.Frame { trigger, menu, transferPanel, scrim, bound.focus }
+				end, parent)
+				Verify.expect(scrim.Position):toBe(D2.fromOffset(0, -58))
+				Verify.expect(scrim.Size):toBe(D2.new(1, 0, 1, 58))
+				near = V2.new(8, 64)
+				far = V2.new(4, 3)
+				gui.TopbarInset = engine.types.Rect.new(0, 0, 10, 64)
+				Verify.expect(scrim.Position):toBe(D2.fromOffset(-8, -64))
+				Verify.expect(scrim.Size):toBe(D2.new(1, 12, 1, 67))
+				gui.SelectedObject = trigger
+				model:set({ menuTitle = "Files", dataTitle = "", transferTitle = "", galleryTitle = "" })
+				Verify.expect(gui.SelectedObject:IsDescendantOf(menu)):toBe(true)
+				model:set({ menuTitle = "", dataTitle = "", transferTitle = "Import", galleryTitle = "" })
+				Verify.expect(gui.SelectedObject:IsDescendantOf(transferPanel)):toBe(true)
+				model:set({ menuTitle = "", dataTitle = "", transferTitle = "", galleryTitle = "" })
+				Verify.expect(gui.SelectedObject):toBe(trigger)
+				stop()
+				runtime:dispose()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("Facet Design documents and source", function()
 		verifyHarness:case("has an adapter for every public control constructor", {
 			id = "facet_designer::Facet Design documents and source::has an adapter for every public control constructor",
