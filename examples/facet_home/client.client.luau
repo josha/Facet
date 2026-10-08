@@ -7,6 +7,7 @@ local storage, players = game:GetService("ReplicatedStorage"), game:GetService("
 local Facet = require(storage:WaitForChild("Facet"))
 local modules = storage:WaitForChild("FacetHome")
 local policy = require(modules:WaitForChild("model"))
+local homeDock = require(modules:WaitForChild("dock"))
 local pages = modules:WaitForChild("designs")
 local remote = storage:WaitForChild("FacetHomeRequest") :: RemoteFunction
 local signal = storage:WaitForChild("FacetHomeSelect") :: RemoteEvent
@@ -325,10 +326,7 @@ local stop = runtime.mount(function()
 			changed:Disconnect()
 		end)
 	end
-	local dock = Host.Frame "HomeDock" {
-		Position = UDim2.new(0, 12, 1, -56),
-		Size = UDim2.new(1, -24, 0, 48),
-		Host.UICorner {},
+	local dock = homeDock(runtime, UDim2, {
 		UI.Button "HomeToggle" {
 			label = function(use: Use)
 				return if use(panelOpen) then "Explore" else "Open Home"
@@ -353,9 +351,7 @@ local stop = runtime.mount(function()
 			AutomaticSize = Enum.AutomaticSize.None,
 			wrap = true,
 		},
-	}
-	local dockFrame = dock :: Frame
-	dockFrame:AddTag("facet-panel")
+	})
 	return Host.ScreenGui "FacetHomeUI" {
 		ResetOnSpawn = false,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,

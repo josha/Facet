@@ -1,5 +1,6 @@
 --!strict
 local Types = require("./types")
+local InputTypes = require("./input_types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
 local ComposeTypes = require("../vendor/compose/core")
@@ -7,7 +8,10 @@ local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
 
-type Controls = { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
+type Controls = {
+	Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject>,
+	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
+}
 
 local KEYS = {
 	"isPresented",
@@ -27,6 +31,7 @@ local KEYS = {
 	"title",
 	"modal",
 	"cancelPolicy",
+	"closeButton",
 }
 local MARGIN = 8
 local PADDING = 8
@@ -110,6 +115,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.cancelPolicy ~= nil and spec.cancelPolicy ~= "dismiss" and spec.cancelPolicy ~= "none" then
 			error(`Facet {where}: cancelPolicy must be dismiss or none`, 0)
 		end
+		assert(
+			spec.closeButton == nil or type(spec.closeButton) == "boolean",
+			"Facet UI.Popover: closeButton must be a boolean"
+		)
 		local chrome = spec.modal == false
 		local compact = if chrome then "popover" else spec.compact or "sheet"
 		if compact ~= "sheet" and compact ~= "popover" then
@@ -318,12 +327,26 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Selectable = false,
 			}
 			bodyProps[#bodyProps + 1] = limit
-			local body, _, _, extent, bodyRested = parts.scroller(
-				ctx,
-				bodyProps,
-				{ list, proposed, content },
-				{ hug = true, rest = true }
-			)
+			local children: { Types.Child } = { list, proposed, content }
+			if not chrome and spec.cancelPolicy ~= "none" and spec.closeButton ~= false then
+				if content:IsA("GuiObject") then
+					runtime.decorate(content, { LayoutOrder = 1 })
+				end
+				table.insert(
+					children,
+					UI.Button "CloseCommand" {
+						name = "Close",
+						icon = "close",
+						LayoutOrder = 0,
+						Size = D2.new(1, 0, 0, 44),
+						AutomaticSize = E.AutomaticSize.None,
+						onActivate = function()
+							propose(false, "cancel")
+						end,
+					}
+				)
+			end
+			local body, _, _, extent, bodyRested = parts.scroller(ctx, bodyProps, children, { hug = true, rest = true })
 			Compose.watch(function(use: ComposeTypes.Use)
 				local height = use(extent)
 				if not use(bodyRested) or presence.travel(use) >= 1 then
@@ -464,6 +487,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				detent = Compose.cell("hug"),
 				detents = { "hug" :: Nav.SheetDetent },
 				title = spec.title,
+				closeButton = if spec.cancelPolicy == "none" then false else spec.closeButton,
 				content = spec.content,
 			}, function(reason: string): boolean
 				if spec.cancelPolicy == "none" then
@@ -474,6 +498,51 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			modal:SetAttribute("FacetRoute", "sheet")
 			return modal
 		end
+		local activeModal: Frame? = nil
+		local previousRect: Overlay.Rect? = nil
+		local outsideTouch: InputObject? = nil
+		local resetRect: RBXScriptConnection? = nil
+		local frames = ctx.config.services.RunService
+		if input then
+			runtime.connect(input, "InputBegan", function(event: InputObject)
+				local box = previousRect
+				if
+					box
+					and event.UserInputType == E.UserInputType.Touch
+					and activeModal
+					and ctx.available(activeModal)
+				then
+					local point = event.Position
+					if
+						point.X < box.x - 24
+						or point.X > box.x + box.w + 24
+						or point.Y < box.y - 24
+						or point.Y > box.y + box.h + 24
+					then
+						outsideTouch = event
+					end
+				end
+			end)
+			runtime.connect(input, "InputEnded", function(event: InputObject)
+				if event == outsideTouch then
+					outsideTouch = nil
+					if
+						event.UserInputState ~= E.UserInputState.Cancel
+						and wanted()
+						and activeModal
+						and ctx.available(activeModal)
+						and spec.cancelPolicy ~= "none"
+					then
+						propose(false, "outside")
+					end
+				end
+			end)
+		end
+		Compose.cleanup(function()
+			if resetRect then
+				resetRect:Disconnect()
+			end
+		end)
 		local gui = surfaces.service("GuiService")
 		local pending: { string }? = nil
 		local function pathTo(target: Instance?, base: Instance): { string }?
@@ -515,6 +584,33 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end,
 						render = function(item: ComposeTypes.Readable<string>): Instance
 							local modal = if item:peek() == "sheet" then sheeted(phase) else anchored(phase)
+							activeModal = modal
+							Compose.cleanup(function()
+								if
+									wanted()
+									and preferred
+									and preferred:peek() == E.PreferredInput.Touch
+									and item:peek() == "popover"
+								then
+									local panel = modal:FindFirstChild("Panel", true) :: GuiObject?
+									if panel then
+										local at, size = panel.AbsolutePosition, panel.AbsoluteSize
+										previousRect = { x = at.X, y = at.Y, w = size.X, h = size.Y }
+										if resetRect then
+											resetRect:Disconnect()
+										end
+										if frames then
+											resetRect = frames.PreRender:Connect(function()
+												previousRect = nil
+												if resetRect then
+													resetRect:Disconnect()
+													resetRect = nil
+												end
+											end)
+										end
+									end
+								end
+							end)
 							local restore = pending
 							pending = nil
 							if restore and gui then

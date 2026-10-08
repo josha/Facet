@@ -237,6 +237,24 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				+ (if stroked(use) then thickness(use) else 0)
 				+ (if layer(use).kind == "ring" then 0 else outset(use))
 		end
+		local glowProperties = {
+			Name = "Glow",
+			Color = color,
+			Enabled = function(use: ComposeTypes.Use): boolean
+				return layer(use).kind == "glow" and shown(use)
+			end,
+			BlurRadius = function(use: ComposeTypes.Use): UDim
+				local blur = layer(use).blurRadius
+				return D.new(0, math.round(scaled(use, (if blur then blur.offset else nil) or 24, 1.6)))
+			end,
+			Transparency = function(use: ComposeTypes.Use): number
+				local value = layer(use).transparency or 0.25
+				return math.clamp((if far(use) then value * 0.55 else value) + use(pulse) * 0.2, 0, 1)
+			end,
+			ZIndex = function(use: ComposeTypes.Use): number
+				return layer(use).zIndex or -1
+			end,
+		}
 		local ring = Host.ImageLabel({
 			Name = "FacetFocusRing",
 			BackgroundTransparency = 1,
@@ -339,25 +357,33 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					end,
 				}) :: ComposeTypes.Child,
 			}),
-			Host.UIShadow({
-				Name = "Glow",
-				Color = color,
-				Enabled = function(use: ComposeTypes.Use): boolean
-					return layer(use).kind == "glow" and shown(use)
-				end,
-				BlurRadius = function(use: ComposeTypes.Use): UDim
-					local blur = layer(use).blurRadius
-					return D.new(0, math.round(scaled(use, (if blur then blur.offset else nil) or 24, 1.6)))
-				end,
-				Transparency = function(use: ComposeTypes.Use): number
-					local value = layer(use).transparency or 0.25
-					return math.clamp((if far(use) then value * 0.55 else value) + use(pulse) * 0.2, 0, 1)
-				end,
-				ZIndex = function(use: ComposeTypes.Use): number
-					return layer(use).zIndex or -1
-				end,
-			}),
+			Host.UIShadow((function()
+				local properties = table.clone(glowProperties)
+				properties.Enabled = function(use: ComposeTypes.Use): boolean
+					return use(selected) == nil and layer(use).kind == "glow" and shown(use)
+				end
+				return properties
+			end)()),
 		})
+		runtime.mountFragment(function()
+			return {
+				Compose.keyed({
+					from = function(use: ComposeTypes.Use): { GuiObject }
+						use(partRevision)
+						local target = use(selected) :: GuiObject?
+						return if target and layer(use).kind == "glow" then { partOf(target) or target } else {}
+					end,
+					render = function(item: ComposeTypes.Readable<GuiObject>): Folder
+						local properties = table.clone(glowProperties)
+						properties.Name = "FacetFocusGlow"
+						runtime.mount(function()
+							return Host.UIShadow(properties)
+						end, item:peek())
+						return Host.Folder({ Name = "FocusGlowOwner" })
+					end,
+				}),
+			}
+		end, ring)
 		local owner = selectionOwners[playerGui]
 		if owner == nil then
 			owner = { prior = playerGui.SelectionImageObject, rings = {} }

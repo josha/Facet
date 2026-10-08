@@ -262,7 +262,11 @@ document their own write-then-notify behavior below.
   its name), `touchEnabled`, `mouseEnabled`, `gamepadEnabled` and
   `keyboardEnabled` replace the `UserInputService` facts that every control
   reads. `preferredTextSize` and `displaySize` (a `PreferredTextSize` or a
-  `DisplaySize`, or its name) replace the `GuiService` facts. `viewportSize`
+  `DisplaySize`, or its name) replace the `GuiService` facts. A `preferredTextSize` preview also
+  changes the native typography rules from `createStyleSheet` on the same
+  runtime. Create the controls before the StyleSheet. Each step uses the theme
+  metric `controls.typography.preferredSizeStep` (2 pixels by default). A
+  readable that returns `nil` follows the engine. `viewportSize`
   replaces the camera viewport of `UI.environment()` without a source. Use it
   for a preview in a catalog or a gallery. The engine input still arrives:
   a mouse click still works in a touch preview. `viewingDistance`
@@ -1780,6 +1784,9 @@ holds the keys, named `Keys`, and the `Label`.
 Menu takes an `items` array or readable. It also takes an optional `label` or
 `trigger`, `icon`, writable `isPresented`, `enabled`, `onOpen` and `onClose`.
 
+Command menus show a Close icon command on every input. `closeButton = false`
+hides it. Value pickers keep their selection commands and do not add this row.
+
 Items have a stable `id` and a `label`. They have optional `icon`, `enabled`,
 `hidden`, `children` and `onSelect`. Checked and selected items bind their
 writable state. Native input actions supply opening and Back behavior. Nested
@@ -2529,9 +2536,9 @@ Layout options:
 - `scrollPolicy`: `always` (the default) keeps the body scrolling at every
   height. `atLargestDetent` stops the body scroll below the tallest detent.
 - `closeButton`: absent, `true`, `false`, or a string or readable label.
-  Absent shows no close button while the grabber shows, because the grabber
-  closes and resizes the sheet. With `dragIndicator = "hidden"`, absent shows
-  an icon-only close button in the trailing corner of the header. Its
+  Absent shows an icon-only Close button in the trailing corner of the
+  header when interactive dismissal is enabled. This also applies when a
+  grabber is visible. Its
   accessible name is `Close`, and its target is 44 pixels. `true` always shows
   that icon button. A label shows a text button with that label. `false` shows
   none; Back, Escape and the backdrop still close the sheet.
@@ -2740,6 +2747,10 @@ scrolling column named `Room`. The panel is a Frame. It scales from
 0.94 and fades in with its scrim. See [Motion](#motion).
 
 ### Popover
+
+Dismissible modal Popovers show a Close icon on every input. `closeButton = false`
+hides it. Nonmodal panels and `cancelPolicy = "none"` do not add Close.
+The compact Sheet follows the same explicit `closeButton` choice.
 
 `UI.Popover` returns its `trigger`, or an empty Frame for a `source` popover.
 
@@ -4477,7 +4488,7 @@ environment keeps the last real size.
 | `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` adds it to its padding. |
 | `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
-| `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |
+| `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the player setting. A preview adjusts the native typography rules with the theme's `controls.typography.preferredSizeStep`. |
 | `motionLevel` | The stronger of the factory `motionLevel` option and the device level (`"limited"` when `GuiService.ReducedMotionEnabled` is true, otherwise `"normal"`). |
 | `reducedMotion` | `true` when `motionLevel` is not `"normal"`. |
 

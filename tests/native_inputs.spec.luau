@@ -1425,6 +1425,33 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("taps a selected level back to zero and scrubs against the visible marks", {
+			id = "native_inputs::native input controls::taps a selected level back to zero and scrubs against the visible marks",
+			run = function()
+				local value = Compose.cell(1)
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.LevelPicker({ value = value, count = 3, allowZero = true })
+				end)
+				local V = engine.types.Vector2
+				node.AbsolutePosition, node.AbsoluteSize = V.new(709, 0), V.new(156, 44)
+				local marks = find(node, "Marks")
+				marks.AbsolutePosition, marks.AbsoluteSize = V.new(755, 0), V.new(64, 20)
+				local detector = find(node, "Scrub")
+				detector.DragStart:Fire(V.new(765, 0))
+				detector.DragEnd:Fire(V.new(765, 0))
+				node.Activated:Fire({ Position = engine.types.Vector3.new(765, 0, 0) })
+				Verify.expect(value:peek()):toBe(0)
+				for i, x in { 765, 787, 809 } do
+					detector.DragStart:Fire(V.new(x, 0))
+					Verify.expect(value:peek()):toBe(i)
+					detector.DragContinue:Fire(V.new(810, 0))
+					detector.DragEnd:Fire(V.new(809, 0))
+					Verify.expect(value:peek()):toBe(3)
+				end
+				stop()
+			end,
+		})
+
 		verifyHarness:case("keeps level marks inert with one focus target and a cancellable native scrub", {
 			id = "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
 			run = function()
@@ -2954,6 +2981,8 @@ return function(verifyHarness: Verify.Harness)
 					padding.PaddingTop = engine.types.UDim.new(0, 3)
 					padding.PaddingBottom = engine.types.UDim.new(0, 4)
 					padding.Parent = node
+					skin.Parent.AbsolutePosition = engine.types.Vector2.new(61, 39)
+					label.Parent.AbsolutePosition = engine.types.Vector2.new(61, 39)
 					Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(67, 44))
 					Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(6, 5))
 					Verify.expect(skin.AnchorPoint):toBe(engine.types.Vector2.new(1, 1))
@@ -2970,6 +2999,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(node.Size):toBe(nativeSize)
 					Verify.expect(node.AutomaticSize):toBe(automaticSize)
 					padding.Parent = nil
+					skin.Parent.AbsolutePosition = engine.types.Vector2.new(79, 49)
 					Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(1, 1))
 					Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(80, 50))
 					Verify.expect((engineLib.connections(padding:GetPropertyChangedSignal("PaddingLeft")))):toBe(0)
@@ -3014,6 +3044,8 @@ return function(verifyHarness: Verify.Harness)
 				node.AbsoluteSize = engine.types.Vector2.new(100, 55)
 				skin.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
 				label.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
+				skin.Parent.AbsolutePosition = engine.types.Vector2.new(88.75, 53.75)
+				label.Parent.AbsolutePosition = engine.types.Vector2.new(88.75, 53.75)
 				Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(80, 44))
 				Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(9, 1))
 				Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(60, 44))

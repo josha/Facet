@@ -84,6 +84,7 @@ export type MenuSpec<V = string> = Types.FrameProps & {
 	backLabel: Types.ValueString?,
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
+	closeButton: boolean?,
 	enabled: Types.ValueBoolean?,
 	isPresented: ComposeTypes.Cell<boolean>?,
 	edge: MenuEdge?,

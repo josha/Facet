@@ -32,6 +32,19 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		motion.check(config.motionLevel)
 	end
 	motion.publish(Compose, runtime, config.motionLevel)
+	local environment = config.environment
+	if environment and environment.preferredTextSize ~= nil then
+		local owner = (runtime :: unknown) :: { [string]: unknown }
+		local previous = owner.FacetTextPreference
+		owner.FacetTextPreference = environment.preferredTextSize
+		if Compose.currentOwner() then
+			Compose.cleanup(function()
+				if owner.FacetTextPreference == environment.preferredTextSize then
+					owner.FacetTextPreference = previous
+				end
+			end)
+		end
+	end
 	local types: Shared.RobloxTypes = config.types
 		or {
 			UDim = UDim,
@@ -145,6 +158,21 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
 			`Facet numeric metric {path} is missing`
 		)
+		if environment and string.match(path, "^typography%.[^.]+%.size$") then
+			local chosen = ctx.read(environment.preferredTextSize, use)
+			if chosen ~= nil then
+				local ranks = { Medium = 0, Large = 1, Larger = 2, Largest = 3 }
+				local function rank(item: unknown): number
+					local name = if typeof(item) == "EnumItem" then (item :: EnumItem).Name else item
+					return (ranks :: { [unknown]: number })[name] or 0
+				end
+				local native = if config.guiService then config.guiService.PreferredTextSize else nil
+				return math.max(
+					1,
+					value + (rank(chosen) - rank(native)) * ctx.metric("controls.typography.preferredSizeStep", use)
+				)
+			end
+		end
 		return value
 	end
 	local function motionName(path: string, use: ComposeTypes.Use?): string

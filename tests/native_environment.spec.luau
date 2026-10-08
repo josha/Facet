@@ -1487,6 +1487,25 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("paints focus glow below the selected control instead of over its glyphs", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::paints focus glow below the selected control instead of over its glyphs",
+			run = function()
+				local glowing = define({ kind = "glow" :: "glow", blurRadius = { offset = 26 }, transparency = 0.25 })
+				local w, template, stop = ring(glowing, { preferredInput = "Gamepad" })
+				local target = w.engine.new("TextButton")
+				target.Parent = w.engine.new("ScreenGui")
+				w.gui.SelectedObject = target
+				Verify.expect(template:FindFirstChild("Glow").Enabled):toBe(false)
+				local shadow = target:FindFirstChild("FacetFocusGlow")
+				Verify.expect(shadow ~= nil):toBe(true)
+				Verify.expect(shadow.Enabled):toBe(true)
+				Verify.expect(shadow.ZIndex < 0):toBe(true)
+				w.gui.SelectedObject = nil
+				Verify.expect(target:FindFirstChild("FacetFocusGlow")):toBeNil()
+				stop()
+			end,
+		})
+
 		verifyHarness:case("paints a glow theme as a native shadow that grows at ten feet", {
 			id = "native_environment::focus ring: the engine draws the theme's focus look::paints a glow theme as a native shadow that grows at ten feet",
 			run = function()

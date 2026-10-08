@@ -93,6 +93,37 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("gives command menus and resizing sheets an explicit Close by default", {
+			id = "native_navigation::native navigation controls::gives command menus and resizing sheets an explicit Close by default",
+			run = function()
+				local opened = Compose.cell(true)
+				local world = setup(function(UI: FacetControls)
+					return UI.Menu({
+						isPresented = opened,
+						items = { { id = "action", label = "Action", onSelect = function() end } },
+					})
+				end)
+				local command = find(world.screen, "CloseCommand")
+				Verify.expect(command.Text):toBe("")
+				Verify.expect(command:GetAttribute("label")):toBe("Close")
+				command.Activated:Fire()
+				Verify.expect(opened:peek()):toBe(false)
+				world.stop()
+				opened:set(true)
+				world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet({
+						isPresented = opened,
+						detent = Compose.cell("medium" :: Navigation.SheetDetent),
+						content = function(): Instance
+							return Host.Frame({})
+						end,
+					})
+				end)
+				find(world.screen, "Close").Activated:Fire()
+				Verify.expect(opened:peek()):toBe(false)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("accepts a fresh route object after departure and during reversal", {
 			id = "native_navigation::native navigation controls::accepts a fresh route object after departure and during reversal",
 			run = function()

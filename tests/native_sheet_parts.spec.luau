@@ -1074,11 +1074,11 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Sheet: the grabber is the close and resize control", function()
-		verifyHarness:case("a sheet with a grabber shows no Close button; the grabber resizes or closes", {
-			id = "native_sheet_parts::native Sheet: the grabber is the close and resize control::a sheet with a grabber shows no Close button; the grabber resizes or closes",
+		verifyHarness:case("a sheet shows Close beside its resize and close grabber", {
+			id = "native_sheet_parts::native Sheet: the grabber is the close and resize control::a sheet shows Close beside its resize and close grabber",
 			run = function()
 				local w = mount()
-				Verify.expect((w.find("Close"))):toBeNil()
+				Verify.expect(w.find("Close").Visible):toBe(true)
 				local grabber = w.find("Grabber")
 				Verify.expect(grabber.Selectable):toBe(true)
 				Verify.expect((grabber:GetAttribute("AccessibleLabel"))):toBe("Resize: Medium")

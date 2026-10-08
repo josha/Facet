@@ -1605,6 +1605,7 @@ return function(verifyHarness: Verify.Harness)
 				local UDim = h.engine.types.UDim
 				local hostX, hostWidth = 10, 83
 				plate.AbsoluteSize = h.engine.types.Vector2.new(hostWidth, 28)
+				plate.AbsolutePosition = h.engine.types.Vector2.new(hostX, 0)
 				for _, bounds in { skin, label } do
 					bounds.Parent.AbsoluteSize = h.engine.types.Vector2.new(1, 1)
 				end
@@ -1612,6 +1613,8 @@ return function(verifyHarness: Verify.Harness)
 				local function painted(bounds: any): (number, number)
 					local right = padding.PaddingRight.Offset
 					local boundaryLeft = hostX + hostWidth - right - 1
+					bounds.Parent.AbsolutePosition =
+						h.engine.types.Vector2.new(boundaryLeft, 28 - padding.PaddingBottom.Offset - 1)
 					local rightEdge = boundaryLeft + bounds.Position.X.Offset
 					return rightEdge - bounds.Size.X.Offset, rightEdge
 				end

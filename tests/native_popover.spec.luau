@@ -78,6 +78,18 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Popover: the caller's fact decides, proposals ask", function()
+		verifyHarness:case("shows Close on modal panels and keeps a refused proposal visible", {
+			id = "native_popover::native Popover: the caller's fact decides, proposals ask::shows Close on modal panels and keeps a refused proposal visible",
+			run = function()
+				local open, log, change = caller(false)
+				local w = mount(standard(open, log, change))
+				open:set(true)
+				w.find("CloseCommand").Activated:Fire()
+				Verify.expect(open:peek()):toBe(true)
+				Verify.expect(log.changes[1]):toBe(false)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("a trigger press proposes, and an accepted fact presents an anchored panel", {
 			id = "native_popover::native Popover: the caller's fact decides, proposals ask::a trigger press proposes, and an accepted fact presents an anchored panel",
 			run = function()
@@ -657,6 +669,31 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w2.find("SheetPanel"))):toBeNil()
 				Verify.expect((table.concat(log2.dismissed, ","))):toBe("cancel")
 				w2.stop()
+			end,
+		})
+
+		verifyHarness:case("keeps the first outside touch through the phone route change", {
+			id = "native_popover::native Popover: the compact sheet and the live route switch::keeps the first outside touch through the phone route change",
+			run = function()
+				local open, log, change = caller()
+				local w = mount(standard(open, log, change))
+				w.screen.AbsoluteSize = Vector2.new(390, 800)
+				open:set(true)
+				local panel = w.find("Panel")
+				panel.AbsolutePosition, panel.AbsoluteSize = Vector2.new(100, 100), Vector2.new(200, 150)
+				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				Verify.expect(w.find("SheetPanel") ~= nil):toBe(true)
+				local touch = {
+					UserInputType = w.Enum.UserInputType.Touch,
+					UserInputState = w.Enum.UserInputState.Begin,
+					Position = Vector2.new(10, 10),
+				}
+				w.input.InputBegan:Fire(touch)
+				touch.UserInputState = w.Enum.UserInputState.End
+				w.input.InputEnded:Fire(touch)
+				Verify.expect(open:peek()):toBe(false)
+				Verify.expect(log.dismissed[1]):toBe("outside")
+				w.stop()
 			end,
 		})
 
