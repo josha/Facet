@@ -9,6 +9,7 @@ local DragTypes = require("../src/ui/drag_types")
 local sessionOf = require("../src/ui/drag_session")
 local gestureOf = require("../src/ui/gesture_service")
 local engineLib = require("./lib/native_engine")
+local ComposeTypes = require("../src/vendor/compose/core")
 
 return function(harness: Verify.Harness)
 	local function fixture()
@@ -93,6 +94,336 @@ return function(harness: Verify.Harness)
 		}
 	end
 	harness:suite("container travel", function()
+		harness:case("F-026 reserved collection keys retain gaps, recall and release", function()
+			local engine = engineLib.new()
+			local C = Facet.Compose
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
+			local rows = C.cell({ { id = 1 }, { id = 2 }, { id = 3 } })
+			local slots = C.cell({ 1, 2, 3 })
+			local anchors: Facet.SlotControls<number> = {}
+			local controls: { indexOfKey: ((number) -> number?)?, placementOf: ((number) -> ComposeTypes.Placement)? } =
+				{}
+			local stop, rack = runtime.mount(function()
+				local spec = {
+					from = rows,
+					key = function(item: { id: number }): number
+						return item.id
+					end,
+					slots = slots,
+					slotControls = anchors,
+					mode = "all" :: "all",
+					columns = 3,
+					itemSize = 40,
+					controls = controls,
+					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+						return UI.Button { label = tostring(current:peek().id) }
+					end,
+				}
+				return UI.VirtualGrid((spec :: unknown) :: Facet.KeyedCollectionSpec<{ id: number }, number>)
+			end, engine.new("ScreenGui"))
+			local body = rack :: ScrollingFrame
+			local function recessFor(key: number): GuiObject
+				for _, child in body:GetDescendants() do
+					if child:GetAttribute("FacetReservedKey") == tostring(key) then
+						return child :: GuiObject
+					end
+				end
+				error("missing reserved slot " .. key)
+			end
+			local original = assert(controls.placementOf)(3)
+			rows:set({ { id = 1 }, { id = 3 } })
+			Verify.expect(assert(controls.indexOfKey)(3)):toBe(3)
+			Verify.expect(assert(controls.placementOf)(3).crossOffset):toBe(original.crossOffset)
+			Verify.expect(recessFor(2).Visible):toBe(true)
+			Verify.expect(assert(anchors.nodeOfKey)(2)):toBe(recessFor(2))
+			rows:set({ { id = 1 }, { id = 3 }, { id = 2 } })
+			engine.heartbeat:Fire(0.016)
+			Verify.expect(assert(controls.indexOfKey)(2)):toBe(2)
+			Verify.expect(recessFor(2).Visible):toBe(false)
+			rows:set({ { id = 1 }, { id = 3 } })
+			slots:set({ 1, 3 })
+			Verify.expect(assert(controls.indexOfKey)(3)):toBe(2)
+			Verify.expect(assert(controls.indexOfKey)(2)):toBe(nil)
+			Verify.expect(assert(anchors.nodeOfKey)(2)):toBe(nil)
+			stop()
+			Verify.expect(anchors.nodeOfKey):toBe(nil)
+			runtime:dispose()
+		end)
+		harness:case("F-026 reserved slots reflow on frames and provide zoomed recall landing", function()
+			local engine = engineLib.new()
+			local C, V2 = Facet.Compose, engine.types.Vector2
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local screen = engine.new("ScreenGui")
+			local rows = C.cell({ { id = 1 }, { id = 3 } })
+			local slots = C.cell({ 1, 2, 3 })
+			local controls: ComposeTypes.OrderedCollectionControls<number> = {}
+			local UI = table.clone(Facet.controls(runtime, { types = engine.types }))
+			local ctx = context(C, runtime, { types = engine.types })
+			require("../src/ui/collections")(ctx, UI)
+			local commits = 0
+			local stop, mounted = runtime.mount(function()
+				return UI.VirtualGrid {
+					from = rows,
+					key = function(item: { id: number }): number
+						return item.id
+					end,
+					slots = slots,
+					mode = "all" :: "all",
+					columns = 3,
+					itemSize = 40,
+					controls = controls,
+					drop = {
+						travel = true,
+						onDrop = function()
+							commits += 1
+							rows:set({ { id = 1 }, { id = 3 }, { id = 2 } })
+							return true
+						end,
+					},
+					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+						return UI.Button { label = tostring(current:peek().id) }
+					end,
+				}
+			end, screen)
+			local rack = mounted :: ScrollingFrame
+			rack.AbsoluteSize, rack.AbsoluteWindowSize = V2.new(300, 80), V2.new(300, 80)
+			local items = assert(rack:FindFirstChild("Items")) :: Frame
+			items.AbsolutePosition = V2.new(100, 200)
+			local unit = assert(rack:FindFirstChild("LayoutUnit")) :: Frame
+			unit.AbsoluteSize = V2.new(2, 2)
+			rack.CanvasPosition = V2.new(40, 20)
+			local source: GuiObject = engine.new("TextButton")
+			source.Parent, source.AbsolutePosition, source.AbsoluteSize = screen, V2.new(10, 10), V2.new(40, 40)
+			local session = sessionOf(ctx)
+			session.begin(
+				source,
+				{ payload = { keys = { 2 } } },
+				"pointer",
+				nil,
+				nil,
+				{ position = V2.new(30, 30), source = source }
+			)
+			session.hover(rack, nil)
+			Verify.expect(session.commit(rack)):toBe(true)
+			Verify.expect(commits):toBe(0)
+			local ghost = assert(assert(session.state:peek()).ghost)
+			local start = ghost.Position.X.Offset
+			local changed = 0
+			for _ = 1, 90 do
+				engine.heartbeat:Fire(1 / 60)
+				if ghost.Position.X.Offset ~= start then
+					changed += 1
+				end
+				Verify.expect(ghost.Position.X.Offset >= start):toBe(true)
+			end
+			assert(changed > 1, "return needs multiple position samples")
+			Verify.expect(commits):toBe(1)
+			Verify.expect(assert(controls.indexOfKey)(2)):toBe(2)
+			assert(math.abs(ghost.Position.X.Offset - 250) < 1, "landing x " .. ghost.Position.X.Offset)
+			local third = assert(rack:FindFirstChild("3", true)) :: Frame
+			local before = third.Position.X.Offset
+			rows:set({ { id = 1 }, { id = 3 } })
+			slots:set({ 1, 3 })
+			Verify.expect(third.Position.X.Offset):toBe(before)
+			local samples = 0
+			for _ = 1, 120 do
+				engine.heartbeat:Fire(1 / 60)
+				if third.Position.X.Offset < before then
+					samples += 1
+				end
+			end
+			assert(samples > 1, "release needs multiple reflow samples")
+			Verify.expect(math.abs(third.Position.X.Offset - assert(controls.placementOf)(2).crossOffset) < 1)
+				:toBe(true)
+			stop()
+			runtime:dispose()
+		end)
+		harness:case("F-026 windowed reservations keep extent without mounting absent item content", function()
+			local engine = engineLib.new()
+			local C = Facet.Compose
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local UI = Facet.controls(runtime, { types = engine.types })
+			local slots: { number } = {}
+			for index = 1, 25 do
+				table.insert(slots, index)
+			end
+			local rendered = 0
+			local stop, mounted = runtime.mount(function()
+				return UI.VirtualList {
+					from = {} :: { { id: number } },
+					slots = slots,
+					key = function(item: { id: number }): number
+						return item.id
+					end,
+					itemSize = 40,
+					overscan = 0,
+					render = function(): GuiObject
+						rendered += 1
+						return UI.Button { label = "Item" }
+					end,
+				}
+			end, engine.new("ScreenGui"))
+			local list = mounted :: ScrollingFrame
+			list.AbsoluteWindowSize, list.AbsoluteSize =
+				engine.types.Vector2.new(100, 80), engine.types.Vector2.new(100, 80)
+			Verify.expect(list.CanvasSize.Y.Offset):toBe(1000)
+			Verify.expect(rendered):toBe(0)
+			list.CanvasPosition = engine.types.Vector2.new(0, 800)
+			Verify.expect(list:FindFirstChild("ReservedSlot", true) ~= nil):toBe(true)
+			stop()
+			runtime:dispose()
+		end)
+		harness:case("F-027 collection factory immediate touch starts the existing transfer at six pixels", function()
+			local engine = engineLib.new()
+			local C, V2, V3, E = Facet.Compose, engine.types.Vector2, engine.types.Vector3, engine.types.Enum
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local input = engine.new("UserInputService")
+			input.PreferredInput = E.PreferredInput.Touch
+			local playerGui, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
+			screen.Parent = playerGui
+			local hits: { GuiObject } = {}
+			playerGui.GetGuiObjectsAtPosition = function()
+				return hits
+			end
+			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, motionLevel = "none" })
+			local starts, ends, factories, drops = 0, 0, 0, 0
+			local touchAxis: "X" | "Y" | "XY" = "XY"
+			local carried: unknown = nil
+			local stop, rack = runtime.mount(function()
+				return UI.VirtualGrid {
+					from = { { id = 1 }, { id = 2 }, { id = 3 } },
+					key = "id",
+					mode = "all" :: "all",
+					columns = 3,
+					itemSize = 40,
+					reorderable = true,
+					onReorder = function() end,
+					drag = function(items: { { id: number } }, _keys: { number }): Facet.DraggableSpec
+						factories += 1
+						return {
+							payload = items[1].id,
+							touchPickup = "immediate",
+							touchDragAxis = touchAxis,
+							onStart = function(value)
+								starts += 1
+								carried = value
+							end,
+							onEnd = function()
+								ends += 1
+							end,
+						}
+					end,
+					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+						return UI.Button "Tile" {
+							label = function(use: Facet.Use)
+								return tostring(use(current).id)
+							end,
+						}
+					end,
+				}
+			end, screen)
+			local body = rack :: ScrollingFrame
+			body.AbsoluteWindowSize, body.AbsoluteSize = V2.new(120, 80), V2.new(120, 80)
+			local cell = assert(body:FindFirstChild("1", true))
+			local row = assert(cell:FindFirstChild("Reorderable", true)) :: Frame
+			row.AbsoluteSize = V2.new(40, 40)
+			local hit = assert(row:FindFirstChild("Tile", true)) :: GuiObject
+			local pointer = (
+				{
+					UserInputType = E.UserInputType.Touch,
+					UserInputState = E.UserInputState.Begin,
+					Position = V3.new(10, 10, 0),
+				} :: unknown
+			) :: InputObject
+			local hitInput = (hit.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			hitInput:Fire(pointer)
+			pointer.Position = V3.new(15, 10, 0)
+			input.InputChanged:Fire(pointer)
+			Verify.expect(starts):toBe(0)
+			local neighbor = assert(assert(body:FindFirstChild("2", true)):FindFirstChild("Tile", true)) :: GuiObject
+			local neighborInput = (neighbor.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			neighborInput:Fire(pointer)
+			pointer.Position = V3.new(16, 10, 0)
+			input.InputChanged:Fire(pointer)
+			Verify.expect(starts):toBe(1)
+			Verify.expect(carried):toBe(1)
+			Verify.expect(body.ScrollingEnabled):toBe(false)
+			Verify.expect((assert(row:FindFirstChild("Cells")) :: GuiObject).Visible):toBe(false)
+			Verify.expect(body:FindFirstChild("DragImage", true) ~= nil):toBe(true)
+			local ghost = assert(screen:FindFirstChild("DragGhost")) :: GuiObject
+			local dropLine = assert(body:FindFirstChild("DropLine", true)) :: GuiObject
+			local initialSlot = dropLine.Position
+			for frame = 1, 30 do
+				pointer.Position = V3.new(18 + frame * 2, 10, 0)
+				input.InputChanged:Fire(pointer)
+				Verify.expect(math.abs(ghost.Position.X.Offset - pointer.Position.X) <= 1):toBe(true)
+				engine.heartbeat:Fire(1 / 120)
+				Verify.expect(math.abs(ghost.Position.X.Offset - pointer.Position.X) <= 1):toBe(true)
+			end
+			Verify.expect(dropLine.Position ~= initialSlot):toBe(true)
+			pointer.UserInputState = E.UserInputState.Cancel
+			input.InputEnded:Fire(pointer)
+			Verify.expect(ends):toBe(1)
+			Verify.expect(body.ScrollingEnabled):toBe(true)
+			Verify.expect(factories):toBe(1)
+			touchAxis = "X"
+			local scrollPointer = (
+				{
+					UserInputType = E.UserInputType.Touch,
+					UserInputState = E.UserInputState.Begin,
+					Position = V3.new(10, 10, 0),
+				} :: unknown
+			) :: InputObject
+			hitInput:Fire(scrollPointer)
+			scrollPointer.Position = V3.new(10, 18, 0)
+			input.InputChanged:Fire(scrollPointer)
+			local longPress = (
+				row.TouchLongPress :: unknown
+			) :: { Fire: (unknown, { Vector2 }, Enum.UserInputState) -> () }
+			longPress:Fire({ V2.new(10, 18) }, E.UserInputState.Begin)
+			Verify.expect(starts):toBe(1)
+			Verify.expect(body.ScrollingEnabled):toBe(true)
+			scrollPointer.Position = V3.new(50, 18, 0)
+			input.InputChanged:Fire(scrollPointer)
+			Verify.expect(starts):toBe(1)
+			scrollPointer.UserInputState = E.UserInputState.End
+			input.InputEnded:Fire(scrollPointer)
+			touchAxis = "XY"
+			local stopTarget, target = runtime.mount(function()
+				local target = UI.Button "Destination" { label = "Place here" }
+				UI.dropTarget(target, {
+					onDrop = function(value)
+						Verify.expect(value):toBe(1)
+						drops += 1
+					end,
+				})
+				return target
+			end, screen)
+			hits = { target :: GuiObject }
+			local dropPointer = (
+				{
+					UserInputType = E.UserInputType.Touch,
+					UserInputState = E.UserInputState.Begin,
+					Position = V3.new(10, 10, 0),
+				} :: unknown
+			) :: InputObject
+			hitInput:Fire(dropPointer)
+			dropPointer.Position = V3.new(18, 10, 0)
+			input.InputChanged:Fire(dropPointer)
+			dropPointer.Position = V3.new(300, 200, 0)
+			input.InputChanged:Fire(dropPointer)
+			dropPointer.UserInputState = E.UserInputState.End
+			input.InputEnded:Fire(dropPointer)
+			Verify.expect(starts):toBe(2)
+			Verify.expect(ends):toBe(2)
+			Verify.expect(drops):toBe(1)
+			Verify.expect(factories):toBe(3)
+			Verify.expect(body.ScrollingEnabled):toBe(true)
+			stopTarget()
+			stop()
+			runtime:dispose()
+		end)
 		harness:case("default return and accepted shrink sample the shared engine without native tweens", function()
 			local w = fixture()
 			w.begin({ payload = "tile" })

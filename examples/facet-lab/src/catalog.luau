@@ -3641,7 +3641,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 	VirtualList = {
 		family = "collections",
-		demonstrates = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth" },
+		demonstrates = {
+			"selectionFrom",
+			"selectionIndicator",
+			"rowActions",
+			"minColumnWidth",
+			"slots",
+			"slotControls",
+		},
 		cellWidth = 280,
 		cellHeight = 220,
 		alias = "List",
@@ -3786,7 +3793,14 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 	VirtualGrid = {
 		family = "collections",
-		demonstrates = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth" },
+		demonstrates = {
+			"selectionFrom",
+			"selectionIndicator",
+			"rowActions",
+			"minColumnWidth",
+			"slots",
+			"slotControls",
+		},
 		cellWidth = 460,
 		cellHeight = 220,
 		alias = "Grid (virtualized)",
@@ -4137,6 +4151,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "transferScale", values = { 1, 0.75, 1.25 } } :: Axis,
 			{ key = "rejectTransfer", values = { false, true } } :: Axis,
 			{ key = "transferScrolled", values = { false, true } } :: Axis,
+			{ key = "reserveSlots", values = { false, true } } :: Axis,
 		},
 		states = {
 			{ name = "without status labels", props = { statusLabels = false } } :: State,
@@ -4153,6 +4168,34 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				touchPickup = p.touchPickup,
 				touchDragAxis = p.touchDragAxis,
 				statusLabels = p.statusLabels,
+				reserveSlots = p.reserveSlots,
+			})
+		end,
+	},
+	commandScope = {
+		host = "Frame",
+		family = "actions",
+		alias = "Board typing scope",
+		purpose = "Type one matching rack letter at a focused board cell. Text entry owns keys while chat edits.",
+		alternatives = "Button shortcuts for one action; collection focus for a list.",
+		demonstrates = { "targets", "commands", "enabled" },
+		snippet = "local scope = UI.commandScope(board, { targets = targets, commands = commands })",
+		axes = { { key = "typingEnabled", values = { true, false } } :: Axis },
+		states = {
+			{ name = "two matching A tiles", props = {} } :: State,
+			{ name = "chat takes keys", props = {} } :: State,
+			{ name = "commands disabled", props = { typingEnabled = false } } :: State,
+		},
+		base = function()
+			return { typingEnabled = true }
+		end,
+		make = function(UI: FacetControls, p: Properties, c: Context): Instance
+			return require("./container_transfer_demo")(UI, c.Host, c.Compose, c.types, {
+				commandTyping = true,
+				typingEnabled = p.typingEnabled,
+				duplicateLetters = true,
+				reserveSlots = true,
+				touchPickup = "immediate",
 			})
 		end,
 	},
@@ -5759,6 +5802,7 @@ for _, name in { "VirtualList", "Table" } do
 	)
 end
 PAGE_DATA.Outline = {
+	demonstrates = { "slots", "slotControls" },
 	family = "collections",
 	alias = "Outline",
 	cellWidth = 340,
@@ -5801,6 +5845,19 @@ PAGE_DATA.Outline = {
 		} },
 	},
 }
+
+for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
+	table.insert(
+		assert(PAGE_DATA[name].states),
+		{
+			name = "reserved key slot",
+			props = {
+				slots = if name == "Outline" then { "folder", "reserved" } else { "1", "reserved", "2" },
+				slotControls = {},
+			},
+		} :: State
+	)
+end
 
 for _, name in { "VirtualList", "VirtualGrid", "Table", "Outline" } do
 	table.insert(assert(PAGE_DATA[name].states), {
@@ -5845,36 +5902,53 @@ PAGE_DATA.ZoomView = {
 	alternatives = "Use ScrollView for content that only scrolls.",
 	snippet = "UI.ZoomView { contentSize = Vector2.new(780, 780), zoom = zoom, content = Board }",
 	base = function()
-		return { maxZoom = 4, enabled = true }
+		return { maxZoom = 4, enabled = true, captureCamera = false }
 	end,
-	axes = { { key = "maxZoom", values = { 1, 2, 4 } } :: Axis, { key = "enabled", values = { true, false } } :: Axis },
+	axes = {
+		{ key = "captureCamera", values = { false, true } } :: Axis,
+		{ key = "maxZoom", values = { 1, 2, 4 } } :: Axis,
+		{ key = "enabled", values = { true, false } } :: Axis,
+	},
 	states = {
+		{ name = "zoom at capture", props = { captureCamera = true } } :: State,
 		{ name = "disabled", props = { enabled = false } } :: State,
 		{ name = "fit limit", props = { maxZoom = 1 } } :: State,
 	},
 	make = function(UI: FacetControls, p: Properties, c: Context): Instance
-		return require("./zoom_travel_demo").zoom(UI, c.Host, c.Compose, p.maxZoom or 4, p.enabled ~= false)
+		return require("./zoom_travel_demo").zoom(
+			UI,
+			c.Host,
+			c.Compose,
+			p.maxZoom or 4,
+			p.enabled ~= false,
+			p.captureCamera == true
+		)
 	end,
 }
 
 PAGE_DATA.Travel = {
 	family = "layout",
 	purpose = "Move one tile between clipped rows and show its destination.",
-	alternatives = "Use Compose motion for properties inside one container.",
+	alternatives = "Use Travel for every item slot change.",
 	snippet = 'UI.Travel { destination = destination, path = "arc", content = Tile }',
 	base = function()
-		return { path = "arc", many = false }
+		return { path = "arc", many = false, shuffle = false }
 	end,
 	axes = {
 		{ key = "path", values = { "straight", "arc" } } :: Axis,
 		{ key = "many", values = { false, true } } :: Axis,
+		{ key = "shuffle", values = { false, true } } :: Axis,
 	},
 	states = {
+		{ name = "shuffle a row", props = { shuffle = true } } :: State,
 		{ name = "many items, same container", props = { many = true } } :: State,
 		{ name = "straight", props = { path = "straight" } } :: State,
 		{ name = "arc", props = { path = "arc" } } :: State,
 	},
 	make = function(UI: FacetControls, p: Properties, c: Context): Instance
+		if p.shuffle then
+			return require("./zoom_travel_demo").shuffle(UI, c.Host, c.Compose)
+		end
 		if p.many then
 			return require("./zoom_travel_demo").many(UI, c.Host, c.Compose)
 		end
@@ -5885,6 +5959,40 @@ PAGE_DATA.Travel = {
 			if p.path == "straight" then "straight" else "arc"
 		)
 	end,
+}
+
+PAGE_DATA.RewardSequence = {
+	recipe = true,
+	family = "media",
+	purpose = "Order a reward with lock, sweep, flash, travel, count and refill.",
+	alternatives = "Use Travel for one slot change.",
+	snippet = "local reward = UI.sequence { steps = steps }; reward.play()",
+	base = function()
+		return { pulse = true }
+	end,
+	axes = { { key = "pulse", values = { true, false } } :: Axis },
+	states = {
+		{ name = "reward sequence", props = {} } :: State,
+		{ name = "sweep only", props = { pulse = false } } :: State,
+	},
+	make = function(UI: FacetControls, p: Properties, c: Context): Instance
+		return require("./reward_sequence_demo")(UI, c.Host, c.Compose, p.pulse ~= false)
+	end,
+}
+PAGE_DATA.sequence = PAGE_DATA.RewardSequence
+PAGE_DATA.countUp = {
+	family = "media",
+	purpose = "Show a changing total.",
+	alternatives = "Use Text for a fixed number.",
+	snippet = "local number = UI.countUp(total)",
+	make = PAGE_DATA.RewardSequence.make,
+}
+PAGE_DATA.Flash = {
+	family = "media",
+	purpose = "Pulse or sweep over a GUI target.",
+	alternatives = "Use a game-owned state for a lasting highlight.",
+	snippet = "UI.Flash { target = slot, progress = progress }",
+	make = PAGE_DATA.RewardSequence.make,
 }
 
 local function kindOf(id: string, data: any, UI: any): string

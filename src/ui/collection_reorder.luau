@@ -52,7 +52,8 @@ return function<V, K>(
 	editing: Types.ValueBoolean?,
 	grid: boolean?,
 	location: (({ K }, number) -> (boolean, number, K?))?,
-	instantLayout: boolean?
+	instantLayout: boolean?,
+	reservedSlots: Types.Value<{ K }>?
 ): Editor<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
@@ -140,6 +141,8 @@ return function<V, K>(
 		else Compose.cell(nil :: GuiObject?)
 	local touchKey: K? = nil
 	local touchOrigin: Vector2? = nil
+	local touchTransfer: { key: K, pointer: InputObject, options: DragTypes.SourceSpec, keys: { K }, items: { V } }? =
+		nil
 	local releaseScrollers: (() -> ())? = nil
 	local function disarm()
 		touchKey, touchOrigin = nil, nil
@@ -152,6 +155,7 @@ return function<V, K>(
 		local move, selected = moving:peek(), gui and gui.SelectedObject
 		local restore = move ~= nil and move.keyboard and selected == keyboardTarget
 		captured = nil
+		touchTransfer = nil
 		selectedPickup = false
 		disarm()
 		if releaseScrollers then
@@ -244,6 +248,14 @@ return function<V, K>(
 				indices[candidate] = true
 			end
 		end
+		local prepared = if position ~= nil or tap then touchTransfer else nil
+		if prepared and prepared.key == key and prepared.pointer == pendingInput then
+			keys, items = table.clone(prepared.keys), table.clone(prepared.items)
+			table.clear(indices)
+			for _, capturedKey in keys do
+				indices[capturedKey] = true
+			end
+		end
 		local remaining: { K } = {}
 		local before, started = 0, false
 		for index, item in rows do
@@ -259,8 +271,11 @@ return function<V, K>(
 		end
 		if #keys > 0 then
 			local options = (
-				if spec.drag
-					then spec.drag(items, keys)
+				if prepared
+						and prepared.key == key
+						and prepared.pointer == pendingInput
+					then prepared.options
+					elseif spec.drag then spec.drag(items, keys)
 					else {
 						payload = { collection = collectionId, keys = keys, items = items },
 						operations = { "move" :: "move" },
@@ -962,15 +977,39 @@ return function<V, K>(
 		if not reorderable or at == nil or moving:peek() ~= nil then
 			return
 		end
+		if touchOrigin then
+			return
+		end
 		local row = rowNodes[key]
+		local options: DragTypes.SourceSpec? = nil
+		if value.UserInputType == E.UserInputType.Touch and spec.drag then
+			local items, keys = {}, {}
+			local selected = read(selection)
+			for index, item in read(spec.selectionFrom or source) do
+				local candidate = keyOf(item, index)
+				if movable(item) and (candidate == key or (selected[key] and selected[candidate])) then
+					table.insert(items, item)
+					table.insert(keys, candidate)
+				end
+			end
+			if #keys == 0 then
+				return
+			end
+			options = table.clone(spec.drag(items, keys)) :: DragTypes.SourceSpec
+			touchTransfer =
+				{ key = key, pointer = value, options = options :: DragTypes.SourceSpec, keys = keys, items = items }
+		end
 		if
 			row
 			and (value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch)
 		then
 			if
 				not arbiter.begin(value, row, V2.new(at.X, at.Y), {
-					pickup = if value.UserInputType == E.UserInputType.Touch then "longPress" else "immediate",
-					axis = if grid then "XY" elseif horizontal then "X" else "Y",
+					pickup = if value.UserInputType == E.UserInputType.Touch
+						then (options and options.touchPickup) or "longPress"
+						else "immediate",
+					axis = (options and options.touchDragAxis)
+						or (if grid then "XY" elseif horizontal then "X" else "Y"),
 					scroll = true,
 				})
 			then
@@ -1103,6 +1142,33 @@ return function<V, K>(
 		local incoming: ComposeTypes.Cell<Env.DropInsertion?> = Compose.cell(nil :: Env.DropInsertion?)
 		local destination = (if spec.drop then table.clone(spec.drop) else {}) :: DragTypes.TargetSpec
 		local accept, drop, update = destination.accepts, destination.onDrop, destination.onUpdate
+		if reservedSlots and destination.landing == nil then
+			destination.landing = function(info: Env.DropInfo): Env.ScrollRect
+				local session = drag.state:peek()
+				local payload = if session then session.payload else nil
+				local data = if type(payload) == "table" then payload :: { keys: { K }? } else nil
+				local key = if data and data.keys then data.keys[1] else nil
+				local index = if key ~= nil and table.find(read(reservedSlots), key)
+					then assert(controls.indexOfKey)(key :: K)
+					else nil
+				if index == nil and info.insertion then
+					local before = info.insertion.beforeKey
+					index = if before ~= nil then assert(controls.indexOfKey)(before :: K) else nil
+				end
+				local at = assert(controls.placementOf)(index or (#read(reservedSlots) + 1))
+				local scale = scaleOf(body)
+				local items = body:FindFirstChild("Items") :: GuiObject?
+				local origin = if items
+					then items.AbsolutePosition
+					else body.AbsolutePosition - body.CanvasPosition * scale
+				return {
+					x = origin.X + (if horizontal then at.offset else at.crossOffset) * scale,
+					y = origin.Y + (if horizontal then at.crossOffset else at.offset) * scale,
+					w = (if horizontal then at.size else at.crossSize) * scale,
+					h = (if horizontal then at.crossSize else at.size) * scale,
+				}
+			end
+		end
 		local noCarried: { K } = {}
 		local cachedRows: { V }? = nil
 		local cachedCarried: { K }? = nil
@@ -1125,7 +1191,7 @@ return function<V, K>(
 					local key = keyOf(item, index)
 					if not included[key] then
 						table.insert(remaining, key)
-						table.insert(rowIndices, index)
+						table.insert(rowIndices, assert(controls.indexOfKey)(key) or index)
 						remainingIndex[key] = #remaining
 					end
 				end
@@ -1455,6 +1521,13 @@ return function<V, K>(
 				if touchOrigin and value == pendingInput then
 					local position = V2.new(value.Position.X, value.Position.Y)
 					local kind = arbiter.move(value, position)
+					if kind == "drag" and touchKey ~= nil then
+						local key = touchKey
+						disarm()
+						begin(key, position)
+						movePointer(position)
+						return
+					end
 					if kind == "scroll" or kind == "pan" or (position - touchOrigin).Magnitude > SLOP then
 						disarm()
 					end

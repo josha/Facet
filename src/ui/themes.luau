@@ -193,6 +193,9 @@ local neutral: ThemeTypes.ThemePackage = {
 				zoom = 0.22,
 				travel = 0.3,
 				travelFade = 0.16,
+				travelStagger = 0.045,
+				sequence = 0.3,
+				countUp = 0.3,
 				tabFade = 0.2,
 				pageTurn = 0.3,
 				popoverSheetExit = 0.2,
@@ -229,6 +232,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				popOvershoot = 0.25,
 				popDecay = 3,
 			},
+			scales = { travelLift = 1.08 },
 			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1, travelArc = 48 },
 			easing = {
 				present = "outCubic",
@@ -236,6 +240,8 @@ local neutral: ThemeTypes.ThemePackage = {
 				trail = "linear",
 				zoom = "outCubic",
 				travel = "outCubic",
+				sequence = "outCubic",
+				countUp = "outCubic",
 			},
 			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Quint", pulse = "Sine" },
 			fling = { friction = 3, maxSpeed = 4000, projection = 0.08, bounceSpeed = 800 },
@@ -864,6 +870,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-validation", { TextColor3 = c("danger"), TextSize = package.metrics.typography.caption.size })
 	rule(".facet-secondary", { TextColor3 = c("contentSecondary") })
 	rule("TextBox.facet-text", { PlaceholderColor3 = c("contentSecondary") })
+	rule(".facet-flash", { BackgroundColor3 = c("accent") })
 	rule(".facet-accent-text", { TextColor3 = c("accent") })
 	rule(".facet-strong", { TextColor3 = c("contentStrong") })
 	for _, role in

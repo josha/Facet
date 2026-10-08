@@ -4487,6 +4487,11 @@ UI.dropTarget(slot, {
   scroller. `"immediate"` picks the source up when the finger moves 6 pixels
   after touch-down. A shorter movement remains a tap. The preview keeps the
   original contact point under the finger.
+  Collection drag factories use the same touch policy. Facet calls the factory
+  on touch-down and keeps its returned spec, payload and selected keys for
+  pickup. Immediate movement starts the existing collection transfer session,
+  including the recess, preview and insertion slot. An omitted policy keeps
+  native long-press pickup.
 - `touchDragAxis`: `"XY"` (default), `"X"`, or `"Y"`. With immediate pickup,
   the first movement of 6 pixels chooses the gesture. Movement mainly along
   the selected axis starts a drag and stops the enclosing ScrollingFrame until
@@ -4729,10 +4734,25 @@ the viewport. The control uses one UIScale and native scrolling.
   contact point.
 - `enabled`: a boolean or readable, default true.
 - `controls`: an optional `ZoomControls` table. The control sets `fit()` and
-  `zoomTo({ x, y, w, h })`. These calls return false while disabled or locked
+  `zoomTo({ x, y, w, h })` and `zoomAt(scale, screenPoint?)`. These calls return false while disabled or locked
   by a child drag, except for one call inside its `onStart` capture scope.
-  The rectangle uses content pixels. The functions are
+  The rectangle uses content pixels. `zoomAt` holds a point in screen pixels.
+  Without a point, it uses the captured pointer or armed source centre; outside
+  capture it uses the viewport centre. Call `zoomAt(2)` in `onStart` to zoom at
+  pickup, and `fit()` in `onEnd` to reverse after release. The functions are
   cleared when the owner ends.
+
+Mouse pan follows native MouseMovement events while the original button is
+held. Pointer pan and wheel pan apply in that input callback. Ctrl-wheel uses
+the pointer in the inset viewport; ZoomView converts GetMouseLocation with
+GuiService.GetGuiInset. Pinch Begin captures the focus without changing scale.
+A positive Change scale updates the complete content transform at once.
+
+While the pointer is over the visible board, ZoomView holds native wheel
+scroll on its own ScrollingFrame and its scroll ancestors. Plain wheel pans
+the board vertically; Shift-wheel pans horizontally. Ctrl-wheel zooms.
+Pointer exit, focus loss, disable and disposal release these holds. A clipped
+board, an overlaid control or a nested scroller does not claim this wheel.
 
 Pinch zooms around the contact centre. Wheel pans; Ctrl-wheel zooms around the
 pointer. Select the view itself for keyboard and gamepad input: Plus and Minus
@@ -4786,7 +4806,19 @@ Slots are borrowed. Compose owns the visual and the anchor.
   A spring interrupt keeps its position and velocity.
 - `transparency`: an optional number or readable for CanvasGroup content.
   It uses `motion.durations.travelFade`. This supports retiring items.
+- `stagger`: a nonnegative zero-based ripple index, or a function that returns
+  it at each slot change. Delay is that index times `motion.durations.travelStagger`.
+  An interrupted flight retargets at once. Reduced motion ignores the delay.
+- `lift`: true scales the whole visual around its centre during flight. The
+  peak is `motion.scales.travelLift`. Use it with `path = "arc"` for a shuffle.
+- `onStarted(destination)`: reports the start after the delay. On interruption
+  it reports the new destination. The game can play its own sound here.
 - `onLanded(destination)`: reports placement. It does not change game state.
+
+Moving carriers have distinct native ZIndex values above resting siblings.
+Travel restores their resting ZIndex and scale on landing. Use native
+`ZIndexBehavior = Sibling` for the game root. A rack shuffle changes seven
+keyed items' destination slots; it needs no consumer frame loop.
 
 Arc height uses `motion.distances.travelArc`. Reduced motion places and fades
 at once. All active items use one shared Compose host-frame stepper. Keyed
@@ -4898,3 +4930,121 @@ Use `contentOverflow = "clip"` for bounded collection cells. Existing collection
 The game updates both models together in `onDrop`. Return or A picks up and
 places, Tab or native directional selection chooses a destination, Y changes
 between collection insertion and destination navigation, and Escape or B cancels.
+
+### Reserved collection slots
+
+VirtualList and VirtualGrid accept `slots: Value<{ K }>` with unique item keys.
+The keys define the slot order. A key absent from `from` shows a non-selectable
+recess. When that item returns to `from`, it uses its reserved slot. Items not
+listed in `slots` follow the listed keys in source order. Remove a key from
+`slots` to release its slot. Remaining items reflow with the theme travel spring.
+Without `slots`, collections keep their compact layout. Field-name keys use
+strings. A key function can return another key type.
+
+`slotControls: SlotControls<K>` receives `nodeOfKey(key) -> GuiObject?`.
+It returns the native slot anchor while that slot is retained. Pass that node
+to `UI.Travel.destination` for a programmatic Recall. Use `mode = "all"` when
+every reserved slot must have an anchor. The function clears on disposal.
+
+```luau
+local slots = Compose.cell({ "A", "M", "I", "G", "O", "S", "E" })
+local rack = Compose.cell({ { id = "A" }, { id = "M" }, { id = "I" } })
+local function renderTile(current)
+    return UI.Button { label = function(use) return use(current).id end }
+end
+UI.VirtualGrid {
+    from = rack,
+    key = "id",
+    slots = slots,
+    columns = 7,
+    itemSize = 52,
+    render = renderTile,
+}
+```
+
+Keep a transferred key in `slots` until Play or Recall releases it. The
+consumer owns both lists. The collection owns recesses, placement and reflow.
+A collection drop target supplies the reserved key's landing rectangle when
+its payload has `keys`, unless `drop.landing` supplies another rectangle.
+Use `drop.travel = true` for the shared Travel engine to return to that slot.
+
+## Effect sequences
+
+`UI.sequence(spec) -> Sequence` owns an ordered effect sequence. It creates
+no GUI. `steps` is an array of `SequenceStep`. A step accepts:
+
+- `delay` and `duration`: names in `motion.durations`. Omit either for zero.
+- `easing`: a name in `motion.easing`, default `sequence`.
+- `onStart()` and `onEnd()`: callbacks for the step boundaries.
+- `sample(progress)`: eased progress from zero to one on the Compose clock.
+- `parallel`: child steps that start from the same point. The group ends
+  after its longest child. Its end callback follows all child ends.
+
+The handle has `play()`, `cancel()`, `finish()`, and readable `running` and
+`completed` values. `play()` interrupts the previous run at its current
+sample and starts a new run. `cancel()` stops sequence samples and suppresses later callbacks.
+Motion already started by a callback remains owned by that control. `finish()` applies every remaining end state.
+`onCompleted()` on the spec runs after all steps. Compose owns callbacks and
+cleanup. Reduced motion runs start, final sample and end in order without
+waiting. A game owns durable state and validation in its callbacks.
+
+`UI.countUp(value) -> Readable<number>` interpolates a finite number or
+readable using `motion.durations.countUp` and `motion.easing.countUp`. Feed
+it to a `UI.Text` formula to format a total. Retargeting starts at the current
+number. Reduced motion applies the new number at once.
+
+`UI.Flash { target, progress, color?, mode? } -> Frame` paints a transient
+overlay for a GuiObject or readable target. The ownership anchor is empty.
+`progress` is a number or readable from zero to one, supplied by a sequence
+sample. `mode` is `pulse` (default) or `sweep`. Sweep reveals across the
+measured target. Colour defaults to the theme accent. The paint hides at
+both ends and under reduced motion. It does not change target paint, parent
+or input. Compose owns its portal, observation and paint.
+
+Use `travelStagger` between lock callbacks, a parallel sweep and flash, then
+an `onStart` that changes a Travel destination. Use `travel` for that step,
+`countUp` for the total and a final refill callback. Use Travel's `onLanded`
+when the game must wait for actual placement. The consumer needs no frame loop.
+
+## Focus and command scopes
+
+`UI.commandScope(root, spec) -> CommandScope<K>` attaches commands to an
+existing GuiObject. `targets` is a value or readable array of `{ key, node }`.
+Each key and node must be unique. A node can contain native selection targets.
+`commands` is an array of `{ id, keys, enabled?, onInvoke(key) }`. Each id is
+unique. `keys` contains KeyCode names. One key belongs to one command in the
+scope. `enabled` on the spec or command is a boolean or readable.
+
+The returned handle has `current: Readable<K?>`, `focus(key) -> boolean`,
+`clear()`, and `actions` by command id. Actions are native InputActions and
+can be used with ShortcutHint. `focus` selects an available native target.
+It returns false if the key is absent, disabled or unmounted. `clear` clears
+native selection only when this scope owns it. Mouse and touch select their
+target. Keyboard and gamepad use native selection and the same commands.
+The scope does not bind directional navigation.
+
+TextInput text entry wins. Commands are disabled while any TextBox is focused.
+Existing control actions and modal availability win next. Among scopes that
+contain native selection, the most specific enabled scope wins. A scope uses
+InputContext priority 1500, below existing Facet control actions. Tab and
+Escape use the shared reserved-key dispatcher with the same precedence.
+One handler receives the current key. The game chooses the matching item and
+owns placement, validation and cursor advance. Compose owns actions and
+connections. Disposal clears current and makes focus return false.
+
+```luau
+local cell = UI.Button { label = "Board cell" }
+local board = UI.Grid { columns = 1, cell }
+local scope = UI.commandScope(board, {
+    targets = { { key = "centre", node = cell } },
+    commands = {
+        { id = "PlaceA", keys = { "A", "ButtonX" }, onInvoke = function(key)
+            print("Place one A at", key)
+        end },
+        { id = "Recall", keys = { "Backspace", "ButtonY" }, onInvoke = function(key)
+            print("Recall from", key)
+        end },
+    },
+})
+scope.focus("centre")
+```

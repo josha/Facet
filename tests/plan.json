@@ -7,6 +7,20 @@
   },
   "units": [
     {
+      "id": "lab_loader",
+      "locator": "tests/lab_loader.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "command_scope",
+      "locator": "tests/command_scope.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "container_transfer",
       "locator": "tests/container_transfer.spec.luau",
       "requires": [
@@ -674,6 +688,13 @@
     {
       "id": "travel_convergence",
       "locator": "tests/travel_convergence.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "effect_sequence",
+      "locator": "tests/effect_sequence.spec.luau",
       "requires": [
         "local-luau"
       ]

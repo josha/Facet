@@ -351,22 +351,18 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(mark.Size):toBe(D2.fromOffset(24, 6))
 				local flow = assert(find(button, "Content"):FindFirstChildWhichIsA("UIListLayout"))
 				Verify.expect(flow.Padding.Offset >= 16):toBe(true)
-				local anchors: { "topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing" } = {
-					"topLeading" :: "topLeading",
-					"topTrailing" :: "topTrailing",
-					"bottomLeading" :: "bottomLeading",
-					"bottomTrailing" :: "bottomTrailing",
-				}
-				for _, choice in anchors do
+				local function checkCorner(
+					choice: "topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing",
+					x: number,
+					y: number
+				)
 					anchor:set(choice)
-					local corner = find(button, "Corner")
-					Verify.expect(corner.Position):toBe(
-						D2.fromScale(
-							if string.find(choice, "Leading") then 0 else 1,
-							if string.find(choice, "bottom") then 1 else 0
-						)
-					)
+					Verify.expect(find(button, "Corner").Position):toBe(D2.fromScale(x, y))
 				end
+				checkCorner("topLeading", 0, 0)
+				checkCorner("topTrailing", 1, 0)
+				checkCorner("bottomLeading", 0, 1)
+				checkCorner("bottomTrailing", 1, 1)
 				anchor:set("topTrailing")
 				track:set("automatic")
 				indicator:set("automatic")

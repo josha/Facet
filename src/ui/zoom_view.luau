@@ -5,6 +5,7 @@ local geometry = require("./zoom_geometry")
 local reducedMotion = require("./motion").reduced
 local sessionOf = require("./drag_session")
 local arbiterOf = require("./gesture_service")
+local scrollLock = require("./scroll_lock")
 
 return function(ctx: Shared.Context, UI: Types.Controls)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -77,6 +78,7 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 				ElasticBehavior = E.ElasticBehavior.Never,
 				ScrollBarThickness = 0,
 				Selectable = true,
+				Active = true,
 				ClipsDescendants = true,
 			}
 		) :: Shared.ScrollingFrameProps
@@ -143,8 +145,27 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 				)
 			)
 		end
+		local press: InputObject? = nil
 		local mouseOrigin, mouseCanvas = V2.zero, V2.zero
 		local mousePanning = false
+		local function moveMouse(position: Vector2)
+			if not enabled() then
+				return
+			end
+			local delta = (position - mouseOrigin) / math.max(unit:peek(), 0.001)
+			if not mousePanning and delta.Magnitude < 6 then
+				return
+			end
+			mousePanning = true
+			ramp.retarget(applied, 0)
+			local size, area = extent() * applied, window()
+			local next = mouseCanvas - delta
+			root.CanvasPosition = V2.new(
+				math.clamp(next.X, 0, math.max(0, size.X - area.X)),
+				math.clamp(next.Y, 0, math.max(0, size.Y - area.Y))
+			)
+			capture()
+		end
 		local detector = Host.UIDragDetector {
 			Name = "ZoomPanDetector",
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
@@ -153,26 +174,43 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 				return ctx.read(spec.enabled, use) ~= false and ctx.effectiveInput()(use) == "KeyboardAndMouse"
 			end,
 			DragStart = function(position: Vector2)
-				mouseOrigin, mouseCanvas, mousePanning = position, root.CanvasPosition, false
+				if press == nil then
+					mouseOrigin, mouseCanvas, mousePanning = position, root.CanvasPosition, false
+				end
 			end,
 			DragContinue = function(position: Vector2)
-				if not enabled() then
-					return
+				if press == nil then
+					moveMouse(position)
 				end
-				local delta = (position - mouseOrigin) / math.max(unit:peek(), 0.001)
-				if not mousePanning and delta.Magnitude < 6 then
-					return
-				end
-				mousePanning = true
-				ramp.retarget(applied, 0)
-				root.CanvasPosition = mouseCanvas - delta
-				capture()
 			end,
 			DragEnd = function()
 				mousePanning = false
 			end,
 		}
 		detector.Parent = root
+		local function inset(): Vector2
+			if gui then
+				local top = gui:GetGuiInset()
+				return top
+			end
+			return V2.zero
+		end
+		local function mousePoint(): Vector2
+			return if input then input:GetMouseLocation() - inset() else V2.zero
+		end
+		local releaseMouseScrollers: (() -> ())? = nil
+		local focused = true
+		local refreshMouse: () -> () = function() end
+		local function releaseMouse()
+			if releaseMouseScrollers then
+				releaseMouseScrollers()
+				releaseMouseScrollers = nil
+				if ctx.read(spec.enabled) == false or ctx.read(spec.ScrollingEnabled) == false then
+					root.ScrollingEnabled = false
+				end
+			end
+		end
+		Compose.cleanup(releaseMouse)
 		local function allowRequest(): boolean
 			if ctx.read(spec.enabled) == false or not root.Visible then
 				return false
@@ -213,6 +251,16 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 			contentPoint, screenPoint = V2.new(rect.x + rect.w / 2, rect.y + rect.h / 2), area / 2
 			return request(target, nil, true)
 		end
+		local function zoomAt(value: number, point: Vector2?): boolean
+			if not allowRequest() then
+				return false
+			end
+			local held = drag.state:peek()
+			local focus = point
+				or (held and (held.position or held.source.AbsolutePosition + held.source.AbsoluteSize / 2))
+			capture(if focus then (focus - root.AbsolutePosition) / math.max(unit:peek(), 0.001) else nil)
+			return request(value, nil, true)
+		end
 		local function pan(delta: Vector2)
 			if not enabled() then
 				return
@@ -228,8 +276,23 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 			request(zoom:peek() * ctx.metric("controls.zoom.stepRatio") ^ direction, nil, true)
 		end
 		local pinchActive = false
-		local pinchScrolling: boolean? = nil
+		local releasePinchScrollers: (() -> ())? = nil
+		local function releasePinch()
+			if releasePinchScrollers then
+				releasePinchScrollers()
+				releasePinchScrollers = nil
+				if ctx.read(spec.enabled) == false or ctx.read(spec.ScrollingEnabled) == false then
+					root.ScrollingEnabled = false
+				end
+			end
+		end
+		Compose.cleanup(releasePinch)
 		local function render(delta: number)
+			refreshMouse()
+			if ctx.read(spec.enabled) == false then
+				pinchActive = false
+				releasePinch()
+			end
 			if captureTarget and not blocked() then
 				captureTarget = nil
 				local next = deferred
@@ -249,10 +312,6 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 				end
 				root.CanvasPosition = frozenCanvas
 				return
-			end
-			if not pinchActive and pinchScrolling ~= nil then
-				root.ScrollingEnabled = pinchScrolling and ctx.read(spec.enabled) ~= false
-				pinchScrolling = nil
 			end
 			if frozen then
 				frozen = false
@@ -326,7 +385,6 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 		end)
 		local pinchStart = 1
 		local lastTap: { at: number, point: Vector2 }? = nil
-		local press: InputObject? = nil
 		local pressPoint = V2.zero
 		local moved = false
 		local function localPoint(point: Vector2): Vector2
@@ -337,13 +395,91 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 			local area = window()
 			return localAt.X >= 0 and localAt.Y >= 0 and localAt.X < area.X and localAt.Y < area.Y
 		end
-		runtime.connect(root, "InputBegan", function(event: InputObject)
+		local function overMouse(): boolean
+			if pinchActive then
+				return false
+			end
+			if
+				not focused
+				or not input
+				or ctx.read(spec.enabled) == false
+				or not root.Visible
+				or not root.Interactable
+			then
+				return false
+			end
+			if ctx.effectiveInput()() ~= "KeyboardAndMouse" or not inside(mousePoint()) then
+				return false
+			end
+			local at: Instance? = root.Parent
+			while at do
+				if at:IsA("GuiObject") then
+					if not at.Visible or not at.Interactable then
+						return false
+					end
+					if at.ClipsDescendants then
+						local point, position, size = mousePoint(), at.AbsolutePosition, at.AbsoluteSize
+						if
+							point.X < position.X
+							or point.Y < position.Y
+							or point.X >= position.X + size.X
+							or point.Y >= position.Y + size.Y
+						then
+							return false
+						end
+					end
+				elseif at:IsA("LayerCollector") and not at.Enabled then
+					return false
+				end
+				at = at.Parent
+			end
+			local player = root:FindFirstAncestorWhichIsA("PlayerGui")
+			if player then
+				local point = mousePoint()
+				local hits = (player :: PlayerGui):GetGuiObjectsAtPosition(point.X, point.Y)
+				for _, hit in hits do
+					if hit == root or hit:IsDescendantOf(root) then
+						local node: Instance? = hit
+						while node and node ~= root do
+							if node:IsA("ScrollingFrame") then
+								return false
+							end
+							node = node.Parent
+						end
+						return true
+					end
+					if hit.Active or hit:IsA("GuiButton") or hit:IsA("TextBox") then
+						return false
+					end
+				end
+				return false
+			end
+			return true
+		end
+		refreshMouse = function()
+			if overMouse() then
+				if not releaseMouseScrollers then
+					releaseMouseScrollers = scrollLock.holdAncestors(canvas)
+					root:ResetScrollVelocity()
+				end
+			else
+				releaseMouse()
+			end
+		end
+		local function beginPointer(event: InputObject)
 			if event.UserInputType == E.UserInputType.Touch or event.UserInputType == E.UserInputType.MouseButton1 then
+				if event == press then
+					return
+				end
 				press, pressPoint, moved = event, V2.new(event.Position.X, event.Position.Y), false
 				contacts[event] = true
-				arbiter.begin(event, root, pressPoint, { scroll = true })
+				arbiter.begin(event, root, pressPoint, { scroll = event.UserInputType == E.UserInputType.Touch })
+				if event.UserInputType == E.UserInputType.MouseButton1 then
+					mouseOrigin, mouseCanvas, mousePanning = pressPoint, root.CanvasPosition, false
+				end
 			end
-		end)
+		end
+		runtime.connect(root, "InputBegan", beginPointer)
 		if input then
 			runtime.connect(
 				input,
@@ -351,24 +487,24 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 				function(points: { Vector2 }, ratio: number, _velocity: number, state: Enum.UserInputState)
 					if not enabled() or #points < 2 then
 						pinchActive = false
-						if pinchScrolling ~= nil and not blocked() then
-							root.ScrollingEnabled = pinchScrolling and ctx.read(spec.enabled) ~= false
-							pinchScrolling = nil
-						end
+						releasePinch()
 						return
 					end
-					local centre = (points[1] + points[2]) / 2
+					local centre = (points[1] + points[2]) / 2 - inset()
 					if state == E.UserInputState.Begin then
-						pinchActive = inside(points[1]) and inside(points[2])
+						pinchActive = inside(points[1] - inset()) and inside(points[2] - inset())
 						pinchStart = applied
 						capture(localPoint(centre))
 						if pinchActive then
-							pinchScrolling = root.ScrollingEnabled
-							root.ScrollingEnabled = false
+							releaseMouse()
+							if not releasePinchScrollers then
+								releasePinchScrollers = scrollLock.holdAncestors(canvas)
+							end
 							root:ResetScrollVelocity()
 						end
+						return
 					end
-					if pinchActive then
+					if pinchActive and positive(ratio) then
 						screenPoint = localPoint(centre)
 						if request(pinchStart * ratio, true) then
 							render(0)
@@ -378,10 +514,7 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					end
 					if state == E.UserInputState.End or state == E.UserInputState.Cancel then
 						pinchActive = false
-						if pinchScrolling ~= nil and not blocked() then
-							root.ScrollingEnabled = pinchScrolling and ctx.read(spec.enabled) ~= false
-							pinchScrolling = nil
-						end
+						releasePinch()
 					end
 				end
 			)
@@ -393,6 +526,9 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					or event.UserInputType == E.UserInputType.MouseButton1
 				then
 					contacts[event] = true
+					if event.UserInputType == E.UserInputType.MouseButton1 and overMouse() then
+						beginPointer(event)
+					end
 				end
 			end)
 			runtime.connect(input, "InputChanged", function(event: InputObject)
@@ -400,14 +536,32 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					arbiter.move(event, V2.new(event.Position.X, event.Position.Y))
 					moved, lastTap = true, nil
 				end
-				if event.UserInputType == E.UserInputType.MouseWheel then
-					local at = input:GetMouseLocation()
-					if
-						inside(at)
-						and (input:IsKeyDown(E.KeyCode.LeftControl) or input:IsKeyDown(E.KeyCode.RightControl))
-					then
-						capture(localPoint(at))
-						request(zoom:peek() * ctx.metric("controls.zoom.stepRatio") ^ event.Position.Z)
+				if event.UserInputType == E.UserInputType.MouseMovement then
+					refreshMouse()
+					local pointer = press
+					if pointer and pointer.UserInputType == E.UserInputType.MouseButton1 then
+						local point = V2.new(event.Position.X, event.Position.Y)
+						local kind = arbiter.move(pointer, point)
+						local decision = arbiter.get(pointer)
+						if kind == "pan" and decision and decision.owner == root then
+							moved, lastTap = true, nil
+							moveMouse(point)
+						end
+					end
+				elseif event.UserInputType == E.UserInputType.MouseWheel then
+					refreshMouse()
+					if overMouse() and enabled() then
+						if input:IsKeyDown(E.KeyCode.LeftControl) or input:IsKeyDown(E.KeyCode.RightControl) then
+							capture(localPoint(mousePoint()))
+							request(zoom:peek() * ctx.metric("controls.zoom.stepRatio") ^ event.Position.Z)
+						else
+							ramp.retarget(applied, 0)
+							local distance = -event.Position.Z * ctx.metric("controls.zoom.panStep")
+							local horizontal = input:IsKeyDown(E.KeyCode.LeftShift)
+								or input:IsKeyDown(E.KeyCode.RightShift)
+							pan(if horizontal then V2.new(distance, 0) else V2.new(0, distance))
+							render(0)
+						end
 					end
 				end
 			end)
@@ -417,7 +571,7 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 				if event ~= press then
 					return
 				end
-				press = nil
+				press, mousePanning = nil, false
 				local decision = arbiter.get(event)
 				local kind = arbiter.finish(event, root, event.UserInputState == E.UserInputState.Cancel)
 				if decision and decision.owner ~= root then
@@ -454,7 +608,13 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					lastTap = { at = now, point = pressPoint }
 				end
 			end)
+			runtime.connect(input, "WindowFocused", function()
+				focused = true
+			end)
 			runtime.connect(input, "WindowFocusReleased", function()
+				focused = false
+				releaseMouse()
+				releasePinch()
 				arbiter.cancelOwner(root)
 				table.clear(contacts)
 				table.clear(capturedContacts)
@@ -518,10 +678,10 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 		end
 		render(0)
 		if spec.controls then
-			spec.controls.fit, spec.controls.zoomTo = fit, zoomTo
+			spec.controls.fit, spec.controls.zoomTo, spec.controls.zoomAt = fit, zoomTo, zoomAt
 			Compose.cleanup(function()
 				if spec.controls then
-					spec.controls.fit, spec.controls.zoomTo = nil, nil
+					spec.controls.fit, spec.controls.zoomTo, spec.controls.zoomAt = nil, nil, nil
 				end
 			end)
 		end

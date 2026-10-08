@@ -1,5 +1,7 @@
 --!strict
 local Shared = require("./types")
+local Commands = require("./command_types")
+local Effects = require("./effect_types")
 local ZoomTravel = require("./zoom_travel_types")
 local Inputs = require("./input_types")
 local Navigation = require("./navigation_types")
@@ -15,6 +17,10 @@ local Env = require("./environment_types")
 local NavigationSplitView = require("./navigation_split_view")
 
 export type Controls = {
+	commandScope: typeof(((nil :: unknown) :: Commands.Controls).commandScope),
+	sequence: typeof(((nil :: unknown) :: Effects.Controls).sequence),
+	countUp: typeof(((nil :: unknown) :: Effects.Controls).countUp),
+	Flash: typeof(((nil :: unknown) :: Effects.Controls).Flash),
 	ZoomView: typeof(((nil :: unknown) :: ZoomTravel.Controls).ZoomView),
 	Travel: typeof(((nil :: unknown) :: ZoomTravel.Controls).Travel),
 	NavigationSplitView: typeof(((nil :: unknown) :: NavigationSplitView.Controls).NavigationSplitView),

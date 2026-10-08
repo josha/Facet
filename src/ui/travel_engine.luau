@@ -7,6 +7,8 @@ export type Options = {
 	target: () -> { number },
 	sample: ({ number }) -> (),
 	complete: (() -> ())?,
+	start: (() -> ())?,
+	delay: (() -> number)?,
 	reduced: () -> boolean,
 	motion: "ease" | "spring",
 	duration: number,
@@ -19,8 +21,9 @@ export type Handle = {
 	snap: ({ number }) -> (),
 	rebase: ({ number }) -> (),
 	velocity: () -> { number },
+	depth: number,
 }
-type Entry = { tick: (number) -> (), active: boolean }
+type Entry = { tick: (number) -> (), active: boolean, depth: number }
 type Service = { entries: { Entry }, carriers: { [GuiObject]: Entry }, disconnect: (() -> ())? }
 local services = setmetatable({} :: { [Shared.Runtime]: Service }, { __mode = "k" })
 
@@ -34,7 +37,28 @@ return function(ctx: Shared.Context, options: Options): Handle
 	local state = ctx.Compose.createSpringState(options.initial, #options.initial)
 	local reference = table.clone(options.initial)
 	local elapsed = 0
-	local entry: Entry = { active = true, tick = function() end }
+	local depth = 1
+	while true do
+		local occupied = false
+		for _, leased in shared.entries do
+			occupied = occupied or leased.depth == depth
+		end
+		if not occupied then
+			break
+		end
+		depth += 1
+	end
+	local entry: Entry = { active = true, tick = function() end, depth = depth }
+	local waiting = 0
+	local started = true
+	local function start()
+		if not started then
+			started = true
+			if options.start then
+				options.start()
+			end
+		end
+	end
 	local function finish(target: { number })
 		for index, value in target do
 			state.position[index], state.velocity[index] = value, 0
@@ -51,9 +75,19 @@ return function(ctx: Shared.Context, options: Options): Handle
 		end
 		local target = options.target()
 		if options.reduced() then
+			start()
 			finish(target)
 			return
 		end
+		if waiting > 0 then
+			local consumed = math.min(waiting, delta)
+			waiting -= consumed
+			delta -= consumed
+			if waiting > 0 then
+				return
+			end
+		end
+		start()
 		if options.motion == "spring" then
 			ctx.Compose.stepSpring(state, target, delta, options.spring.period, options.spring.damping)
 			options.sample(state.position)
@@ -107,6 +141,7 @@ return function(ctx: Shared.Context, options: Options): Handle
 	end
 	ctx.Compose.cleanup(stop)
 	return {
+		depth = depth,
 		rebase = function(values: { number })
 			for index, value in values do
 				state.position[index] = value
@@ -121,9 +156,15 @@ return function(ctx: Shared.Context, options: Options): Handle
 			options.sample(state.position)
 		end,
 		retarget = function()
+			local interrupted = entry.active and started
 			reference = table.clone(state.position)
-			elapsed, entry.active = 0, true
-			if options.reduced() or (options.motion == "ease" and options.duration <= 0) then
+			waiting = if interrupted or options.delay == nil then 0 else options.delay()
+			assert(waiting >= 0 and waiting < math.huge, "Facet travel delay must be finite and nonnegative")
+			elapsed, entry.active, started = 0, true, false
+			if waiting == 0 or options.reduced() then
+				start()
+			end
+			if options.reduced() or (options.motion == "ease" and options.duration <= 0 and waiting == 0) then
 				finish(options.target())
 			end
 		end,

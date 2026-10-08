@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Lab page contexts forward native types to demos. Reserved slot teardown
+  uses Host ownership, and transfer live fixtures disconnect native resources.
+
+- commandScope exposes native focus keys and owned InputActions for game
+  commands. One handler receives the focused key. Text entry, modal controls
+  and existing control actions have priority over these commands.
+
+- VirtualList and VirtualGrid accept ordered slot keys. Missing items keep
+  recesses until the consumer releases their keys. slotControls exposes native
+  slot anchors for Recall with Travel. Collection drag factories honour their
+  immediate touch pickup policy.
+
+- Travel supports a theme-timed shuffle ripple, lift and start callbacks.
+  ZoomControls.zoomAt permits one capture-time camera request at the pointer.
+- sequence orders theme-timed steps and parallel groups. countUp supplies a
+  numeric readable. Flash paints a transient GUI target through the overlay.
+  All use Compose ownership and honour reduced motion.
+
 - Breaking types: drag payload callbacks now receive `unknown`. Check the payload
   before you read its fields. `DraggableSpec.onStart` and all payload callbacks
   in `DropTargetSpec` use this type. Runtime behavior does not change.

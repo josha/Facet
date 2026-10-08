@@ -92,3 +92,10 @@ item being mounted.
 World-fixed UI is a flat two-dimensional SurfaceGui. Facet does not add VR,
 gaze input, hand input or declarative three-dimensional layout. See
 [native targets and boundaries](../reference/api.md#native-targets-and-boundaries).
+
+A game can attach `UI.commandScope(root, spec)` to an existing board. Supply
+`targets` with keys and native nodes, and one handler for each command. The
+handler receives the current key. `scope.focus(key)` uses native selection.
+Mouse, touch, keyboard and gamepad share that selection. TextInput text entry
+has priority. Facet disables commands while a TextBox edits text. Scoped Tab
+and Escape use the reserved-key dispatcher below modal and control actions.

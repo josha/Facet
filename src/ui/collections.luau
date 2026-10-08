@@ -11,6 +11,7 @@ local createSelection = require("./collection_selection")
 local attachSnap = require("./collection_snap")
 local reducedMotion = require("./motion").reduced
 local adaptive = require("./adaptive")
+local travelEngine = require("./travel_engine")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -47,6 +48,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		"onExpansionChange",
 		"indent",
 		"from",
+		"slots",
+		"slotControls",
 		"selectionFrom",
 		"selectionIndicator",
 		"minColumnWidth",
@@ -407,7 +410,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				Compose.cell(nil :: CollectionTypes.Sort?),
 				spec.editing,
 				kind == "grid",
-				if tree then tree.location else nil
+				if tree then tree.location else nil,
+				nil,
+				spec.slots
 			)
 			else nil
 		local overlayReorder = if editor then editor.overlay else nil
@@ -432,10 +437,128 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			end
 			return combined
 		end
+		local slotNodes: { [K]: GuiObject } = {}
+		if spec.slotControls then
+			assert(spec.slots ~= nil, "Facet collection slotControls requires slots")
+			spec.slotControls.nodeOfKey = function(key: K): GuiObject?
+				return slotNodes[key]
+			end
+			Compose.cleanup(function()
+				(spec.slotControls :: CollectionTypes.SlotControls<K>).nodeOfKey = nil
+			end)
+		end
+		type SlotRecord = { key: K, item: V? }
+		local slotSource = Compose.formula(function(use: ComposeTypes.Use): { SlotRecord }
+			local items, result, included = {} :: { [K]: V }, {} :: { SlotRecord }, {} :: { [K]: boolean }
+			local rows = source(use)
+			for index, item in rows do
+				items[keyOf(item, index)] = item
+			end
+			for _, key in read(spec.slots or {}, use) do
+				assert(not included[key], "Facet collection slots must have unique keys")
+				included[key] = true
+				table.insert(result, { key = key, item = items[key] })
+			end
+			for index, item in rows do
+				local key = keyOf(item, index)
+				if not included[key] then
+					table.insert(result, { key = key, item = item })
+				end
+			end
+			return result
+		end, function(before: { SlotRecord }?, after: { SlotRecord }): boolean
+			if before == nil or spec.slots == nil or #before ~= #after then
+				return false
+			end
+			for index, entry in before do
+				if entry.key ~= after[index].key then
+					return false
+				end
+			end
+			return true
+		end)
+		local function withSlots(renderItem: CollectionTypes.RowRender<V, K>)
+			return function(
+				record: ComposeTypes.Readable<SlotRecord>,
+				placement: ComposeTypes.Readable<ComposeTypes.Placement>,
+				key: K
+			)
+				if spec.slots == nil then
+					return renderItem(
+						Compose.formula(function(use: ComposeTypes.Use): V
+							return assert(use(record).item)
+						end),
+						placement,
+						key
+					)
+				end
+				local function itemForKey(use: ComposeTypes.Use): V?
+					for index, item in source(use) do
+						if keyOf(item, index) == key then
+							return item
+						end
+					end
+					return nil
+				end
+				local last = record:peek().item
+				local current = Compose.formula(function(use: ComposeTypes.Use): V
+					local item = itemForKey(use)
+					if item ~= nil then
+						last = item
+					end
+					return assert(last)
+				end)
+				local recess: GuiObject = ctx.styled(
+					Host.Frame {
+						Name = "ReservedSlot",
+						Visible = function(use: ComposeTypes.Use): boolean
+							return itemForKey(use) == nil
+						end,
+						Interactable = false,
+						Selectable = false,
+						Attributes = { FacetReservedKey = tostring(key) } :: EngineTypes.Attributes,
+						Position = function(use: ComposeTypes.Use): UDim2
+							local at = use(placement)
+							return if horizontal
+								then D2.fromOffset(at.offset, at.crossOffset)
+								else D2.fromOffset(at.crossOffset, at.offset)
+						end,
+						Size = function(use: ComposeTypes.Use): UDim2
+							local at = use(placement)
+							return if horizontal
+								then D2.fromOffset(at.size, at.crossSize)
+								else D2.fromOffset(at.crossSize, at.size)
+						end,
+					},
+					"fill"
+				)
+				slotNodes[key] = recess
+				Compose.cleanup(function()
+					if slotNodes[key] == recess then
+						slotNodes[key] = nil
+					end
+				end)
+				local shellProps: Types.FrameProps = {
+					Name = "Slot",
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return itemForKey(use) ~= nil
+					end, function()
+						return renderItem(current, placement, key)
+					end),
+					recess,
+				}
+				return Host.Frame(shellProps)
+			end
+		end
+
 		local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
 			return Compose.OrderedCollection({
-				from = source,
-				key = keyOf,
+				from = slotSource,
+				key = function(record: SlotRecord, _index: number): K
+					return record.key
+				end,
 				mode = spec.mode or "windowed",
 				direction = spec.direction or "vertical",
 				viewport = viewport,
@@ -475,7 +598,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
 					}
 				end,
-				render = function(current, placement, key)
+				render = withSlots(function(current, placement, key)
 					local lease = pool.acquire()
 					local node = runtime.borrow(lease.value.node) :: Frame
 					local contentOwner = poolOwner.createChild()
@@ -491,6 +614,28 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 					local function shift(use: ComposeTypes.Use?): number
 						return if use then use(glide) else glide:peek()
 					end
+					local reservedPosition = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
+					if spec.slots then
+						local engine = travelEngine(ctx, {
+							initial = { placement:peek().crossOffset, placement:peek().offset },
+							target = function()
+								local at = placement:peek()
+								return { at.crossOffset, at.offset }
+							end,
+							sample = function(values)
+								reservedPosition:set(V2.new(values[1], values[2]))
+							end,
+							reduced = reduced,
+							motion = "spring",
+							duration = ctx.metric("motion.durations.travel"),
+							ease = ctx.motionEase("travel"),
+							spring = ctx.motionSpring("travel"),
+						})
+						Compose.watch(function(use: ComposeTypes.Use)
+							use(placement)
+							engine.retarget()
+						end)
+					end
 					local previous = placement:peek()
 					Compose.watch(function(use: ComposeTypes.Use)
 						local at = use(placement)
@@ -498,7 +643,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						local moved = at.index ~= previous.index
 						previous = at
 						if
-							tree
+							spec.slots
+							or tree
 							or not moved
 							or kind ~= "list"
 							or math.abs(delta) > viewport:peek().size
@@ -532,6 +678,12 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							end,
 							Position = function(use: ComposeTypes.Use)
 								local at = use(placement)
+								if spec.slots then
+									local position = use(reservedPosition)
+									return if horizontal
+										then D2.fromOffset(position.Y, position.X)
+										else D2.fromOffset(position.X, position.Y)
+								end
 								local offset = at.offset + shift(use)
 								return if horizontal
 									then D2.fromOffset(offset, at.crossOffset)
@@ -849,7 +1001,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						end)
 					end)
 					return node
-				end,
+				end),
 			})
 		end
 		local function followOf(use: ComposeTypes.Use?): CollectionTypes.Follow

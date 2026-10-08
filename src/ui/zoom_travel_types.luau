@@ -2,7 +2,11 @@
 local Shared = require("./types")
 
 export type Rect = { x: number, y: number, w: number, h: number }
-export type ZoomControls = { fit: (() -> boolean)?, zoomTo: ((Rect) -> boolean)? }
+export type ZoomControls = {
+	fit: (() -> boolean)?,
+	zoomTo: ((Rect) -> boolean)?,
+	zoomAt: ((number, Vector2?) -> boolean)?,
+}
 export type ZoomViewProps = Shared.ScrollingFrameProps & {
 	contentSize: Shared.Value<Vector2>,
 	content: () -> GuiObject,
@@ -20,6 +24,9 @@ export type TravelProps = Shared.FrameProps & {
 	path: ("straight" | "arc")?,
 	motion: ("ease" | "spring")?,
 	transparency: Shared.Value<number>?,
+	stagger: (number | (() -> number))?,
+	lift: boolean?,
+	onStarted: ((GuiObject) -> ())?,
 	onLanded: ((GuiObject) -> ())?,
 }
 export type Controls = {

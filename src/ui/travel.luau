@@ -10,13 +10,32 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
 	UI.Travel = ctx.construct("Travel", function(spec: Types.TravelProps): Frame
 		assert(type(spec.content) == "function", "Facet UI.Travel: content is required")
-		local anchor =
-			Host.Frame(ctx.props(spec, { "destination", "content", "path", "onLanded", "motion", "transparency" }, {
-				Name = "Travel",
-				BackgroundTransparency = 1,
-				Size = D2.fromOffset(0, 0),
-			}))
+		local anchor = Host.Frame(ctx.props(spec, {
+			"destination",
+			"content",
+			"path",
+			"onLanded",
+			"motion",
+			"transparency",
+			"stagger",
+			"lift",
+			"onStarted",
+		}, {
+			Name = "Travel",
+			BackgroundTransparency = 1,
+			Size = D2.fromOffset(0, 0),
+		}))
 		local node = spec.content()
+		local restingDepth = node.ZIndex
+		local liftScale: UIScale? = nil
+		if spec.lift then
+			liftScale = node:FindFirstChildWhichIsA("UIScale") :: UIScale?
+			if not liftScale then
+				liftScale = Host.UIScale { Name = "TravelLift", Parent = Compose.static(node) }
+			end
+		end
+		local restingScale = if liftScale then liftScale.Scale else 1
+		local liftStart, lifted = 1, 1
 		local styleCopy = Host.StyleLink {}
 		styleCopy.Parent = node
 		local reduce = reducedMotion(ctx)
@@ -82,13 +101,22 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 				return
 			end
 			local unit = math.max(units[container]:peek(), 0.001)
+			local progress = math.clamp(sample[5], 0, 1)
+			lifted = if moving and spec.lift
+				then liftStart
+					+ (1 - liftStart) * progress
+					+ (ctx.metric("motion.scales.travelLift") - 1) * 4 * progress * (1 - progress)
+				else 1
+			if liftScale then
+				liftScale.Scale = restingScale * lifted
+			end
 			local arc = if spec.path == "arc" and spec.motion ~= "spring"
 				then -4 * ctx.metric("motion.distances.travelArc") * sample[5] * (1 - sample[5])
 				else 0
 			values[2] += arc * unit
 			node.Position = D2.fromOffset(
-				(sample[1] - container.AbsolutePosition.X) / unit,
-				(sample[2] - container.AbsolutePosition.Y) / unit + arc
+				(sample[1] - container.AbsolutePosition.X - sample[3] * (lifted - 1) / 2) / unit,
+				(sample[2] - container.AbsolutePosition.Y - sample[4] * (lifted - 1) / 2) / unit + arc
 			)
 			node.Size = D2.fromOffset(sample[3] / unit, sample[4] / unit)
 			node.Visible = destination.Parent ~= nil
@@ -98,6 +126,8 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 		end
 		local function land()
 			moving = false
+			node.ZIndex = restingDepth
+			liftStart, lifted = 1, 1
 			if not inPlace then
 				parent = destination
 				if not units[destination] then
@@ -126,6 +156,26 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			end,
 			sample = paint,
 			complete = land,
+			start = function()
+				local floor = restingDepth
+				local container = parent
+				if container then
+					for _, sibling in container:GetChildren() do
+						if sibling:IsA("GuiObject") and sibling ~= node then
+							floor = math.max(floor, (sibling :: GuiObject).ZIndex)
+						end
+					end
+				end
+				node.ZIndex = floor + motion.depth
+				if spec.onStarted then
+					spec.onStarted(destination)
+				end
+			end,
+			delay = function()
+				local index = if type(spec.stagger) == "function" then spec.stagger() else spec.stagger or 0
+				assert(index >= 0 and index < math.huge, "Facet UI.Travel: stagger must be finite and nonnegative")
+				return index * ctx.metric("motion.durations.travelStagger")
+			end,
 			reduced = reduce,
 			motion = spec.motion or "ease",
 			duration = ctx.metric("motion.durations.travel"),
@@ -141,6 +191,16 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 				return
 			end
 			target = bounds(destination)
+			if previous == destination and not moving then
+				local unchanged = true
+				for index = 1, 4 do
+					unchanged = unchanged and target[index] == values[index]
+				end
+				if unchanged then
+					paint(target)
+					return
+				end
+			end
 			if not moving and previous and node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0 then
 				values =
 					{ node.AbsolutePosition.X, node.AbsolutePosition.Y, node.AbsoluteSize.X, node.AbsoluteSize.Y, 1 }
@@ -163,6 +223,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			if previous == nil and not moving then
 				land()
 			else
+				liftStart = lifted
 				moving = true
 				values[5] = 0
 				motion.rebase(values)

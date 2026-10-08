@@ -4,11 +4,22 @@ type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
-type ZoomControls = { fit: (() -> boolean)?, zoomTo: (({ x: number, y: number, w: number, h: number }) -> boolean)? }
+type ZoomControls = {
+	fit: (() -> boolean)?,
+	zoomTo: (({ x: number, y: number, w: number, h: number }) -> boolean)?,
+	zoomAt: ((number, Vector2?) -> boolean)?,
+}
 
 local demo = {}
 
-function demo.zoom(UI: Controls, Host: Host, Compose: ComposeModule, maxZoom: number, enabled: boolean): Frame
+function demo.zoom(
+	UI: Controls,
+	Host: Host,
+	Compose: ComposeModule,
+	maxZoom: number,
+	enabled: boolean,
+	captureCamera: boolean?
+): Frame
 	local zoom = Compose.cell(0.5)
 	local controls: ZoomControls = {}
 	local tile: TextButton? = nil
@@ -49,7 +60,9 @@ function demo.zoom(UI: Controls, Host: Host, Compose: ComposeModule, maxZoom: nu
 				},
 			} :: unknown,
 			UI.Text {
-				text = "Pinch or double tap. Ctrl-wheel zooms. Select the view: triggers zoom, right stick pans, Y fits. Drag A: the board stays still.",
+				text = if captureCamera
+					then "Lift A: zoom at the contact point. Release: fit. Pan stays locked."
+					else "Pinch or double tap. Ctrl-wheel zooms. Select the view: triggers zoom, right stick pans, Y fits. Drag A: the board stays still.",
 				wrap = true,
 			} :: unknown,
 			UI.ZoomView {
@@ -73,7 +86,21 @@ function demo.zoom(UI: Controls, Host: Host, Compose: ComposeModule, maxZoom: nu
 						Position = UDim2.fromOffset(360, 360),
 						ZIndex = 2,
 					}
-					UI.draggable(tile :: TextButton, { payload = "A", touchPickup = "immediate", statusLabels = false })
+					UI.draggable(tile :: TextButton, {
+						payload = "A",
+						touchPickup = "immediate",
+						statusLabels = false,
+						onStart = function()
+							if captureCamera then
+								assert(controls.zoomAt)(2)
+							end
+						end,
+						onEnd = function()
+							if captureCamera then
+								assert(controls.fit)()
+							end
+						end,
+					})
 					props[#props + 1] = tile
 					return Host.Frame(props)
 				end,
@@ -196,6 +223,60 @@ function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 			end,
 		} :: unknown,
 		board :: unknown,
+	} :: unknown) :: StackProps)
+end
+
+function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
+	local row = Host.Frame { Name = "ShuffleRow", Size = UDim2.fromOffset(392, 140), BackgroundTransparency = 1 }
+	local slots: { Frame } = {}
+	local cells: { typeof(require("@repo/tools/typecheck/aliases").ZoomDestinationCell) } = {}
+	local started, landed = Compose.cell(0), Compose.cell(0)
+	for index = 1, 7 do
+		slots[index] = Host.Frame {
+			Name = `ShuffleSlot{index}`,
+			Size = UDim2.fromOffset(44, 44),
+			Position = UDim2.fromOffset((index - 1) * 56, 70),
+			BackgroundTransparency = 1,
+			Parent = Compose.static(row),
+		}
+	end
+	for index = 1, 7 do
+		cells[index] = Compose.cell(slots[index] :: GuiObject)
+		local anchor = UI.Travel {
+			destination = cells[index],
+			path = "arc" :: "arc",
+			lift = true,
+			stagger = index - 1,
+			onStarted = function()
+				started:set(started:peek() + 1)
+			end,
+			onLanded = function()
+				landed:set(landed:peek() + 1)
+			end,
+			content = function(): GuiObject
+				return UI.Button { label = tostring(index), AutomaticSize = Enum.AutomaticSize.None }
+			end,
+		}
+		anchor.Parent = row
+	end
+	local reverse = false
+	return UI.VStack(({
+		gap = "s",
+		UI.Button {
+			label = "Shuffle row",
+			onActivate = function()
+				reverse = not reverse
+				for index, cell in cells do
+					cell:set(slots[if reverse then (index + 2) % 7 + 1 else index])
+				end
+			end,
+		} :: unknown,
+		row :: unknown,
+		UI.Text {
+			text = Compose.formula(function(use)
+				return `Started {use(started)}, landed {use(landed)}. Shuffle again during flight.`
+			end),
+		} :: unknown,
 	} :: unknown) :: StackProps)
 end
 

@@ -47,9 +47,11 @@ game screens and Studio plugin interfaces.
 | Show large scrolling data | VirtualList or VirtualGrid. |
 | Show a browsable item with a picture and actions | Card, in a VirtualGrid for many items. |
 | Add operations for one row | RowActions. |
+| Type a game command at a focused cell | commandScope. TextInput takes keys while it edits text. |
 | Drag data between separate controls or targets | draggable and dropTarget; use collection reordering for row order. |
+| Present an ordered reward | sequence with Travel, countUp and Flash. The game supplies callbacks and data. |
 | Inspect a large board at different scales | ZoomView. |
-| Moving items within or between containers | Travel. Set each item's destination slot. |
+| Moving items within or between containers | Travel. Set each item's destination slot. For a rack shuffle, use arc, lift and stagger. |
 
 ## Compose in the existing screen
 
@@ -236,6 +238,9 @@ World-fixed and billboard surfaces also contain flat UI. Facet does not supply
 ## Tiles between containers
 
 Use `UI.draggable` and `UI.dropTarget` for an item that moves between containers.
+For a phone rack, return `touchPickup = "immediate"` from the collection
+drag factory. Movement of six pixels uses the same recess, preview and
+insertion session. Use `touchDragAxis` when a scroll direction must stay free.
 Use VirtualList or VirtualGrid when the target must open an insertion slot and
 reflow its other items. Use `rowDrop` for a fixed board cell. Give each tile a
 bounded `hitArea`, and use `contentOverflow = "clip"` on its collection. Keep
@@ -251,3 +256,15 @@ draggable children. Read its decision before pan or double-tap. A pending child
 contact freezes the camera. A captured drag holds the scroll ancestors. Early
 movement before long press belongs to scrolling for the complete contact.
 Keep native selection and the pickup, place and cancel commands available.
+
+Use `VirtualGrid.slots` for rack keys that must stay in place after a transfer.
+Keep the absent key in this ordered list to reserve a recess. Recall can add
+the item to `from` at any index. It still uses its key's slot. Remove the key
+from `slots` when Play releases the space. Use `drop.travel = true` for return
+travel and let the collection supply the landing rectangle.
+
+Use `UI.commandScope` when one handler must choose one matching item for a
+focused cell. Supply the native target nodes and their game keys. The handle
+reports the current key and can focus the next key. Bind letters and Backspace
+there. Keep item matching and placement in the game handler. TextInput edits
+text before any scope command. The most specific focused scope owns a command.

@@ -122,4 +122,125 @@ return function(harness: Verify.Harness)
 		end
 		t:expect(#native.made):toBe(count)
 	end)
+	harness:case("seven shuffled slots stagger arcs and lift and retarget without allocations", function(t)
+		local native = engineLib.new()
+		local C = Facet.Compose
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local screen, row = native.new("ScreenGui"), native.new("Frame")
+		screen.Parent, row.Parent = native.new("Folder"), screen
+		local slots: { Frame } = {}
+		local nodes: { Frame } = {}
+		local cells: { Facet.Cell<GuiObject> } = {}
+		local starts: { number } = {}
+		local lands = 0
+		local lifted: { boolean } = {}
+		local arced: { boolean } = {}
+		local reduced: Facet.Cell<Shared.MotionLevel>
+		for index = 1, 7 do
+			slots[index] = native.new("Frame")
+			slots[index].Parent = row
+			slots[index].AbsolutePosition = native.types.Vector2.new((index - 1) * 56, 70)
+			slots[index].AbsoluteSize = native.types.Vector2.new(44, 44)
+		end
+		local step = 0
+		local stop = runtime.mount(function()
+			reduced = C.cell("normal" :: Shared.MotionLevel)
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen, motionLevel = reduced })
+			step = context(C, runtime, { types = native.types }).metric("motion.durations.travelStagger")
+			local children: Shared.FrameProps = {}
+			for index = 1, 7 do
+				cells[index] = C.cell(slots[index] :: GuiObject)
+				children[#children + 1] = UI.Travel {
+					destination = cells[index],
+					path = "arc" :: "arc",
+					lift = true,
+					stagger = function()
+						return index - 1
+					end,
+					onStarted = function()
+						table.insert(starts, index)
+					end,
+					onLanded = function()
+						lands += 1
+					end,
+					content = function(): GuiObject
+						nodes[index] = Host.Frame { ZIndex = 1 }
+						return nodes[index]
+					end,
+				}
+			end
+			return Host.Frame(children)
+		end, row)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		local count = #native.made
+		local function shuffle(offset: number)
+			for index = 1, 7 do
+				cells[index]:set(slots[(index - 1 + offset) % 7 + 1])
+			end
+		end
+		shuffle(3)
+		for frame = 1, 18 do
+			native.heartbeat:Fire(1 / 120)
+			local elapsed = frame / 120
+			for order, index in starts do
+				t:expect(index):toBe(order)
+				t:expect(elapsed + 0.000001 >= (index - 1) * step):toBe(true)
+			end
+			for index = 1, 7 do
+				local node = nodes[index]
+				t:expect(node.Parent == row):toBe(true)
+				local scale = node:FindFirstChild("TravelLift") :: UIScale
+				lifted[index] = lifted[index] or scale.Scale > 1
+				arced[index] = arced[index] or node.Position.Y.Offset < 70
+				for other = index + 1, 7 do
+					local neighbor = nodes[other]
+					if math.abs(node.Position.X.Offset - neighbor.Position.X.Offset) < 44 then
+						t:expect(node.ZIndex ~= neighbor.ZIndex):toBe(true)
+					end
+				end
+			end
+		end
+		local positions: { UDim2 } = {}
+		local scales: { number } = {}
+		for index = 1, 7 do
+			positions[index] = nodes[index].Position
+			scales[index] = (nodes[index]:FindFirstChild("TravelLift") :: UIScale).Scale
+		end
+		shuffle(5)
+		for index = 1, 7 do
+			t:expect(nodes[index].Position):toBe(positions[index])
+			t:expect((nodes[index]:FindFirstChild("TravelLift") :: UIScale).Scale):toBe(scales[index])
+		end
+		for _ = 1, 90 do
+			native.heartbeat:Fire(1 / 120)
+			for index = 1, 7 do
+				lifted[index] = lifted[index] or (nodes[index]:FindFirstChild("TravelLift") :: UIScale).Scale > 1
+				arced[index] = arced[index] or nodes[index].Position.Y.Offset < 70
+				for other = index + 1, 7 do
+					if math.abs(nodes[index].Position.X.Offset - nodes[other].Position.X.Offset) < 44 then
+						t:expect(nodes[index].ZIndex ~= nodes[other].ZIndex):toBe(true)
+					end
+				end
+			end
+		end
+		for index = 1, 7 do
+			t:expect(nodes[index].Position.X.Offset):toBe(slots[(index - 1 + 5) % 7 + 1].AbsolutePosition.X)
+			t:expect(nodes[index].Position.Y.Offset):toBe(70)
+			t:expect(nodes[index].ZIndex):toBe(1)
+			t:expect((nodes[index]:FindFirstChild("TravelLift") :: UIScale).Scale):toBe(1)
+			t:expect(lifted[index] and arced[index]):toBe(true)
+		end
+		t:expect(lands):toBe(14)
+		t:expect(#native.made):toBe(count)
+		reduced:set("none")
+		shuffle(0)
+		t:expect(lands):toBe(21)
+		for index = 1, 7 do
+			t:expect(nodes[index].Position.X.Offset):toBe(slots[index].AbsolutePosition.X)
+		end
+	end)
 end

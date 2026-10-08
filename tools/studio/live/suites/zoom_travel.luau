@@ -31,13 +31,20 @@ type TravelState = {
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 
-local function zoomSetup(t: Live): ZoomState
+local function zoomSetup(t: Live, captureCamera: boolean?): ZoomState
 	local state: ZoomState
 	local stage = t.mount(function(UI: Controls, Host: Host, C: ComposeModule): Instance
 		local zoom = C.cell(1)
+		local camera: {
+			fit: (() -> boolean)?,
+			zoomTo: (({ x: number, y: number, w: number, h: number }) -> boolean)?,
+			zoomAt: ((number, Vector2?) -> boolean)?,
+		} =
+			{}
 		local tile: TextButton
 		local view = UI.ZoomView {
 			Name = "LiveZoom",
+			controls = camera,
 			Size = UDim2.fromOffset(360, 320),
 			contentSize = Vector2.new(900, 900),
 			zoom = zoom,
@@ -48,7 +55,21 @@ local function zoomSetup(t: Live): ZoomState
 					Size = UDim2.fromOffset(60, 60),
 					Position = UDim2.fromOffset(420, 420),
 				}
-				UI.draggable(tile, { payload = "A", touchPickup = "immediate" :: "immediate", statusLabels = false })
+				UI.draggable(tile, {
+					payload = "A",
+					touchPickup = "immediate" :: "immediate",
+					statusLabels = false,
+					onStart = function()
+						if captureCamera then
+							assert(camera.zoomAt)(2)
+						end
+					end,
+					onEnd = function()
+						if captureCamera then
+							assert(camera.fit)()
+						end
+					end,
+				})
 				return Host.Frame {
 					Name = "StableBoard",
 					Size = UDim2.fromScale(1, 1),
@@ -211,6 +232,105 @@ local function afterLanding(t: Live, state: TravelState)
 	table.clear(state.samples)
 end
 
+type ShuffleState = {
+	row: Frame,
+	nodes: { TextButton },
+	cells: { DestinationCell },
+	starts: { number },
+	frames: number,
+	collisions: number,
+	maxLift: number,
+}
+local function shuffleSetup(t: Live): ShuffleState
+	local state: ShuffleState
+	t.mount(function(UI: Controls, Host: Host, C: ComposeModule): Instance
+		local row = Host.Frame {
+			Size = UDim2.fromOffset(392, 140),
+			Position = UDim2.fromOffset(20, 60),
+			BackgroundTransparency = 1,
+		}
+		state = { row = row, nodes = {}, cells = {}, starts = {}, frames = 0, collisions = 0, maxLift = 1 }
+		local slots: { Frame } = {}
+		for index = 1, 7 do
+			slots[index] = Host.Frame {
+				Size = UDim2.fromOffset(44, 44),
+				Position = UDim2.fromOffset((index - 1) * 56, 70),
+				BackgroundTransparency = 1,
+				Parent = C.static(row),
+			}
+		end
+		for index = 1, 7 do
+			state.cells[index] = C.cell(slots[index] :: GuiObject)
+			local anchor = UI.Travel {
+				destination = state.cells[index],
+				path = "arc" :: "arc",
+				lift = true,
+				stagger = index - 1,
+				onStarted = function()
+					table.insert(state.starts, index)
+				end,
+				content = function(): GuiObject
+					state.nodes[index] = UI.Button { label = tostring(index), AutomaticSize = Enum.AutomaticSize.None }
+					return state.nodes[index]
+				end,
+			}
+			anchor.Parent = row
+		end
+		local offset = 0
+		local button = UI.Button {
+			Name = "Shuffle",
+			label = "Shuffle",
+			onActivate = function()
+				offset = (offset + 3) % 7
+				for index, cell in state.cells do
+					cell:set(slots[(index - 1 + offset) % 7 + 1])
+				end
+			end,
+		}
+		local sample = RunService.PreRender:Connect(function()
+			state.frames += 1
+			for index, node in state.nodes do
+				local scale = node:FindFirstChild("TravelLift") :: UIScale
+				state.maxLift = math.max(state.maxLift, scale.Scale)
+				for other = index + 1, 7 do
+					local neighbor = state.nodes[other]
+					if
+						math.abs(node.AbsolutePosition.X - neighbor.AbsolutePosition.X) < 44
+						and math.abs(node.AbsolutePosition.Y - neighbor.AbsolutePosition.Y) < 44
+						and node.ZIndex == neighbor.ZIndex
+					then
+						state.collisions += 1
+					end
+				end
+			end
+		end)
+		C.cleanup(function()
+			sample:Disconnect()
+		end)
+		return Host.Frame { Size = UDim2.fromScale(1, 1), row :: unknown, button :: unknown }
+	end, { frames = 12 })
+	return state
+end
+local function afterShuffle(t: Live, state: ShuffleState)
+	t.check("shuffle has real frame samples", state.frames > 12, state.frames)
+	t.check("overlapping carriers have different depths", state.collisions == 0, state.collisions)
+	t.check("lift scales the native visual", state.maxLift > 1, state.maxLift)
+	t.check("all items have started", #state.starts >= 7, state.starts)
+	for index, node in state.nodes do
+		local slot = state.cells[index]:peek()
+		t.check("item lands in its drawn slot", (node.AbsolutePosition - slot.AbsolutePosition).Magnitude <= 1)
+		t.check("item keeps its in-place parent", node.Parent == state.row)
+		t.check("resting lift resets", (node:FindFirstChild("TravelLift") :: UIScale).Scale == 1)
+	end
+end
+
+type ShuffleCase = {
+	id: string,
+	contracts: { string },
+	setup: (Live) -> ShuffleState,
+	steps: { [string]: (Live, ShuffleState) -> () },
+}
+
 type ZoomCase = {
 	id: string,
 	contracts: { string },
@@ -223,7 +343,40 @@ type TravelCase = {
 	setup: (Live) -> TravelState,
 	steps: { [string]: (Live, TravelState) -> () },
 }
-local cases: { ZoomCase | TravelCase } = {
+local cases: { ZoomCase | TravelCase | ShuffleCase } = {
+	{
+		id = "zoom-capture-camera",
+		contracts = { "UI.ZoomView", "UI.draggable" },
+		setup = function(t: Live): ZoomState
+			return zoomSetup(t, true)
+		end,
+		steps = {
+			whileLifted = function(t: Live, state: ZoomState)
+				t.check(
+					"capture camera reaches zoom level",
+					math.abs(state.view:GetAttribute("FacetZoom") :: number - 2) < 0.001
+				)
+				t.check("source stays captured while camera moves", state.tile:GetAttribute("FacetDragHeld") == true)
+				t.note("capture-camera render samples", state.samples)
+			end,
+			afterRelease = function(t: Live, state: ZoomState)
+				t.check("release returns to fit", (state.view:GetAttribute("FacetZoom") :: number) < 1)
+				t.check("capture ends", state.tile:GetAttribute("FacetDragHeld") ~= true)
+			end,
+		},
+	},
+	{
+		id = "shuffle-pointer",
+		contracts = { "UI.Travel" },
+		setup = shuffleSetup,
+		steps = { afterShuffle = afterShuffle, afterInterrupt = afterShuffle },
+	},
+	{
+		id = "shuffle-gamepad",
+		contracts = { "UI.Travel" },
+		setup = shuffleSetup,
+		steps = { afterShuffle = afterShuffle, afterInterrupt = afterShuffle },
+	},
 	{
 		id = "zoom-pointer",
 		contracts = {},

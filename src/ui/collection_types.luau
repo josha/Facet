@@ -15,6 +15,7 @@ export type FocusControls<K> = {
 	last: typeof(((nil :: unknown) :: ComposeTypes.FocusScope<K>).last)?,
 	isFocused: typeof(((nil :: unknown) :: ComposeTypes.FocusScope<K>).isFocused)?,
 }
+export type SlotControls<K> = { nodeOfKey: ((K) -> GuiObject?)? }
 export type Selection<K> = { [K]: boolean }
 export type Children<V> = ((item: V) -> { V }?) | string
 export type HierarchyOptions<V, K> = {
@@ -59,6 +60,8 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
 export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions<V, K> & HierarchyOptions<V, K> & {
 	from: Types.Value<{ V }>,
+	slots: Types.Value<{ K }>?,
+	slotControls: SlotControls<K>?,
 	render: RowRender<V, K>,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	itemSize: (Types.ValueNumber | "cards")?,

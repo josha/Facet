@@ -162,6 +162,7 @@ function browser.mount(opts: MountOpts): any
 			Compose = Compose,
 			Facet = Facet,
 			Host = Host,
+			types = ctx.types,
 			app = app,
 			ctx = ctx,
 			logical = logical,
