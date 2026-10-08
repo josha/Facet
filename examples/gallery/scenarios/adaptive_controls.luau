@@ -311,7 +311,7 @@ return {
 								style = "segmented" :: "segmented",
 								iconOnly = true,
 							},
-							Host.Frame "NavRailRow" {
+							UI.HStack "NavRailRow" {
 								Size = UDim2.fromScale(1, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
@@ -321,7 +321,6 @@ return {
 									style = "segmented" :: "segmented",
 									axis = "y" :: "y",
 									iconOnly = true,
-									Size = UDim2.fromOffset(52, 0),
 								} :: unknown,
 								UI.Text "NavReadout" {
 									text = function(use: Use)
@@ -330,8 +329,9 @@ return {
 									textRole = "caption" :: "caption",
 									role = "secondary" :: "secondary",
 									TextWrapped = true,
-									Position = UDim2.fromOffset(64, 0),
-									Size = UDim2.new(1, -64, 1, 0),
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
+									Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Fill },
 								},
 							},
 							divider(),

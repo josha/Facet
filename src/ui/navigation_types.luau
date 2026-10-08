@@ -301,6 +301,7 @@ export type TabViewSpec = Types.FrameProps & {
 	shoulderNavigation: "strip" | "content"?,
 	indicator: Value<Indicator?>?,
 	iconOnly: Types.ValueBoolean?,
+	labelPlacement: Value<"besideIcon" | "belowIcon">?,
 	textSize: Value<number | "fit">?,
 	controlSize: Value<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,

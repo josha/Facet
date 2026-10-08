@@ -180,8 +180,26 @@ standard_icons.ART = table.freeze({
 	}),
 }) :: { [string]: IconArt }
 
+standard_icons.BUILTIN = table.freeze({
+	speaker = table.freeze({
+		assetName = "roblox_speaker",
+		contentId = "rbxasset://textures/ui/VoiceChat/SpeakerLight/Unmuted0.png",
+		tintRole = "content",
+	}),
+	volume = table.freeze({
+		assetName = "roblox_speaker",
+		contentId = "rbxasset://textures/ui/VoiceChat/SpeakerLight/Unmuted0.png",
+		tintRole = "content",
+	}),
+	mute = table.freeze({
+		assetName = "roblox_speaker_muted",
+		contentId = "rbxasset://textures/ui/VoiceChat/SpeakerLight/Muted.png",
+		tintRole = "content",
+	}),
+}) :: { [string]: IconArt }
+
 function standard_icons.resolve(name: string): IconArt?
-	local entry = standard_icons.ART[name]
+	local entry = standard_icons.ART[name] or standard_icons.BUILTIN[name]
 	if entry == nil or type(entry.contentId) ~= "string" or entry.contentId == "" then
 		return nil
 	end

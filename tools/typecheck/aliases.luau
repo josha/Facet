@@ -39,6 +39,7 @@ return (nil :: unknown) :: {
 	FolderConstructor: Engine.Constructor<Engine.FolderNativeProps, Folder>,
 	FrameConstructor: Engine.Constructor<Engine.FrameNativeProps, Frame>,
 	FrameProps: Engine.FrameProps,
+	StackProps: Facet.StackProps,
 	ImageModeCell: Facet.Cell<"fill" | "fit" | "stretch" | "slice" | "tile" | "crop">,
 	InstanceCell: Facet.Cell<Instance?>,
 	MenuItem: Facet.MenuItem<any>,

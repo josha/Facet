@@ -389,6 +389,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "presentation", values = { "automatic", "menu", "sheet" }, matrix = false } :: Axis,
 		},
 		states = {
+			{ name = "Close shown", props = { closeButton = true } } :: State,
+			{ name = "Close hidden", props = { closeButton = false } } :: State,
 			{
 				name = "diagnostics controls",
 				props = function(c: Context)
@@ -2514,6 +2516,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "align", values = { "start", "center", "end" } } :: Axis,
 		},
 		states = {
+			{ name = "Close shown", props = { closeButton = true } } :: State,
+			{ name = "Close hidden", props = { closeButton = false } } :: State,
 			{ name = "non-modal (no catcher, no Cancel)", props = { modal = false } } :: State,
 			{ name = "cancel policy none", props = { cancelPolicy = "none" } } :: State,
 			{
@@ -2680,6 +2684,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "placement", values = { "automatic", "topBar", "bottomBar", "bottomBarCompact", "sidebar" } } :: Axis,
 		},
 		states = {
+			{ name = "labels below icons", props = { labelPlacement = "belowIcon" } } :: State,
+			{ name = "labels beside icons", props = { labelPlacement = "besideIcon" } } :: State,
 			{
 				name = "sidebar adaptable, expanded at ten feet",
 				props = function(c: Context)
@@ -3571,6 +3577,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "mode", values = { "windowed", "all" }, matrix = false } :: Axis,
 		},
 		states = {
+			{ name = "content clipped", props = { contentOverflow = "clip" } } :: State,
+			{ name = "content visible", props = { contentOverflow = "visible" } } :: State,
 			{ name = "copy rows by dragging into this collection", props = transferState } :: State,
 			{ name = "no reorder autoscroll", props = { reorderable = true, autoscroll = false } } :: State,
 			{ name = "focus stays on the index", props = { focusPolicy = "index" :: "index" } } :: State,
@@ -3715,6 +3723,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "snap", values = { "none", "item" }, matrix = false } :: Axis,
 		},
 		states = {
+			{ name = "content clipped", props = { contentOverflow = "clip" } } :: State,
+			{ name = "content visible", props = { contentOverflow = "visible" } } :: State,
 			{ name = "copy rows by dragging into this collection", props = transferState } :: State,
 			{
 				name = "horizontal",
@@ -5647,6 +5657,8 @@ PAGE_DATA.Outline = {
 	end,
 	axes = { { key = "selectionMode", values = { "single", "multiple" }, matrix = false } },
 	states = {
+		{ name = "content clipped", props = { contentOverflow = "clip" } } :: State,
+		{ name = "content visible", props = { contentOverflow = "visible" } } :: State,
 		{
 			name = "expanded",
 			props = function(c: Context)

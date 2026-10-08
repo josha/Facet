@@ -379,3 +379,11 @@ Only these three PNGs were generated. Existing art and asset IDs were retained.
 The images use the existing near-white silhouette and theme tint.
 The Open Cloud upload returned `Reviewing` for all three images; IDs and hashes
 are in `upload-manifest.json`. The lab uses them in the compact segmented view picker.
+
+## Bundled sound placeholders
+
+`speaker`, `volume` and `mute` use Roblox bundled images from
+`textures/ui/VoiceChat/SpeakerLight/`. They are native Roblox art, separate
+from the repository-owned `ART` table above. Facet stores their content paths
+in `BUILTIN`; it does not copy or upload the images. A theme icon takes
+priority. The mute image includes a red cross.

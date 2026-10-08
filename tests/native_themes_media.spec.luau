@@ -2,6 +2,27 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
+	verifyHarness:suite("sound icon catalog", function()
+		verifyHarness:case("provides bundled sound placeholders and preserves theme overrides", {
+			id = "native_themes_media::sound icon catalog::provides bundled sound placeholders and preserves theme overrides",
+			run = function()
+				local icons = require("../src/ui/icons")
+				local themes = require("../src").themes
+				for _, name in { "speaker", "volume", "mute" } do
+					local entry = assert(icons.resolve(name))
+					Verify.expect(
+						string.find(entry.contentId, "rbxasset://textures/ui/VoiceChat/SpeakerLight/", 1, true) == 1
+					)
+						:toBe(true)
+					Verify.expect(themes.resolveIcon({}, name)):toBe(entry.contentId)
+				end
+				local ThemeTypes = require("../src/ui/theme_types")
+				local catalog: { [string]: ThemeTypes.IconEntry } = { mute = "rbxassetid://123" }
+				local override: ThemeTypes.IconRegistry = { icons = catalog }
+				Verify.expect(themes.resolveIcon(override, "mute")):toBe("rbxassetid://123")
+			end,
+		})
+	end)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 	type Destroyable = typeof(require("@repo/tools/typecheck/aliases").Destroyable)
 

@@ -88,6 +88,7 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	reducedMotion: Types.ValueBoolean?,
 	onActivate: Activate<V, K>?,
 	onReachEnd: (() -> ())?,
+	contentOverflow: Types.Value<"visible" | "clip">?,
 }
 export type KeyedCollectionSpec<V, K> = CollectionOptions<V, K> & { key: ((item: V, index: number) -> K) | string }
 export type IdentityCollectionSpec<V> = CollectionOptions<V, V> & { key: nil? }

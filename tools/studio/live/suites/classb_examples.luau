@@ -587,4 +587,29 @@ add("playlist-320x640-edit-mode-cells", { "apps2-180" }, function(t)
 	t.check("nothing crosses a lateral edge", #found.lateral == 0, found.lateral)
 end)
 
+add("word-keyboard-large-text-fits", { "apps2-24" }, function(t)
+	for _, theme in t.themes do
+		local stage = example(t, "05_word_game", Vector2.new(390, 844), nil, theme.package)
+		grow(stage, 14, {})
+		t.settle(20)
+		local total = 0
+		for index = 1, 3 do
+			local row = t.find(stage, "kbrow" .. index)
+			t.check(`{theme.name} keyboard row {index} exists`, row ~= nil)
+			if row then
+				local bad = t.offenders(row, t.rect(row))
+				t.check(`{theme.name} large keyboard row {index} holds its text and keys`, #bad == 0, bad)
+				for _, key in row:GetChildren() do
+					if key:IsA("GuiButton") then
+						total += 1
+						t.inside(`{theme.name} key {key.Name} stays in its row`, key, row, 0.5)
+					end
+				end
+			end
+		end
+		t.check(`{theme.name} all 28 keyboard keys were checked`, total == 28, total)
+		t.cleanup()
+	end
+end)
+
 return cases

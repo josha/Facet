@@ -3,6 +3,7 @@ local createTree = require("./collection_tree")
 local TreeTypes = require("./collection_tree")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
+local initialScroll = require("./scroll_initial")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
 local createSelection = require("./collection_selection")
@@ -51,6 +52,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		"rowActions",
 		"key",
 		"render",
+		"contentOverflow",
 		"mode",
 		"snap",
 		"reducedMotion",
@@ -135,6 +137,10 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?
 	): ScrollingFrame
+		assert(
+			spec.contentOverflow == nil or table.find({ "visible", "clip" }, read(spec.contentOverflow)),
+			"Facet collection contentOverflow must be visible or clip"
+		)
 		assert(
 			spec.snap == nil or spec.snap == "none" or spec.snap == "item",
 			"Facet collection snap must be none or item"
@@ -530,6 +536,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 								else D2.fromScale(1, 1),
 							BackgroundTransparency = 1,
 							Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
+							ClipsDescendants = function(use)
+								return read(spec.contentOverflow, use) == "clip"
+							end,
 							rendered,
 						}
 						if
@@ -1365,6 +1374,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				return spec.snap == "item" or perView == 1
 			end)
 		end
+		initialScroll(ctx, root, spec.CanvasPosition)
 		return root
 	end
 	local function construct<V, K>(

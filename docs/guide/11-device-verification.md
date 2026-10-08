@@ -195,6 +195,20 @@ call `live.step(name)` for each required step, then save `live.finish()`.
 The suite source names the steps and their checks. Do not finish a case
 without its required input and steps.
 
+### Touch drag pickup
+
+Build the live place with the current cases before this run:
+
+```sh
+lute run tools/lute/studio_live.luau in24 --studio ID --device none --tag touch-pickup --only draggable-
+```
+
+The cases select a touch device and require native Touch events. They check
+`touchPickup = "immediate"` at six pixels, the preview contact on each frame,
+a short tap, native scrolling across `touchDragAxis`, and the default
+`"longPress"` behavior. The runner saves the Verify report with its input and
+viewport facts. The case source alone is not live evidence.
+
 ### Haptics requests in one playtest
 
 `haptics_verify` reads state held by `haptics_setup`. Separate runner calls

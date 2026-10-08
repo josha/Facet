@@ -684,7 +684,7 @@ end
 
 function themes.resolveIcon(package: ThemeTypes.IconRegistry, name: string, state: ThemeTypes.SkinState?): string?
 	local assets: { [string]: ThemeTypes.Asset } = package.assets or {}
-	local entry: unknown = (package.icons or {})[name] or icons.ART[name]
+	local entry: unknown = (package.icons or {})[name] or icons.BUILTIN[name] or icons.ART[name]
 	local regular = string.match(name, "^(.+)%.fill$")
 	if entry == nil and regular then
 		return themes.resolveIcon(package, regular, state)

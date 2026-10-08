@@ -682,6 +682,11 @@ scrolling uses the native engine behavior.
 Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 
+An authored initial `CanvasPosition` is retried when native canvas and window
+bounds arrive. This also applies to virtual collections. After the engine
+accepts the requested offset, later layout changes do not restore it. Touch,
+mouse press or mouse wheel input cancels a pending initial request.
+
 ### scrollTo and scrollToVisible
 
 `UI.scrollTo(frame, position, options?) -> boolean` moves a native
@@ -2077,6 +2082,12 @@ the width, and its words shrink from the `control` type size toward the
 measures the words at the control size. A number or a readable number sets a
 fixed size.
 
+`labelPlacement = "belowIcon"` puts the label below the icon in a bottom bar.
+The bar reserves the icon, one text line, the theme gap and vertical padding.
+Tabs keep equal targets and the badge stays at the icon's corner. The default,
+`"besideIcon"`, keeps the horizontal presentation. A sidebar or top bar keeps
+its horizontal presentation. Use `belowIcon` for phone destination tabs.
+
 `controlSize` (`xsmall`, `compact`, `regular` or `large`, or a readable) is the
 size step of the tabs. Each tab is `controlSizes.<step>.height` high and has the
 `controlSize` attribute. The strip stays `targetSizes.minimum` high (44
@@ -3084,6 +3095,7 @@ render owner.
 | `direction` | `vertical`; `horizontal` changes the scrolling axis. |
 | `itemSize` | `40`, the estimated main-axis extent. On a horizontal list, `"cards"` sizes the cards from the space the rail gets. A compact touch rail (under 600 px) shows one card with a peek of the next and snaps to cards. Wider rails show as many whole cards of at least 200 px as fit. `cards = { perView?, minWidth?, peek? }` overrides the count, the floor or the peek. `cards` is refused without `"cards"`. |
 | `gap`, `crossGap` | `0`; the cross gap defaults to the gap. A VirtualGrid keeps half of each gap (rounded up) at its outer edges, as a `UIPadding` on its `Items` frame and in its canvas extent. Thus content that paints past its cell, such as a lifted Card, is not cut by the scroll clip. |
+| `contentOverflow` | `visible` by default. `clip` uses the native cell content clip to keep oversized paint and pointer targets inside their cell. |
 | `columns` | The grid column count, default `1`; can be reactive. |
 | `minColumnWidth` | VirtualGrid only: a positive minimum tile width. Computes columns from the available cross-axis space and gaps. Do not combine it with `columns`. |
 | `rowActions` | The same action factory and permission rules as Table. |
@@ -3094,6 +3106,11 @@ render owner.
 | `status` | An optional writable Compose collection status cell. A cell that holds `nil` is filled with the empty status record. |
 | `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`. |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |
+
+For a bounded tile, set `contentOverflow = "clip"`. Give rendered content
+`Size = UDim2.fromScale(1, 1)` and `AutomaticSize = Enum.AutomaticSize.None`.
+A larger child keeps its authored size but native clipping limits its paint
+and pointer area. Use the default `visible` for lifted Card art.
 
 The returned root is a ScrollingFrame. Compose `OrderedCollection` owns
 indexing, window selection, anchor preservation and placement. The control
@@ -3748,6 +3765,12 @@ attribute, which follows a bound title.
   type role, default `body`. `gap` is a number of pixels or a spacing step.
 - `iconPosition` is `leading` (the default) or `trailing`.
 - `text` and `label` cause an error. Use `UI.Text` for plain text.
+
+The semantic names `speaker`, `volume` and `mute` resolve to bundled Roblox
+speaker placeholders when the theme supplies no art. They need no uploaded
+asset. Give a sound Button an accessible `name`, such as `Mute sound` or
+`Unmute sound`. A theme can replace these placeholders through its `icons` map.
+The native mute placeholder has a red cross.
 
 ### Image
 

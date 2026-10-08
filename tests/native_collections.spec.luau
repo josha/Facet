@@ -80,6 +80,74 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return values
 	end
+	verifyHarness:suite("collection content boundary", function()
+		verifyHarness:case("clips oversized rendered content only when the cell policy requests it", {
+			id = "native_collections::collection content boundary::clips oversized rendered content only when the cell policy requests it",
+			run = function()
+				local engine, runtime, UI, root = setup()
+				local choice = Compose.cell("clip" :: "clip" | "visible")
+				local stop, grid: any = runtime.mount(function()
+					return UI.VirtualGrid({
+						from = { 1, 2 },
+						key = function(item)
+							return item
+						end,
+						columns = 2,
+						itemSize = 44,
+						mode = "all" :: "all",
+						contentOverflow = (choice :: unknown) :: FixtureComposeTypes.Readable<"clip" | "visible">,
+						render = function(): GuiObject
+							return (
+								UI.Button({ label = "2W", Size = engine.types.UDim2.fromOffset(66, 66) }) :: unknown
+							) :: GuiObject
+						end,
+					})
+				end, root)
+				local cells = 0
+				for _, node in grid:GetDescendants() do
+					if node:GetAttribute("FacetCollectionRow") then
+						cells += 1
+						Verify.expect(node.ClipsDescendants):toBe(true)
+					end
+				end
+				Verify.expect(cells):toBe(2)
+				choice:set("visible")
+				for _, node in grid:GetDescendants() do
+					if node:GetAttribute("FacetCollectionRow") then
+						Verify.expect(node.ClipsDescendants):toBe(false)
+					end
+				end
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("restores the grid initial offset after native canvas bounds arrive", {
+			id = "native_collections::collection content boundary::restores the grid initial offset after native canvas bounds arrive",
+			run = function()
+				local engine, runtime, UI, root = setup()
+				local V2 = engine.types.Vector2
+				local stop, grid: any = runtime.mount(function()
+					return UI.VirtualGrid({
+						from = records(169),
+						key = "id",
+						columns = 13,
+						itemSize = 46,
+						mode = "all" :: "all",
+						CanvasPosition = V2.new(0, 200),
+						render = function(): GuiObject
+							return (UI.Button({ label = "2W" }) :: unknown) :: GuiObject
+						end,
+					})
+				end, root)
+				grid.CanvasPosition = V2.zero
+				grid.AbsoluteWindowSize = V2.new(624, 205)
+				grid.AbsoluteCanvasSize = V2.new(624, 598)
+				Verify.expect(grid.CanvasPosition):toBe(V2.new(0, 200))
+				stop()
+				runtime:dispose()
+			end,
+		})
+	end)
 
 	type KeyedRecord =
 		{ id: number, label: string }
@@ -265,6 +333,61 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(activated):toBe(1)
 					stop()
 				end
+			end,
+		})
+
+		verifyHarness:case("moves a handle across the next row with a nonzero top bar inset", {
+			id = "native_collections::Compose native collections::moves a handle across the next row with a nonzero top bar inset",
+			run = function()
+				local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
+				local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+				gui.GetGuiInset = function()
+					return V2.new(0, 58), V2.zero
+				end
+				local moved = {}
+				local stop, list: any = runtime.mount(function()
+					return UI.VirtualList {
+						from = records(3),
+						key = key,
+						mode = "all" :: "all",
+						itemSize = 44,
+						reorderable = true,
+						editing = true,
+						onReorder = function(keys: { number }, slot: number)
+							table.insert(moved, { keys = keys, slot = slot })
+						end,
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					}
+				end, target)
+				list.AbsolutePosition = V2.new(20, 200)
+				list.AbsoluteWindowSize = V2.new(320, 264)
+				list:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(1, 1)
+				local row = list:FindFirstChild("2", true):FindFirstChild("Reorderable", true)
+				row.AbsolutePosition, row.AbsoluteSize = V2.new(20, 244), V2.new(314, 44)
+				local handle = row:FindFirstChild("Move")
+				handle.AbsolutePosition, handle.AbsoluteSize = V2.new(290, 244), V2.new(44, 44)
+				local input = assert(ctx.config.userInputService)
+				nativeDrag.press(handle, {
+					UserInputType = E.UserInputType.MouseButton1,
+					UserInputState = E.UserInputState.Begin,
+					Position = V3.new(312, 266, 0),
+				})
+				nativeDrag.move(input, {
+					UserInputType = E.UserInputType.MouseMovement,
+					Position = V3.new(312, 314, 0),
+				})
+				Verify.expect(row:GetAttribute("FacetDragging")):toBe(true)
+				nativeDrag.finish(input, {
+					UserInputType = E.UserInputType.MouseButton1,
+					UserInputState = E.UserInputState.End,
+					Position = V3.new(312, 314, 0),
+				})
+				Verify.expect(moved):toEqual({ { keys = { 2 }, slot = 2 } })
+				Verify.expect(row:GetAttribute("FacetDragging")):toBe(false)
+				stop()
+				runtime:dispose()
 			end,
 		})
 

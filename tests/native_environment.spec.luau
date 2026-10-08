@@ -1061,8 +1061,8 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-		verifyHarness:case("normalizes detector screen coordinates before selecting a nested target", {
-			id = "native_environment::draggable and dropTarget::normalizes detector screen coordinates before selecting a nested target",
+		verifyHarness:case("preserves detector GUI coordinates with a top bar before selecting a nested target", {
+			id = "native_environment::draggable and dropTarget::preserves detector GUI coordinates with a top bar before selecting a nested target",
 			run = function()
 				local w, screen, card, open, _, log, stop = stage()
 				local V2 = w.engine.types.Vector2
@@ -1075,11 +1075,11 @@ return function(verifyHarness: Verify.Harness)
 					node.AbsolutePosition, node.AbsoluteWindowSize = V2.zero, V2.new(300, 300)
 				end
 				local detector = card:FindFirstChild("FacetDragDetector")
-				detector.DragStart:Fire(V2.new(50, 78))
+				detector.DragStart:Fire(V2.new(50, 20))
 				card.InputBegan:Fire(pointer(w, "MouseButton1", 20))
-				detector.DragContinue:Fire(V2.new(50, 178))
+				detector.DragContinue:Fire(V2.new(50, 120))
 				Verify.expect(screen:FindFirstChild("DragGhost").Position.Y.Offset):toBe(120)
-				detector.DragEnd:Fire(V2.new(50, 178))
+				detector.DragEnd:Fire(V2.new(50, 120))
 				Verify.expect(table.concat(log, "; ")):toBe("enter sponsor; drop sponsor Open pointer; leave sponsor")
 				stop()
 				w.stop()
