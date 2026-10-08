@@ -130,6 +130,125 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 	end)
+	verifyHarness:suite("Table first column layout", function()
+		verifyHarness:case("checks first row layout before a deferred root-size observation publishes", {
+			id = "native_collections::Table first column layout::checks first row layout before a deferred root-size observation publishes",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local ctx = context(Compose, runtime, { types = engine.types })
+				local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
+				local stale = Compose.cell(engine.types.Vector2.zero)
+				ctx.observe.AbsoluteSize = function(_node: Instance)
+					return stale
+				end
+				local root: Frame? = nil
+				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local stop = runtime.mount(function()
+					local frame = Host.Frame { Host.TextLabel "Name" { Text = "Material" } }
+					root = frame
+					ready = require("../src/ui/collection_paint")(ctx, frame)
+					return frame
+				end, engine.new("ScreenGui"))
+				local node = assert(root)
+				Verify.expect(assert(ready):peek()):toBe(false)
+				local geometry = (node :: unknown) :: { AbsoluteSize: Vector2 }
+				geometry.AbsoluteSize = engine.types.Vector2.new(390, 44)
+				local text = (
+					assert(node:FindFirstChild("Name")) :: unknown
+				) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
+				text.AbsoluteSize = engine.types.Vector2.new(200, 44)
+				text.TextBounds = engine.types.Vector2.new(100, 20)
+				Verify.expect(assert(ready):peek()):toBe(true)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(assert(ready):peek()):toBe(true)
+				Verify.expect(stale:peek()):toBe(engine.types.Vector2.zero)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("allocates every Table column before its first native viewport sample after a branch swap", {
+			id = "native_collections::Table first column layout::allocates every Table column before its first native viewport sample after a branch swap",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local container = engine.new("Frame")
+				container.AbsoluteSize = engine.types.Vector2.new(390, 200)
+				container.Parent = target
+				local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
+				local mode = Compose.cell("grid")
+				type Row = { id: string, name: string, kind: string }
+				local rows: { Row } =
+					{ { id = "one", name = "One", kind = "Material" }, { id = "two", name = "Two", kind = "Image" } }
+				local stop, mounted = runtime.mount(function()
+					return Host.Frame {
+						Compose.keyed {
+							from = function(use)
+								return { use(mode) }
+							end,
+							render = function(current)
+								if current:peek() == "table" then
+									return UI.Table "Data"({
+										from = rows,
+										key = "id",
+										columns = {
+											{ id = "name", label = "Name" },
+											{ id = "kind", label = "Kind", width = 100 },
+										},
+									} :: FixtureCollectionTypes.KeyedTableSpec<Row, string>)
+								end
+								local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+									Name = "Data",
+									from = rows,
+									key = "id",
+									render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+										return Host.TextLabel { Text = current:peek().name }
+									end,
+								}
+								return if current:peek() == "grid" then UI.VirtualGrid(spec) else UI.VirtualList(spec)
+							end,
+						},
+					}
+				end, container)
+				local root = (mounted :: unknown) :: GuiObject
+				for _, value in { "grid", "list", "table", "grid", "table", "list", "table" } do
+					mode:set(value)
+					if value ~= "table" then
+						continue
+					end
+					local data = assert(root:FindFirstChild("Data", true))
+					local items = assert(data:FindFirstChild("Items", true))
+					local header = assert(data:FindFirstChild("Header", true))
+					for _, row in items:GetChildren() do
+						for _, id in { "name", "kind" } do
+							local cell = assert(row:FindFirstChild(id, true)) :: GuiObject
+							local heading = assert(header:FindFirstChild(id)) :: GuiObject
+							Verify.expect(cell.Size.X.Offset > 0):toBe(true)
+							Verify.expect(cell.Size.X.Offset):toBe(heading.Size.X.Offset)
+						end
+					end
+					for _, node in data:GetDescendants() do
+						if node:IsA("GuiObject") then
+							local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
+							geometry.AbsoluteSize = engine.types.Vector2.new(math.max(1, node.Size.X.Offset), 44)
+							if node:IsA("TextLabel") or node:IsA("TextButton") then
+								geometry.TextBounds = engine.types.Vector2.new(40, 20)
+							end
+						end
+					end
+					engine.heartbeat:Fire(0)
+					local painted = 0
+					for _, row in items:GetChildren() do
+						local content = row:FindFirstChild("Content") :: CanvasGroup
+						Verify.expect(content.GroupTransparency):toBe(0)
+						painted += 1
+					end
+					Verify.expect(painted):toBe(2)
+				end
+				stop()
+			end,
+		})
+	end)
 	verifyHarness:suite("collection first layout", function()
 		verifyHarness:case("paints complete rows on the first layout of an ordinary grid list table branch", {
 			id = "native_collections::collection first layout::paints complete rows on the first layout of an ordinary grid list table branch",
@@ -3143,6 +3262,57 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(requests):toEqual({ { keys = { 2 }, slot = 2 } })
 				stop()
 				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("hides departing row content before collapsing its layout extent", {
+			id = "native_collections::Compose native collections::hides departing row content before collapsing its layout extent",
+			run = function()
+				local edges: { FixtureCollectionTypes.RowEdge } = { "leading", "trailing" }
+				for _, edge in edges do
+					local engine, runtime, UI, target, _, ctx = setup({ motionLevel = "normal" })
+					local invoked = 0
+					local open: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?> = Compose.cell(edge)
+					local action: FixtureCollectionTypes.RowAction = {
+						id = "Delete",
+						label = "Delete",
+						role = "destructive",
+						onActivate = function()
+							invoked += 1
+						end,
+					}
+					local stop, node = runtime.mount(function()
+						return UI.RowActions {
+							open = open,
+							Size = engine.types.UDim2.fromOffset(300, 40),
+							content = UI.Button "Body" { label = "Row" } :: GuiObject,
+							leading = if edge == "leading" then { action } else nil,
+							trailing = if edge == "trailing" then { action } else nil,
+						}
+					end, target)
+					local root = (node :: unknown) :: Frame
+					local geometry = (root :: unknown) :: { AbsoluteSize: Vector2 }
+					geometry.AbsoluteSize = engine.types.Vector2.new(300, 40)
+					local content = assert(root:FindFirstChild("Content")) :: Frame
+					local button = assert(root:FindFirstChild("Delete", true))
+					local signal = (button :: unknown) :: { Activated: { Fire: (unknown) -> () } }
+					local duration = ctx.metric("motion.durations.rowDeparture")
+					engine.heartbeat:Fire(duration)
+					signal.Activated:Fire()
+					engine.heartbeat:Fire(duration * 0.6)
+					Verify.expect(content.Visible):toBe(true)
+					Verify.expect(root.Size.Y.Offset):toBe(40)
+					engine.heartbeat:Fire(duration * 0.15)
+					Verify.expect(root.Size.Y.Offset < 40):toBe(true)
+					Verify.expect(content.Visible):toBe(false)
+					Verify.expect(invoked):toBe(0)
+					engine.heartbeat:Fire(duration)
+					Verify.expect(invoked):toBe(1)
+					open:set((edge :: unknown) :: FixtureCollectionTypes.RowEdge)
+					Verify.expect(content.Visible):toBe(true)
+					stop()
+					runtime:dispose()
+				end
 			end,
 		})
 

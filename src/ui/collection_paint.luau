@@ -15,7 +15,6 @@ return function(ctx: Types.Context, root: GuiObject): ComposeTypes.Readable<bool
 				scope = nil
 			end
 			ready:set(false)
-			return
 		end
 		if scope then
 			return
@@ -58,7 +57,12 @@ return function(ctx: Types.Context, root: GuiObject): ComposeTypes.Readable<bool
 			local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
 			local frames = ctx.runtime.host.frames
 			local stop: (() -> ())? = nil
+			local geometry: { RBXScriptConnection } = {}
 			local function halt()
+				for _, connection in geometry do
+					connection:Disconnect()
+				end
+				table.clear(geometry)
 				local current = stop
 				stop = nil
 				if current then
@@ -75,6 +79,19 @@ return function(ctx: Types.Context, root: GuiObject): ComposeTypes.Readable<bool
 			prepare()
 			if ready:peek() then
 				return
+			end
+			local function listen(node: Instance)
+				if node:IsA("GuiObject") then
+					table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
+					table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
+					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+						table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
+					end
+				end
+			end
+			listen(root)
+			for _, node in root:GetDescendants() do
+				listen(node)
 			end
 			if render then
 				local connection = render:Connect(prepare)

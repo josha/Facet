@@ -1275,7 +1275,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 					)
 			end,
 		})
-		return ctx.styled(
+		local root = ctx.styled(
 			Host.Frame(ctx.props(spec, behavior, {
 				Size = function(use: ComposeTypes.Use)
 					return if spec.scrolls == false
@@ -1443,6 +1443,38 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 			})),
 			"Table"
 		)
+		local function seedWindow()
+			if body.AbsoluteWindowSize.X > 0 and body.AbsoluteWindowSize.Y > 0 then
+				return
+			end
+			local parent: Instance? = root.Parent
+			local scale = 1
+			local ancestor: Instance? = root
+			while ancestor do
+				local transform = ancestor:FindFirstChildWhichIsA("UIScale")
+				if transform then
+					scale *= transform.Scale
+				end
+				ancestor = ancestor.Parent
+			end
+			while parent do
+				if parent:IsA("GuiObject") and parent.AbsoluteSize.X > 0 and parent.AbsoluteSize.Y > 0 then
+					local bounds, authored = parent.AbsoluteSize / math.max(scale, 0.001), root.Size
+					unitScale:set(scale)
+					window:set(
+						V2.new(
+							bounds.X * authored.X.Scale + authored.X.Offset,
+							math.max(0, bounds.Y * authored.Y.Scale + authored.Y.Offset - topHeight:peek())
+						)
+					)
+					return
+				end
+				parent = parent.Parent
+			end
+		end
+		runtime.connect(root, "AncestryChanged", seedWindow)
+		seedWindow()
+		return root
 	end
 	local function constructor<V, K>(spec: CollectionTypes.TableSpec<V, K>): Frame
 		if spec.key == nil then

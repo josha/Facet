@@ -3859,8 +3859,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("grows callouts and help and cross-fades menus at their final anchor", {
-			id = "native_navigation::native navigation controls::grows callouts and help and cross-fades menus at their final anchor",
+		verifyHarness:case("grows callouts and fades help and menus at their final anchor", {
+			id = "native_navigation::native navigation controls::grows callouts and fades help and menus at their final anchor",
 			run = function()
 				local opened = Compose.cell(false)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
@@ -3910,10 +3910,35 @@ return function(verifyHarness: Verify.Harness)
 				local help = find(world.screen, "Help")
 				Verify.expect(help.ClassName):toBe("Frame")
 				help.AbsoluteSize = V.new(80, 30)
+				local text = find(help, "HelpText")
+				text.AbsolutePosition = help.AbsolutePosition + V.new(8, 6)
+				text.AbsoluteSize = V.new(64, 18)
+				text.TextBounds = V.new(56, 16)
 				world.engine.heartbeat:Fire(1 / 60)
 				world.engine.heartbeat:Fire(1 / 60)
-				local entering = materialize.of(help).Scale
-				Verify.expect(entering >= 0.9 and entering < 1):toBe(true)
+				Verify.expect(materialize.of(help).Scale):toBe(1)
+				Verify.expect(fadeKit.of(help) > 0 and fadeKit.of(help) < 1):toBe(true)
+				local position, anchorPoint = help.Position, help.AnchorPoint
+				local restOrigin = text.AbsolutePosition - help.AbsolutePosition
+				local previous, intermediate = 1, 0
+				for _ = 1, 12 do
+					world.engine.heartbeat:Fire(1 / 60)
+					local alpha = fadeKit.of(help)
+					Verify.expect(alpha <= previous):toBe(true)
+					Verify.expect(materialize.of(help).Scale):toBe(1)
+					Verify.expect(help.Position):toBe(position)
+					Verify.expect(help.AnchorPoint):toBe(anchorPoint)
+					Verify.expect(text.AbsolutePosition - help.AbsolutePosition):toBe(restOrigin)
+					local fade = find(help, "Fade")
+					Verify.expect(text:IsDescendantOf(fade)):toBe(true)
+					Verify.expect(math.abs(fade.GroupTransparency - alpha) < 1e-6):toBe(true)
+					Verify.expect(text.TextTransparency):toBe(0)
+					if alpha > 0 and alpha < 1 then
+						intermediate += 1
+					end
+					previous = alpha
+				end
+				Verify.expect(intermediate > 0):toBe(true)
 				world.settle()
 				Verify.expect(materialize.of(help).Scale):toBe(1)
 				Verify.expect((fadeKit.of(help))):toBe(0)

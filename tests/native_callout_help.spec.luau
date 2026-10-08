@@ -573,7 +573,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native help: the plate arrives as one unit", function()
-		local NORMAL = 0.2
 		local function hovered(options: any?): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
@@ -595,21 +594,58 @@ return function(verifyHarness: Verify.Harness)
 			return w
 		end
 
-		verifyHarness:case("the fade and the scale run once, eased, over the theme's normal motion duration", {
-			id = "native_callout_help::native help: the plate arrives as one unit::the fade and the scale run once, eased, over the theme's normal motion duration",
+		verifyHarness:case("the whole plate fades once at rest over the theme's normal motion duration", {
+			id = "native_callout_help::native help: the plate arrives as one unit::the whole plate fades once at rest over the theme's normal motion duration",
 			run = function()
-				local w = hovered()
-				local panel = w.find("Help")
-				local scale = materialize.of(panel)
-				panel.AbsoluteSize = w.Vector2.new(120, 40)
-				w.advance(1 / 60, 2)
-				w.advance(NORMAL / 2)
-				Verify.expect(fadeKit.of(panel) < 0.5):toBe(true)
-				Verify.expect(scale.Scale > 0.95 and scale.Scale < 1):toBe(true)
-				w.advance(NORMAL / 2)
-				Verify.expect((fadeKit.of(panel))):toBe(0)
-				Verify.expect(scale.Scale):toBe(1)
-				w.stop()
+				local themes = require("../src/ui/themes")(Compose)
+				for _, duration in { 0.2, 0.4 } do
+					local package = themes.neutralPackage()
+					package.metrics.motion.normal = duration
+					local fadeShare = if duration == 0.2 then 0.6 else 1
+					package.metrics.motion.presentFadeIn = fadeShare
+					assert(package.metrics.motion.easing).present = if duration == 0.2 then "outCubic" else "outQuad"
+					local w = hovered({ theme = assert(themes.define(package)) })
+					local panel = w.find("Help")
+					panel.AbsoluteSize = w.Vector2.new(120, 60)
+					local labels = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
+					for index, label in labels do
+						label.AbsolutePosition = w.Vector2.new(8, 6 + (index - 1) * 16)
+						label.AbsoluteSize = w.Vector2.new(104, 16)
+						label.TextBounds = w.Vector2.new(80, 16)
+					end
+					w.advance(0, 2)
+					Verify.expect(fadeKit.of(panel)):toBe(1)
+					local position, anchor = panel.Position, panel.AnchorPoint
+					local previous = 1
+					local easing = Compose.easing[assert(package.metrics.motion.easing).present]
+					for frame = 1, 24 do
+						w.advance(duration / 24)
+						local alpha = fadeKit.of(panel)
+						Verify.expect(
+							math.abs(alpha - (1 - math.clamp(easing(frame / 24) / easing(fadeShare), 0, 1))) < 1e-6
+						)
+							:toBe(true)
+						Verify.expect(alpha <= previous):toBe(true)
+						Verify.expect(materialize.of(panel).Scale):toBe(1)
+						Verify.expect(panel.Position):toBe(position)
+						Verify.expect(panel.AnchorPoint):toBe(anchor)
+						Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
+						local group = panel:FindFirstChild("Fade")
+						Verify.expect(math.abs(group.GroupTransparency - alpha) < 1e-6):toBe(true)
+						for index, label in labels do
+							Verify.expect(label:IsDescendantOf(group)):toBe(true)
+							Verify.expect(label.TextTransparency):toBe(0)
+							Verify.expect(label.AbsolutePosition - panel.AbsolutePosition)
+								:toBe(w.Vector2.new(8, 6 + (index - 1) * 16))
+						end
+						previous = alpha
+					end
+					Verify.expect(fadeKit.of(panel)):toBe(0)
+					w.advance(duration, 24)
+					Verify.expect(fadeKit.of(panel)):toBe(0)
+					Verify.expect(panel.Position):toBe(position)
+					w.stop()
+				end
 			end,
 		})
 

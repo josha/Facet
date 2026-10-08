@@ -301,7 +301,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local rested = settings.rested
 		local rise = settings.rise
 		local function scale(use: ComposeTypes.Use): number
-			if panel:HasTag("facet-menu") or panel:HasTag("facet-popover") then
+			if panel:HasTag("facet-menu") or panel:HasTag("facet-popover") or panel:HasTag("facet-tooltip") then
 				return 1
 			end
 			if (rested and not use(rested)) or (rise and rise(use) ~= nil) then
@@ -352,7 +352,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			local _, point = place(use)
 			local box = if settings.size then use(settings.size) else panel.AbsoluteSize
 			return V2.new(if box.X > 0 then point.X / box.X else 0.5, if box.Y > 0 then point.Y / box.Y else 0.5)
-		end, panel:HasTag("facet-menu") or panel:HasTag("facet-popover"))
+		end, panel:HasTag("facet-menu") or panel:HasTag("facet-popover") or panel:HasTag("facet-tooltip"))
 		return scale
 	end
 	local function attached(anchor: GuiObject): boolean
@@ -1219,6 +1219,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						tailInset = 6,
 					})
 				end)
+				ctx.styled(panel, "tooltip")
 				local scale = popover(panel, presence.travel, function(use: ComposeTypes.Use): (Vector2, Vector2)
 					local anchorAt, anchorSize, offset, box = use(at), use(bounds), use(origin), use(measured)
 					local solved = use(solution)
@@ -1236,7 +1237,6 @@ return function(ctx: Types.Context): Nav.Surfaces
 					size = measured,
 					geometry = { Size = panelProps.Size, AutomaticSize = panelProps.AutomaticSize },
 				})
-				ctx.styled(panel, "tooltip")
 				local tail = parts.tail(
 					ctx,
 					"HelpTail",

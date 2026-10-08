@@ -63,6 +63,65 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("keeps a newly materialized stage on its current styled colour throughout media reveal", {
+			id = "native_themes_media::native themes and media::keeps a newly materialized stage on its current styled colour throughout media reveal",
+			run = function()
+				for _, rgb in { { 32, 30, 44 }, { 242, 244, 248 } } do
+					local engine = engineLib.new()
+					local now = 0
+					engine.clock = function()
+						return now
+					end
+					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+					local ctx = context(Compose, runtime, { types = engine.types })
+					local Host = (runtime.constructors :: unknown) :: RobloxHost
+					local grey = engine.types.Color3.fromRGB(163, 162, 165)
+					local themed = engine.types.Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+					local resolved = Compose.cell(grey)
+					local observed = ctx.observeStyled.BackgroundColor3
+					local stage: ViewportFrame? = nil
+					ctx.observeStyled.BackgroundColor3 = function(node: GuiObject)
+						return if node == stage then resolved else observed(node)
+					end
+					local stop = runtime.mount(function()
+						local row = Host.Frame { BackgroundColor3 = themed }
+						row:SetAttribute("FacetCollectionRow", true)
+						local viewport = Host.ViewportFrame { BackgroundColor3 = grey }
+						stage = viewport
+						local styled = (viewport :: unknown) :: { GetStyled: (Instance, string) -> unknown }
+						styled.GetStyled = function(_self: Instance, property: string): unknown
+							assert(property == "BackgroundColor3")
+							return if viewport.BackgroundColor3 == grey
+								then resolved:peek()
+								else viewport.BackgroundColor3
+						end
+						require("../src/ui/media_readiness")(ctx, viewport)
+						viewport.Parent = row
+						return row
+					end, engine.new("ScreenGui"))
+					local node = assert(stage)
+					local baseline = engine.new("ViewportFrame") :: ViewportFrame
+					local originalStyle = (baseline :: unknown) :: { GetStyled: (Instance, string) -> unknown }
+					originalStyle.GetStyled = function(_self: Instance, property: string): unknown
+						assert(property == "BackgroundColor3")
+						return resolved:peek()
+					end
+					resolved:set(themed)
+					local geometry = (node :: unknown) :: { AbsoluteSize: Vector2 }
+					geometry.AbsoluteSize = engine.types.Vector2.new(240, 180)
+					for _ = 1, 30 do
+						now += 1 / 60
+						engine.heartbeat:Fire(1 / 60)
+						Verify.expect(node:GetStyled("BackgroundColor3")):toBe(themed)
+						Verify.expect(node:GetStyled("BackgroundColor3")):toBe(baseline:GetStyled("BackgroundColor3"))
+					end
+					baseline:Destroy()
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps field ink separate from row selection and uses readable link ink", {
 			id = "native_themes_media::native themes and media::keeps field ink separate from row selection and uses readable link ink",
 			run = function()

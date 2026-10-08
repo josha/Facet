@@ -36,8 +36,10 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 		if not row then
 			(node :: ImageLabel).ImageTransparency = ctx.read(authored) or 0
 			local native = node :: GuiObject
-			native.BackgroundTransparency = background
-			native.BackgroundColor3 = backgroundColor
+			if not node:IsA("ViewportFrame") then
+				native.BackgroundTransparency = background
+				native.BackgroundColor3 = backgroundColor
+			end
 			node:SetAttribute("FacetMediaReady", nil)
 			return
 		end
@@ -87,17 +89,22 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 						ImageTransparency = function(use: ComposeTypes.Use): number
 							return 1 - (1 - (ctx.read(authored, use) or 0)) * use(amount)
 						end,
-						BackgroundTransparency = function(use: ComposeTypes.Use): number
-							return background * use(amount)
-						end,
-						BackgroundColor3 = function(use: ComposeTypes.Use): Color3
-							local progress = use(amount)
-							local placeholder = use(color)
-							if background >= 1 then
-								return if progress < 1 then placeholder else backgroundColor
-							end
-							return placeholder:Lerp(backgroundColor, progress)
-						end,
+						BackgroundTransparency = if node:IsA("ViewportFrame")
+							then nil
+							else function(use: ComposeTypes.Use): number
+								return background * use(amount)
+							end,
+						BackgroundColor3 = if node:IsA("ViewportFrame")
+							then nil
+							else function(use: ComposeTypes.Use): Color3
+								local progress = use(amount)
+								local target = backgroundColor
+								local placeholder = use(color)
+								if background >= 1 then
+									return if progress < 1 then placeholder else target
+								end
+								return placeholder:Lerp(target, progress)
+							end,
 					})
 				end)
 			end)

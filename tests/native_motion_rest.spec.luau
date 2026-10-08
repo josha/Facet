@@ -53,6 +53,25 @@ return function(verifyHarness: Verify.Harness)
 			return w
 		end
 
+		verifyHarness:case("keeps Help text at its rest origin through the whole entrance", {
+			id = "native_motion_rest::present at rest: help tooltip::keeps Help text at its rest origin through the whole entrance",
+			run = function()
+				local w = hovered()
+				local panel = w.find("Help")
+				w.size(panel, 170, 64)
+				local painted = 0
+				for _ = 1, 30 do
+					w.advance(FRAME)
+					if fadeKit.of(panel) < 1 then
+						Verify.expect(materialize.of(panel).Scale):toBe(1)
+						Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
+						painted += 1
+					end
+				end
+				Verify.expect(painted > 0):toBe(true)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("holds scale 1 and stays transparent until the plate has rested one frame", {
 			id = "native_motion_rest::present at rest: help tooltip::holds scale 1 and stays transparent until the plate has rested one frame",
 			run = function()
@@ -65,7 +84,8 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				w.advance(FRAME)
 				w.advance(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				w.stop()
 			end,
 		})
@@ -101,7 +121,8 @@ return function(verifyHarness: Verify.Harness)
 				local ax, ay = panel.AnchorPoint.X, panel.AnchorPoint.Y
 				panel.AbsoluteSize = Vector2.new(120 * scale.Scale, 30 * scale.Scale)
 				w.advance(FRAME, 1)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				Verify.expect(panel.Position.X.Offset):toBe(x)
 				Verify.expect(panel.Position.Y.Offset):toBe(y)
 				Verify.expect(panel.AnchorPoint.X):toBe(ax)
@@ -111,8 +132,8 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("holds content at its rested size while the surrounding plate grows", {
-			id = "native_motion_rest::present at rest: help tooltip::holds content at its rested size while the surrounding plate grows",
+		verifyHarness:case("holds the complete tooltip at its rested size while opacity changes", {
+			id = "native_motion_rest::present at rest: help tooltip::holds the complete tooltip at its rested size while opacity changes",
 			run = function()
 				local w = hovered()
 				local panel = w.find("Help")
@@ -121,10 +142,12 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				w.advance(FRAME)
 				w.advance(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.X.Offset):toBe(121)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.Y.Offset):toBe(51)
+				Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
+				Verify.expect(panel.Size.X.Offset):toBe(138)
+				Verify.expect(panel.Size.Y.Offset):toBe(64)
 				w.advance(1, 30)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
@@ -533,7 +556,8 @@ return function(verifyHarness: Verify.Harness)
 				end
 				w.advance(FRAME)
 				w.advance(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				w.stop()
 			end,
 		})

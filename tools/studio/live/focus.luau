@@ -105,30 +105,47 @@ function focus.rest(root: Instance)
 end
 
 local function settle(root: Instance): { [string]: { number } }
-	local list = scrollers(root)
-	local last: { Vector2 } = {}
-	for _ = 1, 40 do
+	local last = ""
+	local quiet = os.clock()
+	local started = quiet
+	while os.clock() - started < 6 do
 		task.wait()
-		local still = true
-		for index, scroller in list do
-			if last[index] ~= scroller.CanvasPosition then
-				still = false
+		local parts = {}
+		for _, node in root:GetDescendants() do
+			if node:IsA("GuiObject") then
+				local at, size = node.AbsolutePosition, node.AbsoluteSize
+				table.insert(
+					parts,
+					`{node:GetFullName()}:{at.X},{at.Y},{size.X},{size.Y}:{node.Visible}:{node.Selectable}:{node.Interactable}:{node.BackgroundTransparency}`
+				)
+				if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+					table.insert(parts, `{node.Text}:{node.TextTransparency}`)
+				elseif node:IsA("ImageLabel") or node:IsA("ImageButton") then
+					table.insert(parts, tostring(node.ImageTransparency))
+				end
 			end
-			last[index] = scroller.CanvasPosition
+			if node:IsA("CanvasGroup") then
+				table.insert(parts, tostring(node.GroupTransparency))
+			end
 		end
-		if still then
-			break
+		local snapshot = table.concat(parts, "|")
+		if snapshot ~= last then
+			last, quiet = snapshot, os.clock()
+		elseif os.clock() - quiet >= 0.2 and os.clock() - started >= 0.3 then
+			local offsets = {}
+			for _, scroller in scrollers(root) do
+				local at = scroller.CanvasPosition
+				if at.X ~= 0 or at.Y ~= 0 then
+					offsets[pathOf(scroller, root)] = { at.X, at.Y }
+				end
+			end
+			return offsets
 		end
 	end
-	local offsets = {}
-	for _, scroller in list do
-		local at = scroller.CanvasPosition
-		if at.X ~= 0 or at.Y ~= 0 then
-			offsets[pathOf(scroller, root)] = { at.X, at.Y }
-		end
-	end
-	return offsets
+	error("focus walk did not reach visual rest", 2)
 end
+
+focus.settle = settle
 
 function focus.atlas(
 	root: Instance,
@@ -334,32 +351,120 @@ function focus.walk(
 })
 	local moves, offsets = {}, {}
 	local scenes: { [string]: { [string]: any } } = {}
-	for _, path in order(stops, paths) do
+	local queue = order(stops, paths)
+	local queued: { [string]: boolean } = {}
+	local reveals: { [string]: string } = {}
+	for _, path in queue do
+		queued[path] = true
+	end
+	local function discover(source: string?)
+		if atlas == nil then
+			return
+		end
+		local byPath = current(root)
+		local added = {}
+		for path in byPath do
+			if not queued[path] then
+				table.insert(added, path)
+			end
+		end
+		table.sort(added)
+		for _, path in added do
+			assert(#queue < 512, "focus walk exceeded 512 dynamic stops")
+			queued[path] = true
+			table.insert(queue, path)
+			if source then
+				reveals[path] = source
+			end
+			local builder = builders[atlas]
+			if builder then
+				local found = false
+				for _, entry in atlas.stops do
+					found = found or entry.path == path
+				end
+				if not found then
+					table.insert(atlas.stops, builder.describe(byPath[path], path))
+				end
+			end
+		end
+	end
+	local function select(path: string, depth: number): GuiObject?
+		if depth > 8 then
+			return nil
+		end
+		local node: GuiObject? = current(root)[path]
+		if node == nil and reveals[path] then
+			select(reveals[path], depth + 1)
+			node = current(root)[path]
+		end
+		if node and pcall(function()
+			GuiService.SelectedObject = node
+		end) then
+			settle(root)
+			discover(path)
+			return current(root)[path]
+		end
+		return nil
+	end
+	local head = 1
+	while queue[head] do
+		local path = queue[head]
+		head += 1
 		local row, view = {}, {}
 		local seen: { [string]: any } = {}
 		for _, key in keys do
-			local byPath = current(root)
-			local node: GuiObject? = byPath[path]
+			local node = select(path, 0)
 			if node == nil and restore then
 				restore()
-				byPath = current(root)
-				node = byPath[path]
+				settle(root)
+				discover(nil)
+				node = select(path, 0)
 			end
-			if node == nil or not pcall(function()
-				GuiService.SelectedObject = node
-			end) then
+			if node == nil then
 				continue
 			end
-			view[key] = settle(root)
-			local before = current(root)
-			seen[key] = if atlas then focus.scene(atlas, before, view[key]) else nil
-			local was = signature(before)
-			live().press({ key })
-			local now = GuiService.SelectedObject
-			local after, named = current(root)
-			row[key] = if now and now ~= node then named[now] or pathOf(now, root) else nil
-			if restore and now == node and not same(was, signature(after)) then
-				restore()
+			local horizontal = string.find(key, "Left", 1, true) or string.find(key, "Right", 1, true)
+			local vertical = string.find(key, "Up", 1, true) or string.find(key, "Down", 1, true)
+			local axis = node:GetAttribute("axis")
+			local boundary = node:HasTag("facet-adjustable")
+				and ((axis == "horizontal" and horizontal ~= nil) or (axis == "vertical" and vertical ~= nil))
+			for attempt = 1, if boundary then 128 else 1 do
+				view[key] = settle(root)
+				local before = current(root)
+				local value = node:GetAttribute("value")
+				local was = signature(before)
+				live().press({ key })
+				settle(root)
+				local now = GuiService.SelectedObject
+				local after, named = current(root)
+				discover(path)
+				local target = if now and now ~= node then named[now] or pathOf(now, root) else nil
+				row[key] = target
+				seen[key] = if atlas then focus.scene(atlas, after, view[key]) else nil
+				if atlas then
+					atlas.traces = atlas.traces or {}
+					table.insert(atlas.traces, {
+						from = path,
+						key = key,
+						attempt = attempt,
+						value = value,
+						afterValue = node:GetAttribute("value"),
+						target = target,
+					})
+				end
+				if target or now ~= node then
+					break
+				end
+				if boundary and value ~= node:GetAttribute("value") then
+					assert(attempt < 128, `focus walk did not reach the value boundary: {path} {key}`)
+				elseif restore and not same(was, signature(after)) then
+					restore()
+					settle(root)
+					discover(nil)
+					break
+				else
+					break
+				end
 			end
 		end
 		moves[path] = row
@@ -369,6 +474,7 @@ function focus.walk(
 		end
 	end
 	GuiService.SelectedObject = nil
+	settle(root)
 	return moves, offsets, scenes
 end
 
@@ -413,7 +519,6 @@ function focus.walkUp(
 			continue
 		end
 		local shownNow = current(root)
-		local scene = if atlas then focus.scene(atlas, shownNow, view) else nil
 		local was = signature(shownNow)
 		local started = os.clock()
 		while arrivals == before and os.clock() - started < timeout do
@@ -422,8 +527,10 @@ function focus.walkUp(
 		for _ = 1, 8 do
 			task.wait()
 		end
+		settle(root)
 		local now = GuiService.SelectedObject
 		local after, named = current(root)
+		local scene = if atlas then focus.scene(atlas, after, view) else nil
 		moves[path] = if arrivals ~= before + 1
 			then `unsettled:{arrivals - before}`
 			elseif now and now ~= node then named[now] or pathOf(now, root)

@@ -601,6 +601,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 			tray("leading") :: ComposeTypes.Child,
 			tray("trailing"),
 			Host.Frame "Content" {
+				Visible = function(use: ComposeTypes.Use): boolean
+					return use(committing) == nil or (not reduced(use) and use(departure.progress) < 0.7)
+				end,
 				Size = function(use: ComposeTypes.Use)
 					return D2.new(
 						1,

@@ -49,14 +49,18 @@ table.insert(cases, {
 	contracts = {},
 	run = function(t: any)
 		local live = (require :: any)(storage.FacetLive)
-		local focus = (require :: any)(storage.FacetLive.focus)
+		local focus = shared.FacetFocusRecorder or (require :: any)(storage.FacetLive.focus)
 		local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
 		local options = shared.FacetFocusWalk or {}
 		local prefix = if options.device then `{options.device}--` else ""
 		api("device", options.device or "automatic")
 		for index, page in pages() do
 			local name = if page.tab then `{page.id}/{page.tab}` else page.id
-			if (options.only and not string.find(name, options.only, 1, true)) or index < (options.start or 1) then
+			if
+				(options.only and not string.find(name, options.only, 1, true))
+				or (options.pages and not table.find(options.pages, name))
+				or index < (options.start or 1)
+			then
 				continue
 			end
 			local function open()
@@ -70,6 +74,7 @@ table.insert(cases, {
 					t.settle(30)
 				end
 				focus.rest(layer)
+				focus.settle(layer)
 			end
 			local function restore()
 				game:GetService("GuiService").SelectedObject = nil
@@ -128,7 +133,7 @@ table.insert(cases, {
 				end
 			end
 			live.save(file, HttpService:JSONEncode(atlas), "atlas")
-			t.note(`{name} stops`, #stops)
+			t.note(`{name} stops`, #atlas.stops)
 		end
 	end,
 })

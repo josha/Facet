@@ -351,14 +351,22 @@ atlas: each stop's rectangle, links, value-control axis, and the chain of
 SelectionGroups and ScrollingFrames around it. It then selects each stop and
 presses DPadDown, DPadLeft and DPadRight, and the stick in four directions,
 recording where the engine moved the selection and the scroll offsets at the
-moment of the press. It also records the scene of the move: each stop that
-moved, went away or appeared after the atlas was made. A press can change the
+moment of the press. The walk waits for geometry, visibility and transparency
+to reach rest before it records a scene. It adds stops that become visible
+later to its work list. When selection reveals commands, the walk selects the
+same row again to restore those commands before it visits them. For an
+adjustable control, it repeats input along the value axis until selection
+moves or the value stops changing. This records navigation past the first and
+last values. The atlas includes a trace of these presses and value changes.
+It also records the scene of the move: each stop that moved, went away or
+appeared after the atlas was made. A press can change the
 page, for example when Left on a column grip makes the column narrower. When
 a press changes the page and the selection does not move, the walk shows the
 page again before the next press. Options go in `shared.FacetFocusWalk`. Set
 them with `--shared 'FacetFocusWalk={"up":3}'`:
 
 - `only`: a substring of the page name;
+- `pages`: a list of exact page names, for example `all-controls/actions/buttons`;
 - `up`: seconds to wait for D-pad Up per stop. The wait is the Verify step
   `focus-upstream`. Before the run, start
   `lute run tools/lute/focus_up.luau PROGRESS_FILE STUDIO_PID`. It reads the
