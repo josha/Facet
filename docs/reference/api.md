@@ -4928,6 +4928,10 @@ screen rectangle includes its leading edges and excludes its trailing edges.
 Use the cell's fixed hit node when tile paint grows on hover. The contact keeps
 one source through release, even when the pointer passes another tile.
 A captured draggable holds all scroll ancestors until the session ends.
+A transfer collection opens a slot while a valid item hovers over it. Neighbours
+move between measured slots with the theme Travel spring. Leave restores their
+positions. The model changes only on placement. A reserved-key return uses its
+existing gap. Hit tests use stable slot geometry while paint moves.
 Inside `onStart`, an external rack can call `ZoomControls.zoomAt` for its board.
 The capture scope grants one request per camera. Later requests and pan stay
 locked until release. The rack does not need to be a child of ZoomView.

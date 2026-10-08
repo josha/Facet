@@ -352,6 +352,16 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			live.step(step)
 		end
 	end
+	drivers["hover-slot-reflow"] = function(_, value, io)
+		local source = centre(value.source)
+		local node = assert(value.stage:FindFirstChild("B", true)) :: GuiObject
+		local slot = node.AbsolutePosition + node.AbsoluteSize * Vector2.new(0.25, 0.5)
+		io.heldDrag(source, slot)
+		live.step("whileHovering")
+		io.move(source)
+		live.step("afterLeave")
+		io.up(source)
+	end
 	drivers["pointer-contact-scroll-and-travel"] = function(_, value, io)
 		local source, target = centre(value.source), centre(value.target)
 		io.click(source)
@@ -361,16 +371,28 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		io.up(target)
 		live.step("afterDrop")
 	end
-	drivers["keyboard-gamepad-place-and-cancel"] = function(_, _, io)
-		io.hold(Enum.KeyCode.Return, 3)
-		live.step("afterPickUp")
-		io.hold(Enum.KeyCode.Tab, 3)
-		live.step("afterTarget")
-		io.hold(Enum.KeyCode.Return, 3)
-		live.step("afterPlace")
-		io.hold(Enum.KeyCode.Return, 3)
-		io.hold(Enum.KeyCode.Escape, 3)
-		live.step("afterCancel")
+	drivers["keyboard-gamepad-place-and-cancel"] = function(t, _, io)
+		if keyboardInput then
+			io.hold(Enum.KeyCode.Return, 3)
+			live.step("afterPickUp")
+			io.hold(Enum.KeyCode.Down, 3)
+			live.step("afterTarget")
+			io.hold(Enum.KeyCode.Return, 3)
+			live.step("afterPlace")
+			io.hold(Enum.KeyCode.Return, 3)
+			press(t, { "ButtonB" })
+			live.step("afterCancel")
+		else
+			press(t, { "ButtonA" })
+			live.step("afterPickUp")
+			press(t, { "DPadDown" })
+			live.step("afterTarget")
+			press(t, { "ButtonA" })
+			live.step("afterPlace")
+			press(t, { "ButtonA" })
+			press(t, { "ButtonB" })
+			live.step("afterCancel")
+		end
 	end
 	drivers["travel-pointer"] = function(_, value, io)
 		local stage = assert(value.source.Parent)
@@ -454,6 +476,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		["shuffle-gamepad"] = true,
 		["board-command-gamepad"] = true,
 		["reward-gamepad"] = true,
+		["keyboard-gamepad-place-and-cancel"] = true,
 		["zoom-gamepad"] = true,
 		["travel-gamepad"] = true,
 		["vote-pad-reaches-and-proposes"] = true,

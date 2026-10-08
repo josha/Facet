@@ -611,12 +611,17 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 					local function shift(use: ComposeTypes.Use?): number
 						return if use then use(glide) else glide:peek()
 					end
+					local paintPlacement = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
+						local at = use(placement)
+						return if editor and (spec.drag or spec.drop) then editor.placement(key, at, use) else at
+					end)
 					local reservedPosition = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
-					if spec.slots then
+					local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
+					if springPlacement then
 						local engine = travelEngine(ctx, {
 							initial = { placement:peek().crossOffset, placement:peek().offset },
 							target = function()
-								local at = placement:peek()
+								local at = paintPlacement:peek()
 								return { at.crossOffset, at.offset }
 							end,
 							sample = function(values)
@@ -629,7 +634,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							spring = ctx.motionSpring("travel"),
 						})
 						Compose.watch(function(use: ComposeTypes.Use)
-							use(placement)
+							use(paintPlacement)
 							engine.retarget()
 						end)
 					end
@@ -640,7 +645,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						local moved = at.index ~= previous.index
 						previous = at
 						if
-							spec.slots
+							springPlacement
 							or tree
 							or not moved
 							or kind ~= "list"
@@ -675,7 +680,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							end,
 							Position = function(use: ComposeTypes.Use)
 								local at = use(placement)
-								if spec.slots then
+								if springPlacement then
 									local position = use(reservedPosition)
 									return if horizontal
 										then D2.fromOffset(position.Y, position.X)

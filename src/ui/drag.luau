@@ -200,11 +200,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end)
 		if input then
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
-				if value ~= pressed or value.UserInputType ~= E.UserInputType.Touch then
+				local touch = value == pressed and value.UserInputType == E.UserInputType.Touch
+				local mouse = pressed ~= nil
+					and pressed.UserInputType == E.UserInputType.MouseButton1
+					and value.UserInputType == E.UserInputType.MouseMovement
+				if not touch and not mouse then
 					return
 				end
 				local position = ctx.types.Vector2.new(value.Position.X, value.Position.Y)
-				local kind = arbiter.move(value, position)
+				local kind = arbiter.move(assert(pressed), position)
 				if not active and kind == "drag" and enabled(nil) then
 					lock()
 					begin("pointer")
@@ -227,8 +231,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						service.finish(false, "Cancelled")
 					end
 				end
-				if active and value == pressed and value.UserInputType == E.UserInputType.Touch then
-					service.update(ctx.types.Vector2.new(value.Position.X, value.Position.Y))
+				if active and value == pressed then
+					if value.UserInputType == E.UserInputType.Touch then
+						service.update(ctx.types.Vector2.new(value.Position.X, value.Position.Y))
+					end
 					service.commit(nil)
 				end
 				if

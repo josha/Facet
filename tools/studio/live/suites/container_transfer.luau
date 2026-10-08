@@ -13,6 +13,8 @@ type Live = {
 	note: (string, unknown) -> (),
 	settle: (number) -> (),
 }
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Item = { id: string }
 type State = {
 	stage: Instance,
 	source: GuiObject,
@@ -24,6 +26,7 @@ type State = {
 	maxError: number,
 	canvas: Vector2,
 	secondPosition: Vector2?,
+	reflowSamples: { number }?,
 	releaseSlots: (() -> ())?,
 }
 type Case = {
@@ -193,6 +196,94 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 end
 
 local cases: { Case } = {
+	{
+		id = "hover-slot-reflow",
+		contracts = { "UI.draggable", "UI.VirtualGrid", "UI.dropTarget" },
+		setup = function(t)
+			local source: GuiObject?, target: GuiObject?, neighbour: GuiObject?
+			local value: State?
+			local stage = t.mount(function(UI, Host, C)
+				local button = UI.Button "Source" {
+					label = "A",
+					Position = UDim2.fromOffset(20, 20),
+					Size = UDim2.fromOffset(64, 64),
+					AutomaticSize = Enum.AutomaticSize.None,
+				}
+				source = button
+				UI.draggable(button, {
+					payload = { collection = "source", keys = { "A" } },
+					touchPickup = "immediate",
+					returnTravel = true,
+				})
+				local items: { Item } = { { id = "B" }, { id = "C" } }
+				local rack = UI.VirtualGrid "TargetRack" {
+					from = items,
+					key = "id",
+					columns = 3,
+					itemSize = 64,
+					mode = "all" :: "all",
+					Position = UDim2.fromOffset(160, 120),
+					Size = UDim2.fromOffset(240, 88),
+					drop = {
+						onDrop = function()
+							return true
+						end,
+					},
+					render = function(current: Readable<Item>): GuiObject
+						return UI.Button { label = current:peek().id }
+					end,
+				}
+				target = rack
+				local connection = RunService.RenderStepped:Connect(function()
+					local state = value
+					if state and neighbour and state.target:GetAttribute("FacetDropState") == "accepted" then
+						table.insert(assert(state.reflowSamples), neighbour.AbsolutePosition.X)
+					end
+				end)
+				C.cleanup(function()
+					connection:Disconnect()
+				end)
+				return Host.Frame { Size = UDim2.fromOffset(440, 320), button :: unknown, rack :: unknown }
+			end, { size = Vector2.new(480, 400), frames = 30, motionLevel = "normal" })
+			neighbour = t.find(stage, "B")
+			value = {
+				stage = stage,
+				source = assert(source),
+				target = assert(target),
+				scroll = assert(target) :: ScrollingFrame,
+				commits = 0,
+				presses = 0,
+				frames = 0,
+				maxError = 0,
+				canvas = Vector2.zero,
+				secondPosition = assert(neighbour).AbsolutePosition,
+				reflowSamples = {},
+			}
+			return assert(value)
+		end,
+		steps = {
+			whileHovering = function(t, value)
+				t.settle(40)
+				local samples = assert(value.reflowSamples)
+				local initial = assert(value.secondPosition).X
+				local final = t.find(value.stage, "B").AbsolutePosition.X
+				local intermediate = false
+				for _, x in samples do
+					intermediate = intermediate or (x > initial + 1 and x < final - 1)
+				end
+				t.check("hover opens a slot before release", final > initial + 1)
+				t.check("neighbours reflow on real intermediate frames", intermediate, samples)
+				t.note("hover reflow frames", samples)
+			end,
+			afterLeave = function(t, value)
+				t.settle(80)
+				t.check(
+					"leave restores the original slot",
+					(t.find(value.stage, "B").AbsolutePosition - assert(value.secondPosition)).Magnitude <= 1
+				)
+			end,
+		},
+	},
 	{
 		id = "reserved-slots-pointer-and-gamepad-recall",
 		contracts = { "UI.VirtualGrid", "UI.draggable", "UI.dropTarget" },
